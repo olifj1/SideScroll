@@ -1438,11 +1438,12 @@
   const WALK_POINT = 0.50;
   const WALK_SPEED = 1.15;
   const RUN_SPEED = 2.85;
-  // Horizontal character footprint used for traversal collision.  The old
-  // resolver effectively treated the character as a point, which allowed her
-  // to enter gaps that the visible body could not plausibly fit through.
-  const PLAYER_COLLISION_HALF_WIDTH = 0.31;
-  const PLAYER_COLLISION_SKIN = 0.025;
+  // Horizontal character footprint used for traversal collision.  It is
+  // intentionally a little wider than the character's feet/skirt silhouette so
+  // she cannot wedge herself into gaps that read as impassable on screen.
+  const PLAYER_COLLISION_HALF_WIDTH = 0.42;
+  const PLAYER_COLLISION_SKIN = 0.035;
+  const PLATFORM_MAX_SNAP_DOWN = 0.16;
   const WALK_STRIDE = 1.45;
   const RUN_STRIDE = 2.05;
   const JUMP_VELOCITY = 5.05;
@@ -2737,14 +2738,18 @@
     } else if (standingOnObject) {
       const characterXNow = camera.x + character.screenOffsetX;
       const support = platformUnder(characterXNow, jumpOffset + 0.12);
-      if (support && support.obj === standingOnObject) {
+      const sameSupport = support && support.obj === standingOnObject;
+      const downwardStep = sameSupport ? (jumpOffset - support.offset) : Infinity;
+      if (sameSupport && downwardStep <= PLATFORM_MAX_SNAP_DOWN) {
+        // Follow gentle authored slopes, but never snap down a steep section of
+        // collision.  A steep fall in the polygon is an edge, not a conveyor.
         jumpOffset = support.offset;
       } else {
-        // The feet have left the edge: preserve the current height and let
-        // gravity take over naturally.
+        // Preserve the current height and enter the same gravity fall used by
+        // jumping / walking off movable logs.
         standingOnObject = null;
         jumping = true;
-        jumpTime = 0.22;
+        jumpTime = 0;
         jumpVelocity = 0;
       }
     }
@@ -3020,8 +3025,8 @@
       } else if (editorDragKind === 'collision-handle' && selectedObject?.collision && collisionHandleIndex >= 0) {
         const bounds = collisionRectScreenBounds(selectedObject);
         if (!bounds) return;
-        const nx = Rig.clamp((((e.clientX - bounds.left) / Math.max(1, bounds.right - bounds.left)) * 2) - 1, -1, 1);
-        const ny = Rig.clamp((bounds.bottom - e.clientY) / Math.max(1, bounds.bottom - bounds.top), 0, 1);
+        const nx = Rig.clamp((((e.clientX - bounds.left) / Math.max(1, bounds.right - bounds.left)) * 2) - 1, -1.30, 1.30);
+        const ny = Rig.clamp((bounds.bottom - e.clientY) / Math.max(1, bounds.bottom - bounds.top), 0, 1.25);
         const points = normalisedCollisionPoints(selectedObject.collision).map(point => ({ ...point }));
         if (points[collisionHandleIndex]) {
           points[collisionHandleIndex].x = nx;

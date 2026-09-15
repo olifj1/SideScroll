@@ -6,7 +6,7 @@ window.SideScrollPuzzleConfig = {
   // world marker or replaced later without changing the streaming system.
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
-      image: "woodland-puzzle-pack.png?v=0.1.5",
+      image: "woodland-puzzle-pack.png?v=0.1.7",
       assets: [
         { name: "puzzle-log-a", slice: { x: 12,  y: 664, w: 306, h: 179 } },
         { name: "puzzle-log-b", slice: { x: 339, y: 701, w: 219, h: 142 } },
