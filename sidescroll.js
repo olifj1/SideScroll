@@ -394,6 +394,57 @@
     return tex;
   }
 
+  const imageSourceCache = new Map();
+  function loadImageSource(url) {
+    let entry = imageSourceCache.get(url);
+    if (entry) return entry;
+    entry = new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = url;
+    });
+    imageSourceCache.set(url, entry);
+    return entry;
+  }
+
+  function createImageSliceTexture(url, rect, label = 'image-slice') {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 0])
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    loadImageSource(url).then(image => {
+      const sx = Math.max(0, Math.floor(rect.x || 0));
+      const sy = Math.max(0, Math.floor(rect.y || 0));
+      const sw = Math.max(1, Math.floor(rect.w || image.naturalWidth));
+      const sh = Math.max(1, Math.floor(rect.h || image.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = sw;
+      c.height = sh;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, sw, sh);
+      ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
+      assetAspect[label] = sw / sh;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    }).catch(() => {
+      errorBox.hidden = false;
+      errorBox.textContent = `${label} asset could not be loaded.`;
+    });
+
+    return tex;
+  }
+
   textures.white = createTexture((ctx, w, h) => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
@@ -424,7 +475,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=1.8.81', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.1.4', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -578,8 +629,13 @@
       runtime = { refs:0, created:[] };
       for (const asset of pack.assets || []) {
         if (!textures[asset.name]) {
-          textures[asset.name] = createTexture((ctx,w,h) => drawPuzzleGeneratedAsset(ctx,w,h,asset.generator), 256, 256, false);
-          assetAspect[asset.name] = asset.aspect || 1;
+          if (pack.image && asset.slice) {
+            textures[asset.name] = createImageSliceTexture(pack.image, asset.slice, asset.name);
+            assetAspect[asset.name] = asset.aspect || ((asset.slice?.w || 1) / Math.max(1, (asset.slice?.h || 1)));
+          } else {
+            textures[asset.name] = createTexture((ctx,w,h) => drawPuzzleGeneratedAsset(ctx,w,h,asset.generator), 256, 256, false);
+            assetAspect[asset.name] = asset.aspect || 1;
+          }
           runtime.created.push(asset.name);
         }
       }
@@ -1375,14 +1431,14 @@
     { title: 'GAMEPLAY', items: [
       { name: 'crate', label: 'WOODEN CRATE', category: 'gameplay', gameplayType: 'crate' }
     ]},
-    { title: 'PUZZLE PROPS · GREYBOX', items: [
-      { name:'puzzle-crate-a', label:'CRATE A', category:'gameplay', gameplayType:'crate', thumb:'▣', defaultHeight:0.88, collision:{halfWidth:0.43,height:0.845,depth:0.82,platform:true} },
-      { name:'puzzle-crate-b', label:'CRATE B', category:'gameplay', gameplayType:'crate', thumb:'▣', defaultHeight:0.88, collision:{halfWidth:0.43,height:0.845,depth:0.82,platform:true} },
-      { name:'puzzle-crate-c', label:'CRATE C', category:'gameplay', gameplayType:'crate', thumb:'▣', defaultHeight:0.88, collision:{halfWidth:0.43,height:0.845,depth:0.82,platform:true} },
-      { name:'fallen-tree', label:'FALLEN TREE', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.38, collision:{halfWidth:0.88,height:2.30,depth:0.92,platform:true} },
-      { name:'log-short', label:'SHORT LOG', category:'gameplay', gameplayType:'prop', thumb:'━', defaultHeight:0.62 },
-      { name:'log-long', label:'LONG LOG', category:'gameplay', gameplayType:'prop', thumb:'━━', defaultHeight:0.72 },
-      { name:'barrel', label:'BARREL', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.0 }
+    { title: 'PUZZLE PROPS · WOODLAND', items: [
+      { name:'puzzle-log-a', label:'MOVEABLE LOG A', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.84, collision:{halfWidth:0.58,height:0.48,depth:0.62,platform:true} },
+      { name:'puzzle-log-b', label:'MOVEABLE LOG B', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.72, collision:{halfWidth:0.46,height:0.42,depth:0.56,platform:true} },
+      { name:'puzzle-log-c', label:'MOVEABLE LOG C', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.76, collision:{halfWidth:0.60,height:0.44,depth:0.60,platform:true} },
+      { name:'puzzle-log-d', label:'LONG LOG', category:'gameplay', gameplayType:'prop', thumb:'━━', defaultHeight:0.82 },
+      { name:'fallen-tree', label:'FALLEN TREE', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.55, collision:{halfWidth:0.90,height:1.72,depth:1.04,platform:true} },
+      { name:'tree-stump', label:'TREE STUMP', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.18 },
+      { name:'broken-branch', label:'BROKEN BRANCH', category:'gameplay', gameplayType:'prop', thumb:'⟍', defaultHeight:0.78 }
     ]},
     { title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06'
@@ -2271,7 +2327,7 @@
     };
     standingOnObject = null;
     setDriveAxis(0);
-    hintEl.textContent = 'Picking up crate';
+    hintEl.textContent = 'Picking up item';
     hintEl.classList.remove('hidden');
   }
 
@@ -2280,7 +2336,7 @@
     carriedObject = interactionState.object;
     carriedObject.carried = true;
     interactionState = null;
-    hintEl.textContent = 'Carrying · ACTION puts the crate down';
+    hintEl.textContent = 'Carrying · ACTION puts the item down';
     hintEl.classList.remove('hidden');
   }
 
@@ -2320,7 +2376,7 @@
       targetZ: target.z
     };
     setDriveAxis(0);
-    hintEl.textContent = 'Putting crate down';
+    hintEl.textContent = 'Putting item down';
     hintEl.classList.remove('hidden');
   }
 
@@ -2337,7 +2393,7 @@
     sortSceneCollections();
     settleGameplayCrates();
     recordObjectEdit(obj);
-    hintEl.textContent = 'Crate placed';
+    hintEl.textContent = 'Item placed';
     hintEl.classList.remove('hidden');
   }
 

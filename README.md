@@ -1,11 +1,10 @@
-# SideScroll v0.1.3
+# SideScroll v0.1.4
 
-- Introduces reusable puzzle groups: authored props are placed relative to a marker rather than hard-wired into a full level.
-- Adds distance-based group streaming, puzzle-specific scenery exclusion zones, completion state and per-group object state.
-- Adds a generated greybox puzzle asset pack with three crate variants, fallen tree, short/long logs and barrel placeholders.
-- Adds the first `FALLEN_TREE_TEST` group at a world marker. The intended route is one crate -> two-crate stack -> fallen tree.
-- Puzzle props can be selected/moved in Edit mode; group bounds and marker are shown there for tuning.
-- Crates softly snap to a nearby crate centre when stacking, making the first puzzle more forgiving on touch.
-- Final puzzle art is deliberately deferred until scale/collision/layout are proven.
-- Uses a SideScroll-owned scene storage key, so old GameHub editor data no longer leaks into the standalone repo.
+- Replaces the greybox obstacle art with a hand-painted woodland puzzle asset pack on transparency (`woodland-puzzle-pack.png`).
+- Updates the first fallen-tree puzzle to use three movable logs instead of a line of crates, so the setup feels more natural in the woodland.
+- Starts the movable logs slightly off the side of the path so the player can walk past them before choosing to carry them into place.
+- Adds a broader fallen tree sprite with a flatter root-top silhouette and more visual space to descend on the right side.
+- Keeps the reusable puzzle-group system from v0.1.3, so this obstacle remains a portable module that can be streamed in from a marker and swapped out later.
+- Adds stump and branch assets to the pack for future puzzle dressing.
+- Tweaks pickup/drop hint text to be item-based rather than crate-based.
 - No audio.

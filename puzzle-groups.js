@@ -1,19 +1,20 @@
 window.SideScrollPuzzleConfig = {
-  version: 1,
+  version: 2,
 
-  // Asset packs are named here rather than hard-wired into a puzzle.  The
-  // current pack is generated greybox art; later we can swap these entries to
-  // atlas-backed art without changing any puzzle layout definitions.
+  // Puzzle art now comes from an authored transparent asset pack.  Layout and
+  // collision remain data-driven so this whole module can still be moved by its
+  // world marker or replaced later without changing the streaming system.
   assetPacks: {
-    "woodland-puzzle-greybox-v1": {
+    "woodland-puzzle-atlas-v1": {
+      image: "woodland-puzzle-pack.png?v=0.1.4",
       assets: [
-        { name: "puzzle-crate-a", generator: "crateA", aspect: 1.05 },
-        { name: "puzzle-crate-b", generator: "crateB", aspect: 1.05 },
-        { name: "puzzle-crate-c", generator: "crateC", aspect: 1.05 },
-        { name: "fallen-tree", generator: "fallenTree", aspect: 1.34 },
-        { name: "log-short", generator: "logShort", aspect: 2.45 },
-        { name: "log-long", generator: "logLong", aspect: 3.55 },
-        { name: "barrel", generator: "barrel", aspect: 0.72 }
+        { name: "puzzle-log-a", slice: { x: 12,  y: 664, w: 306, h: 179 } },
+        { name: "puzzle-log-b", slice: { x: 339, y: 701, w: 219, h: 142 } },
+        { name: "puzzle-log-c", slice: { x: 579, y: 683, w: 366, h: 167 } },
+        { name: "puzzle-log-d", slice: { x: 962, y: 649, w: 477, h: 200 } },
+        { name: "fallen-tree", slice: { x: 15,  y: 12,  w: 1421, h: 601 } },
+        { name: "tree-stump",  slice: { x: 153, y: 863, w: 499, h: 206 } },
+        { name: "broken-branch", slice: { x: 708, y: 848, w: 598, h: 220 } }
       ]
     }
   },
@@ -21,52 +22,54 @@ window.SideScrollPuzzleConfig = {
   groups: {
     FALLEN_TREE_TEST: {
       label: "Fallen tree test",
-      width: 11.0,
-      assetPacks: ["woodland-puzzle-greybox-v1"],
+      width: 12.2,
+      assetPacks: ["woodland-puzzle-atlas-v1"],
 
-      // Procedural dressing inside this local box is hidden while the group is
-      // active.  The distant forest remains, so the puzzle still feels embedded
-      // in the same continuous woodland rather than placed on a blank stage.
-      exclusion: { minX: -4.2, maxX: 5.0, minZ: -7.0, maxZ: 7.2 },
-      entryX: -4.4,
-      exitX: 4.8,
+      // Clear the busy near-path dressing within the authored module box while
+      // leaving the distant forest intact, so the puzzle still sits inside the
+      // same continuous woodland.
+      exclusion: { minX: -4.7, maxX: 6.2, minZ: -7.0, maxZ: 7.2 },
+      entryX: -4.8,
+      exitX: 5.6,
 
       props: [
         {
-          id: "crate-a",
-          asset: "puzzle-crate-a",
-          x: -3.05, z: 0,
-          width: 0.96, height: 0.88,
+          id: "log-a",
+          asset: "puzzle-log-a",
+          x: -3.25, z: 0.76,
+          height: 0.84,
           category: "gameplay", gameplayType: "crate",
-          collision: { halfWidth: 0.43, height: 0.845, depth: 0.82, platform: true }
+          collision: { halfWidth: 0.58, height: 0.48, depth: 0.62, platform: true }
         },
         {
-          id: "crate-b",
-          asset: "puzzle-crate-b",
-          x: -1.92, z: 0,
-          width: 0.96, height: 0.88,
+          id: "log-b",
+          asset: "puzzle-log-b",
+          x: -2.00, z: 0.78,
+          height: 0.72,
           category: "gameplay", gameplayType: "crate",
-          collision: { halfWidth: 0.43, height: 0.845, depth: 0.82, platform: true }
+          collision: { halfWidth: 0.46, height: 0.42, depth: 0.56, platform: true }
         },
         {
-          id: "crate-c",
-          asset: "puzzle-crate-c",
-          x: -0.78, z: 0,
-          width: 0.96, height: 0.88,
+          id: "log-c",
+          asset: "puzzle-log-c",
+          x: -0.74, z: 0.74,
+          height: 0.76,
           category: "gameplay", gameplayType: "crate",
-          collision: { halfWidth: 0.43, height: 0.845, depth: 0.82, platform: true }
+          collision: { halfWidth: 0.60, height: 0.44, depth: 0.60, platform: true }
         },
         {
           id: "tree",
           asset: "fallen-tree",
-          x: 2.15, z: 0,
-          width: 2.05, height: 2.38,
+          x: 2.35, z: 0.0,
+          height: 2.55,
           category: "gameplay", gameplayType: "obstacle",
-          collision: { halfWidth: 0.88, height: 2.30, depth: 0.92, platform: true }
+          // The collision intentionally hugs the flatter root/platform region
+          // rather than the entire fallen trunk silhouette.
+          collision: { halfWidth: 0.90, height: 1.72, depth: 1.04, platform: true }
         }
       ],
 
-      completion: { type: "cross-x", x: 4.55, direction: 1 }
+      completion: { type: "cross-x", x: 5.18, direction: 1 }
     }
   },
 
