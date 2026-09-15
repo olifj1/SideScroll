@@ -475,7 +475,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.1.4', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.1.8', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -642,7 +642,10 @@
       runtime = { refs:0, created:[] };
       for (const asset of pack.assets || []) {
         if (!textures[asset.name]) {
-          if (pack.image && asset.slice) {
+          if (asset.url) {
+            textures[asset.name] = createImageTexture(asset.url, asset.name);
+            if (asset.aspect) assetAspect[asset.name] = asset.aspect;
+          } else if (pack.image && asset.slice) {
             textures[asset.name] = createImageSliceTexture(pack.image, asset.slice, asset.name);
             assetAspect[asset.name] = asset.aspect || ((asset.slice?.w || 1) / Math.max(1, (asset.slice?.h || 1)));
           } else {
@@ -675,7 +678,7 @@
     puzzlePackRuntime.delete(packName);
   }
 
-  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=1.8.81`, 'Walk Lab cutout rig atlas');
+  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.1.8`, 'Walk Lab cutout rig atlas');
 
   function mulberry32(seed) {
     return function() {
@@ -1443,6 +1446,7 @@
   // she cannot wedge herself into gaps that read as impassable on screen.
   const PLAYER_COLLISION_HALF_WIDTH = 0.42;
   const PLAYER_COLLISION_SKIN = 0.035;
+  const PLAYER_COLLISION_BODY_HEIGHT = 1.12;
   const PLATFORM_MAX_SNAP_DOWN = 0.16;
   const WALK_STRIDE = 1.45;
   const RUN_STRIDE = 2.05;
@@ -2073,6 +2077,22 @@
     return { minX: vals[0], maxX: vals[vals.length - 1] };
   }
 
+  function collisionBodyEnvelope(obj, feetY, bodyHeight = PLAYER_COLLISION_BODY_HEIGHT) {
+    // Test several heights through the visible body rather than a single slice
+    // at the feet. Irregular roots/trunks can be narrow at ground level while
+    // still occupying the character's knees or torso.
+    const samples = [0.05, 0.24, 0.48, 0.74, 0.96].map(t => feetY + bodyHeight * t);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    for (const y of samples) {
+      const span = collisionSpanAtY(obj, y);
+      if (!span) continue;
+      minX = Math.min(minX, span.minX);
+      maxX = Math.max(maxX, span.maxX);
+    }
+    return Number.isFinite(minX) && Number.isFinite(maxX) ? { minX, maxX } : null;
+  }
+
   function collisionTopHeightAtX(obj, worldX) {
     const points = collisionWorldPoints(obj, obj.x);
     if (points.length < 2) return -Infinity;
@@ -2195,7 +2215,9 @@
     let resolvedCharacterX = proposedX;
     const currentFeetY = playSurfaceYAt(currentX) + Math.max(0, clearanceHeight);
     const proposedFeetY = playSurfaceYAt(proposedX) + Math.max(0, clearanceHeight);
-    const sampleY = Math.min(currentFeetY, proposedFeetY) + 0.055;
+    // Use the lower of the two ground heights so rolling terrain cannot create
+    // a one-frame hole in collision while moving.
+    const feetY = Math.min(currentFeetY, proposedFeetY);
 
     for (const obj of collisionObjects()) {
       const c = obj.collision;
@@ -2203,46 +2225,25 @@
       const depth = c.depth ?? 0.8;
       if (Math.abs(obj.z - pathZ) > depth) continue;
 
-      // If the player's feet are already high enough to clear the platform top,
-      // this object should not block horizontal travel.
-      const topAtNext = collisionTopHeightAtX(obj, proposedX);
-      const topOffset = Number.isFinite(topAtNext)
-        ? topAtNext - playSurfaceYAt(proposedX)
-        : (c.height ?? 0.6);
-      if (clearanceHeight >= topOffset - 0.035) continue;
-
-      const span = collisionSpanAtY(obj, sampleY);
+      const span = collisionBodyEnvelope(obj, feetY);
       if (!span) continue;
 
-      // Expand the obstacle by the visible character's horizontal footprint.
-      // This is effectively a simple Minkowski expansion: the character centre
-      // cannot enter the enlarged span, so narrow visual gaps are rejected too.
       const blockMin = span.minX - PLAYER_COLLISION_HALF_WIDTH - PLAYER_COLLISION_SKIN;
       const blockMax = span.maxX + PLAYER_COLLISION_HALF_WIDTH + PLAYER_COLLISION_SKIN;
-
       const alreadyOverlapping = currentX > blockMin && currentX < blockMax;
       const blockCentre = (blockMin + blockMax) * 0.5;
+
       if (direction > 0) {
-        const currentRight = currentX + PLAYER_COLLISION_HALF_WIDTH;
-        const proposedRight = resolvedCharacterX + PLAYER_COLLISION_HALF_WIDTH;
-        const obstacleLeft = span.minX - PLAYER_COLLISION_SKIN;
-        const crossesFromLeft = currentRight <= obstacleLeft + 0.02 && proposedRight > obstacleLeft;
+        const crossesFromLeft = currentX <= blockMin + 0.025 && resolvedCharacterX > blockMin;
         const movingDeeperFromOverlap = alreadyOverlapping && currentX < blockCentre;
         if (crossesFromLeft || movingDeeperFromOverlap) {
-          const stopX = blockMin;
-          // Never resolve opposite to the requested direction.  This removes
-          // the frame-to-frame push-back that caused rapid left/right flipping.
-          resolvedCharacterX = Math.max(currentX, Math.min(resolvedCharacterX, stopX));
+          resolvedCharacterX = Math.max(currentX, Math.min(resolvedCharacterX, blockMin));
         }
       } else {
-        const currentLeft = currentX - PLAYER_COLLISION_HALF_WIDTH;
-        const proposedLeft = resolvedCharacterX - PLAYER_COLLISION_HALF_WIDTH;
-        const obstacleRight = span.maxX + PLAYER_COLLISION_SKIN;
-        const crossesFromRight = currentLeft >= obstacleRight - 0.02 && proposedLeft < obstacleRight;
+        const crossesFromRight = currentX >= blockMax - 0.025 && resolvedCharacterX < blockMax;
         const movingDeeperFromOverlap = alreadyOverlapping && currentX > blockCentre;
         if (crossesFromRight || movingDeeperFromOverlap) {
-          const stopX = blockMax;
-          resolvedCharacterX = Math.min(currentX, Math.max(resolvedCharacterX, stopX));
+          resolvedCharacterX = Math.min(currentX, Math.max(resolvedCharacterX, blockMax));
         }
       }
     }

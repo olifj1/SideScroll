@@ -1,24 +1,22 @@
 window.SideScrollPuzzleConfig = {
-  version: 3,
+  version: 4,
 
   // Puzzle art now comes from an authored transparent asset pack.  Layout and
   // collision remain data-driven so this whole module can still be moved by its
   // world marker or replaced later without changing the streaming system.
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
-      image: "woodland-puzzle-pack.png?v=0.1.7",
       assets: [
-        { name: "puzzle-log-a", slice: { x: 12,  y: 664, w: 306, h: 179 } },
-        { name: "puzzle-log-b", slice: { x: 339, y: 701, w: 219, h: 142 } },
-        { name: "puzzle-log-c", slice: { x: 579, y: 683, w: 366, h: 167 } },
-        { name: "puzzle-log-d", slice: { x: 962, y: 649, w: 477, h: 200 } },
-        { name: "fallen-tree", slice: { x: 15,  y: 12,  w: 1421, h: 601 } },
-        { name: "tree-stump",  slice: { x: 153, y: 863, w: 499, h: 206 } },
-        { name: "broken-branch", slice: { x: 708, y: 848, w: 598, h: 220 } }
+        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.1.8", aspect: 1.7095 },
+        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.1.8", aspect: 1.5423 },
+        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.1.8", aspect: 2.1916 },
+        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.1.8", aspect: 2.3850 },
+        { name: "fallen-tree", url: "fallen-tree.png?v=0.1.8", aspect: 2.3644 },
+        { name: "tree-stump", url: "tree-stump.png?v=0.1.8", aspect: 2.4223 },
+        { name: "broken-branch", url: "broken-branch.png?v=0.1.8", aspect: 2.7182 }
       ]
     }
   },
-
   groups: {
     FALLEN_TREE_TEST: {
       label: "Fallen tree test",
