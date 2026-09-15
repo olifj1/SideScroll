@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" class="gh-game-page ss-game-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#e7dbd2">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css?v=0.1.0">
+  <title>Walk Lab · SideScroll</title>
+</head>
+<body class="modular-game ss-standalone-game" data-game-id="game-17">
+  <a class="game-home-button" href="index.html" aria-label="Back to SideScroll home">← Home</a>
+  <button class="game-info-button" type="button" aria-label="How to use Walk Lab" aria-haspopup="dialog">i</button>
+
+  <div class="game-info-overlay" hidden>
+    <div class="game-info-dialog" role="dialog" aria-modal="true" aria-labelledby="game-17-info-title">
+      <button class="game-info-close" type="button" aria-label="Close instructions">×</button>
+      <p class="kicker">ANIMATION TOOL</p>
+      <h2 id="game-17-info-title">Walk Lab</h2>
+      <p>Edit and inspect the shared cutout locomotion rig used by SideScroll. Switch between Walk, Run and Jump, scrub frames, move joints, pan the view and pinch to zoom.</p>
+    </div>
+  </div>
+
+  <main class="screen-wrap">
+    <section class="screen active" aria-labelledby="walklab-title">
+      <div class="page walklab-page">
+        <header class="page-header walklab-header">
+          <p class="kicker" data-site-name="">SideScroll</p>
+          <h1 id="walklab-title">Walk Lab</h1>
+        </header>
+
+        <div class="walklab-stage-wrap">
+          <canvas id="walklab-canvas" aria-label="Editable sixteen frame stick figure walk cycle"></canvas>
+          <div class="walklab-readout" id="walklab-readout">Frame 1 / 16 · Contact L · KEY</div>
+          <div class="walklab-edit-hint" id="walklab-edit-hint">Drag joints · drag empty space to pan · pinch to zoom</div>
+        </div>
+
+        <aside class="walklab-panel" aria-label="Walk Lab controls">
+          <div class="walklab-scrub-row">
+            <button id="walklab-prev" class="walklab-mini" type="button" aria-label="Previous frame">←</button>
+            <input id="walklab-scrub" type="range" min="0" max="15" step="1" value="0" aria-label="Animation frame">
+            <button id="walklab-next" class="walklab-mini" type="button" aria-label="Next frame">→</button>
+          </div>
+
+          <div class="walklab-clip-row" aria-label="Animation clip">
+            <button class="walklab-clip active" id="walklab-clip-walk" type="button" data-clip="walk" aria-pressed="true">Walk</button>
+            <button class="walklab-clip" id="walklab-clip-run" type="button" data-clip="run" aria-pressed="false">Run</button>
+            <button class="walklab-clip" id="walklab-clip-jump" type="button" data-clip="jump" aria-pressed="false">Jump</button>
+          </div>
+
+          <div class="walklab-toggle-row">
+            <button id="walklab-play" class="walklab-pill" type="button">Play</button>
+            <button id="walklab-onion" class="walklab-pill" type="button" aria-pressed="false">Onion</button>
+            <button id="walklab-keys" class="walklab-pill" type="button" aria-pressed="false">Keys only</button>
+          </div>
+
+          <div class="walklab-tool-grid">
+            <button id="walklab-mids" class="walklab-tool" type="button">Make mids</button>
+            <button id="walklab-reset" class="walklab-tool" type="button">Reset cycle</button>
+            <button id="walklab-fit" class="walklab-tool" type="button">Fit view</button>
+            <button id="walklab-copy" class="walklab-tool" type="button">Copy pose</button>
+            <button id="walklab-paste" class="walklab-tool" type="button" disabled>Paste pose</button>
+            <button id="walklab-save" class="walklab-tool" type="button">Save JSON</button>
+            <button id="walklab-load" class="walklab-tool" type="button">Load JSON</button>
+            <button id="walklab-rigart" class="walklab-tool active" type="button" aria-pressed="true">Rig art</button>
+            <button id="walklab-stick" class="walklab-tool active" type="button" aria-pressed="true">Stick</button>
+            <button id="walklab-planes" class="walklab-tool" type="button" aria-pressed="false">Planes</button>
+            <input id="walklab-file" type="file" accept="application/json,.json" hidden>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="site-config.js?v=0.1.0"></script>
+  <script src="core.js?v=0.1.0"></script>
+  <script src="walk-rig.js?v=0.1.0"></script>
+  <script src="walk-lab.js?v=0.1.0"></script>
+</body>
+</html>

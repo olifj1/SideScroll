@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" class="ss-home-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#172026">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css?v=0.1.0">
+  <title>SideScroll</title>
+</head>
+<body class="modular-home ss-home">
+  <main class="ss-home-shell">
+    <header class="ss-home-header">
+      <p class="ss-home-kicker">WOODLAND ADVENTURE</p>
+      <h1>SideScroll</h1>
+      <p>Choose the main game or open the animation lab.</p>
+    </header>
+
+    <section class="ss-launch-grid" aria-label="SideScroll modes">
+      <a class="ss-launch-card ss-launch-main" href="play.html">
+        <span class="ss-launch-mark" aria-hidden="true">♠</span>
+        <span class="ss-launch-copy"><strong>Play</strong><small>Main woodland game</small></span>
+        <span class="ss-launch-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="ss-launch-card" href="walk-lab.html">
+        <span class="ss-launch-mark" aria-hidden="true">↻</span>
+        <span class="ss-launch-copy"><strong>Walk Lab</strong><small>Animation editor</small></span>
+        <span class="ss-launch-arrow" aria-hidden="true">→</span>
+      </a>
+    </section>
+
+    <button class="ss-install-button" id="ss-install" type="button" hidden>Install SideScroll</button>
+  </main>
+
+  <div class="gh-install-overlay" id="gh-install-overlay" hidden>
+    <section class="gh-install-card" role="dialog" aria-modal="true" aria-labelledby="gh-install-title">
+      <button class="gh-install-close" id="gh-install-close" type="button" aria-label="Close install instructions">×</button>
+      <p class="gh-install-kicker" id="gh-install-kicker">INSTALL SIDESCROLL</p>
+      <h2 id="gh-install-title">Add SideScroll to your Home Screen</h2>
+      <p class="gh-install-copy-text" id="gh-install-copy-text"></p>
+      <div class="gh-install-steps" id="gh-install-steps"></div>
+      <button class="gh-install-done" id="gh-install-done" type="button">Got it</button>
+    </section>
+  </div>
+
+  <script src="site-config.js?v=0.1.0"></script>
+  <script src="core.js?v=0.1.0"></script>
+  <script src="home.js?v=0.1.0"></script>
+</body>
+</html>
