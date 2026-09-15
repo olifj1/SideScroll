@@ -500,6 +500,112 @@
     }
   }, 256, 256, false);
 
+
+  // -------------------------------------------------------------------------
+  // PUZZLE ASSET PACKS
+  // -------------------------------------------------------------------------
+  // Puzzle definitions live in puzzle-groups.js.  Their art is resolved through
+  // named packs so the authored layout never has to know whether an asset is a
+  // temporary generated texture or, later, a rectangle in a finished atlas.
+  const puzzleConfig = window.SideScrollPuzzleConfig || { assetPacks:{}, groups:{}, markers:[], streaming:{} };
+  const puzzlePackRuntime = new Map();
+
+  function drawPuzzleGeneratedAsset(ctx, w, h, generator) {
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const crate = (base, edge, brace, variant = 0) => {
+      const x=18, y=14, cw=w-36, ch=h-20;
+      const g=ctx.createLinearGradient(0,y,0,y+ch);
+      g.addColorStop(0, base); g.addColorStop(1, edge);
+      ctx.fillStyle=g; ctx.fillRect(x,y,cw,ch);
+      ctx.strokeStyle='#4b3a2d'; ctx.lineWidth=8; ctx.strokeRect(x+4,y+4,cw-8,ch-8);
+      ctx.strokeStyle=brace; ctx.lineWidth=11;
+      if (variant !== 2) { ctx.beginPath();ctx.moveTo(x+14,y+16);ctx.lineTo(x+cw-14,y+ch-16);ctx.stroke(); }
+      if (variant !== 1) { ctx.beginPath();ctx.moveTo(x+cw-14,y+16);ctx.lineTo(x+14,y+ch-16);ctx.stroke(); }
+      ctx.strokeStyle='rgba(244,220,179,.32)';ctx.lineWidth=2;
+      for(let i=0;i<5;i++){const yy=y+32+i*36;ctx.beginPath();ctx.moveTo(x+14,yy);ctx.lineTo(x+cw-14,yy+(i%2?2:-2));ctx.stroke();}
+    };
+
+    if (generator === 'crateA') return crate('#aa7c4b','#815737','#5d412d',0);
+    if (generator === 'crateB') return crate('#9c7249','#755137','#553d2f',1);
+    if (generator === 'crateC') return crate('#b18452','#855c39','#65462f',2);
+
+    if (generator === 'fallenTree') {
+      // Intentionally chunky greybox silhouette: large root plate + crooked
+      // trunk.  Its height matches the collision so climb testing is honest.
+      ctx.strokeStyle='#46372c'; ctx.lineWidth=42;
+      ctx.beginPath(); ctx.moveTo(36,h-30); ctx.bezierCurveTo(72,h-98,138,h-132,w-30,44); ctx.stroke();
+      ctx.strokeStyle='#745238'; ctx.lineWidth=31;
+      ctx.beginPath(); ctx.moveTo(38,h-32); ctx.bezierCurveTo(74,h-96,140,h-128,w-31,45); ctx.stroke();
+      ctx.strokeStyle='rgba(215,184,139,.30)';ctx.lineWidth=4;
+      ctx.beginPath();ctx.moveTo(64,h-72);ctx.bezierCurveTo(105,h-103,151,h-128,w-52,63);ctx.stroke();
+      ctx.fillStyle='#5a4635';
+      for (let i=0;i<7;i++) {
+        const a=-1.2+i*.39, rx=36+Math.cos(a)*45, ry=h-37+Math.sin(a)*42;
+        ctx.beginPath();ctx.moveTo(43,h-40);ctx.lineTo(rx,ry);ctx.lineTo(rx+9,ry-8);ctx.closePath();ctx.fill();
+      }
+      ctx.strokeStyle='#5d432e';ctx.lineWidth=15;
+      ctx.beginPath();ctx.moveTo(w*.57,h*.46);ctx.lineTo(w*.48,h*.23);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(w*.72,h*.32);ctx.lineTo(w*.82,h*.14);ctx.stroke();
+      return;
+    }
+
+    if (generator === 'logShort' || generator === 'logLong') {
+      const yy=h*.58, x0=18, x1=w-18;
+      ctx.strokeStyle='#49372b';ctx.lineWidth=h*.45;ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy-h*.08);ctx.stroke();
+      ctx.strokeStyle='#76533a';ctx.lineWidth=h*.34;ctx.beginPath();ctx.moveTo(x0,yy);ctx.lineTo(x1,yy-h*.08);ctx.stroke();
+      ctx.fillStyle='#9c7857';ctx.beginPath();ctx.ellipse(x1,yy-h*.08,h*.15,h*.20,-.05,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(226,200,161,.32)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x0+20,yy-5);ctx.lineTo(x1-26,yy-h*.08-5);ctx.stroke();
+      return;
+    }
+
+    if (generator === 'barrel') {
+      const x=w*.20,y=h*.07,bw=w*.60,bh=h*.88;
+      const g=ctx.createLinearGradient(x,0,x+bw,0);g.addColorStop(0,'#694934');g.addColorStop(.5,'#a7774b');g.addColorStop(1,'#60432f');
+      ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(w*.5,y+bw*.08,bw*.5,bw*.12,0,Math.PI,Math.PI*2);ctx.rect(x,y+bw*.08,bw,bh-bw*.16);ctx.ellipse(w*.5,y+bh-bw*.08,bw*.5,bw*.12,0,0,Math.PI);ctx.fill();
+      ctx.strokeStyle='#3f4240';ctx.lineWidth=8;for(const q of [.22,.72]){const yy=y+bh*q;ctx.beginPath();ctx.moveTo(x-3,yy);ctx.lineTo(x+bw+3,yy);ctx.stroke();}
+      return;
+    }
+  }
+
+  function ensurePuzzleAssetPack(packName) {
+    const pack = puzzleConfig.assetPacks?.[packName];
+    if (!pack) return;
+    let runtime = puzzlePackRuntime.get(packName);
+    if (!runtime) {
+      runtime = { refs:0, created:[] };
+      for (const asset of pack.assets || []) {
+        if (!textures[asset.name]) {
+          textures[asset.name] = createTexture((ctx,w,h) => drawPuzzleGeneratedAsset(ctx,w,h,asset.generator), 256, 256, false);
+          assetAspect[asset.name] = asset.aspect || 1;
+          runtime.created.push(asset.name);
+        }
+      }
+      puzzlePackRuntime.set(packName, runtime);
+    }
+    runtime.refs += 1;
+  }
+
+  function releasePuzzleAssetPack(packName) {
+    const runtime = puzzlePackRuntime.get(packName);
+    if (!runtime) return;
+    runtime.refs = Math.max(0, runtime.refs - 1);
+    if (runtime.refs > 0) return;
+    const pack = puzzleConfig.assetPacks?.[packName];
+    const names = new Set((pack?.assets || []).map(asset => asset.name));
+    // User-authored copies pin a pack even after the puzzle module streams out.
+    const stillUsed = typeof allSceneObjects === 'function' && allSceneObjects().some(obj => !obj.deleted && !obj.puzzleInstanceId && names.has(obj.assetName));
+    if (stillUsed) return;
+    for (const name of runtime.created) {
+      if (textures[name]) gl.deleteTexture(textures[name]);
+      delete textures[name];
+      delete assetAspect[name];
+    }
+    puzzlePackRuntime.delete(packName);
+  }
+
   textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=1.8.81`, 'Walk Lab cutout rig atlas');
 
   function mulberry32(seed) {
@@ -527,14 +633,6 @@
   const PATH_TOP_RISE = 0.12;
   const FAR_SIDE_START = -PATH_OUTER_HALF;
   const NEAR_SIDE_START = PATH_OUTER_HALF;
-
-  // First gameplay obstacle: a shin-high fallen log on the path.  It repeats
-  // with the scenery tile, giving us a concrete jump-height/distance target.
-  const TEST_OBSTACLE_X = 3.35;
-  const TEST_OBSTACLE_Z = 0.0;
-  const TEST_OBSTACLE_HEIGHT = 0.76;
-  const TEST_OBSTACLE_HALF_WIDTH = 0.62;
-  const TEST_OBSTACLE_CLEARANCE = 0.68;
 
   function pathLocalX(x) {
     let local = ((x + TILE_WIDTH * 0.5) % TILE_WIDTH + TILE_WIDTH) % TILE_WIDTH - TILE_WIDTH * 0.5;
@@ -623,10 +721,9 @@
   const midfill = [];
   const frontOccluders = [];
 
-  const SCENE_STORAGE_KEY = 'gamehub.sidescroll.scene.v2';
+  const SCENE_STORAGE_KEY = 'sidescroll.scene.v1';
   let sceneIdCounter = 0;
   let userSceneCounter = 0;
-  let testObstacleObject = null;
 
   const sceneData = (() => {
     try {
@@ -685,7 +782,9 @@
       collision: opts.collision ? { ...opts.collision } : null,
       deleted: !!opts.deleted,
       carried: false,
-      userAdded: !!opts.userAdded
+      userAdded: !!opts.userAdded,
+      puzzleInstanceId: opts.puzzleInstanceId || null,
+      puzzleObjectId: opts.puzzleObjectId || null
     };
     collection.push(obj);
     return obj;
@@ -878,20 +977,6 @@
       });
     }
 
-    // First gameplay object: a clean wooden crate on the playable strip.
-    // Unlike dressing, gameplay assets have authored collision and can be
-    // stood on.  This gives the editor a clear object for jump tuning.
-    testObstacleObject = addObject(frontOccluders, 'crate', TEST_OBSTACLE_X, TEST_OBSTACLE_Z, 0.96, 0.88, {
-      id: 'gameplay-crate-01',
-      y: playSurfaceYAt(TEST_OBSTACLE_X),
-      shade: 1.0,
-      opacity: 1.0,
-      layer: 'foreground',
-      category: 'gameplay',
-      gameplayType: 'crate',
-      collision: { halfWidth: 0.44, height: 0.88 * CRATE_COLLISION_HEIGHT_FACTOR, depth: 0.82, platform: true }
-    });
-
     // Occasional larger near-side assets give a stronger sense of passing
     // through woodland, but remain uncommon so the path stays readable.
     for (let i = 0; i < 20; i++) {
@@ -923,6 +1008,163 @@
 
   function allSceneObjects() {
     return [...backdrop, ...midfill, ...frontOccluders];
+  }
+
+  // -------------------------------------------------------------------------
+  // PUZZLE GROUP RUNTIME
+  // -------------------------------------------------------------------------
+  const PUZZLE_STATE_STORAGE_KEY = 'sidescroll.puzzle-groups.state.v1';
+  const activePuzzleInstances = new Map();
+  const puzzleSavedState = (() => {
+    try { return JSON.parse(localStorage.getItem(PUZZLE_STATE_STORAGE_KEY) || '{}') || {}; }
+    catch (_) { return {}; }
+  })();
+
+  function savePuzzleState() {
+    try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {}
+  }
+
+  function markerDefinition(marker) {
+    return puzzleConfig.groups?.[marker.group] || null;
+  }
+
+  function savedPuzzleFor(markerId) {
+    puzzleSavedState[markerId] ||= { solved:false, objects:{} };
+    puzzleSavedState[markerId].objects ||= {};
+    return puzzleSavedState[markerId];
+  }
+
+  function recordPuzzleObjectState(obj) {
+    if (!obj?.puzzleInstanceId || !obj?.puzzleObjectId) return false;
+    const state = savedPuzzleFor(obj.puzzleInstanceId);
+    state.objects[obj.puzzleObjectId] = {
+      x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
+      deleted:!!obj.deleted,
+      collision:obj.collision ? { ...obj.collision } : null
+    };
+    savePuzzleState();
+    return true;
+  }
+
+  function instantiatePuzzleGroup(marker) {
+    const def = markerDefinition(marker);
+    if (!def || activePuzzleInstances.has(marker.id)) return activePuzzleInstances.get(marker.id) || null;
+    for (const packName of def.assetPacks || []) ensurePuzzleAssetPack(packName);
+
+    const saved = savedPuzzleFor(marker.id);
+    const instance = { id:marker.id, marker, def, objects:[], solved:!!saved.solved };
+    for (const prop of def.props || []) {
+      const prior = saved.objects?.[prop.id];
+      const x = prior?.x ?? (marker.x + prop.x);
+      const z = prior?.z ?? (prop.z ?? pathZ);
+      const width = prior?.sx ?? prop.width;
+      const height = prior?.sy ?? prop.height;
+      const obj = addObject(frontOccluders, prop.asset, x, z, width, height, {
+        id:`puzzle-${marker.id}-${prop.id}`,
+        y:prior?.y ?? playSurfaceYAt(x),
+        flip:prior?.flip ?? prop.flip ?? false,
+        shade:1,
+        opacity:1,
+        layer:'foreground',
+        wrap:false,
+        category:prop.category || 'gameplay',
+        gameplayType:prop.gameplayType || null,
+        gameplayLayerLocked:true,
+        collision:prior?.collision ?? prop.collision ?? null,
+        deleted:prior?.deleted ?? false,
+        puzzleInstanceId:marker.id,
+        puzzleObjectId:prop.id
+      });
+      obj.puzzleInstanceId = marker.id;
+      obj.puzzleObjectId = prop.id;
+      instance.objects.push(obj);
+    }
+    activePuzzleInstances.set(marker.id, instance);
+    sortSceneCollections();
+    settleGameplayCrates();
+    return instance;
+  }
+
+  function capturePuzzleInstance(instance) {
+    if (!instance) return;
+    for (const obj of instance.objects) recordPuzzleObjectState(obj);
+    const state = savedPuzzleFor(instance.id);
+    state.solved = !!instance.solved;
+    savePuzzleState();
+  }
+
+  function removePuzzleObjects(instance) {
+    const remove = new Set(instance.objects);
+    for (const list of [backdrop, midfill, frontOccluders]) {
+      for (let i=list.length-1;i>=0;i--) if (remove.has(list[i])) list.splice(i,1);
+    }
+  }
+
+  function unloadPuzzleGroup(markerId) {
+    const instance = activePuzzleInstances.get(markerId);
+    if (!instance) return;
+    if ((carriedObject && carriedObject.puzzleInstanceId === markerId) || (interactionState?.object?.puzzleInstanceId === markerId)) return;
+    capturePuzzleInstance(instance);
+    if (selectedObject?.puzzleInstanceId === markerId) selectObject(null);
+    removePuzzleObjects(instance);
+    activePuzzleInstances.delete(markerId);
+    for (const packName of instance.def.assetPacks || []) releasePuzzleAssetPack(packName);
+  }
+
+  function puzzleBounds(instance) {
+    const ex = instance.def.exclusion || { minX:-4, maxX:4, minZ:-6, maxZ:6 };
+    return { minX:instance.marker.x+ex.minX, maxX:instance.marker.x+ex.maxX, minZ:ex.minZ, maxZ:ex.maxZ };
+  }
+
+  function updatePuzzleStreaming(playerX) {
+    const loadAhead = puzzleConfig.streaming?.loadAhead ?? 24;
+    const keepBehind = puzzleConfig.streaming?.keepBehind ?? 34;
+    for (const marker of puzzleConfig.markers || []) {
+      const def = markerDefinition(marker);
+      if (!def) continue;
+      const ex = def.exclusion || { minX:-4, maxX:4 };
+      const minX = marker.x + ex.minX;
+      const maxX = marker.x + ex.maxX;
+      const active = activePuzzleInstances.get(marker.id);
+      if (!active) {
+        if (playerX >= minX-loadAhead && playerX <= maxX+loadAhead) instantiatePuzzleGroup(marker);
+      } else if (playerX < minX-keepBehind || playerX > maxX+keepBehind) {
+        unloadPuzzleGroup(marker.id);
+      }
+    }
+  }
+
+  function dressingHiddenByPuzzle(obj, drawX) {
+    if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId) return false;
+    for (const instance of activePuzzleInstances.values()) {
+      const b = puzzleBounds(instance);
+      if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
+    }
+    return false;
+  }
+
+  function activePuzzleNear(playerX) {
+    let best=null, bestD=Infinity;
+    for (const instance of activePuzzleInstances.values()) {
+      const d=Math.abs(playerX-instance.marker.x);
+      if (d<bestD) {best=instance;bestD=d;}
+    }
+    return bestD <= 12 ? best : null;
+  }
+
+  function checkPuzzleCompletion(playerX) {
+    for (const instance of activePuzzleInstances.values()) {
+      if (instance.solved) continue;
+      const rule = instance.def.completion;
+      if (!rule) continue;
+      const target = instance.marker.x + rule.x;
+      const done = rule.type === 'cross-x' && (rule.direction ?? 1) >= 0 ? playerX >= target : playerX <= target;
+      if (!done) continue;
+      instance.solved = true;
+      const state=savedPuzzleFor(instance.id);state.solved=true;savePuzzleState();
+      hintEl.textContent = `${instance.def.label || 'Puzzle'} complete`;
+      hintEl.classList.remove('hidden');
+    }
   }
 
   function targetCollectionForZ(z) {
@@ -964,6 +1206,7 @@
 
   function recordObjectEdit(obj) {
     if (!obj) return;
+    if (recordPuzzleObjectState(obj)) return;
     if (obj.userAdded) {
       const saved = sceneData.added.find(item => item.id === obj.id);
       const payload = {
@@ -1010,6 +1253,7 @@
 
   scatterForest();
   restoreSceneEdits();
+  updatePuzzleStreaming(0);
   settleGameplayCrates();
 
   const character = {
@@ -1116,6 +1360,7 @@
   let dragStartCameraX = 0;
 
   let editMode = false;
+  let editorPuzzlePackPinned = false;
   let selectedObject = null;
   let editorPointer = null;
   let editorDragKind = null;
@@ -1129,6 +1374,15 @@
   const editorAssetGroups = [
     { title: 'GAMEPLAY', items: [
       { name: 'crate', label: 'WOODEN CRATE', category: 'gameplay', gameplayType: 'crate' }
+    ]},
+    { title: 'PUZZLE PROPS · GREYBOX', items: [
+      { name:'puzzle-crate-a', label:'CRATE A', category:'gameplay', gameplayType:'crate', thumb:'▣', defaultHeight:0.88, collision:{halfWidth:0.43,height:0.845,depth:0.82,platform:true} },
+      { name:'puzzle-crate-b', label:'CRATE B', category:'gameplay', gameplayType:'crate', thumb:'▣', defaultHeight:0.88, collision:{halfWidth:0.43,height:0.845,depth:0.82,platform:true} },
+      { name:'puzzle-crate-c', label:'CRATE C', category:'gameplay', gameplayType:'crate', thumb:'▣', defaultHeight:0.88, collision:{halfWidth:0.43,height:0.845,depth:0.82,platform:true} },
+      { name:'fallen-tree', label:'FALLEN TREE', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.38, collision:{halfWidth:0.88,height:2.30,depth:0.92,platform:true} },
+      { name:'log-short', label:'SHORT LOG', category:'gameplay', gameplayType:'prop', thumb:'━', defaultHeight:0.62 },
+      { name:'log-long', label:'LONG LOG', category:'gameplay', gameplayType:'prop', thumb:'━━', defaultHeight:0.72 },
+      { name:'barrel', label:'BARREL', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.0 }
     ]},
     { title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06'
@@ -1301,6 +1555,8 @@
   }
 
   function setEditMode(on) {
+    if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-greybox-v1'); editorPuzzlePackPinned = true; }
+    if (!on && editorPuzzlePackPinned) { releasePuzzleAssetPack('woodland-puzzle-greybox-v1'); editorPuzzlePackPinned = false; }
     if (on && interactionState) {
       if (interactionState.type === 'pickup') interactionState.object.carried = false;
       else completeDrop();
@@ -1341,6 +1597,8 @@
   }
 
   function defaultAssetHeight(name) {
+    const info = editorAssetInfo.get(name);
+    if (Number.isFinite(info?.defaultHeight)) return info.defaultHeight;
     if (name === 'crate') return 0.88;
     if (name.startsWith('tree')) return 8.2;
     if (name === 'ground09' || name === 'ground04' || name === 'ground07') return 0.88;
@@ -1353,9 +1611,11 @@
     const id = `user-${Date.now().toString(36)}-${++userSceneCounter}`;
     const info = editorAssetInfo.get(type) || { category: 'dressing', gameplayType: null };
     const collection = info.category === 'gameplay' ? frontOccluders : targetCollectionForZ(point.z);
-    const gameplayCollision = type === 'crate'
-      ? { halfWidth: Math.max(0.46, w * CRATE_HALF_WIDTH_FACTOR), height: h * CRATE_COLLISION_HEIGHT_FACTOR, depth: 0.82, platform: true }
-      : null;
+    const gameplayCollision = info.collision
+      ? { ...info.collision }
+      : (type === 'crate' || info.gameplayType === 'crate')
+        ? { halfWidth: Math.max(0.43, w * CRATE_HALF_WIDTH_FACTOR), height: h * CRATE_COLLISION_HEIGHT_FACTOR, depth: 0.82, platform: true }
+        : null;
     const placementZ = info.category === 'gameplay' ? pathZ : point.z;
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
       id, userAdded:true, baseSx:w, baseSy:h, y:info.category === 'gameplay' ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z),
@@ -1469,6 +1729,8 @@
         btn.dataset.asset = name;
         if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
+        } else if (info.thumb) {
+          btn.innerHTML = `<span class="sidescroll-puzzle-thumb" aria-hidden="true">${info.thumb}</span><small>${info.label}</small>`;
         } else {
           const file = name.startsWith('tree')
             ? `sidescroll-tree-${name.slice(-2)}.png`
@@ -1492,6 +1754,25 @@
     }
   }
 
+  function drawPuzzleEditorGuides(ctx) {
+    for (const instance of activePuzzleInstances.values()) {
+      const b = puzzleBounds(instance);
+      const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
+      const right = projectWorldPoint(b.maxX, playSurfaceYAt(b.maxX)+0.04, pathZ);
+      const mark = projectWorldPoint(instance.marker.x, playSurfaceYAt(instance.marker.x)+0.12, pathZ);
+      if (!left || !right || !mark) continue;
+      ctx.save();
+      ctx.strokeStyle='rgba(240,205,127,.90)';ctx.fillStyle='rgba(23,32,38,.82)';ctx.lineWidth=2;ctx.setLineDash([6,4]);
+      ctx.beginPath();ctx.moveTo(left.x,left.y);ctx.lineTo(right.x,right.y);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(mark.x,mark.y,5,0,Math.PI*2);ctx.fillStyle='#f0cd7f';ctx.fill();
+      const label=`${instance.def.label || instance.marker.group} · ${instance.solved ? 'SOLVED' : 'ACTIVE'}`;
+      ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';
+      const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,mark.x-tw*.5));const ly=Math.max(48,mark.y-31);
+      ctx.fillStyle='rgba(23,32,38,.82)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle='#f4e4bf';ctx.fillText(label,lx+7,ly+14);
+      ctx.restore();
+    }
+  }
+
   function drawEditorOverlay() {
     if (!editorOverlayCtx || !editorOverlay) return;
     const ctx = editorOverlayCtx;
@@ -1499,6 +1780,7 @@
     const h = editorOverlay.clientHeight;
     ctx.clearRect(0, 0, w, h);
     if (!editMode) return;
+    drawPuzzleEditorGuides(ctx);
 
     // Show authored gameplay collision even when the object itself is partly
     // hidden by foreground dressing. This makes logs/rocks much easier to
@@ -1591,6 +1873,10 @@
     return x + Math.round((aroundX - x) / TILE_WIDTH) * TILE_WIDTH;
   }
 
+  function objectXNear(obj, aroundX) {
+    return obj?.wrap === false ? obj.x : wrapX(obj.x, aroundX);
+  }
+
   function collisionObjects() {
     return allSceneObjects().filter(obj => !obj.deleted && !obj.carried && obj.collision);
   }
@@ -1609,7 +1895,7 @@
 
   function cratesOverlapForStack(a, b) {
     if (!(a.gameplayLayerLocked && b.gameplayLayerLocked) && Math.abs(a.z - b.z) > 0.28) return false;
-    const ax = wrapX(a.x, b.x);
+    const ax = objectXNear(a, b.x);
     const reach = Math.min(crateHalfWidth(a), crateHalfWidth(b)) * 0.92;
     return Math.abs(ax - b.x) <= Math.max(0.16, reach);
   }
@@ -1661,7 +1947,7 @@
       if (!c?.platform) continue;
       const depth = c.depth ?? 0.82;
       if (Math.abs(obj.z - pathZ) > depth) continue;
-      const obstacleX = wrapX(obj.x, characterX);
+      const obstacleX = objectXNear(obj, characterX);
       const radius = Math.max(0.12, (c.halfWidth ?? obj.sx * 0.43) - 0.07);
       if (Math.abs(characterX - obstacleX) > radius) continue;
       const offset = platformOffsetFor(obj, characterX);
@@ -1680,7 +1966,7 @@
       if (!c) continue;
       const depth = c.depth ?? 0.8;
       if (Math.abs(obj.z - pathZ) > depth) continue;
-      const obstacleX = wrapX(obj.x, nextX);
+      const obstacleX = objectXNear(obj, nextX);
       const topOffset = c.platform ? platformOffsetFor(obj, nextX) : (c.height ?? 0.6);
       // If the character's feet are already at or above the top surface they
       // can pass over it; otherwise the side of the collider blocks movement.
@@ -1709,9 +1995,10 @@
 
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
+    const drawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
+    if (!extra?.force && dressingHiddenByPuzzle(obj, drawX)) return;
     bindMesh(obj.mesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
-    const drawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
     gl.uniformMatrix4fv(loc.model, false, mat4Model(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, obj.flip));
     gl.uniformMatrix4fv(loc.view, false, view);
     gl.uniformMatrix4fv(loc.projection, false, projection);
@@ -1932,7 +2219,7 @@
       if (standingOnObject === obj) continue;
       const depth = obj.collision?.depth ?? 0.9;
       if (Math.abs(obj.z - pathZ) > Math.max(0.95, depth)) continue;
-      const ox = wrapX(obj.x, characterXNow);
+      const ox = objectXNear(obj, characterXNow);
       const d = Math.abs(ox - characterXNow);
       // When crates are stacked at the same X, prefer the upper accessible one
       // so ACTION naturally peels a stack from the top instead of removing its
@@ -1978,7 +2265,7 @@
       time: 0,
       duration: PICKUP_DURATION,
       object: obj,
-      startX: wrapX(obj.x, characterXNow),
+      startX: objectXNear(obj, characterXNow),
       startY: obj.y,
       startZ: obj.z
     };
@@ -1999,8 +2286,22 @@
 
   function dropTargetForCarried() {
     const facing = character.lastFacing >= 0 ? 1 : -1;
-    const x = character.x + facing * 0.92;
+    let x = character.x + facing * 0.92;
     const z = carriedObject?.gameplayLayerLocked === false ? carriedObject.z : pathZ;
+
+    // Forgiving stack snap: when the intended drop is reasonably close to an
+    // existing crate centre, centre it cleanly.  This keeps the puzzle about
+    // arranging objects rather than pixel-perfect thumb placement.
+    if (carriedObject && isGameplayCrate(carriedObject)) {
+      let best=null,bestD=Infinity;
+      for (const other of allSceneObjects()) {
+        if (other===carriedObject || !isGameplayCrate(other)) continue;
+        const ox=objectXNear(other,x);const d=Math.abs(ox-x);
+        if (d<0.58 && d<bestD) {best=other;bestD=d;}
+      }
+      if (best) x=objectXNear(best,x);
+    }
+
     const temp = carriedObject ? { ...carriedObject, x, z, carried: false } : null;
     const y = temp ? restYForGameplayObject(temp, x, null, true) : playSurfaceYAt(x);
     return { x, z, y };
@@ -2069,6 +2370,7 @@
 
   function render(now) {
     resize();
+    updatePuzzleStreaming(character?.x ?? camera.x);
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
@@ -2172,6 +2474,8 @@
 
     character.x = camera.x + character.screenOffsetX;
     character.y = playSurfaceYAt(character.x) + jumpOffset;
+    updatePuzzleStreaming(character.x);
+    checkPuzzleCompletion(character.x);
 
     gl.clearColor(fogColor[0], fogColor[1], fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -2204,9 +2508,11 @@
         : (addAssetType ? `ADD ${addAssetType}` : 'tap scenery to select');
       statusEl.textContent = `EDIT · ${selected}`;
     } else {
+      const puzzle = activePuzzleNear(character.x);
+      const puzzleLabel = puzzle ? ` · ${puzzle.def.label}${puzzle.solved ? ' ✓' : ''}` : '';
       statusEl.textContent = debugDepth
-        ? `Depth view · camera X ${camera.x.toFixed(1)} · raised path geometry`
-        : `3D forest · ${motionLabel} · camera X ${camera.x.toFixed(1)} · dirt ground / scene editor`;
+        ? `Depth view · camera X ${camera.x.toFixed(1)} · raised path geometry${puzzleLabel}`
+        : `3D forest · ${motionLabel} · camera X ${camera.x.toFixed(1)}${puzzleLabel}`;
     }
 
     updateActionUI();
@@ -2315,6 +2621,7 @@
   editorResetBtn?.addEventListener('click', () => {
     if (!window.confirm('Reset all SideScroll scene edits on this device?')) return;
     try { localStorage.removeItem(SCENE_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
   editorDuplicateBtn?.addEventListener('click', duplicateSelected);

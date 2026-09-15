@@ -11318,3 +11318,12 @@ body[data-game-id="game-16"] .sidescroll-controls.sidescroll-controls-drive .sid
   body[data-game-id="game-16"] .sidescroll-controls.sidescroll-controls-drive{height:52px!important;width:min(56vw,520px)!important;}
   body[data-game-id="game-16"] .sidescroll-controls.sidescroll-controls-drive .sidescroll-drive{height:52px!important;}
 }
+
+/* SideScroll v0.1.3 — generated puzzle-pack thumbnails used by the Puzzle Lab. */
+body[data-game-id="game-16"] .sidescroll-puzzle-thumb{
+  width:46px;height:42px;display:grid;place-items:center;
+  border-radius:8px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(20,27,31,.38);color:#e2bd7a;
+  font-size:25px;font-weight:900;line-height:1;
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+}
