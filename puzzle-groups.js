@@ -1,12 +1,12 @@
 window.SideScrollPuzzleConfig = {
-  version: 2,
+  version: 3,
 
   // Puzzle art now comes from an authored transparent asset pack.  Layout and
   // collision remain data-driven so this whole module can still be moved by its
   // world marker or replaced later without changing the streaming system.
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
-      image: "woodland-puzzle-pack.png?v=0.1.4",
+      image: "woodland-puzzle-pack.png?v=0.1.5",
       assets: [
         { name: "puzzle-log-a", slice: { x: 12,  y: 664, w: 306, h: 179 } },
         { name: "puzzle-log-b", slice: { x: 339, y: 701, w: 219, h: 142 } },
@@ -25,10 +25,8 @@ window.SideScrollPuzzleConfig = {
       width: 12.2,
       assetPacks: ["woodland-puzzle-atlas-v1"],
 
-      // Clear the busy near-path dressing within the authored module box while
-      // leaving the distant forest intact, so the puzzle still sits inside the
-      // same continuous woodland.
-      exclusion: { minX: -4.7, maxX: 6.2, minZ: -7.0, maxZ: 7.2 },
+      // Keep the procedural woodland intact around the puzzle unless a later
+      // module genuinely needs local clearing.
       entryX: -4.8,
       exitX: 5.6,
 
@@ -65,7 +63,18 @@ window.SideScrollPuzzleConfig = {
           category: "gameplay", gameplayType: "obstacle",
           // The collision intentionally hugs the flatter root/platform region
           // rather than the entire fallen trunk silhouette.
-          collision: { halfWidth: 0.90, height: 1.72, depth: 1.04, platform: true }
+          collision: {
+            halfWidth: 0.98, height: 1.72, depth: 1.08, platform: true,
+            points: [
+              { x: -1.00, y: 0.00 },
+              { x: 0.12, y: 0.00 },
+              { x: 0.58, y: 0.26 },
+              { x: 0.10, y: 1.00 },
+              { x: -0.70, y: 1.00 },
+              { x: -1.00, y: 0.42 }
+            ]
+          },
+          shadow: { width: 3.15, height: 0.54, xOffset: 0.08, yOffset: 0.05, opacity: 0.34 }
         }
       ],
 

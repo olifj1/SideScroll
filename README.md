@@ -8,3 +8,10 @@
 - Adds stump and branch assets to the pack for future puzzle dressing.
 - Tweaks pickup/drop hint text to be item-based rather than crate-based.
 - No audio.
+
+
+## v0.1.5
+- Added bespoke polygon collision support for gameplay props.
+- Collision edit mode now lets you drag collision points directly in Edit mode.
+- Fallen tree puzzle now keeps surrounding dressing instead of clearing the module box.
+- Added a soft code-rendered ground shadow under the fallen tree.

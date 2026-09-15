@@ -551,6 +551,19 @@
     }
   }, 256, 256, false);
 
+  assetAspect.softShadow = 2.4;
+  textures.softShadow = createTexture((ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const g = ctx.createRadialGradient(w * 0.5, h * 0.58, 10, w * 0.5, h * 0.58, w * 0.42);
+    g.addColorStop(0, 'rgba(22,18,16,.58)');
+    g.addColorStop(0.55, 'rgba(22,18,16,.34)');
+    g.addColorStop(1, 'rgba(22,18,16,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.58, w * 0.42, h * 0.18, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }, 256, 128, true);
+
 
   // -------------------------------------------------------------------------
   // PUZZLE ASSET PACKS
@@ -805,6 +818,30 @@
     return 'far';
   }
 
+  function cloneCollision(collision) {
+    if (!collision) return null;
+    return {
+      ...collision,
+      points: Array.isArray(collision.points)
+        ? collision.points.map(point => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }))
+        : null
+    };
+  }
+
+  function defaultCollisionPoints() {
+    return [
+      { x: -1, y: 0 },
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: -1, y: 1 }
+    ];
+  }
+
+  function normalisedCollisionPoints(collision) {
+    const pts = collision?.points;
+    return Array.isArray(pts) && pts.length >= 3 ? pts : defaultCollisionPoints();
+  }
+
   function addObject(collection, type, x, z, width, height, opts = {}) {
     const resolvedHeight = height;
     const resolvedWidth = width ?? resolvedHeight * (assetAspect[type] || 1);
@@ -835,7 +872,8 @@
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
       layer: opts.layer || classifyLayer(z),
       wrap: opts.wrap !== false,
-      collision: opts.collision ? { ...opts.collision } : null,
+      collision: cloneCollision(opts.collision),
+      shadow: opts.shadow ? { ...opts.shadow } : null,
       deleted: !!opts.deleted,
       carried: false,
       userAdded: !!opts.userAdded,
@@ -1096,7 +1134,7 @@
     state.objects[obj.puzzleObjectId] = {
       x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
       deleted:!!obj.deleted,
-      collision:obj.collision ? { ...obj.collision } : null
+      collision:cloneCollision(obj.collision)
     };
     savePuzzleState();
     return true;
@@ -1126,7 +1164,8 @@
         category:prop.category || 'gameplay',
         gameplayType:prop.gameplayType || null,
         gameplayLayerLocked:true,
-        collision:prior?.collision ?? prop.collision ?? null,
+        collision:cloneCollision(prior?.collision ?? prop.collision ?? null),
+        shadow: prop.shadow || null,
         deleted:prior?.deleted ?? false,
         puzzleInstanceId:marker.id,
         puzzleObjectId:prop.id
@@ -1167,9 +1206,22 @@
     for (const packName of instance.def.assetPacks || []) releasePuzzleAssetPack(packName);
   }
 
+  function moduleBoundsFor(def, marker) {
+    if (def?.exclusion) {
+      return {
+        minX: marker.x + def.exclusion.minX,
+        maxX: marker.x + def.exclusion.maxX,
+        minZ: def.exclusion.minZ,
+        maxZ: def.exclusion.maxZ,
+        hidesDressing: true
+      };
+    }
+    const half = Math.max(1.5, (def?.width ?? 8) * 0.5);
+    return { minX: marker.x - half, maxX: marker.x + half, minZ: -999, maxZ: 999, hidesDressing: false };
+  }
+
   function puzzleBounds(instance) {
-    const ex = instance.def.exclusion || { minX:-4, maxX:4, minZ:-6, maxZ:6 };
-    return { minX:instance.marker.x+ex.minX, maxX:instance.marker.x+ex.maxX, minZ:ex.minZ, maxZ:ex.maxZ };
+    return moduleBoundsFor(instance.def, instance.marker);
   }
 
   function updatePuzzleStreaming(playerX) {
@@ -1178,13 +1230,13 @@
     for (const marker of puzzleConfig.markers || []) {
       const def = markerDefinition(marker);
       if (!def) continue;
-      const ex = def.exclusion || { minX:-4, maxX:4 };
-      const minX = marker.x + ex.minX;
-      const maxX = marker.x + ex.maxX;
+      const bounds = moduleBoundsFor(def, marker);
+      const minX = bounds.minX;
+      const maxX = bounds.maxX;
       const active = activePuzzleInstances.get(marker.id);
       if (!active) {
-        if (playerX >= minX-loadAhead && playerX <= maxX+loadAhead) instantiatePuzzleGroup(marker);
-      } else if (playerX < minX-keepBehind || playerX > maxX+keepBehind) {
+        if (playerX >= minX - loadAhead && playerX <= maxX + loadAhead) instantiatePuzzleGroup(marker);
+      } else if (playerX < minX - keepBehind || playerX > maxX + keepBehind) {
         unloadPuzzleGroup(marker.id);
       }
     }
@@ -1194,6 +1246,7 @@
     if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId) return false;
     for (const instance of activePuzzleInstances.values()) {
       const b = puzzleBounds(instance);
+      if (!b.hidesDressing) continue;
       if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
     }
     return false;
@@ -1253,7 +1306,7 @@
     else if (obj.category === 'gameplay' && obj.gameplayLayerLocked == null) obj.gameplayLayerLocked = true;
     if (obj.category === 'gameplay' && obj.gameplayLayerLocked) obj.z = pathZ;
     if (override.collision === null) obj.collision = null;
-    else if (override.collision) obj.collision = { ...override.collision };
+    else if (override.collision) obj.collision = cloneCollision(override.collision);
     obj.y = Number.isFinite(override.y)
       ? override.y
       : (obj.category === 'gameplay' && obj.gameplayLayerLocked ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z));
@@ -1267,7 +1320,7 @@
       const saved = sceneData.added.find(item => item.id === obj.id);
       const payload = {
         id: obj.id, assetName: obj.assetName, x: obj.x, y: obj.y, z: obj.z,
-        sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? { ...obj.collision } : null,
+        sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked, deleted: !!obj.deleted
       };
@@ -1276,7 +1329,7 @@
     } else {
       sceneData.overrides[obj.id] = {
         x: obj.x, y: obj.y, z: obj.z, sx: obj.sx, sy: obj.sy, flip: obj.flip,
-        collision: obj.collision ? { ...obj.collision } : null, category: obj.category || 'dressing',
+        collision: obj.collision ? cloneCollision(obj.collision) : null, category: obj.category || 'dressing',
         gameplayType: obj.gameplayType || null, gameplayLayerLocked: !!obj.gameplayLayerLocked, deleted: !!obj.deleted
       };
     }
@@ -1290,7 +1343,7 @@
       const collection = saved.category === 'gameplay' || saved.assetName === 'crate' ? frontOccluders : targetCollectionForZ(saved.z);
       const obj = addObject(collection, saved.assetName, saved.x, saved.z, saved.sx, saved.sy, {
         id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip,
-        y: Number.isFinite(saved.y) ? saved.y : ((saved.category === 'gameplay' || saved.assetName === 'crate') ? playSurfaceYAt(saved.x) : pathGroundYAt(saved.x, saved.z)), collision: saved.collision, deleted: saved.deleted,
+        y: Number.isFinite(saved.y) ? saved.y : ((saved.category === 'gameplay' || saved.assetName === 'crate') ? playSurfaceYAt(saved.x) : pathGroundYAt(saved.x, saved.z)), collision: cloneCollision(saved.collision), deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(saved.z),
         category: saved.category || (saved.assetName === 'crate' ? 'gameplay' : 'dressing'), gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
         gameplayLayerLocked: typeof saved.gameplayLayerLocked === 'boolean' ? saved.gameplayLayerLocked : (saved.category === 'gameplay' || saved.assetName === 'crate')
@@ -1426,6 +1479,8 @@
   let addAssetType = null;
   let editorTapState = null;
   let selectionCycleInfo = null;
+  let collisionEditMode = false;
+  let collisionHandleIndex = -1;
   let currentViewMatrix = mat4Identity();
   const editorAssetGroups = [
     { title: 'GAMEPLAY', items: [
@@ -1597,7 +1652,7 @@
       editorGameLayerBtn.disabled = !isGameplay;
       editorGameLayerBtn.classList.toggle('active', !!(isGameplay && selectedObject.gameplayLayerLocked));
     }
-    editorCollisionBtn?.classList.toggle('active', !!selectedObject?.collision);
+    editorCollisionBtn?.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
     editorAddBtn?.classList.toggle('active', !!addAssetType);
   }
 
@@ -1605,6 +1660,8 @@
     selectedObject = obj && !obj.deleted ? obj : null;
     if (!preserveCycle) selectionCycleInfo = null;
     addAssetType = null;
+    collisionEditMode = false;
+    collisionHandleIndex = -1;
     if (editorPalette) editorPalette.hidden = true;
     updateAssetPaletteState();
     updateEditorButtons();
@@ -1619,6 +1676,7 @@
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; }
     editMode = !!on;
     document.body.classList.toggle('sidescroll-editing', editMode);
     if (editBtn) {
@@ -1695,7 +1753,7 @@
     const obj = addObject(collection, selectedObject.assetName, point.x, point.z, selectedObject.sx, selectedObject.sy, {
       id, userAdded:true, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy,
       y:selectedObject.category === 'gameplay' ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z), shade:selectedObject.shade, opacity:selectedObject.opacity,
-      flip:selectedObject.flip, layer:classifyLayer(point.z), collision:selectedObject.collision ? { ...selectedObject.collision } : null,
+      flip:selectedObject.flip, layer:classifyLayer(point.z), collision:selectedObject.collision ? cloneCollision(selectedObject.collision) : null,
       category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked: !!selectedObject.gameplayLayerLocked
     });
     if (obj.category === 'gameplay') obj.y = restYForGameplayObject(obj, obj.x, null, true);
@@ -1725,12 +1783,25 @@
 
   function toggleSelectedCollision() {
     if (!selectedObject || selectedObject.deleted) return;
-    selectedObject.collision = selectedObject.collision ? null : {
-      halfWidth: Math.max(0.18, selectedObject.sx * (selectedObject.category === 'gameplay' ? 0.43 : 0.34)),
-      height: Math.max(0.24, selectedObject.sy * (selectedObject.category === 'gameplay' ? CRATE_COLLISION_HEIGHT_FACTOR : 0.66)),
-      depth: Math.max(0.42, Math.min(1.15, selectedObject.sx * 0.42)),
-      platform: selectedObject.category === 'gameplay'
-    };
+    if (!selectedObject.collision) {
+      selectedObject.collision = {
+        halfWidth: Math.max(0.18, selectedObject.sx * (selectedObject.category === 'gameplay' ? 0.43 : 0.34)),
+        height: Math.max(0.24, selectedObject.sy * (selectedObject.category === 'gameplay' ? CRATE_COLLISION_HEIGHT_FACTOR : 0.66)),
+        depth: Math.max(0.42, Math.min(1.15, selectedObject.sx * 0.42)),
+        platform: selectedObject.category === 'gameplay',
+        points: defaultCollisionPoints()
+      };
+      collisionEditMode = true;
+      hintEl.textContent = 'Collision added · drag the orange corner handles to fit the shape';
+      hintEl.classList.remove('hidden');
+    } else {
+      selectedObject.collision.points = normalisedCollisionPoints(selectedObject.collision).map(point => ({ ...point }));
+      collisionEditMode = !collisionEditMode;
+      hintEl.textContent = collisionEditMode
+        ? 'Collision edit mode · drag the orange corner handles'
+        : 'Collision edit mode off';
+      hintEl.classList.remove('hidden');
+    }
     recordObjectEdit(selectedObject);
     updateEditorButtons();
   }
@@ -1843,23 +1914,17 @@
     // find and tune in edit mode.
     for (const obj of collisionObjects()) {
       if (obj === selectedObject) continue;
-      const c = obj.collision;
-      const drawX = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
-      const y0 = obj.y;
-      const points = [
-        projectWorldPoint(drawX-c.halfWidth, y0, obj.z),
-        projectWorldPoint(drawX+c.halfWidth, y0, obj.z),
-        projectWorldPoint(drawX-c.halfWidth, y0+c.height, obj.z),
-        projectWorldPoint(drawX+c.halfWidth, y0+c.height, obj.z)
-      ].filter(Boolean);
-      if (points.length < 2) continue;
-      const xs=points.map(p=>p.x), ys=points.map(p=>p.y);
-      const left=Math.min(...xs), right=Math.max(...xs), top=Math.min(...ys), bottom=Math.max(...ys);
+      const poly = collisionScreenPolygon(obj);
+      if (poly.length < 3) continue;
       ctx.save();
       ctx.strokeStyle='rgba(226,161,92,.58)';
       ctx.lineWidth=1.25;
       ctx.setLineDash([3,3]);
-      ctx.strokeRect(left,top,right-left,bottom-top);
+      ctx.beginPath();
+      ctx.moveTo(poly[0].x, poly[0].y);
+      for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
+      ctx.closePath();
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -1888,25 +1953,31 @@
       }
 
       if (selectedObject.collision) {
-        const c = selectedObject.collision;
-        const drawX = selectedObject.wrap ? wrapX(selectedObject.x, camera.x) : selectedObject.x;
-        const y0 = selectedObject.y;
-        const points = [
-          projectWorldPoint(drawX-c.halfWidth, y0, selectedObject.z),
-          projectWorldPoint(drawX+c.halfWidth, y0, selectedObject.z),
-          projectWorldPoint(drawX-c.halfWidth, y0+c.height, selectedObject.z),
-          projectWorldPoint(drawX+c.halfWidth, y0+c.height, selectedObject.z)
-        ].filter(Boolean);
-        if (points.length >= 2) {
-          const xs=points.map(p=>p.x), ys=points.map(p=>p.y);
-          const left=Math.min(...xs), right=Math.max(...xs), top=Math.min(...ys), bottom=Math.max(...ys);
+        const poly = collisionScreenPolygon(selectedObject);
+        if (poly.length >= 3) {
           ctx.save();
           ctx.fillStyle='rgba(228,164,89,.12)';
           ctx.strokeStyle='#e2a15c';
           ctx.lineWidth=2;
           ctx.setLineDash([4,3]);
-          ctx.fillRect(left,top,right-left,bottom-top);
-          ctx.strokeRect(left,top,right-left,bottom-top);
+          ctx.beginPath();
+          ctx.moveTo(poly[0].x, poly[0].y);
+          for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          if (collisionEditMode) {
+            ctx.setLineDash([]);
+            for (const handle of collisionHandlePositions(selectedObject)) {
+              ctx.beginPath();
+              ctx.fillStyle = handle.index === collisionHandleIndex ? '#ff4f95' : '#f3c57f';
+              ctx.strokeStyle = '#483225';
+              ctx.lineWidth = 1.5;
+              ctx.arc(handle.x, handle.y, 6, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+            }
+          }
           ctx.restore();
         }
       }
@@ -1931,6 +2002,104 @@
 
   function objectXNear(obj, aroundX) {
     return obj?.wrap === false ? obj.x : wrapX(obj.x, aroundX);
+  }
+
+
+  function collisionWorldPoints(obj, aroundX = obj.x) {
+    if (!obj?.collision) return [];
+    const c = obj.collision;
+    const halfWidth = Math.max(0.001, c.halfWidth ?? Math.max(0.18, obj.sx * 0.34));
+    const height = Math.max(0.001, c.height ?? Math.max(0.24, obj.sy * 0.66));
+    return normalisedCollisionPoints(c).map(point => ({
+      x: aroundX + point.x * halfWidth,
+      y: obj.y + point.y * height
+    }));
+  }
+
+  function collisionRectScreenBounds(obj) {
+    if (!obj?.collision) return null;
+    const c = obj.collision;
+    const drawX = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
+    const points = [
+      projectWorldPoint(drawX - c.halfWidth, obj.y, obj.z),
+      projectWorldPoint(drawX + c.halfWidth, obj.y, obj.z),
+      projectWorldPoint(drawX - c.halfWidth, obj.y + c.height, obj.z),
+      projectWorldPoint(drawX + c.halfWidth, obj.y + c.height, obj.z)
+    ].filter(Boolean);
+    if (points.length < 2) return null;
+    const xs = points.map(p => p.x), ys = points.map(p => p.y);
+    return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
+  }
+
+  function collisionScreenPolygon(obj) {
+    const drawX = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
+    return collisionWorldPoints(obj, drawX)
+      .map(point => projectWorldPoint(point.x, point.y, obj.z))
+      .filter(Boolean);
+  }
+
+  function uniqueSorted(values) {
+    values.sort((a, b) => a - b);
+    return values.filter((value, index) => index === 0 || Math.abs(value - values[index - 1]) > 0.0001);
+  }
+
+  function collisionSpanAtY(obj, worldY) {
+    const points = collisionWorldPoints(obj, obj.x);
+    if (points.length < 2) return null;
+    const xs = [];
+    const eps = 0.0001;
+    for (let i = 0; i < points.length; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      if (Math.abs(a.y - b.y) < eps) {
+        if (Math.abs(worldY - a.y) <= eps) xs.push(a.x, b.x);
+        continue;
+      }
+      const minY = Math.min(a.y, b.y) - eps;
+      const maxY = Math.max(a.y, b.y) + eps;
+      if (worldY < minY || worldY > maxY) continue;
+      const t = (worldY - a.y) / (b.y - a.y);
+      if (t < -eps || t > 1 + eps) continue;
+      xs.push(a.x + (b.x - a.x) * t);
+    }
+    const vals = uniqueSorted(xs);
+    if (!vals.length) return null;
+    return { minX: vals[0], maxX: vals[vals.length - 1] };
+  }
+
+  function collisionTopHeightAtX(obj, worldX) {
+    const points = collisionWorldPoints(obj, obj.x);
+    if (points.length < 2) return -Infinity;
+    const ys = [];
+    const eps = 0.0001;
+    for (let i = 0; i < points.length; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      if (Math.abs(a.x - b.x) < eps) {
+        if (Math.abs(worldX - a.x) <= eps) ys.push(a.y, b.y);
+        continue;
+      }
+      const minX = Math.min(a.x, b.x) - eps;
+      const maxX = Math.max(a.x, b.x) + eps;
+      if (worldX < minX || worldX > maxX) continue;
+      const t = (worldX - a.x) / (b.x - a.x);
+      if (t < -eps || t > 1 + eps) continue;
+      ys.push(a.y + (b.y - a.y) * t);
+    }
+    const vals = uniqueSorted(ys);
+    return vals.length ? vals[vals.length - 1] : -Infinity;
+  }
+
+  function collisionHandlePositions(obj) {
+    const bounds = collisionRectScreenBounds(obj);
+    if (!bounds || !obj?.collision) return [];
+    const width = Math.max(1, bounds.right - bounds.left);
+    const height = Math.max(1, bounds.bottom - bounds.top);
+    return normalisedCollisionPoints(obj.collision).map((point, index) => ({
+      index,
+      x: bounds.left + ((point.x + 1) * 0.5) * width,
+      y: bounds.bottom - point.y * height
+    }));
   }
 
   function collisionObjects() {
@@ -1991,7 +2160,8 @@
 
   function platformOffsetFor(obj, characterX) {
     if (!obj?.collision?.platform) return 0;
-    const platformTop = obj.y + (obj.collision.height ?? obj.sy * CRATE_COLLISION_HEIGHT_FACTOR);
+    const platformTop = collisionTopHeightAtX(obj, characterX);
+    if (!Number.isFinite(platformTop) || platformTop <= -Infinity / 2) return 0;
     return platformTop - playSurfaceYAt(characterX);
   }
 
@@ -2003,9 +2173,6 @@
       if (!c?.platform) continue;
       const depth = c.depth ?? 0.82;
       if (Math.abs(obj.z - pathZ) > depth) continue;
-      const obstacleX = objectXNear(obj, characterX);
-      const radius = Math.max(0.12, (c.halfWidth ?? obj.sx * 0.43) - 0.07);
-      if (Math.abs(characterX - obstacleX) > radius) continue;
       const offset = platformOffsetFor(obj, characterX);
       if (offset <= ceiling + 0.08 && offset > bestOffset) { best = obj; bestOffset = offset; }
     }
@@ -2022,15 +2189,17 @@
       if (!c) continue;
       const depth = c.depth ?? 0.8;
       if (Math.abs(obj.z - pathZ) > depth) continue;
-      const obstacleX = objectXNear(obj, nextX);
-      const topOffset = c.platform ? platformOffsetFor(obj, nextX) : (c.height ?? 0.6);
-      // If the character's feet are already at or above the top surface they
-      // can pass over it; otherwise the side of the collider blocks movement.
+      const topOffset = c.platform ? platformOffsetFor(obj, nextX) : ((collisionTopHeightAtX(obj, nextX) || obj.y + c.height) - playSurfaceYAt(nextX));
       if (clearanceHeight >= topOffset - 0.035) continue;
-      const radius = (c.halfWidth ?? Math.max(0.22, obj.sx * 0.34)) + 0.18;
-      if (Math.abs(nextX - obstacleX) < radius) {
-        const side = currentX <= obstacleX ? -1 : 1;
-        resolved = obstacleX + side * radius - offset;
+      const sampleY = playSurfaceYAt(nextX) + Math.max(0.06, clearanceHeight + 0.04);
+      const span = collisionSpanAtY(obj, sampleY);
+      if (!span) continue;
+      const paddedMin = span.minX - 0.18;
+      const paddedMax = span.maxX + 0.18;
+      if (nextX > paddedMin && nextX < paddedMax) {
+        const centre = (span.minX + span.maxX) * 0.5;
+        const side = currentX <= centre ? -1 : 1;
+        resolved = (side < 0 ? paddedMin : paddedMax) - offset;
       }
     }
     return resolved;
@@ -2049,10 +2218,40 @@
     return [base[0] * obj.shade, base[1] * obj.shade, base[2] * obj.shade];
   }
 
+  function drawObjectShadow(obj, view, drawX) {
+    if (!obj?.shadow) return;
+    const shadow = obj.shadow === true ? {} : obj.shadow;
+    bindMesh(billboardMesh);
+    gl.bindTexture(gl.TEXTURE_2D, textures.softShadow);
+    gl.uniformMatrix4fv(loc.model, false, mat4Model(
+      drawX + (shadow.xOffset ?? 0),
+      playSurfaceYAt(drawX) + (shadow.yOffset ?? 0.04),
+      obj.z + (shadow.zOffset ?? 0.03),
+      shadow.width ?? Math.max(1.05, obj.sx * 0.72),
+      shadow.height ?? Math.max(0.24, obj.sy * 0.16),
+      1,
+      false
+    ));
+    gl.uniformMatrix4fv(loc.view, false, view);
+    gl.uniformMatrix4fv(loc.projection, false, projection);
+    gl.uniform3f(loc.tint, 0.16, 0.15, 0.14);
+    gl.uniform1f(loc.highlight, 0);
+    gl.uniform3f(loc.highlightColor, 0, 0, 0);
+    gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
+    gl.uniform1f(loc.fogNear, 6.2);
+    gl.uniform1f(loc.fogFar, 44.0);
+    gl.uniform1f(loc.fogAmount, debugDepth ? 0.08 : (shadow.fogAmount ?? 0.28));
+    gl.uniform1f(loc.opacity, shadow.opacity ?? 0.42);
+    gl.uniform2f(loc.uvScale, 1, 1);
+    gl.uniform2f(loc.uvOffset, 0, 0);
+    gl.drawElements(gl.TRIANGLES, billboardMesh.count, gl.UNSIGNED_SHORT, 0);
+  }
+
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
     const drawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
     if (!extra?.force && dressingHiddenByPuzzle(obj, drawX)) return;
+    if (!extra?.force) drawObjectShadow(obj, view, drawX);
     bindMesh(obj.mesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     gl.uniformMatrix4fv(loc.model, false, mat4Model(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, obj.flip));
@@ -2706,6 +2905,18 @@
         return;
       }
 
+      if (selectedObject && collisionEditMode && selectedObject.collision) {
+        const handles = collisionHandlePositions(selectedObject);
+        const handle = handles.find(item => Math.hypot(item.x - e.clientX, item.y - e.clientY) <= 16);
+        if (handle) {
+          editorDragKind = 'collision-handle';
+          collisionHandleIndex = handle.index;
+          hintEl.textContent = 'Drag the orange handle to reshape the collision';
+          hintEl.classList.remove('hidden');
+          return;
+        }
+      }
+
       const candidates = pickSceneObjects(e.clientX, e.clientY);
       const alreadySelectedIndex = selectedObject ? candidates.indexOf(selectedObject) : -1;
       const hit = alreadySelectedIndex >= 0 ? selectedObject : (candidates[0] || null);
@@ -2762,6 +2973,17 @@
         moveObjectToCorrectCollection(selectedObject);
         sortSceneCollections();
         selectionCycleInfo = null;
+      } else if (editorDragKind === 'collision-handle' && selectedObject?.collision && collisionHandleIndex >= 0) {
+        const bounds = collisionRectScreenBounds(selectedObject);
+        if (!bounds) return;
+        const nx = Rig.clamp((((e.clientX - bounds.left) / Math.max(1, bounds.right - bounds.left)) * 2) - 1, -1, 1);
+        const ny = Rig.clamp((bounds.bottom - e.clientY) / Math.max(1, bounds.bottom - bounds.top), 0, 1);
+        const points = normalisedCollisionPoints(selectedObject.collision).map(point => ({ ...point }));
+        if (points[collisionHandleIndex]) {
+          points[collisionHandleIndex].x = nx;
+          points[collisionHandleIndex].y = ny;
+          selectedObject.collision.points = points;
+        }
       } else if (editorDragKind === 'pan') {
         const dx = e.clientX - editorPanStart;
         camera.x = editorPanCameraX - dx * 0.0075;
@@ -2784,15 +3006,19 @@
           const currentIndex = Math.max(0, candidates.indexOf(editorTapState.selectedAtDown));
           const next = candidates[(currentIndex + 1) % candidates.length];
           selectedObject = next;
+          collisionEditMode = false;
           selectionCycleInfo = cycleInfoFor(next, candidates);
           updateEditorButtons();
           hintEl.textContent = `Depth ${selectionCycleInfo.index + 1}/${candidates.length} · tap again to cycle · drag to move`;
           hintEl.classList.remove('hidden');
         }
+      } else if (editorDragKind === 'collision-handle' && selectedObject) {
+        recordObjectEdit(selectedObject);
       }
       editorTapState = null;
       editorPointer = null;
       editorDragKind = null;
+      collisionHandleIndex = -1;
       return;
     }
     if (e.pointerId === activePointer) activePointer = null;
