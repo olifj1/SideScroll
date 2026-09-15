@@ -1438,6 +1438,11 @@
   const WALK_POINT = 0.50;
   const WALK_SPEED = 1.15;
   const RUN_SPEED = 2.85;
+  // Horizontal character footprint used for traversal collision.  The old
+  // resolver effectively treated the character as a point, which allowed her
+  // to enter gaps that the visible body could not plausibly fit through.
+  const PLAYER_COLLISION_HALF_WIDTH = 0.31;
+  const PLAYER_COLLISION_SKIN = 0.025;
   const WALK_STRIDE = 1.45;
   const RUN_STRIDE = 2.05;
   const JUMP_VELOCITY = 5.05;
@@ -1668,8 +1673,8 @@
   }
 
   function setEditMode(on) {
-    if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-greybox-v1'); editorPuzzlePackPinned = true; }
-    if (!on && editorPuzzlePackPinned) { releasePuzzleAssetPack('woodland-puzzle-greybox-v1'); editorPuzzlePackPinned = false; }
+    if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = true; }
+    if (!on && editorPuzzlePackPinned) { releasePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = false; }
     if (on && interactionState) {
       if (interactionState.type === 'pickup') interactionState.object.carried = false;
       else completeDrop();
@@ -2182,27 +2187,66 @@
   function resolveObstacleMove(currentCameraX, proposedCameraX, clearanceHeight) {
     const offset = character.screenOffsetX;
     const currentX = currentCameraX + offset;
-    const nextX = proposedCameraX + offset;
-    let resolved = proposedCameraX;
+    const proposedX = proposedCameraX + offset;
+    const direction = Math.sign(proposedX - currentX);
+    if (!direction) return currentCameraX;
+
+    let resolvedCharacterX = proposedX;
+    const currentFeetY = playSurfaceYAt(currentX) + Math.max(0, clearanceHeight);
+    const proposedFeetY = playSurfaceYAt(proposedX) + Math.max(0, clearanceHeight);
+    const sampleY = Math.min(currentFeetY, proposedFeetY) + 0.055;
+
     for (const obj of collisionObjects()) {
       const c = obj.collision;
       if (!c) continue;
       const depth = c.depth ?? 0.8;
       if (Math.abs(obj.z - pathZ) > depth) continue;
-      const topOffset = c.platform ? platformOffsetFor(obj, nextX) : ((collisionTopHeightAtX(obj, nextX) || obj.y + c.height) - playSurfaceYAt(nextX));
+
+      // If the player's feet are already high enough to clear the platform top,
+      // this object should not block horizontal travel.
+      const topAtNext = collisionTopHeightAtX(obj, proposedX);
+      const topOffset = Number.isFinite(topAtNext)
+        ? topAtNext - playSurfaceYAt(proposedX)
+        : (c.height ?? 0.6);
       if (clearanceHeight >= topOffset - 0.035) continue;
-      const sampleY = playSurfaceYAt(nextX) + Math.max(0.06, clearanceHeight + 0.04);
+
       const span = collisionSpanAtY(obj, sampleY);
       if (!span) continue;
-      const paddedMin = span.minX - 0.18;
-      const paddedMax = span.maxX + 0.18;
-      if (nextX > paddedMin && nextX < paddedMax) {
-        const centre = (span.minX + span.maxX) * 0.5;
-        const side = currentX <= centre ? -1 : 1;
-        resolved = (side < 0 ? paddedMin : paddedMax) - offset;
+
+      // Expand the obstacle by the visible character's horizontal footprint.
+      // This is effectively a simple Minkowski expansion: the character centre
+      // cannot enter the enlarged span, so narrow visual gaps are rejected too.
+      const blockMin = span.minX - PLAYER_COLLISION_HALF_WIDTH - PLAYER_COLLISION_SKIN;
+      const blockMax = span.maxX + PLAYER_COLLISION_HALF_WIDTH + PLAYER_COLLISION_SKIN;
+
+      const alreadyOverlapping = currentX > blockMin && currentX < blockMax;
+      const blockCentre = (blockMin + blockMax) * 0.5;
+      if (direction > 0) {
+        const currentRight = currentX + PLAYER_COLLISION_HALF_WIDTH;
+        const proposedRight = resolvedCharacterX + PLAYER_COLLISION_HALF_WIDTH;
+        const obstacleLeft = span.minX - PLAYER_COLLISION_SKIN;
+        const crossesFromLeft = currentRight <= obstacleLeft + 0.02 && proposedRight > obstacleLeft;
+        const movingDeeperFromOverlap = alreadyOverlapping && currentX < blockCentre;
+        if (crossesFromLeft || movingDeeperFromOverlap) {
+          const stopX = blockMin;
+          // Never resolve opposite to the requested direction.  This removes
+          // the frame-to-frame push-back that caused rapid left/right flipping.
+          resolvedCharacterX = Math.max(currentX, Math.min(resolvedCharacterX, stopX));
+        }
+      } else {
+        const currentLeft = currentX - PLAYER_COLLISION_HALF_WIDTH;
+        const proposedLeft = resolvedCharacterX - PLAYER_COLLISION_HALF_WIDTH;
+        const obstacleRight = span.maxX + PLAYER_COLLISION_SKIN;
+        const crossesFromRight = currentLeft >= obstacleRight - 0.02 && proposedLeft < obstacleRight;
+        const movingDeeperFromOverlap = alreadyOverlapping && currentX > blockCentre;
+        if (crossesFromRight || movingDeeperFromOverlap) {
+          const stopX = blockMax;
+          resolvedCharacterX = Math.min(currentX, Math.max(resolvedCharacterX, stopX));
+        }
       }
     }
-    return resolved;
+
+    return resolvedCharacterX - offset;
   }
 
   function tintFor(obj) {
@@ -2718,12 +2762,12 @@
 
     const cameraDelta = camera.x - previousCameraX;
     const isWalking = Math.abs(cameraDelta) > 0.0001;
+    if (moveDir) character.lastFacing = moveDir;
     if (isWalking) {
       const travel = Math.abs(cameraDelta);
       const stride = Rig.lerp(WALK_STRIDE, RUN_STRIDE, smoothRun);
       locomotionPhase = (locomotionPhase + travel / Math.max(0.001, stride)) % 1;
       character.distanceTravelled += travel;
-      character.lastFacing = cameraDelta >= 0 ? 1 : -1;
     }
     previousCameraX = camera.x;
 

@@ -1,17 +1,7 @@
-# SideScroll v0.1.4
+# SideScroll v0.1.6
 
-- Replaces the greybox obstacle art with a hand-painted woodland puzzle asset pack on transparency (`woodland-puzzle-pack.png`).
-- Updates the first fallen-tree puzzle to use three movable logs instead of a line of crates, so the setup feels more natural in the woodland.
-- Starts the movable logs slightly off the side of the path so the player can walk past them before choosing to carry them into place.
-- Adds a broader fallen tree sprite with a flatter root-top silhouette and more visual space to descend on the right side.
-- Keeps the reusable puzzle-group system from v0.1.3, so this obstacle remains a portable module that can be streamed in from a marker and swapped out later.
-- Adds stump and branch assets to the pack for future puzzle dressing.
-- Tweaks pickup/drop hint text to be item-based rather than crate-based.
-- No audio.
-
-
-## v0.1.5
-- Added bespoke polygon collision support for gameplay props.
-- Collision edit mode now lets you drag collision points directly in Edit mode.
-- Fallen tree puzzle now keeps surrounding dressing instead of clearing the module box.
-- Added a soft code-rendered ground shadow under the fallen tree.
+- Stabilises character facing at obstacles so pushing against collision no longer causes rapid left/right flicking.
+- Gives the character a real horizontal collision footprint instead of treating her as a near-point, preventing entry into gaps that are visually too narrow.
+- Collision resolution now preserves the player's approach direction and never pushes the character backwards on alternating frames.
+- Fixes the editor's puzzle-asset pack reference so the woodland puzzle props remain available reliably in Edit mode.
+- No art, layout or audio changes in this release.
