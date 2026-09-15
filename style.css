@@ -11203,3 +11203,118 @@ body[data-game-id="game-17"] .walklab-tool{height:31px!important;border-radius:9
   body[data-game-id="game-17"] .walklab-panel{padding-top:36px;}
   body[data-game-id="game-17"] .walklab-tool-grid{grid-template-columns:repeat(3,1fr)!important;}
 }
+
+
+/* ============================================================
+   SideScroll v0.1.2 — solid portrait guard + swapped play controls
+   ============================================================ */
+/* On handheld portrait, cover the app completely. Nothing from the
+   launcher/game should remain visible or affect the portrait layout. */
+html.ss-mobile-portrait,
+html.ss-mobile-portrait body{
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  overflow:hidden!important;
+  background:#172026!important;
+}
+html.ss-mobile-portrait .ss-orientation-guard{
+  position:fixed!important;
+  inset:0!important;
+  z-index:1000000!important;
+  display:grid!important;
+  place-items:center!important;
+  box-sizing:border-box!important;
+  padding:max(28px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))!important;
+  background:#172026!important;
+  color:#eef3f1!important;
+  text-align:center!important;
+}
+html.ss-mobile-portrait .ss-orientation-guard .orientation-guard-card{
+  width:min(340px,82vw)!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+html.ss-mobile-portrait .ss-orientation-guard .orientation-phone{
+  width:58px!important;
+  height:86px!important;
+  margin:0 0 14px!important;
+  border-color:rgba(238,243,241,.78)!important;
+  transform:rotate(90deg)!important;
+}
+html.ss-mobile-portrait .ss-orientation-guard .orientation-phone::after{
+  background:rgba(238,243,241,.78)!important;
+}
+html.ss-mobile-portrait .ss-orientation-guard .orientation-phone span{
+  border-color:rgba(238,243,241,.25)!important;
+}
+html.ss-mobile-portrait .ss-orientation-guard strong{
+  max-width:100%!important;
+  color:#eef3f1!important;
+  font-size:clamp(30px,9vw,46px)!important;
+  line-height:1.02!important;
+  letter-spacing:-.04em!important;
+}
+html.ss-mobile-portrait .ss-orientation-guard p{
+  margin:0!important;
+  color:rgba(238,243,241,.62)!important;
+  font-size:clamp(15px,4.2vw,19px)!important;
+}
+
+/* Gameplay controls: Jump + Action together at lower-left, drive at lower-right. */
+body[data-game-id="game-16"] .sidescroll-secondary-controls.sidescroll-left-actions{
+  position:absolute!important;
+  z-index:12!important;
+  left:max(14px,env(safe-area-inset-left))!important;
+  right:auto!important;
+  bottom:max(12px,env(safe-area-inset-bottom))!important;
+  width:202px!important;
+  height:58px!important;
+  display:grid!important;
+  grid-template-columns:96px 96px!important;
+  gap:10px!important;
+  flex:none!important;
+}
+body[data-game-id="game-16"] .sidescroll-left-actions .sidescroll-jump-control,
+body[data-game-id="game-16"] .sidescroll-left-actions .sidescroll-secondary-control{
+  width:96px!important;
+  height:58px!important;
+  min-width:0!important;
+  margin:0!important;
+  border-radius:18px!important;
+  background:rgba(247,241,235,.88)!important;
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px);
+}
+body[data-game-id="game-16"] .sidescroll-left-actions .sidescroll-jump-control span{
+  font-size:24px!important;
+}
+body[data-game-id="game-16"] .sidescroll-controls.sidescroll-controls-drive{
+  position:absolute!important;
+  z-index:12!important;
+  left:auto!important;
+  right:max(14px,env(safe-area-inset-right))!important;
+  bottom:max(12px,env(safe-area-inset-bottom))!important;
+  width:min(54vw,560px)!important;
+  height:58px!important;
+  display:block!important;
+  flex:none!important;
+  pointer-events:auto!important;
+}
+body[data-game-id="game-16"] .sidescroll-controls.sidescroll-controls-drive .sidescroll-drive{
+  width:100%!important;
+  height:58px!important;
+}
+@media(max-height:390px){
+  body[data-game-id="game-16"] .sidescroll-secondary-controls.sidescroll-left-actions{
+    width:182px!important;height:52px!important;grid-template-columns:86px 86px!important;gap:10px!important;
+  }
+  body[data-game-id="game-16"] .sidescroll-left-actions .sidescroll-jump-control,
+  body[data-game-id="game-16"] .sidescroll-left-actions .sidescroll-secondary-control{
+    width:86px!important;height:52px!important;
+  }
+  body[data-game-id="game-16"] .sidescroll-controls.sidescroll-controls-drive{height:52px!important;width:min(56vw,520px)!important;}
+  body[data-game-id="game-16"] .sidescroll-controls.sidescroll-controls-drive .sidescroll-drive{height:52px!important;}
+}

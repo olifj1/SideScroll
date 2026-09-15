@@ -312,8 +312,8 @@ document.querySelectorAll(".game-info-overlay").forEach(overlay => {
   overlay.innerHTML = `
     <div class="orientation-guard-card">
       <div class="orientation-phone" aria-hidden="true"><span></span></div>
-      <strong>Turn sideways to play</strong>
-      <p>SideScroll is designed for landscape.</p>
+      <strong>Rotate your device</strong>
+      <p>SideScroll plays in landscape.</p>
     </div>
   `;
   document.body.appendChild(overlay);

@@ -24,10 +24,10 @@
     const android = kind === 'android';
     kicker.textContent = ios ? 'IPHONE / IPAD' : android ? 'ANDROID' : 'INSTALL SIDESCROLL';
     copy.textContent = ios
-      ? 'Apple keeps the final Add to Home Screen step in the browser Share menu.'
+      ? 'Install SideScroll as a web app to remove Safari’s address and tab bars.'
       : 'Add SideScroll to your Home screen so it opens like a standalone landscape app.';
     const labels = ios
-      ? ['Tap the Share button in Safari.', 'Choose Add to Home Screen.', 'Tap Add to confirm.']
+      ? ['Tap the Share button in Safari.', 'Choose Add to Home Screen.', 'Make sure Open as Web App is turned on, then tap Add.']
       : android
         ? ['Open the browser menu (⋮).', 'Choose Install app or Add to Home screen.', 'Confirm the install.']
         : ['Open your browser menu.', 'Choose Install app or Add to Home screen.', 'Confirm the install.'];

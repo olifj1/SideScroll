@@ -1,9 +1,5 @@
-# SideScroll v0.1.0
+# SideScroll v0.1.2
 
-First standalone branch from GameHub v1.8.89.
-
-- SideScroll and Walk Lab now live together in their own flat PWA.
-- Landscape-first presentation with fullscreen-style SideScroll controls over the scene.
-- Walk Lab uses a landscape canvas + control-panel layout.
-- No audio code or audio assets.
-- Existing SideScroll gameplay and rig logic are carried over unchanged from the clean pre-audio branch.
+- Portrait on handheld devices now shows a true full-screen rotate-device guard; launcher/game UI no longer renders visibly underneath it.
+- Landscape gameplay controls rearranged: Jump + Action together on the left, movement slider on the right.
+- No gameplay, physics, animation, or audio changes.

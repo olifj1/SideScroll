@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.1.0">
+  <link rel="stylesheet" href="style.css?v=0.1.2">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -67,10 +67,16 @@
           <div class="sidescroll-error" id="sidescroll-error" hidden></div>
         </div>
 
-        <div class="sidescroll-controls sidescroll-controls-drive" id="sidescroll-play-controls" aria-label="Movement controls">
+        <div class="sidescroll-secondary-controls sidescroll-left-actions" id="sidescroll-secondary-controls" aria-label="Jump and action controls">
           <button class="sidescroll-control sidescroll-action sidescroll-jump-control" id="sidescroll-jump" type="button" aria-label="Jump">
             <span aria-hidden="true">↑</span><small>JUMP</small>
           </button>
+          <button class="sidescroll-secondary-control" id="sidescroll-action" type="button" aria-label="Action">
+            <span aria-hidden="true">◇</span><small id="sidescroll-action-label">ACTION</small>
+          </button>
+        </div>
+
+        <div class="sidescroll-controls sidescroll-controls-drive" id="sidescroll-play-controls" aria-label="Movement controls">
           <div class="sidescroll-drive" id="sidescroll-drive" role="slider" aria-label="Move left or right; halfway walks and the edge runs" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0" tabindex="0">
             <div class="sidescroll-drive-track" aria-hidden="true">
               <span class="drive-zone drive-run-left">RUN</span>
@@ -81,12 +87,6 @@
               <span class="sidescroll-drive-thumb" id="sidescroll-drive-thumb"><i></i></span>
             </div>
           </div>
-        </div>
-
-        <div class="sidescroll-secondary-controls" id="sidescroll-secondary-controls" aria-label="Action controls">
-          <button class="sidescroll-secondary-control" id="sidescroll-action" type="button" aria-label="Action">
-            <span aria-hidden="true">◇</span><small id="sidescroll-action-label">ACTION</small>
-          </button>
         </div>
 
         <div class="sidescroll-editor-controls" id="sidescroll-editor-controls" hidden aria-label="Scene editor controls">
@@ -102,9 +102,9 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.1.0"></script>
-  <script src="core.js?v=0.1.0"></script>
-  <script src="walk-rig.js?v=0.1.0"></script>
-  <script src="sidescroll.js?v=0.1.0"></script>
+  <script src="site-config.js?v=0.1.2"></script>
+  <script src="core.js?v=0.1.2"></script>
+  <script src="walk-rig.js?v=0.1.2"></script>
+  <script src="sidescroll.js?v=0.1.2"></script>
 </body>
 </html>
