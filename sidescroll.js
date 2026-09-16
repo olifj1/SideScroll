@@ -32,7 +32,16 @@
   const puzzlePicker = document.getElementById('sidescroll-puzzle-picker');
   const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
   const puzzleFocusBtn = document.getElementById('sidescroll-puzzle-focus');
+  const puzzleManageEl = document.getElementById('sidescroll-puzzle-manage');
+  const puzzleSpawnBtn = document.getElementById('sidescroll-puzzle-spawn');
+  const puzzleCreateBtn = document.getElementById('sidescroll-puzzle-create');
+  const puzzleClearStageBtn = document.getElementById('sidescroll-puzzle-clear-stage');
+  const puzzleExportBtn = document.getElementById('sidescroll-puzzle-export');
+  const puzzleRemoveBtn = document.getElementById('sidescroll-puzzle-remove');
   const puzzleActionsEl = document.getElementById('sidescroll-puzzle-actions');
+  const puzzleObjectsEl = document.getElementById('sidescroll-puzzle-objects');
+  const puzzleObjectCountEl = document.getElementById('sidescroll-puzzle-object-count');
+  const puzzleObjectListEl = document.getElementById('sidescroll-puzzle-object-list');
   const puzzleModeEl = document.getElementById('sidescroll-puzzle-mode');
   const puzzleNameEl = document.getElementById('sidescroll-puzzle-name');
   const puzzleStateEl = document.getElementById('sidescroll-puzzle-state');
@@ -491,7 +500,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.1', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.2', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -685,7 +694,7 @@
     runtime.refs = Math.max(0, runtime.refs - 1);
   }
 
-  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.2.1`, 'Walk Lab cutout rig atlas');
+  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.2.2`, 'Walk Lab cutout rig atlas');
 
   function mulberry32(seed) {
     return function() {
@@ -1119,6 +1128,7 @@
   // -------------------------------------------------------------------------
   const PUZZLE_STATE_STORAGE_KEY = 'sidescroll.puzzle-groups.state.v1';
   const PUZZLE_START_STORAGE_KEY = 'sidescroll.puzzle-groups.starts.v1';
+  const PUZZLE_LIBRARY_STORAGE_KEY = 'sidescroll.puzzle-groups.library.v1';
   const activePuzzleInstances = new Map();
   const puzzleSavedState = (() => {
     try { return JSON.parse(localStorage.getItem(PUZZLE_STATE_STORAGE_KEY) || '{}') || {}; }
@@ -1128,10 +1138,20 @@
     try { return JSON.parse(localStorage.getItem(PUZZLE_START_STORAGE_KEY) || '{}') || {}; }
     catch (_) { return {}; }
   })();
+  const userPuzzleLibrary = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(PUZZLE_LIBRARY_STORAGE_KEY) || '{}') || {};
+      parsed.groups ||= {};
+      parsed.markers ||= [];
+      return parsed;
+    } catch (_) { return { groups:{}, markers:[] }; }
+  })();
   let puzzleTestMode = false;
   let puzzleTestMarkerId = null;
   const puzzleStartDirty = new Set();
   const puzzleDraftBounds = Object.create(null);
+  let puzzleWorkshopClear = false;
+  let puzzleWorkshopIsolated = false;
 
   function codeBoundsForMarker(marker) {
     const def = markerDefinition(marker);
@@ -1163,8 +1183,21 @@
     try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {}
   }
 
+  function savePuzzleLibrary() {
+    try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {}
+  }
+
+  function allPuzzleMarkers() {
+    return [...(puzzleConfig.markers || []), ...(userPuzzleLibrary.markers || [])];
+  }
+
   function markerDefinition(marker) {
-    return puzzleConfig.groups?.[marker.group] || null;
+    if (!marker) return null;
+    return userPuzzleLibrary.groups?.[marker.group] || puzzleConfig.groups?.[marker.group] || null;
+  }
+
+  function markerIsUserCreated(marker) {
+    return !!marker && (userPuzzleLibrary.markers || []).some(item => item.id === marker.id);
   }
 
   function savedPuzzleFor(markerId) {
@@ -1175,7 +1208,7 @@
 
 
   function markerForId(markerId) {
-    return (puzzleConfig.markers || []).find(marker => marker.id === markerId) || null;
+    return allPuzzleMarkers().find(marker => marker.id === markerId) || null;
   }
 
   function defaultPuzzleStart(marker) {
@@ -1435,7 +1468,22 @@
   function updatePuzzleStreaming(playerX) {
     const loadAhead = puzzleConfig.streaming?.loadAhead ?? 24;
     const keepBehind = puzzleConfig.streaming?.keepBehind ?? 34;
-    for (const marker of puzzleConfig.markers || []) {
+
+    // Puzzle authoring can temporarily become an isolated workshop. This lets
+    // us clear every puzzle from the scene, then spawn one exactly where we
+    // want it without the normal game markers immediately streaming back in.
+    if (editMode && editorScope === 'puzzle' && puzzleWorkshopIsolated) {
+      for (const [id] of [...activePuzzleInstances]) {
+        if (puzzleWorkshopClear || id !== editorPuzzleMarkerId) unloadPuzzleGroup(id);
+      }
+      if (!puzzleWorkshopClear && editorPuzzleMarkerId) {
+        const marker = markerForId(editorPuzzleMarkerId);
+        if (marker && !activePuzzleInstances.has(marker.id)) instantiatePuzzleGroup(marker);
+      }
+      return;
+    }
+
+    for (const marker of allPuzzleMarkers()) {
       const def = markerDefinition(marker);
       if (!def) continue;
       const bounds = moduleBoundsFor(def, marker);
@@ -1878,6 +1926,7 @@
   function selectedPuzzleInstance() {
     const marker = selectedPuzzleMarker();
     if (!marker) return null;
+    if (editMode && editorScope === 'puzzle' && puzzleWorkshopClear) return activePuzzleInstances.get(marker.id) || null;
     return activePuzzleInstances.get(marker.id) || instantiatePuzzleGroup(marker);
   }
 
@@ -1909,10 +1958,11 @@
     if (!puzzleSelect) return;
     const previous = editorPuzzleMarkerId;
     puzzleSelect.innerHTML = '';
-    for (const marker of puzzleConfig.markers || []) {
+    for (const marker of allPuzzleMarkers()) {
       const option = document.createElement('option');
       option.value = marker.id;
-      option.textContent = markerDefinition(marker)?.label || marker.group || marker.id;
+      const label = markerDefinition(marker)?.label || marker.group || marker.id;
+      option.textContent = `${label} · x ${Number(marker.x).toFixed(1)}${markerIsUserCreated(marker) ? ' · local' : ''}`;
       puzzleSelect.appendChild(option);
     }
     if (previous && markerForId(previous)) puzzleSelect.value = previous;
@@ -1927,9 +1977,10 @@
   }
 
   function choosePuzzleForEditing(markerId, focus = false) {
-    const marker = markerForId(markerId) || (puzzleConfig.markers || [])[0] || null;
+    const marker = markerForId(markerId) || allPuzzleMarkers()[0] || null;
     editorPuzzleMarkerId = marker?.id || null;
     if (marker) {
+      puzzleWorkshopClear = false;
       instantiatePuzzleGroup(marker);
       currentPuzzleBoundsRelative(marker);
       if (puzzleSelect) puzzleSelect.value = marker.id;
@@ -1940,14 +1991,276 @@
     updatePuzzlePanel();
   }
 
+
+  function puzzleSlug(text) {
+    return String(text || 'puzzle').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'puzzle';
+  }
+
+  function deepCopy(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
+  function puzzleSpawnX() {
+    return camera.x + character.screenOffsetX;
+  }
+
+  function uniqueLocalId(prefix) {
+    return `${prefix}-${Date.now().toString(36)}-${Math.floor(Math.random()*0xffff).toString(36)}`;
+  }
+
+  function addLocalMarker(groupId, x, startSnapshot = null) {
+    const marker = { id:uniqueLocalId('marker'), group:groupId, x:Number(x) || 0, local:true };
+    userPuzzleLibrary.markers.push(marker);
+    savePuzzleLibrary();
+    if (startSnapshot) {
+      puzzleStartState[marker.id] = deepCopy(startSnapshot);
+      puzzleStartState[marker.id].source = 'authored';
+      puzzleStartState[marker.id].savedAt = Date.now();
+      savePuzzleStarts();
+    }
+    populatePuzzleSelector();
+    return marker;
+  }
+
+  function spawnSelectedPuzzleHere() {
+    const sourceMarker = selectedPuzzleMarker();
+    if (!sourceMarker) return;
+    const sourceDef = markerDefinition(sourceMarker);
+    if (!sourceDef) return;
+    const marker = addLocalMarker(sourceMarker.group, puzzleSpawnX(), puzzleStartFor(sourceMarker));
+    puzzleWorkshopIsolated = true;
+    puzzleWorkshopClear = false;
+    choosePuzzleForEditing(marker.id, true);
+    applyPuzzleStart(selectedPuzzleInstance(), { persistRuntime:true });
+    hintEl.textContent = 'Puzzle spawned here · edit it, then Set Start';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function createPuzzleHere() {
+    const entered = window.prompt('Puzzle name', 'New puzzle');
+    if (entered == null) return;
+    const label = entered.trim() || 'New puzzle';
+    let groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}`;
+    let suffix = 2;
+    while (userPuzzleLibrary.groups[groupId] || puzzleConfig.groups?.[groupId]) groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}_${suffix++}`;
+    userPuzzleLibrary.groups[groupId] = {
+      label,
+      width:8,
+      assetPacks:['woodland-puzzle-atlas-v1'],
+      entryX:-3.5,
+      exitX:3.5,
+      props:[]
+    };
+    savePuzzleLibrary();
+    const marker = addLocalMarker(groupId, puzzleSpawnX(), {
+      source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{}
+    });
+    puzzleWorkshopIsolated = true;
+    puzzleWorkshopClear = false;
+    choosePuzzleForEditing(marker.id, true);
+    hintEl.textContent = 'Blank puzzle created · Add places assets inside this puzzle';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function clearPuzzleStage() {
+    if (puzzleTestMode) return;
+    puzzleWorkshopIsolated = true;
+    puzzleWorkshopClear = true;
+    selectObject(null);
+    for (const [id] of [...activePuzzleInstances]) unloadPuzzleGroup(id);
+    hintEl.textContent = 'Puzzle stage cleared · choose a template then Spawn Here, or create a new puzzle';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function removeSelectedLocalPuzzle() {
+    const marker = selectedPuzzleMarker();
+    if (!marker || !markerIsUserCreated(marker)) return;
+    if (!window.confirm('Remove this locally spawned puzzle instance?')) return;
+    unloadPuzzleGroup(marker.id);
+    userPuzzleLibrary.markers = userPuzzleLibrary.markers.filter(item => item.id !== marker.id);
+    delete puzzleStartState[marker.id];
+    delete puzzleSavedState[marker.id];
+    delete puzzleDraftBounds[marker.id];
+    savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState();
+    const next = allPuzzleMarkers()[0] || null;
+    editorPuzzleMarkerId = null;
+    populatePuzzleSelector();
+    if (next) choosePuzzleForEditing(next.id, false);
+    else updatePuzzlePanel();
+  }
+
+  function puzzleOrphanObjects(instance) {
+    if (!instance) return [];
+    const allowed = puzzleAssetNamesFor(instance.id);
+    const b = puzzleBounds(instance);
+    return allSceneObjects().filter(obj => {
+      if (!obj || obj.deleted || obj.puzzleInstanceId) return false;
+      const puzzleLikeName = allowed.has(obj.assetName)
+        || /^(?:puzzle-|fallen-tree$|tree-stump$|broken-branch$|log-|barrel$|puzzle-crate)/.test(obj.assetName || '');
+      if (!puzzleLikeName) return false;
+      const x = objectXNear(obj, instance.marker.x);
+      return x >= b.minX - 1 && x <= b.maxX + 1;
+    });
+  }
+
+  function focusObjectForAuthoring(obj) {
+    if (!obj) return;
+    camera.x = objectXNear(obj, camera.x) - character.screenOffsetX;
+    previousCameraX = camera.x;
+    if (obj.puzzleInstanceId === editorPuzzleMarkerId) selectObject(obj);
+    else {
+      // Orphans are deliberately selectable from the list even though normal
+      // puzzle-scope tapping refuses environment objects.
+      selectedObject = obj;
+      selectionCycleInfo = null;
+      collisionEditMode = false;
+      updateEditorButtons();
+    }
+  }
+
+  function deletePuzzleListObject(obj) {
+    if (!obj) return;
+    obj.deleted = true;
+    recordObjectEdit(obj);
+    if (obj.category === 'gameplay') settleGameplayCrates();
+    if (selectedObject === obj) selectedObject = null;
+    updateEditorButtons();
+    updatePuzzleObjectList();
+    updatePuzzlePanel();
+  }
+
+  function restorePuzzleListObject(obj) {
+    if (!obj) return;
+    obj.deleted = false;
+    recordObjectEdit(obj);
+    updatePuzzleObjectList();
+    updatePuzzlePanel();
+  }
+
+  function updatePuzzleObjectList() {
+    if (!puzzleObjectsEl || !puzzleObjectListEl) return;
+    const instance = (editMode && editorScope === 'puzzle' && !puzzleWorkshopClear) ? selectedPuzzleInstance() : null;
+    puzzleObjectsEl.hidden = !instance || puzzleTestMode;
+    if (!instance) { puzzleObjectListEl.innerHTML=''; if (puzzleObjectCountEl) puzzleObjectCountEl.textContent='0'; return; }
+    const rows = [...instance.objects.map(obj => ({obj, orphan:false})), ...puzzleOrphanObjects(instance).map(obj => ({obj, orphan:true}))];
+    if (puzzleObjectCountEl) puzzleObjectCountEl.textContent = String(rows.length);
+    puzzleObjectListEl.innerHTML = '';
+    for (const {obj,orphan} of rows) {
+      const row = document.createElement('div');
+      row.className = `sidescroll-puzzle-object-row${orphan ? ' orphan' : ''}${obj.deleted ? ' deleted' : ''}`;
+      const label = document.createElement('button');
+      label.type='button'; label.className='object-name';
+      label.textContent = `${orphan ? 'ORPHAN · ' : ''}${obj.puzzleObjectId || obj.id} · ${obj.assetName || 'unknown'}${obj.deleted ? ' · deleted' : ''}`;
+      label.addEventListener('click', () => focusObjectForAuthoring(obj));
+      const action = document.createElement('button');
+      action.type='button'; action.className='object-action';
+      action.textContent = obj.deleted ? 'Restore' : 'Delete';
+      action.addEventListener('click', e => { e.stopPropagation(); obj.deleted ? restorePuzzleListObject(obj) : deletePuzzleListObject(obj); });
+      row.append(label,action);
+      puzzleObjectListEl.appendChild(row);
+    }
+  }
+
+  function currentPuzzleSetupSnapshot(instance) {
+    if (!instance) return null;
+    const objects = {};
+    for (const obj of instance.objects) {
+      if (!obj?.puzzleObjectId) continue;
+      objects[obj.puzzleObjectId] = {
+        asset:obj.assetName,
+        x:obj.x-instance.marker.x,
+        z:obj.z,
+        sx:obj.sx,
+        sy:obj.sy,
+        flip:!!obj.flip,
+        deleted:!!obj.deleted,
+        category:obj.category || 'gameplay',
+        gameplayType:obj.gameplayType || null,
+        gameplayLayerLocked:!!obj.gameplayLayerLocked,
+        collision:cloneCollision(obj.collision),
+        shadow:obj.shadow ? { ...obj.shadow } : null
+      };
+    }
+    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects };
+  }
+
+  function puzzleExportPayload(instance) {
+    const marker = instance.marker;
+    const def = markerDefinition(marker) || {};
+    const start = deepCopy(puzzleStartFor(marker));
+    const diagnostics = instance.objects.map(obj => ({
+      id:obj.id,
+      puzzleObjectId:obj.puzzleObjectId,
+      asset:obj.assetName,
+      deleted:!!obj.deleted,
+      x:obj.x,
+      relativeX:obj.x-marker.x,
+      y:obj.y,
+      z:obj.z,
+      sx:obj.sx,
+      sy:obj.sy,
+      hasTexture:!!obj.texture,
+      category:obj.category,
+      gameplayType:obj.gameplayType,
+      collision:cloneCollision(obj.collision)
+    }));
+    const orphans = puzzleOrphanObjects(instance).map(obj => ({
+      id:obj.id, asset:obj.assetName, x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy,
+      deleted:!!obj.deleted, hasTexture:!!obj.texture, category:obj.category, gameplayType:obj.gameplayType
+    }));
+    return {
+      format:'SideScrollPuzzle',
+      formatVersion:1,
+      appVersion:'0.2.2',
+      exportedAt:new Date().toISOString(),
+      marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
+      definition:deepCopy(def),
+      savedStart:start,
+      currentSetup:currentPuzzleSetupSnapshot(instance),
+      currentSetupDiffersFromSaved:puzzleStartDirty.has(instance.id),
+      diagnostics:{ objects:diagnostics, orphanCandidates:orphans }
+    };
+  }
+
+  async function exportSelectedPuzzle() {
+    const instance = selectedPuzzleInstance();
+    if (!instance) return;
+    // Capture current setup first only when the user has explicitly saved it;
+    // unsaved edits remain visible in diagnostics but do not silently replace
+    // the authored start in the export.
+    const payload = puzzleExportPayload(instance);
+    const text = JSON.stringify(payload,null,2);
+    const filename = `SideScroll-${puzzleSlug(instance.def?.label || instance.marker.group)}-${puzzleSlug(instance.marker.id)}.json`;
+    const blob = new Blob([text], {type:'application/json'});
+    try {
+      const file = new File([blob], filename, {type:'application/json'});
+      if (navigator.canShare?.({files:[file]})) {
+        await navigator.share({title:'SideScroll puzzle export', files:[file]});
+        return;
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    hintEl.textContent = 'Puzzle JSON exported';
+    hintEl.classList.remove('hidden');
+  }
+
   function setEditorScope(scope) {
     if (scope !== 'environment' && scope !== 'puzzle') return;
+    if (scope === 'environment') { puzzleWorkshopClear = false; puzzleWorkshopIsolated = false; }
     editorScope = scope;
     selectObject(null);
     addAssetType = null;
     if (scope === 'puzzle' && !editorPuzzleMarkerId) {
       const near = activePuzzleNear(camera.x + character.screenOffsetX);
-      choosePuzzleForEditing(near?.id || (puzzleConfig.markers || [])[0]?.id || null, false);
+      choosePuzzleForEditing(near?.id || allPuzzleMarkers()[0]?.id || null, false);
     }
     buildAssetPalette();
     updatePuzzlePanel();
@@ -2005,24 +2318,29 @@
     const testing = puzzleTestMode;
     const puzzleEditing = testing || editorScope === 'puzzle';
     const instance = puzzleEditing ? authoringPuzzle() : null;
+    const selectedMarker = puzzleEditing ? selectedPuzzleMarker() : null;
+    const selectedDef = markerDefinition(selectedMarker);
     if (editorScopeSwitch) editorScopeSwitch.hidden = testing;
     environmentScopeBtn?.classList.toggle('active', !testing && editorScope === 'environment');
     puzzleScopeBtn?.classList.toggle('active', testing || editorScope === 'puzzle');
     if (puzzlePicker) puzzlePicker.hidden = testing || editorScope !== 'puzzle';
-    if (puzzleActionsEl) puzzleActionsEl.hidden = !puzzleEditing;
+    if (puzzleManageEl) puzzleManageEl.hidden = testing || editorScope !== 'puzzle';
+    if (puzzleActionsEl) puzzleActionsEl.hidden = !puzzleEditing || puzzleWorkshopClear;
 
     if (!puzzleEditing) {
       if (puzzleModeEl) puzzleModeEl.textContent = 'ENV';
       if (puzzleNameEl) puzzleNameEl.textContent = 'Environment';
       if (puzzleStateEl) puzzleStateEl.textContent = 'Editing scene dressing only. Puzzle props are locked and cannot be selected.';
       if (puzzleHelpEl) puzzleHelpEl.textContent = 'Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it.';
+      updatePuzzleObjectList();
       return;
     }
 
     if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : 'PUZZLE';
-    if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || 'No puzzle selected';
+    if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || selectedDef?.label || 'No puzzle selected';
     if (puzzleStateEl) {
-      if (!instance) puzzleStateEl.textContent = 'Choose a puzzle to edit.';
+      if (puzzleWorkshopClear && !testing) puzzleStateEl.textContent = 'Stage is clear. The selected item is only a template until you Spawn Here.';
+      else if (!instance) puzzleStateEl.textContent = 'Choose a puzzle to edit.';
       else if (testing) puzzleStateEl.textContent = instance.solved
         ? 'Puzzle complete. Reset to run it again, or return to Setup.'
         : 'Testing from the saved start. Test moves do not change the start layout.';
@@ -2037,12 +2355,19 @@
     }
     if (puzzleHelpEl) puzzleHelpEl.textContent = testing
       ? 'Reset restarts this puzzle. Back to Setup restores the saved start and returns to editing.'
-      : 'Only this puzzle can be selected. Drag the yellow end handles to resize its bounds. Tap/release selects; drag the selected prop itself to move it; drag elsewhere to pan.';
+      : (puzzleWorkshopClear
+          ? 'Pan to a location, then Spawn Here to place the selected puzzle template, or New Puzzle to start empty.'
+          : 'Only this puzzle can be selected. Drag the yellow end handles to resize its bounds. Tap/release selects; drag the selected prop itself to move it; drag elsewhere to pan.');
 
+    if (puzzleSpawnBtn) puzzleSpawnBtn.disabled = !selectedMarker;
+    if (puzzleExportBtn) puzzleExportBtn.disabled = !instance;
+    if (puzzleRemoveBtn) { puzzleRemoveBtn.hidden = !markerIsUserCreated(selectedMarker); puzzleRemoveBtn.disabled = !selectedMarker; }
+    if (puzzleClearStageBtn) puzzleClearStageBtn.classList.toggle('active', puzzleWorkshopClear);
     if (puzzleSetStartBtn) { puzzleSetStartBtn.hidden = testing; puzzleSetStartBtn.disabled = !instance; }
     if (puzzleTestBtn) { puzzleTestBtn.hidden = testing; puzzleTestBtn.disabled = !instance; }
     if (puzzleResetBtn) puzzleResetBtn.disabled = !instance;
     if (puzzleBackSetupBtn) { puzzleBackSetupBtn.hidden = !testing; puzzleBackSetupBtn.disabled = !instance; }
+    updatePuzzleObjectList();
   }
 
   function setPuzzleStartFromCurrent() {
@@ -2110,7 +2435,7 @@
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; puzzleWorkshopClear = false; puzzleWorkshopIsolated = false; }
     editMode = !!on;
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
     document.body.classList.toggle('sidescroll-editing', editMode);
@@ -2276,6 +2601,8 @@
     if (wasGameplay) settleGameplayCrates();
     selectedObject = null;
     updateEditorButtons();
+    updatePuzzleObjectList();
+    updatePuzzlePanel();
   }
 
   function updateAssetPaletteState() {
@@ -3414,8 +3741,20 @@
   });
   environmentScopeBtn?.addEventListener('click', () => setEditorScope('environment'));
   puzzleScopeBtn?.addEventListener('click', () => setEditorScope('puzzle'));
-  puzzleSelect?.addEventListener('change', () => choosePuzzleForEditing(puzzleSelect.value, true));
+  puzzleSelect?.addEventListener('change', () => {
+    if (puzzleWorkshopClear) {
+      editorPuzzleMarkerId = puzzleSelect.value || null;
+      selectObject(null);
+      buildAssetPalette();
+      updatePuzzlePanel();
+    } else choosePuzzleForEditing(puzzleSelect.value, true);
+  });
   puzzleFocusBtn?.addEventListener('click', focusSelectedPuzzle);
+  puzzleSpawnBtn?.addEventListener('click', spawnSelectedPuzzleHere);
+  puzzleCreateBtn?.addEventListener('click', createPuzzleHere);
+  puzzleClearStageBtn?.addEventListener('click', clearPuzzleStage);
+  puzzleExportBtn?.addEventListener('click', exportSelectedPuzzle);
+  puzzleRemoveBtn?.addEventListener('click', removeSelectedLocalPuzzle);
   editorAddBtn?.addEventListener('click', () => {
     if (!editMode || !editorPalette) return;
     editorPalette.hidden = !editorPalette.hidden;
@@ -3437,6 +3776,7 @@
     try { localStorage.removeItem(SCENE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_START_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(PUZZLE_LIBRARY_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
   puzzleSetStartBtn?.addEventListener('click', setPuzzleStartFromCurrent);

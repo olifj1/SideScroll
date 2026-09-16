@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.1">
+  <link rel="stylesheet" href="style.css?v=0.2.2">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -58,8 +58,15 @@
               <button id="sidescroll-scope-puzzle" type="button">Puzzle</button>
             </div>
             <div class="sidescroll-puzzle-picker" id="sidescroll-puzzle-picker" hidden>
-              <select id="sidescroll-puzzle-select" aria-label="Puzzle to edit"></select>
+              <select id="sidescroll-puzzle-select" aria-label="Puzzle instance to edit"></select>
               <button id="sidescroll-puzzle-focus" type="button">Focus</button>
+            </div>
+            <div class="sidescroll-puzzle-manage" id="sidescroll-puzzle-manage" hidden>
+              <button id="sidescroll-puzzle-spawn" type="button">Spawn Here</button>
+              <button id="sidescroll-puzzle-create" type="button">New Puzzle</button>
+              <button id="sidescroll-puzzle-clear-stage" type="button">Clear Stage</button>
+              <button id="sidescroll-puzzle-export" type="button">Export</button>
+              <button id="sidescroll-puzzle-remove" class="danger" type="button" hidden>Remove</button>
             </div>
             <div class="sidescroll-puzzle-panel-head">
               <span class="sidescroll-puzzle-mode" id="sidescroll-puzzle-mode">ENV</span>
@@ -73,6 +80,10 @@
               <button id="sidescroll-puzzle-reset" type="button">Reset</button>
               <button id="sidescroll-puzzle-back-setup" type="button" hidden>Back to Setup</button>
             </div>
+            <details class="sidescroll-puzzle-objects" id="sidescroll-puzzle-objects" hidden>
+              <summary>Objects <span id="sidescroll-puzzle-object-count">0</span></summary>
+              <div id="sidescroll-puzzle-object-list"></div>
+            </details>
           </aside>
 
           <div class="sidescroll-editor-palette" id="sidescroll-editor-palette" hidden>
@@ -124,10 +135,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.1"></script>
-  <script src="core.js?v=0.2.1"></script>
-  <script src="walk-rig.js?v=0.2.1"></script>
-  <script src="puzzle-groups.js?v=0.2.1"></script>
-  <script src="sidescroll.js?v=0.2.1"></script>
+  <script src="site-config.js?v=0.2.2"></script>
+  <script src="core.js?v=0.2.2"></script>
+  <script src="walk-rig.js?v=0.2.2"></script>
+  <script src="puzzle-groups.js?v=0.2.2"></script>
+  <script src="sidescroll.js?v=0.2.2"></script>
 </body>
 </html>

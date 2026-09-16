@@ -1,10 +1,9 @@
-# SideScroll v0.2.1
+# SideScroll v0.2.2
 
-- Splits authoring into Environment and Puzzle edit scopes; each scope can only select its own assets.
-- Adds a puzzle selector and Focus control so a specific puzzle group is explicitly chosen for editing.
-- Reworks editor gestures: drag anywhere to pan, tap/release to select, and only a drag beginning inside the already-selected asset can move it.
-- Makes puzzle bounds editable using the yellow end handles; bounds are included when Set Start is saved.
-- Keeps puzzle textures resident for the page lifetime to avoid intermittent black WebGL quads during editor/test streaming.
-- Makes log pickup range use distance to the log edge rather than its centre, improving pickup beside longer logs.
-- Expands the default fallen-tree collision width and allows collision points to extend much farther beyond the sprite's base collision rectangle.
-- Puzzle-added props are now associated with the selected puzzle and included in its saved starting state.
+- Adds puzzle JSON export, including the saved start state plus object diagnostics and nearby orphan puzzle assets.
+- Adds an Objects list in Puzzle Edit so props can be selected or deleted even when their rendered sprite is broken or impossible to tap.
+- Adds Spawn Here to duplicate the selected puzzle template at the current world position.
+- Adds New Puzzle to create an empty local puzzle with editable bounds and the current woodland puzzle asset library.
+- Adds Clear Stage for an empty puzzle-authoring scene without normal game puzzle markers streaming back in while editing.
+- Locally spawned/created puzzle instances persist on the device and appear in the puzzle selector.
+- Adds removal of local puzzle instances and includes local marker/definition data in exports.
