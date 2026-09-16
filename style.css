@@ -11509,3 +11509,27 @@ body[data-game-id="game-16"] .sidescroll-editor-controls{
   z-index:39!important;
   pointer-events:auto!important;
 }
+
+
+/* SideScroll v0.2.5 — authoring panel removed from the stage gesture tree. */
+body[data-game-id="game-16"] .sidescroll-puzzle-panel{
+  position:fixed!important;
+  z-index:1002!important;
+  top:max(52px,calc(env(safe-area-inset-top) + 48px))!important;
+  left:max(12px,env(safe-area-inset-left))!important;
+  right:auto!important;
+  pointer-events:auto!important;
+  touch-action:auto!important;
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  transform:none!important;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel button,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel select,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel summary,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel details{
+  position:relative;
+  z-index:1;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
