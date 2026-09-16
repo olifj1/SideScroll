@@ -1,8 +1,8 @@
-# SideScroll v0.1.9
+# SideScroll v0.2.0
 
-- Adds a shared capsule-style character collider that scales with the SideScroll character.
-- Adds a Collider mode to Walk Lab with draggable handles for capsule position, height, radius and foot-probe reach.
-- Saves the Walk Lab collider separately and includes it in Walk Lab JSON save/load files.
-- Reworks SideScroll ground following so reachable collision polygons act as walkable surfaces, allowing the character to follow gentle authored slopes.
-- Keeps larger rises as blocking obstacles and converts larger downward changes into normal gravity falls.
-- Establishes the same walkable-surface query as the basis for future variable-height terrain.
+- Adds a dedicated puzzle-authoring workflow with Setup, Set Start, Test, Reset and Back to Setup states.
+- Separates the authored puzzle start from disposable test state, so testing cannot overwrite the saved starting arrangement.
+- Adds an in-game puzzle panel showing the nearby puzzle, current mode and authoring instructions.
+- Puzzle Reset now restores the current puzzle to its saved start (or its code-defined default if no custom start has been saved).
+- Edit mode hides character movement controls; horizontal scene swipes pan the world while puzzle props remain directly selectable/draggable.
+- Editor object tools now only appear when they are relevant to the current selection, reducing overlapping controls.

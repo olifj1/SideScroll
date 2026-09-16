@@ -25,6 +25,15 @@
   const editorAssetsEl = document.getElementById('sidescroll-editor-assets');
   const editorPaletteClose = document.getElementById('sidescroll-editor-palette-close');
   const editorResetBtn = document.getElementById('sidescroll-editor-reset');
+  const puzzlePanel = document.getElementById('sidescroll-puzzle-panel');
+  const puzzleModeEl = document.getElementById('sidescroll-puzzle-mode');
+  const puzzleNameEl = document.getElementById('sidescroll-puzzle-name');
+  const puzzleStateEl = document.getElementById('sidescroll-puzzle-state');
+  const puzzleHelpEl = document.getElementById('sidescroll-puzzle-help');
+  const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
+  const puzzleTestBtn = document.getElementById('sidescroll-puzzle-test');
+  const puzzleResetBtn = document.getElementById('sidescroll-puzzle-reset');
+  const puzzleBackSetupBtn = document.getElementById('sidescroll-puzzle-back-setup');
   const editorAddBtn = document.getElementById('sidescroll-editor-add');
   const editorDuplicateBtn = document.getElementById('sidescroll-editor-duplicate');
   const editorScaleDownBtn = document.getElementById('sidescroll-editor-scale-down');
@@ -475,7 +484,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.1.9', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.0', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -678,7 +687,7 @@
     puzzlePackRuntime.delete(packName);
   }
 
-  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.1.9`, 'Walk Lab cutout rig atlas');
+  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.2.0`, 'Walk Lab cutout rig atlas');
 
   function mulberry32(seed) {
     return function() {
@@ -1111,14 +1120,29 @@
   // PUZZLE GROUP RUNTIME
   // -------------------------------------------------------------------------
   const PUZZLE_STATE_STORAGE_KEY = 'sidescroll.puzzle-groups.state.v1';
+  const PUZZLE_START_STORAGE_KEY = 'sidescroll.puzzle-groups.starts.v1';
   const activePuzzleInstances = new Map();
   const puzzleSavedState = (() => {
     try { return JSON.parse(localStorage.getItem(PUZZLE_STATE_STORAGE_KEY) || '{}') || {}; }
     catch (_) { return {}; }
   })();
+  const puzzleStartState = (() => {
+    try { return JSON.parse(localStorage.getItem(PUZZLE_START_STORAGE_KEY) || '{}') || {}; }
+    catch (_) { return {}; }
+  })();
+  let puzzleTestMode = false;
+  let puzzleTestMarkerId = null;
+  const puzzleStartDirty = new Set();
 
   function savePuzzleState() {
+    // Test runs are disposable.  They may mutate the in-memory state, but the
+    // authored start remains the durable source of truth for Reset/Test.
+    if (puzzleTestMode) return;
     try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {}
+  }
+
+  function savePuzzleStarts() {
+    try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {}
   }
 
   function markerDefinition(marker) {
@@ -1131,6 +1155,114 @@
     return puzzleSavedState[markerId];
   }
 
+
+  function markerForId(markerId) {
+    return (puzzleConfig.markers || []).find(marker => marker.id === markerId) || null;
+  }
+
+  function defaultPuzzleStart(marker) {
+    const def = markerDefinition(marker);
+    const objects = {};
+    for (const prop of def?.props || []) {
+      objects[prop.id] = {
+        x: prop.x,
+        z: prop.z ?? pathZ,
+        sx: prop.width ?? null,
+        sy: prop.height,
+        flip: !!prop.flip,
+        deleted: false,
+        collision: cloneCollision(prop.collision)
+      };
+    }
+    return { source:'default', objects };
+  }
+
+  function puzzleStartFor(marker) {
+    return puzzleStartState[marker.id] || defaultPuzzleStart(marker);
+  }
+
+  function hasAuthoredPuzzleStart(markerId) {
+    return !!puzzleStartState[markerId];
+  }
+
+  function capturePuzzleStart(instance) {
+    if (!instance) return null;
+    const objects = {};
+    for (const obj of instance.objects) {
+      if (!obj?.puzzleObjectId) continue;
+      objects[obj.puzzleObjectId] = {
+        x: obj.x - instance.marker.x,
+        z: obj.z,
+        sx: obj.sx,
+        sy: obj.sy,
+        flip: !!obj.flip,
+        deleted: !!obj.deleted,
+        collision: cloneCollision(obj.collision)
+      };
+    }
+    const snapshot = { source:'authored', savedAt:Date.now(), objects };
+    puzzleStartState[instance.id] = snapshot;
+    puzzleStartDirty.delete(instance.id);
+    savePuzzleStarts();
+    return snapshot;
+  }
+
+  function applyPuzzleStart(instance, { persistRuntime = true } = {}) {
+    if (!instance) return;
+    const snapshot = puzzleStartFor(instance.marker);
+    if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
+    if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
+    if (standingOnObject?.puzzleInstanceId === instance.id) standingOnObject = null;
+    for (const obj of instance.objects) {
+      const prop = (instance.def.props || []).find(item => item.id === obj.puzzleObjectId);
+      const state = snapshot.objects?.[obj.puzzleObjectId];
+      if (!prop || !state) continue;
+      obj.x = instance.marker.x + state.x;
+      obj.z = Number.isFinite(state.z) ? state.z : (prop.z ?? pathZ);
+      obj.sy = Number.isFinite(state.sy) ? state.sy : prop.height;
+      obj.sx = Number.isFinite(state.sx) ? state.sx : (prop.width ?? obj.sy * (assetAspect[prop.asset] || 1));
+      obj.flip = !!state.flip;
+      obj.deleted = !!state.deleted;
+      obj.collision = cloneCollision(state.collision ?? prop.collision ?? null);
+      obj.carried = false;
+      obj.y = obj.category === 'gameplay' ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z);
+      moveObjectToCorrectCollection(obj);
+    }
+    instance.solved = false;
+    puzzleStartDirty.delete(instance.id);
+    sortSceneCollections();
+    settleGameplayCrates();
+
+    const runtime = savedPuzzleFor(instance.id);
+    runtime.solved = false;
+    runtime.objects = {};
+    for (const obj of instance.objects) {
+      runtime.objects[obj.puzzleObjectId] = {
+        x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
+        deleted:!!obj.deleted, collision:cloneCollision(obj.collision)
+      };
+    }
+    if (persistRuntime) savePuzzleState();
+    selectObject(null);
+  }
+
+  function positionPlayerAtPuzzleEntry(instance) {
+    if (!instance) return;
+    const entry = instance.marker.x + (instance.def.entryX ?? -(instance.def.width || 8) * 0.5);
+    camera.x = entry - character.screenOffsetX;
+    previousCameraX = camera.x;
+    character.x = camera.x + character.screenOffsetX;
+    character.y = playSurfaceYAt(character.x);
+    jumping = false;
+    jumpTime = 0;
+    jumpOffset = 0;
+    jumpVelocity = 0;
+    standingOnObject = null;
+    runBlend = 0;
+    locomotionPhase = 0;
+    setDriveAxis(0);
+  }
+
   function recordPuzzleObjectState(obj) {
     if (!obj?.puzzleInstanceId || !obj?.puzzleObjectId) return false;
     const state = savedPuzzleFor(obj.puzzleInstanceId);
@@ -1139,6 +1271,7 @@
       deleted:!!obj.deleted,
       collision:cloneCollision(obj.collision)
     };
+    if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
     savePuzzleState();
     return true;
   }
@@ -1666,15 +1799,21 @@
 
   function updateEditorButtons() {
     const has = !!selectedObject && !selectedObject.deleted;
-    [editorDuplicateBtn, editorScaleDownBtn, editorScaleUpBtn, editorCollisionBtn, editorDeleteBtn].forEach(btn => {
-      if (btn) btn.disabled = !has;
-    });
+    const collisionFocus = !!(has && collisionEditMode);
+    const isGameplay = has && selectedObject.category === 'gameplay';
+    if (editorAddBtn) editorAddBtn.hidden = collisionFocus;
+    if (editorDuplicateBtn) editorDuplicateBtn.hidden = !has || collisionFocus;
+    if (editorScaleDownBtn) editorScaleDownBtn.hidden = !has || collisionFocus;
+    if (editorScaleUpBtn) editorScaleUpBtn.hidden = !has || collisionFocus;
     if (editorGameLayerBtn) {
-      const isGameplay = has && selectedObject.category === 'gameplay';
-      editorGameLayerBtn.disabled = !isGameplay;
+      editorGameLayerBtn.hidden = !isGameplay || collisionFocus;
       editorGameLayerBtn.classList.toggle('active', !!(isGameplay && selectedObject.gameplayLayerLocked));
     }
-    editorCollisionBtn?.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
+    if (editorCollisionBtn) {
+      editorCollisionBtn.hidden = !has;
+      editorCollisionBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
+    }
+    if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus;
     editorAddBtn?.classList.toggle('active', !!addAssetType);
   }
 
@@ -1687,6 +1826,102 @@
     if (editorPalette) editorPalette.hidden = true;
     updateAssetPaletteState();
     updateEditorButtons();
+  }
+
+
+  function authoringPuzzle() {
+    const focusX = puzzleTestMode
+      ? character.x
+      : (camera.x + character.screenOffsetX);
+    if (puzzleTestMarkerId) {
+      const pinned = activePuzzleInstances.get(puzzleTestMarkerId);
+      if (pinned) return pinned;
+    }
+    return activePuzzleNear(focusX);
+  }
+
+  function updatePuzzlePanel() {
+    if (!puzzlePanel) return;
+    const visible = editMode || puzzleTestMode;
+    puzzlePanel.hidden = !visible;
+    document.body.classList.toggle('sidescroll-puzzle-testing', puzzleTestMode);
+    if (!visible) return;
+
+    const instance = authoringPuzzle();
+    const testing = puzzleTestMode;
+    if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : 'SETUP';
+    if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || 'No puzzle nearby';
+    if (puzzleStateEl) {
+      if (!instance) puzzleStateEl.textContent = 'Pan along the world until a puzzle marker is nearby.';
+      else if (testing) puzzleStateEl.textContent = instance.solved
+        ? 'Puzzle complete. Reset to run it again, or return to Setup.'
+        : 'Testing from the saved start. Test moves do not change the start layout.';
+      else if (puzzleStartDirty.has(instance.id)) puzzleStateEl.textContent = 'Setup changed. Tap Set Start when this is the arrangement you want players to begin with.';
+      else puzzleStateEl.textContent = hasAuthoredPuzzleStart(instance.id)
+        ? 'Start state saved on this device.'
+        : 'Using the default start from puzzle-groups.js. Arrange the props, then tap Set Start.';
+    }
+    if (puzzleHelpEl) puzzleHelpEl.textContent = testing
+      ? 'Reset restarts this puzzle. Back to Setup restores the saved start and returns to editing.'
+      : 'Swipe empty space to pan. Tap/drag props to place them. Collision opens the point editor.';
+
+    if (puzzleSetStartBtn) { puzzleSetStartBtn.hidden = testing; puzzleSetStartBtn.disabled = !instance; }
+    if (puzzleTestBtn) { puzzleTestBtn.hidden = testing; puzzleTestBtn.disabled = !instance; }
+    if (puzzleResetBtn) puzzleResetBtn.disabled = !instance;
+    if (puzzleBackSetupBtn) { puzzleBackSetupBtn.hidden = !testing; puzzleBackSetupBtn.disabled = !instance; }
+  }
+
+  function setPuzzleStartFromCurrent() {
+    const instance = authoringPuzzle();
+    if (!instance || puzzleTestMode) return;
+    settleGameplayCrates();
+    capturePuzzleStart(instance);
+    // The start also becomes the live state, so a reload does not reopen a
+    // half-finished test arrangement.
+    applyPuzzleStart(instance, { persistRuntime:true });
+    hintEl.textContent = 'Puzzle start saved';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function resetCurrentPuzzle() {
+    const instance = authoringPuzzle();
+    if (!instance) return;
+    applyPuzzleStart(instance, { persistRuntime:!puzzleTestMode });
+    if (puzzleTestMode) positionPlayerAtPuzzleEntry(instance);
+    hintEl.textContent = 'Puzzle reset to its saved start';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function beginPuzzleTest() {
+    const instance = authoringPuzzle();
+    if (!instance || puzzleTestMode) return;
+    // Always begin from the defined start, not from whatever happened to be on
+    // screen while arranging props.
+    applyPuzzleStart(instance, { persistRuntime:true });
+    puzzleTestMarkerId = instance.id;
+    puzzleTestMode = true;
+    setEditMode(false);
+    positionPlayerAtPuzzleEntry(instance);
+    hintEl.textContent = 'Puzzle test · Reset restarts from the saved start';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function backToPuzzleSetup() {
+    const instance = authoringPuzzle();
+    puzzleTestMode = false;
+    if (instance) {
+      applyPuzzleStart(instance, { persistRuntime:true });
+      camera.x = instance.marker.x - character.screenOffsetX;
+      previousCameraX = camera.x;
+      character.x = camera.x + character.screenOffsetX;
+      character.y = playSurfaceYAt(character.x);
+    }
+    puzzleTestMarkerId = null;
+    setEditMode(true);
+    updatePuzzlePanel();
   }
 
   function setEditMode(on) {
@@ -1703,7 +1938,7 @@
     document.body.classList.toggle('sidescroll-editing', editMode);
     if (editBtn) {
       editBtn.setAttribute('aria-pressed', String(editMode));
-      editBtn.textContent = editMode ? 'Play' : 'Edit';
+      editBtn.textContent = puzzleTestMode ? 'Setup' : (editMode ? 'Done' : 'Edit');
     }
     if (playControls) playControls.hidden = editMode;
     if (secondaryControls) secondaryControls.hidden = editMode;
@@ -1730,6 +1965,7 @@
     }
     updateAssetPaletteState();
     updateEditorButtons();
+    updatePuzzlePanel();
   }
 
   function defaultAssetHeight(name) {
@@ -2870,6 +3106,7 @@
     }
 
     updateActionUI();
+    if (editMode || puzzleTestMode) updatePuzzlePanel();
     requestAnimationFrame(render);
   }
 
@@ -2955,7 +3192,10 @@
     hideHint();
   });
 
-  if (editBtn) editBtn.addEventListener('click', () => setEditMode(!editMode));
+  if (editBtn) editBtn.addEventListener('click', () => {
+    if (puzzleTestMode) backToPuzzleSetup();
+    else setEditMode(!editMode);
+  });
   editorAddBtn?.addEventListener('click', () => {
     if (!editMode || !editorPalette) return;
     editorPalette.hidden = !editorPalette.hidden;
@@ -2976,8 +3216,13 @@
     if (!window.confirm('Reset all SideScroll scene edits on this device?')) return;
     try { localStorage.removeItem(SCENE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(PUZZLE_START_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
+  puzzleSetStartBtn?.addEventListener('click', setPuzzleStartFromCurrent);
+  puzzleTestBtn?.addEventListener('click', beginPuzzleTest);
+  puzzleResetBtn?.addEventListener('click', resetCurrentPuzzle);
+  puzzleBackSetupBtn?.addEventListener('click', backToPuzzleSetup);
   editorDuplicateBtn?.addEventListener('click', duplicateSelected);
   editorScaleDownBtn?.addEventListener('click', () => scaleSelected(0.90));
   editorScaleUpBtn?.addEventListener('click', () => scaleSelected(1.10));
@@ -3179,6 +3424,7 @@
   buildAssetPalette();
   updateEditorButtons();
   setEditMode(false);
+  updatePuzzlePanel();
   resize();
   requestAnimationFrame(render);
 })();

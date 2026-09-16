@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.1.9">
+  <link rel="stylesheet" href="style.css?v=0.2.0">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -52,11 +52,25 @@
 
           <canvas class="sidescroll-editor-overlay" id="sidescroll-editor-overlay" aria-hidden="true"></canvas>
 
+          <aside class="sidescroll-puzzle-panel" id="sidescroll-puzzle-panel" hidden aria-live="polite">
+            <div class="sidescroll-puzzle-panel-head">
+              <span class="sidescroll-puzzle-mode" id="sidescroll-puzzle-mode">SETUP</span>
+              <strong id="sidescroll-puzzle-name">No puzzle nearby</strong>
+            </div>
+            <p id="sidescroll-puzzle-state">Pan along the world until a puzzle marker is nearby.</p>
+            <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-help">Swipe empty space to pan. Tap a prop to select it.</p>
+            <div class="sidescroll-puzzle-actions">
+              <button id="sidescroll-puzzle-set-start" type="button">Set Start</button>
+              <button id="sidescroll-puzzle-test" class="primary" type="button">Test</button>
+              <button id="sidescroll-puzzle-reset" type="button">Reset</button>
+              <button id="sidescroll-puzzle-back-setup" type="button" hidden>Back to Setup</button>
+            </div>
+          </aside>
+
           <div class="sidescroll-editor-palette" id="sidescroll-editor-palette" hidden>
             <div class="sidescroll-editor-palette-head">
               <strong>Add asset</strong>
               <span class="sidescroll-editor-palette-actions">
-                <button class="scene-reset" id="sidescroll-editor-reset" type="button">Reset</button>
                 <button id="sidescroll-editor-palette-close" type="button" aria-label="Close asset library">×</button>
               </span>
             </div>
@@ -102,10 +116,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.1.9"></script>
-  <script src="core.js?v=0.1.9"></script>
-  <script src="walk-rig.js?v=0.1.9"></script>
-  <script src="puzzle-groups.js?v=0.1.9"></script>
-  <script src="sidescroll.js?v=0.1.9"></script>
+  <script src="site-config.js?v=0.2.0"></script>
+  <script src="core.js?v=0.2.0"></script>
+  <script src="walk-rig.js?v=0.2.0"></script>
+  <script src="puzzle-groups.js?v=0.2.0"></script>
+  <script src="sidescroll.js?v=0.2.0"></script>
 </body>
 </html>
