@@ -69,15 +69,33 @@
     return editorUiElements().some(el => pointInsideElement(el, clientX, clientY));
   }
 
-  // iOS Safari can occasionally hand a pointer to the WebGL canvas even when
-  // the authoring panel is visibly above it.  Keep UI pointers isolated from
-  // scene navigation regardless of hit-test quirks.
-  [puzzlePanel, editorPalette, editorControls].forEach(el => {
-    if (!el) return;
-    ['pointerdown','pointermove','pointerup','pointercancel'].forEach(type => {
-      el.addEventListener(type, event => event.stopPropagation());
+  // Editor buttons use pointer-down activation rather than relying on the
+  // synthetic click iOS creates after a touch sequence.  Do not stop the whole
+  // pointer sequence at the panel/container level: doing that can suppress the
+  // later click entirely on Safari.  The canvas has its own UI-bounds guard.
+  function bindEditorPress(element, handler) {
+    if (!element) return;
+    let lastPointerPress = -Infinity;
+    element.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      if (element.disabled) return;
+      lastPointerPress = performance.now();
+      event.preventDefault();
+      event.stopPropagation();
+      handler(event);
+    }, { passive:false });
+    element.addEventListener('click', event => {
+      if (performance.now() - lastPointerPress < 800) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (element.disabled) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handler(event);
     });
-  });
+  }
 
   const gl = canvas.getContext('webgl', {
     alpha: false,
@@ -2179,11 +2197,11 @@
       const label = document.createElement('button');
       label.type='button'; label.className='object-name';
       label.textContent = `${orphan ? 'ORPHAN · ' : ''}${obj.puzzleObjectId || obj.id} · ${obj.assetName || 'unknown'}${obj.deleted ? ' · deleted' : ''}`;
-      label.addEventListener('click', () => focusObjectForAuthoring(obj));
+      bindEditorPress(label, () => focusObjectForAuthoring(obj));
       const action = document.createElement('button');
       action.type='button'; action.className='object-action';
       action.textContent = obj.deleted ? 'Restore' : 'Delete';
-      action.addEventListener('click', e => { e.stopPropagation(); obj.deleted ? restorePuzzleListObject(obj) : deletePuzzleListObject(obj); });
+      bindEditorPress(action, () => { obj.deleted ? restorePuzzleListObject(obj) : deletePuzzleListObject(obj); });
       row.append(label,action);
       puzzleObjectListEl.appendChild(row);
     }
@@ -2665,8 +2683,7 @@
             : `sidescroll-ground-${name.slice(-2)}.png`;
           btn.innerHTML = `<img src="${file}" alt=""><small>${info.label}</small>`;
         }
-        btn.addEventListener('click', e => {
-          e.preventDefault();
+        bindEditorPress(btn, () => {
           addAssetType = name;
           selectedObject = null;
           updateAssetPaletteState();
@@ -3759,13 +3776,13 @@
     hideHint();
   });
 
-  if (editBtn) editBtn.addEventListener('click', () => {
+  bindEditorPress(editBtn, () => {
     if (puzzleTestMode) backToPuzzleSetup();
     else if (editMode) setEditMode(false);
     else { editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel(); }
   });
-  environmentScopeBtn?.addEventListener('click', () => setEditorScope('environment'));
-  puzzleScopeBtn?.addEventListener('click', () => setEditorScope('puzzle'));
+  bindEditorPress(environmentScopeBtn, () => setEditorScope('environment'));
+  bindEditorPress(puzzleScopeBtn, () => setEditorScope('puzzle'));
   puzzleSelect?.addEventListener('change', () => {
     if (puzzleWorkshopClear) {
       editorPuzzleMarkerId = puzzleSelect.value || null;
@@ -3774,13 +3791,13 @@
       updatePuzzlePanel();
     } else choosePuzzleForEditing(puzzleSelect.value, true);
   });
-  puzzleFocusBtn?.addEventListener('click', focusSelectedPuzzle);
-  puzzleSpawnBtn?.addEventListener('click', spawnSelectedPuzzleHere);
-  puzzleCreateBtn?.addEventListener('click', createPuzzleHere);
-  puzzleClearStageBtn?.addEventListener('click', clearPuzzleStage);
-  puzzleExportBtn?.addEventListener('click', exportSelectedPuzzle);
-  puzzleRemoveBtn?.addEventListener('click', removeSelectedLocalPuzzle);
-  editorAddBtn?.addEventListener('click', () => {
+  bindEditorPress(puzzleFocusBtn, focusSelectedPuzzle);
+  bindEditorPress(puzzleSpawnBtn, spawnSelectedPuzzleHere);
+  bindEditorPress(puzzleCreateBtn, createPuzzleHere);
+  bindEditorPress(puzzleClearStageBtn, clearPuzzleStage);
+  bindEditorPress(puzzleExportBtn, exportSelectedPuzzle);
+  bindEditorPress(puzzleRemoveBtn, removeSelectedLocalPuzzle);
+  bindEditorPress(editorAddBtn, () => {
     if (!editMode || !editorPalette) return;
     editorPalette.hidden = !editorPalette.hidden;
     if (!editorPalette.hidden) {
@@ -3790,13 +3807,13 @@
       updateEditorButtons();
     }
   });
-  editorPaletteClose?.addEventListener('click', () => {
+  bindEditorPress(editorPaletteClose, () => {
     if (editorPalette) editorPalette.hidden = true;
     addAssetType = null;
     updateAssetPaletteState();
     updateEditorButtons();
   });
-  editorResetBtn?.addEventListener('click', () => {
+  bindEditorPress(editorResetBtn, () => {
     if (!window.confirm('Reset all SideScroll scene edits on this device?')) return;
     try { localStorage.removeItem(SCENE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
@@ -3804,16 +3821,18 @@
     try { localStorage.removeItem(PUZZLE_LIBRARY_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
-  puzzleSetStartBtn?.addEventListener('click', setPuzzleStartFromCurrent);
-  puzzleTestBtn?.addEventListener('click', beginPuzzleTest);
-  puzzleResetBtn?.addEventListener('click', resetCurrentPuzzle);
-  puzzleBackSetupBtn?.addEventListener('click', backToPuzzleSetup);
-  editorDuplicateBtn?.addEventListener('click', duplicateSelected);
-  editorScaleDownBtn?.addEventListener('click', () => scaleSelected(0.90));
-  editorScaleUpBtn?.addEventListener('click', () => scaleSelected(1.10));
-  editorGameLayerBtn?.addEventListener('click', toggleSelectedGameplayLayer);
-  editorCollisionBtn?.addEventListener('click', toggleSelectedCollision);
-  editorDeleteBtn?.addEventListener('click', deleteSelected);
+  bindEditorPress(puzzleSetStartBtn, setPuzzleStartFromCurrent);
+  bindEditorPress(puzzleTestBtn, beginPuzzleTest);
+  bindEditorPress(puzzleResetBtn, resetCurrentPuzzle);
+  bindEditorPress(puzzleBackSetupBtn, backToPuzzleSetup);
+  bindEditorPress(editorDuplicateBtn, duplicateSelected);
+  bindEditorPress(editorScaleDownBtn, () => scaleSelected(0.90));
+  bindEditorPress(editorScaleUpBtn, () => scaleSelected(1.10));
+  bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
+  bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
+  bindEditorPress(editorDeleteBtn, deleteSelected);
+  const puzzleObjectsSummary = puzzleObjectsEl?.querySelector('summary');
+  bindEditorPress(puzzleObjectsSummary, () => { if (puzzleObjectsEl) puzzleObjectsEl.open = !puzzleObjectsEl.open; });
 
   canvas.addEventListener('pointerdown', e => {
     if (editMode && pointInsideEditorUi(e.clientX, e.clientY)) return;
