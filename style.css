@@ -11471,3 +11471,41 @@ body[data-game-id="game-16"] .sidescroll-puzzle-object-row.deleted{opacity:.55;}
   body[data-game-id="game-16"] .sidescroll-puzzle-manage{margin-bottom:4px;}
   body[data-game-id="game-16"] .sidescroll-puzzle-manage button{min-height:24px;font-size:5.5px;}
 }
+
+
+/* SideScroll v0.2.4 — iOS editor interaction-layer fix */
+body[data-game-id="game-16"] #sidescroll-canvas{
+  z-index:0!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-overlay{
+  z-index:2!important;
+  pointer-events:none!important;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel{
+  z-index:40!important;
+  pointer-events:auto!important;
+  touch-action:pan-y!important;
+  -webkit-user-select:none;
+  user-select:none;
+  isolation:isolate;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel *,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel button,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel select,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel summary{
+  pointer-events:auto!important;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel button,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel select,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel summary{
+  touch-action:manipulation!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-palette{
+  z-index:41!important;
+  pointer-events:auto!important;
+  touch-action:pan-y!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-controls{
+  z-index:39!important;
+  pointer-events:auto!important;
+}

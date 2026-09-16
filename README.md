@@ -1,5 +1,6 @@
-# SideScroll v0.2.3
+# SideScroll v0.2.4
 
-- Fixes the v0.2.2 black-screen startup regression.
-- Moves editor-state initialisation ahead of the first puzzle-streaming pass so the game can render normally on launch.
-- No puzzle layouts or saved authoring data are intentionally changed by this release.
+- Fixes the puzzle-authoring panel being visible but unresponsive on iPhone.
+- Places puzzle/editor UI on an explicit interaction layer above the WebGL canvas.
+- Prevents scene pan/drag handling from starting beneath puzzle/editor UI.
+- Adds defensive pointer isolation for the puzzle panel, asset palette and editor tool strip.

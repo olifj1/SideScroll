@@ -57,6 +57,27 @@
   const editorGameLayerBtn = document.getElementById('sidescroll-editor-game-layer');
   const editorCollisionBtn = document.getElementById('sidescroll-editor-collision');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls].filter(el => el && !el.hidden);
+
+  function pointInsideElement(el, clientX, clientY) {
+    if (!el || el.hidden) return false;
+    const r = el.getBoundingClientRect();
+    return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+  }
+
+  function pointInsideEditorUi(clientX, clientY) {
+    return editorUiElements().some(el => pointInsideElement(el, clientX, clientY));
+  }
+
+  // iOS Safari can occasionally hand a pointer to the WebGL canvas even when
+  // the authoring panel is visibly above it.  Keep UI pointers isolated from
+  // scene navigation regardless of hit-test quirks.
+  [puzzlePanel, editorPalette, editorControls].forEach(el => {
+    if (!el) return;
+    ['pointerdown','pointermove','pointerup','pointercancel'].forEach(type => {
+      el.addEventListener(type, event => event.stopPropagation());
+    });
+  });
 
   const gl = canvas.getContext('webgl', {
     alpha: false,
@@ -3795,6 +3816,7 @@
   editorDeleteBtn?.addEventListener('click', deleteSelected);
 
   canvas.addEventListener('pointerdown', e => {
+    if (editMode && pointInsideEditorUi(e.clientX, e.clientY)) return;
     canvas.setPointerCapture?.(e.pointerId);
     hideHint();
     if (editMode) {
