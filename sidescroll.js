@@ -1616,6 +1616,13 @@
     frontOccluders.sort((a,b)=>a.z-b.z);
   }
 
+  // Editor state is needed by puzzle streaming, including the initial stream
+  // performed during startup. Keep these declarations above that first call so
+  // the game cannot hit a temporal-dead-zone error before the first frame.
+  let editMode = false;
+  let editorScope = 'environment';
+  let editorPuzzleMarkerId = null;
+
   scatterForest();
   restoreSceneEdits();
   updatePuzzleStreaming(0);
@@ -1743,9 +1750,6 @@
   let dragStartX = 0;
   let dragStartCameraX = 0;
 
-  let editMode = false;
-  let editorScope = 'environment';
-  let editorPuzzleMarkerId = null;
   let editorPuzzlePackPinned = false;
   let selectedObject = null;
   let editorPointer = null;
