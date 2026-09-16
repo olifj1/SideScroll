@@ -475,7 +475,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.1.8', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.1.9', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -678,7 +678,7 @@
     puzzlePackRuntime.delete(packName);
   }
 
-  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.1.8`, 'Walk Lab cutout rig atlas');
+  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.1.9`, 'Walk Lab cutout rig atlas');
 
   function mulberry32(seed) {
     return function() {
@@ -1411,6 +1411,22 @@
   }
   refreshCharacterFrames();
 
+  let characterCollider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider();
+  function refreshCharacterCollider() {
+    characterCollider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider(characterCollider);
+  }
+  function colliderWorld() {
+    return {
+      offsetX: characterCollider.offsetX * character.scale,
+      radius: characterCollider.radius * character.scale,
+      height: characterCollider.height * character.scale,
+      bottom: characterCollider.bottom * character.scale,
+      footProbe: characterCollider.footProbe * character.scale,
+      stepUp: characterCollider.stepUp * character.scale,
+      stepDown: characterCollider.stepDown * character.scale
+    };
+  }
+
   const debugTints = {
     ground: [0.50, 0.46, 0.75],
     character: [0.86, 0.58, 0.32],
@@ -1441,13 +1457,9 @@
   const WALK_POINT = 0.50;
   const WALK_SPEED = 1.15;
   const RUN_SPEED = 2.85;
-  // Horizontal character footprint used for traversal collision.  It is
-  // intentionally a little wider than the character's feet/skirt silhouette so
-  // she cannot wedge herself into gaps that read as impassable on screen.
-  const PLAYER_COLLISION_HALF_WIDTH = 0.42;
-  const PLAYER_COLLISION_SKIN = 0.035;
-  const PLAYER_COLLISION_BODY_HEIGHT = 1.12;
-  const PLATFORM_MAX_SNAP_DOWN = 0.16;
+  // The body collider now comes from Walk Lab.  Only a tiny fixed skin stays
+  // game-side so contact is stable at polygon boundaries.
+  const PLAYER_COLLISION_SKIN = 0.025;
   const WALK_STRIDE = 1.45;
   const RUN_STRIDE = 2.05;
   const JUMP_VELOCITY = 5.05;
@@ -1705,7 +1717,7 @@
       setDriveAxis(0);
       // If a crate has just been positioned underneath the character, enter
       // Play mode standing on its top rather than intersecting it.
-      const support = platformUnder(camera.x + character.screenOffsetX, Infinity);
+      const support = platformUnder(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity);
       if (support) { jumpOffset = support.offset; standingOnObject = support.obj; }
       else if (!jumping) { jumpOffset = 0; standingOnObject = null; }
     } else {
@@ -2077,18 +2089,36 @@
     return { minX: vals[0], maxX: vals[vals.length - 1] };
   }
 
-  function collisionBodyEnvelope(obj, feetY, bodyHeight = PLAYER_COLLISION_BODY_HEIGHT) {
-    // Test several heights through the visible body rather than a single slice
-    // at the feet. Irregular roots/trunks can be narrow at ground level while
-    // still occupying the character's knees or torso.
-    const samples = [0.05, 0.24, 0.48, 0.74, 0.96].map(t => feetY + bodyHeight * t);
+  function capsuleHalfWidthAtHeight(localY, capsule) {
+    if (localY < 0 || localY > capsule.height) return 0;
+    const r = Math.min(capsule.radius, capsule.height * 0.5);
+    if (localY < r) {
+      const dy = r - localY;
+      return Math.sqrt(Math.max(0, r*r - dy*dy));
+    }
+    if (localY > capsule.height - r) {
+      const dy = localY - (capsule.height - r);
+      return Math.sqrt(Math.max(0, r*r - dy*dy));
+    }
+    return r;
+  }
+
+  function collisionBodyEnvelope(obj, feetY) {
+    // A real capsule profile: wider through the torso and rounded at its ends.
+    // Environment spans are expanded by the capsule width at each sample.
+    const capsule = colliderWorld();
+    const sampleCount = 11;
     let minX = Infinity;
     let maxX = -Infinity;
-    for (const y of samples) {
+    for (let i = 0; i < sampleCount; i += 1) {
+      const t = i / (sampleCount - 1);
+      const localY = capsule.height * t;
+      const y = feetY + capsule.bottom + localY;
       const span = collisionSpanAtY(obj, y);
       if (!span) continue;
-      minX = Math.min(minX, span.minX);
-      maxX = Math.max(maxX, span.maxX);
+      const half = capsuleHalfWidthAtHeight(localY, capsule) + PLAYER_COLLISION_SKIN;
+      minX = Math.min(minX, span.minX - half);
+      maxX = Math.max(maxX, span.maxX + half);
     }
     return Number.isFinite(minX) && Number.isFinite(maxX) ? { minX, maxX } : null;
   }
@@ -2185,38 +2215,59 @@
   }
 
   function platformOffsetFor(obj, characterX) {
-    if (!obj?.collision?.platform) return 0;
+    if (!obj?.collision?.platform) return -Infinity;
     const platformTop = collisionTopHeightAtX(obj, characterX);
-    if (!Number.isFinite(platformTop) || platformTop <= -Infinity / 2) return 0;
+    if (!Number.isFinite(platformTop)) return -Infinity;
     return platformTop - playSurfaceYAt(characterX);
   }
 
-  function platformUnder(characterX, ceiling = Infinity) {
-    let best = null;
-    let bestOffset = -Infinity;
+  function walkableSupportAt(characterX, ceiling = Infinity, direction = 0) {
+    // The procedural path is the default terrain surface.  Puzzle/platform
+    // polygons can override it when their top surface is reachable.
+    let best = { obj:null, offset:0 };
+    const capsule = colliderWorld();
+    const probe = direction ? direction * capsule.footProbe : 0;
+    const sampleXs = direction ? [characterX, characterX + probe] : [characterX];
     for (const obj of collisionObjects()) {
       const c = obj.collision;
       if (!c?.platform) continue;
       const depth = c.depth ?? 0.82;
       if (Math.abs(obj.z - pathZ) > depth) continue;
-      const offset = platformOffsetFor(obj, characterX);
-      if (offset <= ceiling + 0.08 && offset > bestOffset) { best = obj; bestOffset = offset; }
+      for (const x of sampleXs) {
+        const offset = platformOffsetFor(obj, x);
+        if (!Number.isFinite(offset)) continue;
+        if (offset <= ceiling + 0.08 && offset > best.offset) best = { obj, offset };
+      }
     }
-    return best ? { obj: best, offset: bestOffset } : null;
+    return best;
   }
 
-  function resolveObstacleMove(currentCameraX, proposedCameraX, clearanceHeight) {
+  function platformUnder(characterX, ceiling = Infinity) {
+    return walkableSupportAt(characterX, ceiling, 0);
+  }
+
+  function platformIsWalkableFrom(obj, proposedX, currentOffset, airborne) {
+    if (!obj?.collision?.platform) return false;
+    const topOffset = platformOffsetFor(obj, proposedX);
+    if (!Number.isFinite(topOffset)) return false;
+    const capsule = colliderWorld();
+    if (airborne) return currentOffset >= topOffset - PLAYER_COLLISION_SKIN;
+    return topOffset <= currentOffset + capsule.stepUp + 0.025;
+  }
+
+  function resolveObstacleMove(currentCameraX, proposedCameraX, clearanceHeight, airborne = false) {
     const offset = character.screenOffsetX;
-    const currentX = currentCameraX + offset;
-    const proposedX = proposedCameraX + offset;
+    const capsule = colliderWorld();
+    const currentRootX = currentCameraX + offset;
+    const proposedRootX = proposedCameraX + offset;
+    const currentX = currentRootX + capsule.offsetX;
+    const proposedX = proposedRootX + capsule.offsetX;
     const direction = Math.sign(proposedX - currentX);
     if (!direction) return currentCameraX;
 
     let resolvedCharacterX = proposedX;
-    const currentFeetY = playSurfaceYAt(currentX) + Math.max(0, clearanceHeight);
-    const proposedFeetY = playSurfaceYAt(proposedX) + Math.max(0, clearanceHeight);
-    // Use the lower of the two ground heights so rolling terrain cannot create
-    // a one-frame hole in collision while moving.
+    const currentFeetY = playSurfaceYAt(currentRootX) + Math.max(0, clearanceHeight);
+    const proposedFeetY = playSurfaceYAt(proposedRootX) + Math.max(0, clearanceHeight);
     const feetY = Math.min(currentFeetY, proposedFeetY);
 
     for (const obj of collisionObjects()) {
@@ -2225,30 +2276,28 @@
       const depth = c.depth ?? 0.8;
       if (Math.abs(obj.z - pathZ) > depth) continue;
 
+      // A reachable platform surface is terrain, not a wall.  This is what lets
+      // the shared capsule walk continuously up authored slopes.
+      if (platformIsWalkableFrom(obj, proposedX, clearanceHeight, airborne)) continue;
+
       const span = collisionBodyEnvelope(obj, feetY);
       if (!span) continue;
-
-      const blockMin = span.minX - PLAYER_COLLISION_HALF_WIDTH - PLAYER_COLLISION_SKIN;
-      const blockMax = span.maxX + PLAYER_COLLISION_HALF_WIDTH + PLAYER_COLLISION_SKIN;
+      const blockMin = span.minX;
+      const blockMax = span.maxX;
       const alreadyOverlapping = currentX > blockMin && currentX < blockMax;
       const blockCentre = (blockMin + blockMax) * 0.5;
 
       if (direction > 0) {
         const crossesFromLeft = currentX <= blockMin + 0.025 && resolvedCharacterX > blockMin;
         const movingDeeperFromOverlap = alreadyOverlapping && currentX < blockCentre;
-        if (crossesFromLeft || movingDeeperFromOverlap) {
-          resolvedCharacterX = Math.max(currentX, Math.min(resolvedCharacterX, blockMin));
-        }
+        if (crossesFromLeft || movingDeeperFromOverlap) resolvedCharacterX = Math.max(currentX, Math.min(resolvedCharacterX, blockMin));
       } else {
         const crossesFromRight = currentX >= blockMax - 0.025 && resolvedCharacterX < blockMax;
         const movingDeeperFromOverlap = alreadyOverlapping && currentX > blockCentre;
-        if (crossesFromRight || movingDeeperFromOverlap) {
-          resolvedCharacterX = Math.min(currentX, Math.max(resolvedCharacterX, blockMax));
-        }
+        if (crossesFromRight || movingDeeperFromOverlap) resolvedCharacterX = Math.min(currentX, Math.max(resolvedCharacterX, blockMax));
       }
     }
-
-    return resolvedCharacterX - offset;
+    return resolvedCharacterX - capsule.offsetX - offset;
   }
 
   function tintFor(obj) {
@@ -2708,51 +2757,14 @@
       analogSpeed = Math.min(analogSpeed, WALK_SPEED * 0.92);
     }
 
-    // Vertical motion supports real gameplay platforms.  When descending, the
-    // character can cross a platform top and land on it; walking off a crate
-    // turns into a short fall instead of snapping to the ground.
+    // Vertical motion and terrain following now share one surface query.  While
+    // grounded, gentle changes in the authored surface are followed directly;
+    // larger drops become real falls and larger rises remain obstacles.
     const previousJumpOffset = jumpOffset;
     if (jumping) {
       jumpTime += dt;
       jumpVelocity -= JUMP_GRAVITY * dt;
       jumpOffset += jumpVelocity * dt;
-
-      if (jumpVelocity <= 0) {
-        const characterXNow = camera.x + character.screenOffsetX;
-        const platform = platformUnder(characterXNow, previousJumpOffset + 0.10);
-        if (platform && previousJumpOffset >= platform.offset - 0.04 && jumpOffset <= platform.offset) {
-          jumpOffset = platform.offset;
-          jumpVelocity = 0;
-          jumping = false;
-          jumpTime = 0;
-          standingOnObject = platform.obj;
-        }
-      }
-
-      if (jumping && jumpOffset <= 0 && jumpTime > 0.18) {
-        jumpOffset = 0;
-        jumpVelocity = 0;
-        jumping = false;
-        jumpTime = 0;
-        standingOnObject = null;
-      }
-    } else if (standingOnObject) {
-      const characterXNow = camera.x + character.screenOffsetX;
-      const support = platformUnder(characterXNow, jumpOffset + 0.12);
-      const sameSupport = support && support.obj === standingOnObject;
-      const downwardStep = sameSupport ? (jumpOffset - support.offset) : Infinity;
-      if (sameSupport && downwardStep <= PLATFORM_MAX_SNAP_DOWN) {
-        // Follow gentle authored slopes, but never snap down a steep section of
-        // collision.  A steep fall in the polygon is an edge, not a conveyor.
-        jumpOffset = support.offset;
-      } else {
-        // Preserve the current height and enter the same gravity fall used by
-        // jumping / walking off movable logs.
-        standingOnObject = null;
-        jumping = true;
-        jumpTime = 0;
-        jumpVelocity = 0;
-      }
     }
 
     // Preserve the smooth pose blend while allowing the slider to control
@@ -2762,8 +2774,45 @@
     const smoothRun = runBlend * runBlend * (3 - 2 * runBlend);
     if (moveDir && analogSpeed > 0) {
       const proposedX = camera.x + moveDir * analogSpeed * dt;
-      camera.x = resolveObstacleMove(camera.x, proposedX, jumpOffset);
+      camera.x = resolveObstacleMove(camera.x, proposedX, jumpOffset, jumping);
       hideHint();
+    }
+
+    const characterXAfterMove = camera.x + character.screenOffsetX;
+    const capsule = colliderWorld();
+    const colliderXAfterMove = characterXAfterMove + capsule.offsetX;
+    if (jumping) {
+      if (jumpVelocity <= 0) {
+        const support = walkableSupportAt(colliderXAfterMove, previousJumpOffset + 0.10, moveDir);
+        if (support && previousJumpOffset >= support.offset - 0.04 && jumpOffset <= support.offset) {
+          jumpOffset = support.offset;
+          jumpVelocity = 0;
+          jumping = false;
+          jumpTime = 0;
+          standingOnObject = support.obj;
+        }
+      }
+      if (jumping && jumpOffset <= 0 && jumpTime > 0.18) {
+        jumpOffset = 0;
+        jumpVelocity = 0;
+        jumping = false;
+        jumpTime = 0;
+        standingOnObject = null;
+      }
+    } else {
+      const support = walkableSupportAt(colliderXAfterMove, jumpOffset + capsule.stepUp, moveDir);
+      const delta = support.offset - jumpOffset;
+      if (delta <= capsule.stepUp + 0.025 && delta >= -capsule.stepDown) {
+        jumpOffset = support.offset;
+        standingOnObject = support.obj;
+      } else if (delta < -capsule.stepDown) {
+        // Walking beyond a significant ledge keeps the current height and lets
+        // the normal gravity solver take over rather than snapping downward.
+        standingOnObject = null;
+        jumping = true;
+        jumpTime = 0;
+        jumpVelocity = 0;
+      }
     }
 
     const cameraDelta = camera.x - previousCameraX;
@@ -3107,20 +3156,22 @@
 
   window.addEventListener('resize', resize, { passive: true });
   document.addEventListener('visibilitychange', () => {
+    refreshCharacterCollider();
     keyLeft = false;
     keyRight = false;
     keyRun = false;
     setDriveAxis(0);
     jumping = false;
     jumpTime = 0;
-    jumpOffset = 0;
+    const support = walkableSupportAt(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity, 0);
+    jumpOffset = support.offset;
     jumpVelocity = 0;
-    standingOnObject = null;
+    standingOnObject = support.obj;
     if (interactionState?.type === 'pickup') interactionState.object.carried = false;
     if (interactionState?.type === 'drop') completeDrop();
     interactionState = null;
     locomotionPhase = 0;
-    character.y = playSurfaceYAt(character.x);
+    character.y = playSurfaceYAt(character.x) + jumpOffset;
     lastTime = performance.now();
     previousCameraX = camera.x;
   });

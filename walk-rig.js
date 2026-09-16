@@ -28,6 +28,51 @@
     cloak2: 0.35
   });
 
+
+  // Shared gameplay collider, authored in the same local units as the rig.
+  // Walk Lab edits these values and SideScroll scales them with the character.
+  const COLLIDER_STORAGE_KEY = 'sidescroll.walklab.collider.v1';
+  const DEFAULT_COLLIDER = Object.freeze({
+    offsetX: 0.000,
+    radius: 0.185,
+    height: 0.82,
+    bottom: 0.015,
+    footProbe: 0.120,
+    stepUp: 0.135,
+    stepDown: 0.105
+  });
+
+  function normalizedCollider(value = null) {
+    const raw = value || {};
+    const radius = clamp(Number(raw.radius) || DEFAULT_COLLIDER.radius, 0.080, 0.320);
+    const bottom = clamp(Number.isFinite(Number(raw.bottom)) ? Number(raw.bottom) : DEFAULT_COLLIDER.bottom, -0.080, 0.180);
+    const minHeight = radius * 2 + 0.055;
+    const height = clamp(Number(raw.height) || DEFAULT_COLLIDER.height, minHeight, 1.150);
+    return {
+      offsetX: clamp(Number.isFinite(Number(raw.offsetX)) ? Number(raw.offsetX) : DEFAULT_COLLIDER.offsetX, -0.180, 0.180),
+      radius: Math.min(radius, height * 0.48),
+      height,
+      bottom,
+      footProbe: clamp(Number(raw.footProbe) || DEFAULT_COLLIDER.footProbe, 0.040, 0.300),
+      stepUp: clamp(Number(raw.stepUp) || DEFAULT_COLLIDER.stepUp, 0.050, 0.280),
+      stepDown: clamp(Number(raw.stepDown) || DEFAULT_COLLIDER.stepDown, 0.040, 0.260)
+    };
+  }
+
+  function loadCollider() {
+    try {
+      return normalizedCollider(JSON.parse(localStorage.getItem(COLLIDER_STORAGE_KEY) || 'null'));
+    } catch (_) {
+      return normalizedCollider();
+    }
+  }
+
+  function saveCollider(value) {
+    const collider = normalizedCollider(value);
+    try { localStorage.setItem(COLLIDER_STORAGE_KEY, JSON.stringify(collider)); } catch (_) {}
+    return collider;
+  }
+
   const KEY_NAMES = ['Contact L','Down L','Passing L','Up L','Contact R','Down R','Passing R','Up R'];
 
   // Embedded fallback/primary atlas keeps Walk Lab and SideScroll self-contained.
@@ -387,6 +432,7 @@
 
   window.GameHubWalkRig={
     DEG,TAU,BODY,ATLAS,KEY_NAMES,RUN_KEY_NAMES,JUMP_KEY_NAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     clone,clamp,lerp,makeKey,defaultKeys,makeRunKey,runKeys,makeJumpKey,jumpKeys,interpolatePose,buildFramesFromKeys,buildFramesWithNames,normalizedPose,sampleFrames,
     geometry,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry
   };

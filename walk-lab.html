@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#e7dbd2">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.1.8">
+  <link rel="stylesheet" href="style.css?v=0.1.9">
   <title>Walk Lab · SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-17">
@@ -21,7 +21,7 @@
       <button class="game-info-close" type="button" aria-label="Close instructions">×</button>
       <p class="kicker">ANIMATION TOOL</p>
       <h2 id="game-17-info-title">Walk Lab</h2>
-      <p>Edit and inspect the shared cutout locomotion rig used by SideScroll. Switch between Walk, Run and Jump, scrub frames, move joints, pan the view and pinch to zoom.</p>
+      <p>Edit and inspect the shared cutout locomotion rig used by SideScroll. Switch between Walk, Run and Jump, edit the shared character collider, move joints, pan the view and pinch to zoom.</p>
     </div>
   </div>
 
@@ -69,6 +69,8 @@
             <button id="walklab-rigart" class="walklab-tool active" type="button" aria-pressed="true">Rig art</button>
             <button id="walklab-stick" class="walklab-tool active" type="button" aria-pressed="true">Stick</button>
             <button id="walklab-planes" class="walklab-tool" type="button" aria-pressed="false">Planes</button>
+            <button id="walklab-collider" class="walklab-tool" type="button" aria-pressed="false">Collider</button>
+            <button id="walklab-collider-reset" class="walklab-tool" type="button">Reset collider</button>
             <input id="walklab-file" type="file" accept="application/json,.json" hidden>
           </div>
         </aside>
@@ -76,9 +78,9 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.1.8"></script>
-  <script src="core.js?v=0.1.8"></script>
-  <script src="walk-rig.js?v=0.1.8"></script>
-  <script src="walk-lab.js?v=0.1.8"></script>
+  <script src="site-config.js?v=0.1.9"></script>
+  <script src="core.js?v=0.1.9"></script>
+  <script src="walk-rig.js?v=0.1.9"></script>
+  <script src="walk-lab.js?v=0.1.9"></script>
 </body>
 </html>

@@ -1,6 +1,8 @@
-# SideScroll v0.1.8
+# SideScroll v0.1.9
 
-- Fixes irregular fallen-tree collision by testing the character's full vertical body profile rather than one narrow slice near the feet.
-- Keeps the wider player footprint so very small gaps remain impassable.
-- Replaces runtime atlas cropping with seven pre-split transparent woodland puzzle PNGs for more reliable iPhone/WebGL rendering.
-- No gameplay or art redesign beyond these fixes.
+- Adds a shared capsule-style character collider that scales with the SideScroll character.
+- Adds a Collider mode to Walk Lab with draggable handles for capsule position, height, radius and foot-probe reach.
+- Saves the Walk Lab collider separately and includes it in Walk Lab JSON save/load files.
+- Reworks SideScroll ground following so reachable collision polygons act as walkable surfaces, allowing the character to follow gentle authored slopes.
+- Keeps larger rises as blocking obstacles and converts larger downward changes into normal gravity falls.
+- Establishes the same walkable-surface query as the basis for future variable-height terrain.

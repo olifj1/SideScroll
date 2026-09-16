@@ -23,6 +23,8 @@
   const artBtn = document.getElementById('walklab-rigart');
   const stickBtn = document.getElementById('walklab-stick');
   const planesBtn = document.getElementById('walklab-planes');
+  const colliderBtn = document.getElementById('walklab-collider');
+  const colliderResetBtn = document.getElementById('walklab-collider-reset');
   const fitBtn = document.getElementById('walklab-fit');
   const fileInput = document.getElementById('walklab-file');
   const clipButtons = [...document.querySelectorAll('.walklab-clip[data-clip]')];
@@ -46,6 +48,9 @@
   let showArt = true;
   let showStick = true;
   let showPlanes = false;
+  let showCollider = false;
+  let collider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider();
+  let activeColliderHandle = null;
   let rigAtlas = null;
 
   const SHARED_ANIM_KEY = 'gamehub.walklab.anim.v4';
@@ -57,6 +62,11 @@
       // Keep v4 walk compatibility for the previous SideScroll build.
       localStorage.setItem(SHARED_ANIM_KEY, JSON.stringify({version:12,frames:clips.walk}));
     }catch(_){}
+  }
+
+
+  function persistSharedCollider(){
+    collider = Rig.saveCollider ? Rig.saveCollider(collider) : Rig.normalizedCollider(collider);
   }
 
   // Editor camera: normalised pan keeps the view stable across DPR/resizes.
@@ -191,6 +201,94 @@
     c.restore();
   }
 
+  function colliderScreenMetrics(sv = screenView()) {
+    const r = collider.radius * sv.scale;
+    const bottomY = sv.groundY - collider.bottom * sv.scale;
+    const topY = sv.groundY - (collider.bottom + collider.height) * sv.scale;
+    const centreY = (topY + bottomY) * 0.5;
+    const probe = collider.footProbe * sv.scale;
+    return { r, bottomY, topY, centreY, probe, cx: sv.cx + collider.offsetX * sv.scale };
+  }
+
+  function drawCollider(c, sv) {
+    if (!showCollider) return;
+    const m = colliderScreenMetrics(sv);
+    const r = Math.min(m.r, Math.max(4, (m.bottomY - m.topY) * 0.48));
+    c.save();
+    c.fillStyle = 'rgba(91,142,135,.13)';
+    c.strokeStyle = 'rgba(82,126,121,.92)';
+    c.lineWidth = Math.max(2, canvas.width * .0025);
+    c.setLineDash([7,4]);
+    c.beginPath();
+    c.moveTo(m.cx-r,m.topY+r);
+    c.arc(m.cx,m.topY+r,r,Math.PI,0);
+    c.lineTo(m.cx+r,m.bottomY-r);
+    c.arc(m.cx,m.bottomY-r,r,0,Math.PI);
+    c.closePath();
+    c.fill(); c.stroke();
+    c.setLineDash([]);
+
+    // Foot probe used by SideScroll when sampling walkable terrain ahead.
+    c.strokeStyle='rgba(200,139,74,.88)';
+    c.lineWidth=Math.max(2,canvas.width*.0023);
+    c.beginPath(); c.moveTo(m.cx-m.probe,m.bottomY+6); c.lineTo(m.cx+m.probe,m.bottomY+6); c.stroke();
+
+    const handles = colliderHandles(sv);
+    for (const handle of handles) {
+      const active = activeColliderHandle === handle.name;
+      c.beginPath();
+      c.fillStyle = active ? '#d96e6e' : '#f1c784';
+      c.strokeStyle = '#465457';
+      c.lineWidth = Math.max(1.5, canvas.width * .0015);
+      c.arc(handle.x,handle.y,Math.max(6,canvas.width*.009),0,Rig.TAU);
+      c.fill(); c.stroke();
+    }
+    c.restore();
+  }
+
+  function colliderHandles(sv = screenView()) {
+    const m = colliderScreenMetrics(sv);
+    return [
+      {name:'move',x:m.cx,y:m.centreY},
+      {name:'top',x:m.cx,y:m.topY},
+      {name:'bottom',x:m.cx,y:m.bottomY},
+      {name:'radius',x:m.cx+m.r,y:m.centreY},
+      {name:'probe',x:m.cx+m.probe,y:m.bottomY+6}
+    ];
+  }
+
+  function findColliderHandle(pos) {
+    if (!showCollider) return null;
+    const radius = Math.max(16, canvas.width * .028);
+    let best=null,bestD=Infinity;
+    for (const handle of colliderHandles(clipView(frame/16))) {
+      const d=Math.hypot(pos.x-handle.x,pos.y-handle.y);
+      if(d<radius&&d<bestD){best=handle.name;bestD=d;}
+    }
+    return best;
+  }
+
+  function editColliderHandle(name,pos) {
+    const sv=clipView(frame/16),local=toLocal(pos,sv);
+    if(name==='move') {
+      collider.offsetX=Rig.clamp(local.x,-.18,.18);
+      collider.bottom=Rig.clamp(local.y-collider.height*.5,-.08,.18);
+    } else if(name==='top') {
+      collider.height=Rig.clamp(local.y-collider.bottom,collider.radius*2+.055,1.15);
+    } else if(name==='bottom') {
+      const top=collider.bottom+collider.height;
+      collider.bottom=Rig.clamp(local.y,-.08,.18);
+      collider.height=Rig.clamp(top-collider.bottom,collider.radius*2+.055,1.15);
+    } else if(name==='radius') {
+      collider.radius=Rig.clamp(Math.abs(local.x),.08,Math.min(.32,collider.height*.48));
+    } else if(name==='probe') {
+      collider.footProbe=Rig.clamp(Math.abs(local.x),.04,.30);
+    }
+    collider=Rig.normalizedCollider(collider);
+    persistSharedCollider();
+    draw();
+  }
+
   function draw() {
     resize();
     const W=canvas.width,H=canvas.height,sv=screenView(W,H);
@@ -211,6 +309,7 @@
 
     if(showArt&&rigAtlas) Rig.drawCanvas(ctx,rigAtlas,pose,charView,{alpha:.98});
     if(showPlanes) drawPlaneDebug(ctx,pose,charView);
+    drawCollider(ctx,charView);
 
     if(onion&&showStick){
       const pp=frames[(frame+15)%16],pn=frames[(frame+1)%16];
@@ -224,7 +323,13 @@
     readout.textContent=playing
       ? `Playing ${clipLabel} · ${plant} · ${Math.round(view.zoom*100)}%`
       : `${clipLabel} · Frame ${frame+1} / 16 · ${pose.name} · ${pose.key?'KEY':'IN-BETWEEN'} · ${plant} · ${Math.round(view.zoom*100)}%`;
-    editHint.textContent=activeJoint?`Editing ${activeJoint}`:'Drag joints · drag empty space to pan · pinch to zoom';
+    editHint.textContent=activeColliderHandle
+      ? `Editing collider ${activeColliderHandle}`
+      : (activeJoint
+        ? `Editing ${activeJoint}`
+        : (showCollider
+          ? `Collider · radius ${collider.radius.toFixed(3)} · height ${collider.height.toFixed(3)} · drag gold handles`
+          : 'Drag joints · drag empty space to pan · pinch to zoom'));
     if(!playing) scrub.value=String(frame);
   }
 
@@ -260,7 +365,7 @@
     if(pointers.size===2){
       const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y;
       gesture={type:'pinch',dist:Math.hypot(dx,dy)||1,mid:{x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2},zoom:view.zoom,panX:view.panX,panY:view.panY};
-      activeJoint=null;
+      activeJoint=null; activeColliderHandle=null;
     }
   }
 
@@ -268,9 +373,13 @@
     const pos=pointerPos(e); pointers.set(e.pointerId,pos); canvas.setPointerCapture?.(e.pointerId);
     playing=false;playBtn.textContent='Play';playBtn.classList.remove('active');
     if(pointers.size===1){
-      activeJoint=findJoint(pos);
-      if(activeJoint) gesture={type:'joint'};
-      else gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};
+      activeColliderHandle=findColliderHandle(pos);
+      if(activeColliderHandle){ activeJoint=null; gesture={type:'collider'}; }
+      else {
+        activeJoint=findJoint(pos);
+        if(activeJoint) gesture={type:'joint'};
+        else gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};
+      }
     } else beginGesture();
     draw();
   });
@@ -290,6 +399,7 @@
       view.panY=(mid.y+localMid.y*newScale)/canvas.height-.84;
       draw(); return;
     }
+    if(activeColliderHandle){ editColliderHandle(activeColliderHandle,pos); return; }
     if(activeJoint){ editJoint(activeJoint,pos); return; }
     if(gesture?.type==='pan'){
       view.panX=gesture.panX+(pos.x-gesture.start.x)/canvas.width;
@@ -299,7 +409,7 @@
   });
 
   function endPointer(e){
-    pointers.delete(e.pointerId); activeJoint=null;
+    pointers.delete(e.pointerId); activeJoint=null; activeColliderHandle=null;
     if(pointers.size===1){const [id,pos]=[...pointers.entries()][0];gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};}
     else gesture=null;
     draw();
@@ -338,8 +448,8 @@
 
   function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   function saveJSON(){
-    const data={type:'GameHubWalkLab',version:14,body:Rig.BODY,activeClip,clips:{walk:clips.walk,run:clips.run,jump:clips.jump}};
-    downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'walk-lab-locomotion-v3.json');
+    const data={type:'GameHubWalkLab',version:15,body:Rig.BODY,collider,activeClip,clips:{walk:clips.walk,run:clips.run,jump:clips.jump}};
+    downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'walk-lab-locomotion-v4.json');
   }
   async function loadJSON(file){
     try{
@@ -350,6 +460,7 @@
       } else if(Array.isArray(data?.frames)&&data.frames.length===16){
         clips[activeClip]=data.frames.map((p,i)=>Rig.normalizedPose(p,i));
       } else throw new Error('Expected Walk Lab locomotion clips or a 16-frame animation.');
+      if(data?.collider) { collider=Rig.normalizedCollider(data.collider); persistSharedCollider(); }
       frames=clips[activeClip];frame=0;playPhase=0;playing=false;updateClipButtons();persistSharedAnimation();fitView();draw();
     }catch(err){alert(`Could not load animation: ${err.message}`);}
   }
@@ -381,6 +492,8 @@
   artBtn.addEventListener('click',()=>{showArt=!showArt;artBtn.classList.toggle('active',showArt);artBtn.setAttribute('aria-pressed',String(showArt));draw();});
   stickBtn.addEventListener('click',()=>{showStick=!showStick;stickBtn.classList.toggle('active',showStick);stickBtn.setAttribute('aria-pressed',String(showStick));draw();});
   planesBtn.addEventListener('click',()=>{showPlanes=!showPlanes;planesBtn.classList.toggle('active',showPlanes);planesBtn.setAttribute('aria-pressed',String(showPlanes));draw();});
+  colliderBtn?.addEventListener('click',()=>{showCollider=!showCollider;colliderBtn.classList.toggle('active',showCollider);colliderBtn.setAttribute('aria-pressed',String(showCollider));activeColliderHandle=null;draw();});
+  colliderResetBtn?.addEventListener('click',()=>{collider=Rig.normalizedCollider(Rig.DEFAULT_COLLIDER);persistSharedCollider();showCollider=true;colliderBtn?.classList.add('active');colliderBtn?.setAttribute('aria-pressed','true');draw();});
   window.addEventListener('resize',draw,{passive:true});
 
   playBtn.textContent='Play';playBtn.classList.remove('active');onionBtn.classList.remove('active');
@@ -401,6 +514,6 @@
       }
     }
   }catch(_){}
-  frames=clips[activeClip];updateClipButtons();persistSharedAnimation();
+  frames=clips[activeClip];updateClipButtons();persistSharedAnimation();persistSharedCollider();
   loadRigAtlas();draw();requestAnimationFrame(animate);
 })();

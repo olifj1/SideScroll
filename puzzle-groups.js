@@ -7,13 +7,13 @@ window.SideScrollPuzzleConfig = {
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
-        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.1.8", aspect: 1.7095 },
-        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.1.8", aspect: 1.5423 },
-        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.1.8", aspect: 2.1916 },
-        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.1.8", aspect: 2.3850 },
-        { name: "fallen-tree", url: "fallen-tree.png?v=0.1.8", aspect: 2.3644 },
-        { name: "tree-stump", url: "tree-stump.png?v=0.1.8", aspect: 2.4223 },
-        { name: "broken-branch", url: "broken-branch.png?v=0.1.8", aspect: 2.7182 }
+        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.1.9", aspect: 1.7095 },
+        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.1.9", aspect: 1.5423 },
+        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.1.9", aspect: 2.1916 },
+        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.1.9", aspect: 2.3850 },
+        { name: "fallen-tree", url: "fallen-tree.png?v=0.1.9", aspect: 2.3644 },
+        { name: "tree-stump", url: "tree-stump.png?v=0.1.9", aspect: 2.4223 },
+        { name: "broken-branch", url: "broken-branch.png?v=0.1.9", aspect: 2.7182 }
       ]
     }
   },
