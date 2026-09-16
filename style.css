@@ -11416,3 +11416,17 @@ body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-status{
   body[data-game-id="game-16"] .sidescroll-editor-controls{height:48px!important;}
   body[data-game-id="game-16"] .sidescroll-editor-tool{height:48px!important;width:64px;}
 }
+
+
+/* SideScroll v0.2.1 — separated environment/puzzle authoring */
+body[data-game-id="game-16"] .sidescroll-editor-scope-switch{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:7px;}
+body[data-game-id="game-16"] .sidescroll-editor-scope-switch[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-editor-scope-switch button,
+body[data-game-id="game-16"] .sidescroll-puzzle-picker button{min-height:28px;border-radius:8px;border:1px solid rgba(236,243,241,.20);background:rgba(245,241,235,.08);color:#eaf1ef;font-size:7px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;}
+body[data-game-id="game-16"] .sidescroll-editor-scope-switch button.active{background:#dbe7e2;color:#385a55;border-color:#aec7c0;}
+body[data-game-id="game-16"] .sidescroll-puzzle-picker{display:flex;gap:5px;margin:0 0 7px;}
+body[data-game-id="game-16"] .sidescroll-puzzle-picker[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-picker select{min-width:0;flex:1;height:29px;border-radius:8px;border:1px solid rgba(236,243,241,.20);background:rgba(19,28,33,.94);color:#eef4f3;padding:0 7px;font-size:8px;font-weight:750;}
+body[data-game-id="game-16"] .sidescroll-puzzle-picker button{width:54px;flex:none;}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel{width:min(350px,45vw);}
+@media(max-height:390px){body[data-game-id="game-16"] .sidescroll-editor-scope-switch{margin-bottom:4px;}body[data-game-id="game-16"] .sidescroll-puzzle-picker{margin-bottom:4px;}body[data-game-id="game-16"] .sidescroll-editor-scope-switch button,body[data-game-id="game-16"] .sidescroll-puzzle-picker button{min-height:24px;}}

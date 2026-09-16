@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.0">
+  <link rel="stylesheet" href="style.css?v=0.2.1">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -53,13 +53,21 @@
           <canvas class="sidescroll-editor-overlay" id="sidescroll-editor-overlay" aria-hidden="true"></canvas>
 
           <aside class="sidescroll-puzzle-panel" id="sidescroll-puzzle-panel" hidden aria-live="polite">
-            <div class="sidescroll-puzzle-panel-head">
-              <span class="sidescroll-puzzle-mode" id="sidescroll-puzzle-mode">SETUP</span>
-              <strong id="sidescroll-puzzle-name">No puzzle nearby</strong>
+            <div class="sidescroll-editor-scope-switch" id="sidescroll-editor-scope-switch">
+              <button id="sidescroll-scope-environment" class="active" type="button">Environment</button>
+              <button id="sidescroll-scope-puzzle" type="button">Puzzle</button>
             </div>
-            <p id="sidescroll-puzzle-state">Pan along the world until a puzzle marker is nearby.</p>
-            <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-help">Swipe empty space to pan. Tap a prop to select it.</p>
-            <div class="sidescroll-puzzle-actions">
+            <div class="sidescroll-puzzle-picker" id="sidescroll-puzzle-picker" hidden>
+              <select id="sidescroll-puzzle-select" aria-label="Puzzle to edit"></select>
+              <button id="sidescroll-puzzle-focus" type="button">Focus</button>
+            </div>
+            <div class="sidescroll-puzzle-panel-head">
+              <span class="sidescroll-puzzle-mode" id="sidescroll-puzzle-mode">ENV</span>
+              <strong id="sidescroll-puzzle-name">Environment</strong>
+            </div>
+            <p id="sidescroll-puzzle-state">Edit procedural scene dressing without affecting puzzle props.</p>
+            <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-help">Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it.</p>
+            <div class="sidescroll-puzzle-actions" id="sidescroll-puzzle-actions" hidden>
               <button id="sidescroll-puzzle-set-start" type="button">Set Start</button>
               <button id="sidescroll-puzzle-test" class="primary" type="button">Test</button>
               <button id="sidescroll-puzzle-reset" type="button">Reset</button>
@@ -116,10 +124,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.0"></script>
-  <script src="core.js?v=0.2.0"></script>
-  <script src="walk-rig.js?v=0.2.0"></script>
-  <script src="puzzle-groups.js?v=0.2.0"></script>
-  <script src="sidescroll.js?v=0.2.0"></script>
+  <script src="site-config.js?v=0.2.1"></script>
+  <script src="core.js?v=0.2.1"></script>
+  <script src="walk-rig.js?v=0.2.1"></script>
+  <script src="puzzle-groups.js?v=0.2.1"></script>
+  <script src="sidescroll.js?v=0.2.1"></script>
 </body>
 </html>

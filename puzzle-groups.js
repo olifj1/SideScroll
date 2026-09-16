@@ -1,5 +1,5 @@
 window.SideScrollPuzzleConfig = {
-  version: 4,
+  version: 5,
 
   // Puzzle art now comes from an authored transparent asset pack.  Layout and
   // collision remain data-driven so this whole module can still be moved by its
@@ -7,13 +7,13 @@ window.SideScrollPuzzleConfig = {
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
-        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.2.0", aspect: 1.7095 },
-        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.2.0", aspect: 1.5423 },
-        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.2.0", aspect: 2.1916 },
-        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.0", aspect: 2.3850 },
-        { name: "fallen-tree", url: "fallen-tree.png?v=0.2.0", aspect: 2.3644 },
-        { name: "tree-stump", url: "tree-stump.png?v=0.2.0", aspect: 2.4223 },
-        { name: "broken-branch", url: "broken-branch.png?v=0.2.0", aspect: 2.7182 }
+        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.2.1", aspect: 1.7095 },
+        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.2.1", aspect: 1.5423 },
+        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.2.1", aspect: 2.1916 },
+        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.1", aspect: 2.3850 },
+        { name: "fallen-tree", url: "fallen-tree.png?v=0.2.1", aspect: 2.3644 },
+        { name: "tree-stump", url: "tree-stump.png?v=0.2.1", aspect: 2.4223 },
+        { name: "broken-branch", url: "broken-branch.png?v=0.2.1", aspect: 2.7182 }
       ]
     }
   },
@@ -62,7 +62,7 @@ window.SideScrollPuzzleConfig = {
           // The collision intentionally hugs the flatter root/platform region
           // rather than the entire fallen trunk silhouette.
           collision: {
-            halfWidth: 0.98, height: 1.72, depth: 1.08, platform: true,
+            halfWidth: 2.35, height: 1.72, depth: 1.08, platform: true,
             points: [
               { x: -1.00, y: 0.00 },
               { x: 0.12, y: 0.00 },

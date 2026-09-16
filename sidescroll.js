@@ -26,6 +26,13 @@
   const editorPaletteClose = document.getElementById('sidescroll-editor-palette-close');
   const editorResetBtn = document.getElementById('sidescroll-editor-reset');
   const puzzlePanel = document.getElementById('sidescroll-puzzle-panel');
+  const editorScopeSwitch = document.getElementById('sidescroll-editor-scope-switch');
+  const environmentScopeBtn = document.getElementById('sidescroll-scope-environment');
+  const puzzleScopeBtn = document.getElementById('sidescroll-scope-puzzle');
+  const puzzlePicker = document.getElementById('sidescroll-puzzle-picker');
+  const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
+  const puzzleFocusBtn = document.getElementById('sidescroll-puzzle-focus');
+  const puzzleActionsEl = document.getElementById('sidescroll-puzzle-actions');
   const puzzleModeEl = document.getElementById('sidescroll-puzzle-mode');
   const puzzleNameEl = document.getElementById('sidescroll-puzzle-name');
   const puzzleStateEl = document.getElementById('sidescroll-puzzle-state');
@@ -484,7 +491,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.0', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.1', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -672,22 +679,13 @@
   function releasePuzzleAssetPack(packName) {
     const runtime = puzzlePackRuntime.get(packName);
     if (!runtime) return;
+    // Puzzle packs are deliberately resident for the lifetime of the page.
+    // Seven small authored textures are cheaper than risking stale WebGL
+    // handles when editor/test streaming rapidly unloads and reloads a group.
     runtime.refs = Math.max(0, runtime.refs - 1);
-    if (runtime.refs > 0) return;
-    const pack = puzzleConfig.assetPacks?.[packName];
-    const names = new Set((pack?.assets || []).map(asset => asset.name));
-    // User-authored copies pin a pack even after the puzzle module streams out.
-    const stillUsed = typeof allSceneObjects === 'function' && allSceneObjects().some(obj => !obj.deleted && !obj.puzzleInstanceId && names.has(obj.assetName));
-    if (stillUsed) return;
-    for (const name of runtime.created) {
-      if (textures[name]) gl.deleteTexture(textures[name]);
-      delete textures[name];
-      delete assetAspect[name];
-    }
-    puzzlePackRuntime.delete(packName);
   }
 
-  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.2.0`, 'Walk Lab cutout rig atlas');
+  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.2.1`, 'Walk Lab cutout rig atlas');
 
   function mulberry32(seed) {
     return function() {
@@ -1133,6 +1131,26 @@
   let puzzleTestMode = false;
   let puzzleTestMarkerId = null;
   const puzzleStartDirty = new Set();
+  const puzzleDraftBounds = Object.create(null);
+
+  function codeBoundsForMarker(marker) {
+    const def = markerDefinition(marker);
+    if (def?.bounds) return { minX:def.bounds.minX, maxX:def.bounds.maxX };
+    if (def?.exclusion) return { minX:def.exclusion.minX, maxX:def.exclusion.maxX };
+    const half = Math.max(1.5, (def?.width ?? 8) * 0.5);
+    return { minX:-half, maxX:half };
+  }
+
+  function currentPuzzleBoundsRelative(marker) {
+    if (!marker) return { minX:-4, maxX:4 };
+    if (puzzleDraftBounds[marker.id]) return puzzleDraftBounds[marker.id];
+    const authored = puzzleStartState[marker.id]?.bounds;
+    const initial = authored && Number.isFinite(authored.minX) && Number.isFinite(authored.maxX)
+      ? { minX:authored.minX, maxX:authored.maxX }
+      : codeBoundsForMarker(marker);
+    puzzleDraftBounds[marker.id] = { ...initial };
+    return puzzleDraftBounds[marker.id];
+  }
 
   function savePuzzleState() {
     // Test runs are disposable.  They may mutate the in-memory state, but the
@@ -1165,16 +1183,21 @@
     const objects = {};
     for (const prop of def?.props || []) {
       objects[prop.id] = {
+        asset: prop.asset,
         x: prop.x,
         z: prop.z ?? pathZ,
         sx: prop.width ?? null,
         sy: prop.height,
         flip: !!prop.flip,
         deleted: false,
-        collision: cloneCollision(prop.collision)
+        category: prop.category || 'gameplay',
+        gameplayType: prop.gameplayType || null,
+        gameplayLayerLocked: true,
+        collision: cloneCollision(prop.collision),
+        shadow: prop.shadow ? { ...prop.shadow } : null
       };
     }
-    return { source:'default', objects };
+    return { source:'default', bounds:codeBoundsForMarker(marker), objects };
   }
 
   function puzzleStartFor(marker) {
@@ -1191,16 +1214,21 @@
     for (const obj of instance.objects) {
       if (!obj?.puzzleObjectId) continue;
       objects[obj.puzzleObjectId] = {
+        asset: obj.assetName,
         x: obj.x - instance.marker.x,
         z: obj.z,
         sx: obj.sx,
         sy: obj.sy,
         flip: !!obj.flip,
         deleted: !!obj.deleted,
-        collision: cloneCollision(obj.collision)
+        category: obj.category || 'gameplay',
+        gameplayType: obj.gameplayType || null,
+        gameplayLayerLocked: !!obj.gameplayLayerLocked,
+        collision: cloneCollision(obj.collision),
+        shadow: obj.shadow ? { ...obj.shadow } : null
       };
     }
-    const snapshot = { source:'authored', savedAt:Date.now(), objects };
+    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects };
     puzzleStartState[instance.id] = snapshot;
     puzzleStartDirty.delete(instance.id);
     savePuzzleStarts();
@@ -1210,24 +1238,61 @@
   function applyPuzzleStart(instance, { persistRuntime = true } = {}) {
     if (!instance) return;
     const snapshot = puzzleStartFor(instance.marker);
+    if (snapshot.bounds) puzzleDraftBounds[instance.id] = { ...snapshot.bounds };
+    else puzzleDraftBounds[instance.id] = { ...codeBoundsForMarker(instance.marker) };
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (standingOnObject?.puzzleInstanceId === instance.id) standingOnObject = null;
-    for (const obj of instance.objects) {
-      const prop = (instance.def.props || []).find(item => item.id === obj.puzzleObjectId);
-      const state = snapshot.objects?.[obj.puzzleObjectId];
-      if (!prop || !state) continue;
-      obj.x = instance.marker.x + state.x;
-      obj.z = Number.isFinite(state.z) ? state.z : (prop.z ?? pathZ);
-      obj.sy = Number.isFinite(state.sy) ? state.sy : prop.height;
-      obj.sx = Number.isFinite(state.sx) ? state.sx : (prop.width ?? obj.sy * (assetAspect[prop.asset] || 1));
+
+    const existing = new Map(instance.objects.filter(Boolean).map(obj => [obj.puzzleObjectId, obj]));
+    for (const [objectId, state] of Object.entries(snapshot.objects || {})) {
+      const prop = (instance.def.props || []).find(item => item.id === objectId) || null;
+      let obj = existing.get(objectId);
+      const asset = state.asset || prop?.asset;
+      if (!obj && asset) {
+        const sy = Number.isFinite(state.sy) ? state.sy : (prop?.height ?? 0.8);
+        const sx = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? sy * (assetAspect[asset] || 1));
+        const x = instance.marker.x + (Number.isFinite(state.x) ? state.x : (prop?.x ?? 0));
+        const z = Number.isFinite(state.z) ? state.z : (prop?.z ?? pathZ);
+        obj = addObject(frontOccluders, asset, x, z, sx, sy, {
+          id:`puzzle-${instance.id}-${objectId}`,
+          y:playSurfaceYAt(x),
+          flip:!!state.flip,
+          shade:1, opacity:1, layer:'foreground', wrap:false,
+          category:state.category || prop?.category || 'gameplay',
+          gameplayType:state.gameplayType ?? prop?.gameplayType ?? null,
+          gameplayLayerLocked:state.gameplayLayerLocked ?? true,
+          collision:cloneCollision(state.collision ?? prop?.collision ?? null),
+          shadow:state.shadow || prop?.shadow || null,
+          deleted:!!state.deleted,
+          puzzleInstanceId:instance.id,
+          puzzleObjectId:objectId
+        });
+        instance.objects.push(obj);
+        existing.set(objectId, obj);
+      }
+      if (!obj) continue;
+      const xRel = Number.isFinite(state.x) ? state.x : (prop?.x ?? 0);
+      obj.x = instance.marker.x + xRel;
+      obj.z = Number.isFinite(state.z) ? state.z : (prop?.z ?? pathZ);
+      obj.sy = Number.isFinite(state.sy) ? state.sy : (prop?.height ?? obj.sy);
+      obj.sx = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? obj.sy * (assetAspect[obj.assetName] || 1));
       obj.flip = !!state.flip;
       obj.deleted = !!state.deleted;
-      obj.collision = cloneCollision(state.collision ?? prop.collision ?? null);
+      obj.category = state.category || prop?.category || obj.category || 'gameplay';
+      obj.gameplayType = state.gameplayType ?? prop?.gameplayType ?? obj.gameplayType ?? null;
+      obj.gameplayLayerLocked = state.gameplayLayerLocked ?? true;
+      obj.collision = cloneCollision(state.collision ?? prop?.collision ?? null);
+      obj.shadow = state.shadow || prop?.shadow || obj.shadow || null;
       obj.carried = false;
       obj.y = obj.category === 'gameplay' ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z);
       moveObjectToCorrectCollection(obj);
     }
+    // Objects not present in the selected start are not part of this puzzle setup.
+    for (const obj of instance.objects) {
+      if (obj?.puzzleObjectId && !snapshot.objects?.[obj.puzzleObjectId]) obj.deleted = true;
+    }
+
     instance.solved = false;
     puzzleStartDirty.delete(instance.id);
     sortSceneCollections();
@@ -1238,8 +1303,10 @@
     runtime.objects = {};
     for (const obj of instance.objects) {
       runtime.objects[obj.puzzleObjectId] = {
+        asset:obj.assetName,
         x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
-        deleted:!!obj.deleted, collision:cloneCollision(obj.collision)
+        deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
+        gameplayLayerLocked:!!obj.gameplayLayerLocked, collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null
       };
     }
     if (persistRuntime) savePuzzleState();
@@ -1267,9 +1334,11 @@
     if (!obj?.puzzleInstanceId || !obj?.puzzleObjectId) return false;
     const state = savedPuzzleFor(obj.puzzleInstanceId);
     state.objects[obj.puzzleObjectId] = {
+      asset:obj.assetName,
       x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
-      deleted:!!obj.deleted,
-      collision:cloneCollision(obj.collision)
+      deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
+      gameplayLayerLocked:!!obj.gameplayLayerLocked,
+      collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null
     };
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
     savePuzzleState();
@@ -1282,34 +1351,39 @@
     for (const packName of def.assetPacks || []) ensurePuzzleAssetPack(packName);
 
     const saved = savedPuzzleFor(marker.id);
+    const authored = puzzleStartState[marker.id];
     const instance = { id:marker.id, marker, def, objects:[], solved:!!saved.solved };
-    for (const prop of def.props || []) {
-      const prior = saved.objects?.[prop.id];
-      const x = prior?.x ?? (marker.x + prop.x);
-      const z = prior?.z ?? (prop.z ?? pathZ);
-      const width = prior?.sx ?? prop.width;
-      const height = prior?.sy ?? prop.height;
-      const obj = addObject(frontOccluders, prop.asset, x, z, width, height, {
-        id:`puzzle-${marker.id}-${prop.id}`,
-        y:prior?.y ?? playSurfaceYAt(x),
-        flip:prior?.flip ?? prop.flip ?? false,
-        shade:1,
-        opacity:1,
-        layer:'foreground',
-        wrap:false,
-        category:prop.category || 'gameplay',
-        gameplayType:prop.gameplayType || null,
-        gameplayLayerLocked:true,
-        collision:cloneCollision(prior?.collision ?? prop.collision ?? null),
-        shadow: prop.shadow || null,
-        deleted:prior?.deleted ?? false,
+    const baseById = new Map((def.props || []).map(prop => [prop.id, prop]));
+    const ids = new Set([...baseById.keys(), ...Object.keys(authored?.objects || {}), ...Object.keys(saved.objects || {})]);
+    for (const objectId of ids) {
+      const prop = baseById.get(objectId) || null;
+      const startState = authored?.objects?.[objectId] || null;
+      const prior = saved.objects?.[objectId] || null;
+      const meta = prior || startState || prop;
+      const asset = prior?.asset || startState?.asset || prop?.asset;
+      if (!asset) continue;
+      const xRel = Number.isFinite(startState?.x) ? startState.x : (prop?.x ?? 0);
+      const x = Number.isFinite(prior?.x) ? prior.x : (marker.x + xRel);
+      const z = Number.isFinite(prior?.z) ? prior.z : (Number.isFinite(startState?.z) ? startState.z : (prop?.z ?? pathZ));
+      const height = Number.isFinite(prior?.sy) ? prior.sy : (Number.isFinite(startState?.sy) ? startState.sy : (prop?.height ?? 0.8));
+      const width = Number.isFinite(prior?.sx) ? prior.sx : (Number.isFinite(startState?.sx) ? startState.sx : prop?.width);
+      const obj = addObject(frontOccluders, asset, x, z, width, height, {
+        id:`puzzle-${marker.id}-${objectId}`,
+        y:Number.isFinite(prior?.y) ? prior.y : playSurfaceYAt(x),
+        flip:prior?.flip ?? startState?.flip ?? prop?.flip ?? false,
+        shade:1, opacity:1, layer:'foreground', wrap:false,
+        category:prior?.category || startState?.category || prop?.category || 'gameplay',
+        gameplayType:prior?.gameplayType ?? startState?.gameplayType ?? prop?.gameplayType ?? null,
+        gameplayLayerLocked:prior?.gameplayLayerLocked ?? startState?.gameplayLayerLocked ?? true,
+        collision:cloneCollision(prior?.collision ?? startState?.collision ?? prop?.collision ?? null),
+        shadow:prior?.shadow || startState?.shadow || prop?.shadow || null,
+        deleted:prior?.deleted ?? startState?.deleted ?? false,
         puzzleInstanceId:marker.id,
-        puzzleObjectId:prop.id
+        puzzleObjectId:objectId
       });
-      obj.puzzleInstanceId = marker.id;
-      obj.puzzleObjectId = prop.id;
       instance.objects.push(obj);
     }
+    currentPuzzleBoundsRelative(marker);
     activePuzzleInstances.set(marker.id, instance);
     sortSceneCollections();
     settleGameplayCrates();
@@ -1343,17 +1417,15 @@
   }
 
   function moduleBoundsFor(def, marker) {
-    if (def?.exclusion) {
-      return {
-        minX: marker.x + def.exclusion.minX,
-        maxX: marker.x + def.exclusion.maxX,
-        minZ: def.exclusion.minZ,
-        maxZ: def.exclusion.maxZ,
-        hidesDressing: true
-      };
-    }
-    const half = Math.max(1.5, (def?.width ?? 8) * 0.5);
-    return { minX: marker.x - half, maxX: marker.x + half, minZ: -999, maxZ: 999, hidesDressing: false };
+    const rel = currentPuzzleBoundsRelative(marker);
+    const hidesDressing = !!def?.exclusion;
+    return {
+      minX:marker.x + rel.minX,
+      maxX:marker.x + rel.maxX,
+      minZ:def?.exclusion?.minZ ?? -999,
+      maxZ:def?.exclusion?.maxZ ?? 999,
+      hidesDressing
+    };
   }
 
   function puzzleBounds(instance) {
@@ -1613,7 +1685,7 @@
   // short authored transitions around that same pose.
   let carriedObject = null;
   let interactionState = null; // { type:'pickup'|'drop', time, duration, object, startX, startY, targetX, targetY }
-  const ACTION_RANGE = 1.18;
+  const ACTION_RANGE = 0.72; // distance from the character capsule to the near edge of a carryable prop
   const PICKUP_DURATION = 0.48;
   const DROP_DURATION = 0.44;
   const CARRY_FORWARD = 0.48;
@@ -1624,6 +1696,8 @@
   let dragStartCameraX = 0;
 
   let editMode = false;
+  let editorScope = 'environment';
+  let editorPuzzleMarkerId = null;
   let editorPuzzlePackPinned = false;
   let selectedObject = null;
   let editorPointer = null;
@@ -1631,6 +1705,8 @@
   let editorDragOffset = { x: 0, z: 0 };
   let editorPanStart = 0;
   let editorPanCameraX = 0;
+  let editorGesture = null;
+  let puzzleBoundSide = null;
   let addAssetType = null;
   let editorTapState = null;
   let selectionCycleInfo = null;
@@ -1638,22 +1714,19 @@
   let collisionHandleIndex = -1;
   let currentViewMatrix = mat4Identity();
   const editorAssetGroups = [
-    { title: 'GAMEPLAY', items: [
-      { name: 'crate', label: 'WOODEN CRATE', category: 'gameplay', gameplayType: 'crate' }
-    ]},
-    { title: 'PUZZLE PROPS · WOODLAND', items: [
+    { scope:'puzzle', title: 'PUZZLE PROPS · WOODLAND', items: [
       { name:'puzzle-log-a', label:'MOVEABLE LOG A', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.84, collision:{halfWidth:0.58,height:0.48,depth:0.62,platform:true} },
       { name:'puzzle-log-b', label:'MOVEABLE LOG B', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.72, collision:{halfWidth:0.46,height:0.42,depth:0.56,platform:true} },
       { name:'puzzle-log-c', label:'MOVEABLE LOG C', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.76, collision:{halfWidth:0.60,height:0.44,depth:0.60,platform:true} },
-      { name:'puzzle-log-d', label:'LONG LOG', category:'gameplay', gameplayType:'prop', thumb:'━━', defaultHeight:0.82 },
-      { name:'fallen-tree', label:'FALLEN TREE', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.55, collision:{halfWidth:0.90,height:1.72,depth:1.04,platform:true} },
+      { name:'puzzle-log-d', label:'LONG LOG', category:'gameplay', gameplayType:'crate', thumb:'━━', defaultHeight:0.82, collision:{halfWidth:0.75,height:0.46,depth:0.64,platform:true} },
+      { name:'fallen-tree', label:'FALLEN TREE', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.55, collision:{halfWidth:2.35,height:1.72,depth:1.08,platform:true} },
       { name:'tree-stump', label:'TREE STUMP', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.18 },
       { name:'broken-branch', label:'BROKEN BRANCH', category:'gameplay', gameplayType:'prop', thumb:'⟍', defaultHeight:0.78 }
     ]},
-    { title: 'DRESSING · TREES', items: [
+    { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06'
     ].map(name => ({ name, label: `TREE ${Number(name.slice(-2))}`, category: 'dressing' }))},
-    { title: 'DRESSING · GROUND', items: [
+    { scope:'environment', title: 'DRESSING · GROUND', items: [
       'ground01','ground02','ground03','ground04','ground05','ground06',
       'ground07','ground08','ground09','ground10','ground11','ground12'
     ].map(name => ({ name, label: `GROUND ${Number(name.slice(-2))}`, category: 'dressing' }))}
@@ -1772,6 +1845,7 @@
     const candidates = [];
     for (const obj of allSceneObjects()) {
       if (obj.deleted || obj.carried) continue;
+      if (editMode && !editorObjectIsEditable(obj)) continue;
       const b = objectScreenBounds(obj);
       if (!b || b.right < -20 || b.left > rect.width + 20 || b.bottom < -20 || b.top > rect.height + 20) continue;
       const pad = 7;
@@ -1795,6 +1869,89 @@
     backdrop.sort((a,b)=>a.z-b.z);
     midfill.sort((a,b)=>a.z-b.z);
     frontOccluders.sort((a,b)=>a.z-b.z);
+  }
+
+  function selectedPuzzleMarker() {
+    return markerForId(editorPuzzleMarkerId) || null;
+  }
+
+  function selectedPuzzleInstance() {
+    const marker = selectedPuzzleMarker();
+    if (!marker) return null;
+    return activePuzzleInstances.get(marker.id) || instantiatePuzzleGroup(marker);
+  }
+
+  function editorObjectIsEditable(obj) {
+    if (!obj || obj.deleted) return false;
+    if (editorScope === 'puzzle') return !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId;
+    return !obj.puzzleInstanceId;
+  }
+
+  function pointInsideScreenBounds(clientX, clientY, bounds, pad = 4) {
+    if (!bounds) return false;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    return x >= bounds.left-pad && x <= bounds.right+pad && y >= bounds.top-pad && y <= bounds.bottom+pad;
+  }
+
+  function puzzleAssetNamesFor(markerId) {
+    const marker = markerForId(markerId);
+    const def = markerDefinition(marker);
+    const names = new Set();
+    for (const packName of def?.assetPacks || []) {
+      for (const asset of puzzleConfig.assetPacks?.[packName]?.assets || []) names.add(asset.name);
+    }
+    return names;
+  }
+
+  function populatePuzzleSelector() {
+    if (!puzzleSelect) return;
+    const previous = editorPuzzleMarkerId;
+    puzzleSelect.innerHTML = '';
+    for (const marker of puzzleConfig.markers || []) {
+      const option = document.createElement('option');
+      option.value = marker.id;
+      option.textContent = markerDefinition(marker)?.label || marker.group || marker.id;
+      puzzleSelect.appendChild(option);
+    }
+    if (previous && markerForId(previous)) puzzleSelect.value = previous;
+  }
+
+  function focusSelectedPuzzle() {
+    const instance = selectedPuzzleInstance();
+    if (!instance) return;
+    camera.x = instance.marker.x - character.screenOffsetX;
+    previousCameraX = camera.x;
+    updatePuzzlePanel();
+  }
+
+  function choosePuzzleForEditing(markerId, focus = false) {
+    const marker = markerForId(markerId) || (puzzleConfig.markers || [])[0] || null;
+    editorPuzzleMarkerId = marker?.id || null;
+    if (marker) {
+      instantiatePuzzleGroup(marker);
+      currentPuzzleBoundsRelative(marker);
+      if (puzzleSelect) puzzleSelect.value = marker.id;
+    }
+    selectObject(null);
+    buildAssetPalette();
+    if (focus) focusSelectedPuzzle();
+    updatePuzzlePanel();
+  }
+
+  function setEditorScope(scope) {
+    if (scope !== 'environment' && scope !== 'puzzle') return;
+    editorScope = scope;
+    selectObject(null);
+    addAssetType = null;
+    if (scope === 'puzzle' && !editorPuzzleMarkerId) {
+      const near = activePuzzleNear(camera.x + character.screenOffsetX);
+      choosePuzzleForEditing(near?.id || (puzzleConfig.markers || [])[0]?.id || null, false);
+    }
+    buildAssetPalette();
+    updatePuzzlePanel();
+    updateEditorButtons();
   }
 
   function updateEditorButtons() {
@@ -1830,14 +1987,12 @@
 
 
   function authoringPuzzle() {
-    const focusX = puzzleTestMode
-      ? character.x
-      : (camera.x + character.screenOffsetX);
     if (puzzleTestMarkerId) {
       const pinned = activePuzzleInstances.get(puzzleTestMarkerId);
       if (pinned) return pinned;
     }
-    return activePuzzleNear(focusX);
+    if (editMode && editorScope === 'puzzle' && editorPuzzleMarkerId) return selectedPuzzleInstance();
+    return null;
   }
 
   function updatePuzzlePanel() {
@@ -1847,23 +2002,42 @@
     document.body.classList.toggle('sidescroll-puzzle-testing', puzzleTestMode);
     if (!visible) return;
 
-    const instance = authoringPuzzle();
     const testing = puzzleTestMode;
-    if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : 'SETUP';
-    if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || 'No puzzle nearby';
+    const puzzleEditing = testing || editorScope === 'puzzle';
+    const instance = puzzleEditing ? authoringPuzzle() : null;
+    if (editorScopeSwitch) editorScopeSwitch.hidden = testing;
+    environmentScopeBtn?.classList.toggle('active', !testing && editorScope === 'environment');
+    puzzleScopeBtn?.classList.toggle('active', testing || editorScope === 'puzzle');
+    if (puzzlePicker) puzzlePicker.hidden = testing || editorScope !== 'puzzle';
+    if (puzzleActionsEl) puzzleActionsEl.hidden = !puzzleEditing;
+
+    if (!puzzleEditing) {
+      if (puzzleModeEl) puzzleModeEl.textContent = 'ENV';
+      if (puzzleNameEl) puzzleNameEl.textContent = 'Environment';
+      if (puzzleStateEl) puzzleStateEl.textContent = 'Editing scene dressing only. Puzzle props are locked and cannot be selected.';
+      if (puzzleHelpEl) puzzleHelpEl.textContent = 'Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it.';
+      return;
+    }
+
+    if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : 'PUZZLE';
+    if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || 'No puzzle selected';
     if (puzzleStateEl) {
-      if (!instance) puzzleStateEl.textContent = 'Pan along the world until a puzzle marker is nearby.';
+      if (!instance) puzzleStateEl.textContent = 'Choose a puzzle to edit.';
       else if (testing) puzzleStateEl.textContent = instance.solved
         ? 'Puzzle complete. Reset to run it again, or return to Setup.'
         : 'Testing from the saved start. Test moves do not change the start layout.';
-      else if (puzzleStartDirty.has(instance.id)) puzzleStateEl.textContent = 'Setup changed. Tap Set Start when this is the arrangement you want players to begin with.';
-      else puzzleStateEl.textContent = hasAuthoredPuzzleStart(instance.id)
-        ? 'Start state saved on this device.'
-        : 'Using the default start from puzzle-groups.js. Arrange the props, then tap Set Start.';
+      else {
+        const b = currentPuzzleBoundsRelative(instance.marker);
+        const width = (b.maxX - b.minX).toFixed(1);
+        const state = puzzleStartDirty.has(instance.id)
+          ? 'Unsaved setup changes.'
+          : (hasAuthoredPuzzleStart(instance.id) ? 'Start state saved on this device.' : 'Using the code-defined start.');
+        puzzleStateEl.textContent = `${state} Puzzle bounds: ${width}m wide.`;
+      }
     }
     if (puzzleHelpEl) puzzleHelpEl.textContent = testing
       ? 'Reset restarts this puzzle. Back to Setup restores the saved start and returns to editing.'
-      : 'Swipe empty space to pan. Tap/drag props to place them. Collision opens the point editor.';
+      : 'Only this puzzle can be selected. Drag the yellow end handles to resize its bounds. Tap/release selects; drag the selected prop itself to move it; drag elsewhere to pan.';
 
     if (puzzleSetStartBtn) { puzzleSetStartBtn.hidden = testing; puzzleSetStartBtn.disabled = !instance; }
     if (puzzleTestBtn) { puzzleTestBtn.hidden = testing; puzzleTestBtn.disabled = !instance; }
@@ -1919,8 +2093,11 @@
       character.x = camera.x + character.screenOffsetX;
       character.y = playSurfaceYAt(character.x);
     }
+    const returnMarkerId = puzzleTestMarkerId || instance?.id || null;
     puzzleTestMarkerId = null;
     setEditMode(true);
+    editorScope = 'puzzle';
+    choosePuzzleForEditing(returnMarkerId, false);
     updatePuzzlePanel();
   }
 
@@ -1935,6 +2112,7 @@
     if (on && carriedObject) dropCarriedImmediate();
     if (!on) { collisionEditMode = false; collisionHandleIndex = -1; }
     editMode = !!on;
+    if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
     document.body.classList.toggle('sidescroll-editing', editMode);
     if (editBtn) {
       editBtn.setAttribute('aria-pressed', String(editMode));
@@ -1980,21 +2158,26 @@
   function createUserObject(type, point) {
     const h = defaultAssetHeight(type);
     const w = h * (assetAspect[type] || 1);
-    const id = `user-${Date.now().toString(36)}-${++userSceneCounter}`;
-    const info = editorAssetInfo.get(type) || { category: 'dressing', gameplayType: null };
+    const info = editorAssetInfo.get(type) || { category:'dressing', gameplayType:null };
+    const puzzleInstance = editMode && editorScope === 'puzzle' ? selectedPuzzleInstance() : null;
+    const puzzleObjectId = puzzleInstance ? `authored-${Date.now().toString(36)}-${++userSceneCounter}` : null;
+    const id = puzzleInstance ? `puzzle-${puzzleInstance.id}-${puzzleObjectId}` : `user-${Date.now().toString(36)}-${++userSceneCounter}`;
     const collection = info.category === 'gameplay' ? frontOccluders : targetCollectionForZ(point.z);
     const gameplayCollision = info.collision
-      ? { ...info.collision }
-      : (type === 'crate' || info.gameplayType === 'crate')
-        ? { halfWidth: Math.max(0.43, w * CRATE_HALF_WIDTH_FACTOR), height: h * CRATE_COLLISION_HEIGHT_FACTOR, depth: 0.82, platform: true }
+      ? cloneCollision(info.collision)
+      : (info.gameplayType === 'crate')
+        ? { halfWidth:Math.max(0.43,w*CRATE_HALF_WIDTH_FACTOR), height:h*CRATE_COLLISION_HEIGHT_FACTOR, depth:0.82, platform:true }
         : null;
     const placementZ = info.category === 'gameplay' ? pathZ : point.z;
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
-      id, userAdded:true, baseSx:w, baseSy:h, y:info.category === 'gameplay' ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z),
-      shade:1, opacity:.99, layer:classifyLayer(info.category === 'gameplay' ? pathZ : point.z),
-      category: info.category || 'dressing', gameplayType: info.gameplayType || null, collision: gameplayCollision,
-      gameplayLayerLocked: info.category === 'gameplay'
+      id, userAdded:!puzzleInstance, baseSx:w, baseSy:h,
+      y:info.category === 'gameplay' ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z),
+      shade:1, opacity:.99, layer:classifyLayer(placementZ),
+      category:info.category || 'dressing', gameplayType:info.gameplayType || null,
+      collision:gameplayCollision, gameplayLayerLocked:info.category === 'gameplay',
+      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
     });
+    if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') obj.y = restYForGameplayObject(obj, obj.x, null, true);
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
@@ -2006,14 +2189,18 @@
   function duplicateSelected() {
     if (!selectedObject || selectedObject.deleted) return;
     const point = { x:selectedObject.x + 0.85, z:selectedObject.gameplayLayerLocked ? pathZ : selectedObject.z + 0.18 };
-    const id = `user-${Date.now().toString(36)}-${++userSceneCounter}`;
+    const puzzleInstance = selectedObject.puzzleInstanceId ? activePuzzleInstances.get(selectedObject.puzzleInstanceId) : null;
+    const puzzleObjectId = puzzleInstance ? `authored-${Date.now().toString(36)}-${++userSceneCounter}` : null;
+    const id = puzzleInstance ? `puzzle-${puzzleInstance.id}-${puzzleObjectId}` : `user-${Date.now().toString(36)}-${++userSceneCounter}`;
     const collection = selectedObject.category === 'gameplay' ? frontOccluders : targetCollectionForZ(point.z);
     const obj = addObject(collection, selectedObject.assetName, point.x, point.z, selectedObject.sx, selectedObject.sy, {
-      id, userAdded:true, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy,
+      id, userAdded:!puzzleInstance, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy,
       y:selectedObject.category === 'gameplay' ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z), shade:selectedObject.shade, opacity:selectedObject.opacity,
       flip:selectedObject.flip, layer:classifyLayer(point.z), collision:selectedObject.collision ? cloneCollision(selectedObject.collision) : null,
-      category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked: !!selectedObject.gameplayLayerLocked
+      category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked:!!selectedObject.gameplayLayerLocked,
+      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
     });
+    if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') obj.y = restYForGameplayObject(obj, obj.x, null, true);
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
@@ -2101,12 +2288,16 @@
   function buildAssetPalette() {
     if (!editorAssetsEl) return;
     editorAssetsEl.innerHTML = '';
+    const allowedPuzzleAssets = editorScope === 'puzzle' ? puzzleAssetNamesFor(editorPuzzleMarkerId) : null;
     for (const group of editorAssetGroups) {
+      if (group.scope !== editorScope) continue;
+      const items = group.items.filter(info => editorScope !== 'puzzle' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name));
+      if (!items.length) continue;
       const heading = document.createElement('div');
       heading.className = 'sidescroll-editor-asset-group';
       heading.textContent = group.title;
       editorAssetsEl.appendChild(heading);
-      for (const info of group.items) {
+      for (const info of items) {
         const name = info.name;
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -2139,23 +2330,45 @@
     }
   }
 
+  function puzzleBoundHandlePositions(instance) {
+    if (!instance) return [];
+    const b = puzzleBounds(instance);
+    const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
+    const right = projectWorldPoint(b.maxX, playSurfaceYAt(b.maxX)+0.04, pathZ);
+    return [left && { side:'left', ...left }, right && { side:'right', ...right }].filter(Boolean);
+  }
+
+  function puzzleBoundHandleAt(clientX, clientY) {
+    if (!editMode || editorScope !== 'puzzle') return null;
+    const instance = selectedPuzzleInstance();
+    if (!instance) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left, y = clientY - rect.top;
+    return puzzleBoundHandlePositions(instance).find(handle => Math.hypot(handle.x-x, handle.y-y) <= 18) || null;
+  }
+
   function drawPuzzleEditorGuides(ctx) {
-    for (const instance of activePuzzleInstances.values()) {
-      const b = puzzleBounds(instance);
-      const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
-      const right = projectWorldPoint(b.maxX, playSurfaceYAt(b.maxX)+0.04, pathZ);
-      const mark = projectWorldPoint(instance.marker.x, playSurfaceYAt(instance.marker.x)+0.12, pathZ);
-      if (!left || !right || !mark) continue;
-      ctx.save();
-      ctx.strokeStyle='rgba(240,205,127,.90)';ctx.fillStyle='rgba(23,32,38,.82)';ctx.lineWidth=2;ctx.setLineDash([6,4]);
-      ctx.beginPath();ctx.moveTo(left.x,left.y);ctx.lineTo(right.x,right.y);ctx.stroke();ctx.setLineDash([]);
-      ctx.beginPath();ctx.arc(mark.x,mark.y,5,0,Math.PI*2);ctx.fillStyle='#f0cd7f';ctx.fill();
-      const label=`${instance.def.label || instance.marker.group} · ${instance.solved ? 'SOLVED' : 'ACTIVE'}`;
-      ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';
-      const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,mark.x-tw*.5));const ly=Math.max(48,mark.y-31);
-      ctx.fillStyle='rgba(23,32,38,.82)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle='#f4e4bf';ctx.fillText(label,lx+7,ly+14);
-      ctx.restore();
+    if (!editMode || editorScope !== 'puzzle') return;
+    const instance = selectedPuzzleInstance();
+    if (!instance) return;
+    const b = puzzleBounds(instance);
+    const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
+    const right = projectWorldPoint(b.maxX, playSurfaceYAt(b.maxX)+0.04, pathZ);
+    const mark = projectWorldPoint(instance.marker.x, playSurfaceYAt(instance.marker.x)+0.12, pathZ);
+    if (!left || !right || !mark) return;
+    ctx.save();
+    ctx.strokeStyle='rgba(240,205,127,.96)';ctx.fillStyle='rgba(23,32,38,.82)';ctx.lineWidth=2;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(left.x,left.y);ctx.lineTo(right.x,right.y);ctx.stroke();ctx.setLineDash([]);
+    for (const handle of [left,right]) {
+      ctx.beginPath();ctx.arc(handle.x,handle.y,7,0,Math.PI*2);ctx.fillStyle='#f0cd7f';ctx.fill();ctx.strokeStyle='#493d28';ctx.lineWidth=1.5;ctx.stroke();
     }
+    ctx.beginPath();ctx.arc(mark.x,mark.y,4,0,Math.PI*2);ctx.fillStyle='#f5e6b7';ctx.fill();
+    const rel=currentPuzzleBoundsRelative(instance.marker);
+    const label=`${instance.def.label || instance.marker.group} · BOUNDS ${(rel.maxX-rel.minX).toFixed(1)}m`;
+    ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';
+    const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,mark.x-tw*.5));const ly=Math.max(48,mark.y-31);
+    ctx.fillStyle='rgba(23,32,38,.82)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle='#f4e4bf';ctx.fillText(label,lx+7,ly+14);
+    ctx.restore();
   }
 
   function drawEditorOverlay() {
@@ -2171,6 +2384,7 @@
     // hidden by foreground dressing. This makes logs/rocks much easier to
     // find and tune in edit mode.
     for (const obj of collisionObjects()) {
+      if (!editorObjectIsEditable(obj)) continue;
       if (obj === selectedObject) continue;
       const poly = collisionScreenPolygon(obj);
       if (poly.length < 3) continue;
@@ -2806,12 +3020,13 @@
       const depth = obj.collision?.depth ?? 0.9;
       if (Math.abs(obj.z - pathZ) > Math.max(0.95, depth)) continue;
       const ox = objectXNear(obj, characterXNow);
-      const d = Math.abs(ox - characterXNow);
-      // When crates are stacked at the same X, prefer the upper accessible one
-      // so ACTION naturally peels a stack from the top instead of removing its
-      // support from underneath.
-      if (d <= ACTION_RANGE && (d < bestD - 0.02 || (Math.abs(d - bestD) <= 0.02 && (!best || obj.y > best.y)))) {
-        best = obj; bestD = d;
+      const centreDistance = Math.abs(ox - characterXNow);
+      const characterReach = colliderWorld().radius * 0.72;
+      const edgeDistance = Math.max(0, centreDistance - crateHalfWidth(obj) - characterReach);
+      // Reach is measured to the visible/collision edge rather than the prop
+      // centre, so long logs remain pickable when the character is beside an end.
+      if (edgeDistance <= ACTION_RANGE && (edgeDistance < bestD - 0.02 || (Math.abs(edgeDistance - bestD) <= 0.02 && (!best || obj.y > best.y)))) {
+        best = obj; bestD = edgeDistance;
       }
     }
     return best;
@@ -3194,8 +3409,13 @@
 
   if (editBtn) editBtn.addEventListener('click', () => {
     if (puzzleTestMode) backToPuzzleSetup();
-    else setEditMode(!editMode);
+    else if (editMode) setEditMode(false);
+    else { editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel(); }
   });
+  environmentScopeBtn?.addEventListener('click', () => setEditorScope('environment'));
+  puzzleScopeBtn?.addEventListener('click', () => setEditorScope('puzzle'));
+  puzzleSelect?.addEventListener('change', () => choosePuzzleForEditing(puzzleSelect.value, true));
+  puzzleFocusBtn?.addEventListener('click', focusSelectedPuzzle);
   editorAddBtn?.addEventListener('click', () => {
     if (!editMode || !editorPalette) return;
     editorPalette.hidden = !editorPalette.hidden;
@@ -3235,25 +3455,46 @@
     hideHint();
     if (editMode) {
       editorPointer = e.pointerId;
+      const localRect = canvas.getBoundingClientRect();
+      const startGround = groundPointFromClient(e.clientX, e.clientY);
+      editorGesture = {
+        startClientX:e.clientX, startClientY:e.clientY,
+        startLocalX:e.clientX-localRect.left, startLocalY:e.clientY-localRect.top,
+        startCameraX:camera.x, startGround,
+        moved:false, kind:'pan', object:null,
+        objectStartX:selectedObject?.x ?? 0, objectStartZ:selectedObject?.z ?? 0
+      };
+
       if (addAssetType) {
-        const point = groundPointFromClient(e.clientX, e.clientY);
+        const point = startGround;
         if (point) {
           createUserObject(addAssetType, point);
           addAssetType = null;
           updateAssetPaletteState();
           updateEditorButtons();
-          hintEl.textContent = 'Added · drag to move · use the tools below to tune it';
+          hintEl.textContent = 'Added · tap/release selects · drag the selected asset itself to move it';
           hintEl.classList.remove('hidden');
         }
         editorPointer = null;
+        editorGesture = null;
+        return;
+      }
+
+      const boundHandle = puzzleBoundHandleAt(e.clientX, e.clientY);
+      if (boundHandle) {
+        editorGesture.kind = 'puzzle-bound';
+        puzzleBoundSide = boundHandle.side;
+        hintEl.textContent = 'Drag to resize the selected puzzle bounds';
+        hintEl.classList.remove('hidden');
         return;
       }
 
       if (selectedObject && collisionEditMode && selectedObject.collision) {
+        const rect = canvas.getBoundingClientRect();
         const handles = collisionHandlePositions(selectedObject);
-        const handle = handles.find(item => Math.hypot(item.x - e.clientX, item.y - e.clientY) <= 16);
+        const handle = handles.find(item => Math.hypot(item.x - (e.clientX-rect.left), item.y - (e.clientY-rect.top)) <= 16);
         if (handle) {
-          editorDragKind = 'collision-handle';
+          editorGesture.kind = 'collision-handle';
           collisionHandleIndex = handle.index;
           hintEl.textContent = 'Drag the orange handle to reshape the collision';
           hintEl.classList.remove('hidden');
@@ -3261,32 +3502,11 @@
         }
       }
 
-      const candidates = pickSceneObjects(e.clientX, e.clientY);
-      const alreadySelectedIndex = selectedObject ? candidates.indexOf(selectedObject) : -1;
-      const hit = alreadySelectedIndex >= 0 ? selectedObject : (candidates[0] || null);
-      if (hit) {
-        if (hit !== selectedObject) selectObject(hit, true);
-        selectionCycleInfo = cycleInfoFor(hit, candidates);
-        const point = groundPointFromClient(e.clientX, e.clientY);
-        editorDragKind = 'object';
-        if (point) editorDragOffset = { x: hit.x - point.x, z: hit.z - point.z };
-        else editorDragOffset = { x: 0, z: 0 };
-        editorTapState = {
-          startX: e.clientX, startY: e.clientY, moved: false,
-          candidates, selectedAtDown: hit, wasAlreadySelected: alreadySelectedIndex >= 0
-        };
-        hintEl.textContent = candidates.length > 1
-          ? `Selected · tap again to cycle ${candidates.length} overlapping assets · drag to move`
-          : 'Selected · drag on the ground plane to reposition';
-        hintEl.classList.remove('hidden');
-      } else {
-        selectObject(null);
-        editorTapState = null;
-        editorDragKind = 'pan';
-        editorPanStart = e.clientX;
-        editorPanCameraX = camera.x;
-        hintEl.textContent = 'Empty-space drag pans along the level';
-        hintEl.classList.remove('hidden');
+      // Crucial editor rule: an object only moves when the drag STARTS inside
+      // the object that was already selected. Everything else begins as a pan.
+      if (selectedObject && editorObjectIsEditable(selectedObject) && pointInsideScreenBounds(e.clientX,e.clientY,objectScreenBounds(selectedObject),3)) {
+        editorGesture.kind = 'selected-object';
+        editorGesture.object = selectedObject;
       }
       return;
     }
@@ -3298,39 +3518,47 @@
 
   canvas.addEventListener('pointermove', e => {
     if (editMode) {
-      if (e.pointerId !== editorPointer) return;
-      if (editorDragKind === 'object' && selectedObject) {
-        if (editorTapState) {
-          const travel = Math.hypot(e.clientX - editorTapState.startX, e.clientY - editorTapState.startY);
-          if (travel < 6 && !editorTapState.moved) return;
-          editorTapState.moved = true;
+      if (e.pointerId !== editorPointer || !editorGesture) return;
+      const dx = e.clientX - editorGesture.startClientX;
+      const dy = e.clientY - editorGesture.startClientY;
+      const travel = Math.hypot(dx,dy);
+      if (travel < 7 && !editorGesture.moved) return;
+      editorGesture.moved = true;
+
+      if (editorGesture.kind === 'selected-object' && editorGesture.object) {
+        const obj = editorGesture.object;
+        const point = groundPointFromClient(e.clientX,e.clientY);
+        if (point && editorGesture.startGround) {
+          // Relative ground delta avoids the old behaviour where an object
+          // jumped to wherever the finger happened to touch it. A little
+          // damping keeps distant perspective assets from racing ahead.
+          const damping = 0.72;
+          obj.x = editorGesture.objectStartX + (point.x-editorGesture.startGround.x)*damping;
+          obj.z = obj.category === 'gameplay' && obj.gameplayLayerLocked
+            ? pathZ
+            : Rig.clamp(editorGesture.objectStartZ + (point.z-editorGesture.startGround.z)*damping, WORLD.farZ+0.8, WORLD.nearZ-0.6);
+          obj.y = obj.category === 'gameplay' ? restYForGameplayObject(obj) : pathGroundYAt(obj.x,obj.z);
+          moveObjectToCorrectCollection(obj);sortSceneCollections();selectionCycleInfo=null;
+        } else {
+          obj.x = editorGesture.objectStartX + dx*0.0055;
         }
-        const point = groundPointFromClient(e.clientX, e.clientY);
-        if (!point) return;
-        selectedObject.x = point.x + editorDragOffset.x;
-        selectedObject.z = selectedObject.category === 'gameplay' && selectedObject.gameplayLayerLocked
-          ? pathZ
-          : Rig.clamp(point.z + editorDragOffset.z, WORLD.farZ + 0.8, WORLD.nearZ - 0.6);
-        selectedObject.y = selectedObject.category === 'gameplay'
-          ? restYForGameplayObject(selectedObject)
-          : pathGroundYAt(selectedObject.x, selectedObject.z);
-        moveObjectToCorrectCollection(selectedObject);
-        sortSceneCollections();
-        selectionCycleInfo = null;
-      } else if (editorDragKind === 'collision-handle' && selectedObject?.collision && collisionHandleIndex >= 0) {
-        const bounds = collisionRectScreenBounds(selectedObject);
-        if (!bounds) return;
-        const nx = Rig.clamp((((e.clientX - bounds.left) / Math.max(1, bounds.right - bounds.left)) * 2) - 1, -1.30, 1.30);
-        const ny = Rig.clamp((bounds.bottom - e.clientY) / Math.max(1, bounds.bottom - bounds.top), 0, 1.25);
-        const points = normalisedCollisionPoints(selectedObject.collision).map(point => ({ ...point }));
-        if (points[collisionHandleIndex]) {
-          points[collisionHandleIndex].x = nx;
-          points[collisionHandleIndex].y = ny;
-          selectedObject.collision.points = points;
+      } else if (editorGesture.kind === 'collision-handle' && selectedObject?.collision && collisionHandleIndex >= 0) {
+        const bounds=collisionRectScreenBounds(selectedObject); if(!bounds) return;
+        const rect=canvas.getBoundingClientRect(); const lx=e.clientX-rect.left, ly=e.clientY-rect.top;
+        const nx=Rig.clamp((((lx-bounds.left)/Math.max(1,bounds.right-bounds.left))*2)-1,-4.0,4.0);
+        const ny=Rig.clamp((bounds.bottom-ly)/Math.max(1,bounds.bottom-bounds.top),-0.20,3.0);
+        const points=normalisedCollisionPoints(selectedObject.collision).map(point=>({...point}));
+        if(points[collisionHandleIndex]){points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;}
+      } else if (editorGesture.kind === 'puzzle-bound') {
+        const instance=selectedPuzzleInstance(); const point=groundPointFromClient(e.clientX,e.clientY);
+        if(instance&&point){
+          const rel=currentPuzzleBoundsRelative(instance.marker);const local=point.x-instance.marker.x;
+          if(puzzleBoundSide==='left') rel.minX=Math.min(local,rel.maxX-1.0);
+          else rel.maxX=Math.max(local,rel.minX+1.0);
+          puzzleStartDirty.add(instance.id);updatePuzzlePanel();
         }
-      } else if (editorDragKind === 'pan') {
-        const dx = e.clientX - editorPanStart;
-        camera.x = editorPanCameraX - dx * 0.0075;
+      } else {
+        camera.x = editorGesture.startCameraX - dx*0.0065;
       }
       return;
     }
@@ -3342,27 +3570,31 @@
   const endDrag = e => {
     if (editMode) {
       if (e.pointerId !== editorPointer) return;
-      if (editorDragKind === 'object' && selectedObject) {
-        if (editorTapState?.moved) {
-          recordObjectEdit(selectedObject);
-        } else if (editorTapState?.wasAlreadySelected && editorTapState.candidates.length > 1) {
-          const candidates = editorTapState.candidates.filter(obj => !obj.deleted);
-          const currentIndex = Math.max(0, candidates.indexOf(editorTapState.selectedAtDown));
-          const next = candidates[(currentIndex + 1) % candidates.length];
-          selectedObject = next;
-          collisionEditMode = false;
-          selectionCycleInfo = cycleInfoFor(next, candidates);
-          updateEditorButtons();
-          hintEl.textContent = `Depth ${selectionCycleInfo.index + 1}/${candidates.length} · tap again to cycle · drag to move`;
-          hintEl.classList.remove('hidden');
+      const gesture=editorGesture;
+      if (gesture) {
+        if (gesture.moved) {
+          if (gesture.kind==='selected-object' && gesture.object) recordObjectEdit(gesture.object);
+          else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
+          else if (gesture.kind==='puzzle-bound') {
+            const instance=selectedPuzzleInstance(); if(instance) puzzleStartDirty.add(instance.id);
+          }
+        } else if (gesture.kind==='pan' || gesture.kind==='selected-object') {
+          // Selection happens only on a clean tap/release. A drag can never
+          // select a different object, which keeps panning and moving separate.
+          const candidates=pickSceneObjects(e.clientX,e.clientY);
+          const hit=candidates[0]||null;
+          if(hit){
+            if(hit===selectedObject && candidates.length>1 && selectionCycleInfo?.objects?.length){
+              const current=Math.max(0,candidates.indexOf(selectedObject));selectObject(candidates[(current+1)%candidates.length],true);
+            } else selectObject(hit,true);
+            selectionCycleInfo=cycleInfoFor(selectedObject,candidates);
+            hintEl.textContent='Selected · drag inside this asset to move it · drag elsewhere to pan';hintEl.classList.remove('hidden');
+          } else {
+            selectObject(null);
+          }
         }
-      } else if (editorDragKind === 'collision-handle' && selectedObject) {
-        recordObjectEdit(selectedObject);
       }
-      editorTapState = null;
-      editorPointer = null;
-      editorDragKind = null;
-      collisionHandleIndex = -1;
+      editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;
       return;
     }
     if (e.pointerId === activePointer) activePointer = null;
@@ -3421,6 +3653,7 @@
     previousCameraX = camera.x;
   });
 
+  populatePuzzleSelector();
   buildAssetPalette();
   updateEditorButtons();
   setEditMode(false);
