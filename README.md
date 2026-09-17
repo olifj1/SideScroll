@@ -1,8 +1,8 @@
-# SideScroll v0.2.21
+# SideScroll v0.2.22
 
-- Fixes Scene puzzle rows so they can be reliably tapped and selected on iPhone; the list is no longer rebuilt every animation frame.
-- Scene selection is now passive: tapping a row highlights it and shows contextual details without moving the camera or instantiating the puzzle.
-- Adds an explicit **Edit Puzzle** action for the selected Scene puzzle.
-- Restores **Focus**, **Test**, **Export**, save relationship controls, and **Remove from Scene** where applicable as contextual actions for the selected marker.
-- Selected Scene rows clearly show their `INSTANCE` / `COPY` type and marker X position, while the details panel shows whether the puzzle is merely selected or actively being edited.
-- Focus can now move directly to a selected marker even before that puzzle has been activated for editing.
+- Normal Play mode now shows all puzzle instances placed in the current Scene at their own marker positions; the puzzle selected in Edit mode no longer controls which single puzzle remains visible after leaving Edit.
+- Active Puzzle editing and Test mode can still isolate the selected puzzle so authoring stays uncluttered.
+- Makes the centre puzzle marker dot draggable while a Scene puzzle is actively being edited; dragging it moves the whole puzzle without altering the template-relative layout.
+- Adds a precise **Marker X** numeric field to the selected Scene puzzle controls, so marker positions can also be typed directly.
+- Marker positions persist for both locally placed puzzles and built-in scene markers.
+- The puzzle guide label now shows marker X as well as bounds width.

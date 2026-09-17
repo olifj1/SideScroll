@@ -12205,3 +12205,24 @@ body[data-game-id="game-16"] #sidescroll-puzzle-edit.primary{
 body[data-game-id="game-16"] .sidescroll-puzzle-selection{
   scroll-margin-top:8px;
 }
+
+
+/* SideScroll v0.2.22 — full Scene playback + editable puzzle markers */
+body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor{
+  display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr);align-items:center;gap:9px;
+  margin:9px 0 3px;padding:8px 9px;border:1px solid rgba(236,243,241,.14);border-radius:10px;
+  background:rgba(245,241,235,.045);
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor label{
+  display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:7px;
+  color:#dfe9e7;font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor input{
+  width:100%;min-width:0;height:34px;border-radius:8px;border:1px solid rgba(236,243,241,.22);
+  background:rgba(15,24,29,.92);color:#f1f5f4;padding:0 9px;font:800 12px/1 -apple-system,BlinkMacSystemFont,sans-serif;
+  font-variant-numeric:tabular-nums;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor small{
+  color:rgba(232,240,238,.58);font-size:9px;line-height:1.28;
+}

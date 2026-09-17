@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.21">
+  <link rel="stylesheet" href="style.css?v=0.2.22">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -117,6 +117,11 @@
               <p id="sidescroll-puzzle-state">Edit procedural scene dressing without affecting puzzle props.</p>
               <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-help">Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it.</p>
 
+              <div class="sidescroll-puzzle-marker-editor" id="sidescroll-puzzle-marker-editor" hidden>
+                <label for="sidescroll-puzzle-marker-x"><span>Marker X</span><input id="sidescroll-puzzle-marker-x" type="number" step="0.1" inputmode="decimal" aria-label="Puzzle marker X position"></label>
+                <small>Type a position, or Edit Puzzle and drag the centre dot.</small>
+              </div>
+
               <div class="sidescroll-puzzle-manage" id="sidescroll-puzzle-manage" hidden>
                 <button id="sidescroll-puzzle-spawn" type="button">Spawn Here</button>
                 <button id="sidescroll-puzzle-create" type="button">New Puzzle</button>
@@ -197,10 +202,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.21"></script>
-  <script src="core.js?v=0.2.21"></script>
-  <script src="walk-rig.js?v=0.2.21"></script>
-  <script src="puzzle-groups.js?v=0.2.21"></script>
-  <script src="sidescroll.js?v=0.2.21"></script>
+  <script src="site-config.js?v=0.2.22"></script>
+  <script src="core.js?v=0.2.22"></script>
+  <script src="walk-rig.js?v=0.2.22"></script>
+  <script src="puzzle-groups.js?v=0.2.22"></script>
+  <script src="sidescroll.js?v=0.2.22"></script>
 </body>
 </html>
