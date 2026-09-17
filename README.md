@@ -1,5 +1,7 @@
-# SideScroll v0.2.11
+# SideScroll v0.2.12
 
-- Fixes asset-browser category headings rendering as tall vertical blocks over the asset thumbnails.
-- Puzzle and Environment asset groups now use full-width horizontal section headers above their tiles.
-- Keeps the real PNG thumbnails and scrolling asset-browser layout from the previous release.
+- Fixed locally spawned puzzle instances accumulating and reappearing after relaunch.
+- Puzzle marker storage is normalized/deduplicated on load and the cleaned list is saved back immediately.
+- Clear Stage now permanently removes locally placed puzzle marker instances while preserving reusable puzzle templates/groups.
+- Workshop isolation now persists across reloads: a cleared stage reopens clear, and an isolated spawned puzzle reopens without restoring the built-in game markers.
+- Restore Game explicitly exits the isolated workshop and restores normal code-defined puzzle streaming.

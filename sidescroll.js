@@ -1207,6 +1207,7 @@
   const PUZZLE_STATE_STORAGE_KEY = 'sidescroll.puzzle-groups.state.v1';
   const PUZZLE_START_STORAGE_KEY = 'sidescroll.puzzle-groups.starts.v1';
   const PUZZLE_LIBRARY_STORAGE_KEY = 'sidescroll.puzzle-groups.library.v1';
+  const PUZZLE_WORKSHOP_STORAGE_KEY = 'sidescroll.puzzle-groups.workshop.v1';
   const activePuzzleInstances = new Map();
   const puzzleSavedState = (() => {
     try { return JSON.parse(localStorage.getItem(PUZZLE_STATE_STORAGE_KEY) || '{}') || {}; }
@@ -1221,16 +1222,42 @@
       const parsed = JSON.parse(localStorage.getItem(PUZZLE_LIBRARY_STORAGE_KEY) || '{}') || {};
       parsed.groups ||= {};
       parsed.markers ||= [];
+
+      // Older authoring builds could leave repeated marker records behind.
+      // Keep one marker per id, and also collapse accidental same-group markers
+      // that occupy effectively the same world position.
+      const seenIds = new Set();
+      const normalized = [];
+      for (const raw of parsed.markers) {
+        if (!raw || !raw.id || !raw.group || !Number.isFinite(Number(raw.x))) continue;
+        if (seenIds.has(raw.id)) continue;
+        const marker = { ...raw, x:Number(raw.x), local:true };
+        const spatialDuplicate = normalized.some(item => item.group === marker.group && Math.abs(item.x - marker.x) < 0.08);
+        if (spatialDuplicate) continue;
+        seenIds.add(marker.id);
+        normalized.push(marker);
+      }
+      parsed.markers = normalized;
       return parsed;
     } catch (_) { return { groups:{}, markers:[] }; }
+  })();
+  const puzzleWorkshopState = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(PUZZLE_WORKSHOP_STORAGE_KEY) || '{}') || {};
+      return {
+        isolated: !!parsed.isolated,
+        clear: !!parsed.clear,
+        markerId: typeof parsed.markerId === 'string' ? parsed.markerId : null
+      };
+    } catch (_) { return { isolated:false, clear:false, markerId:null }; }
   })();
   let puzzleTestMode = false;
   let puzzleTestMarkerId = null;
   let puzzleTestSnapshot = null;
   const puzzleStartDirty = new Set();
   const puzzleDraftBounds = Object.create(null);
-  let puzzleWorkshopClear = false;
-  let puzzleWorkshopIsolated = false;
+  let puzzleWorkshopClear = puzzleWorkshopState.clear;
+  let puzzleWorkshopIsolated = puzzleWorkshopState.isolated;
 
   function codeBoundsForMarker(marker) {
     const def = markerDefinition(marker);
@@ -1264,6 +1291,13 @@
 
   function savePuzzleLibrary() {
     try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {}
+  }
+
+  function savePuzzleWorkshopState(markerId = null) {
+    puzzleWorkshopState.isolated = !!puzzleWorkshopIsolated;
+    puzzleWorkshopState.clear = !!puzzleWorkshopClear;
+    puzzleWorkshopState.markerId = markerId || (!puzzleWorkshopClear ? (editorPuzzleMarkerId || puzzleWorkshopState.markerId) : null);
+    try { localStorage.setItem(PUZZLE_WORKSHOP_STORAGE_KEY, JSON.stringify(puzzleWorkshopState)); } catch (_) {}
   }
 
   function allPuzzleMarkers() {
@@ -1721,6 +1755,19 @@
 
   scatterForest();
   restoreSceneEdits();
+  // Persist the normalized marker library so duplicate records found from older
+  // editor builds are removed permanently rather than reappearing next launch.
+  savePuzzleLibrary();
+  if (puzzleWorkshopIsolated && !puzzleWorkshopClear) {
+    const pinned = markerForId(puzzleWorkshopState.markerId);
+    if (pinned) editorPuzzleMarkerId = pinned.id;
+    else {
+      puzzleWorkshopClear = true;
+      puzzleWorkshopState.clear = true;
+      puzzleWorkshopState.markerId = null;
+      savePuzzleWorkshopState(null);
+    }
+  }
   updatePuzzleStreaming(0);
   settleGameplayCrates();
 
@@ -2084,6 +2131,7 @@
       instantiatePuzzleGroup(marker);
       currentPuzzleBoundsRelative(marker);
       if (puzzleSelect) puzzleSelect.value = marker.id;
+      if (puzzleWorkshopIsolated) savePuzzleWorkshopState(marker.id);
     }
     selectObject(null);
     buildAssetPalette();
@@ -2131,6 +2179,7 @@
     puzzleWorkshopIsolated = true;
     puzzleWorkshopClear = false;
     choosePuzzleForEditing(marker.id, true);
+    savePuzzleWorkshopState(marker.id);
     applyPuzzleStart(selectedPuzzleInstance(), { persistRuntime:true });
     hintEl.textContent = 'Puzzle spawned here · edit it, then Set Start';
     hintEl.classList.remove('hidden');
@@ -2159,6 +2208,7 @@
     puzzleWorkshopIsolated = true;
     puzzleWorkshopClear = false;
     choosePuzzleForEditing(marker.id, true);
+    savePuzzleWorkshopState(marker.id);
     hintEl.textContent = 'Blank puzzle created · Add places assets inside this puzzle';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
@@ -2166,11 +2216,39 @@
 
   function clearPuzzleStage() {
     if (puzzleTestMode) return;
+    const selectedBeforeClear = selectedPuzzleMarker();
+    const selectedGroupBeforeClear = selectedBeforeClear?.group || null;
     puzzleWorkshopIsolated = true;
     puzzleWorkshopClear = true;
     selectObject(null);
-    for (const [id] of [...activePuzzleInstances]) unloadPuzzleGroup(id);
-    hintEl.textContent = 'Puzzle stage cleared · choose a template then Spawn Here, or create a new puzzle';
+
+    // Clear means clear the authored workshop stage, not merely hide it for the
+    // current session. Remove every locally placed marker instance while
+    // preserving the reusable puzzle group/template definitions themselves.
+    const localIds = new Set((userPuzzleLibrary.markers || []).map(marker => marker.id));
+    for (const id of [...activePuzzleInstances.keys()]) unloadPuzzleGroup(id);
+    for (const id of localIds) {
+      delete puzzleStartState[id];
+      delete puzzleSavedState[id];
+      delete puzzleDraftBounds[id];
+    }
+    userPuzzleLibrary.markers = [];
+    savePuzzleLibrary();
+    savePuzzleStarts();
+    savePuzzleState();
+
+    // Keep a reusable code-defined marker selected as the template when one
+    // exists for the group we were editing. This lets Clear Stage -> Spawn Here
+    // work immediately for built-in puzzles such as Fallen Tree.
+    const templateMarker = (puzzleConfig.markers || []).find(marker => marker.group === selectedGroupBeforeClear)
+      || (puzzleConfig.markers || [])[0]
+      || null;
+    editorPuzzleMarkerId = templateMarker?.id || null;
+    populatePuzzleSelector();
+    if (puzzleSelect && editorPuzzleMarkerId) puzzleSelect.value = editorPuzzleMarkerId;
+    savePuzzleWorkshopState(null);
+
+    hintEl.textContent = 'Stage cleared and saved · choose a puzzle template then Spawn Here, or create a new puzzle';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -2180,6 +2258,7 @@
     if (puzzleTestMode) return;
     puzzleWorkshopIsolated = false;
     puzzleWorkshopClear = false;
+    savePuzzleWorkshopState(null);
     updatePuzzleStreaming(camera.x + character.screenOffsetX);
     hintEl.textContent = 'Normal game puzzle markers restored';
     hintEl.classList.remove('hidden');
@@ -2196,6 +2275,7 @@
     delete puzzleSavedState[marker.id];
     delete puzzleDraftBounds[marker.id];
     savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState();
+    if (puzzleWorkshopState.markerId === marker.id) savePuzzleWorkshopState(null);
     const next = allPuzzleMarkers()[0] || null;
     editorPuzzleMarkerId = null;
     populatePuzzleSelector();
@@ -2562,6 +2642,7 @@
     if (on && carriedObject) dropCarriedImmediate();
     if (!on) { collisionEditMode = false; collisionHandleIndex = -1; }
     editMode = !!on;
+    if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
     document.body.classList.toggle('sidescroll-editing', editMode);
     if (editBtn) {
@@ -3918,6 +3999,7 @@
     try { localStorage.removeItem(PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_START_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_LIBRARY_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(PUZZLE_WORKSHOP_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
   bindEditorPress(puzzleSetStartBtn, setPuzzleStartFromCurrent);
