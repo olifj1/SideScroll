@@ -1,93 +1,140 @@
 window.SideScrollPuzzleConfig = {
-  version: 6,
-
-  // Puzzle art now comes from an authored transparent asset pack.  Layout and
-  // collision remain data-driven so this whole module can still be moved by its
-  // world marker or replaced later without changing the streaming system.
+  version: 7,
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
-        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.2.3", aspect: 1.7095 },
-        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.2.3", aspect: 1.5423 },
-        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.2.3", aspect: 2.1916 },
-        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.3", aspect: 2.3850 },
-        { name: "fallen-tree", url: "fallen-tree.png?v=0.2.3", aspect: 2.3644 },
-        { name: "tree-stump", url: "tree-stump.png?v=0.2.3", aspect: 2.4223 },
-        { name: "broken-branch", url: "broken-branch.png?v=0.2.3", aspect: 2.7182 }
+        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.2.7", aspect: 1.7095 },
+        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.2.7", aspect: 1.5423 },
+        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.2.7", aspect: 2.1916 },
+        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.7", aspect: 2.3850 },
+        { name: "fallen-tree", url: "fallen-tree.png?v=0.2.7", aspect: 2.3644 },
+        { name: "tree-stump", url: "tree-stump.png?v=0.2.7", aspect: 2.4223 },
+        { name: "broken-branch", url: "broken-branch.png?v=0.2.7", aspect: 2.7182 }
       ]
     }
   },
   groups: {
     FALLEN_TREE_TEST: {
       label: "Fallen tree test",
-      width: 12.2,
+      width: 14.607981861570,
+      bounds: {
+  "minX": -8.507981861569682,
+  "maxX": 6.1
+},
       assetPacks: ["woodland-puzzle-atlas-v1"],
-
-      // Keep the procedural woodland intact around the puzzle unless a later
-      // module genuinely needs local clearing.
-      entryX: -4.8,
-      exitX: 5.6,
-
+      entryX: -8.507981861569682,
+      exitX: 6.1,
       props: [
-        {
-          id: "log-a",
-          asset: "puzzle-log-a",
-          x: -3.25, z: 0.76,
-          height: 0.84,
-          category: "gameplay", gameplayType: "crate",
-          collision: { halfWidth: 0.58, height: 0.48, depth: 0.62, platform: true }
-        },
-        {
-          id: "log-b",
-          asset: "puzzle-log-b",
-          x: -2.00, z: 0.78,
-          height: 0.72,
-          category: "gameplay", gameplayType: "crate",
-          collision: { halfWidth: 0.46, height: 0.42, depth: 0.56, platform: true }
-        },
-        {
-          id: "log-c",
-          asset: "puzzle-log-c",
-          x: -0.74, z: 0.74,
-          height: 0.76,
-          category: "gameplay", gameplayType: "crate",
-          collision: { halfWidth: 0.60, height: 0.44, depth: 0.60, platform: true }
-        },
-        {
-          id: "tree",
-          asset: "fallen-tree",
-          x: 2.35, z: 0.0,
-          height: 2.55,
-          category: "gameplay", gameplayType: "obstacle",
-          // The collision intentionally hugs the flatter root/platform region
-          // rather than the entire fallen trunk silhouette.
-          collision: {
-            halfWidth: 2.35, height: 1.72, depth: 1.08, platform: true,
-            points: [
-              { x: -1.00, y: 0.00 },
-              { x: 0.12, y: 0.00 },
-              { x: 0.58, y: 0.26 },
-              { x: 0.10, y: 1.00 },
-              { x: -0.70, y: 1.00 },
-              { x: -1.00, y: 0.42 }
-            ]
-          },
-          shadow: { width: 3.15, height: 0.54, xOffset: 0.08, yOffset: 0.05, opacity: 0.34 }
-        }
-      ],
-
-      completion: { type: "cross-x", x: 5.18, direction: 1 }
+  {
+    "id": "log-a",
+    "asset": "puzzle-log-a",
+    "x": -7.579211515616101,
+    "z": 0,
+    "width": 1.435977653631285,
+    "height": 0.84,
+    "category": "gameplay",
+    "gameplayType": "crate",
+    "collision": {
+      "halfWidth": 0.6174703910614525,
+      "height": 0.8063999999999999,
+      "depth": 0.62,
+      "platform": true,
+      "points": null
     }
   },
-
-  // Markers are the only thing the continuous world needs to know about a
-  // puzzle.  Moving this X value relocates the complete authored module.
+  {
+    "id": "log-b",
+    "asset": "puzzle-log-b",
+    "x": -5.15288916232687,
+    "z": 0,
+    "width": 1.1104225352112675,
+    "height": 0.72,
+    "category": "gameplay",
+    "gameplayType": "crate",
+    "collision": {
+      "halfWidth": 0.477481690140845,
+      "height": 0.6911999999999999,
+      "depth": 0.56,
+      "platform": true,
+      "points": null
+    }
+  },
+  {
+    "id": "log-c",
+    "asset": "puzzle-log-c",
+    "x": -2.1967421294734493,
+    "z": 0,
+    "width": 1.6656287425149703,
+    "height": 0.76,
+    "category": "gameplay",
+    "gameplayType": "crate",
+    "collision": {
+      "halfWidth": 0.7162203592814372,
+      "height": 0.7296,
+      "depth": 0.6,
+      "platform": true,
+      "points": null
+    }
+  },
+  {
+    "id": "tree",
+    "asset": "fallen-tree",
+    "x": 2.695779243336297,
+    "z": 0,
+    "width": 6.029201331114809,
+    "height": 2.55,
+    "category": "gameplay",
+    "gameplayType": "obstacle",
+    "collision": {
+      "halfWidth": 0.98,
+      "height": 1.72,
+      "depth": 1.08,
+      "platform": true,
+      "points": [
+        {
+          "x": -2.5092710099549187,
+          "y": 0.07299245479569054
+        },
+        {
+          "x": 3.0730339942408067,
+          "y": 0.046617771437714214
+        },
+        {
+          "x": 2.8298478675986596,
+          "y": 0.29298021032224686
+        },
+        {
+          "x": 0.4353998514298296,
+          "y": 0.6250339322970517
+        },
+        {
+          "x": -2.609728247410452,
+          "y": 1.4016111853026438
+        },
+        {
+          "x": -2.6404327338268985,
+          "y": 0.48538306855645824
+        }
+      ]
+    },
+    "shadow": {
+      "width": 3.15,
+      "height": 0.54,
+      "xOffset": 0.08,
+      "yOffset": 0.05,
+      "opacity": 0.34
+    }
+  }
+],
+      completion: {
+  "type": "cross-x",
+  "x": 5.18,
+  "direction": 1
+}
+    }
+  },
   markers: [
     { id: "fallen-tree-01", group: "FALLEN_TREE_TEST", x: 8.5 }
   ],
-
-  streaming: {
-    loadAhead: 24,
-    keepBehind: 34
-  }
+  streaming: { loadAhead: 24, keepBehind: 34 }
 };

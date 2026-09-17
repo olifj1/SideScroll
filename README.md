@@ -1,6 +1,9 @@
-# SideScroll v0.2.6
+# SideScroll v0.2.7
 
-- Reworks Edit-mode controls to activate directly on pointer-down instead of relying on iOS synthetic click events.
-- Removes the editor-container pointer suppression that could leave visible controls unresponsive on iPhone.
-- Applies the same touch-first input path to puzzle controls, object tools, asset buttons and puzzle object-list actions.
-- Keeps the existing canvas guard so touches beginning inside editor UI cannot start a world pan.
+- Enlarges the puzzle-authoring UI text and makes the main panel vertically scrollable.
+- Moves the Add Asset palette to a separate scrollable panel on the right side.
+- Test now uses the current on-screen puzzle setup, including unsaved collision edits; Reset in Test returns to that test snapshot.
+- Keeps Clear Stage isolation active through Test and Done, with a new Restore Game action to return to normal marker streaming.
+- Starts puzzle tests just before the current left puzzle bound so the character approaches the puzzle naturally.
+- Bakes the exported fallen-tree authored layout, bounds and collision polygon into the code-defined default.
+- Removes legacy free-standing puzzle props from old scene storage so stale black/orphan logs no longer reappear.

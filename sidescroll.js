@@ -36,6 +36,7 @@
   const puzzleSpawnBtn = document.getElementById('sidescroll-puzzle-spawn');
   const puzzleCreateBtn = document.getElementById('sidescroll-puzzle-create');
   const puzzleClearStageBtn = document.getElementById('sidescroll-puzzle-clear-stage');
+  const puzzleRestoreStageBtn = document.getElementById('sidescroll-puzzle-restore-stage');
   const puzzleExportBtn = document.getElementById('sidescroll-puzzle-export');
   const puzzleRemoveBtn = document.getElementById('sidescroll-puzzle-remove');
   const puzzleActionsEl = document.getElementById('sidescroll-puzzle-actions');
@@ -1187,6 +1188,7 @@
   })();
   let puzzleTestMode = false;
   let puzzleTestMarkerId = null;
+  let puzzleTestSnapshot = null;
   const puzzleStartDirty = new Set();
   const puzzleDraftBounds = Object.create(null);
   let puzzleWorkshopClear = false;
@@ -1307,9 +1309,8 @@
     return snapshot;
   }
 
-  function applyPuzzleStart(instance, { persistRuntime = true } = {}) {
-    if (!instance) return;
-    const snapshot = puzzleStartFor(instance.marker);
+  function applyPuzzleSnapshot(instance, snapshot, { persistRuntime = true, clearDirty = false } = {}) {
+    if (!instance || !snapshot) return;
     if (snapshot.bounds) puzzleDraftBounds[instance.id] = { ...snapshot.bounds };
     else puzzleDraftBounds[instance.id] = { ...codeBoundsForMarker(instance.marker) };
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
@@ -1360,13 +1361,12 @@
       obj.y = obj.category === 'gameplay' ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z);
       moveObjectToCorrectCollection(obj);
     }
-    // Objects not present in the selected start are not part of this puzzle setup.
     for (const obj of instance.objects) {
       if (obj?.puzzleObjectId && !snapshot.objects?.[obj.puzzleObjectId]) obj.deleted = true;
     }
 
     instance.solved = false;
-    puzzleStartDirty.delete(instance.id);
+    if (clearDirty) puzzleStartDirty.delete(instance.id);
     sortSceneCollections();
     settleGameplayCrates();
 
@@ -1385,12 +1385,21 @@
     selectObject(null);
   }
 
+  function applyPuzzleStart(instance, { persistRuntime = true } = {}) {
+    if (!instance) return;
+    applyPuzzleSnapshot(instance, puzzleStartFor(instance.marker), { persistRuntime, clearDirty:true });
+  }
+
   function positionPlayerAtPuzzleEntry(instance) {
     if (!instance) return;
-    const entry = instance.marker.x + (instance.def.entryX ?? -(instance.def.width || 8) * 0.5);
-    camera.x = entry - character.screenOffsetX;
+    const bounds = currentPuzzleBoundsRelative(instance.marker);
+    const capsule = colliderWorld();
+    const approachGap = Math.max(0.85, capsule.radius * 1.5 + 0.35);
+    const colliderX = instance.marker.x + bounds.minX - approachGap;
+    const rootX = colliderX - capsule.offsetX;
+    camera.x = rootX - character.screenOffsetX;
     previousCameraX = camera.x;
-    character.x = camera.x + character.screenOffsetX;
+    character.x = rootX;
     character.y = playSurfaceYAt(character.x);
     jumping = false;
     jumpTime = 0;
@@ -1511,12 +1520,13 @@
     // Puzzle authoring can temporarily become an isolated workshop. This lets
     // us clear every puzzle from the scene, then spawn one exactly where we
     // want it without the normal game markers immediately streaming back in.
-    if (editMode && editorScope === 'puzzle' && puzzleWorkshopIsolated) {
+    if (puzzleWorkshopIsolated) {
+      const keepId = puzzleTestMarkerId || editorPuzzleMarkerId;
       for (const [id] of [...activePuzzleInstances]) {
-        if (puzzleWorkshopClear || id !== editorPuzzleMarkerId) unloadPuzzleGroup(id);
+        if (puzzleWorkshopClear || id !== keepId) unloadPuzzleGroup(id);
       }
-      if (!puzzleWorkshopClear && editorPuzzleMarkerId) {
-        const marker = markerForId(editorPuzzleMarkerId);
+      if (!puzzleWorkshopClear && keepId) {
+        const marker = markerForId(keepId);
         if (marker && !activePuzzleInstances.has(marker.id)) instantiatePuzzleGroup(marker);
       }
       return;
@@ -1632,6 +1642,15 @@
   }
 
   function restoreSceneEdits() {
+    // Puzzle props are now owned by puzzle instances. Older releases could save
+    // them as free-standing scene objects; those stale entries are the source of
+    // the unselectable black/orphan logs seen during authoring. Remove them once
+    // from general scene storage and let puzzle state be the sole owner.
+    const puzzleAssetNames = new Set(Object.values(puzzleConfig.assetPacks || {}).flatMap(pack => (pack.assets || []).map(asset => asset.name)));
+    const beforeAdded = sceneData.added.length;
+    sceneData.added = sceneData.added.filter(saved => !puzzleAssetNames.has(saved.assetName));
+    if (sceneData.added.length !== beforeAdded) saveSceneData();
+
     for (const obj of allSceneObjects()) applyOverrideToObject(obj, sceneData.overrides[obj.id]);
     for (const saved of sceneData.added || []) {
       userSceneCounter += 1;
@@ -2118,6 +2137,17 @@
     updatePuzzlePanel();
   }
 
+
+  function restoreNormalPuzzleStage() {
+    if (puzzleTestMode) return;
+    puzzleWorkshopIsolated = false;
+    puzzleWorkshopClear = false;
+    updatePuzzleStreaming(camera.x + character.screenOffsetX);
+    hintEl.textContent = 'Normal game puzzle markers restored';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
   function removeSelectedLocalPuzzle() {
     const marker = selectedPuzzleMarker();
     if (!marker || !markerIsUserCreated(marker)) return;
@@ -2397,7 +2427,7 @@
       }
     }
     if (puzzleHelpEl) puzzleHelpEl.textContent = testing
-      ? 'Reset restarts this puzzle. Back to Setup restores the saved start and returns to editing.'
+      ? 'Reset restarts this test setup. Back to Setup returns to the same editable setup you tested.'
       : (puzzleWorkshopClear
           ? 'Pan to a location, then Spawn Here to place the selected puzzle template, or New Puzzle to start empty.'
           : 'Only this puzzle can be selected. Drag the yellow end handles to resize its bounds. Tap/release selects; drag the selected prop itself to move it; drag elsewhere to pan.');
@@ -2406,6 +2436,7 @@
     if (puzzleExportBtn) puzzleExportBtn.disabled = !instance;
     if (puzzleRemoveBtn) { puzzleRemoveBtn.hidden = !markerIsUserCreated(selectedMarker); puzzleRemoveBtn.disabled = !selectedMarker; }
     if (puzzleClearStageBtn) puzzleClearStageBtn.classList.toggle('active', puzzleWorkshopClear);
+    if (puzzleRestoreStageBtn) puzzleRestoreStageBtn.hidden = !puzzleWorkshopIsolated;
     if (puzzleSetStartBtn) { puzzleSetStartBtn.hidden = testing; puzzleSetStartBtn.disabled = !instance; }
     if (puzzleTestBtn) { puzzleTestBtn.hidden = testing; puzzleTestBtn.disabled = !instance; }
     if (puzzleResetBtn) puzzleResetBtn.disabled = !instance;
@@ -2429,9 +2460,14 @@
   function resetCurrentPuzzle() {
     const instance = authoringPuzzle();
     if (!instance) return;
-    applyPuzzleStart(instance, { persistRuntime:!puzzleTestMode });
-    if (puzzleTestMode) positionPlayerAtPuzzleEntry(instance);
-    hintEl.textContent = 'Puzzle reset to its saved start';
+    if (puzzleTestMode && puzzleTestSnapshot) {
+      applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:false, clearDirty:false });
+      positionPlayerAtPuzzleEntry(instance);
+      hintEl.textContent = 'Test reset to the setup you started this test with';
+    } else {
+      applyPuzzleStart(instance, { persistRuntime:true });
+      hintEl.textContent = 'Puzzle reset to its saved start';
+    }
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -2439,29 +2475,33 @@
   function beginPuzzleTest() {
     const instance = authoringPuzzle();
     if (!instance || puzzleTestMode) return;
-    // Always begin from the defined start, not from whatever happened to be on
-    // screen while arranging props.
-    applyPuzzleStart(instance, { persistRuntime:true });
+    // Test exactly what is on screen now, including unsaved collision and layout
+    // edits. Set Start is still the explicit action that makes those edits the
+    // permanent authored default.
+    settleGameplayCrates();
+    puzzleTestSnapshot = deepCopy(currentPuzzleSetupSnapshot(instance));
+    applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:false, clearDirty:false });
     puzzleTestMarkerId = instance.id;
     puzzleTestMode = true;
     setEditMode(false);
     positionPlayerAtPuzzleEntry(instance);
-    hintEl.textContent = 'Puzzle test · Reset restarts from the saved start';
+    hintEl.textContent = 'Puzzle test · using the current setup · Reset restarts this test';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
 
   function backToPuzzleSetup() {
     const instance = authoringPuzzle();
+    const returnMarkerId = puzzleTestMarkerId || instance?.id || null;
     puzzleTestMode = false;
-    if (instance) {
-      applyPuzzleStart(instance, { persistRuntime:true });
+    if (instance && puzzleTestSnapshot) {
+      applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:true, clearDirty:false });
       camera.x = instance.marker.x - character.screenOffsetX;
       previousCameraX = camera.x;
       character.x = camera.x + character.screenOffsetX;
       character.y = playSurfaceYAt(character.x);
     }
-    const returnMarkerId = puzzleTestMarkerId || instance?.id || null;
+    puzzleTestSnapshot = null;
     puzzleTestMarkerId = null;
     setEditMode(true);
     editorScope = 'puzzle';
@@ -2478,7 +2518,7 @@
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; puzzleWorkshopClear = false; puzzleWorkshopIsolated = false; }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; }
     editMode = !!on;
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
     document.body.classList.toggle('sidescroll-editing', editMode);
@@ -3795,6 +3835,7 @@
   bindEditorPress(puzzleSpawnBtn, spawnSelectedPuzzleHere);
   bindEditorPress(puzzleCreateBtn, createPuzzleHere);
   bindEditorPress(puzzleClearStageBtn, clearPuzzleStage);
+  bindEditorPress(puzzleRestoreStageBtn, restoreNormalPuzzleStage);
   bindEditorPress(puzzleExportBtn, exportSelectedPuzzle);
   bindEditorPress(puzzleRemoveBtn, removeSelectedLocalPuzzle);
   bindEditorPress(editorAddBtn, () => {
