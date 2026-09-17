@@ -1,10 +1,10 @@
-# SideScroll v0.2.19
+# SideScroll v0.2.20
 
-- Splits puzzle authoring into **Library** and **Scene** views.
-- Library lists reusable puzzle templates; Scene lists puzzle markers currently placed in the world.
-- **Spawn Here** creates a linked scene instance from the selected Library template.
-- **New Puzzle** creates a blank reusable Library template first, ready to spawn wherever you want to build it.
-- Scene puzzles are clearly labelled **INSTANCE** or **COPY**.
-- Linked instances offer **Save to Template** to update every linked instance, or **Save Unique** to detach only that scene puzzle.
-- Detached copies use **Save Copy** and no longer inherit later template changes.
-- Older locally authored puzzle starts are migrated into the reusable template store so existing work remains available.
+- Simplifies Puzzle Edit into a clear Library / Scene workflow.
+- Library mode now uses one template dropdown, followed by the selected template summary and its actions.
+- Adds Delete Template for locally created library puzzles.
+- Scene mode now shows a scrollable list of every placed puzzle with INSTANCE/COPY status and marker X position.
+- Selecting a Scene row opens the contextual puzzle controls without moving the camera; Focus remains an explicit action.
+- Separates whole-stage controls (Clear Stage / Restore Game) from selected-puzzle controls (Focus / Export / Remove / save/test actions).
+- Fixes the Scene list refresh after Spawn Here so newly placed puzzles remain selectable and multiple scene puzzles are visible.
+- Removes puzzle save/test/reset controls from Environment mode; environment edits continue to save automatically.
