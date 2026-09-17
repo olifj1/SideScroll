@@ -12187,3 +12187,21 @@ body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-action
   body[data-game-id="game-16"] .sidescroll-puzzle-selection > p,
   body[data-game-id="game-16"] .sidescroll-environment-selection > p{font-size:9.5px!important;}
 }
+
+
+/* SideScroll v0.2.21 — stable Scene selection + contextual controls */
+body[data-game-id="game-16"] .sidescroll-scene-puzzle-row{
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+body[data-game-id="game-16"] .sidescroll-scene-puzzle-row.active{
+  box-shadow:0 0 0 2px rgba(220,235,231,.24) inset;
+}
+body[data-game-id="game-16"] #sidescroll-puzzle-edit.primary{
+  background:#dcebe7!important;
+  border-color:#dcebe7!important;
+  color:#34534f!important;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-selection{
+  scroll-margin-top:8px;
+}

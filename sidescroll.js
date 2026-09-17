@@ -49,6 +49,7 @@
   const environmentSelectionEl = document.getElementById('sidescroll-environment-selection');
   const puzzleStageSection = document.getElementById('sidescroll-puzzle-stage-section');
   const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
+  const puzzleEditBtn = document.getElementById('sidescroll-puzzle-edit');
   const puzzleFocusBtn = document.getElementById('sidescroll-puzzle-focus');
   const puzzleManageEl = document.getElementById('sidescroll-puzzle-manage');
   const puzzleSpawnBtn = document.getElementById('sidescroll-puzzle-spawn');
@@ -1829,6 +1830,8 @@
   let editorScope = 'environment';
   let editorPuzzleMarkerId = null;
   let editorPuzzleLibraryGroupId = null;
+  let scenePuzzleListSignature = '';
+  let puzzleLibraryListSignature = '';
   let puzzleBrowserMode = 'scene';
 
   scatterForest();
@@ -2240,9 +2243,18 @@
     });
   }
 
-  function renderScenePuzzleList() {
+  function renderScenePuzzleList({ force=false } = {}) {
     if (!puzzleSceneListEl) return;
     const markers = scenePuzzleMarkers().slice().sort((a,b) => Number(a.x) - Number(b.x));
+    const signature = markers.map(marker => [
+      marker.id,
+      marker.group,
+      markerLinkMode(marker),
+      Number(marker.x).toFixed(4)
+    ].join(':')).join('|') + `|selected:${editorPuzzleMarkerId || ''}`;
+    if (!force && signature === scenePuzzleListSignature) return;
+    scenePuzzleListSignature = signature;
+
     puzzleSceneListEl.innerHTML = '';
     if (puzzleSceneEmptyEl) puzzleSceneEmptyEl.hidden = markers.length > 0;
 
@@ -2268,31 +2280,40 @@
       pos.textContent = `x ${Number(marker.x).toFixed(1)}`;
       row.append(main, pos);
       bindEditorPress(row, () => {
+        // Selecting a Scene row is intentionally passive. It chooses which
+        // marker the contextual controls refer to without moving the camera or
+        // recreating/instantiating the puzzle. Edit and Focus remain explicit.
         editorPuzzleMarkerId = marker.id;
         editorPuzzleLibraryGroupId = marker.group;
-        choosePuzzleForEditing(marker.id, false);
-        renderScenePuzzleList();
+        selectObject(null);
+        scenePuzzleListSignature = '';
+        renderScenePuzzleList({ force:true });
+        updatePuzzlePanel();
       });
       puzzleSceneListEl.appendChild(row);
     }
   }
 
-  function populatePuzzleSelector() {
+  function populatePuzzleSelector({ force=false } = {}) {
     if (puzzleSelect) {
-      puzzleSelect.innerHTML = '';
       const rows = puzzleGroupDisplayRows();
-      for (const row of rows) {
-        const option = document.createElement('option');
-        option.value = row.id;
-        option.textContent = row.displayLabel;
-        puzzleSelect.appendChild(option);
-      }
       const wanted = selectedLibraryGroupId();
-      editorPuzzleLibraryGroupId = wanted;
-      if (wanted) puzzleSelect.value = wanted;
-      puzzleSelect.setAttribute('aria-label', 'Puzzle library template');
+      const signature = rows.map(row => `${row.id}:${row.displayLabel}`).join('|') + `|selected:${wanted || ''}`;
+      if (force || signature !== puzzleLibraryListSignature) {
+        puzzleLibraryListSignature = signature;
+        puzzleSelect.innerHTML = '';
+        for (const row of rows) {
+          const option = document.createElement('option');
+          option.value = row.id;
+          option.textContent = row.displayLabel;
+          puzzleSelect.appendChild(option);
+        }
+        editorPuzzleLibraryGroupId = wanted;
+        if (wanted) puzzleSelect.value = wanted;
+        puzzleSelect.setAttribute('aria-label', 'Puzzle library template');
+      }
     }
-    renderScenePuzzleList();
+    renderScenePuzzleList({ force });
   }
 
   function setPuzzleBrowserMode(mode) {
@@ -2318,17 +2339,35 @@
   }
 
   function focusSelectedPuzzle() {
-    // In a cleared workshop the dropdown represents a reusable template, not a
-    // world instance. Focusing it must never instantiate the puzzle implicitly.
-    if (puzzleWorkshopIsolated && puzzleWorkshopClear) {
-      hintEl.textContent = 'Stage is clear · press Spawn Here to place this puzzle first';
-      hintEl.classList.remove('hidden');
-      return;
-    }
-    const instance = selectedPuzzleInstance();
-    if (!instance) return;
-    camera.x = instance.marker.x - character.screenOffsetX;
+    // Focus is a Scene action: it only moves the view to the selected marker.
+    // It deliberately does not change the selected template or create a puzzle.
+    const marker = selectedPuzzleMarker();
+    if (!marker) return;
+    camera.x = marker.x - character.screenOffsetX;
     previousCameraX = camera.x;
+    character.x = camera.x + character.screenOffsetX;
+    updatePuzzleStreaming(character.x);
+    hintEl.textContent = `Focused ${markerDefinition(marker)?.label || marker.group} at x ${Number(marker.x).toFixed(1)}`;
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function editSelectedScenePuzzle() {
+    if (puzzleBrowserMode !== 'scene') return;
+    const marker = selectedPuzzleMarker();
+    if (!marker) return;
+    // Explicitly activate the selected puzzle for bounds/object editing. This is
+    // separate from row selection so browsing the Scene list stays predictable.
+    editorPuzzleLibraryGroupId = marker.group || editorPuzzleLibraryGroupId;
+    instantiatePuzzleGroup(marker);
+    if (puzzleWorkshopIsolated) {
+      puzzleWorkshopClear = false;
+      savePuzzleWorkshopState(marker.id);
+    }
+    selectObject(null);
+    buildAssetPalette();
+    hintEl.textContent = `Editing ${markerDefinition(marker)?.label || marker.group} · tap props or bounds to modify them`;
+    hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
 
@@ -2383,7 +2422,7 @@
       savePuzzleStarts();
     }
     savePuzzleLibrary();
-    populatePuzzleSelector();
+    populatePuzzleSelector({ force:true });
     return marker;
   }
 
@@ -2396,7 +2435,7 @@
     puzzleBrowserMode = 'scene';
     editorPuzzleMarkerId = marker.id;
     editorPuzzleLibraryGroupId = marker.group;
-    populatePuzzleSelector();
+    populatePuzzleSelector({ force:true });
     choosePuzzleForEditing(marker.id, true);
     savePuzzleWorkshopState(marker.id);
     applyPuzzleStart(selectedPuzzleInstance(), { persistRuntime:true });
@@ -2418,7 +2457,7 @@
     savePuzzleLibrary();
     puzzleBrowserMode = 'library';
     editorPuzzleLibraryGroupId = groupId;
-    populatePuzzleSelector();
+    populatePuzzleSelector({ force:true });
     hintEl.textContent = 'Blank puzzle added to the Library · press Spawn Here when you are ready to build it';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
@@ -2453,7 +2492,7 @@
     editorPuzzleLibraryGroupId = selectedGroupBeforeClear && groupDefinition(selectedGroupBeforeClear)
       ? selectedGroupBeforeClear
       : (allPuzzleGroups()[0]?.id || null);
-    populatePuzzleSelector();
+    populatePuzzleSelector({ force:true });
     savePuzzleWorkshopState(null);
 
     hintEl.textContent = 'Stage cleared and saved · choose a Library puzzle then Spawn Here, or create a new puzzle';
@@ -2471,7 +2510,7 @@
     updatePuzzleStreaming(camera.x + character.screenOffsetX);
     const near = activePuzzleNear(camera.x + character.screenOffsetX);
     editorPuzzleMarkerId = near?.id || allPuzzleMarkers()[0]?.id || null;
-    populatePuzzleSelector();
+    populatePuzzleSelector({ force:true });
     hintEl.textContent = 'Normal game puzzle markers restored';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
@@ -2489,7 +2528,7 @@
     savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState();
     if (puzzleWorkshopState.markerId === marker.id) savePuzzleWorkshopState(null);
     editorPuzzleMarkerId = null;
-    populatePuzzleSelector();
+    populatePuzzleSelector({ force:true });
     updatePuzzlePanel();
   }
 
@@ -2524,7 +2563,7 @@
       puzzleWorkshopClear = true;
       savePuzzleWorkshopState(null);
     }
-    populatePuzzleSelector();
+    populatePuzzleSelector({ force:true });
     hintEl.textContent = 'Puzzle template deleted';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
@@ -2657,7 +2696,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.20',
+      appVersion:'0.2.21',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -2676,7 +2715,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.20', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.21', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -2795,7 +2834,9 @@
     const libraryMode = !testing && puzzleEditing && puzzleBrowserMode === 'library';
     const sceneMode = !testing && puzzleEditing && puzzleBrowserMode === 'scene';
     const selectedMarker = (sceneMode || testing) ? selectedPuzzleMarker() : null;
-    const instance = (sceneMode || testing) && selectedMarker ? authoringPuzzle() : null;
+    const instance = testing && selectedMarker
+      ? authoringPuzzle()
+      : (sceneMode && selectedMarker ? (activePuzzleInstances.get(selectedMarker.id) || null) : null);
     const selectedGroupId = libraryMode ? selectedLibraryGroupId() : selectedMarker?.group;
     const selectedDef = libraryMode ? groupDefinition(selectedGroupId) : markerDefinition(selectedMarker);
     const linkMode = selectedMarker ? markerLinkMode(selectedMarker) : null;
@@ -2836,14 +2877,18 @@
         puzzleStateEl.textContent = instance.solved
           ? 'Puzzle complete. Reset to run it again, or return to Setup.'
           : 'Testing the current setup. Test moves do not change the saved puzzle.';
-      } else if (instance) {
-        const b = currentPuzzleBoundsRelative(instance.marker);
-        const width = (b.maxX - b.minX).toFixed(1);
-        const dirty = puzzleStartDirty.has(instance.id) ? 'Unsaved setup changes. ' : '';
+      } else if (selectedMarker) {
         const relationship = linkMode === 'copy'
           ? 'COPY · unique to this scene.'
-          : `INSTANCE · linked to ${selectedDef?.label || instance.marker.group}.`;
-        puzzleStateEl.textContent = `${dirty}${relationship} Marker x ${Number(instance.marker.x).toFixed(1)} · bounds ${width}m.`;
+          : `INSTANCE · linked to ${selectedDef?.label || selectedMarker.group}.`;
+        if (instance) {
+          const b = currentPuzzleBoundsRelative(instance.marker);
+          const width = (b.maxX - b.minX).toFixed(1);
+          const dirty = puzzleStartDirty.has(instance.id) ? 'Unsaved setup changes. ' : '';
+          puzzleStateEl.textContent = `${dirty}${relationship} Marker x ${Number(selectedMarker.x).toFixed(1)} · bounds ${width}m · EDITING.`;
+        } else {
+          puzzleStateEl.textContent = `${relationship} Marker x ${Number(selectedMarker.x).toFixed(1)} · selected in scene.`;
+        }
       }
     }
 
@@ -2852,18 +2897,21 @@
         ? 'Reset restarts this test setup. Back to Setup returns to the same editable setup you tested.'
         : (libraryMode
             ? 'Choose a template from the Library. Spawn Here places a linked instance at the current camera position.'
-            : (instance
-                ? (linkMode === 'copy'
-                    ? 'This copy is unique. Save Copy changes only this scene puzzle.'
-                    : 'Save to Template updates all linked instances. Save Unique detaches only this scene puzzle.')
-                : 'Choose a puzzle from the Scene list to edit it.'));
+            : (selectedMarker
+                ? (instance
+                    ? (linkMode === 'copy'
+                        ? 'This copy is active for editing. Save Copy changes only this scene puzzle.'
+                        : 'This instance is active for editing. Save to Template updates linked instances; Save Unique detaches this one.')
+                    : 'Selected from the Scene list. Use Edit Puzzle to activate its bounds and objects, or Focus to move the camera to it.')
+                : 'Choose a puzzle from the Scene list to see its controls.'));
     }
 
-    const selectionAvailable = libraryMode ? !!selectedGroupId : !!instance;
+    const selectionAvailable = libraryMode ? !!selectedGroupId : !!selectedMarker;
     if (puzzleManageEl) puzzleManageEl.hidden = testing || !selectionAvailable;
     if (puzzleSpawnBtn) { puzzleSpawnBtn.hidden = !libraryMode; puzzleSpawnBtn.disabled = !selectedGroupId; }
     if (puzzleCreateBtn) puzzleCreateBtn.hidden = !libraryMode;
-    if (puzzleFocusBtn) { puzzleFocusBtn.hidden = libraryMode; puzzleFocusBtn.disabled = !instance; }
+    if (puzzleEditBtn) { puzzleEditBtn.hidden = libraryMode || testing; puzzleEditBtn.disabled = !selectedMarker; }
+    if (puzzleFocusBtn) { puzzleFocusBtn.hidden = libraryMode; puzzleFocusBtn.disabled = !selectedMarker; }
     if (puzzleExportBtn) { puzzleExportBtn.hidden = false; puzzleExportBtn.disabled = !selectionAvailable; }
     if (puzzleDeleteTemplateBtn) {
       puzzleDeleteTemplateBtn.hidden = !libraryMode || !groupIsUserCreated(selectedGroupId);
@@ -2888,7 +2936,7 @@
       puzzleSaveUniqueBtn.disabled = !instance || !markerIsUserCreated(selectedMarker);
       puzzleSaveUniqueBtn.title = markerIsUserCreated(selectedMarker) ? '' : 'Spawn a Library instance first';
     }
-    if (puzzleTestBtn) { puzzleTestBtn.hidden = testing || libraryMode; puzzleTestBtn.disabled = !instance; }
+    if (puzzleTestBtn) { puzzleTestBtn.hidden = testing || libraryMode; puzzleTestBtn.disabled = !selectedMarker; }
     if (puzzleResetBtn) { puzzleResetBtn.hidden = libraryMode; puzzleResetBtn.disabled = !instance; }
     if (puzzleBackSetupBtn) { puzzleBackSetupBtn.hidden = !testing; puzzleBackSetupBtn.disabled = !instance; }
 
@@ -2974,8 +3022,12 @@
   }
 
   function beginPuzzleTest() {
-    const instance = authoringPuzzle();
-    if (!instance || puzzleTestMode) return;
+    if (puzzleTestMode) return;
+    const marker = selectedPuzzleMarker();
+    if (!marker) return;
+    instantiatePuzzleGroup(marker);
+    const instance = activePuzzleInstances.get(marker.id) || authoringPuzzle();
+    if (!instance) return;
     // Test exactly what is on screen now, including unsaved collision and layout
     // edits. Set Start is still the explicit action that makes those edits the
     // permanent authored default.
@@ -4546,6 +4598,7 @@
     buildAssetPalette();
     updatePuzzlePanel();
   });
+  bindEditorPress(puzzleEditBtn, editSelectedScenePuzzle);
   bindEditorPress(puzzleFocusBtn, focusSelectedPuzzle);
   bindEditorPress(puzzleSpawnBtn, spawnSelectedPuzzleHere);
   bindEditorPress(puzzleCreateBtn, createPuzzleHere);
