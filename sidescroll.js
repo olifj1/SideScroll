@@ -1,6 +1,8 @@
 (() => {
   'use strict';
 
+  // SideScroll v0.2.23: full-scene playback + working marker controls.
+
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
 
@@ -67,6 +69,8 @@
   const puzzleNameEl = document.getElementById('sidescroll-puzzle-name');
   const puzzleStateEl = document.getElementById('sidescroll-puzzle-state');
   const puzzleHelpEl = document.getElementById('sidescroll-puzzle-help');
+  const puzzleMarkerEditor = document.getElementById('sidescroll-puzzle-marker-editor');
+  const puzzleMarkerXInput = document.getElementById('sidescroll-puzzle-marker-x');
   const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
   const puzzleSaveUniqueBtn = document.getElementById('sidescroll-puzzle-save-unique');
   const puzzleTestBtn = document.getElementById('sidescroll-puzzle-test');
@@ -1302,6 +1306,51 @@
     return puzzleDraftBounds[marker.id];
   }
 
+  function applyPersistedMarkerPositions() {
+    for (const marker of puzzleConfig.markers || []) {
+      const savedX = Number(puzzleSavedState?.[marker.id]?.markerX);
+      if (Number.isFinite(savedX)) marker.x = savedX;
+    }
+  }
+
+  function persistPuzzleMarkerPosition(marker) {
+    if (!marker || !Number.isFinite(Number(marker.x))) return;
+    if (markerIsUserCreated(marker)) {
+      const stored = (userPuzzleLibrary.markers || []).find(item => item.id === marker.id);
+      if (stored) stored.x = Number(marker.x);
+      savePuzzleLibrary();
+    } else {
+      const state = savedPuzzleFor(marker.id);
+      state.markerX = Number(marker.x);
+      savePuzzleState();
+    }
+  }
+
+  function movePuzzleMarkerTo(marker, nextX) {
+    if (!marker || !Number.isFinite(Number(nextX))) return false;
+    const target = Number(nextX);
+    const previous = Number(marker.x) || 0;
+    const dx = target - previous;
+    if (Math.abs(dx) < 0.000001) return false;
+    marker.x = target;
+
+    const instance = activePuzzleInstances.get(marker.id);
+    if (instance) {
+      for (const obj of instance.objects || []) obj.x += dx;
+      instance.marker = marker;
+    }
+
+    // Runtime object state uses world-space x values. Keep it aligned with the
+    // marker so unload/reload cannot snap an edited puzzle back to the old spot.
+    const runtime = puzzleSavedState?.[marker.id]?.objects;
+    if (runtime) {
+      for (const state of Object.values(runtime)) {
+        if (state && Number.isFinite(Number(state.x))) state.x = Number(state.x) + dx;
+      }
+    }
+    return true;
+  }
+
   function savePuzzleState() {
     // Test runs are disposable.  They may mutate the in-memory state, but the
     // authored start remains the durable source of truth for Reset/Test.
@@ -1669,7 +1718,7 @@
     // Puzzle authoring can temporarily become an isolated workshop. This lets
     // us clear every puzzle from the scene, then spawn one exactly where we
     // want it without the normal game markers immediately streaming back in.
-    if (puzzleWorkshopIsolated) {
+    if (puzzleWorkshopIsolated && (editMode || puzzleTestMode)) {
       const keepId = puzzleTestMarkerId || editorPuzzleMarkerId;
       for (const [id] of [...activePuzzleInstances]) {
         if (puzzleWorkshopClear || id !== keepId) unloadPuzzleGroup(id);
@@ -1681,7 +1730,16 @@
       return;
     }
 
-    for (const marker of allPuzzleMarkers()) {
+    // Outside the editor/test isolation, Play mode always represents the full
+    // current Scene. If the workshop is isolated this is the locally-authored
+    // marker set; otherwise it includes the normal built-in game markers too.
+    const streamMarkers = scenePuzzleMarkers();
+    const allowedIds = new Set(streamMarkers.map(marker => marker.id));
+    for (const [id] of [...activePuzzleInstances]) {
+      if (!allowedIds.has(id)) unloadPuzzleGroup(id);
+    }
+
+    for (const marker of streamMarkers) {
       const def = markerDefinition(marker);
       if (!def) continue;
       const bounds = moduleBoundsFor(def, marker);
@@ -1834,6 +1892,7 @@
   let puzzleLibraryListSignature = '';
   let puzzleBrowserMode = 'scene';
 
+  applyPersistedMarkerPositions();
   scatterForest();
   restoreSceneEdits();
   // Migrate older marker-specific authored starts into reusable templates, then
@@ -2854,6 +2913,10 @@
     if (puzzleStageSection) puzzleStageSection.hidden = testing || editorScope !== 'puzzle';
     if (puzzleSelectionEl) puzzleSelectionEl.hidden = !testing && (!puzzleEditing || (sceneMode && !selectedMarker));
     if (puzzlePicker) puzzlePicker.hidden = !libraryMode;
+    if (puzzleMarkerEditor) puzzleMarkerEditor.hidden = testing || !sceneMode || !selectedMarker;
+    if (puzzleMarkerXInput && sceneMode && selectedMarker && document.activeElement !== puzzleMarkerXInput) {
+      puzzleMarkerXInput.value = Number(selectedMarker.x).toFixed(1);
+    }
 
     if (!testing && editorScope === 'puzzle') populatePuzzleSelector();
 
@@ -3329,6 +3392,20 @@
     return puzzleBoundHandlePositions(instance).find(handle => Math.hypot(handle.x-x, handle.y-y) <= 18) || null;
   }
 
+  function puzzleMarkerHandlePosition(instance) {
+    if (!instance) return null;
+    return projectWorldPoint(instance.marker.x, playSurfaceYAt(instance.marker.x)+0.12, pathZ);
+  }
+
+  function puzzleMarkerHandleAt(clientX, clientY) {
+    if (!editMode || editorScope !== 'puzzle' || puzzleBrowserMode !== 'scene') return null;
+    const instance = selectedPuzzleInstance();
+    const mark = puzzleMarkerHandlePosition(instance);
+    if (!mark) return null;
+    const rect = canvas.getBoundingClientRect();
+    return Math.hypot(mark.x - (clientX-rect.left), mark.y - (clientY-rect.top)) <= 20 ? mark : null;
+  }
+
   function drawPuzzleEditorGuides(ctx) {
     if (!editMode || editorScope !== 'puzzle') return;
     const instance = selectedPuzzleInstance();
@@ -3344,7 +3421,7 @@
     for (const handle of [left,right]) {
       ctx.beginPath();ctx.arc(handle.x,handle.y,7,0,Math.PI*2);ctx.fillStyle='#f0cd7f';ctx.fill();ctx.strokeStyle='#493d28';ctx.lineWidth=1.5;ctx.stroke();
     }
-    ctx.beginPath();ctx.arc(mark.x,mark.y,4,0,Math.PI*2);ctx.fillStyle='#f5e6b7';ctx.fill();
+    ctx.beginPath();ctx.arc(mark.x,mark.y,8,0,Math.PI*2);ctx.fillStyle='#f5e6b7';ctx.fill();ctx.strokeStyle='#493d28';ctx.lineWidth=1.5;ctx.stroke();
     const rel=currentPuzzleBoundsRelative(instance.marker);
     const label=`${instance.def.label || instance.marker.group} · BOUNDS ${(rel.maxX-rel.minX).toFixed(1)}m`;
     ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';
@@ -4600,6 +4677,27 @@
   });
   bindEditorPress(puzzleEditBtn, editSelectedScenePuzzle);
   bindEditorPress(puzzleFocusBtn, focusSelectedPuzzle);
+  const commitMarkerXInput = () => {
+    if (!puzzleMarkerXInput || puzzleBrowserMode !== 'scene') return;
+    const marker = selectedPuzzleMarker();
+    const nextX = Number(puzzleMarkerXInput.value);
+    if (!marker || !Number.isFinite(nextX)) {
+      if (marker) puzzleMarkerXInput.value = Number(marker.x).toFixed(1);
+      return;
+    }
+    if (movePuzzleMarkerTo(marker, nextX)) {
+      persistPuzzleMarkerPosition(marker);
+      settleGameplayCrates();
+      renderScenePuzzleList({ force:true });
+      updatePuzzlePanel();
+      hintEl.textContent = `Moved ${markerDefinition(marker)?.label || marker.group} marker to x ${nextX.toFixed(1)}`;
+      hintEl.classList.remove('hidden');
+    }
+  };
+  puzzleMarkerXInput?.addEventListener('change', commitMarkerXInput);
+  puzzleMarkerXInput?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); commitMarkerXInput(); puzzleMarkerXInput.blur(); }
+  });
   bindEditorPress(puzzleSpawnBtn, spawnSelectedPuzzleHere);
   bindEditorPress(puzzleCreateBtn, createPuzzleHere);
   bindEditorPress(puzzleClearStageBtn, clearPuzzleStage);
@@ -4689,6 +4787,17 @@
         return;
       }
 
+      const markerHandle = puzzleMarkerHandleAt(e.clientX, e.clientY);
+      if (markerHandle) {
+        const marker = selectedPuzzleMarker();
+        editorGesture.kind = 'puzzle-marker';
+        editorGesture.marker = marker;
+        editorGesture.markerStartX = marker?.x ?? 0;
+        hintEl.textContent = 'Drag the centre dot to move this puzzle marker';
+        hintEl.classList.remove('hidden');
+        return;
+      }
+
       const boundHandle = puzzleBoundHandleAt(e.clientX, e.clientY);
       if (boundHandle) {
         editorGesture.kind = 'puzzle-bound';
@@ -4755,6 +4864,11 @@
         const ny=Rig.clamp((bounds.bottom-ly)/Math.max(1,bounds.bottom-bounds.top),-0.20,3.0);
         const points=normalisedCollisionPoints(selectedObject.collision).map(point=>({...point}));
         if(points[collisionHandleIndex]){points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;}
+      } else if (editorGesture.kind === 'puzzle-marker' && editorGesture.marker) {
+        const nextX = editorGesture.markerStartX + dx * 0.0065;
+        movePuzzleMarkerTo(editorGesture.marker, nextX);
+        if (puzzleMarkerXInput) puzzleMarkerXInput.value = Number(nextX).toFixed(1);
+        renderScenePuzzleList({ force:true });
       } else if (editorGesture.kind === 'puzzle-bound') {
         const instance=selectedPuzzleInstance(); const point=groundPointFromClient(e.clientX,e.clientY);
         if(instance&&point){
@@ -4781,6 +4895,12 @@
         if (gesture.moved) {
           if (gesture.kind==='selected-object' && gesture.object) recordObjectEdit(gesture.object);
           else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
+          else if (gesture.kind==='puzzle-marker' && gesture.marker) {
+            persistPuzzleMarkerPosition(gesture.marker);
+            settleGameplayCrates();
+            renderScenePuzzleList({ force:true });
+            updatePuzzlePanel();
+          }
           else if (gesture.kind==='puzzle-bound') {
             const instance=selectedPuzzleInstance(); if(instance) puzzleStartDirty.add(instance.id);
           }

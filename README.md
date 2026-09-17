@@ -1,8 +1,9 @@
-# SideScroll v0.2.22
+# SideScroll v0.2.23
 
-- Normal Play mode now shows all puzzle instances placed in the current Scene at their own marker positions; the puzzle selected in Edit mode no longer controls which single puzzle remains visible after leaving Edit.
-- Active Puzzle editing and Test mode can still isolate the selected puzzle so authoring stays uncluttered.
-- Makes the centre puzzle marker dot draggable while a Scene puzzle is actively being edited; dragging it moves the whole puzzle without altering the template-relative layout.
-- Adds a precise **Marker X** numeric field to the selected Scene puzzle controls, so marker positions can also be typed directly.
-- Marker positions persist for both locally placed puzzles and built-in scene markers.
-- The puzzle guide label now shows marker X as well as bounds width.
+This release fixes Scene playback and puzzle marker positioning.
+
+- Normal Play mode now streams every puzzle in the current Scene instead of keeping only the last puzzle selected in Edit.
+- Edit/Test isolation still keeps authoring focused on one puzzle at a time.
+- The central puzzle marker dot is now draggable horizontally and moves the whole puzzle instance.
+- The Scene details panel now exposes a working Marker X numeric field for precise placement.
+- Marker positions persist for both local scene puzzles and built-in markers.
