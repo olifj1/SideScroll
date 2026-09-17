@@ -1883,11 +1883,19 @@
   // short authored transitions around that same pose.
   let carriedObject = null;
   let interactionState = null; // { type:'pickup'|'drop', time, duration, object, startX, startY, targetX, targetY }
+  let autoDropStep = null; // short collision-safe retreat before retrying a blocked drop
   const ACTION_RANGE = 0.72; // distance from the character capsule to the near edge of a carryable prop
   const PICKUP_DURATION = 0.48;
   const DROP_DURATION = 0.44;
   const CARRY_FORWARD = 0.48;
   const CARRY_BOTTOM = 0.58;
+  const AUTO_DROP_STEP_BACK = 0.30;
+  const AUTO_DROP_STEP_DURATION = 0.16;
+  // Gameplay props live on z=0. Keep the character rig only a few centimetres
+  // closer to the camera so she remains readable in front of puzzle art while
+  // genuine foreground dressing can still occlude her normally.
+  const CHARACTER_GAMEPLAY_Z_BIAS = 0.045;
+  const CARRIED_COLLISION_SKIN = 0.025;
 
   let activePointer = null;
   let dragStartX = 0;
@@ -2116,6 +2124,13 @@
   }
 
   function focusSelectedPuzzle() {
+    // In a cleared workshop the dropdown represents a reusable template, not a
+    // world instance. Focusing it must never instantiate the puzzle implicitly.
+    if (puzzleWorkshopIsolated && puzzleWorkshopClear) {
+      hintEl.textContent = 'Stage is clear · press Spawn Here to place this puzzle first';
+      hintEl.classList.remove('hidden');
+      return;
+    }
     const instance = selectedPuzzleInstance();
     if (!instance) return;
     camera.x = instance.marker.x - character.screenOffsetX;
@@ -2127,15 +2142,23 @@
     const marker = markerForId(markerId) || allPuzzleMarkers()[0] || null;
     editorPuzzleMarkerId = marker?.id || null;
     if (marker) {
-      puzzleWorkshopClear = false;
-      instantiatePuzzleGroup(marker);
       currentPuzzleBoundsRelative(marker);
       if (puzzleSelect) puzzleSelect.value = marker.id;
-      if (puzzleWorkshopIsolated) savePuzzleWorkshopState(marker.id);
+
+      // A cleared workshop is a template-picking state. Merely choosing a
+      // puzzle (or switching to the Puzzle tab) must not put anything into the
+      // world. Spawn Here / New Puzzle are the only authoring actions that turn
+      // a template into a live instance.
+      if (!(puzzleWorkshopIsolated && puzzleWorkshopClear)) {
+        instantiatePuzzleGroup(marker);
+        if (puzzleWorkshopIsolated) savePuzzleWorkshopState(marker.id);
+      } else {
+        savePuzzleWorkshopState(null);
+      }
     }
     selectObject(null);
     buildAssetPalette();
-    if (focus) focusSelectedPuzzle();
+    if (focus && !(puzzleWorkshopIsolated && puzzleWorkshopClear)) focusSelectedPuzzle();
     updatePuzzlePanel();
   }
 
@@ -2405,7 +2428,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.2',
+      appVersion:'0.2.13',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -2445,7 +2468,8 @@
 
   function setEditorScope(scope) {
     if (scope !== 'environment' && scope !== 'puzzle') return;
-    if (scope === 'environment') { puzzleWorkshopClear = false; puzzleWorkshopIsolated = false; }
+    // Environment/Puzzle is only an editor filter. It must not change whether
+    // the workshop stage is isolated or clear.
     editorScope = scope;
     selectObject(null);
     addAssetType = null;
@@ -2555,6 +2579,7 @@
           : 'Only this puzzle can be selected. Drag the yellow end handles to resize its bounds. Tap/release selects; drag the selected prop itself to move it; drag elsewhere to pan.');
 
     if (puzzleSpawnBtn) puzzleSpawnBtn.disabled = !selectedMarker;
+    if (puzzleFocusBtn) puzzleFocusBtn.disabled = puzzleWorkshopClear || !instance;
     if (puzzleExportBtn) puzzleExportBtn.disabled = !instance;
     if (puzzleRemoveBtn) { puzzleRemoveBtn.hidden = !markerIsUserCreated(selectedMarker); puzzleRemoveBtn.disabled = !selectedMarker; }
     if (puzzleClearStageBtn) puzzleClearStageBtn.classList.toggle('active', puzzleWorkshopClear);
@@ -3169,6 +3194,99 @@
     return obj?.collision?.height ?? Math.max(0.24, (obj?.sy || 0.88) * CRATE_COLLISION_HEIGHT_FACTOR);
   }
 
+
+  function carriedCollisionRectAtRoot(rootX, clearanceHeight = jumpOffset, facing = character.lastFacing >= 0 ? 1 : -1, obj = carriedObject) {
+    if (!obj) return null;
+    const floorY = playSurfaceYAt(rootX) + Math.max(0, clearanceHeight);
+    const halfWidth = (obj.collision?.halfWidth ?? crateHalfWidth(obj)) + CARRIED_COLLISION_SKIN;
+    const height = Math.max(0.16, obj.collision?.height ?? crateHeight(obj));
+    // Match the non-pose carry transform closely enough for gameplay collision;
+    // animation bob is intentionally ignored so the collision stays stable.
+    const centreX = rootX + facing * CARRY_FORWARD;
+    const bottomY = floorY + CHARACTER_SOLE_ART_LOCAL_OFFSET * character.scale + CARRY_BOTTOM;
+    return {
+      minX: centreX - halfWidth,
+      maxX: centreX + halfWidth,
+      minY: bottomY + CARRIED_COLLISION_SKIN,
+      maxY: bottomY + height - CARRIED_COLLISION_SKIN
+    };
+  }
+
+  function placedCollisionRect(obj, x, y) {
+    if (!obj) return null;
+    const halfWidth = (obj.collision?.halfWidth ?? crateHalfWidth(obj)) + CARRIED_COLLISION_SKIN;
+    const height = Math.max(0.16, obj.collision?.height ?? crateHeight(obj));
+    return {
+      minX: x - halfWidth,
+      maxX: x + halfWidth,
+      minY: y + CARRIED_COLLISION_SKIN,
+      maxY: y + height - CARRIED_COLLISION_SKIN
+    };
+  }
+
+  function rectIntersectsCollisionObject(rect, obstacle) {
+    if (!rect || !obstacle?.collision || obstacle.deleted || obstacle.carried) return false;
+    const depth = obstacle.collision.depth ?? 0.8;
+    if (Math.abs(obstacle.z - pathZ) > depth) return false;
+    const samples = 7;
+    for (let i = 0; i < samples; i += 1) {
+      const t = samples === 1 ? 0.5 : i / (samples - 1);
+      const y = Rig.lerp(rect.minY, rect.maxY, t);
+      const span = collisionSpanAtY(obstacle, y);
+      if (!span) continue;
+      if (rect.maxX > span.minX + CARRIED_COLLISION_SKIN && rect.minX < span.maxX - CARRIED_COLLISION_SKIN) return true;
+    }
+    return false;
+  }
+
+  function carriedCollisionBlockedAtCamera(cameraX, clearanceHeight = jumpOffset, facing = character.lastFacing >= 0 ? 1 : -1) {
+    if (!carriedObject) return false;
+    const rootX = cameraX + character.screenOffsetX;
+    const rect = carriedCollisionRectAtRoot(rootX, clearanceHeight, facing, carriedObject);
+    for (const obstacle of collisionObjects()) {
+      if (obstacle === carriedObject) continue;
+      if (rectIntersectsCollisionObject(rect, obstacle)) return true;
+    }
+    return false;
+  }
+
+  function resolveCarriedObjectMove(currentCameraX, proposedCameraX, clearanceHeight) {
+    if (!carriedObject || Math.abs(proposedCameraX - currentCameraX) < 0.000001) return proposedCameraX;
+    // The held object remains in front of the character even when she backs up,
+    // so collision must use facing, not movement direction.
+    const facing = character.lastFacing >= 0 ? 1 : -1;
+    if (!carriedCollisionBlockedAtCamera(proposedCameraX, clearanceHeight, facing)) return proposedCameraX;
+
+    // If the current pose is already intersecting, never trap the player: allow
+    // a retreat away from the carried item's forward side.
+    if (carriedCollisionBlockedAtCamera(currentCameraX, clearanceHeight, facing)) {
+      const retreatDirection = -facing;
+      if (Math.sign(proposedCameraX - currentCameraX) === retreatDirection) return proposedCameraX;
+      return currentCameraX;
+    }
+
+    // Binary-search the final few centimetres so contact feels like a solid
+    // combined character+item body rather than snapping a whole frame back.
+    let safe = currentCameraX;
+    let blocked = proposedCameraX;
+    for (let i = 0; i < 9; i += 1) {
+      const mid = (safe + blocked) * 0.5;
+      if (carriedCollisionBlockedAtCamera(mid, clearanceHeight, facing)) blocked = mid;
+      else safe = mid;
+    }
+    return safe;
+  }
+
+  function dropTargetIsClear(obj, target) {
+    if (!obj || !target) return false;
+    const rect = placedCollisionRect(obj, target.x, target.y);
+    for (const obstacle of collisionObjects()) {
+      if (obstacle === obj) continue;
+      if (rectIntersectsCollisionObject(rect, obstacle)) return false;
+    }
+    return true;
+  }
+
   function cratesOverlapForStack(a, b) {
     if (!(a.gameplayLayerLocked && b.gameplayLayerLocked) && Math.abs(a.z - b.z) > 0.28) return false;
     const ax = objectXNear(a, b.x);
@@ -3425,7 +3543,7 @@
       y = characterRenderY() + handY - sy * 0.52;
     }
 
-    return { x, y, z: character.z - 0.0004, sx, sy };
+    return { x, y, z: character.z + CHARACTER_GAMEPLAY_Z_BIAS - 0.0004, sx, sy };
   }
 
   function interactionCrateTransform(facing, pose = null) {
@@ -3495,7 +3613,7 @@
 
     bindMesh(mesh);
     gl.bindTexture(gl.TEXTURE_2D, textures.rigAtlas);
-    const z = character.z + (part.layer - 10) * 0.0009;
+    const z = character.z + CHARACTER_GAMEPLAY_Z_BIAS + (part.layer - 10) * 0.0009;
     gl.uniformMatrix4fv(loc.model, false, mat4Model2D(ax, ay, z, scale, rotation, facing));
     gl.uniformMatrix4fv(loc.view, false, view);
     gl.uniformMatrix4fv(loc.projection, false, projection);
@@ -3630,9 +3748,9 @@
     hintEl.classList.remove('hidden');
   }
 
-  function dropTargetForCarried() {
+  function dropTargetForCarried(rootX = character.x) {
     const facing = character.lastFacing >= 0 ? 1 : -1;
-    let x = character.x + facing * 0.92;
+    let x = rootX + facing * 0.92;
     const z = carriedObject?.gameplayLayerLocked === false ? carriedObject.z : pathZ;
 
     // Forgiving stack snap: when the intended drop is reasonably close to an
@@ -3650,12 +3768,12 @@
 
     const temp = carriedObject ? { ...carriedObject, x, z, carried: false } : null;
     const y = temp ? restYForGameplayObject(temp, x, null, true) : playSurfaceYAt(x);
-    return { x, z, y };
+    const target = { x, z, y };
+    target.valid = temp ? dropTargetIsClear(temp, target) : true;
+    return target;
   }
 
-  function startDrop() {
-    if (!carriedObject || interactionState || jumping) return;
-    const target = dropTargetForCarried();
+  function beginDropAtTarget(target) {
     interactionState = {
       type: 'drop',
       time: 0,
@@ -3668,6 +3786,65 @@
     setDriveAxis(0);
     hintEl.textContent = 'Putting item down';
     hintEl.classList.remove('hidden');
+  }
+
+  function startAutoDropStepBack() {
+    if (!carriedObject || autoDropStep) return false;
+    const facing = character.lastFacing >= 0 ? 1 : -1;
+    const desiredCameraX = camera.x - facing * AUTO_DROP_STEP_BACK;
+    const bodySafeX = resolveObstacleMove(camera.x, desiredCameraX, jumpOffset, false);
+    const combinedSafeX = resolveCarriedObjectMove(camera.x, bodySafeX, jumpOffset);
+    if (Math.abs(combinedSafeX - camera.x) < 0.025) return false;
+
+    // A convenience retreat must never make the character walk herself off a
+    // ledge.  Allow ordinary slopes/steps, but reject a target whose support is
+    // below the capsule's normal step-down allowance.
+    const capsule = colliderWorld();
+    const candidateRootX = combinedSafeX + character.screenOffsetX;
+    const candidateSupport = walkableSupportAt(
+      candidateRootX + capsule.offsetX,
+      jumpOffset + capsule.stepUp,
+      -facing
+    );
+    if (!candidateSupport || candidateSupport.offset < jumpOffset - capsule.stepDown) return false;
+
+    autoDropStep = {
+      time: 0,
+      duration: AUTO_DROP_STEP_DURATION,
+      startCameraX: camera.x,
+      targetCameraX: combinedSafeX
+    };
+    setDriveAxis(0);
+    hintEl.textContent = 'Making room…';
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function finishAutoDropStepBack() {
+    if (!autoDropStep) return;
+    camera.x = autoDropStep.targetCameraX;
+    autoDropStep = null;
+    const rootX = camera.x + character.screenOffsetX;
+    const target = dropTargetForCarried(rootX);
+    if (target.valid) {
+      beginDropAtTarget(target);
+    } else {
+      hintEl.textContent = 'No room to put that down';
+      hintEl.classList.remove('hidden');
+    }
+  }
+
+  function startDrop() {
+    if (!carriedObject || interactionState || autoDropStep || jumping) return;
+    const target = dropTargetForCarried();
+    if (!target.valid) {
+      if (!startAutoDropStepBack()) {
+        hintEl.textContent = 'No room to put that down';
+        hintEl.classList.remove('hidden');
+      }
+      return;
+    }
+    beginDropAtTarget(target);
   }
 
   function completeDrop() {
@@ -3690,7 +3867,19 @@
   function dropCarriedImmediate() {
     if (!carriedObject) return;
     const obj = carriedObject;
-    const target = dropTargetForCarried();
+    let target = dropTargetForCarried();
+    if (!target.valid) {
+      const facing = character.lastFacing >= 0 ? 1 : -1;
+      for (let i = 1; i <= 12 && !target.valid; i += 1) {
+        const x = character.x - facing * i * 0.12;
+        const z = obj.gameplayLayerLocked === false ? obj.z : pathZ;
+        const temp = { ...obj, x, z, carried:false };
+        const y = restYForGameplayObject(temp, x, null, true);
+        const probe = { x, z, y };
+        probe.valid = dropTargetIsClear(temp, probe);
+        if (probe.valid) target = probe;
+      }
+    }
     obj.x = target.x;
     obj.z = obj.gameplayLayerLocked === false ? target.z : pathZ;
     obj.carried = false;
@@ -3704,7 +3893,7 @@
   }
 
   function performAction() {
-    if (editMode || interactionState) return;
+    if (editMode || interactionState || autoDropStep) return;
     if (carriedObject) { startDrop(); return; }
     const obj = nearestActionCrate();
     if (obj) startPickup(obj);
@@ -3720,6 +3909,13 @@
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
+    if (autoDropStep) {
+      autoDropStep.time += dt;
+      const p = smooth01(Rig.clamp(autoDropStep.time / autoDropStep.duration, 0, 1));
+      camera.x = Rig.lerp(autoDropStep.startCameraX, autoDropStep.targetCameraX, p);
+      if (autoDropStep.time >= autoDropStep.duration) finishAutoDropStepBack();
+    }
+
     if (interactionState) {
       interactionState.time += dt;
       if (interactionState.time >= interactionState.duration) {
@@ -3730,7 +3926,7 @@
 
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
-    const rawAxis = (editMode || interactionState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
+    const rawAxis = (editMode || interactionState || autoDropStep) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
     const axisMag = Math.abs(rawAxis);
     const moveDir = axisMag > DRIVE_DEADZONE ? Math.sign(rawAxis) : 0;
 
@@ -3770,7 +3966,8 @@
     const smoothRun = runBlend * runBlend * (3 - 2 * runBlend);
     if (moveDir && analogSpeed > 0) {
       const proposedX = camera.x + moveDir * analogSpeed * dt;
-      camera.x = resolveObstacleMove(camera.x, proposedX, jumpOffset, jumping);
+      const bodyResolvedX = resolveObstacleMove(camera.x, proposedX, jumpOffset, jumping);
+      camera.x = resolveCarriedObjectMove(camera.x, bodyResolvedX, jumpOffset);
       hideHint();
     }
 
@@ -4210,6 +4407,7 @@
     jumpOffset = support.offset;
     jumpVelocity = 0;
     standingOnObject = support.obj;
+    autoDropStep = null;
     if (interactionState?.type === 'pickup') interactionState.object.carried = false;
     if (interactionState?.type === 'drop') completeDrop();
     interactionState = null;
