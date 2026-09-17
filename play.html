@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.16">
+  <link rel="stylesheet" href="style.css?v=0.2.17">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -71,6 +71,16 @@
           </aside>
 
           <aside class="sidescroll-puzzle-panel" id="sidescroll-puzzle-panel" hidden aria-live="polite">
+            <div class="sidescroll-placement-strip" id="sidescroll-placement-strip" hidden>
+              <div class="sidescroll-placement-status">
+                <span class="sidescroll-placement-mode">PLACE</span>
+                <strong id="sidescroll-placement-name">Asset</strong>
+              </div>
+              <div class="sidescroll-placement-actions">
+                <button id="sidescroll-placement-change" type="button">Change Asset</button>
+                <button id="sidescroll-placement-done" class="primary" type="button">Done Placing</button>
+              </div>
+            </div>
             <div class="sidescroll-editor-scope-switch" id="sidescroll-editor-scope-switch">
               <button id="sidescroll-scope-environment" class="active" type="button">Environment</button>
               <button id="sidescroll-scope-puzzle" type="button">Puzzle</button>
@@ -140,10 +150,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.16"></script>
-  <script src="core.js?v=0.2.16"></script>
-  <script src="walk-rig.js?v=0.2.16"></script>
-  <script src="puzzle-groups.js?v=0.2.16"></script>
-  <script src="sidescroll.js?v=0.2.16"></script>
+  <script src="site-config.js?v=0.2.17"></script>
+  <script src="core.js?v=0.2.17"></script>
+  <script src="walk-rig.js?v=0.2.17"></script>
+  <script src="puzzle-groups.js?v=0.2.17"></script>
+  <script src="sidescroll.js?v=0.2.17"></script>
 </body>
 </html>

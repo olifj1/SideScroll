@@ -29,6 +29,10 @@
   const openAssetsBtn = document.getElementById('sidescroll-open-assets');
   const editorResetBtn = document.getElementById('sidescroll-editor-reset');
   const puzzlePanel = document.getElementById('sidescroll-puzzle-panel');
+  const placementStrip = document.getElementById('sidescroll-placement-strip');
+  const placementNameEl = document.getElementById('sidescroll-placement-name');
+  const placementChangeBtn = document.getElementById('sidescroll-placement-change');
+  const placementDoneBtn = document.getElementById('sidescroll-placement-done');
   const editorScopeSwitch = document.getElementById('sidescroll-editor-scope-switch');
   const environmentScopeBtn = document.getElementById('sidescroll-scope-environment');
   const puzzleScopeBtn = document.getElementById('sidescroll-scope-puzzle');
@@ -1911,6 +1915,32 @@
   let editorGesture = null;
   let puzzleBoundSide = null;
   let addAssetType = null;
+
+  function placementModeActive() {
+    return !!(editMode && !puzzleTestMode && addAssetType);
+  }
+
+  function updatePlacementModeUi() {
+    const active = placementModeActive();
+    document.body.classList.toggle('sidescroll-placement-mode', active);
+    if (placementStrip) placementStrip.hidden = !active;
+    if (placementNameEl) {
+      const info = addAssetType ? editorAssetInfo.get(addAssetType) : null;
+      placementNameEl.textContent = info?.label || addAssetType || 'Asset';
+    }
+  }
+
+  function exitPlacementMode() {
+    addAssetType = null;
+    setAssetPaletteOpen(false);
+    updateAssetPaletteState();
+    updatePlacementModeUi();
+    updateEditorButtons();
+    updatePuzzlePanel();
+    hintEl.textContent = 'Placement finished · drag to pan or tap an object to select it';
+    hintEl.classList.remove('hidden');
+  }
+
   let editorTapState = null;
   let selectionCycleInfo = null;
   let collisionEditMode = false;
@@ -2473,6 +2503,7 @@
     editorScope = scope;
     selectObject(null);
     addAssetType = null;
+    updatePlacementModeUi();
     if (scope === 'puzzle' && !editorPuzzleMarkerId) {
       const near = activePuzzleNear(camera.x + character.screenOffsetX);
       choosePuzzleForEditing(near?.id || allPuzzleMarkers()[0]?.id || null, false);
@@ -2486,9 +2517,10 @@
     const has = !!selectedObject && !selectedObject.deleted;
     const collisionFocus = !!(has && collisionEditMode);
     const isGameplay = has && selectedObject.category === 'gameplay';
-    if (editorControls) editorControls.hidden = !editMode || !has;
+    const placing = placementModeActive();
+    if (editorControls) editorControls.hidden = !editMode || !has || placing;
     if (openAssetsBtn) {
-      openAssetsBtn.hidden = !editMode || puzzleTestMode;
+      openAssetsBtn.hidden = !editMode || puzzleTestMode || placing;
       openAssetsBtn.textContent = editorScope === 'puzzle' ? '＋ Add Puzzle Asset' : '＋ Add Environment Asset';
       openAssetsBtn.classList.toggle('active', !editorPalette?.hidden);
     }
@@ -2512,6 +2544,7 @@
     addAssetType = null;
     collisionEditMode = false;
     collisionHandleIndex = -1;
+    updatePlacementModeUi();
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
     updateEditorButtons();
@@ -2682,6 +2715,7 @@
       selectionCycleInfo = null;
       editorTapState = null;
       addAssetType = null;
+      updatePlacementModeUi();
       setAssetPaletteOpen(false);
       setDriveAxis(0);
       // If a crate has just been positioned underneath the character, enter
@@ -2698,6 +2732,7 @@
       hintEl.classList.remove('hidden');
     }
     updateAssetPaletteState();
+    updatePlacementModeUi();
     updateEditorButtons();
     updatePuzzlePanel();
   }
@@ -2711,7 +2746,7 @@
     return 0.82;
   }
 
-  function createUserObject(type, point) {
+  function createUserObject(type, point, { selectAfter = true } = {}) {
     const h = defaultAssetHeight(type);
     const w = h * (assetAspect[type] || 1);
     const info = editorAssetInfo.get(type) || { category:'dressing', gameplayType:null };
@@ -2738,7 +2773,7 @@
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
     recordObjectEdit(obj);
-    selectObject(obj);
+    if (selectAfter) selectObject(obj);
     return obj;
   }
 
@@ -2878,7 +2913,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.11" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.17" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -2887,12 +2922,16 @@
         bindEditorPress(btn, () => {
           addAssetType = name;
           selectedObject = null;
+          collisionEditMode = false;
+          collisionHandleIndex = -1;
           updateAssetPaletteState();
-          updateEditorButtons();
           setAssetPaletteOpen(false);
+          updatePlacementModeUi();
+          updateEditorButtons();
+          updatePuzzlePanel();
           hintEl.textContent = info.category === 'gameplay'
-            ? `Tap the path to add ${info.label.toLowerCase()} · gameplay collision included`
-            : `Tap the ground to add ${name}`;
+            ? `Placement mode · tap the path to add ${info.label.toLowerCase()} · tap again for another`
+            : `Placement mode · tap the ground to add ${info.label.toLowerCase()} · tap again for another`;
           hintEl.classList.remove('hidden');
         });
         editorAssetsEl.appendChild(btn);
@@ -4207,10 +4246,18 @@
     }
   });
   bindEditorPress(editorPaletteClose, () => {
-    setAssetPaletteOpen(false, { clearPending:true });
+    setAssetPaletteOpen(false);
     updateAssetPaletteState();
+    updatePlacementModeUi();
     updateEditorButtons();
   });
+  bindEditorPress(placementChangeBtn, () => {
+    if (!placementModeActive()) return;
+    buildAssetPalette();
+    setAssetPaletteOpen(true);
+    updateAssetPaletteState();
+  });
+  bindEditorPress(placementDoneBtn, exitPlacementMode);
   bindEditorPress(editorResetBtn, () => {
     if (!window.confirm('Reset all SideScroll scene edits on this device?')) return;
     try { localStorage.removeItem(SCENE_STORAGE_KEY); } catch (_) {}
@@ -4252,11 +4299,14 @@
       if (addAssetType) {
         const point = startGround;
         if (point) {
-          createUserObject(addAssetType, point);
-          addAssetType = null;
+          const placedType = addAssetType;
+          createUserObject(placedType, point, { selectAfter:false });
+          selectedObject = null;
           updateAssetPaletteState();
+          updatePlacementModeUi();
           updateEditorButtons();
-          hintEl.textContent = 'Added · tap/release selects · drag the selected asset itself to move it';
+          const info = editorAssetInfo.get(placedType);
+          hintEl.textContent = `Placed ${String(info?.label || placedType).toLowerCase()} · tap again to place another · Done Placing to exit`;
           hintEl.classList.remove('hidden');
         }
         editorPointer = null;
