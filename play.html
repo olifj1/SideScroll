@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.18">
+  <link rel="stylesheet" href="style.css?v=0.2.19">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -85,8 +85,12 @@
               <button id="sidescroll-scope-environment" class="active" type="button">Environment</button>
               <button id="sidescroll-scope-puzzle" type="button">Puzzle</button>
             </div>
+            <div class="sidescroll-puzzle-source-switch" id="sidescroll-puzzle-source-switch" hidden>
+              <button id="sidescroll-puzzle-source-library" type="button">Library</button>
+              <button id="sidescroll-puzzle-source-scene" class="active" type="button">Scene</button>
+            </div>
             <div class="sidescroll-puzzle-picker" id="sidescroll-puzzle-picker" hidden>
-              <select id="sidescroll-puzzle-select" aria-label="Puzzle instance to edit"></select>
+              <select id="sidescroll-puzzle-select" aria-label="Puzzle selection"></select>
               <button id="sidescroll-puzzle-focus" type="button">Focus</button>
             </div>
             <div class="sidescroll-puzzle-manage" id="sidescroll-puzzle-manage" hidden>
@@ -105,7 +109,8 @@
             <p id="sidescroll-puzzle-state">Edit procedural scene dressing without affecting puzzle props.</p>
             <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-help">Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it.</p>
             <div class="sidescroll-puzzle-actions" id="sidescroll-puzzle-actions" hidden>
-              <button id="sidescroll-puzzle-set-start" type="button">Set Start</button>
+              <button id="sidescroll-puzzle-set-start" type="button">Save to Template</button>
+              <button id="sidescroll-puzzle-save-unique" type="button">Save Unique</button>
               <button id="sidescroll-puzzle-test" class="primary" type="button">Test</button>
               <button id="sidescroll-puzzle-reset" type="button">Reset</button>
               <button id="sidescroll-puzzle-back-setup" type="button" hidden>Back to Setup</button>
@@ -150,10 +155,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.18"></script>
-  <script src="core.js?v=0.2.18"></script>
-  <script src="walk-rig.js?v=0.2.18"></script>
-  <script src="puzzle-groups.js?v=0.2.18"></script>
-  <script src="sidescroll.js?v=0.2.18"></script>
+  <script src="site-config.js?v=0.2.19"></script>
+  <script src="core.js?v=0.2.19"></script>
+  <script src="walk-rig.js?v=0.2.19"></script>
+  <script src="puzzle-groups.js?v=0.2.19"></script>
+  <script src="sidescroll.js?v=0.2.19"></script>
 </body>
 </html>

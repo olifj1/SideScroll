@@ -12047,3 +12047,13 @@ body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-placement-sta
   font-size:.78em;
   font-weight:700;
 }
+
+
+/* SideScroll v0.2.19 — Puzzle Library / Scene workflow */
+body[data-game-id="game-16"] .sidescroll-puzzle-source-switch{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0 0 8px;}
+body[data-game-id="game-16"] .sidescroll-puzzle-source-switch[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-source-switch button{min-height:38px!important;border-radius:10px!important;border:1px solid rgba(236,243,241,.20)!important;background:rgba(245,241,235,.07)!important;color:#eaf1ef!important;font-size:11px!important;font-weight:900!important;letter-spacing:.08em!important;text-transform:uppercase!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-source-switch button.active{background:#dcebe7!important;border-color:#dcebe7!important;color:#34534f!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-actions{flex-wrap:wrap!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-actions button{flex:1 1 120px!important;}
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-source-switch{display:none!important;}

@@ -36,6 +36,9 @@
   const editorScopeSwitch = document.getElementById('sidescroll-editor-scope-switch');
   const environmentScopeBtn = document.getElementById('sidescroll-scope-environment');
   const puzzleScopeBtn = document.getElementById('sidescroll-scope-puzzle');
+  const puzzleSourceSwitch = document.getElementById('sidescroll-puzzle-source-switch');
+  const puzzleSourceLibraryBtn = document.getElementById('sidescroll-puzzle-source-library');
+  const puzzleSourceSceneBtn = document.getElementById('sidescroll-puzzle-source-scene');
   const puzzlePicker = document.getElementById('sidescroll-puzzle-picker');
   const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
   const puzzleFocusBtn = document.getElementById('sidescroll-puzzle-focus');
@@ -55,6 +58,7 @@
   const puzzleStateEl = document.getElementById('sidescroll-puzzle-state');
   const puzzleHelpEl = document.getElementById('sidescroll-puzzle-help');
   const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
+  const puzzleSaveUniqueBtn = document.getElementById('sidescroll-puzzle-save-unique');
   const puzzleTestBtn = document.getElementById('sidescroll-puzzle-test');
   const puzzleResetBtn = document.getElementById('sidescroll-puzzle-reset');
   const puzzleBackSetupBtn = document.getElementById('sidescroll-puzzle-back-setup');
@@ -1225,6 +1229,7 @@
     try {
       const parsed = JSON.parse(localStorage.getItem(PUZZLE_LIBRARY_STORAGE_KEY) || '{}') || {};
       parsed.groups ||= {};
+      parsed.templates ||= {};
       parsed.markers ||= [];
 
       // Older authoring builds could leave repeated marker records behind.
@@ -1235,7 +1240,7 @@
       for (const raw of parsed.markers) {
         if (!raw || !raw.id || !raw.group || !Number.isFinite(Number(raw.x))) continue;
         if (seenIds.has(raw.id)) continue;
-        const marker = { ...raw, x:Number(raw.x), local:true };
+        const marker = { ...raw, x:Number(raw.x), local:true, linkMode:raw.linkMode === 'copy' ? 'copy' : 'instance' };
         const spatialDuplicate = normalized.some(item => item.group === marker.group && Math.abs(item.x - marker.x) < 0.08);
         if (spatialDuplicate) continue;
         seenIds.add(marker.id);
@@ -1243,7 +1248,7 @@
       }
       parsed.markers = normalized;
       return parsed;
-    } catch (_) { return { groups:{}, markers:[] }; }
+    } catch (_) { return { groups:{}, templates:{}, markers:[] }; }
   })();
   const puzzleWorkshopState = (() => {
     try {
@@ -1263,18 +1268,23 @@
   let puzzleWorkshopClear = puzzleWorkshopState.clear;
   let puzzleWorkshopIsolated = puzzleWorkshopState.isolated;
 
-  function codeBoundsForMarker(marker) {
-    const def = markerDefinition(marker);
+  function codeBoundsForDefinition(def) {
     if (def?.bounds) return { minX:def.bounds.minX, maxX:def.bounds.maxX };
     if (def?.exclusion) return { minX:def.exclusion.minX, maxX:def.exclusion.maxX };
     const half = Math.max(1.5, (def?.width ?? 8) * 0.5);
     return { minX:-half, maxX:half };
   }
 
+  function codeBoundsForMarker(marker) {
+    return codeBoundsForDefinition(markerDefinition(marker));
+  }
+
   function currentPuzzleBoundsRelative(marker) {
     if (!marker) return { minX:-4, maxX:4 };
     if (puzzleDraftBounds[marker.id]) return puzzleDraftBounds[marker.id];
-    const authored = puzzleStartState[marker.id]?.bounds;
+    const authored = markerLinkMode(marker) === 'copy'
+      ? puzzleStartState[marker.id]?.bounds
+      : (userPuzzleLibrary.templates?.[marker.group]?.bounds || puzzleStartState[marker.id]?.bounds);
     const initial = authored && Number.isFinite(authored.minX) && Number.isFinite(authored.maxX)
       ? { minX:authored.minX, maxX:authored.maxX }
       : codeBoundsForMarker(marker);
@@ -1293,6 +1303,21 @@
     try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {}
   }
 
+  function migratePuzzleTemplates() {
+    userPuzzleLibrary.templates ||= {};
+    let changed = false;
+    for (const marker of userPuzzleLibrary.markers || []) {
+      if (!marker.linkMode) { marker.linkMode = 'instance'; changed = true; }
+      if (marker.linkMode === 'copy') continue;
+      if (userPuzzleLibrary.templates[marker.group]) continue;
+      const legacy = puzzleStartState[marker.id];
+      if (!legacy) continue;
+      userPuzzleLibrary.templates[marker.group] = JSON.parse(JSON.stringify(legacy));
+      changed = true;
+    }
+    return changed;
+  }
+
   function savePuzzleLibrary() {
     try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {}
   }
@@ -1308,13 +1333,37 @@
     return [...(puzzleConfig.markers || []), ...(userPuzzleLibrary.markers || [])];
   }
 
+  function scenePuzzleMarkers() {
+    if (puzzleWorkshopIsolated) return puzzleWorkshopClear ? [] : [...(userPuzzleLibrary.markers || [])];
+    return allPuzzleMarkers();
+  }
+
+  function allPuzzleGroups() {
+    const groups = new Map();
+    for (const [id, def] of Object.entries(puzzleConfig.groups || {})) groups.set(id, def);
+    for (const [id, def] of Object.entries(userPuzzleLibrary.groups || {})) groups.set(id, def);
+    return [...groups.entries()].map(([id, def]) => ({ id, def }));
+  }
+
+  function groupDefinition(groupId) {
+    return userPuzzleLibrary.groups?.[groupId] || puzzleConfig.groups?.[groupId] || null;
+  }
+
+  function groupIsUserCreated(groupId) {
+    return !!userPuzzleLibrary.groups?.[groupId];
+  }
+
   function markerDefinition(marker) {
     if (!marker) return null;
-    return userPuzzleLibrary.groups?.[marker.group] || puzzleConfig.groups?.[marker.group] || null;
+    return groupDefinition(marker.group);
   }
 
   function markerIsUserCreated(marker) {
     return !!marker && (userPuzzleLibrary.markers || []).some(item => item.id === marker.id);
+  }
+
+  function markerLinkMode(marker) {
+    return marker?.linkMode === 'copy' ? 'copy' : 'instance';
   }
 
   function savedPuzzleFor(markerId) {
@@ -1328,8 +1377,7 @@
     return allPuzzleMarkers().find(marker => marker.id === markerId) || null;
   }
 
-  function defaultPuzzleStart(marker) {
-    const def = markerDefinition(marker);
+  function defaultPuzzleStartForDefinition(def) {
     const objects = {};
     for (const prop of def?.props || []) {
       objects[prop.id] = {
@@ -1347,15 +1395,30 @@
         shadow: prop.shadow ? { ...prop.shadow } : null
       };
     }
-    return { source:'default', bounds:codeBoundsForMarker(marker), objects };
+    return { source:'default', bounds:codeBoundsForDefinition(def), objects };
+  }
+
+  function defaultPuzzleStart(marker) {
+    return defaultPuzzleStartForDefinition(markerDefinition(marker));
+  }
+
+  function templateStartForGroup(groupId) {
+    return userPuzzleLibrary.templates?.[groupId] || defaultPuzzleStartForDefinition(groupDefinition(groupId));
   }
 
   function puzzleStartFor(marker) {
-    return puzzleStartState[marker.id] || defaultPuzzleStart(marker);
+    if (!marker) return { source:'default', bounds:{minX:-4,maxX:4}, objects:{} };
+    if (markerLinkMode(marker) === 'copy' && puzzleStartState[marker.id]) return puzzleStartState[marker.id];
+    if (userPuzzleLibrary.templates?.[marker.group]) return userPuzzleLibrary.templates[marker.group];
+    if (puzzleStartState[marker.id]) return puzzleStartState[marker.id];
+    return defaultPuzzleStart(marker);
   }
 
   function hasAuthoredPuzzleStart(markerId) {
-    return !!puzzleStartState[markerId];
+    const marker = markerForId(markerId);
+    if (!marker) return false;
+    if (markerLinkMode(marker) === 'copy') return !!puzzleStartState[markerId];
+    return !!userPuzzleLibrary.templates?.[marker.group] || !!puzzleStartState[markerId];
   }
 
   function capturePuzzleStart(instance) {
@@ -1508,7 +1571,7 @@
     for (const packName of def.assetPacks || []) ensurePuzzleAssetPack(packName);
 
     const saved = savedPuzzleFor(marker.id);
-    const authored = puzzleStartState[marker.id];
+    const authored = puzzleStartFor(marker);
     const instance = { id:marker.id, marker, def, objects:[], solved:!!saved.solved };
     const baseById = new Map((def.props || []).map(prop => [prop.id, prop]));
     const ids = new Set([...baseById.keys(), ...Object.keys(authored?.objects || {}), ...Object.keys(saved.objects || {})]);
@@ -1756,15 +1819,18 @@
   let editMode = false;
   let editorScope = 'environment';
   let editorPuzzleMarkerId = null;
+  let editorPuzzleLibraryGroupId = null;
+  let puzzleBrowserMode = 'scene';
 
   scatterForest();
   restoreSceneEdits();
-  // Persist the normalized marker library so duplicate records found from older
-  // editor builds are removed permanently rather than reappearing next launch.
+  // Migrate older marker-specific authored starts into reusable templates, then
+  // persist the normalized library so previous authored work remains available.
+  migratePuzzleTemplates();
   savePuzzleLibrary();
   if (puzzleWorkshopIsolated && !puzzleWorkshopClear) {
     const pinned = markerForId(puzzleWorkshopState.markerId);
-    if (pinned) editorPuzzleMarkerId = pinned.id;
+    if (pinned) { editorPuzzleMarkerId = pinned.id; puzzleBrowserMode = 'scene'; }
     else {
       puzzleWorkshopClear = true;
       puzzleWorkshopState.clear = true;
@@ -2109,6 +2175,7 @@
   }
 
   function selectedPuzzleInstance() {
+    if (editMode && editorScope === 'puzzle' && puzzleBrowserMode === 'library') return null;
     const marker = selectedPuzzleMarker();
     if (!marker) return null;
     if (editMode && editorScope === 'puzzle' && puzzleWorkshopClear) return activePuzzleInstances.get(marker.id) || null;
@@ -2117,7 +2184,7 @@
 
   function editorObjectIsEditable(obj) {
     if (!obj || obj.deleted) return false;
-    if (editorScope === 'puzzle') return !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId;
+    if (editorScope === 'puzzle') return puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId;
     return !obj.puzzleInstanceId;
   }
 
@@ -2139,18 +2206,65 @@
     return names;
   }
 
+  function selectedLibraryGroupId() {
+    if (editorPuzzleLibraryGroupId && groupDefinition(editorPuzzleLibraryGroupId)) return editorPuzzleLibraryGroupId;
+    const marker = selectedPuzzleMarker();
+    if (marker?.group && groupDefinition(marker.group)) return marker.group;
+    return allPuzzleGroups()[0]?.id || null;
+  }
+
   function populatePuzzleSelector() {
     if (!puzzleSelect) return;
-    const previous = editorPuzzleMarkerId;
     puzzleSelect.innerHTML = '';
-    for (const marker of allPuzzleMarkers()) {
+    if (puzzleBrowserMode === 'library') {
+      const groups = allPuzzleGroups();
+      for (const { id, def } of groups) {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = `${def?.label || id}${groupIsUserCreated(id) ? ' · local template' : ' · template'}`;
+        puzzleSelect.appendChild(option);
+      }
+      const wanted = selectedLibraryGroupId();
+      editorPuzzleLibraryGroupId = wanted;
+      if (wanted) puzzleSelect.value = wanted;
+      puzzleSelect.setAttribute('aria-label', 'Puzzle library template');
+      return;
+    }
+    const markers = scenePuzzleMarkers();
+    for (const marker of markers) {
       const option = document.createElement('option');
       option.value = marker.id;
       const label = markerDefinition(marker)?.label || marker.group || marker.id;
-      option.textContent = `${label} · x ${Number(marker.x).toFixed(1)}${markerIsUserCreated(marker) ? ' · local' : ''}`;
+      const kind = markerLinkMode(marker) === 'copy' ? 'COPY' : 'INSTANCE';
+      option.textContent = `${label} · ${kind} · x ${Number(marker.x).toFixed(1)}`;
       puzzleSelect.appendChild(option);
     }
-    if (previous && markerForId(previous)) puzzleSelect.value = previous;
+    if (editorPuzzleMarkerId && markers.some(marker => marker.id === editorPuzzleMarkerId)) puzzleSelect.value = editorPuzzleMarkerId;
+    else {
+      editorPuzzleMarkerId = markers[0]?.id || null;
+      if (editorPuzzleMarkerId) puzzleSelect.value = editorPuzzleMarkerId;
+    }
+    puzzleSelect.setAttribute('aria-label', 'Scene puzzle instance');
+  }
+
+  function setPuzzleBrowserMode(mode) {
+    if (mode !== 'library' && mode !== 'scene') return;
+    puzzleBrowserMode = mode;
+    selectObject(null);
+    if (mode === 'library') {
+      const marker = selectedPuzzleMarker();
+      if (marker?.group) editorPuzzleLibraryGroupId = marker.group;
+    } else {
+      const markers = scenePuzzleMarkers();
+      if (!editorPuzzleMarkerId || !markers.some(marker => marker.id === editorPuzzleMarkerId)) {
+        const near = activePuzzleNear(camera.x + character.screenOffsetX);
+        editorPuzzleMarkerId = (near && markers.some(marker => marker.id === near.id)) ? near.id : (markers[0]?.id || null);
+      }
+    }
+    populatePuzzleSelector();
+    buildAssetPalette();
+    updatePuzzlePanel();
+    updateEditorButtons();
   }
 
   function focusSelectedPuzzle() {
@@ -2209,32 +2323,32 @@
     return `${prefix}-${Date.now().toString(36)}-${Math.floor(Math.random()*0xffff).toString(36)}`;
   }
 
-  function addLocalMarker(groupId, x, startSnapshot = null) {
-    const marker = { id:uniqueLocalId('marker'), group:groupId, x:Number(x) || 0, local:true };
+  function addLocalMarker(groupId, x, { linkMode='instance', startSnapshot=null } = {}) {
+    const marker = { id:uniqueLocalId('marker'), group:groupId, x:Number(x) || 0, local:true, linkMode:linkMode === 'copy' ? 'copy' : 'instance' };
     userPuzzleLibrary.markers.push(marker);
-    savePuzzleLibrary();
-    if (startSnapshot) {
+    if (marker.linkMode === 'copy' && startSnapshot) {
       puzzleStartState[marker.id] = deepCopy(startSnapshot);
       puzzleStartState[marker.id].source = 'authored';
       puzzleStartState[marker.id].savedAt = Date.now();
       savePuzzleStarts();
     }
+    savePuzzleLibrary();
     populatePuzzleSelector();
     return marker;
   }
 
   function spawnSelectedPuzzleHere() {
-    const sourceMarker = selectedPuzzleMarker();
-    if (!sourceMarker) return;
-    const sourceDef = markerDefinition(sourceMarker);
-    if (!sourceDef) return;
-    const marker = addLocalMarker(sourceMarker.group, puzzleSpawnX(), puzzleStartFor(sourceMarker));
+    const groupId = puzzleBrowserMode === 'library' ? selectedLibraryGroupId() : selectedPuzzleMarker()?.group;
+    if (!groupId || !groupDefinition(groupId)) return;
+    const marker = addLocalMarker(groupId, puzzleSpawnX(), { linkMode:'instance' });
     puzzleWorkshopIsolated = true;
     puzzleWorkshopClear = false;
+    puzzleBrowserMode = 'scene';
+    editorPuzzleMarkerId = marker.id;
     choosePuzzleForEditing(marker.id, true);
     savePuzzleWorkshopState(marker.id);
     applyPuzzleStart(selectedPuzzleInstance(), { persistRuntime:true });
-    hintEl.textContent = 'Puzzle spawned here · edit it, then Set Start';
+    hintEl.textContent = 'Linked puzzle instance spawned here · edit it, then Save to Template or Save Unique';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -2246,23 +2360,14 @@
     let groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}`;
     let suffix = 2;
     while (userPuzzleLibrary.groups[groupId] || puzzleConfig.groups?.[groupId]) groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}_${suffix++}`;
-    userPuzzleLibrary.groups[groupId] = {
-      label,
-      width:8,
-      assetPacks:['woodland-puzzle-atlas-v1'],
-      entryX:-3.5,
-      exitX:3.5,
-      props:[]
-    };
+    userPuzzleLibrary.groups[groupId] = { label, width:8, assetPacks:['woodland-puzzle-atlas-v1'], entryX:-3.5, exitX:3.5, props:[] };
+    userPuzzleLibrary.templates ||= {};
+    userPuzzleLibrary.templates[groupId] = { source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{} };
     savePuzzleLibrary();
-    const marker = addLocalMarker(groupId, puzzleSpawnX(), {
-      source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{}
-    });
-    puzzleWorkshopIsolated = true;
-    puzzleWorkshopClear = false;
-    choosePuzzleForEditing(marker.id, true);
-    savePuzzleWorkshopState(marker.id);
-    hintEl.textContent = 'Blank puzzle created · Add places assets inside this puzzle';
+    puzzleBrowserMode = 'library';
+    editorPuzzleLibraryGroupId = groupId;
+    populatePuzzleSelector();
+    hintEl.textContent = 'Blank puzzle added to the Library · press Spawn Here when you are ready to build it';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -2270,7 +2375,7 @@
   function clearPuzzleStage() {
     if (puzzleTestMode) return;
     const selectedBeforeClear = selectedPuzzleMarker();
-    const selectedGroupBeforeClear = selectedBeforeClear?.group || null;
+    const selectedGroupBeforeClear = puzzleBrowserMode === 'library' ? selectedLibraryGroupId() : (selectedBeforeClear?.group || null);
     puzzleWorkshopIsolated = true;
     puzzleWorkshopClear = true;
     selectObject(null);
@@ -2290,18 +2395,16 @@
     savePuzzleStarts();
     savePuzzleState();
 
-    // Keep a reusable code-defined marker selected as the template when one
-    // exists for the group we were editing. This lets Clear Stage -> Spawn Here
-    // work immediately for built-in puzzles such as Fallen Tree.
-    const templateMarker = (puzzleConfig.markers || []).find(marker => marker.group === selectedGroupBeforeClear)
-      || (puzzleConfig.markers || [])[0]
-      || null;
-    editorPuzzleMarkerId = templateMarker?.id || null;
+    // Clearing the stage leaves the reusable Puzzle Library untouched.
+    editorPuzzleMarkerId = null;
+    puzzleBrowserMode = 'library';
+    editorPuzzleLibraryGroupId = selectedGroupBeforeClear && groupDefinition(selectedGroupBeforeClear)
+      ? selectedGroupBeforeClear
+      : (allPuzzleGroups()[0]?.id || null);
     populatePuzzleSelector();
-    if (puzzleSelect && editorPuzzleMarkerId) puzzleSelect.value = editorPuzzleMarkerId;
     savePuzzleWorkshopState(null);
 
-    hintEl.textContent = 'Stage cleared and saved · choose a puzzle template then Spawn Here, or create a new puzzle';
+    hintEl.textContent = 'Stage cleared and saved · choose a Library puzzle then Spawn Here, or create a new puzzle';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -2311,8 +2414,12 @@
     if (puzzleTestMode) return;
     puzzleWorkshopIsolated = false;
     puzzleWorkshopClear = false;
+    puzzleBrowserMode = 'scene';
     savePuzzleWorkshopState(null);
     updatePuzzleStreaming(camera.x + character.screenOffsetX);
+    const near = activePuzzleNear(camera.x + character.screenOffsetX);
+    editorPuzzleMarkerId = near?.id || allPuzzleMarkers()[0]?.id || null;
+    populatePuzzleSelector();
     hintEl.textContent = 'Normal game puzzle markers restored';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
@@ -2329,7 +2436,7 @@
     delete puzzleDraftBounds[marker.id];
     savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState();
     if (puzzleWorkshopState.markerId === marker.id) savePuzzleWorkshopState(null);
-    const next = allPuzzleMarkers()[0] || null;
+    const next = scenePuzzleMarkers()[0] || null;
     editorPuzzleMarkerId = null;
     populatePuzzleSelector();
     if (next) choosePuzzleForEditing(next.id, false);
@@ -2463,7 +2570,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.13',
+      appVersion:'0.2.19',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -2475,14 +2582,25 @@
   }
 
   async function exportSelectedPuzzle() {
-    const instance = selectedPuzzleInstance();
-    if (!instance) return;
-    // Capture current setup first only when the user has explicitly saved it;
-    // unsaved edits remain visible in diagnostics but do not silently replace
-    // the authored start in the export.
-    const payload = puzzleExportPayload(instance);
+    let payload = null;
+    let filename = 'SideScroll-puzzle.json';
+    if (puzzleBrowserMode === 'library' && !puzzleTestMode) {
+      const groupId = selectedLibraryGroupId();
+      const def = groupDefinition(groupId);
+      if (!groupId || !def) return;
+      payload = {
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.19', exportedAt:new Date().toISOString(),
+        group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
+        source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
+      };
+      filename = `SideScroll-${puzzleSlug(def.label || groupId)}-template.json`;
+    } else {
+      const instance = selectedPuzzleInstance();
+      if (!instance) return;
+      payload = puzzleExportPayload(instance);
+      filename = `SideScroll-${puzzleSlug(instance.def?.label || instance.marker.group)}-${puzzleSlug(instance.marker.id)}.json`;
+    }
     const text = JSON.stringify(payload,null,2);
-    const filename = `SideScroll-${puzzleSlug(instance.def?.label || instance.marker.group)}-${puzzleSlug(instance.marker.id)}.json`;
     const blob = new Blob([text], {type:'application/json'});
     try {
       const file = new File([blob], filename, {type:'application/json'});
@@ -2509,9 +2627,16 @@
     selectObject(null);
     addAssetType = null;
     updatePlacementModeUi();
-    if (scope === 'puzzle' && !editorPuzzleMarkerId) {
-      const near = activePuzzleNear(camera.x + character.screenOffsetX);
-      choosePuzzleForEditing(near?.id || allPuzzleMarkers()[0]?.id || null, false);
+    if (scope === 'puzzle') {
+      if (puzzleWorkshopClear) {
+        puzzleBrowserMode = 'library';
+        editorPuzzleLibraryGroupId ||= allPuzzleGroups()[0]?.id || null;
+        populatePuzzleSelector();
+      } else if (puzzleBrowserMode === 'scene' && !editorPuzzleMarkerId) {
+        const near = activePuzzleNear(camera.x + character.screenOffsetX);
+        editorPuzzleMarkerId = near?.id || scenePuzzleMarkers()[0]?.id || null;
+        populatePuzzleSelector();
+      } else populatePuzzleSelector();
     }
     buildAssetPalette();
     updatePuzzlePanel();
@@ -2525,7 +2650,7 @@
     const placing = placementModeActive();
     if (editorControls) editorControls.hidden = !editMode || !has || placing;
     if (openAssetsBtn) {
-      openAssetsBtn.hidden = !editMode || puzzleTestMode || placing;
+      openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || (editorScope === 'puzzle' && puzzleBrowserMode === 'library');
       openAssetsBtn.textContent = editorScope === 'puzzle' ? '＋ Add Puzzle Asset' : '＋ Add Environment Asset';
       openAssetsBtn.classList.toggle('active', !editorPalette?.hidden);
     }
@@ -2561,7 +2686,7 @@
       const pinned = activePuzzleInstances.get(puzzleTestMarkerId);
       if (pinned) return pinned;
     }
-    if (editMode && editorScope === 'puzzle' && editorPuzzleMarkerId) return selectedPuzzleInstance();
+    if (editMode && editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && editorPuzzleMarkerId) return selectedPuzzleInstance();
     return null;
   }
 
@@ -2574,15 +2699,20 @@
 
     const testing = puzzleTestMode;
     const puzzleEditing = testing || editorScope === 'puzzle';
-    const instance = puzzleEditing ? authoringPuzzle() : null;
-    const selectedMarker = puzzleEditing ? selectedPuzzleMarker() : null;
-    const selectedDef = markerDefinition(selectedMarker);
+    const libraryMode = !testing && puzzleEditing && puzzleBrowserMode === 'library';
+    const instance = puzzleEditing && !libraryMode ? authoringPuzzle() : null;
+    const selectedMarker = puzzleEditing && !libraryMode ? selectedPuzzleMarker() : null;
+    const selectedGroupId = libraryMode ? selectedLibraryGroupId() : selectedMarker?.group;
+    const selectedDef = libraryMode ? groupDefinition(selectedGroupId) : markerDefinition(selectedMarker);
     if (editorScopeSwitch) editorScopeSwitch.hidden = testing;
     environmentScopeBtn?.classList.toggle('active', !testing && editorScope === 'environment');
     puzzleScopeBtn?.classList.toggle('active', testing || editorScope === 'puzzle');
+    if (puzzleSourceSwitch) puzzleSourceSwitch.hidden = testing || editorScope !== 'puzzle';
+    puzzleSourceLibraryBtn?.classList.toggle('active', !testing && puzzleBrowserMode === 'library');
+    puzzleSourceSceneBtn?.classList.toggle('active', !testing && puzzleBrowserMode === 'scene');
     if (puzzlePicker) puzzlePicker.hidden = testing || editorScope !== 'puzzle';
     if (puzzleManageEl) puzzleManageEl.hidden = testing || editorScope !== 'puzzle';
-    if (puzzleActionsEl) puzzleActionsEl.hidden = !puzzleEditing || puzzleWorkshopClear;
+    if (puzzleActionsEl) puzzleActionsEl.hidden = !puzzleEditing || libraryMode || puzzleWorkshopClear;
 
     if (!puzzleEditing) {
       if (puzzleModeEl) puzzleModeEl.textContent = 'ENV';
@@ -2593,51 +2723,105 @@
       return;
     }
 
-    if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : 'PUZZLE';
-    if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || selectedDef?.label || 'No puzzle selected';
+    const linkMode = selectedMarker ? markerLinkMode(selectedMarker) : null;
+    if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : (libraryMode ? 'LIBRARY' : (linkMode === 'copy' ? 'COPY' : 'INSTANCE'));
+    if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || selectedDef?.label || (libraryMode ? 'Puzzle Library' : 'No scene puzzle selected');
     if (puzzleStateEl) {
-      if (puzzleWorkshopClear && !testing) puzzleStateEl.textContent = 'Stage is clear. The selected item is only a template until you Spawn Here.';
-      else if (!instance) puzzleStateEl.textContent = 'Choose a puzzle to edit.';
-      else if (testing) puzzleStateEl.textContent = instance.solved
-        ? 'Puzzle complete. Reset to run it again, or return to Setup.'
-        : 'Testing from the saved start. Test moves do not change the start layout.';
-      else {
+      if (libraryMode) {
+        const source = groupIsUserCreated(selectedGroupId) ? 'Local reusable template.' : 'Reusable template.';
+        puzzleStateEl.textContent = `${source} Selecting it does not place anything in the scene.`;
+      } else if (!instance && !testing) {
+        puzzleStateEl.textContent = puzzleWorkshopClear ? 'Scene is empty. Switch to Library and Spawn Here to place a puzzle.' : 'No scene puzzle selected.';
+      } else if (testing) {
+        puzzleStateEl.textContent = instance.solved ? 'Puzzle complete. Reset to run it again, or return to Setup.' : 'Testing the current setup. Test moves do not change the saved puzzle.';
+      } else {
         const b = currentPuzzleBoundsRelative(instance.marker);
         const width = (b.maxX - b.minX).toFixed(1);
-        const state = puzzleStartDirty.has(instance.id)
-          ? 'Unsaved setup changes.'
-          : (hasAuthoredPuzzleStart(instance.id) ? 'Start state saved on this device.' : 'Using the code-defined start.');
-        puzzleStateEl.textContent = `${state} Puzzle bounds: ${width}m wide.`;
+        const dirty = puzzleStartDirty.has(instance.id) ? 'Unsaved setup changes. ' : '';
+        const relationship = linkMode === 'copy' ? 'COPY · unique to this scene; template edits will not affect it.' : `INSTANCE · linked to ${selectedDef?.label || instance.marker.group}.`;
+        puzzleStateEl.textContent = `${dirty}${relationship} Bounds: ${width}m.`;
       }
     }
     if (puzzleHelpEl) puzzleHelpEl.textContent = testing
       ? 'Reset restarts this test setup. Back to Setup returns to the same editable setup you tested.'
-      : (puzzleWorkshopClear
-          ? 'Pan to a location, then Spawn Here to place the selected puzzle template, or New Puzzle to start empty.'
-          : 'Only this puzzle can be selected. Drag the yellow end handles to resize its bounds. Tap/release selects; drag the selected prop itself to move it; drag elsewhere to pan.');
+      : (libraryMode
+          ? 'Choose any reusable puzzle here. Spawn Here creates a linked scene instance; New Puzzle adds a blank template to this Library.'
+          : (!instance
+              ? 'There are no scene puzzles here. Switch to Library to choose one to spawn.'
+              : (linkMode === 'copy' ? 'This is a unique copy. Save Copy updates only this scene puzzle; drag elsewhere to pan.' : 'Save to Template changes every linked instance. Save Unique detaches this scene puzzle so later template edits do not affect it.')));
 
-    if (puzzleSpawnBtn) puzzleSpawnBtn.disabled = !selectedMarker;
-    if (puzzleFocusBtn) puzzleFocusBtn.disabled = puzzleWorkshopClear || !instance;
-    if (puzzleExportBtn) puzzleExportBtn.disabled = !instance;
-    if (puzzleRemoveBtn) { puzzleRemoveBtn.hidden = !markerIsUserCreated(selectedMarker); puzzleRemoveBtn.disabled = !selectedMarker; }
+    if (puzzleSpawnBtn) { puzzleSpawnBtn.hidden = !libraryMode; puzzleSpawnBtn.disabled = !selectedGroupId; }
+    if (puzzleCreateBtn) puzzleCreateBtn.hidden = !libraryMode;
+    if (puzzleFocusBtn) { puzzleFocusBtn.hidden = libraryMode; puzzleFocusBtn.disabled = puzzleWorkshopClear || !instance; }
+    if (puzzleExportBtn) puzzleExportBtn.disabled = libraryMode ? !selectedGroupId : !instance;
+    if (puzzleRemoveBtn) { puzzleRemoveBtn.hidden = libraryMode || !markerIsUserCreated(selectedMarker); puzzleRemoveBtn.disabled = !selectedMarker; }
     if (puzzleClearStageBtn) puzzleClearStageBtn.classList.toggle('active', puzzleWorkshopClear);
     if (puzzleRestoreStageBtn) puzzleRestoreStageBtn.hidden = !puzzleWorkshopIsolated;
-    if (puzzleSetStartBtn) { puzzleSetStartBtn.hidden = testing; puzzleSetStartBtn.disabled = !instance; }
-    if (puzzleTestBtn) { puzzleTestBtn.hidden = testing; puzzleTestBtn.disabled = !instance; }
+    if (puzzleSetStartBtn) { puzzleSetStartBtn.hidden = testing || libraryMode; puzzleSetStartBtn.disabled = !instance; puzzleSetStartBtn.textContent = linkMode === 'copy' ? 'Save Copy' : 'Save to Template'; }
+    if (puzzleSaveUniqueBtn) { puzzleSaveUniqueBtn.hidden = testing || libraryMode || !instance || linkMode === 'copy'; puzzleSaveUniqueBtn.disabled = !instance || !markerIsUserCreated(selectedMarker); puzzleSaveUniqueBtn.title = markerIsUserCreated(selectedMarker) ? '' : 'Spawn a Library instance first'; }
+    if (puzzleTestBtn) { puzzleTestBtn.hidden = testing || libraryMode; puzzleTestBtn.disabled = !instance; }
     if (puzzleResetBtn) puzzleResetBtn.disabled = !instance;
     if (puzzleBackSetupBtn) { puzzleBackSetupBtn.hidden = !testing; puzzleBackSetupBtn.disabled = !instance; }
     updatePuzzleObjectList();
   }
 
-  function setPuzzleStartFromCurrent() {
+  function authoredSnapshotFromInstance(instance) {
+    const setup = currentPuzzleSetupSnapshot(instance);
+    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects) };
+  }
+
+  function savePuzzleTemplateFromCurrent() {
     const instance = authoringPuzzle();
     if (!instance || puzzleTestMode) return;
     settleGameplayCrates();
-    capturePuzzleStart(instance);
-    // The start also becomes the live state, so a reload does not reopen a
-    // half-finished test arrangement.
-    applyPuzzleStart(instance, { persistRuntime:true });
-    hintEl.textContent = 'Puzzle start saved';
+    const marker = instance.marker;
+    const snapshot = authoredSnapshotFromInstance(instance);
+    if (markerLinkMode(marker) === 'copy') {
+      puzzleStartState[marker.id] = snapshot;
+      savePuzzleStarts();
+      puzzleStartDirty.delete(marker.id);
+      applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
+      hintEl.textContent = 'Unique scene copy saved';
+    } else {
+      userPuzzleLibrary.templates ||= {};
+      userPuzzleLibrary.templates[marker.group] = snapshot;
+      savePuzzleLibrary();
+      for (const otherMarker of allPuzzleMarkers()) {
+        if (otherMarker.group !== marker.group || markerLinkMode(otherMarker) !== 'instance') continue;
+        delete puzzleStartState[otherMarker.id];
+        delete puzzleSavedState[otherMarker.id];
+        delete puzzleDraftBounds[otherMarker.id];
+        puzzleStartDirty.delete(otherMarker.id);
+        const active = activePuzzleInstances.get(otherMarker.id);
+        if (active) applyPuzzleSnapshot(active, snapshot, { persistRuntime:true, clearDirty:true });
+      }
+      savePuzzleStarts();
+      savePuzzleState();
+      hintEl.textContent = 'Template updated · all linked instances now use this setup';
+    }
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function savePuzzleUniqueFromCurrent() {
+    const instance = authoringPuzzle();
+    if (!instance || puzzleTestMode) return;
+    const marker = instance.marker;
+    if (!markerIsUserCreated(marker)) {
+      hintEl.textContent = 'Spawn a Library instance first, then Save Unique to detach it';
+      hintEl.classList.remove('hidden');
+      return;
+    }
+    settleGameplayCrates();
+    const snapshot = authoredSnapshotFromInstance(instance);
+    marker.linkMode = 'copy';
+    puzzleStartState[marker.id] = snapshot;
+    puzzleStartDirty.delete(marker.id);
+    savePuzzleStarts();
+    savePuzzleLibrary();
+    applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
+    populatePuzzleSelector();
+    hintEl.textContent = 'Saved as a unique scene copy · future template changes will not affect it';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -2918,7 +3102,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.18" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.19" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -4221,13 +4405,17 @@
   });
   bindEditorPress(environmentScopeBtn, () => setEditorScope('environment'));
   bindEditorPress(puzzleScopeBtn, () => setEditorScope('puzzle'));
+  bindEditorPress(puzzleSourceLibraryBtn, () => setPuzzleBrowserMode('library'));
+  bindEditorPress(puzzleSourceSceneBtn, () => setPuzzleBrowserMode('scene'));
   puzzleSelect?.addEventListener('change', () => {
-    if (puzzleWorkshopClear) {
-      editorPuzzleMarkerId = puzzleSelect.value || null;
+    if (puzzleBrowserMode === 'library') {
+      editorPuzzleLibraryGroupId = puzzleSelect.value || null;
       selectObject(null);
       buildAssetPalette();
       updatePuzzlePanel();
-    } else choosePuzzleForEditing(puzzleSelect.value, true);
+      return;
+    }
+    choosePuzzleForEditing(puzzleSelect.value, true);
   });
   bindEditorPress(puzzleFocusBtn, focusSelectedPuzzle);
   bindEditorPress(puzzleSpawnBtn, spawnSelectedPuzzleHere);
@@ -4272,7 +4460,8 @@
     try { localStorage.removeItem(PUZZLE_WORKSHOP_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
-  bindEditorPress(puzzleSetStartBtn, setPuzzleStartFromCurrent);
+  bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
+  bindEditorPress(puzzleSaveUniqueBtn, savePuzzleUniqueFromCurrent);
   bindEditorPress(puzzleTestBtn, beginPuzzleTest);
   bindEditorPress(puzzleResetBtn, resetCurrentPuzzle);
   bindEditorPress(puzzleBackSetupBtn, backToPuzzleSetup);
