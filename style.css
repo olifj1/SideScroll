@@ -11603,3 +11603,152 @@ body[data-game-id="game-16"] .sidescroll-puzzle-thumb{width:58px!important;heigh
   body[data-game-id="game-16"] .sidescroll-editor-palette{width:46vw!important;}
   body[data-game-id="game-16"] .sidescroll-editor-assets{grid-template-columns:repeat(2,minmax(78px,1fr))!important;}
 }
+
+
+/* SideScroll v0.2.8 — unified editor workspace + real asset thumbnails */
+body[data-game-id="game-16"] .sidescroll-puzzle-panel,
+body[data-game-id="game-16"] .sidescroll-editor-palette{
+  box-sizing:border-box!important;
+  top:max(88px,calc(env(safe-area-inset-top) + 78px))!important;
+  bottom:max(12px,env(safe-area-inset-bottom))!important;
+  max-height:none!important;
+  margin:0!important;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel{
+  left:max(12px,env(safe-area-inset-left))!important;
+  right:auto!important;
+  width:clamp(330px,34vw,510px)!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+}
+body[data-game-id="game-16"] .sidescroll-open-assets{
+  width:100%;
+  min-height:46px!important;
+  margin:9px 0 12px!important;
+  border:1px solid rgba(211,226,221,.28)!important;
+  border-radius:12px!important;
+  background:rgba(224,239,234,.10)!important;
+  color:#edf5f2!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase;
+}
+body[data-game-id="game-16"] .sidescroll-open-assets.active{
+  background:#dcebe7!important;
+  color:#34534f!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-palette{
+  position:fixed!important;
+  left:auto!important;
+  right:max(12px,env(safe-area-inset-right))!important;
+  width:clamp(320px,34vw,520px)!important;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden!important;
+  padding:14px!important;
+  z-index:1003!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-palette[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-editor-palette-head{
+  flex:0 0 auto;
+  display:flex!important;
+  justify-content:space-between;
+  align-items:flex-start!important;
+  gap:12px;
+  margin-bottom:12px!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-palette-head strong{
+  display:block;
+  font-size:17px!important;
+  line-height:1.1;
+}
+body[data-game-id="game-16"] .sidescroll-editor-palette-head small{
+  display:block;
+  margin-top:4px;
+  color:rgba(235,243,241,.62);
+  font-size:11px!important;
+  line-height:1.25;
+}
+body[data-game-id="game-16"] .sidescroll-editor-assets{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  align-content:start;
+  gap:10px!important;
+  padding:0 2px 8px!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset-group{
+  grid-column:1/-1!important;
+  position:sticky;
+  top:0;
+  z-index:2;
+  margin:0!important;
+  padding:7px 4px 5px!important;
+  background:#182326;
+  font-size:11px!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset{
+  box-sizing:border-box!important;
+  height:138px!important;
+  min-height:138px!important;
+  padding:8px!important;
+  display:flex!important;
+  flex-direction:column;
+  justify-content:space-between!important;
+  align-items:stretch!important;
+  gap:6px!important;
+  overflow:hidden;
+}
+body[data-game-id="game-16"] .sidescroll-asset-thumb{
+  height:96px;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  background:rgba(6,10,10,.26);
+  overflow:hidden;
+}
+body[data-game-id="game-16"] .sidescroll-asset-thumb img,
+body[data-game-id="game-16"] .sidescroll-editor-asset img{
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset small{
+  min-height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10px!important;
+  line-height:1.15!important;
+  text-align:center;
+}
+/* The lower toolbar is now object-context only. Add Assets lives in the inspector. */
+body[data-game-id="game-16"] .sidescroll-editor-controls{
+  z-index:1001!important;
+}
+body[data-game-id="game-16"].sidescroll-assets-open .sidescroll-editor-controls{
+  display:none!important;
+}
+@media(max-width:720px){
+  body[data-game-id="game-16"].sidescroll-assets-open .sidescroll-puzzle-panel{
+    display:none!important;
+  }
+  body[data-game-id="game-16"] .sidescroll-editor-palette{
+    left:max(10px,env(safe-area-inset-left))!important;
+    right:max(10px,env(safe-area-inset-right))!important;
+    width:auto!important;
+  }
+  body[data-game-id="game-16"] .sidescroll-editor-assets{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}

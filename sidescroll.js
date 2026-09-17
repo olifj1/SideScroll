@@ -24,6 +24,9 @@
   const editorPalette = document.getElementById('sidescroll-editor-palette');
   const editorAssetsEl = document.getElementById('sidescroll-editor-assets');
   const editorPaletteClose = document.getElementById('sidescroll-editor-palette-close');
+  const editorPaletteTitle = document.getElementById('sidescroll-editor-palette-title');
+  const editorPaletteSubtitle = document.getElementById('sidescroll-editor-palette-subtitle');
+  const openAssetsBtn = document.getElementById('sidescroll-open-assets');
   const editorResetBtn = document.getElementById('sidescroll-editor-reset');
   const puzzlePanel = document.getElementById('sidescroll-puzzle-panel');
   const editorScopeSwitch = document.getElementById('sidescroll-editor-scope-switch');
@@ -1825,13 +1828,13 @@
   let currentViewMatrix = mat4Identity();
   const editorAssetGroups = [
     { scope:'puzzle', title: 'PUZZLE PROPS · WOODLAND', items: [
-      { name:'puzzle-log-a', label:'MOVEABLE LOG A', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.84, collision:{halfWidth:0.58,height:0.48,depth:0.62,platform:true} },
-      { name:'puzzle-log-b', label:'MOVEABLE LOG B', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.72, collision:{halfWidth:0.46,height:0.42,depth:0.56,platform:true} },
-      { name:'puzzle-log-c', label:'MOVEABLE LOG C', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.76, collision:{halfWidth:0.60,height:0.44,depth:0.60,platform:true} },
-      { name:'puzzle-log-d', label:'LONG LOG', category:'gameplay', gameplayType:'crate', thumb:'━━', defaultHeight:0.82, collision:{halfWidth:0.75,height:0.46,depth:0.64,platform:true} },
-      { name:'fallen-tree', label:'FALLEN TREE', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.55, collision:{halfWidth:2.35,height:1.72,depth:1.08,platform:true} },
-      { name:'tree-stump', label:'TREE STUMP', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.18 },
-      { name:'broken-branch', label:'BROKEN BRANCH', category:'gameplay', gameplayType:'prop', thumb:'⟍', defaultHeight:0.78 }
+      { name:'puzzle-log-a', label:'MOVEABLE LOG A', image:'puzzle-log-a.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.84, collision:{halfWidth:0.58,height:0.48,depth:0.62,platform:true} },
+      { name:'puzzle-log-b', label:'MOVEABLE LOG B', image:'puzzle-log-b.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.72, collision:{halfWidth:0.46,height:0.42,depth:0.56,platform:true} },
+      { name:'puzzle-log-c', label:'MOVEABLE LOG C', image:'puzzle-log-c.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.76, collision:{halfWidth:0.60,height:0.44,depth:0.60,platform:true} },
+      { name:'puzzle-log-d', label:'LONG LOG', image:'puzzle-log-d.png', category:'gameplay', gameplayType:'crate', thumb:'━━', defaultHeight:0.82, collision:{halfWidth:0.75,height:0.46,depth:0.64,platform:true} },
+      { name:'fallen-tree', label:'FALLEN TREE', image:'fallen-tree.png', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.55, collision:{halfWidth:2.35,height:1.72,depth:1.08,platform:true} },
+      { name:'tree-stump', label:'TREE STUMP', image:'tree-stump.png', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.18 },
+      { name:'broken-branch', label:'BROKEN BRANCH', image:'broken-branch.png', category:'gameplay', gameplayType:'prop', thumb:'⟍', defaultHeight:0.78 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06'
@@ -2344,7 +2347,12 @@
     const has = !!selectedObject && !selectedObject.deleted;
     const collisionFocus = !!(has && collisionEditMode);
     const isGameplay = has && selectedObject.category === 'gameplay';
-    if (editorAddBtn) editorAddBtn.hidden = collisionFocus;
+    if (editorControls) editorControls.hidden = !editMode || !has;
+    if (openAssetsBtn) {
+      openAssetsBtn.hidden = !editMode || puzzleTestMode;
+      openAssetsBtn.textContent = editorScope === 'puzzle' ? '＋ Add Puzzle Asset' : '＋ Add Environment Asset';
+      openAssetsBtn.classList.toggle('active', !editorPalette?.hidden);
+    }
     if (editorDuplicateBtn) editorDuplicateBtn.hidden = !has || collisionFocus;
     if (editorScaleDownBtn) editorScaleDownBtn.hidden = !has || collisionFocus;
     if (editorScaleUpBtn) editorScaleUpBtn.hidden = !has || collisionFocus;
@@ -2357,7 +2365,6 @@
       editorCollisionBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
     }
     if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus;
-    editorAddBtn?.classList.toggle('active', !!addAssetType);
   }
 
   function selectObject(obj, preserveCycle = false) {
@@ -2366,7 +2373,7 @@
     addAssetType = null;
     collisionEditMode = false;
     collisionHandleIndex = -1;
-    if (editorPalette) editorPalette.hidden = true;
+    setAssetPaletteOpen(false);
     updateAssetPaletteState();
     updateEditorButtons();
   }
@@ -2528,13 +2535,13 @@
     }
     if (playControls) playControls.hidden = editMode;
     if (secondaryControls) secondaryControls.hidden = editMode;
-    if (editorControls) editorControls.hidden = !editMode;
+    if (editorControls) editorControls.hidden = true;
     if (!editMode) {
       selectedObject = null;
       selectionCycleInfo = null;
       editorTapState = null;
       addAssetType = null;
-      if (editorPalette) editorPalette.hidden = true;
+      setAssetPaletteOpen(false);
       setDriveAxis(0);
       // If a crate has just been positioned underneath the character, enter
       // Play mode standing on its top rather than intersecting it.
@@ -2688,6 +2695,19 @@
     updatePuzzlePanel();
   }
 
+  function setAssetPaletteOpen(open, { clearPending = false } = {}) {
+    if (!editorPalette) return;
+    editorPalette.hidden = !open;
+    document.body.classList.toggle('sidescroll-assets-open', !!open);
+    if (!open && clearPending) addAssetType = null;
+    if (open) {
+      if (editorPaletteTitle) editorPaletteTitle.textContent = editorScope === 'puzzle' ? 'Puzzle Assets' : 'Environment Assets';
+      if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = editorScope === 'puzzle'
+        ? 'Choose a prop to place inside the selected puzzle'
+        : 'Choose dressing to place in the environment';
+    }
+  }
+
   function updateAssetPaletteState() {
     if (!editorAssetsEl) return;
     editorAssetsEl.querySelectorAll('.sidescroll-editor-asset').forEach(btn => {
@@ -2713,22 +2733,22 @@
         btn.type = 'button';
         btn.className = `sidescroll-editor-asset ${info.category === 'gameplay' ? 'gameplay' : 'dressing'}`;
         btn.dataset.asset = name;
-        if (name === 'crate') {
+        const file = info.image || (name.startsWith('tree')
+          ? `sidescroll-tree-${name.slice(-2)}.png`
+          : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
+        if (file) {
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.8" alt="" loading="eager"></span><small>${info.label}</small>`;
+        } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
-        } else if (info.thumb) {
-          btn.innerHTML = `<span class="sidescroll-puzzle-thumb" aria-hidden="true">${info.thumb}</span><small>${info.label}</small>`;
         } else {
-          const file = name.startsWith('tree')
-            ? `sidescroll-tree-${name.slice(-2)}.png`
-            : `sidescroll-ground-${name.slice(-2)}.png`;
-          btn.innerHTML = `<img src="${file}" alt=""><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-puzzle-thumb" aria-hidden="true">${info.thumb || '◇'}</span><small>${info.label}</small>`;
         }
         bindEditorPress(btn, () => {
           addAssetType = name;
           selectedObject = null;
           updateAssetPaletteState();
           updateEditorButtons();
-          if (editorPalette) editorPalette.hidden = true;
+          setAssetPaletteOpen(false);
           hintEl.textContent = info.category === 'gameplay'
             ? `Tap the path to add ${info.label.toLowerCase()} · gameplay collision included`
             : `Tap the ground to add ${name}`;
@@ -3838,19 +3858,22 @@
   bindEditorPress(puzzleRestoreStageBtn, restoreNormalPuzzleStage);
   bindEditorPress(puzzleExportBtn, exportSelectedPuzzle);
   bindEditorPress(puzzleRemoveBtn, removeSelectedLocalPuzzle);
-  bindEditorPress(editorAddBtn, () => {
+  bindEditorPress(openAssetsBtn, () => {
     if (!editMode || !editorPalette) return;
-    editorPalette.hidden = !editorPalette.hidden;
-    if (!editorPalette.hidden) {
+    const opening = editorPalette.hidden;
+    setAssetPaletteOpen(opening, { clearPending: !opening });
+    if (opening) {
       addAssetType = null;
       selectedObject = null;
+      collisionEditMode = false;
+      collisionHandleIndex = -1;
+      buildAssetPalette();
       updateAssetPaletteState();
       updateEditorButtons();
     }
   });
   bindEditorPress(editorPaletteClose, () => {
-    if (editorPalette) editorPalette.hidden = true;
-    addAssetType = null;
+    setAssetPaletteOpen(false, { clearPending:true });
     updateAssetPaletteState();
     updateEditorButtons();
   });
@@ -4031,7 +4054,7 @@
   window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
     if (editMode) {
-      if (e.key === 'Escape') { selectObject(null); if (editorPalette) editorPalette.hidden = true; addAssetType = null; updateAssetPaletteState(); }
+      if (e.key === 'Escape') { selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) { e.preventDefault(); deleteSelected(); }
       return;
     }

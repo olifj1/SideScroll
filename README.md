@@ -1,9 +1,7 @@
-# SideScroll v0.2.7
+# SideScroll v0.2.8
 
-- Enlarges the puzzle-authoring UI text and makes the main panel vertically scrollable.
-- Moves the Add Asset palette to a separate scrollable panel on the right side.
-- Test now uses the current on-screen puzzle setup, including unsaved collision edits; Reset in Test returns to that test snapshot.
-- Keeps Clear Stage isolation active through Test and Done, with a new Restore Game action to return to normal marker streaming.
-- Starts puzzle tests just before the current left puzzle bound so the character approaches the puzzle naturally.
-- Bakes the exported fallen-tree authored layout, bounds and collision polygon into the code-defined default.
-- Removes legacy free-standing puzzle props from old scene storage so stale black/orphan logs no longer reappear.
+- Reworks Edit mode into a single workspace: persistent inspector on the left, scrollable asset browser on the right, and contextual object tools at the bottom.
+- Moves Add Assets into the inspector so it no longer competes with the object toolbar.
+- Hides the bottom toolbar when no object is selected or while the asset browser is open.
+- Adds real PNG thumbnails for puzzle props as well as environment dressing.
+- Gives both editor panels independent scrolling and a narrow-screen fallback where the asset browser temporarily replaces the inspector.
