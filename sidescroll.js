@@ -1883,14 +1883,14 @@
   // short authored transitions around that same pose.
   let carriedObject = null;
   let interactionState = null; // { type:'pickup'|'drop', time, duration, object, startX, startY, targetX, targetY }
-  let autoDropStep = null; // short collision-safe retreat before retrying a blocked drop
+  let autoDropStep = null; // collision-safe backward shuffle while making room for a blocked drop
   const ACTION_RANGE = 0.72; // distance from the character capsule to the near edge of a carryable prop
   const PICKUP_DURATION = 0.48;
   const DROP_DURATION = 0.44;
   const CARRY_FORWARD = 0.48;
   const CARRY_BOTTOM = 0.58;
-  const AUTO_DROP_STEP_BACK = 0.30;
-  const AUTO_DROP_STEP_DURATION = 0.16;
+  const AUTO_DROP_SHUFFLE_SPEED = 0.72;
+  const AUTO_DROP_SHUFFLE_MAX = 2.40; // safety cap; normal failure is collision/ledge blocking
   // Gameplay props live on z=0. Keep the character rig only a few centimetres
   // closer to the camera so she remains readable in front of puzzle art while
   // genuine foreground dressing can still occlude her normally.
@@ -3788,31 +3788,19 @@
     hintEl.classList.remove('hidden');
   }
 
+  function failAutoDropShuffle() {
+    autoDropStep = null;
+    hintEl.textContent = 'No room to put that down';
+    hintEl.classList.remove('hidden');
+  }
+
   function startAutoDropStepBack() {
     if (!carriedObject || autoDropStep) return false;
     const facing = character.lastFacing >= 0 ? 1 : -1;
-    const desiredCameraX = camera.x - facing * AUTO_DROP_STEP_BACK;
-    const bodySafeX = resolveObstacleMove(camera.x, desiredCameraX, jumpOffset, false);
-    const combinedSafeX = resolveCarriedObjectMove(camera.x, bodySafeX, jumpOffset);
-    if (Math.abs(combinedSafeX - camera.x) < 0.025) return false;
-
-    // A convenience retreat must never make the character walk herself off a
-    // ledge.  Allow ordinary slopes/steps, but reject a target whose support is
-    // below the capsule's normal step-down allowance.
-    const capsule = colliderWorld();
-    const candidateRootX = combinedSafeX + character.screenOffsetX;
-    const candidateSupport = walkableSupportAt(
-      candidateRootX + capsule.offsetX,
-      jumpOffset + capsule.stepUp,
-      -facing
-    );
-    if (!candidateSupport || candidateSupport.offset < jumpOffset - capsule.stepDown) return false;
-
     autoDropStep = {
-      time: 0,
-      duration: AUTO_DROP_STEP_DURATION,
+      facing,
       startCameraX: camera.x,
-      targetCameraX: combinedSafeX
+      distance: 0
     };
     setDriveAxis(0);
     hintEl.textContent = 'Making room…';
@@ -3820,17 +3808,55 @@
     return true;
   }
 
-  function finishAutoDropStepBack() {
-    if (!autoDropStep) return;
-    camera.x = autoDropStep.targetCameraX;
-    autoDropStep = null;
+  function updateAutoDropShuffle(dt) {
+    if (!autoDropStep || !carriedObject) return;
+
+    // As soon as the current position gives the carried object a valid landing
+    // spot, stop retreating and place it automatically.
     const rootX = camera.x + character.screenOffsetX;
     const target = dropTargetForCarried(rootX);
     if (target.valid) {
+      autoDropStep = null;
       beginDropAtTarget(target);
-    } else {
-      hintEl.textContent = 'No room to put that down';
-      hintEl.classList.remove('hidden');
+      return;
+    }
+
+    const facing = autoDropStep.facing;
+    const step = Math.min(0.055, AUTO_DROP_SHUFFLE_SPEED * dt);
+    const desiredCameraX = camera.x - facing * step;
+    const bodySafeX = resolveObstacleMove(camera.x, desiredCameraX, jumpOffset, false);
+    const combinedSafeX = resolveCarriedObjectMove(camera.x, bodySafeX, jumpOffset);
+    const moved = Math.abs(combinedSafeX - camera.x);
+
+    // If normal body/carried collision prevents even a tiny retreat, there is
+    // genuinely nowhere for the character to make room.
+    if (moved < 0.004) {
+      failAutoDropShuffle();
+      return;
+    }
+
+    // Do not make the convenience shuffle walk the player off a meaningful
+    // drop. Ordinary slopes and small steps remain valid ground.
+    const capsule = colliderWorld();
+    const candidateRootX = combinedSafeX + character.screenOffsetX;
+    const candidateSupport = walkableSupportAt(
+      candidateRootX + capsule.offsetX,
+      jumpOffset + capsule.stepUp,
+      -facing
+    );
+    if (!candidateSupport || candidateSupport.offset < jumpOffset - capsule.stepDown) {
+      failAutoDropShuffle();
+      return;
+    }
+
+    camera.x = combinedSafeX;
+    autoDropStep.distance += moved;
+
+    // This should only ever be a fail-safe against malformed geometry: in
+    // normal play the shuffle ends because a drop becomes valid or movement is
+    // physically blocked.
+    if (autoDropStep.distance >= AUTO_DROP_SHUFFLE_MAX) {
+      failAutoDropShuffle();
     }
   }
 
@@ -3909,12 +3935,7 @@
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
-    if (autoDropStep) {
-      autoDropStep.time += dt;
-      const p = smooth01(Rig.clamp(autoDropStep.time / autoDropStep.duration, 0, 1));
-      camera.x = Rig.lerp(autoDropStep.startCameraX, autoDropStep.targetCameraX, p);
-      if (autoDropStep.time >= autoDropStep.duration) finishAutoDropStepBack();
-    }
+    if (autoDropStep) updateAutoDropShuffle(dt);
 
     if (interactionState) {
       interactionState.time += dt;

@@ -1,6 +1,6 @@
-# SideScroll v0.2.15
+# SideScroll v0.2.16
 
-- When a carried log cannot be placed because the intended drop overlaps another collider, the character now makes a short automatic step backward and retries the placement once.
-- The automatic retreat uses the normal character and carried-item collision rules, so it cannot push the character through another obstacle.
-- If the small retreat creates enough room, the normal put-down animation begins automatically; otherwise the log remains carried and the no-room hint is shown.
-- Carried-item collision now keeps the held object on the character's facing side while backing up, matching the rendered carry pose.
+- A blocked **Put Down** now makes the character shuffle backward continuously instead of taking one fixed step.
+- The game checks the drop position throughout the shuffle and automatically places the carried log as soon as enough room has been created.
+- The shuffle uses the normal character + carried-object collision system and stops at obstacles or meaningful ledges.
+- The no-room warning is only shown when the character genuinely cannot retreat far enough to make a valid placement (with a generous safety cap for malformed geometry).
