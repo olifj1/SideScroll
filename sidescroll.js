@@ -2389,7 +2389,12 @@
     const instance = (editMode && editorScope === 'puzzle' && !puzzleWorkshopClear) ? selectedPuzzleInstance() : null;
     puzzleObjectsEl.hidden = !instance || puzzleTestMode;
     if (!instance) { puzzleObjectListEl.innerHTML=''; if (puzzleObjectCountEl) puzzleObjectCountEl.textContent='0'; return; }
-    const rows = [...instance.objects.map(obj => ({obj, orphan:false})), ...puzzleOrphanObjects(instance).map(obj => ({obj, orphan:true}))];
+    const rows = [
+      ...instance.objects
+        .filter(obj => !(obj.deleted && String(obj.puzzleObjectId || '').startsWith('authored-')))
+        .map(obj => ({obj, orphan:false})),
+      ...puzzleOrphanObjects(instance).map(obj => ({obj, orphan:true}))
+    ];
     if (puzzleObjectCountEl) puzzleObjectCountEl.textContent = String(rows.length);
     puzzleObjectListEl.innerHTML = '';
     for (const {obj,orphan} of rows) {
@@ -2538,10 +2543,10 @@
     if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus;
   }
 
-  function selectObject(obj, preserveCycle = false) {
+  function selectObject(obj, preserveCycle = false, options = {}) {
     selectedObject = obj && !obj.deleted ? obj : null;
     if (!preserveCycle) selectionCycleInfo = null;
-    addAssetType = null;
+    if (!options.keepPlacement) addAssetType = null;
     collisionEditMode = false;
     collisionHandleIndex = -1;
     updatePlacementModeUi();
@@ -2913,7 +2918,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.17" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.18" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -3068,7 +3073,7 @@
       ctx.save();
       ctx.fillStyle='rgba(20,31,34,.75)';
       ctx.font='800 11px -apple-system, BlinkMacSystemFont, sans-serif';
-      const text=`ADD ${addAssetType.toUpperCase()} · tap ground`;
+      const text=`PLACE ${addAssetType.toUpperCase()} · tap to add · drag to pan`;
       const tw=ctx.measureText(text).width+18;
       ctx.fillRect((w-tw)/2,52,tw,24);
       ctx.fillStyle='#f2f7f6';
@@ -4297,20 +4302,16 @@
       };
 
       if (addAssetType) {
-        const point = startGround;
-        if (point) {
-          const placedType = addAssetType;
-          createUserObject(placedType, point, { selectAfter:false });
-          selectedObject = null;
-          updateAssetPaletteState();
-          updatePlacementModeUi();
-          updateEditorButtons();
-          const info = editorAssetInfo.get(placedType);
-          hintEl.textContent = `Placed ${String(info?.label || placedType).toLowerCase()} · tap again to place another · Done Placing to exit`;
-          hintEl.classList.remove('hidden');
+        // Placement mode follows the same editor gesture language as Setup:
+        // drag empty space to pan, tap empty space to place, tap an existing
+        // prop to select it, and drag only the already-selected prop to move it.
+        editorGesture.placement = true;
+        if (selectedObject && editorObjectIsEditable(selectedObject) && pointInsideScreenBounds(e.clientX,e.clientY,objectScreenBounds(selectedObject),3)) {
+          editorGesture.kind = 'selected-object';
+          editorGesture.object = selectedObject;
+        } else {
+          editorGesture.kind = 'placement-pan';
         }
-        editorPointer = null;
-        editorGesture = null;
         return;
       }
 
@@ -4362,20 +4363,17 @@
       if (editorGesture.kind === 'selected-object' && editorGesture.object) {
         const obj = editorGesture.object;
         const point = groundPointFromClient(e.clientX,e.clientY);
-        if (point && editorGesture.startGround) {
-          // Relative ground delta avoids the old behaviour where an object
-          // jumped to wherever the finger happened to touch it. A little
-          // damping keeps distant perspective assets from racing ahead.
-          const damping = 0.72;
-          obj.x = editorGesture.objectStartX + (point.x-editorGesture.startGround.x)*damping;
-          obj.z = obj.category === 'gameplay' && obj.gameplayLayerLocked
-            ? pathZ
-            : Rig.clamp(editorGesture.objectStartZ + (point.z-editorGesture.startGround.z)*damping, WORLD.farZ+0.8, WORLD.nearZ-0.6);
-          obj.y = obj.category === 'gameplay' ? restYForGameplayObject(obj) : pathGroundYAt(obj.x,obj.z);
-          moveObjectToCorrectCollection(obj);sortSceneCollections();selectionCycleInfo=null;
-        } else {
-          obj.x = editorGesture.objectStartX + dx*0.0055;
-        }
+        // Horizontal editing now uses the same world-per-pixel scale as scene
+        // panning. This makes the selected asset visually track the finger
+        // instead of perspective projection making it race ahead.
+        obj.x = editorGesture.objectStartX + dx * 0.0065;
+        obj.z = obj.category === 'gameplay' && obj.gameplayLayerLocked
+          ? pathZ
+          : (point && editorGesture.startGround
+              ? Rig.clamp(editorGesture.objectStartZ + (point.z-editorGesture.startGround.z)*0.55, WORLD.farZ+0.8, WORLD.nearZ-0.6)
+              : editorGesture.objectStartZ);
+        obj.y = obj.category === 'gameplay' ? restYForGameplayObject(obj) : pathGroundYAt(obj.x,obj.z);
+        moveObjectToCorrectCollection(obj);sortSceneCollections();selectionCycleInfo=null;
       } else if (editorGesture.kind === 'collision-handle' && selectedObject?.collision && collisionHandleIndex >= 0) {
         const bounds=collisionRectScreenBounds(selectedObject); if(!bounds) return;
         const rect=canvas.getBoundingClientRect(); const lx=e.clientX-rect.left, ly=e.clientY-rect.top;
@@ -4411,6 +4409,27 @@
           else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
           else if (gesture.kind==='puzzle-bound') {
             const instance=selectedPuzzleInstance(); if(instance) puzzleStartDirty.add(instance.id);
+          }
+        } else if (gesture.placement && (gesture.kind==='placement-pan' || gesture.kind==='selected-object')) {
+          // A clean release in Placement mode first tries to select an existing
+          // editable prop. Only genuinely empty space creates another asset.
+          const candidates=pickSceneObjects(e.clientX,e.clientY).filter(editorObjectIsEditable);
+          const hit=candidates[0]||null;
+          if(hit){
+            selectObject(hit,true,{keepPlacement:true});
+            selectionCycleInfo=cycleInfoFor(selectedObject,candidates);
+            hintEl.textContent='Selected · drag this asset to move it · drag elsewhere to pan · tap empty ground to place another';
+            hintEl.classList.remove('hidden');
+          } else if(addAssetType){
+            const point=groundPointFromClient(e.clientX,e.clientY) || gesture.startGround;
+            if(point){
+              const placedType=addAssetType;
+              const obj=createUserObject(placedType,point,{selectAfter:false});
+              selectObject(obj,true,{keepPlacement:true});
+              const info=editorAssetInfo.get(placedType);
+              hintEl.textContent=`Placed ${String(info?.label || placedType).toLowerCase()} · drag it to adjust · drag elsewhere to pan · tap empty ground for another`;
+              hintEl.classList.remove('hidden');
+            }
           }
         } else if (gesture.kind==='pan' || gesture.kind==='selected-object') {
           // Selection happens only on a clean tap/release. A drag can never

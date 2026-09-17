@@ -12015,3 +12015,35 @@ body[data-game-id="game-16"].sidescroll-placement-mode.sidescroll-assets-open .s
   body[data-game-id="game-16"] .sidescroll-placement-status strong{font-size:13px;}
   body[data-game-id="game-16"] .sidescroll-placement-actions button{padding:0 9px!important;font-size:9px!important;}
 }
+
+
+/* SideScroll v0.2.18 — placement gestures + reliable editor tool scrolling */
+body[data-game-id="game-16"] .sidescroll-puzzle-object-row .object-action{
+  touch-action:manipulation!important;
+  min-width:86px!important;
+  padding:0 12px!important;
+}
+body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) .sidescroll-editor-controls{
+  min-width:0!important;
+  box-sizing:border-box!important;
+  padding-left:2px!important;
+  padding-right:18px!important;
+  scroll-padding-left:2px!important;
+  scroll-padding-right:18px!important;
+  touch-action:pan-x!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) .sidescroll-editor-controls button{
+  touch-action:pan-x!important;
+}
+body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) .sidescroll-editor-controls::after{
+  content:"";
+  flex:0 0 12px;
+  width:12px;
+}
+body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-placement-status strong::after{
+  content:" · tap to place · drag to pan";
+  opacity:.62;
+  font-size:.78em;
+  font-weight:700;
+}

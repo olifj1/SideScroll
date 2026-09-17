@@ -1,7 +1,7 @@
-# SideScroll v0.2.17
+# SideScroll v0.2.18
 
-- Adds a dedicated Placement mode for puzzle and environment asset authoring.
-- Choosing an asset collapses the large editor inspector into a compact placement strip so the scene stays visible.
-- Placement mode remains active after placing an object, allowing repeated placement of the same asset.
-- The compact strip provides Change Asset and Done Placing actions.
-- Object editing tools remain hidden while Placement mode is active.
+- Placement mode now distinguishes a tap from a drag: tap empty ground to place the active asset; drag empty space to pan without placing anything.
+- Tapping an existing editable asset while placing selects/highlights it; dragging that selected asset moves it, while dragging elsewhere still pans.
+- Selected-object horizontal movement now tracks finger distance directly instead of being amplified by perspective projection.
+- Newly authored props disappear from the normal Objects list when deleted; built-in props can still expose Restore when removed.
+- The contextual object toolbar now supports reliable horizontal touch scrolling, including access to the Delete tool at the far end.
