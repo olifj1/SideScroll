@@ -1,7 +1,5 @@
-# SideScroll v0.2.8
+# SideScroll v0.2.11
 
-- Reworks Edit mode into a single workspace: persistent inspector on the left, scrollable asset browser on the right, and contextual object tools at the bottom.
-- Moves Add Assets into the inspector so it no longer competes with the object toolbar.
-- Hides the bottom toolbar when no object is selected or while the asset browser is open.
-- Adds real PNG thumbnails for puzzle props as well as environment dressing.
-- Gives both editor panels independent scrolling and a narrow-screen fallback where the asset browser temporarily replaces the inspector.
+- Fixes asset-browser category headings rendering as tall vertical blocks over the asset thumbnails.
+- Puzzle and Environment asset groups now use full-width horizontal section headers above their tiles.
+- Keeps the real PNG thumbnails and scrolling asset-browser layout from the previous release.

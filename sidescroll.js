@@ -73,28 +73,63 @@
     return editorUiElements().some(el => pointInsideElement(el, clientX, clientY));
   }
 
-  // Editor buttons use pointer-down activation rather than relying on the
-  // synthetic click iOS creates after a touch sequence.  Do not stop the whole
-  // pointer sequence at the panel/container level: doing that can suppress the
-  // later click entirely on Safari.  The canvas has its own UI-bounds guard.
+  // Editor/menu controls activate on a deliberate tap: pointer down + release
+  // without a drag. This keeps vertical scrolling safe on touch screens while
+  // avoiding Safari's unreliable delayed synthetic-click path.
   function bindEditorPress(element, handler) {
     if (!element) return;
-    let lastPointerPress = -Infinity;
+    const DRAG_CANCEL_PX = 10;
+    let press = null;
+    let suppressClickUntil = -Infinity;
+
     element.addEventListener('pointerdown', event => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       if (element.disabled) return;
-      lastPointerPress = performance.now();
+      press = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        cancelled: false
+      };
+      // Do not preventDefault here: a touch that turns into a drag must remain
+      // available to the panel's native scrolling behaviour.
+      event.stopPropagation();
+    }, { passive:true });
+
+    element.addEventListener('pointermove', event => {
+      if (!press || event.pointerId !== press.id) return;
+      if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG_CANCEL_PX) {
+        press.cancelled = true;
+      }
+    }, { passive:true });
+
+    element.addEventListener('pointerup', event => {
+      if (!press || event.pointerId !== press.id) return;
+      const current = press;
+      press = null;
+      if (current.cancelled || element.disabled) return;
+      const r = element.getBoundingClientRect();
+      const inside = event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom;
+      if (!inside) return;
+      suppressClickUntil = performance.now() + 800;
       event.preventDefault();
       event.stopPropagation();
       handler(event);
     }, { passive:false });
+
+    element.addEventListener('pointercancel', event => {
+      if (press && event.pointerId === press.id) press = null;
+    }, { passive:true });
+
     element.addEventListener('click', event => {
-      if (performance.now() - lastPointerPress < 800) {
+      // Pointer-generated click follows pointerup on many browsers; suppress the
+      // duplicate. Keyboard activation still arrives as a click with detail 0.
+      if (performance.now() < suppressClickUntil) {
         event.preventDefault();
         event.stopPropagation();
         return;
       }
-      if (element.disabled) return;
+      if (event.detail !== 0 || element.disabled) return;
       event.preventDefault();
       event.stopPropagation();
       handler(event);
@@ -2737,7 +2772,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.8" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.11" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
