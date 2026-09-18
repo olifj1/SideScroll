@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.40: robust top-of-stack pickup targeting.
+  // SideScroll v0.2.41: robust top-of-stack pickup targeting.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -721,7 +721,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.40', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.41', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1855,7 +1855,7 @@
     const sourcedCount = Number(current.sources?.[instance.id]) || 0;
     if (sourcedCount > 0) return removeInventoryItem(itemId, 1, instance.id);
 
-    // v0.2.40 migration path: older builds stored only a total count, so a
+    // v0.2.41 migration path: older builds stored only a total count, so a
     // reward collected before source tracking cannot be tied back to its puzzle.
     // When explicitly resetting that puzzle, remove one matching legacy reward.
     if (allowLegacyFallback) return removeInventoryItem(itemId, 1);
@@ -3690,7 +3690,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.40',
+      appVersion:'0.2.41',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3709,7 +3709,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.40', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.41', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -5685,19 +5685,28 @@
   function startPickup(obj) {
     if (!obj || carriedObject || interactionState || jumping) return;
     const characterXNow = camera.x + character.screenOffsetX;
+
+    // Freeze the exact visible transform before changing any gameplay state.
+    // Previously we marked the object carried and settled the stack first,
+    // which could rewrite its Y to the vacant bottom slot before the pickup
+    // interpolation sampled startY. That made the correct top log appear to
+    // jump down and then be lifted from the bottom of the stack.
+    const pickupStart = {
+      x: objectXNear(obj, characterXNow),
+      y: obj.y,
+      z: obj.z
+    };
+
     obj.carried = true;
     obj.socketedTo = null;
-    // If this was the lower crate in a stack, the remaining crates settle onto
-    // the next available support immediately rather than being left floating.
-    settleGameplayCrates();
     interactionState = {
       type: 'pickup',
       time: 0,
       duration: PICKUP_DURATION,
       object: obj,
-      startX: objectXNear(obj, characterXNow),
-      startY: obj.y,
-      startZ: obj.z
+      startX: pickupStart.x,
+      startY: pickupStart.y,
+      startZ: pickupStart.z
     };
     standingOnObject = null;
     setDriveAxis(0);
@@ -5710,6 +5719,9 @@
     carriedObject = interactionState.object;
     carriedObject.carried = true;
     interactionState = null;
+    // Settle what remains only after the lifted object has finished leaving the
+    // stack, so the pickup animation always begins from the object's true slot.
+    settleGameplayCrates();
     hintEl.textContent = 'Carrying · ACTION puts the item down';
     hintEl.classList.remove('hidden');
   }
