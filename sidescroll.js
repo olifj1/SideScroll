@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.26: explicit stack columns, reliable stack targeting, and placement debug preview.
+  // SideScroll v0.2.27: fix carried stackable recognition so explicit stack intent works for every log width.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -3564,7 +3564,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.26" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.27" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -4030,10 +4030,12 @@
       && (objectHasBehaviour(obj, 'carryable') || obj.gameplayType === 'crate');
   }
 
-  function isGameplayCrate(obj) {
+  function isGameplayCrate(obj, includeCarried = false) {
     // Kept as the internal stacking helper name for compatibility with the
-    // existing movement code. Behaviour tags now decide which props stack.
-    return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay'
+    // existing movement code. Most physics calls intentionally ignore carried
+    // props, but placement intent must still be able to identify the object in
+    // the character's hands as stackable.
+    return !!obj && !obj.deleted && (includeCarried || !obj.carried) && obj.category === 'gameplay'
       && (objectHasBehaviour(obj, 'stackable') || obj.gameplayType === 'crate');
   }
 
@@ -4672,7 +4674,10 @@
   }
 
   function stackTargetNear(rootX, facing) {
-    if (!carriedObject || !isGameplayCrate(carriedObject)) return null;
+    // carriedObject.carried is true by definition. Explicitly include it here;
+    // otherwise stack search exits before examining any nearby support and the
+    // old generic ground-placement path accidentally decides the result.
+    if (!carriedObject || !isGameplayCrate(carriedObject, true)) return null;
     let best = null;
     let bestForward = Infinity;
     const seenAnchors = new Set();

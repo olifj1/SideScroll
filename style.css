@@ -12233,7 +12233,7 @@ body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor small{
   color:rgba(232,240,238,.58);font-size:9px;line-height:1.28;
 }
 
-/* SideScroll v0.2.26 — stacking placement + global collision viewer. */
+/* SideScroll v0.2.27 — stacking placement + global collision viewer. */
 body[data-game-id="game-16"] .sidescroll-editor-assets[hidden],
 body[data-game-id="game-16"] .sidescroll-asset-setup[hidden]{
   display:none!important;

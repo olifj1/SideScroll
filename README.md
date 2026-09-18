@@ -1,10 +1,9 @@
-# SideScroll v0.2.26
+# SideScroll v0.2.27
 
-This drop fixes stack intent after the collision-view pass.
+This drop fixes the remaining asymmetric log-stacking bug revealed by Collision view.
 
 Changes in this version:
-- Stack placement now builds an explicit vertical stack column from the bottom object and places each new item at the next standard 0.48-unit layer.
-- A carried item no longer has to pass the generic support-width test before it can stack, so a wider log can be centred on a narrower one.
-- Stack search now chooses the nearest stack in front of the character rather than the object nearest the old fixed ground-drop point.
-- If a stack is recognised but genuinely blocked, Put Down now reports that instead of backing away and silently changing to a ground placement.
-- Collision debug now shows a dashed placement preview and the intended stack level.
+- Explicit stack search now recognises the object currently being carried as a stackable item.
+- Wider-on-narrower and narrower-on-wider placement both use the same stack-column rule.
+- Normal collision, standard 0.48 stack height, 0.64 carry height and the 2.0 stack-search range are unchanged.
+- Collision debug should now show the stack target/preview before Put Down instead of only the magenta search line.
