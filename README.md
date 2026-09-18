@@ -1,6 +1,6 @@
-# SideScroll v0.2.43
+# SideScroll v0.2.44
 
-- Added an Export All button to the editor Stage section.
-- Export All creates one `SideScroll-Complete-Game-Design.json` handoff file.
-- The file contains resolved environment placement, raw scene edits, every puzzle marker and setup, local puzzle templates, asset behaviour/collision defaults, collectable setup, and camera tuning.
-- Unsaved current puzzle edits are included as `currentSetup` and used as `effectiveSetup`, so the handoff does not silently lose work that has not yet been Set Start.
+- Baked the supplied complete game-design export into the main build.
+- Fresh installs use the exported environment edits, puzzle placements/setups, asset behaviour settings, collectable settings, and camera tuning as their defaults.
+- Existing editor localStorage still takes priority so an upgrade does not overwrite newer work on that device.
+- The compact baked authoring data lives in `baked-game-design.js`; deterministic procedural scenery is regenerated and the authored edits are applied over it.

@@ -1,4 +1,4 @@
-const CACHE = "sidescroll-v0.2.43";
+const CACHE = "sidescroll-v0.2.44";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -13,6 +13,7 @@ const APP_SHELL = [
   "./icon-512.png",
   "./walk-rig.js",
   "./sidescroll.js",
+  "./baked-game-design.js",
   "./puzzle-groups.js",
   "./walk-lab.js",
   "./sidescroll-dressing-atlas.png",

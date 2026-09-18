@@ -1,10 +1,11 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.43: robust top-of-stack pickup targeting.
+  // SideScroll v0.2.44: robust top-of-stack pickup targeting.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
+  const BAKED_GAME_DESIGN = window.SIDESCROLL_BAKED_GAME_DESIGN || null;
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
   const PLAYER_PUZZLE_STATE_STORAGE_KEY = 'sidescroll.player.puzzle-state.v1';
   const PLAYER_INVENTORY_STORAGE_KEY = 'sidescroll.player.inventory.v1';
@@ -722,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.43', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.44', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1114,16 +1115,24 @@
   ];
   let assetBehaviourOverrides = (() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(ASSET_BEHAVIOUR_STORAGE_KEY) || '{}');
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (_) { return {}; }
+      const raw = localStorage.getItem(ASSET_BEHAVIOUR_STORAGE_KEY);
+      if (raw !== null) {
+        const parsed = JSON.parse(raw || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      }
+    } catch (_) {}
+    return JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.assets?.behaviourOverrides || {}));
   })();
 
   let assetCollisionDefaults = (() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(ASSET_COLLISION_STORAGE_KEY) || '{}');
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (_) { return {}; }
+      const raw = localStorage.getItem(ASSET_COLLISION_STORAGE_KEY);
+      if (raw !== null) {
+        const parsed = JSON.parse(raw || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      }
+    } catch (_) {}
+    return JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.assets?.collisionDefaults || {}));
   })();
 
   function saveAssetCollisionDefaults() {
@@ -1191,14 +1200,25 @@
 
   const sceneData = (() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(SCENE_STORAGE_KEY) || 'null');
-      if (parsed && (parsed.version === 2 || parsed.version === 3 || parsed.version === 4)) {
-        parsed.version = 4;
-        parsed.overrides ||= {};
-        parsed.added ||= [];
-        return parsed;
+      const raw = localStorage.getItem(SCENE_STORAGE_KEY);
+      if (raw !== null) {
+        const parsed = JSON.parse(raw || 'null');
+        if (parsed && (parsed.version === 2 || parsed.version === 3 || parsed.version === 4)) {
+          parsed.version = 4;
+          parsed.overrides ||= {};
+          parsed.added ||= [];
+          return parsed;
+        }
       }
     } catch (_) {}
+    const baked = BAKED_GAME_DESIGN?.scene?.edits;
+    if (baked && (baked.version === 2 || baked.version === 3 || baked.version === 4)) {
+      const parsed = JSON.parse(JSON.stringify(baked));
+      parsed.version = 4;
+      parsed.overrides ||= {};
+      parsed.added ||= [];
+      return parsed;
+    }
     return { version: 4, overrides: {}, added: [] };
   })();
 
@@ -1550,9 +1570,13 @@
   };
   let collectibleSetup = (() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(COLLECTIBLE_SETUP_STORAGE_KEY) || 'null');
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (_) { return {}; }
+      const raw = localStorage.getItem(COLLECTIBLE_SETUP_STORAGE_KEY);
+      if (raw !== null) {
+        const parsed = JSON.parse(raw || 'null');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      }
+    } catch (_) {}
+    return JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.collectables?.setup || {}));
   })();
   function collectibleConfig(itemId) {
     return { ...(COLLECTIBLE_DEFAULTS[itemId] || { label:itemId, scale:1, spin:false }), ...(collectibleSetup[itemId] || {}) };
@@ -1588,12 +1612,18 @@
     catch (_) { return {}; }
   })();
   const puzzleStartState = (() => {
-    try { return JSON.parse(localStorage.getItem(PUZZLE_START_STORAGE_KEY) || '{}') || {}; }
-    catch (_) { return {}; }
+    try {
+      const raw = localStorage.getItem(PUZZLE_START_STORAGE_KEY);
+      if (raw !== null) return JSON.parse(raw || '{}') || {};
+    } catch (_) {}
+    return JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.savedStarts || {}));
   })();
   const userPuzzleLibrary = (() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(PUZZLE_LIBRARY_STORAGE_KEY) || '{}') || {};
+      const raw = localStorage.getItem(PUZZLE_LIBRARY_STORAGE_KEY);
+      const parsed = raw !== null
+        ? (JSON.parse(raw || '{}') || {})
+        : JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.localLibrary || {}));
       parsed.groups ||= {};
       parsed.templates ||= {};
       parsed.markers ||= [];
@@ -1856,7 +1886,7 @@
     const sourcedCount = Number(current.sources?.[instance.id]) || 0;
     if (sourcedCount > 0) return removeInventoryItem(itemId, 1, instance.id);
 
-    // v0.2.43 migration path: older builds stored only a total count, so a
+    // v0.2.44 migration path: older builds stored only a total count, so a
     // reward collected before source tracking cannot be tied back to its puzzle.
     // When explicitly resetting that puzzle, remove one matching legacy reward.
     if (allowLegacyFallback) return removeInventoryItem(itemId, 1);
@@ -2606,7 +2636,10 @@
   let cameraEditMode = false;
   let playerHintsEnabled = true;
   try {
-    const savedCamera = JSON.parse(localStorage.getItem(CAMERA_TUNE_STORAGE_KEY) || 'null');
+    const rawCamera = localStorage.getItem(CAMERA_TUNE_STORAGE_KEY);
+    const savedCamera = rawCamera !== null
+      ? JSON.parse(rawCamera || 'null')
+      : BAKED_GAME_DESIGN?.camera;
     if (savedCamera && Number.isFinite(savedCamera.y) && Number.isFinite(savedCamera.z)) {
       const targetDeltaY = Number.isFinite(savedCamera.tilt) ? savedCamera.tilt : (camera.targetY - camera.y);
       camera.y = savedCamera.y;
@@ -3691,7 +3724,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.43',
+      appVersion:'0.2.44',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3710,7 +3743,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.43', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.44', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3800,7 +3833,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.43',
+      appVersion:'0.2.44',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
