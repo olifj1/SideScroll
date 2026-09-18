@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.48: refreshed woodland atlas in the original tighter style, with lighter mid-height layering.
+  // SideScroll v0.2.49: refreshed woodland atlas in the original tighter style, with lighter mid-height layering.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.48', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.49', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,7 +731,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.48', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.49', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -751,24 +751,24 @@
     ground08: { scale: [0.144531250, 0.075683594], offset: [0.003906250, 0.432128906] },
     ground03: { scale: [0.144531250, 0.074707031], offset: [0.152343750, 0.433105469] },
     ground10: { scale: [0.113281250, 0.062500000], offset: [0.300781250, 0.445312500] },
-    tree07: { scale: [0.068359375, 0.226074219], offset: [0.003906250, 0.003906250] },
-    tree08: { scale: [0.072265625, 0.227050781], offset: [0.077148438, 0.003906250] },
-    midtree01: { scale: [0.088867188, 0.103027344], offset: [0.154296875, 0.003906250] },
-    midtree02: { scale: [0.083984375, 0.095703125], offset: [0.248046875, 0.003906250] },
-    midtree03: { scale: [0.076171875, 0.089843750], offset: [0.336914062, 0.003906250] },
-    midtree04: { scale: [0.091308594, 0.091308594], offset: [0.417968750, 0.003906250] },
-    ground13: { scale: [0.086914062, 0.094726562], offset: [0.514160156, 0.003906250] },
-    ground14: { scale: [0.054199219, 0.094726562], offset: [0.605957031, 0.003906250] },
-    ground15: { scale: [0.086914062, 0.089355469], offset: [0.665039062, 0.003906250] },
-    ground16: { scale: [0.083496094, 0.085449219], offset: [0.756835938, 0.003906250] },
-    ground17: { scale: [0.065429688, 0.082031250], offset: [0.845214844, 0.003906250] },
-    ground18: { scale: [0.088378906, 0.076171875], offset: [0.003906250, 0.235839844] },
-    ground19: { scale: [0.068847656, 0.069335938], offset: [0.097167969, 0.235839844] },
-    ground20: { scale: [0.070312500, 0.069335938], offset: [0.170898438, 0.235839844] },
-    ground21: { scale: [0.063476562, 0.066406250], offset: [0.246093750, 0.235839844] },
-    ground22: { scale: [0.088867188, 0.051269531], offset: [0.314453125, 0.235839844] },
-    ground23: { scale: [0.103027344, 0.070312500], offset: [0.408203125, 0.235839844] },
-    ground24: { scale: [0.145507812, 0.065917969], offset: [0.516113281, 0.235839844] },
+    tree07: { scale: [0.068359375, 0.226074219], offset: [0.003906250, 0.770019531] },
+    tree08: { scale: [0.072265625, 0.227050781], offset: [0.077148438, 0.769042969] },
+    midtree01: { scale: [0.088867188, 0.103027344], offset: [0.154296875, 0.893066406] },
+    midtree02: { scale: [0.083984375, 0.095703125], offset: [0.248046875, 0.900390625] },
+    midtree03: { scale: [0.076171875, 0.089843750], offset: [0.336914062, 0.906250000] },
+    midtree04: { scale: [0.091308594, 0.091308594], offset: [0.417968750, 0.904785156] },
+    ground13: { scale: [0.086914062, 0.094726562], offset: [0.514160156, 0.901367188] },
+    ground14: { scale: [0.054199219, 0.094726562], offset: [0.605957031, 0.901367188] },
+    ground15: { scale: [0.086914062, 0.089355469], offset: [0.665039062, 0.906738281] },
+    ground16: { scale: [0.083496094, 0.085449219], offset: [0.756835938, 0.910644531] },
+    ground17: { scale: [0.065429688, 0.082031250], offset: [0.845214844, 0.914062500] },
+    ground18: { scale: [0.088378906, 0.076171875], offset: [0.003906250, 0.687988281] },
+    ground19: { scale: [0.068847656, 0.069335938], offset: [0.097167969, 0.694824219] },
+    ground20: { scale: [0.070312500, 0.069335938], offset: [0.170898438, 0.694824219] },
+    ground21: { scale: [0.063476562, 0.066406250], offset: [0.246093750, 0.697753906] },
+    ground22: { scale: [0.088867188, 0.051269531], offset: [0.314453125, 0.712890625] },
+    ground23: { scale: [0.103027344, 0.070312500], offset: [0.408203125, 0.693847656] },
+    ground24: { scale: [0.145507812, 0.065917969], offset: [0.516113281, 0.698242188] },
   };
   const assetDimensions = {
     tree06: [220, 764],
@@ -3797,7 +3797,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.48',
+      appVersion:'0.2.49',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3816,7 +3816,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.48', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.49', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3906,7 +3906,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.48',
+      appVersion:'0.2.49',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
