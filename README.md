@@ -1,8 +1,6 @@
-# SideScroll v0.2.47
+# SideScroll v0.2.48
 
-Fixes the v0.2.46 dressing-atlas mapping error.
-
-- Corrected the atlas Y-coordinate convention so existing tree and ground UVs sample their intended replacement sprites.
-- Preserves all existing tree/ground UV rectangles and authored placements.
-- Keeps the two new full-height trees and the mid-height procedural woodland layer introduced in v0.2.46.
-- Keeps the expanded dressing choices in the environment editor.
+- Replaced the woodland dressing atlas with the new tighter, darker generated pass in the original style direction.
+- Kept the existing mapped tree and ground slots in place so current level dressing still lines up.
+- Added tree07 and tree08 plus four mid-tree assets into the dressing atlas and editor.
+- Reduced mid-height procedural usage so the background stays clearer and the fogging/taller trunks read better.

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.47: corrected dressing-atlas Y mapping; style refresh + mid-height procedural foliage.
+  // SideScroll v0.2.48: refreshed woodland atlas in the original tighter style, with lighter mid-height layering.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.45', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.48', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,7 +731,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.47', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.48', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -751,70 +751,62 @@
     ground08: { scale: [0.144531250, 0.075683594], offset: [0.003906250, 0.432128906] },
     ground03: { scale: [0.144531250, 0.074707031], offset: [0.152343750, 0.433105469] },
     ground10: { scale: [0.113281250, 0.062500000], offset: [0.300781250, 0.445312500] },
-    tree07: { scale: [0.097167969, 0.222167969], offset: [0.003906250, 0.201660156] },
-    tree08: { scale: [0.065917969, 0.212402344], offset: [0.104980469, 0.211425781] },
-    midtree01: { scale: [0.081054688, 0.108886719], offset: [0.174804688, 0.314941406] },
-    midtree02: { scale: [0.116210938, 0.107421875], offset: [0.259765625, 0.316406250] },
-    midtree03: { scale: [0.101074219, 0.102539062], offset: [0.379882812, 0.321289062] },
-    midtree04: { scale: [0.091308594, 0.100097656], offset: [0.484863281, 0.323730469] },
-    midtree05: { scale: [0.106933594, 0.098144531], offset: [0.580078125, 0.325683594] },
-    midtree06: { scale: [0.104492188, 0.094238281], offset: [0.690917969, 0.329589844] },
-    ground13: { scale: [0.079101562, 0.053710938], offset: [0.799316406, 0.370117188] },
-    ground14: { scale: [0.079589844, 0.054199219], offset: [0.882324219, 0.369628906] },
-    ground15: { scale: [0.063964844, 0.056640625], offset: [0.003906250, 0.141113281] },
-    ground16: { scale: [0.062988281, 0.053710938], offset: [0.071777344, 0.144042969] },
-    ground17: { scale: [0.074707031, 0.056152344], offset: [0.138671875, 0.141601562] },
-    ground18: { scale: [0.075683594, 0.049804688], offset: [0.217285156, 0.147949219] },
-    ground19: { scale: [0.063476562, 0.045410156], offset: [0.296875000, 0.152343750] },
-    ground20: { scale: [0.070312500, 0.044433594], offset: [0.364257812, 0.153320312] },
-    ground21: { scale: [0.153808594, 0.081542969], offset: [0.438476562, 0.116210938] },
-    ground22: { scale: [0.050781250, 0.062011719], offset: [0.596191406, 0.135742188] },
-    ground23: { scale: [0.143066406, 0.062988281], offset: [0.650878906, 0.134765625] },
-    ground24: { scale: [0.080078125, 0.056152344], offset: [0.797851562, 0.141601562] },
-    ground25: { scale: [0.083007812, 0.055175781], offset: [0.881835938, 0.142578125] },
-    ground26: { scale: [0.088867188, 0.051757812], offset: [0.003906250, 0.060546875] },
+    tree07: { scale: [0.068359375, 0.226074219], offset: [0.003906250, 0.003906250] },
+    tree08: { scale: [0.072265625, 0.227050781], offset: [0.077148438, 0.003906250] },
+    midtree01: { scale: [0.088867188, 0.103027344], offset: [0.154296875, 0.003906250] },
+    midtree02: { scale: [0.083984375, 0.095703125], offset: [0.248046875, 0.003906250] },
+    midtree03: { scale: [0.076171875, 0.089843750], offset: [0.336914062, 0.003906250] },
+    midtree04: { scale: [0.091308594, 0.091308594], offset: [0.417968750, 0.003906250] },
+    ground13: { scale: [0.086914062, 0.094726562], offset: [0.514160156, 0.003906250] },
+    ground14: { scale: [0.054199219, 0.094726562], offset: [0.605957031, 0.003906250] },
+    ground15: { scale: [0.086914062, 0.089355469], offset: [0.665039062, 0.003906250] },
+    ground16: { scale: [0.083496094, 0.085449219], offset: [0.756835938, 0.003906250] },
+    ground17: { scale: [0.065429688, 0.082031250], offset: [0.845214844, 0.003906250] },
+    ground18: { scale: [0.088378906, 0.076171875], offset: [0.003906250, 0.235839844] },
+    ground19: { scale: [0.068847656, 0.069335938], offset: [0.097167969, 0.235839844] },
+    ground20: { scale: [0.070312500, 0.069335938], offset: [0.170898438, 0.235839844] },
+    ground21: { scale: [0.063476562, 0.066406250], offset: [0.246093750, 0.235839844] },
+    ground22: { scale: [0.088867188, 0.051269531], offset: [0.314453125, 0.235839844] },
+    ground23: { scale: [0.103027344, 0.070312500], offset: [0.408203125, 0.235839844] },
+    ground24: { scale: [0.145507812, 0.065917969], offset: [0.516113281, 0.235839844] },
   };
   const assetDimensions = {
-    tree01: [237, 955],
-    tree02: [382, 990],
-    tree03: [230, 899],
-    tree04: [248, 929],
-    tree05: [240, 837],
-    tree06: [293, 1018],
-    tree07: [199, 455],
-    tree08: [135, 435],
-    midtree01: [166, 223],
-    midtree02: [238, 220],
-    midtree03: [207, 210],
-    midtree04: [187, 205],
-    midtree05: [219, 201],
-    midtree06: [214, 193],
-    ground01: [351, 297],
-    ground02: [360, 308],
-    ground03: [394, 204],
-    ground04: [276, 281],
-    ground05: [389, 273],
-    ground06: [304, 294],
-    ground07: [267, 275],
-    ground08: [394, 207],
-    ground09: [353, 267],
-    ground10: [309, 171],
-    ground11: [343, 276],
-    ground12: [398, 228],
-    ground13: [162, 110],
-    ground14: [163, 111],
-    ground15: [131, 116],
-    ground16: [129, 110],
-    ground17: [153, 115],
-    ground18: [155, 102],
-    ground19: [130, 93],
-    ground20: [144, 91],
-    ground21: [315, 167],
-    ground22: [104, 127],
-    ground23: [293, 129],
-    ground24: [164, 115],
-    ground25: [170, 113],
-    ground26: [182, 106],
+    tree06: [220, 764],
+    tree02: [286, 742],
+    tree01: [178, 716],
+    tree04: [186, 697],
+    tree03: [172, 674],
+    tree05: [180, 628],
+    ground02: [270, 231],
+    ground01: [263, 223],
+    ground06: [228, 220],
+    ground04: [207, 211],
+    ground11: [257, 207],
+    ground07: [200, 206],
+    ground05: [292, 205],
+    ground09: [265, 200],
+    ground12: [298, 171],
+    ground08: [296, 155],
+    ground03: [296, 153],
+    ground10: [232, 128],
+    tree07: [140, 463],
+    tree08: [148, 465],
+    midtree01: [182, 211],
+    midtree02: [172, 196],
+    midtree03: [156, 184],
+    midtree04: [187, 187],
+    ground13: [178, 194],
+    ground14: [111, 194],
+    ground15: [178, 183],
+    ground16: [171, 175],
+    ground17: [134, 168],
+    ground18: [181, 156],
+    ground19: [141, 142],
+    ground20: [144, 142],
+    ground21: [130, 136],
+    ground22: [182, 105],
+    ground23: [211, 144],
+    ground24: [298, 135],
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
@@ -1376,7 +1368,7 @@
 
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
-    const midTrees = ['midtree01', 'midtree02', 'midtree03', 'midtree04'];
+    const midTrees = ['midtree01', 'midtree02', 'midtree03'];
     const allGround = ['ground01','ground02','ground03','ground04','ground05','ground06','ground07','ground08','ground09','ground10','ground11','ground12','ground13','ground14','ground15','ground16','ground17','ground18'];
     const grassScrub = ['ground01','ground02','ground05','ground06','ground08','ground09','ground12','ground13','ground14','ground15','ground16','ground17','ground18'];
     const rocks = ['ground03','ground04','ground07','ground10','ground11'];
@@ -1470,18 +1462,18 @@
       });
     }
 
-    // Mid-height young trees / large shrubs bridge the old gap between ground
-    // dressing and the full canopy.  This is deliberately dense enough to
-    // raise apparent woodland density without turning the path into a wall.
-    for (let i = 0; i < 118; i++) {
+    // A restrained mid-height layer bridges from ground dressing to the full
+    // canopy without forming a continuous wall. Keep it sparser and a little
+    // deeper into the scene so the fog and taller trunks still read clearly.
+    for (let i = 0; i < 42; i++) {
       const x = TILE.minX + rand() * TILE_WIDTH;
-      const depth = Math.pow(rand(), 1.55);
-      const z = FAR_SIDE_START - 0.35 - depth * 15.5;
+      const depth = Math.pow(rand(), 1.35);
+      const z = FAR_SIDE_START - 1.1 - depth * 12.0;
       const type = midTrees[Math.floor(rand() * midTrees.length)];
-      const height = 2.8 + rand() * (3.9 - depth * 0.55);
+      const height = 2.2 + rand() * (2.6 - depth * 0.35);
       addObject(midfill, type, x, z, null, height, {
-        shade: 0.99 + rand() * 0.08,
-        opacity: 0.91 + rand() * 0.08,
+        shade: 0.98 + rand() * 0.06,
+        opacity: 0.84 + rand() * 0.07,
         layer: classifyLayer(z)
       });
     }
@@ -1578,16 +1570,16 @@
       });
     }
 
-    // A sparse near-side mid-height layer gives the same scale bridge in
-    // foreground parallax, kept uncommon so it never hides the character.
-    for (let i = 0; i < 34; i++) {
+    // Just a few near-side mid-height accents help parallax without making
+    // the whole foreground feel like a soft leafy curtain.
+    for (let i = 0; i < 10; i++) {
       const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = NEAR_SIDE_START + 2.9 + rand() * 3.5;
+      const z = NEAR_SIDE_START + 3.2 + rand() * 3.1;
       const type = midTrees[Math.floor(rand() * midTrees.length)];
-      const height = 1.8 + rand() * 2.0;
+      const height = 1.5 + rand() * 1.35;
       addObject(frontOccluders, type, x, z, null, height, {
-        shade: 0.95 + rand() * 0.08,
-        opacity: 0.94 + rand() * 0.05,
+        shade: 0.95 + rand() * 0.07,
+        opacity: 0.90 + rand() * 0.04,
         layer: 'foreground'
       });
     }
@@ -2892,13 +2884,12 @@
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
     ].map(name => ({ name, label: `TREE ${Number(name.slice(-2))}`, category: 'dressing' }))},
     { scope:'environment', title: 'DRESSING · MID TREES', items: [
-      'midtree01','midtree02','midtree03','midtree04','midtree05','midtree06'
+      'midtree01','midtree02','midtree03','midtree04'
     ].map(name => ({ name, label: `MID TREE ${Number(name.slice(-2))}`, category: 'dressing' }))},
     { scope:'environment', title: 'DRESSING · GROUND', items: [
       'ground01','ground02','ground03','ground04','ground05','ground06','ground07','ground08',
       'ground09','ground10','ground11','ground12','ground13','ground14','ground15','ground16',
-      'ground17','ground18','ground19','ground20','ground21','ground22','ground23','ground24',
-      'ground25','ground26'
+      'ground17','ground18','ground19','ground20','ground21','ground22','ground23','ground24'
     ].map(name => ({ name, label: `GROUND ${Number(name.slice(-2))}`, category: 'dressing' }))}
   ];
   const editorAssetInfo = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, item])));
@@ -3806,7 +3797,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.47',
+      appVersion:'0.2.48',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3825,7 +3816,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.47', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.48', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3915,7 +3906,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.47',
+      appVersion:'0.2.48',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
