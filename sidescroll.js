@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.42: robust top-of-stack pickup targeting.
+  // SideScroll v0.2.43: robust top-of-stack pickup targeting.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -101,6 +101,7 @@
   const puzzleCreateBtn = document.getElementById('sidescroll-puzzle-create');
   const puzzleClearStageBtn = document.getElementById('sidescroll-puzzle-clear-stage');
   const puzzleRestoreStageBtn = document.getElementById('sidescroll-puzzle-restore-stage');
+  const exportAllBtn = document.getElementById('sidescroll-export-all');
   const puzzleExportBtn = document.getElementById('sidescroll-puzzle-export');
   const puzzleRemoveBtn = document.getElementById('sidescroll-puzzle-remove');
   const puzzleDeleteTemplateBtn = document.getElementById('sidescroll-puzzle-delete-template');
@@ -721,7 +722,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.42', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.43', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1855,7 +1856,7 @@
     const sourcedCount = Number(current.sources?.[instance.id]) || 0;
     if (sourcedCount > 0) return removeInventoryItem(itemId, 1, instance.id);
 
-    // v0.2.42 migration path: older builds stored only a total count, so a
+    // v0.2.43 migration path: older builds stored only a total count, so a
     // reward collected before source tracking cannot be tied back to its puzzle.
     // When explicitly resetting that puzzle, remove one matching legacy reward.
     if (allowLegacyFallback) return removeInventoryItem(itemId, 1);
@@ -3690,7 +3691,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.42',
+      appVersion:'0.2.43',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3709,7 +3710,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.42', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.43', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3736,6 +3737,124 @@
     a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1500);
     hintEl.textContent = 'Puzzle JSON exported';
+    hintEl.classList.remove('hidden');
+  }
+
+
+  function exportableEnvironmentObject(obj) {
+    if (!obj || obj.puzzleInstanceId || obj.collectible) return null;
+    return {
+      id:obj.id,
+      asset:obj.assetName,
+      x:Number(obj.x) || 0,
+      y:Number(obj.y) || 0,
+      z:Number(obj.z) || 0,
+      sx:Number(obj.sx) || 1,
+      sy:Number(obj.sy) || 1,
+      flip:!!obj.flip,
+      deleted:!!obj.deleted,
+      category:obj.category || 'dressing',
+      gameplayType:obj.gameplayType || null,
+      gameplayLayerLocked:!!obj.gameplayLayerLocked,
+      userAdded:!!obj.userAdded,
+      collision:cloneCollision(obj.collision),
+      collisionOverride:!!obj.collisionOverride
+    };
+  }
+
+  function allPuzzleDesignsForExport() {
+    return allPuzzleMarkers().map(marker => {
+      const instance = activePuzzleInstances.get(marker.id) || null;
+      const savedStart = deepCopy(puzzleStartFor(marker));
+      const currentSetup = instance ? currentPuzzleSetupSnapshot(instance) : null;
+      const dirty = !!(instance && puzzleStartDirty.has(instance.id));
+      return {
+        marker:{
+          id:marker.id,
+          group:marker.group,
+          x:Number(marker.x) || 0,
+          local:markerIsUserCreated(marker),
+          linkMode:markerLinkMode(marker)
+        },
+        source:markerIsUserCreated(marker) ? 'local' : 'built-in',
+        definition:deepCopy(markerDefinition(marker) || {}),
+        savedStart,
+        currentSetup,
+        currentSetupDiffersFromSaved:dirty,
+        effectiveSetup:dirty && currentSetup ? deepCopy(currentSetup) : savedStart
+      };
+    });
+  }
+
+  function completeGameDesignExportPayload() {
+    let cameraTune = null;
+    try {
+      cameraTune = JSON.parse(localStorage.getItem(CAMERA_TUNE_STORAGE_KEY) || 'null');
+    } catch (_) {}
+
+    const environmentSnapshot = allSceneObjects()
+      .map(exportableEnvironmentObject)
+      .filter(Boolean)
+      .sort((a,b) => (a.x-b.x) || (a.z-b.z) || String(a.id).localeCompare(String(b.id)));
+
+    return {
+      format:'SideScrollGameDesign',
+      formatVersion:1,
+      appVersion:'0.2.43',
+      exportedAt:new Date().toISOString(),
+      purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
+      world:{
+        tile:{ minX:TILE.minX, maxX:TILE.maxX, width:TILE_WIDTH },
+        path:{ z:pathZ, flatHalf:PATH_FLAT_HALF, bermHalf:PATH_BERM_HALF, outerHalf:PATH_OUTER_HALF },
+        start:{ x:0, z:pathZ }
+      },
+      scene:{
+        edits:deepCopy(sceneData),
+        resolvedEnvironment:environmentSnapshot
+      },
+      puzzles:{
+        instances:allPuzzleDesignsForExport(),
+        localLibrary:deepCopy(userPuzzleLibrary),
+        savedStarts:deepCopy(puzzleStartState)
+      },
+      assets:{
+        behaviourOverrides:deepCopy(assetBehaviourOverrides),
+        collisionDefaults:deepCopy(assetCollisionDefaults)
+      },
+      collectables:{
+        setup:deepCopy(collectibleSetup)
+      },
+      camera:cameraTune || { y:camera.y, z:camera.z, tilt:camera.targetY-camera.y }
+    };
+  }
+
+  async function exportAllGameDesign() {
+    const payload = completeGameDesignExportPayload();
+    const text = JSON.stringify(payload, null, 2);
+    const filename = 'SideScroll-Complete-Game-Design.json';
+    const blob = new Blob([text], {type:'application/json'});
+
+    try {
+      const file = new File([blob], filename, {type:'application/json'});
+      if (navigator.canShare?.({files:[file]})) {
+        await navigator.share({files:[file]});
+        hintEl.textContent = 'Complete game design exported';
+        hintEl.classList.remove('hidden');
+        return;
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    hintEl.textContent = 'Complete game design exported';
     hintEl.classList.remove('hidden');
   }
 
@@ -6572,6 +6691,7 @@
     try { localStorage.removeItem(COLLECTIBLE_SETUP_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
+  bindEditorPress(exportAllBtn, exportAllGameDesign);
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
   bindEditorPress(puzzleSaveUniqueBtn, savePuzzleUniqueFromCurrent);
   bindEditorPress(puzzleTestBtn, beginPuzzleTest);
