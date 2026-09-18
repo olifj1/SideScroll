@@ -1,10 +1,8 @@
-# SideScroll v0.2.46
+# SideScroll v0.2.47
 
-Woodland visual-polish pass.
+Fixes the v0.2.46 dressing-atlas mapping error.
 
-- Replaced the existing forest tree and ground atlas art in the same UV slots, so authored placements keep their mapping.
-- Added two new full-height tree variants (`tree07` / `tree08`).
-- Added six new mid-height woodland assets (`midtree01`–`midtree06`) and extra ground-dressing choices.
-- Added the new full trees to normal procedural tree scatter.
-- Added a dedicated mid-height procedural layer on the far side of the path plus a lighter foreground pass to increase apparent woodland density and depth.
-- Exposed the expanded tree, mid-tree and ground dressing sets in the environment editor.
+- Corrected the atlas Y-coordinate convention so existing tree and ground UVs sample their intended replacement sprites.
+- Preserves all existing tree/ground UV rectangles and authored placements.
+- Keeps the two new full-height trees and the mid-height procedural woodland layer introduced in v0.2.46.
+- Keeps the expanded dressing choices in the environment editor.

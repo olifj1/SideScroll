@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.46: woodland style refresh + expanded procedural dressing.
+  // SideScroll v0.2.47: corrected dressing-atlas Y mapping; style refresh + mid-height procedural foliage.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -731,7 +731,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.46', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.47', 'SideScroll dressing atlas');
   const assetUv = {
     tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
     tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
@@ -751,28 +751,28 @@
     ground08: { scale: [0.144531250, 0.075683594], offset: [0.003906250, 0.432128906] },
     ground03: { scale: [0.144531250, 0.074707031], offset: [0.152343750, 0.433105469] },
     ground10: { scale: [0.113281250, 0.062500000], offset: [0.300781250, 0.445312500] },
-    tree07: { scale: [0.097167969, 0.222167969], offset: [0.003906250, 0.003906250] },
-    tree08: { scale: [0.065917969, 0.212402344], offset: [0.104980469, 0.003906250] },
-    midtree01: { scale: [0.081054688, 0.108886719], offset: [0.174804688, 0.003906250] },
-    midtree02: { scale: [0.116210938, 0.107421875], offset: [0.259765625, 0.003906250] },
-    midtree03: { scale: [0.101074219, 0.102539062], offset: [0.379882812, 0.003906250] },
-    midtree04: { scale: [0.091308594, 0.100097656], offset: [0.484863281, 0.003906250] },
-    midtree05: { scale: [0.106933594, 0.098144531], offset: [0.580078125, 0.003906250] },
-    midtree06: { scale: [0.104492188, 0.094238281], offset: [0.690917969, 0.003906250] },
-    ground13: { scale: [0.079101562, 0.053710938], offset: [0.799316406, 0.003906250] },
-    ground14: { scale: [0.079589844, 0.054199219], offset: [0.882324219, 0.003906250] },
-    ground15: { scale: [0.063964844, 0.056640625], offset: [0.003906250, 0.229980469] },
-    ground16: { scale: [0.062988281, 0.053710938], offset: [0.071777344, 0.229980469] },
-    ground17: { scale: [0.074707031, 0.056152344], offset: [0.138671875, 0.229980469] },
-    ground18: { scale: [0.075683594, 0.049804688], offset: [0.217285156, 0.229980469] },
-    ground19: { scale: [0.063476562, 0.045410156], offset: [0.296875000, 0.229980469] },
-    ground20: { scale: [0.070312500, 0.044433594], offset: [0.364257812, 0.229980469] },
-    ground21: { scale: [0.153808594, 0.081542969], offset: [0.438476562, 0.229980469] },
-    ground22: { scale: [0.050781250, 0.062011719], offset: [0.596191406, 0.229980469] },
-    ground23: { scale: [0.143066406, 0.062988281], offset: [0.650878906, 0.229980469] },
-    ground24: { scale: [0.080078125, 0.056152344], offset: [0.797851562, 0.229980469] },
-    ground25: { scale: [0.083007812, 0.055175781], offset: [0.881835938, 0.229980469] },
-    ground26: { scale: [0.088867188, 0.051757812], offset: [0.003906250, 0.315429688] },
+    tree07: { scale: [0.097167969, 0.222167969], offset: [0.003906250, 0.201660156] },
+    tree08: { scale: [0.065917969, 0.212402344], offset: [0.104980469, 0.211425781] },
+    midtree01: { scale: [0.081054688, 0.108886719], offset: [0.174804688, 0.314941406] },
+    midtree02: { scale: [0.116210938, 0.107421875], offset: [0.259765625, 0.316406250] },
+    midtree03: { scale: [0.101074219, 0.102539062], offset: [0.379882812, 0.321289062] },
+    midtree04: { scale: [0.091308594, 0.100097656], offset: [0.484863281, 0.323730469] },
+    midtree05: { scale: [0.106933594, 0.098144531], offset: [0.580078125, 0.325683594] },
+    midtree06: { scale: [0.104492188, 0.094238281], offset: [0.690917969, 0.329589844] },
+    ground13: { scale: [0.079101562, 0.053710938], offset: [0.799316406, 0.370117188] },
+    ground14: { scale: [0.079589844, 0.054199219], offset: [0.882324219, 0.369628906] },
+    ground15: { scale: [0.063964844, 0.056640625], offset: [0.003906250, 0.141113281] },
+    ground16: { scale: [0.062988281, 0.053710938], offset: [0.071777344, 0.144042969] },
+    ground17: { scale: [0.074707031, 0.056152344], offset: [0.138671875, 0.141601562] },
+    ground18: { scale: [0.075683594, 0.049804688], offset: [0.217285156, 0.147949219] },
+    ground19: { scale: [0.063476562, 0.045410156], offset: [0.296875000, 0.152343750] },
+    ground20: { scale: [0.070312500, 0.044433594], offset: [0.364257812, 0.153320312] },
+    ground21: { scale: [0.153808594, 0.081542969], offset: [0.438476562, 0.116210938] },
+    ground22: { scale: [0.050781250, 0.062011719], offset: [0.596191406, 0.135742188] },
+    ground23: { scale: [0.143066406, 0.062988281], offset: [0.650878906, 0.134765625] },
+    ground24: { scale: [0.080078125, 0.056152344], offset: [0.797851562, 0.141601562] },
+    ground25: { scale: [0.083007812, 0.055175781], offset: [0.881835938, 0.142578125] },
+    ground26: { scale: [0.088867188, 0.051757812], offset: [0.003906250, 0.060546875] },
   };
   const assetDimensions = {
     tree01: [237, 955],
@@ -3806,7 +3806,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.46',
+      appVersion:'0.2.47',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3825,7 +3825,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.46', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.47', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3915,7 +3915,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.46',
+      appVersion:'0.2.47',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
