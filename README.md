@@ -1,3 +1,5 @@
-# SideScroll v0.2.35
+# SideScroll v0.2.37
 
-Adds inherited asset collision defaults with explicit per-instance overrides, plus a separate player-facing Play Game path with its own puzzle/inventory/position save and a one-tap Delete Save control.
+- Resetting a puzzle now also resets its completion reward.
+- If that reward had already been collected, one matching item is removed from inventory.
+- Completing the puzzle again will spawn the reward again.

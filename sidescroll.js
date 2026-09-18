@@ -1,13 +1,14 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.35: inherited asset collision defaults + dedicated player save path.
+  // SideScroll v0.2.37: inherited asset collision defaults + dedicated player save path.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
   const PLAYER_PUZZLE_STATE_STORAGE_KEY = 'sidescroll.player.puzzle-state.v1';
   const PLAYER_INVENTORY_STORAGE_KEY = 'sidescroll.player.inventory.v1';
+  let playerSaveDeletionInProgress = false;
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -1749,6 +1750,18 @@
     return true;
   }
 
+  function removeInventoryItem(itemId, count = 1) {
+    inventoryState.items ||= {};
+    const current = inventoryState.items[itemId];
+    if (!current) return false;
+    current.count = Math.max(0, (Number(current.count) || 0) - Math.max(1, Number(count) || 1));
+    if (current.count <= 0) delete inventoryState.items[itemId];
+    else inventoryState.items[itemId] = current;
+    saveInventory();
+    renderInventory();
+    return true;
+  }
+
   function inventoryThumbMarkup(itemDef) {
     if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.33" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
@@ -2518,7 +2531,7 @@
 
   let lastPlayerPositionSave = 0;
   function savePlayerPosition(force = false) {
-    if (!PLAYER_MODE) return;
+    if (!PLAYER_MODE || playerSaveDeletionInProgress) return;
     const now = performance.now();
     if (!force && now - lastPlayerPositionSave < 1200) return;
     lastPlayerPositionSave = now;
@@ -3577,7 +3590,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.35',
+      appVersion:'0.2.37',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3596,7 +3609,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.35', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.37', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -4037,6 +4050,15 @@
     updatePuzzlePanel();
   }
 
+  function resetPuzzleReward(instance) {
+    if (!instance) return;
+    const state = savedPuzzleFor(instance.id);
+    const reward = state.reward ? { ...state.reward } : null;
+    if (reward?.collected && reward.itemId) removeInventoryItem(reward.itemId, 1);
+    removePuzzleRewardObject(instance);
+    delete state.reward;
+  }
+
   function resetCurrentPuzzle() {
     const instance = authoringPuzzle();
     if (!instance) return;
@@ -4047,8 +4069,9 @@
       positionPlayerAtPuzzleEntry(instance);
       hintEl.textContent = 'Test reset to the setup you started this test with';
     } else {
+      resetPuzzleReward(instance);
       applyPuzzleStart(instance, { persistRuntime:true });
-      hintEl.textContent = 'Puzzle reset to its saved start';
+      hintEl.textContent = 'Puzzle reset to its saved start · completion reward reset too';
     }
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
@@ -6264,6 +6287,9 @@
   bindEditorPress(deleteSaveBtn, () => {
     if (!PLAYER_MODE) return;
     if (!window.confirm('Delete this player save and start the adventure again?')) return;
+    // Prevent pagehide from immediately writing the old position back after
+    // we clear the save. This was why Delete save appeared not to return to start.
+    playerSaveDeletionInProgress = true;
     try { localStorage.removeItem(PLAYER_POSITION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PLAYER_PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PLAYER_INVENTORY_STORAGE_KEY); } catch (_) {}
@@ -6537,6 +6563,9 @@
       return;
     }
 
+    // Scene swiping is an editor-only navigation gesture. In normal player
+    // mode movement must come exclusively from the slider controls.
+    if (PLAYER_MODE) return;
     activePointer = e.pointerId;
     dragStartX = e.clientX;
     dragStartCameraX = camera.x;
@@ -6592,6 +6621,7 @@
       }
       return;
     }
+    if (PLAYER_MODE) return;
     if (e.pointerId !== activePointer) return;
     const dx = e.clientX - dragStartX;
     camera.x = dragStartCameraX - dx * 0.0075;
