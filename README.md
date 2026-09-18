@@ -1,9 +1,3 @@
-# SideScroll v0.2.32
+# SideScroll v0.2.34
 
-Camera tuning and player interaction hints.
-
-- Edit mode now has a Camera tool with height and depth nudges.
-- Camera Y/Z tuning is saved locally.
-- Subtle pickup, carried-object and valid stack/socket placement dots are shown in play.
-- Player hints can be toggled on/off from the HUD.
-- Existing puzzle authoring, sockets, inventory and completion reward behaviour are unchanged.
+Camera editor now has three paired controls: height, depth, and forward/back tilt. Camera tilt is saved with the existing camera tuning.

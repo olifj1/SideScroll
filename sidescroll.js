@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.32: camera tuning controls + subtle player interaction hints.
+  // SideScroll v0.2.34: camera height, depth and tilt editing.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -20,12 +20,18 @@
   const cameraDownBtn = document.getElementById('sidescroll-camera-down');
   const cameraBackBtn = document.getElementById('sidescroll-camera-back');
   const cameraForwardBtn = document.getElementById('sidescroll-camera-forward');
+  const cameraTiltBackBtn = document.getElementById('sidescroll-camera-tilt-back');
+  const cameraTiltForwardBtn = document.getElementById('sidescroll-camera-tilt-forward');
   const inventoryBtn = document.getElementById('sidescroll-inventory');
   const inventoryCountEl = document.getElementById('sidescroll-inventory-count');
   const inventoryPanel = document.getElementById('sidescroll-inventory-panel');
   const inventoryCloseBtn = document.getElementById('sidescroll-inventory-close');
   const inventoryListEl = document.getElementById('sidescroll-inventory-list');
   const inventoryEmptyEl = document.getElementById('sidescroll-inventory-empty');
+  const quickNavBtn = document.getElementById('sidescroll-quick-nav');
+  const quickNavPanel = document.getElementById('sidescroll-quick-nav-panel');
+  const quickNavCloseBtn = document.getElementById('sidescroll-quick-nav-close');
+  const quickNavListEl = document.getElementById('sidescroll-quick-nav-list');
   const depthKey = document.getElementById('sidescroll-depth-key');
   const driveControl = document.getElementById('sidescroll-drive');
   const driveThumb = document.getElementById('sidescroll-drive-thumb');
@@ -49,6 +55,14 @@
   const assetBehaviorListEl = document.getElementById('sidescroll-asset-behaviour-list');
   const assetSetupNoteEl = document.getElementById('sidescroll-asset-setup-note');
   const assetBehaviorResetBtn = document.getElementById('sidescroll-asset-behaviour-reset');
+  const collectibleSetupEl = document.getElementById('sidescroll-collectible-setup');
+  const collectibleSetupBackBtn = document.getElementById('sidescroll-collectible-setup-back');
+  const collectibleSetupNameEl = document.getElementById('sidescroll-collectible-setup-name');
+  const collectibleNameInput = document.getElementById('sidescroll-collectible-name');
+  const collectibleScaleInput = document.getElementById('sidescroll-collectible-scale');
+  const collectibleScaleValueEl = document.getElementById('sidescroll-collectible-scale-value');
+  const collectibleSpinBtn = document.getElementById('sidescroll-collectible-spin');
+  const collectibleResetBtn = document.getElementById('sidescroll-collectible-reset');
   const openAssetsBtn = document.getElementById('sidescroll-open-assets');
   const openEnvironmentAssetsBtn = document.getElementById('sidescroll-open-environment-assets');
   const editorResetBtn = document.getElementById('sidescroll-editor-reset');
@@ -103,10 +117,11 @@
   const editorScaleUpBtn = document.getElementById('sidescroll-editor-scale-up');
   const editorGameLayerBtn = document.getElementById('sidescroll-editor-game-layer');
   const editorCollisionBtn = document.getElementById('sidescroll-editor-collision');
+  const editorCollisionRemoveBtn = document.getElementById('sidescroll-editor-collision-remove');
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, cameraEditorPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, cameraEditorPanel, quickNavPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -434,6 +449,17 @@
       c*sx, s*sx, 0, 0,
       -s*sy, c*sy, 0, 0,
       0, 0, 1, 0,
+      x, y, z, 1
+    ]);
+  }
+
+  function mat4ModelRotated(x, y, z, sx, sy, sz, rotation = 0, flipX = false) {
+    const c = Math.cos(rotation), s = Math.sin(rotation);
+    const scaleX = flipX ? -sx : sx;
+    return new Float32Array([
+      c*scaleX, s*scaleX, 0, 0,
+      -s*sy, c*sy, 0, 0,
+      0, 0, sz, 0,
       x, y, z, 1
     ]);
   }
@@ -1387,6 +1413,35 @@
       description:'A puzzle reward. Item use will be added later.'
     }
   };
+  const COLLECTIBLE_SETUP_STORAGE_KEY = 'sidescroll.collectibles.setup.v1';
+  const COLLECTIBLE_DEFAULTS = {
+    'forest-key': { label:'Forest Key', scale:1, spin:true }
+  };
+  let collectibleSetup = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(COLLECTIBLE_SETUP_STORAGE_KEY) || 'null');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  })();
+  function collectibleConfig(itemId) {
+    return { ...(COLLECTIBLE_DEFAULTS[itemId] || { label:itemId, scale:1, spin:false }), ...(collectibleSetup[itemId] || {}) };
+  }
+  function saveCollectibleSetup() {
+    try { localStorage.setItem(COLLECTIBLE_SETUP_STORAGE_KEY, JSON.stringify(collectibleSetup)); } catch (_) {}
+  }
+  function applyCollectibleConfigToLiveRewards(itemId) {
+    const cfg = collectibleConfig(itemId);
+    for (const instance of activePuzzleInstances.values()) {
+      const obj = instance.rewardObject;
+      if (!obj || obj.deleted || obj.collectibleItemId !== itemId) continue;
+      const reward = completionRewardFor(instance) || {};
+      const baseHeight = Number.isFinite(reward.height) ? reward.height : 0.62;
+      obj.sy = baseHeight * Math.max(0.5, Number(cfg.scale) || 1);
+      obj.sx = obj.sy * (assetAspect[obj.assetName] || 1);
+      obj.collectibleSpin = !!cfg.spin;
+    }
+    renderInventory();
+  }
   let inventoryState = (() => {
     try {
       const parsed = JSON.parse(localStorage.getItem(INVENTORY_STORAGE_KEY) || 'null');
@@ -1634,7 +1689,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.32" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.33" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -1648,9 +1703,10 @@
     inventoryEmptyEl.hidden = entries.length > 0;
     for (const [itemId, state] of entries) {
       const def = INVENTORY_ITEM_DEFS[itemId] || { label:itemId, description:'Collected item.' };
+      const cfg = collectibleConfig(itemId);
       const card = document.createElement('div');
       card.className = 'sidescroll-inventory-item';
-      card.innerHTML = `${inventoryThumbMarkup(def)}<span class="sidescroll-inventory-item-copy"><strong>${def.label}</strong><small>${def.description || ''}</small></span><b class="sidescroll-inventory-qty">×${Math.max(1, Number(state.count) || 1)}</b>`;
+      card.innerHTML = `${inventoryThumbMarkup(def)}<span class="sidescroll-inventory-item-copy"><strong>${cfg.label || def.label}</strong><small>${def.description || ''}</small></span><b class="sidescroll-inventory-qty">×${Math.max(1, Number(state.count) || 1)}</b>`;
       inventoryListEl.appendChild(card);
     }
   }
@@ -2074,7 +2130,8 @@
     const maxX = instance.marker.x + bounds.maxX - 0.45;
     const x = Number.isFinite(state.reward?.x) ? Number(state.reward.x) : Rig.clamp(fallbackX, minX, maxX);
     const z = Number.isFinite(state.reward?.z) ? Number(state.reward.z) : pathZ + 0.03;
-    const height = Number.isFinite(reward.height) ? reward.height : 0.62;
+    const config = collectibleConfig(reward.itemId);
+    const height = (Number.isFinite(reward.height) ? reward.height : 0.62) * Math.max(0.5, Number(config.scale) || 1);
     const y = Number.isFinite(state.reward?.y) ? Number(state.reward.y) : playSurfaceYAt(x) + 0.035;
     const asset = reward.asset || INVENTORY_ITEM_DEFS[reward.itemId]?.asset || reward.itemId;
 
@@ -2088,6 +2145,7 @@
     obj.collectibleItemId = reward.itemId;
     obj.collectibleBaseY = y;
     obj.collectibleSpawnTime = performance.now();
+    obj.collectibleSpin = !!config.spin;
     instance.rewardObject = obj;
     state.reward = { itemId:reward.itemId, asset, x, y, z, spawned:true, collected:false };
     savePuzzleState();
@@ -2101,11 +2159,12 @@
     const itemId = obj.collectibleItemId;
     if (!addInventoryItem(itemId, 1)) return false;
     const def = INVENTORY_ITEM_DEFS[itemId] || { label:itemId };
+    const cfg = collectibleConfig(itemId);
     const state = savedPuzzleFor(instance.id);
     state.reward = { ...(state.reward || {}), itemId, collected:true, collectedAt:Date.now() };
     removePuzzleRewardObject(instance);
     savePuzzleState();
-    hintEl.textContent = `Collected ${def.label}`;
+    hintEl.textContent = `Collected ${cfg.label || def.label}`;
     hintEl.classList.remove('hidden');
     return true;
   }
@@ -2118,6 +2177,7 @@
       // Small hover makes a reward read as a collectible without committing to
       // a final reveal animation yet.
       obj.y = (obj.collectibleBaseY ?? obj.y) + Math.sin((now - (obj.collectibleSpawnTime || 0)) * 0.0042) * 0.045;
+      obj.collectibleAngle = obj.collectibleSpin ? ((now - (obj.collectibleSpawnTime || 0)) * 0.00145) : 0;
       const dx = Math.abs(objectXNear(obj, character.x) - character.x);
       const dz = Math.abs(obj.z - pathZ);
       if (dx <= COLLECTIBLE_PICKUP_RADIUS && dz <= 0.95) collectPuzzleReward(instance);
@@ -2358,12 +2418,13 @@
   const PLAYER_HINT_STORAGE_KEY = 'sidescroll-player-hints-v1';
   const CAMERA_Y_STEP = 0.12;
   const CAMERA_Z_STEP = 0.35;
+  const CAMERA_TILT_STEP = 0.12;
   let cameraEditMode = false;
   let playerHintsEnabled = true;
   try {
     const savedCamera = JSON.parse(localStorage.getItem(CAMERA_TUNE_STORAGE_KEY) || 'null');
     if (savedCamera && Number.isFinite(savedCamera.y) && Number.isFinite(savedCamera.z)) {
-      const targetDeltaY = camera.targetY - camera.y;
+      const targetDeltaY = Number.isFinite(savedCamera.tilt) ? savedCamera.tilt : (camera.targetY - camera.y);
       camera.y = savedCamera.y;
       camera.z = savedCamera.z;
       camera.targetY = camera.y + targetDeltaY;
@@ -2372,18 +2433,25 @@
   } catch (_) {}
 
   function saveCameraTune() {
-    try { localStorage.setItem(CAMERA_TUNE_STORAGE_KEY, JSON.stringify({ y:camera.y, z:camera.z })); } catch (_) {}
+    try { localStorage.setItem(CAMERA_TUNE_STORAGE_KEY, JSON.stringify({ y:camera.y, z:camera.z, tilt:camera.targetY-camera.y })); } catch (_) {}
   }
   function updateCameraEditorUi() {
     if (cameraEditorPanel) cameraEditorPanel.hidden = !(editMode && cameraEditMode);
     if (cameraEditorBtn) cameraEditorBtn.classList.toggle('active', !!cameraEditMode);
-    if (cameraValuesEl) cameraValuesEl.textContent = `Y ${camera.y.toFixed(2)} · Z ${camera.z.toFixed(2)}`;
+    if (cameraValuesEl) cameraValuesEl.textContent = `Y ${camera.y.toFixed(2)} · Z ${camera.z.toFixed(2)} · TILT ${(camera.targetY-camera.y).toFixed(2)}`;
   }
   function nudgeCamera(dy=0, dz=0) {
     const targetDeltaY = camera.targetY - camera.y;
     camera.y = Rig.clamp(camera.y + dy, -6.0, 1.5);
     camera.z = Rig.clamp(camera.z + dz, 5.0, 28.0);
     camera.targetY = camera.y + targetDeltaY;
+    saveCameraTune();
+    updateCameraEditorUi();
+  }
+
+  function nudgeCameraTilt(delta=0) {
+    const tilt = Rig.clamp((camera.targetY - camera.y) + delta, -2.5, 3.0);
+    camera.targetY = camera.y + tilt;
     saveCameraTune();
     updateCameraEditorUi();
   }
@@ -2511,6 +2579,7 @@
   ];
   const editorAssetInfo = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, item])));
   let assetSetupName = null;
+  let collectibleSetupItemId = null;
 
   function behaviourBadgeText(assetName) {
     const b = assetBehaviours(assetName);
@@ -2605,13 +2674,54 @@
     renderAssetSetup();
   }
 
+  function renderCollectibleSetup() {
+    if (!collectibleSetupEl || !collectibleSetupItemId) return;
+    const itemDef = INVENTORY_ITEM_DEFS[collectibleSetupItemId];
+    const cfg = collectibleConfig(collectibleSetupItemId);
+    if (collectibleSetupNameEl) collectibleSetupNameEl.textContent = cfg.label || itemDef?.label || collectibleSetupItemId;
+    if (collectibleNameInput) collectibleNameInput.value = cfg.label || itemDef?.label || collectibleSetupItemId;
+    if (collectibleScaleInput) collectibleScaleInput.value = String(Math.max(0.5, Math.min(2, Number(cfg.scale) || 1)));
+    if (collectibleScaleValueEl) collectibleScaleValueEl.textContent = `${(Number(cfg.scale) || 1).toFixed(2)}×`;
+    if (collectibleSpinBtn) {
+      collectibleSpinBtn.classList.toggle('active', !!cfg.spin);
+      collectibleSpinBtn.setAttribute('aria-pressed', String(!!cfg.spin));
+      const value = collectibleSpinBtn.querySelector('i');
+      if (value) value.textContent = cfg.spin ? 'ON' : 'OFF';
+    }
+  }
+
+  function updateCollectibleSetup(itemId, patch) {
+    if (!itemId || !INVENTORY_ITEM_DEFS[itemId]) return;
+    collectibleSetup[itemId] = { ...collectibleConfig(itemId), ...patch };
+    saveCollectibleSetup();
+    applyCollectibleConfigToLiveRewards(itemId);
+    renderCollectibleSetup();
+    buildAssetPalette();
+  }
+
+  function showCollectibleSetup(itemId) {
+    if (!collectibleSetupEl || editorScope !== 'puzzle' || !INVENTORY_ITEM_DEFS[itemId]) return;
+    collectibleSetupItemId = itemId;
+    assetSetupName = null;
+    addAssetType = null;
+    updatePlacementModeUi();
+    if (editorAssetsEl) editorAssetsEl.hidden = true;
+    if (assetSetupEl) assetSetupEl.hidden = true;
+    collectibleSetupEl.hidden = false;
+    if (editorPaletteTitle) editorPaletteTitle.textContent = 'Collectable Setup';
+    if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = 'Reusable appearance and presentation settings';
+    renderCollectibleSetup();
+  }
+
   function showAssetBrowser() {
     assetSetupName = null;
+    collectibleSetupItemId = null;
     if (assetSetupEl) assetSetupEl.hidden = true;
+    if (collectibleSetupEl) collectibleSetupEl.hidden = true;
     if (editorAssetsEl) editorAssetsEl.hidden = false;
     if (editorPaletteTitle) editorPaletteTitle.textContent = editorScope === 'puzzle' ? 'Puzzle Assets' : 'Environment Assets';
     if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = editorScope === 'puzzle'
-      ? 'Tap an asset to place it · Setup edits reusable behaviours'
+      ? 'Tap an asset to place it · Setup edits reusable behaviours and collectables'
       : 'Choose dressing to place in the environment';
     buildAssetPalette();
     updateAssetPaletteState();
@@ -2909,6 +3019,56 @@
     buildAssetPalette();
     updatePuzzlePanel();
     updateEditorButtons();
+  }
+
+  function goToWorldX(targetX, label = 'Position') {
+    if (!Number.isFinite(Number(targetX))) return;
+    const x = Number(targetX);
+    camera.x = x - character.screenOffsetX;
+    previousCameraX = camera.x;
+    character.x = x;
+    character.y = playSurfaceYAt(character.x) + jumpOffset;
+    updatePuzzleStreaming(character.x);
+    if (quickNavPanel) quickNavPanel.hidden = true;
+    if (quickNavBtn) quickNavBtn.setAttribute('aria-expanded', 'false');
+    hintEl.textContent = `${label} · x ${x.toFixed(1)}`;
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
+  function renderQuickNav() {
+    if (!quickNavListEl) return;
+    quickNavListEl.innerHTML = '';
+    const current = document.createElement('div');
+    current.className = 'sidescroll-quick-nav-current';
+    current.textContent = `Character X ${Number(character?.x ?? (camera.x + character.screenOffsetX)).toFixed(1)}`;
+    quickNavListEl.appendChild(current);
+    const destinations = [{ label:'Start', x:0, detail:'Scene start' }];
+    for (const marker of scenePuzzleMarkers().slice().sort((a,b) => Number(a.x)-Number(b.x))) {
+      const def = markerDefinition(marker);
+      destinations.push({ label:def?.label || marker.group || 'Puzzle', x:Number(marker.x)||0, detail:'Puzzle' });
+    }
+    for (const destination of destinations) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'sidescroll-quick-nav-row';
+      row.innerHTML = `<span><strong>${destination.label}</strong><small>${destination.detail}</small></span><b>x ${destination.x.toFixed(1)}</b>`;
+      bindEditorPress(row, () => goToWorldX(destination.x, destination.label));
+      quickNavListEl.appendChild(row);
+    }
+  }
+
+  function setQuickNavOpen(open) {
+    if (!quickNavPanel || !quickNavBtn) return;
+    const next = !!open && editMode;
+    quickNavPanel.hidden = !next;
+    quickNavBtn.setAttribute('aria-expanded', String(next));
+    if (next) {
+      setAssetPaletteOpen(false);
+      cameraEditMode = false;
+      updateCameraEditorUi();
+      renderQuickNav();
+    }
   }
 
   function focusSelectedPuzzle() {
@@ -3283,7 +3443,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.32',
+      appVersion:'0.2.33',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3302,7 +3462,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.32', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.33', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3518,6 +3678,8 @@
       editorCollisionBtn.hidden = !has || socketFocus;
       editorCollisionBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
     }
+    if (editorCollisionRemoveBtn) editorCollisionRemoveBtn.hidden = !has || !selectedObject?.collision || socketFocus;
+    if (quickNavBtn) quickNavBtn.hidden = !editMode;
     if (editorSocketBtn) {
       editorSocketBtn.hidden = !isSocketPiece || collisionFocus;
       editorSocketBtn.classList.toggle('active', socketPlacementPiece === selectedObject);
@@ -3811,7 +3973,7 @@
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; socketPlacementPiece = null; cameraEditMode = false; }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; socketPlacementPiece = null; cameraEditMode = false; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -3934,6 +4096,19 @@
     updateEditorButtons();
   }
 
+  function removeSelectedCollision() {
+    if (!selectedObject || selectedObject.deleted || !selectedObject.collision) return;
+    selectedObject.collision = null;
+    collisionEditMode = false;
+    collisionHandleIndex = -1;
+    recordObjectEdit(selectedObject);
+    if (selectedObject.category === 'gameplay') settleGameplayCrates();
+    updateEditorButtons();
+    updatePuzzleObjectList();
+    hintEl.textContent = 'Collision removed';
+    hintEl.classList.remove('hidden');
+  }
+
   function toggleSelectedCollision() {
     if (!selectedObject || selectedObject.deleted) return;
     if (!selectedObject.collision) {
@@ -3996,7 +4171,9 @@
     if (!open && clearPending) addAssetType = null;
     if (!open) {
       assetSetupName = null;
+      collectibleSetupItemId = null;
       if (assetSetupEl) assetSetupEl.hidden = true;
+      if (collectibleSetupEl) collectibleSetupEl.hidden = true;
       if (editorAssetsEl) editorAssetsEl.hidden = false;
       return;
     }
@@ -4032,7 +4209,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.32" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.33" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -4073,6 +4250,34 @@
         } else {
           editorAssetsEl.appendChild(btn);
         }
+      }
+    }
+    if (editorScope === 'puzzle') {
+      const heading = document.createElement('div');
+      heading.className = 'sidescroll-editor-asset-group';
+      heading.textContent = 'COLLECTABLES';
+      editorAssetsEl.appendChild(heading);
+      for (const [itemId, def] of Object.entries(INVENTORY_ITEM_DEFS)) {
+        const cfg = collectibleConfig(itemId);
+        const card = document.createElement('div');
+        card.className = 'sidescroll-editor-asset-card sidescroll-collectible-card';
+        const face = document.createElement('div');
+        face.className = 'sidescroll-editor-asset collectible';
+        face.innerHTML = `${inventoryThumbMarkup(def)}<small>${cfg.label || def.label}</small>`;
+        card.appendChild(face);
+        const tools = document.createElement('div');
+        tools.className = 'sidescroll-editor-asset-card-tools';
+        const tags = document.createElement('span');
+        tags.className = 'sidescroll-editor-asset-tags';
+        tags.textContent = `${(Number(cfg.scale) || 1).toFixed(2)}× · ${cfg.spin ? 'SPIN' : 'STATIC'}`;
+        const setup = document.createElement('button');
+        setup.type = 'button';
+        setup.className = 'sidescroll-editor-asset-setup';
+        setup.textContent = 'SETUP';
+        bindEditorPress(setup, () => showCollectibleSetup(itemId));
+        tools.append(tags, setup);
+        card.appendChild(tools);
+        editorAssetsEl.appendChild(card);
       }
     }
   }
@@ -4900,7 +5105,8 @@
     if (!extra?.force) drawObjectShadow(obj, view, drawX);
     bindMesh(obj.mesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
-    gl.uniformMatrix4fv(loc.model, false, mat4Model(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, obj.flip));
+    const objectRotation = Number(obj.collectibleAngle) || 0;
+    gl.uniformMatrix4fv(loc.model, false, objectRotation ? mat4ModelRotated(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, objectRotation, obj.flip) : mat4Model(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, obj.flip));
     gl.uniformMatrix4fv(loc.view, false, view);
     gl.uniformMatrix4fv(loc.projection, false, projection);
     const tint = tintFor(obj);
@@ -5978,6 +6184,34 @@
     updateEditorButtons();
   });
   bindEditorPress(assetSetupBackBtn, showAssetBrowser);
+  bindEditorPress(collectibleSetupBackBtn, showAssetBrowser);
+  if (collectibleNameInput) {
+    const commitCollectibleName = () => {
+      if (!collectibleSetupItemId) return;
+      const fallback = INVENTORY_ITEM_DEFS[collectibleSetupItemId]?.label || collectibleSetupItemId;
+      const label = collectibleNameInput.value.trim() || fallback;
+      updateCollectibleSetup(collectibleSetupItemId, { label });
+    };
+    collectibleNameInput.addEventListener('change', commitCollectibleName);
+    collectibleNameInput.addEventListener('blur', commitCollectibleName);
+    collectibleNameInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); collectibleNameInput.blur(); } });
+  }
+  if (collectibleScaleInput) collectibleScaleInput.addEventListener('input', () => {
+    if (!collectibleSetupItemId) return;
+    updateCollectibleSetup(collectibleSetupItemId, { scale:Number(collectibleScaleInput.value) || 1 });
+  });
+  bindEditorPress(collectibleSpinBtn, () => {
+    if (!collectibleSetupItemId) return;
+    updateCollectibleSetup(collectibleSetupItemId, { spin:!collectibleConfig(collectibleSetupItemId).spin });
+  });
+  bindEditorPress(collectibleResetBtn, () => {
+    if (!collectibleSetupItemId) return;
+    delete collectibleSetup[collectibleSetupItemId];
+    saveCollectibleSetup();
+    applyCollectibleConfigToLiveRewards(collectibleSetupItemId);
+    renderCollectibleSetup();
+    buildAssetPalette();
+  });
   bindEditorPress(assetBehaviorResetBtn, () => {
     if (!assetSetupName) return;
     if (!window.confirm(`Reset ${editorAssetInfo.get(assetSetupName)?.label || assetSetupName} behaviour tags to their built-in defaults?`)) return;
@@ -5999,6 +6233,7 @@
     try { localStorage.removeItem(PUZZLE_WORKSHOP_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(COLLECTIBLE_SETUP_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
@@ -6011,15 +6246,19 @@
   bindEditorPress(editorScaleUpBtn, () => scaleSelected(1.10));
   bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
   bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
+  bindEditorPress(editorCollisionRemoveBtn, removeSelectedCollision);
+  bindEditorPress(quickNavBtn, () => setQuickNavOpen(quickNavPanel?.hidden));
+  bindEditorPress(quickNavCloseBtn, () => setQuickNavOpen(false));
   bindEditorPress(cameraEditorBtn, () => {
     if (!editMode) return;
     cameraEditMode = !cameraEditMode;
     if (cameraEditMode) {
+      setQuickNavOpen(false);
       selectedObject = null;
       collisionEditMode = false;
       socketPlacementPiece = null;
       setAssetPaletteOpen(false);
-      hintEl.textContent = 'CAMERA · ↑ ↓ height · ← → depth';
+      hintEl.textContent = 'CAMERA · height · depth · tilt';
       hintEl.classList.remove('hidden');
     }
     updateCameraEditorUi();
@@ -6034,6 +6273,8 @@
   bindCameraNudge(cameraDownBtn, -CAMERA_Y_STEP, 0);
   bindCameraNudge(cameraBackBtn, 0, CAMERA_Z_STEP);
   bindCameraNudge(cameraForwardBtn, 0, -CAMERA_Z_STEP);
+  if (cameraTiltBackBtn) cameraTiltBackBtn.addEventListener('pointerdown', e => { e.preventDefault(); if (editMode && cameraEditMode) nudgeCameraTilt(CAMERA_TILT_STEP); });
+  if (cameraTiltForwardBtn) cameraTiltForwardBtn.addEventListener('pointerdown', e => { e.preventDefault(); if (editMode && cameraEditMode) nudgeCameraTilt(-CAMERA_TILT_STEP); });
   bindEditorPress(editorSocketBtn, startSocketPlacement);
   bindEditorPress(editorSocketClearBtn, clearSelectedPieceSocket);
   bindEditorPress(editorDeleteBtn, deleteSelected);

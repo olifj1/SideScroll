@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.32">
+  <link rel="stylesheet" href="style.css?v=0.2.33">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -43,19 +43,42 @@
               <button id="sidescroll-collision-view" class="sidescroll-collision-view-button" type="button" aria-pressed="false">Collision</button>
               <button id="sidescroll-player-hints" class="sidescroll-player-hints-button" type="button" aria-pressed="true">Hints on</button>
               <button id="sidescroll-inventory" class="sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
+              <button id="sidescroll-quick-nav" class="sidescroll-quick-nav-button" type="button" aria-expanded="false" hidden>Go to</button>
               <button id="sidescroll-edit" class="sidescroll-edit-button" type="button" aria-pressed="false">Edit</button>
             </div>
           </div>
 
+          <aside class="sidescroll-quick-nav-panel" id="sidescroll-quick-nav-panel" hidden aria-label="Quick scene navigation">
+            <div class="sidescroll-quick-nav-head"><strong>GO TO</strong><button id="sidescroll-quick-nav-close" type="button" aria-label="Close quick navigation">×</button></div>
+            <div id="sidescroll-quick-nav-list" class="sidescroll-quick-nav-list"></div>
+          </aside>
+
           <div class="sidescroll-camera-editor" id="sidescroll-camera-editor" hidden aria-label="Camera position editor">
-            <div class="sidescroll-camera-editor-title">CAMERA <span id="sidescroll-camera-values">Y -3.00 · Z 13.80</span></div>
-            <div class="sidescroll-camera-pad">
-              <button id="sidescroll-camera-up" type="button" aria-label="Move camera up">↑</button>
-              <button id="sidescroll-camera-back" type="button" aria-label="Move camera farther back">←</button>
-              <button id="sidescroll-camera-down" type="button" aria-label="Move camera down">↓</button>
-              <button id="sidescroll-camera-forward" type="button" aria-label="Move camera forward">→</button>
+            <div class="sidescroll-camera-editor-title">CAMERA <span id="sidescroll-camera-values">Y -3.00 · Z 13.80 · TILT 0.85</span></div>
+            <div class="sidescroll-camera-control-grid">
+              <div class="sidescroll-camera-control-group">
+                <span>HEIGHT</span>
+                <div class="sidescroll-camera-pair">
+                  <button id="sidescroll-camera-up" type="button" aria-label="Move camera up">↑</button>
+                  <button id="sidescroll-camera-down" type="button" aria-label="Move camera down">↓</button>
+                </div>
+              </div>
+              <div class="sidescroll-camera-control-group">
+                <span>DEPTH</span>
+                <div class="sidescroll-camera-pair">
+                  <button id="sidescroll-camera-forward" type="button" aria-label="Move camera forward">↑</button>
+                  <button id="sidescroll-camera-back" type="button" aria-label="Move camera farther back">↓</button>
+                </div>
+              </div>
+              <div class="sidescroll-camera-control-group">
+                <span>TILT</span>
+                <div class="sidescroll-camera-pair">
+                  <button id="sidescroll-camera-tilt-back" type="button" aria-label="Tilt camera backward">↑</button>
+                  <button id="sidescroll-camera-tilt-forward" type="button" aria-label="Tilt camera forward">↓</button>
+                </div>
+              </div>
             </div>
-            <small>↑ ↓ height · ← → depth</small>
+            <small>Height · forward/back · tilt forward/back</small>
           </div>
 
           <div class="sidescroll-depth-key" id="sidescroll-depth-key" hidden aria-hidden="true">
@@ -104,6 +127,15 @@
               <div class="sidescroll-asset-behaviour-list" id="sidescroll-asset-behaviour-list"></div>
               <p class="sidescroll-asset-setup-note" id="sidescroll-asset-setup-note">Changes save automatically.</p>
               <button class="sidescroll-asset-behaviour-reset" id="sidescroll-asset-behaviour-reset" type="button">Reset Defaults</button>
+            </section>
+            <section class="sidescroll-collectible-setup" id="sidescroll-collectible-setup" hidden>
+              <button class="sidescroll-asset-setup-back" id="sidescroll-collectible-setup-back" type="button">← Collectables</button>
+              <div class="sidescroll-asset-setup-head"><span class="sidescroll-puzzle-mode">COLLECTABLE</span><strong id="sidescroll-collectible-setup-name">Collectable</strong></div>
+              <label class="sidescroll-collectible-field"><span>Name</span><input id="sidescroll-collectible-name" type="text" autocomplete="off"></label>
+              <label class="sidescroll-collectible-field"><span>Scale</span><input id="sidescroll-collectible-scale" type="range" min="0.50" max="2.00" step="0.05"><b id="sidescroll-collectible-scale-value">1.00×</b></label>
+              <button class="sidescroll-behaviour-row" id="sidescroll-collectible-spin" type="button" aria-pressed="true"><span><strong>Spin</strong><small>Rotate slowly while waiting to be collected.</small></span><i>ON</i></button>
+              <p class="sidescroll-asset-setup-note">These are reusable defaults for this collectable. Collection sound and use rules can plug into this setup later.</p>
+              <button class="sidescroll-asset-behaviour-reset" id="sidescroll-collectible-reset" type="button">Reset Defaults</button>
             </section>
           </aside>
 
@@ -233,6 +265,7 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-up" type="button"><span>＋</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-game-layer" type="button"><span>↔</span><small>GAME LAYER</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision" type="button"><span>▣</span><small>COLLISION</small></button>
+          <button class="sidescroll-editor-tool danger" id="sidescroll-editor-collision-remove" type="button"><span>⊘</span><small>REMOVE COLLISION</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-camera" type="button"><span>⌖</span><small>CAMERA</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-socket" type="button"><span>◎</span><small>SET SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-socket-clear" type="button"><span>⊘</span><small>CLEAR SOCKET</small></button>
@@ -242,10 +275,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.32"></script>
-  <script src="core.js?v=0.2.32"></script>
-  <script src="walk-rig.js?v=0.2.32"></script>
-  <script src="puzzle-groups.js?v=0.2.32"></script>
-  <script src="sidescroll.js?v=0.2.32"></script>
+  <script src="site-config.js?v=0.2.34"></script>
+  <script src="core.js?v=0.2.34"></script>
+  <script src="walk-rig.js?v=0.2.34"></script>
+  <script src="puzzle-groups.js?v=0.2.34"></script>
+  <script src="sidescroll.js?v=0.2.34"></script>
 </body>
 </html>
