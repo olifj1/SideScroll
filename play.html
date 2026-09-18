@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.31">
+  <link rel="stylesheet" href="style.css?v=0.2.32">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -41,9 +41,21 @@
             <div class="sidescroll-stage-actions">
               <button id="sidescroll-depth" class="sidescroll-depth-button" type="button" aria-pressed="false">Depth</button>
               <button id="sidescroll-collision-view" class="sidescroll-collision-view-button" type="button" aria-pressed="false">Collision</button>
+              <button id="sidescroll-player-hints" class="sidescroll-player-hints-button" type="button" aria-pressed="true">Hints on</button>
               <button id="sidescroll-inventory" class="sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
               <button id="sidescroll-edit" class="sidescroll-edit-button" type="button" aria-pressed="false">Edit</button>
             </div>
+          </div>
+
+          <div class="sidescroll-camera-editor" id="sidescroll-camera-editor" hidden aria-label="Camera position editor">
+            <div class="sidescroll-camera-editor-title">CAMERA <span id="sidescroll-camera-values">Y -3.00 · Z 13.80</span></div>
+            <div class="sidescroll-camera-pad">
+              <button id="sidescroll-camera-up" type="button" aria-label="Move camera up">↑</button>
+              <button id="sidescroll-camera-back" type="button" aria-label="Move camera farther back">←</button>
+              <button id="sidescroll-camera-down" type="button" aria-label="Move camera down">↓</button>
+              <button id="sidescroll-camera-forward" type="button" aria-label="Move camera forward">→</button>
+            </div>
+            <small>↑ ↓ height · ← → depth</small>
           </div>
 
           <div class="sidescroll-depth-key" id="sidescroll-depth-key" hidden aria-hidden="true">
@@ -221,6 +233,7 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-up" type="button"><span>＋</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-game-layer" type="button"><span>↔</span><small>GAME LAYER</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision" type="button"><span>▣</span><small>COLLISION</small></button>
+          <button class="sidescroll-editor-tool" id="sidescroll-editor-camera" type="button"><span>⌖</span><small>CAMERA</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-socket" type="button"><span>◎</span><small>SET SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-socket-clear" type="button"><span>⊘</span><small>CLEAR SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-delete" type="button"><span>×</span><small>DELETE</small></button>
@@ -229,10 +242,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.31"></script>
-  <script src="core.js?v=0.2.31"></script>
-  <script src="walk-rig.js?v=0.2.31"></script>
-  <script src="puzzle-groups.js?v=0.2.31"></script>
-  <script src="sidescroll.js?v=0.2.31"></script>
+  <script src="site-config.js?v=0.2.32"></script>
+  <script src="core.js?v=0.2.32"></script>
+  <script src="walk-rig.js?v=0.2.32"></script>
+  <script src="puzzle-groups.js?v=0.2.32"></script>
+  <script src="sidescroll.js?v=0.2.32"></script>
 </body>
 </html>

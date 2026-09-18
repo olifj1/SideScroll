@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.31: completion rewards + proximity collection + collected-items inventory.
+  // SideScroll v0.2.32: camera tuning controls + subtle player interaction hints.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -12,6 +12,14 @@
   const hintEl = document.getElementById('sidescroll-hint');
   const debugBtn = document.getElementById('sidescroll-depth');
   const collisionViewBtn = document.getElementById('sidescroll-collision-view');
+  const playerHintsBtn = document.getElementById('sidescroll-player-hints');
+  const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
+  const cameraEditorPanel = document.getElementById('sidescroll-camera-editor');
+  const cameraValuesEl = document.getElementById('sidescroll-camera-values');
+  const cameraUpBtn = document.getElementById('sidescroll-camera-up');
+  const cameraDownBtn = document.getElementById('sidescroll-camera-down');
+  const cameraBackBtn = document.getElementById('sidescroll-camera-back');
+  const cameraForwardBtn = document.getElementById('sidescroll-camera-forward');
   const inventoryBtn = document.getElementById('sidescroll-inventory');
   const inventoryCountEl = document.getElementById('sidescroll-inventory-count');
   const inventoryPanel = document.getElementById('sidescroll-inventory-panel');
@@ -98,7 +106,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, cameraEditorPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -1626,7 +1634,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.31" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.32" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -2345,6 +2353,40 @@
     targetY: -2.15,
     targetZ: -13.0
   };
+
+  const CAMERA_TUNE_STORAGE_KEY = 'sidescroll-camera-tune-v1';
+  const PLAYER_HINT_STORAGE_KEY = 'sidescroll-player-hints-v1';
+  const CAMERA_Y_STEP = 0.12;
+  const CAMERA_Z_STEP = 0.35;
+  let cameraEditMode = false;
+  let playerHintsEnabled = true;
+  try {
+    const savedCamera = JSON.parse(localStorage.getItem(CAMERA_TUNE_STORAGE_KEY) || 'null');
+    if (savedCamera && Number.isFinite(savedCamera.y) && Number.isFinite(savedCamera.z)) {
+      const targetDeltaY = camera.targetY - camera.y;
+      camera.y = savedCamera.y;
+      camera.z = savedCamera.z;
+      camera.targetY = camera.y + targetDeltaY;
+    }
+    playerHintsEnabled = localStorage.getItem(PLAYER_HINT_STORAGE_KEY) !== '0';
+  } catch (_) {}
+
+  function saveCameraTune() {
+    try { localStorage.setItem(CAMERA_TUNE_STORAGE_KEY, JSON.stringify({ y:camera.y, z:camera.z })); } catch (_) {}
+  }
+  function updateCameraEditorUi() {
+    if (cameraEditorPanel) cameraEditorPanel.hidden = !(editMode && cameraEditMode);
+    if (cameraEditorBtn) cameraEditorBtn.classList.toggle('active', !!cameraEditMode);
+    if (cameraValuesEl) cameraValuesEl.textContent = `Y ${camera.y.toFixed(2)} · Z ${camera.z.toFixed(2)}`;
+  }
+  function nudgeCamera(dy=0, dz=0) {
+    const targetDeltaY = camera.targetY - camera.y;
+    camera.y = Rig.clamp(camera.y + dy, -6.0, 1.5);
+    camera.z = Rig.clamp(camera.z + dz, 5.0, 28.0);
+    camera.targetY = camera.y + targetDeltaY;
+    saveCameraTune();
+    updateCameraEditorUi();
+  }
 
   let projection = mat4Identity();
   let debugDepth = false;
@@ -3241,7 +3283,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.31',
+      appVersion:'0.2.32',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3260,7 +3302,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.31', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.32', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3454,7 +3496,7 @@
     const socketInstance = isSocketPiece ? activePuzzleInstances.get(selectedObject.puzzleInstanceId) : null;
     const hasAuthoredSocket = !!(isSocketPiece && socketForPiece(socketInstance, selectedObject));
     const placing = placementModeActive();
-    if (editorControls) editorControls.hidden = !editMode || !has || placing;
+    if (editorControls) editorControls.hidden = !editMode || placing;
     if (openAssetsBtn) {
       const puzzleInstanceReady = editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId;
       openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || !puzzleInstanceReady;
@@ -3769,7 +3811,7 @@
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; socketPlacementPiece = null; }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; socketPlacementPiece = null; cameraEditMode = false; }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -3990,7 +4032,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.31" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.32" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -4247,6 +4289,42 @@
     ctx.restore();
   }
 
+  function drawPlayerInteractionHints(ctx) {
+    if (!playerHintsEnabled || editMode || puzzleTestMode && false) return;
+    ctx.save();
+    const dot = (point, strong=false) => {
+      if (!point) return;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, strong ? 5.0 : 4.2, 0, Math.PI*2);
+      ctx.fillStyle = strong ? 'rgba(247,238,207,.96)' : 'rgba(247,238,207,.82)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(38,52,54,.72)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    };
+
+    const rootX = camera.x + character.screenOffsetX;
+    if (!carriedObject && !interactionState) {
+      const near = nearestActionCrate();
+      if (near) {
+        const ox = objectXNear(near, rootX);
+        dot(projectWorldPoint(ox, near.y + Math.max(0.18, near.sy * 0.28), near.z), true);
+      }
+    }
+
+    if (carriedObject && !interactionState) {
+      const facing = character.lastFacing >= 0 ? 1 : -1;
+      const rect = carriedCollisionRectAtRoot(rootX, jumpOffset, facing, carriedObject);
+      if (rect) dot(projectWorldPoint((rect.minX+rect.maxX)*0.5, (rect.minY+rect.maxY)*0.5, carriedObject.gameplayLayerLocked === false ? carriedObject.z : pathZ));
+      const target = dropTargetForCarried(rootX);
+      if (target && target.valid && (target.stack || target.socket)) {
+        const targetY = target.socket ? target.y + carriedObject.sy * 0.5 : target.y + 0.06;
+        dot(projectWorldPoint(target.x, targetY, target.z), true);
+      }
+    }
+    ctx.restore();
+  }
+
   function drawEditorOverlay() {
     if (!editorOverlayCtx || !editorOverlay) return;
     const ctx = editorOverlayCtx;
@@ -4254,6 +4332,7 @@
     const h = editorOverlay.clientHeight;
     ctx.clearRect(0, 0, w, h);
     if (collisionDebugView) drawCollisionDebugOverlay(ctx);
+    drawPlayerInteractionHints(ctx);
     if (!editMode) return;
     drawPuzzleEditorGuides(ctx);
     drawAuthoredSockets(ctx);
@@ -5813,6 +5892,18 @@
     hideHint();
   });
 
+  const syncPlayerHintsButton = () => {
+    if (!playerHintsBtn) return;
+    playerHintsBtn.setAttribute('aria-pressed', String(playerHintsEnabled));
+    playerHintsBtn.textContent = playerHintsEnabled ? 'Hints on' : 'Hints off';
+  };
+  bindEditorPress(playerHintsBtn, () => {
+    playerHintsEnabled = !playerHintsEnabled;
+    try { localStorage.setItem(PLAYER_HINT_STORAGE_KEY, playerHintsEnabled ? '1' : '0'); } catch (_) {}
+    syncPlayerHintsButton();
+  });
+  syncPlayerHintsButton();
+
   bindEditorPress(inventoryBtn, () => setInventoryOpen(!inventoryOpen));
   bindEditorPress(inventoryCloseBtn, () => setInventoryOpen(false));
 
@@ -5920,6 +6011,29 @@
   bindEditorPress(editorScaleUpBtn, () => scaleSelected(1.10));
   bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
   bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
+  bindEditorPress(cameraEditorBtn, () => {
+    if (!editMode) return;
+    cameraEditMode = !cameraEditMode;
+    if (cameraEditMode) {
+      selectedObject = null;
+      collisionEditMode = false;
+      socketPlacementPiece = null;
+      setAssetPaletteOpen(false);
+      hintEl.textContent = 'CAMERA · ↑ ↓ height · ← → depth';
+      hintEl.classList.remove('hidden');
+    }
+    updateCameraEditorUi();
+    updateEditorButtons();
+  });
+  const bindCameraNudge = (el, dy, dz) => {
+    if (!el) return;
+    const apply = e => { e?.preventDefault?.(); if (editMode && cameraEditMode) nudgeCamera(dy, dz); };
+    el.addEventListener('pointerdown', apply);
+  };
+  bindCameraNudge(cameraUpBtn, CAMERA_Y_STEP, 0);
+  bindCameraNudge(cameraDownBtn, -CAMERA_Y_STEP, 0);
+  bindCameraNudge(cameraBackBtn, 0, CAMERA_Z_STEP);
+  bindCameraNudge(cameraForwardBtn, 0, -CAMERA_Z_STEP);
   bindEditorPress(editorSocketBtn, startSocketPlacement);
   bindEditorPress(editorSocketClearBtn, clearSelectedPieceSocket);
   bindEditorPress(editorDeleteBtn, deleteSelected);

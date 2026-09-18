@@ -12386,7 +12386,7 @@ body[data-game-id="game-16"] .sidescroll-asset-behaviour-reset{
 }
 
 
-/* SideScroll v0.2.31 — reliable touch controls + socket authoring. */
+/* SideScroll v0.2.32 — reliable touch controls + socket authoring. */
 body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor input{
   pointer-events:auto!important;
   touch-action:manipulation!important;
@@ -12403,7 +12403,7 @@ body[data-game-id="game-16"] #sidescroll-editor-socket-clear{
   min-width:118px!important;
 }
 
-/* SideScroll v0.2.31 — completion rewards + collected-items inventory. */
+/* SideScroll v0.2.32 — completion rewards + collected-items inventory. */
 body[data-game-id="game-16"] .sidescroll-stage-actions .sidescroll-inventory-button{
   min-height:32px;
   padding:0 8px;
@@ -12595,3 +12595,20 @@ body[data-game-id="game-16"].sidescroll-editing #sidescroll-inventory{display:no
     grid-template-columns:1fr;
   }
 }
+
+/* SideScroll v0.2.32 — camera tuning + subtle interaction hints. */
+body[data-game-id="game-16"] .sidescroll-camera-editor{
+  position:absolute; right:max(14px,env(safe-area-inset-right)); top:82px; z-index:28;
+  width:178px; padding:10px 11px 9px; border-radius:16px;
+  background:rgba(22,31,34,.88); border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 8px 24px rgba(0,0,0,.18); backdrop-filter:blur(10px);
+  color:#f3f5ef; text-align:center; pointer-events:auto;
+}
+body[data-game-id="game-16"] .sidescroll-camera-editor[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-camera-editor-title{font-size:9px;font-weight:900;letter-spacing:.13em;margin-bottom:7px;}
+body[data-game-id="game-16"] .sidescroll-camera-editor-title span{display:block;margin-top:3px;font-size:8px;letter-spacing:.04em;font-weight:700;opacity:.72;}
+body[data-game-id="game-16"] .sidescroll-camera-pad{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
+body[data-game-id="game-16"] .sidescroll-camera-pad button{height:42px;border:1px solid rgba(255,255,255,.18);border-radius:11px;background:rgba(245,245,238,.10);color:#f7f5ed;font-size:20px;font-weight:800;touch-action:manipulation;}
+body[data-game-id="game-16"] .sidescroll-camera-pad button:active{background:rgba(216,236,229,.24);transform:translateY(1px);}
+body[data-game-id="game-16"] .sidescroll-camera-editor small{display:block;margin-top:6px;font-size:7px;letter-spacing:.08em;opacity:.62;}
+body[data-game-id="game-16"] .sidescroll-player-hints-button[aria-pressed="false"]{opacity:.68;}
