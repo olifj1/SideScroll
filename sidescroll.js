@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.25: consistent stacking, forward placement assist, and global collision view.
+  // SideScroll v0.2.26: explicit stack columns, reliable stack targeting, and placement debug preview.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -3564,7 +3564,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.25" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.26" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -3742,6 +3742,20 @@
       }
       const target = dropTargetForCarried(rootX);
       if (target?.stack) {
+        const preview = placedCollisionRect(carriedObject, target.x, target.y);
+        const previewPoly = preview ? projectWorldPolygon([
+          {x:preview.minX,y:preview.minY},{x:preview.maxX,y:preview.minY},
+          {x:preview.maxX,y:preview.maxY},{x:preview.minX,y:preview.maxY}
+        ], target.z) : [];
+        if (previewPoly.length === 4) {
+          ctx.setLineDash([5,4]);
+          ctx.fillStyle = target.valid ? 'rgba(116,224,151,.10)' : 'rgba(245,112,112,.10)';
+          ctx.strokeStyle = target.valid ? 'rgba(116,224,151,.92)' : 'rgba(245,112,112,.92)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();ctx.moveTo(previewPoly[0].x,previewPoly[0].y);
+          for (let i=1;i<previewPoly.length;i+=1) ctx.lineTo(previewPoly[i].x,previewPoly[i].y);
+          ctx.closePath();ctx.fill();ctx.stroke();
+        }
         const p = projectWorldPoint(target.x, target.y + 0.06, target.z);
         if (p) {
           ctx.setLineDash([]);
@@ -3749,6 +3763,9 @@
           ctx.lineWidth = 2.5;
           ctx.beginPath();ctx.arc(p.x,p.y,9,0,Math.PI*2);ctx.stroke();
           ctx.beginPath();ctx.moveTo(p.x-13,p.y);ctx.lineTo(p.x+13,p.y);ctx.moveTo(p.x,p.y-13);ctx.lineTo(p.x,p.y+13);ctx.stroke();
+          ctx.fillStyle = target.valid ? 'rgba(116,224,151,.98)' : 'rgba(245,112,112,.98)';
+          ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+          ctx.fillText(`STACK ${target.stack.members.length + 1}`, p.x + 16, p.y - 8);
         }
       }
     }
@@ -4117,11 +4134,12 @@
     return safe;
   }
 
-  function dropTargetIsClear(obj, target) {
+  function dropTargetIsClear(obj, target, ignoredObjects = null) {
     if (!obj || !target) return false;
     const rect = placedCollisionRect(obj, target.x, target.y);
     for (const obstacle of collisionObjects()) {
       if (obstacle === obj) continue;
+      if (ignoredObjects?.has(obstacle)) continue;
       if (rectIntersectsCollisionObject(rect, obstacle)) return false;
     }
     return true;
@@ -4622,26 +4640,61 @@
     return current;
   }
 
+  function stackColumnFor(anchor, aroundX) {
+    if (!anchor || !isGameplayCrate(anchor)) return null;
+    const anchorX = objectXNear(anchor, aroundX);
+    const members = [anchor];
+    const used = new Set([anchor]);
+    let nextY = anchor.y + STACK_ITEM_HEIGHT;
+
+    // A stack is a vertical column rooted at its bottom object. Build upward
+    // one standard layer at a time, rather than asking generic support logic
+    // whether a wider carried prop "fits" on the object below it.
+    for (let layer = 1; layer < 12; layer += 1) {
+      let next = null;
+      let bestDelta = Infinity;
+      for (const other of allSceneObjects()) {
+        if (used.has(other) || other === carriedObject || !isGameplayCrate(other)) continue;
+        const ox = objectXNear(other, anchorX);
+        if (Math.abs(ox - anchorX) > STACK_COLUMN_ALIGN_TOLERANCE) continue;
+        const dy = Math.abs(other.y - nextY);
+        if (dy > 0.16 || dy >= bestDelta) continue;
+        next = other;
+        bestDelta = dy;
+      }
+      if (!next) break;
+      used.add(next);
+      members.push(next);
+      nextY = anchor.y + members.length * STACK_ITEM_HEIGHT;
+    }
+
+    return { anchor, x: anchorX, members, topY: anchor.y + members.length * STACK_ITEM_HEIGHT };
+  }
+
   function stackTargetNear(rootX, facing) {
     if (!carriedObject || !isGameplayCrate(carriedObject)) return null;
-    const intentX = rootX + facing * 0.92;
     let best = null;
-    let bestScore = Infinity;
+    let bestForward = Infinity;
     const seenAnchors = new Set();
     for (const other of allSceneObjects()) {
       if (other === carriedObject || !isGameplayCrate(other)) continue;
       const ox = objectXNear(other, rootX);
       const forward = (ox - rootX) * facing;
-      if (forward < 0.08 || forward > STACK_SEARCH_RADIUS) continue;
+      if (forward < 0.05 || forward > STACK_SEARCH_RADIUS) continue;
       const anchor = stackBottomFor(other, rootX);
-      const anchorX = objectXNear(anchor, rootX);
-      const anchorKey = `${anchor.id || anchor.assetName}:${anchorX.toFixed(3)}`;
+      const column = stackColumnFor(anchor, rootX);
+      if (!column) continue;
+      const anchorKey = `${anchor.id || anchor.assetName}:${column.x.toFixed(3)}`;
       if (seenAnchors.has(anchorKey)) continue;
       seenAnchors.add(anchorKey);
-      const score = Math.abs(anchorX - intentX);
-      if (score < bestScore) {
-        bestScore = score;
-        best = { anchor, x: anchorX, forward: (anchorX - rootX) * facing };
+      const columnForward = (column.x - rootX) * facing;
+
+      // The nearest stack in front of the character is the clearest intent.
+      // This prevents a farther log from winning simply because it is nearer
+      // the old fixed 0.92-unit ground-drop point.
+      if (columnForward < bestForward) {
+        bestForward = columnForward;
+        best = { ...column, forward: columnForward };
       }
     }
     return best;
@@ -4652,17 +4705,21 @@
     let x = rootX + facing * 0.92;
     const z = carriedObject?.gameplayLayerLocked === false ? carriedObject.z : pathZ;
 
-    // Placement intent is deliberately broader than physical collision. A
-    // stack can therefore be recognised before the held item itself reaches
-    // it, then every layer is centred on the bottom item in that column.
+    // Placement intent is deliberately broader than physical collision. Once
+    // a stack is recognised, its centre and next standard layer define the
+    // target directly. This keeps 2nd/3rd/4th items deterministic even when
+    // the carried prop is wider than the prop underneath.
     const stack = stackTargetNear(rootX, facing);
     if (stack) x = stack.x;
 
     const temp = carriedObject ? { ...carriedObject, x, z, carried: false } : null;
     if (temp?.collision && isGameplayCrate(temp)) temp.collision = { ...temp.collision, height: STACK_ITEM_HEIGHT };
-    const y = temp ? restYForGameplayObject(temp, x, null, true) : playSurfaceYAt(x);
+    const y = stack
+      ? stack.topY
+      : (temp ? restYForGameplayObject(temp, x, null, true) : playSurfaceYAt(x));
     const target = { x, z, y, stack };
-    target.valid = temp ? dropTargetIsClear(temp, target) : true;
+    const ignoredStackObjects = stack ? new Set(stack.members) : null;
+    target.valid = temp ? dropTargetIsClear(temp, target, ignoredStackObjects) : true;
     return target;
   }
 
@@ -4804,7 +4861,14 @@
     if (!carriedObject || interactionState || autoDropStep || jumping) return;
     const rootX = camera.x + character.screenOffsetX;
     const target = dropTargetForCarried(rootX);
-    if (target.valid && target.stack) {
+    if (target.stack) {
+      if (!target.valid) {
+        // A recognised stack is an explicit placement intent. Never turn a
+        // blocked stack attempt into the unrelated backwards ground-drop move.
+        hintEl.textContent = 'No room on that stack';
+        hintEl.classList.remove('hidden');
+        return;
+      }
       const facing = character.lastFacing >= 0 ? 1 : -1;
       const forwardGap = (target.x - rootX) * facing;
       if (forwardGap > STACK_ASSIST_ROOT_GAP + 0.05 && startAutoDropStackAssist(target)) return;

@@ -1,11 +1,10 @@
-# SideScroll v0.2.25
+# SideScroll v0.2.26
 
-This drop tightens carry/stack placement and adds a global collision debug view.
+This drop fixes stack intent after the collision-view pass.
 
 Changes in this version:
-- Stackable gameplay props now use one consistent 0.48 world-unit collision/stack height.
-- Carried stackables use one consistent carry height.
-- Put Down searches farther ahead for a stack, then aligns the item to the centre of the bottom object in that stack.
-- When a valid stack is detected just beyond normal carrying collision, the character takes a short forward placement step before setting the item down. Ordinary walking collision is unchanged.
-- Ground placement still uses the existing backward make-room fallback when there is genuinely no clear landing spot.
-- New Collision button overlays all object colliders, the player capsule, the carried-object collider, the stack-search range and the current stack target. It works in both Play and Edit mode.
+- Stack placement now builds an explicit vertical stack column from the bottom object and places each new item at the next standard 0.48-unit layer.
+- A carried item no longer has to pass the generic support-width test before it can stack, so a wider log can be centred on a narrower one.
+- Stack search now chooses the nearest stack in front of the character rather than the object nearest the old fixed ground-drop point.
+- If a stack is recognised but genuinely blocked, Put Down now reports that instead of backing away and silently changing to a ground placement.
+- Collision debug now shows a dashed placement preview and the intended stack level.
