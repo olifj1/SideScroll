@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.38: shared painted dirt terrain/path texture.
+  // SideScroll v0.2.40: robust top-of-stack pickup targeting.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -721,7 +721,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.38', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.40', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1808,11 +1808,16 @@
     renderInventory();
   }
 
-  function addInventoryItem(itemId, count = 1) {
+  function addInventoryItem(itemId, count = 1, sourceId = null) {
     if (!INVENTORY_ITEM_DEFS[itemId]) return false;
     inventoryState.items ||= {};
+    const amount = Math.max(1, Number(count) || 1);
     const current = inventoryState.items[itemId] || { count:0, firstCollectedAt:Date.now() };
-    current.count = Math.max(0, Number(current.count) || 0) + Math.max(1, Number(count) || 1);
+    current.count = Math.max(0, Number(current.count) || 0) + amount;
+    if (sourceId) {
+      current.sources ||= {};
+      current.sources[sourceId] = Math.max(0, Number(current.sources[sourceId]) || 0) + amount;
+    }
     current.lastCollectedAt = Date.now();
     inventoryState.items[itemId] = current;
     saveInventory();
@@ -1820,16 +1825,41 @@
     return true;
   }
 
-  function removeInventoryItem(itemId, count = 1) {
+  function removeInventoryItem(itemId, count = 1, sourceId = null) {
     inventoryState.items ||= {};
     const current = inventoryState.items[itemId];
     if (!current) return false;
-    current.count = Math.max(0, (Number(current.count) || 0) - Math.max(1, Number(count) || 1));
+    let amount = Math.max(1, Number(count) || 1);
+    if (sourceId && current.sources && Number(current.sources[sourceId]) > 0) {
+      amount = Math.min(amount, Number(current.sources[sourceId]) || 0);
+      current.sources[sourceId] = Math.max(0, (Number(current.sources[sourceId]) || 0) - amount);
+      if (current.sources[sourceId] <= 0) delete current.sources[sourceId];
+      if (!Object.keys(current.sources).length) delete current.sources;
+    }
+    current.count = Math.max(0, (Number(current.count) || 0) - amount);
     if (current.count <= 0) delete inventoryState.items[itemId];
     else inventoryState.items[itemId] = current;
     saveInventory();
     renderInventory();
     return true;
+  }
+
+  function removePuzzleRewardFromInventory(instance, { allowLegacyFallback = false } = {}) {
+    if (!instance) return false;
+    const reward = completionRewardFor(instance);
+    const itemId = reward?.itemId;
+    if (!itemId) return false;
+    const current = inventoryState.items?.[itemId];
+    if (!current) return false;
+
+    const sourcedCount = Number(current.sources?.[instance.id]) || 0;
+    if (sourcedCount > 0) return removeInventoryItem(itemId, 1, instance.id);
+
+    // v0.2.40 migration path: older builds stored only a total count, so a
+    // reward collected before source tracking cannot be tied back to its puzzle.
+    // When explicitly resetting that puzzle, remove one matching legacy reward.
+    if (allowLegacyFallback) return removeInventoryItem(itemId, 1);
+    return false;
   }
 
   function inventoryThumbMarkup(itemDef) {
@@ -2305,7 +2335,7 @@
     const obj = instance?.rewardObject;
     if (!obj || !obj.collectible || obj.deleted) return false;
     const itemId = obj.collectibleItemId;
-    if (!addInventoryItem(itemId, 1)) return false;
+    if (!addInventoryItem(itemId, 1, instance.id)) return false;
     const def = INVENTORY_ITEM_DEFS[itemId] || { label:itemId };
     const cfg = collectibleConfig(itemId);
     const state = savedPuzzleFor(instance.id);
@@ -3660,7 +3690,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.38',
+      appVersion:'0.2.40',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3679,7 +3709,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.38', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.40', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -4124,7 +4154,15 @@
     if (!instance) return;
     const state = savedPuzzleFor(instance.id);
     const reward = state.reward ? { ...state.reward } : null;
-    if (reward?.collected && reward.itemId) removeInventoryItem(reward.itemId, 1);
+    const hadCollectedReward = !!reward?.collected;
+
+    if (!removePuzzleRewardFromInventory(instance, { allowLegacyFallback: hadCollectedReward })) {
+      // If an old saved puzzle lost its reward metadata but the matching
+      // pre-provenance item is still in inventory, an explicit puzzle reset
+      // should still clean up that one legacy reward.
+      removePuzzleRewardFromInventory(instance, { allowLegacyFallback: true });
+    }
+
     removePuzzleRewardObject(instance);
     delete state.reward;
   }
@@ -4133,11 +4171,15 @@
     const instance = authoringPuzzle();
     if (!instance) return;
     if (puzzleTestMode && puzzleTestSnapshot) {
+      resetPuzzleReward(instance);
       applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:false, clearDirty:false });
       if (puzzleTestInventorySnapshot) restoreInventory(puzzleTestInventorySnapshot);
+      // Reset means this puzzle's reward is unavailable again, even if an
+      // older test snapshot already contained a legacy copy of the same item.
+      removePuzzleRewardFromInventory(instance, { allowLegacyFallback:true });
       setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
-      hintEl.textContent = 'Test reset to the setup you started this test with';
+      hintEl.textContent = 'Test reset to the setup you started this test with · reward removed';
     } else {
       resetPuzzleReward(instance);
       applyPuzzleStart(instance, { persistRuntime:true });
@@ -5561,12 +5603,29 @@
     let bestD = Infinity;
     const seenStacks = new Set();
 
-    for (const candidate of allSceneObjects()) {
-      if (!isCarryableObject(candidate)) continue;
+    const carryables = allSceneObjects().filter(isCarryableObject);
 
-      // Treat a vertical stack as one interaction target and always expose its
-      // highest member.  Previously the wider/lower log often had the smallest
-      // edge distance, so ACTION could pull it out from underneath the stack.
+    for (const candidate of carryables) {
+      // A lower member of a stack must never be directly pickable.  Do this as
+      // a simple spatial "covered by another stackable object" test rather than
+      // relying on exact authored layer heights: small terrain offsets and older
+      // saved puzzles can otherwise make stackColumnFor() miss the relationship
+      // and expose the bottom log again.
+      if (isGameplayCrate(candidate)) {
+        const candidateX = objectXNear(candidate, characterXNow);
+        const candidateDepth = candidate.collision?.depth ?? 0.9;
+        const covered = carryables.some(other => {
+          if (other === candidate || !isGameplayCrate(other)) return false;
+          const otherX = objectXNear(other, candidateX);
+          const otherDepth = other.collision?.depth ?? 0.9;
+          if (Math.abs(otherX - candidateX) > STACK_COLUMN_ALIGN_TOLERANCE + 0.08) return false;
+          if (Math.abs((other.z ?? pathZ) - (candidate.z ?? pathZ)) > Math.max(0.38, Math.min(candidateDepth, otherDepth))) return false;
+          const dy = other.y - candidate.y;
+          return dy > 0.10 && dy <= STACK_ITEM_HEIGHT * 3.25;
+        });
+        if (covered) continue;
+      }
+
       let obj = candidate;
       if (isGameplayCrate(candidate)) {
         const anchor = stackBottomFor(candidate, characterXNow);
@@ -5575,7 +5634,11 @@
           const stackKey = `${anchor.id || anchor.assetName}:${column.x.toFixed(3)}`;
           if (seenStacks.has(stackKey)) continue;
           seenStacks.add(stackKey);
-          obj = column.members[column.members.length - 1];
+          const exposed = column.members[column.members.length - 1];
+          // Only promote to the computed top when it is genuinely the highest
+          // exposed member; otherwise the coverage rule above already protects
+          // the stack and this candidate remains the correct target.
+          if (isCarryableObject(exposed) && exposed.y >= obj.y) obj = exposed;
         }
       }
 

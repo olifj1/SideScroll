@@ -1,5 +1,5 @@
-# SideScroll v0.2.38
+# SideScroll v0.2.40
 
-- Added the chosen painted dirt texture as the shared terrain/path material.
-- Ground and path now use the same dirt look, so the scene looks better even before dressing finishes loading.
-- Smoothed the temporary terrain fallback and aligned the path texture scale more closely with the world.
+- Fixed stacked-object pickup so ACTION always targets the highest exposed log/box.
+- Pickup no longer depends on exact stack layer heights, so small terrain offsets and older saved stacks cannot expose the bottom object.
+- Keeps the v0.2.39 puzzle-reward reset fix and shared painted dirt terrain.
