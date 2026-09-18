@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.29">
+  <link rel="stylesheet" href="style.css?v=0.2.30">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -130,7 +130,7 @@
               <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-help">Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it.</p>
 
               <div class="sidescroll-puzzle-marker-editor" id="sidescroll-puzzle-marker-editor" hidden>
-                <label for="sidescroll-puzzle-marker-x"><span>Marker X</span><input id="sidescroll-puzzle-marker-x" type="number" step="0.1" inputmode="decimal" aria-label="Puzzle marker X position"></label>
+                <label for="sidescroll-puzzle-marker-x"><span>Marker X</span><input id="sidescroll-puzzle-marker-x" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" aria-label="Puzzle marker X position"></label>
                 <small>Type a position, or Edit Puzzle and drag the centre dot.</small>
               </div>
 
@@ -208,16 +208,18 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-up" type="button"><span>＋</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-game-layer" type="button"><span>↔</span><small>GAME LAYER</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision" type="button"><span>▣</span><small>COLLISION</small></button>
+          <button class="sidescroll-editor-tool" id="sidescroll-editor-socket" type="button"><span>◎</span><small>SET SOCKET</small></button>
+          <button class="sidescroll-editor-tool danger" id="sidescroll-editor-socket-clear" type="button"><span>⊘</span><small>CLEAR SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-delete" type="button"><span>×</span><small>DELETE</small></button>
         </div>
       </div>
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.29"></script>
-  <script src="core.js?v=0.2.29"></script>
-  <script src="walk-rig.js?v=0.2.29"></script>
-  <script src="puzzle-groups.js?v=0.2.29"></script>
-  <script src="sidescroll.js?v=0.2.29"></script>
+  <script src="site-config.js?v=0.2.30"></script>
+  <script src="core.js?v=0.2.30"></script>
+  <script src="walk-rig.js?v=0.2.30"></script>
+  <script src="puzzle-groups.js?v=0.2.30"></script>
+  <script src="sidescroll.js?v=0.2.30"></script>
 </body>
 </html>

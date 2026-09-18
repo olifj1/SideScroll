@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.29: editor stack snapping + explicit puzzle start-state saving.
+  // SideScroll v0.2.30: reliable editor controls + authored sockets + Stone Wall puzzle import.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -89,6 +89,8 @@
   const editorScaleUpBtn = document.getElementById('sidescroll-editor-scale-up');
   const editorGameLayerBtn = document.getElementById('sidescroll-editor-game-layer');
   const editorCollisionBtn = document.getElementById('sidescroll-editor-collision');
+  const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
+  const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
   const editorUiElements = () => [puzzlePanel, editorPalette, editorControls].filter(el => el && !el.hidden);
 
@@ -151,14 +153,15 @@
     }, { passive:true });
 
     element.addEventListener('click', event => {
-      // Pointer-generated click follows pointerup on many browsers; suppress the
-      // duplicate. Keyboard activation still arrives as a click with detail 0.
+      // Pointer-generated click normally follows pointerup, but iOS can cancel
+      // that pointer sequence inside a scrolling panel and still emit a click.
+      // Suppress true duplicates, otherwise let the native click be the fallback.
       if (performance.now() < suppressClickUntil) {
         event.preventDefault();
         event.stopPropagation();
         return;
       }
-      if (event.detail !== 0 || element.disabled) return;
+      if (element.disabled) return;
       event.preventDefault();
       event.stopPropagation();
       handler(event);
@@ -875,6 +878,8 @@
   const STACK_ASSIST_SPEED = 0.92;
   const STACK_ASSIST_MAX = 0.78;
   const STACK_ASSIST_ROOT_GAP = 0.92;
+  const SOCKET_SEARCH_RADIUS = 1.85;
+  const SOCKET_DEPTH_BIAS = 0.035;
   // The painted boots extend up to ~0.087 rig units below their ankle/toe baseline in
   // the v4 atlas.  Raise only the rendered rig by that amount so the visible
   // soles, not the internal bone line, sit on the playable floor.
@@ -940,10 +945,10 @@
     'fallen-tree': { solid:true, supportSurface:true },
     'tree-stump': {},
     'broken-branch': {},
-    'stone-wall': {},
-    'stone-piece-a': {},
-    'stone-piece-b': {},
-    'stone-piece-c': {}
+    'stone-wall': { socketHost:true },
+    'stone-piece-a': { carryable:true, placeable:true, socketPiece:true },
+    'stone-piece-b': { carryable:true, placeable:true, socketPiece:true },
+    'stone-piece-c': { carryable:true, placeable:true, socketPiece:true }
   };
   const ASSET_BEHAVIOUR_DEFS = [
     { key:'solid', label:'Solid', description:'Adds physical collision to this asset type.' },
@@ -951,8 +956,8 @@
     { key:'placeable', label:'Placeable', description:'A carried copy may be put back down into the world.' },
     { key:'supportSurface', label:'Support Surface', description:'The top of its collision can support the player and stackable props.' },
     { key:'stackable', label:'Stackable', description:'This asset may settle onto a support surface when placed.' },
-    { key:'socketHost', label:'Socket Host', description:'Marks this asset as able to contain authored sockets. Socket editing comes next.' },
-    { key:'socketPiece', label:'Socket Piece', description:'Marks this asset as a piece that can later be linked to a matching socket.' }
+    { key:'socketHost', label:'Socket Host', description:'Allows socket-piece targets to be authored directly onto this asset.' },
+    { key:'socketPiece', label:'Socket Piece', description:'Allows an individual puzzle piece to be linked to a matching authored socket.' }
   ];
   let assetBehaviourOverrides = (() => {
     try {
@@ -1093,7 +1098,9 @@
       carried: false,
       userAdded: !!opts.userAdded,
       puzzleInstanceId: opts.puzzleInstanceId || null,
-      puzzleObjectId: opts.puzzleObjectId || null
+      puzzleObjectId: opts.puzzleObjectId || null,
+      sockets: Array.isArray(opts.sockets) ? opts.sockets.map(socket => ({ ...socket })) : [],
+      socketedTo: opts.socketedTo ? { ...opts.socketedTo } : null
     };
     collection.push(obj);
     return obj;
@@ -1485,7 +1492,9 @@
   }
 
   function allPuzzleMarkers() {
-    return [...(puzzleConfig.markers || []), ...(userPuzzleLibrary.markers || [])];
+    const localLabels = new Set((userPuzzleLibrary.markers || []).map(marker => (userPuzzleLibrary.groups?.[marker.group]?.label || '').trim().toLowerCase()).filter(Boolean));
+    const builtIns = (puzzleConfig.markers || []).filter(marker => !localLabels.has((puzzleConfig.groups?.[marker.group]?.label || '').trim().toLowerCase()));
+    return [...builtIns, ...(userPuzzleLibrary.markers || [])];
   }
 
   function scenePuzzleMarkers() {
@@ -1495,7 +1504,10 @@
 
   function allPuzzleGroups() {
     const groups = new Map();
-    for (const [id, def] of Object.entries(puzzleConfig.groups || {})) groups.set(id, def);
+    const localLabels = new Set(Object.values(userPuzzleLibrary.groups || {}).map(def => (def?.label || '').trim().toLowerCase()).filter(Boolean));
+    for (const [id, def] of Object.entries(puzzleConfig.groups || {})) {
+      if (!localLabels.has((def?.label || '').trim().toLowerCase())) groups.set(id, def);
+    }
     for (const [id, def] of Object.entries(userPuzzleLibrary.groups || {})) groups.set(id, def);
     return [...groups.entries()].map(([id, def]) => ({ id, def }));
   }
@@ -1548,7 +1560,9 @@
         gameplayType: prop.gameplayType || null,
         gameplayLayerLocked: true,
         collision: cloneCollision(prop.collision),
-        shadow: prop.shadow ? { ...prop.shadow } : null
+        shadow: prop.shadow ? { ...prop.shadow } : null,
+        sockets: Array.isArray(prop.sockets) ? prop.sockets.map(socket => ({ ...socket })) : [],
+        socketedTo: prop.socketedTo ? { ...prop.socketedTo } : null
       };
     }
     return { source:'default', bounds:codeBoundsForDefinition(def), objects };
@@ -1595,7 +1609,9 @@
         gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked,
         collision: cloneCollision(obj.collision),
-        shadow: obj.shadow ? { ...obj.shadow } : null
+        shadow: obj.shadow ? { ...obj.shadow } : null,
+        sockets: Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
+        socketedTo: obj.socketedTo ? { ...obj.socketedTo } : null
       };
     }
     const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects };
@@ -1633,6 +1649,8 @@
           gameplayLayerLocked:state.gameplayLayerLocked ?? true,
           collision:cloneCollision(state.collision ?? prop?.collision ?? null),
           shadow:state.shadow || prop?.shadow || null,
+          sockets:Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [],
+          socketedTo:(state.socketedTo ?? prop?.socketedTo) ? { ...(state.socketedTo ?? prop?.socketedTo) } : null,
           deleted:!!state.deleted,
           puzzleInstanceId:instance.id,
           puzzleObjectId:objectId
@@ -1653,6 +1671,8 @@
       obj.gameplayLayerLocked = state.gameplayLayerLocked ?? true;
       obj.collision = cloneCollision(state.collision ?? prop?.collision ?? null);
       obj.shadow = state.shadow || prop?.shadow || obj.shadow || null;
+      obj.sockets = Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [];
+      obj.socketedTo = (state.socketedTo ?? prop?.socketedTo) ? { ...(state.socketedTo ?? prop?.socketedTo) } : null;
       obj.carried = false;
       const baseY = obj.category === 'gameplay' && obj.gameplayLayerLocked
         ? playSurfaceYAt(obj.x)
@@ -1677,7 +1697,8 @@
         asset:obj.assetName,
         x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
         deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
-        gameplayLayerLocked:!!obj.gameplayLayerLocked, collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null
+        gameplayLayerLocked:!!obj.gameplayLayerLocked, collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null,
+        sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
       };
     }
     if (persistRuntime) savePuzzleState();
@@ -1718,7 +1739,8 @@
       x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
       deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
-      collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null
+      collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null,
+      sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     };
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
     savePuzzleState();
@@ -1762,6 +1784,8 @@
         gameplayLayerLocked:prior?.gameplayLayerLocked ?? startState?.gameplayLayerLocked ?? true,
         collision:cloneCollision(prior?.collision ?? startState?.collision ?? prop?.collision ?? null),
         shadow:prior?.shadow || startState?.shadow || prop?.shadow || null,
+        sockets:Array.isArray(prior?.sockets ?? startState?.sockets ?? prop?.sockets) ? (prior?.sockets ?? startState?.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [],
+        socketedTo:(prior?.socketedTo ?? startState?.socketedTo ?? prop?.socketedTo) ? { ...(prior?.socketedTo ?? startState?.socketedTo ?? prop?.socketedTo) } : null,
         deleted:prior?.deleted ?? startState?.deleted ?? false,
         puzzleInstanceId:marker.id,
         puzzleObjectId:objectId
@@ -1884,8 +1908,18 @@
       if (instance.solved) continue;
       const rule = instance.def.completion;
       if (!rule) continue;
-      const target = instance.marker.x + rule.x;
-      const done = rule.type === 'cross-x' && (rule.direction ?? 1) >= 0 ? playerX >= target : playerX <= target;
+      let done = false;
+      if (rule.type === 'cross-x') {
+        const target = instance.marker.x + rule.x;
+        done = (rule.direction ?? 1) >= 0 ? playerX >= target : playerX <= target;
+      } else if (rule.type === 'sockets') {
+        const sockets = [];
+        for (const host of socketHostsForInstance(instance)) {
+          for (const socket of host.sockets || []) sockets.push({ host, socket });
+        }
+        done = sockets.length > 0 && sockets.every(({host,socket}) => instance.objects.some(obj => !obj.deleted && socketMatchesPiece(socket,obj)
+          && obj.socketedTo?.hostObjectId === host.id && obj.socketedTo?.socketId === socket.id));
+      }
       if (!done) continue;
       instance.solved = true;
       const state=savedPuzzleFor(instance.id);state.solved=true;savePuzzleState();
@@ -2191,6 +2225,7 @@
   let selectionCycleInfo = null;
   let collisionEditMode = false;
   let collisionHandleIndex = -1;
+  let socketPlacementPiece = null;
   let currentViewMatrix = mat4Identity();
   const editorAssetGroups = [
     { scope:'puzzle', title: 'PUZZLE PROPS · WOODLAND', items: [
@@ -2238,7 +2273,7 @@
     if (assetSetupNameEl) assetSetupNameEl.textContent = info?.label || assetSetupName;
     if (assetSetupNoteEl) {
       assetSetupNoteEl.textContent = behaviour.socketHost || behaviour.socketPiece
-        ? 'Socket tags are stored now; spatial socket authoring will be added in the next editor pass.'
+        ? 'Socket behaviours are active. Select a socket piece in the scene, then use Set Socket to place its matching target on a Socket Host.'
         : 'These are defaults for every copy of this asset. Changes save automatically.';
     }
     if (!assetBehaviorListEl) return;
@@ -2680,6 +2715,13 @@
     return String(text || 'puzzle').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'puzzle';
   }
 
+  function puzzleExportFilename(text) {
+    // Keep the author's puzzle name intact (including spaces/underscores/case)
+    // and only strip characters that are illegal or troublesome in filenames.
+    const cleaned = String(text || 'Puzzle').trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+$/g, '');
+    return `${cleaned || 'Puzzle'}.json`;
+  }
+
   function deepCopy(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
@@ -2915,7 +2957,9 @@
       row.className = `sidescroll-puzzle-object-row${orphan ? ' orphan' : ''}${obj.deleted ? ' deleted' : ''}`;
       const label = document.createElement('button');
       label.type='button'; label.className='object-name';
-      label.textContent = `${orphan ? 'ORPHAN · ' : ''}${obj.puzzleObjectId || obj.id} · ${obj.assetName || 'unknown'}${obj.deleted ? ' · deleted' : ''}`;
+      const friendly = editorAssetInfo.get(obj.assetName)?.label || obj.assetName || 'unknown';
+      label.textContent = `${orphan ? 'ORPHAN · ' : ''}${friendly}${obj.deleted ? ' · deleted' : ''}`;
+      label.title = obj.puzzleObjectId || obj.id;
       bindEditorPress(label, () => focusObjectForAuthoring(obj));
       const action = document.createElement('button');
       action.type='button'; action.className='object-action';
@@ -2944,7 +2988,9 @@
         gameplayType:obj.gameplayType || null,
         gameplayLayerLocked:!!obj.gameplayLayerLocked,
         collision:cloneCollision(obj.collision),
-        shadow:obj.shadow ? { ...obj.shadow } : null
+        shadow:obj.shadow ? { ...obj.shadow } : null,
+        sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
+        socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
       };
     }
     return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects };
@@ -2968,7 +3014,9 @@
       hasTexture:!!obj.texture,
       category:obj.category,
       gameplayType:obj.gameplayType,
-      collision:cloneCollision(obj.collision)
+      collision:cloneCollision(obj.collision),
+      sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
+      socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     }));
     const orphans = puzzleOrphanObjects(instance).map(obj => ({
       id:obj.id, asset:obj.assetName, x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy,
@@ -2977,7 +3025,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.29',
+      appVersion:'0.2.30',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -2996,23 +3044,23 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.29', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.30', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
-      filename = `SideScroll-${puzzleSlug(def.label || groupId)}-template.json`;
+      filename = puzzleExportFilename(def.label || groupId);
     } else {
       const instance = selectedPuzzleInstance();
       if (!instance) return;
       payload = puzzleExportPayload(instance);
-      filename = `SideScroll-${puzzleSlug(instance.def?.label || instance.marker.group)}-${puzzleSlug(instance.marker.id)}.json`;
+      filename = puzzleExportFilename(instance.def?.label || instance.marker.group);
     }
     const text = JSON.stringify(payload,null,2);
     const blob = new Blob([text], {type:'application/json'});
     try {
       const file = new File([blob], filename, {type:'application/json'});
       if (navigator.canShare?.({files:[file]})) {
-        await navigator.share({title:'SideScroll puzzle export', files:[file]});
+        await navigator.share({files:[file]});
         return;
       }
     } catch (err) {
@@ -3051,10 +3099,144 @@
     updateEditorButtons();
   }
 
+  function socketLabelForPiece(objOrName) {
+    const name = typeof objOrName === 'string' ? objOrName : objOrName?.assetName;
+    const label = editorAssetInfo.get(name)?.label || name || 'piece';
+    return label.replace(/^STONE PIECE\s+/i, '').replace(/^MOVEABLE\s+/i, '');
+  }
+
+  function socketKeyForPiece(obj) {
+    if (!obj) return null;
+    return obj.puzzleObjectId || obj.assetName || null;
+  }
+
+  function socketMatchesPiece(socket, piece) {
+    if (!socket || !piece) return false;
+    if (socket.pieceObjectId && piece.puzzleObjectId) return socket.pieceObjectId === piece.puzzleObjectId;
+    return socket.pieceAsset === piece.assetName;
+  }
+
+  function socketWorldPosition(host, socket) {
+    if (!host || !socket) return null;
+    const storedU = Rig.clamp(Number(socket.u) || 0, 0, 1);
+    const visualU = host.flip ? 1 - storedU : storedU;
+    const v = Rig.clamp(Number(socket.v) || 0, 0, 1);
+    return {
+      x: host.x + (visualU - 0.5) * host.sx,
+      y: host.y + v * host.sy,
+      z: host.z + SOCKET_DEPTH_BIAS
+    };
+  }
+
+  function socketHostsForInstance(instance) {
+    if (!instance) return [];
+    return (instance.objects || []).filter(obj => !obj.deleted && objectHasBehaviour(obj, 'socketHost'));
+  }
+
+  function socketForPiece(instance, piece) {
+    if (!instance || !piece) return null;
+    for (const host of socketHostsForInstance(instance)) {
+      const socket = (host.sockets || []).find(item => socketMatchesPiece(item, piece));
+      if (socket) return { host, socket };
+    }
+    return null;
+  }
+
+  function clearSocketForPiece(instance, piece, { record = true } = {}) {
+    if (!instance || !piece) return false;
+    let changed = false;
+    for (const host of socketHostsForInstance(instance)) {
+      const before = (host.sockets || []).length;
+      host.sockets = (host.sockets || []).filter(item => !socketMatchesPiece(item, piece));
+      if (host.sockets.length !== before) {
+        changed = true;
+        if (record) recordObjectEdit(host);
+      }
+    }
+    return changed;
+  }
+
+  function socketHostAt(clientX, clientY) {
+    const candidates = pickSceneObjects(clientX, clientY)
+      .filter(obj => editorObjectIsEditable(obj) && objectHasBehaviour(obj, 'socketHost'));
+    return candidates[0] || null;
+  }
+
+  function placeSocketOnHost(piece, host, clientX, clientY) {
+    if (!piece || !host || !piece.puzzleInstanceId || piece.puzzleInstanceId !== host.puzzleInstanceId) return false;
+    const bounds = objectScreenBounds(host);
+    const rect = canvas.getBoundingClientRect();
+    if (!bounds || !rect.width || !rect.height) return false;
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    const screenU = Rig.clamp((px - bounds.left) / Math.max(1, bounds.width), 0, 1);
+    const textureU = host.flip ? 1 - screenU : screenU;
+    const v = Rig.clamp((bounds.bottom - py) / Math.max(1, bounds.height), 0, 1);
+    const instance = activePuzzleInstances.get(piece.puzzleInstanceId);
+    if (!instance) return false;
+
+    clearSocketForPiece(instance, piece, { record:false });
+    host.sockets ||= [];
+    host.sockets.push({
+      id:`socket-${socketKeyForPiece(piece)}`,
+      pieceAsset:piece.assetName,
+      pieceObjectId:piece.puzzleObjectId || null,
+      u:textureU,
+      v
+    });
+    recordObjectEdit(host);
+    puzzleStartDirty.add(instance.id);
+
+    // A user-authored puzzle containing sockets is a socket-completion puzzle
+    // unless the author has already supplied another completion rule.
+    if (!instance.def.completion && groupIsUserCreated(instance.marker.group)) {
+      instance.def.completion = { type:'sockets' };
+      savePuzzleLibrary();
+    }
+    return true;
+  }
+
+  function startSocketPlacement() {
+    if (!selectedObject || !objectHasBehaviour(selectedObject, 'socketPiece') || !selectedObject.puzzleInstanceId) return;
+    socketPlacementPiece = selectedObject;
+    collisionEditMode = false;
+    collisionHandleIndex = -1;
+    addAssetType = null;
+    updatePlacementModeUi();
+    updateEditorButtons();
+    hintEl.textContent = `SET SOCKET · tap the matching position on a Socket Host for ${socketLabelForPiece(selectedObject)}`;
+    hintEl.classList.remove('hidden');
+  }
+
+  function cancelSocketPlacement() {
+    socketPlacementPiece = null;
+    updateEditorButtons();
+  }
+
+  function clearSelectedPieceSocket() {
+    if (!selectedObject || !selectedObject.puzzleInstanceId) return;
+    const instance = activePuzzleInstances.get(selectedObject.puzzleInstanceId);
+    if (!instance) return;
+    if (clearSocketForPiece(instance, selectedObject)) {
+      puzzleStartDirty.add(instance.id);
+      hintEl.textContent = `Socket cleared for ${socketLabelForPiece(selectedObject)}`;
+    } else {
+      hintEl.textContent = 'This piece does not have an authored socket yet';
+    }
+    socketPlacementPiece = null;
+    hintEl.classList.remove('hidden');
+    updateEditorButtons();
+    updatePuzzlePanel();
+  }
+
   function updateEditorButtons() {
     const has = !!selectedObject && !selectedObject.deleted;
     const collisionFocus = !!(has && collisionEditMode);
+    const socketFocus = !!socketPlacementPiece;
     const isGameplay = has && selectedObject.category === 'gameplay';
+    const isSocketPiece = !!(has && objectHasBehaviour(selectedObject, 'socketPiece') && selectedObject.puzzleInstanceId);
+    const socketInstance = isSocketPiece ? activePuzzleInstances.get(selectedObject.puzzleInstanceId) : null;
+    const hasAuthoredSocket = !!(isSocketPiece && socketForPiece(socketInstance, selectedObject));
     const placing = placementModeActive();
     if (editorControls) editorControls.hidden = !editMode || !has || placing;
     if (openAssetsBtn) {
@@ -3067,21 +3249,29 @@
       openEnvironmentAssetsBtn.hidden = !editMode || puzzleTestMode || placing || editorScope !== 'environment';
       openEnvironmentAssetsBtn.classList.toggle('active', !editorPalette?.hidden && editorScope === 'environment');
     }
-    if (editorDuplicateBtn) editorDuplicateBtn.hidden = !has || collisionFocus;
-    if (editorScaleDownBtn) editorScaleDownBtn.hidden = !has || collisionFocus;
-    if (editorScaleUpBtn) editorScaleUpBtn.hidden = !has || collisionFocus;
+    if (editorDuplicateBtn) editorDuplicateBtn.hidden = !has || collisionFocus || socketFocus;
+    if (editorScaleDownBtn) editorScaleDownBtn.hidden = !has || collisionFocus || socketFocus;
+    if (editorScaleUpBtn) editorScaleUpBtn.hidden = !has || collisionFocus || socketFocus;
     if (editorGameLayerBtn) {
-      editorGameLayerBtn.hidden = !isGameplay || collisionFocus;
+      editorGameLayerBtn.hidden = !isGameplay || collisionFocus || socketFocus;
       editorGameLayerBtn.classList.toggle('active', !!(isGameplay && selectedObject.gameplayLayerLocked));
     }
     if (editorCollisionBtn) {
-      editorCollisionBtn.hidden = !has;
+      editorCollisionBtn.hidden = !has || socketFocus;
       editorCollisionBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
     }
-    if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus;
+    if (editorSocketBtn) {
+      editorSocketBtn.hidden = !isSocketPiece || collisionFocus;
+      editorSocketBtn.classList.toggle('active', socketPlacementPiece === selectedObject);
+      const label = editorSocketBtn.querySelector('small');
+      if (label) label.textContent = hasAuthoredSocket ? 'MOVE SOCKET' : 'SET SOCKET';
+    }
+    if (editorSocketClearBtn) editorSocketClearBtn.hidden = !isSocketPiece || !hasAuthoredSocket || collisionFocus || socketFocus;
+    if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus || socketFocus;
   }
 
   function selectObject(obj, preserveCycle = false, options = {}) {
+    if (socketPlacementPiece && obj !== socketPlacementPiece) socketPlacementPiece = null;
     selectedObject = obj && !obj.deleted ? obj : null;
     if (!preserveCycle) selectionCycleInfo = null;
     if (!options.keepPlacement) addAssetType = null;
@@ -3356,7 +3546,7 @@
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; socketPlacementPiece = null; }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -3448,7 +3638,8 @@
       y:selectedObject.category === 'gameplay' ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z), shade:selectedObject.shade, opacity:selectedObject.opacity,
       flip:selectedObject.flip, layer:classifyLayer(point.z), collision:selectedObject.collision ? cloneCollision(selectedObject.collision) : null,
       category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked:!!selectedObject.gameplayLayerLocked,
-      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
+      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
+      sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
@@ -3576,7 +3767,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.29" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.30" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -3753,7 +3944,17 @@
         ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
       }
       const target = dropTargetForCarried(rootX);
-      if (target?.stack) {
+      if (target?.socket) {
+        const p = projectWorldPoint(target.x, target.y + carriedObject.sy * 0.5, target.z);
+        if (p) {
+          ctx.setLineDash([]);
+          ctx.strokeStyle='rgba(109,226,205,.98)';ctx.fillStyle='rgba(109,226,205,.16)';ctx.lineWidth=2.5;
+          ctx.beginPath();ctx.arc(p.x,p.y,12,0,Math.PI*2);ctx.fill();ctx.stroke();
+          ctx.beginPath();ctx.moveTo(p.x-16,p.y);ctx.lineTo(p.x+16,p.y);ctx.moveTo(p.x,p.y-16);ctx.lineTo(p.x,p.y+16);ctx.stroke();
+          ctx.fillStyle='rgba(109,226,205,.98)';ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+          ctx.fillText(`SOCKET ${socketLabelForPiece(carriedObject)}`, p.x + 18, p.y - 9);
+        }
+      } else if (target?.stack) {
         const preview = placedCollisionRect(carriedObject, target.x, target.y);
         const previewPoly = preview ? projectWorldPolygon([
           {x:preview.minX,y:preview.minY},{x:preview.maxX,y:preview.minY},
@@ -3784,7 +3985,7 @@
 
     ctx.setLineDash([]);
     ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
-    const label = `COLLISION · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · search ${STACK_SEARCH_RADIUS.toFixed(2)}`;
+    const label = `COLLISION · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · stack search ${STACK_SEARCH_RADIUS.toFixed(2)} · socket ${SOCKET_SEARCH_RADIUS.toFixed(2)}`;
     const tw = ctx.measureText(label).width + 16;
     const x = Math.max(8, (ctx.canvas.clientWidth - tw) * 0.5);
     const y = 48;
@@ -3792,6 +3993,34 @@
     ctx.fillRect(x, y, tw, 22);
     ctx.fillStyle = 'rgba(240,246,245,.96)';
     ctx.fillText(label, x + 8, y + 15);
+    ctx.restore();
+  }
+
+  function drawAuthoredSockets(ctx) {
+    if (!editMode || editorScope !== 'puzzle') return;
+    const instance = selectedPuzzleInstance();
+    if (!instance) return;
+    ctx.save();
+    ctx.font = '900 9px -apple-system,BlinkMacSystemFont,sans-serif';
+    for (const host of socketHostsForInstance(instance)) {
+      for (const socket of host.sockets || []) {
+        const point = socketWorldPosition(host, socket);
+        const screen = point ? projectWorldPoint(point.x, point.y, point.z) : null;
+        if (!screen) continue;
+        const active = !!(socketPlacementPiece && socketMatchesPiece(socket, socketPlacementPiece));
+        ctx.fillStyle = active ? 'rgba(255,79,149,.22)' : 'rgba(109,226,205,.18)';
+        ctx.strokeStyle = active ? '#ff4f95' : '#6de2cd';
+        ctx.lineWidth = active ? 3 : 2;
+        ctx.setLineDash(active ? [] : [4,3]);
+        ctx.beginPath(); ctx.arc(screen.x, screen.y, 12, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(screen.x-16,screen.y);ctx.lineTo(screen.x+16,screen.y);ctx.moveTo(screen.x,screen.y-16);ctx.lineTo(screen.x,screen.y+16);ctx.stroke();
+        const label = socketLabelForPiece(socket.pieceAsset);
+        const tw = ctx.measureText(label).width + 10;
+        ctx.fillStyle='rgba(20,31,34,.82)';ctx.fillRect(screen.x+14,screen.y-20,tw,17);
+        ctx.fillStyle=active ? '#ffd4e5' : '#c9fff5';ctx.fillText(label,screen.x+19,screen.y-8);
+      }
+    }
     ctx.restore();
   }
 
@@ -3804,6 +4033,7 @@
     if (collisionDebugView) drawCollisionDebugOverlay(ctx);
     if (!editMode) return;
     drawPuzzleEditorGuides(ctx);
+    drawAuthoredSockets(ctx);
 
     // Show authored gameplay collision even when the object itself is partly
     // hidden by foreground dressing. The global collision viewer already draws
@@ -3880,7 +4110,17 @@
       }
     }
 
-    if (addAssetType) {
+    if (socketPlacementPiece) {
+      ctx.save();
+      ctx.fillStyle='rgba(20,31,34,.80)';
+      ctx.font='800 11px -apple-system, BlinkMacSystemFont, sans-serif';
+      const text=`SET SOCKET ${socketLabelForPiece(socketPlacementPiece).toUpperCase()} · tap a Socket Host`;
+      const tw=ctx.measureText(text).width+18;
+      ctx.fillRect((w-tw)/2,52,tw,24);
+      ctx.fillStyle='#c9fff5';
+      ctx.fillText(text,(w-tw)/2+9,68);
+      ctx.restore();
+    } else if (addAssetType) {
       ctx.save();
       ctx.fillStyle='rgba(20,31,34,.75)';
       ctx.font='800 11px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -4637,6 +4877,7 @@
     if (!obj || carriedObject || interactionState || jumping) return;
     const characterXNow = camera.x + character.screenOffsetX;
     obj.carried = true;
+    obj.socketedTo = null;
     // If this was the lower crate in a stack, the remaining crates settle onto
     // the next available support immediately rather than being left floating.
     settleGameplayCrates();
@@ -4770,6 +5011,45 @@
     return null;
   }
 
+  function socketOccupied(host, socket, ignoredPiece = null) {
+    if (!host || !socket) return false;
+    return allSceneObjects().some(obj => obj !== ignoredPiece && !obj.deleted && obj.socketedTo
+      && obj.socketedTo.hostObjectId === host.id && obj.socketedTo.socketId === socket.id);
+  }
+
+  function socketTargetNear(rootX, facing) {
+    if (!carriedObject || !objectHasBehaviour(carriedObject, 'socketPiece')) return null;
+    let best = null;
+    let bestForward = Infinity;
+    for (const host of allSceneObjects()) {
+      if (host.deleted || !objectHasBehaviour(host, 'socketHost') || !Array.isArray(host.sockets)) continue;
+      // Socket links are puzzle-local: a piece cannot accidentally snap into a
+      // similarly named socket belonging to another streamed puzzle instance.
+      if (carriedObject.puzzleInstanceId && host.puzzleInstanceId !== carriedObject.puzzleInstanceId) continue;
+      for (const socket of host.sockets) {
+        if (!socketMatchesPiece(socket, carriedObject)) continue;
+        if (socketOccupied(host, socket, carriedObject)) continue;
+        const point = socketWorldPosition(host, socket);
+        if (!point) continue;
+        const forward = (point.x - rootX) * facing;
+        if (forward < -0.12 || forward > SOCKET_SEARCH_RADIUS) continue;
+        if (forward < bestForward) {
+          bestForward = forward;
+          best = {
+            host,
+            socket,
+            x:point.x,
+            y:point.y - carriedObject.sy * 0.5,
+            z:point.z,
+            forward,
+            valid:true
+          };
+        }
+      }
+    }
+    return best;
+  }
+
   function stackTargetNear(rootX, facing) {
     // carriedObject.carried is true by definition. Explicitly include it here;
     // otherwise stack search exits before examining any nearby support and the
@@ -4805,23 +5085,27 @@
   function dropTargetForCarried(rootX = character.x) {
     const facing = character.lastFacing >= 0 ? 1 : -1;
     let x = rootX + facing * 0.92;
-    const z = carriedObject?.gameplayLayerLocked === false ? carriedObject.z : pathZ;
+    let z = carriedObject?.gameplayLayerLocked === false ? carriedObject.z : pathZ;
 
-    // Placement intent is deliberately broader than physical collision. Once
-    // a stack is recognised, its centre and next standard layer define the
-    // target directly. This keeps 2nd/3rd/4th items deterministic even when
-    // the carried prop is wider than the prop underneath.
-    const stack = stackTargetNear(rootX, facing);
-    if (stack) x = stack.x;
+    // A compatible authored socket is the strongest placement intent. Socket
+    // targets deliberately ignore the normal gameplay-layer lock so a carried
+    // piece can move from the path into a wall/side-of-road host.
+    const socket = socketTargetNear(rootX, facing);
+    const stack = socket ? null : stackTargetNear(rootX, facing);
+    if (socket) { x = socket.x; z = socket.z; }
+    else if (stack) x = stack.x;
 
     const temp = carriedObject ? { ...carriedObject, x, z, carried: false } : null;
     if (temp?.collision && isGameplayCrate(temp)) temp.collision = { ...temp.collision, height: STACK_ITEM_HEIGHT };
-    const y = stack
-      ? stack.topY
-      : (temp ? restYForGameplayObject(temp, x, null, true) : playSurfaceYAt(x));
-    const target = { x, z, y, stack };
-    const ignoredStackObjects = stack ? new Set(stack.members) : null;
-    target.valid = temp ? dropTargetIsClear(temp, target, ignoredStackObjects) : true;
+    const y = socket
+      ? socket.y
+      : (stack ? stack.topY : (temp ? restYForGameplayObject(temp, x, null, true) : playSurfaceYAt(x)));
+    const target = { x, z, y, stack, socket };
+    if (socket) target.valid = !!socket.valid;
+    else {
+      const ignoredStackObjects = stack ? new Set(stack.members) : null;
+      target.valid = temp ? dropTargetIsClear(temp, target, ignoredStackObjects) : true;
+    }
     return target;
   }
 
@@ -4833,7 +5117,8 @@
       object: carriedObject,
       targetX: target.x,
       targetY: target.y,
-      targetZ: target.z
+      targetZ: target.z,
+      socketMeta: target.socket ? { hostObjectId:target.socket.host.id, socketId:target.socket.socket.id } : null
     };
     setDriveAxis(0);
     hintEl.textContent = 'Putting item down';
@@ -4963,6 +5248,17 @@
     if (!carriedObject || interactionState || autoDropStep || jumping) return;
     const rootX = camera.x + character.screenOffsetX;
     const target = dropTargetForCarried(rootX);
+    if (target.socket) {
+      if (!target.valid) {
+        hintEl.textContent = 'That socket is already occupied';
+        hintEl.classList.remove('hidden');
+        return;
+      }
+      hintEl.textContent = `Placing ${socketLabelForPiece(carriedObject)} in socket…`;
+      hintEl.classList.remove('hidden');
+      beginDropAtTarget(target);
+      return;
+    }
     if (target.stack) {
       if (!target.valid) {
         // A recognised stack is an explicit placement intent. Never turn a
@@ -4991,9 +5287,10 @@
     if (!interactionState || interactionState.type !== 'drop') return;
     const obj = interactionState.object;
     obj.x = interactionState.targetX;
-    obj.z = obj.gameplayLayerLocked === false ? interactionState.targetZ : pathZ;
+    obj.z = interactionState.socketMeta ? interactionState.targetZ : (obj.gameplayLayerLocked === false ? interactionState.targetZ : pathZ);
     obj.carried = false;
     obj.y = interactionState.targetY;
+    obj.socketedTo = interactionState.socketMeta ? { ...interactionState.socketMeta } : null;
     carriedObject = null;
     interactionState = null;
     moveObjectToCorrectCollection(obj);
@@ -5021,9 +5318,10 @@
       }
     }
     obj.x = target.x;
-    obj.z = obj.gameplayLayerLocked === false ? target.z : pathZ;
+    obj.z = target.socket ? target.z : (obj.gameplayLayerLocked === false ? target.z : pathZ);
     obj.carried = false;
     obj.y = target.y;
+    obj.socketedTo = target.socket ? { hostObjectId:target.socket.host.id, socketId:target.socket.socket.id } : null;
     carriedObject = null;
     interactionState = null;
     moveObjectToCorrectCollection(obj);
@@ -5326,7 +5624,10 @@
       hintEl.classList.remove('hidden');
     }
   };
+  puzzleMarkerXInput?.addEventListener('pointerdown', event => event.stopPropagation(), {passive:true});
+  puzzleMarkerXInput?.addEventListener('click', event => event.stopPropagation());
   puzzleMarkerXInput?.addEventListener('change', commitMarkerXInput);
+  puzzleMarkerXInput?.addEventListener('blur', commitMarkerXInput);
   puzzleMarkerXInput?.addEventListener('keydown', event => {
     if (event.key === 'Enter') { event.preventDefault(); commitMarkerXInput(); puzzleMarkerXInput.blur(); }
   });
@@ -5391,6 +5692,8 @@
   bindEditorPress(editorScaleUpBtn, () => scaleSelected(1.10));
   bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
   bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
+  bindEditorPress(editorSocketBtn, startSocketPlacement);
+  bindEditorPress(editorSocketClearBtn, clearSelectedPieceSocket);
   bindEditorPress(editorDeleteBtn, deleteSelected);
   const puzzleObjectsSummary = puzzleObjectsEl?.querySelector('summary');
   bindEditorPress(puzzleObjectsSummary, () => { if (puzzleObjectsEl) puzzleObjectsEl.open = !puzzleObjectsEl.open; });
@@ -5410,6 +5713,12 @@
         moved:false, kind:'pan', object:null,
         objectStartX:selectedObject?.x ?? 0, objectStartZ:selectedObject?.z ?? 0
       };
+
+      if (socketPlacementPiece) {
+        editorGesture.kind = 'socket-place-pan';
+        editorGesture.socketPiece = socketPlacementPiece;
+        return;
+      }
 
       if (addAssetType) {
         // Placement mode follows the same editor gesture language as Setup:
@@ -5501,6 +5810,7 @@
 
       if (editorGesture.kind === 'selected-object' && editorGesture.object) {
         const obj = editorGesture.object;
+        if (obj.socketedTo) obj.socketedTo = null;
         const point = groundPointFromClient(e.clientX,e.clientY);
         // Horizontal editing now uses the same world-per-pixel scale as scene
         // panning. This makes the selected asset visually track the finger
@@ -5566,6 +5876,18 @@
           else if (gesture.kind==='puzzle-bound') {
             const instance=selectedPuzzleInstance(); if(instance) puzzleStartDirty.add(instance.id);
           }
+        } else if (!gesture.moved && gesture.kind==='socket-place-pan' && gesture.socketPiece) {
+          const host = socketHostAt(e.clientX,e.clientY);
+          if (host && placeSocketOnHost(gesture.socketPiece, host, e.clientX, e.clientY)) {
+            hintEl.textContent = `Socket set for ${socketLabelForPiece(gesture.socketPiece)} · select another piece or press Move Socket to adjust`;
+            hintEl.classList.remove('hidden');
+            socketPlacementPiece = null;
+            updateEditorButtons();
+            updatePuzzlePanel();
+          } else {
+            hintEl.textContent = 'Tap directly on an asset tagged Socket Host';
+            hintEl.classList.remove('hidden');
+          }
         } else if (gesture.placement && (gesture.kind==='placement-pan' || gesture.kind==='selected-object')) {
           // A clean release in Placement mode first tries to select an existing
           // editable prop. Only genuinely empty space creates another asset.
@@ -5614,7 +5936,7 @@
   window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
     if (editMode) {
-      if (e.key === 'Escape') { selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); }
+      if (e.key === 'Escape') { socketPlacementPiece = null; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) { e.preventDefault(); deleteSelected(); }
       return;
     }

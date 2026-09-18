@@ -1,5 +1,5 @@
 window.SideScrollPuzzleConfig = {
-  version: 8,
+  version: 9,
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
@@ -135,10 +135,41 @@ window.SideScrollPuzzleConfig = {
   "x": 5.18,
   "direction": 1
 }
+    },
+    STONE_WALL: {
+      label: "Stone Wall",
+      width: 22.09242296593955,
+      bounds: { minX: -11.502642631903193, maxX: 10.589780239038355 },
+      assetPacks: ["woodland-puzzle-atlas-v1"],
+      entryX: -11.502642631903193,
+      exitX: 10.589780239038355,
+      props: [
+        {
+          id: "wall", asset: "stone-wall", x: 0.5279803341563962, z: -1.8344944983502849, yOffset: -0.010227229958892359,
+          width: 10.693172222457633, height: 3.4102549250000025, flip: true, category: "dressing", gameplayType: "prop", gameplayLayerLocked: false, sockets: []
+        },
+        {
+          id: "piece-a", asset: "stone-piece-a", x: -6.811181137605502, z: 0, yOffset: 0,
+          width: 1.0219584375000001, height: 0.9583200000000002, flip: true, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
+          collision: { halfWidth: 0.43944212812500005, height: 0.48, depth: 0.4292225437500001, platform: false, points: [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}], behaviourGenerated: false }
+        },
+        {
+          id: "piece-b", asset: "stone-piece-b", x: -7.9868207529392095, z: 0, yOffset: 0,
+          width: 0.8461530000000003, height: 0.8864460000000002, flip: false, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
+          collision: { halfWidth: 0.3638457900000001, height: 0.48, depth: 0.42, platform: false, points: [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}], behaviourGenerated: false }
+        },
+        {
+          id: "piece-c", asset: "stone-piece-c", x: -1.8137508429064155, z: 0, yOffset: 0,
+          width: 1.0098496240601507, height: 0.8954000000000001, flip: false, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
+          collision: { halfWidth: 0.43423533834586475, height: 0.48, depth: 0.42413684210526326, platform: false, points: [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}], behaviourGenerated: false }
+        }
+      ],
+      completion: { type: "sockets" }
     }
   },
   markers: [
-    { id: "fallen-tree-01", group: "FALLEN_TREE_TEST", x: 8.5 }
+    { id: "fallen-tree-01", group: "FALLEN_TREE_TEST", x: 8.5 },
+    { id: "stone-wall-01", group: "STONE_WALL", x: 84.60739002700691 }
   ],
   streaming: { loadAhead: 24, keepBehind: 34 }
 };

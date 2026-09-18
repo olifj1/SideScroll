@@ -12384,3 +12384,21 @@ body[data-game-id="game-16"] .sidescroll-asset-behaviour-reset{
   background:rgba(255,255,255,.055)!important;
   color:rgba(239,246,244,.82)!important;
 }
+
+
+/* SideScroll v0.2.30 — reliable touch controls + socket authoring. */
+body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor input{
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  -webkit-user-select:text!important;
+  user-select:text!important;
+  -webkit-touch-callout:default!important;
+}
+body[data-game-id="game-16"] #sidescroll-editor-socket.active{
+  background:#d7eee9!important;
+  border-color:#d7eee9!important;
+  color:#315651!important;
+}
+body[data-game-id="game-16"] #sidescroll-editor-socket-clear{
+  min-width:118px!important;
+}
