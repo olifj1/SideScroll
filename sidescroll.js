@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.28: pick-up always targets the exposed top item of a stack.
+  // SideScroll v0.2.29: editor stack snapping + explicit puzzle start-state saving.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -871,6 +871,7 @@
   const STACK_ITEM_HEIGHT = 0.48;
   const STACK_SEARCH_RADIUS = 2.00;
   const STACK_COLUMN_ALIGN_TOLERANCE = 0.42;
+  const EDITOR_STACK_SNAP_RADIUS = 0.46;
   const STACK_ASSIST_SPEED = 0.92;
   const STACK_ASSIST_MAX = 0.78;
   const STACK_ASSIST_ROOT_GAP = 0.92;
@@ -1538,6 +1539,7 @@
         asset: prop.asset,
         x: prop.x,
         z: prop.z ?? pathZ,
+        yOffset: Number.isFinite(prop.yOffset) ? prop.yOffset : 0,
         sx: prop.width ?? null,
         sy: prop.height,
         flip: !!prop.flip,
@@ -1584,6 +1586,7 @@
         asset: obj.assetName,
         x: obj.x - instance.marker.x,
         z: obj.z,
+        yOffset: obj.y - (obj.category === 'gameplay' && obj.gameplayLayerLocked ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z)),
         sx: obj.sx,
         sy: obj.sy,
         flip: !!obj.flip,
@@ -1651,7 +1654,10 @@
       obj.collision = cloneCollision(state.collision ?? prop?.collision ?? null);
       obj.shadow = state.shadow || prop?.shadow || obj.shadow || null;
       obj.carried = false;
-      obj.y = obj.category === 'gameplay' ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z);
+      const baseY = obj.category === 'gameplay' && obj.gameplayLayerLocked
+        ? playSurfaceYAt(obj.x)
+        : pathGroundYAt(obj.x, obj.z);
+      obj.y = baseY + (Number.isFinite(state.yOffset) ? state.yOffset : 0);
       moveObjectToCorrectCollection(obj);
     }
     for (const obj of instance.objects) {
@@ -1743,7 +1749,12 @@
       const width = Number.isFinite(prior?.sx) ? prior.sx : (Number.isFinite(startState?.sx) ? startState.sx : prop?.width);
       const obj = addObject(frontOccluders, asset, x, z, width, height, {
         id:`puzzle-${marker.id}-${objectId}`,
-        y:Number.isFinite(prior?.y) ? prior.y : playSurfaceYAt(x),
+        y:Number.isFinite(prior?.y)
+          ? prior.y
+          : (((prior?.category || startState?.category || prop?.category || 'gameplay') === 'gameplay'
+              && (prior?.gameplayLayerLocked ?? startState?.gameplayLayerLocked ?? true))
+              ? playSurfaceYAt(x)
+              : pathGroundYAt(x, z)) + (Number.isFinite(startState?.yOffset) ? startState.yOffset : 0),
         flip:prior?.flip ?? startState?.flip ?? prop?.flip ?? false,
         shade:1, opacity:1, layer:'foreground', wrap:false,
         category:prior?.category || startState?.category || prop?.category || 'gameplay',
@@ -2708,7 +2719,7 @@
     choosePuzzleForEditing(marker.id, true);
     savePuzzleWorkshopState(marker.id);
     applyPuzzleStart(selectedPuzzleInstance(), { persistRuntime:true });
-    hintEl.textContent = 'Linked puzzle instance spawned here · edit it, then Save to Template or Save Unique';
+    hintEl.textContent = 'Linked puzzle instance spawned here · edit it, then Set Start or Save Unique';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -2924,6 +2935,7 @@
         asset:obj.assetName,
         x:obj.x-instance.marker.x,
         z:obj.z,
+        yOffset:obj.y - (obj.category === 'gameplay' && obj.gameplayLayerLocked ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z)),
         sx:obj.sx,
         sy:obj.sy,
         flip:!!obj.flip,
@@ -2965,7 +2977,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.21',
+      appVersion:'0.2.29',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -2984,7 +2996,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.21', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.29', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3173,8 +3185,8 @@
             : (selectedMarker
                 ? (instance
                     ? (linkMode === 'copy'
-                        ? 'This copy is active for editing. Save Copy changes only this scene puzzle.'
-                        : 'This instance is active for editing. Save to Template updates linked instances; Save Unique detaches this one.')
+                        ? 'This copy is active for editing. Set Start makes the current arrangement its reset/test starting state.'
+                        : 'This instance is active for editing. Set Start makes the current arrangement the template start; Save Unique detaches this one.')
                     : 'Selected from the Scene list. Use Edit Puzzle to activate its bounds and objects, or Focus to move the camera to it.')
                 : 'Choose a puzzle from the Scene list to see its controls.'));
     }
@@ -3202,7 +3214,7 @@
     if (puzzleSetStartBtn) {
       puzzleSetStartBtn.hidden = testing || libraryMode;
       puzzleSetStartBtn.disabled = !instance;
-      puzzleSetStartBtn.textContent = linkMode === 'copy' ? 'Save Copy' : 'Save to Template';
+      puzzleSetStartBtn.textContent = 'Set Start';
     }
     if (puzzleSaveUniqueBtn) {
       puzzleSaveUniqueBtn.hidden = testing || libraryMode || !instance || linkMode === 'copy';
@@ -3234,7 +3246,7 @@
       savePuzzleStarts();
       puzzleStartDirty.delete(marker.id);
       applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
-      hintEl.textContent = 'Unique scene copy saved';
+      hintEl.textContent = 'Start state set for this unique scene copy';
     } else {
       userPuzzleLibrary.templates ||= {};
       userPuzzleLibrary.templates[marker.group] = snapshot;
@@ -3250,7 +3262,7 @@
       }
       savePuzzleStarts();
       savePuzzleState();
-      hintEl.textContent = 'Template updated · all linked instances now use this setup';
+      hintEl.textContent = 'Start state set · linked instances now use this setup';
     }
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
@@ -3416,7 +3428,7 @@
       wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
-    if (obj.category === 'gameplay') obj.y = restYForGameplayObject(obj, obj.x, null, true);
+    if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
     recordObjectEdit(obj);
@@ -3439,7 +3451,7 @@
       wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
-    if (obj.category === 'gameplay') obj.y = restYForGameplayObject(obj, obj.x, null, true);
+    if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
     recordObjectEdit(obj);
@@ -3564,7 +3576,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.28" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.29" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -4175,7 +4187,20 @@
     const supports = settled ? [...fixedSupports, ...settled] : allSceneObjects().filter(other => other !== obj && isSupportSurfaceObject(other));
     for (const other of supports) {
       if (other === obj) continue;
-      const top = stackableFitsSupport(obj, other, aroundX);
+      let top = -Infinity;
+      if (isGameplayCrate(other)) {
+        // Stackable props use the authored stack column rule rather than a
+        // width-fit test. A wide log can sit on a narrow log and vice versa.
+        const otherX = objectXNear(other, aroundX);
+        const sameDepth = obj.gameplayLayerLocked && other.gameplayLayerLocked
+          ? true
+          : Math.abs((obj.z ?? pathZ) - other.z) <= 0.34;
+        if (sameDepth && Math.abs(otherX - aroundX) <= STACK_COLUMN_ALIGN_TOLERANCE) {
+          top = other.y + STACK_ITEM_HEIGHT;
+        }
+      } else {
+        top = stackableFitsSupport(obj, other, aroundX);
+      }
       if (!Number.isFinite(top)) continue;
       if (!allowAnySupport && top > currentBase + 0.10) continue;
       if (top > baseY) baseY = top;
@@ -4639,7 +4664,7 @@
     hintEl.classList.remove('hidden');
   }
 
-  function stackBottomFor(candidate, aroundX) {
+  function stackBottomFor(candidate, aroundX, ignoredObjects = null) {
     if (!isGameplayCrate(candidate)) return candidate;
     let current = candidate;
     let guard = 0;
@@ -4648,7 +4673,7 @@
       let lower = null;
       let lowerTop = -Infinity;
       for (const other of allSceneObjects()) {
-        if (other === current || !isGameplayCrate(other)) continue;
+        if (other === current || ignoredObjects?.has(other) || !isGameplayCrate(other)) continue;
         const ox = objectXNear(other, currentX);
         if (Math.abs(ox - currentX) > STACK_COLUMN_ALIGN_TOLERANCE) continue;
         if (other.y >= current.y - 0.05) continue;
@@ -4662,7 +4687,7 @@
     return current;
   }
 
-  function stackColumnFor(anchor, aroundX) {
+  function stackColumnFor(anchor, aroundX, ignoredObjects = null) {
     if (!anchor || !isGameplayCrate(anchor)) return null;
     const anchorX = objectXNear(anchor, aroundX);
     const members = [anchor];
@@ -4676,7 +4701,7 @@
       let next = null;
       let bestDelta = Infinity;
       for (const other of allSceneObjects()) {
-        if (used.has(other) || other === carriedObject || !isGameplayCrate(other)) continue;
+        if (used.has(other) || other === carriedObject || ignoredObjects?.has(other) || !isGameplayCrate(other)) continue;
         const ox = objectXNear(other, anchorX);
         if (Math.abs(ox - anchorX) > STACK_COLUMN_ALIGN_TOLERANCE) continue;
         const dy = Math.abs(other.y - nextY);
@@ -4691,6 +4716,58 @@
     }
 
     return { anchor, x: anchorX, members, topY: anchor.y + members.length * STACK_ITEM_HEIGHT };
+  }
+
+  function editorStackTargetFor(obj, desiredX, desiredZ = obj?.z ?? pathZ, ignoredObjects = null) {
+    if (!obj || !isGameplayCrate(obj)) return null;
+    const ignored = new Set(ignoredObjects || []);
+    ignored.add(obj);
+    let best = null;
+    let bestDistance = EDITOR_STACK_SNAP_RADIUS + 0.0001;
+    const seenAnchors = new Set();
+
+    for (const other of allSceneObjects()) {
+      if (ignored.has(other) || !isGameplayCrate(other)) continue;
+      const sameDepth = obj.gameplayLayerLocked && other.gameplayLayerLocked
+        ? true
+        : Math.abs((desiredZ ?? pathZ) - other.z) <= 0.34;
+      if (!sameDepth) continue;
+
+      const anchor = stackBottomFor(other, desiredX, ignored);
+      if (!anchor || ignored.has(anchor)) continue;
+      const column = stackColumnFor(anchor, desiredX, ignored);
+      if (!column) continue;
+      const key = `${anchor.id || anchor.assetName}:${column.x.toFixed(3)}`;
+      if (seenAnchors.has(key)) continue;
+      seenAnchors.add(key);
+
+      const distance = Math.abs(column.x - desiredX);
+      if (distance <= EDITOR_STACK_SNAP_RADIUS && distance < bestDistance) {
+        bestDistance = distance;
+        best = column;
+      }
+    }
+    return best;
+  }
+
+  function placeGameplayObjectInEditor(obj, desiredX = obj?.x, desiredZ = obj?.z, ignoredObjects = null) {
+    if (!obj || obj.category !== 'gameplay') return null;
+    const targetZ = obj.gameplayLayerLocked ? pathZ : desiredZ;
+    obj.x = desiredX;
+    obj.z = targetZ;
+
+    const stack = editorStackTargetFor(obj, desiredX, targetZ, ignoredObjects);
+    if (stack) {
+      obj.x = stack.x;
+      obj.z = obj.gameplayLayerLocked ? pathZ : stack.anchor.z;
+      obj.y = stack.topY;
+      return stack;
+    }
+
+    // Outside a stack snap, retain the existing editor behaviour for fixed
+    // support surfaces such as the fallen tree/platform collision.
+    obj.y = restYForGameplayObject(obj, obj.x, null, true);
+    return null;
   }
 
   function stackTargetNear(rootX, facing) {
@@ -5342,6 +5419,15 @@
         if (selectedObject && editorObjectIsEditable(selectedObject) && pointInsideScreenBounds(e.clientX,e.clientY,objectScreenBounds(selectedObject),3)) {
           editorGesture.kind = 'selected-object';
           editorGesture.object = selectedObject;
+          editorGesture.stackIgnore = new Set();
+          if (isGameplayCrate(selectedObject)) {
+            const anchor = stackBottomFor(selectedObject, selectedObject.x);
+            const column = stackColumnFor(anchor, selectedObject.x);
+            const index = column?.members?.indexOf(selectedObject) ?? -1;
+            if (index >= 0) {
+              for (const member of column.members.slice(index + 1)) editorGesture.stackIgnore.add(member);
+            }
+          }
         } else {
           editorGesture.kind = 'placement-pan';
         }
@@ -5386,6 +5472,15 @@
       if (selectedObject && editorObjectIsEditable(selectedObject) && pointInsideScreenBounds(e.clientX,e.clientY,objectScreenBounds(selectedObject),3)) {
         editorGesture.kind = 'selected-object';
         editorGesture.object = selectedObject;
+        editorGesture.stackIgnore = new Set();
+        if (isGameplayCrate(selectedObject)) {
+          const anchor = stackBottomFor(selectedObject, selectedObject.x);
+          const column = stackColumnFor(anchor, selectedObject.x);
+          const index = column?.members?.indexOf(selectedObject) ?? -1;
+          if (index >= 0) {
+            for (const member of column.members.slice(index + 1)) editorGesture.stackIgnore.add(member);
+          }
+        }
       }
       return;
     }
@@ -5410,13 +5505,14 @@
         // Horizontal editing now uses the same world-per-pixel scale as scene
         // panning. This makes the selected asset visually track the finger
         // instead of perspective projection making it race ahead.
-        obj.x = editorGesture.objectStartX + dx * 0.0065;
-        obj.z = obj.category === 'gameplay' && obj.gameplayLayerLocked
+        const desiredX = editorGesture.objectStartX + dx * 0.0065;
+        const desiredZ = obj.category === 'gameplay' && obj.gameplayLayerLocked
           ? pathZ
           : (point && editorGesture.startGround
               ? Rig.clamp(editorGesture.objectStartZ + (point.z-editorGesture.startGround.z)*0.55, WORLD.farZ+0.8, WORLD.nearZ-0.6)
               : editorGesture.objectStartZ);
-        obj.y = obj.category === 'gameplay' ? restYForGameplayObject(obj) : pathGroundYAt(obj.x,obj.z);
+        if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, desiredX, desiredZ, editorGesture.stackIgnore);
+        else { obj.x = desiredX; obj.z = desiredZ; obj.y = pathGroundYAt(obj.x,obj.z); }
         moveObjectToCorrectCollection(obj);sortSceneCollections();selectionCycleInfo=null;
       } else if (editorGesture.kind === 'collision-handle' && selectedObject?.collision && collisionHandleIndex >= 0) {
         const bounds=collisionRectScreenBounds(selectedObject); if(!bounds) return;
@@ -5454,7 +5550,12 @@
       const gesture=editorGesture;
       if (gesture) {
         if (gesture.moved) {
-          if (gesture.kind==='selected-object' && gesture.object) recordObjectEdit(gesture.object);
+          if (gesture.kind==='selected-object' && gesture.object) {
+            if (gesture.object.category === 'gameplay') settleGameplayCrates();
+            const instance = gesture.object.puzzleInstanceId ? activePuzzleInstances.get(gesture.object.puzzleInstanceId) : null;
+            if (instance) capturePuzzleInstance(instance);
+            else recordObjectEdit(gesture.object);
+          }
           else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
           else if (gesture.kind==='puzzle-marker' && gesture.marker) {
             persistPuzzleMarkerPosition(gesture.marker);
