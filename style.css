@@ -10420,6 +10420,7 @@ body[data-game-id="game-16"] .sidescroll-stage-hud{
 }
 body[data-game-id="game-16"] .sidescroll-status,
 body[data-game-id="game-16"] .sidescroll-depth-button,
+body[data-game-id="game-16"] .sidescroll-collision-view-button,
 body[data-game-id="game-16"] .sidescroll-depth-key,
 body[data-game-id="game-16"] .sidescroll-hint{
   border:1px solid rgba(237,244,244,.20);
@@ -10440,7 +10441,8 @@ body[data-game-id="game-16"] .sidescroll-status{
   font-weight:750;
   letter-spacing:.02em;
 }
-body[data-game-id="game-16"] .sidescroll-depth-button{
+body[data-game-id="game-16"] .sidescroll-depth-button,
+body[data-game-id="game-16"] .sidescroll-collision-view-button{
   flex:0 0 auto;
   min-height:36px;
   padding:0 10px;
@@ -10449,7 +10451,8 @@ body[data-game-id="game-16"] .sidescroll-depth-button{
   font-size:10px;
   font-weight:850;
 }
-body[data-game-id="game-16"] .sidescroll-depth-button[aria-pressed="true"]{
+body[data-game-id="game-16"] .sidescroll-depth-button[aria-pressed="true"],
+body[data-game-id="game-16"] .sidescroll-collision-view-button[aria-pressed="true"]{
   background:rgba(223,237,237,.20);
 }
 body[data-game-id="game-16"] .sidescroll-depth-key{
@@ -10761,6 +10764,7 @@ body[data-game-id="game-16"] .sidescroll-stage-actions{
   flex:0 0 auto;
 }
 body[data-game-id="game-16"] .sidescroll-stage-actions .sidescroll-depth-button,
+body[data-game-id="game-16"] .sidescroll-stage-actions .sidescroll-collision-view-button,
 body[data-game-id="game-16"] .sidescroll-edit-button{
   min-height:36px;
   padding:0 9px;
@@ -10774,7 +10778,8 @@ body[data-game-id="game-16"] .sidescroll-edit-button{
   font-weight:900;
   letter-spacing:.04em;
 }
-body[data-game-id="game-16"] .sidescroll-edit-button[aria-pressed="true"]{
+body[data-game-id="game-16"] .sidescroll-edit-button[aria-pressed="true"],
+body[data-game-id="game-16"] .sidescroll-collision-view-button[aria-pressed="true"]{
   background:rgba(111,143,137,.82);
   border-color:rgba(234,245,242,.62);
   color:white;
@@ -11125,6 +11130,7 @@ body[data-game-id="game-16"] .sidescroll-stage-hud{
 }
 body[data-game-id="game-16"] .sidescroll-status{max-width:min(52vw,430px);padding:7px 9px;font-size:8px;opacity:.84;}
 body[data-game-id="game-16"] .sidescroll-stage-actions .sidescroll-depth-button,
+body[data-game-id="game-16"] .sidescroll-stage-actions .sidescroll-collision-view-button,
 body[data-game-id="game-16"] .sidescroll-edit-button{min-height:32px;padding:0 8px;font-size:8px;border-radius:10px;}
 body[data-game-id="game-16"] .sidescroll-depth-key{top:48px;right:max(10px,env(safe-area-inset-right));}
 
@@ -12227,7 +12233,7 @@ body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor small{
   color:rgba(232,240,238,.58);font-size:9px;line-height:1.28;
 }
 
-/* SideScroll v0.2.24 — reusable asset behaviour setup. */
+/* SideScroll v0.2.25 — stacking placement + global collision viewer. */
 body[data-game-id="game-16"] .sidescroll-editor-assets[hidden],
 body[data-game-id="game-16"] .sidescroll-asset-setup[hidden]{
   display:none!important;

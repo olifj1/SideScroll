@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.24: stone asset pack + reusable asset behaviour setup foundation.
+  // SideScroll v0.2.25: consistent stacking, forward placement assist, and global collision view.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -11,6 +11,7 @@
   const statusEl = document.getElementById('sidescroll-status');
   const hintEl = document.getElementById('sidescroll-hint');
   const debugBtn = document.getElementById('sidescroll-depth');
+  const collisionViewBtn = document.getElementById('sidescroll-collision-view');
   const depthKey = document.getElementById('sidescroll-depth-key');
   const driveControl = document.getElementById('sidescroll-drive');
   const driveThumb = document.getElementById('sidescroll-drive-thumb');
@@ -865,6 +866,14 @@
 
   const CRATE_HALF_WIDTH_FACTOR = 0.43;
   const CRATE_COLLISION_HEIGHT_FACTOR = 0.96;
+  // Stackable props share one authored gameplay height. Their artwork can vary,
+  // but stacking/carry placement always reasons about the same vertical step.
+  const STACK_ITEM_HEIGHT = 0.48;
+  const STACK_SEARCH_RADIUS = 2.00;
+  const STACK_COLUMN_ALIGN_TOLERANCE = 0.42;
+  const STACK_ASSIST_SPEED = 0.92;
+  const STACK_ASSIST_MAX = 0.78;
+  const STACK_ASSIST_ROOT_GAP = 0.92;
   // The painted boots extend up to ~0.087 rig units below their ankle/toe baseline in
   // the v4 atlas.  Raise only the rendered rig by that amount so the visible
   // soles, not the internal bone line, sit on the playable floor.
@@ -1036,7 +1045,7 @@
     if (!collision && behaviourNeedsCollision(behaviour)) {
       collision = {
         halfWidth: Math.max(0.18, width * CRATE_HALF_WIDTH_FACTOR),
-        height: Math.max(0.24, height * CRATE_COLLISION_HEIGHT_FACTOR),
+        height: behaviour.stackable ? STACK_ITEM_HEIGHT : Math.max(0.24, height * CRATE_COLLISION_HEIGHT_FACTOR),
         depth: Math.max(0.46, Math.min(1.08, width * 0.42)),
         platform: !!behaviour.supportSurface,
         points: defaultCollisionPoints(),
@@ -2078,6 +2087,7 @@
 
   let projection = mat4Identity();
   let debugDepth = false;
+  let collisionDebugView = false;
   let driveAxis = 0;
   let drivePointer = null;
   let keyLeft = false;
@@ -2110,12 +2120,14 @@
   // short authored transitions around that same pose.
   let carriedObject = null;
   let interactionState = null; // { type:'pickup'|'drop', time, duration, object, startX, startY, targetX, targetY }
-  let autoDropStep = null; // collision-safe backward shuffle while making room for a blocked drop
+  let autoDropStep = null; // short authored forward stack assist or backward ground-drop shuffle
   const ACTION_RANGE = 0.72; // distance from the character capsule to the near edge of a carryable prop
   const PICKUP_DURATION = 0.48;
   const DROP_DURATION = 0.44;
   const CARRY_FORWARD = 0.48;
-  const CARRY_BOTTOM = 0.58;
+  // One predictable carry height for every stackable item. This clears one
+  // standard stack layer while keeping the prop comfortably in the arms.
+  const CARRY_BOTTOM = 0.64;
   const AUTO_DROP_SHUFFLE_SPEED = 0.72;
   const AUTO_DROP_SHUFFLE_MAX = 2.40; // safety cap; normal failure is collision/ledge blocking
   // Gameplay props live on z=0. Keep the character rig only a few centimetres
@@ -3392,6 +3404,7 @@
     const gameplayCollision = info.collision
       ? cloneCollision(info.collision)
       : behaviourCollisionFor(type, w, h, null);
+    if (gameplayCollision && behaviour.stackable) gameplayCollision.height = STACK_ITEM_HEIGHT;
     const defaultGameLayerLocked = typeof info.gameplayLayerLocked === 'boolean' ? info.gameplayLayerLocked : info.category === 'gameplay';
     const placementZ = info.category === 'gameplay' && defaultGameLayerLocked ? pathZ : point.z;
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
@@ -3441,7 +3454,9 @@
     selectedObject.sx *= ratio;
     if (selectedObject.collision) {
       selectedObject.collision.halfWidth *= ratio;
-      selectedObject.collision.height *= ratio;
+      selectedObject.collision.height = isGameplayCrate(selectedObject)
+        ? STACK_ITEM_HEIGHT
+        : selectedObject.collision.height * ratio;
     }
     selectedObject.y = selectedObject.category === 'gameplay'
       ? restYForGameplayObject(selectedObject)
@@ -3549,7 +3564,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.24" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.25" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -3649,19 +3664,122 @@
     ctx.restore();
   }
 
+  function projectWorldPolygon(points, z = pathZ) {
+    return points.map(point => projectWorldPoint(point.x, point.y, z)).filter(Boolean);
+  }
+
+  function drawCollisionDebugOverlay(ctx) {
+    ctx.save();
+    for (const obj of collisionObjects()) {
+      const poly = collisionScreenPolygon(obj);
+      if (poly.length < 3) continue;
+      ctx.fillStyle = obj.collision?.platform ? 'rgba(235,173,86,.13)' : 'rgba(226,112,92,.10)';
+      ctx.strokeStyle = obj.collision?.platform ? 'rgba(239,184,102,.92)' : 'rgba(233,118,101,.88)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash(obj.collision?.platform ? [] : [5,3]);
+      ctx.beginPath();
+      ctx.moveTo(poly[0].x, poly[0].y);
+      for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    const rootX = camera.x + character.screenOffsetX;
+    const capsule = colliderWorld();
+    const centreX = rootX + capsule.offsetX;
+    const baseY = playSurfaceYAt(rootX) + Math.max(0, jumpOffset) + capsule.bottom;
+    const radius = Math.min(capsule.radius, capsule.height * 0.5);
+    const capsulePts = [];
+    const bottomCentre = baseY + radius;
+    const topCentre = baseY + capsule.height - radius;
+    for (let i = 0; i <= 10; i += 1) {
+      const a = Math.PI + (Math.PI * i / 10);
+      capsulePts.push({ x: centreX + Math.cos(a) * radius, y: bottomCentre + Math.sin(a) * radius });
+    }
+    for (let i = 0; i <= 10; i += 1) {
+      const a = Math.PI * i / 10;
+      capsulePts.push({ x: centreX + Math.cos(a) * radius, y: topCentre + Math.sin(a) * radius });
+    }
+    const capsuleScreen = projectWorldPolygon(capsulePts, pathZ);
+    if (capsuleScreen.length >= 3) {
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(90,205,215,.10)';
+      ctx.strokeStyle = 'rgba(108,224,231,.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(capsuleScreen[0].x, capsuleScreen[0].y);
+      for (let i = 1; i < capsuleScreen.length; i += 1) ctx.lineTo(capsuleScreen[i].x, capsuleScreen[i].y);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    if (carriedObject) {
+      const rect = carriedCollisionRectAtRoot(rootX, jumpOffset, character.lastFacing >= 0 ? 1 : -1, carriedObject);
+      const rectPoly = rect ? projectWorldPolygon([
+        {x:rect.minX,y:rect.minY},{x:rect.maxX,y:rect.minY},
+        {x:rect.maxX,y:rect.maxY},{x:rect.minX,y:rect.maxY}
+      ], carriedObject.gameplayLayerLocked === false ? carriedObject.z : pathZ) : [];
+      if (rectPoly.length === 4) {
+        ctx.fillStyle = 'rgba(90,142,235,.12)';
+        ctx.strokeStyle = 'rgba(112,166,255,.98)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();ctx.moveTo(rectPoly[0].x,rectPoly[0].y);
+        for (let i=1;i<rectPoly.length;i+=1) ctx.lineTo(rectPoly[i].x,rectPoly[i].y);
+        ctx.closePath();ctx.fill();ctx.stroke();
+      }
+
+      const facing = character.lastFacing >= 0 ? 1 : -1;
+      const searchEndX = rootX + facing * STACK_SEARCH_RADIUS;
+      const searchY = playSurfaceYAt(rootX) + 0.16;
+      const a = projectWorldPoint(rootX, searchY, pathZ);
+      const b = projectWorldPoint(searchEndX, playSurfaceYAt(searchEndX) + 0.16, pathZ);
+      if (a && b) {
+        ctx.strokeStyle = 'rgba(211,135,242,.95)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7,5]);
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      }
+      const target = dropTargetForCarried(rootX);
+      if (target?.stack) {
+        const p = projectWorldPoint(target.x, target.y + 0.06, target.z);
+        if (p) {
+          ctx.setLineDash([]);
+          ctx.strokeStyle = target.valid ? 'rgba(116,224,151,.98)' : 'rgba(245,112,112,.98)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();ctx.arc(p.x,p.y,9,0,Math.PI*2);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(p.x-13,p.y);ctx.lineTo(p.x+13,p.y);ctx.moveTo(p.x,p.y-13);ctx.lineTo(p.x,p.y+13);ctx.stroke();
+        }
+      }
+    }
+
+    ctx.setLineDash([]);
+    ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+    const label = `COLLISION · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · search ${STACK_SEARCH_RADIUS.toFixed(2)}`;
+    const tw = ctx.measureText(label).width + 16;
+    const x = Math.max(8, (ctx.canvas.clientWidth - tw) * 0.5);
+    const y = 48;
+    ctx.fillStyle = 'rgba(18,27,31,.78)';
+    ctx.fillRect(x, y, tw, 22);
+    ctx.fillStyle = 'rgba(240,246,245,.96)';
+    ctx.fillText(label, x + 8, y + 15);
+    ctx.restore();
+  }
+
   function drawEditorOverlay() {
     if (!editorOverlayCtx || !editorOverlay) return;
     const ctx = editorOverlayCtx;
     const w = editorOverlay.clientWidth;
     const h = editorOverlay.clientHeight;
     ctx.clearRect(0, 0, w, h);
+    if (collisionDebugView) drawCollisionDebugOverlay(ctx);
     if (!editMode) return;
     drawPuzzleEditorGuides(ctx);
 
     // Show authored gameplay collision even when the object itself is partly
-    // hidden by foreground dressing. This makes logs/rocks much easier to
-    // find and tune in edit mode.
-    for (const obj of collisionObjects()) {
+    // hidden by foreground dressing. The global collision viewer already draws
+    // every collider, so this lighter editor pass is only needed when it is off.
+    if (!collisionDebugView) for (const obj of collisionObjects()) {
       if (!editorObjectIsEditable(obj)) continue;
       if (obj === selectedObject) continue;
       const poly = collisionScreenPolygon(obj);
@@ -3912,6 +4030,7 @@
   }
 
   function crateHeight(obj) {
+    if (isGameplayCrate(obj)) return STACK_ITEM_HEIGHT;
     return obj?.collision?.height ?? Math.max(0.24, (obj?.sy || 0.88) * CRATE_COLLISION_HEIGHT_FACTOR);
   }
 
@@ -4049,9 +4168,9 @@
     const settled = [];
     for (const crate of crates) {
       if (crate.gameplayLayerLocked) crate.z = pathZ;
-      if (crate.collision && (crate.collision.behaviourGenerated || crate.gameplayType === 'crate')) {
+      if (crate.collision && (crate.collision.behaviourGenerated || crate.gameplayType === 'crate' || objectHasBehaviour(crate, 'stackable'))) {
         crate.collision.halfWidth = Math.max(0.12, crate.sx * CRATE_HALF_WIDTH_FACTOR);
-        crate.collision.height = Math.max(0.18, crate.sy * CRATE_COLLISION_HEIGHT_FACTOR);
+        crate.collision.height = STACK_ITEM_HEIGHT;
       }
       if (crate.collision) crate.collision.platform = !!assetBehaviours(crate.assetName).supportSurface || crate.gameplayType === 'crate';
       crate.y = restYForGameplayObject(crate, crate.x, settled);
@@ -4480,27 +4599,69 @@
     hintEl.classList.remove('hidden');
   }
 
+  function stackBottomFor(candidate, aroundX) {
+    if (!isGameplayCrate(candidate)) return candidate;
+    let current = candidate;
+    let guard = 0;
+    while (guard++ < 12) {
+      const currentX = objectXNear(current, aroundX);
+      let lower = null;
+      let lowerTop = -Infinity;
+      for (const other of allSceneObjects()) {
+        if (other === current || !isGameplayCrate(other)) continue;
+        const ox = objectXNear(other, currentX);
+        if (Math.abs(ox - currentX) > STACK_COLUMN_ALIGN_TOLERANCE) continue;
+        if (other.y >= current.y - 0.05) continue;
+        const top = other.y + crateHeight(other);
+        if (Math.abs(top - current.y) > 0.16) continue;
+        if (top > lowerTop) { lower = other; lowerTop = top; }
+      }
+      if (!lower) break;
+      current = lower;
+    }
+    return current;
+  }
+
+  function stackTargetNear(rootX, facing) {
+    if (!carriedObject || !isGameplayCrate(carriedObject)) return null;
+    const intentX = rootX + facing * 0.92;
+    let best = null;
+    let bestScore = Infinity;
+    const seenAnchors = new Set();
+    for (const other of allSceneObjects()) {
+      if (other === carriedObject || !isGameplayCrate(other)) continue;
+      const ox = objectXNear(other, rootX);
+      const forward = (ox - rootX) * facing;
+      if (forward < 0.08 || forward > STACK_SEARCH_RADIUS) continue;
+      const anchor = stackBottomFor(other, rootX);
+      const anchorX = objectXNear(anchor, rootX);
+      const anchorKey = `${anchor.id || anchor.assetName}:${anchorX.toFixed(3)}`;
+      if (seenAnchors.has(anchorKey)) continue;
+      seenAnchors.add(anchorKey);
+      const score = Math.abs(anchorX - intentX);
+      if (score < bestScore) {
+        bestScore = score;
+        best = { anchor, x: anchorX, forward: (anchorX - rootX) * facing };
+      }
+    }
+    return best;
+  }
+
   function dropTargetForCarried(rootX = character.x) {
     const facing = character.lastFacing >= 0 ? 1 : -1;
     let x = rootX + facing * 0.92;
     const z = carriedObject?.gameplayLayerLocked === false ? carriedObject.z : pathZ;
 
-    // Forgiving stack snap: when the intended drop is reasonably close to an
-    // existing crate centre, centre it cleanly.  This keeps the puzzle about
-    // arranging objects rather than pixel-perfect thumb placement.
-    if (carriedObject && isGameplayCrate(carriedObject)) {
-      let best=null,bestD=Infinity;
-      for (const other of allSceneObjects()) {
-        if (other===carriedObject || !isGameplayCrate(other)) continue;
-        const ox=objectXNear(other,x);const d=Math.abs(ox-x);
-        if (d<0.58 && d<bestD) {best=other;bestD=d;}
-      }
-      if (best) x=objectXNear(best,x);
-    }
+    // Placement intent is deliberately broader than physical collision. A
+    // stack can therefore be recognised before the held item itself reaches
+    // it, then every layer is centred on the bottom item in that column.
+    const stack = stackTargetNear(rootX, facing);
+    if (stack) x = stack.x;
 
     const temp = carriedObject ? { ...carriedObject, x, z, carried: false } : null;
+    if (temp?.collision && isGameplayCrate(temp)) temp.collision = { ...temp.collision, height: STACK_ITEM_HEIGHT };
     const y = temp ? restYForGameplayObject(temp, x, null, true) : playSurfaceYAt(x);
-    const target = { x, z, y };
+    const target = { x, z, y, stack };
     target.valid = temp ? dropTargetIsClear(temp, target) : true;
     return target;
   }
@@ -4526,10 +4687,25 @@
     hintEl.classList.remove('hidden');
   }
 
+  function startAutoDropStackAssist(target) {
+    if (!carriedObject || autoDropStep || !target?.stack || !target.valid) return false;
+    autoDropStep = {
+      mode: 'stack',
+      facing: character.lastFacing >= 0 ? 1 : -1,
+      target: { ...target },
+      distance: 0
+    };
+    setDriveAxis(0);
+    hintEl.textContent = 'Placing on stack…';
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
   function startAutoDropStepBack() {
     if (!carriedObject || autoDropStep) return false;
     const facing = character.lastFacing >= 0 ? 1 : -1;
     autoDropStep = {
+      mode: 'back',
       facing,
       startCameraX: camera.x,
       distance: 0
@@ -4543,8 +4719,50 @@
   function updateAutoDropShuffle(dt) {
     if (!autoDropStep || !carriedObject) return;
 
-    // As soon as the current position gives the carried object a valid landing
-    // spot, stop retreating and place it automatically.
+    if (autoDropStep.mode === 'stack') {
+      const facing = autoDropStep.facing;
+      const target = autoDropStep.target;
+      const rootX = camera.x + character.screenOffsetX;
+      const forwardGap = (target.x - rootX) * facing;
+      if (forwardGap <= STACK_ASSIST_ROOT_GAP + 0.02 || autoDropStep.distance >= STACK_ASSIST_MAX) {
+        autoDropStep = null;
+        beginDropAtTarget(target);
+        return;
+      }
+
+      const step = Math.min(0.06, STACK_ASSIST_SPEED * dt, Math.max(0, forwardGap - STACK_ASSIST_ROOT_GAP));
+      const desiredCameraX = camera.x + facing * step;
+      // During this authored placement step the character body still obeys
+      // normal collision. The held prop is allowed to move into the chosen
+      // stack column because ACTION has already committed to that placement.
+      const bodySafeX = resolveObstacleMove(camera.x, desiredCameraX, jumpOffset, false);
+      const moved = Math.abs(bodySafeX - camera.x);
+      if (moved < 0.004) {
+        autoDropStep = null;
+        beginDropAtTarget(target);
+        return;
+      }
+
+      const capsule = colliderWorld();
+      const candidateRootX = bodySafeX + character.screenOffsetX;
+      const candidateSupport = walkableSupportAt(
+        candidateRootX + capsule.offsetX,
+        jumpOffset + capsule.stepUp,
+        facing
+      );
+      if (!candidateSupport || candidateSupport.offset < jumpOffset - capsule.stepDown) {
+        autoDropStep = null;
+        beginDropAtTarget(target);
+        return;
+      }
+
+      camera.x = bodySafeX;
+      autoDropStep.distance += moved;
+      return;
+    }
+
+    // Ground placement fallback: as soon as backing up exposes a clear landing
+    // spot, stop retreating and put the item down there.
     const rootX = camera.x + character.screenOffsetX;
     const target = dropTargetForCarried(rootX);
     if (target.valid) {
@@ -4560,15 +4778,11 @@
     const combinedSafeX = resolveCarriedObjectMove(camera.x, bodySafeX, jumpOffset);
     const moved = Math.abs(combinedSafeX - camera.x);
 
-    // If normal body/carried collision prevents even a tiny retreat, there is
-    // genuinely nowhere for the character to make room.
     if (moved < 0.004) {
       failAutoDropShuffle();
       return;
     }
 
-    // Do not make the convenience shuffle walk the player off a meaningful
-    // drop. Ordinary slopes and small steps remain valid ground.
     const capsule = colliderWorld();
     const candidateRootX = combinedSafeX + character.screenOffsetX;
     const candidateSupport = walkableSupportAt(
@@ -4583,18 +4797,20 @@
 
     camera.x = combinedSafeX;
     autoDropStep.distance += moved;
-
-    // This should only ever be a fail-safe against malformed geometry: in
-    // normal play the shuffle ends because a drop becomes valid or movement is
-    // physically blocked.
-    if (autoDropStep.distance >= AUTO_DROP_SHUFFLE_MAX) {
-      failAutoDropShuffle();
-    }
+    if (autoDropStep.distance >= AUTO_DROP_SHUFFLE_MAX) failAutoDropShuffle();
   }
 
   function startDrop() {
     if (!carriedObject || interactionState || autoDropStep || jumping) return;
-    const target = dropTargetForCarried();
+    const rootX = camera.x + character.screenOffsetX;
+    const target = dropTargetForCarried(rootX);
+    if (target.valid && target.stack) {
+      const facing = character.lastFacing >= 0 ? 1 : -1;
+      const forwardGap = (target.x - rootX) * facing;
+      if (forwardGap > STACK_ASSIST_ROOT_GAP + 0.05 && startAutoDropStackAssist(target)) return;
+      beginDropAtTarget(target);
+      return;
+    }
     if (!target.valid) {
       if (!startAutoDropStepBack()) {
         hintEl.textContent = 'No room to put that down';
@@ -4899,6 +5115,13 @@
     debugBtn.setAttribute('aria-pressed', String(debugDepth));
     debugBtn.textContent = debugDepth ? 'Normal view' : 'Depth view';
     depthKey.hidden = !debugDepth;
+    hideHint();
+  });
+
+  collisionViewBtn?.addEventListener('click', () => {
+    collisionDebugView = !collisionDebugView;
+    collisionViewBtn.setAttribute('aria-pressed', String(collisionDebugView));
+    collisionViewBtn.textContent = collisionDebugView ? 'Hide collision' : 'Collision';
     hideHint();
   });
 

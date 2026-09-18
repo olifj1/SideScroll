@@ -1,11 +1,11 @@
-# SideScroll v0.2.24
+# SideScroll v0.2.25
 
-This drop adds the new stone-wall puzzle art as reusable assets only; it does not place them in the scene or create a puzzle template.
+This drop tightens carry/stack placement and adds a global collision debug view.
 
-It also begins the reusable asset setup system. Puzzle assets now have a **Setup** control in the asset browser with persistent behaviour tags for Solid, Carryable, Placeable, Support Surface, Stackable, Socket Host and Socket Piece. Carryable/support/stacking tags already feed the existing interaction and collision systems; socket tags are stored ready for the next socket-authoring pass.
-
-New assets:
-- stone-wall.png
-- stone-piece-a.png
-- stone-piece-b.png
-- stone-piece-c.png
+Changes in this version:
+- Stackable gameplay props now use one consistent 0.48 world-unit collision/stack height.
+- Carried stackables use one consistent carry height.
+- Put Down searches farther ahead for a stack, then aligns the item to the centre of the bottom object in that stack.
+- When a valid stack is detected just beyond normal carrying collision, the character takes a short forward placement step before setting the item down. Ordinary walking collision is unchanged.
+- Ground placement still uses the existing backward make-room fallback when there is genuinely no clear landing spot.
+- New Collision button overlays all object colliders, the player capsule, the carried-object collider, the stack-search range and the current stack target. It works in both Play and Edit mode.
