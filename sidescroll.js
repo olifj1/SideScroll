@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.44: robust top-of-stack pickup targeting.
+  // SideScroll v0.2.45: robust top-of-stack pickup targeting.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.44', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.45', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1022,7 +1022,9 @@
   const CRATE_COLLISION_HEIGHT_FACTOR = 0.96;
   // Stackable props share one authored gameplay height. Their artwork can vary,
   // but stacking/carry placement always reasons about the same vertical step.
-  const STACK_ITEM_HEIGHT = 0.48;
+  // v0.2.45: raised from 0.48 so the physical stack block better matches the
+  // visible log artwork instead of allowing neighbouring logs to intersect.
+  const STACK_ITEM_HEIGHT = 0.68;
   const STACK_SEARCH_RADIUS = 2.00;
   const STACK_COLUMN_ALIGN_TOLERANCE = 0.42;
   const EDITOR_STACK_SNAP_RADIUS = 0.46;
@@ -1886,7 +1888,7 @@
     const sourcedCount = Number(current.sources?.[instance.id]) || 0;
     if (sourcedCount > 0) return removeInventoryItem(itemId, 1, instance.id);
 
-    // v0.2.44 migration path: older builds stored only a total count, so a
+    // v0.2.45 migration path: older builds stored only a total count, so a
     // reward collected before source tracking cannot be tied back to its puzzle.
     // When explicitly resetting that puzzle, remove one matching legacy reward.
     if (allowLegacyFallback) return removeInventoryItem(itemId, 1);
@@ -3724,7 +3726,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.44',
+      appVersion:'0.2.45',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3743,7 +3745,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.44', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.45', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3833,7 +3835,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.44',
+      appVersion:'0.2.45',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{

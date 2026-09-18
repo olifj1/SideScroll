@@ -1,6 +1,6 @@
-# SideScroll v0.2.44
+# SideScroll v0.2.45
 
-- Baked the supplied complete game-design export into the main build.
-- Fresh installs use the exported environment edits, puzzle placements/setups, asset behaviour settings, collectable settings, and camera tuning as their defaults.
-- Existing editor localStorage still takes priority so an upgrade does not overwrite newer work on that device.
-- The compact baked authoring data lives in `baked-game-design.js`; deterministic procedural scenery is regenerated and the authored edits are applied over it.
+- Increased the shared stack block height from 0.48 to 0.68 world units.
+- Stacked logs now sit visibly farther apart and better match the height of the log artwork.
+- The larger stack step is used consistently by gameplay collision, stack detection, placement previews, editor snapping, and restored puzzle stacks.
+- Carry height is unchanged for now, since there is still sufficient clearance under the held log.
