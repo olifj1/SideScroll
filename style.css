@@ -11081,7 +11081,7 @@ body.ss-home{
 .ss-home-kicker{margin:0 0 8px;font-size:10px;font-weight:900;letter-spacing:.18em;color:#a9bdb7;}
 .ss-home-header h1{margin:0;font-size:clamp(42px,7vw,74px);line-height:.92;letter-spacing:-.045em;}
 .ss-home-header p:last-child{margin:15px 0 0;max-width:320px;font-size:13px;line-height:1.5;color:rgba(238,243,241,.66);}
-.ss-launch-grid{display:grid;grid-template-columns:1.25fr .9fr;gap:12px;min-width:0;}
+.ss-launch-grid{display:grid;grid-template-columns:1.15fr 1fr .9fr;gap:10px;min-width:0;}
 .ss-launch-card{
   min-width:0;min-height:178px;padding:20px;border:1px solid rgba(238,243,241,.18);border-radius:22px;
   display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:1fr;align-items:end;gap:13px;
@@ -12642,3 +12642,11 @@ body[data-game-id="game-16"] .sidescroll-collectible-field b{font-size:9px;font-
 body[data-game-id="game-16"] .sidescroll-collectible-card .sidescroll-editor-asset{pointer-events:none;}
 body[data-game-id="game-16"] .sidescroll-collectible-card .sidescroll-inventory-thumb{width:64px;height:64px;margin:0 auto 7px;}
 @media(max-width:760px){body[data-game-id="game-16"] .sidescroll-quick-nav-panel{right:12px;top:72px;width:min(280px,calc(100vw - 24px));}}
+
+/* v0.2.35 player/save and inherited asset collision controls */
+body[data-game-id="game-16"] .sidescroll-delete-save-button{
+  border-color:rgba(236,167,151,.34);color:#f3d2c9;background:rgba(105,45,38,.22);
+}
+body[data-game-id="game-16"].sidescroll-player-mode .sidescroll-depth-key,
+body[data-game-id="game-16"].sidescroll-player-mode .sidescroll-editor-overlay{pointer-events:none;}
+@media(max-width:760px){.ss-launch-grid{grid-template-columns:1fr 1fr 1fr;gap:8px}.ss-launch-card{padding:14px;min-height:145px}.ss-launch-copy strong{font-size:18px}.ss-launch-mark{width:38px;height:38px}}

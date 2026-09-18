@@ -1,3 +1,3 @@
-# SideScroll v0.2.34
+# SideScroll v0.2.35
 
-Camera editor now has three paired controls: height, depth, and forward/back tilt. Camera tilt is saved with the existing camera tuning.
+Adds inherited asset collision defaults with explicit per-instance overrides, plus a separate player-facing Play Game path with its own puzzle/inventory/position save and a one-tap Delete Save control.

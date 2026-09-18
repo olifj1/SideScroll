@@ -1,7 +1,13 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.34: camera height, depth and tilt editing.
+  // SideScroll v0.2.35: inherited asset collision defaults + dedicated player save path.
+
+  const queryParams = new URLSearchParams(window.location.search);
+  const PLAYER_MODE = queryParams.get('mode') === 'player';
+  const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
+  const PLAYER_PUZZLE_STATE_STORAGE_KEY = 'sidescroll.player.puzzle-state.v1';
+  const PLAYER_INVENTORY_STORAGE_KEY = 'sidescroll.player.inventory.v1';
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -40,6 +46,7 @@
   const actionBtn = document.getElementById('sidescroll-action');
   const actionLabel = document.getElementById('sidescroll-action-label');
   const editBtn = document.getElementById('sidescroll-edit');
+  const deleteSaveBtn = document.getElementById('sidescroll-delete-save');
   const playControls = document.getElementById('sidescroll-play-controls');
   const editorControls = document.getElementById('sidescroll-editor-controls');
   const editorOverlay = document.getElementById('sidescroll-editor-overlay');
@@ -118,6 +125,8 @@
   const editorGameLayerBtn = document.getElementById('sidescroll-editor-game-layer');
   const editorCollisionBtn = document.getElementById('sidescroll-editor-collision');
   const editorCollisionRemoveBtn = document.getElementById('sidescroll-editor-collision-remove');
+  const editorCollisionSaveAssetBtn = document.getElementById('sidescroll-editor-collision-save-asset');
+  const editorCollisionUseAssetBtn = document.getElementById('sidescroll-editor-collision-use-asset');
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
@@ -1002,6 +1011,7 @@
 
   const SCENE_STORAGE_KEY = 'sidescroll.scene.v1';
   const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
+  const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
   const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
     solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, socketHost:false, socketPiece:false
@@ -1036,6 +1046,50 @@
       return parsed && typeof parsed === 'object' ? parsed : {};
     } catch (_) { return {}; }
   })();
+
+  let assetCollisionDefaults = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(ASSET_COLLISION_STORAGE_KEY) || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  })();
+
+  function saveAssetCollisionDefaults() {
+    try { localStorage.setItem(ASSET_COLLISION_STORAGE_KEY, JSON.stringify(assetCollisionDefaults)); } catch (_) {}
+  }
+
+  function objectIsStackAssetName(assetName) {
+    return !!assetBehaviours(assetName)?.stackable;
+  }
+
+  function normalizeAssetCollision(collision, sx, sy, assetName) {
+    if (!collision) return null;
+    const safeSx = Math.max(0.001, Math.abs(Number(sx) || 1));
+    const safeSy = Math.max(0.001, Math.abs(Number(sy) || 1));
+    return {
+      halfWidthRatio: Math.max(0.01, Number(collision.halfWidth) || 0.01) / safeSx,
+      heightRatio: objectIsStackAssetName(assetName) ? null : Math.max(0.01, Number(collision.height) || 0.01) / safeSy,
+      fixedHeight: objectIsStackAssetName(assetName) ? STACK_ITEM_HEIGHT : null,
+      depthRatio: Math.max(0.01, Number(collision.depth) || 0.01) / safeSx,
+      points: normalisedCollisionPoints(collision).map(point => ({ x:Number(point.x)||0, y:Number(point.y)||0 }))
+    };
+  }
+
+  function collisionFromAssetDefault(assetName, sx, sy) {
+    const def = assetCollisionDefaults[assetName];
+    if (!def) return null;
+    const width = Math.max(0.001, Math.abs(Number(sx) || 1));
+    const height = Math.max(0.001, Math.abs(Number(sy) || 1));
+    return {
+      halfWidth: Math.max(0.01, (Number(def.halfWidthRatio) || 0.4) * width),
+      height: Number.isFinite(def.fixedHeight) ? Number(def.fixedHeight) : Math.max(0.01, (Number(def.heightRatio) || 0.6) * height),
+      depth: Math.max(0.01, (Number(def.depthRatio) || 0.4) * width),
+      platform: !!assetBehaviours(assetName).supportSurface,
+      points: Array.isArray(def.points) && def.points.length >= 3 ? def.points.map(point => ({...point})) : defaultCollisionPoints(),
+      behaviourGenerated: false,
+      assetInherited: true
+    };
+  }
 
   function hasAssetBehaviourProfile(assetName) {
     return Object.prototype.hasOwnProperty.call(ASSET_BEHAVIOUR_DEFAULTS, assetName) || Object.prototype.hasOwnProperty.call(assetBehaviourOverrides, assetName);
@@ -1117,6 +1171,8 @@
 
   function behaviourCollisionFor(assetName, width, height, existing = null) {
     const behaviour = assetBehaviours(assetName);
+    const inherited = collisionFromAssetDefault(assetName, width, height);
+    if (inherited) return inherited;
     if (!hasAssetBehaviourProfile(assetName)) return cloneCollision(existing);
     let collision = cloneCollision(existing);
     if (!collision && behaviourNeedsCollision(behaviour)) {
@@ -1163,7 +1219,10 @@
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
       layer: opts.layer || classifyLayer(z),
       wrap: opts.wrap !== false,
-      collision: category === 'gameplay' ? behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision) : cloneCollision(opts.collision),
+      collision: category === 'gameplay'
+        ? (opts.collisionOverride ? cloneCollision(opts.collision) : behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision))
+        : cloneCollision(opts.collision),
+      collisionOverride: !!opts.collisionOverride,
       shadow: opts.shadow ? { ...opts.shadow } : null,
       deleted: !!opts.deleted,
       carried: false,
@@ -1400,11 +1459,11 @@
   // -------------------------------------------------------------------------
   // PUZZLE GROUP RUNTIME
   // -------------------------------------------------------------------------
-  const PUZZLE_STATE_STORAGE_KEY = 'sidescroll.puzzle-groups.state.v1';
+  const PUZZLE_STATE_STORAGE_KEY = PLAYER_MODE ? PLAYER_PUZZLE_STATE_STORAGE_KEY : 'sidescroll.puzzle-groups.state.v1';
   const PUZZLE_START_STORAGE_KEY = 'sidescroll.puzzle-groups.starts.v1';
   const PUZZLE_LIBRARY_STORAGE_KEY = 'sidescroll.puzzle-groups.library.v1';
   const PUZZLE_WORKSHOP_STORAGE_KEY = 'sidescroll.puzzle-groups.workshop.v1';
-  const INVENTORY_STORAGE_KEY = 'sidescroll.inventory.v1';
+  const INVENTORY_STORAGE_KEY = PLAYER_MODE ? PLAYER_INVENTORY_STORAGE_KEY : 'sidescroll.inventory.v1';
   const INVENTORY_ITEM_DEFS = {
     'forest-key': {
       id:'forest-key',
@@ -1573,6 +1632,7 @@
   }
 
   function savePuzzleState() {
+    if (PLAYER_MODE) savePlayerPosition(true);
     // Test runs are disposable.  They may mutate the in-memory state, but the
     // authored start remains the durable source of truth for Reset/Test.
     if (puzzleTestMode) return;
@@ -1662,6 +1722,7 @@
   }
 
   function saveInventory() {
+    if (PLAYER_MODE) savePlayerPosition(true);
     if (puzzleTestMode) return;
     try { localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(inventoryState)); } catch (_) {}
   }
@@ -1791,7 +1852,7 @@
         category: obj.category || 'gameplay',
         gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked,
-        collision: cloneCollision(obj.collision),
+        collision: cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride,
         shadow: obj.shadow ? { ...obj.shadow } : null,
         sockets: Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
         socketedTo: obj.socketedTo ? { ...obj.socketedTo } : null
@@ -1831,7 +1892,7 @@
           category:state.category || prop?.category || 'gameplay',
           gameplayType:state.gameplayType ?? prop?.gameplayType ?? null,
           gameplayLayerLocked:state.gameplayLayerLocked ?? true,
-          collision:cloneCollision(state.collision ?? prop?.collision ?? null),
+          collision:cloneCollision(state.collision ?? prop?.collision ?? null), collisionOverride:!!state.collisionOverride,
           shadow:state.shadow || prop?.shadow || null,
           sockets:Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [],
           socketedTo:(state.socketedTo ?? prop?.socketedTo) ? { ...(state.socketedTo ?? prop?.socketedTo) } : null,
@@ -1853,7 +1914,10 @@
       obj.category = state.category || prop?.category || obj.category || 'gameplay';
       obj.gameplayType = state.gameplayType ?? prop?.gameplayType ?? obj.gameplayType ?? null;
       obj.gameplayLayerLocked = state.gameplayLayerLocked ?? true;
-      obj.collision = cloneCollision(state.collision ?? prop?.collision ?? null);
+      obj.collisionOverride = !!state.collisionOverride;
+      obj.collision = obj.collisionOverride
+        ? cloneCollision(state.collision ?? prop?.collision ?? null)
+        : behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, state.collision ?? prop?.collision ?? null);
       obj.shadow = state.shadow || prop?.shadow || obj.shadow || null;
       obj.sockets = Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [];
       obj.socketedTo = (state.socketedTo ?? prop?.socketedTo) ? { ...(state.socketedTo ?? prop?.socketedTo) } : null;
@@ -1882,7 +1946,7 @@
         asset:obj.assetName,
         x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
         deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
-        gameplayLayerLocked:!!obj.gameplayLayerLocked, collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null,
+        gameplayLayerLocked:!!obj.gameplayLayerLocked, collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
       };
     }
@@ -1924,7 +1988,7 @@
       x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
       deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
-      collision:cloneCollision(obj.collision), shadow:obj.shadow ? { ...obj.shadow } : null,
+      collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
       sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     };
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
@@ -1968,6 +2032,7 @@
         gameplayType:prior?.gameplayType ?? startState?.gameplayType ?? prop?.gameplayType ?? null,
         gameplayLayerLocked:prior?.gameplayLayerLocked ?? startState?.gameplayLayerLocked ?? true,
         collision:cloneCollision(prior?.collision ?? startState?.collision ?? prop?.collision ?? null),
+        collisionOverride:!!(prior?.collisionOverride ?? startState?.collisionOverride ?? false),
         shadow:prior?.shadow || startState?.shadow || prop?.shadow || null,
         sockets:Array.isArray(prior?.sockets ?? startState?.sockets ?? prop?.sockets) ? (prior?.sockets ?? startState?.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [],
         socketedTo:(prior?.socketedTo ?? startState?.socketedTo ?? prop?.socketedTo) ? { ...(prior?.socketedTo ?? startState?.socketedTo ?? prop?.socketedTo) } : null,
@@ -2241,8 +2306,13 @@
     if (typeof override.gameplayLayerLocked === 'boolean') obj.gameplayLayerLocked = override.gameplayLayerLocked;
     else if (obj.category === 'gameplay' && obj.gameplayLayerLocked == null) obj.gameplayLayerLocked = true;
     if (obj.category === 'gameplay' && obj.gameplayLayerLocked) obj.z = pathZ;
-    if (override.collision === null) obj.collision = null;
-    else if (override.collision) obj.collision = cloneCollision(override.collision);
+    obj.collisionOverride = !!override.collisionOverride;
+    if (obj.collisionOverride) {
+      if (override.collision === null) obj.collision = null;
+      else if (override.collision) obj.collision = cloneCollision(override.collision);
+    } else {
+      obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, override.collision);
+    }
     obj.y = Number.isFinite(override.y)
       ? override.y
       : (obj.category === 'gameplay' && obj.gameplayLayerLocked ? playSurfaceYAt(obj.x) : pathGroundYAt(obj.x, obj.z));
@@ -2256,7 +2326,7 @@
       const saved = sceneData.added.find(item => item.id === obj.id);
       const payload = {
         id: obj.id, assetName: obj.assetName, x: obj.x, y: obj.y, z: obj.z,
-        sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null,
+        sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked, deleted: !!obj.deleted
       };
@@ -2265,7 +2335,7 @@
     } else {
       sceneData.overrides[obj.id] = {
         x: obj.x, y: obj.y, z: obj.z, sx: obj.sx, sy: obj.sy, flip: obj.flip,
-        collision: obj.collision ? cloneCollision(obj.collision) : null, category: obj.category || 'dressing',
+        collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride, category: obj.category || 'dressing',
         gameplayType: obj.gameplayType || null, gameplayLayerLocked: !!obj.gameplayLayerLocked, deleted: !!obj.deleted
       };
     }
@@ -2288,7 +2358,7 @@
       const collection = saved.category === 'gameplay' || saved.assetName === 'crate' ? frontOccluders : targetCollectionForZ(saved.z);
       const obj = addObject(collection, saved.assetName, saved.x, saved.z, saved.sx, saved.sy, {
         id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip,
-        y: Number.isFinite(saved.y) ? saved.y : ((saved.category === 'gameplay' || saved.assetName === 'crate') ? playSurfaceYAt(saved.x) : pathGroundYAt(saved.x, saved.z)), collision: cloneCollision(saved.collision), deleted: saved.deleted,
+        y: Number.isFinite(saved.y) ? saved.y : ((saved.category === 'gameplay' || saved.assetName === 'crate') ? playSurfaceYAt(saved.x) : pathGroundYAt(saved.x, saved.z)), collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(saved.z),
         category: saved.category || (saved.assetName === 'crate' ? 'gameplay' : 'dressing'), gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
         gameplayLayerLocked: typeof saved.gameplayLayerLocked === 'boolean' ? saved.gameplayLayerLocked : (saved.category === 'gameplay' || saved.assetName === 'crate')
@@ -2431,6 +2501,31 @@
     }
     playerHintsEnabled = localStorage.getItem(PLAYER_HINT_STORAGE_KEY) !== '0';
   } catch (_) {}
+
+  function restorePlayerPosition() {
+    if (!PLAYER_MODE) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(PLAYER_POSITION_STORAGE_KEY) || 'null');
+      if (!saved || !Number.isFinite(saved.x)) return;
+      camera.x = saved.x - character.screenOffsetX;
+      previousCameraX = camera.x;
+      character.x = saved.x;
+      character.lastFacing = saved.facing === -1 ? -1 : 1;
+      character.y = playSurfaceYAt(character.x);
+      updatePuzzleStreaming(character.x);
+    } catch (_) {}
+  }
+
+  let lastPlayerPositionSave = 0;
+  function savePlayerPosition(force = false) {
+    if (!PLAYER_MODE) return;
+    const now = performance.now();
+    if (!force && now - lastPlayerPositionSave < 1200) return;
+    lastPlayerPositionSave = now;
+    try {
+      localStorage.setItem(PLAYER_POSITION_STORAGE_KEY, JSON.stringify({ x:character.x, facing:character.lastFacing, savedAt:Date.now() }));
+    } catch (_) {}
+  }
 
   function saveCameraTune() {
     try { localStorage.setItem(CAMERA_TUNE_STORAGE_KEY, JSON.stringify({ y:camera.y, z:camera.z, tilt:camera.targetY-camera.y })); } catch (_) {}
@@ -2601,7 +2696,7 @@
     if (assetSetupNoteEl) {
       assetSetupNoteEl.textContent = behaviour.socketHost || behaviour.socketPiece
         ? 'Socket behaviours are active. Select a socket piece in the scene, then use Set Socket to place its matching target on a Socket Host.'
-        : 'These are defaults for every copy of this asset. Changes save automatically.';
+        : `These are defaults for every copy of this asset. Collision: ${assetCollisionDefaults[assetSetupName] ? 'CUSTOM ASSET DEFAULT' : 'BUILT-IN DEFAULT'}. Fit a placed copy, then use SAVE TO ASSET.`;
     }
     if (!assetBehaviorListEl) return;
     assetBehaviorListEl.innerHTML = '';
@@ -2620,12 +2715,49 @@
   function applyAssetBehaviourToObject(obj) {
     if (!obj || obj.category !== 'gameplay' || !hasAssetBehaviourProfile(obj.assetName)) return;
     const behaviour = assetBehaviours(obj.assetName);
-    if (!obj.collision && behaviourNeedsCollision(behaviour)) {
-      obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, null);
+    if (!obj.collisionOverride) {
+      const inherited = collisionFromAssetDefault(obj.assetName, obj.sx, obj.sy);
+      if (inherited) obj.collision = inherited;
+      else if (behaviourNeedsCollision(behaviour)) obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, null);
+      else obj.collision = null;
     } else if (obj.collision) {
       obj.collision.platform = !!behaviour.supportSurface;
-      if (obj.collision.behaviourGenerated && !behaviourNeedsCollision(behaviour)) obj.collision = null;
     }
+  }
+
+  function applyAssetCollisionEverywhere(assetName) {
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.assetName !== assetName || obj.collisionOverride) continue;
+      applyAssetBehaviourToObject(obj);
+      if (obj.category === 'gameplay') obj.y = restYForGameplayObject(obj, obj.x, null, true);
+      recordObjectEdit(obj);
+    }
+    settleGameplayCrates();
+    sortSceneCollections();
+  }
+
+  function saveSelectedCollisionAsAssetDefault() {
+    if (!selectedObject || selectedObject.deleted || !selectedObject.collision) return;
+    const assetName = selectedObject.assetName;
+    assetCollisionDefaults[assetName] = normalizeAssetCollision(selectedObject.collision, selectedObject.sx, selectedObject.sy, assetName);
+    saveAssetCollisionDefaults();
+    selectedObject.collisionOverride = false;
+    applyAssetCollisionEverywhere(assetName);
+    renderAssetSetup();
+    updateEditorButtons();
+    hintEl.textContent = `Asset collision saved · inherited by all ${editorAssetInfo.get(assetName)?.label || assetName} copies without an override`;
+    hintEl.classList.remove('hidden');
+  }
+
+  function useAssetCollisionForSelected() {
+    if (!selectedObject || selectedObject.deleted) return;
+    selectedObject.collisionOverride = false;
+    applyAssetBehaviourToObject(selectedObject);
+    recordObjectEdit(selectedObject);
+    if (selectedObject.category === 'gameplay') settleGameplayCrates();
+    updateEditorButtons();
+    hintEl.textContent = assetCollisionDefaults[selectedObject.assetName] ? 'Using inherited asset collision' : 'Using built-in asset collision';
+    hintEl.classList.remove('hidden');
   }
 
   function applyAssetBehaviourEverywhere(assetName) {
@@ -2656,7 +2788,9 @@
   function resetAssetBehaviours(assetName) {
     if (!assetName) return;
     delete assetBehaviourOverrides[assetName];
+    delete assetCollisionDefaults[assetName];
     saveAssetBehaviourOverrides();
+    saveAssetCollisionDefaults();
     applyAssetBehaviourEverywhere(assetName);
     renderAssetSetup();
     buildAssetPalette();
@@ -3405,7 +3539,7 @@
         category:obj.category || 'gameplay',
         gameplayType:obj.gameplayType || null,
         gameplayLayerLocked:!!obj.gameplayLayerLocked,
-        collision:cloneCollision(obj.collision),
+        collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride,
         shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
         socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
@@ -3443,7 +3577,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.33',
+      appVersion:'0.2.35',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3462,7 +3596,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.33', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.35', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3679,6 +3813,8 @@
       editorCollisionBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
     }
     if (editorCollisionRemoveBtn) editorCollisionRemoveBtn.hidden = !has || !selectedObject?.collision || socketFocus;
+    if (editorCollisionSaveAssetBtn) editorCollisionSaveAssetBtn.hidden = !has || !selectedObject?.collision || socketFocus;
+    if (editorCollisionUseAssetBtn) editorCollisionUseAssetBtn.hidden = !has || !selectedObject?.collisionOverride || socketFocus;
     if (quickNavBtn) quickNavBtn.hidden = !editMode;
     if (editorSocketBtn) {
       editorSocketBtn.hidden = !isSocketPiece || collisionFocus;
@@ -3964,6 +4100,7 @@
   }
 
   function setEditMode(on) {
+    if (PLAYER_MODE && on) return;
     if (on) setInventoryOpen(false);
     if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = true; }
     if (!on && editorPuzzlePackPinned) { releasePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = false; }
@@ -4083,10 +4220,15 @@
     selectedObject.sy = next;
     selectedObject.sx *= ratio;
     if (selectedObject.collision) {
-      selectedObject.collision.halfWidth *= ratio;
-      selectedObject.collision.height = isGameplayCrate(selectedObject)
-        ? STACK_ITEM_HEIGHT
-        : selectedObject.collision.height * ratio;
+      if (!selectedObject.collisionOverride) {
+        selectedObject.collision = behaviourCollisionFor(selectedObject.assetName, selectedObject.sx, selectedObject.sy, null);
+      } else {
+        selectedObject.collision.halfWidth *= ratio;
+        selectedObject.collision.height = isGameplayCrate(selectedObject)
+          ? STACK_ITEM_HEIGHT
+          : selectedObject.collision.height * ratio;
+        selectedObject.collision.depth *= ratio;
+      }
     }
     selectedObject.y = selectedObject.category === 'gameplay'
       ? restYForGameplayObject(selectedObject)
@@ -4099,6 +4241,7 @@
   function removeSelectedCollision() {
     if (!selectedObject || selectedObject.deleted || !selectedObject.collision) return;
     selectedObject.collision = null;
+    selectedObject.collisionOverride = true;
     collisionEditMode = false;
     collisionHandleIndex = -1;
     recordObjectEdit(selectedObject);
@@ -4112,6 +4255,7 @@
   function toggleSelectedCollision() {
     if (!selectedObject || selectedObject.deleted) return;
     if (!selectedObject.collision) {
+      selectedObject.collisionOverride = true;
       selectedObject.collision = {
         halfWidth: Math.max(0.18, selectedObject.sx * (selectedObject.category === 'gameplay' ? 0.43 : 0.34)),
         height: Math.max(0.24, selectedObject.sy * (selectedObject.category === 'gameplay' ? CRATE_COLLISION_HEIGHT_FACTOR : 0.66)),
@@ -4124,6 +4268,7 @@
       hintEl.textContent = 'Collision added · drag the orange corner handles to fit the shape';
       hintEl.classList.remove('hidden');
     } else {
+      selectedObject.collisionOverride = true;
       selectedObject.collision.points = normalisedCollisionPoints(selectedObject.collision).map(point => ({ ...point }));
       collisionEditMode = !collisionEditMode;
       hintEl.textContent = collisionEditMode
@@ -5962,6 +6107,7 @@
 
     character.x = camera.x + character.screenOffsetX;
     character.y = playSurfaceYAt(character.x) + jumpOffset;
+    savePlayerPosition(false);
     updatePuzzleStreaming(character.x);
     checkPuzzleCompletion(character.x);
     updatePuzzleRewards(now);
@@ -5999,9 +6145,11 @@
     } else {
       const puzzle = activePuzzleNear(character.x);
       const puzzleLabel = puzzle ? ` · ${puzzle.def.label}${puzzle.solved ? ' ✓' : ''}` : '';
-      statusEl.textContent = debugDepth
-        ? `Depth view · camera X ${camera.x.toFixed(1)} · raised path geometry${puzzleLabel}`
-        : `3D forest · ${motionLabel} · camera X ${camera.x.toFixed(1)}${puzzleLabel}`;
+      statusEl.textContent = PLAYER_MODE
+        ? `Woodland adventure · ${motionLabel}${puzzleLabel}`
+        : (debugDepth
+          ? `Depth view · camera X ${camera.x.toFixed(1)} · raised path geometry${puzzleLabel}`
+          : `3D forest · ${motionLabel} · camera X ${camera.x.toFixed(1)}${puzzleLabel}`);
     }
 
     updateActionUI();
@@ -6113,6 +6261,15 @@
   bindEditorPress(inventoryBtn, () => setInventoryOpen(!inventoryOpen));
   bindEditorPress(inventoryCloseBtn, () => setInventoryOpen(false));
 
+  bindEditorPress(deleteSaveBtn, () => {
+    if (!PLAYER_MODE) return;
+    if (!window.confirm('Delete this player save and start the adventure again?')) return;
+    try { localStorage.removeItem(PLAYER_POSITION_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(PLAYER_PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(PLAYER_INVENTORY_STORAGE_KEY); } catch (_) {}
+    window.location.reload();
+  });
+
   bindEditorPress(editBtn, () => {
     if (puzzleTestMode) backToPuzzleSetup();
     else if (editMode) setEditMode(false);
@@ -6214,7 +6371,7 @@
   });
   bindEditorPress(assetBehaviorResetBtn, () => {
     if (!assetSetupName) return;
-    if (!window.confirm(`Reset ${editorAssetInfo.get(assetSetupName)?.label || assetSetupName} behaviour tags to their built-in defaults?`)) return;
+    if (!window.confirm(`Reset ${editorAssetInfo.get(assetSetupName)?.label || assetSetupName} behaviour and collision defaults to their built-in values?`)) return;
     resetAssetBehaviours(assetSetupName);
   });
   bindEditorPress(placementChangeBtn, () => {
@@ -6232,6 +6389,7 @@
     try { localStorage.removeItem(PUZZLE_LIBRARY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_WORKSHOP_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(ASSET_COLLISION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(COLLECTIBLE_SETUP_STORAGE_KEY); } catch (_) {}
     window.location.reload();
@@ -6247,6 +6405,8 @@
   bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
   bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
   bindEditorPress(editorCollisionRemoveBtn, removeSelectedCollision);
+  bindEditorPress(editorCollisionSaveAssetBtn, saveSelectedCollisionAsAssetDefault);
+  bindEditorPress(editorCollisionUseAssetBtn, useAssetCollisionForSelected);
   bindEditorPress(quickNavBtn, () => setQuickNavOpen(quickNavPanel?.hidden));
   bindEditorPress(quickNavCloseBtn, () => setQuickNavOpen(false));
   bindEditorPress(cameraEditorBtn, () => {
@@ -6413,7 +6573,7 @@
         const nx=Rig.clamp((((lx-bounds.left)/Math.max(1,bounds.right-bounds.left))*2)-1,-4.0,4.0);
         const ny=Rig.clamp((bounds.bottom-ly)/Math.max(1,bounds.bottom-bounds.top),-0.20,3.0);
         const points=normalisedCollisionPoints(selectedObject.collision).map(point=>({...point}));
-        if(points[collisionHandleIndex]){points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;}
+        if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;}
       } else if (editorGesture.kind === 'puzzle-marker' && editorGesture.marker) {
         const nextX = editorGesture.markerStartX + dx * 0.0065;
         movePuzzleMarkerTo(editorGesture.marker, nextX);
@@ -6574,6 +6734,17 @@
   populatePuzzleSelector();
   buildAssetPalette();
   updateEditorButtons();
+  if (PLAYER_MODE) {
+    document.body.classList.add('sidescroll-player-mode');
+    if (debugBtn) debugBtn.hidden = true;
+    if (collisionViewBtn) collisionViewBtn.hidden = true;
+    if (editBtn) editBtn.hidden = true;
+    if (quickNavBtn) quickNavBtn.hidden = true;
+    if (deleteSaveBtn) deleteSaveBtn.hidden = false;
+    if (statusEl) statusEl.textContent = 'Woodland adventure';
+    restorePlayerPosition();
+    window.addEventListener('pagehide', () => savePlayerPosition(true));
+  }
   setEditMode(false);
   updatePuzzlePanel();
   resize();

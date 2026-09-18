@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.34">
+  <link rel="stylesheet" href="style.css?v=0.2.35">
   <title>SideScroll</title>
 </head>
 <body class="modular-home ss-home">
@@ -17,13 +17,18 @@
     <header class="ss-home-header">
       <p class="ss-home-kicker">WOODLAND ADVENTURE</p>
       <h1>SideScroll</h1>
-      <p>Choose the main game or open the animation lab.</p>
+      <p>Play the adventure, build the world, or open the animation lab.</p>
     </header>
 
     <section class="ss-launch-grid" aria-label="SideScroll modes">
-      <a class="ss-launch-card ss-launch-main" href="play.html">
+      <a class="ss-launch-card ss-launch-main" href="play.html?mode=player">
         <span class="ss-launch-mark" aria-hidden="true">♠</span>
-        <span class="ss-launch-copy"><strong>Play</strong><small>Main woodland game</small></span>
+        <span class="ss-launch-copy"><strong>Play Game</strong><small>Player save · no editor tools</small></span>
+        <span class="ss-launch-arrow" aria-hidden="true">→</span>
+      </a>
+      <a class="ss-launch-card" href="play.html">
+        <span class="ss-launch-mark" aria-hidden="true">⌘</span>
+        <span class="ss-launch-copy"><strong>Build / Test</strong><small>Scene and puzzle editor</small></span>
         <span class="ss-launch-arrow" aria-hidden="true">→</span>
       </a>
       <a class="ss-launch-card" href="walk-lab.html">
@@ -47,8 +52,8 @@
     </section>
   </div>
 
-  <script src="site-config.js?v=0.2.34"></script>
-  <script src="core.js?v=0.2.34"></script>
-  <script src="home.js?v=0.2.34"></script>
+  <script src="site-config.js?v=0.2.35"></script>
+  <script src="core.js?v=0.2.35"></script>
+  <script src="home.js?v=0.2.35"></script>
 </body>
 </html>
