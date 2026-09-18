@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.37: inherited asset collision defaults + dedicated player save path.
+  // SideScroll v0.2.38: shared painted dirt terrain/path texture.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -371,7 +371,7 @@
       const x = t - 0.5;
       const rise = pathUndulationUnit(t);
       for (const row of rows) {
-        vertices.push(x, row.y + rise, row.z, t * 36.0, row.v);
+        vertices.push(x, row.y + rise, row.z, t * 24.0, row.v * 1.8);
       }
     }
     const rowCount = rows.length;
@@ -635,27 +635,96 @@
     ctx.fillRect(0, 0, w, h);
   }, 4, 4);
 
+  function drawFallbackTerrainTexture(ctx, w, h) {
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#a58a68');
+    grad.addColorStop(0.55, '#8e7355');
+    grad.addColorStop(1, '#725a45');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    let seed = 19427;
+    const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    for (let i = 0; i < 860; i++) {
+      const x = random() * w;
+      const y = random() * h;
+      const r = 0.8 + random() * 2.8;
+      ctx.globalAlpha = 0.04 + random() * 0.08;
+      ctx.fillStyle = random() > 0.58 ? '#ccb08a' : '#564639';
+      ctx.beginPath();
+      ctx.ellipse(x, y, r * (1.2 + random()), r, random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < 170; i++) {
+      const x = random() * w;
+      const y = random() * h;
+      const blade = 1.5 + random() * 4.0;
+      ctx.globalAlpha = 0.05 + random() * 0.08;
+      ctx.strokeStyle = random() > 0.5 ? '#6b7550' : '#7f8a61';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y + blade * 0.5);
+      ctx.lineTo(x + (-1 + random() * 2.0), y - blade);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
 
-  textures.pathDirt = createTexture((ctx,w,h) => {
-    const grad=ctx.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0,'#a9845f');
-    grad.addColorStop(.45,'#987352');
-    grad.addColorStop(1,'#765844');
-    ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
-    let seed=7319;
-    const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
-    for(let i=0;i<720;i++){
-      const x=random()*w,y=random()*h,r=.4+random()*2.2;
-      ctx.globalAlpha=.035+random()*.10;
-      ctx.fillStyle=random()>.52?'#d1ad7e':'#4f4037';
-      ctx.beginPath();ctx.ellipse(x,y,r*1.8,r,.35,0,Math.PI*2);ctx.fill();
+  function createRepeatingImageTexture(url, label = 'image', options = {}) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    const placeholderSize = options.placeholderSize || 256;
+    const placeholder = document.createElement('canvas');
+    placeholder.width = placeholderSize;
+    placeholder.height = placeholderSize;
+    const pctx = placeholder.getContext('2d');
+    pctx.clearRect(0, 0, placeholder.width, placeholder.height);
+    if (typeof options.placeholderDraw === 'function') {
+      options.placeholderDraw(pctx, placeholder.width, placeholder.height);
+    } else {
+      pctx.fillStyle = options.placeholderColor || '#8e7355';
+      pctx.fillRect(0, 0, placeholder.width, placeholder.height);
     }
-    ctx.globalAlpha=.10;ctx.strokeStyle='#dbc092';ctx.lineWidth=1;
-    for(let i=0;i<18;i++){
-      const y=6+i*7+(i%3)*2;ctx.beginPath();ctx.moveTo(-10,y);ctx.bezierCurveTo(55,y+3,135,y-4,270,y+2);ctx.stroke();
-    }
-    ctx.globalAlpha=1;
-  },256,128,true);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, placeholder);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+    const loadIntoTexture = src => {
+      const image = new Image();
+      image.onload = () => {
+        const potSize = options.potSize || 1024;
+        const c = document.createElement('canvas');
+        c.width = potSize;
+        c.height = potSize;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, potSize, potSize);
+        ctx.drawImage(image, 0, 0, potSize, potSize);
+        assetAspect[label] = 1;
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+      };
+      image.onerror = () => {
+        if (!label.startsWith('ground')) {
+          errorBox.hidden = false;
+          errorBox.textContent = `${label} asset could not be loaded.`;
+        }
+      };
+      image.src = src;
+    };
+
+    loadIntoTexture(url);
+    return tex;
+  }
+
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.38', 'terrain dirt texture', {
+    placeholderDraw: drawFallbackTerrainTexture,
+    potSize: 1024
+  });
 
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
@@ -982,9 +1051,9 @@
     sy: 1,
     sz: GROUND_NEAR_Z - WORLD.farZ,
     layer: 'ground',
-    tint: [0.63, 0.61, 0.55],
+    tint: [1.0, 1.0, 1.0],
     opacity: 1,
-    uvScale: [24, 14],
+    uvScale: [24, 11],
     noFog: false,
     wrap: true
   };
@@ -1000,8 +1069,9 @@
     sy: 1,
     sz: PATH_OUTER_HALF,
     layer: 'ground',
-    tint: [1.02, 0.99, 0.95],
+    tint: [1.0, 1.0, 1.0],
     opacity: 1,
+    uvScale: [1, 1],
     noFog: false,
     wrap: true
   };
@@ -3590,7 +3660,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.37',
+      appVersion:'0.2.38',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3609,7 +3679,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.37', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.38', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };

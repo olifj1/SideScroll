@@ -1,5 +1,5 @@
-# SideScroll v0.2.37
+# SideScroll v0.2.38
 
-- Resetting a puzzle now also resets its completion reward.
-- If that reward had already been collected, one matching item is removed from inventory.
-- Completing the puzzle again will spawn the reward again.
+- Added the chosen painted dirt texture as the shared terrain/path material.
+- Ground and path now use the same dirt look, so the scene looks better even before dressing finishes loading.
+- Smoothed the temporary terrain fallback and aligned the path texture scale more closely with the world.

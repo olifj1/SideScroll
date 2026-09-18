@@ -1,4 +1,4 @@
-const CACHE = "sidescroll-v0.2.37";
+const CACHE = "sidescroll-v0.2.38";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -46,7 +46,8 @@ const APP_SHELL = [
   "./sidescroll-ground-09.png",
   "./sidescroll-ground-10.png",
   "./sidescroll-ground-11.png",
-  "./sidescroll-ground-12.png"
+  "./sidescroll-ground-12.png",
+  "./terrain-dirt.png"
 ];
 
 self.addEventListener("install", event => {
