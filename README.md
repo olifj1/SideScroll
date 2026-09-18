@@ -1,6 +1,10 @@
-# SideScroll v0.2.45
+# SideScroll v0.2.46
 
-- Increased the shared stack block height from 0.48 to 0.68 world units.
-- Stacked logs now sit visibly farther apart and better match the height of the log artwork.
-- The larger stack step is used consistently by gameplay collision, stack detection, placement previews, editor snapping, and restored puzzle stacks.
-- Carry height is unchanged for now, since there is still sufficient clearance under the held log.
+Woodland visual-polish pass.
+
+- Replaced the existing forest tree and ground atlas art in the same UV slots, so authored placements keep their mapping.
+- Added two new full-height tree variants (`tree07` / `tree08`).
+- Added six new mid-height woodland assets (`midtree01`–`midtree06`) and extra ground-dressing choices.
+- Added the new full trees to normal procedural tree scatter.
+- Added a dedicated mid-height procedural layer on the far side of the path plus a lighter foreground pass to increase apparent woodland density and depth.
+- Exposed the expanded tree, mid-tree and ground dressing sets in the environment editor.
