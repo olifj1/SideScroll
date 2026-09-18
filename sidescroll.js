@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.27: fix carried stackable recognition so explicit stack intent works for every log width.
+  // SideScroll v0.2.28: pick-up always targets the exposed top item of a stack.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -3564,7 +3564,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.27" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.28" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -4548,7 +4548,26 @@
     const characterXNow = camera.x + character.screenOffsetX;
     let best = null;
     let bestD = Infinity;
-    for (const obj of allSceneObjects()) {
+    const seenStacks = new Set();
+
+    for (const candidate of allSceneObjects()) {
+      if (!isCarryableObject(candidate)) continue;
+
+      // Treat a vertical stack as one interaction target and always expose its
+      // highest member.  Previously the wider/lower log often had the smallest
+      // edge distance, so ACTION could pull it out from underneath the stack.
+      let obj = candidate;
+      if (isGameplayCrate(candidate)) {
+        const anchor = stackBottomFor(candidate, characterXNow);
+        const column = stackColumnFor(anchor, characterXNow);
+        if (column?.members?.length) {
+          const stackKey = `${anchor.id || anchor.assetName}:${column.x.toFixed(3)}`;
+          if (seenStacks.has(stackKey)) continue;
+          seenStacks.add(stackKey);
+          obj = column.members[column.members.length - 1];
+        }
+      }
+
       if (!isCarryableObject(obj)) continue;
       if (standingOnObject === obj) continue;
       const depth = obj.collision?.depth ?? 0.9;
@@ -4557,8 +4576,9 @@
       const centreDistance = Math.abs(ox - characterXNow);
       const characterReach = colliderWorld().radius * 0.72;
       const edgeDistance = Math.max(0, centreDistance - crateHalfWidth(obj) - characterReach);
-      // Reach is measured to the visible/collision edge rather than the prop
-      // centre, so long logs remain pickable when the character is beside an end.
+      // Reach is measured to the exposed top object's edge. Lower members of a
+      // stack are deliberately not action targets until the objects above them
+      // have been removed.
       if (edgeDistance <= ACTION_RANGE && (edgeDistance < bestD - 0.02 || (Math.abs(edgeDistance - bestD) <= 0.02 && (!best || obj.y > best.y)))) {
         best = obj; bestD = edgeDistance;
       }
