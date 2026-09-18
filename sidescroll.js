@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.41: robust top-of-stack pickup targeting.
+  // SideScroll v0.2.42: robust top-of-stack pickup targeting.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -721,7 +721,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.41', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.42', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1855,7 +1855,7 @@
     const sourcedCount = Number(current.sources?.[instance.id]) || 0;
     if (sourcedCount > 0) return removeInventoryItem(itemId, 1, instance.id);
 
-    // v0.2.41 migration path: older builds stored only a total count, so a
+    // v0.2.42 migration path: older builds stored only a total count, so a
     // reward collected before source tracking cannot be tied back to its puzzle.
     // When explicitly resetting that puzzle, remove one matching legacy reward.
     if (allowLegacyFallback) return removeInventoryItem(itemId, 1);
@@ -3690,7 +3690,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.41',
+      appVersion:'0.2.42',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3709,7 +3709,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.41', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.42', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -6288,8 +6288,15 @@
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
-    drawObject(ground, view);
-    drawObject(pathStrip, view);
+    // Draw the current terrain tile plus its immediate neighbours.
+    // Previously the floor/path used a single wrapped copy, so at the tile
+    // boundary the old plane disappeared just as the next one jumped in.
+    // Keeping the neighbouring sections resident removes that visible swap.
+    const terrainCentreX = wrapX(ground.x, camera.x);
+    for (const offset of [-TILE_WIDTH, 0, TILE_WIDTH]) {
+      drawObject(ground, view, { x: terrainCentreX + offset });
+      drawObject(pathStrip, view, { x: terrainCentreX + offset });
+    }
     for (const obj of backdrop) drawObject(obj, view);
     for (const obj of midfill) drawObject(obj, view);
 
