@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.23: full-scene playback + working marker controls.
+  // SideScroll v0.2.24: stone asset pack + reusable asset behaviour setup foundation.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -28,6 +28,12 @@
   const editorPaletteClose = document.getElementById('sidescroll-editor-palette-close');
   const editorPaletteTitle = document.getElementById('sidescroll-editor-palette-title');
   const editorPaletteSubtitle = document.getElementById('sidescroll-editor-palette-subtitle');
+  const assetSetupEl = document.getElementById('sidescroll-asset-setup');
+  const assetSetupBackBtn = document.getElementById('sidescroll-asset-setup-back');
+  const assetSetupNameEl = document.getElementById('sidescroll-asset-setup-name');
+  const assetBehaviorListEl = document.getElementById('sidescroll-asset-behaviour-list');
+  const assetSetupNoteEl = document.getElementById('sidescroll-asset-setup-note');
+  const assetBehaviorResetBtn = document.getElementById('sidescroll-asset-behaviour-reset');
   const openAssetsBtn = document.getElementById('sidescroll-open-assets');
   const openEnvironmentAssetsBtn = document.getElementById('sidescroll-open-environment-assets');
   const editorResetBtn = document.getElementById('sidescroll-editor-reset');
@@ -910,6 +916,64 @@
   const frontOccluders = [];
 
   const SCENE_STORAGE_KEY = 'sidescroll.scene.v1';
+  const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
+  const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
+  const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
+    solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, socketHost:false, socketPiece:false
+  });
+  const ASSET_BEHAVIOUR_DEFAULTS = {
+    crate: { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
+    'puzzle-log-a': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
+    'puzzle-log-b': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
+    'puzzle-log-c': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
+    'puzzle-log-d': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
+    'fallen-tree': { solid:true, supportSurface:true },
+    'tree-stump': {},
+    'broken-branch': {},
+    'stone-wall': {},
+    'stone-piece-a': {},
+    'stone-piece-b': {},
+    'stone-piece-c': {}
+  };
+  const ASSET_BEHAVIOUR_DEFS = [
+    { key:'solid', label:'Solid', description:'Adds physical collision to this asset type.' },
+    { key:'carryable', label:'Carryable', description:'ACTION can pick this asset up. Enabling this also makes it placeable.' },
+    { key:'placeable', label:'Placeable', description:'A carried copy may be put back down into the world.' },
+    { key:'supportSurface', label:'Support Surface', description:'The top of its collision can support the player and stackable props.' },
+    { key:'stackable', label:'Stackable', description:'This asset may settle onto a support surface when placed.' },
+    { key:'socketHost', label:'Socket Host', description:'Marks this asset as able to contain authored sockets. Socket editing comes next.' },
+    { key:'socketPiece', label:'Socket Piece', description:'Marks this asset as a piece that can later be linked to a matching socket.' }
+  ];
+  let assetBehaviourOverrides = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(ASSET_BEHAVIOUR_STORAGE_KEY) || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  })();
+
+  function hasAssetBehaviourProfile(assetName) {
+    return Object.prototype.hasOwnProperty.call(ASSET_BEHAVIOUR_DEFAULTS, assetName) || Object.prototype.hasOwnProperty.call(assetBehaviourOverrides, assetName);
+  }
+
+  function assetBehaviours(assetName) {
+    const defaults = ASSET_BEHAVIOUR_DEFAULTS[assetName] || EMPTY_ASSET_BEHAVIOURS;
+    const overrides = assetBehaviourOverrides[assetName] || {};
+    const merged = { ...EMPTY_ASSET_BEHAVIOURS, ...defaults, ...overrides };
+    if (merged.carryable) merged.placeable = true;
+    if (merged.supportSurface) merged.solid = true;
+    if (merged.stackable) merged.placeable = true;
+    return merged;
+  }
+
+  function objectHasBehaviour(obj, key) {
+    if (!obj || obj.deleted) return false;
+    return !!assetBehaviours(obj.assetName)[key];
+  }
+
+  function saveAssetBehaviourOverrides() {
+    try { localStorage.setItem(ASSET_BEHAVIOUR_STORAGE_KEY, JSON.stringify(assetBehaviourOverrides)); } catch (_) {}
+  }
+
   let sceneIdCounter = 0;
   let userSceneCounter = 0;
 
@@ -961,6 +1025,28 @@
     return Array.isArray(pts) && pts.length >= 3 ? pts : defaultCollisionPoints();
   }
 
+  function behaviourNeedsCollision(behaviour) {
+    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable);
+  }
+
+  function behaviourCollisionFor(assetName, width, height, existing = null) {
+    const behaviour = assetBehaviours(assetName);
+    if (!hasAssetBehaviourProfile(assetName)) return cloneCollision(existing);
+    let collision = cloneCollision(existing);
+    if (!collision && behaviourNeedsCollision(behaviour)) {
+      collision = {
+        halfWidth: Math.max(0.18, width * CRATE_HALF_WIDTH_FACTOR),
+        height: Math.max(0.24, height * CRATE_COLLISION_HEIGHT_FACTOR),
+        depth: Math.max(0.46, Math.min(1.08, width * 0.42)),
+        platform: !!behaviour.supportSurface,
+        points: defaultCollisionPoints(),
+        behaviourGenerated: true
+      };
+    }
+    if (collision) collision.platform = !!behaviour.supportSurface;
+    return collision;
+  }
+
   function addObject(collection, type, x, z, width, height, opts = {}) {
     const resolvedHeight = height;
     const resolvedWidth = width ?? resolvedHeight * (assetAspect[type] || 1);
@@ -991,7 +1077,7 @@
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
       layer: opts.layer || classifyLayer(z),
       wrap: opts.wrap !== false,
-      collision: cloneCollision(opts.collision),
+      collision: category === 'gameplay' ? behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision) : cloneCollision(opts.collision),
       shadow: opts.shadow ? { ...opts.shadow } : null,
       deleted: !!opts.deleted,
       carried: false,
@@ -2093,6 +2179,12 @@
       { name:'tree-stump', label:'TREE STUMP', image:'tree-stump.png', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.18 },
       { name:'broken-branch', label:'BROKEN BRANCH', image:'broken-branch.png', category:'gameplay', gameplayType:'prop', thumb:'⟍', defaultHeight:0.78 }
     ]},
+    { scope:'puzzle', title: 'PUZZLE PROPS · STONE WALL', items: [
+      { name:'stone-wall', label:'STONE WALL', image:'stone-wall.png', category:'dressing', gameplayType:'prop', thumb:'▦', defaultHeight:1.75, gameplayLayerLocked:false },
+      { name:'stone-piece-a', label:'STONE PIECE A', image:'stone-piece-a.png', category:'gameplay', gameplayType:'prop', thumb:'△', defaultHeight:0.72 },
+      { name:'stone-piece-b', label:'STONE PIECE B', image:'stone-piece-b.png', category:'gameplay', gameplayType:'prop', thumb:'◒', defaultHeight:0.74 },
+      { name:'stone-piece-c', label:'STONE PIECE C', image:'stone-piece-c.png', category:'gameplay', gameplayType:'prop', thumb:'⬡', defaultHeight:0.74 }
+    ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06'
     ].map(name => ({ name, label: `TREE ${Number(name.slice(-2))}`, category: 'dressing' }))},
@@ -2102,6 +2194,112 @@
     ].map(name => ({ name, label: `GROUND ${Number(name.slice(-2))}`, category: 'dressing' }))}
   ];
   const editorAssetInfo = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, item])));
+  let assetSetupName = null;
+
+  function behaviourBadgeText(assetName) {
+    const b = assetBehaviours(assetName);
+    const tags = [];
+    if (b.carryable) tags.push('CARRY');
+    if (b.supportSurface) tags.push('SUPPORT');
+    if (b.stackable) tags.push('STACK');
+    if (b.socketHost) tags.push('SOCKET HOST');
+    if (b.socketPiece) tags.push('SOCKET PIECE');
+    if (!tags.length && b.solid) tags.push('SOLID');
+    return tags.join(' · ') || 'NO BEHAVIOURS';
+  }
+
+  function renderAssetSetup() {
+    if (!assetSetupEl || !assetSetupName) return;
+    const info = editorAssetInfo.get(assetSetupName);
+    const behaviour = assetBehaviours(assetSetupName);
+    if (assetSetupNameEl) assetSetupNameEl.textContent = info?.label || assetSetupName;
+    if (assetSetupNoteEl) {
+      assetSetupNoteEl.textContent = behaviour.socketHost || behaviour.socketPiece
+        ? 'Socket tags are stored now; spatial socket authoring will be added in the next editor pass.'
+        : 'These are defaults for every copy of this asset. Changes save automatically.';
+    }
+    if (!assetBehaviorListEl) return;
+    assetBehaviorListEl.innerHTML = '';
+    for (const def of ASSET_BEHAVIOUR_DEFS) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'sidescroll-behaviour-row';
+      row.classList.toggle('active', !!behaviour[def.key]);
+      row.setAttribute('aria-pressed', String(!!behaviour[def.key]));
+      row.innerHTML = `<span><strong>${def.label}</strong><small>${def.description}</small></span><i>${behaviour[def.key] ? 'ON' : 'OFF'}</i>`;
+      bindEditorPress(row, () => setAssetBehaviour(assetSetupName, def.key, !assetBehaviours(assetSetupName)[def.key]));
+      assetBehaviorListEl.appendChild(row);
+    }
+  }
+
+  function applyAssetBehaviourToObject(obj) {
+    if (!obj || obj.category !== 'gameplay' || !hasAssetBehaviourProfile(obj.assetName)) return;
+    const behaviour = assetBehaviours(obj.assetName);
+    if (!obj.collision && behaviourNeedsCollision(behaviour)) {
+      obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, null);
+    } else if (obj.collision) {
+      obj.collision.platform = !!behaviour.supportSurface;
+      if (obj.collision.behaviourGenerated && !behaviourNeedsCollision(behaviour)) obj.collision = null;
+    }
+  }
+
+  function applyAssetBehaviourEverywhere(assetName) {
+    for (const obj of allSceneObjects()) {
+      if (obj?.assetName !== assetName) continue;
+      applyAssetBehaviourToObject(obj);
+      if (obj.category === 'gameplay') obj.y = restYForGameplayObject(obj, obj.x, null, true);
+      recordObjectEdit(obj);
+    }
+    settleGameplayCrates();
+    sortSceneCollections();
+  }
+
+  function setAssetBehaviour(assetName, key, enabled) {
+    if (!assetName || !ASSET_BEHAVIOUR_KEYS.includes(key)) return;
+    const current = assetBehaviours(assetName);
+    const next = { ...current, [key]: !!enabled };
+    if (key === 'carryable' && enabled) next.placeable = true;
+    if (key === 'supportSurface' && enabled) next.solid = true;
+    if (key === 'stackable' && enabled) next.placeable = true;
+    assetBehaviourOverrides[assetName] = Object.fromEntries(ASSET_BEHAVIOUR_KEYS.map(k => [k, !!next[k]]));
+    saveAssetBehaviourOverrides();
+    applyAssetBehaviourEverywhere(assetName);
+    renderAssetSetup();
+    buildAssetPalette();
+  }
+
+  function resetAssetBehaviours(assetName) {
+    if (!assetName) return;
+    delete assetBehaviourOverrides[assetName];
+    saveAssetBehaviourOverrides();
+    applyAssetBehaviourEverywhere(assetName);
+    renderAssetSetup();
+    buildAssetPalette();
+  }
+
+  function showAssetSetup(assetName) {
+    if (!assetSetupEl || editorScope !== 'puzzle' || !editorAssetInfo.has(assetName)) return;
+    assetSetupName = assetName;
+    addAssetType = null;
+    updatePlacementModeUi();
+    if (editorAssetsEl) editorAssetsEl.hidden = true;
+    assetSetupEl.hidden = false;
+    if (editorPaletteTitle) editorPaletteTitle.textContent = 'Asset Setup';
+    if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = 'Reusable behaviour tags for this asset type';
+    renderAssetSetup();
+  }
+
+  function showAssetBrowser() {
+    assetSetupName = null;
+    if (assetSetupEl) assetSetupEl.hidden = true;
+    if (editorAssetsEl) editorAssetsEl.hidden = false;
+    if (editorPaletteTitle) editorPaletteTitle.textContent = editorScope === 'puzzle' ? 'Puzzle Assets' : 'Environment Assets';
+    if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = editorScope === 'puzzle'
+      ? 'Tap an asset to place it · Setup edits reusable behaviours'
+      : 'Choose dressing to place in the environment';
+    buildAssetPalette();
+    updateAssetPaletteState();
+  }
 
   let lastTime = performance.now();
   let previousCameraX = camera.x;
@@ -3190,18 +3388,18 @@
     const puzzleObjectId = puzzleInstance ? `authored-${Date.now().toString(36)}-${++userSceneCounter}` : null;
     const id = puzzleInstance ? `puzzle-${puzzleInstance.id}-${puzzleObjectId}` : `user-${Date.now().toString(36)}-${++userSceneCounter}`;
     const collection = info.category === 'gameplay' ? frontOccluders : targetCollectionForZ(point.z);
+    const behaviour = assetBehaviours(type);
     const gameplayCollision = info.collision
       ? cloneCollision(info.collision)
-      : (info.gameplayType === 'crate')
-        ? { halfWidth:Math.max(0.43,w*CRATE_HALF_WIDTH_FACTOR), height:h*CRATE_COLLISION_HEIGHT_FACTOR, depth:0.82, platform:true }
-        : null;
-    const placementZ = info.category === 'gameplay' ? pathZ : point.z;
+      : behaviourCollisionFor(type, w, h, null);
+    const defaultGameLayerLocked = typeof info.gameplayLayerLocked === 'boolean' ? info.gameplayLayerLocked : info.category === 'gameplay';
+    const placementZ = info.category === 'gameplay' && defaultGameLayerLocked ? pathZ : point.z;
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
       id, userAdded:!puzzleInstance, baseSx:w, baseSy:h,
-      y:info.category === 'gameplay' ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z),
+      y:info.category === 'gameplay' && defaultGameLayerLocked ? playSurfaceYAt(point.x) : pathGroundYAt(point.x, point.z),
       shade:1, opacity:.99, layer:classifyLayer(placementZ),
       category:info.category || 'dressing', gameplayType:info.gameplayType || null,
-      collision:gameplayCollision, gameplayLayerLocked:info.category === 'gameplay',
+      collision:gameplayCollision, gameplayLayerLocked:defaultGameLayerLocked,
       wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
@@ -3260,8 +3458,9 @@
         halfWidth: Math.max(0.18, selectedObject.sx * (selectedObject.category === 'gameplay' ? 0.43 : 0.34)),
         height: Math.max(0.24, selectedObject.sy * (selectedObject.category === 'gameplay' ? CRATE_COLLISION_HEIGHT_FACTOR : 0.66)),
         depth: Math.max(0.42, Math.min(1.15, selectedObject.sx * 0.42)),
-        platform: selectedObject.category === 'gameplay',
-        points: defaultCollisionPoints()
+        platform: selectedObject.category === 'gameplay' && objectHasBehaviour(selectedObject, 'supportSurface'),
+        points: defaultCollisionPoints(),
+        behaviourGenerated: false
       };
       collisionEditMode = true;
       hintEl.textContent = 'Collision added · drag the orange corner handles to fit the shape';
@@ -3307,17 +3506,18 @@
     updatePuzzlePanel();
   }
 
-  function setAssetPaletteOpen(open, { clearPending = false } = {}) {
+  function setAssetPaletteOpen(open, { clearPending = false, keepSetup = false } = {}) {
     if (!editorPalette) return;
     editorPalette.hidden = !open;
     document.body.classList.toggle('sidescroll-assets-open', !!open);
     if (!open && clearPending) addAssetType = null;
-    if (open) {
-      if (editorPaletteTitle) editorPaletteTitle.textContent = editorScope === 'puzzle' ? 'Puzzle Assets' : 'Environment Assets';
-      if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = editorScope === 'puzzle'
-        ? 'Choose a prop to place inside the selected puzzle'
-        : 'Choose dressing to place in the environment';
+    if (!open) {
+      assetSetupName = null;
+      if (assetSetupEl) assetSetupEl.hidden = true;
+      if (editorAssetsEl) editorAssetsEl.hidden = false;
+      return;
     }
+    if (!keepSetup) showAssetBrowser();
   }
 
   function updateAssetPaletteState() {
@@ -3349,7 +3549,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.20" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.24" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -3370,7 +3570,26 @@
             : `Placement mode · tap the ground to add ${info.label.toLowerCase()} · tap again for another`;
           hintEl.classList.remove('hidden');
         });
-        editorAssetsEl.appendChild(btn);
+        if (editorScope === 'puzzle') {
+          const card = document.createElement('div');
+          card.className = 'sidescroll-editor-asset-card';
+          card.appendChild(btn);
+          const tools = document.createElement('div');
+          tools.className = 'sidescroll-editor-asset-card-tools';
+          const tags = document.createElement('span');
+          tags.className = 'sidescroll-editor-asset-tags';
+          tags.textContent = behaviourBadgeText(name);
+          const setup = document.createElement('button');
+          setup.type = 'button';
+          setup.className = 'sidescroll-editor-asset-setup';
+          setup.textContent = 'SETUP';
+          bindEditorPress(setup, () => showAssetSetup(name));
+          tools.append(tags, setup);
+          card.appendChild(tools);
+          editorAssetsEl.appendChild(card);
+        } else {
+          editorAssetsEl.appendChild(btn);
+        }
       }
     }
   }
@@ -3671,8 +3890,21 @@
     return allSceneObjects().filter(obj => !obj.deleted && !obj.carried && obj.collision);
   }
 
+  function isCarryableObject(obj) {
+    return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay'
+      && (objectHasBehaviour(obj, 'carryable') || obj.gameplayType === 'crate');
+  }
+
   function isGameplayCrate(obj) {
-    return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay' && obj.gameplayType === 'crate';
+    // Kept as the internal stacking helper name for compatibility with the
+    // existing movement code. Behaviour tags now decide which props stack.
+    return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay'
+      && (objectHasBehaviour(obj, 'stackable') || obj.gameplayType === 'crate');
+  }
+
+  function isSupportSurfaceObject(obj) {
+    return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay' && !!obj.collision
+      && (objectHasBehaviour(obj, 'supportSurface') || !!obj.collision.platform);
   }
 
   function crateHalfWidth(obj) {
@@ -3783,19 +4015,29 @@
     return Math.abs(ax - b.x) <= Math.max(0.16, reach);
   }
 
+  function stackableFitsSupport(obj, support, aroundX) {
+    if (!obj || !support || !support.collision) return false;
+    const depth = support.collision.depth ?? 0.8;
+    if (Math.abs((obj.z ?? pathZ) - support.z) > Math.max(0.34, depth)) return false;
+    const half = Math.max(0.08, crateHalfWidth(obj) * 0.72);
+    const sampleXs = [aroundX - half, aroundX, aroundX + half];
+    const tops = sampleXs.map(x => collisionTopHeightAtX(support, x));
+    return tops.every(Number.isFinite) ? Math.min(...tops) : -Infinity;
+  }
+
   function restYForGameplayObject(obj, aroundX = obj.x, settled = null, allowAnySupport = false) {
-    if (!isGameplayCrate(obj)) return obj?.category === 'gameplay' && obj?.gameplayLayerLocked
+    const ground = obj?.category === 'gameplay' && obj?.gameplayLayerLocked
       ? playSurfaceYAt(aroundX)
       : pathGroundYAt(aroundX, obj?.z ?? pathZ);
-    let baseY = obj.gameplayLayerLocked ? playSurfaceYAt(aroundX) : pathGroundYAt(aroundX, obj.z);
+    if (!isGameplayCrate(obj)) return ground;
+    let baseY = ground;
     const currentBase = Number.isFinite(obj.y) ? obj.y : baseY;
-    const supports = settled || allSceneObjects().filter(other => isGameplayCrate(other) && other !== obj);
+    const fixedSupports = allSceneObjects().filter(other => other !== obj && isSupportSurfaceObject(other) && !isGameplayCrate(other));
+    const supports = settled ? [...fixedSupports, ...settled] : allSceneObjects().filter(other => other !== obj && isSupportSurfaceObject(other));
     for (const other of supports) {
-      if (other === obj || !cratesOverlapForStack(obj, other)) continue;
-      const top = other.y + crateHeight(other);
-      // Normal settling only accepts things that are already beneath this
-      // crate.  Explicit placement/drop can opt in to the highest overlapping
-      // support, which is what gives us intentional crate stacking.
+      if (other === obj) continue;
+      const top = stackableFitsSupport(obj, other, aroundX);
+      if (!Number.isFinite(top)) continue;
       if (!allowAnySupport && top > currentBase + 0.10) continue;
       if (top > baseY) baseY = top;
     }
@@ -3807,10 +4049,11 @@
     const settled = [];
     for (const crate of crates) {
       if (crate.gameplayLayerLocked) crate.z = pathZ;
-      if (crate.collision) {
+      if (crate.collision && (crate.collision.behaviourGenerated || crate.gameplayType === 'crate')) {
         crate.collision.halfWidth = Math.max(0.12, crate.sx * CRATE_HALF_WIDTH_FACTOR);
         crate.collision.height = Math.max(0.18, crate.sy * CRATE_COLLISION_HEIGHT_FACTOR);
       }
+      if (crate.collision) crate.collision.platform = !!assetBehaviours(crate.assetName).supportSurface || crate.gameplayType === 'crate';
       crate.y = restYForGameplayObject(crate, crate.x, settled);
       settled.push(crate);
     }
@@ -4167,7 +4410,7 @@
     let best = null;
     let bestD = Infinity;
     for (const obj of allSceneObjects()) {
-      if (obj.deleted || obj.carried || obj.category !== 'gameplay' || obj.gameplayType !== 'crate') continue;
+      if (!isCarryableObject(obj)) continue;
       if (standingOnObject === obj) continue;
       const depth = obj.collision?.depth ?? 0.9;
       if (Math.abs(obj.z - pathZ) > Math.max(0.95, depth)) continue;
@@ -4714,8 +4957,7 @@
       selectedObject = null;
       collisionEditMode = false;
       collisionHandleIndex = -1;
-      buildAssetPalette();
-      updateAssetPaletteState();
+      showAssetBrowser();
       updateEditorButtons();
     }
   }
@@ -4726,6 +4968,12 @@
     updateAssetPaletteState();
     updatePlacementModeUi();
     updateEditorButtons();
+  });
+  bindEditorPress(assetSetupBackBtn, showAssetBrowser);
+  bindEditorPress(assetBehaviorResetBtn, () => {
+    if (!assetSetupName) return;
+    if (!window.confirm(`Reset ${editorAssetInfo.get(assetSetupName)?.label || assetSetupName} behaviour tags to their built-in defaults?`)) return;
+    resetAssetBehaviours(assetSetupName);
   });
   bindEditorPress(placementChangeBtn, () => {
     if (!placementModeActive()) return;
@@ -4741,6 +4989,7 @@
     try { localStorage.removeItem(PUZZLE_START_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_LIBRARY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_WORKSHOP_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);

@@ -12226,3 +12226,155 @@ body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor input{
 body[data-game-id="game-16"] .sidescroll-puzzle-marker-editor small{
   color:rgba(232,240,238,.58);font-size:9px;line-height:1.28;
 }
+
+/* SideScroll v0.2.24 — reusable asset behaviour setup. */
+body[data-game-id="game-16"] .sidescroll-editor-assets[hidden],
+body[data-game-id="game-16"] .sidescroll-asset-setup[hidden]{
+  display:none!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset-card{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset-card > .sidescroll-editor-asset{
+  width:100%!important;
+  height:124px!important;
+  min-height:124px!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset-card-tools{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset-tags{
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:rgba(231,241,238,.58);
+  font-size:7px;
+  font-weight:850;
+  letter-spacing:.055em;
+}
+body[data-game-id="game-16"] .sidescroll-editor-asset-setup{
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:58px!important;
+  min-height:28px!important;
+  height:28px!important;
+  padding:0 8px!important;
+  border-radius:9px!important;
+  border:1px solid rgba(220,235,231,.18)!important;
+  background:rgba(255,255,255,.055)!important;
+  color:#dce9e5!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  letter-spacing:.08em!important;
+}
+body[data-game-id="game-16"] .sidescroll-asset-setup{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding:2px 2px 10px;
+}
+body[data-game-id="game-16"] .sidescroll-asset-setup-back,
+body[data-game-id="game-16"] .sidescroll-asset-behaviour-reset{
+  width:100%!important;
+  min-height:38px!important;
+  border-radius:11px!important;
+  font-size:10px!important;
+  font-weight:900!important;
+  letter-spacing:.06em!important;
+  text-transform:uppercase;
+}
+body[data-game-id="game-16"] .sidescroll-asset-setup-back{
+  margin:0 0 10px!important;
+  background:rgba(255,255,255,.07)!important;
+  color:#edf4f1!important;
+}
+body[data-game-id="game-16"] .sidescroll-asset-setup-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:2px 0 8px;
+}
+body[data-game-id="game-16"] .sidescroll-asset-setup-head strong{
+  color:#edf5f2;
+  font-size:17px;
+  line-height:1.15;
+}
+body[data-game-id="game-16"] .sidescroll-asset-setup > p{
+  margin:0 0 10px;
+  color:rgba(232,241,238,.68);
+  font-size:11px;
+  line-height:1.35;
+}
+body[data-game-id="game-16"] .sidescroll-asset-behaviour-list{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  margin:10px 0;
+}
+body[data-game-id="game-16"] .sidescroll-behaviour-row{
+  width:100%!important;
+  min-height:56px!important;
+  padding:9px 10px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  text-align:left!important;
+  border:1px solid rgba(220,235,231,.15)!important;
+  border-radius:12px!important;
+  background:rgba(255,255,255,.045)!important;
+  color:#edf4f1!important;
+}
+body[data-game-id="game-16"] .sidescroll-behaviour-row.active{
+  background:#dcebe7!important;
+  border-color:#dcebe7!important;
+  color:#34534f!important;
+}
+body[data-game-id="game-16"] .sidescroll-behaviour-row span{
+  display:block;
+  flex:1 1 auto;
+  min-width:0;
+}
+body[data-game-id="game-16"] .sidescroll-behaviour-row strong{
+  display:block;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+}
+body[data-game-id="game-16"] .sidescroll-behaviour-row small{
+  display:block;
+  margin-top:3px;
+  font-size:9px!important;
+  line-height:1.3!important;
+  opacity:.72;
+  text-transform:none!important;
+  letter-spacing:0!important;
+}
+body[data-game-id="game-16"] .sidescroll-behaviour-row i{
+  flex:0 0 34px;
+  font-style:normal;
+  font-size:9px;
+  font-weight:950;
+  text-align:right;
+}
+body[data-game-id="game-16"] .sidescroll-asset-setup-note{
+  padding:9px 10px;
+  border-radius:10px;
+  background:rgba(220,235,231,.07);
+}
+body[data-game-id="game-16"] .sidescroll-asset-behaviour-reset{
+  margin-top:2px!important;
+  background:rgba(255,255,255,.055)!important;
+  color:rgba(239,246,244,.82)!important;
+}

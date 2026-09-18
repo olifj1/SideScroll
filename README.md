@@ -1,9 +1,11 @@
-# SideScroll v0.2.23
+# SideScroll v0.2.24
 
-This release fixes Scene playback and puzzle marker positioning.
+This drop adds the new stone-wall puzzle art as reusable assets only; it does not place them in the scene or create a puzzle template.
 
-- Normal Play mode now streams every puzzle in the current Scene instead of keeping only the last puzzle selected in Edit.
-- Edit/Test isolation still keeps authoring focused on one puzzle at a time.
-- The central puzzle marker dot is now draggable horizontally and moves the whole puzzle instance.
-- The Scene details panel now exposes a working Marker X numeric field for precise placement.
-- Marker positions persist for both local scene puzzles and built-in markers.
+It also begins the reusable asset setup system. Puzzle assets now have a **Setup** control in the asset browser with persistent behaviour tags for Solid, Carryable, Placeable, Support Surface, Stackable, Socket Host and Socket Piece. Carryable/support/stacking tags already feed the existing interaction and collision systems; socket tags are stored ready for the next socket-authoring pass.
+
+New assets:
+- stone-wall.png
+- stone-piece-a.png
+- stone-piece-b.png
+- stone-piece-c.png

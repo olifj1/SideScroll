@@ -1,5 +1,5 @@
 window.SideScrollPuzzleConfig = {
-  version: 7,
+  version: 8,
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
@@ -9,7 +9,11 @@ window.SideScrollPuzzleConfig = {
         { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.8", aspect: 2.3850 },
         { name: "fallen-tree", url: "fallen-tree.png?v=0.2.8", aspect: 2.3644 },
         { name: "tree-stump", url: "tree-stump.png?v=0.2.8", aspect: 2.4223 },
-        { name: "broken-branch", url: "broken-branch.png?v=0.2.8", aspect: 2.7182 }
+        { name: "broken-branch", url: "broken-branch.png?v=0.2.8", aspect: 2.7182 },
+        { name: "stone-wall", url: "stone-wall.png?v=0.2.24", aspect: 3.1356 },
+        { name: "stone-piece-a", url: "stone-piece-a.png?v=0.2.24", aspect: 1.0664 },
+        { name: "stone-piece-b", url: "stone-piece-b.png?v=0.2.24", aspect: 0.9545 },
+        { name: "stone-piece-c", url: "stone-piece-c.png?v=0.2.24", aspect: 1.1278 }
       ]
     }
   },

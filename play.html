@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.23">
+  <link rel="stylesheet" href="style.css?v=0.2.24">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -68,6 +68,17 @@
               </span>
             </div>
             <div class="sidescroll-editor-assets" id="sidescroll-editor-assets"></div>
+            <section class="sidescroll-asset-setup" id="sidescroll-asset-setup" hidden>
+              <button class="sidescroll-asset-setup-back" id="sidescroll-asset-setup-back" type="button">← Assets</button>
+              <div class="sidescroll-asset-setup-head">
+                <span class="sidescroll-puzzle-mode">ASSET</span>
+                <strong id="sidescroll-asset-setup-name">Asset</strong>
+              </div>
+              <p>Default behaviour tags for every copy of this asset. Spatial setup such as sockets will build on these tags.</p>
+              <div class="sidescroll-asset-behaviour-list" id="sidescroll-asset-behaviour-list"></div>
+              <p class="sidescroll-asset-setup-note" id="sidescroll-asset-setup-note">Changes save automatically.</p>
+              <button class="sidescroll-asset-behaviour-reset" id="sidescroll-asset-behaviour-reset" type="button">Reset Defaults</button>
+            </section>
           </aside>
 
           <aside class="sidescroll-puzzle-panel" id="sidescroll-puzzle-panel" hidden aria-live="polite">
@@ -202,10 +213,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.23"></script>
-  <script src="core.js?v=0.2.23"></script>
-  <script src="walk-rig.js?v=0.2.23"></script>
-  <script src="puzzle-groups.js?v=0.2.23"></script>
-  <script src="sidescroll.js?v=0.2.23"></script>
+  <script src="site-config.js?v=0.2.24"></script>
+  <script src="core.js?v=0.2.24"></script>
+  <script src="walk-rig.js?v=0.2.24"></script>
+  <script src="puzzle-groups.js?v=0.2.24"></script>
+  <script src="sidescroll.js?v=0.2.24"></script>
 </body>
 </html>
