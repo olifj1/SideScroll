@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.30: reliable editor controls + authored sockets + Stone Wall puzzle import.
+  // SideScroll v0.2.31: completion rewards + proximity collection + collected-items inventory.
 
   const Rig = window.GameHubWalkRig;
   if (!Rig) return;
@@ -12,6 +12,12 @@
   const hintEl = document.getElementById('sidescroll-hint');
   const debugBtn = document.getElementById('sidescroll-depth');
   const collisionViewBtn = document.getElementById('sidescroll-collision-view');
+  const inventoryBtn = document.getElementById('sidescroll-inventory');
+  const inventoryCountEl = document.getElementById('sidescroll-inventory-count');
+  const inventoryPanel = document.getElementById('sidescroll-inventory-panel');
+  const inventoryCloseBtn = document.getElementById('sidescroll-inventory-close');
+  const inventoryListEl = document.getElementById('sidescroll-inventory-list');
+  const inventoryEmptyEl = document.getElementById('sidescroll-inventory-empty');
   const depthKey = document.getElementById('sidescroll-depth-key');
   const driveControl = document.getElementById('sidescroll-drive');
   const driveThumb = document.getElementById('sidescroll-drive-thumb');
@@ -686,6 +692,36 @@
     }
   }, 256, 256, false);
 
+  // v0.2.31 completion reward prototype. Keep this procedural so the reward
+  // system adds no new asset file: later we can simply swap this texture for
+  // authored art without changing collection/inventory logic.
+  assetAspect['forest-key'] = 1.18;
+  textures['forest-key'] = createTexture((ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const glow = ctx.createRadialGradient(w * 0.48, h * 0.48, 6, w * 0.48, h * 0.48, w * 0.44);
+    glow.addColorStop(0, 'rgba(239,220,159,.34)');
+    glow.addColorStop(1, 'rgba(239,220,159,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#c9ad69';
+    ctx.lineWidth = 18;
+    ctx.beginPath();
+    ctx.arc(w * 0.34, h * 0.42, w * 0.13, 0, Math.PI * 2);
+    ctx.moveTo(w * 0.44, h * 0.50);
+    ctx.lineTo(w * 0.76, h * 0.72);
+    ctx.lineTo(w * 0.82, h * 0.64);
+    ctx.moveTo(w * 0.67, h * 0.66);
+    ctx.lineTo(w * 0.74, h * 0.57);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,244,202,.60)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(w * 0.34, h * 0.42, w * 0.10, Math.PI * 1.05, Math.PI * 1.92);
+    ctx.stroke();
+  }, 256, 256, false);
+
   assetAspect.softShadow = 2.4;
   textures.softShadow = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
@@ -948,7 +984,8 @@
     'stone-wall': { socketHost:true },
     'stone-piece-a': { carryable:true, placeable:true, socketPiece:true },
     'stone-piece-b': { carryable:true, placeable:true, socketPiece:true },
-    'stone-piece-c': { carryable:true, placeable:true, socketPiece:true }
+    'stone-piece-c': { carryable:true, placeable:true, socketPiece:true },
+    'forest-key': {}
   };
   const ASSET_BEHAVIOUR_DEFS = [
     { key:'solid', label:'Solid', description:'Adds physical collision to this asset type.' },
@@ -1333,6 +1370,24 @@
   const PUZZLE_START_STORAGE_KEY = 'sidescroll.puzzle-groups.starts.v1';
   const PUZZLE_LIBRARY_STORAGE_KEY = 'sidescroll.puzzle-groups.library.v1';
   const PUZZLE_WORKSHOP_STORAGE_KEY = 'sidescroll.puzzle-groups.workshop.v1';
+  const INVENTORY_STORAGE_KEY = 'sidescroll.inventory.v1';
+  const INVENTORY_ITEM_DEFS = {
+    'forest-key': {
+      id:'forest-key',
+      label:'Forest Key',
+      asset:'forest-key',
+      description:'A puzzle reward. Item use will be added later.'
+    }
+  };
+  let inventoryState = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(INVENTORY_STORAGE_KEY) || 'null');
+      if (parsed && parsed.version === 1 && parsed.items && typeof parsed.items === 'object') return parsed;
+    } catch (_) {}
+    return { version:1, items:{} };
+  })();
+  let inventoryOpen = false;
+  let puzzleTestInventorySnapshot = null;
   const activePuzzleInstances = new Map();
   const puzzleSavedState = (() => {
     try { return JSON.parse(localStorage.getItem(PUZZLE_STATE_STORAGE_KEY) || '{}') || {}; }
@@ -1539,6 +1594,70 @@
     return puzzleSavedState[markerId];
   }
 
+  function inventoryTotalCount() {
+    return Object.values(inventoryState.items || {}).reduce((sum, item) => sum + Math.max(0, Number(item?.count) || 0), 0);
+  }
+
+  function saveInventory() {
+    if (puzzleTestMode) return;
+    try { localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(inventoryState)); } catch (_) {}
+  }
+
+  function inventorySnapshot() {
+    return JSON.parse(JSON.stringify(inventoryState));
+  }
+
+  function restoreInventory(snapshot, { persist = false } = {}) {
+    inventoryState = snapshot ? JSON.parse(JSON.stringify(snapshot)) : { version:1, items:{} };
+    if (persist) saveInventory();
+    renderInventory();
+  }
+
+  function addInventoryItem(itemId, count = 1) {
+    if (!INVENTORY_ITEM_DEFS[itemId]) return false;
+    inventoryState.items ||= {};
+    const current = inventoryState.items[itemId] || { count:0, firstCollectedAt:Date.now() };
+    current.count = Math.max(0, Number(current.count) || 0) + Math.max(1, Number(count) || 1);
+    current.lastCollectedAt = Date.now();
+    inventoryState.items[itemId] = current;
+    saveInventory();
+    renderInventory();
+    return true;
+  }
+
+  function inventoryThumbMarkup(itemDef) {
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.31" alt=""></span>`;
+    if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
+    return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
+  }
+
+  function renderInventory() {
+    const total = inventoryTotalCount();
+    if (inventoryCountEl) inventoryCountEl.textContent = String(total);
+    if (!inventoryListEl || !inventoryEmptyEl) return;
+    inventoryListEl.innerHTML = '';
+    const entries = Object.entries(inventoryState.items || {}).filter(([,state]) => (Number(state?.count) || 0) > 0);
+    inventoryEmptyEl.hidden = entries.length > 0;
+    for (const [itemId, state] of entries) {
+      const def = INVENTORY_ITEM_DEFS[itemId] || { label:itemId, description:'Collected item.' };
+      const card = document.createElement('div');
+      card.className = 'sidescroll-inventory-item';
+      card.innerHTML = `${inventoryThumbMarkup(def)}<span class="sidescroll-inventory-item-copy"><strong>${def.label}</strong><small>${def.description || ''}</small></span><b class="sidescroll-inventory-qty">×${Math.max(1, Number(state.count) || 1)}</b>`;
+      inventoryListEl.appendChild(card);
+    }
+  }
+
+  function setInventoryOpen(open) {
+    inventoryOpen = !!open;
+    if (inventoryPanel) inventoryPanel.hidden = !inventoryOpen;
+    if (inventoryBtn) inventoryBtn.setAttribute('aria-expanded', String(inventoryOpen));
+    document.body.classList.toggle('sidescroll-inventory-open', inventoryOpen);
+    if (inventoryOpen) {
+      setDriveAxis(0);
+      renderInventory();
+    }
+  }
+
 
   function markerForId(markerId) {
     return allPuzzleMarkers().find(marker => marker.id === markerId) || null;
@@ -1628,6 +1747,7 @@
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (standingOnObject?.puzzleInstanceId === instance.id) standingOnObject = null;
+    removePuzzleRewardObject(instance);
 
     const existing = new Map(instance.objects.filter(Boolean).map(obj => [obj.puzzleObjectId, obj]));
     for (const [objectId, state] of Object.entries(snapshot.objects || {})) {
@@ -1691,6 +1811,7 @@
 
     const runtime = savedPuzzleFor(instance.id);
     runtime.solved = false;
+    delete runtime.reward;
     runtime.objects = {};
     for (const obj of instance.objects) {
       runtime.objects[obj.puzzleObjectId] = {
@@ -1796,6 +1917,7 @@
     activePuzzleInstances.set(marker.id, instance);
     sortSceneCollections();
     settleGameplayCrates();
+    if (instance.solved) ensurePuzzleCompletionReward(instance, marker.x);
     return instance;
   }
 
@@ -1809,9 +1931,11 @@
 
   function removePuzzleObjects(instance) {
     const remove = new Set(instance.objects);
+    if (instance.rewardObject) remove.add(instance.rewardObject);
     for (const list of [backdrop, midfill, frontOccluders]) {
       for (let i=list.length-1;i>=0;i--) if (remove.has(list[i])) list.splice(i,1);
     }
+    instance.rewardObject = null;
   }
 
   function unloadPuzzleGroup(markerId) {
@@ -1903,6 +2027,95 @@
     return bestD <= 12 ? best : null;
   }
 
+  const COLLECTIBLE_PICKUP_RADIUS = 0.72;
+
+  function completionRewardFor(instance) {
+    const explicit = instance?.def?.completionEvent;
+    if (explicit?.type === 'spawn-collectible') return explicit;
+    // Prototype rule for now: every socket-completion puzzle awards the same
+    // key. This is deliberately centralised so a later logic/event editor can
+    // replace the hard-coded branch without changing inventory or collection.
+    if (instance?.def?.completion?.type === 'sockets') {
+      return { type:'spawn-collectible', itemId:'forest-key', asset:'forest-key', height:0.62, offsetX:1.20 };
+    }
+    return null;
+  }
+
+  function removePuzzleRewardObject(instance) {
+    const obj = instance?.rewardObject;
+    if (!obj) return;
+    for (const list of [backdrop, midfill, frontOccluders]) {
+      const index = list.indexOf(obj);
+      if (index >= 0) list.splice(index, 1);
+    }
+    obj.deleted = true;
+    instance.rewardObject = null;
+  }
+
+  function ensurePuzzleCompletionReward(instance, playerX = null) {
+    if (!instance || instance.rewardObject) return instance?.rewardObject || null;
+    const reward = completionRewardFor(instance);
+    if (!reward) return null;
+    const state = savedPuzzleFor(instance.id);
+    if (state.reward?.collected) return null;
+
+    const bounds = currentPuzzleBoundsRelative(instance.marker);
+    const facing = character?.lastFacing >= 0 ? 1 : -1;
+    const fallbackX = Number.isFinite(playerX) ? playerX + facing * (reward.offsetX ?? 1.20) : instance.marker.x;
+    const minX = instance.marker.x + bounds.minX + 0.45;
+    const maxX = instance.marker.x + bounds.maxX - 0.45;
+    const x = Number.isFinite(state.reward?.x) ? Number(state.reward.x) : Rig.clamp(fallbackX, minX, maxX);
+    const z = Number.isFinite(state.reward?.z) ? Number(state.reward.z) : pathZ + 0.03;
+    const height = Number.isFinite(reward.height) ? reward.height : 0.62;
+    const y = Number.isFinite(state.reward?.y) ? Number(state.reward.y) : playSurfaceYAt(x) + 0.035;
+    const asset = reward.asset || INVENTORY_ITEM_DEFS[reward.itemId]?.asset || reward.itemId;
+
+    const obj = addObject(frontOccluders, asset, x, z, null, height, {
+      id:`reward-${instance.id}-${reward.itemId}`,
+      y, flip:false, shade:1.05, opacity:1, noFog:true, layer:'foreground', wrap:false,
+      category:'dressing', gameplayType:'collectible', gameplayLayerLocked:false,
+      puzzleInstanceId:instance.id
+    });
+    obj.collectible = true;
+    obj.collectibleItemId = reward.itemId;
+    obj.collectibleBaseY = y;
+    obj.collectibleSpawnTime = performance.now();
+    instance.rewardObject = obj;
+    state.reward = { itemId:reward.itemId, asset, x, y, z, spawned:true, collected:false };
+    savePuzzleState();
+    sortSceneCollections();
+    return obj;
+  }
+
+  function collectPuzzleReward(instance) {
+    const obj = instance?.rewardObject;
+    if (!obj || !obj.collectible || obj.deleted) return false;
+    const itemId = obj.collectibleItemId;
+    if (!addInventoryItem(itemId, 1)) return false;
+    const def = INVENTORY_ITEM_DEFS[itemId] || { label:itemId };
+    const state = savedPuzzleFor(instance.id);
+    state.reward = { ...(state.reward || {}), itemId, collected:true, collectedAt:Date.now() };
+    removePuzzleRewardObject(instance);
+    savePuzzleState();
+    hintEl.textContent = `Collected ${def.label}`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function updatePuzzleRewards(now) {
+    if (editMode) return;
+    for (const instance of activePuzzleInstances.values()) {
+      const obj = instance.rewardObject;
+      if (!obj || obj.deleted || !obj.collectible) continue;
+      // Small hover makes a reward read as a collectible without committing to
+      // a final reveal animation yet.
+      obj.y = (obj.collectibleBaseY ?? obj.y) + Math.sin((now - (obj.collectibleSpawnTime || 0)) * 0.0042) * 0.045;
+      const dx = Math.abs(objectXNear(obj, character.x) - character.x);
+      const dz = Math.abs(obj.z - pathZ);
+      if (dx <= COLLECTIBLE_PICKUP_RADIUS && dz <= 0.95) collectPuzzleReward(instance);
+    }
+  }
+
   function checkPuzzleCompletion(playerX) {
     for (const instance of activePuzzleInstances.values()) {
       if (instance.solved) continue;
@@ -1923,7 +2136,10 @@
       if (!done) continue;
       instance.solved = true;
       const state=savedPuzzleFor(instance.id);state.solved=true;savePuzzleState();
-      hintEl.textContent = `${instance.def.label || 'Puzzle'} complete`;
+      const spawned = ensurePuzzleCompletionReward(instance, playerX);
+      hintEl.textContent = spawned
+        ? `${instance.def.label || 'Puzzle'} complete · something appeared`
+        : `${instance.def.label || 'Puzzle'} complete`;
       hintEl.classList.remove('hidden');
     }
   }
@@ -3025,7 +3241,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.30',
+      appVersion:'0.2.31',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3044,7 +3260,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.30', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.31', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3486,6 +3702,8 @@
     if (!instance) return;
     if (puzzleTestMode && puzzleTestSnapshot) {
       applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:false, clearDirty:false });
+      if (puzzleTestInventorySnapshot) restoreInventory(puzzleTestInventorySnapshot);
+      setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
       hintEl.textContent = 'Test reset to the setup you started this test with';
     } else {
@@ -3508,6 +3726,7 @@
     // permanent authored default.
     settleGameplayCrates();
     puzzleTestSnapshot = deepCopy(currentPuzzleSetupSnapshot(instance));
+    puzzleTestInventorySnapshot = inventorySnapshot();
     applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:false, clearDirty:false });
     puzzleTestMarkerId = instance.id;
     puzzleTestMode = true;
@@ -3522,6 +3741,9 @@
     const instance = authoringPuzzle();
     const returnMarkerId = puzzleTestMarkerId || instance?.id || null;
     puzzleTestMode = false;
+    if (puzzleTestInventorySnapshot) restoreInventory(puzzleTestInventorySnapshot);
+    puzzleTestInventorySnapshot = null;
+    setInventoryOpen(false);
     if (instance && puzzleTestSnapshot) {
       applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:true, clearDirty:false });
       camera.x = instance.marker.x - character.screenOffsetX;
@@ -3538,6 +3760,7 @@
   }
 
   function setEditMode(on) {
+    if (on) setInventoryOpen(false);
     if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = true; }
     if (!on && editorPuzzlePackPinned) { releasePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = false; }
     if (on && interactionState) {
@@ -3767,7 +3990,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.30" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.31" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -5331,7 +5554,7 @@
   }
 
   function performAction() {
-    if (editMode || interactionState || autoDropStep) return;
+    if (editMode || inventoryOpen || interactionState || autoDropStep) return;
     if (carriedObject) { startDrop(); return; }
     const obj = nearestActionCrate();
     if (obj) startPickup(obj);
@@ -5359,7 +5582,7 @@
 
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
-    const rawAxis = (editMode || interactionState || autoDropStep) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
+    const rawAxis = (editMode || inventoryOpen || interactionState || autoDropStep) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
     const axisMag = Math.abs(rawAxis);
     const moveDir = axisMag > DRIVE_DEADZONE ? Math.sign(rawAxis) : 0;
 
@@ -5456,6 +5679,7 @@
     character.y = playSurfaceYAt(character.x) + jumpOffset;
     updatePuzzleStreaming(character.x);
     checkPuzzleCompletion(character.x);
+    updatePuzzleRewards(now);
 
     gl.clearColor(fogColor[0], fogColor[1], fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -5553,7 +5777,7 @@
   }
 
   function triggerJump(){
-    if (editMode || jumping || interactionState) return;
+    if (editMode || inventoryOpen || jumping || interactionState) return;
     jumping = true;
     jumpTime = 0;
     // Keep the current support height so jumping from the top of a crate starts
@@ -5588,6 +5812,9 @@
     collisionViewBtn.textContent = collisionDebugView ? 'Hide collision' : 'Collision';
     hideHint();
   });
+
+  bindEditorPress(inventoryBtn, () => setInventoryOpen(!inventoryOpen));
+  bindEditorPress(inventoryCloseBtn, () => setInventoryOpen(false));
 
   bindEditorPress(editBtn, () => {
     if (puzzleTestMode) backToPuzzleSetup();
@@ -5680,6 +5907,7 @@
     try { localStorage.removeItem(PUZZLE_LIBRARY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_WORKSHOP_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
@@ -5936,7 +6164,10 @@
   window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
     if (editMode) {
-      if (e.key === 'Escape') { socketPlacementPiece = null; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); }
+      if (e.key === 'Escape') {
+        if (inventoryOpen) { setInventoryOpen(false); return; }
+        socketPlacementPiece = null; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState();
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) { e.preventDefault(); deleteSelected(); }
       return;
     }
@@ -5991,5 +6222,6 @@
   setEditMode(false);
   updatePuzzlePanel();
   resize();
+  renderInventory();
   requestAnimationFrame(render);
 })();

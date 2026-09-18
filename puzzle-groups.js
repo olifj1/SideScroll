@@ -164,7 +164,8 @@ window.SideScrollPuzzleConfig = {
           collision: { halfWidth: 0.43423533834586475, height: 0.48, depth: 0.42413684210526326, platform: false, points: [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}], behaviourGenerated: false }
         }
       ],
-      completion: { type: "sockets" }
+      completion: { type: "sockets" },
+      completionEvent: { type: "spawn-collectible", itemId: "forest-key", asset: "forest-key", height: 0.62, offsetX: 1.20 }
     }
   },
   markers: [

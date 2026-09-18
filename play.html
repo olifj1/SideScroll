@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.30">
+  <link rel="stylesheet" href="style.css?v=0.2.31">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -41,6 +41,7 @@
             <div class="sidescroll-stage-actions">
               <button id="sidescroll-depth" class="sidescroll-depth-button" type="button" aria-pressed="false">Depth</button>
               <button id="sidescroll-collision-view" class="sidescroll-collision-view-button" type="button" aria-pressed="false">Collision</button>
+              <button id="sidescroll-inventory" class="sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
               <button id="sidescroll-edit" class="sidescroll-edit-button" type="button" aria-pressed="false">Edit</button>
             </div>
           </div>
@@ -50,6 +51,18 @@
             <span><i class="mid"></i>Middle</span>
             <span><i class="far"></i>Far</span>
           </div>
+
+          <aside class="sidescroll-inventory-panel" id="sidescroll-inventory-panel" hidden role="dialog" aria-modal="false" aria-labelledby="sidescroll-inventory-title">
+            <div class="sidescroll-inventory-head">
+              <div>
+                <span class="sidescroll-inventory-kicker">COLLECTED</span>
+                <strong id="sidescroll-inventory-title">Items</strong>
+              </div>
+              <button id="sidescroll-inventory-close" type="button" aria-label="Close collected items">×</button>
+            </div>
+            <div class="sidescroll-inventory-list" id="sidescroll-inventory-list"></div>
+            <p class="sidescroll-inventory-empty" id="sidescroll-inventory-empty">Nothing collected yet.</p>
+          </aside>
 
           <canvas class="sidescroll-editor-overlay" id="sidescroll-editor-overlay" aria-hidden="true"></canvas>
 
@@ -216,10 +229,10 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.30"></script>
-  <script src="core.js?v=0.2.30"></script>
-  <script src="walk-rig.js?v=0.2.30"></script>
-  <script src="puzzle-groups.js?v=0.2.30"></script>
-  <script src="sidescroll.js?v=0.2.30"></script>
+  <script src="site-config.js?v=0.2.31"></script>
+  <script src="core.js?v=0.2.31"></script>
+  <script src="walk-rig.js?v=0.2.31"></script>
+  <script src="puzzle-groups.js?v=0.2.31"></script>
+  <script src="sidescroll.js?v=0.2.31"></script>
 </body>
 </html>
