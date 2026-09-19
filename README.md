@@ -1,5 +1,6 @@
-# SideScroll v0.2.49
+# SideScroll v0.2.50
 
-- Fixed atlas UVs for the newly added tree/mid-tree/ground extras.
-- Existing original mapped slots remain unchanged.
-- Keeps the reduced mid-height procedural usage from v0.2.48.
+- Recovery build based directly on the last known-good v0.2.45 structure.
+- Strict like-for-like replacement of the existing six tree and twelve ground dressing atlas slots.
+- Existing UV mappings, asset names, procedural counts and scene layout are unchanged.
+- No new mid-height assets are added in this build.
