@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.51: restore the original approved dressing atlas and add a texel-density audit document.
+  // SideScroll v0.2.52: dedicated native-resolution tree atlas; ground dressing remains on the original atlas.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.51', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.52', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,14 +731,15 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.2', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.52', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.52', 'SideScroll tree atlas');
   const assetUv = {
-    tree06: { scale: [0.107421875, 0.373046875], offset: [0.003906250, 0.623046875] },
-    tree02: { scale: [0.139648438, 0.362304688], offset: [0.115234375, 0.633789062] },
-    tree01: { scale: [0.086914062, 0.349609375], offset: [0.258789062, 0.646484375] },
-    tree04: { scale: [0.090820312, 0.340332031], offset: [0.349609375, 0.655761719] },
-    tree03: { scale: [0.083984375, 0.329101562], offset: [0.444335938, 0.666992188] },
-    tree05: { scale: [0.087890625, 0.306640625], offset: [0.532226562, 0.689453125] },
+    tree06: { scale: [0.143066406, 0.497070312], offset: [0.699707031, 0.495117188] },
+    tree02: { scale: [0.186523438, 0.483398438], offset: [0.131347656, 0.508789062] },
+    tree01: { scale: [0.115722656, 0.466308594], offset: [0.007812500, 0.525878906] },
+    tree04: { scale: [0.121093750, 0.453613281], offset: [0.445800781, 0.538574219] },
+    tree03: { scale: [0.112304688, 0.438964844], offset: [0.325683594, 0.553222656] },
+    tree05: { scale: [0.117187500, 0.408691406], offset: [0.574707031, 0.583496094] },
     ground02: { scale: [0.131835938, 0.112792969], offset: [0.624023438, 0.883300781] },
     ground01: { scale: [0.128417969, 0.108886719], offset: [0.759765625, 0.887207031] },
     ground06: { scale: [0.111328125, 0.107421875], offset: [0.003906250, 0.511718750] },
@@ -774,7 +775,7 @@
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = textures.dressingAtlas;
+    textures[key] = key.startsWith('tree') ? textures.treeAtlas : textures.dressingAtlas;
   });
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -3726,7 +3727,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.51',
+      appVersion:'0.2.52',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3745,7 +3746,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.51', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.52', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3835,7 +3836,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.51',
+      appVersion:'0.2.52',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{

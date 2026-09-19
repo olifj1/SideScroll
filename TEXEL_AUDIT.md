@@ -86,3 +86,7 @@ This audit is based on the original approved v0.2.45 atlas (restored in v0.2.51)
 3. Import those as separate PNGs first (safer than disturbing the atlas).
 4. Place them tentatively and sparsely so the fog windows remain visible.
 5. Once the environment style is approved, apply the same style rules to fixed puzzle texture packs, keeping moveable props cleaner.
+
+## v0.2.52 action
+
+The six original tall-tree PNGs are now packed at full native resolution into a dedicated 2048×2048 `sidescroll-tree-atlas.png`. The original mixed dressing atlas is still used for the twelve ground assets. This removes the previous ~25% tree downsampling inside the mixed atlas without increasing the tree source files themselves. The unused lower half of the new tree atlas is intentionally reserved for approved mid-height trees later.

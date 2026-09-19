@@ -1,0 +1,62 @@
+{
+  "tree01": {
+    "source_components": 45,
+    "kept_pixels": 70808,
+    "main_bbox": [
+      9,
+      9,
+      227,
+      945
+    ]
+  },
+  "tree02": {
+    "source_components": 80,
+    "kept_pixels": 148311,
+    "main_bbox": [
+      10,
+      10,
+      372,
+      980
+    ]
+  },
+  "tree03": {
+    "source_components": 54,
+    "kept_pixels": 44043,
+    "main_bbox": [
+      10,
+      10,
+      220,
+      889
+    ]
+  },
+  "tree04": {
+    "source_components": 46,
+    "kept_pixels": 84277,
+    "main_bbox": [
+      10,
+      10,
+      238,
+      919
+    ]
+  },
+  "tree05": {
+    "source_components": 41,
+    "kept_pixels": 55417,
+    "main_bbox": [
+      10,
+      10,
+      230,
+      827
+    ]
+  },
+  "tree06": {
+    "source_components": 55,
+    "kept_pixels": 114367,
+    "main_bbox": [
+      10,
+      10,
+      283,
+      1008
+    ]
+  }
+}
