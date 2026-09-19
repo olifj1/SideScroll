@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.56: crop the fallen-tree texture to its real painted bounds so it regains the authored size and sits on the ground; preserve authored puzzle aspect ratios.
+  // SideScroll v0.2.57: apply the approved muted woodland art treatment across the remaining puzzle prop textures while preserving their authored footprints.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.56', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.57', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,8 +731,8 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.56', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.56', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.57', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.57', 'SideScroll tree atlas');
   const assetUv = {
     tree06: { scale: [0.143066406, 0.497070312], offset: [0.699707031, 0.495117188] },
     tree02: { scale: [0.186523438, 0.483398438], offset: [0.131347656, 0.508789062] },
@@ -3727,7 +3727,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.56',
+      appVersion:'0.2.57',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3746,7 +3746,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.56', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.57', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3836,7 +3836,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.56',
+      appVersion:'0.2.57',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
