@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.53: swapped in the preferred fallen-tree art test while keeping the dedicated tree atlas setup unchanged.
+  // SideScroll v0.2.55: compact right-anchored drive control and lighter translucent gameplay control surfaces.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.53', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.55', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,8 +731,8 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.53', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.53', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.55', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.55', 'SideScroll tree atlas');
   const assetUv = {
     tree06: { scale: [0.143066406, 0.497070312], offset: [0.699707031, 0.495117188] },
     tree02: { scale: [0.186523438, 0.483398438], offset: [0.131347656, 0.508789062] },
@@ -3727,7 +3727,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.53',
+      appVersion:'0.2.55',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3746,7 +3746,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.53', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.55', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3836,7 +3836,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.53',
+      appVersion:'0.2.55',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
@@ -5505,6 +5505,10 @@
   }
 
   function drawObjectShadow(obj, view, drawX) {
+    // Fixed fallen-tree art now includes its own grounded base treatment.
+    // Never draw the old synthetic ellipse shadow, even for saved puzzle states
+    // that still contain a legacy `shadow` object.
+    if (obj?.assetName === 'fallen-tree') return;
     if (!obj?.shadow) return;
     const shadow = obj.shadow === true ? {} : obj.shadow;
     bindMesh(billboardMesh);
