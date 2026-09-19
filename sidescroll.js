@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.55: compact right-anchored drive control and lighter translucent gameplay control surfaces.
+  // SideScroll v0.2.56: crop the fallen-tree texture to its real painted bounds so it regains the authored size and sits on the ground; preserve authored puzzle aspect ratios.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -542,7 +542,7 @@
   const textures = {};
   const assetAspect = {};
 
-  function createImageTexture(url, label = 'image', fallbackUrl = null) {
+  function createImageTexture(url, label = 'image', fallbackUrl = null, aspectOverride = null) {
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(
@@ -558,7 +558,7 @@
     const loadIntoTexture = src => {
       const image = new Image();
       image.onload = () => {
-        assetAspect[label] = image.naturalWidth / image.naturalHeight;
+        assetAspect[label] = Number.isFinite(aspectOverride) ? aspectOverride : (image.naturalWidth / image.naturalHeight);
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.55', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.56', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,8 +731,8 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.55', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.55', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.56', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.56', 'SideScroll tree atlas');
   const assetUv = {
     tree06: { scale: [0.143066406, 0.497070312], offset: [0.699707031, 0.495117188] },
     tree02: { scale: [0.186523438, 0.483398438], offset: [0.131347656, 0.508789062] },
@@ -930,7 +930,7 @@
       for (const asset of pack.assets || []) {
         if (!textures[asset.name]) {
           if (asset.url) {
-            textures[asset.name] = createImageTexture(asset.url, asset.name);
+            textures[asset.name] = createImageTexture(asset.url, asset.name, null, asset.aspect || null);
             if (asset.aspect) assetAspect[asset.name] = asset.aspect;
           } else if (pack.image && asset.slice) {
             textures[asset.name] = createImageSliceTexture(pack.image, asset.slice, asset.name);
@@ -3727,7 +3727,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.55',
+      appVersion:'0.2.56',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3746,7 +3746,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.55', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.56', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3836,7 +3836,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.55',
+      appVersion:'0.2.56',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
