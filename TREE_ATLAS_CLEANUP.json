@@ -1,98 +1,186 @@
 {
   "tree01": {
-    "source": "cel_shaded_ancient_oak_on_magenta-final.png",
+    "source": "a_clean_illustrative_concept_art_style_scene_on_a_1_batch_1.png",
+    "source_size": [
+      1086,
+      1448
+    ],
     "cropped_size": [
-      899,
-      1347
+      814,
+      1388
     ],
+    "background_rgb": [
+      230.0,
+      229.0,
+      226.0
+    ],
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
     "atlas_size": [
-      484,
-      725
-    ],
-    "alpha_floor": 32
+      490,
+      836
+    ]
   },
   "tree02": {
-    "source": "cel_shaded_pine_on_magenta-final.png",
+    "source": "a_clean_stylized_illustration_on_a_plain_light_ne_2_batch_2.png",
+    "source_size": [
+      1086,
+      1448
+    ],
     "cropped_size": [
-      492,
-      1348
+      1004,
+      1382
     ],
+    "background_rgb": [
+      225.0,
+      223.0,
+      220.0
+    ],
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
     "atlas_size": [
-      361,
-      988
-    ],
-    "alpha_floor": 32
+      490,
+      674
+    ]
   },
   "tree03": {
-    "source": "cel_shaded_tree_on_magenta-final.png",
+    "source": "a_clean_studio_like_illustration_of_a_single_styl_3_batch_3.png",
+    "source_size": [
+      1086,
+      1448
+    ],
     "cropped_size": [
-      1071,
-      1236
-    ],
-    "atlas_size": [
-      484,
-      559
-    ],
-    "alpha_floor": 32
-  },
-  "tree04": {
-    "source": "evergreen_tree_test-final.png",
-    "cropped_size": [
-      494,
-      1359
-    ],
-    "atlas_size": [
-      359,
-      988
-    ],
-    "alpha_floor": 32
-  },
-  "tree05": {
-    "source": "solitary_stylised_tree_on_magenta-final.png",
-    "cropped_size": [
-      634,
-      1335
-    ],
-    "atlas_size": [
-      469,
-      988
-    ],
-    "alpha_floor": 32
-  },
-  "tree06": {
-    "source": "stylised_tree_against_deep_magenta-final.png",
-    "cropped_size": [
-      721,
+      1047,
       1343
     ],
-    "atlas_size": [
-      484,
-      902
+    "background_rgb": [
+      226.0,
+      224.0,
+      222.0
     ],
-    "alpha_floor": 32
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
+    "atlas_size": [
+      490,
+      629
+    ]
+  },
+  "tree04": {
+    "source": "a_clean_isolated_illustration_on_a_plain_light_ne_4_batch_4.png",
+    "source_size": [
+      1086,
+      1448
+    ],
+    "cropped_size": [
+      495,
+      1378
+    ],
+    "background_rgb": [
+      232.0,
+      230.0,
+      228.0
+    ],
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
+    "atlas_size": [
+      305,
+      850
+    ]
+  },
+  "tree05": {
+    "source": "a_clean_isolated_illustration_on_a_plain_light_ve_5_batch_5.png",
+    "source_size": [
+      1086,
+      1448
+    ],
+    "cropped_size": [
+      976,
+      1339
+    ],
+    "background_rgb": [
+      229.0,
+      227.0,
+      225.0
+    ],
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
+    "atlas_size": [
+      490,
+      672
+    ]
+  },
+  "tree06": {
+    "source": "a_clean_minimal_illustration_style_scene_a_singl_6_batch_6.png",
+    "source_size": [
+      1086,
+      1448
+    ],
+    "cropped_size": [
+      946,
+      1310
+    ],
+    "background_rgb": [
+      225.0,
+      223.0,
+      221.0
+    ],
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
+    "atlas_size": [
+      490,
+      679
+    ]
   },
   "tree07": {
-    "source": "stylised_tree_on_magenta_background-final.png",
+    "source": "a_clean_illustration_asset_style_scene_a_single_s_7_batch_7.png",
+    "source_size": [
+      1086,
+      1448
+    ],
     "cropped_size": [
-      519,
-      1352
+      1039,
+      1316
     ],
+    "background_rgb": [
+      230.0,
+      228.0,
+      225.0
+    ],
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
     "atlas_size": [
-      379,
-      988
-    ],
-    "alpha_floor": 32
+      490,
+      621
+    ]
   },
   "tree08": {
-    "source": "stylised_windswept_tree_sprite-final.png",
+    "source": "a_clean_illustration_style_isolated_tree_on_a_plai_8_batch_8.png",
+    "source_size": [
+      1086,
+      1448
+    ],
     "cropped_size": [
-      1057,
-      1257
+      909,
+      1362
     ],
+    "background_rgb": [
+      229.0,
+      227.0,
+      225.0
+    ],
+    "alpha_start_rgb_distance": 8.0,
+    "alpha_full_rgb_distance": 48.0,
+    "rgb_edge_dilation": "nearest opaque core",
     "atlas_size": [
-      484,
-      576
-    ],
-    "alpha_floor": 32
+      490,
+      734
+    ]
   }
 }
