@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.59: replace the tree dressing family with the newly approved single-tree set, processed to soft alpha with colour dilation and repacked into the dedicated atlas.
+  // SideScroll v0.2.60: tune procedural woodland treatment around the approved tree set: smaller trees, non-repeating/spaced placement, far-side-only spawning, no legacy ground dressing, and softer blue distance fog.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -258,7 +258,8 @@
       vec4 tex = texture2D(uTexture, vUV);
       float alpha = tex.a * uOpacity;
       if (alpha < 0.045) discard;
-      float fog = smoothstep(uFogNear, uFogFar, vDepth) * uFogAmount;
+      float fogT = smoothstep(uFogNear, uFogFar, vDepth);
+      float fog = pow(fogT, 1.65) * uFogAmount;
       vec3 base = tex.rgb * uTint;
       base = mix(base, uHighlightColor, clamp(uHighlight, 0.0, 1.0) * 0.72);
       vec3 rgb = mix(base, uFogColor, fog * (1.0 - uHighlight * 0.72));
@@ -723,7 +724,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.59', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.60', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,8 +732,8 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.59', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.59', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.60', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.60', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.239257812, 0.408203125], offset: [0.006835938, 0.578125000] },
     tree02: { scale: [0.239257812, 0.329101562], offset: [0.252929688, 0.578125000] },
@@ -975,7 +976,15 @@
   const TILE = { minX: -62, maxX: 62 };
   const TILE_WIDTH = TILE.maxX - TILE.minX;
   const WORLD = { nearZ: 10.5, farZ: -42 };
-  const fogColor = [0.875, 0.915, 0.945];
+  // v0.2.60: a slightly bluer fog with a gentler near-field contribution.
+  // The fragment shader adds an eased/power curve so contrast stays stronger
+  // around the player and falls away progressively deeper into the forest.
+  const fogColor = [0.835, 0.885, 0.945];
+  const FOG_NEAR = 7.8;
+  const FOG_FAR = 46.0;
+  const FOG_AMOUNT = 0.90;
+  const PROCEDURAL_TREE_SCALE = 0.80;
+  const HIDE_LEGACY_GROUND_DRESSING = true;
   const groundY = -4.55;
 
   // Think of this exactly like a top-down forest plan: a clear path runs along X,
@@ -1337,213 +1346,92 @@
 
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
-    const allGround = ['ground01','ground02','ground03','ground04','ground05','ground06','ground07','ground08','ground09','ground10','ground11','ground12'];
-    const grassScrub = ['ground01','ground02','ground03','ground05','ground06','ground08','ground09','ground10','ground11','ground12'];
-    const rocks = ['ground03','ground04','ground07','ground10','ground11'];
-    const edgeGrass = ['ground01','ground06','ground10','ground11'];
 
-    // FAR PATH LIP ----------------------------------------------------------
-    // The far edge is the one the side camera reads most clearly, so give it a
-    // deliberately continuous low grass seam slightly inside the top of the
-    // path.  The pieces overlap the dirt by a few centimetres and hide the
-    // geometric line before the larger far-side woodland begins.
-    const farLipCount = 238;
-    for (let i = 0; i < farLipCount; i++) {
-      const spacing = TILE_WIDTH / farLipCount;
-      const x = TILE.minX + (i + 0.5) * spacing + (rand() - 0.5) * spacing * 0.72;
-      const z = -(PATH_FLAT_HALF - 0.04 + rand() * 0.28);
-      const type = edgeGrass[Math.floor(rand() * edgeGrass.length)];
-      const height = 0.34 + rand() * 0.34;
-      addObject(midfill, type, x, z, null, height, {
-        y: pathGroundYAt(x, z) - 0.075,
-        shade: 1.015 + rand() * 0.055,
-        opacity: 0.96 + rand() * 0.035,
-        layer: 'near'
-      });
-      if (i % 15 === 0 && rand() > 0.28) {
-        const rockType = rocks[Math.floor(rand() * rocks.length)];
-        addObject(midfill, rockType, x + (rand() - 0.5) * 0.42, z - 0.12 - rand() * 0.18, null, 0.34 + rand() * 0.30, {
-          y: pathGroundYAt(x, z) - 0.06,
-          shade: 0.99 + rand() * 0.07,
-          opacity: 0.97,
-          layer: 'near'
-        });
+    // v0.2.60 woodland pass -------------------------------------------------
+    // Only the approved tree family is spawned procedurally for now. The old
+    // grass/rock dressing is intentionally withheld until those assets receive
+    // the same art treatment, and no trees are placed on the near side of the
+    // gameplay path.
+    const placedTrees = [];
+    const nearestTreeZ = -(PATH_FLAT_HALF + 1.85); // ~2m clear of gameplay path.
+    const generalSpacing = 3.15;
+    const sameVariantSpacing = 12.5;
+
+    function wrappedXDistance(a, b) {
+      const raw = Math.abs(a - b);
+      return Math.min(raw, Math.max(0, TILE_WIDTH - raw));
+    }
+
+    function treeDistance(a, x, z) {
+      return Math.hypot(wrappedXDistance(a.x, x), a.z - z);
+    }
+
+    function canUsePosition(x, z) {
+      return !placedTrees.some(tree => treeDistance(tree, x, z) < generalSpacing);
+    }
+
+    function chooseTreeVariant(x, z) {
+      // Start at a random point in the family, then walk it once. This keeps the
+      // mix organic while preventing the same silhouette from appearing again
+      // within a screen-scale neighbourhood.
+      const start = Math.floor(rand() * trees.length);
+      for (let offset = 0; offset < trees.length; offset++) {
+        const type = trees[(start + offset) % trees.length];
+        const tooClose = placedTrees.some(tree => tree.type === type && treeDistance(tree, x, z) < sameVariantSpacing);
+        if (!tooClose) return type;
       }
+      return null;
     }
 
-    // PATH EDGE DRESSING -----------------------------------------------------
-    // A low almost-continuous grass line sits directly on each raised shoulder,
-    // hiding the mathematically sharp edge of the path.  Occasional rocks and
-    // rooty clumps interrupt that line so it still feels naturally scattered.
-    for (let i = 0; i < 145; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = -(PATH_BERM_HALF + 0.02 + rand() * 0.34);
-      const type = edgeGrass[Math.floor(rand() * edgeGrass.length)];
-      const height = 0.25 + rand() * 0.34;
-      addObject(midfill, type, x, z, null, height, {
-        y: pathGroundYAt(x, z) - 0.015,
-        shade: 1.01 + rand() * 0.06,
-        opacity: 0.94 + rand() * 0.05,
-        layer: 'near'
-      });
-    }
-    for (let i = 0; i < 155; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = PATH_BERM_HALF + 0.02 + rand() * 0.38;
-      const type = edgeGrass[Math.floor(rand() * edgeGrass.length)];
-      const height = 0.26 + rand() * 0.36;
-      addObject(frontOccluders, type, x, z, null, height, {
-        y: pathGroundYAt(x, z) - 0.015,
-        shade: 0.99 + rand() * 0.06,
-        opacity: 0.95 + rand() * 0.04,
-        layer: 'foreground'
-      });
-    }
-    for (let i = 0; i < 24; i++) {
-      const nearSide = rand() > 0.5;
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const zSign = nearSide ? 1 : -1;
-      const z = zSign * (PATH_BERM_HALF + 0.10 + rand() * 0.50);
-      const type = rocks[Math.floor(rand() * rocks.length)];
-      const height = 0.34 + rand() * 0.38;
-      addObject(nearSide ? frontOccluders : midfill, type, x, z, null, height, {
-        y: pathGroundYAt(x, z) - 0.02,
-        shade: 0.98 + rand() * 0.07,
-        opacity: 0.96,
-        layer: nearSide ? 'foreground' : 'near'
-      });
-    }
-
-    // FAR SIDE OF PATH -------------------------------------------------------
-    // A dense woodland wall starts clearly behind the path, then gradually
-    // thins with depth. This is the main silhouette mass behind the character.
-    for (let i = 0; i < 178; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const depth = Math.pow(rand(), 1.45); // bias density toward the path edge
-      const z = FAR_SIDE_START - 0.55 - depth * 35.5;
-      const type = trees[Math.floor(rand() * trees.length)];
-      const height = 9.8 + rand() * (8.2 - depth * 1.8);
+    function addProceduralTree(x, z, baseHeight, index, shadeBase = 0.97, opacityBase = 0.94) {
+      if (!canUsePosition(x, z)) return false;
+      const type = chooseTreeVariant(x, z);
+      if (!type) return false;
+      const height = baseHeight * PROCEDURAL_TREE_SCALE;
       addObject(backdrop, type, x, z, null, height, {
-        shade: 0.97 + rand() * 0.10,
-        opacity: 0.92 + rand() * 0.08,
+        id: `forest260-${index}`,
+        shade: shadeBase + rand() * 0.09,
+        opacity: opacityBase + rand() * (1.0 - opacityBase),
         layer: classifyLayer(z)
       });
+      placedTrees.push({ x, z, type });
+      return true;
     }
 
-    // Taller canopy accents deeper in the forest keep the upper frame alive.
-    for (let i = 0; i < 42; i++) {
+    // Main forest. About a quarter of attempts live in an irregular near fringe
+    // between roughly 2m and 6m beyond the playable path. The rest spreads into
+    // the full depth of the woodland. This breaks the previous ruler-straight
+    // path edge without letting trunks intrude on gameplay space.
+    let placed = 0;
+    let attempts = 0;
+    const targetMainTrees = 118;
+    while (placed < targetMainTrees && attempts < 3600) {
+      attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = -18.0 - rand() * 21.0;
-      const type = trees[Math.floor(rand() * trees.length)];
-      const height = 14.0 + rand() * 7.5;
-      addObject(backdrop, type, x, z, null, height, {
-        shade: 1.00 + rand() * 0.08,
-        opacity: 0.86 + rand() * 0.10,
-        layer: 'far'
-      });
-    }
-
-    // Dense undergrowth right along the far path edge hides the bases of the
-    // first trees and makes the path boundary feel continuous.
-    for (let i = 0; i < 230; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const edgeDepth = Math.pow(rand(), 1.8);
-      const z = FAR_SIDE_START - 0.20 - edgeDepth * 8.0;
-      const type = grassScrub[Math.floor(rand() * grassScrub.length)];
-      const height = 0.72 + rand() * 1.40;
-      addObject(midfill, type, x, z, null, height, {
-        shade: 1.00 + rand() * 0.08,
-        opacity: 0.91 + rand() * 0.08,
-        layer: classifyLayer(z)
-      });
-    }
-
-    // A few rocks/bushes extend further back and help blend the first forest
-    // band into the fogged middle distance.
-    for (let i = 0; i < 88; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = FAR_SIDE_START - 5.0 - rand() * 13.5;
-      const type = allGround[Math.floor(rand() * allGround.length)];
-      const height = 0.72 + rand() * 1.50;
-      addObject(midfill, type, x, z, null, height, {
-        shade: 1.02 + rand() * 0.07,
-        opacity: 0.86 + rand() * 0.10,
-        layer: classifyLayer(z)
-      });
-    }
-
-    // NEAR SIDE OF PATH ------------------------------------------------------
-    // Keep a real clear corridor in front of the character. Woodland begins
-    // several world units closer to camera than the character instead of
-    // sitting almost on top of the same Z plane.
-
-    // Dense low path-edge strip. At this Z range perspective naturally drops
-    // it lower in frame and gives us stronger foreground parallax.
-    for (let i = 0; i < 310; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = NEAR_SIDE_START + 0.25 + rand() * 2.25;
-      const type = grassScrub[Math.floor(rand() * grassScrub.length)];
-      const height = 0.48 + rand() * 0.58;
-      addObject(frontOccluders, type, x, z, null, height, {
-        shade: 0.99 + rand() * 0.06,
-        opacity: 0.95 + rand() * 0.04,
-        layer: 'foreground'
-      });
-    }
-
-    // Mid-near layer: still mostly small, but not tiny. This should fill the
-    // lower third rather than leaving isolated postage-stamp props.
-    for (let i = 0; i < 230; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = NEAR_SIDE_START + 2.2 + rand() * 2.45;
-      const chooseRock = rand() < 0.28;
-      const list = chooseRock ? rocks : grassScrub;
-      const type = list[Math.floor(rand() * list.length)];
-      const height = 0.55 + rand() * 0.72;
-      addObject(frontOccluders, type, x, z, null, height, {
-        shade: 0.98 + rand() * 0.07,
-        opacity: 0.95 + rand() * 0.04,
-        layer: 'foreground'
-      });
-    }
-
-    // Closest strip: dense grass/rocks with enough real-world size to overlap
-    // one another and cover the floor, but still low enough not to hide the
-    // character when they pass in front.
-    for (let i = 0; i < 205; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = NEAR_SIDE_START + 4.6 + rand() * 2.25;
-      const type = allGround[Math.floor(rand() * allGround.length)];
-      const height = 0.48 + rand() * 0.78;
-      addObject(frontOccluders, type, x, z, null, height, {
-        shade: 0.98 + rand() * 0.06,
-        opacity: 0.96,
-        layer: 'foreground'
-      });
-    }
-
-    // Occasional larger near-side assets give a stronger sense of passing
-    // through woodland, but remain uncommon so the path stays readable.
-    for (let i = 0; i < 20; i++) {
-      const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = NEAR_SIDE_START + 2.5 + rand() * 4.5;
-      if (rand() < 0.42) {
-        const type = trees[Math.floor(rand() * trees.length)];
-        const height = 5.2 + rand() * 4.8;
-        addObject(frontOccluders, type, x, z, null, height, {
-          shade: 0.92 + rand() * 0.08,
-          opacity: 0.95,
-          layer: 'foreground'
-        });
+      let z;
+      if (rand() < 0.28) {
+        z = nearestTreeZ - Math.pow(rand(), 0.78) * 4.3;
       } else {
-        const type = allGround[Math.floor(rand() * allGround.length)];
-        const height = 1.05 + rand() * 1.15;
-        addObject(frontOccluders, type, x, z, null, height, {
-          shade: 0.96 + rand() * 0.07,
-          opacity: 0.96,
-          layer: 'foreground'
-        });
+        const depth = Math.pow(rand(), 1.18);
+        z = nearestTreeZ - 1.0 - depth * 33.6;
       }
+      z = Math.max(WORLD.farZ + 1.4, z);
+      const depth01 = Math.min(1, Math.max(0, (-z - 4.3) / 36.0));
+      const baseHeight = 9.3 + rand() * (7.6 - depth01 * 1.2);
+      if (addProceduralTree(x, z, baseHeight, `main-${placed}`)) placed += 1;
+    }
+
+    // A smaller set of taller silhouettes in the middle/far distance keeps the
+    // upper canopy varied, while obeying the same spacing and repeat rules.
+    let accents = 0;
+    attempts = 0;
+    const targetAccents = 20;
+    while (accents < targetAccents && attempts < 1400) {
+      attempts += 1;
+      const x = TILE.minX + rand() * TILE_WIDTH;
+      const z = -17.0 - rand() * 23.0;
+      const baseHeight = 13.6 + rand() * 6.8;
+      if (addProceduralTree(x, z, baseHeight, `accent-${accents}`, 0.99, 0.90)) accents += 1;
     }
 
     backdrop.sort((a, b) => a.z - b.z);
@@ -1901,7 +1789,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.59" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.60" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -2505,6 +2393,7 @@
 
     for (const obj of allSceneObjects()) applyOverrideToObject(obj, sceneData.overrides[obj.id]);
     for (const saved of sceneData.added || []) {
+      if (HIDE_LEGACY_GROUND_DRESSING && /^ground(?:0[1-9]|1[0-2])$/.test(saved.assetName || '')) continue;
       userSceneCounter += 1;
       const collection = saved.category === 'gameplay' || saved.assetName === 'crate' ? frontOccluders : targetCollectionForZ(saved.z);
       const obj = addObject(collection, saved.assetName, saved.x, saved.z, saved.sx, saved.sy, {
@@ -4648,7 +4537,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.59" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.60" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -5532,9 +5421,9 @@
     gl.uniform1f(loc.highlight, 0);
     gl.uniform3f(loc.highlightColor, 0, 0, 0);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
-    gl.uniform1f(loc.fogNear, 6.2);
-    gl.uniform1f(loc.fogFar, 44.0);
-    gl.uniform1f(loc.fogAmount, debugDepth ? 0.08 : (shadow.fogAmount ?? 0.28));
+    gl.uniform1f(loc.fogNear, FOG_NEAR);
+    gl.uniform1f(loc.fogFar, FOG_FAR);
+    gl.uniform1f(loc.fogAmount, debugDepth ? 0.08 : (shadow.fogAmount ?? (0.28 * FOG_AMOUNT)));
     gl.uniform1f(loc.opacity, shadow.opacity ?? 0.42);
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
@@ -5558,9 +5447,9 @@
     gl.uniform1f(loc.highlight, selectedHighlight);
     gl.uniform3f(loc.highlightColor, 1.0, 0.18, 0.48);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
-    gl.uniform1f(loc.fogNear, 6.2);
-    gl.uniform1f(loc.fogFar, 44.0);
-    gl.uniform1f(loc.fogAmount, obj.noFog ? 0 : (debugDepth ? 0.22 : 1.0));
+    gl.uniform1f(loc.fogNear, FOG_NEAR);
+    gl.uniform1f(loc.fogFar, FOG_FAR);
+    gl.uniform1f(loc.fogAmount, obj.noFog ? 0 : (debugDepth ? 0.22 : FOG_AMOUNT));
     // Keep the scene fully opaque in Edit mode. Transparency made overlapping
     // foliage impossible to read; selection is now communicated by a bright
     // tint + screen-space frame instead.
@@ -5709,9 +5598,9 @@
     gl.uniform1f(loc.highlight, 0);
     gl.uniform3f(loc.highlightColor, 1.0, 0.18, 0.48);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
-    gl.uniform1f(loc.fogNear, 6.2);
-    gl.uniform1f(loc.fogFar, 44.0);
-    gl.uniform1f(loc.fogAmount, debugDepth ? 0.22 : 1.0);
+    gl.uniform1f(loc.fogNear, FOG_NEAR);
+    gl.uniform1f(loc.fogFar, FOG_FAR);
+    gl.uniform1f(loc.fogAmount, debugDepth ? 0.22 : FOG_AMOUNT);
     gl.uniform1f(loc.opacity, character.opacity * (part.alpha ?? 1));
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
