@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.57: apply the approved muted woodland art treatment across the remaining puzzle prop textures while preserving their authored footprints.
+  // SideScroll v0.2.58: replace the procedural forest tree set with the new soft-alpha, colour-dilated woodland tree library and expand the in-game family to eight variants.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -723,7 +723,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.57', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.58', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -731,15 +731,17 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.57', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.57', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.58', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.58', 'SideScroll tree atlas');
   const assetUv = {
-    tree06: { scale: [0.143066406, 0.497070312], offset: [0.699707031, 0.495117188] },
-    tree02: { scale: [0.186523438, 0.483398438], offset: [0.131347656, 0.508789062] },
-    tree01: { scale: [0.115722656, 0.466308594], offset: [0.007812500, 0.525878906] },
-    tree04: { scale: [0.121093750, 0.453613281], offset: [0.445800781, 0.538574219] },
-    tree03: { scale: [0.112304688, 0.438964844], offset: [0.325683594, 0.553222656] },
-    tree05: { scale: [0.117187500, 0.408691406], offset: [0.574707031, 0.583496094] },
+    tree01: { scale: [0.236328125, 0.354003906], offset: [0.006835938, 0.506835938] },
+    tree02: { scale: [0.176269531, 0.482421875], offset: [0.286621094, 0.506835938] },
+    tree03: { scale: [0.236328125, 0.272949219], offset: [0.506835938, 0.506835938] },
+    tree04: { scale: [0.175292969, 0.482421875], offset: [0.787109375, 0.506835938] },
+    tree05: { scale: [0.229003906, 0.482421875], offset: [0.010253906, 0.006835938] },
+    tree06: { scale: [0.236328125, 0.440429688], offset: [0.256835938, 0.006835938] },
+    tree07: { scale: [0.185058594, 0.482421875], offset: [0.532226562, 0.006835938] },
+    tree08: { scale: [0.236328125, 0.281250000], offset: [0.756835938, 0.006835938] },
     ground02: { scale: [0.131835938, 0.112792969], offset: [0.624023438, 0.883300781] },
     ground01: { scale: [0.128417969, 0.108886719], offset: [0.759765625, 0.887207031] },
     ground06: { scale: [0.111328125, 0.107421875], offset: [0.003906250, 0.511718750] },
@@ -754,12 +756,14 @@
     ground10: { scale: [0.113281250, 0.062500000], offset: [0.300781250, 0.445312500] },
   };
   const assetDimensions = {
-    tree01: [237, 955],
-    tree02: [382, 990],
-    tree03: [230, 899],
-    tree04: [248, 929],
-    tree05: [240, 837],
-    tree06: [293, 1018],
+    tree01: [484, 725],
+    tree02: [361, 988],
+    tree03: [484, 559],
+    tree04: [359, 988],
+    tree05: [469, 988],
+    tree06: [484, 902],
+    tree07: [379, 988],
+    tree08: [484, 576],
     ground01: [351, 297],
     ground02: [360, 308],
     ground03: [394, 204],
@@ -1332,7 +1336,7 @@
   }
 
   function scatterForest() {
-    const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06'];
+    const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
     const allGround = ['ground01','ground02','ground03','ground04','ground05','ground06','ground07','ground08','ground09','ground10','ground11','ground12'];
     const grassScrub = ['ground01','ground02','ground03','ground05','ground06','ground08','ground09','ground10','ground11','ground12'];
     const rocks = ['ground03','ground04','ground07','ground10','ground11'];
@@ -1897,7 +1901,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.33" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.58" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -2815,7 +2819,7 @@
       { name:'stone-piece-c', label:'STONE PIECE C', image:'stone-piece-c.png', category:'gameplay', gameplayType:'prop', thumb:'⬡', defaultHeight:0.74 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
-      'tree01','tree02','tree03','tree04','tree05','tree06'
+      'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
     ].map(name => ({ name, label: `TREE ${Number(name.slice(-2))}`, category: 'dressing' }))},
     { scope:'environment', title: 'DRESSING · GROUND', items: [
       'ground01','ground02','ground03','ground04','ground05','ground06',
@@ -3727,7 +3731,7 @@
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.57',
+      appVersion:'0.2.58',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -3746,7 +3750,7 @@
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.57', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.58', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -3836,7 +3840,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.57',
+      appVersion:'0.2.58',
       exportedAt:new Date().toISOString(),
       purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
@@ -4644,7 +4648,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.33" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.58" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {

@@ -1,62 +1,98 @@
 {
   "tree01": {
-    "source_components": 45,
-    "kept_pixels": 70808,
-    "main_bbox": [
-      9,
-      9,
-      227,
-      945
-    ]
+    "source": "cel_shaded_ancient_oak_on_magenta-final.png",
+    "cropped_size": [
+      899,
+      1347
+    ],
+    "atlas_size": [
+      484,
+      725
+    ],
+    "alpha_floor": 32
   },
   "tree02": {
-    "source_components": 80,
-    "kept_pixels": 148311,
-    "main_bbox": [
-      10,
-      10,
-      372,
-      980
-    ]
+    "source": "cel_shaded_pine_on_magenta-final.png",
+    "cropped_size": [
+      492,
+      1348
+    ],
+    "atlas_size": [
+      361,
+      988
+    ],
+    "alpha_floor": 32
   },
   "tree03": {
-    "source_components": 54,
-    "kept_pixels": 44043,
-    "main_bbox": [
-      10,
-      10,
-      220,
-      889
-    ]
+    "source": "cel_shaded_tree_on_magenta-final.png",
+    "cropped_size": [
+      1071,
+      1236
+    ],
+    "atlas_size": [
+      484,
+      559
+    ],
+    "alpha_floor": 32
   },
   "tree04": {
-    "source_components": 46,
-    "kept_pixels": 84277,
-    "main_bbox": [
-      10,
-      10,
-      238,
-      919
-    ]
+    "source": "evergreen_tree_test-final.png",
+    "cropped_size": [
+      494,
+      1359
+    ],
+    "atlas_size": [
+      359,
+      988
+    ],
+    "alpha_floor": 32
   },
   "tree05": {
-    "source_components": 41,
-    "kept_pixels": 55417,
-    "main_bbox": [
-      10,
-      10,
-      230,
-      827
-    ]
+    "source": "solitary_stylised_tree_on_magenta-final.png",
+    "cropped_size": [
+      634,
+      1335
+    ],
+    "atlas_size": [
+      469,
+      988
+    ],
+    "alpha_floor": 32
   },
   "tree06": {
-    "source_components": 55,
-    "kept_pixels": 114367,
-    "main_bbox": [
-      10,
-      10,
-      283,
-      1008
-    ]
+    "source": "stylised_tree_against_deep_magenta-final.png",
+    "cropped_size": [
+      721,
+      1343
+    ],
+    "atlas_size": [
+      484,
+      902
+    ],
+    "alpha_floor": 32
+  },
+  "tree07": {
+    "source": "stylised_tree_on_magenta_background-final.png",
+    "cropped_size": [
+      519,
+      1352
+    ],
+    "atlas_size": [
+      379,
+      988
+    ],
+    "alpha_floor": 32
+  },
+  "tree08": {
+    "source": "stylised_windswept_tree_sprite-final.png",
+    "cropped_size": [
+      1057,
+      1257
+    ],
+    "atlas_size": [
+      484,
+      576
+    ],
+    "alpha_floor": 32
   }
 }
