@@ -1,10 +1,7 @@
-# SideScroll v0.2.60
+# SideScroll v0.2.62
 
-Procedural woodland treatment pass.
+Updated woodland ground texture.
 
-- Scaled all procedurally spawned trees down by 20%.
-- Added minimum tree spacing and same-variant separation so repeated silhouettes do not cluster on screen.
-- Trees now spawn only on the far side of the path, with a more irregular near fringe while keeping roughly 2m clear of gameplay space.
-- Disabled procedural grass/rock dressing, and suppresses legacy hand-placed ground dressing for now, until those assets receive the new art treatment.
-- Reduced near-field fog, changed it to an eased distance curve, and shifted the fog/background toward a subtle cool blue.
-- No puzzle, collision, character-control or interaction-system changes.
+- Replaced the main `terrain-dirt.png` with the new hand-painted cracked-earth texture.
+- Added subtle painted grass patches into the ground texture so it sits better with the current tree set.
+- No changes to tree placement, fog, puzzle logic, collision, controls, or editor systems.

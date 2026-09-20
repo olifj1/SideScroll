@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.60: tune procedural woodland treatment around the approved tree set: smaller trees, non-repeating/spaced placement, far-side-only spawning, no legacy ground dressing, and softer blue distance fog.
+  // SideScroll v0.2.61: bring the procedural woodland back toward the path: slightly larger trees and a denser, closer far-side fringe while preserving spacing/repeat rules.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -724,7 +724,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.60', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.61', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -732,8 +732,8 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.60', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.60', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.61', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.61', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.239257812, 0.408203125], offset: [0.006835938, 0.578125000] },
     tree02: { scale: [0.239257812, 0.329101562], offset: [0.252929688, 0.578125000] },
@@ -976,14 +976,14 @@
   const TILE = { minX: -62, maxX: 62 };
   const TILE_WIDTH = TILE.maxX - TILE.minX;
   const WORLD = { nearZ: 10.5, farZ: -42 };
-  // v0.2.60: a slightly bluer fog with a gentler near-field contribution.
+  // v0.2.61: a slightly bluer fog with a gentler near-field contribution.
   // The fragment shader adds an eased/power curve so contrast stays stronger
   // around the player and falls away progressively deeper into the forest.
   const fogColor = [0.835, 0.885, 0.945];
   const FOG_NEAR = 7.8;
   const FOG_FAR = 46.0;
   const FOG_AMOUNT = 0.90;
-  const PROCEDURAL_TREE_SCALE = 0.80;
+  const PROCEDURAL_TREE_SCALE = 0.90;
   const HIDE_LEGACY_GROUND_DRESSING = true;
   const groundY = -4.55;
 
@@ -1347,13 +1347,13 @@
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
 
-    // v0.2.60 woodland pass -------------------------------------------------
+    // v0.2.61 woodland proximity pass ----------------------------------------
     // Only the approved tree family is spawned procedurally for now. The old
     // grass/rock dressing is intentionally withheld until those assets receive
     // the same art treatment, and no trees are placed on the near side of the
     // gameplay path.
     const placedTrees = [];
-    const nearestTreeZ = -(PATH_FLAT_HALF + 1.85); // ~2m clear of gameplay path.
+    const nearestTreeZ = -(PATH_FLAT_HALF + 1.05); // let some trunks sit about 1m beyond the flat gameplay edge.
     const generalSpacing = 3.15;
     const sameVariantSpacing = 12.5;
 
@@ -1398,10 +1398,11 @@
       return true;
     }
 
-    // Main forest. About a quarter of attempts live in an irregular near fringe
-    // between roughly 2m and 6m beyond the playable path. The rest spreads into
-    // the full depth of the woodland. This breaks the previous ruler-straight
-    // path edge without letting trunks intrude on gameplay space.
+    // Main forest. A larger share now lives in the near fringe and is biased
+    // toward its closest edge. Combined with the slightly larger tree scale,
+    // this lets canopies intrude visually over the route so the player feels
+    // inside the woodland rather than alongside a distant tree line. Trunks
+    // remain on the far side only and outside the flat gameplay surface.
     let placed = 0;
     let attempts = 0;
     const targetMainTrees = 118;
@@ -1409,8 +1410,8 @@
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.28) {
-        z = nearestTreeZ - Math.pow(rand(), 0.78) * 4.3;
+      if (rand() < 0.40) {
+        z = nearestTreeZ - Math.pow(rand(), 1.45) * 4.8;
       } else {
         const depth = Math.pow(rand(), 1.18);
         z = nearestTreeZ - 1.0 - depth * 33.6;
@@ -1789,7 +1790,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.60" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.61" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -4537,7 +4538,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.60" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.61" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
