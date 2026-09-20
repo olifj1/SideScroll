@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.64: substantially denser near/far dressing so the path feels embedded within the forest again.
+  // SideScroll v0.2.65: denser, slightly larger path-edge foliage with stronger off-path scale growth so the forest floor feels wilder just beyond the walked route.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -976,7 +976,7 @@
   const TILE = { minX: -62, maxX: 62 };
   const TILE_WIDTH = TILE.maxX - TILE.minX;
   const WORLD = { nearZ: 10.5, farZ: -42 };
-  // v0.2.64: a slightly bluer fog with a gentler near-field contribution.
+  // v0.2.65: a slightly bluer fog with a gentler near-field contribution.
   // The fragment shader adds an eased/power curve so contrast stays stronger
   // around the player and falls away progressively deeper into the forest.
   const fogColor = [0.835, 0.885, 0.945];
@@ -1347,18 +1347,18 @@
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
     const dressingDefs = {
-      ground01: { family:'foliage', weight:1.18, hMin:1.00, hMax:1.26, radius:1.20, same:4.8, nearWeight:1.30, farWeight:1.00 },
-      ground02: { family:'foliage', weight:1.00, hMin:1.18, hMax:1.48, radius:1.50, same:6.0, nearWeight:0.90, farWeight:1.05 },
-      ground03: { family:'foliage', weight:0.96, hMin:1.08, hMax:1.42, radius:1.32, same:5.0, nearWeight:1.10, farWeight:0.95 },
-      ground04: { family:'foliage', weight:0.94, hMin:1.12, hMax:1.44, radius:1.42, same:5.3, nearWeight:1.00, farWeight:1.10 },
-      ground05: { family:'twig',    weight:0.62, hMin:1.02, hMax:1.28, radius:1.10, same:6.8, nearWeight:0.72, farWeight:0.88 },
-      ground06: { family:'foliage', weight:1.00, hMin:1.10, hMax:1.38, radius:1.36, same:5.2, nearWeight:1.05, farWeight:1.00 },
-      ground07: { family:'rock',    weight:0.74, hMin:0.88, hMax:1.12, radius:1.24, same:5.8, nearWeight:0.92, farWeight:0.80 },
-      ground08: { family:'rock',    weight:0.70, hMin:1.00, hMax:1.30, radius:1.54, same:6.4, nearWeight:0.88, farWeight:0.84 },
-      ground09: { family:'rock',    weight:0.66, hMin:0.82, hMax:1.00, radius:1.18, same:5.2, nearWeight:0.90, farWeight:0.76 },
-      ground10: { family:'rock',    weight:0.58, hMin:1.08, hMax:1.42, radius:1.58, same:6.6, nearWeight:0.82, farWeight:0.74 },
-      ground11: { family:'foliage', weight:0.86, hMin:0.96, hMax:1.20, radius:1.18, same:4.6, nearWeight:1.14, farWeight:0.96 },
-      ground12: { family:'foliage', weight:0.82, hMin:1.04, hMax:1.32, radius:1.28, same:5.0, nearWeight:1.06, farWeight:1.02 }
+      ground01: { family:'foliage', weight:1.34, hMin:1.08, hMax:1.42, radius:1.08, same:4.2, nearWeight:1.44, farWeight:1.10 },
+      ground02: { family:'foliage', weight:1.12, hMin:1.26, hMax:1.68, radius:1.28, same:5.2, nearWeight:1.02, farWeight:1.16 },
+      ground03: { family:'foliage', weight:1.08, hMin:1.18, hMax:1.62, radius:1.18, same:4.7, nearWeight:1.22, farWeight:1.04 },
+      ground04: { family:'foliage', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
+      ground05: { family:'twig',    weight:0.50, hMin:1.04, hMax:1.34, radius:0.98, same:5.8, nearWeight:0.64, farWeight:0.84 },
+      ground06: { family:'foliage', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
+      ground07: { family:'rock',    weight:0.56, hMin:0.92, hMax:1.18, radius:1.14, same:5.2, nearWeight:0.82, farWeight:0.74 },
+      ground08: { family:'rock',    weight:0.50, hMin:1.04, hMax:1.34, radius:1.34, same:5.8, nearWeight:0.76, farWeight:0.78 },
+      ground09: { family:'rock',    weight:0.46, hMin:0.86, hMax:1.06, radius:1.08, same:4.8, nearWeight:0.76, farWeight:0.68 },
+      ground10: { family:'rock',    weight:0.42, hMin:1.10, hMax:1.46, radius:1.38, same:6.0, nearWeight:0.70, farWeight:0.66 },
+      ground11: { family:'foliage', weight:1.02, hMin:1.04, hMax:1.34, radius:1.06, same:4.3, nearWeight:1.24, farWeight:1.00 },
+      ground12: { family:'foliage', weight:0.98, hMin:1.12, hMax:1.48, radius:1.14, same:4.6, nearWeight:1.18, farWeight:1.10 }
     };
 
     const placedTrees = [];
@@ -1485,13 +1485,13 @@
     // and comes in much closer on both edges so the run feels wrapped by foliage.
     let farPlaced = 0;
     attempts = 0;
-    const farTarget = 132;
+    const farTarget = 146;
     while (farPlaced < farTarget && attempts < 5600) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.82) {
-        z = -(PATH_OUTER_HALF - 0.18 + Math.pow(rand(), 1.38) * 5.3);
+      if (rand() < 0.88) {
+        z = -(PATH_OUTER_HALF - 0.16 + Math.pow(rand(), 1.34) * 5.8);
       } else {
         z = -(PATH_OUTER_HALF + 1.0 + Math.pow(rand(), 1.08) * 10.2);
       }
@@ -1501,13 +1501,13 @@
 
     let nearPlaced = 0;
     attempts = 0;
-    const nearTarget = 156;
+    const nearTarget = 170;
     while (nearPlaced < nearTarget && attempts < 6200) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.86) {
-        z = PATH_OUTER_HALF - 0.14 + Math.pow(rand(), 1.40) * 5.4;
+      if (rand() < 0.90) {
+        z = PATH_OUTER_HALF - 0.12 + Math.pow(rand(), 1.34) * 5.9;
       } else {
         z = PATH_OUTER_HALF + 0.90 + Math.pow(rand(), 1.10) * 6.9;
       }

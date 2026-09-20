@@ -1,8 +1,9 @@
-# SideScroll v0.2.64
+# SideScroll v0.2.65
 
-Denser woodland dressing pass.
+Path-edge foliage density / scale pass.
 
-- significantly increased procedural ground dressing density on both sides of the path
-- reduced spacing between foliage / rocks so the scene feels more enclosed and forest-like
-- biased more dressing into the path-edge bands so the route feels embedded within the woodland
-- kept the new dressing atlas, tree set, fog treatment and ground texture from the previous build
+- biased the dressing mix further toward grasses and leafy clumps
+- increased variation and maximum scale, especially for foliage
+- added off-path scale growth so dressing gets larger a little way away from the walked path
+- applied a gentle distance taper so deeper dressing can drop away behind nearer layers
+- slightly increased counts while relying more on larger foliage planes rather than a huge object-count jump
