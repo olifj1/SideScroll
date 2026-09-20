@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.61: bring the procedural woodland back toward the path: slightly larger trees and a denser, closer far-side fringe while preserving spacing/repeat rules.
+  // SideScroll v0.2.63: bring the procedural woodland back toward the path: slightly larger trees and a denser, closer far-side fringe while preserving spacing/repeat rules.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -743,18 +743,18 @@
     tree06: { scale: [0.239257812, 0.331542969], offset: [0.252929688, 0.212890625] },
     tree07: { scale: [0.239257812, 0.303222656], offset: [0.499023438, 0.212890625] },
     tree08: { scale: [0.239257812, 0.358398438], offset: [0.745117188, 0.212890625] },
-    ground02: { scale: [0.131835938, 0.112792969], offset: [0.624023438, 0.883300781] },
-    ground01: { scale: [0.128417969, 0.108886719], offset: [0.759765625, 0.887207031] },
-    ground06: { scale: [0.111328125, 0.107421875], offset: [0.003906250, 0.511718750] },
-    ground04: { scale: [0.101074219, 0.103027344], offset: [0.119140625, 0.516113281] },
-    ground11: { scale: [0.125488281, 0.101074219], offset: [0.224121094, 0.518066406] },
-    ground07: { scale: [0.097656250, 0.100585938], offset: [0.353515625, 0.518554688] },
-    ground05: { scale: [0.142578125, 0.100097656], offset: [0.455078125, 0.519042969] },
-    ground09: { scale: [0.129394531, 0.097656250], offset: [0.601562500, 0.521484375] },
-    ground12: { scale: [0.145507812, 0.083496094], offset: [0.734863281, 0.535644531] },
-    ground08: { scale: [0.144531250, 0.075683594], offset: [0.003906250, 0.432128906] },
-    ground03: { scale: [0.144531250, 0.074707031], offset: [0.152343750, 0.433105469] },
-    ground10: { scale: [0.113281250, 0.062500000], offset: [0.300781250, 0.445312500] },
+    ground01: { scale: [0.218750000, 0.099609375], offset: [0.015625000, 0.765625000] },
+    ground02: { scale: [0.218750000, 0.158203125], offset: [0.265625000, 0.765625000] },
+    ground03: { scale: [0.218750000, 0.168945312], offset: [0.515625000, 0.765625000] },
+    ground04: { scale: [0.218750000, 0.126953125], offset: [0.765625000, 0.765625000] },
+    ground05: { scale: [0.218750000, 0.177734375], offset: [0.015625000, 0.515625000] },
+    ground06: { scale: [0.218750000, 0.121093750], offset: [0.265625000, 0.515625000] },
+    ground07: { scale: [0.218750000, 0.119140625], offset: [0.515625000, 0.515625000] },
+    ground08: { scale: [0.218750000, 0.109375000], offset: [0.765625000, 0.515625000] },
+    ground09: { scale: [0.218750000, 0.080078125], offset: [0.015625000, 0.265625000] },
+    ground10: { scale: [0.218750000, 0.110351562], offset: [0.265625000, 0.265625000] },
+    ground11: { scale: [0.218750000, 0.099609375], offset: [0.515625000, 0.265625000] },
+    ground12: { scale: [0.218750000, 0.126953125], offset: [0.765625000, 0.265625000] },
   };
   const assetDimensions = {
     tree01: [490, 836],
@@ -765,18 +765,18 @@
     tree06: [490, 679],
     tree07: [490, 621],
     tree08: [490, 734],
-    ground01: [351, 297],
-    ground02: [360, 308],
-    ground03: [394, 204],
-    ground04: [276, 281],
-    ground05: [389, 273],
-    ground06: [304, 294],
-    ground07: [267, 275],
-    ground08: [394, 207],
-    ground09: [353, 267],
-    ground10: [309, 171],
-    ground11: [343, 276],
-    ground12: [398, 228],
+    ground01: [224, 102],
+    ground02: [224, 162],
+    ground03: [224, 173],
+    ground04: [224, 130],
+    ground05: [224, 182],
+    ground06: [224, 124],
+    ground07: [224, 122],
+    ground08: [224, 112],
+    ground09: [224, 82],
+    ground10: [224, 113],
+    ground11: [224, 102],
+    ground12: [224, 130],
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
@@ -976,7 +976,7 @@
   const TILE = { minX: -62, maxX: 62 };
   const TILE_WIDTH = TILE.maxX - TILE.minX;
   const WORLD = { nearZ: 10.5, farZ: -42 };
-  // v0.2.61: a slightly bluer fog with a gentler near-field contribution.
+  // v0.2.63: a slightly bluer fog with a gentler near-field contribution.
   // The fragment shader adds an eased/power curve so contrast stays stronger
   // around the player and falls away progressively deeper into the forest.
   const fogColor = [0.835, 0.885, 0.945];
@@ -984,7 +984,7 @@
   const FOG_FAR = 46.0;
   const FOG_AMOUNT = 0.90;
   const PROCEDURAL_TREE_SCALE = 0.90;
-  const HIDE_LEGACY_GROUND_DRESSING = true;
+  const HIDE_LEGACY_GROUND_DRESSING = false;
   const groundY = -4.55;
 
   // Think of this exactly like a top-down forest plan: a clear path runs along X,
@@ -1346,50 +1346,59 @@
 
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
+    const dressingDefs = {
+      ground01: { family:'foliage', weight:1.18, hMin:1.00, hMax:1.26, radius:1.20, same:4.8, nearWeight:1.30, farWeight:1.00 },
+      ground02: { family:'foliage', weight:1.00, hMin:1.18, hMax:1.48, radius:1.50, same:6.0, nearWeight:0.90, farWeight:1.05 },
+      ground03: { family:'foliage', weight:0.96, hMin:1.08, hMax:1.42, radius:1.32, same:5.0, nearWeight:1.10, farWeight:0.95 },
+      ground04: { family:'foliage', weight:0.94, hMin:1.12, hMax:1.44, radius:1.42, same:5.3, nearWeight:1.00, farWeight:1.10 },
+      ground05: { family:'twig',    weight:0.62, hMin:1.02, hMax:1.28, radius:1.10, same:6.8, nearWeight:0.72, farWeight:0.88 },
+      ground06: { family:'foliage', weight:1.00, hMin:1.10, hMax:1.38, radius:1.36, same:5.2, nearWeight:1.05, farWeight:1.00 },
+      ground07: { family:'rock',    weight:0.74, hMin:0.88, hMax:1.12, radius:1.24, same:5.8, nearWeight:0.92, farWeight:0.80 },
+      ground08: { family:'rock',    weight:0.70, hMin:1.00, hMax:1.30, radius:1.54, same:6.4, nearWeight:0.88, farWeight:0.84 },
+      ground09: { family:'rock',    weight:0.66, hMin:0.82, hMax:1.00, radius:1.18, same:5.2, nearWeight:0.90, farWeight:0.76 },
+      ground10: { family:'rock',    weight:0.58, hMin:1.08, hMax:1.42, radius:1.58, same:6.6, nearWeight:0.82, farWeight:0.74 },
+      ground11: { family:'foliage', weight:0.86, hMin:0.96, hMax:1.20, radius:1.18, same:4.6, nearWeight:1.14, farWeight:0.96 },
+      ground12: { family:'foliage', weight:0.82, hMin:1.04, hMax:1.32, radius:1.28, same:5.0, nearWeight:1.06, farWeight:1.02 }
+    };
 
-    // v0.2.61 woodland proximity pass ----------------------------------------
-    // Only the approved tree family is spawned procedurally for now. The old
-    // grass/rock dressing is intentionally withheld until those assets receive
-    // the same art treatment, and no trees are placed on the near side of the
-    // gameplay path.
     const placedTrees = [];
-    const nearestTreeZ = -(PATH_FLAT_HALF + 1.05); // let some trunks sit about 1m beyond the flat gameplay edge.
-    const generalSpacing = 3.15;
-    const sameVariantSpacing = 12.5;
+    const placedDressings = [];
+    const nearestTreeZ = -(PATH_FLAT_HALF + 1.05); // keep trunks just beyond the playable shoulder.
+    const treeGeneralSpacing = 3.15;
+    const treeSameVariantSpacing = 12.5;
+    const dressingGeneralSpacing = 1.10;
+    const dressingFamilySpacing = { foliage:1.24, twig:1.10, rock:1.48 };
 
     function wrappedXDistance(a, b) {
       const raw = Math.abs(a - b);
       return Math.min(raw, Math.max(0, TILE_WIDTH - raw));
     }
 
-    function treeDistance(a, x, z) {
+    function planarDistance(a, x, z) {
       return Math.hypot(wrappedXDistance(a.x, x), a.z - z);
     }
 
-    function canUsePosition(x, z) {
-      return !placedTrees.some(tree => treeDistance(tree, x, z) < generalSpacing);
+    function canUseTreePosition(x, z) {
+      return !placedTrees.some(tree => planarDistance(tree, x, z) < treeGeneralSpacing);
     }
 
     function chooseTreeVariant(x, z) {
-      // Start at a random point in the family, then walk it once. This keeps the
-      // mix organic while preventing the same silhouette from appearing again
-      // within a screen-scale neighbourhood.
       const start = Math.floor(rand() * trees.length);
       for (let offset = 0; offset < trees.length; offset++) {
         const type = trees[(start + offset) % trees.length];
-        const tooClose = placedTrees.some(tree => tree.type === type && treeDistance(tree, x, z) < sameVariantSpacing);
+        const tooClose = placedTrees.some(tree => tree.type === type && planarDistance(tree, x, z) < treeSameVariantSpacing);
         if (!tooClose) return type;
       }
       return null;
     }
 
     function addProceduralTree(x, z, baseHeight, index, shadeBase = 0.97, opacityBase = 0.94) {
-      if (!canUsePosition(x, z)) return false;
+      if (!canUseTreePosition(x, z)) return false;
       const type = chooseTreeVariant(x, z);
       if (!type) return false;
       const height = baseHeight * PROCEDURAL_TREE_SCALE;
       addObject(backdrop, type, x, z, null, height, {
-        id: `forest260-${index}`,
+        id: `forest263-${index}`,
         shade: shadeBase + rand() * 0.09,
         opacity: opacityBase + rand() * (1.0 - opacityBase),
         layer: classifyLayer(z)
@@ -1398,11 +1407,9 @@
       return true;
     }
 
-    // Main forest. A larger share now lives in the near fringe and is biased
-    // toward its closest edge. Combined with the slightly larger tree scale,
-    // this lets canopies intrude visually over the route so the player feels
-    // inside the woodland rather than alongside a distant tree line. Trunks
-    // remain on the far side only and outside the flat gameplay surface.
+    // Main forest. Trees stay far-side only, while the nearer distribution and
+    // repeat-spacing keep the player feeling inside the forest rather than
+    // running next to a flat wallpaper line.
     let placed = 0;
     let attempts = 0;
     const targetMainTrees = 118;
@@ -1422,8 +1429,6 @@
       if (addProceduralTree(x, z, baseHeight, `main-${placed}`)) placed += 1;
     }
 
-    // A smaller set of taller silhouettes in the middle/far distance keeps the
-    // upper canopy varied, while obeying the same spacing and repeat rules.
     let accents = 0;
     attempts = 0;
     const targetAccents = 20;
@@ -1433,6 +1438,81 @@
       const z = -17.0 - rand() * 23.0;
       const baseHeight = 13.6 + rand() * 6.8;
       if (addProceduralTree(x, z, baseHeight, `accent-${accents}`, 0.99, 0.90)) accents += 1;
+    }
+
+    function pickWeightedDressing(side) {
+      const sideKey = side > 0 ? 'nearWeight' : 'farWeight';
+      const entries = Object.entries(dressingDefs);
+      let total = 0;
+      for (const [, def] of entries) total += def.weight * (def[sideKey] ?? 1);
+      let pick = rand() * total;
+      for (const [type, def] of entries) {
+        pick -= def.weight * (def[sideKey] ?? 1);
+        if (pick <= 0) return [type, def];
+      }
+      return entries[entries.length - 1];
+    }
+
+    function canUseDressingPosition(type, def, x, z, height) {
+      const ownRadius = Math.max(dressingGeneralSpacing, def.radius * (0.78 + height * 0.16));
+      for (const item of placedDressings) {
+        const d = planarDistance(item, x, z);
+        const familyMin = Math.max(dressingFamilySpacing[def.family] || dressingGeneralSpacing, dressingFamilySpacing[item.family] || dressingGeneralSpacing);
+        const minDistance = Math.max(ownRadius, item.radius, familyMin);
+        if (d < minDistance) return false;
+        if (item.type === type && d < Math.max(def.same || 5.0, item.same || 5.0)) return false;
+      }
+      return true;
+    }
+
+    function addProceduralDressing(x, z, side, index) {
+      const [type, def] = pickWeightedDressing(side);
+      const height = def.hMin + rand() * (def.hMax - def.hMin);
+      if (!canUseDressingPosition(type, def, x, z, height)) return false;
+      const obj = addObject(targetCollectionForZ(z), type, x, z, null, height, {
+        id: `dressing263-${index}`,
+        y: pathGroundYAt(x, z),
+        shade: 0.985 + rand() * 0.055,
+        opacity: 0.95 + rand() * 0.05,
+        layer: classifyLayer(z)
+      });
+      placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.78 + height * 0.16)), same:def.same || 5.0, obj });
+      return true;
+    }
+
+    // Re-enable the path-edge foliage/rock pass with the updated authored art.
+    // Dressing stays readable (no tiny sprites), fills tree gaps on the far side,
+    // and comes in much closer on both edges so the run feels wrapped by foliage.
+    let farPlaced = 0;
+    attempts = 0;
+    const farTarget = 74;
+    while (farPlaced < farTarget && attempts < 3200) {
+      attempts += 1;
+      const x = TILE.minX + rand() * TILE_WIDTH;
+      let z;
+      if (rand() < 0.72) {
+        z = -(PATH_OUTER_HALF - 0.14 + Math.pow(rand(), 1.42) * 4.8);
+      } else {
+        z = -(PATH_OUTER_HALF + 1.0 + Math.pow(rand(), 1.08) * 10.2);
+      }
+      z = Math.max(WORLD.farZ + 3.0, Math.min(-2.95, z));
+      if (addProceduralDressing(x, z, -1, `far-${farPlaced}`)) farPlaced += 1;
+    }
+
+    let nearPlaced = 0;
+    attempts = 0;
+    const nearTarget = 82;
+    while (nearPlaced < nearTarget && attempts < 3400) {
+      attempts += 1;
+      const x = TILE.minX + rand() * TILE_WIDTH;
+      let z;
+      if (rand() < 0.78) {
+        z = PATH_OUTER_HALF - 0.10 + Math.pow(rand(), 1.46) * 4.9;
+      } else {
+        z = PATH_OUTER_HALF + 0.90 + Math.pow(rand(), 1.10) * 6.9;
+      }
+      z = Math.min(WORLD.nearZ - 0.8, Math.max(2.95, z));
+      if (addProceduralDressing(x, z, 1, `near-${nearPlaced}`)) nearPlaced += 1;
     }
 
     backdrop.sort((a, b) => a.z - b.z);
