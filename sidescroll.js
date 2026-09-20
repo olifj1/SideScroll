@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.63: bring the procedural woodland back toward the path: slightly larger trees and a denser, closer far-side fringe while preserving spacing/repeat rules.
+  // SideScroll v0.2.64: substantially denser near/far dressing so the path feels embedded within the forest again.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -976,7 +976,7 @@
   const TILE = { minX: -62, maxX: 62 };
   const TILE_WIDTH = TILE.maxX - TILE.minX;
   const WORLD = { nearZ: 10.5, farZ: -42 };
-  // v0.2.63: a slightly bluer fog with a gentler near-field contribution.
+  // v0.2.64: a slightly bluer fog with a gentler near-field contribution.
   // The fragment shader adds an eased/power curve so contrast stays stronger
   // around the player and falls away progressively deeper into the forest.
   const fogColor = [0.835, 0.885, 0.945];
@@ -1366,8 +1366,8 @@
     const nearestTreeZ = -(PATH_FLAT_HALF + 1.05); // keep trunks just beyond the playable shoulder.
     const treeGeneralSpacing = 3.15;
     const treeSameVariantSpacing = 12.5;
-    const dressingGeneralSpacing = 1.10;
-    const dressingFamilySpacing = { foliage:1.24, twig:1.10, rock:1.48 };
+    const dressingGeneralSpacing = 0.86;
+    const dressingFamilySpacing = { foliage:0.96, twig:0.88, rock:1.18 };
 
     function wrappedXDistance(a, b) {
       const raw = Math.abs(a - b);
@@ -1485,13 +1485,13 @@
     // and comes in much closer on both edges so the run feels wrapped by foliage.
     let farPlaced = 0;
     attempts = 0;
-    const farTarget = 74;
-    while (farPlaced < farTarget && attempts < 3200) {
+    const farTarget = 132;
+    while (farPlaced < farTarget && attempts < 5600) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.72) {
-        z = -(PATH_OUTER_HALF - 0.14 + Math.pow(rand(), 1.42) * 4.8);
+      if (rand() < 0.82) {
+        z = -(PATH_OUTER_HALF - 0.18 + Math.pow(rand(), 1.38) * 5.3);
       } else {
         z = -(PATH_OUTER_HALF + 1.0 + Math.pow(rand(), 1.08) * 10.2);
       }
@@ -1501,13 +1501,13 @@
 
     let nearPlaced = 0;
     attempts = 0;
-    const nearTarget = 82;
-    while (nearPlaced < nearTarget && attempts < 3400) {
+    const nearTarget = 156;
+    while (nearPlaced < nearTarget && attempts < 6200) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.78) {
-        z = PATH_OUTER_HALF - 0.10 + Math.pow(rand(), 1.46) * 4.9;
+      if (rand() < 0.86) {
+        z = PATH_OUTER_HALF - 0.14 + Math.pow(rand(), 1.40) * 5.4;
       } else {
         z = PATH_OUTER_HALF + 0.90 + Math.pow(rand(), 1.10) * 6.9;
       }

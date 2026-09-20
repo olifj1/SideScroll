@@ -1,10 +1,8 @@
-# SideScroll v0.2.63
+# SideScroll v0.2.64
 
-This build brings the new foliage / rock dressing set into game and turns the procedural dressing pass back on.
+Denser woodland dressing pass.
 
-Changes in this version:
-- replaced the ground dressing atlas with the new cel-shaded bushes, grasses and rocks
-- processed the new dressing sprites to soft alpha + dilated edges for cleaner in-game compositing
-- re-enabled procedural path-edge dressing using the updated asset set
-- tuned procedural dressing placement to stay reasonably large, avoid tight repeats and fill both near-side and far-side path edges more densely
-- kept the existing tree pass and fog behaviour from the previous build
+- significantly increased procedural ground dressing density on both sides of the path
+- reduced spacing between foliage / rocks so the scene feels more enclosed and forest-like
+- biased more dressing into the path-edge bands so the route feels embedded within the woodland
+- kept the new dressing atlas, tree set, fog treatment and ground texture from the previous build
