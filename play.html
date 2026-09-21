@@ -41,6 +41,7 @@
             <div class="sidescroll-stage-actions">
               <button id="sidescroll-depth" class="sidescroll-depth-button" type="button" aria-pressed="false">Depth</button>
               <button id="sidescroll-fog" class="sidescroll-fog-button" type="button" aria-expanded="false">Fog</button>
+              <button id="sidescroll-post" class="sidescroll-post-button" type="button" aria-expanded="false">Post</button>
               <button id="sidescroll-collision-view" class="sidescroll-collision-view-button" type="button" aria-pressed="false">Collision</button>
               <button id="sidescroll-player-hints" class="sidescroll-player-hints-button" type="button" aria-pressed="true">Hints on</button>
               <button id="sidescroll-inventory" class="sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
@@ -59,6 +60,19 @@
             <label><span>CURVE <b id="sidescroll-fog-curve-value">1.65</b></span><input id="sidescroll-fog-curve" type="range" min="0.5" max="4" step="0.05" value="1.65"></label>
             <label><span>AMOUNT <b id="sidescroll-fog-amount-value">0.90</b></span><input id="sidescroll-fog-amount" type="range" min="0" max="1" step="0.02" value="0.90"></label>
             <button id="sidescroll-fog-reset" type="button">RESET</button>
+          </aside>
+
+
+
+          <aside class="sidescroll-post-panel" id="sidescroll-post-panel" hidden aria-label="Post production editor">
+            <div class="sidescroll-post-head"><strong>POST</strong><button id="sidescroll-post-close" type="button" aria-label="Close post production editor">×</button></div>
+            <label><span>BRIGHT <b id="sidescroll-post-brightness-value">1.00</b></span><input id="sidescroll-post-brightness" type="range" min="0.60" max="1.40" step="0.01" value="1.00"></label>
+            <label><span>CONTRAST <b id="sidescroll-post-contrast-value">1.00</b></span><input id="sidescroll-post-contrast" type="range" min="0.50" max="1.60" step="0.01" value="1.00"></label>
+            <label><span>SATURATION <b id="sidescroll-post-saturation-value">1.00</b></span><input id="sidescroll-post-saturation" type="range" min="0" max="1.60" step="0.01" value="1.00"></label>
+            <label><span>TINT</span><input id="sidescroll-post-tint-colour" type="color" value="#ffffff"></label>
+            <label><span>TINT MIX <b id="sidescroll-post-tint-amount-value">0.00</b></span><input id="sidescroll-post-tint-amount" type="range" min="0" max="0.60" step="0.01" value="0"></label>
+            <div class="sidescroll-post-future">Bloom reserved for a later pass.</div>
+            <button id="sidescroll-post-reset" type="button">RESET</button>
           </aside>
 
           <aside class="sidescroll-quick-nav-panel" id="sidescroll-quick-nav-panel" hidden aria-label="Quick scene navigation">

@@ -19,6 +19,19 @@
   const statusEl = document.getElementById('sidescroll-status');
   const hintEl = document.getElementById('sidescroll-hint');
   const debugBtn = document.getElementById('sidescroll-depth');
+  const postBtn = document.getElementById('sidescroll-post');
+  const postPanel = document.getElementById('sidescroll-post-panel');
+  const postCloseBtn = document.getElementById('sidescroll-post-close');
+  const postBrightnessInput = document.getElementById('sidescroll-post-brightness');
+  const postContrastInput = document.getElementById('sidescroll-post-contrast');
+  const postSaturationInput = document.getElementById('sidescroll-post-saturation');
+  const postTintColourInput = document.getElementById('sidescroll-post-tint-colour');
+  const postTintAmountInput = document.getElementById('sidescroll-post-tint-amount');
+  const postBrightnessValue = document.getElementById('sidescroll-post-brightness-value');
+  const postContrastValue = document.getElementById('sidescroll-post-contrast-value');
+  const postSaturationValue = document.getElementById('sidescroll-post-saturation-value');
+  const postTintAmountValue = document.getElementById('sidescroll-post-tint-amount-value');
+  const postResetBtn = document.getElementById('sidescroll-post-reset');
   const fogBtn = document.getElementById('sidescroll-fog');
   const fogPanel = document.getElementById('sidescroll-fog-panel');
   const fogCloseBtn = document.getElementById('sidescroll-fog-close');
@@ -262,6 +275,11 @@
     uniform float uFogFar;
     uniform float uFogAmount;
     uniform float uFogCurve;
+    uniform float uPostBrightness;
+    uniform float uPostContrast;
+    uniform float uPostSaturation;
+    uniform vec3 uPostTintColor;
+    uniform float uPostTintAmount;
     uniform float uOpacity;
     uniform float uHighlight;
     uniform vec3 uHighlightColor;
@@ -276,7 +294,12 @@
       vec3 base = tex.rgb * uTint;
       base = mix(base, uHighlightColor, clamp(uHighlight, 0.0, 1.0) * 0.72);
       vec3 rgb = mix(base, uFogColor, fog * (1.0 - uHighlight * 0.72));
-      gl_FragColor = vec4(rgb, alpha);
+      float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+      rgb = mix(vec3(luma), rgb, uPostSaturation);
+      rgb = (rgb - vec3(0.5)) * uPostContrast + vec3(0.5);
+      rgb *= uPostBrightness;
+      rgb = mix(rgb, rgb * uPostTintColor, uPostTintAmount);
+      gl_FragColor = vec4(clamp(rgb, 0.0, 1.0), alpha);
     }
   `;
 
@@ -323,6 +346,11 @@
     fogFar: gl.getUniformLocation(program, 'uFogFar'),
     fogAmount: gl.getUniformLocation(program, 'uFogAmount'),
     fogCurve: gl.getUniformLocation(program, 'uFogCurve'),
+    postBrightness: gl.getUniformLocation(program, 'uPostBrightness'),
+    postContrast: gl.getUniformLocation(program, 'uPostContrast'),
+    postSaturation: gl.getUniformLocation(program, 'uPostSaturation'),
+    postTintColor: gl.getUniformLocation(program, 'uPostTintColor'),
+    postTintAmount: gl.getUniformLocation(program, 'uPostTintAmount'),
     opacity: gl.getUniformLocation(program, 'uOpacity'),
     highlight: gl.getUniformLocation(program, 'uHighlight'),
     highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
@@ -746,7 +774,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.72', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.74', 'SideScroll dressing atlas');
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.73', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
@@ -757,18 +785,18 @@
     tree06: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.344726562] },
     tree07: { scale: [0.242187500, 0.321777344], offset: [0.496093750, 0.344726562] },
     tree08: { scale: [0.242187500, 0.321777344], offset: [0.742187500, 0.344726562] },
-    ground01: { scale: [0.218750000, 0.109375000], offset: [0.015625000, 0.747070312] },
-    ground02: { scale: [0.218750000, 0.138671875], offset: [0.265625000, 0.747070312] },
-    ground03: { scale: [0.218750000, 0.110351562], offset: [0.515625000, 0.747070312] },
-    ground04: { scale: [0.218750000, 0.124023438], offset: [0.765625000, 0.747070312] },
-    ground05: { scale: [0.218750000, 0.145507812], offset: [0.015625000, 0.502929688] },
-    ground06: { scale: [0.218750000, 0.067382812], offset: [0.265625000, 0.502929688] },
-    ground07: { scale: [0.218750000, 0.137695312], offset: [0.515625000, 0.502929688] },
-    ground08: { scale: [0.218750000, 0.050781250], offset: [0.765625000, 0.502929688] },
-    ground09: { scale: [0.218750000, 0.109375000], offset: [0.015625000, 0.258789062] },
-    ground10: { scale: [0.218750000, 0.138671875], offset: [0.265625000, 0.258789062] },
-    ground11: { scale: [0.218750000, 0.110351562], offset: [0.515625000, 0.258789062] },
-    ground12: { scale: [0.218750000, 0.124023438], offset: [0.765625000, 0.258789062] },
+    ground01: { scale: [0.229492188, 0.148681641], offset: [0.010253906, 0.750000000] },
+    ground02: { scale: [0.229492188, 0.120117188], offset: [0.260253906, 0.750000000] },
+    ground03: { scale: [0.229492188, 0.149902344], offset: [0.510253906, 0.750000000] },
+    ground04: { scale: [0.229492188, 0.126464844], offset: [0.760253906, 0.750000000] },
+    ground05: { scale: [0.229492188, 0.160888672], offset: [0.010253906, 0.500000000] },
+    ground06: { scale: [0.229492188, 0.168457031], offset: [0.260253906, 0.500000000] },
+    ground07: { scale: [0.229492188, 0.160156250], offset: [0.510253906, 0.500000000] },
+    ground08: { scale: [0.229492188, 0.165039062], offset: [0.760253906, 0.500000000] },
+    ground09: { scale: [0.229492188, 0.163085938], offset: [0.010253906, 0.250000000] },
+    ground10: { scale: [0.229492188, 0.153076172], offset: [0.260253906, 0.250000000] },
+    ground11: { scale: [0.229492188, 0.157470703], offset: [0.510253906, 0.250000000] },
+    ground12: { scale: [0.229492188, 0.163085938], offset: [0.760253906, 0.250000000] },
   };
   const assetDimensions = {
     tree01: [992, 1318],
@@ -779,18 +807,18 @@
     tree06: [992, 1318],
     tree07: [992, 1318],
     tree08: [992, 1318],
-    ground01: [224, 112],
-    ground02: [224, 142],
-    ground03: [224, 113],
-    ground04: [224, 127],
-    ground05: [224, 149],
-    ground06: [224, 69],
-    ground07: [224, 141],
-    ground08: [224, 52],
-    ground09: [224, 112],
-    ground10: [224, 142],
-    ground11: [224, 113],
-    ground12: [224, 127],
+    ground01: [940, 609],
+    ground02: [940, 492],
+    ground03: [940, 614],
+    ground04: [940, 518],
+    ground05: [940, 659],
+    ground06: [940, 690],
+    ground07: [940, 656],
+    ground08: [940, 676],
+    ground09: [940, 668],
+    ground10: [940, 627],
+    ground11: [940, 645],
+    ground12: [940, 668],
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
@@ -995,6 +1023,8 @@
   // around the player and falls away progressively deeper into the forest.
   const DEFAULT_FOG = { enabled:true, color:[0.835,0.885,0.945], near:7.8, far:46.0, amount:0.90, curve:1.65 };
   const fogSettings = { ...DEFAULT_FOG, color:[...DEFAULT_FOG.color] };
+  const DEFAULT_POST = { brightness:1.0, contrast:1.0, saturation:1.0, tintColor:[1,1,1], tintAmount:0.0 };
+  const postSettings = { ...DEFAULT_POST, tintColor:[...DEFAULT_POST.tintColor] };
   const fogColor = fogSettings.color;
   const PROCEDURAL_TREE_SCALE = 0.96;
   const HIDE_LEGACY_GROUND_DRESSING = false;
@@ -1360,18 +1390,18 @@
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
     const dressingDefs = {
-      ground01: { family:'rock', weight:1.34, hMin:1.00, hMax:1.34, radius:0.96, same:4.0, nearWeight:1.32, farWeight:1.56 },
+      ground01: { family:'foliage', weight:1.34, hMin:1.00, hMax:1.34, radius:0.96, same:4.0, nearWeight:1.32, farWeight:1.56 },
       ground02: { family:'foliage', weight:1.12, hMin:1.26, hMax:1.68, radius:1.28, same:5.2, nearWeight:1.02, farWeight:1.16 },
       ground03: { family:'foliage', weight:1.08, hMin:1.18, hMax:1.62, radius:1.18, same:4.7, nearWeight:1.22, farWeight:1.04 },
-      ground04: { family:'rock', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
+      ground04: { family:'foliage', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
       ground05: { family:'foliage', weight:0.72, hMin:0.98, hMax:1.28, radius:0.92, same:5.2, nearWeight:0.72, farWeight:1.42 },
-      ground06: { family:'rock', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
-      ground07: { family:'rock', weight:0.72, hMin:0.86, hMax:1.10, radius:1.02, same:4.8, nearWeight:0.90, farWeight:1.22 },
-      ground08: { family:'rock',    weight:0.50, hMin:1.04, hMax:1.34, radius:1.34, same:5.8, nearWeight:0.76, farWeight:0.78 },
+      ground06: { family:'foliage', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
+      ground07: { family:'foliage', weight:0.72, hMin:0.86, hMax:1.10, radius:1.02, same:4.8, nearWeight:0.90, farWeight:1.22 },
+      ground08: { family:'foliage',    weight:0.50, hMin:1.04, hMax:1.34, radius:1.34, same:5.8, nearWeight:0.76, farWeight:0.78 },
       ground09: { family:'rock', weight:0.82, hMin:0.80, hMax:1.00, radius:0.94, same:4.4, nearWeight:0.84, farWeight:1.62 },
-      ground10: { family:'foliage', weight:0.36, hMin:1.06, hMax:1.36, radius:1.28, same:5.8, nearWeight:0.68, farWeight:0.58 },
+      ground10: { family:'rock', weight:0.36, hMin:1.06, hMax:1.36, radius:1.28, same:5.8, nearWeight:0.68, farWeight:0.58 },
       ground11: { family:'foliage', weight:1.18, hMin:0.98, hMax:1.28, radius:0.94, same:4.0, nearWeight:1.28, farWeight:1.54 },
-      ground12: { family:'rock', weight:0.94, hMin:1.06, hMax:1.42, radius:1.08, same:4.4, nearWeight:1.12, farWeight:0.96 }
+      ground12: { family:'foliage', weight:0.94, hMin:1.06, hMax:1.42, radius:1.08, same:4.4, nearWeight:1.12, farWeight:0.96 }
     };
 
     const placedTrees = [];
@@ -5569,6 +5599,11 @@
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.08 : (shadow.fogAmount ?? (0.28 * fogSettings.amount))) : 0);
     gl.uniform1f(loc.fogCurve, fogSettings.curve);
+    gl.uniform1f(loc.postBrightness, postSettings.brightness);
+    gl.uniform1f(loc.postContrast, postSettings.contrast);
+    gl.uniform1f(loc.postSaturation, postSettings.saturation);
+    gl.uniform3f(loc.postTintColor, postSettings.tintColor[0], postSettings.tintColor[1], postSettings.tintColor[2]);
+    gl.uniform1f(loc.postTintAmount, postSettings.tintAmount);
     gl.uniform1f(loc.opacity, shadow.opacity ?? 0.42);
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
@@ -5597,6 +5632,11 @@
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, (!fogSettings.enabled || obj.noFog) ? 0 : (debugDepth ? 0.22 : fogSettings.amount));
     gl.uniform1f(loc.fogCurve, fogSettings.curve);
+    gl.uniform1f(loc.postBrightness, postSettings.brightness);
+    gl.uniform1f(loc.postContrast, postSettings.contrast);
+    gl.uniform1f(loc.postSaturation, postSettings.saturation);
+    gl.uniform3f(loc.postTintColor, postSettings.tintColor[0], postSettings.tintColor[1], postSettings.tintColor[2]);
+    gl.uniform1f(loc.postTintAmount, postSettings.tintAmount);
     // Keep the scene fully opaque in Edit mode. Transparency made overlapping
     // foliage impossible to read; selection is now communicated by a bright
     // tint + screen-space frame instead.
@@ -6605,6 +6645,50 @@
     actionBtn.setPointerCapture?.(e.pointerId);
   });
 
+  function postHexToRgb(hex) {
+    const n = parseInt(String(hex).replace('#',''), 16);
+    return [((n >> 16) & 255)/255, ((n >> 8) & 255)/255, (n & 255)/255];
+  }
+  function postRgbToHex(rgb) {
+    return '#' + rgb.map(v => Math.round(Math.max(0,Math.min(1,v))*255).toString(16).padStart(2,'0')).join('');
+  }
+  function syncPostUi() {
+    if (postBrightnessInput) postBrightnessInput.value = String(postSettings.brightness);
+    if (postContrastInput) postContrastInput.value = String(postSettings.contrast);
+    if (postSaturationInput) postSaturationInput.value = String(postSettings.saturation);
+    if (postTintColourInput) postTintColourInput.value = postRgbToHex(postSettings.tintColor);
+    if (postTintAmountInput) postTintAmountInput.value = String(postSettings.tintAmount);
+    if (postBrightnessValue) postBrightnessValue.textContent = postSettings.brightness.toFixed(2);
+    if (postContrastValue) postContrastValue.textContent = postSettings.contrast.toFixed(2);
+    if (postSaturationValue) postSaturationValue.textContent = postSettings.saturation.toFixed(2);
+    if (postTintAmountValue) postTintAmountValue.textContent = postSettings.tintAmount.toFixed(2);
+  }
+  function setPostPanelOpen(open) {
+    if (!postPanel || !postBtn) return;
+    postPanel.hidden = !open;
+    postBtn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      setFogPanelOpen(false);
+      syncPostUi();
+    }
+  }
+  bindEditorPress(postBtn, () => setPostPanelOpen(postPanel?.hidden !== false));
+  bindEditorPress(postCloseBtn, () => setPostPanelOpen(false));
+  postBrightnessInput?.addEventListener('input', () => { postSettings.brightness = Number(postBrightnessInput.value); syncPostUi(); });
+  postContrastInput?.addEventListener('input', () => { postSettings.contrast = Number(postContrastInput.value); syncPostUi(); });
+  postSaturationInput?.addEventListener('input', () => { postSettings.saturation = Number(postSaturationInput.value); syncPostUi(); });
+  postTintColourInput?.addEventListener('input', () => { postSettings.tintColor.splice(0,3,...postHexToRgb(postTintColourInput.value)); });
+  postTintAmountInput?.addEventListener('input', () => { postSettings.tintAmount = Number(postTintAmountInput.value); syncPostUi(); });
+  bindEditorPress(postResetBtn, () => {
+    postSettings.brightness=DEFAULT_POST.brightness;
+    postSettings.contrast=DEFAULT_POST.contrast;
+    postSettings.saturation=DEFAULT_POST.saturation;
+    postSettings.tintAmount=DEFAULT_POST.tintAmount;
+    postSettings.tintColor.splice(0,3,...DEFAULT_POST.tintColor);
+    syncPostUi();
+  });
+  syncPostUi();
+
   function fogHexToRgb(hex) {
     const n = parseInt(String(hex).replace('#',''), 16);
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
@@ -6626,7 +6710,7 @@
     if (!fogPanel || !fogBtn) return;
     fogPanel.hidden = !open;
     fogBtn.setAttribute('aria-expanded', String(open));
-    if (open) syncFogUi();
+    if (open) { setPostPanelOpen(false); syncFogUi(); }
   }
   bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
   bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));

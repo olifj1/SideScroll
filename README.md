@@ -1,10 +1,13 @@
-# SideScroll v0.2.73
+# SideScroll v0.2.75
 
-Tree rendering and fog inspection pass.
+Post-production editor pass.
 
-- stopped horizontal mirroring for all tree planes so authored lighting direction is preserved
-- removed the green-biased runtime tint from environment art so texture colours stay closer to the source files
-- added a live Fog panel: enable/disable, colour, start distance, curve and amount, plus reset
-- rebuilt the tree atlas at 4096×4096 with 992×1318 pixels per tree instead of 486×646
-- the atlas now retains roughly twice the linear tree resolution while keeping the same eight source trees
-- no placement or gameplay changes in this build
+- added a Post button alongside the Fog controls
+- live brightness control
+- live contrast control
+- live saturation control
+- tint colour plus tint strength
+- reset button restores a neutral image
+- adjustments are applied in the WebGL fragment shader after fog
+- bloom is reserved for a later pass
+- no environment placement, puzzle, texture or gameplay changes
