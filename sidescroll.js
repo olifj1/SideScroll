@@ -19,6 +19,18 @@
   const statusEl = document.getElementById('sidescroll-status');
   const hintEl = document.getElementById('sidescroll-hint');
   const debugBtn = document.getElementById('sidescroll-depth');
+  const fogBtn = document.getElementById('sidescroll-fog');
+  const fogPanel = document.getElementById('sidescroll-fog-panel');
+  const fogCloseBtn = document.getElementById('sidescroll-fog-close');
+  const fogEnabledInput = document.getElementById('sidescroll-fog-enabled');
+  const fogColourInput = document.getElementById('sidescroll-fog-colour');
+  const fogStartInput = document.getElementById('sidescroll-fog-start');
+  const fogCurveInput = document.getElementById('sidescroll-fog-curve');
+  const fogAmountInput = document.getElementById('sidescroll-fog-amount');
+  const fogStartValue = document.getElementById('sidescroll-fog-start-value');
+  const fogCurveValue = document.getElementById('sidescroll-fog-curve-value');
+  const fogAmountValue = document.getElementById('sidescroll-fog-amount-value');
+  const fogResetBtn = document.getElementById('sidescroll-fog-reset');
   const collisionViewBtn = document.getElementById('sidescroll-collision-view');
   const playerHintsBtn = document.getElementById('sidescroll-player-hints');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
@@ -249,6 +261,7 @@
     uniform float uFogNear;
     uniform float uFogFar;
     uniform float uFogAmount;
+    uniform float uFogCurve;
     uniform float uOpacity;
     uniform float uHighlight;
     uniform vec3 uHighlightColor;
@@ -259,7 +272,7 @@
       float alpha = tex.a * uOpacity;
       if (alpha < 0.045) discard;
       float fogT = smoothstep(uFogNear, uFogFar, vDepth);
-      float fog = pow(fogT, 1.65) * uFogAmount;
+      float fog = pow(fogT, uFogCurve) * uFogAmount;
       vec3 base = tex.rgb * uTint;
       base = mix(base, uHighlightColor, clamp(uHighlight, 0.0, 1.0) * 0.72);
       vec3 rgb = mix(base, uFogColor, fog * (1.0 - uHighlight * 0.72));
@@ -309,6 +322,7 @@
     fogNear: gl.getUniformLocation(program, 'uFogNear'),
     fogFar: gl.getUniformLocation(program, 'uFogFar'),
     fogAmount: gl.getUniformLocation(program, 'uFogAmount'),
+    fogCurve: gl.getUniformLocation(program, 'uFogCurve'),
     opacity: gl.getUniformLocation(program, 'uOpacity'),
     highlight: gl.getUniformLocation(program, 'uHighlight'),
     highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
@@ -732,17 +746,17 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.71', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.67', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.72', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.73', 'SideScroll tree atlas');
   const assetUv = {
-    tree01: { scale: [0.237304688, 0.315429688], offset: [0.006347656, 0.510742188] },
-    tree02: { scale: [0.237304688, 0.315429688], offset: [0.256347656, 0.510742188] },
-    tree03: { scale: [0.237304688, 0.315429688], offset: [0.506347656, 0.510742188] },
-    tree04: { scale: [0.237304688, 0.315429688], offset: [0.756347656, 0.510742188] },
-    tree05: { scale: [0.237304688, 0.315429688], offset: [0.006347656, 0.010742188] },
-    tree06: { scale: [0.237304688, 0.315429688], offset: [0.256347656, 0.010742188] },
-    tree07: { scale: [0.237304688, 0.315429688], offset: [0.506347656, 0.010742188] },
-    tree08: { scale: [0.237304688, 0.315429688], offset: [0.756347656, 0.010742188] },
+    tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
+    tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
+    tree03: { scale: [0.242187500, 0.321777344], offset: [0.496093750, 0.674316406] },
+    tree04: { scale: [0.242187500, 0.321777344], offset: [0.742187500, 0.674316406] },
+    tree05: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.344726562] },
+    tree06: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.344726562] },
+    tree07: { scale: [0.242187500, 0.321777344], offset: [0.496093750, 0.344726562] },
+    tree08: { scale: [0.242187500, 0.321777344], offset: [0.742187500, 0.344726562] },
     ground01: { scale: [0.218750000, 0.109375000], offset: [0.015625000, 0.747070312] },
     ground02: { scale: [0.218750000, 0.138671875], offset: [0.265625000, 0.747070312] },
     ground03: { scale: [0.218750000, 0.110351562], offset: [0.515625000, 0.747070312] },
@@ -757,14 +771,14 @@
     ground12: { scale: [0.218750000, 0.124023438], offset: [0.765625000, 0.258789062] },
   };
   const assetDimensions = {
-    tree01: [486, 646],
-    tree02: [486, 646],
-    tree03: [486, 646],
-    tree04: [486, 646],
-    tree05: [486, 646],
-    tree06: [486, 646],
-    tree07: [486, 646],
-    tree08: [486, 646],
+    tree01: [992, 1318],
+    tree02: [992, 1318],
+    tree03: [992, 1318],
+    tree04: [992, 1318],
+    tree05: [992, 1318],
+    tree06: [992, 1318],
+    tree07: [992, 1318],
+    tree08: [992, 1318],
     ground01: [224, 112],
     ground02: [224, 142],
     ground03: [224, 113],
@@ -979,11 +993,10 @@
   // v0.2.65: a slightly bluer fog with a gentler near-field contribution.
   // The fragment shader adds an eased/power curve so contrast stays stronger
   // around the player and falls away progressively deeper into the forest.
-  const fogColor = [0.835, 0.885, 0.945];
-  const FOG_NEAR = 7.8;
-  const FOG_FAR = 46.0;
-  const FOG_AMOUNT = 0.90;
-  const PROCEDURAL_TREE_SCALE = 0.90;
+  const DEFAULT_FOG = { enabled:true, color:[0.835,0.885,0.945], near:7.8, far:46.0, amount:0.90, curve:1.65 };
+  const fogSettings = { ...DEFAULT_FOG, color:[...DEFAULT_FOG.color] };
+  const fogColor = fogSettings.color;
+  const PROCEDURAL_TREE_SCALE = 0.96;
   const HIDE_LEGACY_GROUND_DRESSING = false;
   const groundY = -4.55;
 
@@ -1315,7 +1328,7 @@
       baseSx: opts.baseSx ?? resolvedWidth,
       baseSy: opts.baseSy ?? resolvedHeight,
       sz: 1,
-      flip: opts.flip ?? (rand() > 0.5),
+      flip: opts.flip ?? (type.startsWith('tree') ? false : (rand() > 0.5)),
       shade: opts.shade ?? 1,
       opacity: opts.opacity ?? 1,
       noFog: !!opts.noFog,
@@ -1363,8 +1376,8 @@
 
     const placedTrees = [];
     const placedDressings = [];
-    const nearestTreeZ = -(PATH_BERM_HALF + 0.05); // allow a few trunks to feather closer to the path while keeping a clear gameplay strip.
-    const treeGeneralSpacing = 3.05;
+    const nearestTreeZ = -(PATH_FLAT_HALF + 0.42); // pull some trunks closer so the run feels more inside the forest while preserving a clear gameplay strip.
+    const treeGeneralSpacing = 2.95;
     const treeSameVariantSpacing = 12.5;
     const dressingGeneralSpacing = 0.82;
     const dressingFamilySpacing = { foliage:0.90, twig:0.84, rock:1.08 };
@@ -1417,28 +1430,29 @@
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.28) {
-        z = -(PATH_BERM_HALF - 0.10 + Math.pow(rand(), 1.85) * 2.2);
-      } else if (rand() < 0.68) {
-        z = nearestTreeZ - Math.pow(rand(), 1.52) * 5.2;
+      const bandPick = rand();
+      if (bandPick < 0.40) {
+        z = -(PATH_FLAT_HALF + 0.34 + Math.pow(rand(), 1.70) * 2.1);
+      } else if (bandPick < 0.78) {
+        z = nearestTreeZ - Math.pow(rand(), 1.42) * 5.0;
       } else {
-        const depth = Math.pow(rand(), 1.14);
-        z = nearestTreeZ - 0.7 - depth * 33.6;
+        const depth = Math.pow(rand(), 1.12);
+        z = nearestTreeZ - 0.6 - depth * 33.2;
       }
       z = Math.max(WORLD.farZ + 1.4, z);
-      const depth01 = Math.min(1, Math.max(0, (-z - 4.3) / 36.0));
-      const baseHeight = 9.3 + rand() * (7.6 - depth01 * 1.2);
+      const depth01 = Math.min(1, Math.max(0, (-z - 4.0) / 35.0));
+      const baseHeight = 10.0 + rand() * (7.9 - depth01 * 1.0);
       if (addProceduralTree(x, z, baseHeight, `main-${placed}`)) placed += 1;
     }
 
     let accents = 0;
     attempts = 0;
-    const targetAccents = 20;
+    const targetAccents = 24;
     while (accents < targetAccents && attempts < 1400) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = -17.0 - rand() * 23.0;
-      const baseHeight = 13.6 + rand() * 6.8;
+      const z = -13.5 - rand() * 22.5;
+      const baseHeight = 14.2 + rand() * 7.0;
       if (addProceduralTree(x, z, baseHeight, `accent-${accents}`, 0.99, 0.90)) accents += 1;
     }
 
@@ -1471,7 +1485,7 @@
       const [type, def] = pickWeightedDressing(side);
       const edgeDistance = Math.max(0, Math.abs(z) - PATH_FLAT_HALF);
       const edge01 = Math.min(1, edgeDistance / 6.0);
-      const scaleMul = 0.90 + rand() * 0.18 + edge01 * 0.22;
+      const scaleMul = 0.98 + rand() * 0.20 + edge01 * 0.24;
       const height = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
       if (!canUseDressingPosition(type, def, x, z, height)) return false;
       const obj = addObject(targetCollectionForZ(z), type, x, z, null, height, {
@@ -1490,26 +1504,26 @@
     // and comes in much closer on both edges so the run feels wrapped by foliage.
     let farPlaced = 0;
     attempts = 0;
-    const farTarget = 224;
-    while (farPlaced < farTarget && attempts < 9600) {
+    const farTarget = 236;
+    while (farPlaced < farTarget && attempts < 10400) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
       const bandPick = rand();
       if (bandPick < 0.34) {
-        z = -(PATH_FLAT_HALF + 0.20 + Math.pow(rand(), 1.90) * 1.7);
+        z = -(PATH_FLAT_HALF + 0.10 + Math.pow(rand(), 1.72) * 1.9);
       } else if (bandPick < 0.86) {
-        z = -(PATH_BERM_HALF + 0.06 + Math.pow(rand(), 1.20) * 6.3);
+        z = -(PATH_BERM_HALF + 0.02 + Math.pow(rand(), 1.18) * 6.5);
       } else {
         z = -(PATH_OUTER_HALF + 0.9 + Math.pow(rand(), 1.06) * 10.8);
       }
-      z = Math.max(WORLD.farZ + 3.0, Math.min(-(PATH_FLAT_HALF + 0.16), z));
+      z = Math.max(WORLD.farZ + 3.0, Math.min(-(PATH_FLAT_HALF + 0.08), z));
       if (addProceduralDressing(x, z, -1, `far-${farPlaced}`)) farPlaced += 1;
     }
 
     let farMicroPlaced = 0;
     attempts = 0;
-    const farMicroTarget = 86;
+    const farMicroTarget = 110;
     const farMicroTypes = ['ground01', 'ground05', 'ground07', 'ground09', 'ground11'];
     function addProceduralDressingSpecific(type, x, z, side, index, scaleMul = 1.0) {
       const def = dressingDefs[type];
@@ -1529,39 +1543,39 @@
     while (farMicroPlaced < farMicroTarget && attempts < 3200) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = -(PATH_FLAT_HALF + 0.16 + Math.pow(rand(), 1.22) * 4.2);
+      const z = -(PATH_FLAT_HALF + 0.08 + Math.pow(rand(), 1.18) * 4.5);
       const type = farMicroTypes[Math.floor(rand() * farMicroTypes.length)];
-      if (addProceduralDressingSpecific(type, x, z, -1, `far-micro-${farMicroPlaced}`, 0.82 + rand() * 0.22)) farMicroPlaced += 1;
+      if (addProceduralDressingSpecific(type, x, z, -1, `far-micro-${farMicroPlaced}`, 0.94 + rand() * 0.22)) farMicroPlaced += 1;
     }
 
     let nearMicroPlaced = 0;
     attempts = 0;
-    const nearMicroTarget = 34;
+    const nearMicroTarget = 42;
     const nearMicroTypes = ['ground01', 'ground05', 'ground09', 'ground11'];
     while (nearMicroPlaced < nearMicroTarget && attempts < 2200) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = PATH_FLAT_HALF + 0.18 + Math.pow(rand(), 1.26) * 3.8;
+      const z = PATH_FLAT_HALF + 0.10 + Math.pow(rand(), 1.22) * 4.1;
       const type = nearMicroTypes[Math.floor(rand() * nearMicroTypes.length)];
-      if (addProceduralDressingSpecific(type, x, z, 1, `near-micro-${nearMicroPlaced}`, 0.84 + rand() * 0.20)) nearMicroPlaced += 1;
+      if (addProceduralDressingSpecific(type, x, z, 1, `near-micro-${nearMicroPlaced}`, 0.96 + rand() * 0.22)) nearMicroPlaced += 1;
     }
 
     let nearPlaced = 0;
     attempts = 0;
-    const nearTarget = 198;
-    while (nearPlaced < nearTarget && attempts < 7600) {
+    const nearTarget = 208;
+    while (nearPlaced < nearTarget && attempts < 8200) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
       const bandPick = rand();
       if (bandPick < 0.28) {
-        z = PATH_FLAT_HALF + 0.22 + Math.pow(rand(), 1.80) * 1.8;
+        z = PATH_FLAT_HALF + 0.12 + Math.pow(rand(), 1.62) * 2.0;
       } else if (bandPick < 0.88) {
-        z = PATH_BERM_HALF + 0.10 + Math.pow(rand(), 1.24) * 5.8;
+        z = PATH_BERM_HALF + 0.04 + Math.pow(rand(), 1.20) * 6.0;
       } else {
         z = PATH_OUTER_HALF + 0.84 + Math.pow(rand(), 1.08) * 7.2;
       }
-      z = Math.min(WORLD.nearZ - 0.8, Math.max(PATH_FLAT_HALF + 0.16, z));
+      z = Math.min(WORLD.nearZ - 0.8, Math.max(PATH_FLAT_HALF + 0.10, z));
       if (addProceduralDressing(x, z, 1, `near-${nearPlaced}`)) nearPlaced += 1;
     }
 
@@ -5519,10 +5533,9 @@
     if (debugDepth) return debugTints[obj.layer] || [1, 1, 1];
     if (obj.tint) return obj.tint;
     if (obj.asset) {
-      // Slightly greener vegetation against the warmer path, while preserving
-      // the original illustrated texture values and the cool fog depth cue.
-      if ((obj.assetName || '').startsWith('tree')) return [obj.shade * 0.94, obj.shade * 1.025, obj.shade * 0.94];
-      return [obj.shade * 0.96, obj.shade * 1.015, obj.shade * 0.95];
+      // Preserve the authored texture colour. Previous green-biased tinting
+      // made the atlas appear cooler/greener in game than in an image viewer.
+      return [obj.shade, obj.shade, obj.shade];
     }
     const base = [0.155, 0.165, 0.172];
     return [base[0] * obj.shade, base[1] * obj.shade, base[2] * obj.shade];
@@ -5552,9 +5565,10 @@
     gl.uniform1f(loc.highlight, 0);
     gl.uniform3f(loc.highlightColor, 0, 0, 0);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
-    gl.uniform1f(loc.fogNear, FOG_NEAR);
-    gl.uniform1f(loc.fogFar, FOG_FAR);
-    gl.uniform1f(loc.fogAmount, debugDepth ? 0.08 : (shadow.fogAmount ?? (0.28 * FOG_AMOUNT)));
+    gl.uniform1f(loc.fogNear, fogSettings.near);
+    gl.uniform1f(loc.fogFar, fogSettings.far);
+    gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.08 : (shadow.fogAmount ?? (0.28 * fogSettings.amount))) : 0);
+    gl.uniform1f(loc.fogCurve, fogSettings.curve);
     gl.uniform1f(loc.opacity, shadow.opacity ?? 0.42);
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
@@ -5569,7 +5583,8 @@
     bindMesh(obj.mesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     const objectRotation = Number(obj.collectibleAngle) || 0;
-    gl.uniformMatrix4fv(loc.model, false, objectRotation ? mat4ModelRotated(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, objectRotation, obj.flip) : mat4Model(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, obj.flip));
+    const visualFlip = (obj.assetName || '').startsWith('tree') ? false : obj.flip;
+    gl.uniformMatrix4fv(loc.model, false, objectRotation ? mat4ModelRotated(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, objectRotation, visualFlip) : mat4Model(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, visualFlip));
     gl.uniformMatrix4fv(loc.view, false, view);
     gl.uniformMatrix4fv(loc.projection, false, projection);
     const tint = tintFor(obj);
@@ -5578,9 +5593,10 @@
     gl.uniform1f(loc.highlight, selectedHighlight);
     gl.uniform3f(loc.highlightColor, 1.0, 0.18, 0.48);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
-    gl.uniform1f(loc.fogNear, FOG_NEAR);
-    gl.uniform1f(loc.fogFar, FOG_FAR);
-    gl.uniform1f(loc.fogAmount, obj.noFog ? 0 : (debugDepth ? 0.22 : FOG_AMOUNT));
+    gl.uniform1f(loc.fogNear, fogSettings.near);
+    gl.uniform1f(loc.fogFar, fogSettings.far);
+    gl.uniform1f(loc.fogAmount, (!fogSettings.enabled || obj.noFog) ? 0 : (debugDepth ? 0.22 : fogSettings.amount));
+    gl.uniform1f(loc.fogCurve, fogSettings.curve);
     // Keep the scene fully opaque in Edit mode. Transparency made overlapping
     // foliage impossible to read; selection is now communicated by a bright
     // tint + screen-space frame instead.
@@ -5729,9 +5745,9 @@
     gl.uniform1f(loc.highlight, 0);
     gl.uniform3f(loc.highlightColor, 1.0, 0.18, 0.48);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
-    gl.uniform1f(loc.fogNear, FOG_NEAR);
-    gl.uniform1f(loc.fogFar, FOG_FAR);
-    gl.uniform1f(loc.fogAmount, debugDepth ? 0.22 : FOG_AMOUNT);
+    gl.uniform1f(loc.fogNear, fogSettings.near);
+    gl.uniform1f(loc.fogFar, fogSettings.far);
+    gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.22 : fogSettings.amount) : 0);
     gl.uniform1f(loc.opacity, character.opacity * (part.alpha ?? 1));
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
@@ -6588,6 +6604,39 @@
     performAction();
     actionBtn.setPointerCapture?.(e.pointerId);
   });
+
+  function fogHexToRgb(hex) {
+    const n = parseInt(String(hex).replace('#',''), 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  function fogRgbToHex(rgb) {
+    return '#' + rgb.map(v => Math.round(Math.max(0,Math.min(1,v))*255).toString(16).padStart(2,'0')).join('');
+  }
+  function syncFogUi() {
+    if (fogEnabledInput) fogEnabledInput.checked = fogSettings.enabled;
+    if (fogColourInput) fogColourInput.value = fogRgbToHex(fogSettings.color);
+    if (fogStartInput) fogStartInput.value = String(fogSettings.near);
+    if (fogCurveInput) fogCurveInput.value = String(fogSettings.curve);
+    if (fogAmountInput) fogAmountInput.value = String(fogSettings.amount);
+    if (fogStartValue) fogStartValue.textContent = fogSettings.near.toFixed(1);
+    if (fogCurveValue) fogCurveValue.textContent = fogSettings.curve.toFixed(2);
+    if (fogAmountValue) fogAmountValue.textContent = fogSettings.amount.toFixed(2);
+  }
+  function setFogPanelOpen(open) {
+    if (!fogPanel || !fogBtn) return;
+    fogPanel.hidden = !open;
+    fogBtn.setAttribute('aria-expanded', String(open));
+    if (open) syncFogUi();
+  }
+  bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
+  bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));
+  fogEnabledInput?.addEventListener('input', () => { fogSettings.enabled = fogEnabledInput.checked; syncFogUi(); });
+  fogColourInput?.addEventListener('input', () => { const c=fogHexToRgb(fogColourInput.value); fogSettings.color[0]=c[0]; fogSettings.color[1]=c[1]; fogSettings.color[2]=c[2]; });
+  fogStartInput?.addEventListener('input', () => { fogSettings.near = Number(fogStartInput.value); syncFogUi(); });
+  fogCurveInput?.addEventListener('input', () => { fogSettings.curve = Number(fogCurveInput.value); syncFogUi(); });
+  fogAmountInput?.addEventListener('input', () => { fogSettings.amount = Number(fogAmountInput.value); syncFogUi(); });
+  bindEditorPress(fogResetBtn, () => { fogSettings.enabled=DEFAULT_FOG.enabled; fogSettings.near=DEFAULT_FOG.near; fogSettings.far=DEFAULT_FOG.far; fogSettings.amount=DEFAULT_FOG.amount; fogSettings.curve=DEFAULT_FOG.curve; fogSettings.color.splice(0,3,...DEFAULT_FOG.color); syncFogUi(); });
+  syncFogUi();
 
   debugBtn.addEventListener('click', () => {
     debugDepth = !debugDepth;
