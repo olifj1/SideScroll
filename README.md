@@ -1,12 +1,9 @@
-# SideScroll v0.2.85
+# SideScroll v0.2.86
 
-Fallen-tree silhouette/footprint correction.
+Ground-dressing alpha cleanup and replacement.
 
-- replaces the v0.2.84 fallen-tree art with the latest approved wide-silhouette version
-- preserves the image-generator native soft alpha
-- dilates RGB underneath transparent pixels only; the alpha channel is not regenerated or hardened
-- removes transparent bottom padding so the visible asset is genuinely floor-aligned
-- restores the proven pre-art-pass fallen-tree dimensions: 6.029 wide × 2.55 high
-- migrates existing authored starts, puzzle templates and runtime puzzle state back to that footprint
-- keeps the existing fallen-tree collision data unchanged
-- no log, wall, stone, environment, fog or gameplay-system changes
+- replaces all 12 `sidescroll-ground` textures with the newly approved grass-and-rock set
+- keeps the image-generator native soft alpha and removes the old magenta-derived edge contamination
+- dilates RGB only beneath fully transparent pixels, then tight-crops transparent padding for clean in-game edges
+- updates ground-asset aspect metadata to the processed texture dimensions and cache-busts the new textures
+- removes the obsolete missing dressing-atlas precache entry; no gameplay, puzzle, tree, character or placement-system changes

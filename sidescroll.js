@@ -907,18 +907,18 @@
     tree06: [992, 1318],
     tree07: [992, 1318],
     tree08: [992, 1318],
-    ground01: [937, 603],
-    ground02: [924, 485],
-    ground03: [930, 602],
-    ground04: [931, 514],
-    ground05: [926, 531],
-    ground06: [922, 483],
-    ground07: [931, 418],
-    ground08: [928, 442],
-    ground09: [933, 511],
-    ground10: [940, 484],
-    ground11: [937, 361],
-    ground12: [934, 480],
+    ground01: [937, 493],
+    ground02: [923, 514],
+    ground03: [930, 514],
+    ground04: [914, 512],
+    ground05: [926, 514],
+    ground06: [916, 496],
+    ground07: [931, 529],
+    ground08: [928, 522],
+    ground09: [933, 494],
+    ground10: [940, 526],
+    ground11: [937, 515],
+    ground12: [934, 536],
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
@@ -926,7 +926,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.79`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.86`,
         key,
         null,
         size[0] / size[1]
@@ -2287,7 +2287,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.85" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.86" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -5069,7 +5069,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.85" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.86" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
