@@ -1,10 +1,9 @@
-# SideScroll v0.2.70
+# SideScroll v0.2.71
 
-Path-edge placement pass.
+Feathered path-edge placement pass.
 
-- increased small dressing density on the far side of the path
-- added an extra far-side micro-dressing pass to help fill tree gaps with smaller assets
-- feathered the tree line so some trees begin closer to the path instead of stopping at a hard edge
-- narrowed the path exclusion slightly for both trees and dressing while keeping a clear gameplay strip
-- allowed dressing to come a little closer to the character on both sides
-- kept the current art, atlas content and gameplay systems unchanged
+- softened the hard path edge by using mixed placement bands instead of a single cutoff line
+- added more far-side small dressing and a small near-side micro pass
+- let some grass / rocks creep closer to the gameplay strip while keeping the central run clear
+- reintroduced scale variation so edge assets feel more scattered rather than all the same size
+- allowed a few far-side trees to start closer to the path so the tree line feels less abrupt

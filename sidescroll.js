@@ -732,7 +732,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.70', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.71', 'SideScroll dressing atlas');
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.67', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.237304688, 0.315429688], offset: [0.006347656, 0.510742188] },
@@ -1363,7 +1363,7 @@
 
     const placedTrees = [];
     const placedDressings = [];
-    const nearestTreeZ = -(PATH_BERM_HALF + 0.18); // feather some trunks closer to the path while keeping a clear gameplay strip.
+    const nearestTreeZ = -(PATH_BERM_HALF + 0.05); // allow a few trunks to feather closer to the path while keeping a clear gameplay strip.
     const treeGeneralSpacing = 3.05;
     const treeSameVariantSpacing = 12.5;
     const dressingGeneralSpacing = 0.82;
@@ -1417,11 +1417,13 @@
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.58) {
-        z = nearestTreeZ - Math.pow(rand(), 1.58) * 5.4;
+      if (rand() < 0.28) {
+        z = -(PATH_BERM_HALF - 0.10 + Math.pow(rand(), 1.85) * 2.2);
+      } else if (rand() < 0.68) {
+        z = nearestTreeZ - Math.pow(rand(), 1.52) * 5.2;
       } else {
         const depth = Math.pow(rand(), 1.14);
-        z = nearestTreeZ - 0.8 - depth * 33.6;
+        z = nearestTreeZ - 0.7 - depth * 33.6;
       }
       z = Math.max(WORLD.farZ + 1.4, z);
       const depth01 = Math.min(1, Math.max(0, (-z - 4.3) / 36.0));
@@ -1467,7 +1469,10 @@
 
     function addProceduralDressing(x, z, side, index) {
       const [type, def] = pickWeightedDressing(side);
-      const height = def.hMin + rand() * (def.hMax - def.hMin);
+      const edgeDistance = Math.max(0, Math.abs(z) - PATH_FLAT_HALF);
+      const edge01 = Math.min(1, edgeDistance / 6.0);
+      const scaleMul = 0.90 + rand() * 0.18 + edge01 * 0.22;
+      const height = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
       if (!canUseDressingPosition(type, def, x, z, height)) return false;
       const obj = addObject(targetCollectionForZ(z), type, x, z, null, height, {
         id: `dressing263-${index}`,
@@ -1476,7 +1481,7 @@
         opacity: 0.95 + rand() * 0.05,
         layer: classifyLayer(z)
       });
-      placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.78 + height * 0.16)), same:def.same || 5.0, obj });
+      placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.74 + height * 0.15)), same:def.same || 5.0, obj });
       return true;
     }
 
@@ -1485,23 +1490,26 @@
     // and comes in much closer on both edges so the run feels wrapped by foliage.
     let farPlaced = 0;
     attempts = 0;
-    const farTarget = 210;
-    while (farPlaced < farTarget && attempts < 8800) {
+    const farTarget = 224;
+    while (farPlaced < farTarget && attempts < 9600) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.92) {
-        z = -(PATH_BERM_HALF + 0.08 + Math.pow(rand(), 1.28) * 6.8);
+      const bandPick = rand();
+      if (bandPick < 0.34) {
+        z = -(PATH_FLAT_HALF + 0.20 + Math.pow(rand(), 1.90) * 1.7);
+      } else if (bandPick < 0.86) {
+        z = -(PATH_BERM_HALF + 0.06 + Math.pow(rand(), 1.20) * 6.3);
       } else {
         z = -(PATH_OUTER_HALF + 0.9 + Math.pow(rand(), 1.06) * 10.8);
       }
-      z = Math.max(WORLD.farZ + 3.0, Math.min(-(PATH_BERM_HALF + 0.06), z));
+      z = Math.max(WORLD.farZ + 3.0, Math.min(-(PATH_FLAT_HALF + 0.16), z));
       if (addProceduralDressing(x, z, -1, `far-${farPlaced}`)) farPlaced += 1;
     }
 
     let farMicroPlaced = 0;
     attempts = 0;
-    const farMicroTarget = 54;
+    const farMicroTarget = 86;
     const farMicroTypes = ['ground01', 'ground05', 'ground07', 'ground09', 'ground11'];
     function addProceduralDressingSpecific(type, x, z, side, index, scaleMul = 1.0) {
       const def = dressingDefs[type];
@@ -1521,24 +1529,39 @@
     while (farMicroPlaced < farMicroTarget && attempts < 3200) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
-      const z = -(PATH_BERM_HALF + 0.10 + Math.pow(rand(), 1.12) * 4.8);
+      const z = -(PATH_FLAT_HALF + 0.16 + Math.pow(rand(), 1.22) * 4.2);
       const type = farMicroTypes[Math.floor(rand() * farMicroTypes.length)];
-      if (addProceduralDressingSpecific(type, x, z, -1, `far-micro-${farMicroPlaced}`, 0.88 + rand() * 0.12)) farMicroPlaced += 1;
+      if (addProceduralDressingSpecific(type, x, z, -1, `far-micro-${farMicroPlaced}`, 0.82 + rand() * 0.22)) farMicroPlaced += 1;
+    }
+
+    let nearMicroPlaced = 0;
+    attempts = 0;
+    const nearMicroTarget = 34;
+    const nearMicroTypes = ['ground01', 'ground05', 'ground09', 'ground11'];
+    while (nearMicroPlaced < nearMicroTarget && attempts < 2200) {
+      attempts += 1;
+      const x = TILE.minX + rand() * TILE_WIDTH;
+      const z = PATH_FLAT_HALF + 0.18 + Math.pow(rand(), 1.26) * 3.8;
+      const type = nearMicroTypes[Math.floor(rand() * nearMicroTypes.length)];
+      if (addProceduralDressingSpecific(type, x, z, 1, `near-micro-${nearMicroPlaced}`, 0.84 + rand() * 0.20)) nearMicroPlaced += 1;
     }
 
     let nearPlaced = 0;
     attempts = 0;
-    const nearTarget = 188;
-    while (nearPlaced < nearTarget && attempts < 7000) {
+    const nearTarget = 198;
+    while (nearPlaced < nearTarget && attempts < 7600) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.92) {
-        z = PATH_BERM_HALF + 0.12 + Math.pow(rand(), 1.30) * 6.0;
+      const bandPick = rand();
+      if (bandPick < 0.28) {
+        z = PATH_FLAT_HALF + 0.22 + Math.pow(rand(), 1.80) * 1.8;
+      } else if (bandPick < 0.88) {
+        z = PATH_BERM_HALF + 0.10 + Math.pow(rand(), 1.24) * 5.8;
       } else {
         z = PATH_OUTER_HALF + 0.84 + Math.pow(rand(), 1.08) * 7.2;
       }
-      z = Math.min(WORLD.nearZ - 0.8, Math.max(PATH_BERM_HALF + 0.08, z));
+      z = Math.min(WORLD.nearZ - 0.8, Math.max(PATH_FLAT_HALF + 0.16, z));
       if (addProceduralDressing(x, z, 1, `near-${nearPlaced}`)) nearPlaced += 1;
     }
 
