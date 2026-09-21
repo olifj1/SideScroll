@@ -1,11 +1,10 @@
-# SideScroll v0.2.80
+# SideScroll v0.2.81
 
-True full-screen post-production pass.
+Post framebuffer scene-render fix.
 
-- the scene now renders to an off-screen framebuffer first
-- fog, terrain, trees, dressing, puzzle art and the character are fully composited before Post is applied
-- brightness, contrast, saturation and tint are then applied once to the complete final scene
-- fog therefore receives exactly the same post-production transform as every other rendered pixel
-- removed the duplicate per-object post grading path
-- this framebuffer/composite structure also provides the correct foundation for a later bloom pass
-- persistent Fog/Post settings and puzzle exclusion tools are retained
+- fixed the flat fog-colour screen introduced by the full-screen Post pass
+- the post pass was disabling a WebGL vertex attribute index that is shared with the main scene renderer
+- scene position/UV attributes are now explicitly restored after Post
+- they are also re-enabled at the start of every scene frame for robustness
+- full-screen Post remains in place, so fog and scene still receive exactly the same grade
+- no environment, puzzle, texture or gameplay changes

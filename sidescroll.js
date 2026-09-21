@@ -447,8 +447,12 @@
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    gl.disableVertexAttribArray(postLoc.pos);
+    // Attribute enable/disable state is global in WebGL, not program-local.
+    // The post position attribute commonly shares index 0 with the scene
+    // position attribute, so disabling it here blanked every later scene frame.
     gl.useProgram(program);
+    gl.enableVertexAttribArray(loc.pos);
+    gl.enableVertexAttribArray(loc.uv);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
     gl.enable(gl.BLEND);
@@ -6680,6 +6684,8 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(program);
+    gl.enableVertexAttribArray(loc.pos);
+    gl.enableVertexAttribArray(loc.uv);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
     gl.enable(gl.BLEND);
