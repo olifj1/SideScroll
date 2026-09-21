@@ -1,6 +1,5 @@
-# SideScroll v0.2.92
+# SideScroll v0.2.93
 
-- Cleaned out duplicate replaced textures to reduce build size.
-- Kept the updated grass set, updated log set, and current stone wall texture on the original canonical filenames.
-- Removed 17 duplicate replacement files: 12 ground textures, 4 log textures, and 1 stone wall texture.
-- Updated cache / version strings so the cleaned build should refresh cleanly.
+- Corrected the puzzle log texture fit so the new log art fills the original in-game log footprints instead of sitting too shallow inside the textures.
+- This keeps gameplay setup intact while making the logs read less long / thin in-game.
+- Retains the current cleaned texture set from v0.2.92.
