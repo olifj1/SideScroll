@@ -1,9 +1,11 @@
-# SideScroll v0.2.68
+# SideScroll v0.2.69
 
-Updated grassy rock dressing set.
+Ground-dressing scale and baseline correction.
 
-- replaced the ground dressing textures with the newly generated grassy rock set
-- processed the new assets through the soft alpha + colour dilation pipeline
-- rebuilt the dressing atlas using the new textures
-- anchored the new dressing textures flush to the baseline to avoid floating
-- left tree placement, fog, controls and puzzle logic unchanged
+- reprocessed the new grassy rock set with a stricter magenta-key soft-alpha pass
+- removed the large residual magenta canvas that was making the visible artwork tiny inside each plane
+- colour-dilated RGB under the transparent edge to avoid magenta fringes
+- rebuilt each dressing atlas rectangle to match the real aspect ratio of its artwork
+- anchored visible pixels flush to the billboard baseline so rocks and grass no longer hover
+- retained all eight new art variants, with four mirrored variants filling the existing 12 procedural slots
+- no tree, fog, puzzle or control changes in this build

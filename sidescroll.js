@@ -732,7 +732,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.68', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.69', 'SideScroll dressing atlas');
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.67', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.237304688, 0.315429688], offset: [0.006347656, 0.510742188] },
@@ -743,18 +743,18 @@
     tree06: { scale: [0.237304688, 0.315429688], offset: [0.256347656, 0.010742188] },
     tree07: { scale: [0.237304688, 0.315429688], offset: [0.506347656, 0.010742188] },
     tree08: { scale: [0.237304688, 0.315429688], offset: [0.756347656, 0.010742188] },
-    ground01: { scale: [0.218750000, 0.099609375], offset: [0.015625000, 0.765625000] },
-    ground02: { scale: [0.218750000, 0.158203125], offset: [0.265625000, 0.765625000] },
-    ground03: { scale: [0.218750000, 0.168945312], offset: [0.515625000, 0.765625000] },
-    ground04: { scale: [0.218750000, 0.126953125], offset: [0.765625000, 0.765625000] },
-    ground05: { scale: [0.218750000, 0.177734375], offset: [0.015625000, 0.515625000] },
-    ground06: { scale: [0.218750000, 0.121093750], offset: [0.265625000, 0.515625000] },
-    ground07: { scale: [0.218750000, 0.119140625], offset: [0.515625000, 0.515625000] },
-    ground08: { scale: [0.218750000, 0.109375000], offset: [0.765625000, 0.515625000] },
-    ground09: { scale: [0.218750000, 0.080078125], offset: [0.015625000, 0.265625000] },
-    ground10: { scale: [0.218750000, 0.110351562], offset: [0.265625000, 0.265625000] },
-    ground11: { scale: [0.218750000, 0.099609375], offset: [0.515625000, 0.265625000] },
-    ground12: { scale: [0.218750000, 0.126953125], offset: [0.765625000, 0.265625000] },
+    ground01: { scale: [0.218750000, 0.109375000], offset: [0.015625000, 0.747070312] },
+    ground02: { scale: [0.218750000, 0.138671875], offset: [0.265625000, 0.747070312] },
+    ground03: { scale: [0.218750000, 0.110351562], offset: [0.515625000, 0.747070312] },
+    ground04: { scale: [0.218750000, 0.124023438], offset: [0.765625000, 0.747070312] },
+    ground05: { scale: [0.218750000, 0.145507812], offset: [0.015625000, 0.502929688] },
+    ground06: { scale: [0.218750000, 0.067382812], offset: [0.265625000, 0.502929688] },
+    ground07: { scale: [0.218750000, 0.137695312], offset: [0.515625000, 0.502929688] },
+    ground08: { scale: [0.218750000, 0.050781250], offset: [0.765625000, 0.502929688] },
+    ground09: { scale: [0.218750000, 0.109375000], offset: [0.015625000, 0.258789062] },
+    ground10: { scale: [0.218750000, 0.138671875], offset: [0.265625000, 0.258789062] },
+    ground11: { scale: [0.218750000, 0.110351562], offset: [0.515625000, 0.258789062] },
+    ground12: { scale: [0.218750000, 0.124023438], offset: [0.765625000, 0.258789062] },
   };
   const assetDimensions = {
     tree01: [486, 646],
@@ -765,18 +765,18 @@
     tree06: [486, 646],
     tree07: [486, 646],
     tree08: [486, 646],
-    ground01: [224, 102],
-    ground02: [224, 162],
-    ground03: [224, 173],
-    ground04: [224, 130],
-    ground05: [224, 182],
-    ground06: [224, 124],
-    ground07: [224, 122],
-    ground08: [224, 112],
-    ground09: [224, 82],
-    ground10: [224, 113],
-    ground11: [224, 102],
-    ground12: [224, 130],
+    ground01: [224, 112],
+    ground02: [224, 142],
+    ground03: [224, 113],
+    ground04: [224, 127],
+    ground05: [224, 149],
+    ground06: [224, 69],
+    ground07: [224, 141],
+    ground08: [224, 52],
+    ground09: [224, 112],
+    ground10: [224, 142],
+    ground11: [224, 113],
+    ground12: [224, 127],
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
@@ -1347,18 +1347,18 @@
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
     const dressingDefs = {
-      ground01: { family:'foliage', weight:1.34, hMin:1.08, hMax:1.42, radius:1.08, same:4.2, nearWeight:1.44, farWeight:1.10 },
+      ground01: { family:'rock', weight:1.34, hMin:1.08, hMax:1.42, radius:1.08, same:4.2, nearWeight:1.44, farWeight:1.10 },
       ground02: { family:'foliage', weight:1.12, hMin:1.26, hMax:1.68, radius:1.28, same:5.2, nearWeight:1.02, farWeight:1.16 },
       ground03: { family:'foliage', weight:1.08, hMin:1.18, hMax:1.62, radius:1.18, same:4.7, nearWeight:1.22, farWeight:1.04 },
-      ground04: { family:'foliage', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
-      ground05: { family:'twig',    weight:0.50, hMin:1.04, hMax:1.34, radius:0.98, same:5.8, nearWeight:0.64, farWeight:0.84 },
-      ground06: { family:'foliage', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
+      ground04: { family:'rock', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
+      ground05: { family:'foliage',    weight:0.50, hMin:1.04, hMax:1.34, radius:0.98, same:5.8, nearWeight:0.64, farWeight:0.84 },
+      ground06: { family:'rock', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
       ground07: { family:'rock',    weight:0.56, hMin:0.92, hMax:1.18, radius:1.14, same:5.2, nearWeight:0.82, farWeight:0.74 },
       ground08: { family:'rock',    weight:0.50, hMin:1.04, hMax:1.34, radius:1.34, same:5.8, nearWeight:0.76, farWeight:0.78 },
       ground09: { family:'rock',    weight:0.46, hMin:0.86, hMax:1.06, radius:1.08, same:4.8, nearWeight:0.76, farWeight:0.68 },
-      ground10: { family:'rock',    weight:0.42, hMin:1.10, hMax:1.46, radius:1.38, same:6.0, nearWeight:0.70, farWeight:0.66 },
+      ground10: { family:'foliage',    weight:0.42, hMin:1.10, hMax:1.46, radius:1.38, same:6.0, nearWeight:0.70, farWeight:0.66 },
       ground11: { family:'foliage', weight:1.02, hMin:1.04, hMax:1.34, radius:1.06, same:4.3, nearWeight:1.24, farWeight:1.00 },
-      ground12: { family:'foliage', weight:0.98, hMin:1.12, hMax:1.48, radius:1.14, same:4.6, nearWeight:1.18, farWeight:1.10 }
+      ground12: { family:'rock', weight:0.98, hMin:1.12, hMax:1.48, radius:1.14, same:4.6, nearWeight:1.18, farWeight:1.10 }
     };
 
     const placedTrees = [];
