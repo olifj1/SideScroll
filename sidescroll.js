@@ -926,7 +926,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.86`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.87`,
         key,
         null,
         size[0] / size[1]
@@ -1972,6 +1972,50 @@
   }
   migratePuzzleArtV3();
 
+  const PUZZLE_ART_V4_MIGRATION_KEY = 'sidescroll.puzzle-art-v4.stone-wall-remap';
+  function remapStoneWallV4Objects(objects) {
+    if (!objects || typeof objects !== 'object') return false;
+    let changed = false;
+    const aspect = PUZZLE_ART_V2_ASPECT['stone-wall'];
+    for (const state of Object.values(objects)) {
+      if (state?.asset !== 'stone-wall') continue;
+      let sy = Number(state.sy);
+      if (!Number.isFinite(sy)) continue;
+      if (sy < 3.40) sy = 3.40;
+      const sx = sy * aspect;
+      if (Math.abs(Number(state.sx) - sx) > 1e-6) { state.sx = sx; changed = true; }
+      if (state.sy !== sy) { state.sy = sy; changed = true; }
+      if (state.flip !== false) { state.flip = false; changed = true; }
+    }
+    return changed;
+  }
+  function migratePuzzleArtV4() {
+    try { if (localStorage.getItem(PUZZLE_ART_V4_MIGRATION_KEY) === '1') return; } catch (_) {}
+    let startsChanged = false;
+    for (const snapshot of Object.values(puzzleStartState || {})) {
+      startsChanged = remapStoneWallV4Objects(snapshot?.objects) || startsChanged;
+    }
+    let libraryChanged = false;
+    for (const snapshot of Object.values(userPuzzleLibrary.templates || {})) {
+      libraryChanged = remapStoneWallV4Objects(snapshot?.objects) || libraryChanged;
+    }
+    let runtimeChanged = false;
+    for (const runtime of Object.values(puzzleSavedState || {})) {
+      runtimeChanged = remapStoneWallV4Objects(runtime?.objects) || runtimeChanged;
+    }
+    if (startsChanged) {
+      try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {}
+    }
+    if (libraryChanged) {
+      try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {}
+    }
+    if (runtimeChanged) {
+      try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {}
+    }
+    try { localStorage.setItem(PUZZLE_ART_V4_MIGRATION_KEY, '1'); } catch (_) {}
+  }
+  migratePuzzleArtV4();
+
   const puzzleWorkshopState = (() => {
     try {
       const parsed = JSON.parse(localStorage.getItem(PUZZLE_WORKSHOP_STORAGE_KEY) || '{}') || {};
@@ -2287,7 +2331,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.86" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.87" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -5069,7 +5113,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.86" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.87" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
