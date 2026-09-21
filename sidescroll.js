@@ -46,6 +46,7 @@
   const fogResetBtn = document.getElementById('sidescroll-fog-reset');
   const collisionViewBtn = document.getElementById('sidescroll-collision-view');
   const playerHintsBtn = document.getElementById('sidescroll-player-hints');
+  const characterSwapBtn = document.getElementById('sidescroll-character');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
   const cameraEditorPanel = document.getElementById('sidescroll-camera-editor');
   const cameraValuesEl = document.getElementById('sidescroll-camera-values');
@@ -926,7 +927,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.93`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.94`,
         key,
         null,
         size[0] / size[1]
@@ -1112,7 +1113,52 @@
     runtime.refs = Math.max(0, runtime.refs - 1);
   }
 
-  textures.rigAtlas = createImageTexture(Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=0.2.2`, 'Walk Lab cutout rig atlas');
+
+const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
+const RIG_TEXTURE_VERSION = '0.2.95';
+let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
+
+function rigVariantTextureKey(id) {
+  return `rigAtlas_${id}`;
+}
+
+function rigVariantUrl(id) {
+  const src = Rig.atlasImageUrl ? Rig.atlasImageUrl(id) : (Rig.ATLAS.fileUrl || Rig.ATLAS.url);
+  return src.includes('?') ? src : `${src}?v=${RIG_TEXTURE_VERSION}`;
+}
+
+function updateCharacterSwapButton() {
+  if (!characterSwapBtn) return;
+  const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant) : null;
+  characterSwapBtn.textContent = info?.label || 'Character';
+  characterSwapBtn.setAttribute('aria-pressed', currentCharacterVariant !== (Rig.DEFAULT_CHARACTER_VARIANT || 'original') ? 'true' : 'false');
+  characterSwapBtn.setAttribute('aria-label', `Swap character · current ${info?.label || currentCharacterVariant}`);
+}
+
+function applyCharacterVariant(id, announce = false) {
+  const desired = Rig.saveCharacterVariant ? Rig.saveCharacterVariant(id) : id;
+  currentCharacterVariant = Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(desired) : desired;
+  textures.rigAtlas = textures[rigVariantTextureKey(currentCharacterVariant)] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
+  updateCharacterSwapButton();
+  if (announce && hintEl) {
+    const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant) : null;
+    hintEl.textContent = `Character swapped to ${info?.label || currentCharacterVariant}`;
+  }
+}
+
+function toggleCharacterVariant() {
+  if (!availableCharacterVariants.length) return;
+  const idx = Math.max(0, availableCharacterVariants.indexOf(currentCharacterVariant));
+  applyCharacterVariant(availableCharacterVariants[(idx + 1) % availableCharacterVariants.length], true);
+}
+
+availableCharacterVariants.forEach(id => {
+  textures[rigVariantTextureKey(id)] = createImageTexture(rigVariantUrl(id), `Walk Lab cutout rig atlas ${id}`);
+});
+textures.rigAtlas = textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')];
+applyCharacterVariant(currentCharacterVariant, false);
+if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacterVariant);
+
 
   function mulberry32(seed) {
     return function() {
@@ -2362,7 +2408,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.93" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.94" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -5164,7 +5210,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.93" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.94" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {

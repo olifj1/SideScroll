@@ -106,6 +106,52 @@
     }
   });
 
+
+const CHARACTER_VARIANT_STORAGE_KEY = 'gamehub.walklab.character.v1';
+const DEFAULT_CHARACTER_VARIANT = 'original';
+const CHARACTER_VARIANTS = Object.freeze({
+  original: {
+    id: 'original',
+    label: 'Hero 1',
+    fileUrl: 'walklab-rig-v4.png',
+    sourceUrl: 'walklab-character-source.png'
+  },
+  alternate: {
+    id: 'alternate',
+    label: 'Hero 2',
+    fileUrl: 'walklab-rig-v4-alt-hero2.png',
+    sourceUrl: 'walklab-rig-v4-alt-hero2.png'
+  }
+});
+
+function normaliseCharacterVariant(id) {
+  return Object.prototype.hasOwnProperty.call(CHARACTER_VARIANTS, id) ? id : DEFAULT_CHARACTER_VARIANT;
+}
+
+function loadCharacterVariant() {
+  try {
+    return normaliseCharacterVariant(localStorage.getItem(CHARACTER_VARIANT_STORAGE_KEY) || DEFAULT_CHARACTER_VARIANT);
+  } catch (_) {
+    return DEFAULT_CHARACTER_VARIANT;
+  }
+}
+
+function saveCharacterVariant(id) {
+  const safe = normaliseCharacterVariant(id);
+  try { localStorage.setItem(CHARACTER_VARIANT_STORAGE_KEY, safe); } catch (_) {}
+  return safe;
+}
+
+function characterVariantInfo(id = DEFAULT_CHARACTER_VARIANT) {
+  return CHARACTER_VARIANTS[normaliseCharacterVariant(id)];
+}
+
+function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
+  const info = characterVariantInfo(id);
+  if (info?.fileUrl) return info.fileUrl;
+  return ATLAS.fileUrl || ATLAS.url;
+}
+
   function atlasRect(name) {
     const p = ATLAS.parts[name];
     if (!p) return null;
@@ -433,6 +479,7 @@
   window.GameHubWalkRig={
     DEG,TAU,BODY,ATLAS,KEY_NAMES,RUN_KEY_NAMES,JUMP_KEY_NAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
+    CHARACTER_VARIANT_STORAGE_KEY,DEFAULT_CHARACTER_VARIANT,CHARACTER_VARIANTS,normaliseCharacterVariant,loadCharacterVariant,saveCharacterVariant,characterVariantInfo,atlasImageUrl,
     clone,clamp,lerp,makeKey,defaultKeys,makeRunKey,runKeys,makeJumpKey,jumpKeys,interpolatePose,buildFramesFromKeys,buildFramesWithNames,normalizedPose,sampleFrames,
     geometry,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry
   };

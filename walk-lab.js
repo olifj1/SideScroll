@@ -25,6 +25,7 @@
   const planesBtn = document.getElementById('walklab-planes');
   const colliderBtn = document.getElementById('walklab-collider');
   const colliderResetBtn = document.getElementById('walklab-collider-reset');
+  const characterBtn = document.getElementById('walklab-character');
   const fitBtn = document.getElementById('walklab-fit');
   const fileInput = document.getElementById('walklab-file');
   const clipButtons = [...document.querySelectorAll('.walklab-clip[data-clip]')];
@@ -52,6 +53,8 @@
   let collider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider();
   let activeColliderHandle = null;
   let rigAtlas = null;
+  const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
+  let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
   const SHARED_ANIM_KEY = 'gamehub.walklab.anim.v4';
   const SHARED_CLIPS_KEY = 'gamehub.walklab.anim.v6';
@@ -75,11 +78,31 @@
   let gesture = null;
   let activeJoint = null;
 
+  function updateCharacterButton() {
+    if (!characterBtn) return;
+    const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant) : null;
+    characterBtn.textContent = info?.label || 'Character';
+    characterBtn.setAttribute('aria-pressed', currentCharacterVariant !== (Rig.DEFAULT_CHARACTER_VARIANT || 'original') ? 'true' : 'false');
+  }
+
   function loadRigAtlas() {
     const img = new Image();
     img.onload = () => { rigAtlas = img; draw(); };
     img.onerror = () => { rigAtlas = null; readout.textContent = 'Rig art failed to load'; draw(); };
-    img.src = Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : `${Rig.ATLAS.url}?v=1.8.74`;
+    const src = Rig.atlasImageUrl ? Rig.atlasImageUrl(currentCharacterVariant) : (Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : Rig.ATLAS.url);
+    img.src = src.includes('?') ? src : `${src}?v=0.2.95`;
+  }
+
+  function toggleCharacterVariant() {
+    if (!availableCharacterVariants.length) return;
+    const idx = Math.max(0, availableCharacterVariants.indexOf(currentCharacterVariant));
+    const next = availableCharacterVariants[(idx + 1) % availableCharacterVariants.length];
+    currentCharacterVariant = Rig.saveCharacterVariant ? Rig.saveCharacterVariant(next) : next;
+    updateCharacterButton();
+    if (characterBtn) characterBtn.addEventListener('click', toggleCharacterVariant);
+  updateCharacterButton();
+  loadRigAtlas();
+    editHint.textContent = `Character set: ${Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant).label : currentCharacterVariant}`;
   }
 
   function resize() {
