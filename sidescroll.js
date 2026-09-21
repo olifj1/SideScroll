@@ -732,7 +732,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.69', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.70', 'SideScroll dressing atlas');
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.67', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.237304688, 0.315429688], offset: [0.006347656, 0.510742188] },
@@ -1347,27 +1347,27 @@
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
     const dressingDefs = {
-      ground01: { family:'rock', weight:1.34, hMin:1.08, hMax:1.42, radius:1.08, same:4.2, nearWeight:1.44, farWeight:1.10 },
+      ground01: { family:'rock', weight:1.34, hMin:1.00, hMax:1.34, radius:0.96, same:4.0, nearWeight:1.32, farWeight:1.56 },
       ground02: { family:'foliage', weight:1.12, hMin:1.26, hMax:1.68, radius:1.28, same:5.2, nearWeight:1.02, farWeight:1.16 },
       ground03: { family:'foliage', weight:1.08, hMin:1.18, hMax:1.62, radius:1.18, same:4.7, nearWeight:1.22, farWeight:1.04 },
       ground04: { family:'rock', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
-      ground05: { family:'foliage',    weight:0.50, hMin:1.04, hMax:1.34, radius:0.98, same:5.8, nearWeight:0.64, farWeight:0.84 },
+      ground05: { family:'foliage', weight:0.72, hMin:0.98, hMax:1.28, radius:0.92, same:5.2, nearWeight:0.72, farWeight:1.42 },
       ground06: { family:'rock', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
-      ground07: { family:'rock',    weight:0.56, hMin:0.92, hMax:1.18, radius:1.14, same:5.2, nearWeight:0.82, farWeight:0.74 },
+      ground07: { family:'rock', weight:0.72, hMin:0.86, hMax:1.10, radius:1.02, same:4.8, nearWeight:0.90, farWeight:1.22 },
       ground08: { family:'rock',    weight:0.50, hMin:1.04, hMax:1.34, radius:1.34, same:5.8, nearWeight:0.76, farWeight:0.78 },
-      ground09: { family:'rock',    weight:0.46, hMin:0.86, hMax:1.06, radius:1.08, same:4.8, nearWeight:0.76, farWeight:0.68 },
-      ground10: { family:'foliage',    weight:0.42, hMin:1.10, hMax:1.46, radius:1.38, same:6.0, nearWeight:0.70, farWeight:0.66 },
-      ground11: { family:'foliage', weight:1.02, hMin:1.04, hMax:1.34, radius:1.06, same:4.3, nearWeight:1.24, farWeight:1.00 },
-      ground12: { family:'rock', weight:0.98, hMin:1.12, hMax:1.48, radius:1.14, same:4.6, nearWeight:1.18, farWeight:1.10 }
+      ground09: { family:'rock', weight:0.82, hMin:0.80, hMax:1.00, radius:0.94, same:4.4, nearWeight:0.84, farWeight:1.62 },
+      ground10: { family:'foliage', weight:0.36, hMin:1.06, hMax:1.36, radius:1.28, same:5.8, nearWeight:0.68, farWeight:0.58 },
+      ground11: { family:'foliage', weight:1.18, hMin:0.98, hMax:1.28, radius:0.94, same:4.0, nearWeight:1.28, farWeight:1.54 },
+      ground12: { family:'rock', weight:0.94, hMin:1.06, hMax:1.42, radius:1.08, same:4.4, nearWeight:1.12, farWeight:0.96 }
     };
 
     const placedTrees = [];
     const placedDressings = [];
-    const nearestTreeZ = -(PATH_FLAT_HALF + 1.05); // keep trunks just beyond the playable shoulder.
-    const treeGeneralSpacing = 3.15;
+    const nearestTreeZ = -(PATH_BERM_HALF + 0.18); // feather some trunks closer to the path while keeping a clear gameplay strip.
+    const treeGeneralSpacing = 3.05;
     const treeSameVariantSpacing = 12.5;
-    const dressingGeneralSpacing = 0.86;
-    const dressingFamilySpacing = { foliage:0.96, twig:0.88, rock:1.18 };
+    const dressingGeneralSpacing = 0.82;
+    const dressingFamilySpacing = { foliage:0.90, twig:0.84, rock:1.08 };
 
     function wrappedXDistance(a, b) {
       const raw = Math.abs(a - b);
@@ -1417,11 +1417,11 @@
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.40) {
-        z = nearestTreeZ - Math.pow(rand(), 1.45) * 4.8;
+      if (rand() < 0.58) {
+        z = nearestTreeZ - Math.pow(rand(), 1.58) * 5.4;
       } else {
-        const depth = Math.pow(rand(), 1.18);
-        z = nearestTreeZ - 1.0 - depth * 33.6;
+        const depth = Math.pow(rand(), 1.14);
+        z = nearestTreeZ - 0.8 - depth * 33.6;
       }
       z = Math.max(WORLD.farZ + 1.4, z);
       const depth01 = Math.min(1, Math.max(0, (-z - 4.3) / 36.0));
@@ -1485,33 +1485,60 @@
     // and comes in much closer on both edges so the run feels wrapped by foliage.
     let farPlaced = 0;
     attempts = 0;
-    const farTarget = 146;
-    while (farPlaced < farTarget && attempts < 5600) {
+    const farTarget = 210;
+    while (farPlaced < farTarget && attempts < 8800) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.88) {
-        z = -(PATH_OUTER_HALF - 0.16 + Math.pow(rand(), 1.34) * 5.8);
+      if (rand() < 0.92) {
+        z = -(PATH_BERM_HALF + 0.08 + Math.pow(rand(), 1.28) * 6.8);
       } else {
-        z = -(PATH_OUTER_HALF + 1.0 + Math.pow(rand(), 1.08) * 10.2);
+        z = -(PATH_OUTER_HALF + 0.9 + Math.pow(rand(), 1.06) * 10.8);
       }
-      z = Math.max(WORLD.farZ + 3.0, Math.min(-2.95, z));
+      z = Math.max(WORLD.farZ + 3.0, Math.min(-(PATH_BERM_HALF + 0.06), z));
       if (addProceduralDressing(x, z, -1, `far-${farPlaced}`)) farPlaced += 1;
+    }
+
+    let farMicroPlaced = 0;
+    attempts = 0;
+    const farMicroTarget = 54;
+    const farMicroTypes = ['ground01', 'ground05', 'ground07', 'ground09', 'ground11'];
+    function addProceduralDressingSpecific(type, x, z, side, index, scaleMul = 1.0) {
+      const def = dressingDefs[type];
+      if (!def) return false;
+      const baseHeight = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
+      if (!canUseDressingPosition(type, def, x, z, baseHeight)) return false;
+      addObject(targetCollectionForZ(z), type, x, z, null, baseHeight, {
+        id: `dressing263-${index}`,
+        y: pathGroundYAt(x, z),
+        shade: 0.985 + rand() * 0.055,
+        opacity: 0.95 + rand() * 0.05,
+        layer: classifyLayer(z)
+      });
+      placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.76 + baseHeight * 0.15)), same:def.same || 5.0 });
+      return true;
+    }
+    while (farMicroPlaced < farMicroTarget && attempts < 3200) {
+      attempts += 1;
+      const x = TILE.minX + rand() * TILE_WIDTH;
+      const z = -(PATH_BERM_HALF + 0.10 + Math.pow(rand(), 1.12) * 4.8);
+      const type = farMicroTypes[Math.floor(rand() * farMicroTypes.length)];
+      if (addProceduralDressingSpecific(type, x, z, -1, `far-micro-${farMicroPlaced}`, 0.88 + rand() * 0.12)) farMicroPlaced += 1;
     }
 
     let nearPlaced = 0;
     attempts = 0;
-    const nearTarget = 170;
-    while (nearPlaced < nearTarget && attempts < 6200) {
+    const nearTarget = 188;
+    while (nearPlaced < nearTarget && attempts < 7000) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
       let z;
-      if (rand() < 0.90) {
-        z = PATH_OUTER_HALF - 0.12 + Math.pow(rand(), 1.34) * 5.9;
+      if (rand() < 0.92) {
+        z = PATH_BERM_HALF + 0.12 + Math.pow(rand(), 1.30) * 6.0;
       } else {
-        z = PATH_OUTER_HALF + 0.90 + Math.pow(rand(), 1.10) * 6.9;
+        z = PATH_OUTER_HALF + 0.84 + Math.pow(rand(), 1.08) * 7.2;
       }
-      z = Math.min(WORLD.nearZ - 0.8, Math.max(2.95, z));
+      z = Math.min(WORLD.nearZ - 0.8, Math.max(PATH_BERM_HALF + 0.08, z));
       if (addProceduralDressing(x, z, 1, `near-${nearPlaced}`)) nearPlaced += 1;
     }
 
