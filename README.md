@@ -1,12 +1,12 @@
-# SideScroll v0.2.83
+# SideScroll v0.2.84
 
-Puzzle exclusion controls repaired in the actual runtime JavaScript.
+Puzzle art integration pass.
 
-- Edit Exclusion now opens an editable translucent floor plane
-- centre handle moves the plane in X/Z
-- four cyan edge handles resize width/depth
-- Add/Disable Exclusion dynamically suppresses/restores procedural trees and dressing
-- Add Dressing opens the environment asset library while keeping placed art attached to the selected puzzle
-- puzzle-owned dressing ignores the exclusion and loads/unloads with its puzzle
-- exclusion changes persist locally per puzzle instance
-- fixed the undefined puzzle-dressing editor state left by the earlier incomplete integration
+- replaced the fallen tree, stone wall, triangle stone, arch stone and hexagon stone with the approved unified art
+- replaced the carryable log set with the two approved log designs
+- all new puzzle art uses the image generator native alpha; the alpha is preserved exactly
+- RGB colour is dilated underneath transparent pixels to protect linear-filtered edges without magenta keying or fringe contamination
+- updated puzzle texture aspect ratios and fresh-placement scales
+- added a one-time migration that removes old non-uniform stretching from existing authored puzzle layouts and disables flips on the new directional art
+- fallen tree is scaled up uniformly to remain a substantial gameplay obstacle
+- stone wall remains a large puzzle feature while using its native proportions

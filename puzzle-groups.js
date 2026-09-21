@@ -1,19 +1,19 @@
 window.SideScrollPuzzleConfig = {
-  version: 10,
+  version: 11,
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
-        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.2.61", aspect: 1.7095 },
-        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.2.61", aspect: 1.5423 },
-        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.2.61", aspect: 2.1916 },
-        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.61", aspect: 2.3850 },
-        { name: "fallen-tree", url: "fallen-tree.png?v=0.2.61", aspect: 2.3644 },
+        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.2.84", aspect: 1.345895 },
+        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.2.84", aspect: 1.106195 },
+        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.2.84", aspect: 1.345895 },
+        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.84", aspect: 1.106195 },
+        { name: "fallen-tree", url: "fallen-tree.png?v=0.2.84", aspect: 1.346977 },
         { name: "tree-stump", url: "tree-stump.png?v=0.2.61", aspect: 2.4223 },
         { name: "broken-branch", url: "broken-branch.png?v=0.2.61", aspect: 2.7182 },
-        { name: "stone-wall", url: "stone-wall.png?v=0.2.61", aspect: 3.1356 },
-        { name: "stone-piece-a", url: "stone-piece-a.png?v=0.2.61", aspect: 1.0664 },
-        { name: "stone-piece-b", url: "stone-piece-b.png?v=0.2.61", aspect: 0.9545 },
-        { name: "stone-piece-c", url: "stone-piece-c.png?v=0.2.61", aspect: 1.1278 }
+        { name: "stone-wall", url: "stone-wall.png?v=0.2.84", aspect: 1.895735 },
+        { name: "stone-piece-a", url: "stone-piece-a.png?v=0.2.84", aspect: 1.094391 },
+        { name: "stone-piece-b", url: "stone-piece-b.png?v=0.2.84", aspect: 0.992500 },
+        { name: "stone-piece-c", url: "stone-piece-c.png?v=0.2.84", aspect: 1.062417 }
       ]
     }
   },
@@ -34,7 +34,7 @@ window.SideScrollPuzzleConfig = {
     "asset": "puzzle-log-a",
     "x": -7.579211515616101,
     "z": 0,
-    "width": 1.435977653631285,
+    "width": 1.130552,
     "height": 0.84,
     "category": "gameplay",
     "gameplayType": "crate",
@@ -51,7 +51,7 @@ window.SideScrollPuzzleConfig = {
     "asset": "puzzle-log-b",
     "x": -5.15288916232687,
     "z": 0,
-    "width": 1.1104225352112675,
+    "width": 0.796460,
     "height": 0.72,
     "category": "gameplay",
     "gameplayType": "crate",
@@ -68,7 +68,7 @@ window.SideScrollPuzzleConfig = {
     "asset": "puzzle-log-c",
     "x": -2.1967421294734493,
     "z": 0,
-    "width": 1.6656287425149703,
+    "width": 1.022880,
     "height": 0.76,
     "category": "gameplay",
     "gameplayType": "crate",
@@ -85,8 +85,8 @@ window.SideScrollPuzzleConfig = {
     "asset": "fallen-tree",
     "x": 2.695779243336297,
     "z": 0,
-    "width": 6.029201331114809,
-    "height": 2.55,
+    "width": 4.647070,
+    "height": 3.45,
     "category": "gameplay",
     "gameplayType": "obstacle",
     "collision": {
@@ -146,21 +146,21 @@ window.SideScrollPuzzleConfig = {
       props: [
         {
           id: "wall", asset: "stone-wall", x: 0.5279803341563962, z: -1.8344944983502849, yOffset: -0.010227229958892359,
-          width: 10.693172222457633, height: 3.4102549250000025, flip: true, category: "dressing", gameplayType: "prop", gameplayLayerLocked: false, sockets: []
+          width: 7.109005, height: 3.75, flip: false, category: "dressing", gameplayType: "prop", gameplayLayerLocked: false, sockets: []
         },
         {
           id: "piece-a", asset: "stone-piece-a", x: -6.811181137605502, z: 0, yOffset: 0,
-          width: 1.0219584375000001, height: 0.9583200000000002, flip: true, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
+          width: 1.094391, height: 1.00, flip: false, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
           collision: { halfWidth: 0.43944212812500005, height: 0.48, depth: 0.4292225437500001, platform: false, points: [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}], behaviourGenerated: false }
         },
         {
           id: "piece-b", asset: "stone-piece-b", x: -7.9868207529392095, z: 0, yOffset: 0,
-          width: 0.8461530000000003, height: 0.8864460000000002, flip: false, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
+          width: 1.032200, height: 1.04, flip: false, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
           collision: { halfWidth: 0.3638457900000001, height: 0.48, depth: 0.42, platform: false, points: [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}], behaviourGenerated: false }
         },
         {
           id: "piece-c", asset: "stone-piece-c", x: -1.8137508429064155, z: 0, yOffset: 0,
-          width: 1.0098496240601507, height: 0.8954000000000001, flip: false, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
+          width: 1.062417, height: 1.00, flip: false, category: "gameplay", gameplayType: "prop", gameplayLayerLocked: true,
           collision: { halfWidth: 0.43423533834586475, height: 0.48, depth: 0.42413684210526326, platform: false, points: [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}], behaviourGenerated: false }
         }
       ],

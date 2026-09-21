@@ -1889,6 +1889,49 @@
       return parsed;
     } catch (_) { return { groups:{}, templates:{}, markers:[] }; }
   })();
+  const PUZZLE_ART_V2_MIGRATION_KEY = 'sidescroll.puzzle-art-v2.migrated';
+  const PUZZLE_ART_V2_ASPECT = {
+    'puzzle-log-a': 1.345895020,
+    'puzzle-log-b': 1.106194690,
+    'puzzle-log-c': 1.345895020,
+    'puzzle-log-d': 1.106194690,
+    'fallen-tree': 1.346976744,
+    'stone-wall': 1.895734597,
+    'stone-piece-a': 1.094391245,
+    'stone-piece-b': 0.992500000,
+    'stone-piece-c': 1.062416999
+  };
+  function migratePuzzleArtV2Snapshot(snapshot) {
+    if (!snapshot?.objects) return false;
+    let changed = false;
+    for (const state of Object.values(snapshot.objects)) {
+      if (!state?.asset) continue;
+      const aspect = PUZZLE_ART_V2_ASPECT[state.asset];
+      if (!Number.isFinite(aspect)) continue;
+      let sy = Number(state.sy);
+      if (!Number.isFinite(sy)) continue;
+      if (state.asset === 'fallen-tree' && sy < 3.45) sy = 3.45;
+      if (state.asset === 'stone-wall' && sy < 3.40) sy = 3.40;
+      state.sy = sy;
+      state.sx = sy * aspect;
+      state.flip = false;
+      changed = true;
+    }
+    snapshot.assetArtVersion = 2;
+    return changed;
+  }
+  function migratePuzzleArtV2() {
+    try { if (localStorage.getItem(PUZZLE_ART_V2_MIGRATION_KEY) === '1') return; } catch (_) {}
+    let startsChanged = false;
+    for (const snapshot of Object.values(puzzleStartState || {})) startsChanged = migratePuzzleArtV2Snapshot(snapshot) || startsChanged;
+    let libraryChanged = false;
+    for (const snapshot of Object.values(userPuzzleLibrary.templates || {})) libraryChanged = migratePuzzleArtV2Snapshot(snapshot) || libraryChanged;
+    if (startsChanged) { try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {} }
+    if (libraryChanged) { try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {} }
+    try { localStorage.setItem(PUZZLE_ART_V2_MIGRATION_KEY, '1'); } catch (_) {}
+  }
+  migratePuzzleArtV2();
+
   const puzzleWorkshopState = (() => {
     try {
       const parsed = JSON.parse(localStorage.getItem(PUZZLE_WORKSHOP_STORAGE_KEY) || '{}') || {};
@@ -2204,7 +2247,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.61" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.84" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -3111,19 +3154,19 @@
   let currentViewMatrix = mat4Identity();
   const editorAssetGroups = [
     { scope:'puzzle', title: 'PUZZLE PROPS · WOODLAND', items: [
-      { name:'puzzle-log-a', label:'MOVEABLE LOG A', image:'puzzle-log-a.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.84, collision:{halfWidth:0.58,height:0.48,depth:0.62,platform:true} },
-      { name:'puzzle-log-b', label:'MOVEABLE LOG B', image:'puzzle-log-b.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.72, collision:{halfWidth:0.46,height:0.42,depth:0.56,platform:true} },
-      { name:'puzzle-log-c', label:'MOVEABLE LOG C', image:'puzzle-log-c.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.76, collision:{halfWidth:0.60,height:0.44,depth:0.60,platform:true} },
-      { name:'puzzle-log-d', label:'LONG LOG', image:'puzzle-log-d.png', category:'gameplay', gameplayType:'crate', thumb:'━━', defaultHeight:0.82, collision:{halfWidth:0.75,height:0.46,depth:0.64,platform:true} },
-      { name:'fallen-tree', label:'FALLEN TREE', image:'fallen-tree.png', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.55, collision:{halfWidth:2.35,height:1.72,depth:1.08,platform:true} },
+      { name:'puzzle-log-a', label:'MOVEABLE LOG A', image:'puzzle-log-a.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.84, collision:{halfWidth:0.52,height:0.48,depth:0.56,platform:true} },
+      { name:'puzzle-log-b', label:'MOVEABLE LOG B', image:'puzzle-log-b.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.72, collision:{halfWidth:0.38,height:0.42,depth:0.50,platform:true} },
+      { name:'puzzle-log-c', label:'MOVEABLE LOG C', image:'puzzle-log-c.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.76, collision:{halfWidth:0.47,height:0.44,depth:0.54,platform:true} },
+      { name:'puzzle-log-d', label:'MOVEABLE LOG D', image:'puzzle-log-d.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.82, collision:{halfWidth:0.43,height:0.46,depth:0.54,platform:true} },
+      { name:'fallen-tree', label:'FALLEN TREE', image:'fallen-tree.png', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:3.45, collision:{halfWidth:2.35,height:1.72,depth:1.08,platform:true} },
       { name:'tree-stump', label:'TREE STUMP', image:'tree-stump.png', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.18 },
       { name:'broken-branch', label:'BROKEN BRANCH', image:'broken-branch.png', category:'gameplay', gameplayType:'prop', thumb:'⟍', defaultHeight:0.78 }
     ]},
     { scope:'puzzle', title: 'PUZZLE PROPS · STONE WALL', items: [
-      { name:'stone-wall', label:'STONE WALL', image:'stone-wall.png', category:'dressing', gameplayType:'prop', thumb:'▦', defaultHeight:1.75, gameplayLayerLocked:false },
-      { name:'stone-piece-a', label:'STONE PIECE A', image:'stone-piece-a.png', category:'gameplay', gameplayType:'prop', thumb:'△', defaultHeight:0.72 },
-      { name:'stone-piece-b', label:'STONE PIECE B', image:'stone-piece-b.png', category:'gameplay', gameplayType:'prop', thumb:'◒', defaultHeight:0.74 },
-      { name:'stone-piece-c', label:'STONE PIECE C', image:'stone-piece-c.png', category:'gameplay', gameplayType:'prop', thumb:'⬡', defaultHeight:0.74 }
+      { name:'stone-wall', label:'STONE WALL', image:'stone-wall.png', category:'dressing', gameplayType:'prop', thumb:'▦', defaultHeight:3.75, gameplayLayerLocked:false },
+      { name:'stone-piece-a', label:'TRIANGLE STONE', image:'stone-piece-a.png', category:'gameplay', gameplayType:'prop', thumb:'△', defaultHeight:1.00 },
+      { name:'stone-piece-b', label:'ARCH STONE', image:'stone-piece-b.png', category:'gameplay', gameplayType:'prop', thumb:'◒', defaultHeight:1.04 },
+      { name:'stone-piece-c', label:'HEXAGON STONE', image:'stone-piece-c.png', category:'gameplay', gameplayType:'prop', thumb:'⬡', defaultHeight:1.00 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -4986,7 +5029,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.61" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.84" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
