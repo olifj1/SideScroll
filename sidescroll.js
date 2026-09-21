@@ -1932,6 +1932,46 @@
   }
   migratePuzzleArtV2();
 
+  const PUZZLE_ART_V3_MIGRATION_KEY = 'sidescroll.puzzle-art-v3.migrated';
+  function migrateFallenTreeV3Objects(objects) {
+    if (!objects || typeof objects !== 'object') return false;
+    let changed = false;
+    for (const state of Object.values(objects)) {
+      if (state?.asset !== 'fallen-tree') continue;
+      state.sx = 6.029201331114809;
+      state.sy = 2.550000000000000;
+      state.flip = false;
+      changed = true;
+    }
+    return changed;
+  }
+  function migratePuzzleArtV3() {
+    try { if (localStorage.getItem(PUZZLE_ART_V3_MIGRATION_KEY) === '1') return; } catch (_) {}
+    let startsChanged = false;
+    for (const snapshot of Object.values(puzzleStartState || {})) {
+      startsChanged = migrateFallenTreeV3Objects(snapshot?.objects) || startsChanged;
+    }
+    let libraryChanged = false;
+    for (const snapshot of Object.values(userPuzzleLibrary.templates || {})) {
+      libraryChanged = migrateFallenTreeV3Objects(snapshot?.objects) || libraryChanged;
+    }
+    let runtimeChanged = false;
+    for (const runtime of Object.values(puzzleSavedState || {})) {
+      runtimeChanged = migrateFallenTreeV3Objects(runtime?.objects) || runtimeChanged;
+    }
+    if (startsChanged) {
+      try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {}
+    }
+    if (libraryChanged) {
+      try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {}
+    }
+    if (runtimeChanged) {
+      try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {}
+    }
+    try { localStorage.setItem(PUZZLE_ART_V3_MIGRATION_KEY, '1'); } catch (_) {}
+  }
+  migratePuzzleArtV3();
+
   const puzzleWorkshopState = (() => {
     try {
       const parsed = JSON.parse(localStorage.getItem(PUZZLE_WORKSHOP_STORAGE_KEY) || '{}') || {};
@@ -2247,7 +2287,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.84" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.85" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -3158,7 +3198,7 @@
       { name:'puzzle-log-b', label:'MOVEABLE LOG B', image:'puzzle-log-b.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.72, collision:{halfWidth:0.38,height:0.42,depth:0.50,platform:true} },
       { name:'puzzle-log-c', label:'MOVEABLE LOG C', image:'puzzle-log-c.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.76, collision:{halfWidth:0.47,height:0.44,depth:0.54,platform:true} },
       { name:'puzzle-log-d', label:'MOVEABLE LOG D', image:'puzzle-log-d.png', category:'gameplay', gameplayType:'crate', thumb:'━', defaultHeight:0.82, collision:{halfWidth:0.43,height:0.46,depth:0.54,platform:true} },
-      { name:'fallen-tree', label:'FALLEN TREE', image:'fallen-tree.png', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:3.45, collision:{halfWidth:2.35,height:1.72,depth:1.08,platform:true} },
+      { name:'fallen-tree', label:'FALLEN TREE', image:'fallen-tree.png', category:'gameplay', gameplayType:'obstacle', thumb:'⌁', defaultHeight:2.55, collision:{halfWidth:2.35,height:1.72,depth:1.08,platform:true} },
       { name:'tree-stump', label:'TREE STUMP', image:'tree-stump.png', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.18 },
       { name:'broken-branch', label:'BROKEN BRANCH', image:'broken-branch.png', category:'gameplay', gameplayType:'prop', thumb:'⟍', defaultHeight:0.78 }
     ]},
@@ -5029,7 +5069,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.84" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.85" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {

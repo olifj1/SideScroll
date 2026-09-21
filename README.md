@@ -1,12 +1,12 @@
-# SideScroll v0.2.84
+# SideScroll v0.2.85
 
-Puzzle art integration pass.
+Fallen-tree silhouette/footprint correction.
 
-- replaced the fallen tree, stone wall, triangle stone, arch stone and hexagon stone with the approved unified art
-- replaced the carryable log set with the two approved log designs
-- all new puzzle art uses the image generator native alpha; the alpha is preserved exactly
-- RGB colour is dilated underneath transparent pixels to protect linear-filtered edges without magenta keying or fringe contamination
-- updated puzzle texture aspect ratios and fresh-placement scales
-- added a one-time migration that removes old non-uniform stretching from existing authored puzzle layouts and disables flips on the new directional art
-- fallen tree is scaled up uniformly to remain a substantial gameplay obstacle
-- stone wall remains a large puzzle feature while using its native proportions
+- replaces the v0.2.84 fallen-tree art with the latest approved wide-silhouette version
+- preserves the image-generator native soft alpha
+- dilates RGB underneath transparent pixels only; the alpha channel is not regenerated or hardened
+- removes transparent bottom padding so the visible asset is genuinely floor-aligned
+- restores the proven pre-art-pass fallen-tree dimensions: 6.029 wide × 2.55 high
+- migrates existing authored starts, puzzle templates and runtime puzzle state back to that footprint
+- keeps the existing fallen-tree collision data unchanged
+- no log, wall, stone, environment, fog or gameplay-system changes
