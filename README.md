@@ -1,5 +1,6 @@
-# SideScroll v0.2.87
+# SideScroll v0.2.88
 
-- Fixed the stone wall puzzle wall mapping/stretching.
-- Remapped existing stone wall puzzle instances to the correct texture aspect ratio.
-- Updated cached asset/version strings so the fix refreshes cleanly.
+- Restored the updated ground / grass texture set from the earlier ground-art build.
+- Added the new simplified puzzle log textures (processed with RGB dilation for clean alpha edges).
+- Kept the stone wall aspect-ratio / mapping fix from v0.2.87.
+- Bumped cache / asset version strings so the updated art should refresh cleanly.
