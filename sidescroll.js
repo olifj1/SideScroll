@@ -907,18 +907,18 @@
     tree06: [992, 1318],
     tree07: [992, 1318],
     tree08: [992, 1318],
-    ground01: [937, 493],
-    ground02: [923, 514],
-    ground03: [930, 514],
-    ground04: [914, 512],
-    ground05: [926, 514],
-    ground06: [916, 496],
-    ground07: [931, 529],
-    ground08: [928, 522],
-    ground09: [933, 494],
-    ground10: [940, 526],
-    ground11: [937, 515],
-    ground12: [934, 536],
+    ground01: [937, 603],
+    ground02: [924, 485],
+    ground03: [930, 602],
+    ground04: [931, 514],
+    ground05: [926, 531],
+    ground06: [922, 483],
+    ground07: [931, 418],
+    ground08: [928, 442],
+    ground09: [933, 511],
+    ground10: [940, 484],
+    ground11: [937, 361],
+    ground12: [934, 480],
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
@@ -926,7 +926,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.88`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.92`,
         key,
         null,
         size[0] / size[1]
@@ -1901,6 +1901,11 @@
     'stone-piece-b': 0.992500000,
     'stone-piece-c': 1.062416999
   };
+  const STONE_WALL_ASPECT = 1600 / 844;
+  function correctPuzzleAssetWidth(assetName, width, height) {
+    if (assetName === 'stone-wall' && Number.isFinite(Number(height))) return Number(height) * STONE_WALL_ASPECT;
+    return width;
+  }
   function migratePuzzleArtV2Snapshot(snapshot) {
     if (!snapshot?.objects) return false;
     let changed = false;
@@ -2015,6 +2020,32 @@
     try { localStorage.setItem(PUZZLE_ART_V4_MIGRATION_KEY, '1'); } catch (_) {}
   }
   migratePuzzleArtV4();
+
+  const PUZZLE_ART_V5_MIGRATION_KEY = 'sidescroll.puzzle-art-v5.force-stone-wall-aspect';
+  function forceStoneWallAspectV5(objects) {
+    if (!objects || typeof objects !== 'object') return false;
+    let changed = false;
+    for (const state of Object.values(objects)) {
+      if (state?.asset !== 'stone-wall') continue;
+      const sy = Math.max(3.40, Number(state.sy) || 3.75);
+      const sx = sy * STONE_WALL_ASPECT;
+      if (Math.abs((Number(state.sx) || 0) - sx) > 1e-6) { state.sx = sx; changed = true; }
+      if (state.sy !== sy) { state.sy = sy; changed = true; }
+    }
+    return changed;
+  }
+  function migratePuzzleArtV5() {
+    try { if (localStorage.getItem(PUZZLE_ART_V5_MIGRATION_KEY) === '1') return; } catch (_) {}
+    let startsChanged = false, libraryChanged = false, runtimeChanged = false;
+    for (const snapshot of Object.values(puzzleStartState || {})) startsChanged = forceStoneWallAspectV5(snapshot?.objects) || startsChanged;
+    for (const snapshot of Object.values(userPuzzleLibrary.templates || {})) libraryChanged = forceStoneWallAspectV5(snapshot?.objects) || libraryChanged;
+    for (const runtime of Object.values(puzzleSavedState || {})) runtimeChanged = forceStoneWallAspectV5(runtime?.objects) || runtimeChanged;
+    if (startsChanged) { try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {} }
+    if (libraryChanged) { try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {} }
+    if (runtimeChanged) { try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {} }
+    try { localStorage.setItem(PUZZLE_ART_V5_MIGRATION_KEY, '1'); } catch (_) {}
+  }
+  migratePuzzleArtV5();
 
   const puzzleWorkshopState = (() => {
     try {
@@ -2331,7 +2362,7 @@
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.88" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.92" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -2462,7 +2493,8 @@
       const asset = state.asset || prop?.asset;
       if (!obj && asset) {
         const sy = Number.isFinite(state.sy) ? state.sy : (prop?.height ?? 0.8);
-        const sx = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? sy * (assetAspect[asset] || 1));
+        const rawSx = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? sy * (assetAspect[asset] || 1));
+        const sx = correctPuzzleAssetWidth(asset, rawSx, sy);
         const x = instance.marker.x + (Number.isFinite(state.x) ? state.x : (prop?.x ?? 0));
         const z = Number.isFinite(state.z) ? state.z : (prop?.z ?? pathZ);
         obj = addObject(frontOccluders, asset, x, z, sx, sy, {
@@ -2489,7 +2521,8 @@
       obj.x = instance.marker.x + xRel;
       obj.z = Number.isFinite(state.z) ? state.z : (prop?.z ?? pathZ);
       obj.sy = Number.isFinite(state.sy) ? state.sy : (prop?.height ?? obj.sy);
-      obj.sx = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? obj.sy * (assetAspect[obj.assetName] || 1));
+      const rawSnapshotWidth = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? obj.sy * (assetAspect[obj.assetName] || 1));
+      obj.sx = correctPuzzleAssetWidth(obj.assetName, rawSnapshotWidth, obj.sy);
       obj.flip = !!state.flip;
       obj.deleted = !!state.deleted;
       obj.category = state.category || prop?.category || obj.category || 'gameplay';
@@ -2598,7 +2631,8 @@
       const x = Number.isFinite(prior?.x) ? prior.x : (marker.x + xRel);
       const z = Number.isFinite(prior?.z) ? prior.z : (Number.isFinite(startState?.z) ? startState.z : (prop?.z ?? pathZ));
       const height = Number.isFinite(prior?.sy) ? prior.sy : (Number.isFinite(startState?.sy) ? startState.sy : (prop?.height ?? 0.8));
-      const width = Number.isFinite(prior?.sx) ? prior.sx : (Number.isFinite(startState?.sx) ? startState.sx : prop?.width);
+      const savedWidth = Number.isFinite(prior?.sx) ? prior.sx : (Number.isFinite(startState?.sx) ? startState.sx : prop?.width);
+      const width = correctPuzzleAssetWidth(asset, savedWidth, height);
       const obj = addObject(frontOccluders, asset, x, z, width, height, {
         id:`puzzle-${marker.id}-${objectId}`,
         y:Number.isFinite(prior?.y)
@@ -2935,25 +2969,42 @@
     sceneData.added = sceneData.added.filter(saved => !puzzleAssetNames.has(saved.assetName));
     if (sceneData.added.length !== beforeAdded) saveSceneData();
 
-    for (const obj of allSceneObjects()) applyOverrideToObject(obj, sceneData.overrides[obj.id]);
+    let groundAspectChanged = false;
+    for (const obj of allSceneObjects()) {
+      applyOverrideToObject(obj, sceneData.overrides[obj.id]);
+      if (/^ground(?:0[1-9]|1[0-2])$/.test(obj.assetName || '') && Number.isFinite(obj.sy)) {
+        const corrected = obj.sy * (assetAspect[obj.assetName] || 1);
+        if (Math.abs(obj.sx - corrected) > 1e-5) {
+          obj.sx = corrected;
+          obj.baseSx = corrected;
+          if (sceneData.overrides[obj.id]) sceneData.overrides[obj.id].sx = corrected;
+          groundAspectChanged = true;
+        }
+      }
+    }
     for (const saved of sceneData.added || []) {
       if (HIDE_LEGACY_GROUND_DRESSING && /^ground(?:0[1-9]|1[0-2])$/.test(saved.assetName || '')) continue;
       userSceneCounter += 1;
       const collection = saved.category === 'gameplay' || saved.assetName === 'crate' ? frontOccluders : targetCollectionForZ(saved.z);
-      const obj = addObject(collection, saved.assetName, saved.x, saved.z, saved.sx, saved.sy, {
+      const restoredWidth = /^ground(?:0[1-9]|1[0-2])$/.test(saved.assetName || '')
+        ? saved.sy * (assetAspect[saved.assetName] || 1)
+        : saved.sx;
+      if (restoredWidth !== saved.sx) { saved.sx = restoredWidth; groundAspectChanged = true; }
+      const obj = addObject(collection, saved.assetName, saved.x, saved.z, restoredWidth, saved.sy, {
         id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip,
         y: Number.isFinite(saved.y) ? saved.y : ((saved.category === 'gameplay' || saved.assetName === 'crate') ? playSurfaceYAt(saved.x) : pathGroundYAt(saved.x, saved.z)), collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(saved.z),
         category: saved.category || (saved.assetName === 'crate' ? 'gameplay' : 'dressing'), gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
         gameplayLayerLocked: typeof saved.gameplayLayerLocked === 'boolean' ? saved.gameplayLayerLocked : (saved.category === 'gameplay' || saved.assetName === 'crate')
       });
-      obj.sx = saved.sx; obj.sy = saved.sy;
+      obj.sx = restoredWidth; obj.sy = saved.sy;
       if (obj.category === 'gameplay' && obj.gameplayLayerLocked) {
         obj.z = pathZ;
         if (!Number.isFinite(saved.y)) obj.y = playSurfaceYAt(obj.x);
         moveObjectToCorrectCollection(obj);
       }
     }
+    if (groundAspectChanged) saveSceneData();
     backdrop.sort((a,b)=>a.z-b.z);
     midfill.sort((a,b)=>a.z-b.z);
     frontOccluders.sort((a,b)=>a.z-b.z);
@@ -5113,7 +5164,7 @@
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.88" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.92" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
