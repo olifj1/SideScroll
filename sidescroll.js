@@ -142,6 +142,9 @@
   const puzzleMarkerEditor = document.getElementById('sidescroll-puzzle-marker-editor');
   const puzzleMarkerXInput = document.getElementById('sidescroll-puzzle-marker-x');
   const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
+  const puzzleExclusionEditBtn = document.getElementById('sidescroll-puzzle-exclusion-edit');
+  const puzzleExclusionToggleBtn = document.getElementById('sidescroll-puzzle-exclusion-toggle');
+  const puzzleAddDressingBtn = document.getElementById('sidescroll-puzzle-add-dressing');
   const puzzleSaveUniqueBtn = document.getElementById('sidescroll-puzzle-save-unique');
   const puzzleTestBtn = document.getElementById('sidescroll-puzzle-test');
   const puzzleResetBtn = document.getElementById('sidescroll-puzzle-reset');
@@ -1901,6 +1904,12 @@
   let puzzleTestSnapshot = null;
   const puzzleStartDirty = new Set();
   const puzzleDraftBounds = Object.create(null);
+  const PUZZLE_EXCLUSION_STORAGE_KEY = 'sidescroll-puzzle-exclusions-v1';
+  let puzzleExclusionState = {};
+  try { puzzleExclusionState = JSON.parse(localStorage.getItem(PUZZLE_EXCLUSION_STORAGE_KEY) || '{}') || {}; } catch (_) { puzzleExclusionState = {}; }
+  let puzzleExclusionEditMode = false;
+  let puzzleExclusionHandle = null;
+  let puzzleEnvironmentPlacementMode = false;
   let puzzleWorkshopClear = puzzleWorkshopState.clear;
   let puzzleWorkshopIsolated = puzzleWorkshopState.isolated;
 
@@ -1926,6 +1935,67 @@
       : codeBoundsForMarker(marker);
     puzzleDraftBounds[marker.id] = { ...initial };
     return puzzleDraftBounds[marker.id];
+  }
+
+  function savePuzzleExclusionState() {
+    try { localStorage.setItem(PUZZLE_EXCLUSION_STORAGE_KEY, JSON.stringify(puzzleExclusionState)); } catch (_) {}
+  }
+
+  function defaultPuzzleExclusion(marker) {
+    const def = markerDefinition(marker) || {};
+    const legacy = def.exclusion;
+    if (legacy && [legacy.minX, legacy.maxX, legacy.minZ, legacy.maxZ].every(Number.isFinite)) {
+      return {
+        enabled:true,
+        centerX:(legacy.minX + legacy.maxX) * 0.5,
+        centerZ:(legacy.minZ + legacy.maxZ) * 0.5,
+        width:Math.max(1, legacy.maxX - legacy.minX),
+        depth:Math.max(1, legacy.maxZ - legacy.minZ)
+      };
+    }
+    const bounds = currentPuzzleBoundsRelative(marker);
+    return {
+      enabled:false,
+      centerX:(bounds.minX + bounds.maxX) * 0.5,
+      centerZ:0,
+      width:Math.max(3, bounds.maxX - bounds.minX),
+      depth:8.4
+    };
+  }
+
+  function currentPuzzleExclusion(marker) {
+    if (!marker) return { enabled:false, centerX:0, centerZ:0, width:8, depth:8 };
+    const raw = puzzleExclusionState[marker.id];
+    const fallback = defaultPuzzleExclusion(marker);
+    if (!raw || typeof raw !== 'object') {
+      puzzleExclusionState[marker.id] = { ...fallback };
+      return puzzleExclusionState[marker.id];
+    }
+    const clean = {
+      enabled: raw.enabled !== false,
+      centerX: Number.isFinite(Number(raw.centerX)) ? Number(raw.centerX) : fallback.centerX,
+      centerZ: Number.isFinite(Number(raw.centerZ)) ? Number(raw.centerZ) : fallback.centerZ,
+      width: Math.max(1, Number.isFinite(Number(raw.width)) ? Number(raw.width) : fallback.width),
+      depth: Math.max(1, Number.isFinite(Number(raw.depth)) ? Number(raw.depth) : fallback.depth)
+    };
+    puzzleExclusionState[marker.id] = clean;
+    return clean;
+  }
+
+  function puzzleExclusionWorldBounds(marker) {
+    const ex = currentPuzzleExclusion(marker);
+    const centerX = marker.x + ex.centerX;
+    return {
+      enabled:ex.enabled,
+      centerX,
+      centerZ:ex.centerZ,
+      width:ex.width,
+      depth:ex.depth,
+      minX:centerX-ex.width*0.5,
+      maxX:centerX+ex.width*0.5,
+      minZ:ex.centerZ-ex.depth*0.5,
+      maxZ:ex.centerZ+ex.depth*0.5
+    };
   }
 
   function applyPersistedMarkerPositions() {
@@ -2522,10 +2592,12 @@
   }
 
   function dressingHiddenByPuzzle(obj, drawX) {
-    if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId) return false;
+    // Puzzle exclusions remove procedural environment only. Deliberately placed
+    // global art and puzzle-owned dressing remain visible inside the cleared area.
+    if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId || obj.userAdded) return false;
     for (const instance of activePuzzleInstances.values()) {
-      const b = puzzleBounds(instance);
-      if (!b.hidesDressing) continue;
+      const b = puzzleExclusionWorldBounds(instance.marker);
+      if (!b.enabled) continue;
       if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
     }
     return false;
@@ -3021,6 +3093,7 @@
 
   function exitPlacementMode() {
     addAssetType = null;
+    puzzleEnvironmentPlacementMode = false;
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
     updatePlacementModeUi();
@@ -4138,6 +4211,9 @@
     // Environment/Puzzle is only an editor filter. It must not change whether
     // the workshop stage is isolated or clear.
     editorScope = scope;
+    puzzleEnvironmentPlacementMode = false;
+    puzzleExclusionEditMode = false;
+    puzzleExclusionHandle = null;
     selectObject(null);
     addAssetType = null;
     updatePlacementModeUi();
@@ -4438,8 +4514,8 @@
             : (selectedMarker
                 ? (instance
                     ? (linkMode === 'copy'
-                        ? 'This copy is active for editing. Set Start makes the current arrangement its reset/test starting state.'
-                        : 'This instance is active for editing. Set Start makes the current arrangement the template start; Save Unique detaches this one.')
+                        ? 'This copy is active for editing. Edit Exclusion clears procedural forest art; Add Dressing lets you selectively place environment art back into that puzzle.'
+                        : 'This instance is active for editing. Edit Exclusion clears procedural forest art; Add Dressing lets you selectively place environment art back into that puzzle.')
                     : 'Selected from the Scene list. Use Edit Puzzle to activate its bounds and objects, or Focus to move the camera to it.')
                 : 'Choose a puzzle from the Scene list to see its controls.'));
     }
@@ -4468,6 +4544,24 @@
       puzzleSetStartBtn.hidden = testing || libraryMode;
       puzzleSetStartBtn.disabled = !instance;
       puzzleSetStartBtn.textContent = 'Set Start';
+    }
+    if (puzzleExclusionEditBtn) {
+      puzzleExclusionEditBtn.hidden = testing || libraryMode;
+      puzzleExclusionEditBtn.disabled = !instance;
+      puzzleExclusionEditBtn.classList.toggle('active', !!(instance && puzzleExclusionEditMode));
+      puzzleExclusionEditBtn.textContent = puzzleExclusionEditMode ? 'Finish Exclusion' : 'Edit Exclusion';
+    }
+    if (puzzleExclusionToggleBtn) {
+      const ex = instance ? currentPuzzleExclusion(instance.marker) : null;
+      puzzleExclusionToggleBtn.hidden = testing || libraryMode;
+      puzzleExclusionToggleBtn.disabled = !instance;
+      puzzleExclusionToggleBtn.classList.toggle('active', !!ex?.enabled);
+      puzzleExclusionToggleBtn.textContent = ex?.enabled ? 'Disable Exclusion' : 'Add Exclusion';
+    }
+    if (puzzleAddDressingBtn) {
+      puzzleAddDressingBtn.hidden = testing || libraryMode;
+      puzzleAddDressingBtn.disabled = !instance;
+      puzzleAddDressingBtn.classList.toggle('active', !!puzzleEnvironmentPlacementMode);
     }
     if (puzzleSaveUniqueBtn) {
       puzzleSaveUniqueBtn.hidden = testing || libraryMode || !instance || linkMode === 'copy';
@@ -4863,11 +4957,20 @@
 
   function buildAssetPalette() {
     if (!editorAssetsEl) return;
+    if (editorPaletteTitle) editorPaletteTitle.textContent = puzzleEnvironmentPlacementMode
+      ? 'Puzzle Dressing'
+      : (editorScope === 'puzzle' ? 'Puzzle Assets' : 'Environment Assets');
+    if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = puzzleEnvironmentPlacementMode
+      ? 'Choose environment art to attach to this puzzle · it ignores the exclusion zone'
+      : (editorScope === 'puzzle'
+          ? 'Tap an asset to place it · Setup edits reusable behaviours and collectables'
+          : 'Choose dressing to place in the environment');
     editorAssetsEl.innerHTML = '';
-    const allowedPuzzleAssets = editorScope === 'puzzle' ? puzzleAssetNamesFor(editorPuzzleMarkerId) : null;
+    const allowedPuzzleAssets = editorScope === 'puzzle' && !puzzleEnvironmentPlacementMode ? puzzleAssetNamesFor(editorPuzzleMarkerId) : null;
     for (const group of editorAssetGroups) {
-      if (group.scope !== editorScope) continue;
-      const items = group.items.filter(info => editorScope !== 'puzzle' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name));
+      const wantedScope = puzzleEnvironmentPlacementMode ? 'environment' : editorScope;
+      if (group.scope !== wantedScope) continue;
+      const items = group.items.filter(info => puzzleEnvironmentPlacementMode || editorScope !== 'puzzle' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name));
       if (!items.length) continue;
       const heading = document.createElement('div');
       heading.className = 'sidescroll-editor-asset-group';
@@ -4926,7 +5029,7 @@
         }
       }
     }
-    if (editorScope === 'puzzle') {
+    if (editorScope === 'puzzle' && !puzzleEnvironmentPlacementMode) {
       const heading = document.createElement('div');
       heading.className = 'sidescroll-editor-asset-group';
       heading.textContent = 'COLLECTABLES';
@@ -4954,6 +5057,56 @@
         editorAssetsEl.appendChild(card);
       }
     }
+  }
+
+
+  function puzzleExclusionHandlePositions(instance) {
+    if (!instance || !puzzleExclusionEditMode) return [];
+    const b = puzzleExclusionWorldBounds(instance.marker);
+    const specs = [
+      ['center', b.centerX, b.centerZ],
+      ['left', b.minX, b.centerZ],
+      ['right', b.maxX, b.centerZ],
+      ['far', b.centerX, b.minZ],
+      ['near', b.centerX, b.maxZ]
+    ];
+    return specs.map(([kind,x,z]) => {
+      const p = projectWorldPoint(x, pathGroundYAt(x,z)+0.055, z);
+      return p && { kind, ...p };
+    }).filter(Boolean);
+  }
+
+  function puzzleExclusionHandleAt(clientX, clientY) {
+    if (!editMode || editorScope !== 'puzzle' || !puzzleExclusionEditMode) return null;
+    const instance = selectedPuzzleInstance();
+    if (!instance) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x=clientX-rect.left, y=clientY-rect.top;
+    return puzzleExclusionHandlePositions(instance).find(h => Math.hypot(h.x-x,h.y-y) <= 21) || null;
+  }
+
+  function drawPuzzleExclusionGuide(ctx, instance) {
+    if (!instance || !puzzleExclusionEditMode) return;
+    const b = puzzleExclusionWorldBounds(instance.marker);
+    const corners = [[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]]
+      .map(([x,z]) => projectWorldPoint(x,pathGroundYAt(x,z)+0.035,z));
+    if (corners.some(p=>!p)) return;
+    ctx.save();
+    ctx.fillStyle = b.enabled ? 'rgba(83,178,205,.18)' : 'rgba(120,130,135,.10)';
+    ctx.strokeStyle = b.enabled ? 'rgba(117,220,241,.96)' : 'rgba(160,170,174,.72)';
+    ctx.lineWidth=2; ctx.setLineDash([7,5]);
+    ctx.beginPath(); ctx.moveTo(corners[0].x,corners[0].y);
+    for(let i=1;i<corners.length;i++) ctx.lineTo(corners[i].x,corners[i].y);
+    ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+    for(const h of puzzleExclusionHandlePositions(instance)){
+      ctx.beginPath(); ctx.arc(h.x,h.y,h.kind==='center'?8:7,0,Math.PI*2);
+      ctx.fillStyle=h.kind==='center'?'#d9f7fb':'#7bd5e8'; ctx.fill();
+      ctx.strokeStyle='#254850'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    const label=`EXCLUSION · ${b.width.toFixed(1)} × ${b.depth.toFixed(1)}m`;
+    const c=projectWorldPoint(b.centerX,pathGroundYAt(b.centerX,b.centerZ)+0.1,b.centerZ);
+    if(c){ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));const ly=Math.max(48,c.y-34);ctx.fillStyle='rgba(23,32,38,.86)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle='#d9f7fb';ctx.fillText(label,lx+7,ly+14);}
+    ctx.restore();
   }
 
   function puzzleBoundHandlePositions(instance) {
@@ -4991,6 +5144,7 @@
     if (!editMode || editorScope !== 'puzzle') return;
     const instance = selectedPuzzleInstance();
     if (!instance) return;
+    drawPuzzleExclusionGuide(ctx, instance);
     const b = puzzleBounds(instance);
     const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
     const right = projectWorldPoint(b.maxX, playSurfaceYAt(b.maxX)+0.04, pathZ);
@@ -6991,6 +7145,8 @@
     const opening = editorPalette.hidden;
     setAssetPaletteOpen(opening, { clearPending: !opening });
     if (opening) {
+      puzzleEnvironmentPlacementMode = false;
+      puzzleExclusionEditMode = false;
       addAssetType = null;
       selectedObject = null;
       collisionEditMode = false;
@@ -7002,6 +7158,7 @@
   bindEditorPress(openAssetsBtn, toggleAssetBrowserForCurrentScope);
   bindEditorPress(openEnvironmentAssetsBtn, toggleAssetBrowserForCurrentScope);
   bindEditorPress(editorPaletteClose, () => {
+    if (!addAssetType) puzzleEnvironmentPlacementMode = false;
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
     updatePlacementModeUi();
@@ -7055,6 +7212,7 @@
     try { localStorage.removeItem(PUZZLE_START_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_LIBRARY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PUZZLE_WORKSHOP_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(PUZZLE_EXCLUSION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_COLLISION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
@@ -7062,6 +7220,47 @@
     window.location.reload();
   });
   bindEditorPress(exportAllBtn, exportAllGameDesign);
+  bindEditorPress(puzzleExclusionEditBtn, () => {
+    const instance = selectedPuzzleInstance();
+    if (!instance || puzzleTestMode) return;
+    const ex = currentPuzzleExclusion(instance.marker);
+    if (!ex.enabled) { ex.enabled = true; savePuzzleExclusionState(); }
+    puzzleExclusionEditMode = !puzzleExclusionEditMode;
+    puzzleEnvironmentPlacementMode = false;
+    addAssetType = null;
+    setAssetPaletteOpen(false);
+    selectObject(null);
+    updatePuzzlePanel();
+    hintEl.textContent = puzzleExclusionEditMode
+      ? 'Exclusion edit · centre moves · cyan edge handles resize width/depth · procedural forest updates live'
+      : 'Exclusion edit finished';
+    hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(puzzleExclusionToggleBtn, () => {
+    const instance = selectedPuzzleInstance();
+    if (!instance || puzzleTestMode) return;
+    const ex=currentPuzzleExclusion(instance.marker);
+    ex.enabled=!ex.enabled;
+    savePuzzleExclusionState();
+    if (!ex.enabled) puzzleExclusionEditMode=false;
+    updatePuzzlePanel();
+    hintEl.textContent=ex.enabled ? 'Puzzle exclusion enabled' : 'Puzzle exclusion disabled · procedural forest restored';
+    hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(puzzleAddDressingBtn, () => {
+    const instance=selectedPuzzleInstance();
+    if(!instance || puzzleTestMode) return;
+    puzzleExclusionEditMode=false;
+    puzzleEnvironmentPlacementMode=true;
+    addAssetType=null;
+    selectObject(null);
+    buildAssetPalette();
+    setAssetPaletteOpen(true);
+    showAssetBrowser();
+    updatePuzzlePanel();
+    hintEl.textContent='Puzzle Dressing · choose a tree, bush, grass or rock to place back into the cleared area';
+    hintEl.classList.remove('hidden');
+  });
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
   bindEditorPress(puzzleSaveUniqueBtn, savePuzzleUniqueFromCurrent);
   bindEditorPress(puzzleTestBtn, beginPuzzleTest);
@@ -7151,6 +7350,19 @@
         } else {
           editorGesture.kind = 'placement-pan';
         }
+        return;
+      }
+
+      const exclusionHandle = puzzleExclusionHandleAt(e.clientX, e.clientY);
+      if (exclusionHandle) {
+        const instance=selectedPuzzleInstance();
+        editorGesture.kind='puzzle-exclusion';
+        editorGesture.exclusionHandle=exclusionHandle.kind;
+        editorGesture.exclusionStart={...currentPuzzleExclusion(instance.marker)};
+        editorGesture.exclusionMarker=instance.marker;
+        puzzleExclusionHandle=exclusionHandle.kind;
+        hintEl.textContent=exclusionHandle.kind==='center' ? 'Drag the centre dot to move the exclusion plane' : 'Drag the cyan handle to resize the exclusion plane';
+        hintEl.classList.remove('hidden');
         return;
       }
 
@@ -7245,6 +7457,22 @@
         const ny=Rig.clamp((bounds.bottom-ly)/Math.max(1,bounds.bottom-bounds.top),-0.20,3.0);
         const points=normalisedCollisionPoints(selectedObject.collision).map(point=>({...point}));
         if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;}
+      } else if (editorGesture.kind === 'puzzle-exclusion' && editorGesture.exclusionMarker) {
+        const point=groundPointFromClient(e.clientX,e.clientY);
+        if(point){
+          const marker=editorGesture.exclusionMarker;
+          const start=editorGesture.exclusionStart;
+          const ex=currentPuzzleExclusion(marker);
+          const localX=point.x-marker.x;
+          const z=point.z;
+          const left0=start.centerX-start.width*0.5, right0=start.centerX+start.width*0.5;
+          const far0=start.centerZ-start.depth*0.5, near0=start.centerZ+start.depth*0.5;
+          if(editorGesture.exclusionHandle==='center'){ex.centerX=localX;ex.centerZ=z;}
+          else if(editorGesture.exclusionHandle==='left'){const left=Math.min(localX,right0-1);ex.centerX=(left+right0)*0.5;ex.width=Math.max(1,right0-left);}
+          else if(editorGesture.exclusionHandle==='right'){const right=Math.max(localX,left0+1);ex.centerX=(left0+right)*0.5;ex.width=Math.max(1,right-left0);}
+          else if(editorGesture.exclusionHandle==='far'){const far=Math.min(z,near0-1);ex.centerZ=(far+near0)*0.5;ex.depth=Math.max(1,near0-far);}
+          else if(editorGesture.exclusionHandle==='near'){const near=Math.max(z,far0+1);ex.centerZ=(far0+near)*0.5;ex.depth=Math.max(1,near-far0);}
+        }
       } else if (editorGesture.kind === 'puzzle-marker' && editorGesture.marker) {
         const nextX = editorGesture.markerStartX + dx * 0.0065;
         movePuzzleMarkerTo(editorGesture.marker, nextX);
@@ -7290,6 +7518,10 @@
           }
           else if (gesture.kind==='puzzle-bound') {
             const instance=selectedPuzzleInstance(); if(instance) puzzleStartDirty.add(instance.id);
+          }
+          else if (gesture.kind==='puzzle-exclusion' && gesture.exclusionMarker) {
+            savePuzzleExclusionState();
+            updatePuzzlePanel();
           }
         } else if (!gesture.moved && gesture.kind==='socket-place-pan' && gesture.socketPiece) {
           const host = socketHostAt(e.clientX,e.clientY);
