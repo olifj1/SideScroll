@@ -774,7 +774,7 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.74', 'SideScroll dressing atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.77', 'SideScroll dressing atlas');
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.73', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
@@ -785,18 +785,18 @@
     tree06: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.344726562] },
     tree07: { scale: [0.242187500, 0.321777344], offset: [0.496093750, 0.344726562] },
     tree08: { scale: [0.242187500, 0.321777344], offset: [0.742187500, 0.344726562] },
-    ground01: { scale: [0.229492188, 0.148681641], offset: [0.010253906, 0.750000000] },
-    ground02: { scale: [0.229492188, 0.120117188], offset: [0.260253906, 0.750000000] },
-    ground03: { scale: [0.229492188, 0.149902344], offset: [0.510253906, 0.750000000] },
-    ground04: { scale: [0.229492188, 0.126464844], offset: [0.760253906, 0.750000000] },
-    ground05: { scale: [0.229492188, 0.160888672], offset: [0.010253906, 0.500000000] },
-    ground06: { scale: [0.229492188, 0.168457031], offset: [0.260253906, 0.500000000] },
-    ground07: { scale: [0.229492188, 0.160156250], offset: [0.510253906, 0.500000000] },
-    ground08: { scale: [0.229492188, 0.165039062], offset: [0.760253906, 0.500000000] },
-    ground09: { scale: [0.229492188, 0.163085938], offset: [0.010253906, 0.250000000] },
-    ground10: { scale: [0.229492188, 0.153076172], offset: [0.260253906, 0.250000000] },
-    ground11: { scale: [0.229492188, 0.157470703], offset: [0.510253906, 0.250000000] },
-    ground12: { scale: [0.229492188, 0.163085938], offset: [0.760253906, 0.250000000] },
+    ground01: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground02: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground03: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground04: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground05: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground06: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground07: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground08: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground09: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground10: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground11: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    ground12: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
   };
   const assetDimensions = {
     tree01: [992, 1318],
@@ -822,7 +822,16 @@
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = key.startsWith('tree') ? textures.treeAtlas : textures.dressingAtlas;
+    if (key.startsWith('tree')) {
+      textures[key] = textures.treeAtlas;
+    } else {
+      textures[key] = createImageTexture(
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.77`,
+        key,
+        null,
+        size[0] / size[1]
+      );
+    }
   });
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -1022,9 +1031,95 @@
   // The fragment shader adds an eased/power curve so contrast stays stronger
   // around the player and falls away progressively deeper into the forest.
   const DEFAULT_FOG = { enabled:true, color:[0.835,0.885,0.945], near:7.8, far:46.0, amount:0.90, curve:1.65 };
-  const fogSettings = { ...DEFAULT_FOG, color:[...DEFAULT_FOG.color] };
   const DEFAULT_POST = { brightness:1.0, contrast:1.0, saturation:1.0, tintColor:[1,1,1], tintAmount:0.0 };
-  const postSettings = { ...DEFAULT_POST, tintColor:[...DEFAULT_POST.tintColor] };
+  const RENDER_FOG_STORAGE_KEY = 'sidescroll.render.fog.v1';
+  const RENDER_POST_STORAGE_KEY = 'sidescroll.render.post.v1';
+
+  function clampNumber(value, fallback, min, max) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+  }
+
+  function loadRenderSettings(storageKey, defaults, colorKey) {
+    const result = { ...defaults, [colorKey]: [...defaults[colorKey]] };
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+      if (!saved || typeof saved !== 'object') return result;
+      for (const key of Object.keys(defaults)) {
+        if (key === colorKey) continue;
+        if (typeof defaults[key] === 'boolean') {
+          if (typeof saved[key] === 'boolean') result[key] = saved[key];
+        } else if (Number.isFinite(defaults[key]) && Number.isFinite(Number(saved[key]))) {
+          result[key] = Number(saved[key]);
+        }
+      }
+      if (Array.isArray(saved[colorKey]) && saved[colorKey].length >= 3) {
+        result[colorKey] = saved[colorKey].slice(0,3).map((v,i) =>
+          clampNumber(v, defaults[colorKey][i], 0, 1)
+        );
+      }
+    } catch (_) {}
+    return result;
+  }
+
+  const fogSettings = loadRenderSettings(RENDER_FOG_STORAGE_KEY, DEFAULT_FOG, 'color');
+  fogSettings.near = clampNumber(fogSettings.near, DEFAULT_FOG.near, 0, 60);
+  fogSettings.far = clampNumber(fogSettings.far, DEFAULT_FOG.far, 1, 100);
+  fogSettings.amount = clampNumber(fogSettings.amount, DEFAULT_FOG.amount, 0, 1);
+  fogSettings.curve = clampNumber(fogSettings.curve, DEFAULT_FOG.curve, 0.2, 5);
+
+  const postSettings = loadRenderSettings(RENDER_POST_STORAGE_KEY, DEFAULT_POST, 'tintColor');
+  postSettings.brightness = clampNumber(postSettings.brightness, DEFAULT_POST.brightness, 0.6, 1.4);
+  postSettings.contrast = clampNumber(postSettings.contrast, DEFAULT_POST.contrast, 0.5, 1.6);
+  postSettings.saturation = clampNumber(postSettings.saturation, DEFAULT_POST.saturation, 0, 1.6);
+  postSettings.tintAmount = clampNumber(postSettings.tintAmount, DEFAULT_POST.tintAmount, 0, 0.6);
+
+  function saveFogSettings() {
+    try {
+      localStorage.setItem(RENDER_FOG_STORAGE_KEY, JSON.stringify({
+        enabled:!!fogSettings.enabled,
+        color:[...fogSettings.color],
+        near:fogSettings.near,
+        far:fogSettings.far,
+        amount:fogSettings.amount,
+        curve:fogSettings.curve
+      }));
+    } catch (_) {}
+  }
+
+  function savePostSettings() {
+    try {
+      localStorage.setItem(RENDER_POST_STORAGE_KEY, JSON.stringify({
+        brightness:postSettings.brightness,
+        contrast:postSettings.contrast,
+        saturation:postSettings.saturation,
+        tintColor:[...postSettings.tintColor],
+        tintAmount:postSettings.tintAmount
+      }));
+    } catch (_) {}
+  }
+  function applyPostToRgb(rgb) {
+    let r = rgb[0], g = rgb[1], b = rgb[2];
+    const luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
+    r = luma + (r - luma) * postSettings.saturation;
+    g = luma + (g - luma) * postSettings.saturation;
+    b = luma + (b - luma) * postSettings.saturation;
+    r = (r - 0.5) * postSettings.contrast + 0.5;
+    g = (g - 0.5) * postSettings.contrast + 0.5;
+    b = (b - 0.5) * postSettings.contrast + 0.5;
+    r *= postSettings.brightness;
+    g *= postSettings.brightness;
+    b *= postSettings.brightness;
+    const t = postSettings.tintAmount;
+    r = r * (1 - t) + (r * postSettings.tintColor[0]) * t;
+    g = g * (1 - t) + (g * postSettings.tintColor[1]) * t;
+    b = b * (1 - t) + (b * postSettings.tintColor[2]) * t;
+    return [
+      Math.max(0, Math.min(1, r)),
+      Math.max(0, Math.min(1, g)),
+      Math.max(0, Math.min(1, b))
+    ];
+  }
   const fogColor = fogSettings.color;
   const PROCEDURAL_TREE_SCALE = 0.96;
   const HIDE_LEGACY_GROUND_DRESSING = false;
@@ -4733,7 +4828,7 @@
             : `Placement mode · tap the ground to add ${info.label.toLowerCase()} · tap again for another`;
           hintEl.classList.remove('hidden');
         });
-        if (editorScope === 'puzzle') {
+        if (editorScope === 'puzzle' && !puzzleEnvironmentPlacementMode) {
           const card = document.createElement('div');
           card.className = 'sidescroll-editor-asset-card';
           card.appendChild(btn);
@@ -5788,6 +5883,12 @@
     gl.uniform1f(loc.fogNear, fogSettings.near);
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.22 : fogSettings.amount) : 0);
+    gl.uniform1f(loc.fogCurve, fogSettings.curve);
+    gl.uniform1f(loc.postBrightness, postSettings.brightness);
+    gl.uniform1f(loc.postContrast, postSettings.contrast);
+    gl.uniform1f(loc.postSaturation, postSettings.saturation);
+    gl.uniform3f(loc.postTintColor, postSettings.tintColor[0], postSettings.tintColor[1], postSettings.tintColor[2]);
+    gl.uniform1f(loc.postTintAmount, postSettings.tintAmount);
     gl.uniform1f(loc.opacity, character.opacity * (part.alpha ?? 1));
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
@@ -6519,7 +6620,8 @@
     checkPuzzleCompletion(character.x);
     updatePuzzleRewards(now);
 
-    gl.clearColor(fogColor[0], fogColor[1], fogColor[2], 1);
+    const gradedFogColor = applyPostToRgb(fogColor);
+    gl.clearColor(gradedFogColor[0], gradedFogColor[1], gradedFogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const eye = [camera.x, camera.y, camera.z];
@@ -6674,17 +6776,18 @@
   }
   bindEditorPress(postBtn, () => setPostPanelOpen(postPanel?.hidden !== false));
   bindEditorPress(postCloseBtn, () => setPostPanelOpen(false));
-  postBrightnessInput?.addEventListener('input', () => { postSettings.brightness = Number(postBrightnessInput.value); syncPostUi(); });
-  postContrastInput?.addEventListener('input', () => { postSettings.contrast = Number(postContrastInput.value); syncPostUi(); });
-  postSaturationInput?.addEventListener('input', () => { postSettings.saturation = Number(postSaturationInput.value); syncPostUi(); });
-  postTintColourInput?.addEventListener('input', () => { postSettings.tintColor.splice(0,3,...postHexToRgb(postTintColourInput.value)); });
-  postTintAmountInput?.addEventListener('input', () => { postSettings.tintAmount = Number(postTintAmountInput.value); syncPostUi(); });
+  postBrightnessInput?.addEventListener('input', () => { postSettings.brightness = Number(postBrightnessInput.value); savePostSettings(); syncPostUi(); });
+  postContrastInput?.addEventListener('input', () => { postSettings.contrast = Number(postContrastInput.value); savePostSettings(); syncPostUi(); });
+  postSaturationInput?.addEventListener('input', () => { postSettings.saturation = Number(postSaturationInput.value); savePostSettings(); syncPostUi(); });
+  postTintColourInput?.addEventListener('input', () => { postSettings.tintColor.splice(0,3,...postHexToRgb(postTintColourInput.value)); savePostSettings(); syncPostUi(); });
+  postTintAmountInput?.addEventListener('input', () => { postSettings.tintAmount = Number(postTintAmountInput.value); savePostSettings(); syncPostUi(); });
   bindEditorPress(postResetBtn, () => {
     postSettings.brightness=DEFAULT_POST.brightness;
     postSettings.contrast=DEFAULT_POST.contrast;
     postSettings.saturation=DEFAULT_POST.saturation;
     postSettings.tintAmount=DEFAULT_POST.tintAmount;
     postSettings.tintColor.splice(0,3,...DEFAULT_POST.tintColor);
+    savePostSettings();
     syncPostUi();
   });
   syncPostUi();
@@ -6714,12 +6817,12 @@
   }
   bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
   bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));
-  fogEnabledInput?.addEventListener('input', () => { fogSettings.enabled = fogEnabledInput.checked; syncFogUi(); });
-  fogColourInput?.addEventListener('input', () => { const c=fogHexToRgb(fogColourInput.value); fogSettings.color[0]=c[0]; fogSettings.color[1]=c[1]; fogSettings.color[2]=c[2]; });
-  fogStartInput?.addEventListener('input', () => { fogSettings.near = Number(fogStartInput.value); syncFogUi(); });
-  fogCurveInput?.addEventListener('input', () => { fogSettings.curve = Number(fogCurveInput.value); syncFogUi(); });
-  fogAmountInput?.addEventListener('input', () => { fogSettings.amount = Number(fogAmountInput.value); syncFogUi(); });
-  bindEditorPress(fogResetBtn, () => { fogSettings.enabled=DEFAULT_FOG.enabled; fogSettings.near=DEFAULT_FOG.near; fogSettings.far=DEFAULT_FOG.far; fogSettings.amount=DEFAULT_FOG.amount; fogSettings.curve=DEFAULT_FOG.curve; fogSettings.color.splice(0,3,...DEFAULT_FOG.color); syncFogUi(); });
+  fogEnabledInput?.addEventListener('input', () => { fogSettings.enabled = fogEnabledInput.checked; saveFogSettings(); syncFogUi(); });
+  fogColourInput?.addEventListener('input', () => { const c=fogHexToRgb(fogColourInput.value); fogSettings.color[0]=c[0]; fogSettings.color[1]=c[1]; fogSettings.color[2]=c[2]; saveFogSettings(); syncFogUi(); });
+  fogStartInput?.addEventListener('input', () => { fogSettings.near = Number(fogStartInput.value); saveFogSettings(); syncFogUi(); });
+  fogCurveInput?.addEventListener('input', () => { fogSettings.curve = Number(fogCurveInput.value); saveFogSettings(); syncFogUi(); });
+  fogAmountInput?.addEventListener('input', () => { fogSettings.amount = Number(fogAmountInput.value); saveFogSettings(); syncFogUi(); });
+  bindEditorPress(fogResetBtn, () => { fogSettings.enabled=DEFAULT_FOG.enabled; fogSettings.near=DEFAULT_FOG.near; fogSettings.far=DEFAULT_FOG.far; fogSettings.amount=DEFAULT_FOG.amount; fogSettings.curve=DEFAULT_FOG.curve; fogSettings.color.splice(0,3,...DEFAULT_FOG.color); saveFogSettings(); syncFogUi(); });
   syncFogUi();
 
   debugBtn.addEventListener('click', () => {

@@ -1,13 +1,10 @@
-# SideScroll v0.2.75
+# SideScroll v0.2.78
 
-Post-production editor pass.
+Persistent render-settings fix.
 
-- added a Post button alongside the Fog controls
-- live brightness control
-- live contrast control
-- live saturation control
-- tint colour plus tint strength
-- reset button restores a neutral image
-- adjustments are applied in the WebGL fragment shader after fog
-- bloom is reserved for a later pass
-- no environment placement, puzzle, texture or gameplay changes
+- Post settings are now saved to shared local storage as they are edited
+- brightness, contrast, saturation, tint colour and tint strength carry from Editor to Play
+- saved Post settings are restored when either Editor or Play is opened
+- Fog settings now persist through the same workflow as well
+- Post/Fog Reset updates the stored settings, rather than only the current session
+- no placement, puzzle, texture or gameplay changes
