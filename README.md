@@ -1,8 +1,9 @@
-# SideScroll v0.2.67
+# SideScroll v0.2.68
 
-Tree baseline alignment fix.
+Updated grassy rock dressing set.
 
-- corrected the new standing-tree texture pages so the visible grounded base sits at the bottom of each texture frame
-- rebuilt the tree atlas with the corrected baseline alignment
-- retained the existing UV rectangles, procedural tree scale, placement, fog and dressing settings
-- bumped the PWA cache so the corrected atlas replaces v0.2.66
+- replaced the ground dressing textures with the newly generated grassy rock set
+- processed the new assets through the soft alpha + colour dilation pipeline
+- rebuilt the dressing atlas using the new textures
+- anchored the new dressing textures flush to the baseline to avoid floating
+- left tree placement, fog, controls and puzzle logic unchanged
