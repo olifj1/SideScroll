@@ -1,0 +1,66 @@
+{
+  "tree01": {
+    "before_gap_px_alpha64": 48,
+    "shift_down_px": 46,
+    "after_gap_px_alpha64": 2
+  },
+  "tree02": {
+    "before_gap_px_alpha64": 51,
+    "shift_down_px": 49,
+    "after_gap_px_alpha64": 2
+  },
+  "tree03": {
+    "before_gap_px_alpha64": 44,
+    "shift_down_px": 42,
+    "after_gap_px_alpha64": 2
+  },
+  "tree04": {
+    "before_gap_px_alpha64": 45,
+    "shift_down_px": 43,
+    "after_gap_px_alpha64": 2
+  },
+  "tree05": {
+    "before_gap_px_alpha64": 43,
+    "shift_down_px": 41,
+    "after_gap_px_alpha64": 2
+  },
+  "tree06": {
+    "before_gap_px_alpha64": 56,
+    "shift_down_px": 54,
+    "after_gap_px_alpha64": 2
+  },
+  "tree07": {
+    "before_gap_px_alpha64": 37,
+    "shift_down_px": 35,
+    "after_gap_px_alpha64": 2
+  },
+  "tree08": {
+    "before_gap_px_alpha64": 41,
+    "shift_down_px": 39,
+    "after_gap_px_alpha64": 2
+  },
+  "atlas_r0c0": {
+    "bottom_gap_px_alpha64": 23
+  },
+  "atlas_r0c1": {
+    "bottom_gap_px_alpha64": 23
+  },
+  "atlas_r0c2": {
+    "bottom_gap_px_alpha64": 23
+  },
+  "atlas_r0c3": {
+    "bottom_gap_px_alpha64": 23
+  },
+  "atlas_r1c0": {
+    "bottom_gap_px_alpha64": 23
+  },
+  "atlas_r1c1": {
+    "bottom_gap_px_alpha64": 23
+  },
+  "atlas_r1c2": {
+    "bottom_gap_px_alpha64": 23
+  },
+  "atlas_r1c3": {
+    "bottom_gap_px_alpha64": 23
+  }
+}

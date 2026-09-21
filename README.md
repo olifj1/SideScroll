@@ -1,9 +1,8 @@
-# SideScroll v0.2.66
+# SideScroll v0.2.67
 
-New standing-tree test set.
+Tree baseline alignment fix.
 
-- replaced all eight procedural standing-tree textures with the latest approved tree family
-- includes fuller, airy, sparse, damaged/dead and split-crown structural variation
-- includes varied grounded bases rather than a repeated grass/rock arrangement
-- converted the magenta source backgrounds to soft alpha and dilated tree colours through the transparent edge to avoid colour fringe
-- rebuilt the tree atlas and retained the existing procedural placement, fog, dressing, puzzles and controls
+- corrected the new standing-tree texture pages so the visible grounded base sits at the bottom of each texture frame
+- rebuilt the tree atlas with the corrected baseline alignment
+- retained the existing UV rectangles, procedural tree scale, placement, fog and dressing settings
+- bumped the PWA cache so the corrected atlas replaces v0.2.66
