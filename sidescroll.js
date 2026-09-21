@@ -724,7 +724,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.61', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.66', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -732,17 +732,17 @@
   // v1.8.81: forest dressing now comes from one authored atlas.
   // This removes the old per-file fallback path which could substitute the
   // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.61', 'SideScroll dressing atlas');
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.61', 'SideScroll tree atlas');
+  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.66', 'SideScroll dressing atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.66', 'SideScroll tree atlas');
   const assetUv = {
-    tree01: { scale: [0.239257812, 0.408203125], offset: [0.006835938, 0.578125000] },
-    tree02: { scale: [0.239257812, 0.329101562], offset: [0.252929688, 0.578125000] },
-    tree03: { scale: [0.239257812, 0.307128906], offset: [0.499023438, 0.578125000] },
-    tree04: { scale: [0.148925781, 0.415039062], offset: [0.745117188, 0.578125000] },
-    tree05: { scale: [0.239257812, 0.328125000], offset: [0.006835938, 0.212890625] },
-    tree06: { scale: [0.239257812, 0.331542969], offset: [0.252929688, 0.212890625] },
-    tree07: { scale: [0.239257812, 0.303222656], offset: [0.499023438, 0.212890625] },
-    tree08: { scale: [0.239257812, 0.358398438], offset: [0.745117188, 0.212890625] },
+    tree01: { scale: [0.237304688, 0.315429688], offset: [0.006347656, 0.510742188] },
+    tree02: { scale: [0.237304688, 0.315429688], offset: [0.256347656, 0.510742188] },
+    tree03: { scale: [0.237304688, 0.315429688], offset: [0.506347656, 0.510742188] },
+    tree04: { scale: [0.237304688, 0.315429688], offset: [0.756347656, 0.510742188] },
+    tree05: { scale: [0.237304688, 0.315429688], offset: [0.006347656, 0.010742188] },
+    tree06: { scale: [0.237304688, 0.315429688], offset: [0.256347656, 0.010742188] },
+    tree07: { scale: [0.237304688, 0.315429688], offset: [0.506347656, 0.010742188] },
+    tree08: { scale: [0.237304688, 0.315429688], offset: [0.756347656, 0.010742188] },
     ground01: { scale: [0.218750000, 0.099609375], offset: [0.015625000, 0.765625000] },
     ground02: { scale: [0.218750000, 0.158203125], offset: [0.265625000, 0.765625000] },
     ground03: { scale: [0.218750000, 0.168945312], offset: [0.515625000, 0.765625000] },
@@ -757,14 +757,14 @@
     ground12: { scale: [0.218750000, 0.126953125], offset: [0.765625000, 0.265625000] },
   };
   const assetDimensions = {
-    tree01: [490, 836],
-    tree02: [490, 674],
-    tree03: [490, 629],
-    tree04: [305, 850],
-    tree05: [490, 672],
-    tree06: [490, 679],
-    tree07: [490, 621],
-    tree08: [490, 734],
+    tree01: [486, 646],
+    tree02: [486, 646],
+    tree03: [486, 646],
+    tree04: [486, 646],
+    tree05: [486, 646],
+    tree06: [486, 646],
+    tree07: [486, 646],
+    tree08: [486, 646],
     ground01: [224, 102],
     ground02: [224, 162],
     ground03: [224, 173],
