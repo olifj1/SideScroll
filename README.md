@@ -1,10 +1,11 @@
-# SideScroll v0.2.78
+# SideScroll v0.2.80
 
-Persistent render-settings fix.
+True full-screen post-production pass.
 
-- Post settings are now saved to shared local storage as they are edited
-- brightness, contrast, saturation, tint colour and tint strength carry from Editor to Play
-- saved Post settings are restored when either Editor or Play is opened
-- Fog settings now persist through the same workflow as well
-- Post/Fog Reset updates the stored settings, rather than only the current session
-- no placement, puzzle, texture or gameplay changes
+- the scene now renders to an off-screen framebuffer first
+- fog, terrain, trees, dressing, puzzle art and the character are fully composited before Post is applied
+- brightness, contrast, saturation and tint are then applied once to the complete final scene
+- fog therefore receives exactly the same post-production transform as every other rendered pixel
+- removed the duplicate per-object post grading path
+- this framebuffer/composite structure also provides the correct foundation for a later bloom pass
+- persistent Fog/Post settings and puzzle exclusion tools are retained

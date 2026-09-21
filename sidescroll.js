@@ -275,11 +275,6 @@
     uniform float uFogFar;
     uniform float uFogAmount;
     uniform float uFogCurve;
-    uniform float uPostBrightness;
-    uniform float uPostContrast;
-    uniform float uPostSaturation;
-    uniform vec3 uPostTintColor;
-    uniform float uPostTintAmount;
     uniform float uOpacity;
     uniform float uHighlight;
     uniform vec3 uHighlightColor;
@@ -294,11 +289,6 @@
       vec3 base = tex.rgb * uTint;
       base = mix(base, uHighlightColor, clamp(uHighlight, 0.0, 1.0) * 0.72);
       vec3 rgb = mix(base, uFogColor, fog * (1.0 - uHighlight * 0.72));
-      float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
-      rgb = mix(vec3(luma), rgb, uPostSaturation);
-      rgb = (rgb - vec3(0.5)) * uPostContrast + vec3(0.5);
-      rgb *= uPostBrightness;
-      rgb = mix(rgb, rgb * uPostTintColor, uPostTintAmount);
       gl_FragColor = vec4(clamp(rgb, 0.0, 1.0), alpha);
     }
   `;
@@ -313,10 +303,10 @@
     return shader;
   }
 
-  function createProgram() {
+  function createProgram(vertexSource = VERT, fragmentSource = FRAG) {
     const program = gl.createProgram();
-    gl.attachShader(program, compile(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FRAG));
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource));
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       throw new Error(gl.getProgramInfoLog(program) || 'Program link failed');
@@ -324,9 +314,40 @@
     return program;
   }
 
+  const POST_VERT = `
+    attribute vec2 aPosition;
+    varying vec2 vUV;
+    void main() {
+      vUV = aPosition * 0.5 + 0.5;
+      gl_Position = vec4(aPosition, 0.0, 1.0);
+    }
+  `;
+
+  const POST_FRAG = `
+    precision mediump float;
+    uniform sampler2D uScene;
+    uniform float uBrightness;
+    uniform float uContrast;
+    uniform float uSaturation;
+    uniform vec3 uTintColor;
+    uniform float uTintAmount;
+    varying vec2 vUV;
+    void main() {
+      vec3 rgb = texture2D(uScene, vUV).rgb;
+      float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+      rgb = mix(vec3(luma), rgb, uSaturation);
+      rgb = (rgb - vec3(0.5)) * uContrast + vec3(0.5);
+      rgb *= uBrightness;
+      rgb = mix(rgb, rgb * uTintColor, uTintAmount);
+      gl_FragColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
+    }
+  `;
+
   let program;
+  let postProgram;
   try {
     program = createProgram();
+    postProgram = createProgram(POST_VERT, POST_FRAG);
   } catch (err) {
     errorBox.hidden = false;
     errorBox.textContent = `WebGL setup failed: ${err.message}`;
@@ -346,17 +367,93 @@
     fogFar: gl.getUniformLocation(program, 'uFogFar'),
     fogAmount: gl.getUniformLocation(program, 'uFogAmount'),
     fogCurve: gl.getUniformLocation(program, 'uFogCurve'),
-    postBrightness: gl.getUniformLocation(program, 'uPostBrightness'),
-    postContrast: gl.getUniformLocation(program, 'uPostContrast'),
-    postSaturation: gl.getUniformLocation(program, 'uPostSaturation'),
-    postTintColor: gl.getUniformLocation(program, 'uPostTintColor'),
-    postTintAmount: gl.getUniformLocation(program, 'uPostTintAmount'),
     opacity: gl.getUniformLocation(program, 'uOpacity'),
     highlight: gl.getUniformLocation(program, 'uHighlight'),
     highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
     uvScale: gl.getUniformLocation(program, 'uUvScale'),
     uvOffset: gl.getUniformLocation(program, 'uUvOffset')
   };
+
+  const postLoc = {
+    pos: gl.getAttribLocation(postProgram, 'aPosition'),
+    scene: gl.getUniformLocation(postProgram, 'uScene'),
+    brightness: gl.getUniformLocation(postProgram, 'uBrightness'),
+    contrast: gl.getUniformLocation(postProgram, 'uContrast'),
+    saturation: gl.getUniformLocation(postProgram, 'uSaturation'),
+    tintColor: gl.getUniformLocation(postProgram, 'uTintColor'),
+    tintAmount: gl.getUniformLocation(postProgram, 'uTintAmount')
+  };
+
+  const postTriangleBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, postTriangleBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1, -1,
+     3, -1,
+    -1,  3
+  ]), gl.STATIC_DRAW);
+
+  const sceneFramebuffer = gl.createFramebuffer();
+  const sceneColorTexture = gl.createTexture();
+  const sceneDepthBuffer = gl.createRenderbuffer();
+  let sceneTargetWidth = 0;
+  let sceneTargetHeight = 0;
+
+  function resizeSceneTarget(width, height) {
+    if (sceneTargetWidth === width && sceneTargetHeight === height) return;
+    sceneTargetWidth = width;
+    sceneTargetHeight = height;
+
+    gl.bindTexture(gl.TEXTURE_2D, sceneColorTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    gl.bindRenderbuffer(gl.RENDERBUFFER, sceneDepthBuffer);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneColorTexture, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, sceneDepthBuffer);
+
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      throw new Error(`Post-process framebuffer incomplete: ${status}`);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  function presentSceneWithPost() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(postProgram);
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    gl.disable(gl.BLEND);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, postTriangleBuffer);
+    gl.enableVertexAttribArray(postLoc.pos);
+    gl.vertexAttribPointer(postLoc.pos, 2, gl.FLOAT, false, 8, 0);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sceneColorTexture);
+    gl.uniform1i(postLoc.scene, 0);
+    gl.uniform1f(postLoc.brightness, postSettings.brightness);
+    gl.uniform1f(postLoc.contrast, postSettings.contrast);
+    gl.uniform1f(postLoc.saturation, postSettings.saturation);
+    gl.uniform3f(postLoc.tintColor, postSettings.tintColor[0], postSettings.tintColor[1], postSettings.tintColor[2]);
+    gl.uniform1f(postLoc.tintAmount, postSettings.tintAmount);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    gl.disableVertexAttribArray(postLoc.pos);
+    gl.useProgram(program);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  }
 
   function createMesh(vertices, indices) {
     const vbo = gl.createBuffer();
@@ -771,10 +868,6 @@
     potSize: 1024
   });
 
-  // v1.8.81: forest dressing now comes from one authored atlas.
-  // This removes the old per-file fallback path which could substitute the
-  // full woodland source sheet when an individual PNG failed to load.
-  textures.dressingAtlas = createImageTexture('sidescroll-dressing-atlas.png?v=0.2.77', 'SideScroll dressing atlas');
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.73', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
@@ -807,18 +900,18 @@
     tree06: [992, 1318],
     tree07: [992, 1318],
     tree08: [992, 1318],
-    ground01: [940, 609],
-    ground02: [940, 492],
-    ground03: [940, 614],
-    ground04: [940, 518],
-    ground05: [940, 659],
-    ground06: [940, 690],
-    ground07: [940, 656],
-    ground08: [940, 676],
-    ground09: [940, 668],
-    ground10: [940, 627],
-    ground11: [940, 645],
-    ground12: [940, 668],
+    ground01: [937, 603],
+    ground02: [924, 485],
+    ground03: [930, 602],
+    ground04: [931, 514],
+    ground05: [926, 531],
+    ground06: [922, 483],
+    ground07: [931, 418],
+    ground08: [928, 442],
+    ground09: [933, 511],
+    ground10: [940, 484],
+    ground11: [937, 361],
+    ground12: [934, 480],
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
@@ -826,7 +919,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.77`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.79`,
         key,
         null,
         size[0] / size[1]
@@ -1097,28 +1190,6 @@
         tintAmount:postSettings.tintAmount
       }));
     } catch (_) {}
-  }
-  function applyPostToRgb(rgb) {
-    let r = rgb[0], g = rgb[1], b = rgb[2];
-    const luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
-    r = luma + (r - luma) * postSettings.saturation;
-    g = luma + (g - luma) * postSettings.saturation;
-    b = luma + (b - luma) * postSettings.saturation;
-    r = (r - 0.5) * postSettings.contrast + 0.5;
-    g = (g - 0.5) * postSettings.contrast + 0.5;
-    b = (b - 0.5) * postSettings.contrast + 0.5;
-    r *= postSettings.brightness;
-    g *= postSettings.brightness;
-    b *= postSettings.brightness;
-    const t = postSettings.tintAmount;
-    r = r * (1 - t) + (r * postSettings.tintColor[0]) * t;
-    g = g * (1 - t) + (g * postSettings.tintColor[1]) * t;
-    b = b * (1 - t) + (b * postSettings.tintColor[2]) * t;
-    return [
-      Math.max(0, Math.min(1, r)),
-      Math.max(0, Math.min(1, g)),
-      Math.max(0, Math.min(1, b))
-    ];
   }
   const fogColor = fogSettings.color;
   const PROCEDURAL_TREE_SCALE = 0.96;
@@ -3194,6 +3265,7 @@
       canvas.width = w;
       canvas.height = h;
       gl.viewport(0, 0, w, h);
+      resizeSceneTarget(w, h);
       projection = mat4Perspective((31 * Math.PI) / 180, w / h, 0.1, 180);
     }
     if (editorOverlay && editorOverlayCtx) {
@@ -5694,11 +5766,6 @@
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.08 : (shadow.fogAmount ?? (0.28 * fogSettings.amount))) : 0);
     gl.uniform1f(loc.fogCurve, fogSettings.curve);
-    gl.uniform1f(loc.postBrightness, postSettings.brightness);
-    gl.uniform1f(loc.postContrast, postSettings.contrast);
-    gl.uniform1f(loc.postSaturation, postSettings.saturation);
-    gl.uniform3f(loc.postTintColor, postSettings.tintColor[0], postSettings.tintColor[1], postSettings.tintColor[2]);
-    gl.uniform1f(loc.postTintAmount, postSettings.tintAmount);
     gl.uniform1f(loc.opacity, shadow.opacity ?? 0.42);
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
@@ -5727,11 +5794,6 @@
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, (!fogSettings.enabled || obj.noFog) ? 0 : (debugDepth ? 0.22 : fogSettings.amount));
     gl.uniform1f(loc.fogCurve, fogSettings.curve);
-    gl.uniform1f(loc.postBrightness, postSettings.brightness);
-    gl.uniform1f(loc.postContrast, postSettings.contrast);
-    gl.uniform1f(loc.postSaturation, postSettings.saturation);
-    gl.uniform3f(loc.postTintColor, postSettings.tintColor[0], postSettings.tintColor[1], postSettings.tintColor[2]);
-    gl.uniform1f(loc.postTintAmount, postSettings.tintAmount);
     // Keep the scene fully opaque in Edit mode. Transparency made overlapping
     // foliage impossible to read; selection is now communicated by a bright
     // tint + screen-space frame instead.
@@ -5884,11 +5946,6 @@
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.22 : fogSettings.amount) : 0);
     gl.uniform1f(loc.fogCurve, fogSettings.curve);
-    gl.uniform1f(loc.postBrightness, postSettings.brightness);
-    gl.uniform1f(loc.postContrast, postSettings.contrast);
-    gl.uniform1f(loc.postSaturation, postSettings.saturation);
-    gl.uniform3f(loc.postTintColor, postSettings.tintColor[0], postSettings.tintColor[1], postSettings.tintColor[2]);
-    gl.uniform1f(loc.postTintAmount, postSettings.tintAmount);
     gl.uniform1f(loc.opacity, character.opacity * (part.alpha ?? 1));
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
@@ -6620,8 +6677,14 @@
     checkPuzzleCompletion(character.x);
     updatePuzzleRewards(now);
 
-    const gradedFogColor = applyPostToRgb(fogColor);
-    gl.clearColor(gradedFogColor[0], gradedFogColor[1], gradedFogColor[2], 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(program);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(fogColor[0], fogColor[1], fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const eye = [camera.x, camera.y, camera.z];
@@ -6645,6 +6708,7 @@
 
     for (const obj of frontOccluders) drawObject(obj, view);
 
+    presentSceneWithPost();
     drawEditorOverlay();
 
     const baseMotionLabel = jumping ? 'JUMP' : (runBlend > .55 && isWalking ? 'RUN' : (isWalking ? 'WALK' : 'IDLE'));
