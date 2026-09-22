@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.2: terrain sections now own local ground height for grounded scene/puzzle assets.
+  // SideScroll v1.0.3: adds a real procedural River section built from separate left-bank, right-bank and water meshes.
   // Section guides close with the editor by default, and Edit has its own Done control.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -64,6 +64,9 @@
   const sectionNextBtn = document.getElementById('sidescroll-section-next');
   const sectionVisibleBtn = document.getElementById('sidescroll-section-visible');
   const sectionTypeSelect = document.getElementById('sidescroll-section-type');
+  const sectionRiverWidthRow = document.getElementById('sidescroll-section-river-width-row');
+  const sectionRiverWidthInput = document.getElementById('sidescroll-section-river-width');
+  const sectionRiverWidthValue = document.getElementById('sidescroll-section-river-width-value');
   const sectionResetBtn = document.getElementById('sidescroll-section-reset');
   const characterSwapBtn = document.getElementById('sidescroll-character');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
@@ -636,6 +639,129 @@
     return terrainSectionGroundMeshCache.get(typeId);
   }
 
+  const terrainRiverBankMeshCache = new Map();
+  const terrainRiverWaterMeshCache = new Map();
+
+  function terrainDirtWorldUv(x, z) {
+    const u = terrainSectionWorldU(x);
+    const v = ((GROUND_NEAR_Z - z) / Math.max(0.001, GROUND_NEAR_Z - WORLD.farZ)) * 11.0;
+    return [u, v];
+  }
+
+  function riverBankCrossSection(sectionIndex, z, side, settingsOverride = null) {
+    const p = riverProfileAtZ(sectionIndex, z, settingsOverride);
+    const isLeft = side === 'left';
+    const outerX = isLeft ? p.minX : p.maxX;
+    const lipX = isLeft ? p.leftLip : p.rightLip;
+    const toeX = isLeft ? p.leftToe : p.rightToe;
+    const dir = isLeft ? 1 : -1;
+    const approachX = lipX - dir * 0.56;
+    const shoulderX = lipX + dir * 0.18;
+    const lowerWallX = lipX + dir * (p.wallRun * 0.68);
+    const centreX = p.centre;
+    const outerY = pathGroundYAt(outerX, z);
+    const approachY = pathGroundYAt(approachX, z);
+    const lipY = pathGroundYAt(lipX, z);
+    return [
+      { x:outerX,    y:outerY,                         map:'top',  sv:0.00 },
+      { x:approachX, y:approachY,                      map:'top',  sv:0.00 },
+      { x:lipX,      y:lipY,                           map:'top',  sv:0.00 },
+      { x:shoulderX, y:Rig.lerp(lipY, p.bedY, 0.16),  map:'wall', sv:0.20 },
+      { x:lowerWallX,y:Rig.lerp(lipY, p.bedY, 0.73),  map:'wall', sv:0.88 },
+      { x:toeX,      y:p.bedY,                         map:'wall', sv:1.24 },
+      { x:centreX,   y:p.bedY,                         map:'bed',  sv:1.24 }
+    ];
+  }
+
+  function createRiverBankMesh(sectionIndex, side, settingsOverride = null, zSegments = 30) {
+    const b = terrainSectionBounds(sectionIndex);
+    const vertices = [];
+    const indices = [];
+    const rows = [];
+    for (let iz = 0; iz <= zSegments; iz++) {
+      const t = iz / zSegments;
+      const z = Rig.lerp(WORLD.farZ, GROUND_NEAR_Z, t);
+      rows.push({ z, points:riverBankCrossSection(sectionIndex, z, side, settingsOverride) });
+    }
+
+    function pushVertex(point, z, bandKind) {
+      let u, v;
+      if (bandKind === 'wall') {
+        u = (z - WORLD.farZ) * 0.205;
+        v = point.sv * 1.22;
+      } else {
+        [u, v] = terrainDirtWorldUv(point.x, z);
+      }
+      vertices.push(point.x - b.center, point.y, z, u, v);
+      return (vertices.length / 5) - 1;
+    }
+
+    for (let iz = 0; iz < zSegments; iz++) {
+      const a = rows[iz];
+      const bRow = rows[iz + 1];
+      for (let band = 0; band < a.points.length - 1; band++) {
+        const kind = (band >= 2 && band <= 4) ? 'wall' : (band === 5 ? 'bed' : 'top');
+        const i0 = pushVertex(a.points[band], a.z, kind);
+        const i1 = pushVertex(a.points[band + 1], a.z, kind);
+        const i2 = pushVertex(bRow.points[band], bRow.z, kind);
+        const i3 = pushVertex(bRow.points[band + 1], bRow.z, kind);
+        indices.push(i0, i2, i1, i1, i2, i3);
+      }
+    }
+    return createMesh(new Float32Array(vertices), new Uint16Array(indices));
+  }
+
+  function createRiverWaterMesh(sectionIndex, settingsOverride = null, zSegments = 32, xSegments = 4) {
+    const b = terrainSectionBounds(sectionIndex);
+    const vertices = [];
+    const indices = [];
+    const rows = [];
+    for (let iz = 0; iz <= zSegments; iz++) {
+      const tz = iz / zSegments;
+      const z = Rig.lerp(WORLD.farZ, GROUND_NEAR_Z, tz);
+      const p = riverProfileAtZ(sectionIndex, z, settingsOverride);
+      const left = p.leftLip + p.wallRun * 0.52;
+      const right = p.rightLip - p.wallRun * 0.52;
+      const row = [];
+      for (let ix = 0; ix <= xSegments; ix++) {
+        const tx = ix / xSegments;
+        const x = Rig.lerp(left, right, tx);
+        const u = tx * 2.35;
+        const v = (z - WORLD.farZ) * 0.185;
+        vertices.push(x - b.center, p.waterY, z, u, v);
+        row.push((vertices.length / 5) - 1);
+      }
+      rows.push(row);
+    }
+    for (let iz = 0; iz < zSegments; iz++) {
+      for (let ix = 0; ix < xSegments; ix++) {
+        const a = rows[iz][ix];
+        const b0 = rows[iz + 1][ix];
+        const c = rows[iz][ix + 1];
+        const d = rows[iz + 1][ix + 1];
+        indices.push(a, b0, c, c, b0, d);
+      }
+    }
+    return createMesh(new Float32Array(vertices), new Uint16Array(indices));
+  }
+
+  function riverMeshKey(sectionIndex, sideOrWater) {
+    const settings = riverSectionSettings(sectionIndex);
+    return `${Math.trunc(sectionIndex)}:${sideOrWater}:${settings.width.toFixed(2)}`;
+  }
+
+  function terrainRiverBankMesh(sectionIndex, side) {
+    const key = riverMeshKey(sectionIndex, side);
+    if (!terrainRiverBankMeshCache.has(key)) terrainRiverBankMeshCache.set(key, createRiverBankMesh(sectionIndex, side));
+    return terrainRiverBankMeshCache.get(key);
+  }
+
+  function terrainRiverWaterMesh(sectionIndex) {
+    const key = riverMeshKey(sectionIndex, 'water');
+    if (!terrainRiverWaterMeshCache.has(key)) terrainRiverWaterMeshCache.set(key, createRiverWaterMesh(sectionIndex));
+    return terrainRiverWaterMeshCache.get(key);
+  }
+
   function createRigPartMesh(name) {
     const r = Rig.atlasRect(name);
     if (!r) return null;
@@ -973,6 +1099,42 @@
     potSize: 1024
   });
 
+  // Lightweight procedural water texture. Geometry supplies the meandering river
+  // silhouette; this repeatable texture only provides colour and subtle flow detail.
+  textures.riverWater = createTexture((ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, 'rgba(70,124,126,0.80)');
+    g.addColorStop(0.48, 'rgba(92,145,139,0.76)');
+    g.addColorStop(1, 'rgba(52,104,114,0.82)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    let seed = 91357;
+    const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    for (let i = 0; i < 34; i++) {
+      const y = random() * h;
+      const x = random() * w;
+      const len = 22 + random() * 84;
+      ctx.strokeStyle = `rgba(232,247,239,${(0.05 + random() * 0.09).toFixed(3)})`;
+      ctx.lineWidth = 1 + random() * 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x + len * 0.25, y - 3, x + len * 0.70, y + 3, x + len, y);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 22; i++) {
+      const x = random() * w;
+      const y = random() * h;
+      const rx = 7 + random() * 18;
+      const ry = 2 + random() * 5;
+      ctx.strokeStyle = `rgba(242,249,239,${(0.035 + random() * 0.055).toFixed(3)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }, 256, 256, true);
+
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.73', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
@@ -1212,7 +1374,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.2';
+const RIG_TEXTURE_VERSION = '1.0.3';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1280,13 +1442,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const TERRAIN_SECTION_STORAGE_KEY = 'sidescroll.terrain-sections.v1';
   const TERRAIN_SECTION_TYPES = {
     normal:{ id:'normal', label:'Normal' },
-    testHill:{ id:'testHill', label:'Test Hill' }
+    testHill:{ id:'testHill', label:'Test Hill' },
+    river:{ id:'river', label:'River' }
   };
+  const DEFAULT_RIVER_SECTION = Object.freeze({ width:4.8 });
   let terrainSectionGuidesVisible = false;
   let terrainSectionGuidesPersist = false;
   let terrainSelectedSectionIndex = 0;
   let terrainHiddenSections = new Set();
   let terrainSectionTypes = new Map();
+  let terrainSectionSettings = new Map();
   let terrainLastUiCurrentIndex = null;
 
   function terrainSectionIndexAt(x) {
@@ -1312,6 +1477,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return TERRAIN_SECTION_TYPES[terrainSectionType(index)]?.label || 'Normal';
   }
 
+  function riverSectionSettings(index, override = null) {
+    const stored = override || terrainSectionSettings.get(Math.trunc(Number(index) || 0)) || null;
+    const width = Rig.clamp(Number(stored?.width) || DEFAULT_RIVER_SECTION.width, 3.4, 6.6);
+    return { width };
+  }
+
   function terrainSectionFeatureRiseForTypeAtX(x, typeId, index = terrainSectionIndexAt(x)) {
     if (typeId !== 'testHill') return 0;
     const b = terrainSectionBounds(index);
@@ -1320,27 +1491,69 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return wave * wave * 0.82;
   }
 
-  // Temporary validation profile. It returns to zero exactly at each 10 m
-  // section boundary so swappable feature sections join Normal neighbours cleanly.
-  function terrainSectionFeatureRiseAtX(x) {
-    const index = terrainSectionIndexAt(x);
-    return terrainSectionFeatureRiseForTypeAtX(x, terrainSectionType(index), index);
+  function smoothTerrainStep(t) {
+    const c = Rig.clamp(t, 0, 1);
+    return c * c * (3 - 2 * c);
   }
 
-  function reanchorTerrainSectionObjects(index, previousType, nextType) {
-    if (previousType === nextType || typeof allSceneObjects !== 'function') return;
+  // River runs along Z, while the player/path travels along X. The centre line
+  // meanders gently in depth; width also varies a little so the banks never read
+  // as two perfectly parallel walls. Both banks use the same profile data.
+  function riverProfileAtZ(index, z, settingsOverride = null) {
+    const b = terrainSectionBounds(index);
+    const settings = riverSectionSettings(index, settingsOverride);
+    const phase = index * 0.731;
+    const meander = Math.sin(z * 0.165 + phase) * 0.34 + Math.sin(z * 0.071 - phase * 1.37) * 0.18;
+    const widthVariation = Math.sin(z * 0.245 - phase * 0.43) * 0.16 + Math.sin(z * 0.113 + phase) * 0.09;
+    const width = Rig.clamp(settings.width + widthVariation, 3.15, 6.75);
+    const centre = b.center + meander;
+    const leftLip = centre - width * 0.5;
+    const rightLip = centre + width * 0.5;
+    const wallRun = Math.min(0.92, Math.max(0.68, width * 0.17));
+    const leftToe = leftLip + wallRun;
+    const rightToe = rightLip - wallRun;
+    const bedY = groundY - 0.96 + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
+    const waterY = bedY + 0.34;
+    return { ...b, width, centre, leftLip, rightLip, leftToe, rightToe, wallRun, bedY, waterY };
+  }
+
+  function riverTerrainYAt(x, z, index = terrainSectionIndexAt(x), settingsOverride = null) {
+    const p = riverProfileAtZ(index, z, settingsOverride);
+    const base = pathGroundYAt(x, z);
+    if (x <= p.leftLip || x >= p.rightLip) return base;
+    if (x >= p.leftToe && x <= p.rightToe) return p.bedY;
+    if (x < p.leftToe) {
+      const t = smoothTerrainStep((x - p.leftLip) / Math.max(0.001, p.leftToe - p.leftLip));
+      return Rig.lerp(base, p.bedY, t);
+    }
+    const t = smoothTerrainStep((x - p.rightToe) / Math.max(0.001, p.rightLip - p.rightToe));
+    return Rig.lerp(p.bedY, base, t);
+  }
+
+  function terrainSurfaceYForTypeAt(x, z, typeId, index = terrainSectionIndexAt(x), settingsOverride = null) {
+    if (typeId === 'river') return riverTerrainYAt(x, z, index, settingsOverride);
+    return pathGroundYAt(x, z) + terrainSectionFeatureRiseForTypeAtX(x, typeId, index);
+  }
+
+  function pointInsideRiverChannel(x, z, index = terrainSectionIndexAt(x)) {
+    if (terrainSectionType(index) !== 'river') return false;
+    const p = riverProfileAtZ(index, z);
+    return x > p.leftLip - 0.05 && x < p.rightLip + 0.05;
+  }
+
+  function reanchorTerrainSectionObjects(index, previousType, nextType, previousSettings = null, nextSettings = null) {
+    if (typeof allSceneObjects !== 'function') return;
     for (const obj of allSceneObjects()) {
       if (!obj || !Number.isFinite(obj.x) || terrainSectionIndexAt(obj.x) !== index) continue;
-      const oldRise = terrainSectionFeatureRiseForTypeAtX(obj.x, previousType, index);
-      const newRise = terrainSectionFeatureRiseForTypeAtX(obj.x, nextType, index);
-      obj.y += newRise - oldRise;
+      const z = Number.isFinite(obj.z) ? obj.z : pathZ;
+      const oldBase = terrainSurfaceYForTypeAt(obj.x, z, previousType, index, previousSettings);
+      const newBase = terrainSurfaceYForTypeAt(obj.x, z, nextType, index, nextSettings);
+      obj.y += newBase - oldBase;
     }
-    // The player's vertical offset (ground, stack or jump) should follow the same
-    // section change immediately instead of waiting for a movement update.
     if (typeof character !== 'undefined' && character && terrainSectionIndexAt(character.x) === index) {
-      const oldRise = terrainSectionFeatureRiseForTypeAtX(character.x, previousType, index);
-      const newRise = terrainSectionFeatureRiseForTypeAtX(character.x, nextType, index);
-      character.y += newRise - oldRise;
+      const oldBase = terrainSurfaceYForTypeAt(character.x, pathZ, previousType, index, previousSettings);
+      const newBase = terrainSurfaceYForTypeAt(character.x, pathZ, nextType, index, nextSettings);
+      character.y += newBase - oldBase;
     }
     if (typeof settleGameplayCrates === 'function') settleGameplayCrates();
   }
@@ -1350,9 +1563,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const previous = terrainSectionType(i);
     const next = TERRAIN_SECTION_TYPES[typeId] ? typeId : 'normal';
     if (previous === next) { updateTerrainSectionUi(true); return; }
+    const settings = riverSectionSettings(i);
     if (next === 'normal') terrainSectionTypes.delete(i);
     else terrainSectionTypes.set(i, next);
-    reanchorTerrainSectionObjects(i, previous, next);
+    reanchorTerrainSectionObjects(i, previous, next, settings, settings);
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  }
+
+  function setTerrainSectionRiverWidth(index, width) {
+    const i = Math.trunc(Number(index) || 0);
+    const previous = riverSectionSettings(i);
+    const next = { width:Rig.clamp(Number(width) || DEFAULT_RIVER_SECTION.width, 3.4, 6.6) };
+    if (Math.abs(previous.width - next.width) < 0.001) { updateTerrainSectionUi(true); return; }
+    terrainSectionSettings.set(i, next);
+    if (terrainSectionType(i) === 'river') reanchorTerrainSectionObjects(i, 'river', 'river', previous, next);
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
   }
@@ -1370,10 +1595,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       terrainSelectedSectionIndex = Number.isFinite(Number(saved.selected)) ? Math.trunc(Number(saved.selected)) : 0;
       terrainHiddenSections = new Set(Array.isArray(saved.hidden) ? saved.hidden.map(Number).filter(Number.isFinite).map(Math.trunc) : []);
       terrainSectionTypes = new Map();
+      terrainSectionSettings = new Map();
       if (saved.types && typeof saved.types === 'object') {
         for (const [key, value] of Object.entries(saved.types)) {
           const i = Number(key);
           if (Number.isFinite(i) && TERRAIN_SECTION_TYPES[value] && value !== 'normal') terrainSectionTypes.set(Math.trunc(i), value);
+        }
+      }
+      if (saved.settings && typeof saved.settings === 'object') {
+        for (const [key, value] of Object.entries(saved.settings)) {
+          const i = Number(key);
+          if (!Number.isFinite(i) || !value || typeof value !== 'object') continue;
+          terrainSectionSettings.set(Math.trunc(i), { width:Rig.clamp(Number(value.width) || DEFAULT_RIVER_SECTION.width, 3.4, 6.6) });
         }
       }
     } catch (_) {}
@@ -1386,7 +1619,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         persistGuides:!!terrainSectionGuidesPersist,
         selected:terrainSelectedSectionIndex,
         hidden:[...terrainHiddenSections].sort((a,b)=>a-b),
-        types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0]))
+        types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
+        settings:Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0]))
       }));
     } catch (_) {}
   }
@@ -1512,7 +1746,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // pathGroundYAt remains the legacy/base profile so old absolute saves can be
   // migrated to a terrain-relative offset when they are restored.
   function terrainGroundYAt(x, z = 0) {
-    return pathGroundYAt(x, z) + terrainSectionFeatureRiseAtX(x);
+    const index = terrainSectionIndexAt(x);
+    return terrainSurfaceYForTypeAt(x, z, terrainSectionType(index), index);
   }
 
   // One authoritative playable floor height. Character feet, locked gameplay
@@ -1593,6 +1828,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     uvScale: [1, 1],
     noFog: false,
     wrap: true
+  };
+
+  const riverBankSurface = {
+    mesh: groundMesh,
+    texture: textures.pathDirt,
+    x: 0, y: 0, z: 0, sx: 1, sy: 1, sz: 1,
+    layer:'ground', tint:[0.98,0.98,0.98], opacity:1, uvScale:[1,1], noFog:false, wrap:false
+  };
+
+  const riverWaterSurface = {
+    mesh: groundMesh,
+    texture: textures.riverWater,
+    x: 0, y: 0, z: 0, sx: 1, sy: 1, sz: 1,
+    layer:'ground', tint:[0.94,1.0,0.98], opacity:0.78, uvScale:[1,1], noFog:false, wrap:false
   };
 
   const backdrop = [];
@@ -3041,9 +3290,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function dressingHiddenByPuzzle(obj, drawX) {
-    // Puzzle exclusions remove procedural environment only. Deliberately placed
-    // global art and puzzle-owned dressing remain visible inside the cleared area.
+    // Puzzle exclusions and feature terrain remove procedural environment only.
+    // Deliberately placed global art and puzzle-owned dressing remain available
+    // so river sections can be hand-dressed with reeds, rocks and grasses.
     if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId || obj.userAdded) return false;
+    if (pointInsideRiverChannel(drawX, obj.z)) return true;
     for (const instance of activePuzzleInstances.values()) {
       const b = puzzleExclusionWorldBounds(instance.marker);
       if (!b.enabled) continue;
@@ -7298,20 +7549,37 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!terrainHiddenSections.has(i)) indices.push(i);
     }
 
-    // Draw all dirt floor pieces first, then all raised path pieces. UV offsets
-    // are world-derived, so a hidden/debugged seam can be restored without any
-    // texture jump and neighbouring sections share exactly the same edge UV.
+    // First pass: normal/hill dirt floor. River sections replace the old floor
+    // entirely with their own bank meshes, so there is no hidden plane beneath
+    // the water to fight with future bridge/gap gameplay.
     for (const i of indices) {
       const b = terrainSectionBounds(i);
       const typeId = terrainSectionType(i);
+      if (typeId === 'river') continue;
       const u0 = terrainSectionWorldU(b.minX);
       const uScale = (TERRAIN_SECTION_LENGTH / TILE_WIDTH) * 24.0;
       drawObject(ground, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionGroundMesh(typeId), uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0, 0] });
     }
+
+    // Second pass: normal/hill raised path. River bank meshes already include
+    // the local path shoulder/profile as they approach the water, so a separate
+    // path strip would incorrectly bridge across the channel.
     for (const i of indices) {
       const b = terrainSectionBounds(i);
       const typeId = terrainSectionType(i);
+      if (typeId === 'river') continue;
       drawObject(pathStrip, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionPathMesh(i, typeId), uvScale:[1,1], uvOffset:[0,0] });
+    }
+
+    // Third pass: feature terrain. Each River section is genuinely three mesh
+    // objects: left bank, right bank and a separate translucent water plane.
+    for (const i of indices) {
+      if (terrainSectionType(i) !== 'river') continue;
+      const b = terrainSectionBounds(i);
+      drawObject(riverBankSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'left') });
+      drawObject(riverBankSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'right') });
+      const flow = (performance.now() * 0.000025) % 1;
+      drawObject(riverWaterSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverWaterMesh(i), uvOffset:[0, flow] });
     }
   }
 
@@ -7453,7 +7721,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
-    // v1.0.2: terrain comes from contiguous 10 m world sections; grounded assets inherit each section's local height.
+    // v1.0.3: terrain comes from contiguous 10 m world sections; River sections swap the normal floor for bank + water meshes.
     // With every section visible this should be visually indistinguishable from
     // the previous continuous terrain; the section editor can hide any one
     // piece to verify that the segmentation is genuinely working.
@@ -7581,8 +7849,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (sectionCurrentEl) sectionCurrentEl.textContent = terrainSectionLabel(currentIndex);
     if (sectionCurrentBoundsEl) sectionCurrentBoundsEl.textContent = terrainSectionBoundsLabel(currentIndex);
     if (sectionSelectedEl) sectionSelectedEl.textContent = terrainSectionLabel(terrainSelectedSectionIndex);
-    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}`;
-    if (sectionTypeSelect) sectionTypeSelect.value = terrainSectionType(terrainSelectedSectionIndex);
+    const selectedType = terrainSectionType(terrainSelectedSectionIndex);
+    const selectedRiver = riverSectionSettings(terrainSelectedSectionIndex);
+    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}${selectedType === 'river' ? ` · ${selectedRiver.width.toFixed(1)} m` : ''}`;
+    if (sectionTypeSelect) sectionTypeSelect.value = selectedType;
+    if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
+    if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
+    if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${selectedRiver.width.toFixed(1)} m`;
+
     const visible = !terrainHiddenSections.has(terrainSelectedSectionIndex);
     if (sectionVisibleBtn) {
       sectionVisibleBtn.textContent = visible ? 'Terrain visible' : 'Terrain hidden';
@@ -7966,6 +8240,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   sectionTypeSelect?.addEventListener('change', () => {
     setTerrainSectionType(terrainSelectedSectionIndex, sectionTypeSelect.value);
     hintEl.textContent = `Section ${terrainSelectedSectionIndex} → ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}`;
+    hintEl.classList.remove('hidden');
+  });
+  sectionRiverWidthInput?.addEventListener('input', () => {
+    if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${Number(sectionRiverWidthInput.value).toFixed(1)} m`;
+  });
+  sectionRiverWidthInput?.addEventListener('change', () => {
+    setTerrainSectionRiverWidth(terrainSelectedSectionIndex, Number(sectionRiverWidthInput.value));
+    hintEl.textContent = `River width · ${riverSectionSettings(terrainSelectedSectionIndex).width.toFixed(1)} m`;
     hintEl.classList.remove('hidden');
   });
   bindEditorPress(sectionVisibleBtn, () => {

@@ -12830,3 +12830,21 @@ body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-editor-panel-
   body[data-game-id="game-16"] .sidescroll-editor-panel-topbar{margin-bottom:5px;padding-bottom:5px;}
   body[data-game-id="game-16"] .sidescroll-section-persist-row{padding:5px 7px;margin-top:4px;}
 }
+
+
+/* SideScroll v1.0.3 — procedural river-section mesh controls. */
+body[data-game-id="game-16"] .sidescroll-section-slider-row{
+  display:grid;gap:5px;margin:7px 0 2px;padding:7px 8px;
+  border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(255,255,255,.045);
+}
+body[data-game-id="game-16"] .sidescroll-section-slider-row[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-section-slider-row span{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:7px;font-weight:900;letter-spacing:.11em;color:#9fb8b2;
+}
+body[data-game-id="game-16"] .sidescroll-section-slider-row b{
+  font-variant-numeric:tabular-nums;color:#e6efed;font-size:7px;letter-spacing:.04em;
+}
+body[data-game-id="game-16"] .sidescroll-section-slider-row input[type="range"]{
+  width:100%;accent-color:#9bb8b1;
+}
