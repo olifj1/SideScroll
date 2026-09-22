@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.5: adds a reusable per-asset Floor Line anchor.
+  // SideScroll v1.0.6: adds a reusable per-asset Floor Line anchor.
   // Billboard artwork can now extend below its logical terrain contact point without hard-coded Y offsets.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1200,7 +1200,7 @@
     }
   });
 
-  // v1.0.5 bridge feature art. These are deliberately independent dressing
+  // v1.0.6 bridge feature art. These are deliberately independent dressing
   // planes so a river/puzzle can choose its own span and position each abutment
   // separately. Generator alpha is retained in the PNGs; RGB was colour-dilated
   // under the transparent edge to avoid dark fringes during bilinear filtering.
@@ -1210,7 +1210,7 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.5`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.6`, key, null, size[0] / size[1]);
   });
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -1393,7 +1393,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.5';
+const RIG_TEXTURE_VERSION = '1.0.6';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -3972,9 +3972,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       { name:'stone-piece-b', label:'ARCH STONE', image:'stone-piece-b.png', category:'gameplay', gameplayType:'prop', thumb:'◒', defaultHeight:1.04 },
       { name:'stone-piece-c', label:'HEXAGON STONE', image:'stone-piece-c.png', category:'gameplay', gameplayType:'prop', thumb:'⬡', defaultHeight:1.00 }
     ]},
-    { scope:'environment', title: 'FEATURES · BRIDGE', items: [
-      { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
-      { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', defaultHeight:2.20, defaultGroundLine:1.58/2.20 }
+    { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
+      { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
+      { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.58/2.20 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -7902,7 +7902,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
-    // v1.0.5: terrain comes from contiguous 10 m world sections; River sections swap the normal floor for bank + water meshes.
+    // v1.0.6: terrain comes from contiguous 10 m world sections; River sections swap the normal floor for bank + water meshes.
     // With every section visible this should be visually indistinguishable from
     // the previous continuous terrain; the section editor can hide any one
     // piece to verify that the segmentation is genuinely working.
