@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.10: adds the standalone Asset Lab and shared asset defaults.
+  // SideScroll v1.0.11: adds the standalone Asset Lab and shared asset defaults.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1210,11 +1210,11 @@
   // under the transparent edge to avoid dark fringes during bilinear filtering.
   const bridgeAssetDimensions = {
     'bridge-left': [1383, 1065],
-    'bridge-right': [1442, 1072]
+    'bridge-right': [1383, 1065]
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.10`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.11`, key, null, size[0] / size[1]);
   });
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -1397,7 +1397,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.10';
+const RIG_TEXTURE_VERSION = '1.0.11';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1804,7 +1804,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const ASSET_LAYOUT_STORAGE_KEY = 'sidescroll.asset-layout.v1';
   const ASSET_GROUND_LINE_DEFAULTS = Object.freeze({
     'bridge-left': 1.62 / 2.20,
-    'bridge-right': 1.58 / 2.20
+    'bridge-right': 1.62 / 2.20
   });
 
   let assetLayoutDefaults = (() => {
@@ -4004,7 +4004,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ]},
     { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
       { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
-      { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.58/2.20 }
+      { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'

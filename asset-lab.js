@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.10';
+  const VERSION = '1.0.11';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -12,7 +12,7 @@
 
   const ASSETS = [
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-left',label:'Broken Bridge · Left',image:'bridge-left.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true}},
-    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-right',label:'Broken Bridge · Right',image:'bridge-right.png',height:2.20,groundLine:1.58/2.20,behaviour:{solid:true,supportSurface:true}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-right',label:'Broken Bridge · Right',image:'bridge-right.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-a',label:'Moveable Log A',image:'puzzle-log-a.png',height:0.84,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true},collision:{halfWidthRatio:0.52/(0.84*1.7083),fixedHeight:STACK_ITEM_HEIGHT,heightRatio:null,depthRatio:0.56/(0.84*1.7083),points:null}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-b',label:'Moveable Log B',image:'puzzle-log-b.png',height:0.72,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-c',label:'Moveable Log C',image:'puzzle-log-c.png',height:0.76,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
@@ -353,11 +353,27 @@
     edgeFloorBtn.textContent=edgeFloorBtn.disabled?'Select an Edge to Set Y = 0':`Set Edge ${state.selectedEdge+1} to Y = 0`;
   }
 
+  let resizeFrame=0;
   function resize() {
-    const rect=canvas.getBoundingClientRect(); const dpr=Math.min(2,window.devicePixelRatio||1);
-    const w=Math.max(1,Math.round(rect.width*dpr)), h=Math.max(1,Math.round(rect.height*dpr));
-    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
-    ctx.setTransform(dpr,0,0,dpr,0,0); draw();
+    if(resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame=requestAnimationFrame(()=>{
+      resizeFrame=0;
+      const rect=canvas.getBoundingClientRect();
+      if(rect.width<2||rect.height<2)return;
+      const dpr=Math.min(2,window.devicePixelRatio||1);
+      const w=Math.max(1,Math.round(rect.width*dpr)), h=Math.max(1,Math.round(rect.height*dpr));
+      if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      draw();
+    });
+  }
+
+  function settleViewport() {
+    resize();
+    // iOS can report one or more transient viewport sizes while rotating.
+    // Re-measure after each layout settles so the canvas never keeps the
+    // temporary portrait/landscape backing size.
+    [80,180,360,650].forEach(delay=>setTimeout(resize,delay));
   }
 
   function computeRender() {
@@ -418,7 +434,7 @@
     const x=Math.min(r.w-34,right+Math.max(38,.45*r.ppm)), bottom=r.groundY;
     ctx.save(); ctx.strokeStyle='rgba(113,226,211,.65)'; ctx.fillStyle='rgba(113,226,211,.07)'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.roundRect(x-radius,bottom-height,radius*2,height,Math.min(radius,18)); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='rgba(215,255,247,.76)'; ctx.font='700 10px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText('PLAYER',x-radius,bottom-height-8);
+    ctx.fillStyle='rgba(215,255,247,.76)'; ctx.font='700 12px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText('PLAYER',x-radius,bottom-height-8);
     ctx.restore();
   }
 
@@ -456,7 +472,7 @@
       points.forEach(p=>{
         const selected=p.index===state.selectedPoint || p.index===state.draggingHandle;
         ctx.beginPath(); ctx.arc(p.x,p.y,selected?8:6,0,Math.PI*2); ctx.fillStyle=selected?'#ff4f95':'#f1b56a'; ctx.strokeStyle='#3a2c24'; ctx.lineWidth=1.5; ctx.fill(); ctx.stroke();
-        ctx.fillStyle='rgba(20,25,25,.9)'; ctx.font='800 7px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(p.index+1),p.x,p.y+.5);
+        ctx.fillStyle='rgba(20,25,25,.9)'; ctx.font='800 8px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(p.index+1),p.x,p.y+.5);
       });
     }
     ctx.restore();
@@ -466,7 +482,7 @@
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const r=computeRender(); drawGrid(r);
     ctx.save(); ctx.strokeStyle='rgba(114,230,208,.92)'; ctx.lineWidth=2; ctx.setLineDash([8,5]); ctx.beginPath(); ctx.moveTo(0,r.groundY); ctx.lineTo(r.w,r.groundY); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='#bafbf0'; ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText('GROUND · Y = 0.00 m',12,r.groundY-9); ctx.restore();
+    ctx.fillStyle='#bafbf0'; ctx.font='800 12px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText('GROUND · Y = 0.00 m',12,r.groundY-9); ctx.restore();
 
     for(const asset of r.assets){
       const ar=r.assetRenders[asset.name], image=ar.image; const active=asset.name===state.asset.name;
@@ -475,13 +491,13 @@
       }
       if(state.pairMode){
         ctx.save(); ctx.strokeStyle=active?'rgba(126,216,199,.72)':'rgba(238,243,241,.16)'; ctx.lineWidth=active?2:1; ctx.setLineDash(active?[]:[5,5]); ctx.strokeRect(ar.drawX-5,ar.drawY-5,ar.drawW+10,ar.drawH+10); ctx.setLineDash([]);
-        ctx.fillStyle=active?'#c8f4e9':'rgba(238,243,241,.52)'; ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText(asset.name==='bridge-left'?'LEFT':'RIGHT',ar.drawX,Math.max(14,ar.drawY-10)); ctx.restore();
+        ctx.fillStyle=active?'#c8f4e9':'rgba(238,243,241,.52)'; ctx.font='800 11px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText(asset.name==='bridge-left'?'LEFT':'RIGHT',ar.drawX,Math.max(14,ar.drawY-10)); ctx.restore();
       }
     }
     drawReference(r);
     for(const asset of r.assets) drawCollision(r,asset,asset.name===state.asset.name);
 
-    ctx.save(); ctx.fillStyle='rgba(238,243,241,.45)'; ctx.font='700 10px -apple-system,BlinkMacSystemFont,sans-serif'; const metres=Math.max(1,Math.floor(100/r.ppm)); const px=metres*r.ppm; const x=18,y=r.h-22; ctx.fillRect(x,y,px,2); ctx.fillText(`${metres} m`,x,y-7); ctx.restore();
+    ctx.save(); ctx.fillStyle='rgba(238,243,241,.45)'; ctx.font='700 11px -apple-system,BlinkMacSystemFont,sans-serif'; const metres=Math.max(1,Math.floor(100/r.ppm)); const px=metres*r.ppm; const x=18,y=r.h-22; ctx.fillRect(x,y,px,2); ctx.fillText(`${metres} m`,x,y-7); ctx.restore();
   }
 
   function pointerPos(e){const rect=canvas.getBoundingClientRect();return{x:e.clientX-rect.left,y:e.clientY-rect.top};}
@@ -600,8 +616,13 @@
     state.filter=button.dataset.filter; filterButtons.forEach(b=>b.classList.toggle('active',b===button));
     const candidate=ASSETS.find(a=>a.scope===state.filter); if(candidate)selectAsset(candidate); else buildList();
   }));
-  window.addEventListener('resize',resize);
+  window.addEventListener('resize',resize,{passive:true});
+  window.addEventListener('orientationchange',settleViewport,{passive:true});
+  window.visualViewport?.addEventListener('resize',resize,{passive:true});
+  const stageResizeObserver='ResizeObserver' in window ? new ResizeObserver(resize) : null;
+  stageResizeObserver?.observe(document.querySelector('.assetlab-stage-wrap'));
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')settleViewport();});
 
   ASSETS.slice(0,2).forEach(ensureImage);
-  buildList(); selectAsset(ASSETS[0]); resize();
+  buildList(); selectAsset(ASSETS[0]); settleViewport();
 })();

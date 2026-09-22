@@ -32,6 +32,58 @@ function bindFastPress(element, handler) {
 }
 window.bindFastPress = bindFastPress;
 
+// v1.0.11: bridge-right is now a true horizontal mirror of bridge-left.
+// Migrate any existing Asset Lab defaults once so an older right-side setup
+// cannot keep the pair visually/collision-wise mismatched after the art swap.
+(function migrateMirroredBridgePair() {
+  const MIGRATION_KEY = 'sidescroll.migration.bridge-mirror.v1.0.11';
+  const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
+  const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
+  try {
+    if (localStorage.getItem(MIGRATION_KEY)) return;
+
+    const readObject = key => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (_) { return {}; }
+    };
+    const cloneValue = value => value == null ? value : JSON.parse(JSON.stringify(value));
+
+    const layout = readObject(LAYOUT_KEY);
+    if (layout['bridge-left']) layout['bridge-right'] = cloneValue(layout['bridge-left']);
+    else delete layout['bridge-right'];
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+
+    const collisions = readObject(COLLISION_KEY);
+    if (collisions['bridge-left']) {
+      const right = cloneValue(collisions['bridge-left']);
+      if (Array.isArray(right.points) && right.points.length >= 3) {
+        // Reflect X, reverse winding, then rotate the list so P1 stays at the
+        // lowest-left corner where possible. This makes the editor labels feel
+        // consistent while preserving an exact mirrored polygon.
+        let points = right.points.map(point => ({
+          ...point,
+          x: -(Number(point.x) || 0),
+          y: Number(point.y) || 0
+        })).reverse();
+        let start = 0;
+        for (let i = 1; i < points.length; i += 1) {
+          const a = points[i], b = points[start];
+          if (a.y < b.y - 0.0001 || (Math.abs(a.y - b.y) <= 0.0001 && a.x < b.x)) start = i;
+        }
+        if (start) points = points.slice(start).concat(points.slice(0, start));
+        right.points = points;
+      }
+      collisions['bridge-right'] = right;
+    } else {
+      delete collisions['bridge-right'];
+    }
+    localStorage.setItem(COLLISION_KEY, JSON.stringify(collisions));
+    localStorage.setItem(MIGRATION_KEY, '1');
+  } catch (_) {}
+})();
+
 
 
 // Shared per-game progress + completion result UI.
