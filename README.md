@@ -1,8 +1,9 @@
-# SideScroll v1.0.0
+# SideScroll v1.0.1
 
-- Starts the terrain-section architecture from the locked v0.2.97 baseline.
-- Replaces the continuous rendered floor/path with seamless 10 m normal terrain sections.
-- Adds a Sections panel to the main Menu with current/selected section readouts.
-- Adds section guides with a stronger highlight for the section the player currently occupies.
-- Individual section terrain can be hidden/restored to verify that sections are genuinely independent.
-- Gameplay floor/collision is intentionally unchanged in this first validation pass.
+- Adds swappable terrain section types to the v1.0.0 section foundation.
+- Adds a temporary **Test Hill** section type alongside **Normal**.
+- Section type changes persist per 10 m section.
+- Test Hill replaces both the ground/path meshes and the playable floor height, while matching Normal terrain exactly at each section boundary.
+- Adds a section-type selector to the Sections editor.
+- Keeps the current-section highlighting, section visibility test and previous/next/player navigation.
+- Constrains the Sections panel above the right-side walk/run controls and makes it scroll when landscape height is tight.

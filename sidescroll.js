@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.0: terrain is rendered as contiguous 10 m world sections, with a section editor/debug overlay for validating seams and section ownership.
+  // SideScroll v1.0.1: section types can now replace normal terrain. A temporary Test Hill type validates mesh swapping, persistence and playable-surface ownership.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -61,6 +61,7 @@
   const sectionPlayerBtn = document.getElementById('sidescroll-section-player');
   const sectionNextBtn = document.getElementById('sidescroll-section-next');
   const sectionVisibleBtn = document.getElementById('sidescroll-section-visible');
+  const sectionTypeSelect = document.getElementById('sidescroll-section-type');
   const sectionResetBtn = document.getElementById('sidescroll-section-reset');
   const characterSwapBtn = document.getElementById('sidescroll-character');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
@@ -558,8 +559,14 @@
 
   const pathMesh = createPathMesh();
   const terrainSectionPathMeshCache = new Map();
+  const terrainSectionGroundMeshCache = new Map();
 
-  function createTerrainSectionPathMesh(sectionIndex, segments = 6) {
+  function testHillRiseAtLocalT(t) {
+    const wave = Math.sin(Math.PI * Rig.clamp(t, 0, 1));
+    return wave * wave * 0.82;
+  }
+
+  function createTerrainSectionPathMesh(sectionIndex, typeId = 'normal', segments = 12) {
     const rows = [
       { z: 1.00, y: 0.00, v: 0.00 },
       { z: 0.82, y: 0.22, v: 0.12 },
@@ -575,7 +582,8 @@
       const t = ix / segments;
       const worldX = Rig.lerp(bounds.minX, bounds.maxX, t);
       const localX = (worldX - bounds.center) / TERRAIN_SECTION_LENGTH;
-      const rise = pathUndulationAtX(worldX);
+      const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(t) : 0;
+      const rise = pathUndulationAtX(worldX) + featureRise;
       const u = terrainSectionWorldU(worldX);
       for (const row of rows) vertices.push(localX, row.y + rise, row.z, u, row.v * 1.8);
     }
@@ -592,10 +600,37 @@
     return createMesh(new Float32Array(vertices), new Uint16Array(indices));
   }
 
-  function terrainSectionPathMesh(sectionIndex) {
+  function createTerrainSectionGroundMesh(typeId = 'normal', segments = 12) {
+    if (typeId === 'normal') return groundMesh;
+    const vertices = [];
+    const indices = [];
+    for (let ix = 0; ix <= segments; ix++) {
+      const t = ix / segments;
+      const localX = t - 0.5;
+      const y = typeId === 'testHill' ? testHillRiseAtLocalT(t) : 0;
+      vertices.push(localX, y,  0.0, t, 0.0);
+      vertices.push(localX, y, -1.0, t, 1.0);
+    }
+    for (let ix = 0; ix < segments; ix++) {
+      const a = ix * 2;
+      const b = a + 2;
+      const c = a + 1;
+      const d = b + 1;
+      indices.push(a,b,c, c,b,d);
+    }
+    return createMesh(new Float32Array(vertices), new Uint16Array(indices));
+  }
+
+  function terrainSectionPathMesh(sectionIndex, typeId = terrainSectionType(sectionIndex)) {
     const phase = ((Math.trunc(sectionIndex) % TERRAIN_SECTION_PATH_PHASE_COUNT) + TERRAIN_SECTION_PATH_PHASE_COUNT) % TERRAIN_SECTION_PATH_PHASE_COUNT;
-    if (!terrainSectionPathMeshCache.has(phase)) terrainSectionPathMeshCache.set(phase, createTerrainSectionPathMesh(phase));
-    return terrainSectionPathMeshCache.get(phase);
+    const key = `${typeId}:${phase}`;
+    if (!terrainSectionPathMeshCache.has(key)) terrainSectionPathMeshCache.set(key, createTerrainSectionPathMesh(phase, typeId));
+    return terrainSectionPathMeshCache.get(key);
+  }
+
+  function terrainSectionGroundMesh(typeId = 'normal') {
+    if (!terrainSectionGroundMeshCache.has(typeId)) terrainSectionGroundMeshCache.set(typeId, createTerrainSectionGroundMesh(typeId));
+    return terrainSectionGroundMeshCache.get(typeId);
   }
 
   function createRigPartMesh(name) {
@@ -1174,7 +1209,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.0';
+const RIG_TEXTURE_VERSION = '1.0.1';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1232,7 +1267,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const TILE = { minX: -62, maxX: 62 };
   const TILE_WIDTH = TILE.maxX - TILE.minX;
 
-  // v1.0.0 terrain-section foundation. Sections are fixed in world space rather
+  // v1.0.1 terrain-section foundation. Sections are fixed in world space rather
   // than being children of the old 124 m scenery repeat. Normal sections are
   // visually identical; later versions can replace individual section geometry.
   const TERRAIN_SECTION_LENGTH = 10;
@@ -1240,9 +1275,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const TERRAIN_SECTION_RENDER_RADIUS = 9;
   const TERRAIN_SECTION_PATH_PHASE_COUNT = 62; // 62 × 10 m = 620 m = 5 × old 124 m terrain periods.
   const TERRAIN_SECTION_STORAGE_KEY = 'sidescroll.terrain-sections.v1';
+  const TERRAIN_SECTION_TYPES = {
+    normal:{ id:'normal', label:'Normal' },
+    testHill:{ id:'testHill', label:'Test Hill' }
+  };
   let terrainSectionGuidesVisible = false;
   let terrainSelectedSectionIndex = 0;
   let terrainHiddenSections = new Set();
+  let terrainSectionTypes = new Map();
   let terrainLastUiCurrentIndex = null;
 
   function terrainSectionIndexAt(x) {
@@ -1253,6 +1293,40 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const i = Math.trunc(Number(index) || 0);
     const center = i * TERRAIN_SECTION_LENGTH;
     return { index:i, center, minX:center - TERRAIN_SECTION_HALF, maxX:center + TERRAIN_SECTION_HALF };
+  }
+
+  function terrainSectionType(index) {
+    const id = terrainSectionTypes.get(Math.trunc(Number(index) || 0)) || 'normal';
+    return TERRAIN_SECTION_TYPES[id] ? id : 'normal';
+  }
+
+  function terrainSectionTypeAtX(x) {
+    return terrainSectionType(terrainSectionIndexAt(x));
+  }
+
+  function terrainSectionTypeLabel(index) {
+    return TERRAIN_SECTION_TYPES[terrainSectionType(index)]?.label || 'Normal';
+  }
+
+  function setTerrainSectionType(index, typeId) {
+    const i = Math.trunc(Number(index) || 0);
+    const next = TERRAIN_SECTION_TYPES[typeId] ? typeId : 'normal';
+    if (next === 'normal') terrainSectionTypes.delete(i);
+    else terrainSectionTypes.set(i, next);
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  }
+
+  // Temporary v1.0.1 validation profile. It returns to zero exactly at each
+  // 10 m section boundary, so a Test Hill can sit between Normal neighbours
+  // without cracks. Later feature types can replace this with their own surface rules.
+  function terrainSectionFeatureRiseAtX(x) {
+    const index = terrainSectionIndexAt(x);
+    if (terrainSectionType(index) !== 'testHill') return 0;
+    const b = terrainSectionBounds(index);
+    const t = Rig.clamp((x - b.minX) / TERRAIN_SECTION_LENGTH, 0, 1);
+    const wave = Math.sin(Math.PI * t);
+    return wave * wave * 0.82;
   }
 
   function terrainSectionWorldU(x) {
@@ -1266,6 +1340,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       terrainSectionGuidesVisible = !!saved.guides;
       terrainSelectedSectionIndex = Number.isFinite(Number(saved.selected)) ? Math.trunc(Number(saved.selected)) : 0;
       terrainHiddenSections = new Set(Array.isArray(saved.hidden) ? saved.hidden.map(Number).filter(Number.isFinite).map(Math.trunc) : []);
+      terrainSectionTypes = new Map();
+      if (saved.types && typeof saved.types === 'object') {
+        for (const [key, value] of Object.entries(saved.types)) {
+          const i = Number(key);
+          if (Number.isFinite(i) && TERRAIN_SECTION_TYPES[value] && value !== 'normal') terrainSectionTypes.set(Math.trunc(i), value);
+        }
+      }
     } catch (_) {}
   }
 
@@ -1274,7 +1355,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       localStorage.setItem(TERRAIN_SECTION_STORAGE_KEY, JSON.stringify({
         guides:!!terrainSectionGuidesVisible,
         selected:terrainSelectedSectionIndex,
-        hidden:[...terrainHiddenSections].sort((a,b)=>a-b)
+        hidden:[...terrainHiddenSections].sort((a,b)=>a-b),
+        types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0]))
       }));
     } catch (_) {}
   }
@@ -1400,7 +1482,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // objects and platform collision all reference this same centre line rather
   // than each using a slightly different interpretation of the path mesh.
   function playSurfaceYAt(x) {
-    return pathGroundYAt(x, pathZ);
+    return pathGroundYAt(x, pathZ) + terrainSectionFeatureRiseAtX(x);
   }
 
   const CRATE_HALF_WIDTH_FACTOR = 0.43;
@@ -5771,9 +5853,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ctx.stroke();
       ctx.setLineDash([]);
 
-      const labelPoint = projectWorldPoint(b.center, pathGroundYAt(b.center,0) + 0.12, 0.25);
+      const labelPoint = projectWorldPoint(b.center, playSurfaceYAt(b.center) + 0.12, 0.25);
       if (labelPoint && labelPoint.x > -40 && labelPoint.x < editorOverlay.clientWidth + 40) {
-        const label = `S${i}${hidden ? ' · HIDDEN' : ''}`;
+        const typeTag = terrainSectionType(i) === 'normal' ? '' : ` · ${terrainSectionTypeLabel(i).toUpperCase()}`;
+        const label = `S${i}${typeTag}${hidden ? ' · HIDDEN' : ''}`;
         const tw = ctx.measureText(label).width + 10;
         ctx.fillStyle = current ? 'rgba(31,69,65,.90)' : (selected ? 'rgba(72,30,51,.88)' : 'rgba(20,31,34,.68)');
         ctx.fillRect(labelPoint.x - tw*0.5, labelPoint.y - 10, tw, 18);
@@ -7162,13 +7245,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // texture jump and neighbouring sections share exactly the same edge UV.
     for (const i of indices) {
       const b = terrainSectionBounds(i);
+      const typeId = terrainSectionType(i);
       const u0 = terrainSectionWorldU(b.minX);
       const uScale = (TERRAIN_SECTION_LENGTH / TILE_WIDTH) * 24.0;
-      drawObject(ground, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0, 0] });
+      drawObject(ground, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionGroundMesh(typeId), uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0, 0] });
     }
     for (const i of indices) {
       const b = terrainSectionBounds(i);
-      drawObject(pathStrip, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionPathMesh(i), uvScale:[1,1], uvOffset:[0,0] });
+      const typeId = terrainSectionType(i);
+      drawObject(pathStrip, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionPathMesh(i, typeId), uvScale:[1,1], uvOffset:[0,0] });
     }
   }
 
@@ -7310,7 +7395,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
-    // v1.0.0: normal terrain now comes from contiguous 10 m world sections.
+    // v1.0.1: terrain comes from contiguous 10 m world sections with swappable section types.
     // With every section visible this should be visually indistinguishable from
     // the previous continuous terrain; the section editor can hide any one
     // piece to verify that the segmentation is genuinely working.
@@ -7438,7 +7523,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (sectionCurrentEl) sectionCurrentEl.textContent = terrainSectionLabel(currentIndex);
     if (sectionCurrentBoundsEl) sectionCurrentBoundsEl.textContent = terrainSectionBoundsLabel(currentIndex);
     if (sectionSelectedEl) sectionSelectedEl.textContent = terrainSectionLabel(terrainSelectedSectionIndex);
-    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · Normal`;
+    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}`;
+    if (sectionTypeSelect) sectionTypeSelect.value = terrainSectionType(terrainSelectedSectionIndex);
     const visible = !terrainHiddenSections.has(terrainSelectedSectionIndex);
     if (sectionVisibleBtn) {
       sectionVisibleBtn.textContent = visible ? 'Terrain visible' : 'Terrain hidden';
@@ -7739,6 +7825,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     try { localStorage.removeItem(ASSET_COLLISION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(COLLECTIBLE_SETUP_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(TERRAIN_SECTION_STORAGE_KEY); } catch (_) {}
     window.location.reload();
   });
   bindEditorPress(exportAllBtn, exportAllGameDesign);
@@ -7810,6 +7897,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(sectionPrevBtn, () => selectTerrainSection(terrainSelectedSectionIndex - 1));
   bindEditorPress(sectionNextBtn, () => selectTerrainSection(terrainSelectedSectionIndex + 1));
   bindEditorPress(sectionPlayerBtn, () => selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x)));
+  sectionTypeSelect?.addEventListener('change', () => {
+    setTerrainSectionType(terrainSelectedSectionIndex, sectionTypeSelect.value);
+    hintEl.textContent = `Section ${terrainSelectedSectionIndex} → ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}`;
+    hintEl.classList.remove('hidden');
+  });
   bindEditorPress(sectionVisibleBtn, () => {
     const i = terrainSelectedSectionIndex;
     if (terrainHiddenSections.has(i)) terrainHiddenSections.delete(i); else terrainHiddenSections.add(i);

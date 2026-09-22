@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.0">
+  <link rel="stylesheet" href="style.css?v=1.0.1">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -104,9 +104,10 @@
               <button id="sidescroll-section-player" type="button">Player</button>
               <button id="sidescroll-section-next" type="button" aria-label="Next terrain section">→</button>
             </div>
+            <label class="sidescroll-section-type-row" for="sidescroll-section-type"><span>SECTION TYPE</span><select id="sidescroll-section-type"><option value="normal">Normal</option><option value="testHill">Test Hill</option></select></label>
             <button id="sidescroll-section-visible" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain visible</button>
             <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
-            <p>v1.0.0 test: 10 m normal sections. Hiding a section only hides its terrain mesh; gameplay collision remains unchanged for this validation pass.</p>
+            <p>v1.0.1 test: choose a section and swap Normal ↔ Test Hill. The hill replaces both terrain meshes and the playable floor profile, then returns cleanly to zero height at the section edges.</p>
           </aside>
 
           <aside class="sidescroll-quick-nav-panel" id="sidescroll-quick-nav-panel" hidden aria-label="Quick scene navigation">
@@ -345,11 +346,11 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=1.0.0"></script>
-  <script src="core.js?v=1.0.0"></script>
-  <script src="walk-rig.js?v=1.0.0"></script>
-  <script src="puzzle-groups.js?v=1.0.0"></script>
-  <script src="baked-game-design.js?v=1.0.0"></script>
-  <script src="sidescroll.js?v=1.0.0"></script>
+  <script src="site-config.js?v=1.0.1"></script>
+  <script src="core.js?v=1.0.1"></script>
+  <script src="walk-rig.js?v=1.0.1"></script>
+  <script src="puzzle-groups.js?v=1.0.1"></script>
+  <script src="baked-game-design.js?v=1.0.1"></script>
+  <script src="sidescroll.js?v=1.0.1"></script>
 </body>
 </html>

@@ -12781,3 +12781,24 @@ body[data-game-id="game-16"] .sidescroll-section-panel p{margin:9px 1px 0;font-s
   body[data-game-id="game-16"] .sidescroll-section-nav button,
   body[data-game-id="game-16"] .sidescroll-section-wide{min-height:29px;}
 }
+
+
+/* SideScroll v1.0.1 — section type swap test. Keep the editor above the right-side drive controls. */
+body[data-game-id="game-16"] .sidescroll-section-panel{
+  bottom:max(132px,calc(env(safe-area-inset-bottom) + 118px));
+  max-height:calc(100vh - 184px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+body[data-game-id="game-16"] .sidescroll-section-type-row{
+  display:grid;grid-template-columns:auto 1fr;align-items:center;gap:9px;margin:7px 0 2px;
+  padding:7px 8px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(255,255,255,.045);
+}
+body[data-game-id="game-16"] .sidescroll-section-type-row span{font-size:7px;font-weight:900;letter-spacing:.12em;color:#9fb8b2;}
+body[data-game-id="game-16"] .sidescroll-section-type-row select{
+  min-width:0;height:28px;border:1px solid rgba(237,244,244,.16);border-radius:7px;padding:0 25px 0 8px;
+  background:rgba(255,255,255,.07);color:#edf5f2;font-size:8px;font-weight:900;letter-spacing:.035em;
+}
+@media (max-height:520px){
+  body[data-game-id="game-16"] .sidescroll-section-panel{bottom:max(108px,calc(env(safe-area-inset-bottom) + 96px));max-height:calc(100vh - 152px);}
+}
