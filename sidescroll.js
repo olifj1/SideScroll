@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.6: adds a reusable per-asset Floor Line anchor.
-  // Billboard artwork can now extend below its logical terrain contact point without hard-coded Y offsets.
+  // SideScroll v1.0.9: adds the standalone Asset Lab and shared asset defaults.
+  // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -718,6 +718,8 @@
   }
 
   function createRiverWaterMesh(sectionIndex, settingsOverride = null, zSegments = 32, xSegments = 4) {
+    const requestedWidth = riverSectionSettings(sectionIndex, settingsOverride).width;
+    const waterXSegments = Math.max(xSegments, Math.ceil(requestedWidth / 0.9));
     const b = terrainSectionBounds(sectionIndex);
     const vertices = [];
     const indices = [];
@@ -726,11 +728,13 @@
       const tz = iz / zSegments;
       const z = Rig.lerp(WORLD.farZ, GROUND_NEAR_Z, tz);
       const p = riverProfileAtZ(sectionIndex, z, settingsOverride);
-      const left = p.leftLip + p.wallRun * 0.52;
-      const right = p.rightLip - p.wallRun * 0.52;
+      // Run the water slightly underneath each sloping bank so a wide river can
+      // never expose a dry seam between the bank meshes and the water plane.
+      const left = p.leftLip + p.wallRun * 0.30;
+      const right = p.rightLip - p.wallRun * 0.30;
       const row = [];
-      for (let ix = 0; ix <= xSegments; ix++) {
-        const tx = ix / xSegments;
+      for (let ix = 0; ix <= waterXSegments; ix++) {
+        const tx = ix / waterXSegments;
         const x = Rig.lerp(left, right, tx);
         const u = tx * 2.35;
         const v = (z - WORLD.farZ) * 0.185;
@@ -740,7 +744,7 @@
       rows.push(row);
     }
     for (let iz = 0; iz < zSegments; iz++) {
-      for (let ix = 0; ix < xSegments; ix++) {
+      for (let ix = 0; ix < waterXSegments; ix++) {
         const a = rows[iz][ix];
         const b0 = rows[iz + 1][ix];
         const c = rows[iz][ix + 1];
@@ -1210,7 +1214,7 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.6`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.9`, key, null, size[0] / size[1]);
   });
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -1393,7 +1397,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.6';
+const RIG_TEXTURE_VERSION = '1.0.9';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1465,6 +1469,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     river:{ id:'river', label:'River' }
   };
   const DEFAULT_RIVER_SECTION = Object.freeze({ width:4.8 });
+  const RIVER_SECTION_MIN_WIDTH = 3.4;
+  const RIVER_SECTION_MAX_WIDTH = 8.8;
   let terrainSectionGuidesVisible = false;
   let terrainSectionGuidesPersist = false;
   let terrainSelectedSectionIndex = 0;
@@ -1498,7 +1504,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function riverSectionSettings(index, override = null) {
     const stored = override || terrainSectionSettings.get(Math.trunc(Number(index) || 0)) || null;
-    const width = Rig.clamp(Number(stored?.width) || DEFAULT_RIVER_SECTION.width, 3.4, 6.6);
+    const width = Rig.clamp(Number(stored?.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH);
     return { width };
   }
 
@@ -1522,10 +1528,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const b = terrainSectionBounds(index);
     const settings = riverSectionSettings(index, settingsOverride);
     const phase = index * 0.731;
-    const meander = Math.sin(z * 0.165 + phase) * 0.34 + Math.sin(z * 0.071 - phase * 1.37) * 0.18;
+    const rawMeander = Math.sin(z * 0.165 + phase) * 0.34 + Math.sin(z * 0.071 - phase * 1.37) * 0.18;
     const widthVariation = Math.sin(z * 0.245 - phase * 0.43) * 0.16 + Math.sin(z * 0.113 + phase) * 0.09;
-    const width = Rig.clamp(settings.width + widthVariation, 3.15, 6.75);
-    const centre = b.center + meander;
+    const width = Rig.clamp(settings.width + widthVariation, RIVER_SECTION_MIN_WIDTH - 0.25, RIVER_SECTION_MAX_WIDTH);
+    // Keep a small flat shoulder inside the 10 m section even at maximum width.
+    // As the river approaches bridge-scale widths its meander naturally reduces,
+    // preventing either lip from pushing through the neighbouring section seam.
+    const bankEdgeMargin = 0.60;
+    const maxCentreOffset = Math.max(0, TERRAIN_SECTION_HALF - bankEdgeMargin - width * 0.5);
+    const centre = b.center + Rig.clamp(rawMeander, -maxCentreOffset, maxCentreOffset);
     const leftLip = centre - width * 0.5;
     const rightLip = centre + width * 0.5;
     const wallRun = Math.min(0.92, Math.max(0.68, width * 0.17));
@@ -1593,7 +1604,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function setTerrainSectionRiverWidth(index, width) {
     const i = Math.trunc(Number(index) || 0);
     const previous = riverSectionSettings(i);
-    const next = { width:Rig.clamp(Number(width) || DEFAULT_RIVER_SECTION.width, 3.4, 6.6) };
+    const next = { width:Rig.clamp(Number(width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH) };
     if (Math.abs(previous.width - next.width) < 0.001) { updateTerrainSectionUi(true); return; }
     terrainSectionSettings.set(i, next);
     if (terrainSectionType(i) === 'river') reanchorTerrainSectionObjects(i, 'river', 'river', previous, next);
@@ -1625,7 +1636,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         for (const [key, value] of Object.entries(saved.settings)) {
           const i = Number(key);
           if (!Number.isFinite(i) || !value || typeof value !== 'object') continue;
-          terrainSectionSettings.set(Math.trunc(i), { width:Rig.clamp(Number(value.width) || DEFAULT_RIVER_SECTION.width, 3.4, 6.6) });
+          terrainSectionSettings.set(Math.trunc(i), { width:Rig.clamp(Number(value.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH) });
         }
       }
     } catch (_) {}
@@ -1790,12 +1801,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // Floor Line is the normalised height, measured up from the bottom of the
   // billboard, that should meet the terrain. Existing assets default to zero,
   // so their legacy bottom-on-ground behaviour remains unchanged.
+  const ASSET_LAYOUT_STORAGE_KEY = 'sidescroll.asset-layout.v1';
   const ASSET_GROUND_LINE_DEFAULTS = Object.freeze({
     'bridge-left': 1.62 / 2.20,
     'bridge-right': 1.58 / 2.20
   });
 
+  let assetLayoutDefaults = (() => {
+    try {
+      const raw = localStorage.getItem(ASSET_LAYOUT_STORAGE_KEY);
+      const parsed = raw !== null ? JSON.parse(raw || '{}') : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  })();
+
   function assetGroundLineDefault(assetName) {
+    const authored = Number(assetLayoutDefaults?.[assetName]?.groundLine);
+    if (Number.isFinite(authored)) return Rig.clamp(authored, 0, 1);
     const value = ASSET_GROUND_LINE_DEFAULTS[assetName];
     return Rig.clamp(Number.isFinite(value) ? value : 0, 0, 1);
   }
@@ -1915,6 +1937,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'puzzle-log-c': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'puzzle-log-d': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'fallen-tree': { solid:true, supportSurface:true },
+    'bridge-left': { solid:true, supportSurface:true },
+    'bridge-right': { solid:true, supportSurface:true },
     'tree-stump': {},
     'broken-branch': {},
     'stone-wall': { socketHost:true },
@@ -2131,9 +2155,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
       layer: opts.layer || classifyLayer(z),
       wrap: opts.wrap !== false,
-      collision: category === 'gameplay'
-        ? (opts.collisionOverride ? cloneCollision(opts.collision) : behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision))
-        : cloneCollision(opts.collision),
+      collision: opts.collisionOverride
+        ? cloneCollision(opts.collision)
+        : behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision),
       collisionOverride: !!opts.collisionOverride,
       shadow: opts.shadow ? { ...opts.shadow } : null,
       deleted: !!opts.deleted,
@@ -2144,6 +2168,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       sockets: Array.isArray(opts.sockets) ? opts.sockets.map(socket => ({ ...socket })) : [],
       socketedTo: opts.socketedTo ? { ...opts.socketedTo } : null
     };
+    // Support/solid behaviour belongs to the asset, not to its editor library
+    // category. This lets authored feature art such as bridge halves remain
+    // puzzle dressing while still behaving as walkable/supporting geometry.
+    if (obj.collision && hasAssetBehaviourProfile(type)) {
+      obj.collision.platform = !!assetBehaviours(type).supportSurface;
+    }
     collection.push(obj);
     return obj;
   }
@@ -4025,7 +4055,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function applyAssetBehaviourToObject(obj) {
-    if (!obj || obj.category !== 'gameplay' || !hasAssetBehaviourProfile(obj.assetName)) return;
+    if (!obj || !hasAssetBehaviourProfile(obj.assetName)) return;
     const behaviour = assetBehaviours(obj.assetName);
     if (!obj.collisionOverride) {
       const inherited = collisionFromAssetDefault(obj.assetName, obj.sx, obj.sy);
@@ -5675,6 +5705,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function defaultAssetHeight(name) {
+    const authoredHeight = Number(assetLayoutDefaults?.[name]?.defaultHeight);
+    if (Number.isFinite(authoredHeight)) return Rig.clamp(authoredHeight, 0.25, 12);
     const info = editorAssetInfo.get(name);
     if (Number.isFinite(info?.defaultHeight)) return info.defaultHeight;
     if (name === 'crate') return 0.88;
@@ -5698,7 +5730,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (gameplayCollision && behaviour.stackable) gameplayCollision.height = STACK_ITEM_HEIGHT;
     const defaultGameLayerLocked = typeof info.gameplayLayerLocked === 'boolean' ? info.gameplayLayerLocked : info.category === 'gameplay';
     const placementZ = info.category === 'gameplay' && defaultGameLayerLocked ? pathZ : point.z;
-    const groundLine = Rig.clamp(Number.isFinite(info.defaultGroundLine) ? Number(info.defaultGroundLine) : assetGroundLineDefault(type), 0, 1);
+    const groundLine = assetGroundLineDefault(type);
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
       id, userAdded:!puzzleInstance, baseSx:w, baseSy:h,
       y:terrainAnchorBaseY(point.x, point.z, info.category, defaultGameLayerLocked) + (Number(info.defaultYOffset) || 0) - groundLine * h,
@@ -5796,7 +5828,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         halfWidth: Math.max(0.18, selectedObject.sx * (selectedObject.category === 'gameplay' ? 0.43 : 0.34)),
         height: Math.max(0.24, selectedObject.sy * (selectedObject.category === 'gameplay' ? CRATE_COLLISION_HEIGHT_FACTOR : 0.66)),
         depth: Math.max(0.42, Math.min(1.15, selectedObject.sx * 0.42)),
-        platform: selectedObject.category === 'gameplay' && objectHasBehaviour(selectedObject, 'supportSurface'),
+        platform: objectHasBehaviour(selectedObject, 'supportSurface'),
         points: defaultCollisionPoints(),
         behaviourGenerated: false
       };
@@ -6627,7 +6659,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function isSupportSurfaceObject(obj) {
-    return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay' && !!obj.collision
+    return !!obj && !obj.deleted && !obj.carried && !!obj.collision
       && (objectHasBehaviour(obj, 'supportSurface') || !!obj.collision.platform);
   }
 
@@ -7902,7 +7934,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
-    // v1.0.6: terrain comes from contiguous 10 m world sections; River sections swap the normal floor for bank + water meshes.
+    // v1.0.8: terrain comes from contiguous 10 m world sections; River sections can now widen to a full bridge-scale crossing.
     // With every section visible this should be visually indistinguishable from
     // the previous continuous terrain; the section editor can hide any one
     // piece to verify that the segmentation is genuinely working.

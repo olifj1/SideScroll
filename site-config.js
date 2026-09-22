@@ -4,7 +4,7 @@ window.APP_CONFIG = {
     displayName: "SideScroll",
     shortName: "SideScroll",
     tagline: "A small woodland adventure in development.",
-    description: "SideScroll and its companion Walk Lab animation tool."
+    description: "SideScroll with companion Walk Lab animation and Asset Lab setup tools."
   },
   games: [
     {

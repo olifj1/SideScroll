@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" class="ss-asset-lab-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#172026">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css?v=1.0.9">
+  <title>Asset Lab · SideScroll</title>
+</head>
+<body class="ss-asset-lab">
+  <main class="assetlab-shell">
+    <header class="assetlab-topbar">
+      <a class="assetlab-home" href="index.html">← Home</a>
+      <div class="assetlab-title"><small>SIDESCROLL</small><strong>Asset Lab</strong></div>
+      <div class="assetlab-current"><small>EDITING</small><strong id="assetlab-current-name">Broken Bridge · Left</strong></div>
+      <div class="assetlab-save-state" id="assetlab-save-state">Saved</div>
+    </header>
+
+    <aside class="assetlab-library" aria-label="Asset library">
+      <div class="assetlab-panel-head"><small>LIBRARY</small><strong>Assets</strong></div>
+      <div class="assetlab-filter-row">
+        <button type="button" class="active" data-filter="puzzle">Puzzle</button>
+        <button type="button" data-filter="environment">Environment</button>
+      </div>
+      <div class="assetlab-asset-list" id="assetlab-asset-list"></div>
+    </aside>
+
+    <section class="assetlab-stage-wrap">
+      <canvas id="assetlab-canvas" aria-label="Isolated asset setup viewport"></canvas>
+      <div class="assetlab-stage-help" id="assetlab-stage-help">Drag the orange collision points. The cyan line is the asset floor.</div>
+      <div class="assetlab-stage-tools">
+        <button type="button" id="assetlab-fit">Fit View</button>
+        <button type="button" id="assetlab-reference" class="active" aria-pressed="true">Player Reference</button>
+      </div>
+    </section>
+
+    <aside class="assetlab-controls">
+      <section class="assetlab-control-section">
+        <div class="assetlab-control-heading"><small>PLACEMENT</small><strong>Asset defaults</strong></div>
+        <label class="assetlab-range-row">
+          <span><strong>Height</strong><small id="assetlab-height-value">2.20 m</small></span>
+          <input id="assetlab-height" type="range" min="0.25" max="12" step="0.01" value="2.2">
+        </label>
+        <label class="assetlab-range-row">
+          <span><strong>Floor line</strong><small id="assetlab-floor-value">74%</small></span>
+          <input id="assetlab-floor" type="range" min="0" max="100" step="1" value="74">
+        </label>
+      </section>
+
+      <section class="assetlab-control-section">
+        <div class="assetlab-control-heading"><small>COLLISION</small><strong>Physical shape</strong></div>
+        <div class="assetlab-button-row">
+          <button type="button" id="assetlab-collision-toggle">Add Collision</button>
+          <button type="button" id="assetlab-collision-reset">Fit Rectangle</button>
+        </div>
+        <label class="assetlab-range-row" id="assetlab-depth-row">
+          <span><strong>Collision depth</strong><small id="assetlab-depth-value">0.80 m</small></span>
+          <input id="assetlab-depth" type="range" min="0.15" max="2.50" step="0.01" value="0.8">
+        </label>
+        <p class="assetlab-note">Collision is saved as an asset default. Orange handles edit its profile; yellow means it is a support surface.</p>
+      </section>
+
+      <section class="assetlab-control-section assetlab-behaviour-section">
+        <div class="assetlab-control-heading"><small>BEHAVIOUR</small><strong>Gameplay properties</strong></div>
+        <div id="assetlab-behaviours" class="assetlab-behaviours"></div>
+      </section>
+
+      <div class="assetlab-bottom-actions">
+        <button type="button" id="assetlab-reset" class="assetlab-danger">Reset Asset Defaults</button>
+        <a href="play.html" class="assetlab-game-link">Open Build / Test →</a>
+      </div>
+    </aside>
+  </main>
+
+  <script src="site-config.js?v=1.0.9"></script>
+  <script src="core.js?v=1.0.9"></script>
+  <script src="asset-lab.js?v=1.0.9"></script>
+</body>
+</html>

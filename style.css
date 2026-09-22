@@ -12930,3 +12930,52 @@ body[data-game-id="game-16"] #sidescroll-editor-ground-line.active{
     min-width:0;
   }
 }
+
+/* SideScroll v1.0.8 — keep Floor Line controls clear of the asset being aligned. */
+body[data-game-id="game-16"] .sidescroll-ground-line-editor{
+  left:auto;
+  right:calc(max(10px,env(safe-area-inset-right)) + 10px);
+  top:calc(max(10px,env(safe-area-inset-top)) + 66px);
+  bottom:auto;
+  width:min(430px,calc(100vw - 40px));
+  min-width:280px;
+  background:rgba(20,28,30,.58);
+  border-color:rgba(235,244,241,.24);
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+@media(max-width:820px){
+  body[data-game-id="game-16"] .sidescroll-ground-line-editor{
+    left:auto;
+    right:max(8px,env(safe-area-inset-right));
+    top:calc(max(8px,env(safe-area-inset-top)) + 58px);
+    bottom:auto;
+    width:min(410px,calc(100vw - 24px));
+    min-width:0;
+  }
+}
+
+/* ============================================================
+   SideScroll v1.0.9 — Asset Lab
+   ============================================================ */
+html.ss-asset-lab-page,
+html.ss-asset-lab-page body{width:100%;height:100%;min-height:0;overflow:hidden;background:#11191e;color:#eef3f1;}
+body.ss-asset-lab{position:fixed;inset:0;min-height:0!important;background:#11191e!important;}
+.assetlab-shell{position:fixed;inset:0;display:grid;grid-template-columns:minmax(180px,19vw) minmax(0,1fr) minmax(260px,28vw);grid-template-rows:58px minmax(0,1fr);background:#11191e;color:#eef3f1;overflow:hidden;}
+.assetlab-topbar{grid-column:1/-1;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:16px;padding:8px max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left));border-bottom:1px solid rgba(238,243,241,.12);background:rgba(15,23,28,.96);z-index:5;}
+.assetlab-home,.assetlab-game-link{color:#eef3f1;text-decoration:none;border:1px solid rgba(238,243,241,.18);background:rgba(255,255,255,.06);border-radius:12px;min-height:38px;padding:0 13px;display:inline-flex;align-items:center;font-size:10px;font-weight:850;letter-spacing:.04em;}
+.assetlab-title,.assetlab-current{display:flex;flex-direction:column;min-width:0;}.assetlab-title small,.assetlab-current small,.assetlab-panel-head small,.assetlab-control-heading small{font-size:8px;font-weight:900;letter-spacing:.16em;color:#91aaa3;}.assetlab-title strong{font-size:18px;}.assetlab-current{justify-self:center;text-align:center}.assetlab-current strong{max-width:36vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+.assetlab-save-state{justify-self:end;padding:7px 11px;border-radius:999px;background:rgba(112,185,164,.13);color:#bceada;font-size:9px;font-weight:850;transition:.2s}.assetlab-save-state.pulse{background:rgba(112,185,164,.32);}
+.assetlab-library,.assetlab-controls{min-height:0;background:#182229;border-color:rgba(238,243,241,.1);overflow:hidden;}
+.assetlab-library{grid-column:1;border-right:1px solid rgba(238,243,241,.1);display:flex;flex-direction:column;padding:14px 10px 10px;}
+.assetlab-controls{grid-column:3;border-left:1px solid rgba(238,243,241,.1);overflow-y:auto;padding:14px 12px max(14px,env(safe-area-inset-bottom));scrollbar-width:none}.assetlab-controls::-webkit-scrollbar,.assetlab-asset-list::-webkit-scrollbar{display:none}
+.assetlab-panel-head,.assetlab-control-heading{display:flex;flex-direction:column;gap:2px;margin:0 3px 10px}.assetlab-panel-head strong,.assetlab-control-heading strong{font-size:15px;}
+.assetlab-filter-row,.assetlab-button-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}.assetlab-filter-row button,.assetlab-button-row button,.assetlab-stage-tools button{min-height:35px;border:1px solid rgba(238,243,241,.14);border-radius:10px;background:rgba(255,255,255,.04);color:#dce7e3;font-size:8px;font-weight:850;letter-spacing:.05em}.assetlab-filter-row button.active,.assetlab-button-row button.active,.assetlab-stage-tools button.active{background:rgba(118,158,149,.24);border-color:rgba(172,211,200,.42)}
+.assetlab-asset-list{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px}.assetlab-group-label{padding:9px 5px 2px;font-size:7px;font-weight:900;letter-spacing:.12em;color:#718b84}.assetlab-asset-row{width:100%;min-height:50px;border:1px solid rgba(238,243,241,.09);border-radius:11px;background:rgba(255,255,255,.025);color:#eef3f1;display:grid;grid-template-columns:42px 1fr;gap:8px;align-items:center;text-align:left;padding:5px 7px}.assetlab-asset-row.active{background:rgba(107,151,141,.22);border-color:rgba(160,207,195,.42)}.assetlab-asset-row img{width:42px;height:38px;object-fit:contain;background:rgba(0,0,0,.12);border-radius:7px}.assetlab-asset-row span{display:flex;flex-direction:column;min-width:0;gap:3px}.assetlab-asset-row strong{font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.assetlab-asset-row small{font-size:6.5px;letter-spacing:.06em;color:#8fa39e}
+.assetlab-stage-wrap{grid-column:2;position:relative;min-width:0;min-height:0;overflow:hidden;background:#162027}.assetlab-stage-wrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.assetlab-stage-help{position:absolute;left:50%;top:12px;transform:translateX(-50%);max-width:74%;padding:7px 11px;border-radius:999px;background:rgba(10,16,20,.68);color:rgba(238,243,241,.74);font-size:8px;font-weight:750;pointer-events:none;text-align:center}.assetlab-stage-tools{position:absolute;left:10px;bottom:10px;display:flex;gap:6px}.assetlab-stage-tools button{padding:0 10px;background:rgba(13,20,25,.72);backdrop-filter:blur(8px)}
+.assetlab-control-section{padding:0 0 13px;margin:0 0 13px;border-bottom:1px solid rgba(238,243,241,.1)}.assetlab-range-row{display:flex;flex-direction:column;gap:7px;margin:9px 2px 12px}.assetlab-range-row>span{display:flex;align-items:center;justify-content:space-between;gap:10px}.assetlab-range-row strong{font-size:9px}.assetlab-range-row small{font-size:8px;color:#b8ccc6;font-variant-numeric:tabular-nums}.assetlab-range-row input{width:100%;accent-color:#7ed8c7}.assetlab-note{margin:7px 2px 0;color:rgba(238,243,241,.54);font-size:7.5px;line-height:1.4}
+.assetlab-behaviours{display:flex;flex-direction:column;gap:5px}.assetlab-behaviour{min-height:45px;width:100%;padding:7px 9px;border:1px solid rgba(238,243,241,.1);border-radius:10px;background:rgba(255,255,255,.025);color:#eef3f1;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;text-align:left}.assetlab-behaviour.active{background:rgba(111,155,145,.18);border-color:rgba(158,202,191,.34)}.assetlab-behaviour span{display:flex;flex-direction:column;gap:2px}.assetlab-behaviour strong{font-size:8.5px}.assetlab-behaviour small{font-size:6.5px;line-height:1.25;color:rgba(238,243,241,.50)}.assetlab-behaviour i{font-style:normal;font-size:7px;font-weight:900;color:#94aaa4}.assetlab-behaviour.active i{color:#c8f2e7}.assetlab-bottom-actions{display:flex;flex-direction:column;gap:7px}.assetlab-bottom-actions button,.assetlab-game-link{width:100%;justify-content:center}.assetlab-bottom-actions button{min-height:38px;border-radius:10px;border:1px solid rgba(238,243,241,.12);background:rgba(255,255,255,.04);color:#eef3f1;font-size:8px;font-weight:850}.assetlab-bottom-actions .assetlab-danger{color:#efc0b7;border-color:rgba(225,126,107,.22)}
+.ss-launch-grid-four{grid-template-columns:1fr 1fr!important}.ss-launch-grid-four .ss-launch-card{min-height:92px;padding:13px;border-radius:17px}.ss-launch-grid-four .ss-launch-mark{width:34px;height:34px;border-radius:10px;font-size:17px}.ss-launch-grid-four .ss-launch-copy strong{font-size:17px}.ss-launch-grid-four .ss-launch-copy small{font-size:8px}.ss-launch-grid-four .ss-launch-arrow{font-size:18px}
+@media(max-height:390px){.assetlab-shell{grid-template-rows:50px minmax(0,1fr);grid-template-columns:minmax(158px,18vw) minmax(0,1fr) minmax(235px,28vw)}.assetlab-topbar{padding-top:5px;padding-bottom:5px}.assetlab-controls,.assetlab-library{padding-top:9px}.assetlab-control-section{margin-bottom:9px;padding-bottom:9px}.assetlab-range-row{margin:6px 2px 8px}.assetlab-behaviour{min-height:39px;padding:5px 8px}.assetlab-behaviour small{display:none}.assetlab-stage-help{top:7px}.ss-launch-grid-four .ss-launch-card{min-height:74px;padding:10px}.ss-launch-grid-four .ss-launch-mark{width:29px;height:29px}.ss-launch-grid-four .ss-launch-copy strong{font-size:15px}}
+@media(max-width:760px) and (orientation:landscape){.assetlab-shell{grid-template-columns:150px minmax(0,1fr) 220px}.assetlab-current{display:none}.assetlab-topbar{grid-template-columns:auto auto 1fr}.assetlab-title strong{font-size:15px}.assetlab-asset-row{grid-template-columns:34px 1fr}.assetlab-asset-row img{width:34px;height:32px}.assetlab-controls{padding-left:8px;padding-right:8px}}
