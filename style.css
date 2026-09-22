@@ -12802,3 +12802,31 @@ body[data-game-id="game-16"] .sidescroll-section-type-row select{
 @media (max-height:520px){
   body[data-game-id="game-16"] .sidescroll-section-panel{bottom:max(108px,calc(env(safe-area-inset-bottom) + 96px));max-height:calc(100vh - 152px);}
 }
+
+/* SideScroll v1.0.2 — terrain anchoring + independent Edit/Sections controls. */
+body[data-game-id="game-16"] .sidescroll-section-persist-row{
+  display:grid;grid-template-columns:1fr auto;align-items:center;gap:9px;margin:6px 0 2px;
+  padding:7px 8px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(255,255,255,.045);
+}
+body[data-game-id="game-16"] .sidescroll-section-persist-row span{
+  font-size:7px;font-weight:900;letter-spacing:.09em;color:#b9c8c5;line-height:1.25;
+}
+body[data-game-id="game-16"] .sidescroll-section-persist-row input{
+  width:18px;height:18px;accent-color:#9bb8b1;
+}
+body[data-game-id="game-16"] .sidescroll-editor-panel-topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 7px;
+  padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,.10);
+}
+body[data-game-id="game-16"] .sidescroll-editor-panel-topbar strong{
+  font-size:9px;font-weight:950;letter-spacing:.14em;color:#b9c8c5;
+}
+body[data-game-id="game-16"] .sidescroll-editor-panel-topbar button{
+  min-height:28px!important;padding:0 14px!important;border:1px solid #aec7c0!important;border-radius:8px!important;
+  background:#dbe7e2!important;color:#385a55!important;font-size:8px!important;font-weight:950!important;letter-spacing:.06em!important;
+}
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-editor-panel-topbar{display:none!important;}
+@media (max-height:520px){
+  body[data-game-id="game-16"] .sidescroll-editor-panel-topbar{margin-bottom:5px;padding-bottom:5px;}
+  body[data-game-id="game-16"] .sidescroll-section-persist-row{padding:5px 7px;margin-top:4px;}
+}

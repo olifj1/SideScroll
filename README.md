@@ -1,9 +1,8 @@
-# SideScroll v1.0.1
+# SideScroll v1.0.2
 
-- Adds swappable terrain section types to the v1.0.0 section foundation.
-- Adds a temporary **Test Hill** section type alongside **Normal**.
-- Section type changes persist per 10 m section.
-- Test Hill replaces both the ground/path meshes and the playable floor height, while matching Normal terrain exactly at each section boundary.
-- Adds a section-type selector to the Sections editor.
-- Keeps the current-section highlighting, section visibility test and previous/next/player navigation.
-- Constrains the Sections panel above the right-side walk/run controls and makes it scroll when landscape height is tight.
+- Grounded environment dressing now follows the local terrain-section height.
+- Grounded puzzle assets also re-anchor when a section changes height, preserving their relative vertical offsets/stacks.
+- Existing saved scene/puzzle object heights are migrated to terrain-relative offsets when restored.
+- Adds a dedicated **Done** button to the Edit panel; the main Menu keeps its normal **Edit** action instead of turning into Done.
+- Section guides now hide automatically when the Sections panel closes.
+- Adds **Keep guides visible when closed** for persistent section debugging.
