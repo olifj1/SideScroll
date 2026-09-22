@@ -5581,6 +5581,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     syncGroundLineEditor();
     syncTransformEditor();
     updateEditorButtons();
+    updatePuzzlePanel();
   }
 
   function setSelectedFreePlacement(enabled) {
@@ -5812,7 +5813,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function updatePuzzlePanel() {
     if (!puzzlePanel) return;
-    const visible = editMode || puzzleTestMode;
+    const visible = (editMode || puzzleTestMode) && !transformEditMode;
     puzzlePanel.hidden = !visible;
     document.body.classList.toggle('sidescroll-puzzle-testing', puzzleTestMode);
     if (!visible) return;
@@ -7427,13 +7428,49 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function platformIsWalkableFrom(obj, proposedX, currentOffset, airborne) {
-    if (!obj?.collision?.platform) return false;
+    if (!isSupportSurfaceObject(obj)) return false;
     const capsule = colliderWorld();
     const rootX = proposedX - capsule.offsetX;
     const topOffset = platformOffsetFor(obj, proposedX, rootX);
     if (!Number.isFinite(topOffset)) return false;
     if (airborne) return currentOffset >= topOffset - PLAYER_COLLISION_SKIN;
     return topOffset <= currentOffset + capsule.stepUp + 0.025;
+  }
+
+  function resolveStaticBodyPenetration(cameraX, feetWorldY) {
+    const offset = character.screenOffsetX;
+    const capsule = colliderWorld();
+    let centreX = cameraX + offset + capsule.offsetX;
+    let changed = false;
+
+    // Run a few passes so overlapping stacked colliders can resolve cleanly.
+    for (let pass = 0; pass < 3; pass += 1) {
+      let passChanged = false;
+      for (const obj of collisionObjects()) {
+        const c = obj.collision;
+        if (!c) continue;
+        const depth = c.depth ?? 0.8;
+        if (Math.abs(obj.z - pathZ) > depth) continue;
+
+        const top = collisionTopHeightAtX(obj, centreX);
+        // Standing on or clearly above the top is valid; only side penetration
+        // below the top needs to be pushed out.
+        if (Number.isFinite(top) && feetWorldY >= top - 0.035) continue;
+
+        const span = collisionBodyEnvelope(obj, feetWorldY);
+        if (!span) continue;
+        if (centreX <= span.minX || centreX >= span.maxX) continue;
+
+        const leftDistance = centreX - span.minX;
+        const rightDistance = span.maxX - centreX;
+        centreX = leftDistance <= rightDistance ? span.minX : span.maxX;
+        passChanged = true;
+        changed = true;
+      }
+      if (!passChanged) break;
+    }
+
+    return changed ? centreX - capsule.offsetX - offset : cameraX;
   }
 
   function resolveObstacleMove(currentCameraX, proposedCameraX, clearanceHeight, airborne = false) {
@@ -8436,10 +8473,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       // new horizontal position. This is the key to stable jumps over gaps/slopes.
       jumpOffset = airborneWorldY - terrainYAfterMove;
       if (jumpVelocity <= 0) {
-        const support = walkableSupportAt(colliderXAfterMove, Infinity, moveDir);
+        // Only consider surfaces that were at/below the feet at the start of
+        // this frame. A higher log/platform must not mask the real floor below
+        // once the capsule has slipped beside it.
+        const landingCeiling = previousCharacterWorldY - terrainYAfterMove + 0.055;
+        const support = walkableSupportAt(colliderXAfterMove, landingCeiling, moveDir);
         if (support) {
           const supportWorldY = terrainYAfterMove + support.offset;
-          if (previousCharacterWorldY >= supportWorldY - 0.04 && airborneWorldY <= supportWorldY) {
+          if (previousCharacterWorldY >= supportWorldY - 0.055 && airborneWorldY <= supportWorldY + 0.01) {
             jumpOffset = support.offset;
             airborneWorldY = supportWorldY;
             jumpVelocity = 0;
@@ -8479,6 +8520,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         jumpCameraBaseY = previousCharacterWorldY;
       }
     }
+
+    // Horizontal movement can legitimately carry an airborne capsule over a
+    // platform, but it must never finish a frame embedded in the platform side.
+    // Resolve any such overlap even when the player has released the stick.
+    const resolvedFeetWorldY = playSurfaceYAt(camera.x + character.screenOffsetX) + jumpOffset;
+    camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY);
 
     const cameraDelta = camera.x - previousCameraX;
     const isWalking = Math.abs(cameraDelta) > 0.0001;
