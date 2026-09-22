@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.15: section-level terrain collision, generic platform replacement and world-space jump/camera support.
+  // SideScroll v1.0.16: river-channel collision cutout, safe editor focus fallback and generic section collision controls.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1518,6 +1518,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return terrainSectionCollisionEnabled(terrainSectionIndexAt(x));
   }
 
+  function terrainCollisionAvailableAt(x, z = pathZ) {
+    const index = terrainSectionIndexAt(x);
+    if (!terrainSectionCollisionEnabled(index)) return false;
+    // River sections keep normal collision on their shoulders/banks, but the
+    // actual channel is a deliberate hole. Authored support colliders can span
+    // that hole without competing with the sloped river mesh underneath.
+    if (terrainSectionType(index) === 'river' && pointInsideRiverChannel(x, z, index)) return false;
+    return true;
+  }
+
   function setTerrainSectionCollisionEnabled(index, enabled) {
     const i = Math.trunc(Number(index) || 0);
     if (enabled) terrainCollisionDisabledSections.delete(i);
@@ -1620,10 +1630,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const settings = riverSectionSettings(i);
     if (next === 'normal') terrainSectionTypes.delete(i);
     else terrainSectionTypes.set(i, next);
-    // A river is normally a gap in the playable floor. Its visible bank/bed mesh
-    // remains, while authored support objects (bridges, planks, platforms, etc.)
-    // supply collision. The section toggle can turn terrain collision back on.
-    if (next === 'river' && previous !== 'river') terrainCollisionDisabledSections.add(i);
+    // River sections keep their bank/shoulder collision by default. The channel
+    // itself is automatically cut out by terrainCollisionAvailableAt(), so any
+    // support-surface object can bridge the gap without a bridge-specific rule.
+    if (next === 'river' && previous !== 'river') terrainCollisionDisabledSections.delete(i);
     reanchorTerrainSectionObjects(i, previous, next, settings, settings);
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
@@ -1668,12 +1678,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           terrainSectionSettings.set(Math.trunc(i), { width:Rig.clamp(Number(value.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH) });
         }
       }
-      // v1.0.15 migration: before the section collision toggle existed, river
-      // terrain was always collidable. Existing river sections migrate to the new
-      // gap-style behaviour once; subsequent saves preserve the user's choice.
-      if (!Array.isArray(saved.collisionDisabled)) {
+      // v1.0.16 migration: v1.0.15 disabled the *entire* 10 m river section,
+      // which also removed perfectly valid bank/shoulder floor. Re-enable river
+      // sections once and let the new point-aware channel cutout create the gap.
+      const collisionModelVersion = Number(saved.collisionModelVersion) || 1;
+      if (collisionModelVersion < 2) {
         for (const [i, typeId] of terrainSectionTypes.entries()) {
-          if (typeId === 'river') terrainCollisionDisabledSections.add(i);
+          if (typeId === 'river') terrainCollisionDisabledSections.delete(i);
         }
       }
     } catch (_) {}
@@ -1687,6 +1698,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         selected:terrainSelectedSectionIndex,
         hidden:[...terrainHiddenSections].sort((a,b)=>a-b),
         collisionDisabled:[...terrainCollisionDisabledSections].sort((a,b)=>a-b),
+        collisionModelVersion:2,
         types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
         settings:Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0]))
       }));
@@ -4759,6 +4771,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     camera.x = marker.x - character.screenOffsetX;
     previousCameraX = camera.x;
     character.x = camera.x + character.screenOffsetX;
+    if (editMode) {
+      const support = editorSafeSupportAt(character.x + colliderWorld().offsetX, Infinity, 0);
+      jumpOffset = support.offset;
+      character.y = playSurfaceYAt(character.x) + jumpOffset;
+      standingOnObject = support.obj;
+      jumping = false;
+      jumpVelocity = 0;
+    }
     updatePuzzleStreaming(character.x);
     hintEl.textContent = `Focused ${markerDefinition(marker)?.label || marker.group} at x ${Number(marker.x).toFixed(1)}`;
     hintEl.classList.remove('hidden');
@@ -5903,9 +5923,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     } else {
       setDriveAxis(0);
       jumping = false;
-      jumpOffset = 0;
       jumpVelocity = 0;
-      standingOnObject = null;
+      const support = editorSafeSupportAt(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity, 0);
+      jumpOffset = support.offset;
+      standingOnObject = support.obj;
+      character.y = playSurfaceYAt(character.x) + jumpOffset;
       hintEl.classList.remove('hidden');
     }
     updateAssetPaletteState();
@@ -6617,7 +6639,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const labelPoint = projectWorldPoint(b.center, playSurfaceYAt(b.center) + 0.12, 0.25);
       if (labelPoint && labelPoint.x > -40 && labelPoint.x < editorOverlay.clientWidth + 40) {
         const typeTag = terrainSectionType(i) === 'normal' ? '' : ` · ${terrainSectionTypeLabel(i).toUpperCase()}`;
-        const collisionTag = terrainSectionCollisionEnabled(i) ? '' : ' · NO COLLISION';
+        const collisionTag = !terrainSectionCollisionEnabled(i)
+        ? ' · NO COLLISION'
+        : (terrainSectionType(i) === 'river' ? ' · CHANNEL GAP' : '');
         const label = `S${i}${typeTag}${collisionTag}${hidden ? ' · HIDDEN' : ''}`;
         const tw = ctx.measureText(label).width + 10;
         ctx.fillStyle = current ? 'rgba(31,69,65,.90)' : (selected ? 'rgba(72,30,51,.88)' : 'rgba(20,31,34,.68)');
@@ -7117,7 +7141,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // support collider can replace it. This is generic: no bridge-name special case.
     const capsule = colliderWorld();
     const rootX = characterX - capsule.offsetX;
-    let best = terrainCollisionEnabledAtX(rootX) ? { obj:null, offset:0, source:'terrain' } : null;
+    let best = terrainCollisionAvailableAt(rootX, pathZ) ? { obj:null, offset:0, source:'terrain' } : null;
     const probe = direction ? direction * capsule.footProbe : 0;
     const sampleXs = direction ? [characterX, characterX + probe] : [characterX];
     for (const obj of collisionObjects()) {
@@ -7136,6 +7160,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function platformUnder(characterX, ceiling = Infinity) {
     return walkableSupportAt(characterX, ceiling, 0);
+  }
+
+  function editorFallbackSupportAt(characterX) {
+    const capsule = colliderWorld();
+    const rootX = characterX - capsule.offsetX;
+    const terrainY = playSurfaceYAt(rootX);
+    const index = terrainSectionIndexAt(rootX);
+    let fallbackWorldY = terrainY;
+    if (terrainSectionType(index) === 'river' && pointInsideRiverChannel(rootX, pathZ, index)) {
+      fallbackWorldY = riverProfileAtZ(index, pathZ).waterY;
+    }
+    return { obj:null, offset:fallbackWorldY - terrainY, source:'editor-fallback' };
+  }
+
+  function editorSafeSupportAt(characterX, ceiling = Infinity, direction = 0) {
+    return walkableSupportAt(characterX, ceiling, direction) || editorFallbackSupportAt(characterX);
   }
 
   function platformIsWalkableFrom(obj, proposedX, currentOffset, airborne) {
@@ -8162,11 +8202,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         }
       }
     } else {
-      const support = walkableSupportAt(colliderXAfterMove, Infinity, moveDir);
+      const support = editMode
+        ? editorSafeSupportAt(colliderXAfterMove, Infinity, moveDir)
+        : walkableSupportAt(colliderXAfterMove, Infinity, moveDir);
       if (support) {
         const supportWorldY = terrainYAfterMove + support.offset;
         const deltaWorld = supportWorldY - previousCharacterWorldY;
-        if (deltaWorld <= capsule.stepUp + 0.025 && deltaWorld >= -capsule.stepDown) {
+        const editorSnap = editMode && support.source === 'editor-fallback';
+        if (editorSnap || (deltaWorld <= capsule.stepUp + 0.025 && deltaWorld >= -capsule.stepDown)) {
           jumpOffset = support.offset;
           standingOnObject = support.obj;
         } else if (deltaWorld < -capsule.stepDown) {
@@ -8179,8 +8222,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           jumpCameraBaseY = previousCharacterWorldY;
         }
       } else {
-        // Terrain collision is disabled here and no support object is underneath.
-        // Keep the current feet height for this frame, then fall naturally.
+        // In Play/Test mode a real unsupported gap remains a gap.
         jumpOffset = previousCharacterWorldY - terrainYAfterMove;
         standingOnObject = null;
         jumping = true;
@@ -8366,7 +8408,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
     if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${selectedRiver.width.toFixed(1)} m`;
     if (sectionCollisionBtn) {
-      sectionCollisionBtn.textContent = collisionEnabled ? 'Terrain collision ON' : 'Terrain collision OFF';
+      sectionCollisionBtn.textContent = collisionEnabled
+        ? (selectedType === 'river' ? 'Bank collision ON · channel gap' : 'Terrain collision ON')
+        : 'Terrain collision OFF';
       sectionCollisionBtn.setAttribute('aria-pressed', String(collisionEnabled));
     }
     if (sectionBankDressBtn) sectionBankDressBtn.hidden = selectedType !== 'river';
@@ -9149,7 +9193,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     setDriveAxis(0);
     jumping = false;
     jumpTime = 0;
-    const support = walkableSupportAt(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity, 0);
+    const support = editMode
+      ? editorSafeSupportAt(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity, 0)
+      : walkableSupportAt(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity, 0);
     if (support) {
       jumpOffset = support.offset;
       standingOnObject = support.obj;
