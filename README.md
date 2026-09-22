@@ -1,10 +1,8 @@
-# SideScroll v1.0.3
+# SideScroll v1.0.5
 
-- Adds a new **River** terrain-section type.
-- River geometry is built in code as three reusable meshes: **left bank**, **right bank**, and a separate **water plane**.
-- Bank tops reuse the existing `terrain-dirt.png` texture; descending bank walls use local UV mapping to avoid stretched top-down texture projection.
-- River edges meander along scene depth instead of remaining perfectly parallel.
-- Adds a per-section **River Width** control (3.4–6.6 m).
-- River sections replace the normal ground/path meshes rather than covering them, leaving a real lowered river bed beneath the water.
-- Procedural forest dressing is automatically cleared from the water channel; manually placed dressing remains available for rocks, reeds and grasses.
-- Grounded environment/puzzle objects continue to re-anchor to the local terrain surface when a section becomes a river or its width changes.
+- Adds a reusable **Floor Line** editor for placed billboard assets.
+- The floor line is stored as a normalised height inside each asset and remains anchored to the terrain while the artwork moves around it.
+- A cyan in-scene guide shows the current floor line while editing, with a live slider and reset control.
+- Ground-line values persist for environment assets and puzzle-owned dressing, and are preserved when objects move, scale, reload, or terrain sections change height.
+- Existing assets still default to bottom-on-ground behaviour. The two broken bridge halves now use built-in floor-line defaults matching their deck height instead of hard-coded negative Y offsets.
+- Existing v1.0.4 placements migrate without jumping: legacy terrain offsets are respected until the object is next saved with the new floor-line data.

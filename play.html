@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.3">
+  <link rel="stylesheet" href="style.css?v=1.0.5">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -112,7 +112,7 @@
             </label>
             <button id="sidescroll-section-visible" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain visible</button>
             <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
-            <p>v1.0.3 test: River is built from three real procedural meshes — left bank, right bank and water. Bank tops use the existing dirt texture; bank walls use local UV mapping.</p>
+            <p>v1.0.5 test: Select any placed asset and use Floor Line to define where its artwork meets the terrain. Bridge halves now use this instead of a hard-coded vertical offset.</p>
           </aside>
 
           <aside class="sidescroll-quick-nav-panel" id="sidescroll-quick-nav-panel" hidden aria-label="Quick scene navigation">
@@ -342,6 +342,7 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-duplicate" type="button"><span>⧉</span><small>DUPLICATE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-down" type="button"><span>−</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-up" type="button"><span>＋</span><small>SCALE</small></button>
+          <button class="sidescroll-editor-tool" id="sidescroll-editor-ground-line" type="button"><span>⌁</span><small>FLOOR LINE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-game-layer" type="button"><span>↔</span><small>GAME LAYER</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision" type="button"><span>▣</span><small>COLLISION</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-collision-remove" type="button"><span>⊘</span><small>REMOVE COLLISION</small></button>
@@ -351,15 +352,25 @@
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-socket-clear" type="button"><span>⊘</span><small>CLEAR SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-delete" type="button"><span>×</span><small>DELETE</small></button>
         </div>
+
+        <div class="sidescroll-ground-line-editor" id="sidescroll-ground-line-editor" hidden aria-label="Asset floor line editor">
+          <div class="sidescroll-ground-line-head">
+            <span><small>FLOOR LINE</small><strong id="sidescroll-ground-line-value">0%</strong></span>
+            <button id="sidescroll-ground-line-reset" type="button">Reset</button>
+            <button id="sidescroll-ground-line-close" type="button" aria-label="Close floor line editor">×</button>
+          </div>
+          <input id="sidescroll-ground-line-input" type="range" min="0" max="1" step="0.005" value="0">
+          <p>The cyan line stays on the terrain while the artwork moves around it.</p>
+        </div>
       </div>
     </section>
   </main>
 
-  <script src="site-config.js?v=1.0.3"></script>
-  <script src="core.js?v=1.0.3"></script>
-  <script src="walk-rig.js?v=1.0.3"></script>
-  <script src="puzzle-groups.js?v=1.0.3"></script>
-  <script src="baked-game-design.js?v=1.0.3"></script>
-  <script src="sidescroll.js?v=1.0.3"></script>
+  <script src="site-config.js?v=1.0.5"></script>
+  <script src="core.js?v=1.0.5"></script>
+  <script src="walk-rig.js?v=1.0.5"></script>
+  <script src="puzzle-groups.js?v=1.0.5"></script>
+  <script src="baked-game-design.js?v=1.0.5"></script>
+  <script src="sidescroll.js?v=1.0.5"></script>
 </body>
 </html>
