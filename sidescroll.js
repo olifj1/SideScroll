@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v0.2.65: denser, slightly larger path-edge foliage with stronger off-path scale growth so the forest floor feels wilder just beyond the walked route.
+  // SideScroll v1.0.0: terrain is rendered as contiguous 10 m world sections, with a section editor/debug overlay for validating seams and section ownership.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -49,6 +49,19 @@
   const stageMenuBtn = document.getElementById('sidescroll-tools');
   const stageMenuPanel = document.getElementById('sidescroll-tools-panel');
   const stageMenuCloseBtn = document.getElementById('sidescroll-tools-close');
+  const sectionBtn = document.getElementById('sidescroll-sections');
+  const sectionPanel = document.getElementById('sidescroll-section-panel');
+  const sectionCloseBtn = document.getElementById('sidescroll-section-close');
+  const sectionGuidesBtn = document.getElementById('sidescroll-section-guides');
+  const sectionCurrentEl = document.getElementById('sidescroll-section-current');
+  const sectionCurrentBoundsEl = document.getElementById('sidescroll-section-current-bounds');
+  const sectionSelectedEl = document.getElementById('sidescroll-section-selected');
+  const sectionSelectedBoundsEl = document.getElementById('sidescroll-section-selected-bounds');
+  const sectionPrevBtn = document.getElementById('sidescroll-section-prev');
+  const sectionPlayerBtn = document.getElementById('sidescroll-section-player');
+  const sectionNextBtn = document.getElementById('sidescroll-section-next');
+  const sectionVisibleBtn = document.getElementById('sidescroll-section-visible');
+  const sectionResetBtn = document.getElementById('sidescroll-section-reset');
   const characterSwapBtn = document.getElementById('sidescroll-character');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
   const cameraEditorPanel = document.getElementById('sidescroll-camera-editor');
@@ -168,7 +181,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, cameraEditorPanel, quickNavPanel, stageMenuPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, cameraEditorPanel, quickNavPanel, stageMenuPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -544,6 +557,46 @@
   }
 
   const pathMesh = createPathMesh();
+  const terrainSectionPathMeshCache = new Map();
+
+  function createTerrainSectionPathMesh(sectionIndex, segments = 6) {
+    const rows = [
+      { z: 1.00, y: 0.00, v: 0.00 },
+      { z: 0.82, y: 0.22, v: 0.12 },
+      { z: 0.68, y: 0.12, v: 0.28 },
+      { z:-0.68, y: 0.12, v: 0.72 },
+      { z:-0.82, y: 0.22, v: 0.88 },
+      { z:-1.00, y: 0.00, v: 1.00 }
+    ];
+    const bounds = terrainSectionBounds(sectionIndex);
+    const vertices = [];
+    const indices = [];
+    for (let ix = 0; ix <= segments; ix++) {
+      const t = ix / segments;
+      const worldX = Rig.lerp(bounds.minX, bounds.maxX, t);
+      const localX = (worldX - bounds.center) / TERRAIN_SECTION_LENGTH;
+      const rise = pathUndulationAtX(worldX);
+      const u = terrainSectionWorldU(worldX);
+      for (const row of rows) vertices.push(localX, row.y + rise, row.z, u, row.v * 1.8);
+    }
+    const rowCount = rows.length;
+    for (let ix = 0; ix < segments; ix++) {
+      for (let iz = 0; iz < rowCount - 1; iz++) {
+        const a = ix * rowCount + iz;
+        const b = (ix + 1) * rowCount + iz;
+        const c = a + 1;
+        const d = b + 1;
+        indices.push(a,b,c, c,b,d);
+      }
+    }
+    return createMesh(new Float32Array(vertices), new Uint16Array(indices));
+  }
+
+  function terrainSectionPathMesh(sectionIndex) {
+    const phase = ((Math.trunc(sectionIndex) % TERRAIN_SECTION_PATH_PHASE_COUNT) + TERRAIN_SECTION_PATH_PHASE_COUNT) % TERRAIN_SECTION_PATH_PHASE_COUNT;
+    if (!terrainSectionPathMeshCache.has(phase)) terrainSectionPathMeshCache.set(phase, createTerrainSectionPathMesh(phase));
+    return terrainSectionPathMeshCache.get(phase);
+  }
 
   function createRigPartMesh(name) {
     const r = Rig.atlasRect(name);
@@ -1121,7 +1174,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '0.2.96';
+const RIG_TEXTURE_VERSION = '1.0.0';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1178,6 +1231,56 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const rand = mulberry32(924315);
   const TILE = { minX: -62, maxX: 62 };
   const TILE_WIDTH = TILE.maxX - TILE.minX;
+
+  // v1.0.0 terrain-section foundation. Sections are fixed in world space rather
+  // than being children of the old 124 m scenery repeat. Normal sections are
+  // visually identical; later versions can replace individual section geometry.
+  const TERRAIN_SECTION_LENGTH = 10;
+  const TERRAIN_SECTION_HALF = TERRAIN_SECTION_LENGTH * 0.5;
+  const TERRAIN_SECTION_RENDER_RADIUS = 9;
+  const TERRAIN_SECTION_PATH_PHASE_COUNT = 62; // 62 × 10 m = 620 m = 5 × old 124 m terrain periods.
+  const TERRAIN_SECTION_STORAGE_KEY = 'sidescroll.terrain-sections.v1';
+  let terrainSectionGuidesVisible = false;
+  let terrainSelectedSectionIndex = 0;
+  let terrainHiddenSections = new Set();
+  let terrainLastUiCurrentIndex = null;
+
+  function terrainSectionIndexAt(x) {
+    return Math.floor((Number(x) + TERRAIN_SECTION_HALF) / TERRAIN_SECTION_LENGTH);
+  }
+
+  function terrainSectionBounds(index) {
+    const i = Math.trunc(Number(index) || 0);
+    const center = i * TERRAIN_SECTION_LENGTH;
+    return { index:i, center, minX:center - TERRAIN_SECTION_HALF, maxX:center + TERRAIN_SECTION_HALF };
+  }
+
+  function terrainSectionWorldU(x) {
+    return ((x - TILE.minX) / TILE_WIDTH) * 24.0;
+  }
+
+  function loadTerrainSectionState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TERRAIN_SECTION_STORAGE_KEY) || 'null');
+      if (!saved || typeof saved !== 'object') return;
+      terrainSectionGuidesVisible = !!saved.guides;
+      terrainSelectedSectionIndex = Number.isFinite(Number(saved.selected)) ? Math.trunc(Number(saved.selected)) : 0;
+      terrainHiddenSections = new Set(Array.isArray(saved.hidden) ? saved.hidden.map(Number).filter(Number.isFinite).map(Math.trunc) : []);
+    } catch (_) {}
+  }
+
+  function saveTerrainSectionState() {
+    try {
+      localStorage.setItem(TERRAIN_SECTION_STORAGE_KEY, JSON.stringify({
+        guides:!!terrainSectionGuidesVisible,
+        selected:terrainSelectedSectionIndex,
+        hidden:[...terrainHiddenSections].sort((a,b)=>a-b)
+      }));
+    } catch (_) {}
+  }
+
+  loadTerrainSectionState();
+
   const WORLD = { nearZ: 10.5, farZ: -42 };
   // v0.2.65: a slightly bluer fog with a gentler near-field contribution.
   // The fragment shader adds an eased/power curve so contrast stays stronger
@@ -5630,6 +5733,57 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ctx.restore();
   }
 
+  function drawTerrainSectionOverlay(ctx) {
+    if (!terrainSectionGuidesVisible) return;
+    const playerX = character?.x ?? camera.x;
+    const currentIndex = terrainSectionIndexAt(playerX);
+    const cameraIndex = terrainSectionIndexAt(camera.x);
+    const first = cameraIndex - 5;
+    const last = cameraIndex + 5;
+    const nearZ = PATH_OUTER_HALF;
+    const farZ = -Math.min(18, Math.abs(WORLD.farZ));
+
+    ctx.save();
+    ctx.font = '800 9px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let i = first; i <= last; i++) {
+      const b = terrainSectionBounds(i);
+      const y0 = pathGroundYAt(b.minX, 0) + 0.055;
+      const y1 = pathGroundYAt(b.maxX, 0) + 0.055;
+      const p0 = projectWorldPoint(b.minX, y0, nearZ);
+      const p1 = projectWorldPoint(b.maxX, y1, nearZ);
+      const p2 = projectWorldPoint(b.maxX, y1, farZ);
+      const p3 = projectWorldPoint(b.minX, y0, farZ);
+      if (!p0 || !p1 || !p2 || !p3) continue;
+      const current = i === currentIndex;
+      const selected = i === terrainSelectedSectionIndex;
+      const hidden = terrainHiddenSections.has(i);
+      ctx.beginPath();
+      ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.lineTo(p3.x,p3.y);ctx.closePath();
+      if (current) {
+        ctx.fillStyle = 'rgba(103,226,198,.13)';
+        ctx.fill();
+      }
+      ctx.strokeStyle = hidden ? 'rgba(255,116,116,.95)' : (selected ? 'rgba(255,79,149,.95)' : (current ? 'rgba(118,244,216,.95)' : 'rgba(223,238,233,.48)'));
+      ctx.lineWidth = selected ? 2.6 : (current ? 2.2 : 1.15);
+      ctx.setLineDash(hidden ? [5,4] : (selected && !current ? [7,3] : []));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const labelPoint = projectWorldPoint(b.center, pathGroundYAt(b.center,0) + 0.12, 0.25);
+      if (labelPoint && labelPoint.x > -40 && labelPoint.x < editorOverlay.clientWidth + 40) {
+        const label = `S${i}${hidden ? ' · HIDDEN' : ''}`;
+        const tw = ctx.measureText(label).width + 10;
+        ctx.fillStyle = current ? 'rgba(31,69,65,.90)' : (selected ? 'rgba(72,30,51,.88)' : 'rgba(20,31,34,.68)');
+        ctx.fillRect(labelPoint.x - tw*0.5, labelPoint.y - 10, tw, 18);
+        ctx.fillStyle = current ? '#d9fff5' : (hidden ? '#ffd9d9' : '#edf5f2');
+        ctx.fillText(label, labelPoint.x, labelPoint.y - 1);
+      }
+    }
+    ctx.restore();
+  }
+
   function drawEditorOverlay() {
     if (!editorOverlayCtx || !editorOverlay) return;
     const ctx = editorOverlayCtx;
@@ -5638,6 +5792,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ctx.clearRect(0, 0, w, h);
     if (collisionDebugView) drawCollisionDebugOverlay(ctx);
     drawPlayerInteractionHints(ctx);
+    drawTerrainSectionOverlay(ctx);
     if (!editMode) return;
     drawPuzzleEditorGuides(ctx);
     drawAuthoredSockets(ctx);
@@ -6207,11 +6362,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const drawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
     if (!extra?.force && dressingHiddenByPuzzle(obj, drawX)) return;
     if (!extra?.force) drawObjectShadow(obj, view, drawX);
-    bindMesh(obj.mesh);
+    const drawMesh = extra?.mesh || obj.mesh;
+    bindMesh(drawMesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     const objectRotation = Number(obj.collectibleAngle) || 0;
     const visualFlip = (obj.assetName || '').startsWith('tree') ? false : obj.flip;
-    gl.uniformMatrix4fv(loc.model, false, objectRotation ? mat4ModelRotated(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, objectRotation, visualFlip) : mat4Model(drawX, obj.y, obj.z, obj.sx, obj.sy, obj.sz, visualFlip));
+    const drawY = extra?.y ?? obj.y;
+    const drawZ = extra?.z ?? obj.z;
+    const drawSx = extra?.sx ?? obj.sx;
+    const drawSy = extra?.sy ?? obj.sy;
+    const drawSz = extra?.sz ?? obj.sz;
+    gl.uniformMatrix4fv(loc.model, false, objectRotation ? mat4ModelRotated(drawX, drawY, drawZ, drawSx, drawSy, drawSz, objectRotation, visualFlip) : mat4Model(drawX, drawY, drawZ, drawSx, drawSy, drawSz, visualFlip));
     gl.uniformMatrix4fv(loc.view, false, view);
     gl.uniformMatrix4fv(loc.projection, false, projection);
     const tint = tintFor(obj);
@@ -6230,7 +6391,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     gl.uniform1f(loc.opacity, obj.opacity);
     gl.uniform2f(loc.uvScale, extra?.uvScale?.[0] ?? obj.uvScale?.[0] ?? 1, extra?.uvScale?.[1] ?? obj.uvScale?.[1] ?? 1);
     gl.uniform2f(loc.uvOffset, extra?.uvOffset?.[0] ?? obj.uvOffset?.[0] ?? 0, extra?.uvOffset?.[1] ?? obj.uvOffset?.[1] ?? 0);
-    gl.drawElements(gl.TRIANGLES, obj.mesh.count, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLES, drawMesh.count, gl.UNSIGNED_SHORT, 0);
   }
 
   function currentCharacterPhase(isWalking) {
@@ -6989,6 +7150,28 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
   }
 
+  function drawTerrainSections(view) {
+    const centreIndex = terrainSectionIndexAt(camera.x);
+    const indices = [];
+    for (let i = centreIndex - TERRAIN_SECTION_RENDER_RADIUS; i <= centreIndex + TERRAIN_SECTION_RENDER_RADIUS; i++) {
+      if (!terrainHiddenSections.has(i)) indices.push(i);
+    }
+
+    // Draw all dirt floor pieces first, then all raised path pieces. UV offsets
+    // are world-derived, so a hidden/debugged seam can be restored without any
+    // texture jump and neighbouring sections share exactly the same edge UV.
+    for (const i of indices) {
+      const b = terrainSectionBounds(i);
+      const u0 = terrainSectionWorldU(b.minX);
+      const uScale = (TERRAIN_SECTION_LENGTH / TILE_WIDTH) * 24.0;
+      drawObject(ground, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0, 0] });
+    }
+    for (const i of indices) {
+      const b = terrainSectionBounds(i);
+      drawObject(pathStrip, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionPathMesh(i), uvScale:[1,1], uvOffset:[0,0] });
+    }
+  }
+
   function render(now) {
     resize();
     updatePuzzleStreaming(character?.x ?? camera.x);
@@ -7102,6 +7285,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     character.x = camera.x + character.screenOffsetX;
     character.y = playSurfaceYAt(character.x) + jumpOffset;
+    updateTerrainSectionUi(false);
     updateCameraFollow(dt);
     if (cameraEditMode) updateCameraEditorUi();
     savePlayerPosition(false);
@@ -7126,15 +7310,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
-    // Draw the current terrain tile plus its immediate neighbours.
-    // Previously the floor/path used a single wrapped copy, so at the tile
-    // boundary the old plane disappeared just as the next one jumped in.
-    // Keeping the neighbouring sections resident removes that visible swap.
-    const terrainCentreX = wrapX(ground.x, camera.x);
-    for (const offset of [-TILE_WIDTH, 0, TILE_WIDTH]) {
-      drawObject(ground, view, { x: terrainCentreX + offset });
-      drawObject(pathStrip, view, { x: terrainCentreX + offset });
-    }
+    // v1.0.0: normal terrain now comes from contiguous 10 m world sections.
+    // With every section visible this should be visually indistinguishable from
+    // the previous continuous terrain; the section editor can hide any one
+    // piece to verify that the segmentation is genuinely working.
+    drawTerrainSections(view);
     for (const obj of backdrop) drawObject(obj, view);
     for (const obj of midfill) drawObject(obj, view);
 
@@ -7245,6 +7425,53 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     actionBtn.setPointerCapture?.(e.pointerId);
   });
 
+  function terrainSectionLabel(index) { return `Section ${Math.trunc(index)}`; }
+  function terrainSectionBoundsLabel(index) {
+    const b = terrainSectionBounds(index);
+    const fmt = n => `${n < 0 ? '−' : ''}${Math.abs(n).toFixed(1)} m`;
+    return `${fmt(b.minX)} to ${fmt(b.maxX)}`;
+  }
+  function updateTerrainSectionUi(force = false) {
+    const currentIndex = terrainSectionIndexAt(character?.x ?? camera.x);
+    if (!force && terrainLastUiCurrentIndex === currentIndex && sectionPanel?.hidden) return;
+    terrainLastUiCurrentIndex = currentIndex;
+    if (sectionCurrentEl) sectionCurrentEl.textContent = terrainSectionLabel(currentIndex);
+    if (sectionCurrentBoundsEl) sectionCurrentBoundsEl.textContent = terrainSectionBoundsLabel(currentIndex);
+    if (sectionSelectedEl) sectionSelectedEl.textContent = terrainSectionLabel(terrainSelectedSectionIndex);
+    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · Normal`;
+    const visible = !terrainHiddenSections.has(terrainSelectedSectionIndex);
+    if (sectionVisibleBtn) {
+      sectionVisibleBtn.textContent = visible ? 'Terrain visible' : 'Terrain hidden';
+      sectionVisibleBtn.setAttribute('aria-pressed', String(visible));
+    }
+    if (sectionGuidesBtn) {
+      sectionGuidesBtn.textContent = terrainSectionGuidesVisible ? 'Hide section guides' : 'Show section guides';
+      sectionGuidesBtn.setAttribute('aria-pressed', String(terrainSectionGuidesVisible));
+    }
+  }
+  function selectTerrainSection(index) {
+    terrainSelectedSectionIndex = Math.trunc(Number(index) || 0);
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  }
+  function setTerrainSectionPanelOpen(open) {
+    if (!sectionPanel || !sectionBtn) return;
+    const next = !!open;
+    sectionPanel.hidden = !next;
+    sectionBtn.setAttribute('aria-expanded', String(next));
+    if (next) {
+      setStageMenuOpen(false);
+      setFogPanelOpen?.(false);
+      setPostPanelOpen?.(false);
+      setInventoryOpen?.(false);
+      if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
+      if (!terrainSectionGuidesVisible) terrainSectionGuidesVisible = true;
+      selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x));
+      saveTerrainSectionState();
+      updateTerrainSectionUi(true);
+    }
+  }
+
   function setStageMenuOpen(open) {
     if (!stageMenuPanel || !stageMenuBtn) return;
     const next = !!open;
@@ -7253,6 +7480,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     stageMenuBtn.classList.toggle('active', next);
     if (next) {
       if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
+      if (sectionPanel && !sectionPanel.hidden) { sectionPanel.hidden = true; sectionBtn?.setAttribute('aria-expanded','false'); }
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);
       setInventoryOpen?.(false);
@@ -7283,6 +7511,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     postBtn.setAttribute('aria-expanded', String(open));
     if (open) {
       setStageMenuOpen(false);
+      setTerrainSectionPanelOpen(false);
       setFogPanelOpen(false);
       syncPostUi();
     }
@@ -7326,7 +7555,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!fogPanel || !fogBtn) return;
     fogPanel.hidden = !open;
     fogBtn.setAttribute('aria-expanded', String(open));
-    if (open) { setStageMenuOpen(false); setPostPanelOpen(false); syncFogUi(); }
+    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setPostPanelOpen(false); syncFogUi(); }
   }
   bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
   bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));
@@ -7571,10 +7800,33 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(quickNavCloseBtn, () => setQuickNavOpen(false));
   bindEditorPress(stageMenuBtn, () => setStageMenuOpen(stageMenuPanel?.hidden !== false));
   bindEditorPress(stageMenuCloseBtn, () => setStageMenuOpen(false));
+  bindEditorPress(sectionBtn, () => setTerrainSectionPanelOpen(sectionPanel?.hidden !== false));
+  bindEditorPress(sectionCloseBtn, () => setTerrainSectionPanelOpen(false));
+  bindEditorPress(sectionGuidesBtn, () => {
+    terrainSectionGuidesVisible = !terrainSectionGuidesVisible;
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  });
+  bindEditorPress(sectionPrevBtn, () => selectTerrainSection(terrainSelectedSectionIndex - 1));
+  bindEditorPress(sectionNextBtn, () => selectTerrainSection(terrainSelectedSectionIndex + 1));
+  bindEditorPress(sectionPlayerBtn, () => selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x)));
+  bindEditorPress(sectionVisibleBtn, () => {
+    const i = terrainSelectedSectionIndex;
+    if (terrainHiddenSections.has(i)) terrainHiddenSections.delete(i); else terrainHiddenSections.add(i);
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  });
+  bindEditorPress(sectionResetBtn, () => {
+    terrainHiddenSections.clear();
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  });
+  updateTerrainSectionUi(true);
   bindEditorPress(cameraEditorBtn, () => {
     cameraEditMode = !cameraEditMode;
     if (cameraEditMode) {
       setStageMenuOpen(false);
+      setTerrainSectionPanelOpen(false);
       setQuickNavOpen(false);
       setFogPanelOpen(false);
       setPostPanelOpen(false);

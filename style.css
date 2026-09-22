@@ -12706,7 +12706,7 @@ body[data-game-id="game-16"] #sidescroll-puzzle-add-dressing.active{
   border-color:rgba(210,231,226,.38);
 }
 
-/* SideScroll v0.2.96 — compact tools menu + persistent camera controls. */
+/* SideScroll v1.0.0 — compact tools menu with Camera moved into the menu. */
 body[data-game-id="game-16"] .sidescroll-stage-actions{gap:6px;}
 body[data-game-id="game-16"] .sidescroll-camera-button,
 body[data-game-id="game-16"] .sidescroll-menu-button{
@@ -12744,4 +12744,40 @@ body[data-game-id="game-16"] .sidescroll-camera-follow-row b{font-variant-numeri
   body[data-game-id="game-16"] .sidescroll-tools-item{min-height:34px!important;}
   body[data-game-id="game-16"] .sidescroll-camera-editor{top:44px;width:184px;padding:8px;}
   body[data-game-id="game-16"] .sidescroll-camera-pair{grid-template-rows:repeat(2,32px);}
+}
+
+
+/* SideScroll v1.0.0 — terrain section editor and section-debug overlay controls. */
+body[data-game-id="game-16"] .sidescroll-section-panel{
+  position:absolute;z-index:33;top:max(52px,calc(env(safe-area-inset-top) + 52px));right:max(52px,calc(env(safe-area-inset-right) + 52px));
+  width:min(270px,calc(100vw - 110px));padding:12px;border:1px solid rgba(223,237,233,.24);border-radius:14px;
+  background:rgba(7,13,17,.91);color:#f2f7f8;box-shadow:0 10px 30px rgba(0,0,0,.28);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:auto;
+}
+body[data-game-id="game-16"] .sidescroll-section-panel[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;font-size:10px;letter-spacing:.12em;}
+body[data-game-id="game-16"] .sidescroll-section-head button{width:28px;height:28px;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-size:18px;}
+body[data-game-id="game-16"] .sidescroll-section-current,
+body[data-game-id="game-16"] .sidescroll-section-selected{display:grid;gap:2px;padding:8px 9px;margin-bottom:7px;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(255,255,255,.045);}
+body[data-game-id="game-16"] .sidescroll-section-current span,
+body[data-game-id="game-16"] .sidescroll-section-selected span{font-size:7px;font-weight:900;letter-spacing:.12em;color:#9fb8b2;}
+body[data-game-id="game-16"] .sidescroll-section-current strong,
+body[data-game-id="game-16"] .sidescroll-section-selected strong{font-size:11px;letter-spacing:.04em;}
+body[data-game-id="game-16"] .sidescroll-section-current small,
+body[data-game-id="game-16"] .sidescroll-section-selected small{font-size:7px;letter-spacing:.035em;color:#c3d0cd;}
+body[data-game-id="game-16"] .sidescroll-section-nav{display:grid;grid-template-columns:42px 1fr 42px;gap:6px;margin:7px 0;}
+body[data-game-id="game-16"] .sidescroll-section-nav button,
+body[data-game-id="game-16"] .sidescroll-section-wide{min-height:32px;border:1px solid rgba(237,244,244,.15);border-radius:9px;background:rgba(255,255,255,.06);color:#edf5f2;font-size:8px;font-weight:900;letter-spacing:.04em;}
+body[data-game-id="game-16"] .sidescroll-section-wide{display:block;width:100%;margin-top:6px;}
+body[data-game-id="game-16"] .sidescroll-section-wide[aria-pressed="true"]{background:rgba(111,143,137,.58);border-color:rgba(234,245,242,.38);}
+body[data-game-id="game-16"] #sidescroll-section-visible[aria-pressed="false"]{background:rgba(135,77,72,.58);border-color:rgba(245,196,188,.35);}
+body[data-game-id="game-16"] .sidescroll-section-wide.subtle{opacity:.82;}
+body[data-game-id="game-16"] .sidescroll-section-panel p{margin:9px 1px 0;font-size:7px;line-height:1.4;letter-spacing:.025em;color:#9fb0ae;}
+@media (max-height:520px){
+  body[data-game-id="game-16"] .sidescroll-section-panel{top:44px;width:250px;padding:9px;}
+  body[data-game-id="game-16"] .sidescroll-section-current,
+  body[data-game-id="game-16"] .sidescroll-section-selected{padding:6px 8px;margin-bottom:5px;}
+  body[data-game-id="game-16"] .sidescroll-section-nav{margin:5px 0;}
+  body[data-game-id="game-16"] .sidescroll-section-nav button,
+  body[data-game-id="game-16"] .sidescroll-section-wide{min-height:29px;}
 }

@@ -1,7 +1,8 @@
-# SideScroll v0.2.96
+# SideScroll v1.0.0
 
-- Added smooth vertical camera follow for jumps and climbing, with subtle lag and a 55% default follow amount.
-- Camera controls are now available from a dedicated persistent Camera button, independent of Edit mode.
-- Camera panel now includes Follow Height on/off and follow amount controls.
-- Consolidated the growing top-bar controls into one expandable Menu panel; Camera remains separate for quick access.
-- Preserves the two-character swap system and all v0.2.95 assets/gameplay.
+- Starts the terrain-section architecture from the locked v0.2.97 baseline.
+- Replaces the continuous rendered floor/path with seamless 10 m normal terrain sections.
+- Adds a Sections panel to the main Menu with current/selected section readouts.
+- Adds section guides with a stronger highlight for the section the player currently occupies.
+- Individual section terrain can be hidden/restored to verify that sections are genuinely independent.
+- Gameplay floor/collision is intentionally unchanged in this first validation pass.

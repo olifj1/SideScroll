@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.96">
+  <link rel="stylesheet" href="style.css?v=1.0.0">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -39,7 +39,6 @@
           <div class="sidescroll-stage-hud">
             <div class="sidescroll-status" id="sidescroll-status">3D forest · raised dirt path · walk / run / jump</div>
             <div class="sidescroll-stage-actions">
-              <button id="sidescroll-editor-camera" class="sidescroll-camera-button" type="button" aria-expanded="false">Camera</button>
               <button id="sidescroll-tools" class="sidescroll-menu-button" type="button" aria-expanded="false" aria-haspopup="true">Menu</button>
             </div>
           </div>
@@ -47,7 +46,9 @@
           <aside class="sidescroll-tools-panel" id="sidescroll-tools-panel" hidden aria-label="SideScroll tools menu">
             <div class="sidescroll-tools-head"><strong>TOOLS</strong><button id="sidescroll-tools-close" type="button" aria-label="Close tools menu">×</button></div>
             <div class="sidescroll-tools-grid">
+              <button id="sidescroll-editor-camera" class="sidescroll-tools-item sidescroll-camera-button" type="button" aria-expanded="false">Camera</button>
               <button id="sidescroll-depth" class="sidescroll-tools-item" type="button" aria-pressed="false">Depth</button>
+              <button id="sidescroll-sections" class="sidescroll-tools-item" type="button" aria-expanded="false">Sections</button>
               <button id="sidescroll-fog" class="sidescroll-tools-item" type="button" aria-expanded="false">Fog</button>
               <button id="sidescroll-post" class="sidescroll-tools-item" type="button" aria-expanded="false">Post</button>
               <button id="sidescroll-collision-view" class="sidescroll-tools-item" type="button" aria-pressed="false">Collision</button>
@@ -82,6 +83,30 @@
             <label><span>TINT MIX <b id="sidescroll-post-tint-amount-value">0.00</b></span><input id="sidescroll-post-tint-amount" type="range" min="0" max="0.60" step="0.01" value="0"></label>
             <div class="sidescroll-post-future">Bloom reserved for a later pass.</div>
             <button id="sidescroll-post-reset" type="button">RESET</button>
+          </aside>
+
+
+          <aside class="sidescroll-section-panel" id="sidescroll-section-panel" hidden aria-label="Terrain section editor">
+            <div class="sidescroll-section-head"><strong>SECTIONS</strong><button id="sidescroll-section-close" type="button" aria-label="Close section editor">×</button></div>
+            <div class="sidescroll-section-current">
+              <span>PLAYER IS IN</span>
+              <strong id="sidescroll-section-current">Section 0</strong>
+              <small id="sidescroll-section-current-bounds">−5.0 m to 5.0 m</small>
+            </div>
+            <button id="sidescroll-section-guides" class="sidescroll-section-wide" type="button" aria-pressed="false">Show section guides</button>
+            <div class="sidescroll-section-selected">
+              <span>SELECTED</span>
+              <strong id="sidescroll-section-selected">Section 0</strong>
+              <small id="sidescroll-section-selected-bounds">−5.0 m to 5.0 m · Normal</small>
+            </div>
+            <div class="sidescroll-section-nav">
+              <button id="sidescroll-section-prev" type="button" aria-label="Previous terrain section">←</button>
+              <button id="sidescroll-section-player" type="button">Player</button>
+              <button id="sidescroll-section-next" type="button" aria-label="Next terrain section">→</button>
+            </div>
+            <button id="sidescroll-section-visible" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain visible</button>
+            <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
+            <p>v1.0.0 test: 10 m normal sections. Hiding a section only hides its terrain mesh; gameplay collision remains unchanged for this validation pass.</p>
           </aside>
 
           <aside class="sidescroll-quick-nav-panel" id="sidescroll-quick-nav-panel" hidden aria-label="Quick scene navigation">
@@ -320,11 +345,11 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.96"></script>
-  <script src="core.js?v=0.2.96"></script>
-  <script src="walk-rig.js?v=0.2.96"></script>
-  <script src="puzzle-groups.js?v=0.2.96"></script>
-  <script src="baked-game-design.js?v=0.2.96"></script>
-  <script src="sidescroll.js?v=0.2.96"></script>
+  <script src="site-config.js?v=1.0.0"></script>
+  <script src="core.js?v=1.0.0"></script>
+  <script src="walk-rig.js?v=1.0.0"></script>
+  <script src="puzzle-groups.js?v=1.0.0"></script>
+  <script src="baked-game-design.js?v=1.0.0"></script>
+  <script src="sidescroll.js?v=1.0.0"></script>
 </body>
 </html>
