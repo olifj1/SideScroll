@@ -12771,6 +12771,7 @@ body[data-game-id="game-16"] .sidescroll-section-wide{min-height:32px;border:1px
 body[data-game-id="game-16"] .sidescroll-section-wide{display:block;width:100%;margin-top:6px;}
 body[data-game-id="game-16"] .sidescroll-section-wide[aria-pressed="true"]{background:rgba(111,143,137,.58);border-color:rgba(234,245,242,.38);}
 body[data-game-id="game-16"] #sidescroll-section-visible[aria-pressed="false"]{background:rgba(135,77,72,.58);border-color:rgba(245,196,188,.35);}
+body[data-game-id="game-16"] #sidescroll-section-collision[aria-pressed="false"]{background:rgba(135,77,72,.58);border-color:rgba(245,196,188,.35);}
 body[data-game-id="game-16"] .sidescroll-section-wide.subtle{opacity:.82;}
 body[data-game-id="game-16"] .sidescroll-section-panel p{margin:9px 1px 0;font-size:7px;line-height:1.4;letter-spacing:.025em;color:#9fb0ae;}
 @media (max-height:520px){

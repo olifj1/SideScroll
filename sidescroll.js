@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.14: bridge support now overrides river-bank terrain cleanly, with final walk-surface collision debug.
+  // SideScroll v1.0.15: section-level terrain collision, generic platform replacement and world-space jump/camera support.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -67,6 +67,7 @@
   const sectionRiverWidthRow = document.getElementById('sidescroll-section-river-width-row');
   const sectionRiverWidthInput = document.getElementById('sidescroll-section-river-width');
   const sectionRiverWidthValue = document.getElementById('sidescroll-section-river-width-value');
+  const sectionCollisionBtn = document.getElementById('sidescroll-section-collision');
   const sectionBankDressBtn = document.getElementById('sidescroll-section-bank-dress');
   const sectionBankClearBtn = document.getElementById('sidescroll-section-bank-clear');
   const sectionResetBtn = document.getElementById('sidescroll-section-reset');
@@ -1481,6 +1482,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let terrainSectionGuidesPersist = false;
   let terrainSelectedSectionIndex = 0;
   let terrainHiddenSections = new Set();
+  let terrainCollisionDisabledSections = new Set();
   let terrainSectionTypes = new Map();
   let terrainSectionSettings = new Map();
   let terrainLastUiCurrentIndex = null;
@@ -1506,6 +1508,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function terrainSectionTypeLabel(index) {
     return TERRAIN_SECTION_TYPES[terrainSectionType(index)]?.label || 'Normal';
+  }
+
+  function terrainSectionCollisionEnabled(index) {
+    return !terrainCollisionDisabledSections.has(Math.trunc(Number(index) || 0));
+  }
+
+  function terrainCollisionEnabledAtX(x) {
+    return terrainSectionCollisionEnabled(terrainSectionIndexAt(x));
+  }
+
+  function setTerrainSectionCollisionEnabled(index, enabled) {
+    const i = Math.trunc(Number(index) || 0);
+    if (enabled) terrainCollisionDisabledSections.delete(i);
+    else terrainCollisionDisabledSections.add(i);
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
   }
 
   function riverSectionSettings(index, override = null) {
@@ -1602,6 +1620,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const settings = riverSectionSettings(i);
     if (next === 'normal') terrainSectionTypes.delete(i);
     else terrainSectionTypes.set(i, next);
+    // A river is normally a gap in the playable floor. Its visible bank/bed mesh
+    // remains, while authored support objects (bridges, planks, platforms, etc.)
+    // supply collision. The section toggle can turn terrain collision back on.
+    if (next === 'river' && previous !== 'river') terrainCollisionDisabledSections.add(i);
     reanchorTerrainSectionObjects(i, previous, next, settings, settings);
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
@@ -1630,6 +1652,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       terrainSectionGuidesVisible = terrainSectionGuidesPersist && !!saved.guides;
       terrainSelectedSectionIndex = Number.isFinite(Number(saved.selected)) ? Math.trunc(Number(saved.selected)) : 0;
       terrainHiddenSections = new Set(Array.isArray(saved.hidden) ? saved.hidden.map(Number).filter(Number.isFinite).map(Math.trunc) : []);
+      terrainCollisionDisabledSections = new Set(Array.isArray(saved.collisionDisabled) ? saved.collisionDisabled.map(Number).filter(Number.isFinite).map(Math.trunc) : []);
       terrainSectionTypes = new Map();
       terrainSectionSettings = new Map();
       if (saved.types && typeof saved.types === 'object') {
@@ -1645,6 +1668,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           terrainSectionSettings.set(Math.trunc(i), { width:Rig.clamp(Number(value.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH) });
         }
       }
+      // v1.0.15 migration: before the section collision toggle existed, river
+      // terrain was always collidable. Existing river sections migrate to the new
+      // gap-style behaviour once; subsequent saves preserve the user's choice.
+      if (!Array.isArray(saved.collisionDisabled)) {
+        for (const [i, typeId] of terrainSectionTypes.entries()) {
+          if (typeId === 'river') terrainCollisionDisabledSections.add(i);
+        }
+      }
     } catch (_) {}
   }
 
@@ -1655,6 +1686,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         persistGuides:!!terrainSectionGuidesPersist,
         selected:terrainSelectedSectionIndex,
         hidden:[...terrainHiddenSections].sort((a,b)=>a-b),
+        collisionDisabled:[...terrainCollisionDisabledSections].sort((a,b)=>a-b),
         types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
         settings:Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0]))
       }));
@@ -4033,7 +4065,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function updateCameraFollow(dt) {
-    const rawHeight = Math.max(0, jumpOffset - CAMERA_FOLLOW_DEADZONE);
+    // Follow actual world-space jump height. A bridge over a deep/disabled terrain
+    // section may have a large terrain-relative offset while the character has not
+    // moved vertically at all; that must not lift the camera.
+    const rawHeight = jumping ? Math.max(0, character.y - jumpCameraBaseY - CAMERA_FOLLOW_DEADZONE) : 0;
     const targetOffset = cameraFollowEnabled ? Rig.clamp(rawHeight * cameraFollowAmount, 0, CAMERA_FOLLOW_MAX) : 0;
     // Deliberately slower on the way down: the camera rises smoothly, then settles
     // rather than snapping back to its base framing as the character lands.
@@ -4072,6 +4107,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let jumpTime = 0;
   let jumpOffset = 0;
   let jumpVelocity = 0;
+  let jumpCameraBaseY = character.y;
   let standingOnObject = null;
 
   // Simple gameplay interaction state.  Crates are carried by the live rig,
@@ -5856,7 +5892,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       // Play mode standing on its top rather than intersecting it.
       const support = platformUnder(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity);
       if (support) { jumpOffset = support.offset; standingOnObject = support.obj; }
-      else if (!jumping) { jumpOffset = 0; standingOnObject = null; }
+      else if (!jumping) {
+        jumpOffset = character.y - playSurfaceYAt(character.x);
+        standingOnObject = null;
+        jumping = true;
+        jumpTime = 0;
+        jumpVelocity = 0;
+        jumpCameraBaseY = character.y;
+      }
     } else {
       setDriveAxis(0);
       jumping = false;
@@ -6284,11 +6327,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function drawCollisionDebugOverlay(ctx) {
     ctx.save();
 
-    // Show both the raw terrain and the final support surface. The dashed cyan
-    // line is the terrain mesh; the solid mint line is what grounded feet will
-    // actually follow after platform/bridge support has been resolved.
+    // Dashed cyan always shows the visual/raw terrain. Solid mint shows the
+    // resolved walk support. Collision-disabled sections therefore create a real
+    // gap in the mint line unless an authored platform collider fills it.
     const terrainFloor = [];
-    const walkFloor = [];
+    const walkSegments = [];
+    let walkSegment = [];
     const floorStartX = camera.x - 14;
     const floorEndX = camera.x + 14;
     const debugCapsule = colliderWorld();
@@ -6298,9 +6342,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const terrainPoint = projectWorldPoint(x, terrainY + 0.035, pathZ);
       if (terrainPoint) terrainFloor.push(terrainPoint);
       const support = walkableSupportAt(x + debugCapsule.offsetX, Infinity, 0);
-      const walkPoint = projectWorldPoint(x, terrainY + support.offset + 0.055, pathZ);
-      if (walkPoint) walkFloor.push(walkPoint);
+      if (support) {
+        const walkPoint = projectWorldPoint(x, terrainY + support.offset + 0.055, pathZ);
+        if (walkPoint) walkSegment.push(walkPoint);
+      } else if (walkSegment.length) {
+        if (walkSegment.length > 1) walkSegments.push(walkSegment);
+        walkSegment = [];
+      }
     }
+    if (walkSegment.length > 1) walkSegments.push(walkSegment);
     if (terrainFloor.length > 1) {
       ctx.strokeStyle = 'rgba(109,226,205,.86)';
       ctx.lineWidth = 2.0;
@@ -6319,15 +6369,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         ctx.fillText('TERRAIN', labelPoint.x + 12, labelPoint.y - 9);
       }
     }
-    if (walkFloor.length > 1) {
+    if (walkSegments.length) {
       ctx.strokeStyle = 'rgba(211,255,174,.98)';
       ctx.lineWidth = 2.6;
       ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(walkFloor[0].x, walkFloor[0].y);
-      for (let i = 1; i < walkFloor.length; i += 1) ctx.lineTo(walkFloor[i].x, walkFloor[i].y);
-      ctx.stroke();
-      const labelPoint = walkFloor.find(point => point.x > 120 && point.x < ctx.canvas.clientWidth - 150);
+      for (const segment of walkSegments) {
+        ctx.beginPath();
+        ctx.moveTo(segment[0].x, segment[0].y);
+        for (let i = 1; i < segment.length; i += 1) ctx.lineTo(segment[i].x, segment[i].y);
+        ctx.stroke();
+      }
+      const labelPoint = walkSegments.flat().find(point => point.x > 120 && point.x < ctx.canvas.clientWidth - 150);
       if (labelPoint) {
         ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
         ctx.fillStyle = 'rgba(18,27,31,.82)';
@@ -6449,7 +6501,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     ctx.setLineDash([]);
     ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
-    const label = `COLLISION · cyan dashed = play surface · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · stack search ${STACK_SEARCH_RADIUS.toFixed(2)} · socket ${SOCKET_SEARCH_RADIUS.toFixed(2)}`;
+    const label = `COLLISION · cyan dashed = terrain · mint = walk surface · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · stack search ${STACK_SEARCH_RADIUS.toFixed(2)} · socket ${SOCKET_SEARCH_RADIUS.toFixed(2)}`;
     const tw = ctx.measureText(label).width + 16;
     const x = Math.max(8, (ctx.canvas.clientWidth - tw) * 0.5);
     const y = 48;
@@ -6565,7 +6617,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const labelPoint = projectWorldPoint(b.center, playSurfaceYAt(b.center) + 0.12, 0.25);
       if (labelPoint && labelPoint.x > -40 && labelPoint.x < editorOverlay.clientWidth + 40) {
         const typeTag = terrainSectionType(i) === 'normal' ? '' : ` · ${terrainSectionTypeLabel(i).toUpperCase()}`;
-        const label = `S${i}${typeTag}${hidden ? ' · HIDDEN' : ''}`;
+        const collisionTag = terrainSectionCollisionEnabled(i) ? '' : ' · NO COLLISION';
+        const label = `S${i}${typeTag}${collisionTag}${hidden ? ' · HIDDEN' : ''}`;
         const tw = ctx.measureText(label).width + 10;
         ctx.fillStyle = current ? 'rgba(31,69,65,.90)' : (selected ? 'rgba(72,30,51,.88)' : 'rgba(20,31,34,.68)');
         ctx.fillRect(labelPoint.x - tw*0.5, labelPoint.y - 10, tw, 18);
@@ -7051,10 +7104,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
   }
 
-  function isTerrainOverridePlatform(obj) {
-    return !!obj?.collision?.platform && /^bridge-/.test(obj.assetName || '');
-  }
-
   function platformOffsetFor(obj, sampleX, terrainReferenceX = sampleX) {
     if (!obj?.collision?.platform) return -Infinity;
     const platformTop = collisionTopHeightAtX(obj, sampleX);
@@ -7063,13 +7112,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function walkableSupportAt(characterX, ceiling = Infinity, direction = 0) {
-    // Terrain is the default support, but authored bridge surfaces are allowed to
-    // replace it even where the river-bank mesh is temporarily higher. This keeps
-    // a flat bridge collider flat instead of making the character ride the bank.
-    let best = { obj:null, offset:0 };
-    let terrainOverride = null;
+    // Terrain is just one possible support source. When a section's terrain
+    // collision is disabled, it contributes no floor at all and any authored
+    // support collider can replace it. This is generic: no bridge-name special case.
     const capsule = colliderWorld();
     const rootX = characterX - capsule.offsetX;
+    let best = terrainCollisionEnabledAtX(rootX) ? { obj:null, offset:0, source:'terrain' } : null;
     const probe = direction ? direction * capsule.footProbe : 0;
     const sampleXs = direction ? [characterX, characterX + probe] : [characterX];
     for (const obj of collisionObjects()) {
@@ -7080,19 +7128,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       for (const x of sampleXs) {
         const offset = platformOffsetFor(obj, x, rootX);
         if (!Number.isFinite(offset) || offset > ceiling + 0.08) continue;
-        if (isTerrainOverridePlatform(obj)) {
-          // Permit a modest amount of bank overlap at the bridge landing. The
-          // bridge collider is the authored walking surface in this footprint.
-          const maxBuried = Math.max(0.68, capsule.stepDown * 2.5);
-          if (offset >= -maxBuried && (!terrainOverride || offset > terrainOverride.offset)) {
-            terrainOverride = { obj, offset };
-          }
-        } else if (offset > best.offset) {
-          best = { obj, offset };
-        }
+        if (!best || offset > best.offset) best = { obj, offset, source:'platform' };
       }
     }
-    return terrainOverride || best;
+    return best;
   }
 
   function platformUnder(characterX, ceiling = Infinity) {
@@ -7106,8 +7145,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const topOffset = platformOffsetFor(obj, proposedX, rootX);
     if (!Number.isFinite(topOffset)) return false;
     if (airborne) return currentOffset >= topOffset - PLAYER_COLLISION_SKIN;
-    const bridgeAllowance = isTerrainOverridePlatform(obj) ? Math.max(capsule.stepUp, 0.68) : capsule.stepUp;
-    return topOffset <= currentOffset + bridgeAllowance + 0.025;
+    return topOffset <= currentOffset + capsule.stepUp + 0.025;
   }
 
   function resolveObstacleMove(currentCameraX, proposedCameraX, clearanceHeight, airborne = false) {
@@ -8076,14 +8114,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       analogSpeed = Math.min(analogSpeed, WALK_SPEED * 0.92);
     }
 
-    // Vertical motion and terrain following now share one surface query.  While
-    // grounded, gentle changes in the authored surface are followed directly;
-    // larger drops become real falls and larger rises remain obstacles.
-    const previousJumpOffset = jumpOffset;
+    // Vertical motion is integrated in world space. jumpOffset remains a derived
+    // compatibility value for collision/carry code, but changing terrain height
+    // underneath an airborne character can no longer add/subtract jump height.
+    const previousCharacterWorldY = character.y;
+    let airborneWorldY = character.y;
     if (jumping) {
       jumpTime += dt;
       jumpVelocity -= JUMP_GRAVITY * dt;
-      jumpOffset += jumpVelocity * dt;
+      airborneWorldY += jumpVelocity * dt;
+      const currentRootX = camera.x + character.screenOffsetX;
+      jumpOffset = airborneWorldY - playSurfaceYAt(currentRootX);
     }
 
     // Preserve the smooth pose blend while allowing the slider to control
@@ -8101,40 +8142,51 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const characterXAfterMove = camera.x + character.screenOffsetX;
     const capsule = colliderWorld();
     const colliderXAfterMove = characterXAfterMove + capsule.offsetX;
+    const terrainYAfterMove = playSurfaceYAt(characterXAfterMove);
     if (jumping) {
+      // Re-reference the same absolute airborne height to the terrain under the
+      // new horizontal position. This is the key to stable jumps over gaps/slopes.
+      jumpOffset = airborneWorldY - terrainYAfterMove;
       if (jumpVelocity <= 0) {
-        const support = walkableSupportAt(colliderXAfterMove, previousJumpOffset + 0.10, moveDir);
-        if (support && previousJumpOffset >= support.offset - 0.04 && jumpOffset <= support.offset) {
-          jumpOffset = support.offset;
-          jumpVelocity = 0;
-          jumping = false;
-          jumpTime = 0;
-          standingOnObject = support.obj;
+        const support = walkableSupportAt(colliderXAfterMove, Infinity, moveDir);
+        if (support) {
+          const supportWorldY = terrainYAfterMove + support.offset;
+          if (previousCharacterWorldY >= supportWorldY - 0.04 && airborneWorldY <= supportWorldY) {
+            jumpOffset = support.offset;
+            airborneWorldY = supportWorldY;
+            jumpVelocity = 0;
+            jumping = false;
+            jumpTime = 0;
+            standingOnObject = support.obj;
+          }
         }
       }
-      if (jumping && jumpOffset <= 0 && jumpTime > 0.18) {
-        jumpOffset = 0;
-        jumpVelocity = 0;
-        jumping = false;
-        jumpTime = 0;
-        standingOnObject = null;
-      }
     } else {
-      const support = walkableSupportAt(colliderXAfterMove, jumpOffset + Math.max(capsule.stepUp, 0.68), moveDir);
-      const delta = support.offset - jumpOffset;
-      const bridgeTransition = isTerrainOverridePlatform(support.obj) || isTerrainOverridePlatform(standingOnObject);
-      const maxStepUp = bridgeTransition ? Math.max(capsule.stepUp, 0.68) : capsule.stepUp;
-      const maxStepDown = bridgeTransition ? Math.max(capsule.stepDown, 0.68) : capsule.stepDown;
-      if (delta <= maxStepUp + 0.025 && delta >= -maxStepDown) {
-        jumpOffset = support.offset;
-        standingOnObject = support.obj;
-      } else if (delta < -maxStepDown) {
-        // Walking beyond a significant ledge keeps the current height and lets
-        // the normal gravity solver take over rather than snapping downward.
+      const support = walkableSupportAt(colliderXAfterMove, Infinity, moveDir);
+      if (support) {
+        const supportWorldY = terrainYAfterMove + support.offset;
+        const deltaWorld = supportWorldY - previousCharacterWorldY;
+        if (deltaWorld <= capsule.stepUp + 0.025 && deltaWorld >= -capsule.stepDown) {
+          jumpOffset = support.offset;
+          standingOnObject = support.obj;
+        } else if (deltaWorld < -capsule.stepDown) {
+          // A real gap/drop: preserve current world height and let gravity begin.
+          jumpOffset = previousCharacterWorldY - terrainYAfterMove;
+          standingOnObject = null;
+          jumping = true;
+          jumpTime = 0;
+          jumpVelocity = 0;
+          jumpCameraBaseY = previousCharacterWorldY;
+        }
+      } else {
+        // Terrain collision is disabled here and no support object is underneath.
+        // Keep the current feet height for this frame, then fall naturally.
+        jumpOffset = previousCharacterWorldY - terrainYAfterMove;
         standingOnObject = null;
         jumping = true;
         jumpTime = 0;
         jumpVelocity = 0;
+        jumpCameraBaseY = previousCharacterWorldY;
       }
     }
 
@@ -8273,8 +8325,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editMode || inventoryOpen || jumping || interactionState) return;
     jumping = true;
     jumpTime = 0;
-    // Keep the current support height so jumping from the top of a crate starts
-    // from that surface rather than teleporting back to path level.
+    jumpCameraBaseY = character.y;
+    // Keep the current world-space support height so a jump from any authored
+    // platform behaves identically even if the visual terrain below it changes.
     standingOnObject = null;
     jumpVelocity = JUMP_VELOCITY;
     hideHint();
@@ -8306,11 +8359,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (sectionSelectedEl) sectionSelectedEl.textContent = terrainSectionLabel(terrainSelectedSectionIndex);
     const selectedType = terrainSectionType(terrainSelectedSectionIndex);
     const selectedRiver = riverSectionSettings(terrainSelectedSectionIndex);
-    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}${selectedType === 'river' ? ` · ${selectedRiver.width.toFixed(1)} m` : ''}`;
+    const collisionEnabled = terrainSectionCollisionEnabled(terrainSelectedSectionIndex);
+    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}${selectedType === 'river' ? ` · ${selectedRiver.width.toFixed(1)} m` : ''}${collisionEnabled ? '' : ' · collision off'}`;
     if (sectionTypeSelect) sectionTypeSelect.value = selectedType;
     if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
     if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${selectedRiver.width.toFixed(1)} m`;
+    if (sectionCollisionBtn) {
+      sectionCollisionBtn.textContent = collisionEnabled ? 'Terrain collision ON' : 'Terrain collision OFF';
+      sectionCollisionBtn.setAttribute('aria-pressed', String(collisionEnabled));
+    }
     if (sectionBankDressBtn) sectionBankDressBtn.hidden = selectedType !== 'river';
     if (sectionBankClearBtn) sectionBankClearBtn.hidden = selectedType !== 'river';
 
@@ -8703,6 +8761,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     hintEl.textContent = `Section ${terrainSelectedSectionIndex} → ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}`;
     hintEl.classList.remove('hidden');
   });
+  bindEditorPress(sectionCollisionBtn, () => {
+    const next = !terrainSectionCollisionEnabled(terrainSelectedSectionIndex);
+    setTerrainSectionCollisionEnabled(terrainSelectedSectionIndex, next);
+    hintEl.textContent = next
+      ? `Section ${terrainSelectedSectionIndex} terrain collision enabled`
+      : `Section ${terrainSelectedSectionIndex} terrain collision disabled · support objects now define the walk surface`;
+    hintEl.classList.remove('hidden');
+  });
   sectionRiverWidthInput?.addEventListener('input', () => {
     if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${Number(sectionRiverWidthInput.value).toFixed(1)} m`;
   });
@@ -9084,9 +9150,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     jumping = false;
     jumpTime = 0;
     const support = walkableSupportAt(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity, 0);
-    jumpOffset = support.offset;
+    if (support) {
+      jumpOffset = support.offset;
+      standingOnObject = support.obj;
+    } else {
+      jumpOffset = character.y - playSurfaceYAt(character.x);
+      standingOnObject = null;
+      jumping = true;
+      jumpCameraBaseY = character.y;
+    }
     jumpVelocity = 0;
-    standingOnObject = support.obj;
     autoDropStep = null;
     if (interactionState?.type === 'pickup') interactionState.object.carried = false;
     if (interactionState?.type === 'drop') completeDrop();
