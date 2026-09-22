@@ -1,8 +1,8 @@
-# SideScroll v1.0.11
+# SideScroll v1.0.12
 
-Bridge matching and Asset Lab stability pass.
+Placement, river and collision-debug refinement.
 
-- Rebuilt `bridge-right.png` as an exact horizontal mirror of the approved left bridge piece, with matching dimensions and floor-line defaults.
-- Existing bridge-right Asset Lab layout/collision defaults are migrated from the left piece once, so older saved setup does not preserve the mismatch.
-- Asset Lab now remeasures through iOS orientation changes using dynamic viewport sizing, Visual Viewport updates and a stage ResizeObserver.
-- Increased the smallest Asset Lab UI, collision-editor and viewport label text for better phone legibility.
+- Placement mode is now paint-only: tapping lays the active asset onto the ground even when another asset is visually in front; dragging pans.
+- Environment and puzzle editing now filter selection to the active scope. Puzzle Dressing only exposes environment-scope dressing attached to that puzzle; normal Puzzle mode excludes that dressing.
+- Collision view now draws a cyan dashed **PLAY SURFACE** line showing the exact terrain height used by the character controller, including river sections.
+- River beds and water are lowered slightly so crossings read as deeper and less casually walkable.

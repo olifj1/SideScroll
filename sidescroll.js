@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.11: adds the standalone Asset Lab and shared asset defaults.
+  // SideScroll v1.0.12: paint-only placement, scoped puzzle selection, deeper rivers and playable-surface collision debug.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1214,7 +1214,7 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.11`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.12`, key, null, size[0] / size[1]);
   });
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -1397,7 +1397,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.11';
+const RIG_TEXTURE_VERSION = '1.0.12';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1471,6 +1471,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const DEFAULT_RIVER_SECTION = Object.freeze({ width:4.8 });
   const RIVER_SECTION_MIN_WIDTH = 3.4;
   const RIVER_SECTION_MAX_WIDTH = 8.8;
+  // Keep the water visibly below the path so a river reads as a real obstacle
+  // rather than a shallow strip. The playable terrain still follows the bank/bed.
+  const RIVER_BED_DEPTH = 1.32;
+  const RIVER_WATER_ABOVE_BED = 0.36;
   let terrainSectionGuidesVisible = false;
   let terrainSectionGuidesPersist = false;
   let terrainSelectedSectionIndex = 0;
@@ -1542,8 +1546,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const wallRun = Math.min(0.92, Math.max(0.68, width * 0.17));
     const leftToe = leftLip + wallRun;
     const rightToe = rightLip - wallRun;
-    const bedY = groundY - 0.96 + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
-    const waterY = bedY + 0.34;
+    const bedY = groundY - RIVER_BED_DEPTH + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
+    const waterY = bedY + RIVER_WATER_ABOVE_BED;
     return { ...b, width, centre, leftLip, rightLip, leftToe, rightToe, wallRun, bedY, waterY };
   }
 
@@ -4015,6 +4019,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ].map(name => ({ name, label: `GROUND ${Number(name.slice(-2))}`, category: 'dressing' }))}
   ];
   const editorAssetInfo = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, item])));
+  const editorAssetScope = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, group.scope])));
   let assetSetupName = null;
   let collectibleSetupItemId = null;
 
@@ -4356,7 +4361,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function editorObjectIsEditable(obj) {
     if (!obj || obj.deleted) return false;
-    if (editorScope === 'puzzle') return puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId;
+    if (editorScope === 'puzzle') {
+      if (!(puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId)) return false;
+      // Puzzle Dressing is deliberately isolated from authored puzzle props.
+      // Environment-scope art attached to the puzzle is only selectable while
+      // Puzzle Dressing is active; normal Puzzle mode sees puzzle assets only.
+      const assetScope = editorAssetScope.get(obj.assetName);
+      return puzzleEnvironmentPlacementMode ? assetScope === 'environment' : assetScope !== 'environment';
+    }
+    // Environment editing never reaches into an instantiated puzzle.
     return !obj.puzzleInstanceId;
   }
 
@@ -6116,6 +6129,36 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawCollisionDebugOverlay(ctx) {
     ctx.save();
+
+    // Draw the exact floor height used by the character controller. This makes
+    // terrain undulation and river-bed ownership visible beside asset colliders.
+    const playableFloor = [];
+    const floorStartX = camera.x - 14;
+    const floorEndX = camera.x + 14;
+    for (let i = 0; i <= 112; i += 1) {
+      const x = Rig.lerp(floorStartX, floorEndX, i / 112);
+      const p = projectWorldPoint(x, playSurfaceYAt(x) + 0.035, pathZ);
+      if (p) playableFloor.push(p);
+    }
+    if (playableFloor.length > 1) {
+      ctx.strokeStyle = 'rgba(109,226,205,.98)';
+      ctx.lineWidth = 2.4;
+      ctx.setLineDash([9,5]);
+      ctx.beginPath();
+      ctx.moveTo(playableFloor[0].x, playableFloor[0].y);
+      for (let i = 1; i < playableFloor.length; i += 1) ctx.lineTo(playableFloor[i].x, playableFloor[i].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const labelPoint = playableFloor.find(point => point.x > 18 && point.x < ctx.canvas.clientWidth - 110);
+      if (labelPoint) {
+        ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+        ctx.fillStyle = 'rgba(18,27,31,.82)';
+        ctx.fillRect(labelPoint.x + 6, labelPoint.y - 21, 94, 17);
+        ctx.fillStyle = 'rgba(198,255,243,.98)';
+        ctx.fillText('PLAY SURFACE', labelPoint.x + 12, labelPoint.y - 9);
+      }
+    }
+
     for (const obj of collisionObjects()) {
       const poly = collisionScreenPolygon(obj);
       if (poly.length < 3) continue;
@@ -6228,7 +6271,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     ctx.setLineDash([]);
     ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
-    const label = `COLLISION · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · stack search ${STACK_SEARCH_RADIUS.toFixed(2)} · socket ${SOCKET_SEARCH_RADIUS.toFixed(2)}`;
+    const label = `COLLISION · cyan dashed = play surface · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · stack search ${STACK_SEARCH_RADIUS.toFixed(2)} · socket ${SOCKET_SEARCH_RADIUS.toFixed(2)}`;
     const tw = ctx.measureText(label).width + 16;
     const x = Math.max(8, (ctx.canvas.clientWidth - tw) * 0.5);
     const y = 48;
@@ -8546,25 +8589,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
 
       if (addAssetType) {
-        // Placement mode follows the same editor gesture language as Setup:
-        // drag empty space to pan, tap empty space to place, tap an existing
-        // prop to select it, and drag only the already-selected prop to move it.
+        // Placement is paint-only: existing scene art never captures the tap.
+        // A tap lays down the active asset at the ground point underneath it;
+        // a drag pans the view. Finish Placement before selecting/moving props.
         editorGesture.placement = true;
-        if (selectedObject && editorObjectIsEditable(selectedObject) && pointInsideScreenBounds(e.clientX,e.clientY,objectScreenBounds(selectedObject),3)) {
-          editorGesture.kind = 'selected-object';
-          editorGesture.object = selectedObject;
-          editorGesture.stackIgnore = new Set();
-          if (isGameplayCrate(selectedObject)) {
-            const anchor = stackBottomFor(selectedObject, selectedObject.x);
-            const column = stackColumnFor(anchor, selectedObject.x);
-            const index = column?.members?.indexOf(selectedObject) ?? -1;
-            if (index >= 0) {
-              for (const member of column.members.slice(index + 1)) editorGesture.stackIgnore.add(member);
-            }
-          }
-        } else {
-          editorGesture.kind = 'placement-pan';
-        }
+        editorGesture.kind = 'placement-pan';
         return;
       }
 
@@ -8753,31 +8782,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             hintEl.textContent = 'Tap directly on an asset tagged Socket Host';
             hintEl.classList.remove('hidden');
           }
-        } else if (gesture.placement && (gesture.kind==='placement-pan' || gesture.kind==='selected-object')) {
-          // A clean release in Placement mode first tries to select an existing
-          // editable prop. Only genuinely empty space creates another asset.
-          const candidates=pickSceneObjects(e.clientX,e.clientY).filter(editorObjectIsEditable);
-          const hit=candidates[0]||null;
-          if(hit){
-            selectObject(hit,true,{keepPlacement:true});
-            selectionCycleInfo=cycleInfoFor(selectedObject,candidates);
-            hintEl.textContent='Selected · drag this asset to move it · drag elsewhere to pan · tap empty ground to place another';
-            hintEl.classList.remove('hidden');
-          } else if(addAssetType){
+        } else if (gesture.placement && gesture.kind==='placement-pan') {
+          // Taps in Placement mode go straight through visible assets to the
+          // ground. Nothing is selected, so dense dressing cannot steal input.
+          if(addAssetType){
             const point=groundPointFromClient(e.clientX,e.clientY) || gesture.startGround;
             if(point){
               const placedType=addAssetType;
-              const obj=createUserObject(placedType,point,{selectAfter:false});
-              selectObject(obj,true,{keepPlacement:true});
+              createUserObject(placedType,point,{selectAfter:false});
+              selectedObject=null;
+              selectionCycleInfo=null;
               const info=editorAssetInfo.get(placedType);
-              hintEl.textContent=`Placed ${String(info?.label || placedType).toLowerCase()} · drag it to adjust · drag elsewhere to pan · tap empty ground for another`;
+              hintEl.textContent=`Placed ${String(info?.label || placedType).toLowerCase()} · tap again to add another · drag anywhere to pan`;
               hintEl.classList.remove('hidden');
             }
           }
         } else if (gesture.kind==='pan' || gesture.kind==='selected-object') {
           // Selection happens only on a clean tap/release. A drag can never
           // select a different object, which keeps panning and moving separate.
-          const candidates=pickSceneObjects(e.clientX,e.clientY);
+          const candidates=pickSceneObjects(e.clientX,e.clientY).filter(editorObjectIsEditable);
           const hit=candidates[0]||null;
           if(hit){
             if(hit===selectedObject && candidates.length>1 && selectionCycleInfo?.objects?.length){
