@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.12: paint-only placement, scoped puzzle selection, deeper rivers and playable-surface collision debug.
+  // SideScroll v1.0.14: bridge support now overrides river-bank terrain cleanly, with final walk-surface collision debug.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -67,6 +67,8 @@
   const sectionRiverWidthRow = document.getElementById('sidescroll-section-river-width-row');
   const sectionRiverWidthInput = document.getElementById('sidescroll-section-river-width');
   const sectionRiverWidthValue = document.getElementById('sidescroll-section-river-width-value');
+  const sectionBankDressBtn = document.getElementById('sidescroll-section-bank-dress');
+  const sectionBankClearBtn = document.getElementById('sidescroll-section-bank-clear');
   const sectionResetBtn = document.getElementById('sidescroll-section-reset');
   const characterSwapBtn = document.getElementById('sidescroll-character');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
@@ -3670,6 +3672,158 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     frontOccluders.sort((a,b)=>a.z-b.z);
   }
 
+
+  function matchesRiverBankAutoId(item, sectionIndex) {
+    const prefix = `riverbank-${Math.trunc(Number(sectionIndex) || 0)}-`;
+    return typeof item?.id === 'string' && item.id.startsWith(prefix);
+  }
+
+  function clearAutoRiverBankDressing(sectionIndex, { save = true } = {}) {
+    const i = Math.trunc(Number(sectionIndex) || 0);
+    let removed = 0;
+    for (const list of [backdrop, midfill, frontOccluders]) {
+      for (let index = list.length - 1; index >= 0; index -= 1) {
+        const obj = list[index];
+        if (!matchesRiverBankAutoId(obj, i)) continue;
+        if (selectedObject === obj) selectedObject = null;
+        list.splice(index, 1);
+        removed += 1;
+      }
+    }
+    if (Array.isArray(sceneData.added)) {
+      sceneData.added = sceneData.added.filter(saved => !matchesRiverBankAutoId(saved, i));
+    }
+    if (save) saveSceneData();
+    return removed;
+  }
+
+  function weightedChoice(entries, random) {
+    const total = entries.reduce((sum, item) => sum + Math.max(0, Number(item.weight) || 0), 0);
+    if (!(total > 0)) return entries[0] || null;
+    let n = random() * total;
+    for (const item of entries) {
+      n -= Math.max(0, Number(item.weight) || 0);
+      if (n <= 0) return item;
+    }
+    return entries[entries.length - 1] || null;
+  }
+
+  function autoDressRiverBanks(sectionIndex) {
+    const i = Math.trunc(Number(sectionIndex) || 0);
+    if (terrainSectionType(i) !== 'river') return 0;
+    clearAutoRiverBankDressing(i, { save:false });
+    const bounds = terrainSectionBounds(i);
+    const random = mulberry32((((Date.now() >>> 0) ^ (((i + 1) * 2654435761) >>> 0)) >>> 0) || 1);
+    const innerDefs = [
+      { type:'ground11', weight:1.25, min:0.88, max:1.12, family:'foliage' },
+      { type:'ground12', weight:1.15, min:0.98, max:1.24, family:'foliage' },
+      { type:'ground03', weight:1.10, min:0.96, max:1.22, family:'foliage' },
+      { type:'ground06', weight:1.00, min:0.98, max:1.28, family:'foliage' },
+      { type:'ground02', weight:0.88, min:1.04, max:1.34, family:'foliage' },
+      { type:'ground04', weight:0.82, min:0.98, max:1.28, family:'foliage' },
+      { type:'ground09', weight:0.18, min:0.78, max:0.96, family:'rock' }
+    ];
+    const outerDefs = [
+      { type:'ground01', weight:1.18, min:0.94, max:1.20, family:'foliage' },
+      { type:'ground05', weight:0.94, min:0.84, max:1.06, family:'foliage' },
+      { type:'ground07', weight:1.05, min:0.80, max:1.02, family:'foliage' },
+      { type:'ground08', weight:0.66, min:0.96, max:1.24, family:'foliage' },
+      { type:'ground11', weight:0.74, min:0.86, max:1.10, family:'foliage' },
+      { type:'ground09', weight:0.34, min:0.78, max:0.98, family:'rock' },
+      { type:'ground10', weight:0.20, min:0.96, max:1.22, family:'rock' }
+    ];
+    const placed = [];
+    let placedCount = 0;
+
+    function blocked(x, z, spacingX, spacingZ) {
+      if (terrainSectionIndexAt(x) !== i) return true;
+      if (x <= bounds.minX + 0.12 || x >= bounds.maxX - 0.12) return true;
+      if (z <= WORLD.farZ + 0.4 || z >= WORLD.nearZ - 0.2) return true;
+      if (pointInsideRiverChannel(x, z, i)) return true;
+      for (const item of placed) {
+        if (Math.abs(item.x - x) < item.spacingX + spacingX && Math.abs(item.z - z) < item.spacingZ + spacingZ) return true;
+      }
+      for (const obj of allSceneObjects()) {
+        if (!obj || obj.deleted || obj.carried) continue;
+        if (terrainSectionIndexAt(obj.x) !== i) continue;
+        if (matchesRiverBankAutoId(obj, i)) continue;
+        if (!obj.userAdded && !obj.puzzleInstanceId && obj.category === 'dressing') continue;
+        const ox = Number(obj.x) || 0;
+        const oz = Number.isFinite(obj.z) ? obj.z : pathZ;
+        const otherSpacingX = Math.max(0.48, Math.abs(obj.sx || 1) * 0.34);
+        const otherSpacingZ = Math.max(0.36, obj.collision?.depth || Math.min(1.20, 0.26 + Math.abs(obj.sy || 1) * 0.10));
+        if (Math.abs(ox - x) < otherSpacingX + spacingX && Math.abs(oz - z) < otherSpacingZ + spacingZ) return true;
+      }
+      return false;
+    }
+
+    function place(def, x, z, height, spacingX, spacingZ) {
+      if (blocked(x, z, spacingX, spacingZ)) return false;
+      const width = height * (assetAspect[def.type] || 1);
+      const id = `riverbank-${i}-${Date.now().toString(36)}-${placedCount + 1}`;
+      const groundLine = assetGroundLineDefault(def.type);
+      const obj = addObject(targetCollectionForZ(z), def.type, x, z, width, height, {
+        id,
+        userAdded:true,
+        baseSx:width,
+        baseSy:height,
+        y:terrainAnchorBaseY(x, z, 'dressing', false) - groundLine * height,
+        groundLine,
+        shade:1,
+        opacity:0.99,
+        category:'dressing',
+        flip:random() > 0.5,
+        wrap:true,
+        collision:null,
+        collisionOverride:false
+      });
+      obj.autoRiverBank = true;
+      moveObjectToCorrectCollection(obj);
+      recordObjectEdit(obj);
+      placed.push({ x, z, spacingX, spacingZ });
+      placedCount += 1;
+      return true;
+    }
+
+    for (const side of ['left', 'right']) {
+      const dir = side === 'left' ? -1 : 1;
+      for (let z = WORLD.farZ + 1.0; z <= WORLD.nearZ - 0.7; z += 0.44 + random() * 0.28) {
+        const focusFalloff = Math.abs(z - pathZ) < 0.95 ? 0.68 : 1;
+        const profile = riverProfileAtZ(i, z);
+        const lip = side === 'left' ? profile.leftLip : profile.rightLip;
+        if (random() < 0.90 * focusFalloff) {
+          const def = weightedChoice(innerDefs, random);
+          const attemptZ = z + (random() - 0.5) * 0.22;
+          const x = lip + dir * (0.14 + random() * 0.38);
+          const height = def.min + random() * (def.max - def.min);
+          const spacingX = def.family === 'rock' ? 0.68 : 0.54;
+          const spacingZ = def.family === 'rock' ? 0.46 : 0.34;
+          place(def, x, attemptZ, height, spacingX, spacingZ);
+        }
+        if (random() < 0.58 * focusFalloff) {
+          const def = weightedChoice(outerDefs, random);
+          const attemptZ = z + (random() - 0.5) * 0.34;
+          const x = lip + dir * (0.56 + random() * 0.94);
+          const height = def.min + random() * (def.max - def.min);
+          const spacingX = def.family === 'rock' ? 0.86 : 0.70;
+          const spacingZ = def.family === 'rock' ? 0.54 : 0.42;
+          place(def, x, attemptZ, height, spacingX, spacingZ);
+        }
+        if (random() < 0.18 * focusFalloff) {
+          const def = weightedChoice(innerDefs, random);
+          const attemptZ = z + (random() - 0.5) * 0.18;
+          const x = lip + dir * (0.10 + random() * 0.24);
+          const height = (def.min + random() * (def.max - def.min)) * 0.82;
+          place(def, x, attemptZ, height, 0.42, 0.28);
+        }
+      }
+    }
+
+    sortSceneCollections();
+    saveSceneData();
+    return placedCount;
+  }
+
   // Editor state is needed by puzzle streaming, including the initial stream
   // performed during startup. Keep these declarations above that first call so
   // the game cannot hit a temporal-dead-zone error before the first frame.
@@ -6130,32 +6284,56 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function drawCollisionDebugOverlay(ctx) {
     ctx.save();
 
-    // Draw the exact floor height used by the character controller. This makes
-    // terrain undulation and river-bed ownership visible beside asset colliders.
-    const playableFloor = [];
+    // Show both the raw terrain and the final support surface. The dashed cyan
+    // line is the terrain mesh; the solid mint line is what grounded feet will
+    // actually follow after platform/bridge support has been resolved.
+    const terrainFloor = [];
+    const walkFloor = [];
     const floorStartX = camera.x - 14;
     const floorEndX = camera.x + 14;
+    const debugCapsule = colliderWorld();
     for (let i = 0; i <= 112; i += 1) {
       const x = Rig.lerp(floorStartX, floorEndX, i / 112);
-      const p = projectWorldPoint(x, playSurfaceYAt(x) + 0.035, pathZ);
-      if (p) playableFloor.push(p);
+      const terrainY = playSurfaceYAt(x);
+      const terrainPoint = projectWorldPoint(x, terrainY + 0.035, pathZ);
+      if (terrainPoint) terrainFloor.push(terrainPoint);
+      const support = walkableSupportAt(x + debugCapsule.offsetX, Infinity, 0);
+      const walkPoint = projectWorldPoint(x, terrainY + support.offset + 0.055, pathZ);
+      if (walkPoint) walkFloor.push(walkPoint);
     }
-    if (playableFloor.length > 1) {
-      ctx.strokeStyle = 'rgba(109,226,205,.98)';
-      ctx.lineWidth = 2.4;
+    if (terrainFloor.length > 1) {
+      ctx.strokeStyle = 'rgba(109,226,205,.86)';
+      ctx.lineWidth = 2.0;
       ctx.setLineDash([9,5]);
       ctx.beginPath();
-      ctx.moveTo(playableFloor[0].x, playableFloor[0].y);
-      for (let i = 1; i < playableFloor.length; i += 1) ctx.lineTo(playableFloor[i].x, playableFloor[i].y);
+      ctx.moveTo(terrainFloor[0].x, terrainFloor[0].y);
+      for (let i = 1; i < terrainFloor.length; i += 1) ctx.lineTo(terrainFloor[i].x, terrainFloor[i].y);
       ctx.stroke();
       ctx.setLineDash([]);
-      const labelPoint = playableFloor.find(point => point.x > 18 && point.x < ctx.canvas.clientWidth - 110);
+      const labelPoint = terrainFloor.find(point => point.x > 18 && point.x < ctx.canvas.clientWidth - 110);
       if (labelPoint) {
         ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
         ctx.fillStyle = 'rgba(18,27,31,.82)';
-        ctx.fillRect(labelPoint.x + 6, labelPoint.y - 21, 94, 17);
+        ctx.fillRect(labelPoint.x + 6, labelPoint.y - 21, 68, 17);
         ctx.fillStyle = 'rgba(198,255,243,.98)';
-        ctx.fillText('PLAY SURFACE', labelPoint.x + 12, labelPoint.y - 9);
+        ctx.fillText('TERRAIN', labelPoint.x + 12, labelPoint.y - 9);
+      }
+    }
+    if (walkFloor.length > 1) {
+      ctx.strokeStyle = 'rgba(211,255,174,.98)';
+      ctx.lineWidth = 2.6;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(walkFloor[0].x, walkFloor[0].y);
+      for (let i = 1; i < walkFloor.length; i += 1) ctx.lineTo(walkFloor[i].x, walkFloor[i].y);
+      ctx.stroke();
+      const labelPoint = walkFloor.find(point => point.x > 120 && point.x < ctx.canvas.clientWidth - 150);
+      if (labelPoint) {
+        ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+        ctx.fillStyle = 'rgba(18,27,31,.82)';
+        ctx.fillRect(labelPoint.x + 6, labelPoint.y - 21, 96, 17);
+        ctx.fillStyle = 'rgba(225,255,199,.98)';
+        ctx.fillText('WALK SURFACE', labelPoint.x + 12, labelPoint.y - 9);
       }
     }
 
@@ -6873,18 +7051,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
   }
 
-  function platformOffsetFor(obj, characterX) {
+  function isTerrainOverridePlatform(obj) {
+    return !!obj?.collision?.platform && /^bridge-/.test(obj.assetName || '');
+  }
+
+  function platformOffsetFor(obj, sampleX, terrainReferenceX = sampleX) {
     if (!obj?.collision?.platform) return -Infinity;
-    const platformTop = collisionTopHeightAtX(obj, characterX);
+    const platformTop = collisionTopHeightAtX(obj, sampleX);
     if (!Number.isFinite(platformTop)) return -Infinity;
-    return platformTop - playSurfaceYAt(characterX);
+    return platformTop - playSurfaceYAt(terrainReferenceX);
   }
 
   function walkableSupportAt(characterX, ceiling = Infinity, direction = 0) {
-    // The procedural path is the default terrain surface.  Puzzle/platform
-    // polygons can override it when their top surface is reachable.
+    // Terrain is the default support, but authored bridge surfaces are allowed to
+    // replace it even where the river-bank mesh is temporarily higher. This keeps
+    // a flat bridge collider flat instead of making the character ride the bank.
     let best = { obj:null, offset:0 };
+    let terrainOverride = null;
     const capsule = colliderWorld();
+    const rootX = characterX - capsule.offsetX;
     const probe = direction ? direction * capsule.footProbe : 0;
     const sampleXs = direction ? [characterX, characterX + probe] : [characterX];
     for (const obj of collisionObjects()) {
@@ -6893,12 +7078,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const depth = c.depth ?? 0.82;
       if (Math.abs(obj.z - pathZ) > depth) continue;
       for (const x of sampleXs) {
-        const offset = platformOffsetFor(obj, x);
-        if (!Number.isFinite(offset)) continue;
-        if (offset <= ceiling + 0.08 && offset > best.offset) best = { obj, offset };
+        const offset = platformOffsetFor(obj, x, rootX);
+        if (!Number.isFinite(offset) || offset > ceiling + 0.08) continue;
+        if (isTerrainOverridePlatform(obj)) {
+          // Permit a modest amount of bank overlap at the bridge landing. The
+          // bridge collider is the authored walking surface in this footprint.
+          const maxBuried = Math.max(0.68, capsule.stepDown * 2.5);
+          if (offset >= -maxBuried && (!terrainOverride || offset > terrainOverride.offset)) {
+            terrainOverride = { obj, offset };
+          }
+        } else if (offset > best.offset) {
+          best = { obj, offset };
+        }
       }
     }
-    return best;
+    return terrainOverride || best;
   }
 
   function platformUnder(characterX, ceiling = Infinity) {
@@ -6907,11 +7101,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function platformIsWalkableFrom(obj, proposedX, currentOffset, airborne) {
     if (!obj?.collision?.platform) return false;
-    const topOffset = platformOffsetFor(obj, proposedX);
-    if (!Number.isFinite(topOffset)) return false;
     const capsule = colliderWorld();
+    const rootX = proposedX - capsule.offsetX;
+    const topOffset = platformOffsetFor(obj, proposedX, rootX);
+    if (!Number.isFinite(topOffset)) return false;
     if (airborne) return currentOffset >= topOffset - PLAYER_COLLISION_SKIN;
-    return topOffset <= currentOffset + capsule.stepUp + 0.025;
+    const bridgeAllowance = isTerrainOverridePlatform(obj) ? Math.max(capsule.stepUp, 0.68) : capsule.stepUp;
+    return topOffset <= currentOffset + bridgeAllowance + 0.025;
   }
 
   function resolveObstacleMove(currentCameraX, proposedCameraX, clearanceHeight, airborne = false) {
@@ -7924,12 +8120,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         standingOnObject = null;
       }
     } else {
-      const support = walkableSupportAt(colliderXAfterMove, jumpOffset + capsule.stepUp, moveDir);
+      const support = walkableSupportAt(colliderXAfterMove, jumpOffset + Math.max(capsule.stepUp, 0.68), moveDir);
       const delta = support.offset - jumpOffset;
-      if (delta <= capsule.stepUp + 0.025 && delta >= -capsule.stepDown) {
+      const bridgeTransition = isTerrainOverridePlatform(support.obj) || isTerrainOverridePlatform(standingOnObject);
+      const maxStepUp = bridgeTransition ? Math.max(capsule.stepUp, 0.68) : capsule.stepUp;
+      const maxStepDown = bridgeTransition ? Math.max(capsule.stepDown, 0.68) : capsule.stepDown;
+      if (delta <= maxStepUp + 0.025 && delta >= -maxStepDown) {
         jumpOffset = support.offset;
         standingOnObject = support.obj;
-      } else if (delta < -capsule.stepDown) {
+      } else if (delta < -maxStepDown) {
         // Walking beyond a significant ledge keeps the current height and lets
         // the normal gravity solver take over rather than snapping downward.
         standingOnObject = null;
@@ -8112,6 +8311,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
     if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${selectedRiver.width.toFixed(1)} m`;
+    if (sectionBankDressBtn) sectionBankDressBtn.hidden = selectedType !== 'river';
+    if (sectionBankClearBtn) sectionBankClearBtn.hidden = selectedType !== 'river';
 
     const visible = !terrainHiddenSections.has(terrainSelectedSectionIndex);
     if (sectionVisibleBtn) {
@@ -8520,6 +8721,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     terrainHiddenSections.clear();
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
+  });
+  bindEditorPress(sectionBankDressBtn, () => {
+    if (terrainSectionType(terrainSelectedSectionIndex) !== 'river') return;
+    const count = autoDressRiverBanks(terrainSelectedSectionIndex);
+    updateEditorButtons();
+    updateTerrainSectionUi(true);
+    hintEl.textContent = count > 0
+      ? `River banks dressed · ${count} grasses/rocks placed`
+      : 'River banks already clear enough here · no auto dressing placed';
+    hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(sectionBankClearBtn, () => {
+    if (terrainSectionType(terrainSelectedSectionIndex) !== 'river') return;
+    const count = clearAutoRiverBankDressing(terrainSelectedSectionIndex);
+    updateEditorButtons();
+    updateTerrainSectionUi(true);
+    hintEl.textContent = count > 0
+      ? `River-bank auto dressing cleared · ${count} objects removed`
+      : 'No river-bank auto dressing to clear in this section';
+    hintEl.classList.remove('hidden');
   });
   updateTerrainSectionUi(true);
   bindEditorPress(cameraEditorBtn, () => {

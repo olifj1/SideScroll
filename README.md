@@ -1,8 +1,8 @@
-# SideScroll v1.0.12
+# SideScroll v1.0.14
 
-Placement, river and collision-debug refinement.
+Bridge / terrain support fix.
 
-- Placement mode is now paint-only: tapping lays the active asset onto the ground even when another asset is visually in front; dragging pans.
-- Environment and puzzle editing now filter selection to the active scope. Puzzle Dressing only exposes environment-scope dressing attached to that puzzle; normal Puzzle mode excludes that dressing.
-- Collision view now draws a cyan dashed **PLAY SURFACE** line showing the exact terrain height used by the character controller, including river sections.
-- River beds and water are lowered slightly so crossings read as deeper and less casually walkable.
+- Bridge support surfaces now override the river-bank terrain inside the bridge collider footprint, so a flat bridge collider stays flat as the underlying bank drops away.
+- Bridge entry/exit transitions get a slightly larger snap allowance so the player does not briefly fall or climb at the river lip.
+- Collision debug now shows **TERRAIN** as a dashed cyan line and the final **WALK SURFACE** as a solid mint line, including bridge/platform support.
+- Includes the river-bank auto-dressing tools from v1.0.13.
