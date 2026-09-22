@@ -46,6 +46,9 @@
   const fogResetBtn = document.getElementById('sidescroll-fog-reset');
   const collisionViewBtn = document.getElementById('sidescroll-collision-view');
   const playerHintsBtn = document.getElementById('sidescroll-player-hints');
+  const stageMenuBtn = document.getElementById('sidescroll-tools');
+  const stageMenuPanel = document.getElementById('sidescroll-tools-panel');
+  const stageMenuCloseBtn = document.getElementById('sidescroll-tools-close');
   const characterSwapBtn = document.getElementById('sidescroll-character');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
   const cameraEditorPanel = document.getElementById('sidescroll-camera-editor');
@@ -56,6 +59,9 @@
   const cameraForwardBtn = document.getElementById('sidescroll-camera-forward');
   const cameraTiltBackBtn = document.getElementById('sidescroll-camera-tilt-back');
   const cameraTiltForwardBtn = document.getElementById('sidescroll-camera-tilt-forward');
+  const cameraFollowInput = document.getElementById('sidescroll-camera-follow');
+  const cameraFollowAmountInput = document.getElementById('sidescroll-camera-follow-amount');
+  const cameraFollowValue = document.getElementById('sidescroll-camera-follow-value');
   const inventoryBtn = document.getElementById('sidescroll-inventory');
   const inventoryCountEl = document.getElementById('sidescroll-inventory-count');
   const inventoryPanel = document.getElementById('sidescroll-inventory-panel');
@@ -162,7 +168,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, cameraEditorPanel, quickNavPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, cameraEditorPanel, quickNavPanel, stageMenuPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -1115,7 +1121,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '0.2.95';
+const RIG_TEXTURE_VERSION = '0.2.96';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1157,7 +1163,7 @@ availableCharacterVariants.forEach(id => {
 });
 textures.rigAtlas = textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')];
 applyCharacterVariant(currentCharacterVariant, false);
-if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacterVariant);
+if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleCharacterVariant(); setStageMenuOpen(false); });
 
 
   function mulberry32(seed) {
@@ -3166,22 +3172,36 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
   };
 
   const CAMERA_TUNE_STORAGE_KEY = 'sidescroll-camera-tune-v1';
+  const CAMERA_FOLLOW_STORAGE_KEY = 'sidescroll-camera-follow-v1';
   const PLAYER_HINT_STORAGE_KEY = 'sidescroll-player-hints-v1';
   const CAMERA_Y_STEP = 0.12;
   const CAMERA_Z_STEP = 0.35;
   const CAMERA_TILT_STEP = 0.12;
+  const CAMERA_FOLLOW_DEADZONE = 0.08;
+  const CAMERA_FOLLOW_MAX = 1.15;
   let cameraEditMode = false;
   let playerHintsEnabled = true;
+  let cameraBaseY = camera.y;
+  let cameraBaseTilt = camera.targetY - camera.y;
+  let cameraFollowEnabled = true;
+  let cameraFollowAmount = 0.55;
+  let cameraFollowOffset = 0;
   try {
     const rawCamera = localStorage.getItem(CAMERA_TUNE_STORAGE_KEY);
     const savedCamera = rawCamera !== null
       ? JSON.parse(rawCamera || 'null')
       : BAKED_GAME_DESIGN?.camera;
     if (savedCamera && Number.isFinite(savedCamera.y) && Number.isFinite(savedCamera.z)) {
-      const targetDeltaY = Number.isFinite(savedCamera.tilt) ? savedCamera.tilt : (camera.targetY - camera.y);
-      camera.y = savedCamera.y;
+      cameraBaseTilt = Number.isFinite(savedCamera.tilt) ? savedCamera.tilt : cameraBaseTilt;
+      cameraBaseY = savedCamera.y;
+      camera.y = cameraBaseY;
       camera.z = savedCamera.z;
-      camera.targetY = camera.y + targetDeltaY;
+      camera.targetY = cameraBaseY + cameraBaseTilt;
+    }
+    const savedFollow = JSON.parse(localStorage.getItem(CAMERA_FOLLOW_STORAGE_KEY) || 'null');
+    if (savedFollow) {
+      if (typeof savedFollow.enabled === 'boolean') cameraFollowEnabled = savedFollow.enabled;
+      if (Number.isFinite(savedFollow.amount)) cameraFollowAmount = Rig.clamp(savedFollow.amount, 0, 1);
     }
     playerHintsEnabled = localStorage.getItem(PLAYER_HINT_STORAGE_KEY) !== '0';
   } catch (_) {}
@@ -3212,27 +3232,55 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
   }
 
   function saveCameraTune() {
-    try { localStorage.setItem(CAMERA_TUNE_STORAGE_KEY, JSON.stringify({ y:camera.y, z:camera.z, tilt:camera.targetY-camera.y })); } catch (_) {}
+    try { localStorage.setItem(CAMERA_TUNE_STORAGE_KEY, JSON.stringify({ y:cameraBaseY, z:camera.z, tilt:cameraBaseTilt })); } catch (_) {}
+  }
+  function saveCameraFollow() {
+    try { localStorage.setItem(CAMERA_FOLLOW_STORAGE_KEY, JSON.stringify({ enabled:cameraFollowEnabled, amount:cameraFollowAmount })); } catch (_) {}
+  }
+  function syncCameraFollowUi() {
+    if (cameraFollowInput) cameraFollowInput.checked = cameraFollowEnabled;
+    if (cameraFollowAmountInput) cameraFollowAmountInput.value = String(cameraFollowAmount);
+    if (cameraFollowValue) cameraFollowValue.textContent = `${Math.round(cameraFollowAmount * 100)}%`;
   }
   function updateCameraEditorUi() {
-    if (cameraEditorPanel) cameraEditorPanel.hidden = !(editMode && cameraEditMode);
-    if (cameraEditorBtn) cameraEditorBtn.classList.toggle('active', !!cameraEditMode);
-    if (cameraValuesEl) cameraValuesEl.textContent = `Y ${camera.y.toFixed(2)} · Z ${camera.z.toFixed(2)} · TILT ${(camera.targetY-camera.y).toFixed(2)}`;
+    if (cameraEditorPanel) cameraEditorPanel.hidden = !cameraEditMode;
+    if (cameraEditorBtn) {
+      cameraEditorBtn.classList.toggle('active', !!cameraEditMode);
+      cameraEditorBtn.setAttribute('aria-expanded', String(!!cameraEditMode));
+    }
+    if (cameraValuesEl) {
+      const followSuffix = Math.abs(cameraFollowOffset) > 0.005 ? ` · FOLLOW ${cameraFollowOffset >= 0 ? '+' : ''}${cameraFollowOffset.toFixed(2)}` : '';
+      cameraValuesEl.textContent = `Y ${camera.y.toFixed(2)} · Z ${camera.z.toFixed(2)} · TILT ${cameraBaseTilt.toFixed(2)}${followSuffix}`;
+    }
+    syncCameraFollowUi();
   }
   function nudgeCamera(dy=0, dz=0) {
-    const targetDeltaY = camera.targetY - camera.y;
-    camera.y = Rig.clamp(camera.y + dy, -6.0, 1.5);
+    cameraBaseY = Rig.clamp(cameraBaseY + dy, -6.0, 1.5);
     camera.z = Rig.clamp(camera.z + dz, 5.0, 28.0);
-    camera.targetY = camera.y + targetDeltaY;
+    camera.y = cameraBaseY + cameraFollowOffset;
+    camera.targetY = camera.y + cameraBaseTilt;
     saveCameraTune();
     updateCameraEditorUi();
   }
 
   function nudgeCameraTilt(delta=0) {
-    const tilt = Rig.clamp((camera.targetY - camera.y) + delta, -2.5, 3.0);
-    camera.targetY = camera.y + tilt;
+    cameraBaseTilt = Rig.clamp(cameraBaseTilt + delta, -2.5, 3.0);
+    camera.targetY = camera.y + cameraBaseTilt;
     saveCameraTune();
     updateCameraEditorUi();
+  }
+
+  function updateCameraFollow(dt) {
+    const rawHeight = Math.max(0, jumpOffset - CAMERA_FOLLOW_DEADZONE);
+    const targetOffset = cameraFollowEnabled ? Rig.clamp(rawHeight * cameraFollowAmount, 0, CAMERA_FOLLOW_MAX) : 0;
+    // Deliberately slower on the way down: the camera rises smoothly, then settles
+    // rather than snapping back to its base framing as the character lands.
+    const response = targetOffset > cameraFollowOffset ? 4.0 : 2.7;
+    const blend = 1 - Math.exp(-response * Math.max(0, dt));
+    cameraFollowOffset += (targetOffset - cameraFollowOffset) * blend;
+    if (Math.abs(cameraFollowOffset - targetOffset) < 0.0005) cameraFollowOffset = targetOffset;
+    camera.y = cameraBaseY + cameraFollowOffset;
+    camera.targetY = camera.y + cameraBaseTilt;
   }
 
   let projection = mat4Identity();
@@ -4957,7 +5005,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; socketPlacementPiece = null; cameraEditMode = false; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; socketPlacementPiece = null; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -7054,6 +7102,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
 
     character.x = camera.x + character.screenOffsetX;
     character.y = playSurfaceYAt(character.x) + jumpOffset;
+    updateCameraFollow(dt);
+    if (cameraEditMode) updateCameraEditorUi();
     savePlayerPosition(false);
     updatePuzzleStreaming(character.x);
     checkPuzzleCompletion(character.x);
@@ -7195,6 +7245,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
     actionBtn.setPointerCapture?.(e.pointerId);
   });
 
+  function setStageMenuOpen(open) {
+    if (!stageMenuPanel || !stageMenuBtn) return;
+    const next = !!open;
+    stageMenuPanel.hidden = !next;
+    stageMenuBtn.setAttribute('aria-expanded', String(next));
+    stageMenuBtn.classList.toggle('active', next);
+    if (next) {
+      if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
+      setFogPanelOpen?.(false);
+      setPostPanelOpen?.(false);
+      setInventoryOpen?.(false);
+    }
+  }
+
   function postHexToRgb(hex) {
     const n = parseInt(String(hex).replace('#',''), 16);
     return [((n >> 16) & 255)/255, ((n >> 8) & 255)/255, (n & 255)/255];
@@ -7218,6 +7282,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
     postPanel.hidden = !open;
     postBtn.setAttribute('aria-expanded', String(open));
     if (open) {
+      setStageMenuOpen(false);
       setFogPanelOpen(false);
       syncPostUi();
     }
@@ -7261,7 +7326,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
     if (!fogPanel || !fogBtn) return;
     fogPanel.hidden = !open;
     fogBtn.setAttribute('aria-expanded', String(open));
-    if (open) { setPostPanelOpen(false); syncFogUi(); }
+    if (open) { setStageMenuOpen(false); setPostPanelOpen(false); syncFogUi(); }
   }
   bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
   bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));
@@ -7279,6 +7344,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
     debugBtn.textContent = debugDepth ? 'Normal view' : 'Depth view';
     depthKey.hidden = !debugDepth;
     hideHint();
+    setStageMenuOpen(false);
   });
 
   collisionViewBtn?.addEventListener('click', () => {
@@ -7286,6 +7352,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
     collisionViewBtn.setAttribute('aria-pressed', String(collisionDebugView));
     collisionViewBtn.textContent = collisionDebugView ? 'Hide collision' : 'Collision';
     hideHint();
+    setStageMenuOpen(false);
   });
 
   const syncPlayerHintsButton = () => {
@@ -7297,10 +7364,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
     playerHintsEnabled = !playerHintsEnabled;
     try { localStorage.setItem(PLAYER_HINT_STORAGE_KEY, playerHintsEnabled ? '1' : '0'); } catch (_) {}
     syncPlayerHintsButton();
+    setStageMenuOpen(false);
   });
   syncPlayerHintsButton();
 
-  bindEditorPress(inventoryBtn, () => setInventoryOpen(!inventoryOpen));
+  bindEditorPress(inventoryBtn, () => { setStageMenuOpen(false); setInventoryOpen(!inventoryOpen); });
   bindEditorPress(inventoryCloseBtn, () => setInventoryOpen(false));
 
   bindEditorPress(deleteSaveBtn, () => {
@@ -7316,6 +7384,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
   });
 
   bindEditorPress(editBtn, () => {
+    setStageMenuOpen(false);
     if (puzzleTestMode) backToPuzzleSetup();
     else if (editMode) setEditMode(false);
     else { editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel(); }
@@ -7500,16 +7569,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
   bindEditorPress(editorCollisionUseAssetBtn, useAssetCollisionForSelected);
   bindEditorPress(quickNavBtn, () => setQuickNavOpen(quickNavPanel?.hidden));
   bindEditorPress(quickNavCloseBtn, () => setQuickNavOpen(false));
+  bindEditorPress(stageMenuBtn, () => setStageMenuOpen(stageMenuPanel?.hidden !== false));
+  bindEditorPress(stageMenuCloseBtn, () => setStageMenuOpen(false));
   bindEditorPress(cameraEditorBtn, () => {
-    if (!editMode) return;
     cameraEditMode = !cameraEditMode;
     if (cameraEditMode) {
+      setStageMenuOpen(false);
       setQuickNavOpen(false);
-      selectedObject = null;
-      collisionEditMode = false;
-      socketPlacementPiece = null;
-      setAssetPaletteOpen(false);
-      hintEl.textContent = 'CAMERA · height · depth · tilt';
+      setFogPanelOpen(false);
+      setPostPanelOpen(false);
+      setInventoryOpen(false);
+      hintEl.textContent = 'CAMERA · smooth height follow · height · depth · tilt';
       hintEl.classList.remove('hidden');
     }
     updateCameraEditorUi();
@@ -7517,15 +7587,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', toggleCharacter
   });
   const bindCameraNudge = (el, dy, dz) => {
     if (!el) return;
-    const apply = e => { e?.preventDefault?.(); if (editMode && cameraEditMode) nudgeCamera(dy, dz); };
+    const apply = e => { e?.preventDefault?.(); if (cameraEditMode) nudgeCamera(dy, dz); };
     el.addEventListener('pointerdown', apply);
   };
   bindCameraNudge(cameraUpBtn, CAMERA_Y_STEP, 0);
   bindCameraNudge(cameraDownBtn, -CAMERA_Y_STEP, 0);
   bindCameraNudge(cameraBackBtn, 0, CAMERA_Z_STEP);
   bindCameraNudge(cameraForwardBtn, 0, -CAMERA_Z_STEP);
-  if (cameraTiltBackBtn) cameraTiltBackBtn.addEventListener('pointerdown', e => { e.preventDefault(); if (editMode && cameraEditMode) nudgeCameraTilt(CAMERA_TILT_STEP); });
-  if (cameraTiltForwardBtn) cameraTiltForwardBtn.addEventListener('pointerdown', e => { e.preventDefault(); if (editMode && cameraEditMode) nudgeCameraTilt(-CAMERA_TILT_STEP); });
+  if (cameraTiltBackBtn) cameraTiltBackBtn.addEventListener('pointerdown', e => { e.preventDefault(); if (cameraEditMode) nudgeCameraTilt(CAMERA_TILT_STEP); });
+  if (cameraTiltForwardBtn) cameraTiltForwardBtn.addEventListener('pointerdown', e => { e.preventDefault(); if (cameraEditMode) nudgeCameraTilt(-CAMERA_TILT_STEP); });
+  cameraFollowInput?.addEventListener('input', () => {
+    cameraFollowEnabled = !!cameraFollowInput.checked;
+    saveCameraFollow();
+    syncCameraFollowUi();
+  });
+  cameraFollowAmountInput?.addEventListener('input', () => {
+    cameraFollowAmount = Rig.clamp(Number(cameraFollowAmountInput.value) || 0, 0, 1);
+    saveCameraFollow();
+    syncCameraFollowUi();
+  });
+  syncCameraFollowUi();
   bindEditorPress(editorSocketBtn, startSocketPlacement);
   bindEditorPress(editorSocketClearBtn, clearSelectedPieceSocket);
   bindEditorPress(editorDeleteBtn, deleteSelected);

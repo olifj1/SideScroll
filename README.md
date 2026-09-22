@@ -1,10 +1,7 @@
-# SideScroll v0.2.95
+# SideScroll v0.2.96
 
-This build adds a second playable character atlas and a simple character swap option.
-
-Included in this drop:
-- new alternate WalkLab / gameplay character atlas: `walklab-rig-v4-alt-hero2.png`
-- main game top-bar button to swap between Hero 1 and Hero 2
-- Walk Lab button to preview and swap the active character set
-- alternate atlas resized to the existing rig layout and processed with a dilation pass for cleaner in-game sampling
-- service worker cache bumped for the new build
+- Added smooth vertical camera follow for jumps and climbing, with subtle lag and a 55% default follow amount.
+- Camera controls are now available from a dedicated persistent Camera button, independent of Edit mode.
+- Camera panel now includes Follow Height on/off and follow amount controls.
+- Consolidated the growing top-bar controls into one expandable Menu panel; Camera remains separate for quick access.
+- Preserves the two-character swap system and all v0.2.95 assets/gameplay.

@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=0.2.95">
+  <link rel="stylesheet" href="style.css?v=0.2.96">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -39,18 +39,26 @@
           <div class="sidescroll-stage-hud">
             <div class="sidescroll-status" id="sidescroll-status">3D forest · raised dirt path · walk / run / jump</div>
             <div class="sidescroll-stage-actions">
-              <button id="sidescroll-depth" class="sidescroll-depth-button" type="button" aria-pressed="false">Depth</button>
-              <button id="sidescroll-fog" class="sidescroll-fog-button" type="button" aria-expanded="false">Fog</button>
-              <button id="sidescroll-post" class="sidescroll-post-button" type="button" aria-expanded="false">Post</button>
-              <button id="sidescroll-collision-view" class="sidescroll-collision-view-button" type="button" aria-pressed="false">Collision</button>
-              <button id="sidescroll-player-hints" class="sidescroll-player-hints-button" type="button" aria-pressed="true">Hints on</button>
-              <button id="sidescroll-character" class="sidescroll-depth-button sidescroll-character-button" type="button" aria-pressed="false">Hero 1</button>
-              <button id="sidescroll-inventory" class="sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
-              <button id="sidescroll-delete-save" class="sidescroll-delete-save-button" type="button" hidden>Delete save</button>
-              <button id="sidescroll-quick-nav" class="sidescroll-quick-nav-button" type="button" aria-expanded="false" hidden>Go to</button>
-              <button id="sidescroll-edit" class="sidescroll-edit-button" type="button" aria-pressed="false">Edit</button>
+              <button id="sidescroll-editor-camera" class="sidescroll-camera-button" type="button" aria-expanded="false">Camera</button>
+              <button id="sidescroll-tools" class="sidescroll-menu-button" type="button" aria-expanded="false" aria-haspopup="true">Menu</button>
             </div>
           </div>
+
+          <aside class="sidescroll-tools-panel" id="sidescroll-tools-panel" hidden aria-label="SideScroll tools menu">
+            <div class="sidescroll-tools-head"><strong>TOOLS</strong><button id="sidescroll-tools-close" type="button" aria-label="Close tools menu">×</button></div>
+            <div class="sidescroll-tools-grid">
+              <button id="sidescroll-depth" class="sidescroll-tools-item" type="button" aria-pressed="false">Depth</button>
+              <button id="sidescroll-fog" class="sidescroll-tools-item" type="button" aria-expanded="false">Fog</button>
+              <button id="sidescroll-post" class="sidescroll-tools-item" type="button" aria-expanded="false">Post</button>
+              <button id="sidescroll-collision-view" class="sidescroll-tools-item" type="button" aria-pressed="false">Collision</button>
+              <button id="sidescroll-player-hints" class="sidescroll-tools-item" type="button" aria-pressed="true">Hints on</button>
+              <button id="sidescroll-character" class="sidescroll-tools-item sidescroll-character-button" type="button" aria-pressed="false">Hero 1</button>
+              <button id="sidescroll-inventory" class="sidescroll-tools-item sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
+              <button id="sidescroll-quick-nav" class="sidescroll-tools-item sidescroll-quick-nav-button" type="button" aria-expanded="false" hidden>Go to</button>
+              <button id="sidescroll-delete-save" class="sidescroll-tools-item sidescroll-delete-save-button" type="button" hidden>Delete save</button>
+              <button id="sidescroll-edit" class="sidescroll-tools-item sidescroll-edit-button" type="button" aria-pressed="false">Edit</button>
+            </div>
+          </aside>
 
 
           <aside class="sidescroll-fog-panel" id="sidescroll-fog-panel" hidden aria-label="Fog editor">
@@ -106,7 +114,11 @@
                 </div>
               </div>
             </div>
-            <small>Height · forward/back · tilt forward/back</small>
+            <div class="sidescroll-camera-follow-row">
+              <label><span>FOLLOW HEIGHT</span><input id="sidescroll-camera-follow" type="checkbox" checked></label>
+              <label><span>AMOUNT <b id="sidescroll-camera-follow-value">55%</b></span><input id="sidescroll-camera-follow-amount" type="range" min="0" max="1" step="0.05" value="0.55"></label>
+            </div>
+            <small>Smooth vertical follow · camera lags jumps and climbing</small>
           </div>
 
           <div class="sidescroll-depth-key" id="sidescroll-depth-key" hidden aria-hidden="true">
@@ -300,7 +312,6 @@
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-collision-remove" type="button"><span>⊘</span><small>REMOVE COLLISION</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision-save-asset" type="button"><span>⇧</span><small>SAVE TO ASSET</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision-use-asset" type="button"><span>↺</span><small>USE ASSET</small></button>
-          <button class="sidescroll-editor-tool" id="sidescroll-editor-camera" type="button"><span>⌖</span><small>CAMERA</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-socket" type="button"><span>◎</span><small>SET SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-socket-clear" type="button"><span>⊘</span><small>CLEAR SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-delete" type="button"><span>×</span><small>DELETE</small></button>
@@ -309,11 +320,11 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=0.2.95"></script>
-  <script src="core.js?v=0.2.95"></script>
-  <script src="walk-rig.js?v=0.2.95"></script>
-  <script src="puzzle-groups.js?v=0.2.95"></script>
-  <script src="baked-game-design.js?v=0.2.95"></script>
-  <script src="sidescroll.js?v=0.2.95"></script>
+  <script src="site-config.js?v=0.2.96"></script>
+  <script src="core.js?v=0.2.96"></script>
+  <script src="walk-rig.js?v=0.2.96"></script>
+  <script src="puzzle-groups.js?v=0.2.96"></script>
+  <script src="baked-game-design.js?v=0.2.96"></script>
+  <script src="sidescroll.js?v=0.2.96"></script>
 </body>
 </html>
