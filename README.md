@@ -1,10 +1,10 @@
-# SideScroll v1.0.16
+# SideScroll v1.0.18
 
-River collision safety refinement.
+Asset positioning / bridge authoring pass.
 
-- River sections no longer disable collision across the whole 10 m section.
-- The normal bank/shoulder terrain remains collidable; only the actual river channel is cut out.
-- Any generic Support Surface object can span that channel, so there is still no bridge-specific collision rule.
-- Existing v1.0.15 river sections migrate back to bank collision automatically.
-- Edit mode and Puzzle Focus cannot fall forever through an unsupported channel: authoring falls back to the river water plane.
-- The full section Terrain Collision ON/OFF control remains available for deliberate custom setups.
+- Bridge halves now default to **Free placement**, so moving them in X or depth does not make them ride up/down the terrain underneath.
+- Selected assets have a new **Position** panel with independent X, floor-Y and Z values plus fine/normal/coarse nudge steps.
+- Free/Ground can be switched per placed object. Free placement stores an absolute floor/deck height and persists through puzzle starts and scene saves.
+- **Floor = walk** aligns the artwork floor line to normal walking height.
+- **Collision top = walk** moves a Support Surface so the top of its collision exactly matches normal walking height.
+- **Align fixed supports** aligns non-carryable support surfaces in the current puzzle to the selected support's height and depth, useful for paired bridge pieces without adding bridge-specific physics.

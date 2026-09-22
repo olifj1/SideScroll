@@ -115,7 +115,7 @@
             <button id="sidescroll-section-bank-clear" class="sidescroll-section-wide subtle" type="button" hidden>Clear auto bank dressing</button>
             <button id="sidescroll-section-visible" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain visible</button>
             <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
-            <p>v1.0.16: river banks keep terrain collision, only the channel is cut out; edit/focus uses a water-plane safety fallback instead of falling.</p>
+            <p>v1.0.18: free-placement assets and a direct X/Y/Z Position panel make bridge/platform setup independent of terrain snap.</p>
           </aside>
 
           <aside class="sidescroll-quick-nav-panel" id="sidescroll-quick-nav-panel" hidden aria-label="Quick scene navigation">
@@ -346,6 +346,7 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-down" type="button"><span>−</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-up" type="button"><span>＋</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-ground-line" type="button"><span>⌁</span><small>FLOOR LINE</small></button>
+          <button class="sidescroll-editor-tool" id="sidescroll-editor-transform" type="button"><span>↕</span><small>POSITION</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-game-layer" type="button"><span>↔</span><small>GAME LAYER</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision" type="button"><span>▣</span><small>COLLISION</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-collision-remove" type="button"><span>⊘</span><small>REMOVE COLLISION</small></button>
@@ -354,6 +355,26 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-socket" type="button"><span>◎</span><small>SET SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-socket-clear" type="button"><span>⊘</span><small>CLEAR SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-delete" type="button"><span>×</span><small>DELETE</small></button>
+        </div>
+
+        <div class="sidescroll-transform-editor" id="sidescroll-transform-editor" hidden aria-label="Asset positioning editor">
+          <div class="sidescroll-transform-head">
+            <span><small>POSITION</small><strong id="sidescroll-transform-mode-label">GROUND</strong></span>
+            <button id="sidescroll-transform-mode" type="button">Free</button>
+            <button id="sidescroll-transform-close" type="button" aria-label="Close positioning editor">×</button>
+          </div>
+          <div class="sidescroll-transform-axis-list">
+            <div class="sidescroll-transform-axis"><label for="sidescroll-transform-x">X</label><button id="sidescroll-transform-x-minus" type="button">−</button><input id="sidescroll-transform-x" type="number" step="0.01"><button id="sidescroll-transform-x-plus" type="button">＋</button></div>
+            <div class="sidescroll-transform-axis"><label for="sidescroll-transform-y">Y</label><button id="sidescroll-transform-y-minus" type="button">−</button><input id="sidescroll-transform-y" type="number" step="0.01"><button id="sidescroll-transform-y-plus" type="button">＋</button></div>
+            <div class="sidescroll-transform-axis"><label for="sidescroll-transform-z">Z</label><button id="sidescroll-transform-z-minus" type="button">−</button><input id="sidescroll-transform-z" type="number" step="0.01"><button id="sidescroll-transform-z-plus" type="button">＋</button></div>
+          </div>
+          <div class="sidescroll-transform-actions">
+            <label>STEP <select id="sidescroll-transform-step"><option value="0.02">0.02 m</option><option value="0.1" selected>0.10 m</option><option value="0.5">0.50 m</option></select></label>
+            <button id="sidescroll-transform-floor-walk" type="button">Floor = walk</button>
+            <button id="sidescroll-transform-support-walk" type="button">Collision top = walk</button>
+            <button id="sidescroll-transform-align-supports" type="button">Align fixed supports</button>
+          </div>
+          <p>Free mode holds Y while X/Z move. Y is the asset floor/deck height, not the image pivot.</p>
         </div>
 
         <div class="sidescroll-ground-line-editor" id="sidescroll-ground-line-editor" hidden aria-label="Asset floor line editor">

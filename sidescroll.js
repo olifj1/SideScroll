@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.16: river-channel collision cutout, safe editor focus fallback and generic section collision controls.
+  // SideScroll v1.0.18: free-placement assets, direct X/Y/Z positioning and reusable support-surface alignment tools.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -184,6 +184,24 @@
   const editorScaleDownBtn = document.getElementById('sidescroll-editor-scale-down');
   const editorScaleUpBtn = document.getElementById('sidescroll-editor-scale-up');
   const editorGroundLineBtn = document.getElementById('sidescroll-editor-ground-line');
+  const editorTransformBtn = document.getElementById('sidescroll-editor-transform');
+  const transformEditor = document.getElementById('sidescroll-transform-editor');
+  const transformModeLabel = document.getElementById('sidescroll-transform-mode-label');
+  const transformModeBtn = document.getElementById('sidescroll-transform-mode');
+  const transformCloseBtn = document.getElementById('sidescroll-transform-close');
+  const transformXInput = document.getElementById('sidescroll-transform-x');
+  const transformYInput = document.getElementById('sidescroll-transform-y');
+  const transformZInput = document.getElementById('sidescroll-transform-z');
+  const transformStepInput = document.getElementById('sidescroll-transform-step');
+  const transformXMinusBtn = document.getElementById('sidescroll-transform-x-minus');
+  const transformXPlusBtn = document.getElementById('sidescroll-transform-x-plus');
+  const transformYMinusBtn = document.getElementById('sidescroll-transform-y-minus');
+  const transformYPlusBtn = document.getElementById('sidescroll-transform-y-plus');
+  const transformZMinusBtn = document.getElementById('sidescroll-transform-z-minus');
+  const transformZPlusBtn = document.getElementById('sidescroll-transform-z-plus');
+  const transformFloorWalkBtn = document.getElementById('sidescroll-transform-floor-walk');
+  const transformSupportWalkBtn = document.getElementById('sidescroll-transform-support-walk');
+  const transformAlignSupportsBtn = document.getElementById('sidescroll-transform-align-supports');
   const groundLineEditor = document.getElementById('sidescroll-ground-line-editor');
   const groundLineInput = document.getElementById('sidescroll-ground-line-input');
   const groundLineValueEl = document.getElementById('sidescroll-ground-line-value');
@@ -197,7 +215,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, groundLineEditor, cameraEditorPanel, quickNavPanel, stageMenuPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, cameraEditorPanel, quickNavPanel, stageMenuPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -1518,13 +1536,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return terrainSectionCollisionEnabled(terrainSectionIndexAt(x));
   }
 
+  function pointInsideRiverCollisionGap(x, z, index = terrainSectionIndexAt(x)) {
+    if (terrainSectionType(index) !== 'river') return false;
+    const p = riverProfileAtZ(index, z);
+    // Physics deliberately ignores the sloping visual banks. The solid ground
+    // runs flat to the inner toes, then becomes a clean gap across the channel.
+    return x > p.leftToe - 0.03 && x < p.rightToe + 0.03;
+  }
+
   function terrainCollisionAvailableAt(x, z = pathZ) {
     const index = terrainSectionIndexAt(x);
     if (!terrainSectionCollisionEnabled(index)) return false;
-    // River sections keep normal collision on their shoulders/banks, but the
-    // actual channel is a deliberate hole. Authored support colliders can span
-    // that hole without competing with the sloped river mesh underneath.
-    if (terrainSectionType(index) === 'river' && pointInsideRiverChannel(x, z, index)) return false;
+    if (terrainSectionType(index) === 'river' && pointInsideRiverCollisionGap(x, z, index)) return false;
     return true;
   }
 
@@ -1678,15 +1701,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           terrainSectionSettings.set(Math.trunc(i), { width:Rig.clamp(Number(value.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH) });
         }
       }
-      // v1.0.16 migration: v1.0.15 disabled the *entire* 10 m river section,
-      // which also removed perfectly valid bank/shoulder floor. Re-enable river
-      // sections once and let the new point-aware channel cutout create the gap.
+      // v1.0.17 migration: the first collision-toggle experiments could leave
+      // stale whole-section holes in existing saves. Reset those once. From this
+      // version onward the user's section toggle is preserved normally.
       const collisionModelVersion = Number(saved.collisionModelVersion) || 1;
-      if (collisionModelVersion < 2) {
-        for (const [i, typeId] of terrainSectionTypes.entries()) {
-          if (typeId === 'river') terrainCollisionDisabledSections.delete(i);
-        }
-      }
+      if (collisionModelVersion < 3) terrainCollisionDisabledSections.clear();
     } catch (_) {}
   }
 
@@ -1698,7 +1717,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         selected:terrainSelectedSectionIndex,
         hidden:[...terrainHiddenSections].sort((a,b)=>a-b),
         collisionDisabled:[...terrainCollisionDisabledSections].sort((a,b)=>a-b),
-        collisionModelVersion:2,
+        collisionModelVersion:3,
         types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
         settings:Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0]))
       }));
@@ -1830,10 +1849,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return terrainSurfaceYForTypeAt(x, z, terrainSectionType(index), index);
   }
 
-  // One authoritative playable floor height. Character feet, locked gameplay
-  // objects and platform collision all reference this same centre line.
+  // Stable gameplay reference height. Visual river geometry is allowed to dip
+  // and slope independently; collision decides whether this reference floor is
+  // present. This keeps camera/jump/platform maths completely independent from
+  // the decorative river-bank shape.
   function playSurfaceYAt(x) {
-    return terrainGroundYAt(x, pathZ);
+    const index = terrainSectionIndexAt(x);
+    const typeId = terrainSectionType(index);
+    if (typeId === 'river') return pathGroundYAt(x, pathZ);
+    return terrainSurfaceYForTypeAt(x, pathZ, typeId, index);
   }
 
   function terrainAnchorBaseY(x, z, category = 'dressing', gameplayLayerLocked = false) {
@@ -1880,6 +1904,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function objectFloorWorldY(obj) {
     if (!obj) return groundY;
     return obj.y + objectGroundLine(obj) * (Number(obj.sy) || 0);
+  }
+
+  function setObjectFloorWorldY(obj, floorWorldY) {
+    if (!obj || !Number.isFinite(Number(floorWorldY))) return;
+    obj.y = Number(floorWorldY) - objectGroundLine(obj) * (Number(obj.sy) || 0);
   }
 
   function objectFloorOffsetFromTerrain(obj) {
@@ -1997,6 +2026,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'stone-piece-c': { carryable:true, placeable:true, socketPiece:true },
     'forest-key': {}
   };
+  // Placement is an editor concern, separate from gameplay behaviour. Assets
+  // such as bridge halves are easier to author when their height is held in
+  // world space rather than continuously re-snapping to the decorative terrain.
+  const FREE_PLACEMENT_ASSET_DEFAULTS = new Set(['bridge-left','bridge-right']);
+  function defaultFreePlacement(assetName) { return FREE_PLACEMENT_ASSET_DEFAULTS.has(assetName); }
+  function objectUsesFreePlacement(obj) {
+    return !!obj && (typeof obj.freePlacement === 'boolean' ? obj.freePlacement : defaultFreePlacement(obj.assetName));
+  }
+
   const ASSET_BEHAVIOUR_DEFS = [
     { key:'solid', label:'Solid', description:'Adds physical collision to this asset type.' },
     { key:'carryable', label:'Carryable', description:'ACTION can pick this asset up. Enabling this also makes it placeable.' },
@@ -2203,6 +2241,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       category,
       gameplayType: opts.gameplayType || null,
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
+      freePlacement: typeof opts.freePlacement === 'boolean' ? opts.freePlacement : defaultFreePlacement(type),
       layer: opts.layer || classifyLayer(z),
       wrap: opts.wrap !== false,
       collision: opts.collisionOverride
@@ -3085,6 +3124,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         category: prop.category || 'gameplay',
         gameplayType: prop.gameplayType || null,
         gameplayLayerLocked: true,
+        freePlacement: typeof prop.freePlacement === 'boolean' ? prop.freePlacement : defaultFreePlacement(prop.asset),
+        worldFloorY: Number.isFinite(prop.worldFloorY) ? Number(prop.worldFloorY) : null,
         collision: cloneCollision(prop.collision),
         shadow: prop.shadow ? { ...prop.shadow } : null,
         sockets: Array.isArray(prop.sockets) ? prop.sockets.map(socket => ({ ...socket })) : [],
@@ -3136,6 +3177,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         category: obj.category || 'gameplay',
         gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked,
+        freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
         collision: cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride,
         shadow: obj.shadow ? { ...obj.shadow } : null,
         sockets: Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
@@ -3178,6 +3220,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           category:state.category || prop?.category || 'gameplay',
           gameplayType:state.gameplayType ?? prop?.gameplayType ?? null,
           gameplayLayerLocked:state.gameplayLayerLocked ?? true,
+          freePlacement:typeof state.freePlacement === 'boolean' ? state.freePlacement : defaultFreePlacement(asset),
           collision:cloneCollision(state.collision ?? prop?.collision ?? null), collisionOverride:!!state.collisionOverride,
           shadow:state.shadow || prop?.shadow || null,
           sockets:Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [],
@@ -3201,6 +3244,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.category = state.category || prop?.category || obj.category || 'gameplay';
       obj.gameplayType = state.gameplayType ?? prop?.gameplayType ?? obj.gameplayType ?? null;
       obj.gameplayLayerLocked = state.gameplayLayerLocked ?? true;
+      obj.freePlacement = typeof state.freePlacement === 'boolean' ? state.freePlacement : defaultFreePlacement(obj.assetName);
       obj.collisionOverride = !!state.collisionOverride;
       obj.collision = obj.collisionOverride
         ? cloneCollision(state.collision ?? prop?.collision ?? null)
@@ -3211,9 +3255,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.carried = false;
       obj.groundLine = Rig.clamp(Number.isFinite(state.groundLine) ? Number(state.groundLine) : assetGroundLineDefault(obj.assetName), 0, 1);
       const baseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
-      obj.y = Number.isFinite(state.floorOffset)
-        ? baseY + Number(state.floorOffset) - objectGroundLine(obj) * obj.sy
-        : baseY + (Number.isFinite(state.yOffset) ? state.yOffset : 0);
+      obj.y = objectUsesFreePlacement(obj) && Number.isFinite(state.worldFloorY)
+        ? Number(state.worldFloorY) - objectGroundLine(obj) * obj.sy
+        : (Number.isFinite(state.floorOffset)
+            ? baseY + Number(state.floorOffset) - objectGroundLine(obj) * obj.sy
+            : baseY + (Number.isFinite(state.yOffset) ? state.yOffset : 0));
       moveObjectToCorrectCollection(obj);
     }
     for (const obj of instance.objects) {
@@ -3234,7 +3280,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         asset:obj.assetName,
         x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
         deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
-        gameplayLayerLocked:!!obj.gameplayLayerLocked, collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
+        gameplayLayerLocked:!!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
       };
     }
@@ -3276,6 +3322,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
       deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
+      freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
       collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
       sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     };
@@ -3309,6 +3356,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const width = correctPuzzleAssetWidth(asset, savedWidth, height);
       const restoredCategory = prior?.category || startState?.category || prop?.category || 'gameplay';
       const restoredLocked = prior?.gameplayLayerLocked ?? startState?.gameplayLayerLocked ?? true;
+      const restoredFreePlacement = prior?.freePlacement ?? startState?.freePlacement ?? prop?.freePlacement ?? defaultFreePlacement(asset);
+      const restoredWorldFloorY = Number.isFinite(prior?.worldFloorY)
+        ? Number(prior.worldFloorY)
+        : (Number.isFinite(startState?.worldFloorY) ? Number(startState.worldFloorY) : null);
       const restoredZ = restoredCategory === 'gameplay' && restoredLocked ? pathZ : z;
       const currentBaseY = terrainAnchorBaseY(x, restoredZ, restoredCategory, restoredLocked);
       const legacyBaseY = legacyTerrainAnchorBaseY(x, restoredZ, restoredCategory, restoredLocked);
@@ -3326,15 +3377,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
                 : (Number.isFinite(startState?.floorOffset)
                     ? Number(startState.floorOffset) - restoredGroundLine * height
                     : (Number.isFinite(startState?.yOffset) ? Number(startState.yOffset) : 0))));
+      const restoredY = restoredFreePlacement && Number.isFinite(restoredWorldFloorY)
+        ? restoredWorldFloorY - restoredGroundLine * height
+        : currentBaseY + restoredOffset;
       const obj = addObject(frontOccluders, asset, x, restoredZ, width, height, {
         id:`puzzle-${marker.id}-${objectId}`,
-        y:currentBaseY + restoredOffset,
+        y:restoredY,
         groundLine:restoredGroundLine,
         flip:prior?.flip ?? startState?.flip ?? prop?.flip ?? false,
         shade:1, opacity:1, layer:'foreground', wrap:false,
         category:restoredCategory,
         gameplayType:prior?.gameplayType ?? startState?.gameplayType ?? prop?.gameplayType ?? null,
         gameplayLayerLocked:restoredLocked,
+        freePlacement:!!restoredFreePlacement,
         collision:cloneCollision(prior?.collision ?? startState?.collision ?? prop?.collision ?? null),
         collisionOverride:!!(prior?.collisionOverride ?? startState?.collisionOverride ?? false),
         shadow:prior?.shadow || startState?.shadow || prop?.shadow || null,
@@ -3613,6 +3668,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if ('gameplayType' in override) obj.gameplayType = override.gameplayType;
     if (typeof override.gameplayLayerLocked === 'boolean') obj.gameplayLayerLocked = override.gameplayLayerLocked;
     else if (obj.category === 'gameplay' && obj.gameplayLayerLocked == null) obj.gameplayLayerLocked = true;
+    if (typeof override.freePlacement === 'boolean') obj.freePlacement = override.freePlacement;
     if (obj.category === 'gameplay' && obj.gameplayLayerLocked) obj.z = pathZ;
     obj.collisionOverride = !!override.collisionOverride;
     if (obj.collisionOverride) {
@@ -3624,7 +3680,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     obj.groundLine = Rig.clamp(Number.isFinite(override.groundLine) ? Number(override.groundLine) : objectGroundLine(obj), 0, 1);
     const currentBaseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
     const legacyBaseY = legacyTerrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
-    if (Number.isFinite(override.floorOffset)) {
+    if (objectUsesFreePlacement(obj) && Number.isFinite(override.worldFloorY)) {
+      setObjectFloorWorldY(obj, Number(override.worldFloorY));
+    } else if (Number.isFinite(override.floorOffset)) {
       obj.y = currentBaseY + Number(override.floorOffset) - objectGroundLine(obj) * obj.sy;
     } else {
       const terrainOffset = Number.isFinite(override.terrainOffset)
@@ -3644,7 +3702,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         id: obj.id, assetName: obj.assetName, x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z,
         sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
-        gameplayLayerLocked: !!obj.gameplayLayerLocked, deleted: !!obj.deleted
+        gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), deleted: !!obj.deleted
       };
       if (saved) Object.assign(saved, payload);
       else sceneData.added.push(payload);
@@ -3652,7 +3710,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       sceneData.overrides[obj.id] = {
         x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z, sx: obj.sx, sy: obj.sy, flip: obj.flip,
         collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride, category: obj.category || 'dressing',
-        gameplayType: obj.gameplayType || null, gameplayLayerLocked: !!obj.gameplayLayerLocked, deleted: !!obj.deleted
+        gameplayType: obj.gameplayType || null, gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), deleted: !!obj.deleted
       };
     }
     saveSceneData();
@@ -3695,17 +3753,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const currentBaseY = terrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
       const legacyBaseY = legacyTerrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
       const restoredGroundLine = Rig.clamp(Number.isFinite(saved.groundLine) ? Number(saved.groundLine) : assetGroundLineDefault(saved.assetName), 0, 1);
+      const restoredFreePlacement = typeof saved.freePlacement === 'boolean' ? saved.freePlacement : defaultFreePlacement(saved.assetName);
       const terrainOffset = Number.isFinite(saved.floorOffset)
         ? Number(saved.floorOffset) - restoredGroundLine * saved.sy
         : (Number.isFinite(saved.terrainOffset)
             ? Number(saved.terrainOffset)
             : (Number.isFinite(saved.y) ? Number(saved.y) - legacyBaseY : 0));
+      const restoredY = restoredFreePlacement && Number.isFinite(saved.worldFloorY)
+        ? Number(saved.worldFloorY) - restoredGroundLine * saved.sy
+        : currentBaseY + terrainOffset;
       const obj = addObject(collection, saved.assetName, saved.x, restoredZ, restoredWidth, saved.sy, {
         id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip,
-        y: currentBaseY + terrainOffset, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
+        y: restoredY, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(restoredZ),
         category: restoredCategory, gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
-        gameplayLayerLocked: restoredLocked
+        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement
       });
       obj.sx = restoredWidth; obj.sy = saved.sy;
       if (obj.category === 'gameplay' && obj.gameplayLayerLocked) moveObjectToCorrectCollection(obj);
@@ -4150,6 +4212,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   let editorPuzzlePackPinned = false;
   let selectedObject = null;
+  let transformEditMode = false;
   let editorPointer = null;
   let editorDragKind = null;
   let editorDragOffset = { x: 0, z: 0 };
@@ -5107,6 +5170,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         category:obj.category || 'gameplay',
         gameplayType:obj.gameplayType || null,
         gameplayLayerLocked:!!obj.gameplayLayerLocked,
+        freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
         collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride,
         shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
@@ -5210,6 +5274,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       category:obj.category || 'dressing',
       gameplayType:obj.gameplayType || null,
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
+      freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
       userAdded:!!obj.userAdded,
       collision:cloneCollision(obj.collision),
       collisionOverride:!!obj.collisionOverride
@@ -5441,6 +5506,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!selectedObject || !objectHasBehaviour(selectedObject, 'socketPiece') || !selectedObject.puzzleInstanceId) return;
     socketPlacementPiece = selectedObject;
     groundLineEditMode = false;
+    transformEditMode = false;
     collisionEditMode = false;
     collisionHandleIndex = -1;
     addAssetType = null;
@@ -5471,6 +5537,152 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updatePuzzlePanel();
   }
 
+  function fixedSupportObjectsForSelectedPuzzle() {
+    if (!selectedObject?.puzzleInstanceId) return [];
+    const instance = activePuzzleInstances.get(selectedObject.puzzleInstanceId);
+    if (!instance) return [];
+    return instance.objects.filter(obj => obj && !obj.deleted && isSupportSurfaceObject(obj)
+      && !objectHasBehaviour(obj, 'carryable') && !objectHasBehaviour(obj, 'stackable'));
+  }
+
+  function syncTransformEditor() {
+    const has = !!(editMode && transformEditMode && selectedObject && !selectedObject.deleted);
+    if (transformEditor) transformEditor.hidden = !has;
+    if (editorTransformBtn) editorTransformBtn.classList.toggle('active', has);
+    if (!has) return;
+    const free = objectUsesFreePlacement(selectedObject);
+    if (transformModeLabel) transformModeLabel.textContent = free ? 'FREE' : 'GROUND';
+    if (transformModeBtn) transformModeBtn.textContent = free ? 'Use Ground' : 'Make Free';
+    if (transformXInput) transformXInput.value = selectedObject.x.toFixed(2);
+    if (transformYInput) transformYInput.value = objectFloorWorldY(selectedObject).toFixed(2);
+    if (transformZInput) {
+      transformZInput.value = selectedObject.z.toFixed(2);
+      transformZInput.disabled = !!(selectedObject.category === 'gameplay' && selectedObject.gameplayLayerLocked);
+    }
+    const lockedDepth = !!(selectedObject.category === 'gameplay' && selectedObject.gameplayLayerLocked);
+    if (transformZMinusBtn) transformZMinusBtn.disabled = lockedDepth;
+    if (transformZPlusBtn) transformZPlusBtn.disabled = lockedDepth;
+    if (transformSupportWalkBtn) transformSupportWalkBtn.hidden = !isSupportSurfaceObject(selectedObject);
+    if (transformAlignSupportsBtn) transformAlignSupportsBtn.hidden = fixedSupportObjectsForSelectedPuzzle().length < 2 || !isSupportSurfaceObject(selectedObject);
+  }
+
+  function setTransformEditorOpen(open) {
+    transformEditMode = !!open && !!selectedObject && !selectedObject.deleted;
+    if (transformEditMode) {
+      groundLineEditMode = false;
+      collisionEditMode = false;
+      collisionHandleIndex = -1;
+      socketPlacementPiece = null;
+      addAssetType = null;
+      updatePlacementModeUi();
+      hintEl.textContent = 'Position · use one axis at a time. Free mode keeps height independent from the terrain.';
+      hintEl.classList.remove('hidden');
+    }
+    syncGroundLineEditor();
+    syncTransformEditor();
+    updateEditorButtons();
+  }
+
+  function setSelectedFreePlacement(enabled) {
+    if (!selectedObject || selectedObject.deleted) return;
+    const floorWorldY = objectFloorWorldY(selectedObject);
+    selectedObject.freePlacement = !!enabled;
+    if (selectedObject.freePlacement) setObjectFloorWorldY(selectedObject, floorWorldY);
+    else setObjectFloorOffset(selectedObject, 0);
+    recordObjectEdit(selectedObject);
+    syncTransformEditor();
+    updatePuzzleObjectList();
+    hintEl.textContent = selectedObject.freePlacement
+      ? 'Free placement · moving X/Z will no longer change this asset’s height'
+      : 'Ground placement · the asset is snapped back onto its terrain anchor';
+    hintEl.classList.remove('hidden');
+  }
+
+  function moveSelectedTransformAxis(axis, value) {
+    if (!selectedObject || selectedObject.deleted || !Number.isFinite(Number(value))) return;
+    const obj = selectedObject;
+    const next = Number(value);
+    const floorOffset = objectFloorOffsetFromTerrain(obj);
+    const floorWorldY = objectFloorWorldY(obj);
+    if (axis === 'y') {
+      obj.freePlacement = true;
+      setObjectFloorWorldY(obj, next);
+    } else if (axis === 'x') {
+      if (obj.category === 'gameplay' && !objectUsesFreePlacement(obj)) {
+        placeGameplayObjectInEditor(obj, next, obj.z);
+      } else {
+        obj.x = next;
+        if (objectUsesFreePlacement(obj)) setObjectFloorWorldY(obj, floorWorldY);
+        else setObjectFloorOffset(obj, floorOffset);
+      }
+    } else if (axis === 'z') {
+      if (obj.category === 'gameplay' && obj.gameplayLayerLocked) return;
+      if (obj.category === 'gameplay' && !objectUsesFreePlacement(obj)) {
+        placeGameplayObjectInEditor(obj, obj.x, next);
+      } else {
+        obj.z = Rig.clamp(next, WORLD.farZ + 0.8, WORLD.nearZ - 0.6);
+        if (objectUsesFreePlacement(obj)) setObjectFloorWorldY(obj, floorWorldY);
+        else setObjectFloorOffset(obj, floorOffset);
+      }
+    }
+    moveObjectToCorrectCollection(obj);
+    sortSceneCollections();
+    recordObjectEdit(obj);
+    syncTransformEditor();
+    updatePuzzleObjectList();
+  }
+
+  function nudgeSelectedTransformAxis(axis, direction) {
+    if (!selectedObject || selectedObject.deleted) return;
+    const step = Math.max(0.005, Number(transformStepInput?.value) || 0.1) * (direction < 0 ? -1 : 1);
+    const current = axis === 'x' ? selectedObject.x : (axis === 'z' ? selectedObject.z : objectFloorWorldY(selectedObject));
+    moveSelectedTransformAxis(axis, current + step);
+  }
+
+  function snapSelectedFloorToWalk() {
+    if (!selectedObject || selectedObject.deleted) return;
+    selectedObject.freePlacement = true;
+    setObjectFloorWorldY(selectedObject, playSurfaceYAt(selectedObject.x));
+    recordObjectEdit(selectedObject);
+    syncTransformEditor();
+    hintEl.textContent = 'Asset floor/deck aligned to the normal walk height';
+    hintEl.classList.remove('hidden');
+  }
+
+  function snapSelectedSupportTopToWalk() {
+    if (!selectedObject || selectedObject.deleted || !isSupportSurfaceObject(selectedObject)) return;
+    const top = collisionTopHeightAtX(selectedObject, selectedObject.x);
+    if (!Number.isFinite(top)) return;
+    selectedObject.freePlacement = true;
+    selectedObject.y += playSurfaceYAt(selectedObject.x) - top;
+    recordObjectEdit(selectedObject);
+    syncTransformEditor();
+    hintEl.textContent = 'Support collision top aligned exactly to the normal walk height';
+    hintEl.classList.remove('hidden');
+  }
+
+  function alignFixedSupportsToSelected() {
+    if (!selectedObject || selectedObject.deleted || !isSupportSurfaceObject(selectedObject)) return;
+    const supports = fixedSupportObjectsForSelectedPuzzle();
+    if (supports.length < 2) return;
+    const targetTop = collisionTopHeightAtX(selectedObject, selectedObject.x);
+    const targetZ = selectedObject.z;
+    if (!Number.isFinite(targetTop)) return;
+    for (const obj of supports) {
+      obj.freePlacement = true;
+      obj.z = targetZ;
+      const top = collisionTopHeightAtX(obj, obj.x);
+      if (Number.isFinite(top)) obj.y += targetTop - top;
+      moveObjectToCorrectCollection(obj);
+      recordObjectEdit(obj);
+    }
+    sortSceneCollections();
+    syncTransformEditor();
+    updatePuzzleObjectList();
+    hintEl.textContent = `Aligned ${supports.length} fixed support surfaces to the selected height and depth`;
+    hintEl.classList.remove('hidden');
+  }
+
   function syncGroundLineEditor() {
     const has = !!(editMode && groundLineEditMode && selectedObject && !selectedObject.deleted);
     if (groundLineEditor) groundLineEditor.hidden = !has;
@@ -5484,6 +5696,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function setGroundLineEditorOpen(open) {
     groundLineEditMode = !!open && !!selectedObject && !selectedObject.deleted;
     if (groundLineEditMode) {
+      transformEditMode = false;
+      syncTransformEditor();
       collisionEditMode = false;
       collisionHandleIndex = -1;
       socketPlacementPiece = null;
@@ -5499,8 +5713,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function setSelectedGroundLine(value) {
     if (!selectedObject || selectedObject.deleted) return;
     const preservedFloorOffset = objectFloorOffsetFromTerrain(selectedObject);
+    const preservedFloorWorldY = objectFloorWorldY(selectedObject);
     selectedObject.groundLine = Rig.clamp(Number(value) || 0, 0, 1);
-    setObjectFloorOffset(selectedObject, preservedFloorOffset);
+    if (objectUsesFreePlacement(selectedObject)) setObjectFloorWorldY(selectedObject, preservedFloorWorldY);
+    else setObjectFloorOffset(selectedObject, preservedFloorOffset);
     recordObjectEdit(selectedObject);
     syncGroundLineEditor();
     updatePuzzleObjectList();
@@ -5516,6 +5732,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function updateEditorButtons() {
     const has = !!selectedObject && !selectedObject.deleted;
     if (!has && groundLineEditMode) groundLineEditMode = false;
+    if (!has && transformEditMode) transformEditMode = false;
     const collisionFocus = !!(has && collisionEditMode);
     const socketFocus = !!socketPlacementPiece;
     const isGameplay = has && selectedObject.category === 'gameplay';
@@ -5541,6 +5758,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       editorGroundLineBtn.hidden = !has || collisionFocus || socketFocus;
       editorGroundLineBtn.classList.toggle('active', !!(has && groundLineEditMode));
     }
+    if (editorTransformBtn) {
+      editorTransformBtn.hidden = !has || collisionFocus || socketFocus;
+      editorTransformBtn.classList.toggle('active', !!(has && transformEditMode));
+    }
     if (editorGameLayerBtn) {
       editorGameLayerBtn.hidden = !isGameplay || collisionFocus || socketFocus;
       editorGameLayerBtn.classList.toggle('active', !!(isGameplay && selectedObject.gameplayLayerLocked));
@@ -5562,11 +5783,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editorSocketClearBtn) editorSocketClearBtn.hidden = !isSocketPiece || !hasAuthoredSocket || collisionFocus || socketFocus;
     if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus || socketFocus;
     syncGroundLineEditor();
+    syncTransformEditor();
   }
 
   function selectObject(obj, preserveCycle = false, options = {}) {
     if (socketPlacementPiece && obj !== socketPlacementPiece) socketPlacementPiece = null;
     selectedObject = obj && !obj.deleted ? obj : null;
+    if (!selectedObject) transformEditMode = false;
     if (!preserveCycle) selectionCycleInfo = null;
     if (!options.keepPlacement) addAssetType = null;
     collisionEditMode = false;
@@ -5888,7 +6111,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; socketPlacementPiece = null; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -5963,13 +6186,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const defaultGameLayerLocked = typeof info.gameplayLayerLocked === 'boolean' ? info.gameplayLayerLocked : info.category === 'gameplay';
     const placementZ = info.category === 'gameplay' && defaultGameLayerLocked ? pathZ : point.z;
     const groundLine = assetGroundLineDefault(type);
+    const freePlacement = defaultFreePlacement(type);
+    const placementBaseY = freePlacement || behaviour.supportSurface
+      ? playSurfaceYAt(point.x)
+      : terrainAnchorBaseY(point.x, point.z, info.category, defaultGameLayerLocked);
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
       id, userAdded:!puzzleInstance, baseSx:w, baseSy:h,
-      y:terrainAnchorBaseY(point.x, point.z, info.category, defaultGameLayerLocked) + (Number(info.defaultYOffset) || 0) - groundLine * h,
+      y:placementBaseY + (Number(info.defaultYOffset) || 0) - groundLine * h,
       groundLine,
       shade:1, opacity:.99, layer:classifyLayer(placementZ),
       category:info.category || 'dressing', gameplayType:info.gameplayType || null,
-      collision:gameplayCollision, gameplayLayerLocked:defaultGameLayerLocked,
+      collision:gameplayCollision, gameplayLayerLocked:defaultGameLayerLocked, freePlacement,
       wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
@@ -5989,14 +6216,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const id = puzzleInstance ? `puzzle-${puzzleInstance.id}-${puzzleObjectId}` : `user-${Date.now().toString(36)}-${++userSceneCounter}`;
     const collection = selectedObject.category === 'gameplay' ? frontOccluders : targetCollectionForZ(point.z);
     const sourceFloorOffset = objectFloorOffsetFromTerrain(selectedObject);
+    const sourceFloorWorldY = objectFloorWorldY(selectedObject);
     const sourceGroundLine = objectGroundLine(selectedObject);
+    const duplicateY = objectUsesFreePlacement(selectedObject)
+      ? sourceFloorWorldY - sourceGroundLine * selectedObject.sy
+      : terrainAnchorBaseY(point.x, point.z, selectedObject.category, selectedObject.gameplayLayerLocked) + sourceFloorOffset - sourceGroundLine * selectedObject.sy;
     const obj = addObject(collection, selectedObject.assetName, point.x, point.z, selectedObject.sx, selectedObject.sy, {
       id, userAdded:!puzzleInstance, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy,
-      y:terrainAnchorBaseY(point.x, point.z, selectedObject.category, selectedObject.gameplayLayerLocked) + sourceFloorOffset - sourceGroundLine * selectedObject.sy,
+      y:duplicateY,
       groundLine:sourceGroundLine,
       shade:selectedObject.shade, opacity:selectedObject.opacity,
       flip:selectedObject.flip, layer:classifyLayer(point.z), collision:selectedObject.collision ? cloneCollision(selectedObject.collision) : null,
       category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked:!!selectedObject.gameplayLayerLocked,
+      freePlacement:objectUsesFreePlacement(selectedObject),
       wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null
     });
@@ -6011,6 +6243,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function scaleSelected(multiplier) {
     if (!selectedObject || selectedObject.deleted) return;
     const preservedFloorOffset = objectFloorOffsetFromTerrain(selectedObject);
+    const preservedFloorWorldY = objectFloorWorldY(selectedObject);
     const next = Rig.clamp((selectedObject.sy * multiplier), 0.18, selectedObject.assetName.startsWith('tree') ? 24 : (selectedObject.assetName === 'crate' ? 3.0 : 5.0));
     const ratio = next / Math.max(0.001, selectedObject.sy);
     selectedObject.sy = next;
@@ -6026,7 +6259,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         selectedObject.collision.depth *= ratio;
       }
     }
-    if (selectedObject.category === 'gameplay' && objectGroundLine(selectedObject) <= 0.0001) {
+    if (objectUsesFreePlacement(selectedObject)) {
+      setObjectFloorWorldY(selectedObject, preservedFloorWorldY);
+    } else if (selectedObject.category === 'gameplay' && objectGroundLine(selectedObject) <= 0.0001) {
       selectedObject.y = restYForGameplayObject(selectedObject);
     } else {
       setObjectFloorOffset(selectedObject, preservedFloorOffset);
@@ -6053,7 +6288,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function toggleSelectedCollision() {
     if (!selectedObject || selectedObject.deleted) return;
     groundLineEditMode = false;
+    transformEditMode = false;
     syncGroundLineEditor();
+    syncTransformEditor();
     if (!selectedObject.collision) {
       selectedObject.collisionOverride = true;
       selectedObject.collision = {
@@ -6360,12 +6597,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const debugCapsule = colliderWorld();
     for (let i = 0; i <= 112; i += 1) {
       const x = Rig.lerp(floorStartX, floorEndX, i / 112);
-      const terrainY = playSurfaceYAt(x);
+      const terrainY = terrainGroundYAt(x, pathZ);
       const terrainPoint = projectWorldPoint(x, terrainY + 0.035, pathZ);
       if (terrainPoint) terrainFloor.push(terrainPoint);
       const support = walkableSupportAt(x + debugCapsule.offsetX, Infinity, 0);
       if (support) {
-        const walkPoint = projectWorldPoint(x, terrainY + support.offset + 0.055, pathZ);
+        const walkPoint = projectWorldPoint(x, playSurfaceYAt(x) + support.offset + 0.055, pathZ);
         if (walkPoint) walkSegment.push(walkPoint);
       } else if (walkSegment.length) {
         if (walkSegment.length > 1) walkSegments.push(walkSegment);
@@ -6641,7 +6878,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const typeTag = terrainSectionType(i) === 'normal' ? '' : ` · ${terrainSectionTypeLabel(i).toUpperCase()}`;
         const collisionTag = !terrainSectionCollisionEnabled(i)
         ? ' · NO COLLISION'
-        : (terrainSectionType(i) === 'river' ? ' · CHANNEL GAP' : '');
+        : (terrainSectionType(i) === 'river' ? ' · FLAT BANK + WATER GAP' : '');
         const label = `S${i}${typeTag}${collisionTag}${hidden ? ' · HIDDEN' : ''}`;
         const tw = ctx.measureText(label).width + 10;
         ctx.fillStyle = current ? 'rgba(31,69,65,.90)' : (selected ? 'rgba(72,30,51,.88)' : 'rgba(20,31,34,.68)');
@@ -6699,7 +6936,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const depthLabel = selectionCycleInfo && selectionCycleInfo.objects.includes(selectedObject) && selectionCycleInfo.objects.length > 1
           ? `  DEPTH ${selectionCycleInfo.objects.indexOf(selectedObject)+1}/${selectionCycleInfo.objects.length}` : '';
         const layerLabel = selectedObject.category === 'gameplay' && selectedObject.gameplayLayerLocked ? '  GAME LAYER' : '';
-        const label = `${selectedObject.assetName}${layerLabel}${depthLabel}  x ${selectedObject.x.toFixed(1)}  z ${selectedObject.z.toFixed(1)}`;
+        const placementLabel = objectUsesFreePlacement(selectedObject) ? ' · FREE' : ' · GROUND';
+        const label = `${selectedObject.assetName}${layerLabel}${depthLabel}${placementLabel}  x ${selectedObject.x.toFixed(1)}  y ${objectFloorWorldY(selectedObject).toFixed(1)}  z ${selectedObject.z.toFixed(1)}`;
         ctx.font = '700 10px -apple-system, BlinkMacSystemFont, sans-serif';
         const tw = ctx.measureText(label).width + 14;
         const lx = Math.max(4, Math.min(w-tw-4, b.left));
@@ -7129,24 +7367,34 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function platformOffsetFor(obj, sampleX, terrainReferenceX = sampleX) {
-    if (!obj?.collision?.platform) return -Infinity;
+    if (!isSupportSurfaceObject(obj)) return -Infinity;
     const platformTop = collisionTopHeightAtX(obj, sampleX);
     if (!Number.isFinite(platformTop)) return -Infinity;
     return platformTop - playSurfaceYAt(terrainReferenceX);
   }
 
+  function waterSafetySupportAt(rootX) {
+    const index = terrainSectionIndexAt(rootX);
+    if (terrainSectionType(index) !== 'river' || !pointInsideRiverCollisionGap(rootX, pathZ, index)) return null;
+    const p = riverProfileAtZ(index, pathZ);
+    return { obj:null, offset:p.waterY - playSurfaceYAt(rootX), source:'water' };
+  }
+
   function walkableSupportAt(characterX, ceiling = Infinity, direction = 0) {
-    // Terrain is just one possible support source. When a section's terrain
-    // collision is disabled, it contributes no floor at all and any authored
-    // support collider can replace it. This is generic: no bridge-name special case.
+    // Three clean layers only:
+    // 1) stable terrain floor where enabled,
+    // 2) authored Support Surface collision,
+    // 3) river water as the lowest safety floor if nothing spans the gap.
     const capsule = colliderWorld();
     const rootX = characterX - capsule.offsetX;
-    let best = terrainCollisionAvailableAt(rootX, pathZ) ? { obj:null, offset:0, source:'terrain' } : null;
+    let best = terrainCollisionAvailableAt(rootX, pathZ)
+      ? { obj:null, offset:0, source:'terrain' }
+      : waterSafetySupportAt(rootX);
     const probe = direction ? direction * capsule.footProbe : 0;
     const sampleXs = direction ? [characterX, characterX + probe] : [characterX];
     for (const obj of collisionObjects()) {
+      if (!isSupportSurfaceObject(obj)) continue;
       const c = obj.collision;
-      if (!c?.platform) continue;
       const depth = c.depth ?? 0.82;
       if (Math.abs(obj.z - pathZ) > depth) continue;
       for (const x of sampleXs) {
@@ -7165,13 +7413,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function editorFallbackSupportAt(characterX) {
     const capsule = colliderWorld();
     const rootX = characterX - capsule.offsetX;
-    const terrainY = playSurfaceYAt(rootX);
-    const index = terrainSectionIndexAt(rootX);
-    let fallbackWorldY = terrainY;
-    if (terrainSectionType(index) === 'river' && pointInsideRiverChannel(rootX, pathZ, index)) {
-      fallbackWorldY = riverProfileAtZ(index, pathZ).waterY;
-    }
-    return { obj:null, offset:fallbackWorldY - terrainY, source:'editor-fallback' };
+    // This only matters for an intentionally disabled whole section. Rivers have
+    // their own real water safety floor now.
+    return {
+      obj:null,
+      offset:terrainGroundYAt(rootX, pathZ) - playSurfaceYAt(rootX),
+      source:'editor-fallback'
+    };
   }
 
   function editorSafeSupportAt(characterX, ceiling = Infinity, direction = 0) {
@@ -8409,7 +8657,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${selectedRiver.width.toFixed(1)} m`;
     if (sectionCollisionBtn) {
       sectionCollisionBtn.textContent = collisionEnabled
-        ? (selectedType === 'river' ? 'Bank collision ON · channel gap' : 'Terrain collision ON')
+        ? (selectedType === 'river' ? 'Flat bank collision ON · water gap' : 'Terrain collision ON')
         : 'Terrain collision OFF';
       sectionCollisionBtn.setAttribute('aria-pressed', String(collisionEnabled));
     }
@@ -8776,6 +9024,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(groundLineResetBtn, resetSelectedGroundLine);
   bindEditorPress(groundLineCloseBtn, () => setGroundLineEditorOpen(false));
   groundLineInput?.addEventListener('input', () => setSelectedGroundLine(Number(groundLineInput.value)));
+  bindEditorPress(editorTransformBtn, () => setTransformEditorOpen(!transformEditMode));
+  bindEditorPress(transformCloseBtn, () => setTransformEditorOpen(false));
+  bindEditorPress(transformModeBtn, () => setSelectedFreePlacement(!objectUsesFreePlacement(selectedObject)));
+  bindEditorPress(transformXMinusBtn, () => nudgeSelectedTransformAxis('x', -1));
+  bindEditorPress(transformXPlusBtn, () => nudgeSelectedTransformAxis('x', 1));
+  bindEditorPress(transformYMinusBtn, () => nudgeSelectedTransformAxis('y', -1));
+  bindEditorPress(transformYPlusBtn, () => nudgeSelectedTransformAxis('y', 1));
+  bindEditorPress(transformZMinusBtn, () => nudgeSelectedTransformAxis('z', -1));
+  bindEditorPress(transformZPlusBtn, () => nudgeSelectedTransformAxis('z', 1));
+  bindEditorPress(transformFloorWalkBtn, snapSelectedFloorToWalk);
+  bindEditorPress(transformSupportWalkBtn, snapSelectedSupportTopToWalk);
+  bindEditorPress(transformAlignSupportsBtn, alignFixedSupportsToSelected);
+  const bindTransformNumberInput = (input, axis) => {
+    if (!input) return;
+    const commit = () => moveSelectedTransformAxis(axis, Number(input.value));
+    input.addEventListener('change', commit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+  };
+  bindTransformNumberInput(transformXInput, 'x');
+  bindTransformNumberInput(transformYInput, 'y');
+  bindTransformNumberInput(transformZInput, 'z');
   bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
   bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
   bindEditorPress(editorCollisionRemoveBtn, removeSelectedCollision);
@@ -8910,7 +9179,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         startCameraX:camera.x, startGround,
         moved:false, kind:'pan', object:null,
         objectStartX:selectedObject?.x ?? 0, objectStartZ:selectedObject?.z ?? 0,
-        objectStartFloorOffset:selectedObject ? objectFloorOffsetFromTerrain(selectedObject) : 0
+        objectStartFloorOffset:selectedObject ? objectFloorOffsetFromTerrain(selectedObject) : 0,
+        objectStartFloorWorldY:selectedObject ? objectFloorWorldY(selectedObject) : 0
       };
 
       if (socketPlacementPiece) {
@@ -9025,7 +9295,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, desiredX, desiredZ, editorGesture.stackIgnore);
         else {
           obj.x = desiredX; obj.z = desiredZ;
-          setObjectFloorOffset(obj, Number(editorGesture.objectStartFloorOffset) || 0);
+          if (objectUsesFreePlacement(obj)) {
+            // Free placement is explicit editor state: X/Z movement never changes
+            // the authored floor/deck height, regardless of the terrain below.
+            setObjectFloorWorldY(obj, Number(editorGesture.objectStartFloorWorldY) || objectFloorWorldY(obj));
+          } else {
+            setObjectFloorOffset(obj, Number(editorGesture.objectStartFloorOffset) || 0);
+          }
         }
         moveObjectToCorrectCollection(obj);sortSceneCollections();selectionCycleInfo=null;
       } else if (editorGesture.kind === 'collision-handle' && selectedObject?.collision && collisionHandleIndex >= 0) {
