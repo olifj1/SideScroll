@@ -1,11 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.9';
+  const VERSION = '1.0.10';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
   const STACK_ITEM_HEIGHT = 0.68;
+  const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
   const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
   const emptyBehaviour = { solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, socketHost:false, socketPiece:false };
 
@@ -32,6 +33,7 @@
   const listEl = document.getElementById('assetlab-asset-list');
   const currentNameEl = document.getElementById('assetlab-current-name');
   const saveStateEl = document.getElementById('assetlab-save-state');
+  const stageHelpEl = document.getElementById('assetlab-stage-help');
   const heightInput = document.getElementById('assetlab-height');
   const heightValue = document.getElementById('assetlab-height-value');
   const floorInput = document.getElementById('assetlab-floor');
@@ -41,10 +43,14 @@
   const depthRow = document.getElementById('assetlab-depth-row');
   const depthInput = document.getElementById('assetlab-depth');
   const depthValue = document.getElementById('assetlab-depth-value');
+  const pointEditor = document.getElementById('assetlab-point-editor');
+  const pointList = document.getElementById('assetlab-point-list');
+  const edgeFloorBtn = document.getElementById('assetlab-edge-floor');
   const behavioursEl = document.getElementById('assetlab-behaviours');
   const resetBtn = document.getElementById('assetlab-reset');
   const fitBtn = document.getElementById('assetlab-fit');
   const referenceBtn = document.getElementById('assetlab-reference');
+  const pairBtn = document.getElementById('assetlab-pair');
   const filterButtons = [...document.querySelectorAll('[data-filter]')];
 
   const readStore = key => {
@@ -55,12 +61,24 @@
   let collisionStore = readStore(COLLISION_KEY);
   let layoutStore = readStore(LAYOUT_KEY);
 
+  const imageCache = new Map();
+  const assetByName = name => ASSETS.find(a => a.name === name) || null;
+  const isBridge = asset => !!asset && BRIDGE_NAMES.includes(asset.name);
+
   const state = {
     filter:'puzzle',
     asset:ASSETS[0],
-    image:null,
     showReference:true,
+    pairMode:false,
     draggingHandle:-1,
+    draggingEdge:null,
+    selectedPoint:-1,
+    selectedEdge:-1,
+    panning:false,
+    pointerStart:null,
+    panStart:null,
+    panX:0,
+    panY:0,
     viewScale:1,
     render:null
   };
@@ -68,6 +86,17 @@
   const defaultPoints = () => [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}];
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const clamp = (value,min,max) => Math.max(min,Math.min(max,value));
+
+  function ensureImage(asset) {
+    if (!asset) return null;
+    const existing = imageCache.get(asset.name);
+    if (existing) return existing;
+    const img = new Image();
+    img.onload = () => { resize(); renderPointEditor(); draw(); };
+    img.src = `${asset.image}?v=${VERSION}`;
+    imageCache.set(asset.name,img);
+    return img;
+  }
 
   function builtInBehaviour(asset) {
     return {...emptyBehaviour,...(asset.behaviour||{})};
@@ -90,14 +119,18 @@
   function behaviourNeedsCollision(behaviour) {
     return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable);
   }
+  function assetAspect(asset=state.asset) {
+    const image=ensureImage(asset);
+    return image?.naturalWidth && image?.naturalHeight ? image.naturalWidth/image.naturalHeight : 1;
+  }
+  function assetWorldWidth(asset=state.asset) {
+    return effectiveHeight(asset)*assetAspect(asset);
+  }
   function autoCollision(asset=state.asset) {
     if (asset.collision) return clone(asset.collision);
     const behaviour=effectiveBehaviour(asset);
     if (!behaviourNeedsCollision(behaviour)) return null;
-    const height=effectiveHeight(asset);
-    const aspect=state.asset===asset && state.image?.naturalWidth && state.image?.naturalHeight
-      ? state.image.naturalWidth/state.image.naturalHeight : 1;
-    const width=Math.max(.001,height*aspect);
+    const width=Math.max(.001,assetWorldWidth(asset));
     return {
       halfWidthRatio:.43,
       heightRatio:behaviour.stackable?null:.96,
@@ -114,6 +147,15 @@
   function hasCustomCollision(asset=state.asset) {
     return Object.prototype.hasOwnProperty.call(collisionStore,asset.name);
   }
+  function currentCollisionGeometry(asset=state.asset) {
+    const def=effectiveCollision(asset); if(!def) return null;
+    const width=assetWorldWidth(asset); const height=effectiveHeight(asset);
+    const halfWidth=Math.max(.01,(Number(def.halfWidthRatio)||.5)*width);
+    const collHeight=Number.isFinite(def.fixedHeight)?Number(def.fixedHeight):Math.max(.01,(Number(def.heightRatio)||1)*height);
+    const points=Array.isArray(def.points)&&def.points.length>=3?def.points:defaultPoints();
+    return {def,width,height,halfWidth,collHeight,points};
+  }
+
   function writeStore(key,value) {
     localStorage.setItem(key,JSON.stringify(value));
     saveStateEl.textContent='Saved';
@@ -123,6 +165,11 @@
   function saveLayout(patch) {
     layoutStore[state.asset.name] = {...(layoutStore[state.asset.name]||{}),...patch};
     writeStore(LAYOUT_KEY,layoutStore);
+  }
+
+  function displayAssets() {
+    if (state.pairMode && isBridge(state.asset)) return BRIDGE_NAMES.map(assetByName).filter(Boolean);
+    return [state.asset];
   }
 
   function buildList() {
@@ -135,19 +182,34 @@
       }
       const row=document.createElement('button');row.type='button';row.className='assetlab-asset-row';row.classList.toggle('active',asset.name===state.asset.name);
       row.innerHTML=`<img src="${asset.image}" alt=""><span><strong>${asset.label}</strong><small>${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
-      row.addEventListener('click',()=>selectAsset(asset));
+      row.addEventListener('click',()=>selectAsset(asset,{keepView:state.pairMode&&isBridge(asset)}));
       listEl.appendChild(row);
     }
   }
 
-  function selectAsset(asset) {
+  function updatePairUI() {
+    const bridge=isBridge(state.asset);
+    pairBtn.hidden=!bridge;
+    if(!bridge) state.pairMode=false;
+    pairBtn.classList.toggle('active',state.pairMode);
+    pairBtn.setAttribute('aria-pressed',String(state.pairMode));
+    pairBtn.textContent=state.pairMode?'Single Piece':'Bridge Pair';
+    currentNameEl.textContent=`${state.asset.label}${state.pairMode?' · Pair':''}`;
+    stageHelpEl.textContent=state.pairMode
+      ? 'Bridge Pair view. Click either piece to edit it. Drag empty space to pan; drag orange points or edge handles. Cyan is Y = 0.'
+      : 'Drag empty space to pan. Drag orange points or edge handles. The cyan line is ground level (Y = 0).';
+  }
+
+  function selectAsset(asset,{keepView=false}={}) {
     state.asset=asset;
     state.draggingHandle=-1;
-    currentNameEl.textContent=asset.label;
-    const img=new Image();
-    img.onload=()=>{ state.image=img; syncControls(); resize(); };
-    img.src=asset.image+`?v=${VERSION}`;
-    state.image=img;
+    state.draggingEdge=null;
+    state.selectedPoint=-1;
+    state.selectedEdge=-1;
+    if(!keepView){ state.panX=0; state.panY=0; state.viewScale=1; }
+    ensureImage(asset);
+    if(state.pairMode&&isBridge(asset)) BRIDGE_NAMES.forEach(name=>ensureImage(assetByName(name)));
+    updatePairUI();
     syncControls();
     buildList();
   }
@@ -155,19 +217,22 @@
   function syncControls() {
     const h=effectiveHeight();
     const floor=effectiveGroundLine();
-    heightInput.value=String(h);heightValue.textContent=`${h.toFixed(2)} m`;
-    floorInput.value=String(Math.round(floor*100));floorValue.textContent=`${Math.round(floor*100)}%`;
+    heightInput.value=String(h); heightValue.textContent=`${h.toFixed(2)} m`;
+    floorInput.value=String(Math.round(floor*100)); floorValue.textContent=`${Math.round(floor*100)}%`;
     const collision=effectiveCollision();
     collisionToggle.textContent=collision ? (hasCustomCollision()?'Use Auto Collision':'Customise Collision') : 'Add Collision';
     collisionToggle.classList.toggle('active',!!collision);
     collisionReset.disabled=!collision;
     depthRow.hidden=!collision;
+    pointEditor.hidden=!collision;
     if(collision){
       const width=assetWorldWidth();
       const depth=Math.max(.15,(Number(collision.depthRatio)||.25)*width);
-      depthInput.value=String(clamp(depth,.15,2.5));depthValue.textContent=`${depth.toFixed(2)} m`;
+      depthInput.value=String(clamp(depth,.15,2.5)); depthValue.textContent=`${depth.toFixed(2)} m`;
     }
+    renderPointEditor();
     renderBehaviours();
+    updatePairUI();
     draw();
   }
 
@@ -184,7 +249,7 @@
       ['socketPiece','Socket Piece','Can be assigned to an authored socket.']
     ];
     for(const [key,label,desc] of defs){
-      const button=document.createElement('button');button.type='button';button.className='assetlab-behaviour';button.classList.toggle('active',!!behaviour[key]);button.setAttribute('aria-pressed',String(!!behaviour[key]));
+      const button=document.createElement('button'); button.type='button'; button.className='assetlab-behaviour'; button.classList.toggle('active',!!behaviour[key]); button.setAttribute('aria-pressed',String(!!behaviour[key]));
       button.innerHTML=`<span><strong>${label}</strong><small>${desc}</small></span><i>${behaviour[key]?'ON':'OFF'}</i>`;
       button.addEventListener('click',()=>setBehaviour(key,!effectiveBehaviour()[key]));
       behavioursEl.appendChild(button);
@@ -199,22 +264,15 @@
     if(key==='stackable'&&enabled)next.placeable=true;
     behaviourStore[state.asset.name]=Object.fromEntries(behaviourKeys.map(k=>[k,!!next[k]]));
     writeStore(BEHAVIOUR_KEY,behaviourStore);
-    renderBehaviours();buildList();draw();
+    renderBehaviours(); buildList(); draw();
   }
 
-  function assetWorldWidth() {
-    const h=effectiveHeight();
-    const aspect=state.image?.naturalWidth&&state.image?.naturalHeight?state.image.naturalWidth/state.image.naturalHeight:1;
-    return h*aspect;
-  }
-
-  function currentCollisionGeometry() {
-    const def=effectiveCollision();if(!def)return null;
-    const width=assetWorldWidth();const height=effectiveHeight();
-    const halfWidth=Math.max(.01,(Number(def.halfWidthRatio)||.5)*width);
-    const collHeight=Number.isFinite(def.fixedHeight)?Number(def.fixedHeight):Math.max(.01,(Number(def.heightRatio)||1)*height);
-    const points=Array.isArray(def.points)&&def.points.length>=3?def.points:defaultPoints();
-    return {def,width,height,halfWidth,collHeight,points};
+  function ensureCustomCollision(asset=state.asset) {
+    if(hasCustomCollision(asset)) return collisionStore[asset.name];
+    const current=effectiveCollision(asset);
+    if(!current) return null;
+    collisionStore[asset.name]={...current,points:(Array.isArray(current.points)&&current.points.length>=3?current.points:defaultPoints()).map(p=>({...p})),autoGenerated:false};
+    return collisionStore[asset.name];
   }
 
   function addOrRemoveCollision() {
@@ -222,103 +280,328 @@
       delete collisionStore[state.asset.name];
     } else {
       const current=effectiveCollision();
-      collisionStore[state.asset.name]=current ? {...current,autoGenerated:false} : {halfWidthRatio:.5,heightRatio:1,fixedHeight:null,depthRatio:.25,points:defaultPoints()};
+      collisionStore[state.asset.name]=current ? {...current,points:(Array.isArray(current.points)&&current.points.length>=3?current.points:defaultPoints()).map(p=>({...p})),autoGenerated:false} : {halfWidthRatio:.5,heightRatio:1,fixedHeight:null,depthRatio:.25,points:defaultPoints(),autoGenerated:false};
     }
-    writeStore(COLLISION_KEY,collisionStore);syncControls();buildList();
+    writeStore(COLLISION_KEY,collisionStore); state.selectedPoint=-1; state.selectedEdge=-1; syncControls(); buildList();
   }
   function fitCollisionRectangle() {
-    collisionStore[state.asset.name]={halfWidthRatio:.5,heightRatio:1,fixedHeight:effectiveBehaviour().stackable?STACK_ITEM_HEIGHT:null,depthRatio:.25,points:defaultPoints()};
-    writeStore(COLLISION_KEY,collisionStore);syncControls();buildList();
+    collisionStore[state.asset.name]={halfWidthRatio:.5,heightRatio:1,fixedHeight:effectiveBehaviour().stackable?STACK_ITEM_HEIGHT:null,depthRatio:.25,points:defaultPoints(),autoGenerated:false};
+    state.selectedPoint=-1; state.selectedEdge=-1;
+    writeStore(COLLISION_KEY,collisionStore); syncControls(); buildList();
   }
 
   function resetCurrent() {
-    delete behaviourStore[state.asset.name];delete collisionStore[state.asset.name];delete layoutStore[state.asset.name];
-    writeStore(BEHAVIOUR_KEY,behaviourStore);writeStore(COLLISION_KEY,collisionStore);writeStore(LAYOUT_KEY,layoutStore);
-    syncControls();buildList();
+    delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name];
+    writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore);
+    state.selectedPoint=-1; state.selectedEdge=-1; syncControls(); buildList();
+  }
+
+  function pointToWorld(asset,point) {
+    const geo=currentCollisionGeometry(asset); if(!geo) return {x:0,y:0};
+    return {
+      x:Number(point.x||0)*geo.halfWidth,
+      y:Number(point.y||0)*geo.collHeight-effectiveGroundLine(asset)*effectiveHeight(asset)
+    };
+  }
+  function worldToPoint(asset,x,y) {
+    const geo=currentCollisionGeometry(asset); if(!geo) return {x:0,y:0};
+    return {
+      x:x/Math.max(.001,geo.halfWidth),
+      y:(y+effectiveGroundLine(asset)*effectiveHeight(asset))/Math.max(.001,geo.collHeight)
+    };
+  }
+  function collisionWorldPoints(asset=state.asset) {
+    const geo=currentCollisionGeometry(asset); if(!geo) return [];
+    return geo.points.map(p=>pointToWorld(asset,p));
+  }
+  function saveWorldPoints(asset,worldPoints,{write=true}={}) {
+    const def=ensureCustomCollision(asset); if(!def) return;
+    def.points=worldPoints.map(p=>worldToPoint(asset,p.x,p.y));
+    def.autoGenerated=false;
+    collisionStore[asset.name]=def;
+    if(write) writeStore(COLLISION_KEY,collisionStore);
+  }
+
+  function renderPointEditor() {
+    pointList.innerHTML='';
+    const collision=effectiveCollision();
+    pointEditor.hidden=!collision;
+    if(!collision){ edgeFloorBtn.disabled=true; return; }
+    const worlds=collisionWorldPoints();
+    worlds.forEach((p,index)=>{
+      const row=document.createElement('div'); row.className='assetlab-point-row'; row.classList.toggle('active',index===state.selectedPoint);
+      const select=document.createElement('button'); select.type='button'; select.className='assetlab-point-select'; select.textContent=`P${index+1}`;
+      select.addEventListener('click',()=>{state.selectedPoint=index;state.selectedEdge=-1;renderPointEditor();draw();});
+      const x=document.createElement('input'); x.type='number'; x.step='0.01'; x.inputMode='decimal'; x.value=p.x.toFixed(2); x.setAttribute('aria-label',`Point ${index+1} X metres`);
+      const y=document.createElement('input'); y.type='number'; y.step='0.01'; y.inputMode='decimal'; y.value=p.y.toFixed(2); y.setAttribute('aria-label',`Point ${index+1} Y metres, floor is zero`);
+      const xWrap=document.createElement('label'); xWrap.innerHTML='<span>X</span>'; xWrap.appendChild(x);
+      const yWrap=document.createElement('label'); yWrap.innerHTML='<span>Y</span>'; yWrap.appendChild(y);
+      const update=(axis,input)=>{
+        const value=Number(input.value); if(!Number.isFinite(value)) return;
+        const pts=collisionWorldPoints(); if(!pts[index]) return;
+        pts[index][axis]=clamp(value,-20,20);
+        saveWorldPoints(state.asset,pts);
+        state.selectedPoint=index; state.selectedEdge=-1;
+        renderPointEditor(); buildList(); draw();
+      };
+      x.addEventListener('change',()=>update('x',x)); y.addEventListener('change',()=>update('y',y));
+      x.addEventListener('focus',()=>{state.selectedPoint=index;state.selectedEdge=-1;draw();});
+      y.addEventListener('focus',()=>{state.selectedPoint=index;state.selectedEdge=-1;draw();});
+      row.append(select,xWrap,yWrap); pointList.appendChild(row);
+    });
+    edgeFloorBtn.disabled=state.selectedEdge<0 || state.selectedEdge>=worlds.length;
+    edgeFloorBtn.textContent=edgeFloorBtn.disabled?'Select an Edge to Set Y = 0':`Set Edge ${state.selectedEdge+1} to Y = 0`;
   }
 
   function resize() {
-    const rect=canvas.getBoundingClientRect();const dpr=Math.min(2,window.devicePixelRatio||1);
-    const w=Math.max(1,Math.round(rect.width*dpr)),h=Math.max(1,Math.round(rect.height*dpr));
+    const rect=canvas.getBoundingClientRect(); const dpr=Math.min(2,window.devicePixelRatio||1);
+    const w=Math.max(1,Math.round(rect.width*dpr)), h=Math.max(1,Math.round(rect.height*dpr));
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
-    ctx.setTransform(dpr,0,0,dpr,0,0);draw();
+    ctx.setTransform(dpr,0,0,dpr,0,0); draw();
   }
 
   function computeRender() {
     const w=canvas.clientWidth,h=canvas.clientHeight;
-    const assetH=effectiveHeight(),assetW=assetWorldWidth();
-    const spanW=Math.max(assetW+2.2,5.2),spanH=Math.max(assetH+2.0,3.6);
-    const ppm=Math.min((w-70)/spanW,(h-54)/spanH)*state.viewScale;
-    const groundY=Math.round(h*.68);
-    const floor=effectiveGroundLine();
-    const drawH=assetH*ppm,drawW=assetW*ppm;
-    const x=(w-drawW)/2;
-    const y=groundY-(1-floor)*drawH;
-    state.render={w,h,ppm,groundY,floor,drawX:x,drawY:y,drawW,drawH,assetH,assetW};
+    const assets=displayAssets();
+    assets.forEach(ensureImage);
+    const gapM=state.pairMode?0.72:0;
+    const metrics=assets.map(asset=>({
+      asset,
+      image:ensureImage(asset),
+      assetH:effectiveHeight(asset),
+      assetW:assetWorldWidth(asset),
+      floor:effectiveGroundLine(asset)
+    }));
+    const totalAssetW=metrics.reduce((sum,m)=>sum+m.assetW,0)+gapM*Math.max(0,metrics.length-1);
+    const maxAbove=Math.max(...metrics.map(m=>(1-m.floor)*m.assetH),1);
+    const maxBelow=Math.max(...metrics.map(m=>m.floor*m.assetH),1);
+    const spanW=Math.max(totalAssetW+2.2,5.2);
+    const spanH=Math.max(maxAbove+maxBelow+1.8,3.6);
+    const ppm=Math.max(8,Math.min((w-70)/spanW,(h-54)/spanH)*state.viewScale);
+    const centerX=w/2+state.panX;
+    const verticalContentPx=spanH*ppm;
+    const topPad=Math.max(18,(h-verticalContentPx)/2);
+    const groundY=Math.round(topPad+(maxAbove+.9)*ppm+state.panY);
+    const totalPx=totalAssetW*ppm;
+    let cursor=centerX-totalPx/2;
+    const assetRenders={};
+    for(const m of metrics){
+      const drawW=m.assetW*ppm, drawH=m.assetH*ppm;
+      const drawX=cursor;
+      const drawY=groundY-(1-m.floor)*drawH;
+      assetRenders[m.asset.name]={...m,drawX,drawY,drawW,drawH,centerX:drawX+drawW/2};
+      cursor+=drawW+gapM*ppm;
+    }
+    state.render={w,h,ppm,groundY,centerX,assetRenders,assets};
     return state.render;
   }
 
   function drawGrid(r) {
     ctx.clearRect(0,0,r.w,r.h);
-    const grad=ctx.createLinearGradient(0,0,0,r.h);grad.addColorStop(0,'#26333a');grad.addColorStop(1,'#11191e');ctx.fillStyle=grad;ctx.fillRect(0,0,r.w,r.h);
-    ctx.save();ctx.strokeStyle='rgba(219,233,228,.055)';ctx.lineWidth=1;
+    const grad=ctx.createLinearGradient(0,0,0,r.h); grad.addColorStop(0,'#26333a'); grad.addColorStop(1,'#11191e'); ctx.fillStyle=grad; ctx.fillRect(0,0,r.w,r.h);
+    ctx.save(); ctx.strokeStyle='rgba(219,233,228,.055)'; ctx.lineWidth=1;
     const step=Math.max(28,r.ppm);
-    for(let x=r.w/2%step;x<r.w;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,r.h);ctx.stroke();}
-    for(let y=r.groundY%step;y<r.h;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.w,y);ctx.stroke();}
-    for(let y=r.groundY-step;y>0;y-=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.w,y);ctx.stroke();}
+    const x0=((r.centerX%step)+step)%step;
+    for(let x=x0;x<r.w;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,r.h);ctx.stroke();}
+    for(let x=x0-step;x>0;x-=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,r.h);ctx.stroke();}
+    const y0=((r.groundY%step)+step)%step;
+    for(let y=y0;y<r.h;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.w,y);ctx.stroke();}
+    for(let y=y0-step;y>0;y-=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(r.w,y);ctx.stroke();}
     ctx.restore();
   }
 
   function drawReference(r) {
     if(!state.showReference)return;
-    const height=1.48*r.ppm;const radius=.18*r.ppm;const x=Math.min(r.w-34,r.drawX+r.drawW+Math.max(38,.45*r.ppm));const bottom=r.groundY;
-    ctx.save();ctx.strokeStyle='rgba(113,226,211,.65)';ctx.fillStyle='rgba(113,226,211,.07)';ctx.lineWidth=2;
-    ctx.beginPath();ctx.roundRect(x-radius,bottom-height,radius*2,height,Math.min(radius,18));ctx.fill();ctx.stroke();
-    ctx.fillStyle='rgba(215,255,247,.76)';ctx.font='700 10px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillText('PLAYER',x-radius,bottom-height-8);
+    const renders=Object.values(r.assetRenders);
+    const right=Math.max(...renders.map(ar=>ar.drawX+ar.drawW));
+    const height=1.48*r.ppm, radius=.18*r.ppm;
+    const x=Math.min(r.w-34,right+Math.max(38,.45*r.ppm)), bottom=r.groundY;
+    ctx.save(); ctx.strokeStyle='rgba(113,226,211,.65)'; ctx.fillStyle='rgba(113,226,211,.07)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(x-radius,bottom-height,radius*2,height,Math.min(radius,18)); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(215,255,247,.76)'; ctx.font='700 10px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText('PLAYER',x-radius,bottom-height-8);
     ctx.restore();
   }
 
-  function collisionScreenPoints(r) {
-    const geo=currentCollisionGeometry();if(!geo)return [];
-    const objBottom=r.groundY+r.floor*r.drawH;
-    return geo.points.map((p,index)=>({index,x:r.w/2+p.x*geo.halfWidth*r.ppm,y:objBottom-p.y*geo.collHeight*r.ppm}));
+  function collisionScreenPoints(r,asset=state.asset) {
+    const ar=r.assetRenders[asset.name], geo=currentCollisionGeometry(asset); if(!ar||!geo)return [];
+    return geo.points.map((point,index)=>{
+      const world=pointToWorld(asset,point);
+      return {index,asset,x:ar.centerX+world.x*r.ppm,y:r.groundY-world.y*r.ppm,world};
+    });
+  }
+  function edgeScreenHandles(r,asset=state.asset) {
+    const pts=collisionScreenPoints(r,asset); if(pts.length<2)return [];
+    return pts.map((a,index)=>{
+      const b=pts[(index+1)%pts.length];
+      return {index,asset,x:(a.x+b.x)/2,y:(a.y+b.y)/2,a,b};
+    });
+  }
+
+  function drawCollision(r,asset,active) {
+    const points=collisionScreenPoints(r,asset); if(points.length<3)return;
+    const support=effectiveBehaviour(asset).supportSurface;
+    ctx.save();
+    ctx.globalAlpha=active?1:.42;
+    ctx.fillStyle=support?'rgba(239,184,102,.14)':'rgba(233,118,101,.12)';
+    ctx.strokeStyle=support?'#efb866':'#e97665';
+    ctx.lineWidth=active?2.2:1.5; ctx.setLineDash(support?[]:[6,4]);
+    ctx.beginPath(); ctx.moveTo(points[0].x,points[0].y); for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+    if(active){
+      const edges=edgeScreenHandles(r,asset);
+      edges.forEach(edge=>{
+        const selected=edge.index===state.selectedEdge || state.draggingEdge?.index===edge.index;
+        ctx.beginPath(); ctx.roundRect(edge.x-(selected?10:8),edge.y-(selected?6:5),selected?20:16,selected?12:10,4);
+        ctx.fillStyle=selected?'#ff4f95':'rgba(26,31,31,.86)'; ctx.strokeStyle='#f1b56a'; ctx.lineWidth=1.5; ctx.fill(); ctx.stroke();
+      });
+      points.forEach(p=>{
+        const selected=p.index===state.selectedPoint || p.index===state.draggingHandle;
+        ctx.beginPath(); ctx.arc(p.x,p.y,selected?8:6,0,Math.PI*2); ctx.fillStyle=selected?'#ff4f95':'#f1b56a'; ctx.strokeStyle='#3a2c24'; ctx.lineWidth=1.5; ctx.fill(); ctx.stroke();
+        ctx.fillStyle='rgba(20,25,25,.9)'; ctx.font='800 7px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(p.index+1),p.x,p.y+.5);
+      });
+    }
+    ctx.restore();
   }
 
   function draw() {
     if(!canvas.clientWidth||!canvas.clientHeight)return;
-    const r=computeRender();drawGrid(r);
-    ctx.save();ctx.strokeStyle='rgba(114,230,208,.92)';ctx.lineWidth=2;ctx.setLineDash([8,5]);ctx.beginPath();ctx.moveTo(0,r.groundY);ctx.lineTo(r.w,r.groundY);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='#bafbf0';ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillText(`FLOOR · ${Math.round(r.floor*100)}%`,12,r.groundY-9);ctx.restore();
-    if(state.image?.complete&&state.image.naturalWidth){ctx.drawImage(state.image,r.drawX,r.drawY,r.drawW,r.drawH);}
-    drawReference(r);
-    const points=collisionScreenPoints(r);
-    if(points.length>=3){
-      const support=effectiveBehaviour().supportSurface;
-      ctx.save();ctx.fillStyle=support?'rgba(239,184,102,.14)':'rgba(233,118,101,.12)';ctx.strokeStyle=support?'#efb866':'#e97665';ctx.lineWidth=2;ctx.setLineDash(support?[]:[6,4]);ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
-      points.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.index===state.draggingHandle?8:6,0,Math.PI*2);ctx.fillStyle=p.index===state.draggingHandle?'#ff4f95':'#f1b56a';ctx.strokeStyle='#3a2c24';ctx.lineWidth=1.5;ctx.fill();ctx.stroke();});ctx.restore();
+    const r=computeRender(); drawGrid(r);
+    ctx.save(); ctx.strokeStyle='rgba(114,230,208,.92)'; ctx.lineWidth=2; ctx.setLineDash([8,5]); ctx.beginPath(); ctx.moveTo(0,r.groundY); ctx.lineTo(r.w,r.groundY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#bafbf0'; ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText('GROUND · Y = 0.00 m',12,r.groundY-9); ctx.restore();
+
+    for(const asset of r.assets){
+      const ar=r.assetRenders[asset.name], image=ar.image; const active=asset.name===state.asset.name;
+      if(image?.complete&&image.naturalWidth){
+        ctx.save(); ctx.globalAlpha=(state.pairMode && !active) ? .72 : 1; ctx.drawImage(image,ar.drawX,ar.drawY,ar.drawW,ar.drawH); ctx.restore();
+      }
+      if(state.pairMode){
+        ctx.save(); ctx.strokeStyle=active?'rgba(126,216,199,.72)':'rgba(238,243,241,.16)'; ctx.lineWidth=active?2:1; ctx.setLineDash(active?[]:[5,5]); ctx.strokeRect(ar.drawX-5,ar.drawY-5,ar.drawW+10,ar.drawH+10); ctx.setLineDash([]);
+        ctx.fillStyle=active?'#c8f4e9':'rgba(238,243,241,.52)'; ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillText(asset.name==='bridge-left'?'LEFT':'RIGHT',ar.drawX,Math.max(14,ar.drawY-10)); ctx.restore();
+      }
     }
-    ctx.save();ctx.fillStyle='rgba(238,243,241,.45)';ctx.font='700 10px -apple-system,BlinkMacSystemFont,sans-serif';const metres=Math.max(1,Math.floor(100/r.ppm));const px=metres*r.ppm;const x=18,y=r.h-22;ctx.fillRect(x,y,px,2);ctx.fillText(`${metres} m`,x,y-7);ctx.restore();
+    drawReference(r);
+    for(const asset of r.assets) drawCollision(r,asset,asset.name===state.asset.name);
+
+    ctx.save(); ctx.fillStyle='rgba(238,243,241,.45)'; ctx.font='700 10px -apple-system,BlinkMacSystemFont,sans-serif'; const metres=Math.max(1,Math.floor(100/r.ppm)); const px=metres*r.ppm; const x=18,y=r.h-22; ctx.fillRect(x,y,px,2); ctx.fillText(`${metres} m`,x,y-7); ctx.restore();
   }
 
   function pointerPos(e){const rect=canvas.getBoundingClientRect();return{x:e.clientX-rect.left,y:e.clientY-rect.top};}
-  function pickHandle(e){const p=pointerPos(e);return collisionScreenPoints(state.render||computeRender()).find(h=>Math.hypot(h.x-p.x,h.y-p.y)<=20)||null;}
-  canvas.addEventListener('pointerdown',e=>{const handle=pickHandle(e);if(!handle)return;state.draggingHandle=handle.index;canvas.setPointerCapture(e.pointerId);draw();});
-  canvas.addEventListener('pointermove',e=>{
-    if(state.draggingHandle<0)return;const geo=currentCollisionGeometry();const r=state.render||computeRender();if(!geo)return;const p=pointerPos(e);const objBottom=r.groundY+r.floor*r.drawH;
-    const nx=clamp((p.x-r.w/2)/(geo.halfWidth*r.ppm),-4,4);const ny=clamp((objBottom-p.y)/(geo.collHeight*r.ppm),-.2,3);
-    const def=effectiveCollision();const points=Array.isArray(def.points)&&def.points.length>=3?def.points.map(q=>({...q})):defaultPoints();points[state.draggingHandle]={x:nx,y:ny};def.points=points;def.autoGenerated=false;collisionStore[state.asset.name]=def;draw();
+  function distanceToSegment(p,a,b){
+    const vx=b.x-a.x,vy=b.y-a.y,wx=p.x-a.x,wy=p.y-a.y; const len2=vx*vx+vy*vy;
+    if(len2<=.0001)return Math.hypot(p.x-a.x,p.y-a.y);
+    const t=clamp((wx*vx+wy*vy)/len2,0,1); const x=a.x+t*vx,y=a.y+t*vy; return Math.hypot(p.x-x,p.y-y);
+  }
+  function pickHandleAt(p,r) {
+    const assets=[state.asset,...r.assets.filter(a=>a.name!==state.asset.name)];
+    for(const asset of assets){
+      const hit=collisionScreenPoints(r,asset).find(h=>Math.hypot(h.x-p.x,h.y-p.y)<=18); if(hit)return hit;
+    }
+    return null;
+  }
+  function pickEdgeAt(p,r) {
+    const assets=[state.asset,...r.assets.filter(a=>a.name!==state.asset.name)];
+    let best=null;
+    for(const asset of assets){
+      for(const edge of edgeScreenHandles(r,asset)){
+        const d=distanceToSegment(p,edge.a,edge.b);
+        if(d<=13 && (!best||d<best.distance))best={...edge,distance:d};
+      }
+    }
+    return best;
+  }
+  function renderContains(ar,p){return !!ar&&p.x>=ar.drawX-8&&p.x<=ar.drawX+ar.drawW+8&&p.y>=ar.drawY-8&&p.y<=ar.drawY+ar.drawH+8;}
+
+  canvas.addEventListener('pointerdown',e=>{
+    const r=state.render||computeRender(), p=pointerPos(e);
+    const handle=pickHandleAt(p,r);
+    if(handle){
+      if(handle.asset.name!==state.asset.name) selectAsset(handle.asset,{keepView:true});
+      state.draggingHandle=handle.index; state.selectedPoint=handle.index; state.selectedEdge=-1;
+      canvas.setPointerCapture(e.pointerId); renderPointEditor(); draw(); return;
+    }
+    const edge=pickEdgeAt(p,r);
+    if(edge){
+      if(edge.asset.name!==state.asset.name) selectAsset(edge.asset,{keepView:true});
+      const pts=collisionWorldPoints(edge.asset);
+      state.draggingEdge={assetName:edge.asset.name,index:edge.index,startPointer:p,startPoints:pts.map(q=>({...q}))};
+      state.selectedEdge=edge.index; state.selectedPoint=-1;
+      canvas.setPointerCapture(e.pointerId); renderPointEditor(); draw(); return;
+    }
+    if(state.pairMode){
+      const other=r.assets.find(asset=>asset.name!==state.asset.name&&renderContains(r.assetRenders[asset.name],p));
+      if(other){ selectAsset(other,{keepView:true}); return; }
+    }
+    state.panning=true; state.pointerStart=p; state.panStart={x:state.panX,y:state.panY};
+    canvas.setPointerCapture(e.pointerId);
   });
-  const finishDrag=()=>{if(state.draggingHandle<0)return;state.draggingHandle=-1;writeStore(COLLISION_KEY,collisionStore);buildList();draw();};
-  canvas.addEventListener('pointerup',finishDrag);canvas.addEventListener('pointercancel',finishDrag);
+
+  canvas.addEventListener('pointermove',e=>{
+    const p=pointerPos(e); const r=state.render||computeRender();
+    if(state.draggingHandle>=0){
+      const ar=r.assetRenders[state.asset.name]; if(!ar)return;
+      const wx=(p.x-ar.centerX)/r.ppm, wy=(r.groundY-p.y)/r.ppm;
+      const pts=collisionWorldPoints(); if(!pts[state.draggingHandle])return;
+      pts[state.draggingHandle]={x:clamp(wx,-20,20),y:clamp(wy,-20,20)};
+      saveWorldPoints(state.asset,pts,{write:false}); refreshPointInputs(); draw(); return;
+    }
+    if(state.draggingEdge){
+      const asset=assetByName(state.draggingEdge.assetName); if(!asset)return;
+      const dx=(p.x-state.draggingEdge.startPointer.x)/r.ppm;
+      const dy=-(p.y-state.draggingEdge.startPointer.y)/r.ppm;
+      const pts=state.draggingEdge.startPoints.map(q=>({...q}));
+      const a=state.draggingEdge.index,b=(a+1)%pts.length;
+      pts[a].x+=dx; pts[a].y+=dy; pts[b].x+=dx; pts[b].y+=dy;
+      saveWorldPoints(asset,pts,{write:false}); refreshPointInputs(); draw(); return;
+    }
+    if(state.panning&&state.pointerStart&&state.panStart){
+      state.panX=state.panStart.x+(p.x-state.pointerStart.x);
+      state.panY=state.panStart.y+(p.y-state.pointerStart.y);
+      draw();
+    }
+  });
+
+  function finishPointer(){
+    const changed=state.draggingHandle>=0||!!state.draggingEdge;
+    state.draggingHandle=-1; state.draggingEdge=null; state.panning=false; state.pointerStart=null; state.panStart=null;
+    if(changed){writeStore(COLLISION_KEY,collisionStore);buildList();renderPointEditor();}
+    draw();
+  }
+  canvas.addEventListener('pointerup',finishPointer); canvas.addEventListener('pointercancel',finishPointer);
+
+  function refreshPointInputs(){
+    const worlds=collisionWorldPoints();
+    [...pointList.querySelectorAll('.assetlab-point-row')].forEach((row,index)=>{
+      const inputs=row.querySelectorAll('input'); if(!worlds[index]||inputs.length<2)return;
+      if(document.activeElement!==inputs[0])inputs[0].value=worlds[index].x.toFixed(2);
+      if(document.activeElement!==inputs[1])inputs[1].value=worlds[index].y.toFixed(2);
+      row.classList.toggle('active',index===state.selectedPoint);
+    });
+  }
 
   heightInput.addEventListener('input',()=>{const v=clamp(Number(heightInput.value)||state.asset.height,.25,12);heightValue.textContent=`${v.toFixed(2)} m`;saveLayout({defaultHeight:v});syncControls();});
-  floorInput.addEventListener('input',()=>{const v=clamp((Number(floorInput.value)||0)/100,0,1);floorValue.textContent=`${Math.round(v*100)}%`;saveLayout({groundLine:v});draw();});
-  depthInput.addEventListener('input',()=>{const def=effectiveCollision();if(!def)return;const width=assetWorldWidth();const depth=clamp(Number(depthInput.value)||.8,.15,2.5);def.depthRatio=depth/Math.max(.001,width);def.autoGenerated=false;collisionStore[state.asset.name]=def;depthValue.textContent=`${depth.toFixed(2)} m`;writeStore(COLLISION_KEY,collisionStore);syncControls();buildList();});
-  collisionToggle.addEventListener('click',addOrRemoveCollision);collisionReset.addEventListener('click',fitCollisionRectangle);resetBtn.addEventListener('click',resetCurrent);
-  fitBtn.addEventListener('click',()=>{state.viewScale=1;draw();});
+  floorInput.addEventListener('input',()=>{const v=clamp((Number(floorInput.value)||0)/100,0,1);floorValue.textContent=`${Math.round(v*100)}%`;saveLayout({groundLine:v});renderPointEditor();draw();});
+  depthInput.addEventListener('input',()=>{const def=ensureCustomCollision();if(!def)return;const width=assetWorldWidth();const depth=clamp(Number(depthInput.value)||.8,.15,2.5);def.depthRatio=depth/Math.max(.001,width);def.autoGenerated=false;collisionStore[state.asset.name]=def;depthValue.textContent=`${depth.toFixed(2)} m`;writeStore(COLLISION_KEY,collisionStore);syncControls();buildList();});
+  collisionToggle.addEventListener('click',addOrRemoveCollision);
+  collisionReset.addEventListener('click',fitCollisionRectangle);
+  resetBtn.addEventListener('click',resetCurrent);
+  fitBtn.addEventListener('click',()=>{state.viewScale=1;state.panX=0;state.panY=0;draw();});
   referenceBtn.addEventListener('click',()=>{state.showReference=!state.showReference;referenceBtn.classList.toggle('active',state.showReference);referenceBtn.setAttribute('aria-pressed',String(state.showReference));draw();});
-  filterButtons.forEach(button=>button.addEventListener('click',()=>{state.filter=button.dataset.filter;filterButtons.forEach(b=>b.classList.toggle('active',b===button));const candidate=ASSETS.find(a=>a.scope===state.filter);if(candidate)selectAsset(candidate);else buildList();}));
+  pairBtn.addEventListener('click',()=>{
+    if(!isBridge(state.asset))return;
+    state.pairMode=!state.pairMode; state.panX=0; state.panY=0; state.viewScale=1;
+    if(state.pairMode)BRIDGE_NAMES.forEach(name=>ensureImage(assetByName(name)));
+    updatePairUI(); draw();
+  });
+  edgeFloorBtn.addEventListener('click',()=>{
+    const pts=collisionWorldPoints(); if(state.selectedEdge<0||state.selectedEdge>=pts.length)return;
+    const a=state.selectedEdge,b=(a+1)%pts.length; pts[a].y=0; pts[b].y=0;
+    saveWorldPoints(state.asset,pts); renderPointEditor(); buildList(); draw();
+  });
+  filterButtons.forEach(button=>button.addEventListener('click',()=>{
+    state.filter=button.dataset.filter; filterButtons.forEach(b=>b.classList.toggle('active',b===button));
+    const candidate=ASSETS.find(a=>a.scope===state.filter); if(candidate)selectAsset(candidate); else buildList();
+  }));
   window.addEventListener('resize',resize);
 
-  buildList();selectAsset(ASSETS[0]);resize();
+  ASSETS.slice(0,2).forEach(ensureImage);
+  buildList(); selectAsset(ASSETS[0]); resize();
 })();

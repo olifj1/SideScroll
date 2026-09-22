@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.9">
+  <link rel="stylesheet" href="style.css?v=1.0.10">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -32,10 +32,11 @@
 
     <section class="assetlab-stage-wrap">
       <canvas id="assetlab-canvas" aria-label="Isolated asset setup viewport"></canvas>
-      <div class="assetlab-stage-help" id="assetlab-stage-help">Drag the orange collision points. The cyan line is the asset floor.</div>
+      <div class="assetlab-stage-help" id="assetlab-stage-help">Drag empty space to pan. Drag orange points or edge handles. The cyan line is ground level (Y = 0).</div>
       <div class="assetlab-stage-tools">
         <button type="button" id="assetlab-fit">Fit View</button>
         <button type="button" id="assetlab-reference" class="active" aria-pressed="true">Player Reference</button>
+        <button type="button" id="assetlab-pair" aria-pressed="false" hidden>Bridge Pair</button>
       </div>
     </section>
 
@@ -62,7 +63,12 @@
           <span><strong>Collision depth</strong><small id="assetlab-depth-value">0.80 m</small></span>
           <input id="assetlab-depth" type="range" min="0.15" max="2.50" step="0.01" value="0.8">
         </label>
-        <p class="assetlab-note">Collision is saved as an asset default. Orange handles edit its profile; yellow means it is a support surface.</p>
+        <div class="assetlab-point-editor" id="assetlab-point-editor" hidden>
+          <div class="assetlab-point-head"><strong>Collision points</strong><small>metres · floor Y = 0</small></div>
+          <div class="assetlab-point-list" id="assetlab-point-list"></div>
+          <button type="button" id="assetlab-edge-floor" class="assetlab-inline-action" disabled>Set Selected Edge to Y = 0</button>
+        </div>
+        <p class="assetlab-note">Drag orange corner points, or drag the small edge handles to move two points together. Numeric Y positions use the cyan floor as 0. Yellow means the shape is a support surface.</p>
       </section>
 
       <section class="assetlab-control-section assetlab-behaviour-section">
@@ -77,8 +83,8 @@
     </aside>
   </main>
 
-  <script src="site-config.js?v=1.0.9"></script>
-  <script src="core.js?v=1.0.9"></script>
-  <script src="asset-lab.js?v=1.0.9"></script>
+  <script src="site-config.js?v=1.0.10"></script>
+  <script src="core.js?v=1.0.10"></script>
+  <script src="asset-lab.js?v=1.0.10"></script>
 </body>
 </html>
