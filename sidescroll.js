@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.32: first reusable pushable-cart prototype with independently rotating wheel textures.
+  // SideScroll v1.0.33: cart wheel rotation now uses a true axle-centred pivot.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -550,6 +550,20 @@
        0.5, 0.0, 0.0,  1.0, 0.0,
       -0.5, 1.0, 0.0,  0.0, 1.0,
        0.5, 1.0, 0.0,  1.0, 1.0
+    ]),
+    new Uint16Array([0,1,2,2,1,3])
+  );
+
+  // Most scene billboards are authored bottom-up because their world Y is a
+  // ground/base position. Rotating mechanical parts such as cart wheels need
+  // their local origin at the visual centre, otherwise mat4ModelRotated() makes
+  // the whole texture orbit around its bottom edge instead of spinning on its axle.
+  const centredBillboardMesh = createMesh(
+    new Float32Array([
+      -0.5,-0.5, 0.0,  0.0, 0.0,
+       0.5,-0.5, 0.0,  1.0, 0.0,
+      -0.5, 0.5, 0.0,  0.0, 1.0,
+       0.5, 0.5, 0.0,  1.0, 1.0
     ]),
     new Uint16Array([0,1,2,2,1,3])
   );
@@ -1267,13 +1281,13 @@
     1050 / 220
   );
 
-  // v1.0.32 handcart prototype. The body and wheels are intentionally separate
+  // v1.0.33 handcart prototype. The body and wheels are intentionally separate
   // textures so wheel rotation is a real runtime transform rather than baked
   // animation. The cart's editor/world aspect is the complete 620x255 side view.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.32', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.33', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.32', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.33', 'handcart-wheel', null, 1);
   textures['handcart-wheel-mask'] = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#3a2c23';
@@ -8398,8 +8412,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const centreY = obj.y + wheelV * obj.sy;
       if (textures['handcart-wheel-mask']) {
         const mask = {
-          mesh:billboardMesh, texture:textures['handcart-wheel-mask'],
-          x:centreX, y:centreY - maskSize * 0.5, z:obj.z + 0.001,
+          mesh:centredBillboardMesh, texture:textures['handcart-wheel-mask'],
+          x:centreX, y:centreY, z:obj.z + 0.001,
           sx:maskSize, sy:maskSize, sz:1, flip:false, shade:1, opacity:1, noFog:obj.noFog, tint:null,
           asset:true, assetName:'handcart-wheel-mask-component', layer:obj.layer, wrap:false,
           deleted:false, carried:false, shadow:null, uvScale:[1,1], uvOffset:[0,0], counterweightVisualAngle:0
@@ -8407,8 +8421,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         drawObject(mask, view, { force:true });
       }
       const wheel = {
-        mesh:billboardMesh, texture:textures['handcart-wheel'],
-        x:centreX, y:centreY - wheelSize * 0.5,
+        mesh:centredBillboardMesh, texture:textures['handcart-wheel'],
+        x:centreX, y:centreY,
         z:obj.z + 0.002, sx:wheelSize, sy:wheelSize, sz:1,
         flip:false, shade:obj.shade, opacity:obj.opacity, noFog:obj.noFog, tint:obj.tint,
         asset:true, assetName:'handcart-wheel-component', layer:obj.layer, wrap:false,

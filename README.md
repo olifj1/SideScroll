@@ -1,8 +1,8 @@
-# SideScroll v1.0.32
+# SideScroll v1.0.33
 
-Puzzle-editor availability fix for the new handcart.
+Cart wheel pivot fix.
 
-- Adds the Wooden Handcart to the shared woodland puzzle asset pack.
-- The cart now appears under Broken Bridge → Place Puzzle Pieces.
-- Keeps the v1.0.31 pushable-cart prototype unchanged: separate rotating wheel texture, two-sided push interaction and stepped support collision.
-- Legacy counterweight-plank compatibility remains in code/data, but it is not restored to the normal placement palette.
+- Keeps the pushable Wooden Handcart prototype from v1.0.32.
+- Changes the separate wheel and wheel-mask components to a true centre-pivot billboard.
+- Wheels now spin around their axles instead of orbiting around the bottom edge of the texture.
+- No inventory, broken-wheel or bridge-completion behaviour is added yet.
