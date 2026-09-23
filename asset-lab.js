@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.30';
+  const VERSION = '1.0.31';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -9,13 +9,14 @@
   const SOCKET_KEY = 'sidescroll.asset-sockets.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
-  const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
-  const emptyBehaviour = { solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, socketHost:false, socketPiece:false };
+  const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','pushable','socketHost','socketPiece'];
+  const emptyBehaviour = { solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, socketHost:false, socketPiece:false };
 
   const ASSETS = [
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-left',label:'Broken Bridge · Left',image:'bridge-left.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true,socketHost:true}},
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-right',label:'Broken Bridge · Right',image:'bridge-right.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true,socketHost:true}},
-    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'counterweight-plank',label:'Counterweight Plank · Prototype',image:'counterweight-plank.png',height:0.72,groundLine:0.36,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,socketPiece:true},collision:{halfWidthRatio:0.49,fixedHeight:0.26,heightRatio:null,depthRatio:0.12,points:null}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'counterweight-plank',label:'Counterweight Plank · Legacy',image:'counterweight-plank.png',height:0.72,groundLine:0.36,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,socketPiece:true},collision:{halfWidthRatio:0.49,fixedHeight:0.26,heightRatio:null,depthRatio:0.12,points:null}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'handcart',label:'Wooden Handcart · Pushable',image:'handcart-body.png',height:1.75,groundLine:0.064,behaviour:{solid:true,supportSurface:true,pushable:true},collision:{halfWidthRatio:0.405,heightRatio:0.72,fixedHeight:null,depthRatio:0.20,points:[{x:-1,y:0},{x:-1,y:.17},{x:-.8,y:.17},{x:-.8,y:.34},{x:-.63,y:.34},{x:-.63,y:1},{x:.63,y:1},{x:.63,y:.34},{x:.8,y:.34},{x:.8,y:.17},{x:1,y:.17},{x:1,y:0}]}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-a',label:'Moveable Log A',image:'puzzle-log-a.png',height:0.84,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true},collision:{halfWidthRatio:0.52/(0.84*1.7083),fixedHeight:STACK_ITEM_HEIGHT,heightRatio:null,depthRatio:0.56/(0.84*1.7083),points:null}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-b',label:'Moveable Log B',image:'puzzle-log-b.png',height:0.72,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-c',label:'Moveable Log C',image:'puzzle-log-c.png',height:0.76,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
@@ -175,6 +176,7 @@
     if (b.carryable) b.placeable = true;
     if (b.supportSurface) b.solid = true;
     if (b.stackable) b.placeable = true;
+    if (b.pushable) b.solid = true;
     return b;
   }
   function effectiveHeight(asset=state.asset) {
@@ -186,7 +188,7 @@
     return Number.isFinite(v) ? clamp(v,0,1) : clamp(Number(asset.groundLine)||0,0,1);
   }
   function behaviourNeedsCollision(behaviour) {
-    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable);
+    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
   }
   function assetAspect(asset=state.asset) {
     const image=ensureImage(asset);
@@ -411,7 +413,7 @@
         const h=document.createElement('div');h.className='assetlab-group-label';h.textContent=group;listEl.appendChild(h);
       }
       const row=document.createElement('button');row.type='button';row.className='assetlab-asset-row';row.classList.toggle('active',asset.name===state.asset.name);
-      row.innerHTML=`<img src="${asset.image}" alt=""><span><strong>${asset.label}</strong><small>${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
+      row.innerHTML=`<img src="${asset.image}" alt=""><span><strong>${asset.label}</strong><small>${effectiveBehaviour(asset).pushable?'PUSH · ':''}${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
       row.addEventListener('click',()=>selectAsset(asset,{keepView:state.pairMode&&isBridge(asset)}));
       listEl.appendChild(row);
     }
@@ -506,6 +508,7 @@
       ['carryable','Carryable','ACTION can pick the asset up.'],
       ['placeable','Placeable','A carried copy can be put back down.'],
       ['stackable','Stackable','May settle onto other support surfaces.'],
+      ['pushable','Pushable','ACTION grips the object and walking into it moves the object.'],
       ['socketHost','Socket Host','Can contain authored sockets.'],
       ['socketPiece','Socket Piece','Can be assigned to an authored socket.']
     ];
@@ -523,6 +526,7 @@
     if(key==='carryable'&&enabled)next.placeable=true;
     if(key==='supportSurface'&&enabled)next.solid=true;
     if(key==='stackable'&&enabled)next.placeable=true;
+    if(key==='pushable'&&enabled)next.solid=true;
     behaviourStore[state.asset.name]=Object.fromEntries(behaviourKeys.map(k=>[k,!!next[k]]));
     writeStore(BEHAVIOUR_KEY,behaviourStore);
     renderBehaviours(); buildList(); draw();
