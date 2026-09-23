@@ -1,10 +1,16 @@
-# SideScroll v1.0.21
+# SideScroll v1.0.22
 
-River and reusable puzzle-failure pass.
+Counterweight puzzle — Part 1: asset and authoring foundation.
 
-- River bed/water are substantially deeper, so stepping off a bridge no longer lands immediately beneath the deck.
-- Water collision remains as a low safety floor, aligned to the visibly lower water surface.
-- Puzzles can author a reusable **Respawn Setup** with a draggable green checkpoint, draggable/resizable pink trigger volume, adjustable trigger height and enable/disable control.
-- Entering the respawn volume below its trigger plane returns the player to the checkpoint. The same setup is saved with puzzle templates, tests and exports.
-- Auto Dress River Banks now adds a sparse submerged grass row just inside the water edge.
-- River water uses broader UVs, a larger low-frequency texture and slower flow so the repeating tile is much less visible.
+- Adds a temporary **Counterweight Plank** prototype texture and puzzle asset.
+- The plank is carryable/placeable, a Support Surface, and socket-compatible.
+- Asset Lab now has a dedicated **Counterweight Plank** mechanism panel.
+- You can author:
+  - pickup/pivot X and Y;
+  - counterweight-zone start/end and line height;
+  - zone depth;
+  - log/player weight;
+  - max tip and fall angle.
+- The viewport draws the green pivot/pickup point and the blue free-placement counterweight line over the plank.
+- The agreed overlap rule is fixed at **more than 50% of a log inside the zone**.
+- This is intentionally Part 1: the runtime binding, rotating collision, free-log zone detection and torque/tipping physics are not switched on yet.

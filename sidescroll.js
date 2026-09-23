@@ -1251,6 +1251,14 @@
     textures[key] = createImageTexture(`${key}.png?v=1.0.12`, key, null, size[0] / size[1]);
   });
 
+  assetAspect['counterweight-plank'] = 2100 / 220;
+  textures['counterweight-plank'] = createImageTexture(
+    'counterweight-plank.png?v=1.0.22',
+    'counterweight-plank',
+    null,
+    2100 / 220
+  );
+
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
   // the first editor-authored platform/obstacle.
@@ -1891,7 +1899,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const ASSET_LAYOUT_STORAGE_KEY = 'sidescroll.asset-layout.v1';
   const ASSET_GROUND_LINE_DEFAULTS = Object.freeze({
     'bridge-left': 1.62 / 2.20,
-    'bridge-right': 1.62 / 2.20
+    'bridge-right': 1.62 / 2.20,
+    'counterweight-plank': 0.36
   });
 
   let assetLayoutDefaults = (() => {
@@ -2018,6 +2027,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const SCENE_STORAGE_KEY = 'sidescroll.scene.v1';
   const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
   const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
+  const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v1';
   const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
     solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, socketHost:false, socketPiece:false
@@ -2031,6 +2041,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'fallen-tree': { solid:true, supportSurface:true },
     'bridge-left': { solid:true, supportSurface:true },
     'bridge-right': { solid:true, supportSurface:true },
+    'counterweight-plank': { solid:true, carryable:true, placeable:true, supportSurface:true, socketPiece:true },
     'tree-stump': {},
     'broken-branch': {},
     'stone-wall': { socketHost:true },
@@ -2057,6 +2068,28 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     { key:'socketHost', label:'Socket Host', description:'Allows socket-piece targets to be authored directly onto this asset.' },
     { key:'socketPiece', label:'Socket Piece', description:'Allows an individual puzzle piece to be linked to a matching authored socket.' }
   ];
+  let assetMechanismDefaults = (() => {
+    try {
+      const raw = localStorage.getItem(ASSET_MECHANISM_STORAGE_KEY);
+      const parsed = raw !== null ? JSON.parse(raw || '{}') : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  })();
+
+  const DEFAULT_COUNTERWEIGHT_MECHANISM = Object.freeze({
+    type:'counterweightPlank',
+    pivotX:0.35,pivotY:0.50,
+    zoneStart:0.04,zoneEnd:0.29,zoneY:0.60,zoneDepth:1.20,
+    minimumOverlap:0.50,
+    logWeight:1.30,playerWeight:1.00,
+    maxTipDeg:28,fallAngleDeg:17
+  });
+
+  function assetMechanism(assetName) {
+    if (assetName !== 'counterweight-plank') return assetMechanismDefaults?.[assetName] || null;
+    return {...DEFAULT_COUNTERWEIGHT_MECHANISM,...(assetMechanismDefaults?.[assetName]||{})};
+  }
+
   let assetBehaviourOverrides = (() => {
     try {
       const raw = localStorage.getItem(ASSET_BEHAVIOUR_STORAGE_KEY);
@@ -4423,7 +4456,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ]},
     { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
       { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
-      { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 }
+      { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
+      { name:'counterweight-plank', label:'COUNTERWEIGHT PLANK · PROTOTYPE', image:'counterweight-plank.png', category:'gameplay', gameplayType:'prop', thumb:'━━', defaultHeight:0.72, defaultGroundLine:0.36, collision:{halfWidth:3.32,height:0.26,depth:0.82,platform:true} }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -9227,6 +9261,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     try { localStorage.removeItem(PUZZLE_EXCLUSION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_COLLISION_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(ASSET_MECHANISM_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(COLLECTIBLE_SETUP_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(TERRAIN_SECTION_STORAGE_KEY); } catch (_) {}

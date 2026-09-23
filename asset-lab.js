@@ -1,10 +1,11 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.21';
+  const VERSION = '1.0.22';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
+  const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
   const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
@@ -13,6 +14,7 @@
   const ASSETS = [
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-left',label:'Broken Bridge · Left',image:'bridge-left.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true}},
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-right',label:'Broken Bridge · Right',image:'bridge-right.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'counterweight-plank',label:'Counterweight Plank · Prototype',image:'counterweight-plank.png',height:0.72,groundLine:0.36,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,socketPiece:true},collision:{halfWidthRatio:0.49,fixedHeight:0.26,heightRatio:null,depthRatio:0.12,points:null}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-a',label:'Moveable Log A',image:'puzzle-log-a.png',height:0.84,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true},collision:{halfWidthRatio:0.52/(0.84*1.7083),fixedHeight:STACK_ITEM_HEIGHT,heightRatio:null,depthRatio:0.56/(0.84*1.7083),points:null}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-b',label:'Moveable Log B',image:'puzzle-log-b.png',height:0.72,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-c',label:'Moveable Log C',image:'puzzle-log-c.png',height:0.76,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
@@ -52,6 +54,27 @@
   const referenceBtn = document.getElementById('assetlab-reference');
   const pairBtn = document.getElementById('assetlab-pair');
   const filterButtons = [...document.querySelectorAll('[data-filter]')];
+  const counterweightSection = document.getElementById('assetlab-counterweight-section');
+  const pivotXInput = document.getElementById('assetlab-pivot-x');
+  const pivotYInput = document.getElementById('assetlab-pivot-y');
+  const zoneStartInput = document.getElementById('assetlab-zone-start');
+  const zoneEndInput = document.getElementById('assetlab-zone-end');
+  const zoneYInput = document.getElementById('assetlab-zone-y');
+  const zoneDepthInput = document.getElementById('assetlab-zone-depth');
+  const logWeightInput = document.getElementById('assetlab-log-weight');
+  const playerWeightInput = document.getElementById('assetlab-player-weight');
+  const maxTipInput = document.getElementById('assetlab-max-tip');
+  const fallTipInput = document.getElementById('assetlab-fall-tip');
+  const pivotXValue = document.getElementById('assetlab-pivot-x-value');
+  const pivotYValue = document.getElementById('assetlab-pivot-y-value');
+  const zoneStartValue = document.getElementById('assetlab-zone-start-value');
+  const zoneEndValue = document.getElementById('assetlab-zone-end-value');
+  const zoneYValue = document.getElementById('assetlab-zone-y-value');
+  const zoneDepthValue = document.getElementById('assetlab-zone-depth-value');
+  const logWeightValue = document.getElementById('assetlab-log-weight-value');
+  const playerWeightValue = document.getElementById('assetlab-player-weight-value');
+  const maxTipValue = document.getElementById('assetlab-max-tip-value');
+  const fallTipValue = document.getElementById('assetlab-fall-tip-value');
 
   const readStore = key => {
     try { const value = JSON.parse(localStorage.getItem(key) || '{}'); return value && typeof value === 'object' ? value : {}; }
@@ -60,6 +83,37 @@
   let behaviourStore = readStore(BEHAVIOUR_KEY);
   let collisionStore = readStore(COLLISION_KEY);
   let layoutStore = readStore(LAYOUT_KEY);
+  let mechanismStore = readStore(MECHANISM_KEY);
+
+  const DEFAULT_COUNTERWEIGHT = Object.freeze({
+    type:'counterweightPlank',
+    pivotX:0.35,
+    pivotY:0.50,
+    zoneStart:0.04,
+    zoneEnd:0.29,
+    zoneY:0.60,
+    zoneDepth:1.20,
+    minimumOverlap:0.50,
+    logWeight:1.30,
+    playerWeight:1.00,
+    maxTipDeg:28,
+    fallAngleDeg:17
+  });
+
+  function isCounterweightPlank(asset=state.asset) {
+    return asset?.name === 'counterweight-plank';
+  }
+
+  function effectiveMechanism(asset=state.asset) {
+    if (!isCounterweightPlank(asset)) return null;
+    return {...DEFAULT_COUNTERWEIGHT,...(mechanismStore[asset.name]||{})};
+  }
+
+  function saveMechanism(patch) {
+    if (!isCounterweightPlank()) return;
+    mechanismStore[state.asset.name] = {...effectiveMechanism(),...patch,type:'counterweightPlank',minimumOverlap:0.50};
+    writeStore(MECHANISM_KEY,mechanismStore);
+  }
 
   const imageCache = new Map();
   const assetByName = name => ASSETS.find(a => a.name === name) || null;
@@ -232,8 +286,38 @@
     }
     renderPointEditor();
     renderBehaviours();
+    syncMechanismControls();
     updatePairUI();
     draw();
+  }
+
+  function syncMechanismControls() {
+    if (!counterweightSection) return;
+    const mech = effectiveMechanism();
+    counterweightSection.hidden = !mech;
+    if (!mech) return;
+
+    pivotXInput.value = String(Math.round(mech.pivotX*100));
+    pivotYInput.value = String(Math.round(mech.pivotY*100));
+    zoneStartInput.value = String(Math.round(mech.zoneStart*100));
+    zoneEndInput.value = String(Math.round(mech.zoneEnd*100));
+    zoneYInput.value = String(Math.round(mech.zoneY*100));
+    zoneDepthInput.value = String(mech.zoneDepth);
+    logWeightInput.value = String(mech.logWeight);
+    playerWeightInput.value = String(mech.playerWeight);
+    maxTipInput.value = String(mech.maxTipDeg);
+    fallTipInput.value = String(mech.fallAngleDeg);
+
+    pivotXValue.textContent = `${Math.round(mech.pivotX*100)}%`;
+    pivotYValue.textContent = `${Math.round(mech.pivotY*100)}%`;
+    zoneStartValue.textContent = `${Math.round(mech.zoneStart*100)}%`;
+    zoneEndValue.textContent = `${Math.round(mech.zoneEnd*100)}%`;
+    zoneYValue.textContent = `${Math.round(mech.zoneY*100)}%`;
+    zoneDepthValue.textContent = `${mech.zoneDepth.toFixed(2)} m`;
+    logWeightValue.textContent = mech.logWeight.toFixed(2);
+    playerWeightValue.textContent = mech.playerWeight.toFixed(2);
+    maxTipValue.textContent = `${Math.round(mech.maxTipDeg)}°`;
+    fallTipValue.textContent = `${Math.round(mech.fallAngleDeg)}°`;
   }
 
   function renderBehaviours() {
@@ -291,8 +375,8 @@
   }
 
   function resetCurrent() {
-    delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name];
-    writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore);
+    delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name]; delete mechanismStore[state.asset.name];
+    writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore); writeStore(MECHANISM_KEY,mechanismStore);
     state.selectedPoint=-1; state.selectedEdge=-1; syncControls(); buildList();
   }
 
@@ -478,6 +562,51 @@
     ctx.restore();
   }
 
+  function drawMechanismOverlay(r, asset=state.asset) {
+    const mech = effectiveMechanism(asset);
+    const ar = r.assetRenders[asset?.name];
+    if (!mech || !ar) return;
+
+    const pivotX = ar.drawX + ar.drawW * mech.pivotX;
+    const pivotY = ar.drawY + ar.drawH * mech.pivotY;
+    const zoneY = ar.drawY + ar.drawH * mech.zoneY;
+    const zoneX1 = ar.drawX + ar.drawW * mech.zoneStart;
+    const zoneX2 = ar.drawX + ar.drawW * mech.zoneEnd;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    ctx.strokeStyle = 'rgba(103,183,255,.30)';
+    ctx.lineWidth = 13;
+    ctx.beginPath(); ctx.moveTo(zoneX1, zoneY); ctx.lineTo(zoneX2, zoneY); ctx.stroke();
+    ctx.strokeStyle = '#67b7ff';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(zoneX1, zoneY); ctx.lineTo(zoneX2, zoneY); ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(pivotX, pivotY, 8, 0, Math.PI*2);
+    ctx.fillStyle = '#79ef85';
+    ctx.fill();
+    ctx.strokeStyle = '#183f25';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle = 'rgba(12,28,35,.88)';
+    ctx.fillRect(pivotX + 11, pivotY - 21, 77, 17);
+    ctx.fillStyle = '#d8ffe0';
+    ctx.fillText('PIVOT / PICKUP', pivotX + 16, pivotY - 9);
+
+    const label='COUNTERWEIGHT >50%';
+    const tw=ctx.measureText(label).width+12;
+    const zx=(zoneX1+zoneX2)*0.5-tw*0.5;
+    ctx.fillStyle='rgba(12,28,35,.84)';
+    ctx.fillRect(zx,zoneY+9,tw,17);
+    ctx.fillStyle='#cceaff';
+    ctx.fillText(label,zx+6,zoneY+21);
+    ctx.restore();
+  }
+
   function draw() {
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const r=computeRender(); drawGrid(r);
@@ -495,6 +624,7 @@
       }
     }
     drawReference(r);
+    if (isCounterweightPlank(state.asset)) drawMechanismOverlay(r,state.asset);
     for(const asset of r.assets) drawCollision(r,asset,asset.name===state.asset.name);
 
     ctx.save(); ctx.fillStyle='rgba(238,243,241,.45)'; ctx.font='700 11px -apple-system,BlinkMacSystemFont,sans-serif'; const metres=Math.max(1,Math.floor(100/r.ppm)); const px=metres*r.ppm; const x=18,y=r.h-22; ctx.fillRect(x,y,px,2); ctx.fillText(`${metres} m`,x,y-7); ctx.restore();
@@ -612,6 +742,33 @@
     const a=state.selectedEdge,b=(a+1)%pts.length; pts[a].y=0; pts[b].y=0;
     saveWorldPoints(state.asset,pts); renderPointEditor(); buildList(); draw();
   });
+  const mechanismBindings = [
+    [pivotXInput, value => ({pivotX:clamp(Number(value)/100,0.05,0.95)})],
+    [pivotYInput, value => ({pivotY:clamp(Number(value)/100,0,1)})],
+    [zoneStartInput, value => {
+      const mech=effectiveMechanism(); const start=clamp(Number(value)/100,0,0.90);
+      return {zoneStart:Math.min(start,mech.zoneEnd-0.02)};
+    }],
+    [zoneEndInput, value => {
+      const mech=effectiveMechanism(); const end=clamp(Number(value)/100,0.05,0.98);
+      return {zoneEnd:Math.max(end,mech.zoneStart+0.02)};
+    }],
+    [zoneYInput, value => ({zoneY:clamp(Number(value)/100,0,1)})],
+    [zoneDepthInput, value => ({zoneDepth:clamp(Number(value),0.30,2.50)})],
+    [logWeightInput, value => ({logWeight:clamp(Number(value),0.20,2.50)})],
+    [playerWeightInput, value => ({playerWeight:clamp(Number(value),0.50,2.00)})],
+    [maxTipInput, value => ({maxTipDeg:clamp(Number(value),5,40)})],
+    [fallTipInput, value => ({fallAngleDeg:clamp(Number(value),6,35)})]
+  ];
+  for (const [input,toPatch] of mechanismBindings) {
+    input?.addEventListener('input',()=>{
+      if(!effectiveMechanism()) return;
+      saveMechanism(toPatch(input.value));
+      syncMechanismControls();
+      draw();
+    });
+  }
+
   filterButtons.forEach(button=>button.addEventListener('click',()=>{
     state.filter=button.dataset.filter; filterButtons.forEach(b=>b.classList.toggle('active',b===button));
     const candidate=ASSETS.find(a=>a.scope===state.filter); if(candidate)selectAsset(candidate); else buildList();
