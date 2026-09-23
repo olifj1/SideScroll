@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.23: counterweight plank runtime — pivot socket, free counterweight zone, rotating support collision and constrained tipping physics.
+  // SideScroll v1.0.24: fixes Counterweight Plank availability in Puzzle Pieces by registering it in the puzzle asset pack.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1253,7 +1253,7 @@
 
   assetAspect['counterweight-plank'] = 2100 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.22',
+    'counterweight-plank.png?v=1.0.24',
     'counterweight-plank',
     null,
     2100 / 220
