@@ -1,9 +1,10 @@
-# SideScroll v1.0.19
+# SideScroll v1.0.21
 
-Collision landing and Position-panel refinement.
+River and reusable puzzle-failure pass.
 
-- Position mode now hides the large Puzzle browser while it is open and uses a much smaller phone-landscape panel.
-- Airborne landing only considers support surfaces that were actually below the character's feet at the start of the frame. A log/platform above the feet can no longer mask the terrain below.
-- A static capsule depenetration pass pushes the character out of log/platform sides after a jump, even when the movement stick has already been released.
-- Support Surface behaviour is used consistently by both walk-surface and obstacle logic.
-- Includes the free-placement and bridge-alignment tools from v1.0.18.
+- River bed/water are substantially deeper, so stepping off a bridge no longer lands immediately beneath the deck.
+- Water collision remains as a low safety floor, aligned to the visibly lower water surface.
+- Puzzles can author a reusable **Respawn Setup** with a draggable green checkpoint, draggable/resizable pink trigger volume, adjustable trigger height and enable/disable control.
+- Entering the respawn volume below its trigger plane returns the player to the checkpoint. The same setup is saved with puzzle templates, tests and exports.
+- Auto Dress River Banks now adds a sparse submerged grass row just inside the water edge.
+- River water uses broader UVs, a larger low-frequency texture and slower flow so the repeating tile is much less visible.

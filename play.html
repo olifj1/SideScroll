@@ -220,7 +220,7 @@
             </div>
             <div class="sidescroll-placement-strip" id="sidescroll-placement-strip" hidden>
               <div class="sidescroll-placement-status">
-                <span class="sidescroll-placement-mode">PLACE</span>
+                <span class="sidescroll-placement-mode" id="sidescroll-placement-mode-label">PLACE</span>
                 <strong id="sidescroll-placement-name">Asset</strong>
               </div>
               <div class="sidescroll-placement-actions">
@@ -264,6 +264,12 @@
               <p id="sidescroll-puzzle-state">Edit procedural scene dressing without affecting puzzle props.</p>
               <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-help">Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it.</p>
 
+              <div class="sidescroll-puzzle-edit-layer-switch" id="sidescroll-puzzle-edit-layer-switch" hidden>
+                <span>EDIT MODE</span>
+                <button id="sidescroll-puzzle-layer-pieces" class="active" type="button">Puzzle Pieces</button>
+                <button id="sidescroll-puzzle-layer-dressing" type="button">Dressing</button>
+              </div>
+
               <div class="sidescroll-puzzle-marker-editor" id="sidescroll-puzzle-marker-editor" hidden>
                 <label for="sidescroll-puzzle-marker-x"><span>Marker X</span><input id="sidescroll-puzzle-marker-x" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" aria-label="Puzzle marker X position"></label>
                 <small>Type a position, or Edit Puzzle and drag the centre dot.</small>
@@ -284,11 +290,21 @@
                 <button id="sidescroll-puzzle-set-start" type="button">Set Start</button>
                 <button id="sidescroll-puzzle-exclusion-edit" type="button">Edit Exclusion</button>
                 <button id="sidescroll-puzzle-exclusion-toggle" type="button">Exclusion On</button>
-                <button id="sidescroll-puzzle-add-dressing" type="button">Add Dressing</button>
+                <button id="sidescroll-puzzle-respawn-edit" type="button">Respawn Setup</button>
                 <button id="sidescroll-puzzle-save-unique" type="button">Save Unique</button>
                 <button id="sidescroll-puzzle-test" class="primary" type="button">Test</button>
                 <button id="sidescroll-puzzle-reset" type="button">Reset</button>
                 <button id="sidescroll-puzzle-back-setup" type="button" hidden>Back to Setup</button>
+              </div>
+              <div class="sidescroll-puzzle-respawn-tools" id="sidescroll-puzzle-respawn-tools" hidden>
+                <div class="sidescroll-puzzle-respawn-head"><strong>RESPAWN</strong><span>Trigger <b id="sidescroll-puzzle-respawn-trigger-value">−0.90 m</b></span></div>
+                <div class="sidescroll-puzzle-respawn-grid">
+                  <button id="sidescroll-puzzle-respawn-set-spawn" type="button">Spawn = Player</button>
+                  <button id="sidescroll-puzzle-respawn-toggle" type="button">Respawn ON</button>
+                  <button id="sidescroll-puzzle-respawn-lower" type="button">Lower Trigger</button>
+                  <button id="sidescroll-puzzle-respawn-raise" type="button">Raise Trigger</button>
+                </div>
+                <small>Drag the green spawn point and pink volume handles in the scene. Crossing below the pink plane inside the volume respawns the player.</small>
               </div>
               <details class="sidescroll-puzzle-objects" id="sidescroll-puzzle-objects" hidden>
                 <summary>Objects <span id="sidescroll-puzzle-object-count">0</span></summary>

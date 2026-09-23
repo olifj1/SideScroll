@@ -13126,3 +13126,64 @@ body[data-game-id="game-16"] .sidescroll-transform-editor p{margin-top:5px;font-
   body[data-game-id="game-16"] .sidescroll-transform-head strong{font-size:11px;}
   body[data-game-id="game-16"] #sidescroll-transform-mode{min-width:52px;padding:0 7px;}
 }
+
+
+/* SideScroll v1.0.20 — explicit Puzzle Pieces / Dressing edit layers */
+body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch{
+  display:grid;
+  grid-template-columns:auto 1fr 1fr;
+  align-items:center;
+  gap:6px;
+  margin:10px 0 3px;
+  padding:6px;
+  border:1px solid rgba(236,243,241,.13);
+  border-radius:11px;
+  background:rgba(0,0,0,.12);
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch > span{
+  padding:0 3px;
+  color:rgba(220,235,231,.58);
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.11em;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch button{
+  min-height:34px;
+  padding:0 8px;
+  border:1px solid rgba(236,243,241,.18);
+  border-radius:9px;
+  background:rgba(245,241,235,.06);
+  color:#eaf1ef;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch button.active{
+  background:#dcebe7;
+  border-color:#dcebe7;
+  color:#34534f;
+}
+@media(max-width:820px) and (orientation:landscape){
+  body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch{
+    margin-top:6px;
+    padding:4px;
+    gap:4px;
+  }
+  body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch button{min-height:29px;font-size:8px;}
+  body[data-game-id="game-16"] .sidescroll-puzzle-edit-layer-switch > span{font-size:7px;}
+}
+
+
+/* SideScroll v1.0.21 — reusable puzzle respawn authoring */
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-tools{margin:7px 0 4px;padding:7px;border:1px solid rgba(255,158,178,.24);border-radius:10px;background:rgba(70,31,42,.18);}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-tools[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-head strong{font-size:8px;letter-spacing:.12em;color:#ffd8e1;}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-head span{font-size:8px;color:rgba(239,244,242,.72);}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-grid button{min-height:31px;border:1px solid rgba(244,230,234,.16);border-radius:8px;background:rgba(255,255,255,.06);color:#eef5f2;font-size:8px;font-weight:900;letter-spacing:.045em;}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-grid button.active{background:rgba(133,193,151,.40);border-color:rgba(209,247,218,.35);}
+body[data-game-id="game-16"] .sidescroll-puzzle-respawn-tools small{display:block;margin-top:6px;font-size:7px;line-height:1.35;color:rgba(224,235,232,.62);}
+@media(max-width:820px) and (orientation:landscape){body[data-game-id="game-16"] .sidescroll-puzzle-respawn-tools{padding:5px;margin-top:5px;}body[data-game-id="game-16"] .sidescroll-puzzle-respawn-grid button{min-height:28px;}body[data-game-id="game-16"] .sidescroll-puzzle-respawn-tools small{display:none;}}

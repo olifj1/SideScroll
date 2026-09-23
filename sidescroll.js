@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.18: free-placement assets, direct X/Y/Z positioning and reusable support-surface alignment tools.
+  // SideScroll v1.0.21: reusable puzzle respawn volumes, deeper river water, submerged bank dressing and calmer water mapping.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -174,7 +174,17 @@
   const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
   const puzzleExclusionEditBtn = document.getElementById('sidescroll-puzzle-exclusion-edit');
   const puzzleExclusionToggleBtn = document.getElementById('sidescroll-puzzle-exclusion-toggle');
-  const puzzleAddDressingBtn = document.getElementById('sidescroll-puzzle-add-dressing');
+  const puzzleRespawnEditBtn = document.getElementById('sidescroll-puzzle-respawn-edit');
+  const puzzleRespawnTools = document.getElementById('sidescroll-puzzle-respawn-tools');
+  const puzzleRespawnSetSpawnBtn = document.getElementById('sidescroll-puzzle-respawn-set-spawn');
+  const puzzleRespawnToggleBtn = document.getElementById('sidescroll-puzzle-respawn-toggle');
+  const puzzleRespawnLowerBtn = document.getElementById('sidescroll-puzzle-respawn-lower');
+  const puzzleRespawnRaiseBtn = document.getElementById('sidescroll-puzzle-respawn-raise');
+  const puzzleRespawnTriggerValue = document.getElementById('sidescroll-puzzle-respawn-trigger-value');
+  const puzzleEditLayerSwitch = document.getElementById('sidescroll-puzzle-edit-layer-switch');
+  const puzzlePiecesLayerBtn = document.getElementById('sidescroll-puzzle-layer-pieces');
+  const puzzleDressingLayerBtn = document.getElementById('sidescroll-puzzle-layer-dressing');
+  const placementModeLabelEl = document.getElementById('sidescroll-placement-mode-label');
   const puzzleSaveUniqueBtn = document.getElementById('sidescroll-puzzle-save-unique');
   const puzzleTestBtn = document.getElementById('sidescroll-puzzle-test');
   const puzzleResetBtn = document.getElementById('sidescroll-puzzle-reset');
@@ -757,8 +767,10 @@
       for (let ix = 0; ix <= waterXSegments; ix++) {
         const tx = ix / waterXSegments;
         const x = Rig.lerp(left, right, tx);
-        const u = tx * 2.35;
-        const v = (z - WORLD.farZ) * 0.185;
+        // Keep the water mapping broad and low-frequency. The old 2.35 × 0.185
+        // mapping repeated the same tile visibly across the river.
+        const u = tx * 0.82;
+        const v = (z - WORLD.farZ) * 0.032;
         vertices.push(x - b.center, p.waterY, z, u, v);
         row.push((vertices.length / 5) - 1);
       }
@@ -1130,41 +1142,42 @@
     potSize: 1024
   });
 
-  // Lightweight procedural water texture. Geometry supplies the meandering river
-  // silhouette; this repeatable texture only provides colour and subtle flow detail.
+  // Broad, deliberately low-frequency water. The mesh supplies the river shape;
+  // this texture is intentionally close to uniform so a repeating square is not
+  // visible from the gameplay camera.
   textures.riverWater = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
-    const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, 'rgba(70,124,126,0.80)');
-    g.addColorStop(0.48, 'rgba(92,145,139,0.76)');
-    g.addColorStop(1, 'rgba(52,104,114,0.82)');
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(82,132,132,0.80)');
+    g.addColorStop(0.52, 'rgba(91,140,137,0.79)');
+    g.addColorStop(1, 'rgba(75,124,129,0.81)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
+
     let seed = 91357;
     const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < 18; i++) {
       const y = random() * h;
-      const x = random() * w;
-      const len = 22 + random() * 84;
-      ctx.strokeStyle = `rgba(232,247,239,${(0.05 + random() * 0.09).toFixed(3)})`;
-      ctx.lineWidth = 1 + random() * 1.6;
+      const x = -w * 0.10 + random() * w * 0.85;
+      const len = w * (0.28 + random() * 0.34);
+      ctx.strokeStyle = `rgba(232,247,239,${(0.026 + random() * 0.038).toFixed(3)})`;
+      ctx.lineWidth = 1.0 + random() * 1.2;
       ctx.beginPath();
       ctx.moveTo(x, y);
-      ctx.bezierCurveTo(x + len * 0.25, y - 3, x + len * 0.70, y + 3, x + len, y);
+      ctx.bezierCurveTo(x + len * 0.30, y - 4, x + len * 0.72, y + 4, x + len, y);
       ctx.stroke();
     }
-    for (let i = 0; i < 22; i++) {
-      const x = random() * w;
+    for (let i = 0; i < 6; i++) {
       const y = random() * h;
-      const rx = 7 + random() * 18;
-      const ry = 2 + random() * 5;
-      ctx.strokeStyle = `rgba(242,249,239,${(0.035 + random() * 0.055).toFixed(3)})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-      ctx.stroke();
+      const band = 20 + random() * 52;
+      const bg = ctx.createLinearGradient(0, y - band, 0, y + band);
+      bg.addColorStop(0, 'rgba(235,248,241,0)');
+      bg.addColorStop(0.5, `rgba(235,248,241,${(0.018 + random() * 0.018).toFixed(3)})`);
+      bg.addColorStop(1, 'rgba(235,248,241,0)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, y - band, w, band * 2);
     }
-  }, 256, 256, true);
+  }, 512, 512, true);
 
   textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.73', 'SideScroll tree atlas');
   const assetUv = {
@@ -1494,8 +1507,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const RIVER_SECTION_MAX_WIDTH = 8.8;
   // Keep the water visibly below the path so a river reads as a real obstacle
   // rather than a shallow strip. The playable terrain still follows the bank/bed.
-  const RIVER_BED_DEPTH = 1.32;
-  const RIVER_WATER_ABOVE_BED = 0.36;
+  const RIVER_BED_DEPTH = 1.92;
+  const RIVER_WATER_ABOVE_BED = 0.28;
   let terrainSectionGuidesVisible = false;
   let terrainSectionGuidesPersist = false;
   let terrainSelectedSectionIndex = 0;
@@ -2769,11 +2782,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let puzzleTestSnapshot = null;
   const puzzleStartDirty = new Set();
   const puzzleDraftBounds = Object.create(null);
+  const puzzleRespawnDraft = Object.create(null);
+  let puzzleRespawnEditMode = false;
+  let puzzleRespawnHandle = null;
+  let lastPuzzleRespawnAt = 0;
   const PUZZLE_EXCLUSION_STORAGE_KEY = 'sidescroll-puzzle-exclusions-v1';
   let puzzleExclusionState = {};
   try { puzzleExclusionState = JSON.parse(localStorage.getItem(PUZZLE_EXCLUSION_STORAGE_KEY) || '{}') || {}; } catch (_) { puzzleExclusionState = {}; }
   let puzzleExclusionEditMode = false;
   let puzzleExclusionHandle = null;
+  // Puzzle edit layer: false = authored puzzle pieces, true = puzzle-owned environment dressing.
+  // This is independent from addAssetType: choosing a layer does not itself enter placement.
   let puzzleEnvironmentPlacementMode = false;
   let puzzleWorkshopClear = puzzleWorkshopState.clear;
   let puzzleWorkshopIsolated = puzzleWorkshopState.isolated;
@@ -2861,6 +2880,66 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       minZ:ex.centerZ-ex.depth*0.5,
       maxZ:ex.centerZ+ex.depth*0.5
     };
+  }
+
+  function defaultPuzzleRespawn(marker) {
+    const bounds = currentPuzzleBoundsRelative(marker);
+    const spawnX = bounds.minX + Math.min(1.25, Math.max(0.70, (bounds.maxX - bounds.minX) * 0.14));
+    let zoneCenterX = (bounds.minX + bounds.maxX) * 0.5;
+    let zoneWidth = Math.max(2.5, Math.min(7.0, (bounds.maxX - bounds.minX) * 0.72));
+    let triggerOffsetY = -0.90;
+    const worldCentreX = marker.x + zoneCenterX;
+    const sectionIndex = terrainSectionIndexAt(worldCentreX);
+    if (terrainSectionType(sectionIndex) === 'river') {
+      const p = riverProfileAtZ(sectionIndex, pathZ);
+      zoneCenterX = p.centre - marker.x;
+      zoneWidth = Math.max(2.2, Math.min(8.5, (p.rightToe - p.leftToe) + 0.75));
+      triggerOffsetY = (p.waterY + 0.12) - playSurfaceYAt(p.centre);
+    }
+    return { enabled:false, spawnX, spawnZ:pathZ, zoneCenterX, zoneCenterZ:pathZ, width:zoneWidth, depth:5.6, triggerOffsetY };
+  }
+
+  function normalisePuzzleRespawn(marker, raw = null) {
+    const fallback = defaultPuzzleRespawn(marker);
+    const source = raw && typeof raw === 'object' ? raw : {};
+    return {
+      enabled: source.enabled === true,
+      spawnX: Number.isFinite(Number(source.spawnX)) ? Number(source.spawnX) : fallback.spawnX,
+      spawnZ: Number.isFinite(Number(source.spawnZ)) ? Number(source.spawnZ) : fallback.spawnZ,
+      zoneCenterX: Number.isFinite(Number(source.zoneCenterX)) ? Number(source.zoneCenterX) : fallback.zoneCenterX,
+      zoneCenterZ: Number.isFinite(Number(source.zoneCenterZ)) ? Number(source.zoneCenterZ) : fallback.zoneCenterZ,
+      width: Math.max(0.8, Number.isFinite(Number(source.width)) ? Number(source.width) : fallback.width),
+      depth: Math.max(0.8, Number.isFinite(Number(source.depth)) ? Number(source.depth) : fallback.depth),
+      triggerOffsetY: Rig.clamp(Number.isFinite(Number(source.triggerOffsetY)) ? Number(source.triggerOffsetY) : fallback.triggerOffsetY, -4.5, 0.5)
+    };
+  }
+
+  function currentPuzzleRespawn(marker) {
+    if (!marker) return null;
+    if (!puzzleRespawnDraft[marker.id]) {
+      const runtimeDraft = puzzleSavedState?.[marker.id]?.respawnDraft || null;
+      const start = puzzleStartFor(marker);
+      puzzleRespawnDraft[marker.id] = normalisePuzzleRespawn(marker, runtimeDraft || start?.respawn || null);
+    }
+    return puzzleRespawnDraft[marker.id];
+  }
+
+  function savePuzzleRespawnDraft(marker) {
+    if (!marker) return;
+    const cfg = currentPuzzleRespawn(marker);
+    const runtime = savedPuzzleFor(marker.id);
+    runtime.respawnDraft = deepCopy(cfg);
+    if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(marker.id);
+    savePuzzleState();
+  }
+
+  function puzzleRespawnWorld(marker) {
+    const cfg = currentPuzzleRespawn(marker);
+    if (!marker || !cfg) return null;
+    const centerX = marker.x + cfg.zoneCenterX;
+    const centerZ = cfg.zoneCenterZ;
+    const triggerY = playSurfaceYAt(centerX) + cfg.triggerOffsetY;
+    return { ...cfg, centerX, centerZ, triggerY, minX:centerX-cfg.width*0.5, maxX:centerX+cfg.width*0.5, minZ:centerZ-cfg.depth*0.5, maxZ:centerZ+cfg.depth*0.5, spawnWorldX:marker.x+cfg.spawnX, spawnWorldZ:cfg.spawnZ };
   }
 
   function applyPersistedMarkerPositions() {
@@ -3132,7 +3211,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         socketedTo: prop.socketedTo ? { ...prop.socketedTo } : null
       };
     }
-    return { source:'default', bounds:codeBoundsForDefinition(def), objects };
+    return { source:'default', bounds:codeBoundsForDefinition(def), objects, respawn:def?.respawn ? deepCopy(def.respawn) : null };
   }
 
   function defaultPuzzleStart(marker) {
@@ -3184,7 +3263,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         socketedTo: obj.socketedTo ? { ...obj.socketedTo } : null
       };
     }
-    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects };
+    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)) };
     puzzleStartState[instance.id] = snapshot;
     puzzleStartDirty.delete(instance.id);
     savePuzzleStarts();
@@ -3195,6 +3274,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!instance || !snapshot) return;
     if (snapshot.bounds) puzzleDraftBounds[instance.id] = { ...snapshot.bounds };
     else puzzleDraftBounds[instance.id] = { ...codeBoundsForMarker(instance.marker) };
+    puzzleRespawnDraft[instance.id] = normalisePuzzleRespawn(instance.marker, snapshot.respawn || null);
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (standingOnObject?.puzzleInstanceId === instance.id) standingOnObject = null;
@@ -3274,6 +3354,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const runtime = savedPuzzleFor(instance.id);
     runtime.solved = false;
     delete runtime.reward;
+    runtime.respawnDraft = deepCopy(currentPuzzleRespawn(instance.marker));
     runtime.objects = {};
     for (const obj of instance.objects) {
       runtime.objects[obj.puzzleObjectId] = {
@@ -3338,6 +3419,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     const saved = savedPuzzleFor(marker.id);
     const authored = puzzleStartFor(marker);
+    if (!puzzleRespawnDraft[marker.id]) puzzleRespawnDraft[marker.id] = normalisePuzzleRespawn(marker, saved.respawnDraft || authored?.respawn || null);
     const instance = { id:marker.id, marker, def, objects:[], solved:!!saved.solved };
     const baseById = new Map((def.props || []).map(prop => [prop.id, prop]));
     const ids = new Set([...baseById.keys(), ...Object.keys(authored?.objects || {}), ...Object.keys(saved.objects || {})]);
@@ -3517,6 +3599,52 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (d<bestD) {best=instance;bestD=d;}
     }
     return bestD <= 12 ? best : null;
+  }
+
+  function respawnPlayerForPuzzle(instance) {
+    if (!instance) return false;
+    const cfg = currentPuzzleRespawn(instance.marker);
+    if (!cfg?.enabled) return false;
+    const capsule = colliderWorld();
+    let spawnX = instance.marker.x + cfg.spawnX;
+    let support = walkableSupportAt(spawnX + capsule.offsetX, Infinity, 0);
+    if (!support || support.source === 'water') {
+      const bounds = currentPuzzleBoundsRelative(instance.marker);
+      spawnX = instance.marker.x + bounds.minX - Math.max(0.75, capsule.radius + 0.25);
+      support = walkableSupportAt(spawnX + capsule.offsetX, Infinity, 0) || { obj:null, offset:0, source:'terrain' };
+    }
+    camera.x = spawnX - character.screenOffsetX;
+    previousCameraX = camera.x;
+    character.x = spawnX;
+    jumpOffset = support.offset;
+    character.y = playSurfaceYAt(spawnX) + jumpOffset;
+    standingOnObject = support.obj || null;
+    jumping = false;
+    jumpTime = 0;
+    jumpVelocity = 0;
+    jumpCameraBaseY = character.y;
+    cameraFollowOffset = 0;
+    runBlend = 0;
+    locomotionPhase = 0;
+    setDriveAxis(0);
+    lastPuzzleRespawnAt = performance.now();
+    if (playerHintsEnabled) { hintEl.textContent = 'Respawned at puzzle checkpoint'; hintEl.classList.remove('hidden'); }
+    return true;
+  }
+
+  function checkPuzzleRespawnVolumes() {
+    if (editMode || interactionState || performance.now() - lastPuzzleRespawnAt < 450) return false;
+    for (const instance of activePuzzleInstances.values()) {
+      const cfg = currentPuzzleRespawn(instance.marker);
+      if (!cfg?.enabled) continue;
+      const volume = puzzleRespawnWorld(instance.marker);
+      if (!volume) continue;
+      if (character.x < volume.minX || character.x > volume.maxX) continue;
+      if (pathZ < volume.minZ || pathZ > volume.maxZ) continue;
+      if (character.y > volume.triggerY) continue;
+      return respawnPlayerForPuzzle(instance);
+    }
+    return false;
   }
 
   const COLLECTIBLE_PICKUP_RADIUS = 0.72;
@@ -3838,14 +3966,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       { type:'ground09', weight:0.34, min:0.78, max:0.98, family:'rock' },
       { type:'ground10', weight:0.20, min:0.96, max:1.22, family:'rock' }
     ];
+    const waterEdgeDefs = [
+      { type:'ground11', weight:1.30, min:0.62, max:0.88, family:'foliage' },
+      { type:'ground12', weight:1.16, min:0.68, max:0.94, family:'foliage' },
+      { type:'ground03', weight:0.88, min:0.64, max:0.90, family:'foliage' },
+      { type:'ground07', weight:0.76, min:0.58, max:0.82, family:'foliage' }
+    ];
     const placed = [];
     let placedCount = 0;
 
-    function blocked(x, z, spacingX, spacingZ) {
+    function blocked(x, z, spacingX, spacingZ, allowChannel = false) {
       if (terrainSectionIndexAt(x) !== i) return true;
       if (x <= bounds.minX + 0.12 || x >= bounds.maxX - 0.12) return true;
       if (z <= WORLD.farZ + 0.4 || z >= WORLD.nearZ - 0.2) return true;
-      if (pointInsideRiverChannel(x, z, i)) return true;
+      if (!allowChannel && pointInsideRiverChannel(x, z, i)) return true;
       for (const item of placed) {
         if (Math.abs(item.x - x) < item.spacingX + spacingX && Math.abs(item.z - z) < item.spacingZ + spacingZ) return true;
       }
@@ -3863,17 +3997,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       return false;
     }
 
-    function place(def, x, z, height, spacingX, spacingZ) {
-      if (blocked(x, z, spacingX, spacingZ)) return false;
+    function place(def, x, z, height, spacingX, spacingZ, { waterEdge = false } = {}) {
+      if (blocked(x, z, spacingX, spacingZ, waterEdge)) return false;
       const width = height * (assetAspect[def.type] || 1);
       const id = `riverbank-${i}-${Date.now().toString(36)}-${placedCount + 1}`;
       const groundLine = assetGroundLineDefault(def.type);
+      const floorY = waterEdge ? riverProfileAtZ(i, z).waterY - 0.09 : terrainAnchorBaseY(x, z, 'dressing', false);
       const obj = addObject(targetCollectionForZ(z), def.type, x, z, width, height, {
         id,
         userAdded:true,
         baseSx:width,
         baseSy:height,
-        y:terrainAnchorBaseY(x, z, 'dressing', false) - groundLine * height,
+        y:floorY - groundLine * height,
         groundLine,
         shade:1,
         opacity:0.99,
@@ -3921,6 +4056,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           const x = lip + dir * (0.10 + random() * 0.24);
           const height = (def.min + random() * (def.max - def.min)) * 0.82;
           place(def, x, attemptZ, height, 0.42, 0.28);
+        }
+        if (random() < 0.46 * focusFalloff) {
+          const def = weightedChoice(waterEdgeDefs, random);
+          const attemptZ = z + (random() - 0.5) * 0.26;
+          const x = lip - dir * (0.10 + random() * 0.28);
+          const height = def.min + random() * (def.max - def.min);
+          place(def, x, attemptZ, height, 0.38, 0.32, { waterEdge:true });
         }
       }
     }
@@ -4230,6 +4372,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const active = placementModeActive();
     document.body.classList.toggle('sidescroll-placement-mode', active);
     if (placementStrip) placementStrip.hidden = !active;
+    if (placementModeLabelEl) {
+      placementModeLabelEl.textContent = editorScope === 'puzzle'
+        ? (puzzleEnvironmentPlacementMode ? 'PLACE DRESSING' : 'PLACE PIECE')
+        : 'PLACE';
+    }
     if (placementNameEl) {
       const info = addAssetType ? editorAssetInfo.get(addAssetType) : null;
       placementNameEl.textContent = info?.label || addAssetType || 'Asset';
@@ -4238,13 +4385,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function exitPlacementMode() {
     addAssetType = null;
-    puzzleEnvironmentPlacementMode = false;
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
     updatePlacementModeUi();
     updateEditorButtons();
     updatePuzzlePanel();
-    hintEl.textContent = 'Placement finished · drag to pan or tap an object to select it';
+    hintEl.textContent = editorScope === 'puzzle'
+      ? (puzzleEnvironmentPlacementMode
+          ? 'Dressing placement finished · Dressing edit mode remains active'
+          : 'Puzzle-piece placement finished · Puzzle Pieces edit mode remains active')
+      : 'Placement finished · drag to pan or tap an object to select it';
     hintEl.classList.remove('hidden');
   }
 
@@ -4628,9 +4778,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj || obj.deleted) return false;
     if (editorScope === 'puzzle') {
       if (!(puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId)) return false;
-      // Puzzle Dressing is deliberately isolated from authored puzzle props.
-      // Environment-scope art attached to the puzzle is only selectable while
-      // Puzzle Dressing is active; normal Puzzle mode sees puzzle assets only.
+      // Pieces and Dressing are explicit edit layers. Placement is a separate
+      // state, so existing dressing remains selectable/movable after Done Placing.
       const assetScope = editorAssetScope.get(obj.assetName);
       return puzzleEnvironmentPlacementMode ? assetScope === 'environment' : assetScope !== 'environment';
     }
@@ -4860,6 +5009,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       puzzleWorkshopClear = false;
       savePuzzleWorkshopState(marker.id);
     }
+    puzzleEnvironmentPlacementMode = false;
+    addAssetType = null;
+    setAssetPaletteOpen(false);
+    updatePlacementModeUi();
     selectObject(null);
     buildAssetPalette();
     hintEl.textContent = `Editing ${markerDefinition(marker)?.label || marker.group} · tap props or bounds to modify them`;
@@ -4983,6 +5136,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       delete puzzleStartState[id];
       delete puzzleSavedState[id];
       delete puzzleDraftBounds[id];
+      delete puzzleRespawnDraft[id];
     }
     userPuzzleLibrary.markers = [];
     savePuzzleLibrary();
@@ -5028,6 +5182,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     delete puzzleStartState[marker.id];
     delete puzzleSavedState[marker.id];
     delete puzzleDraftBounds[marker.id];
+    delete puzzleRespawnDraft[marker.id];
     savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState();
     if (puzzleWorkshopState.markerId === marker.id) savePuzzleWorkshopState(null);
     editorPuzzleMarkerId = null;
@@ -5051,6 +5206,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       delete puzzleStartState[marker.id];
       delete puzzleSavedState[marker.id];
       delete puzzleDraftBounds[marker.id];
+    delete puzzleRespawnDraft[marker.id];
     }
     userPuzzleLibrary.markers = (userPuzzleLibrary.markers || []).filter(marker => marker.group !== groupId);
     delete userPuzzleLibrary.groups[groupId];
@@ -5125,11 +5281,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const instance = (editMode && editorScope === 'puzzle' && !puzzleWorkshopClear) ? selectedPuzzleInstance() : null;
     puzzleObjectsEl.hidden = !instance || puzzleTestMode;
     if (!instance) { puzzleObjectListEl.innerHTML=''; if (puzzleObjectCountEl) puzzleObjectCountEl.textContent='0'; return; }
+    const rowMatchesLayer = obj => {
+      const assetScope = editorAssetScope.get(obj?.assetName);
+      return puzzleEnvironmentPlacementMode ? assetScope === 'environment' : assetScope !== 'environment';
+    };
     const rows = [
       ...instance.objects
+        .filter(rowMatchesLayer)
         .filter(obj => !(obj.deleted && String(obj.puzzleObjectId || '').startsWith('authored-')))
         .map(obj => ({obj, orphan:false})),
-      ...puzzleOrphanObjects(instance).map(obj => ({obj, orphan:true}))
+      ...puzzleOrphanObjects(instance).filter(rowMatchesLayer).map(obj => ({obj, orphan:true}))
     ];
     if (puzzleObjectCountEl) puzzleObjectCountEl.textContent = String(rows.length);
     puzzleObjectListEl.innerHTML = '';
@@ -5177,7 +5338,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
       };
     }
-    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects };
+    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)) };
   }
 
   function puzzleExportPayload(instance) {
@@ -5745,7 +5906,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (openAssetsBtn) {
       const puzzleInstanceReady = editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId;
       openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || !puzzleInstanceReady;
-      openAssetsBtn.textContent = '＋ Add Puzzle Asset';
+      openAssetsBtn.textContent = puzzleEnvironmentPlacementMode ? '＋ Place Dressing' : '＋ Place Puzzle Piece';
       openAssetsBtn.classList.toggle('active', !editorPalette?.hidden && editorScope === 'puzzle');
     }
     if (openEnvironmentAssetsBtn) {
@@ -5844,6 +6005,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (puzzleSelectionEl) puzzleSelectionEl.hidden = !testing && (!puzzleEditing || (sceneMode && !selectedMarker));
     if (puzzlePicker) puzzlePicker.hidden = !libraryMode;
     if (puzzleMarkerEditor) puzzleMarkerEditor.hidden = testing || !sceneMode || !selectedMarker;
+    if (puzzleEditLayerSwitch) puzzleEditLayerSwitch.hidden = testing || libraryMode || !instance;
+    puzzlePiecesLayerBtn?.classList.toggle('active', !puzzleEnvironmentPlacementMode);
+    puzzleDressingLayerBtn?.classList.toggle('active', !!puzzleEnvironmentPlacementMode);
     if (puzzleMarkerXInput && sceneMode && selectedMarker && document.activeElement !== puzzleMarkerXInput) {
       puzzleMarkerXInput.value = Number(selectedMarker.x).toFixed(1);
     }
@@ -5892,9 +6056,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             ? 'Choose a template from the Library. Spawn Here places a linked instance at the current camera position.'
             : (selectedMarker
                 ? (instance
-                    ? (linkMode === 'copy'
-                        ? 'This copy is active for editing. Edit Exclusion clears procedural forest art; Add Dressing lets you selectively place environment art back into that puzzle.'
-                        : 'This instance is active for editing. Edit Exclusion clears procedural forest art; Add Dressing lets you selectively place environment art back into that puzzle.')
+                    ? (puzzleEnvironmentPlacementMode
+                        ? 'Dressing mode · tap existing puzzle dressing to select/move it, or use Place Dressing to add more.'
+                        : 'Puzzle Pieces mode · tap puzzle props to select/move them, or use Place Puzzle Piece to add more.')
                     : 'Selected from the Scene list. Use Edit Puzzle to activate its bounds and objects, or Focus to move the camera to it.')
                 : 'Choose a puzzle from the Scene list to see its controls.'));
     }
@@ -5937,10 +6101,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       puzzleExclusionToggleBtn.classList.toggle('active', !!ex?.enabled);
       puzzleExclusionToggleBtn.textContent = ex?.enabled ? 'Disable Exclusion' : 'Add Exclusion';
     }
-    if (puzzleAddDressingBtn) {
-      puzzleAddDressingBtn.hidden = testing || libraryMode;
-      puzzleAddDressingBtn.disabled = !instance;
-      puzzleAddDressingBtn.classList.toggle('active', !!puzzleEnvironmentPlacementMode);
+    if (puzzleRespawnEditBtn) {
+      puzzleRespawnEditBtn.hidden = testing || libraryMode;
+      puzzleRespawnEditBtn.disabled = !instance;
+      puzzleRespawnEditBtn.classList.toggle('active', !!(instance && puzzleRespawnEditMode));
+      puzzleRespawnEditBtn.textContent = puzzleRespawnEditMode ? 'Finish Respawn' : 'Respawn Setup';
+    }
+    if (puzzleRespawnTools) puzzleRespawnTools.hidden = testing || libraryMode || !instance || !puzzleRespawnEditMode;
+    if (instance && puzzleRespawnEditMode) {
+      const respawn = currentPuzzleRespawn(instance.marker);
+      if (puzzleRespawnToggleBtn) { puzzleRespawnToggleBtn.textContent = respawn.enabled ? 'Respawn ON' : 'Respawn OFF'; puzzleRespawnToggleBtn.classList.toggle('active', respawn.enabled); }
+      if (puzzleRespawnTriggerValue) puzzleRespawnTriggerValue.textContent = `${respawn.triggerOffsetY.toFixed(2)} m`;
     }
     if (puzzleSaveUniqueBtn) {
       puzzleSaveUniqueBtn.hidden = testing || libraryMode || !instance || linkMode === 'copy';
@@ -5958,7 +6129,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function authoredSnapshotFromInstance(instance) {
     const setup = currentPuzzleSetupSnapshot(instance);
-    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects) };
+    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), respawn:deepCopy(setup.respawn) };
   }
 
   function savePuzzleTemplateFromCurrent() {
@@ -6373,12 +6544,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function buildAssetPalette() {
     if (!editorAssetsEl) return;
     if (editorPaletteTitle) editorPaletteTitle.textContent = puzzleEnvironmentPlacementMode
-      ? 'Puzzle Dressing'
-      : (editorScope === 'puzzle' ? 'Puzzle Assets' : 'Environment Assets');
+      ? 'Place Puzzle Dressing'
+      : (editorScope === 'puzzle' ? 'Place Puzzle Pieces' : 'Environment Assets');
     if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = puzzleEnvironmentPlacementMode
-      ? 'Choose environment art to attach to this puzzle · it ignores the exclusion zone'
+      ? 'Choose environment art to attach to this puzzle · Done Placing returns to Dressing edit mode'
       : (editorScope === 'puzzle'
-          ? 'Tap an asset to place it · Setup edits reusable behaviours and collectables'
+          ? 'Choose a puzzle piece · Done Placing returns to Puzzle Pieces edit mode · Setup edits reusable behaviours'
           : 'Choose dressing to place in the environment');
     editorAssetsEl.innerHTML = '';
     const allowedPuzzleAssets = editorScope === 'puzzle' && !puzzleEnvironmentPlacementMode ? puzzleAssetNamesFor(editorPuzzleMarkerId) : null;
@@ -6417,9 +6588,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           updatePlacementModeUi();
           updateEditorButtons();
           updatePuzzlePanel();
+          const placementKind = editorScope === 'puzzle'
+            ? (puzzleEnvironmentPlacementMode ? 'Dressing placement' : 'Puzzle-piece placement')
+            : 'Placement mode';
           hintEl.textContent = info.category === 'gameplay'
-            ? `Placement mode · tap the path to add ${info.label.toLowerCase()} · tap again for another`
-            : `Placement mode · tap the ground to add ${info.label.toLowerCase()} · tap again for another`;
+            ? `${placementKind} · tap the path to add ${info.label.toLowerCase()} · tap again for another`
+            : `${placementKind} · tap the ground to add ${info.label.toLowerCase()} · tap again for another`;
           hintEl.classList.remove('hidden');
         });
         if (editorScope === 'puzzle' && !puzzleEnvironmentPlacementMode) {
@@ -6524,6 +6698,47 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ctx.restore();
   }
 
+  function puzzleRespawnHandlePositions(instance) {
+    if (!instance || !puzzleRespawnEditMode) return [];
+    const r = puzzleRespawnWorld(instance.marker);
+    if (!r) return [];
+    const specs = [['zone-center',r.centerX,r.centerZ,r.triggerY],['left',r.minX,r.centerZ,r.triggerY],['right',r.maxX,r.centerZ,r.triggerY],['far',r.centerX,r.minZ,r.triggerY],['near',r.centerX,r.maxZ,r.triggerY]];
+    const handles = specs.map(([kind,x,z,y]) => { const p=projectWorldPoint(x,y,z); return p && {kind,...p}; }).filter(Boolean);
+    const spawnX=r.spawnWorldX;
+    const spawnSupport=walkableSupportAt(spawnX+colliderWorld().offsetX,Infinity,0);
+    const spawnY=playSurfaceYAt(spawnX)+(spawnSupport?.offset||0)+0.06;
+    const spawn=projectWorldPoint(spawnX,spawnY,r.spawnWorldZ);
+    if(spawn) handles.push({kind:'spawn',...spawn});
+    return handles;
+  }
+
+  function puzzleRespawnHandleAt(clientX, clientY) {
+    if (!editMode || editorScope !== 'puzzle' || !puzzleRespawnEditMode) return null;
+    const instance=selectedPuzzleInstance(); if(!instance) return null;
+    const rect=canvas.getBoundingClientRect(); const x=clientX-rect.left,y=clientY-rect.top;
+    return puzzleRespawnHandlePositions(instance).find(h=>Math.hypot(h.x-x,h.y-y)<=(h.kind==='spawn'?23:20))||null;
+  }
+
+  function drawPuzzleRespawnGuide(ctx, instance) {
+    if (!instance || !puzzleRespawnEditMode) return;
+    const r=puzzleRespawnWorld(instance.marker); if(!r) return;
+    const corners=[[r.minX,r.minZ],[r.maxX,r.minZ],[r.maxX,r.maxZ],[r.minX,r.maxZ]].map(([x,z])=>projectWorldPoint(x,r.triggerY,z));
+    if(corners.some(p=>!p)) return;
+    ctx.save();
+    ctx.fillStyle=r.enabled?'rgba(221,86,116,.17)':'rgba(120,130,135,.10)';
+    ctx.strokeStyle=r.enabled?'rgba(255,123,151,.96)':'rgba(165,170,174,.72)';
+    ctx.lineWidth=2; ctx.setLineDash([7,5]); ctx.beginPath(); ctx.moveTo(corners[0].x,corners[0].y);
+    for(let i=1;i<corners.length;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
+    for(const h of puzzleRespawnHandlePositions(instance)){
+      if(h.kind==='spawn'){
+        ctx.beginPath();ctx.arc(h.x,h.y,10,0,Math.PI*2);ctx.fillStyle='#c9f4ca';ctx.fill();ctx.strokeStyle='#335b3c';ctx.lineWidth=2;ctx.stroke();
+        ctx.font='900 9px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillStyle='rgba(20,38,28,.92)';ctx.fillRect(h.x-27,h.y-30,54,17);ctx.fillStyle='#dbf8df';ctx.fillText('SPAWN',h.x-20,h.y-18);
+      }else{ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='zone-center'?8:7,0,Math.PI*2);ctx.fillStyle=h.kind==='zone-center'?'#ffd0d8':'#ff7f9a';ctx.fill();ctx.strokeStyle='#633241';ctx.lineWidth=1.5;ctx.stroke();}
+    }
+    const label=`RESPAWN · ${r.width.toFixed(1)} × ${r.depth.toFixed(1)}m · Y ${r.triggerOffsetY.toFixed(2)}`;
+    const c=projectWorldPoint(r.centerX,r.triggerY+0.08,r.centerZ);if(c){ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));const ly=Math.max(48,c.y-32);ctx.fillStyle='rgba(38,24,29,.88)';ctx.fillRect(lx,ly,tw,19);ctx.fillStyle='#ffd6df';ctx.fillText(label,lx+7,ly+13);}ctx.restore();
+  }
+
   function puzzleBoundHandlePositions(instance) {
     if (!instance) return [];
     const b = puzzleBounds(instance);
@@ -6560,6 +6775,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const instance = selectedPuzzleInstance();
     if (!instance) return;
     drawPuzzleExclusionGuide(ctx, instance);
+    drawPuzzleRespawnGuide(ctx, instance);
     const b = puzzleBounds(instance);
     const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
     const right = projectWorldPoint(b.maxX, playSurfaceYAt(b.maxX)+0.04, pathZ);
@@ -8393,7 +8609,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const b = terrainSectionBounds(i);
       drawObject(riverBankSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'left') });
       drawObject(riverBankSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'right') });
-      const flow = (performance.now() * 0.000025) % 1;
+      const flow = (performance.now() * 0.000010) % 1;
       drawObject(riverWaterSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverWaterMesh(i), uvOffset:[0, flow] });
     }
   }
@@ -8540,6 +8756,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     character.x = camera.x + character.screenOffsetX;
     character.y = playSurfaceYAt(character.x) + jumpOffset;
+    checkPuzzleRespawnVolumes();
     updateTerrainSectionUi(false);
     updateCameraFollow(dt);
     if (cameraEditMode) updateCameraEditorUi();
@@ -8942,7 +9159,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const opening = editorPalette.hidden;
     setAssetPaletteOpen(opening, { clearPending: !opening });
     if (opening) {
-      puzzleEnvironmentPlacementMode = false;
       puzzleExclusionEditMode = false;
       addAssetType = null;
       selectedObject = null;
@@ -8955,7 +9171,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(openAssetsBtn, toggleAssetBrowserForCurrentScope);
   bindEditorPress(openEnvironmentAssetsBtn, toggleAssetBrowserForCurrentScope);
   bindEditorPress(editorPaletteClose, () => {
-    if (!addAssetType) puzzleEnvironmentPlacementMode = false;
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
     updatePlacementModeUi();
@@ -9024,7 +9239,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const ex = currentPuzzleExclusion(instance.marker);
     if (!ex.enabled) { ex.enabled = true; savePuzzleExclusionState(); }
     puzzleExclusionEditMode = !puzzleExclusionEditMode;
-    puzzleEnvironmentPlacementMode = false;
+    if (puzzleExclusionEditMode) { puzzleRespawnEditMode = false; puzzleRespawnHandle = null; }
     addAssetType = null;
     setAssetPaletteOpen(false);
     selectObject(null);
@@ -9045,20 +9260,43 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     hintEl.textContent=ex.enabled ? 'Puzzle exclusion enabled' : 'Puzzle exclusion disabled · procedural forest restored';
     hintEl.classList.remove('hidden');
   });
-  bindEditorPress(puzzleAddDressingBtn, () => {
-    const instance=selectedPuzzleInstance();
-    if(!instance || puzzleTestMode) return;
-    puzzleExclusionEditMode=false;
-    puzzleEnvironmentPlacementMode=true;
-    addAssetType=null;
+  function setPuzzleEditLayer(layer) {
+    if (layer !== 'pieces' && layer !== 'dressing') return;
+    const instance = selectedPuzzleInstance();
+    if (!instance || puzzleTestMode) return;
+    puzzleEnvironmentPlacementMode = layer === 'dressing';
+    puzzleExclusionEditMode = false;
+    puzzleExclusionHandle = null;
+    puzzleRespawnEditMode = false;
+    puzzleRespawnHandle = null;
+    addAssetType = null;
     selectObject(null);
+    setAssetPaletteOpen(false);
     buildAssetPalette();
-    setAssetPaletteOpen(true);
-    showAssetBrowser();
+    updatePlacementModeUi();
     updatePuzzlePanel();
-    hintEl.textContent='Puzzle Dressing · choose a tree, bush, grass or rock to place back into the cleared area';
+    updatePuzzleObjectList();
+    updateEditorButtons();
+    hintEl.textContent = puzzleEnvironmentPlacementMode
+      ? 'Dressing mode · select/move existing dressing, or tap Place Dressing to add more'
+      : 'Puzzle Pieces mode · select/move puzzle props, or tap Place Puzzle Piece to add more';
     hintEl.classList.remove('hidden');
+  }
+  bindEditorPress(puzzlePiecesLayerBtn, () => setPuzzleEditLayer('pieces'));
+  bindEditorPress(puzzleDressingLayerBtn, () => setPuzzleEditLayer('dressing'));
+  bindEditorPress(puzzleRespawnEditBtn, () => {
+    const instance=selectedPuzzleInstance(); if(!instance||puzzleTestMode)return;
+    puzzleRespawnEditMode=!puzzleRespawnEditMode;puzzleExclusionEditMode=false;puzzleExclusionHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
+    if(puzzleRespawnEditMode){const cfg=currentPuzzleRespawn(instance.marker);if(!cfg.enabled){cfg.enabled=true;savePuzzleRespawnDraft(instance.marker);}hintEl.textContent='Respawn setup · drag SPAWN or the pink volume handles · falling below the pink plane inside the volume respawns here';}
+    else hintEl.textContent='Respawn setup finished';
+    hintEl.classList.remove('hidden');updatePuzzlePanel();
   });
+  bindEditorPress(puzzleRespawnSetSpawnBtn, () => {const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleRespawn(instance.marker);cfg.enabled=true;cfg.spawnX=character.x-instance.marker.x;cfg.spawnZ=pathZ;savePuzzleRespawnDraft(instance.marker);updatePuzzlePanel();hintEl.textContent='Respawn spawn point set to the player position';hintEl.classList.remove('hidden');});
+  bindEditorPress(puzzleRespawnToggleBtn, () => {const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleRespawn(instance.marker);cfg.enabled=!cfg.enabled;savePuzzleRespawnDraft(instance.marker);updatePuzzlePanel();});
+  const nudgeRespawnTrigger=delta=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleRespawn(instance.marker);cfg.triggerOffsetY=Rig.clamp(cfg.triggerOffsetY+delta,-4.5,0.5);cfg.enabled=true;savePuzzleRespawnDraft(instance.marker);updatePuzzlePanel();};
+  bindEditorPress(puzzleRespawnLowerBtn,()=>nudgeRespawnTrigger(-0.15));
+  bindEditorPress(puzzleRespawnRaiseBtn,()=>nudgeRespawnTrigger(0.15));
+
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
   bindEditorPress(puzzleSaveUniqueBtn, savePuzzleUniqueFromCurrent);
   bindEditorPress(puzzleTestBtn, beginPuzzleTest);
@@ -9258,6 +9496,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         return;
       }
 
+      const respawnHandle = puzzleRespawnHandleAt(e.clientX, e.clientY);
+      if (respawnHandle) {
+        const instance=selectedPuzzleInstance();editorGesture.kind='puzzle-respawn';editorGesture.respawnHandle=respawnHandle.kind;editorGesture.respawnStart={...currentPuzzleRespawn(instance.marker)};editorGesture.respawnMarker=instance.marker;puzzleRespawnHandle=respawnHandle.kind;
+        hintEl.textContent=respawnHandle.kind==='spawn'?'Drag the green SPAWN point':(respawnHandle.kind==='zone-center'?'Drag the pink centre to move the respawn volume':'Drag the pink edge handle to resize the respawn volume');hintEl.classList.remove('hidden');return;
+      }
+
+      if (puzzleRespawnEditMode) {
+        editorGesture.kind = 'respawn-pan';
+        return;
+      }
+
       const markerHandle = puzzleMarkerHandleAt(e.clientX, e.clientY);
       if (markerHandle) {
         const marker = selectedPuzzleMarker();
@@ -9374,6 +9623,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           else if(editorGesture.exclusionHandle==='far'){const far=Math.min(z,near0-1);ex.centerZ=(far+near0)*0.5;ex.depth=Math.max(1,near0-far);}
           else if(editorGesture.exclusionHandle==='near'){const near=Math.max(z,far0+1);ex.centerZ=(far0+near)*0.5;ex.depth=Math.max(1,near-far0);}
         }
+      } else if (editorGesture.kind === 'puzzle-respawn' && editorGesture.respawnMarker) {
+        const point=groundPointFromClient(e.clientX,e.clientY);if(point){const marker=editorGesture.respawnMarker;const start=editorGesture.respawnStart;const cfg=currentPuzzleRespawn(marker);const localX=point.x-marker.x;const z=point.z;const left0=start.zoneCenterX-start.width*.5,right0=start.zoneCenterX+start.width*.5,far0=start.zoneCenterZ-start.depth*.5,near0=start.zoneCenterZ+start.depth*.5;
+          if(editorGesture.respawnHandle==='spawn'){cfg.spawnX=localX;cfg.spawnZ=z;}
+          else if(editorGesture.respawnHandle==='zone-center'){cfg.zoneCenterX=localX;cfg.zoneCenterZ=z;}
+          else if(editorGesture.respawnHandle==='left'){const left=Math.min(localX,right0-.8);cfg.zoneCenterX=(left+right0)*.5;cfg.width=Math.max(.8,right0-left);}
+          else if(editorGesture.respawnHandle==='right'){const right=Math.max(localX,left0+.8);cfg.zoneCenterX=(left0+right)*.5;cfg.width=Math.max(.8,right-left0);}
+          else if(editorGesture.respawnHandle==='far'){const far=Math.min(z,near0-.8);cfg.zoneCenterZ=(far+near0)*.5;cfg.depth=Math.max(.8,near0-far);}
+          else if(editorGesture.respawnHandle==='near'){const near=Math.max(z,far0+.8);cfg.zoneCenterZ=(far0+near)*.5;cfg.depth=Math.max(.8,near-far0);}cfg.enabled=true;}
       } else if (editorGesture.kind === 'puzzle-marker' && editorGesture.marker) {
         const nextX = editorGesture.markerStartX + dx * 0.0065;
         movePuzzleMarkerTo(editorGesture.marker, nextX);
@@ -9411,6 +9668,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             else recordObjectEdit(gesture.object);
           }
           else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
+          else if (gesture.kind==='puzzle-respawn' && gesture.respawnMarker) { savePuzzleRespawnDraft(gesture.respawnMarker); updatePuzzlePanel(); }
           else if (gesture.kind==='puzzle-marker' && gesture.marker) {
             persistPuzzleMarkerPosition(gesture.marker);
             settleGameplayCrates();
@@ -9467,7 +9725,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           }
         }
       }
-      editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;
+      editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;puzzleRespawnHandle=null;
       return;
     }
     if (e.pointerId === activePointer) activePointer = null;
