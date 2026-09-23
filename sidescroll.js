@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.21: reusable puzzle respawn volumes, deeper river water, submerged bank dressing and calmer water mapping.
+  // SideScroll v1.0.23: counterweight plank runtime — pivot socket, free counterweight zone, rotating support collision and constrained tipping physics.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -2039,8 +2039,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'puzzle-log-c': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'puzzle-log-d': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'fallen-tree': { solid:true, supportSurface:true },
-    'bridge-left': { solid:true, supportSurface:true },
-    'bridge-right': { solid:true, supportSurface:true },
+    'bridge-left': { solid:true, supportSurface:true, socketHost:true },
+    'bridge-right': { solid:true, supportSurface:true, socketHost:true },
     'counterweight-plank': { solid:true, carryable:true, placeable:true, supportSurface:true, socketPiece:true },
     'tree-stump': {},
     'broken-branch': {},
@@ -2053,7 +2053,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // Placement is an editor concern, separate from gameplay behaviour. Assets
   // such as bridge halves are easier to author when their height is held in
   // world space rather than continuously re-snapping to the decorative terrain.
-  const FREE_PLACEMENT_ASSET_DEFAULTS = new Set(['bridge-left','bridge-right']);
+  const FREE_PLACEMENT_ASSET_DEFAULTS = new Set(['bridge-left','bridge-right','counterweight-plank']);
   function defaultFreePlacement(assetName) { return FREE_PLACEMENT_ASSET_DEFAULTS.has(assetName); }
   function objectUsesFreePlacement(obj) {
     return !!obj && (typeof obj.freePlacement === 'boolean' ? obj.freePlacement : defaultFreePlacement(obj.assetName));
@@ -2088,6 +2088,235 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function assetMechanism(assetName) {
     if (assetName !== 'counterweight-plank') return assetMechanismDefaults?.[assetName] || null;
     return {...DEFAULT_COUNTERWEIGHT_MECHANISM,...(assetMechanismDefaults?.[assetName]||{})};
+  }
+
+  function isCounterweightPlank(obj) {
+    return !!obj && assetMechanism(obj.assetName)?.type === 'counterweightPlank';
+  }
+
+  function counterweightMechanism(obj) {
+    return isCounterweightPlank(obj) ? assetMechanism(obj.assetName) : null;
+  }
+
+  function mechanismVisualU(obj, u) {
+    return obj?.flip ? 1 - u : u;
+  }
+
+  function counterweightPivotBaseWorld(obj) {
+    const mech = counterweightMechanism(obj);
+    if (!mech) return null;
+    const u = mechanismVisualU(obj, Rig.clamp(Number(mech.pivotX) || 0.35, 0, 1));
+    return {
+      x: obj.x + (u - 0.5) * obj.sx,
+      y: obj.y + Rig.clamp(Number(mech.pivotY) || 0.5, 0, 1) * obj.sy,
+      z: obj.z
+    };
+  }
+
+  function counterweightAngleFor(obj) {
+    return isCounterweightPlank(obj) && obj.socketedTo ? (Number(obj.counterweightAngle) || 0) : 0;
+  }
+
+  function rotateAround(pointX, pointY, pivotX, pivotY, angle) {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const dx = pointX - pivotX, dy = pointY - pivotY;
+    return {
+      x: pivotX + dx * c - dy * s,
+      y: pivotY + dx * s + dy * c
+    };
+  }
+
+  function counterweightObjectOrigin(obj, angle = counterweightAngleFor(obj), aroundX = obj.x) {
+    const mech = counterweightMechanism(obj);
+    if (!mech || !angle) return { x:aroundX, y:obj.y };
+    const u = mechanismVisualU(obj, Rig.clamp(Number(mech.pivotX) || 0.35, 0, 1));
+    const localPivotX = (u - 0.5) * obj.sx;
+    const localPivotY = Rig.clamp(Number(mech.pivotY) || 0.5, 0, 1) * obj.sy;
+    const pivotX = aroundX + localPivotX;
+    const pivotY = obj.y + localPivotY;
+    const c = Math.cos(angle), s = Math.sin(angle);
+    return {
+      x: pivotX - (localPivotX * c - localPivotY * s),
+      y: pivotY - (localPivotX * s + localPivotY * c)
+    };
+  }
+
+  function counterweightWorldToRest(obj, worldX, worldY) {
+    const pivot = counterweightPivotBaseWorld(obj);
+    if (!pivot) return { x:worldX, y:worldY };
+    const angle = counterweightAngleFor(obj);
+    if (!angle) return { x:worldX, y:worldY };
+    return rotateAround(worldX, worldY, pivot.x, pivot.y, -angle);
+  }
+
+  function counterweightZoneRestBounds(obj) {
+    const mech = counterweightMechanism(obj);
+    if (!mech) return null;
+    let a = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneStart) || 0.04, 0, 1));
+    let b = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneEnd) || 0.29, 0, 1));
+    if (a > b) [a,b] = [b,a];
+    return {
+      minX: obj.x + (a - 0.5) * obj.sx,
+      maxX: obj.x + (b - 0.5) * obj.sx,
+      minZ: obj.z - Math.max(0.15, Number(mech.zoneDepth) || 1.2) * 0.5,
+      maxZ: obj.z + Math.max(0.15, Number(mech.zoneDepth) || 1.2) * 0.5
+    };
+  }
+
+  function counterweightZoneLineWorld(obj) {
+    const mech = counterweightMechanism(obj);
+    const bounds = counterweightZoneRestBounds(obj);
+    const pivot = counterweightPivotBaseWorld(obj);
+    if (!mech || !bounds || !pivot) return null;
+    const y = obj.y + Rig.clamp(Number(mech.zoneY) || 0.60, 0, 1) * obj.sy;
+    const angle = counterweightAngleFor(obj);
+    const a = rotateAround(bounds.minX, y, pivot.x, pivot.y, angle);
+    const b = rotateAround(bounds.maxX, y, pivot.x, pivot.y, angle);
+    return { a:{...a,z:obj.z}, b:{...b,z:obj.z} };
+  }
+
+  function counterweightZoneOverlapFraction(plank, item, worldX = item?.x, worldZ = item?.z) {
+    const zone = counterweightZoneRestBounds(plank);
+    if (!zone || !item || !Number.isFinite(worldX) || !Number.isFinite(worldZ)) return 0;
+    const rest = counterweightWorldToRest(plank, worldX, item.y ?? plank.y);
+    const halfW = Math.max(0.08, item.collision?.halfWidth ?? crateHalfWidth(item));
+    const halfD = Math.max(0.08, (item.collision?.depth ?? 0.56) * 0.5);
+    const minX = rest.x - halfW, maxX = rest.x + halfW;
+    const minZ = worldZ - halfD, maxZ = worldZ + halfD;
+    const overlapX = Math.max(0, Math.min(maxX,zone.maxX) - Math.max(minX,zone.minX));
+    const overlapZ = Math.max(0, Math.min(maxZ,zone.maxZ) - Math.max(minZ,zone.minZ));
+    return (overlapX * overlapZ) / Math.max(0.0001, (maxX-minX) * (maxZ-minZ));
+  }
+
+  function counterweightPlankById(id) {
+    if (!id) return null;
+    return allSceneObjects().find(obj => !obj.deleted && obj.id === id && isCounterweightPlank(obj)) || null;
+  }
+
+  function boundCounterweightLogs(plank) {
+    if (!plank) return [];
+    return allSceneObjects().filter(obj => !obj.deleted && obj.counterweightBoundTo?.plankId === plank.id);
+  }
+
+  function unbindCounterweightLog(obj) {
+    if (!obj?.counterweightBoundTo) return false;
+    obj.counterweightBoundTo = null;
+    obj.counterweightVisualAngle = 0;
+    return true;
+  }
+
+  function bindCounterweightLog(plank, obj) {
+    if (!plank || !obj || obj.carried || obj.counterweightBoundTo) return false;
+    const mech = counterweightMechanism(plank);
+    if (!mech || !plank.socketedTo || !objectHasBehaviour(obj,'stackable')) return false;
+    if (plank.puzzleInstanceId && obj.puzzleInstanceId !== plank.puzzleInstanceId) return false;
+    const threshold = Number(mech.minimumOverlap) || 0.50;
+    if (counterweightZoneOverlapFraction(plank,obj) <= threshold + 0.0001) return false;
+
+    const top = collisionTopHeightAtX(plank,obj.x);
+    if (!Number.isFinite(top) || Math.abs(obj.y - top) > 0.22) return false;
+
+    const pivot = counterweightPivotBaseWorld(plank);
+    const angle = counterweightAngleFor(plank);
+    const c = Math.cos(-angle), s = Math.sin(-angle);
+    const dx = obj.x - pivot.x, dy = obj.y - pivot.y;
+    obj.counterweightBoundTo = {
+      plankId: plank.id,
+      localX: dx * c - dy * s,
+      localY: dx * s + dy * c,
+      localZ: obj.z - plank.z
+    };
+    obj.counterweightVisualAngle = angle;
+    return true;
+  }
+
+  function updateBoundCounterweightLog(plank,obj) {
+    const bind = obj?.counterweightBoundTo;
+    const pivot = counterweightPivotBaseWorld(plank);
+    if (!bind || !pivot) return;
+    const angle = counterweightAngleFor(plank);
+    const c = Math.cos(angle), s = Math.sin(angle);
+    obj.x = pivot.x + bind.localX * c - bind.localY * s;
+    obj.y = pivot.y + bind.localX * s + bind.localY * c;
+    obj.z = plank.z + bind.localZ;
+    obj.counterweightVisualAngle = angle;
+  }
+
+  function refreshCounterweightBindings() {
+    const objects = allSceneObjects();
+    for (const obj of objects) {
+      if (!obj.counterweightBoundTo) continue;
+      const plank = counterweightPlankById(obj.counterweightBoundTo.plankId);
+      if (!plank || !plank.socketedTo || obj.carried) unbindCounterweightLog(obj);
+    }
+    for (const plank of objects) {
+      if (!isCounterweightPlank(plank) || plank.deleted || plank.carried || !plank.socketedTo) continue;
+      for (const obj of objects) {
+        if (obj === plank || obj.deleted || obj.carried || obj.counterweightBoundTo) continue;
+        if (!objectHasBehaviour(obj,'stackable')) continue;
+        bindCounterweightLog(plank,obj);
+      }
+    }
+  }
+
+  function counterweightPlayerLocalX(plank) {
+    if (!plank || standingOnObject !== plank || jumping) return 0;
+    const pivot = counterweightPivotBaseWorld(plank);
+    if (!pivot) return 0;
+    const feetY = character.y;
+    const rest = counterweightWorldToRest(plank,character.x,feetY);
+    return rest.x - pivot.x;
+  }
+
+  function updateCounterweightMechanisms(dt) {
+    refreshCounterweightBindings();
+    for (const plank of allSceneObjects()) {
+      if (!isCounterweightPlank(plank) || plank.deleted || plank.carried) continue;
+      plank.counterweightAngle ||= 0;
+      plank.counterweightAngularVelocity ||= 0;
+      const mech = counterweightMechanism(plank);
+      let targetAngle = 0;
+
+      if (!editMode && plank.socketedTo) {
+        const playerLocalX = counterweightPlayerLocalX(plank);
+        const playerTorque = playerLocalX > 0 ? (Number(mech.playerWeight) || 1) * playerLocalX : 0;
+        let counterTorque = 0;
+        for (const log of boundCounterweightLogs(plank)) {
+          const localX = Number(log.counterweightBoundTo?.localX) || 0;
+          if (localX < 0) counterTorque += (Number(mech.logWeight) || 1.3) * (-localX);
+        }
+        const deficit = Math.max(0, playerTorque - counterTorque);
+        const torqueScale = Math.max(0.65, (Number(mech.playerWeight) || 1) * 1.55);
+        const tip01 = Rig.clamp(deficit / torqueScale, 0, 1);
+        targetAngle = -((Number(mech.maxTipDeg) || 28) * Math.PI / 180) * tip01;
+      }
+
+      const spring = 18;
+      const damping = 7.2;
+      plank.counterweightAngularVelocity += (targetAngle - plank.counterweightAngle) * spring * dt;
+      plank.counterweightAngularVelocity *= Math.exp(-damping * dt);
+      plank.counterweightAngle += plank.counterweightAngularVelocity * dt;
+
+      const maxAngle = (Number(mech.maxTipDeg) || 28) * Math.PI / 180;
+      plank.counterweightAngle = Rig.clamp(plank.counterweightAngle,-maxAngle,maxAngle);
+      if (Math.abs(targetAngle) < 0.0001 && Math.abs(plank.counterweightAngle) < 0.0004 && Math.abs(plank.counterweightAngularVelocity) < 0.002) {
+        plank.counterweightAngle = 0;
+        plank.counterweightAngularVelocity = 0;
+      }
+
+      for (const log of boundCounterweightLogs(plank)) updateBoundCounterweightLog(plank,log);
+    }
+  }
+
+  function counterweightPlankWalkable(obj) {
+    const mech = counterweightMechanism(obj);
+    if (!mech || !obj.socketedTo) return true;
+    const fallAngle = (Number(mech.fallAngleDeg) || 17) * Math.PI / 180;
+    return Math.abs(Number(obj.counterweightAngle) || 0) < fallAngle;
+  }
+
+  function counterweightPickupPoint(obj) {
+    return isCounterweightPlank(obj) ? counterweightPivotBaseWorld(obj) : null;
   }
 
   let assetBehaviourOverrides = (() => {
@@ -2301,7 +2530,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       puzzleInstanceId: opts.puzzleInstanceId || null,
       puzzleObjectId: opts.puzzleObjectId || null,
       sockets: Array.isArray(opts.sockets) ? opts.sockets.map(socket => ({ ...socket })) : [],
-      socketedTo: opts.socketedTo ? { ...opts.socketedTo } : null
+      socketedTo: opts.socketedTo ? { ...opts.socketedTo } : null,
+      counterweightBoundTo: null,
+      counterweightVisualAngle: 0,
+      counterweightAngle: 0,
+      counterweightAngularVelocity: 0
     };
     // Support/solid behaviour belongs to the asset, not to its editor library
     // category. This lets authored feature art such as bridge halves remain
@@ -3365,6 +3598,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.shadow = state.shadow || prop?.shadow || obj.shadow || null;
       obj.sockets = Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [];
       obj.socketedTo = (state.socketedTo ?? prop?.socketedTo) ? { ...(state.socketedTo ?? prop?.socketedTo) } : null;
+      obj.counterweightBoundTo = null;
+      obj.counterweightVisualAngle = 0;
+      obj.counterweightAngle = 0;
+      obj.counterweightAngularVelocity = 0;
       obj.carried = false;
       obj.groundLine = Rig.clamp(Number.isFinite(state.groundLine) ? Number(state.groundLine) : assetGroundLineDefault(obj.assetName), 0, 1);
       const baseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
@@ -6971,7 +7208,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
       const target = dropTargetForCarried(rootX);
       if (target?.socket) {
-        const p = projectWorldPoint(target.x, target.y + carriedObject.sy * 0.5, target.z);
+        const p = projectWorldPoint(
+          Number.isFinite(target.cueX) ? target.cueX : target.x,
+          Number.isFinite(target.cueY) ? target.cueY : target.y + carriedObject.sy * 0.5,
+          Number.isFinite(target.cueZ) ? target.cueZ : target.z
+        );
         if (p) {
           ctx.setLineDash([]);
           ctx.strokeStyle='rgba(109,226,205,.98)';ctx.fillStyle='rgba(109,226,205,.16)';ctx.lineWidth=2.5;
@@ -7022,6 +7263,32 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ctx.restore();
   }
 
+  function drawSelectedCounterweightMechanism(ctx) {
+    if (!editMode || !selectedObject || !isCounterweightPlank(selectedObject)) return;
+    const plank = selectedObject;
+    const pivot = counterweightPivotBaseWorld(plank);
+    const line = counterweightZoneLineWorld(plank);
+    if (!pivot || !line) return;
+    const p = projectWorldPoint(pivot.x,pivot.y,pivot.z);
+    const a = projectWorldPoint(line.a.x,line.a.y,line.a.z);
+    const b = projectWorldPoint(line.b.x,line.b.y,line.b.z);
+    if (!p || !a || !b) return;
+    ctx.save();
+    ctx.strokeStyle='rgba(103,183,255,.96)';
+    ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.beginPath();ctx.arc(p.x,p.y,8,0,Math.PI*2);
+    ctx.fillStyle='rgba(121,239,133,.96)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(28,68,38,.98)';
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.font='800 8px -apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(20,31,34,.82)';ctx.fillRect(p.x+11,p.y-18,74,16);
+    ctx.fillStyle='#d8ffe0';ctx.fillText('PIVOT / PICKUP',p.x+15,p.y-7);
+    ctx.restore();
+  }
+
   function drawAuthoredSockets(ctx) {
     if (!editMode || editorScope !== 'puzzle') return;
     const instance = selectedPuzzleInstance();
@@ -7068,8 +7335,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!carriedObject && !interactionState) {
       const near = nearestActionCrate();
       if (near) {
-        const ox = objectXNear(near, rootX);
-        dot(projectWorldPoint(ox, near.y + Math.max(0.18, near.sy * 0.28), near.z), true);
+        const pivot = counterweightPickupPoint(near);
+        const ox = pivot ? pivot.x : objectXNear(near, rootX);
+        const oy = pivot ? pivot.y : near.y + Math.max(0.18, near.sy * 0.28);
+        const oz = pivot ? pivot.z : near.z;
+        dot(projectWorldPoint(ox,oy,oz), true);
       }
     }
 
@@ -7077,6 +7347,35 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const facing = character.lastFacing >= 0 ? 1 : -1;
       const rect = carriedCollisionRectAtRoot(rootX, jumpOffset, facing, carriedObject);
       if (rect) dot(projectWorldPoint((rect.minX+rect.maxX)*0.5, (rect.minY+rect.maxY)*0.5, carriedObject.gameplayLayerLocked === false ? carriedObject.z : pathZ));
+      if (objectHasBehaviour(carriedObject,'stackable')) {
+        const prospective = dropTargetForCarried(rootX);
+        let nearestZone = null;
+        let nearestDistance = Infinity;
+        for (const plank of allSceneObjects()) {
+          if (!isCounterweightPlank(plank) || plank.deleted || plank.carried || !plank.socketedTo) continue;
+          if (plank.puzzleInstanceId && carriedObject.puzzleInstanceId !== plank.puzzleInstanceId) continue;
+          const zone = counterweightZoneRestBounds(plank);
+          if (!zone) continue;
+          const centre = (zone.minX + zone.maxX) * 0.5;
+          const d = Math.abs(centre - prospective.x);
+          if (d < nearestDistance && d < 2.8) { nearestDistance = d; nearestZone = plank; }
+        }
+        if (nearestZone) {
+          const line = counterweightZoneLineWorld(nearestZone);
+          const overlap = counterweightZoneOverlapFraction(nearestZone,carriedObject,prospective.x,prospective.z);
+          if (line) {
+            const a = projectWorldPoint(line.a.x,line.a.y,line.a.z);
+            const b = projectWorldPoint(line.b.x,line.b.y,line.b.z);
+            if (a && b) {
+              const accepted = overlap > (Number(counterweightMechanism(nearestZone)?.minimumOverlap)||0.50);
+              ctx.strokeStyle = accepted ? 'rgba(113,237,147,.98)' : 'rgba(103,183,255,.92)';
+              ctx.lineWidth = accepted ? 5 : 3.5;
+              ctx.setLineDash([]);
+              ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+            }
+          }
+        }
+      }
       const target = dropTargetForCarried(rootX);
       if (target && target.valid && (target.stack || target.socket)) {
         const targetY = target.socket ? target.y + carriedObject.sy * 0.5 : target.y + 0.06;
@@ -7153,6 +7452,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!editMode) return;
     drawPuzzleEditorGuides(ctx);
     drawAuthoredSockets(ctx);
+    drawSelectedCounterweightMechanism(ctx);
 
     // Show authored gameplay collision even when the object itself is partly
     // hidden by foreground dressing. The global collision viewer already draws
@@ -7301,10 +7601,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const c = obj.collision;
     const halfWidth = Math.max(0.001, c.halfWidth ?? Math.max(0.18, obj.sx * 0.34));
     const height = Math.max(0.001, c.height ?? Math.max(0.24, obj.sy * 0.66));
-    return normalisedCollisionPoints(c).map(point => ({
+    const points = normalisedCollisionPoints(c).map(point => ({
       x: aroundX + point.x * halfWidth,
       y: obj.y + point.y * height
     }));
+    const angle = counterweightAngleFor(obj);
+    if (!angle) return points;
+    const mech = counterweightMechanism(obj);
+    const u = mechanismVisualU(obj,Rig.clamp(Number(mech?.pivotX)||0.35,0,1));
+    const pivot = {
+      x: aroundX + (u - 0.5) * obj.sx,
+      y: obj.y + Rig.clamp(Number(mech?.pivotY)||0.5,0,1) * obj.sy
+    };
+    return points.map(point => rotateAround(point.x,point.y,pivot.x,pivot.y,angle));
   }
 
   function collisionRectScreenBounds(obj) {
@@ -7428,7 +7737,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function collisionObjects() {
-    return allSceneObjects().filter(obj => !obj.deleted && !obj.carried && obj.collision);
+    return allSceneObjects().filter(obj => !obj.deleted && !obj.carried && !obj.counterweightBoundTo && obj.collision);
   }
 
   function isCarryableObject(obj) {
@@ -7441,12 +7750,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // existing movement code. Most physics calls intentionally ignore carried
     // props, but placement intent must still be able to identify the object in
     // the character's hands as stackable.
-    return !!obj && !obj.deleted && (includeCarried || !obj.carried) && obj.category === 'gameplay'
+    return !!obj && !obj.deleted && !obj.counterweightBoundTo && (includeCarried || !obj.carried) && obj.category === 'gameplay'
       && (objectHasBehaviour(obj, 'stackable') || obj.gameplayType === 'crate');
   }
 
   function isSupportSurfaceObject(obj) {
-    return !!obj && !obj.deleted && !obj.carried && !!obj.collision
+    return !!obj && !obj.deleted && !obj.carried && !obj.counterweightBoundTo && !!obj.collision
       && (objectHasBehaviour(obj, 'supportSurface') || !!obj.collision.platform);
   }
 
@@ -7463,8 +7772,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function carriedCollisionRectAtRoot(rootX, clearanceHeight = jumpOffset, facing = character.lastFacing >= 0 ? 1 : -1, obj = carriedObject) {
     if (!obj) return null;
     const floorY = playSurfaceYAt(rootX) + Math.max(0, clearanceHeight);
-    const halfWidth = (obj.collision?.halfWidth ?? crateHalfWidth(obj)) + CARRIED_COLLISION_SKIN;
-    const height = Math.max(0.16, obj.collision?.height ?? crateHeight(obj));
+    const mechanismCarry = isCounterweightPlank(obj);
+    const halfWidth = mechanismCarry
+      ? 0.34
+      : (obj.collision?.halfWidth ?? crateHalfWidth(obj)) + CARRIED_COLLISION_SKIN;
+    const height = mechanismCarry
+      ? 0.52
+      : Math.max(0.16, obj.collision?.height ?? crateHeight(obj));
     // Match the non-pose carry transform closely enough for gameplay collision;
     // animation bob is intentionally ignored so the collision stays stable.
     const centreX = rootX + facing * CARRY_FORWARD;
@@ -7619,6 +7933,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function platformOffsetFor(obj, sampleX, terrainReferenceX = sampleX) {
     if (!isSupportSurfaceObject(obj)) return -Infinity;
+    if (isCounterweightPlank(obj) && !counterweightPlankWalkable(obj)) return -Infinity;
     const platformTop = collisionTopHeightAtX(obj, sampleX);
     if (!Number.isFinite(platformTop)) return -Infinity;
     return platformTop - playSurfaceYAt(terrainReferenceX);
@@ -7822,14 +8137,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const drawMesh = extra?.mesh || obj.mesh;
     bindMesh(drawMesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
-    const objectRotation = Number(obj.collectibleAngle) || 0;
+    const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
+    const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || 0;
     const visualFlip = (obj.assetName || '').startsWith('tree') ? false : obj.flip;
-    const drawY = extra?.y ?? obj.y;
+    let drawY = extra?.y ?? obj.y;
+    let modelX = drawX;
     const drawZ = extra?.z ?? obj.z;
     const drawSx = extra?.sx ?? obj.sx;
     const drawSy = extra?.sy ?? obj.sy;
     const drawSz = extra?.sz ?? obj.sz;
-    gl.uniformMatrix4fv(loc.model, false, objectRotation ? mat4ModelRotated(drawX, drawY, drawZ, drawSx, drawSy, drawSz, objectRotation, visualFlip) : mat4Model(drawX, drawY, drawZ, drawSx, drawSy, drawSz, visualFlip));
+    if (!extra?.force && isCounterweightPlank(obj) && objectRotation) {
+      const origin = counterweightObjectOrigin(obj,objectRotation,drawX);
+      modelX = origin.x;
+      drawY = origin.y;
+    }
+    gl.uniformMatrix4fv(loc.model, false, objectRotation ? mat4ModelRotated(modelX, drawY, drawZ, drawSx, drawSy, drawSz, objectRotation, visualFlip) : mat4Model(modelX, drawY, drawZ, drawSx, drawSy, drawSz, visualFlip));
     gl.uniformMatrix4fv(loc.view, false, view);
     gl.uniformMatrix4fv(loc.projection, false, projection);
     const tint = tintFor(obj);
@@ -7911,6 +8233,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       y = characterRenderY() + handY - sy * 0.52;
     }
 
+    if (obj && isCounterweightPlank(obj)) {
+      const mech = counterweightMechanism(obj);
+      const u = mechanismVisualU(obj,Rig.clamp(Number(mech?.pivotX)||0.35,0,1));
+      const desiredPivotX = x;
+      const desiredPivotY = y + sy * 0.52;
+      x = desiredPivotX - (u - 0.5) * sx;
+      y = desiredPivotY - Rig.clamp(Number(mech?.pivotY)||0.5,0,1) * sy;
+    }
     return { x, y, z: character.z + CHARACTER_GAMEPLAY_Z_BIAS - 0.0004, sx, sy };
   }
 
@@ -8091,10 +8421,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (standingOnObject === obj) continue;
       const depth = obj.collision?.depth ?? 0.9;
       if (Math.abs(obj.z - pathZ) > Math.max(0.95, depth)) continue;
-      const ox = objectXNear(obj, characterXNow);
+      const pickupPoint = counterweightPickupPoint(obj);
+      const ox = pickupPoint ? pickupPoint.x : objectXNear(obj, characterXNow);
       const centreDistance = Math.abs(ox - characterXNow);
       const characterReach = colliderWorld().radius * 0.72;
-      const edgeDistance = Math.max(0, centreDistance - crateHalfWidth(obj) - characterReach);
+      const edgeDistance = pickupPoint
+        ? Math.max(0, centreDistance - characterReach)
+        : Math.max(0, centreDistance - crateHalfWidth(obj) - characterReach);
       // Reach is measured to the exposed top object's edge. Lower members of a
       // stack are deliberately not action targets until the objects above them
       // have been removed.
@@ -8129,6 +8462,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function startPickup(obj) {
     if (!obj || carriedObject || interactionState || jumping) return;
+    if (isCounterweightPlank(obj) && boundCounterweightLogs(obj).length) {
+      hintEl.textContent = 'Remove the counterweights first';
+      hintEl.classList.remove('hidden');
+      return;
+    }
     const characterXNow = camera.x + character.screenOffsetX;
 
     // Freeze the exact visible transform before changing any gameplay state.
@@ -8142,6 +8480,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       z: obj.z
     };
 
+    if (obj.counterweightBoundTo) unbindCounterweightLog(obj);
+    if (isCounterweightPlank(obj)) {
+      obj.counterweightAngle = 0;
+      obj.counterweightAngularVelocity = 0;
+    }
     obj.carried = true;
     obj.socketedTo = null;
     interactionState = {
@@ -8301,12 +8644,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         if (forward < -0.12 || forward > SOCKET_SEARCH_RADIUS) continue;
         if (forward < bestForward) {
           bestForward = forward;
+          let targetX = point.x;
+          let targetY = point.y - carriedObject.sy * 0.5;
+          const mech = counterweightMechanism(carriedObject);
+          if (mech) {
+            const u = mechanismVisualU(carriedObject,Rig.clamp(Number(mech.pivotX)||0.35,0,1));
+            targetX = point.x - (u - 0.5) * carriedObject.sx;
+            targetY = point.y - Rig.clamp(Number(mech.pivotY)||0.5,0,1) * carriedObject.sy;
+          }
           best = {
             host,
             socket,
-            x:point.x,
-            y:point.y - carriedObject.sy * 0.5,
+            x:targetX,
+            y:targetY,
             z:point.z,
+            cueX:point.x,
+            cueY:point.y,
+            cueZ:point.z,
             forward,
             valid:true
           };
@@ -8557,13 +8911,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     obj.carried = false;
     obj.y = interactionState.targetY;
     obj.socketedTo = interactionState.socketMeta ? { ...interactionState.socketMeta } : null;
+    if (isCounterweightPlank(obj)) {
+      obj.counterweightAngle = 0;
+      obj.counterweightAngularVelocity = 0;
+    }
     carriedObject = null;
     interactionState = null;
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
     settleGameplayCrates();
+    refreshCounterweightBindings();
+    const becameCounterweight = !!obj.counterweightBoundTo;
     recordObjectEdit(obj);
-    hintEl.textContent = 'Item placed';
+    hintEl.textContent = becameCounterweight ? 'Counterweight added' : 'Item placed';
     hintEl.classList.remove('hidden');
   }
 
@@ -8588,11 +8948,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     obj.carried = false;
     obj.y = target.y;
     obj.socketedTo = target.socket ? { hostObjectId:target.socket.host.id, socketId:target.socket.socket.id } : null;
+    if (isCounterweightPlank(obj)) {
+      obj.counterweightAngle = 0;
+      obj.counterweightAngularVelocity = 0;
+    }
     carriedObject = null;
     interactionState = null;
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
     settleGameplayCrates();
+    refreshCounterweightBindings();
     recordObjectEdit(obj);
   }
 
@@ -8663,6 +9028,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         else completeDrop();
       }
     }
+
+    updateCounterweightMechanisms(dt);
 
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
