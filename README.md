@@ -1,12 +1,8 @@
-# SideScroll v1.0.31
+# SideScroll v1.0.32
 
-Handcart push-mechanic prototype.
+Puzzle-editor availability fix for the new handcart.
 
-- Adds a new wooden handcart asset with separate body and wheel textures.
-- Both wheels rotate from actual cart travel distance while pushing.
-- ACTION beside either handle enters/exits push mode; the character can push from either side.
-- Push movement uses the normal left/right control at a slower walking speed and does not allow pulling.
-- Adds a reusable Pushable asset behaviour and a stepped/support collider so the cart can be climbed over.
-- The old counterweight plank is retired from the in-game placement palette; its compatibility code remains for existing saved scenes while the new cart approach is tested.
-
-Next intended pass: broken-wheel state, inventory wheel/bolt combination, repair interaction, then deterministic bridge-gap locking/completion.
+- Adds the Wooden Handcart to the shared woodland puzzle asset pack.
+- The cart now appears under Broken Bridge → Place Puzzle Pieces.
+- Keeps the v1.0.31 pushable-cart prototype unchanged: separate rotating wheel texture, two-sided push interaction and stepped support collision.
+- Legacy counterweight-plank compatibility remains in code/data, but it is not restored to the normal placement palette.

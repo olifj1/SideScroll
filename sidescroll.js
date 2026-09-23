@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.31: first reusable pushable-cart prototype with independently rotating wheel textures.
+  // SideScroll v1.0.32: first reusable pushable-cart prototype with independently rotating wheel textures.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1267,13 +1267,13 @@
     1050 / 220
   );
 
-  // v1.0.31 handcart prototype. The body and wheels are intentionally separate
+  // v1.0.32 handcart prototype. The body and wheels are intentionally separate
   // textures so wheel rotation is a real runtime transform rather than baked
   // animation. The cart's editor/world aspect is the complete 620x255 side view.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.31', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.32', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.31', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.32', 'handcart-wheel', null, 1);
   textures['handcart-wheel-mask'] = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#3a2c23';
