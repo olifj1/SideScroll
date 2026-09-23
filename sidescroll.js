@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.26: asset-level socket authoring; counterweight plank sockets are managed in Asset Lab rather than per puzzle instance.
+  // SideScroll v1.0.28: faster counterweight tipping plus direct free-log placement into the blue counterweight zone.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -2132,7 +2132,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     zoneStart:0.02,zoneEnd:0.19,zoneY:0.60,zoneDepth:1.20,
     minimumOverlap:0.50,
     logWeight:1.30,playerWeight:1.00,
-    maxTipDeg:28,fallAngleDeg:17
+    maxTipDeg:32,fallAngleDeg:12
   });
 
   function assetMechanism(assetName) {
@@ -2341,13 +2341,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           if (localX < 0) counterTorque += (Number(mech.logWeight) || 1.3) * (-localX);
         }
         const deficit = Math.max(0, playerTorque - counterTorque);
-        const torqueScale = Math.max(0.65, (Number(mech.playerWeight) || 1) * 1.55);
-        const tip01 = Rig.clamp(deficit / torqueScale, 0, 1);
-        targetAngle = -((Number(mech.maxTipDeg) || 28) * Math.PI / 180) * tip01;
+
+        // v1.0.27: the old balance curve let the player get too far out before
+        // the plank developed enough angle to fail. A smaller torque scale and
+        // slightly front-loaded curve make the first unsupported steps matter,
+        // while counterweights still subtract their real leverage normally.
+        const torqueScale = Math.max(0.42, (Number(mech.playerWeight) || 1) * 0.82);
+        const rawTip = Rig.clamp(deficit / torqueScale, 0, 1);
+        const tip01 = Math.pow(rawTip, 0.72);
+        targetAngle = -((Number(mech.maxTipDeg) || 32) * Math.PI / 180) * tip01;
       }
 
-      const spring = 18;
-      const damping = 7.2;
+      // Faster but still damped/constrained response: this is intentionally not
+      // a free rigid-body simulation.
+      const spring = 34;
+      const damping = 6.0;
       plank.counterweightAngularVelocity += (targetAngle - plank.counterweightAngle) * spring * dt;
       plank.counterweightAngularVelocity *= Math.exp(-damping * dt);
       plank.counterweightAngle += plank.counterweightAngularVelocity * dt;
@@ -2366,7 +2374,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function counterweightPlankWalkable(obj) {
     const mech = counterweightMechanism(obj);
     if (!mech || !obj.socketedTo) return true;
-    const fallAngle = (Number(mech.fallAngleDeg) || 17) * Math.PI / 180;
+    const fallAngle = (Number(mech.fallAngleDeg) || 12) * Math.PI / 180;
     return Math.abs(Number(obj.counterweightAngle) || 0) < fallAngle;
   }
 
@@ -7416,26 +7424,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const rect = carriedCollisionRectAtRoot(rootX, jumpOffset, facing, carriedObject);
       if (rect) dot(projectWorldPoint((rect.minX+rect.maxX)*0.5, (rect.minY+rect.maxY)*0.5, carriedObject.gameplayLayerLocked === false ? carriedObject.z : pathZ));
       if (objectHasBehaviour(carriedObject,'stackable')) {
-        const prospective = dropTargetForCarried(rootX);
-        let nearestZone = null;
-        let nearestDistance = Infinity;
-        for (const plank of allSceneObjects()) {
-          if (!isCounterweightPlank(plank) || plank.deleted || plank.carried || !plank.socketedTo) continue;
-          if (plank.puzzleInstanceId && carriedObject.puzzleInstanceId !== plank.puzzleInstanceId) continue;
-          const zone = counterweightZoneRestBounds(plank);
-          if (!zone) continue;
-          const centre = (zone.minX + zone.maxX) * 0.5;
-          const d = Math.abs(centre - prospective.x);
-          if (d < nearestDistance && d < 2.8) { nearestDistance = d; nearestZone = plank; }
-        }
-        if (nearestZone) {
-          const line = counterweightZoneLineWorld(nearestZone);
-          const overlap = counterweightZoneOverlapFraction(nearestZone,carriedObject,prospective.x,prospective.z);
+        const facing = character.lastFacing >= 0 ? 1 : -1;
+        const zoneTarget = counterweightDropTargetNear(rootX,facing);
+        if (zoneTarget?.counterweightPlank) {
+          const line = counterweightZoneLineWorld(zoneTarget.counterweightPlank);
           if (line) {
             const a = projectWorldPoint(line.a.x,line.a.y,line.a.z);
             const b = projectWorldPoint(line.b.x,line.b.y,line.b.z);
             if (a && b) {
-              const accepted = overlap > (Number(counterweightMechanism(nearestZone)?.minimumOverlap)||0.50);
+              const accepted = !!zoneTarget.counterweightAccepted;
               ctx.strokeStyle = accepted ? 'rgba(113,237,147,.98)' : 'rgba(103,183,255,.92)';
               ctx.lineWidth = accepted ? 5 : 3.5;
               ctx.setLineDash([]);
@@ -7997,6 +7994,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const crates = allSceneObjects().filter(isGameplayCrate).sort((a,b) => a.y - b.y || a.x - b.x);
     const settled = [];
     for (const crate of crates) {
+      if (crate.counterweightBoundTo) {
+        const plank = counterweightPlankById(crate.counterweightBoundTo.plankId);
+        if (plank) updateBoundCounterweightLog(plank,crate);
+        settled.push(crate);
+        continue;
+      }
       if (crate.gameplayLayerLocked) crate.z = pathZ;
       if (crate.collision && (crate.collision.behaviourGenerated || crate.gameplayType === 'crate' || objectHasBehaviour(crate, 'stackable'))) {
         crate.collision.halfWidth = Math.max(0.12, crate.sx * CRATE_HALF_WIDTH_FACTOR);
@@ -8781,6 +8784,59 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return best;
   }
 
+  function counterweightDropTargetNear(rootX, facing) {
+    if (!carriedObject || !objectHasBehaviour(carriedObject,'stackable')) return null;
+
+    const x = rootX + facing * 0.92;
+    const z = carriedObject.gameplayLayerLocked === false ? carriedObject.z : pathZ;
+    let best = null;
+    let bestOverlap = 0;
+
+    for (const plank of allSceneObjects()) {
+      if (!isCounterweightPlank(plank) || plank.deleted || plank.carried || !plank.socketedTo) continue;
+      if (plank.puzzleInstanceId && carriedObject.puzzleInstanceId !== plank.puzzleInstanceId) continue;
+
+      const overlap = counterweightZoneOverlapFraction(plank, carriedObject, x, z);
+      const zone = counterweightZoneRestBounds(plank);
+      if (!zone) continue;
+
+      // Treat a small overlap as placement intent so pressing Put Down near the
+      // blue line never triggers the old automatic "back up and drop beside it"
+      // behaviour.
+      if (overlap <= 0.06) continue;
+
+      if (overlap > bestOverlap) {
+        const topY = collisionTopHeightAtX(plank, x);
+        if (!Number.isFinite(topY)) continue;
+
+        const temp = { ...carriedObject, x, z, y:topY, carried:false };
+        if (temp.collision && isGameplayCrate(temp)) {
+          temp.collision = { ...temp.collision, height:STACK_ITEM_HEIGHT };
+        }
+
+        // The plank is the intended support, not an obstacle. Existing bound
+        // counterweights already have collision disabled, so ordinary collision
+        // checks still protect against unrelated props around the zone.
+        const ignored = new Set([plank]);
+        const threshold = Number(counterweightMechanism(plank)?.minimumOverlap) || 0.50;
+        const accepted = overlap > threshold + 0.0001;
+        const target = {
+          x, z, y:topY,
+          stack:null,
+          socket:null,
+          counterweightPlank:plank,
+          counterweightOverlap:overlap,
+          counterweightAccepted:accepted
+        };
+        target.valid = accepted && dropTargetIsClear(temp,target,ignored);
+        best = target;
+        bestOverlap = overlap;
+      }
+    }
+
+    return best;
+  }
+
   function dropTargetForCarried(rootX = character.x) {
     const facing = character.lastFacing >= 0 ? 1 : -1;
     let x = rootX + facing * 0.92;
@@ -8790,9 +8846,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // targets deliberately ignore the normal gameplay-layer lock so a carried
     // piece can move from the path into a wall/side-of-road host.
     const socket = socketTargetNear(rootX, facing);
-    const stack = socket ? null : stackTargetNear(rootX, facing);
+    const counterweight = socket ? null : counterweightDropTargetNear(rootX,facing);
+    const stack = (socket || counterweight) ? null : stackTargetNear(rootX, facing);
     if (socket) { x = socket.x; z = socket.z; }
+    else if (counterweight) { x = counterweight.x; z = counterweight.z; }
     else if (stack) x = stack.x;
+
+    if (counterweight) return counterweight;
 
     const temp = carriedObject ? { ...carriedObject, x, z, carried: false } : null;
     if (temp?.collision && isGameplayCrate(temp)) temp.collision = { ...temp.collision, height: STACK_ITEM_HEIGHT };
@@ -8954,6 +9014,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         return;
       }
       hintEl.textContent = `Placing ${socketLabelForPiece(carriedObject)} in socket…`;
+      hintEl.classList.remove('hidden');
+      beginDropAtTarget(target);
+      return;
+    }
+    if (target.counterweightPlank) {
+      if (!target.counterweightAccepted) {
+        hintEl.textContent = `Move the log farther over the blue line · ${Math.round((target.counterweightOverlap || 0) * 100)}% inside`;
+        hintEl.classList.remove('hidden');
+        return;
+      }
+      if (!target.valid) {
+        hintEl.textContent = 'That counterweight position is blocked';
+        hintEl.classList.remove('hidden');
+        return;
+      }
+      hintEl.textContent = 'Placing counterweight…';
       hintEl.classList.remove('hidden');
       beginDropAtTarget(target);
       return;

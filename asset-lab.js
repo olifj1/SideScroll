@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.26';
+  const VERSION = '1.0.28';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -110,8 +110,8 @@
     minimumOverlap:0.50,
     logWeight:1.30,
     playerWeight:1.00,
-    maxTipDeg:28,
-    fallAngleDeg:17
+    maxTipDeg:32,
+    fallAngleDeg:12
   });
 
   function isCounterweightPlank(asset=state.asset) {
