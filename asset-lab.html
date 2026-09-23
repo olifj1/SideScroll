@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.33">
+  <link rel="stylesheet" href="style.css?v=1.0.34">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -64,11 +64,17 @@
           <input id="assetlab-depth" type="range" min="0.15" max="2.50" step="0.01" value="0.8">
         </label>
         <div class="assetlab-point-editor" id="assetlab-point-editor" hidden>
-          <div class="assetlab-point-head"><strong>Collision points</strong><small>metres · floor Y = 0</small></div>
+          <div class="assetlab-point-head"><strong>Collision shapes</strong><small>multiple boxes / polygons</small></div>
+          <div class="assetlab-shape-toolbar">
+            <select id="assetlab-collision-shape" aria-label="Selected collision shape"></select>
+            <button type="button" id="assetlab-collision-add-box">+ Add Box</button>
+            <button type="button" id="assetlab-collision-delete-box">Delete Box</button>
+          </div>
+          <div class="assetlab-point-head assetlab-point-subhead"><strong>Selected shape points</strong><small>metres · floor Y = 0</small></div>
           <div class="assetlab-point-list" id="assetlab-point-list"></div>
           <button type="button" id="assetlab-edge-floor" class="assetlab-inline-action" disabled>Set Selected Edge to Y = 0</button>
         </div>
-        <p class="assetlab-note">Drag orange corner points, or drag the small edge handles to move two points together. Numeric Y positions use the cyan floor as 0. Yellow means the shape is a support surface.</p>
+        <p class="assetlab-note">Use + Add Box to build compound collision from several shapes. Drag orange points or edge handles on the selected shape; tap another shape to edit it. Numeric Y positions use the cyan floor as 0. Yellow means a support surface.</p>
       </section>
 
 
@@ -129,8 +135,8 @@
     </aside>
   </main>
 
-  <script src="site-config.js?v=1.0.33"></script>
-  <script src="core.js?v=1.0.33"></script>
-  <script src="asset-lab.js?v=1.0.33"></script>
+  <script src="site-config.js?v=1.0.34"></script>
+  <script src="core.js?v=1.0.34"></script>
+  <script src="asset-lab.js?v=1.0.34"></script>
 </body>
 </html>

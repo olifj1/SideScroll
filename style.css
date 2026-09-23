@@ -13233,3 +13233,5 @@ body[data-game-id="game-16"] .sidescroll-puzzle-respawn-tools small{display:bloc
   color:#34534f;
   border-color:#dcebe7;
 }
+
+.assetlab-shape-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;align-items:center;margin:0 0 8px}.assetlab-shape-toolbar select,.assetlab-shape-toolbar button{height:31px;min-width:0;border:1px solid rgba(238,243,241,.12);border-radius:7px;background:rgba(10,16,20,.46);color:#dce7e3;font-size:7.5px;font-weight:850;padding:0 7px}.assetlab-shape-toolbar button{background:rgba(255,255,255,.04)}.assetlab-shape-toolbar button:disabled{opacity:.35}.assetlab-point-subhead{margin-top:2px}

@@ -1,8 +1,5 @@
-# SideScroll v1.0.33
+# SideScroll v1.0.34
 
-Cart wheel pivot fix.
-
-- Keeps the pushable Wooden Handcart prototype from v1.0.32.
-- Changes the separate wheel and wheel-mask components to a true centre-pivot billboard.
-- Wheels now spin around their axles instead of orbiting around the bottom edge of the texture.
-- No inventory, broken-wheel or bridge-completion behaviour is added yet.
+- Recentres the separate handcart wheel texture so the axle is exactly at the texture centre and wheel rotation stays fixed to the cart.
+- Asset Lab collision can now contain multiple shapes. Use **+ Add Box** to build a compound collider, select/tap a shape to edit it, and delete individual boxes.
+- Runtime collision, walkable support and collision debug rendering now understand compound collision shapes while preserving older single-shape assets.

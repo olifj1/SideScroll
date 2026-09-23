@@ -1,4 +1,4 @@
-const CACHE = "sidescroll-v1.0.33";
+const CACHE = "sidescroll-v1.0.34";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.33: cart wheel rotation now uses a true axle-centred pivot.
+  // SideScroll v1.0.34: cart wheel rotation now uses a true axle-centred pivot.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1281,13 +1281,13 @@
     1050 / 220
   );
 
-  // v1.0.33 handcart prototype. The body and wheels are intentionally separate
+  // v1.0.34 handcart prototype. The body and wheels are intentionally separate
   // textures so wheel rotation is a real runtime transform rather than baked
   // animation. The cart's editor/world aspect is the complete 620x255 side view.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.33', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.34', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.33', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.34', 'handcart-wheel', null, 1);
   textures['handcart-wheel-mask'] = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#3a2c23';
@@ -2475,7 +2475,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         {x:-1.00,y:0.00},{x:-1.00,y:0.17},{x:-0.80,y:0.17},{x:-0.80,y:0.34},
         {x:-0.63,y:0.34},{x:-0.63,y:1.00},{x:0.63,y:1.00},{x:0.63,y:0.34},
         {x:0.80,y:0.34},{x:0.80,y:0.17},{x:1.00,y:0.17},{x:1.00,y:0.00}
-      ]
+      ],
+      shapes:[{points:[
+        {x:-1.00,y:0.00},{x:-1.00,y:0.17},{x:-0.80,y:0.17},{x:-0.80,y:0.34},
+        {x:-0.63,y:0.34},{x:-0.63,y:1.00},{x:0.63,y:1.00},{x:0.63,y:0.34},
+        {x:0.80,y:0.34},{x:0.80,y:0.17},{x:1.00,y:0.17},{x:1.00,y:0.00}
+      ]}]
     };
   }
 
@@ -2491,12 +2496,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!collision) return null;
     const safeSx = Math.max(0.001, Math.abs(Number(sx) || 1));
     const safeSy = Math.max(0.001, Math.abs(Number(sy) || 1));
+    const shapes = normalisedCollisionShapes(collision).map(points => ({
+      points:points.map(point => ({ x:Number(point.x)||0, y:Number(point.y)||0 }))
+    }));
     return {
       halfWidthRatio: Math.max(0.01, Number(collision.halfWidth) || 0.01) / safeSx,
       heightRatio: objectIsStackAssetName(assetName) ? null : Math.max(0.01, Number(collision.height) || 0.01) / safeSy,
       fixedHeight: objectIsStackAssetName(assetName) ? STACK_ITEM_HEIGHT : null,
       depthRatio: Math.max(0.01, Number(collision.depth) || 0.01) / safeSx,
-      points: normalisedCollisionPoints(collision).map(point => ({ x:Number(point.x)||0, y:Number(point.y)||0 }))
+      points: shapes[0].points.map(point => ({...point})),
+      shapes
     };
   }
 
@@ -2505,12 +2514,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!def) return null;
     const width = Math.max(0.001, Math.abs(Number(sx) || 1));
     const height = Math.max(0.001, Math.abs(Number(sy) || 1));
+    const sourceShapes = Array.isArray(def.shapes) && def.shapes.length
+      ? def.shapes.filter(shape => Array.isArray(shape?.points) && shape.points.length >= 3)
+      : [{ points:Array.isArray(def.points) && def.points.length >= 3 ? def.points : defaultCollisionPoints() }];
+    const shapes = sourceShapes.map(shape => ({points:shape.points.map(point => ({...point}))}));
     return {
       halfWidth: Math.max(0.01, (Number(def.halfWidthRatio) || 0.4) * width),
       height: Number.isFinite(def.fixedHeight) ? Number(def.fixedHeight) : Math.max(0.01, (Number(def.heightRatio) || 0.6) * height),
       depth: Math.max(0.01, (Number(def.depthRatio) || 0.4) * width),
       platform: !!assetBehaviours(assetName).supportSurface,
-      points: Array.isArray(def.points) && def.points.length >= 3 ? def.points.map(point => ({...point})) : defaultCollisionPoints(),
+      points: shapes[0].points.map(point => ({...point})),
+      shapes,
       behaviourGenerated: false,
       assetInherited: true
     };
@@ -2584,6 +2598,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ...collision,
       points: Array.isArray(collision.points)
         ? collision.points.map(point => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }))
+        : null,
+      shapes: Array.isArray(collision.shapes)
+        ? collision.shapes.map(shape => ({
+            ...shape,
+            points: Array.isArray(shape?.points)
+              ? shape.points.map(point => ({ x:Number(point.x) || 0, y:Number(point.y) || 0 }))
+              : []
+          })).filter(shape => shape.points.length >= 3)
         : null
     };
   }
@@ -2597,9 +2619,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ];
   }
 
-  function normalisedCollisionPoints(collision) {
+  function normalisedCollisionShapes(collision) {
+    const shapes = collision?.shapes;
+    if (Array.isArray(shapes) && shapes.length) {
+      const valid = shapes
+        .map(shape => Array.isArray(shape?.points) && shape.points.length >= 3 ? shape.points : null)
+        .filter(Boolean);
+      if (valid.length) return valid;
+    }
     const pts = collision?.points;
-    return Array.isArray(pts) && pts.length >= 3 ? pts : defaultCollisionPoints();
+    return [Array.isArray(pts) && pts.length >= 3 ? pts : defaultCollisionPoints()];
+  }
+
+  function normalisedCollisionPoints(collision) {
+    return normalisedCollisionShapes(collision)[0];
   }
 
   function behaviourNeedsCollision(behaviour) {
@@ -2619,6 +2652,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         depth: Math.max(0.46, Math.min(1.08, width * 0.42)),
         platform: !!behaviour.supportSurface,
         points: defaultCollisionPoints(),
+        shapes: [{ points:defaultCollisionPoints() }],
         behaviourGenerated: true
       };
     }
@@ -6911,6 +6945,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         depth: Math.max(0.42, Math.min(1.15, selectedObject.sx * 0.42)),
         platform: objectHasBehaviour(selectedObject, 'supportSurface'),
         points: defaultCollisionPoints(),
+        shapes: [{ points:defaultCollisionPoints() }],
         behaviourGenerated: false
       };
       collisionEditMode = true;
@@ -6919,6 +6954,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     } else {
       selectedObject.collisionOverride = true;
       selectedObject.collision.points = normalisedCollisionPoints(selectedObject.collision).map(point => ({ ...point }));
+      if(Array.isArray(selectedObject.collision.shapes)&&selectedObject.collision.shapes.length) selectedObject.collision.shapes[0].points=selectedObject.collision.points.map(point=>({...point}));
       collisionEditMode = !collisionEditMode;
       hintEl.textContent = collisionEditMode
         ? 'Collision edit mode · drag the orange corner handles'
@@ -7306,18 +7342,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
 
     for (const obj of collisionObjects()) {
-      const poly = collisionScreenPolygon(obj);
-      if (poly.length < 3) continue;
-      ctx.fillStyle = obj.collision?.platform ? 'rgba(235,173,86,.13)' : 'rgba(226,112,92,.10)';
-      ctx.strokeStyle = obj.collision?.platform ? 'rgba(239,184,102,.92)' : 'rgba(233,118,101,.88)';
-      ctx.lineWidth = 1.6;
-      ctx.setLineDash(obj.collision?.platform ? [] : [5,3]);
-      ctx.beginPath();
-      ctx.moveTo(poly[0].x, poly[0].y);
-      for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      for(const poly of collisionScreenPolygons(obj)){
+        if (poly.length < 3) continue;
+        ctx.fillStyle = obj.collision?.platform ? 'rgba(235,173,86,.13)' : 'rgba(226,112,92,.10)';
+        ctx.strokeStyle = obj.collision?.platform ? 'rgba(239,184,102,.92)' : 'rgba(233,118,101,.88)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash(obj.collision?.platform ? [] : [5,3]);
+        ctx.beginPath();
+        ctx.moveTo(poly[0].x, poly[0].y);
+        for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
     }
 
     const rootX = camera.x + character.screenOffsetX;
@@ -7618,17 +7655,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!collisionDebugView) for (const obj of collisionObjects()) {
       if (!editorObjectIsEditable(obj)) continue;
       if (obj === selectedObject) continue;
-      const poly = collisionScreenPolygon(obj);
-      if (poly.length < 3) continue;
+      const polys = collisionScreenPolygons(obj);
+      if (!polys.length) continue;
       ctx.save();
       ctx.strokeStyle='rgba(226,161,92,.58)';
       ctx.lineWidth=1.25;
       ctx.setLineDash([3,3]);
-      ctx.beginPath();
-      ctx.moveTo(poly[0].x, poly[0].y);
-      for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
-      ctx.closePath();
-      ctx.stroke();
+      for(const poly of polys){
+        ctx.beginPath();
+        ctx.moveTo(poly[0].x, poly[0].y);
+        for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
+        ctx.closePath();
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
@@ -7692,19 +7731,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
 
       if (selectedObject.collision) {
-        const poly = collisionScreenPolygon(selectedObject);
-        if (poly.length >= 3) {
+        const polys = collisionScreenPolygons(selectedObject);
+        if (polys.length) {
           ctx.save();
           ctx.fillStyle='rgba(228,164,89,.12)';
           ctx.strokeStyle='#e2a15c';
           ctx.lineWidth=2;
           ctx.setLineDash([4,3]);
-          ctx.beginPath();
-          ctx.moveTo(poly[0].x, poly[0].y);
-          for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
+          for(const poly of polys){
+            ctx.beginPath();
+            ctx.moveTo(poly[0].x, poly[0].y);
+            for (let i = 1; i < poly.length; i += 1) ctx.lineTo(poly[i].x, poly[i].y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
           if (collisionEditMode) {
             ctx.setLineDash([]);
             for (const handle of collisionHandlePositions(selectedObject)) {
@@ -7754,12 +7795,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
 
-  function collisionWorldPoints(obj, aroundX = obj.x) {
+  function collisionWorldShapePoints(obj, sourcePoints, aroundX = obj.x) {
     if (!obj?.collision) return [];
     const c = obj.collision;
     const halfWidth = Math.max(0.001, c.halfWidth ?? Math.max(0.18, obj.sx * 0.34));
     const height = Math.max(0.001, c.height ?? Math.max(0.24, obj.sy * 0.66));
-    const points = normalisedCollisionPoints(c).map(point => ({
+    const points = sourcePoints.map(point => ({
       x: aroundX + point.x * halfWidth,
       y: obj.y + point.y * height
     }));
@@ -7772,6 +7813,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       y: obj.y + Rig.clamp(Number(mech?.pivotY)||0.5,0,1) * obj.sy
     };
     return points.map(point => rotateAround(point.x,point.y,pivot.x,pivot.y,angle));
+  }
+
+  function collisionWorldShapes(obj, aroundX = obj.x) {
+    if (!obj?.collision) return [];
+    return normalisedCollisionShapes(obj.collision).map(points => collisionWorldShapePoints(obj,points,aroundX));
+  }
+
+  function collisionWorldPoints(obj, aroundX = obj.x) {
+    return collisionWorldShapes(obj,aroundX)[0] || [];
   }
 
   function collisionRectScreenBounds(obj) {
@@ -7789,11 +7839,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
   }
 
-  function collisionScreenPolygon(obj) {
+  function collisionScreenPolygons(obj) {
     const drawX = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
-    return collisionWorldPoints(obj, drawX)
-      .map(point => projectWorldPoint(point.x, point.y, obj.z))
-      .filter(Boolean);
+    return collisionWorldShapes(obj, drawX)
+      .map(points => points.map(point => projectWorldPoint(point.x, point.y, obj.z)).filter(Boolean))
+      .filter(poly => poly.length >= 3);
+  }
+
+  function collisionScreenPolygon(obj) {
+    return collisionScreenPolygons(obj)[0] || [];
   }
 
   function uniqueSorted(values) {
@@ -7801,8 +7855,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return values.filter((value, index) => index === 0 || Math.abs(value - values[index - 1]) > 0.0001);
   }
 
-  function collisionSpanAtY(obj, worldY) {
-    const points = collisionWorldPoints(obj, obj.x);
+  function polygonSpanAtY(points, worldY) {
     if (points.length < 2) return null;
     const xs = [];
     const eps = 0.0001;
@@ -7825,6 +7878,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return { minX: vals[0], maxX: vals[vals.length - 1] };
   }
 
+  function mergeCollisionSpans(spans) {
+    const sorted=spans.filter(Boolean).sort((a,b)=>a.minX-b.minX);
+    const merged=[];
+    for(const span of sorted){
+      const last=merged[merged.length-1];
+      if(last && span.minX<=last.maxX+0.0001) last.maxX=Math.max(last.maxX,span.maxX);
+      else merged.push({minX:span.minX,maxX:span.maxX});
+    }
+    return merged;
+  }
+
+  function collisionSpansAtY(obj, worldY) {
+    return mergeCollisionSpans(collisionWorldShapes(obj,obj.x).map(points=>polygonSpanAtY(points,worldY)));
+  }
+
+  function collisionSpanAtY(obj, worldY) {
+    const spans=collisionSpansAtY(obj,worldY);
+    if(!spans.length)return null;
+    return {minX:spans[0].minX,maxX:spans[spans.length-1].maxX};
+  }
+
   function capsuleHalfWidthAtHeight(localY, capsule) {
     if (localY < 0 || localY > capsule.height) return 0;
     const r = Math.min(capsule.radius, capsule.height * 0.5);
@@ -7839,44 +7913,44 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return r;
   }
 
-  function collisionBodyEnvelope(obj, feetY) {
-    // A real capsule profile: wider through the torso and rounded at its ends.
-    // Environment spans are expanded by the capsule width at each sample.
+  function collisionBodySpans(obj, feetY) {
     const capsule = colliderWorld();
     const sampleCount = 11;
-    let minX = Infinity;
-    let maxX = -Infinity;
+    const intervals=[];
     for (let i = 0; i < sampleCount; i += 1) {
       const t = i / (sampleCount - 1);
       const localY = capsule.height * t;
       const y = feetY + capsule.bottom + localY;
-      const span = collisionSpanAtY(obj, y);
-      if (!span) continue;
       const half = capsuleHalfWidthAtHeight(localY, capsule) + PLAYER_COLLISION_SKIN;
-      minX = Math.min(minX, span.minX - half);
-      maxX = Math.max(maxX, span.maxX + half);
+      for(const span of collisionSpansAtY(obj,y)) intervals.push({minX:span.minX-half,maxX:span.maxX+half});
     }
-    return Number.isFinite(minX) && Number.isFinite(maxX) ? { minX, maxX } : null;
+    return mergeCollisionSpans(intervals);
+  }
+
+  function collisionBodyEnvelope(obj, feetY) {
+    const spans=collisionBodySpans(obj,feetY);
+    if(!spans.length)return null;
+    return {minX:spans[0].minX,maxX:spans[spans.length-1].maxX};
   }
 
   function collisionTopHeightAtX(obj, worldX) {
-    const points = collisionWorldPoints(obj, obj.x);
-    if (points.length < 2) return -Infinity;
     const ys = [];
     const eps = 0.0001;
-    for (let i = 0; i < points.length; i += 1) {
-      const a = points[i];
-      const b = points[(i + 1) % points.length];
-      if (Math.abs(a.x - b.x) < eps) {
-        if (Math.abs(worldX - a.x) <= eps) ys.push(a.y, b.y);
-        continue;
+    for(const points of collisionWorldShapes(obj,obj.x)){
+      for (let i = 0; i < points.length; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        if (Math.abs(a.x - b.x) < eps) {
+          if (Math.abs(worldX - a.x) <= eps) ys.push(a.y, b.y);
+          continue;
+        }
+        const minX = Math.min(a.x, b.x) - eps;
+        const maxX = Math.max(a.x, b.x) + eps;
+        if (worldX < minX || worldX > maxX) continue;
+        const t = (worldX - a.x) / (b.x - a.x);
+        if (t < -eps || t > 1 + eps) continue;
+        ys.push(a.y + (b.y - a.y) * t);
       }
-      const minX = Math.min(a.x, b.x) - eps;
-      const maxX = Math.max(a.x, b.x) + eps;
-      if (worldX < minX || worldX > maxX) continue;
-      const t = (worldX - a.x) / (b.x - a.x);
-      if (t < -eps || t > 1 + eps) continue;
-      ys.push(a.y + (b.y - a.y) * t);
     }
     const vals = uniqueSorted(ys);
     return vals.length ? vals[vals.length - 1] : -Infinity;
@@ -7983,9 +8057,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (let i = 0; i < samples; i += 1) {
       const t = samples === 1 ? 0.5 : i / (samples - 1);
       const y = Rig.lerp(rect.minY, rect.maxY, t);
-      const span = collisionSpanAtY(obstacle, y);
-      if (!span) continue;
-      if (rect.maxX > span.minX + CARRIED_COLLISION_SKIN && rect.minX < span.maxX - CARRIED_COLLISION_SKIN) return true;
+      const spans = collisionSpansAtY(obstacle, y);
+      for(const span of spans){
+        if (rect.maxX > span.minX + CARRIED_COLLISION_SKIN && rect.minX < span.maxX - CARRIED_COLLISION_SKIN) return true;
+      }
     }
     return false;
   }
@@ -8242,9 +8317,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         // below the top needs to be pushed out.
         if (Number.isFinite(top) && feetWorldY >= top - 0.035) continue;
 
-        const span = collisionBodyEnvelope(obj, feetWorldY);
+        const spans = collisionBodySpans(obj, feetWorldY);
+        const span = spans.find(candidate => centreX > candidate.minX && centreX < candidate.maxX);
         if (!span) continue;
-        if (centreX <= span.minX || centreX >= span.maxX) continue;
 
         const leftDistance = centreX - span.minX;
         const rightDistance = span.maxX - centreX;
@@ -8283,21 +8358,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       // the shared capsule walk continuously up authored slopes.
       if (platformIsWalkableFrom(obj, proposedX, clearanceHeight, airborne)) continue;
 
-      const span = collisionBodyEnvelope(obj, feetY);
-      if (!span) continue;
-      const blockMin = span.minX;
-      const blockMax = span.maxX;
-      const alreadyOverlapping = currentX > blockMin && currentX < blockMax;
-      const blockCentre = (blockMin + blockMax) * 0.5;
+      for(const span of collisionBodySpans(obj, feetY)){
+        const blockMin = span.minX;
+        const blockMax = span.maxX;
+        const alreadyOverlapping = currentX > blockMin && currentX < blockMax;
+        const blockCentre = (blockMin + blockMax) * 0.5;
 
-      if (direction > 0) {
-        const crossesFromLeft = currentX <= blockMin + 0.025 && resolvedCharacterX > blockMin;
-        const movingDeeperFromOverlap = alreadyOverlapping && currentX < blockCentre;
-        if (crossesFromLeft || movingDeeperFromOverlap) resolvedCharacterX = Math.max(currentX, Math.min(resolvedCharacterX, blockMin));
-      } else {
-        const crossesFromRight = currentX >= blockMax - 0.025 && resolvedCharacterX < blockMax;
-        const movingDeeperFromOverlap = alreadyOverlapping && currentX > blockCentre;
-        if (crossesFromRight || movingDeeperFromOverlap) resolvedCharacterX = Math.min(currentX, Math.max(resolvedCharacterX, blockMax));
+        if (direction > 0) {
+          const crossesFromLeft = currentX <= blockMin + 0.025 && resolvedCharacterX > blockMin;
+          const movingDeeperFromOverlap = alreadyOverlapping && currentX < blockCentre;
+          if (crossesFromLeft || movingDeeperFromOverlap) resolvedCharacterX = Math.max(currentX, Math.min(resolvedCharacterX, blockMin));
+        } else {
+          const crossesFromRight = currentX >= blockMax - 0.025 && resolvedCharacterX < blockMax;
+          const movingDeeperFromOverlap = alreadyOverlapping && currentX > blockCentre;
+          if (crossesFromRight || movingDeeperFromOverlap) resolvedCharacterX = Math.min(currentX, Math.max(resolvedCharacterX, blockMax));
+        }
       }
     }
     return resolvedCharacterX - capsule.offsetX - offset;
@@ -8402,10 +8477,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // wheel is then drawn over the top and can rotate freely. The outer baked
     // rim sits almost exactly under the new rim, so it reads as wheel thickness
     // rather than a second wheel while keeping the source art clean.
-    const wheelSize = obj.sy * (205 / 255);
+    const wheelSize = obj.sy * (185 / 255);
     const maskSize = obj.sy * (124 / 255);
     const wheelV = (255 - 162) / 255;
-    const wheelUs = [205 / 620, 400 / 620];
+    const wheelUs = [225 / 620, 400 / 620];
     for (const uRaw of wheelUs) {
       const u = obj.flip ? 1 - uRaw : uRaw;
       const centreX = drawX + (u - 0.5) * obj.sx;
@@ -10473,7 +10548,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const nx=Rig.clamp((((lx-bounds.left)/Math.max(1,bounds.right-bounds.left))*2)-1,-4.0,4.0);
         const ny=Rig.clamp((bounds.bottom-ly)/Math.max(1,bounds.bottom-bounds.top),-0.20,3.0);
         const points=normalisedCollisionPoints(selectedObject.collision).map(point=>({...point}));
-        if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;}
+        if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;if(Array.isArray(selectedObject.collision.shapes)&&selectedObject.collision.shapes.length)selectedObject.collision.shapes[0].points=points.map(point=>({...point}));}
       } else if (editorGesture.kind === 'puzzle-exclusion' && editorGesture.exclusionMarker) {
         const point=groundPointFromClient(e.clientX,e.clientY);
         if(point){
