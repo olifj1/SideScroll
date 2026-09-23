@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.29: counterweight overlap now matches the visibly carried log and the blue zone is wide enough for a forgiving >50% placement.
+  // SideScroll v1.0.30: counterweight logs keep stack support while remaining non-blocking to the player.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -2272,7 +2272,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (counterweightZoneOverlapFraction(plank,obj) <= threshold + 0.0001) return false;
 
     const top = collisionTopHeightAtX(plank,obj.x);
-    if (!Number.isFinite(top) || Math.abs(obj.y - top) > 0.22) return false;
+    const directlyOnPlank = Number.isFinite(top) && Math.abs(obj.y - top) <= 0.22;
+    const supportedByBoundLog = boundCounterweightLogs(plank).some(other => {
+      if (other === obj) return false;
+      const otherX = objectXNear(other,obj.x);
+      if (Math.abs(otherX - obj.x) > STACK_COLUMN_ALIGN_TOLERANCE + 0.08) return false;
+      return Math.abs((other.y + STACK_ITEM_HEIGHT) - obj.y) <= 0.18;
+    });
+    if (!directlyOnPlank && !supportedByBoundLog) return false;
 
     const pivot = counterweightPivotBaseWorld(plank);
     const angle = counterweightAngleFor(plank);
@@ -7825,11 +7832,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function isGameplayCrate(obj, includeCarried = false) {
-    // Kept as the internal stacking helper name for compatibility with the
-    // existing movement code. Most physics calls intentionally ignore carried
-    // props, but placement intent must still be able to identify the object in
-    // the character's hands as stackable.
-    return !!obj && !obj.deleted && !obj.counterweightBoundTo && (includeCarried || !obj.carried) && obj.category === 'gameplay'
+    // "Gameplay crate" is the stacking semantic, not the player-collision
+    // semantic. Counterweight logs remain stackable even after they bind to the
+    // plank; collisionObjects()/isSupportSurfaceObject() separately keep those
+    // bound logs non-blocking and non-climbable for the player.
+    return !!obj && !obj.deleted && (includeCarried || !obj.carried) && obj.category === 'gameplay'
       && (objectHasBehaviour(obj, 'stackable') || obj.gameplayType === 'crate');
   }
 
@@ -8818,31 +8825,57 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (overlap <= 0.06) continue;
 
       if (overlap > bestOverlap) {
-        const topY = collisionTopHeightAtX(plank, x);
+        const threshold = Number(counterweightMechanism(plank)?.minimumOverlap) || 0.50;
+
+        // If this plank already has counterweights, look for the nearest bound
+        // stack column close to the visibly carried log. That preserves the
+        // existing free-placement feel for the first log, while subsequent logs
+        // can naturally stack on the pile.
+        let stack = null;
+        let stackDistance = Infinity;
+        const seenAnchors = new Set();
+        for (const member of boundCounterweightLogs(plank)) {
+          const anchor = stackBottomFor(member,x);
+          if (!anchor || anchor.counterweightBoundTo?.plankId !== plank.id) continue;
+          const column = stackColumnFor(anchor,x);
+          if (!column?.members?.length) continue;
+          if (!column.members.every(item => item.counterweightBoundTo?.plankId === plank.id)) continue;
+          const key = `${anchor.id || anchor.assetName}:${column.x.toFixed(3)}`;
+          if (seenAnchors.has(key)) continue;
+          seenAnchors.add(key);
+          const d = Math.abs(column.x - x);
+          if (d <= Math.max(0.46, STACK_COLUMN_ALIGN_TOLERANCE + 0.22) && d < stackDistance) {
+            stack = column;
+            stackDistance = d;
+          }
+        }
+
+        const targetX = stack ? stack.x : x;
+        const targetOverlap = counterweightZoneOverlapFraction(plank,carriedObject,targetX,z);
+        const accepted = targetOverlap > threshold + 0.0001;
+        const topY = stack ? stack.topY : collisionTopHeightAtX(plank,targetX);
         if (!Number.isFinite(topY)) continue;
 
-        const temp = { ...carriedObject, x, z, y:topY, carried:false };
+        const temp = { ...carriedObject, x:targetX, z, y:topY, carried:false };
         if (temp.collision && isGameplayCrate(temp)) {
           temp.collision = { ...temp.collision, height:STACK_ITEM_HEIGHT };
         }
 
-        // The plank is the intended support, not an obstacle. Existing bound
-        // counterweights already have collision disabled, so ordinary collision
-        // checks still protect against unrelated props around the zone.
-        const ignored = new Set([plank]);
-        const threshold = Number(counterweightMechanism(plank)?.minimumOverlap) || 0.50;
-        const accepted = overlap > threshold + 0.0001;
+        // The plank is intended support, and bound counterweight members are
+        // object-stack supports rather than player obstacles. Ignore this stack
+        // for the overlap check so the carried log can occupy the next layer.
+        const ignored = new Set([plank, ...(stack?.members || [])]);
         const target = {
-          x, z, y:topY,
-          stack:null,
+          x:targetX, z, y:topY,
+          stack,
           socket:null,
           counterweightPlank:plank,
-          counterweightOverlap:overlap,
+          counterweightOverlap:targetOverlap,
           counterweightAccepted:accepted
         };
         target.valid = accepted && dropTargetIsClear(temp,target,ignored);
         best = target;
-        bestOverlap = overlap;
+        bestOverlap = Math.max(overlap,targetOverlap);
       }
     }
 
@@ -9041,8 +9074,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         hintEl.classList.remove('hidden');
         return;
       }
-      hintEl.textContent = 'Placing counterweight…';
+      hintEl.textContent = target.stack ? 'Stacking counterweight…' : 'Placing counterweight…';
       hintEl.classList.remove('hidden');
+      if (target.stack) {
+        const facing = character.lastFacing >= 0 ? 1 : -1;
+        const forwardGap = (target.x - rootX) * facing;
+        if (forwardGap > STACK_ASSIST_ROOT_GAP + 0.05 && startAutoDropStackAssist(target)) return;
+      }
       beginDropAtTarget(target);
       return;
     }
