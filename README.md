@@ -1,5 +1,6 @@
-# SideScroll v1.0.34
+# SideScroll v1.0.35
 
-- Recentres the separate handcart wheel texture so the axle is exactly at the texture centre and wheel rotation stays fixed to the cart.
-- Asset Lab collision can now contain multiple shapes. Use **+ Add Box** to build a compound collider, select/tap a shape to edit it, and delete individual boxes.
-- Runtime collision, walkable support and collision debug rendering now understand compound collision shapes while preserving older single-shape assets.
+- Adds the broken handcart repair loop pieces: **broken cart**, **loose wheel**, **axle pin**, and a **ready wheel** state after combining.
+- Adds contextual action prompts for the repair flow: **Inspect**, **Pick Up**, **Combine**, and **Use**.
+- Using the repaired wheel on the broken cart now swaps it straight to the fixed pushable cart.
+- Adds in-scene collision multi-box controls in the main editor: **Shape**, **Add Box**, and **Del Box** while collision edit mode is active.

@@ -227,6 +227,9 @@
   const groundLineCloseBtn = document.getElementById('sidescroll-ground-line-close');
   const editorGameLayerBtn = document.getElementById('sidescroll-editor-game-layer');
   const editorCollisionBtn = document.getElementById('sidescroll-editor-collision');
+  const editorCollisionShapeBtn = document.getElementById('sidescroll-editor-collision-shape');
+  const editorCollisionAddShapeBtn = document.getElementById('sidescroll-editor-collision-add-shape');
+  const editorCollisionRemoveShapeBtn = document.getElementById('sidescroll-editor-collision-remove-shape');
   const editorCollisionRemoveBtn = document.getElementById('sidescroll-editor-collision-remove');
   const editorCollisionSaveAssetBtn = document.getElementById('sidescroll-editor-collision-save-asset');
   const editorCollisionUseAssetBtn = document.getElementById('sidescroll-editor-collision-use-asset');
@@ -1295,6 +1298,36 @@
     ctx.arc(w * 0.5, h * 0.5, w * 0.485, 0, Math.PI * 2);
     ctx.fill();
   }, 256, 256, false);
+  assetAspect['handcart-broken'] = 620 / 255;
+  textures['handcart-broken'] = textures.handcart;
+  assetAspect['cart-wheel-loose'] = 1;
+  textures['cart-wheel-loose'] = textures['handcart-wheel'];
+  assetAspect['cart-wheel-ready'] = 1;
+  textures['cart-wheel-ready'] = textures['handcart-wheel'];
+  assetAspect['axle-pin'] = 1;
+  textures['axle-pin'] = createTexture((ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.translate(w * 0.5, h * 0.5);
+    ctx.rotate(-0.32);
+    ctx.fillStyle = 'rgba(225,196,121,.18)';
+    ctx.beginPath();
+    ctx.arc(0, 0, w * 0.34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#b7a36f';
+    ctx.fillRect(-w * 0.28, -h * 0.05, w * 0.48, h * 0.10);
+    ctx.fillStyle = '#d8c48f';
+    ctx.fillRect(-w * 0.28, -h * 0.02, w * 0.44, h * 0.04);
+    ctx.fillStyle = '#8f7a4b';
+    ctx.fillRect(w * 0.12, -h * 0.10, w * 0.08, h * 0.20);
+    ctx.fillStyle = '#d9c593';
+    ctx.beginPath();
+    ctx.arc(-w * 0.28, 0, w * 0.085, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7f6b3e';
+    ctx.beginPath();
+    ctx.arc(-w * 0.28, 0, w * 0.048, 0, Math.PI * 2);
+    ctx.fill();
+  }, 256, 256, false);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -2084,13 +2117,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'bridge-right': { solid:true, supportSurface:true, socketHost:true },
     'counterweight-plank': { solid:true, carryable:true, placeable:true, supportSurface:true, socketPiece:true },
     'handcart': { solid:true, supportSurface:true, pushable:true },
+    'handcart-broken': { solid:true, supportSurface:true },
+    'cart-wheel-loose': { solid:true, carryable:true, placeable:true },
+    'cart-wheel-ready': { solid:true, carryable:true, placeable:true },
     'tree-stump': {},
     'broken-branch': {},
     'stone-wall': { socketHost:true },
     'stone-piece-a': { carryable:true, placeable:true, socketPiece:true },
     'stone-piece-b': { carryable:true, placeable:true, socketPiece:true },
     'stone-piece-c': { carryable:true, placeable:true, socketPiece:true },
-    'forest-key': {}
+    'forest-key': {},
+    'axle-pin': {}
   };
   // Placement is an editor concern, separate from gameplay behaviour. Assets
   // such as bridge halves are easier to author when their height is held in
@@ -2483,6 +2520,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ]}]
     };
   }
+  if (!assetCollisionDefaults['handcart-broken']) {
+    assetCollisionDefaults['handcart-broken'] = JSON.parse(JSON.stringify(assetCollisionDefaults.handcart));
+  }
+  if (!assetCollisionDefaults['cart-wheel-loose']) {
+    assetCollisionDefaults['cart-wheel-loose'] = {
+      halfWidthRatio:0.30,
+      heightRatio:0.62,
+      fixedHeight:null,
+      depthRatio:0.20,
+      points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],
+      shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]
+    };
+  }
+  if (!assetCollisionDefaults['cart-wheel-ready']) {
+    assetCollisionDefaults['cart-wheel-ready'] = JSON.parse(JSON.stringify(assetCollisionDefaults['cart-wheel-loose']));
+  }
 
   function saveAssetCollisionDefaults() {
     try { localStorage.setItem(ASSET_COLLISION_STORAGE_KEY, JSON.stringify(assetCollisionDefaults)); } catch (_) {}
@@ -2633,6 +2686,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function normalisedCollisionPoints(collision) {
     return normalisedCollisionShapes(collision)[0];
+  }
+
+  function collisionShapeCount(collision) {
+    return normalisedCollisionShapes(collision).length;
+  }
+
+  function selectedCollisionShapeIndex(collision) {
+    return Rig.clamp(selectedCollisionShape, 0, Math.max(0, collisionShapeCount(collision) - 1));
+  }
+
+  function selectedCollisionShapePoints(collision) {
+    return normalisedCollisionShapes(collision)[selectedCollisionShapeIndex(collision)] || defaultCollisionPoints();
+  }
+
+  function writeSelectedCollisionShape(collision, points) {
+    if (!collision) return;
+    const shapes = normalisedCollisionShapes(collision).map(shape => ({ points:shape.map(point => ({ ...point })) }));
+    const index = selectedCollisionShapeIndex(collision);
+    shapes[index] = { points:points.map(point => ({ ...point })) };
+    collision.shapes = shapes;
+    collision.points = shapes[0].points.map(point => ({ ...point }));
   }
 
   function behaviourNeedsCollision(behaviour) {
@@ -2965,11 +3039,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       label:'Forest Key',
       asset:'forest-key',
       description:'A puzzle reward. Item use will be added later.'
+    },
+    'axle-pin': {
+      id:'axle-pin',
+      label:'Axle Pin',
+      asset:'axle-pin',
+      description:'A sturdy pin that looks like it belongs to a wheel.'
     }
   };
   const COLLECTIBLE_SETUP_STORAGE_KEY = 'sidescroll.collectibles.setup.v1';
   const COLLECTIBLE_DEFAULTS = {
-    'forest-key': { label:'Forest Key', scale:1, spin:true }
+    'forest-key': { label:'Forest Key', scale:1, spin:true },
+    'axle-pin': { label:'Axle Pin', scale:1, spin:false }
   };
   let collectibleSetup = (() => {
     try {
@@ -3515,6 +3596,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function inventoryTotalCount() {
     return Object.values(inventoryState.items || {}).reduce((sum, item) => sum + Math.max(0, Number(item?.count) || 0), 0);
+  }
+
+  function inventoryItemCount(itemId) {
+    return Math.max(0, Number(inventoryState.items?.[itemId]?.count) || 0);
   }
 
   function saveInventory() {
@@ -4855,6 +4940,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let selectionCycleInfo = null;
   let collisionEditMode = false;
   let collisionHandleIndex = -1;
+  let selectedCollisionShape = 0;
   let groundLineEditMode = false;
   let socketPlacementPiece = null;
   let currentViewMatrix = mat4Identity();
@@ -4877,12 +4963,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
       { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
       { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
+      { name:'handcart-broken', label:'BROKEN HANDCART', image:'handcart-body.png', category:'gameplay', gameplayType:'prop', thumb:'▣', defaultHeight:1.75, defaultGroundLine:0.064,
+        collision:{halfWidth:1.72,height:1.26,depth:0.85,platform:true,points:[
+          {x:-1.00,y:0.00},{x:-1.00,y:0.17},{x:-0.80,y:0.17},{x:-0.80,y:0.34},
+          {x:-0.63,y:0.34},{x:-0.63,y:1.00},{x:0.63,y:1.00},{x:0.63,y:0.34},
+          {x:0.80,y:0.34},{x:0.80,y:0.17},{x:1.00,y:0.17},{x:1.00,y:0.00}
+        ]} },
       { name:'handcart', label:'WOODEN HANDCART · PUSHABLE', image:'handcart-body.png', category:'gameplay', gameplayType:'pushable', thumb:'▣', defaultHeight:1.75, defaultGroundLine:0.064,
         collision:{halfWidth:1.72,height:1.26,depth:0.85,platform:true,points:[
           {x:-1.00,y:0.00},{x:-1.00,y:0.17},{x:-0.80,y:0.17},{x:-0.80,y:0.34},
           {x:-0.63,y:0.34},{x:-0.63,y:1.00},{x:0.63,y:1.00},{x:0.63,y:0.34},
           {x:0.80,y:0.34},{x:0.80,y:0.17},{x:1.00,y:0.17},{x:1.00,y:0.00}
-        ]} }
+        ]} },
+      { name:'cart-wheel-loose', label:'LOOSE CART WHEEL', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.06,
+        collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
+      { name:'cart-wheel-ready', label:'CART WHEEL · READY', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.06,
+        collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
+      { name:'axle-pin', label:'AXLE PIN', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.54 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -6406,6 +6503,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       editorCollisionBtn.hidden = !has || socketFocus;
       editorCollisionBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
     }
+    if (editorCollisionShapeBtn) {
+      editorCollisionShapeBtn.hidden = !has || !selectedObject?.collision || !collisionEditMode || socketFocus;
+      editorCollisionShapeBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
+    }
+    if (editorCollisionAddShapeBtn) editorCollisionAddShapeBtn.hidden = !has || !selectedObject?.collision || !collisionEditMode || socketFocus;
+    if (editorCollisionRemoveShapeBtn) editorCollisionRemoveShapeBtn.hidden = !has || !selectedObject?.collision || !collisionEditMode || socketFocus;
     if (editorCollisionRemoveBtn) editorCollisionRemoveBtn.hidden = !has || !selectedObject?.collision || socketFocus;
     if (editorCollisionSaveAssetBtn) editorCollisionSaveAssetBtn.hidden = !has || !selectedObject?.collision || socketFocus;
     if (editorCollisionUseAssetBtn) editorCollisionUseAssetBtn.hidden = !has || !selectedObject?.collisionOverride || socketFocus;
@@ -6418,6 +6521,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     if (editorSocketClearBtn) editorSocketClearBtn.hidden = !isSocketPiece || assetManagedSocket || !hasAuthoredSocket || collisionFocus || socketFocus;
     if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus || socketFocus;
+    updateCollisionShapeControls();
     syncGroundLineEditor();
     syncTransformEditor();
   }
@@ -6430,6 +6534,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!options.keepPlacement) addAssetType = null;
     collisionEditMode = false;
     collisionHandleIndex = -1;
+    selectedCollisionShape = 0;
     updatePlacementModeUi();
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
@@ -6923,11 +7028,70 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectedObject.collisionOverride = true;
     collisionEditMode = false;
     collisionHandleIndex = -1;
+    selectedCollisionShape = 0;
     recordObjectEdit(selectedObject);
     if (selectedObject.category === 'gameplay') settleGameplayCrates();
     updateEditorButtons();
     updatePuzzleObjectList();
     hintEl.textContent = 'Collision removed';
+    hintEl.classList.remove('hidden');
+  }
+
+  function updateCollisionShapeControls() {
+    const collision = selectedObject?.collision || null;
+    const count = collision ? collisionShapeCount(collision) : 0;
+    selectedCollisionShape = Rig.clamp(selectedCollisionShape, 0, Math.max(0, count - 1));
+    if (editorCollisionShapeBtn) {
+      editorCollisionShapeBtn.hidden = !selectedObject || !collision || !collisionEditMode || !!socketPlacementPiece;
+      const label = editorCollisionShapeBtn.querySelector('small');
+      if (label) label.textContent = `SHAPE ${selectedCollisionShape + 1}`;
+    }
+    if (editorCollisionAddShapeBtn) editorCollisionAddShapeBtn.hidden = !selectedObject || !collision || !collisionEditMode || !!socketPlacementPiece;
+    if (editorCollisionRemoveShapeBtn) {
+      editorCollisionRemoveShapeBtn.hidden = !selectedObject || !collision || !collisionEditMode || !!socketPlacementPiece;
+      editorCollisionRemoveShapeBtn.disabled = count <= 1;
+    }
+  }
+
+  function cycleSelectedCollisionShape() {
+    if (!selectedObject?.collision) return;
+    const count = Math.max(1, collisionShapeCount(selectedObject.collision));
+    selectedCollisionShape = (selectedCollisionShape + 1) % count;
+    collisionHandleIndex = -1;
+    updateCollisionShapeControls();
+    hintEl.textContent = `Collision shape ${selectedCollisionShape + 1} of ${count}`;
+    hintEl.classList.remove('hidden');
+  }
+
+  function addCollisionShape() {
+    if (!selectedObject?.collision) return;
+    const points = defaultCollisionPoints().map(point => ({ ...point }));
+    const shapes = normalisedCollisionShapes(selectedObject.collision).map(shape => ({ points:shape.map(point => ({ ...point })) }));
+    shapes.push({ points });
+    selectedObject.collision.shapes = shapes;
+    selectedObject.collision.points = shapes[0].points.map(point => ({ ...point }));
+    selectedObject.collisionOverride = true;
+    selectedCollisionShape = shapes.length - 1;
+    collisionHandleIndex = -1;
+    recordObjectEdit(selectedObject);
+    updateCollisionShapeControls();
+    hintEl.textContent = `Collision box ${selectedCollisionShape + 1} added`;
+    hintEl.classList.remove('hidden');
+  }
+
+  function removeCollisionShape() {
+    if (!selectedObject?.collision) return;
+    const shapes = normalisedCollisionShapes(selectedObject.collision).map(shape => ({ points:shape.map(point => ({ ...point })) }));
+    if (shapes.length <= 1) return;
+    shapes.splice(selectedCollisionShapeIndex(selectedObject.collision), 1);
+    selectedObject.collision.shapes = shapes;
+    selectedObject.collision.points = shapes[0].points.map(point => ({ ...point }));
+    selectedObject.collisionOverride = true;
+    selectedCollisionShape = Rig.clamp(selectedCollisionShape, 0, Math.max(0, shapes.length - 1));
+    collisionHandleIndex = -1;
+    recordObjectEdit(selectedObject);
+    updateCollisionShapeControls();
+    hintEl.textContent = `Collision box removed · ${shapes.length} remaining`;
     hintEl.classList.remove('hidden');
   }
 
@@ -6948,13 +7112,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         shapes: [{ points:defaultCollisionPoints() }],
         behaviourGenerated: false
       };
+      selectedCollisionShape = 0;
       collisionEditMode = true;
       hintEl.textContent = 'Collision added · drag the orange corner handles to fit the shape';
       hintEl.classList.remove('hidden');
     } else {
       selectedObject.collisionOverride = true;
-      selectedObject.collision.points = normalisedCollisionPoints(selectedObject.collision).map(point => ({ ...point }));
-      if(Array.isArray(selectedObject.collision.shapes)&&selectedObject.collision.shapes.length) selectedObject.collision.shapes[0].points=selectedObject.collision.points.map(point=>({...point}));
+      selectedCollisionShape = selectedCollisionShapeIndex(selectedObject.collision);
+      writeSelectedCollisionShape(selectedObject.collision, selectedCollisionShapePoints(selectedObject.collision).map(point => ({ ...point })));
       collisionEditMode = !collisionEditMode;
       hintEl.textContent = collisionEditMode
         ? 'Collision edit mode · drag the orange corner handles'
@@ -6963,6 +7128,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     recordObjectEdit(selectedObject);
     updateEditorButtons();
+    updateCollisionShapeControls();
   }
 
   function toggleSelectedGameplayLayer() {
@@ -7961,7 +8127,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!bounds || !obj?.collision) return [];
     const width = Math.max(1, bounds.right - bounds.left);
     const height = Math.max(1, bounds.bottom - bounds.top);
-    return normalisedCollisionPoints(obj.collision).map((point, index) => ({
+    return selectedCollisionShapePoints(obj.collision).map((point, index) => ({
       index,
       x: bounds.left + ((point.x + 1) * 0.5) * width,
       y: bounds.bottom - point.y * height
@@ -7995,6 +8161,111 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // bound logs non-blocking and non-climbable for the player.
     return !!obj && !obj.deleted && (includeCarried || !obj.carried) && obj.category === 'gameplay'
       && (objectHasBehaviour(obj, 'stackable') || obj.gameplayType === 'crate');
+  }
+
+  function isBrokenHandcart(obj) {
+    return !!obj && !obj.deleted && obj.assetName === 'handcart-broken';
+  }
+
+  function isLooseCartWheel(obj) {
+    return !!obj && !obj.deleted && obj.assetName === 'cart-wheel-loose';
+  }
+
+  function isReadyCartWheel(obj) {
+    return !!obj && !obj.deleted && obj.assetName === 'cart-wheel-ready';
+  }
+
+  function isAxlePinObject(obj) {
+    return !!obj && !obj.deleted && obj.assetName === 'axle-pin';
+  }
+
+  function nearestGameplayObject(predicate, range = ACTION_RANGE) {
+    const characterXNow = camera.x + character.screenOffsetX;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const obj of allSceneObjects()) {
+      if (!predicate(obj)) continue;
+      const depth = obj.collision?.depth ?? 0.9;
+      if (Math.abs((obj.z ?? pathZ) - pathZ) > Math.max(0.95, depth)) continue;
+      const ox = objectXNear(obj, characterXNow);
+      const distance = Math.abs(ox - characterXNow);
+      if (distance <= range && distance < bestDistance) {
+        best = obj;
+        bestDistance = distance;
+      }
+    }
+    return best ? { obj:best, distance:bestDistance } : null;
+  }
+
+  function nearestPuzzleContextAction() {
+    if (editMode || inventoryOpen || interactionState || jumping) return null;
+    const broken = nearestGameplayObject(isBrokenHandcart, 1.1);
+    if (carriedObject && isLooseCartWheel(carriedObject) && (inventoryItemCount('axle-pin') || 0) > 0) {
+      return { type:'combine-wheel', label:'COMBINE', obj:carriedObject };
+    }
+    if (carriedObject && isReadyCartWheel(carriedObject) && broken?.obj) {
+      return { type:'use-wheel', label:'USE', obj:broken.obj };
+    }
+    const axlePin = !carriedObject ? nearestGameplayObject(isAxlePinObject, 0.95) : null;
+    if (axlePin?.obj) {
+      return { type:'pickup-axle-pin', label:'PICK UP', obj:axlePin.obj };
+    }
+    if (broken?.obj) {
+      return { type:'inspect-broken-cart', label:'INSPECT', obj:broken.obj };
+    }
+    return null;
+  }
+
+  function performPuzzleContextAction(action) {
+    if (!action?.type) return false;
+    if (action.type === 'pickup-axle-pin' && action.obj) {
+      action.obj.deleted = true;
+      recordObjectEdit(action.obj);
+      addInventoryItem('axle-pin', 1, action.obj.puzzleInstanceId || action.obj.id || null);
+      hintEl.textContent = 'A wheel axle pin. That might fit the loose wheel.';
+      hintEl.classList.remove('hidden');
+      return true;
+    }
+    if (action.type === 'combine-wheel' && carriedObject && isLooseCartWheel(carriedObject)) {
+      if ((inventoryItemCount('axle-pin') || 0) <= 0) return false;
+      removeInventoryItem('axle-pin', 1);
+      carriedObject.assetName = 'cart-wheel-ready';
+      carriedObject.texture = textures['cart-wheel-ready'];
+      carriedObject.groundLine = assetGroundLineDefault('cart-wheel-ready');
+      carriedObject.collision = behaviourCollisionFor('cart-wheel-ready', carriedObject.sx, carriedObject.sy, carriedObject.collision);
+      recordObjectEdit(carriedObject);
+      hintEl.textContent = 'Maybe my axle pin will fit that. That should work now.';
+      hintEl.classList.remove('hidden');
+      return true;
+    }
+    if (action.type === 'use-wheel' && action.obj && carriedObject && isReadyCartWheel(carriedObject)) {
+      const cart = action.obj;
+      cart.assetName = 'handcart';
+      cart.texture = textures.handcart;
+      cart.gameplayType = 'pushable';
+      cart.groundLine = assetGroundLineDefault('handcart');
+      cart.sx = cart.sy * (assetAspect.handcart || (620 / 255));
+      cart.collision = behaviourCollisionFor('handcart', cart.sx, cart.sy, cart.collision);
+      cart.collisionOverride = false;
+      recordObjectEdit(cart);
+      carriedObject.deleted = true;
+      recordObjectEdit(carriedObject);
+      carriedObject = null;
+      interactionState = null;
+      settleGameplayCrates();
+      hintEl.textContent = 'This should fit now.';
+      hintEl.classList.remove('hidden');
+      return true;
+    }
+    if (action.type === 'inspect-broken-cart') {
+      const text = carriedObject && isLooseCartWheel(carriedObject)
+        ? 'This wheel looks right, but I need a way to attach it.'
+        : 'A broken cart. Maybe it would work with a new wheel.';
+      hintEl.textContent = text;
+      hintEl.classList.remove('hidden');
+      return true;
+    }
+    return false;
   }
 
   function isSupportSurfaceObject(obj) {
@@ -8467,7 +8738,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     gl.uniform2f(loc.uvOffset, extra?.uvOffset?.[0] ?? obj.uvOffset?.[0] ?? 0, extra?.uvOffset?.[1] ?? obj.uvOffset?.[1] ?? 0);
     gl.drawElements(gl.TRIANGLES, drawMesh.count, gl.UNSIGNED_SHORT, 0);
 
-    if (!extra?.force && obj.assetName === 'handcart') drawHandcartWheels(obj, view, drawX);
+    if (!extra?.force && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) drawHandcartWheels(obj, view, drawX);
   }
 
   function drawHandcartWheels(obj, view, drawX) {
@@ -8480,7 +8751,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const wheelSize = obj.sy * (185 / 255);
     const maskSize = obj.sy * (124 / 255);
     const wheelV = (255 - 162) / 255;
-    const wheelUs = [225 / 620, 400 / 620];
+    const wheelUs = obj.assetName === 'handcart-broken' ? [225 / 620] : [225 / 620, 400 / 620];
     for (const uRaw of wheelUs) {
       const u = obj.flip ? 1 - uRaw : uRaw;
       const centreX = drawX + (u - 0.5) * obj.sx;
@@ -8841,6 +9112,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (pushingObject) {
       actionLabel.textContent = 'LET GO';
       actionBtn.classList.add('ready');
+      return;
+    }
+    const contextAction = nearestPuzzleContextAction();
+    if (contextAction) {
+      actionLabel.textContent = contextAction.label;
+      actionBtn.classList.add(carriedObject ? 'carrying' : 'ready');
       return;
     }
     if (carriedObject) {
@@ -9477,6 +9754,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function performAction() {
     if (editMode || inventoryOpen || interactionState || autoDropStep) return;
     if (pushingObject) { stopPush(); return; }
+    const contextAction = nearestPuzzleContextAction();
+    if (contextAction && performPuzzleContextAction(contextAction)) return;
     if (carriedObject) { startDrop(); return; }
     const pushTarget = nearestActionPushable();
     if (pushTarget) { startPush(pushTarget); return; }
@@ -10274,6 +10553,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindTransformNumberInput(transformZInput, 'z');
   bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
   bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
+  bindEditorPress(editorCollisionShapeBtn, cycleSelectedCollisionShape);
+  bindEditorPress(editorCollisionAddShapeBtn, addCollisionShape);
+  bindEditorPress(editorCollisionRemoveShapeBtn, removeCollisionShape);
   bindEditorPress(editorCollisionRemoveBtn, removeSelectedCollision);
   bindEditorPress(editorCollisionSaveAssetBtn, saveSelectedCollisionAsAssetDefault);
   bindEditorPress(editorCollisionUseAssetBtn, useAssetCollisionForSelected);
@@ -10547,8 +10829,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const rect=canvas.getBoundingClientRect(); const lx=e.clientX-rect.left, ly=e.clientY-rect.top;
         const nx=Rig.clamp((((lx-bounds.left)/Math.max(1,bounds.right-bounds.left))*2)-1,-4.0,4.0);
         const ny=Rig.clamp((bounds.bottom-ly)/Math.max(1,bounds.bottom-bounds.top),-0.20,3.0);
-        const points=normalisedCollisionPoints(selectedObject.collision).map(point=>({...point}));
-        if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;selectedObject.collision.points=points;if(Array.isArray(selectedObject.collision.shapes)&&selectedObject.collision.shapes.length)selectedObject.collision.shapes[0].points=points.map(point=>({...point}));}
+        const points=selectedCollisionShapePoints(selectedObject.collision).map(point=>({...point}));
+        if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;writeSelectedCollisionShape(selectedObject.collision,points);}
       } else if (editorGesture.kind === 'puzzle-exclusion' && editorGesture.exclusionMarker) {
         const point=groundPointFromClient(e.clientX,e.clientY);
         if(point){
