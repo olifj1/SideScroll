@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.24: fixes Counterweight Plank availability in Puzzle Pieces by registering it in the puzzle asset pack.
+  // SideScroll v1.0.25: shorter counterweight plank, end-accessible pickup/pivot and no loose-plank walk collision.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1251,12 +1251,12 @@
     textures[key] = createImageTexture(`${key}.png?v=1.0.12`, key, null, size[0] / size[1]);
   });
 
-  assetAspect['counterweight-plank'] = 2100 / 220;
+  assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
     'counterweight-plank.png?v=1.0.24',
     'counterweight-plank',
     null,
-    2100 / 220
+    1050 / 220
   );
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -2027,7 +2027,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const SCENE_STORAGE_KEY = 'sidescroll.scene.v1';
   const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
   const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
-  const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v1';
+  const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v2';
   const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
     solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, socketHost:false, socketPiece:false
@@ -2078,8 +2078,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   const DEFAULT_COUNTERWEIGHT_MECHANISM = Object.freeze({
     type:'counterweightPlank',
-    pivotX:0.35,pivotY:0.50,
-    zoneStart:0.04,zoneEnd:0.29,zoneY:0.60,zoneDepth:1.20,
+    // The pivot is intentionally close to one end. This is both the bridge
+    // socket point and the pickup point, so a player can approach it from the
+    // end of a loose plank rather than needing to stand on the middle.
+    pivotX:0.23,pivotY:0.50,
+    // The counterweight zone lives entirely behind the pivot.
+    zoneStart:0.02,zoneEnd:0.19,zoneY:0.60,zoneDepth:1.20,
     minimumOverlap:0.50,
     logWeight:1.30,playerWeight:1.00,
     maxTipDeg:28,fallAngleDeg:17
@@ -2105,7 +2109,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function counterweightPivotBaseWorld(obj) {
     const mech = counterweightMechanism(obj);
     if (!mech) return null;
-    const u = mechanismVisualU(obj, Rig.clamp(Number(mech.pivotX) || 0.35, 0, 1));
+    const u = mechanismVisualU(obj, Rig.clamp(Number(mech.pivotX) || 0.23, 0, 1));
     return {
       x: obj.x + (u - 0.5) * obj.sx,
       y: obj.y + Rig.clamp(Number(mech.pivotY) || 0.5, 0, 1) * obj.sy,
@@ -2129,7 +2133,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function counterweightObjectOrigin(obj, angle = counterweightAngleFor(obj), aroundX = obj.x) {
     const mech = counterweightMechanism(obj);
     if (!mech || !angle) return { x:aroundX, y:obj.y };
-    const u = mechanismVisualU(obj, Rig.clamp(Number(mech.pivotX) || 0.35, 0, 1));
+    const u = mechanismVisualU(obj, Rig.clamp(Number(mech.pivotX) || 0.23, 0, 1));
     const localPivotX = (u - 0.5) * obj.sx;
     const localPivotY = Rig.clamp(Number(mech.pivotY) || 0.5, 0, 1) * obj.sy;
     const pivotX = aroundX + localPivotX;
@@ -2152,8 +2156,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function counterweightZoneRestBounds(obj) {
     const mech = counterweightMechanism(obj);
     if (!mech) return null;
-    let a = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneStart) || 0.04, 0, 1));
-    let b = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneEnd) || 0.29, 0, 1));
+    let a = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneStart) || 0.02, 0, 1));
+    let b = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneEnd) || 0.19, 0, 1));
     if (a > b) [a,b] = [b,a];
     return {
       minX: obj.x + (a - 0.5) * obj.sx,
@@ -4694,7 +4698,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
       { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
       { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
-      { name:'counterweight-plank', label:'COUNTERWEIGHT PLANK · PROTOTYPE', image:'counterweight-plank.png', category:'gameplay', gameplayType:'prop', thumb:'━━', defaultHeight:0.72, defaultGroundLine:0.36, collision:{halfWidth:3.32,height:0.26,depth:0.82,platform:true} }
+      { name:'counterweight-plank', label:'COUNTERWEIGHT PLANK · PROTOTYPE', image:'counterweight-plank.png', category:'gameplay', gameplayType:'prop', thumb:'━━', defaultHeight:0.72, defaultGroundLine:0.36, collision:{halfWidth:1.66,height:0.26,depth:0.82,platform:true} }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -7608,7 +7612,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const angle = counterweightAngleFor(obj);
     if (!angle) return points;
     const mech = counterweightMechanism(obj);
-    const u = mechanismVisualU(obj,Rig.clamp(Number(mech?.pivotX)||0.35,0,1));
+    const u = mechanismVisualU(obj,Rig.clamp(Number(mech?.pivotX)||0.23,0,1));
     const pivot = {
       x: aroundX + (u - 0.5) * obj.sx,
       y: obj.y + Rig.clamp(Number(mech?.pivotY)||0.5,0,1) * obj.sy
@@ -7737,7 +7741,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function collisionObjects() {
-    return allSceneObjects().filter(obj => !obj.deleted && !obj.carried && !obj.counterweightBoundTo && obj.collision);
+    return allSceneObjects().filter(obj => {
+      if (obj.deleted || obj.carried || obj.counterweightBoundTo || !obj.collision) return false;
+      // Keep a loose plank non-blocking so its end pickup point remains easy to
+      // reach, and so simply dropping it across a gap cannot bypass the puzzle.
+      if (isCounterweightPlank(obj) && !obj.socketedTo) return false;
+      return true;
+    });
   }
 
   function isCarryableObject(obj) {
@@ -7755,8 +7765,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function isSupportSurfaceObject(obj) {
-    return !!obj && !obj.deleted && !obj.carried && !obj.counterweightBoundTo && !!obj.collision
-      && (objectHasBehaviour(obj, 'supportSurface') || !!obj.collision.platform);
+    if (!obj || obj.deleted || obj.carried || obj.counterweightBoundTo || !obj.collision) return false;
+    // A loose counterweight plank is an interactable prop, not a bridge.
+    // It only becomes a walk/support surface after being attached to its pivot.
+    if (isCounterweightPlank(obj) && !obj.socketedTo) return false;
+    return objectHasBehaviour(obj, 'supportSurface') || !!obj.collision.platform;
   }
 
   function crateHalfWidth(obj) {
@@ -8235,7 +8248,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     if (obj && isCounterweightPlank(obj)) {
       const mech = counterweightMechanism(obj);
-      const u = mechanismVisualU(obj,Rig.clamp(Number(mech?.pivotX)||0.35,0,1));
+      const u = mechanismVisualU(obj,Rig.clamp(Number(mech?.pivotX)||0.23,0,1));
       const desiredPivotX = x;
       const desiredPivotY = y + sy * 0.52;
       x = desiredPivotX - (u - 0.5) * sx;

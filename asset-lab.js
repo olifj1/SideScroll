@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.24';
+  const VERSION = '1.0.25';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
-  const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v1';
+  const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v2';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
   const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
@@ -87,10 +87,10 @@
 
   const DEFAULT_COUNTERWEIGHT = Object.freeze({
     type:'counterweightPlank',
-    pivotX:0.35,
+    pivotX:0.23,
     pivotY:0.50,
-    zoneStart:0.04,
-    zoneEnd:0.29,
+    zoneStart:0.02,
+    zoneEnd:0.19,
     zoneY:0.60,
     zoneDepth:1.20,
     minimumOverlap:0.50,
