@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.28: faster counterweight tipping plus direct free-log placement into the blue counterweight zone.
+  // SideScroll v1.0.29: counterweight overlap now matches the visibly carried log and the blue zone is wide enough for a forgiving >50% placement.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -2027,7 +2027,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const SCENE_STORAGE_KEY = 'sidescroll.scene.v1';
   const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
   const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
-  const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v2';
+  const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v3';
   const ASSET_SOCKET_STORAGE_KEY = 'sidescroll.asset-sockets.v1';
   const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
@@ -2129,7 +2129,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // end of a loose plank rather than needing to stand on the middle.
     pivotX:0.23,pivotY:0.50,
     // The counterweight zone lives entirely behind the pivot.
-    zoneStart:0.02,zoneEnd:0.19,zoneY:0.60,zoneDepth:1.20,
+    zoneStart:0.00,zoneEnd:0.23,zoneY:0.60,zoneDepth:1.20,
     minimumOverlap:0.50,
     logWeight:1.30,playerWeight:1.00,
     maxTipDeg:32,fallAngleDeg:12
@@ -2202,8 +2202,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function counterweightZoneRestBounds(obj) {
     const mech = counterweightMechanism(obj);
     if (!mech) return null;
-    let a = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneStart) || 0.02, 0, 1));
-    let b = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneEnd) || 0.19, 0, 1));
+    let a = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneStart) || 0.00, 0, 1));
+    let b = mechanismVisualU(obj, Rig.clamp(Number(mech.zoneEnd) || 0.23, 0, 1));
     if (a > b) [a,b] = [b,a];
     return {
       minX: obj.x + (a - 0.5) * obj.sx,
@@ -2235,6 +2235,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const minZ = worldZ - halfD, maxZ = worldZ + halfD;
     const overlapX = Math.max(0, Math.min(maxX,zone.maxX) - Math.max(minX,zone.minX));
     const overlapZ = Math.max(0, Math.min(maxZ,zone.maxZ) - Math.max(minZ,zone.minZ));
+
+    // Path-locked puzzle logs cannot be meaningfully aimed in depth while being
+    // carried, and the player is shown a 1D blue line. For those logs, make the
+    // acceptance test the visible horizontal overlap. Free-depth objects still
+    // use the full 2D footprint.
+    if (item.gameplayLayerLocked !== false) {
+      return overlapX / Math.max(0.0001, maxX-minX);
+    }
     return (overlapX * overlapZ) / Math.max(0.0001, (maxX-minX) * (maxZ-minZ));
   }
 
@@ -8787,7 +8795,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function counterweightDropTargetNear(rootX, facing) {
     if (!carriedObject || !objectHasBehaviour(carriedObject,'stackable')) return null;
 
-    const x = rootX + facing * 0.92;
+    // Use the same horizontal centre as the carried-object collision / pickup
+    // cue. The previous 0.92m ground-drop point sat ~0.44m ahead of the log the
+    // player could actually see, so the overlap percentage could say 43% while
+    // the artwork appeared centred over the blue line.
+    const x = rootX + facing * CARRY_FORWARD;
     const z = carriedObject.gameplayLayerLocked === false ? carriedObject.z : pathZ;
     let best = null;
     let bestOverlap = 0;

@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.28';
+  const VERSION = '1.0.29';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
-  const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v2';
+  const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v3';
   const SOCKET_KEY = 'sidescroll.asset-sockets.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
@@ -103,8 +103,8 @@
     type:'counterweightPlank',
     pivotX:0.23,
     pivotY:0.50,
-    zoneStart:0.02,
-    zoneEnd:0.19,
+    zoneStart:0.00,
+    zoneEnd:0.23,
     zoneY:0.60,
     zoneDepth:1.20,
     minimumOverlap:0.50,
