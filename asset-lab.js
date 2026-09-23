@@ -1,11 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.25';
+  const VERSION = '1.0.26';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
   const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v2';
+  const SOCKET_KEY = 'sidescroll.asset-sockets.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
   const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
@@ -75,6 +76,18 @@
   const playerWeightValue = document.getElementById('assetlab-player-weight-value');
   const maxTipValue = document.getElementById('assetlab-max-tip-value');
   const fallTipValue = document.getElementById('assetlab-fall-tip-value');
+  const socketSection = document.getElementById('assetlab-socket-section');
+  const socketHeading = document.getElementById('assetlab-socket-heading');
+  const socketHostControls = document.getElementById('assetlab-socket-host-controls');
+  const socketPieceNote = document.getElementById('assetlab-socket-piece-note');
+  const socketPieceSelect = document.getElementById('assetlab-socket-piece');
+  const socketPlaceBtn = document.getElementById('assetlab-socket-place');
+  const socketDeleteBtn = document.getElementById('assetlab-socket-delete');
+  const socketXInput = document.getElementById('assetlab-socket-x');
+  const socketYInput = document.getElementById('assetlab-socket-y');
+  const socketXValue = document.getElementById('assetlab-socket-x-value');
+  const socketYValue = document.getElementById('assetlab-socket-y-value');
+  const socketNote = document.getElementById('assetlab-socket-note');
 
   const readStore = key => {
     try { const value = JSON.parse(localStorage.getItem(key) || '{}'); return value && typeof value === 'object' ? value : {}; }
@@ -84,6 +97,7 @@
   let collisionStore = readStore(COLLISION_KEY);
   let layoutStore = readStore(LAYOUT_KEY);
   let mechanismStore = readStore(MECHANISM_KEY);
+  let socketStore = readStore(SOCKET_KEY);
 
   const DEFAULT_COUNTERWEIGHT = Object.freeze({
     type:'counterweightPlank',
@@ -134,7 +148,8 @@
     panX:0,
     panY:0,
     viewScale:1,
-    render:null
+    render:null,
+    socketPlacementMode:false
   };
 
   const defaultPoints = () => [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}];
@@ -221,6 +236,167 @@
     writeStore(LAYOUT_KEY,layoutStore);
   }
 
+
+  function socketPieceAssets() {
+    return ASSETS.filter(asset => effectiveBehaviour(asset).socketPiece);
+  }
+
+  function assetSocketEntries(asset=state.asset) {
+    const list = socketStore[asset?.name];
+    return Array.isArray(list) ? list : [];
+  }
+
+  function selectedSocketPieceName() {
+    const options = socketPieceAssets();
+    const requested = socketPieceSelect?.value;
+    if (requested && options.some(asset => asset.name === requested)) return requested;
+    if (state.asset?.name === 'bridge-left' || state.asset?.name === 'bridge-right') {
+      const plank = options.find(asset => asset.name === 'counterweight-plank');
+      if (plank) return plank.name;
+    }
+    return options[0]?.name || '';
+  }
+
+  function assetSocketForPiece(hostAsset=state.asset, pieceAssetName=selectedSocketPieceName()) {
+    return assetSocketEntries(hostAsset).find(entry => entry?.pieceAsset === pieceAssetName && !entry.deleted) || null;
+  }
+
+  function managedSocketEntryForPiece(hostAsset=state.asset, pieceAssetName=selectedSocketPieceName()) {
+    return assetSocketEntries(hostAsset).find(entry => entry?.pieceAsset === pieceAssetName) || null;
+  }
+
+  function writeAssetSocket(hostAsset, pieceAssetName, socket) {
+    if (!hostAsset || !pieceAssetName) return;
+    const entries = assetSocketEntries(hostAsset).filter(entry => entry?.pieceAsset !== pieceAssetName);
+    entries.push(socket
+      ? {
+          id:`asset-socket-${hostAsset.name}-${pieceAssetName}`,
+          pieceAsset:pieceAssetName,
+          pieceObjectId:null,
+          u:clamp(Number(socket.u)||0,0,1),
+          v:clamp(Number(socket.v)||0,0,1)
+        }
+      : {
+          id:`asset-socket-${hostAsset.name}-${pieceAssetName}`,
+          pieceAsset:pieceAssetName,
+          pieceObjectId:null,
+          deleted:true
+        });
+    socketStore[hostAsset.name] = entries;
+    writeStore(SOCKET_KEY,socketStore);
+  }
+
+  function setSocketAtViewportPoint(p,r) {
+    const asset = state.asset;
+    if (!effectiveBehaviour(asset).socketHost) return false;
+    const ar = r?.assetRenders?.[asset.name];
+    if (!ar || !renderContains(ar,p)) return false;
+    const pieceName = selectedSocketPieceName();
+    if (!pieceName) return false;
+    const u = clamp((p.x-ar.drawX)/Math.max(1,ar.drawW),0,1);
+    const v = clamp((ar.drawY+ar.drawH-p.y)/Math.max(1,ar.drawH),0,1);
+    writeAssetSocket(asset,pieceName,{u,v});
+    state.socketPlacementMode=false;
+    syncSocketControls();
+    draw();
+    return true;
+  }
+
+  function populateSocketPieceSelect() {
+    if (!socketPieceSelect) return;
+    const prior = socketPieceSelect.value;
+    const pieces = socketPieceAssets();
+    socketPieceSelect.innerHTML = pieces.map(asset => `<option value="${asset.name}">${asset.label}</option>`).join('');
+    const preferred = pieces.some(asset => asset.name === prior)
+      ? prior
+      : ((state.asset?.name === 'bridge-left' || state.asset?.name === 'bridge-right') && pieces.some(asset => asset.name === 'counterweight-plank')
+          ? 'counterweight-plank'
+          : pieces[0]?.name);
+    if (preferred) socketPieceSelect.value = preferred;
+  }
+
+  function syncSocketControls() {
+    if (!socketSection) return;
+    const behaviour = effectiveBehaviour();
+    const isHost = !!behaviour.socketHost;
+    const isPiece = !!behaviour.socketPiece;
+    socketSection.hidden = !(isHost || isPiece);
+    if (socketSection.hidden) {
+      state.socketPlacementMode=false;
+      return;
+    }
+
+    socketHeading.textContent = isHost ? 'Asset socket links' : 'Socket Piece';
+    socketHostControls.hidden = !isHost;
+    socketPieceNote.hidden = isHost;
+
+    if (!isHost) {
+      state.socketPlacementMode=false;
+      return;
+    }
+
+    populateSocketPieceSelect();
+    const pieceName = selectedSocketPieceName();
+    const socket = assetSocketForPiece(state.asset,pieceName);
+    const managed = managedSocketEntryForPiece(state.asset,pieceName);
+
+    socketPlaceBtn.textContent = state.socketPlacementMode
+      ? 'Tap Artwork…'
+      : (socket ? 'Move Socket' : 'Add Socket');
+    socketPlaceBtn.classList.toggle('active',state.socketPlacementMode);
+    socketDeleteBtn.disabled = !socket && !managed;
+
+    socketXInput.disabled = !socket;
+    socketYInput.disabled = !socket;
+    socketXInput.value = String(Math.round((socket?.u ?? 0.5)*100));
+    socketYInput.value = String(Math.round((socket?.v ?? 0.5)*100));
+    socketXValue.textContent = `${Math.round((socket?.u ?? 0.5)*100)}%`;
+    socketYValue.textContent = `${Math.round((socket?.v ?? 0.5)*100)}%`;
+
+    if (state.socketPlacementMode) {
+      socketNote.textContent = `Tap directly on ${state.asset.label} to place the socket for ${assetByName(pieceName)?.label || pieceName}.`;
+    } else if (socket) {
+      socketNote.textContent = `Linked to ${assetByName(pieceName)?.label || pieceName}. This position is inherited by every placed ${state.asset.label} asset.`;
+    } else if (managed?.deleted) {
+      socketNote.textContent = `The asset-level socket for ${assetByName(pieceName)?.label || pieceName} is explicitly disabled. Press Add Socket to create a new one.`;
+    } else {
+      socketNote.textContent = `Choose a Socket Piece, press Add Socket, then tap the host artwork. The link belongs to the asset, not an individual puzzle instance.`;
+    }
+  }
+
+  function drawAssetSockets(r) {
+    const asset = state.asset;
+    if (!effectiveBehaviour(asset).socketHost) return;
+    const ar = r?.assetRenders?.[asset.name];
+    if (!ar) return;
+    const entries = assetSocketEntries(asset).filter(entry => entry && !entry.deleted);
+    if (!entries.length) return;
+
+    ctx.save();
+    ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+    for (const socket of entries) {
+      const x = ar.drawX + clamp(Number(socket.u)||0,0,1)*ar.drawW;
+      const y = ar.drawY + (1-clamp(Number(socket.v)||0,0,1))*ar.drawH;
+      const active = socket.pieceAsset === selectedSocketPieceName();
+      ctx.beginPath();
+      ctx.arc(x,y,active?10:8,0,Math.PI*2);
+      ctx.fillStyle=active?'rgba(121,239,133,.30)':'rgba(109,226,205,.20)';
+      ctx.fill();
+      ctx.strokeStyle=active?'#79ef85':'#6de2cd';
+      ctx.lineWidth=active?3:2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x-14,y);ctx.lineTo(x+14,y);ctx.moveTo(x,y-14);ctx.lineTo(x,y+14);ctx.stroke();
+      const label=assetByName(socket.pieceAsset)?.label || socket.pieceAsset;
+      const tw=ctx.measureText(label).width+10;
+      ctx.fillStyle='rgba(12,28,35,.86)';
+      ctx.fillRect(x+12,y-19,tw,17);
+      ctx.fillStyle=active?'#d8ffe0':'#c9fff5';
+      ctx.fillText(label,x+17,y-7);
+    }
+    ctx.restore();
+  }
+
   function displayAssets() {
     if (state.pairMode && isBridge(state.asset)) return BRIDGE_NAMES.map(assetByName).filter(Boolean);
     return [state.asset];
@@ -287,6 +463,7 @@
     renderPointEditor();
     renderBehaviours();
     syncMechanismControls();
+    syncSocketControls();
     updatePairUI();
     draw();
   }
@@ -375,8 +552,8 @@
   }
 
   function resetCurrent() {
-    delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name]; delete mechanismStore[state.asset.name];
-    writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore); writeStore(MECHANISM_KEY,mechanismStore);
+    delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name]; delete mechanismStore[state.asset.name]; delete socketStore[state.asset.name];
+    writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore); writeStore(MECHANISM_KEY,mechanismStore); writeStore(SOCKET_KEY,socketStore);
     state.selectedPoint=-1; state.selectedEdge=-1; syncControls(); buildList();
   }
 
@@ -625,6 +802,7 @@
     }
     drawReference(r);
     if (isCounterweightPlank(state.asset)) drawMechanismOverlay(r,state.asset);
+    drawAssetSockets(r);
     for(const asset of r.assets) drawCollision(r,asset,asset.name===state.asset.name);
 
     ctx.save(); ctx.fillStyle='rgba(238,243,241,.45)'; ctx.font='700 11px -apple-system,BlinkMacSystemFont,sans-serif'; const metres=Math.max(1,Math.floor(100/r.ppm)); const px=metres*r.ppm; const x=18,y=r.h-22; ctx.fillRect(x,y,px,2); ctx.fillText(`${metres} m`,x,y-7); ctx.restore();
@@ -658,6 +836,14 @@
 
   canvas.addEventListener('pointerdown',e=>{
     const r=state.render||computeRender(), p=pointerPos(e);
+    if (state.socketPlacementMode) {
+      if (setSocketAtViewportPoint(p,r)) {
+        stageHelpEl.textContent='Socket saved to the asset. Every placed copy of this host now inherits it.';
+      } else {
+        stageHelpEl.textContent='Tap directly on the selected Socket Host artwork.';
+      }
+      return;
+    }
     const handle=pickHandleAt(p,r);
     if(handle){
       if(handle.asset.name!==state.asset.name) selectAsset(handle.asset,{keepView:true});
@@ -742,6 +928,43 @@
     const a=state.selectedEdge,b=(a+1)%pts.length; pts[a].y=0; pts[b].y=0;
     saveWorldPoints(state.asset,pts); renderPointEditor(); buildList(); draw();
   });
+  socketPieceSelect?.addEventListener('change',()=>{
+    state.socketPlacementMode=false;
+    syncSocketControls();
+    draw();
+  });
+  socketPlaceBtn?.addEventListener('click',()=>{
+    if (!effectiveBehaviour().socketHost) return;
+    state.socketPlacementMode=!state.socketPlacementMode;
+    syncSocketControls();
+    stageHelpEl.textContent=state.socketPlacementMode
+      ? `Tap ${state.asset.label} where the ${assetByName(selectedSocketPieceName())?.label || 'piece'} should attach.`
+      : 'Socket placement cancelled.';
+    draw();
+  });
+  socketDeleteBtn?.addEventListener('click',()=>{
+    if (!effectiveBehaviour().socketHost) return;
+    const pieceName=selectedSocketPieceName();
+    if (!pieceName) return;
+    writeAssetSocket(state.asset,pieceName,null);
+    state.socketPlacementMode=false;
+    syncSocketControls();
+    draw();
+    stageHelpEl.textContent=`Asset socket removed for ${assetByName(pieceName)?.label || pieceName}.`;
+  });
+  const updateSocketNumeric=(axis,value)=>{
+    const pieceName=selectedSocketPieceName();
+    const socket=assetSocketForPiece(state.asset,pieceName);
+    if (!socket) return;
+    const patch={u:socket.u,v:socket.v};
+    patch[axis]=clamp(Number(value)/100,0,1);
+    writeAssetSocket(state.asset,pieceName,patch);
+    syncSocketControls();
+    draw();
+  };
+  socketXInput?.addEventListener('input',()=>updateSocketNumeric('u',socketXInput.value));
+  socketYInput?.addEventListener('input',()=>updateSocketNumeric('v',socketYInput.value));
+
   const mechanismBindings = [
     [pivotXInput, value => ({pivotX:clamp(Number(value)/100,0.05,0.95)})],
     [pivotYInput, value => ({pivotY:clamp(Number(value)/100,0,1)})],

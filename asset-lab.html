@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.25">
+  <link rel="stylesheet" href="style.css?v=1.0.26">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -87,6 +87,36 @@
         <p class="assetlab-note">Green = pickup/pivot point. Blue line = free-placement counterweight zone. A log counts when more than 50% of its footprint sits inside the zone.</p>
       </section>
 
+
+      <section class="assetlab-control-section" id="assetlab-socket-section" hidden>
+        <div class="assetlab-control-heading"><small>SOCKETS</small><strong id="assetlab-socket-heading">Asset socket link</strong></div>
+
+        <div id="assetlab-socket-host-controls">
+          <label class="assetlab-select-row">
+            <span><strong>Linked piece</strong><small>Which Socket Piece belongs here</small></span>
+            <select id="assetlab-socket-piece"></select>
+          </label>
+
+          <div class="assetlab-button-row">
+            <button type="button" id="assetlab-socket-place">Add Socket</button>
+            <button type="button" id="assetlab-socket-delete" class="assetlab-danger">Delete Socket</button>
+          </div>
+
+          <label class="assetlab-range-row">
+            <span><strong>Socket X</strong><small id="assetlab-socket-x-value">50%</small></span>
+            <input id="assetlab-socket-x" type="range" min="0" max="100" step="1" value="50">
+          </label>
+          <label class="assetlab-range-row">
+            <span><strong>Socket Y</strong><small id="assetlab-socket-y-value">50%</small></span>
+            <input id="assetlab-socket-y" type="range" min="0" max="100" step="1" value="50">
+          </label>
+
+          <p class="assetlab-note" id="assetlab-socket-note">Choose a Socket Piece, press Add Socket, then tap the host artwork. The link belongs to the asset, so every placed copy inherits it.</p>
+        </div>
+
+        <p class="assetlab-note" id="assetlab-socket-piece-note" hidden>This is a Socket Piece. Its socket position is authored on the host asset. Select the relevant Socket Host (for example Broken Bridge Left), choose this piece from Linked Piece, then place the socket there.</p>
+      </section>
+
       <section class="assetlab-control-section assetlab-behaviour-section">
         <div class="assetlab-control-heading"><small>BEHAVIOUR</small><strong>Gameplay properties</strong></div>
         <div id="assetlab-behaviours" class="assetlab-behaviours"></div>
@@ -99,8 +129,8 @@
     </aside>
   </main>
 
-  <script src="site-config.js?v=1.0.25"></script>
-  <script src="core.js?v=1.0.25"></script>
-  <script src="asset-lab.js?v=1.0.25"></script>
+  <script src="site-config.js?v=1.0.26"></script>
+  <script src="core.js?v=1.0.26"></script>
+  <script src="asset-lab.js?v=1.0.26"></script>
 </body>
 </html>

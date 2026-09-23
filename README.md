@@ -1,13 +1,16 @@
-# SideScroll v1.0.25
+# SideScroll v1.0.26
 
-Counterweight plank proportion / pickup refinement.
+Asset-level socket authoring.
 
-- The temporary plank is now approximately **half the previous length**.
-- The pickup/pivot point moved from 35% to **23% from the landward end**, making it reachable while approaching a loose plank from its end.
-- The counterweight zone moved with it and now sits entirely behind the pivot.
-- A **loose plank has no player collision or walk support**. This fixes two problems at once:
-  - the player no longer walks onto it before reaching the pickup point;
-  - simply dropping the plank across the river cannot create a free bridge.
-- The plank becomes a real Support Surface only after it is attached to an authored pivot socket.
-- Counterweight physics, >50% log-zone rule and rotating collision from v1.0.23 remain unchanged.
-- Mechanism settings use a new v2 storage key because the physical proportions changed; old long-plank pivot/zone coordinates are intentionally not reused.
+- Socket placement can now be done entirely in **Asset Lab**.
+- Select a **Socket Host** asset such as Broken Bridge Left or Broken Bridge Right.
+- A new **Sockets** panel lets you:
+  - choose the linked **Socket Piece**;
+  - Add / Move its socket by tapping directly on the host artwork;
+  - fine-tune Socket X and Socket Y numerically;
+  - Delete the socket.
+- Socket definitions are stored against the host asset and linked by piece asset name, so every placed copy inherits the same relationship.
+- Counterweight Plank sockets are now Asset Lab-managed only. The old in-game Set Socket / Clear Socket controls are hidden for that piece.
+- Old scene-authored Counterweight Plank sockets are ignored, so the accidental socket on the wrong bridge side from earlier builds no longer affects gameplay.
+- If an old plank still carries a stale `socketedTo` link, it is automatically detached when that link no longer exists in the Asset Lab definitions.
+- Legacy per-instance sockets remain supported for older puzzle systems such as the stone wall until those are migrated to Asset Lab.

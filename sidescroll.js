@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.25: shorter counterweight plank, end-accessible pickup/pivot and no loose-plank walk collision.
+  // SideScroll v1.0.26: asset-level socket authoring; counterweight plank sockets are managed in Asset Lab rather than per puzzle instance.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -2028,6 +2028,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
   const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
   const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v2';
+  const ASSET_SOCKET_STORAGE_KEY = 'sidescroll.asset-sockets.v1';
   const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
     solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, socketHost:false, socketPiece:false
@@ -2075,6 +2076,51 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       return parsed && typeof parsed === 'object' ? parsed : {};
     } catch (_) { return {}; }
   })();
+
+  let assetSocketDefaults = (() => {
+    try {
+      const raw = localStorage.getItem(ASSET_SOCKET_STORAGE_KEY);
+      const parsed = raw !== null ? JSON.parse(raw || '{}') : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  })();
+
+  function socketsForHost(host) {
+    if (!host) return [];
+    const legacy = Array.isArray(host.sockets) ? host.sockets : [];
+    const managed = Array.isArray(assetSocketDefaults?.[host.assetName]) ? assetSocketDefaults[host.assetName] : [];
+    const managedPieces = new Set(managed.map(entry => entry?.pieceAsset).filter(Boolean));
+
+    // Asset Lab entries override scene-authored sockets one linked piece at a time.
+    // Old counterweight-plank scene sockets are always suppressed so a mistaken
+    // in-game socket from earlier builds cannot keep affecting the bridge.
+    const result = legacy.filter(socket =>
+      socket?.pieceAsset !== 'counterweight-plank' &&
+      !managedPieces.has(socket?.pieceAsset)
+    );
+
+    for (const socket of managed) {
+      if (!socket || socket.deleted || !socket.pieceAsset) continue;
+      result.push({ ...socket });
+    }
+    return result;
+  }
+
+  function pieceUsesAssetSocket(assetName) {
+    if (assetName === 'counterweight-plank') return true;
+    return Object.values(assetSocketDefaults || {}).some(list =>
+      Array.isArray(list) && list.some(entry => entry?.pieceAsset === assetName)
+    );
+  }
+
+  function socketLinkIsValid(piece) {
+    if (!piece?.socketedTo) return true;
+    const host = allSceneObjects().find(obj => !obj.deleted && obj.id === piece.socketedTo.hostObjectId);
+    if (!host) return false;
+    return socketsForHost(host).some(socket =>
+      socket?.id === piece.socketedTo.socketId && socketMatchesPiece(socket,piece)
+    );
+  }
 
   const DEFAULT_COUNTERWEIGHT_MECHANISM = Object.freeze({
     type:'counterweightPlank',
@@ -2276,6 +2322,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     refreshCounterweightBindings();
     for (const plank of allSceneObjects()) {
       if (!isCounterweightPlank(plank) || plank.deleted || plank.carried) continue;
+      if (plank.socketedTo && !socketLinkIsValid(plank)) {
+        plank.socketedTo = null;
+        plank.counterweightAngle = 0;
+        plank.counterweightAngularVelocity = 0;
+      }
       plank.counterweightAngle ||= 0;
       plank.counterweightAngularVelocity ||= 0;
       const mech = counterweightMechanism(plank);
@@ -4026,7 +4077,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       } else if (rule.type === 'sockets') {
         const sockets = [];
         for (const host of socketHostsForInstance(instance)) {
-          for (const socket of host.sockets || []) sockets.push({ host, socket });
+          for (const socket of socketsForHost(host)) sockets.push({ host, socket });
         }
         done = sockets.length > 0 && sockets.every(({host,socket}) => instance.objects.some(obj => !obj.deleted && socketMatchesPiece(socket,obj)
           && obj.socketedTo?.hostObjectId === host.id && obj.socketedTo?.socketId === socket.id));
@@ -4732,7 +4783,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (assetSetupNameEl) assetSetupNameEl.textContent = info?.label || assetSetupName;
     if (assetSetupNoteEl) {
       assetSetupNoteEl.textContent = behaviour.socketHost || behaviour.socketPiece
-        ? 'Socket behaviours are active. Select a socket piece in the scene, then use Set Socket to place its matching target on a Socket Host.'
+        ? (behaviour.socketPiece && pieceUsesAssetSocket(assetSetupName)
+            ? 'This Socket Piece is linked at asset level. Open Asset Lab, select the Socket Host asset, choose this piece under Linked Piece, then place/move/delete the socket there.'
+            : 'Socket behaviour is active. Asset-level socket links can be authored in Asset Lab; legacy per-instance sockets remain available for older puzzle pieces.')
         : `These are defaults for every copy of this asset. Collision: ${assetCollisionDefaults[assetSetupName] ? 'CUSTOM ASSET DEFAULT' : 'BUILT-IN DEFAULT'}. Fit a placed copy, then use SAVE TO ASSET.`;
     }
     if (!assetBehaviorListEl) return;
@@ -5878,7 +5931,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function socketForPiece(instance, piece) {
     if (!instance || !piece) return null;
     for (const host of socketHostsForInstance(instance)) {
-      const socket = (host.sockets || []).find(item => socketMatchesPiece(item, piece));
+      const socket = socketsForHost(host).find(item => socketMatchesPiece(item, piece));
       if (socket) return { host, socket };
     }
     return null;
@@ -5940,6 +5993,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function startSocketPlacement() {
     if (!selectedObject || !objectHasBehaviour(selectedObject, 'socketPiece') || !selectedObject.puzzleInstanceId) return;
+    if (pieceUsesAssetSocket(selectedObject.assetName)) {
+      hintEl.textContent = 'This piece uses an asset-level socket. Open Asset Lab and place the socket on the Socket Host asset there.';
+      hintEl.classList.remove('hidden');
+      return;
+    }
     socketPlacementPiece = selectedObject;
     groundLineEditMode = false;
     transformEditMode = false;
@@ -5959,6 +6017,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function clearSelectedPieceSocket() {
     if (!selectedObject || !selectedObject.puzzleInstanceId) return;
+    if (pieceUsesAssetSocket(selectedObject.assetName)) {
+      hintEl.textContent = 'This socket is managed in Asset Lab. Delete or move it on the Socket Host asset there.';
+      hintEl.classList.remove('hidden');
+      return;
+    }
     const instance = activePuzzleInstances.get(selectedObject.puzzleInstanceId);
     if (!instance) return;
     if (clearSocketForPiece(instance, selectedObject)) {
@@ -6174,6 +6237,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const socketFocus = !!socketPlacementPiece;
     const isGameplay = has && selectedObject.category === 'gameplay';
     const isSocketPiece = !!(has && objectHasBehaviour(selectedObject, 'socketPiece') && selectedObject.puzzleInstanceId);
+    const assetManagedSocket = !!(isSocketPiece && pieceUsesAssetSocket(selectedObject.assetName));
     const socketInstance = isSocketPiece ? activePuzzleInstances.get(selectedObject.puzzleInstanceId) : null;
     const hasAuthoredSocket = !!(isSocketPiece && socketForPiece(socketInstance, selectedObject));
     const placing = placementModeActive();
@@ -6212,12 +6276,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editorCollisionUseAssetBtn) editorCollisionUseAssetBtn.hidden = !has || !selectedObject?.collisionOverride || socketFocus;
     if (quickNavBtn) quickNavBtn.hidden = !editMode;
     if (editorSocketBtn) {
-      editorSocketBtn.hidden = !isSocketPiece || collisionFocus;
+      editorSocketBtn.hidden = !isSocketPiece || collisionFocus || assetManagedSocket;
       editorSocketBtn.classList.toggle('active', socketPlacementPiece === selectedObject);
       const label = editorSocketBtn.querySelector('small');
       if (label) label.textContent = hasAuthoredSocket ? 'MOVE SOCKET' : 'SET SOCKET';
     }
-    if (editorSocketClearBtn) editorSocketClearBtn.hidden = !isSocketPiece || !hasAuthoredSocket || collisionFocus || socketFocus;
+    if (editorSocketClearBtn) editorSocketClearBtn.hidden = !isSocketPiece || assetManagedSocket || !hasAuthoredSocket || collisionFocus || socketFocus;
     if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus || socketFocus;
     syncGroundLineEditor();
     syncTransformEditor();
@@ -7300,7 +7364,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ctx.save();
     ctx.font = '900 9px -apple-system,BlinkMacSystemFont,sans-serif';
     for (const host of socketHostsForInstance(instance)) {
-      for (const socket of host.sockets || []) {
+      for (const socket of socketsForHost(host)) {
         const point = socketWorldPosition(host, socket);
         const screen = point ? projectWorldPoint(point.x, point.y, point.z) : null;
         if (!screen) continue;
@@ -8644,11 +8708,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     let best = null;
     let bestForward = Infinity;
     for (const host of allSceneObjects()) {
-      if (host.deleted || !objectHasBehaviour(host, 'socketHost') || !Array.isArray(host.sockets)) continue;
+      if (host.deleted || !objectHasBehaviour(host, 'socketHost')) continue;
+      const effectiveSockets = socketsForHost(host);
+      if (!effectiveSockets.length) continue;
       // Socket links are puzzle-local: a piece cannot accidentally snap into a
       // similarly named socket belonging to another streamed puzzle instance.
       if (carriedObject.puzzleInstanceId && host.puzzleInstanceId !== carriedObject.puzzleInstanceId) continue;
-      for (const socket of host.sockets) {
+      for (const socket of effectiveSockets) {
         if (!socketMatchesPiece(socket, carriedObject)) continue;
         if (socketOccupied(host, socket, carriedObject)) continue;
         const point = socketWorldPosition(host, socket);
@@ -8661,7 +8727,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           let targetY = point.y - carriedObject.sy * 0.5;
           const mech = counterweightMechanism(carriedObject);
           if (mech) {
-            const u = mechanismVisualU(carriedObject,Rig.clamp(Number(mech.pivotX)||0.35,0,1));
+            const u = mechanismVisualU(carriedObject,Rig.clamp(Number(mech.pivotX)||0.23,0,1));
             targetX = point.x - (u - 0.5) * carriedObject.sx;
             targetY = point.y - Rig.clamp(Number(mech.pivotY)||0.5,0,1) * carriedObject.sy;
           }
@@ -9642,6 +9708,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_COLLISION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_MECHANISM_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(ASSET_SOCKET_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(COLLECTIBLE_SETUP_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(TERRAIN_SECTION_STORAGE_KEY); } catch (_) {}
