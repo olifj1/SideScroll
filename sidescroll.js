@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.42: refreshed authored cart-repair art. The chassis is now
+  // SideScroll v1.0.43: refreshed authored cart-repair art. The chassis is now
   // wheel-free artwork, runtime wheels stay separate/rotating, and the axle pin
   // uses a large readable authored texture instead of the procedural placeholder.
 
@@ -1326,13 +1326,13 @@
     1050 / 220
   );
 
-  // v1.0.42 handcart art. The body/chassis intentionally contains no wheels;
+  // v1.0.43 handcart art. The body/chassis intentionally contains no wheels;
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.42', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.43', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.42', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.43', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1340,7 +1340,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.42', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.43', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -7211,11 +7211,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     } else {
       setDriveAxis(0);
       jumping = false;
+      jumpTime = 0;
       jumpVelocity = 0;
-      const support = editorSafeSupportAt(camera.x + character.screenOffsetX + colliderWorld().offsetX, Infinity, 0);
-      jumpOffset = support.offset;
-      standingOnObject = support.obj;
-      character.y = playSurfaceYAt(character.x) + jumpOffset;
+      jumpOffset = 0;
+      standingOnObject = null;
+      character.x = camera.x + character.screenOffsetX;
+      character.y = playSurfaceYAt(character.x);
       hintEl.classList.remove('hidden');
     }
     updateAssetPaletteState();
@@ -7725,8 +7726,58 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function puzzleCartPathHandleAt(clientX, clientY) {
     if (!editMode || editorScope !== 'puzzle' || !puzzleCartPathEditMode) return null;
     const instance=selectedPuzzleInstance(); if(!instance) return null;
-    const rect=canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;
-    return puzzleCartPathHandlePositions(instance).find(h=>Math.hypot(h.x-x,h.y-y)<=(h.kind==='move'?30:28))||null;
+    const rect=canvas.getBoundingClientRect();
+    const x=clientX-rect.left,y=clientY-rect.top;
+    const handles=puzzleCartPathHandlePositions(instance);
+
+    // v1.0.43: touch targets are deliberately much larger than the painted
+    // dots.  Small canvas handles were technically accurate but frustrating on
+    // a phone because the finger covers the target.  Labels count as handles
+    // too, and overlapping targets resolve to whichever centre is closest.
+    const candidates=[];
+    for(const h of handles){
+      const dist=Math.hypot(h.x-x,h.y-y);
+      const radius=h.kind==='move'?58:(h.kind==='start'||h.kind==='land'?54:50);
+      const halfLabel=h.kind==='move'?58:(h.kind==='start'||h.kind==='land'?48:54);
+      const inLabel=x>=h.x-halfLabel&&x<=h.x+halfLabel&&y>=h.y-48&&y<=h.y-8;
+      if(dist<=radius||inLabel){
+        const score=dist+(inLabel&&! (dist<=radius)?18:0);
+        candidates.push({h,score});
+      }
+    }
+    if(candidates.length){
+      candidates.sort((a,b)=>a.score-b.score);
+      return candidates[0].h;
+    }
+
+    // The spline itself is also a MOVE PATH grab area.  This gives a large,
+    // continuous target if the user misses the blue centre handle.
+    const path=puzzleCartPathWorld(instance.marker);
+    if(!path)return null;
+    let best=null;
+    let prevWorld=path.start;
+    let prevScreen=projectWorldPoint(prevWorld.x,prevWorld.y,prevWorld.z);
+    for(let i=1;i<=48;i++){
+      const t=i/48;
+      const world=cubicBezierPoint(path.start,path.c1,path.c2,path.land,t);
+      const screen=projectWorldPoint(world.x,world.y,world.z);
+      if(prevScreen&&screen){
+        const vx=screen.x-prevScreen.x,vy=screen.y-prevScreen.y;
+        const len2=vx*vx+vy*vy;
+        const u=len2>0?Rig.clamp(((x-prevScreen.x)*vx+(y-prevScreen.y)*vy)/len2,0,1):0;
+        const px=prevScreen.x+vx*u,py=prevScreen.y+vy*u;
+        const dist=Math.hypot(x-px,y-py);
+        if(!best||dist<best.dist){
+          best={dist,world:{
+            x:prevWorld.x+(world.x-prevWorld.x)*u,
+            y:prevWorld.y+(world.y-prevWorld.y)*u,
+            z:prevWorld.z+(world.z-prevWorld.z)*u
+          }};
+        }
+      }
+      prevWorld=world;prevScreen=screen;
+    }
+    return best&&best.dist<=34?{kind:'move',x,y,world:best.world,pathHit:true}:null;
   }
 
   function drawPuzzleCartPathGuide(ctx, instance) {
@@ -7751,8 +7802,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const style={start:['#ffd972','#5c4a1e','START'],c1:['#ffe9ac','#685b34','CURVE 1'],c2:['#ffe9ac','#685b34','CURVE 2'],land:['#a9efc4','#2e6043','LAND'],move:['#8fd7ff','#264d66','MOVE PATH']};
     for(const h of handles){
       const [fill,stroke,label]=style[h.kind];
-      ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='move'?11:(h.kind==='start'||h.kind==='land'?10:8),0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();
-      ctx.font='900 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+12;ctx.fillStyle='rgba(20,31,34,.88)';ctx.fillRect(h.x-tw*.5,h.y-31,tw,17);ctx.fillStyle=fill;ctx.fillText(label,h.x-tw*.5+6,h.y-19);
+      const dotRadius=h.kind==='move'?15:(h.kind==='start'||h.kind==='land'?14:12);
+      // Faint outer halo communicates the generous phone-sized grab area.
+      ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='move'?27:24,0,Math.PI*2);ctx.fillStyle=h.kind==='move'?'rgba(143,215,255,.12)':'rgba(255,233,172,.10)';ctx.fill();
+      ctx.beginPath();ctx.arc(h.x,h.y,dotRadius,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2.5;ctx.stroke();
+      ctx.font='900 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+16;ctx.fillStyle='rgba(20,31,34,.92)';ctx.fillRect(h.x-tw*.5,h.y-35,tw,20);ctx.fillStyle=fill;ctx.fillText(label,h.x-tw*.5+8,h.y-21);
     }
     if(land){
       const angle=(Number(path.finalRotationDeg)||0)*Math.PI/180;
@@ -9318,7 +9372,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0, bodyFlip = false) {
     if (!textures['handcart-wheel']) return;
-    // The v1.0.42 chassis is genuinely wheel-free. These authored wheel centres
+    // The v1.0.43 chassis is genuinely wheel-free. These authored wheel centres
     // line up with its two vertical supports and rotate around their true hubs.
     const wheelSize = obj.sy * (160 / 255);
     const wheelV = (255 - 164) / 255;
@@ -10496,7 +10550,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const capsule = colliderWorld();
     const colliderXAfterMove = characterXAfterMove + capsule.offsetX;
     const terrainYAfterMove = playSurfaceYAt(characterXAfterMove);
-    if (jumping) {
+    if (editMode) {
+      // v1.0.43: Edit mode is a free camera/workspace.  The character remains a
+      // visual scale reference but no longer participates in terrain, object or
+      // gap collision, so panning cannot strand the editor in a hole or behind
+      // a collider.  Returning to Play/Test re-acquires normal support below.
+      jumping = false;
+      jumpTime = 0;
+      jumpVelocity = 0;
+      jumpOffset = 0;
+      standingOnObject = null;
+      airborneWorldY = terrainYAfterMove;
+    } else if (jumping) {
       // Re-reference the same absolute airborne height to the terrain under the
       // new horizontal position. This is the key to stable jumps over gaps/slopes.
       jumpOffset = airborneWorldY - terrainYAfterMove;
@@ -10553,7 +10618,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // platform, but it must never finish a frame embedded in the platform side.
     // Resolve any such overlap even when the player has released the stick.
     const resolvedFeetWorldY = playSurfaceYAt(camera.x + character.screenOffsetX) + jumpOffset;
-    camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY);
+    if (!editMode) camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY);
 
     const cameraDelta = camera.x - previousCameraX;
     const isWalking = Math.abs(cameraDelta) > 0.0001;
@@ -11120,7 +11185,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     puzzleRespawnEditMode=false;puzzleRespawnHandle=null;puzzleExclusionEditMode=false;puzzleExclusionHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
     if(puzzleCartPathEditMode){
       const cfg=currentPuzzleCartPath(instance.marker);if(!cfg.enabled){cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);}
-      hintEl.textContent='Cart path · blue MOVE PATH repositions the whole route · individual points reshape it · green ghost shows the final cart pose';
+      hintEl.textContent='Cart path · drag a large handle/label to reshape it · drag the blue handle OR the spline itself to move the whole route';
     } else hintEl.textContent='Cart path setup finished';
     hintEl.classList.remove('hidden');updatePuzzlePanel();
   });
@@ -11349,7 +11414,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         editorGesture.cartPathPointerStart=pathPlanePointFromClient(e.clientX,e.clientY,cartPathHandleHit.world?.z ?? pathZ);
         puzzleCartPathHandle=cartPathHandleHit.kind;
         hintEl.textContent=cartPathHandleHit.kind==='move'
-          ? 'Drag MOVE PATH to reposition the whole cart route'
+          ? 'Drag MOVE PATH or the spline itself to reposition the whole cart route'
           : `Drag ${cartPathHandleHit.kind==='c1'?'CURVE 1':cartPathHandleHit.kind==='c2'?'CURVE 2':cartPathHandleHit.kind.toUpperCase()} to shape the cart route`;
         hintEl.classList.remove('hidden');
         return;
