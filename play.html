@@ -10,7 +10,7 @@
   <script>if(new URLSearchParams(location.search).get('mode')==='player')document.documentElement.classList.add('ss-player-launch');</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.49">
+  <link rel="stylesheet" href="style.css?v=1.0.51">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -407,6 +407,19 @@
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-delete" type="button"><span>×</span><small>DELETE</small></button>
         </div>
 
+        <div class="sidescroll-thought-editor" id="sidescroll-thought-editor" hidden aria-label="Thought trigger editor">
+          <div class="sidescroll-thought-head">
+            <span><small>PUZZLE NODE</small><strong>THOUGHT TRIGGER</strong></span>
+            <button id="sidescroll-thought-close" type="button" aria-label="Close thought editor">×</button>
+          </div>
+          <label class="sidescroll-thought-text-label">THOUGHT
+            <textarea id="sidescroll-thought-text" rows="3" maxlength="180" placeholder="Enter thought text…"></textarea>
+          </label>
+          <label class="sidescroll-thought-radius-label"><span>RADIUS <b id="sidescroll-thought-radius-value">1.40 m</b></span><input id="sidescroll-thought-radius" type="range" min="0.25" max="8" step="0.05" value="1.4"></label>
+          <button id="sidescroll-thought-once" type="button" aria-pressed="true">One shot · ON</button>
+          <p>Invisible in play. Moves with this puzzle and fires when the player enters the cyan radius.</p>
+        </div>
+
         <div class="sidescroll-transform-editor" id="sidescroll-transform-editor" hidden aria-label="Asset positioning editor">
           <div class="sidescroll-transform-head">
             <span><small>POSITION</small><strong id="sidescroll-transform-mode-label">GROUND</strong></span>
@@ -440,11 +453,11 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=1.0.49"></script>
-  <script src="core.js?v=1.0.49"></script>
-  <script src="walk-rig.js?v=1.0.49"></script>
-  <script src="puzzle-groups.js?v=1.0.49"></script>
-  <script src="baked-game-design.js?v=1.0.49"></script>
-  <script src="sidescroll.js?v=1.0.49"></script>
+  <script src="site-config.js?v=1.0.51"></script>
+  <script src="core.js?v=1.0.51"></script>
+  <script src="walk-rig.js?v=1.0.51"></script>
+  <script src="puzzle-groups.js?v=1.0.51"></script>
+  <script src="baked-game-design.js?v=1.0.51"></script>
+  <script src="sidescroll.js?v=1.0.51"></script>
 </body>
 </html>

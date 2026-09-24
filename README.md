@@ -1,9 +1,10 @@
-# SideScroll v1.0.49
+# SideScroll v1.0.51
 
-Player-entry polish and broader environmental thought guidance.
+## This release
 
-- Player launch now stays black while the initial WebGL textures finish decoding/uploading, then fades smoothly into the populated level.
-- Movement, jump and action input remain locked until the fade has fully completed.
-- Puzzle thought bubbles are moved to the top of the gameplay view so they no longer cover the interaction area.
-- Added one-time environmental thoughts for the first nearby moveable log and the fallen-tree obstacle.
-- Existing inspection-driven cart / wheel / axle guidance is unchanged.
+- Adds reusable puzzle-linked **Thought Trigger** nodes.
+- Thought Triggers are invisible during play, move with their puzzle, and can be placed/duplicated/deleted like other puzzle pieces.
+- Selecting a Thought Trigger opens a compact editor for thought text, activation radius, and one-shot/repeat behaviour.
+- Edit mode shows the trigger marker, its cyan activation radius, and a short text label.
+- Reset / Set Start / puzzle duplication and puzzle movement preserve Thought Trigger setup.
+- The original moveable-log and fallen-tree tutorial thoughts are now authored as Thought Trigger nodes instead of hard-coded gameplay checks.

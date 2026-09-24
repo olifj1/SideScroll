@@ -1,27 +1,28 @@
 window.SideScrollPuzzleConfig = {
-  version: 27,
+  version: 28,
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
-        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=1.0.49", aspect: 1.345895 },
-        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=1.0.49", aspect: 1.106195 },
-        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=1.0.49", aspect: 1.345895 },
-        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=1.0.49", aspect: 1.106195 },
-        { name: "fallen-tree", url: "fallen-tree.png?v=1.0.49", aspect: 2.364393 },
-        { name: "tree-stump", url: "tree-stump.png?v=1.0.49", aspect: 2.4223 },
-        { name: "broken-branch", url: "broken-branch.png?v=1.0.49", aspect: 2.7182 },
-        { name: "bridge-left", url: "bridge-left.png?v=1.0.49", aspect: 1.298592 },
-        { name: "bridge-right", url: "bridge-right.png?v=1.0.49", aspect: 1.298592 },
+        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=1.0.51", aspect: 1.345895 },
+        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=1.0.51", aspect: 1.106195 },
+        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=1.0.51", aspect: 1.345895 },
+        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=1.0.51", aspect: 1.106195 },
+        { name: "fallen-tree", url: "fallen-tree.png?v=1.0.51", aspect: 2.364393 },
+        { name: "tree-stump", url: "tree-stump.png?v=1.0.51", aspect: 2.4223 },
+        { name: "broken-branch", url: "broken-branch.png?v=1.0.51", aspect: 2.7182 },
+        { name: "bridge-left", url: "bridge-left.png?v=1.0.51", aspect: 1.298592 },
+        { name: "bridge-right", url: "bridge-right.png?v=1.0.51", aspect: 1.298592 },
         { name: "handcart-broken", aspect: 2.431373 },
-        { name: "handcart", url: "handcart-body.png?v=1.0.49", aspect: 2.431373 },
+        { name: "handcart", url: "handcart-body.png?v=1.0.51", aspect: 2.431373 },
         { name: "cart-wheel-loose", aspect: 1 },
         { name: "cart-wheel-ready", aspect: 1 },
-        { name: "axle-pin", url: "axle-pin.png?v=1.0.49", aspect: 2 },
-        { name: "counterweight-plank", url: "counterweight-plank.png?v=1.0.49", aspect: 4.772727 },
-        { name: "stone-wall", url: "stone-wall.png?v=1.0.49", aspect: 1.895735 },
-        { name: "stone-piece-a", url: "stone-piece-a.png?v=1.0.49", aspect: 1.094391 },
-        { name: "stone-piece-b", url: "stone-piece-b.png?v=1.0.49", aspect: 0.992500 },
-        { name: "stone-piece-c", url: "stone-piece-c.png?v=1.0.49", aspect: 1.062417 }
+        { name: "axle-pin", url: "axle-pin.png?v=1.0.51", aspect: 2 },
+        { name: "thought-trigger", aspect: 1 },
+        { name: "counterweight-plank", url: "counterweight-plank.png?v=1.0.51", aspect: 4.772727 },
+        { name: "stone-wall", url: "stone-wall.png?v=1.0.51", aspect: 1.895735 },
+        { name: "stone-piece-a", url: "stone-piece-a.png?v=1.0.51", aspect: 1.094391 },
+        { name: "stone-piece-b", url: "stone-piece-b.png?v=1.0.51", aspect: 0.992500 },
+        { name: "stone-piece-c", url: "stone-piece-c.png?v=1.0.51", aspect: 1.062417 }
       ]
     }
   },
@@ -136,6 +137,34 @@ window.SideScrollPuzzleConfig = {
       "yOffset": 0.05,
       "opacity": 0.34
     }
+  },
+  {
+    "id": "thought-log",
+    "asset": "thought-trigger",
+    "x": -7.579211515616101,
+    "z": 0,
+    "width": 0.52,
+    "height": 0.52,
+    "category": "gameplay",
+    "gameplayType": "thought-trigger",
+    "gameplayLayerLocked": false,
+    "thoughtText": "That log looks light enough to carry. I think I can pick it up.",
+    "thoughtRadius": 1.55,
+    "thoughtOnce": true
+  },
+  {
+    "id": "thought-fallen-tree",
+    "asset": "thought-trigger",
+    "x": 0.11,
+    "z": 0,
+    "width": 0.52,
+    "height": 0.52,
+    "category": "gameplay",
+    "gameplayType": "thought-trigger",
+    "gameplayLayerLocked": false,
+    "thoughtText": "That fallen tree is too high. I need something I can climb on.",
+    "thoughtRadius": 0.82,
+    "thoughtOnce": true
   }
 ],
       completion: {

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.49: polished player entry fade + top-screen thought guidance.
+  // SideScroll v1.0.51: reusable puzzle-linked Thought Trigger nodes.
   // Asset States/cart rail work from v1.0.47 remains intact.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -144,6 +144,12 @@
   const collectibleSetupEl = document.getElementById('sidescroll-collectible-setup');
   const collectibleSetupBackBtn = document.getElementById('sidescroll-collectible-setup-back');
   const collectibleSetupNameEl = document.getElementById('sidescroll-collectible-setup-name');
+  const thoughtEditorEl = document.getElementById('sidescroll-thought-editor');
+  const thoughtTextInput = document.getElementById('sidescroll-thought-text');
+  const thoughtRadiusInput = document.getElementById('sidescroll-thought-radius');
+  const thoughtRadiusValue = document.getElementById('sidescroll-thought-radius-value');
+  const thoughtOnceBtn = document.getElementById('sidescroll-thought-once');
+  const thoughtEditorCloseBtn = document.getElementById('sidescroll-thought-close');
   const collectibleNameInput = document.getElementById('sidescroll-collectible-name');
   const collectibleScaleInput = document.getElementById('sidescroll-collectible-scale');
   const collectibleScaleValueEl = document.getElementById('sidescroll-collectible-scale-value');
@@ -1246,7 +1252,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.49', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.51', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1288,7 +1294,7 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.49', 'SideScroll tree atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.51', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
     tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
@@ -1339,7 +1345,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.49`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.51`,
         key,
         null,
         size[0] / size[1]
@@ -1357,12 +1363,12 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.49`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.51`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.49',
+    'counterweight-plank.png?v=1.0.51',
     'counterweight-plank',
     null,
     1050 / 220
@@ -1372,9 +1378,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.49', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.51', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.49', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.51', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1382,7 +1388,25 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.49', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.51', 'axle-pin', null, 2);
+
+  // Editor-only puzzle Thought Trigger. It is visible while authoring but
+  // suppressed completely during play. Its activation radius is drawn in the
+  // editor overlay, so the marker itself can stay compact.
+  assetAspect['thought-trigger'] = 1;
+  textures['thought-trigger'] = createTexture((ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.translate(w * 0.5, h * 0.5);
+    ctx.fillStyle = 'rgba(72,221,201,.20)';
+    ctx.beginPath(); ctx.arc(0,0,w*.42,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#79f1df'; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.arc(0,0,w*.31,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#eafffb';
+    ctx.beginPath(); ctx.arc(0,0,w*.095,0,Math.PI*2); ctx.fill();
+    ctx.font = `900 ${Math.round(w*.22)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('T',0,1);
+  }, 256, 256, false);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -1564,7 +1588,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.49';
+const RIG_TEXTURE_VERSION = '1.0.51';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -2209,6 +2233,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'puzzle-log-c': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'puzzle-log-d': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'fallen-tree': { solid:true, supportSurface:true },
+    'thought-trigger': {},
     'bridge-left': { solid:true, supportSurface:true, socketHost:true },
     'bridge-right': { solid:true, supportSurface:true, socketHost:true },
     'counterweight-plank': { solid:true, carryable:true, placeable:true, supportSurface:true, socketPiece:true },
@@ -2985,7 +3010,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       runtimeRotation: Number(opts.runtimeRotation) || 0,
       cartRailAnimating: !!opts.cartRailAnimating,
       cartRailLocked: !!opts.cartRailLocked,
-      cartRailElapsed: Number(opts.cartRailElapsed) || 0
+      cartRailElapsed: Number(opts.cartRailElapsed) || 0,
+      thoughtText: typeof opts.thoughtText === 'string' ? opts.thoughtText : '',
+      thoughtRadius: Rig.clamp(Number(opts.thoughtRadius) || 1.4, 0.25, 8),
+      thoughtOnce: opts.thoughtOnce !== false
     };
     // Support/solid behaviour belongs to the asset, not to its editor library
     // category. This lets authored feature art such as bridge halves remain
@@ -4139,7 +4167,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.49" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.51" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -4217,7 +4245,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision: cloneCollision(prop.collision),
         shadow: prop.shadow ? { ...prop.shadow } : null,
         sockets: Array.isArray(prop.sockets) ? prop.sockets.map(socket => ({ ...socket })) : [],
-        socketedTo: prop.socketedTo ? { ...prop.socketedTo } : null
+        socketedTo: prop.socketedTo ? { ...prop.socketedTo } : null,
+        thoughtText: typeof prop.thoughtText === 'string' ? prop.thoughtText : '',
+        thoughtRadius: Rig.clamp(Number(prop.thoughtRadius) || 1.4, 0.25, 8),
+        thoughtOnce: prop.thoughtOnce !== false
       };
     }
     return { source:'default', bounds:codeBoundsForDefinition(def), objects, respawn:def?.respawn ? deepCopy(def.respawn) : null };
@@ -4273,7 +4304,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         socketedTo: obj.socketedTo ? { ...obj.socketedTo } : null,
         runtimeRotation:Number(obj.runtimeRotation) || 0,
         cartRailLocked:!!obj.cartRailLocked,
-        wheelRotation:Number(obj.wheelRotation) || 0
+        wheelRotation:Number(obj.wheelRotation) || 0,
+        thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '',
+        thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
+        thoughtOnce:obj.thoughtOnce !== false
       };
     }
     const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)) };
@@ -4327,6 +4361,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           sockets:Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [],
           socketedTo:(state.socketedTo ?? prop?.socketedTo) ? { ...(state.socketedTo ?? prop?.socketedTo) } : null,
           deleted:!!state.deleted,
+          thoughtText:state.thoughtText ?? prop?.thoughtText ?? '',
+          thoughtRadius:state.thoughtRadius ?? prop?.thoughtRadius ?? 1.4,
+          thoughtOnce:state.thoughtOnce ?? prop?.thoughtOnce ?? true,
           puzzleInstanceId:instance.id,
           puzzleObjectId:objectId
         });
@@ -4376,6 +4413,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.counterweightAngle = 0;
       obj.counterweightAngularVelocity = 0;
       obj.wheelRotation = Number(state.wheelRotation) || 0;
+      obj.thoughtText = typeof state.thoughtText === 'string' ? state.thoughtText : (typeof prop?.thoughtText === 'string' ? prop.thoughtText : obj.thoughtText || '');
+      obj.thoughtRadius = Rig.clamp(Number(state.thoughtRadius ?? prop?.thoughtRadius ?? obj.thoughtRadius) || 1.4,0.25,8);
+      obj.thoughtOnce = (state.thoughtOnce ?? prop?.thoughtOnce ?? obj.thoughtOnce) !== false;
       obj.runtimeRotation = Number(state.runtimeRotation) || 0;
       obj.cartRailAnimating = false;
       obj.cartRailLocked = !!state.cartRailLocked;
@@ -4412,7 +4452,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
         gameplayLayerLocked:!!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
-        runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0
+        runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0,
+      thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false
       };
     }
     if (persistRuntime) savePuzzleState();
@@ -4536,6 +4577,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         runtimeRotation:prior?.runtimeRotation ?? startState?.runtimeRotation ?? 0,
         cartRailLocked:prior?.cartRailLocked ?? startState?.cartRailLocked ?? false,
         wheelRotation:prior?.wheelRotation ?? startState?.wheelRotation ?? 0,
+        thoughtText:prior?.thoughtText ?? startState?.thoughtText ?? prop?.thoughtText ?? '',
+        thoughtRadius:prior?.thoughtRadius ?? startState?.thoughtRadius ?? prop?.thoughtRadius ?? 1.4,
+        thoughtOnce:prior?.thoughtOnce ?? startState?.thoughtOnce ?? prop?.thoughtOnce ?? true,
         puzzleInstanceId:marker.id,
         puzzleObjectId:objectId
       });
@@ -5490,6 +5534,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       { name:'stone-piece-b', label:'ARCH STONE', image:'stone-piece-b.png', category:'gameplay', gameplayType:'prop', thumb:'◒', defaultHeight:1.04 },
       { name:'stone-piece-c', label:'HEXAGON STONE', image:'stone-piece-c.png', category:'gameplay', gameplayType:'prop', thumb:'⬡', defaultHeight:1.00 }
     ]},
+    { scope:'puzzle', title: 'PUZZLE TOOLS', items: [
+      { name:'thought-trigger', label:'THOUGHT TRIGGER', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true }
+    ]},
     { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
       { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
       { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
@@ -5727,6 +5774,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (typeof puzzleThoughtTimer !== 'undefined' && puzzleThoughtTimer) {
       clearTimeout(puzzleThoughtTimer);
       puzzleThoughtTimer = 0;
+    }
+  }
+
+  // Movement used to call hideHint() every frame. That was fine for transient
+  // control hints, but it meant a contextual thought could appear and then be
+  // cancelled a frame later while the player was still walking toward the
+  // object that caused it. Preserve an active thought until its own timer (or
+  // a deliberate state/UI change) dismisses it.
+  function hideTransientHint() {
+    if (typeof puzzleThoughtTimer !== 'undefined' && puzzleThoughtTimer) return;
+    hintEl.classList.add('hidden');
+    hintEl.classList.remove('puzzle-thought');
+    if (hintTimer) {
+      clearTimeout(hintTimer);
+      hintTimer = 0;
     }
   }
 
@@ -6441,7 +6503,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
         runtimeRotation:Number(obj.runtimeRotation)||0,
         cartRailLocked:!!obj.cartRailLocked,
-        wheelRotation:Number(obj.wheelRotation)||0
+        wheelRotation:Number(obj.wheelRotation)||0,
+        thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '',
+        thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
+        thoughtOnce:obj.thoughtOnce !== false
       };
     }
     return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)) };
@@ -6466,6 +6531,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       category:obj.category,
       gameplayType:obj.gameplayType,
       collision:cloneCollision(obj.collision),
+      thoughtText:obj.thoughtText || null, thoughtRadius:Number(obj.thoughtRadius)||null, thoughtOnce:obj.thoughtOnce !== false,
       sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
       socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     }));
@@ -7007,6 +7073,29 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     hintEl.classList.remove('hidden');
   }
 
+  function selectedIsThoughtTrigger(){ return !!selectedObject && !selectedObject.deleted && selectedObject.assetName === 'thought-trigger'; }
+
+  function syncThoughtEditor(){
+    const active=!!(editMode && selectedIsThoughtTrigger());
+    if(thoughtEditorEl) thoughtEditorEl.hidden=!active;
+    if(!active)return;
+    if(thoughtTextInput && document.activeElement!==thoughtTextInput) thoughtTextInput.value=selectedObject.thoughtText || '';
+    if(thoughtRadiusInput && document.activeElement!==thoughtRadiusInput) thoughtRadiusInput.value=String(Rig.clamp(Number(selectedObject.thoughtRadius)||1.4,.25,8));
+    if(thoughtRadiusValue) thoughtRadiusValue.textContent=`${(Number(selectedObject.thoughtRadius)||1.4).toFixed(2)} m`;
+    if(thoughtOnceBtn){
+      const once=selectedObject.thoughtOnce!==false;
+      thoughtOnceBtn.setAttribute('aria-pressed',String(once));
+      thoughtOnceBtn.textContent=once?'One shot · ON':'One shot · OFF';
+    }
+  }
+
+  function commitThoughtText(){
+    if(!selectedIsThoughtTrigger() || !thoughtTextInput)return;
+    selectedObject.thoughtText=thoughtTextInput.value.trim();
+    recordObjectEdit(selectedObject);
+    updatePuzzleObjectList();
+  }
+
   function updateEditorButtons() {
     const has = !!selectedObject && !selectedObject.deleted;
     if (!has && groundLineEditMode) groundLineEditMode = false;
@@ -7074,6 +7163,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updateCollisionShapeControls();
     syncGroundLineEditor();
     syncTransformEditor();
+    syncThoughtEditor();
   }
 
   function selectObject(obj, preserveCycle = false, options = {}) {
@@ -7383,7 +7473,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       removePuzzleRewardFromInventory(instance, { allowLegacyFallback:true });
       setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
-      shownPuzzleThoughts.clear();
+      shownPuzzleThoughts.clear(); thoughtTriggerInside.clear();
       wheelCombinePrimed.clear();
       hintEl.classList.remove('puzzle-thought');
       hintEl.textContent = 'Test reset to the setup you started this test with · reward removed';
@@ -7397,7 +7487,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       applyPuzzleStart(instance, { persistRuntime:true });
       setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
-      shownPuzzleThoughts.clear();
+      shownPuzzleThoughts.clear(); thoughtTriggerInside.clear();
       wheelCombinePrimed.clear();
       hintEl.classList.remove('puzzle-thought');
       hintEl.textContent = 'Puzzle reset to its saved start · completion reward reset too';
@@ -7552,7 +7642,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       shade:1, opacity:.99, layer:classifyLayer(placementZ),
       category:info.category || 'dressing', gameplayType:info.gameplayType || null,
       collision:gameplayCollision, gameplayLayerLocked:defaultGameLayerLocked, freePlacement,
-      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId
+      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
+      thoughtText: info.defaultThoughtText || '', thoughtRadius: info.defaultThoughtRadius || 1.4, thoughtOnce: info.defaultThoughtOnce !== false
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
@@ -7585,7 +7676,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked:!!selectedObject.gameplayLayerLocked,
       freePlacement:objectUsesFreePlacement(selectedObject),
       wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
-      sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null
+      sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null,
+      thoughtText:selectedObject.thoughtText || '', thoughtRadius:selectedObject.thoughtRadius || 1.4, thoughtOnce:selectedObject.thoughtOnce !== false
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
@@ -7827,7 +7919,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.49" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.51" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -8567,6 +8659,30 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     drawAuthoredSockets(ctx);
     drawSelectedCounterweightMechanism(ctx);
 
+    // Thought Trigger nodes are puzzle pieces but invisible in play. Authoring
+    // shows their activation radius and a readable label in screen space.
+    for(const instance of activePuzzleInstances.values()){
+      for(const obj of instance.objects||[]){
+        if(!obj || obj.deleted || obj.assetName!=='thought-trigger')continue;
+        const floor=objectFloorWorldY(obj);
+        const centre=projectWorldPoint(objectXNear(obj,camera.x),floor+0.10,obj.z);
+        const edge=projectWorldPoint(objectXNear(obj,camera.x)+(Number(obj.thoughtRadius)||1.4),floor+0.10,obj.z);
+        if(!centre||!edge)continue;
+        const r=Math.max(12,Math.abs(edge.x-centre.x));
+        ctx.save();
+        ctx.strokeStyle=obj===selectedObject?'rgba(121,241,223,.95)':'rgba(121,241,223,.48)';
+        ctx.fillStyle=obj===selectedObject?'rgba(70,210,190,.10)':'rgba(70,210,190,.05)';
+        ctx.lineWidth=obj===selectedObject?2.5:1.5;ctx.setLineDash([6,5]);
+        ctx.beginPath();ctx.arc(centre.x,centre.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+        const label=(obj.thoughtText||'Thought').slice(0,34);
+        ctx.font='800 10px -apple-system, BlinkMacSystemFont, sans-serif';
+        const tw=ctx.measureText(label).width+12;
+        ctx.fillStyle='rgba(15,42,40,.88)';ctx.fillRect(centre.x-tw*.5,centre.y-r-23,tw,18);
+        ctx.fillStyle='#dffff9';ctx.fillText(label,centre.x-tw*.5+6,centre.y-r-10);
+        ctx.restore();
+      }
+    }
+
     // Show authored gameplay collision even when the object itself is partly
     // hidden by foreground dressing. The global collision viewer already draws
     // every collider, so this lighter editor pass is only needed when it is off.
@@ -9105,41 +9221,38 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function showPuzzleThoughtOnce(key, text) {
     if (!key || !text || shownPuzzleThoughts.has(key)) return false;
     shownPuzzleThoughts.add(key);
-    return showPuzzleThought(text, 3600);
+    return showPuzzleThought(text, 4600);
+  }
+
+  const thoughtTriggerInside = new Set();
+
+  function thoughtTriggerKey(obj) {
+    return `thought:${obj?.puzzleInstanceId || 'scene'}:${obj?.puzzleObjectId || obj?.id || 'node'}`;
   }
 
   function updatePuzzleThoughts() {
     if (introLocked || editMode || inventoryOpen || interactionState || puzzleThoughtTimer) return;
-
-    // Keep the repair solution inspection-driven, but use occasional first-time
-    // environmental thoughts to teach the broader interaction language.
-    const nearbyLog = !carriedObject ? nearestGameplayObject(
-      obj => /^puzzle-log-[a-d]$/.test(obj.assetName || '') && !obj.carried,
-      2.35
-    ) : null;
-    const nearbyFallenTree = nearestGameplayObject(
-      obj => obj.assetName === 'fallen-tree',
-      2.65
-    );
-
-    const candidates = [];
-    if (nearbyLog && !shownPuzzleThoughts.has('tutorial-log')) {
-      candidates.push({
-        distance: nearbyLog.distance,
-        key: 'tutorial-log',
-        text: 'That log looks light enough to carry. I think I can pick it up.'
-      });
+    const candidates=[];
+    for (const instance of activePuzzleInstances.values()) {
+      for (const obj of instance.objects || []) {
+        if (!obj || obj.deleted || obj.assetName !== 'thought-trigger' || !obj.thoughtText) continue;
+        const radius=Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8);
+        const dx=objectXNear(obj,character.x)-character.x;
+        const dz=(Number(obj.z)||0)-(Number(character.z)||pathZ);
+        const distance=Math.hypot(dx,dz);
+        const key=thoughtTriggerKey(obj);
+        if(distance>radius){thoughtTriggerInside.delete(key);continue;}
+        if(thoughtTriggerInside.has(key))continue;
+        thoughtTriggerInside.add(key);
+        if(obj.thoughtOnce!==false && shownPuzzleThoughts.has(key))continue;
+        candidates.push({obj,key,distance});
+      }
     }
-    if (nearbyFallenTree && !shownPuzzleThoughts.has('tutorial-fallen-tree')) {
-      candidates.push({
-        distance: nearbyFallenTree.distance,
-        key: 'tutorial-fallen-tree',
-        text: 'That fallen tree is too high. I need something I can climb on.'
-      });
-    }
-    candidates.sort((a,b) => a.distance - b.distance);
-    const next = candidates[0];
-    if (next) showPuzzleThoughtOnce(next.key, next.text);
+    if(!candidates.length)return;
+    candidates.sort((a,b)=>a.distance-b.distance);
+    const hit=candidates[0];
+    if(hit.obj.thoughtOnce!==false)shownPuzzleThoughts.add(hit.key);
+    showPuzzleThought(hit.obj.thoughtText,4600);
   }
 
   function isSupportSurfaceObject(obj) {
@@ -9654,6 +9767,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
+    if (!extra?.force && obj.assetName === 'thought-trigger' && (!editMode || puzzleTestMode)) return;
     const baseDrawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
     const visual = !extra?.force ? assetVisualTransform(obj.assetName,obj.assetState) : { offsetX:0, offsetY:0, rotationDeg:0 };
     const drawX = baseDrawX + (Number(visual.offsetX) || 0);
@@ -10880,14 +10994,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           camera.x += allowed;
           movePushedObject(pushedCart, allowed);
           character.lastFacing = pushingSide;
-          hideHint();
+          hideTransientHint();
           maybeStartCartRail(pushedCart, previousCartX);
         }
       } else {
         const proposedX = camera.x + moveDir * analogSpeed * dt;
         const bodyResolvedX = resolveObstacleMove(camera.x, proposedX, jumpOffset, jumping);
         camera.x = resolveCarriedObjectMove(camera.x, bodyResolvedX, jumpOffset);
-        hideHint();
+        hideTransientHint();
       }
     }
 
@@ -11074,7 +11188,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       driveControl.classList.add('dragging');
       driveControl.setPointerCapture?.(e.pointerId);
       updateDriveFromPointer(e);
-      hideHint();
+      hideTransientHint();
     });
     driveControl.addEventListener('pointermove', e => {
       if (e.pointerId !== drivePointer) return;
@@ -11109,7 +11223,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // platform behaves identically even if the visual terrain below it changes.
     standingOnObject = null;
     jumpVelocity = JUMP_VELOCITY;
-    hideHint();
+    hideTransientHint();
   }
   jumpBtn.addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -11402,6 +11516,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updateEditorButtons();
   });
   bindEditorPress(assetSetupBackBtn, showAssetBrowser);
+  bindEditorPress(thoughtEditorCloseBtn,()=>selectObject(null));
+  if(thoughtTextInput){
+    thoughtTextInput.addEventListener('pointerdown',e=>e.stopPropagation(),{passive:true});
+    thoughtTextInput.addEventListener('change',commitThoughtText);
+    thoughtTextInput.addEventListener('blur',commitThoughtText);
+  }
+  if(thoughtRadiusInput){
+    thoughtRadiusInput.addEventListener('pointerdown',e=>e.stopPropagation(),{passive:true});
+    thoughtRadiusInput.addEventListener('input',()=>{
+      if(!selectedIsThoughtTrigger())return;
+      selectedObject.thoughtRadius=Rig.clamp(Number(thoughtRadiusInput.value)||1.4,.25,8);
+      if(thoughtRadiusValue)thoughtRadiusValue.textContent=`${selectedObject.thoughtRadius.toFixed(2)} m`;
+    });
+    thoughtRadiusInput.addEventListener('change',()=>{if(selectedIsThoughtTrigger())recordObjectEdit(selectedObject);});
+  }
+  bindEditorPress(thoughtOnceBtn,()=>{
+    if(!selectedIsThoughtTrigger())return;
+    selectedObject.thoughtOnce=selectedObject.thoughtOnce===false;
+    recordObjectEdit(selectedObject);syncThoughtEditor();
+  });
   bindEditorPress(collectibleSetupBackBtn, showAssetBrowser);
   if (collectibleNameInput) {
     const commitCollectibleName = () => {
@@ -12066,11 +12200,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (introLocked) return;
     if (e.key === 'ArrowLeft' || key === 'a') {
       keyLeft = true;
-      hideHint();
+      hideTransientHint();
     }
     if (e.key === 'ArrowRight' || key === 'd') {
       keyRight = true;
-      hideHint();
+      hideTransientHint();
     }
     if (e.key === 'Shift') keyRun = true;
     if (e.key === ' ' || e.key === 'ArrowUp' || key === 'w') { e.preventDefault(); triggerJump(); }
