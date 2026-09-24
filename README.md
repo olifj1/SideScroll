@@ -1,5 +1,5 @@
-# SideScroll v1.0.52
+# SideScroll v1.0.53
 
-- Fixes Thought Trigger text editing on iOS: Backspace/Delete while typing no longer fires the editor delete-object shortcut.
-- Editor keyboard shortcuts are now suppressed while a text input or editable field has focus.
-- No gameplay or puzzle-state changes in this release.
+- Player-mode Menu is reduced to **Change character** and **Delete save** only; editor/debug controls remain available in Edit / Test mode.
+- Removed the top-right SideScroll information button.
+- Entering a new Thought Trigger now immediately replaces any thought bubble that is still being shown.

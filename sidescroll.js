@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.52: reusable puzzle-linked Thought Trigger nodes.
-  // Asset States/cart rail work from v1.0.47 remains intact.
+  // SideScroll v1.0.53: streamlined player menu + interruptible Thought Triggers.
+  // Puzzle-linked Thought Trigger nodes and Asset States/cart rail work remain intact.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -1252,7 +1252,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.52', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.53', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1294,7 +1294,7 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.52', 'SideScroll tree atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.53', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
     tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
@@ -1345,7 +1345,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.52`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.53`,
         key,
         null,
         size[0] / size[1]
@@ -1363,12 +1363,12 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.52`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.53`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.52',
+    'counterweight-plank.png?v=1.0.53',
     'counterweight-plank',
     null,
     1050 / 220
@@ -1378,9 +1378,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.52', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.53', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.52', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.53', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1388,7 +1388,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.52', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.53', 'axle-pin', null, 2);
 
   // Editor-only puzzle Thought Trigger. It is visible while authoring but
   // suppressed completely during play. Its activation radius is drawn in the
@@ -1588,7 +1588,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.52';
+const RIG_TEXTURE_VERSION = '1.0.53';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1603,9 +1603,11 @@ function rigVariantUrl(id) {
 function updateCharacterSwapButton() {
   if (!characterSwapBtn) return;
   const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant) : null;
-  characterSwapBtn.textContent = info?.label || 'Character';
+  // The player menu is deliberately tiny: this is an action, not an editor
+  // status readout. Keep the current hero in the accessible label instead.
+  characterSwapBtn.textContent = PLAYER_MODE ? 'Change character' : (info?.label || 'Character');
   characterSwapBtn.setAttribute('aria-pressed', currentCharacterVariant !== (Rig.DEFAULT_CHARACTER_VARIANT || 'original') ? 'true' : 'false');
-  characterSwapBtn.setAttribute('aria-label', `Swap character · current ${info?.label || currentCharacterVariant}`);
+  characterSwapBtn.setAttribute('aria-label', `Change character · current ${info?.label || currentCharacterVariant}`);
 }
 
 function applyCharacterVariant(id, announce = false) {
@@ -4167,7 +4169,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.52" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.53" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -7919,7 +7921,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.52" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.53" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -9231,7 +9233,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function updatePuzzleThoughts() {
-    if (introLocked || editMode || inventoryOpen || interactionState || puzzleThoughtTimer) return;
+    // A newly-entered Thought Trigger is allowed to interrupt an older thought.
+    // showPuzzleThought() clears the previous timer and replaces its text, so the
+    // player always sees the most recent contextual observation.
+    if (introLocked || editMode || inventoryOpen || interactionState) return;
     const candidates=[];
     for (const instance of activePuzzleInstances.values()) {
       for (const obj of instance.objects || []) {
@@ -12312,11 +12317,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   updateEditorButtons();
   if (PLAYER_MODE) {
     document.body.classList.add('sidescroll-player-mode');
-    if (debugBtn) debugBtn.hidden = true;
-    if (collisionViewBtn) collisionViewBtn.hidden = true;
-    if (editBtn) editBtn.hidden = true;
-    if (quickNavBtn) quickNavBtn.hidden = true;
+    // Player mode should feel like the game, not the authoring tool. Keep only
+    // the two useful player actions in Menu: Change character and Delete save.
+    [cameraEditorBtn, debugBtn, sectionBtn, fogBtn, postBtn, collisionViewBtn, playerHintsBtn, quickNavBtn, editBtn].forEach(btn => {
+      if (btn) btn.hidden = true;
+    });
     if (deleteSaveBtn) deleteSaveBtn.hidden = false;
+    updateCharacterSwapButton();
     if (statusEl) statusEl.textContent = 'Woodland adventure';
     restorePlayerPosition();
     window.addEventListener('pagehide', () => savePlayerPosition(true));
