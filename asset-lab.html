@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.36">
+  <link rel="stylesheet" href="style.css?v=1.0.37">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -51,10 +51,18 @@
           <span><strong>Floor line</strong><small id="assetlab-floor-value">74%</small></span>
           <input id="assetlab-floor" type="range" min="0" max="100" step="1" value="74">
         </label>
+        <label class="assetlab-range-row">
+          <span><strong>Rotation</strong><small id="assetlab-rotation-value">0°</small></span>
+          <input id="assetlab-rotation" type="range" min="-180" max="180" step="0.5" value="0">
+        </label>
+        <div class="assetlab-button-row">
+          <button type="button" id="assetlab-flip" aria-pressed="false">Flip Horizontally</button>
+        </div>
+        <p class="assetlab-note">Rotation and flip are asset defaults. Collision follows the same transform so the physical shape stays aligned with the artwork.</p>
       </section>
 
       <section class="assetlab-control-section" id="assetlab-broken-cart-section" hidden>
-        <div class="assetlab-control-heading"><small>BROKEN STATE</small><strong>Visual lean / offset</strong></div>
+        <div class="assetlab-control-heading"><small>BROKEN STATE</small><strong>Visual offset</strong></div>
         <label class="assetlab-range-row">
           <span><strong>Offset X</strong><small id="assetlab-broken-offset-x-value">0.00 m</small></span>
           <input id="assetlab-broken-offset-x" type="range" min="-1.00" max="1.00" step="0.01" value="0">
@@ -63,17 +71,14 @@
           <span><strong>Offset Y</strong><small id="assetlab-broken-offset-y-value">-0.06 m</small></span>
           <input id="assetlab-broken-offset-y" type="range" min="-0.75" max="0.75" step="0.01" value="-0.06">
         </label>
-        <label class="assetlab-range-row">
-          <span><strong>Lean</strong><small id="assetlab-broken-rotation-value">-6°</small></span>
-          <input id="assetlab-broken-rotation" type="range" min="-18" max="18" step="0.5" value="-6">
-        </label>
-        <p class="assetlab-note">These move/tilt only the broken cart artwork. Collision stays independently editable below, so you can fit the physical shape after setting the lean.</p>
+        <p class="assetlab-note">Use the general Rotation control above for the broken-cart lean. These offsets let you fine-tune where the damaged artwork sits around its gameplay origin.</p>
       </section>
 
       <section class="assetlab-control-section">
         <div class="assetlab-control-heading"><small>COLLISION</small><strong>Physical shape</strong></div>
         <div class="assetlab-button-row">
           <button type="button" id="assetlab-collision-toggle">Add Collision</button>
+          <button type="button" id="assetlab-collision-remove" class="assetlab-danger">Remove Collision</button>
           <button type="button" id="assetlab-collision-reset">Fit Rectangle</button>
         </div>
         <label class="assetlab-range-row" id="assetlab-depth-row">
@@ -152,8 +157,8 @@
     </aside>
   </main>
 
-  <script src="site-config.js?v=1.0.36"></script>
-  <script src="core.js?v=1.0.36"></script>
-  <script src="asset-lab.js?v=1.0.36"></script>
+  <script src="site-config.js?v=1.0.37"></script>
+  <script src="core.js?v=1.0.37"></script>
+  <script src="asset-lab.js?v=1.0.37"></script>
 </body>
 </html>

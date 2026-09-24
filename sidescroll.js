@@ -1,8 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.36: cart wheel rotation now uses a true axle-centred pivot.
-  // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
+  // SideScroll v1.0.37: cart repair setup polish. Asset rotation / flip now share one transform with collision, abandoned repair props can live off-path, and repaired carts snap back to the gameplay layer.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -199,6 +198,7 @@
   const puzzleBackSetupBtn = document.getElementById('sidescroll-puzzle-back-setup');
   const editorAddBtn = document.getElementById('sidescroll-editor-add');
   const editorDuplicateBtn = document.getElementById('sidescroll-editor-duplicate');
+  const editorFlipBtn = document.getElementById('sidescroll-editor-flip');
   const editorScaleDownBtn = document.getElementById('sidescroll-editor-scale-down');
   const editorScaleUpBtn = document.getElementById('sidescroll-editor-scale-up');
   const editorGroundLineBtn = document.getElementById('sidescroll-editor-ground-line');
@@ -1321,9 +1321,9 @@
   // textures so wheel rotation is a real runtime transform rather than baked
   // animation. The cart's editor/world aspect is the complete 620x255 side view.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.36', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.37', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.36', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.37', 'handcart-wheel', null, 1);
   textures['handcart-wheel-mask'] = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#3a2c23';
@@ -1333,7 +1333,7 @@
   }, 256, 256, false);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = createProcessedImageTexture(
-    'handcart-body.png?v=1.0.36',
+    'handcart-body.png?v=1.0.37',
     'handcart-broken',
     (ctx) => {
       // Mechanics-first broken state: remove the front/right wheel from the
@@ -2048,13 +2048,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function assetVisualTransform(assetName) {
-    const stored = assetLayoutDefaults?.[assetName] || {};
-    const fallback = ASSET_VISUAL_DEFAULTS[assetName] || {};
+    const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    const stored = assetLayoutDefaults?.[settingsName] || {};
+    const fallback = ASSET_VISUAL_DEFAULTS[settingsName] || {};
     return {
       offsetX:Number.isFinite(Number(stored.visualOffsetX)) ? Number(stored.visualOffsetX) : (Number(fallback.offsetX) || 0),
       offsetY:Number.isFinite(Number(stored.visualOffsetY)) ? Number(stored.visualOffsetY) : (Number(fallback.offsetY) || 0),
-      rotationDeg:Number.isFinite(Number(stored.visualRotationDeg)) ? Number(stored.visualRotationDeg) : (Number(fallback.rotationDeg) || 0)
+      rotationDeg:Number.isFinite(Number(stored.visualRotationDeg)) ? Number(stored.visualRotationDeg) : (Number(fallback.rotationDeg) || 0),
+      flip:!!stored.visualFlip
     };
+  }
+
+  function objectVisualFlip(obj, assetName = obj?.assetName) {
+    return (!!obj?.flip) !== (!!assetVisualTransform(assetName).flip);
   }
 
   function objectGroundLine(obj) {
@@ -2183,9 +2189,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'bridge-right': { solid:true, supportSurface:true, socketHost:true },
     'counterweight-plank': { solid:true, carryable:true, placeable:true, supportSurface:true, socketPiece:true },
     'handcart': { solid:true, supportSurface:true, pushable:true },
-    'handcart-broken': { solid:true, supportSurface:true },
-    'cart-wheel-loose': { solid:true, carryable:true, placeable:true },
-    'cart-wheel-ready': { solid:true, carryable:true, placeable:true },
+    'handcart-broken': {},
+    'cart-wheel-loose': { carryable:true, placeable:true },
+    'cart-wheel-ready': { carryable:true, placeable:true },
     'tree-stump': {},
     'broken-branch': {},
     'stone-wall': { socketHost:true },
@@ -2568,7 +2574,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // The cart collider deliberately ignores the long handles and follows the
   // box + low end steps. This lets the player reach a handle to start pushing,
   // and gives both ends a climbable profile rather than one tall rectangle.
-  if (!assetCollisionDefaults.handcart) {
+  if (!Object.prototype.hasOwnProperty.call(assetCollisionDefaults,'handcart')) {
     assetCollisionDefaults.handcart = {
       halfWidthRatio:0.405,
       heightRatio:0.72,
@@ -2586,10 +2592,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ]}]
     };
   }
-  if (!assetCollisionDefaults['handcart-broken']) {
+  if (!Object.prototype.hasOwnProperty.call(assetCollisionDefaults,'handcart-broken')) {
     assetCollisionDefaults['handcart-broken'] = JSON.parse(JSON.stringify(assetCollisionDefaults.handcart));
   }
-  if (!assetCollisionDefaults['cart-wheel-loose']) {
+  if (!Object.prototype.hasOwnProperty.call(assetCollisionDefaults,'cart-wheel-loose')) {
     assetCollisionDefaults['cart-wheel-loose'] = {
       halfWidthRatio:0.30,
       heightRatio:0.62,
@@ -2599,7 +2605,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]
     };
   }
-  if (!assetCollisionDefaults['cart-wheel-ready']) {
+  if (!Object.prototype.hasOwnProperty.call(assetCollisionDefaults,'cart-wheel-ready')) {
     assetCollisionDefaults['cart-wheel-ready'] = JSON.parse(JSON.stringify(assetCollisionDefaults['cart-wheel-loose']));
   }
 
@@ -2648,6 +2654,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       behaviourGenerated: false,
       assetInherited: true
     };
+  }
+
+  function hasAssetCollisionDefaultOverride(assetName) {
+    const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    return Object.prototype.hasOwnProperty.call(assetCollisionDefaults, settingsName);
   }
 
   function hasAssetBehaviourProfile(assetName) {
@@ -2785,6 +2796,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function behaviourCollisionFor(assetName, width, height, existing = null) {
     const behaviour = assetBehaviours(assetName);
     const inherited = collisionFromAssetDefault(assetName, width, height);
+    if (hasAssetCollisionDefaultOverride(assetName)) return inherited;
     if (inherited) return inherited;
     if (!hasAssetBehaviourProfile(assetName)) return cloneCollision(existing);
     let collision = cloneCollision(existing);
@@ -2821,10 +2833,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       baseSx: opts.baseSx ?? resolvedWidth,
       baseSy: opts.baseSy ?? resolvedHeight,
       sz: 1,
-      flip: opts.flip ?? ((type.startsWith('tree') || type.startsWith('bridge-') || type === 'handcart') ? false : (rand() > 0.5)),
+      flip: opts.flip ?? ((type.startsWith('tree') || type.startsWith('bridge-') || ['handcart','handcart-broken','cart-wheel-loose','cart-wheel-ready','axle-pin'].includes(type)) ? false : (rand() > 0.5)),
       shade: opts.shade ?? 1,
       opacity: opts.opacity ?? 1,
-      noFog: !!opts.noFog,
+      noFog: typeof opts.noFog === 'boolean' ? opts.noFog : type === 'axle-pin',
       tint: opts.tint || null,
       asset: true,
       assetName: type,
@@ -3356,6 +3368,64 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     try { localStorage.setItem(PUZZLE_ART_V5_MIGRATION_KEY, '1'); } catch (_) {}
   }
   migratePuzzleArtV5();
+
+  const CART_ORIENTATION_V1_MIGRATION_KEY = 'sidescroll.cart-orientation-v1.no-random-flip';
+  const CART_ORIENTATION_ASSETS = new Set(['handcart','handcart-broken','cart-wheel-loose','cart-wheel-ready','axle-pin']);
+  function resetLegacyCartFlips(objects) {
+    if (!objects || typeof objects !== 'object') return false;
+    let changed = false;
+    for (const state of Object.values(objects)) {
+      if (!CART_ORIENTATION_ASSETS.has(state?.asset)) continue;
+      if (state.flip !== false) { state.flip = false; changed = true; }
+    }
+    return changed;
+  }
+  function migrateLegacyCartOrientation() {
+    try { if (localStorage.getItem(CART_ORIENTATION_V1_MIGRATION_KEY) === '1') return; } catch (_) {}
+    let startsChanged=false,libraryChanged=false,runtimeChanged=false,sceneChanged=false;
+    for (const snapshot of Object.values(puzzleStartState || {})) startsChanged = resetLegacyCartFlips(snapshot?.objects) || startsChanged;
+    for (const snapshot of Object.values(userPuzzleLibrary.templates || {})) libraryChanged = resetLegacyCartFlips(snapshot?.objects) || libraryChanged;
+    for (const runtime of Object.values(puzzleSavedState || {})) runtimeChanged = resetLegacyCartFlips(runtime?.objects) || runtimeChanged;
+    for (const saved of sceneData.added || []) {
+      if (!CART_ORIENTATION_ASSETS.has(saved?.assetName)) continue;
+      if (saved.flip !== false) { saved.flip=false; sceneChanged=true; }
+    }
+    if (startsChanged) { try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {} }
+    if (libraryChanged) { try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {} }
+    if (runtimeChanged) { try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {} }
+    if (sceneChanged) saveSceneData();
+    try { localStorage.setItem(CART_ORIENTATION_V1_MIGRATION_KEY, '1'); } catch (_) {}
+  }
+  migrateLegacyCartOrientation();
+
+  const CART_PLACEMENT_V1_MIGRATION_KEY = 'sidescroll.cart-placement-v1.abandoned-off-path';
+  const ABANDONED_REPAIR_ASSETS = new Set(['handcart-broken','cart-wheel-loose','cart-wheel-ready','axle-pin']);
+  function unlockLegacyRepairProps(objects) {
+    if (!objects || typeof objects !== 'object') return false;
+    let changed=false;
+    for (const state of Object.values(objects)) {
+      if (!ABANDONED_REPAIR_ASSETS.has(state?.asset)) continue;
+      if (state.gameplayLayerLocked !== false) { state.gameplayLayerLocked=false; changed=true; }
+    }
+    return changed;
+  }
+  function migrateRepairPropPlacement() {
+    try { if (localStorage.getItem(CART_PLACEMENT_V1_MIGRATION_KEY) === '1') return; } catch (_) {}
+    let startsChanged=false,libraryChanged=false,runtimeChanged=false,sceneChanged=false;
+    for (const snapshot of Object.values(puzzleStartState || {})) startsChanged = unlockLegacyRepairProps(snapshot?.objects) || startsChanged;
+    for (const snapshot of Object.values(userPuzzleLibrary.templates || {})) libraryChanged = unlockLegacyRepairProps(snapshot?.objects) || libraryChanged;
+    for (const runtime of Object.values(puzzleSavedState || {})) runtimeChanged = unlockLegacyRepairProps(runtime?.objects) || runtimeChanged;
+    for (const saved of sceneData.added || []) {
+      if (!ABANDONED_REPAIR_ASSETS.has(saved?.assetName)) continue;
+      if (saved.gameplayLayerLocked !== false) { saved.gameplayLayerLocked=false; sceneChanged=true; }
+    }
+    if (startsChanged) { try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {} }
+    if (libraryChanged) { try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {} }
+    if (runtimeChanged) { try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {} }
+    if (sceneChanged) saveSceneData();
+    try { localStorage.setItem(CART_PLACEMENT_V1_MIGRATION_KEY, '1'); } catch (_) {}
+  }
+  migrateRepairPropPlacement();
 
   const puzzleWorkshopState = (() => {
     try {
@@ -5035,7 +5105,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
       { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
       { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
-      { name:'handcart-broken', label:'BROKEN HANDCART', image:'handcart-body.png', category:'gameplay', gameplayType:'prop', thumb:'▣', defaultHeight:1.75, defaultGroundLine:0.064,
+      { name:'handcart-broken', label:'BROKEN HANDCART', image:'handcart-body.png', category:'gameplay', gameplayType:'prop', thumb:'▣', defaultHeight:1.75, defaultGroundLine:0.064, gameplayLayerLocked:false,
         collision:{halfWidth:1.72,height:1.26,depth:0.85,platform:true,points:[
           {x:-1.00,y:0.00},{x:-1.00,y:0.17},{x:-0.80,y:0.17},{x:-0.80,y:0.34},
           {x:-0.63,y:0.34},{x:-0.63,y:1.00},{x:0.63,y:1.00},{x:0.63,y:0.34},
@@ -5047,11 +5117,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           {x:-0.63,y:0.34},{x:-0.63,y:1.00},{x:0.63,y:1.00},{x:0.63,y:0.34},
           {x:0.80,y:0.34},{x:0.80,y:0.17},{x:1.00,y:0.17},{x:1.00,y:0.00}
         ]} },
-      { name:'cart-wheel-loose', label:'LOOSE CART WHEEL', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.06,
+      { name:'cart-wheel-loose', label:'LOOSE CART WHEEL', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◯', defaultHeight:1.06, gameplayLayerLocked:false,
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
-      { name:'cart-wheel-ready', label:'CART WHEEL · READY', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.06,
+      { name:'cart-wheel-ready', label:'CART WHEEL · READY', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.06, gameplayLayerLocked:false,
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
-      { name:'axle-pin', label:'AXLE PIN', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72 }
+      { name:'axle-pin', label:'AXLE PIN', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -6569,6 +6639,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       openEnvironmentAssetsBtn.classList.toggle('active', !editorPalette?.hidden && editorScope === 'environment');
     }
     if (editorDuplicateBtn) editorDuplicateBtn.hidden = !has || collisionFocus || socketFocus;
+    if (editorFlipBtn) {
+      editorFlipBtn.hidden = !has || collisionFocus || socketFocus;
+      editorFlipBtn.classList.toggle('active', !!(has && objectVisualFlip(selectedObject)));
+    }
     if (editorScaleDownBtn) editorScaleDownBtn.hidden = !has || collisionFocus || socketFocus;
     if (editorScaleUpBtn) editorScaleUpBtn.hidden = !has || collisionFocus || socketFocus;
     if (editorGroundLineBtn) {
@@ -7074,6 +7148,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     sortSceneCollections();
     recordObjectEdit(obj);
     selectObject(obj);
+  }
+
+  function flipSelectedObject() {
+    if (!selectedObject || selectedObject.deleted) return;
+    selectedObject.flip = !selectedObject.flip;
+    recordObjectEdit(selectedObject);
+    updateEditorButtons();
+    hintEl.textContent = 'Asset flipped horizontally';
+    hintEl.classList.remove('hidden');
   }
 
   function scaleSelected(multiplier) {
@@ -8051,10 +8134,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const c = obj.collision;
     const halfWidth = Math.max(0.001, c.halfWidth ?? Math.max(0.18, obj.sx * 0.34));
     const height = Math.max(0.001, c.height ?? Math.max(0.24, obj.sy * 0.66));
-    const points = sourcePoints.map(point => ({
-      x: aroundX + point.x * halfWidth,
-      y: obj.y + point.y * height
-    }));
+    const visual = assetVisualTransform(obj.assetName);
+    const visualAngle = (Number(visual.rotationDeg) || 0) * Math.PI / 180;
+    const visualFlip = objectVisualFlip(obj);
+    const vc = Math.cos(visualAngle), vs = Math.sin(visualAngle);
+    const pivotX = aroundX + (Number(visual.offsetX) || 0);
+    const pivotY = obj.y + (Number(visual.offsetY) || 0);
+    const points = sourcePoints.map(point => {
+      let lx = point.x * halfWidth;
+      const ly = point.y * height;
+      if (visualFlip) lx = -lx;
+      return {
+        x: pivotX + lx * vc - ly * vs,
+        y: pivotY + lx * vs + ly * vc
+      };
+    });
     const angle = counterweightAngleFor(obj);
     if (!angle) return points;
     const mech = counterweightMechanism(obj);
@@ -8223,6 +8317,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return allSceneObjects().filter(obj => {
       if (obj === pushingObject) return false;
       if (obj.deleted || obj.carried || obj.counterweightBoundTo || !obj.collision) return false;
+      // Collision geometry can still exist on non-solid props so carrying,
+      // placement and editor tooling know their shape. Only Solid objects
+      // should physically block the player or other moving gameplay objects.
+      if (!objectHasBehaviour(obj, 'solid')) return false;
       // Keep a loose plank non-blocking so its end pickup point remains easy to
       // reach, and so simply dropping it across a gap cannot bypass the puzzle.
       if (isCounterweightPlank(obj) && !obj.socketedTo) return false;
@@ -8271,10 +8369,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const obj of allSceneObjects()) {
       if (!predicate(obj)) continue;
       const depth = obj.collision?.depth ?? 0.9;
-      if (Math.abs((obj.z ?? pathZ) - pathZ) > Math.max(0.95, depth)) continue;
+      if (Math.abs((obj.z ?? pathZ) - pathZ) > Math.max(1.35, depth)) continue;
       const ox = objectXNear(obj, characterXNow);
-      const halfWidth = Math.max(0.08, Number(obj.collision?.halfWidth) || (Math.abs(Number(obj.sx) || 0.4) * 0.48));
-      const distance = Math.max(0, Math.abs(ox - characterXNow) - halfWidth);
+      const shapeXs = obj.collision ? collisionWorldShapes(obj, ox).flatMap(points => points.map(point => point.x)) : [];
+      const minX = shapeXs.length ? Math.min(...shapeXs) : ox - Math.abs(Number(obj.sx) || 0.4) * 0.48;
+      const maxX = shapeXs.length ? Math.max(...shapeXs) : ox + Math.abs(Number(obj.sx) || 0.4) * 0.48;
+      const distance = characterXNow < minX ? minX - characterXNow : (characterXNow > maxX ? characterXNow - maxX : 0);
       if (distance <= range && distance < bestDistance) {
         best = obj;
         bestDistance = distance;
@@ -8330,11 +8430,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     if (action.type === 'use-wheel' && action.obj && carriedObject && isReadyCartWheel(carriedObject)) {
       const cart = action.obj;
+      const facingFlip = objectVisualFlip(cart);
       cart.assetName = 'handcart';
       cart.texture = textures.handcart;
       cart.gameplayType = 'pushable';
       cart.groundLine = assetGroundLineDefault('handcart');
       cart.sx = cart.sy * (assetAspect.handcart || (620 / 255));
+      // The abandoned cart can be authored off the road. Repair is the moment
+      // it becomes a gameplay vehicle: snap it to the path and preserve the
+      // way it was visually facing before the state swap.
+      cart.flip = facingFlip !== !!assetVisualTransform('handcart').flip;
+      cart.gameplayLayerLocked = true;
+      cart.freePlacement = false;
+      cart.z = pathZ;
+      cart.y = playSurfaceYAt(cart.x) - cart.groundLine * cart.sy;
       cart.collision = behaviourCollisionFor('handcart', cart.sx, cart.sy, cart.collision);
       cart.collisionOverride = false;
       recordObjectEdit(cart);
@@ -8831,7 +8940,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
     const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180;
     const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
-    const visualFlip = (obj.assetName || '').startsWith('tree') ? false : obj.flip;
+    const visualFlip = (!!obj.flip) !== (!!visual.flip);
     let drawY = (extra?.y ?? obj.y) + (Number(visual.offsetY) || 0);
     let modelX = drawX;
     const drawZ = extra?.z ?? obj.z;
@@ -8864,10 +8973,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     gl.uniform2f(loc.uvOffset, extra?.uvOffset?.[0] ?? obj.uvOffset?.[0] ?? 0, extra?.uvOffset?.[1] ?? obj.uvOffset?.[1] ?? 0);
     gl.drawElements(gl.TRIANGLES, drawMesh.count, gl.UNSIGNED_SHORT, 0);
 
-    if (!extra?.force && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) drawHandcartWheels(obj, view, drawX, drawY, visualRotation);
+    if (!extra?.force && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) drawHandcartWheels(obj, view, drawX, drawY, visualRotation, visualFlip);
   }
 
-  function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0) {
+  function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0, bodyFlip = false) {
     if (!textures['handcart-wheel']) return;
     // The generated side-view body already has a clean finished cart. A small
     // opaque inner disk masks only its baked spokes; the separately textured
@@ -8879,7 +8988,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const wheelV = (255 - 162) / 255;
     const wheelUs = obj.assetName === 'handcart-broken' ? [225 / 620] : [225 / 620, 400 / 620];
     for (const uRaw of wheelUs) {
-      const u = obj.flip ? 1 - uRaw : uRaw;
+      const u = bodyFlip ? 1 - uRaw : uRaw;
       const localX = (u - 0.5) * obj.sx;
       const localY = wheelV * obj.sy;
       const c = Math.cos(bodyRotation), s = Math.sin(bodyRotation);
@@ -9129,7 +9238,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const obj of allSceneObjects()) {
       if (!isPushableObject(obj) || standingOnObject === obj) continue;
       const depth = obj.collision?.depth ?? 0.9;
-      if (Math.abs(obj.z - pathZ) > Math.max(0.95, depth)) continue;
+      if (Math.abs(obj.z - pathZ) > Math.max(1.35, depth)) continue;
       const ox = objectXNear(obj, characterXNow);
       const side = characterXNow <= ox ? 1 : -1;
       const handleX = ox - side * obj.sx * 0.49;
@@ -9212,7 +9321,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!isCarryableObject(obj)) continue;
       if (standingOnObject === obj) continue;
       const depth = obj.collision?.depth ?? 0.9;
-      if (Math.abs(obj.z - pathZ) > Math.max(0.95, depth)) continue;
+      if (Math.abs(obj.z - pathZ) > Math.max(1.35, depth)) continue;
       const pickupPoint = counterweightPickupPoint(obj);
       const ox = pickupPoint ? pickupPoint.x : objectXNear(obj, characterXNow);
       const centreDistance = Math.abs(ox - characterXNow);
@@ -9315,6 +9424,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!interactionState || interactionState.type !== 'pickup') return;
     carriedObject = interactionState.object;
     carriedObject.carried = true;
+    // Large repair props may begin as scenery just off the road. Once the
+    // player has physically picked the wheel up, subsequent placement follows
+    // the normal gameplay path so carrying/put-down remains predictable.
+    if (isLooseCartWheel(carriedObject) || isReadyCartWheel(carriedObject)) {
+      carriedObject.gameplayLayerLocked = true;
+      carriedObject.freePlacement = false;
+      carriedObject.z = pathZ;
+    }
     interactionState = null;
     // Settle what remains only after the lifted object has finished leaving the
     // stack, so the pickup animation always begins from the object's true slot.
@@ -9425,7 +9542,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     // Outside a stack snap, retain the existing editor behaviour for fixed
     // support surfaces such as the fallen tree/platform collision.
-    obj.y = restYForGameplayObject(obj, obj.x, null, true);
+    obj.y = restYForGameplayObject(obj, obj.x, null, true) - objectGroundLine(obj) * (Number(obj.sy) || 0);
     return null;
   }
 
@@ -10654,6 +10771,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(puzzleResetBtn, resetCurrentPuzzle);
   bindEditorPress(puzzleBackSetupBtn, backToPuzzleSetup);
   bindEditorPress(editorDuplicateBtn, duplicateSelected);
+  bindEditorPress(editorFlipBtn, flipSelectedObject);
   bindEditorPress(editorScaleDownBtn, () => scaleSelected(0.90));
   bindEditorPress(editorScaleUpBtn, () => scaleSelected(1.10));
   bindEditorPress(editorGroundLineBtn, () => setGroundLineEditorOpen(!groundLineEditMode));
