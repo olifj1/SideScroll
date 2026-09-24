@@ -1,12 +1,13 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.46';
+  const VERSION = '1.0.47';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
   const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v3';
   const SOCKET_KEY = 'sidescroll.asset-sockets.v1';
+  const STATE_KEY = 'sidescroll.asset-states.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
   const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','pushable','socketHost','socketPiece'];
@@ -104,6 +105,14 @@
   const brokenOffsetYInput = document.getElementById('assetlab-broken-offset-y');
   const brokenOffsetXValue = document.getElementById('assetlab-broken-offset-x-value');
   const brokenOffsetYValue = document.getElementById('assetlab-broken-offset-y-value');
+  const stateSelect = document.getElementById('assetlab-state-select');
+  const stateNewBtn = document.getElementById('assetlab-state-new');
+  const stateDuplicateBtn = document.getElementById('assetlab-state-duplicate');
+  const stateRenameBtn = document.getElementById('assetlab-state-rename');
+  const stateDeleteBtn = document.getElementById('assetlab-state-delete');
+  const cartComponents = document.getElementById('assetlab-cart-components');
+  const cartRearWheelBtn = document.getElementById('assetlab-cart-rear-wheel');
+  const cartFrontWheelBtn = document.getElementById('assetlab-cart-front-wheel');
 
   const readStore = key => {
     try { const value = JSON.parse(localStorage.getItem(key) || '{}'); return value && typeof value === 'object' ? value : {}; }
@@ -114,6 +123,7 @@
   let layoutStore = readStore(LAYOUT_KEY);
   let mechanismStore = readStore(MECHANISM_KEY);
   let socketStore = readStore(SOCKET_KEY);
+  let assetStateStore = readStore(STATE_KEY);
 
   const DEFAULT_COUNTERWEIGHT = Object.freeze({
     type:'counterweightPlank',
@@ -166,7 +176,8 @@
     panY:0,
     viewScale:1,
     render:null,
-    socketPlacementMode:false
+    socketPlacementMode:false,
+    assetState:'base'
   };
 
   const defaultPoints = () => [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}];
@@ -213,26 +224,83 @@
     return img;
   }
 
-  function builtInBehaviour(asset) {
-    return {...emptyBehaviour,...(asset.behaviour||{})};
+  function canonicalStateAssetName(asset=state.asset) {
+    const name = typeof asset === 'string' ? asset : asset?.name;
+    if (name === 'handcart-broken') return 'handcart';
+    if (name === 'cart-wheel-ready') return 'cart-wheel-loose';
+    return name || '';
   }
-  function effectiveBehaviour(asset=state.asset) {
-    const b = {...builtInBehaviour(asset),...(behaviourStore[asset.name]||{})};
+
+  function defaultStateForAsset(asset=state.asset) {
+    const name = typeof asset === 'string' ? asset : asset?.name;
+    if (name === 'handcart-broken') return 'broken';
+    if (name === 'handcart') return 'repaired';
+    return 'base';
+  }
+
+  function stateProfile(asset=state.asset, stateName=null) {
+    const name = canonicalStateAssetName(asset);
+    const chosen = stateName ?? ((asset === state.asset || asset?.name === state.asset?.name) ? state.assetState : defaultStateForAsset(asset));
+    if (!name || chosen === 'base') return null;
+    return assetStateStore?.[name]?.states?.[chosen] || null;
+  }
+
+  function ensureStateBucket(asset=state.asset) {
+    const name = canonicalStateAssetName(asset);
+    assetStateStore[name] ||= { states:{} };
+    assetStateStore[name].states ||= {};
+    return assetStateStore[name];
+  }
+
+  function writeStateStore() {
+    writeStore(STATE_KEY, assetStateStore);
+  }
+
+  function builtInBehaviour(asset) {
+    return {...emptyBehaviour,...(asset?.behaviour||{})};
+  }
+
+  function normaliseBehaviour(value) {
+    const b = {...emptyBehaviour,...(value||{})};
     if (b.carryable) b.placeable = true;
     if (b.supportSurface) b.solid = true;
     if (b.stackable) b.placeable = true;
     if (b.pushable) b.solid = true;
     return b;
   }
-  function effectiveHeight(asset=state.asset) {
+
+  function baseBehaviour(asset=state.asset) {
+    return normaliseBehaviour({...builtInBehaviour(asset),...(behaviourStore[asset.name]||{})});
+  }
+
+  function effectiveBehaviour(asset=state.asset, stateName=null) {
+    const profile = stateProfile(asset,stateName);
+    return normaliseBehaviour(profile?.behaviour ? profile.behaviour : baseBehaviour(asset));
+  }
+
+  function baseHeight(asset=state.asset) {
     const v = Number(layoutStore[asset.name]?.defaultHeight);
     return Number.isFinite(v) ? clamp(v,0.25,12) : asset.height;
   }
-  function effectiveGroundLine(asset=state.asset) {
+
+  function effectiveHeight(asset=state.asset, stateName=null) {
+    const profile = stateProfile(asset,stateName);
+    const v = Number(profile?.layout?.defaultHeight);
+    return Number.isFinite(v) ? clamp(v,0.25,12) : baseHeight(asset);
+  }
+
+  function baseGroundLine(asset=state.asset) {
     const v = Number(layoutStore[asset.name]?.groundLine);
     return Number.isFinite(v) ? clamp(v,0,1) : clamp(Number(asset.groundLine)||0,0,1);
   }
-  function effectiveVisual(asset=state.asset) {
+
+  function effectiveGroundLine(asset=state.asset, stateName=null) {
+    const profile = stateProfile(asset,stateName);
+    const v = Number(profile?.layout?.groundLine);
+    return Number.isFinite(v) ? clamp(v,0,1) : baseGroundLine(asset);
+  }
+
+  function baseVisual(asset=state.asset) {
     const stored=layoutStore[asset?.name]||{};
     const fallback=asset?.name==='handcart-broken' ? {visualOffsetX:0,visualOffsetY:-.06,visualRotationDeg:-6} : {visualOffsetX:0,visualOffsetY:0,visualRotationDeg:0};
     return {
@@ -242,6 +310,18 @@
       flip:!!stored.visualFlip
     };
   }
+
+  function effectiveVisual(asset=state.asset, stateName=null) {
+    const base=baseVisual(asset);
+    const stored=stateProfile(asset,stateName)?.layout||{};
+    return {
+      x:Number.isFinite(Number(stored.visualOffsetX))?Number(stored.visualOffsetX):base.x,
+      y:Number.isFinite(Number(stored.visualOffsetY))?Number(stored.visualOffsetY):base.y,
+      deg:Number.isFinite(Number(stored.visualRotationDeg))?Number(stored.visualRotationDeg):base.deg,
+      flip:Object.prototype.hasOwnProperty.call(stored,'visualFlip')?!!stored.visualFlip:base.flip
+    };
+  }
+
   function behaviourNeedsCollision(behaviour) {
     return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
   }
@@ -266,15 +346,56 @@
       autoGenerated:true
     };
   }
-  function effectiveCollision(asset=state.asset) {
+
+  function baseCollision(asset=state.asset) {
+    if (Object.prototype.hasOwnProperty.call(collisionStore,asset.name)) return clone(collisionStore[asset.name]);
+    if (asset.collision) return clone(asset.collision);
+    const behaviour=baseBehaviour(asset);
+    if (!behaviourNeedsCollision(behaviour)) return null;
+    const height=baseHeight(asset);
+    const image=ensureImage(asset);
+    const aspect=image?.naturalWidth&&image?.naturalHeight?image.naturalWidth/image.naturalHeight:1;
+    const width=Math.max(.001,height*aspect);
+    return {halfWidthRatio:.43,heightRatio:behaviour.stackable?null:.96,fixedHeight:behaviour.stackable?STACK_ITEM_HEIGHT:null,depthRatio:Math.max(.01,Math.min(1.08,width*.42)/width),points:defaultPoints(),autoGenerated:true};
+  }
+
+  function effectiveCollision(asset=state.asset, stateName=null) {
+    const profile=stateProfile(asset,stateName);
+    if (profile && Object.prototype.hasOwnProperty.call(profile,'collision')) return clone(profile.collision);
     if (Object.prototype.hasOwnProperty.call(collisionStore,asset.name)) return clone(collisionStore[asset.name]);
     return autoCollision(asset);
   }
   function hasCollisionOverride(asset=state.asset) {
+    const profile=stateProfile(asset);
+    if (profile) return Object.prototype.hasOwnProperty.call(profile,'collision');
     return Object.prototype.hasOwnProperty.call(collisionStore,asset.name);
   }
   function hasCustomCollision(asset=state.asset) {
+    const profile=stateProfile(asset);
+    if (profile) return Object.prototype.hasOwnProperty.call(profile,'collision') && profile.collision != null;
     return hasCollisionOverride(asset) && collisionStore[asset.name] != null;
+  }
+
+  function setCollisionOverride(asset,value) {
+    const profile=stateProfile(asset);
+    if (profile) {
+      profile.collision=clone(value);
+      writeStateStore();
+    } else {
+      collisionStore[asset.name]=clone(value);
+      writeStore(COLLISION_KEY,collisionStore);
+    }
+  }
+
+  function deleteCollisionOverride(asset=state.asset) {
+    const profile=stateProfile(asset);
+    if (profile) {
+      delete profile.collision;
+      writeStateStore();
+    } else {
+      delete collisionStore[asset.name];
+      writeStore(COLLISION_KEY,collisionStore);
+    }
   }
   function collisionShapeDefs(def) {
     if(!def) return [];
@@ -312,8 +433,14 @@
     setTimeout(()=>saveStateEl.classList.remove('pulse'),220);
   }
   function saveLayout(patch) {
-    layoutStore[state.asset.name] = {...(layoutStore[state.asset.name]||{}),...patch};
-    writeStore(LAYOUT_KEY,layoutStore);
+    const profile=stateProfile();
+    if(profile){
+      profile.layout={...(profile.layout||{}),...patch};
+      writeStateStore();
+    } else {
+      layoutStore[state.asset.name] = {...(layoutStore[state.asset.name]||{}),...patch};
+      writeStore(LAYOUT_KEY,layoutStore);
+    }
   }
 
 
@@ -482,6 +609,101 @@
     return [state.asset];
   }
 
+  function stateLabel(stateName, asset=state.asset) {
+    if (stateName === 'base') return 'Base';
+    return assetStateStore?.[canonicalStateAssetName(asset)]?.states?.[stateName]?.label || stateName.replace(/[-_]+/g,' ').replace(/\b\w/g,m=>m.toUpperCase());
+  }
+
+  function cartDefaultStateDefinition(name) {
+    const brokenAsset=assetByName('handcart-broken');
+    const repairedAsset=assetByName('handcart');
+    const source=name==='broken'?brokenAsset:repairedAsset;
+    const visual=baseVisual(source);
+    const layout={
+      defaultHeight:baseHeight(source),
+      groundLine:baseGroundLine(source),
+      visualOffsetX:visual.x,
+      visualOffsetY:visual.y,
+      visualRotationDeg:visual.deg,
+      visualFlip:visual.flip
+    };
+    const behaviour=baseBehaviour(source);
+    const collision=baseCollision(source);
+    if(name==='broken') return {label:'Broken',layout,behaviour,collision,components:{rearWheel:true,frontWheel:false}};
+    if(name==='landed') {
+      const points=[{x:-1,y:.59},{x:1,y:.59},{x:1,y:.72},{x:-1,y:.72}];
+      return {
+        label:'Landed / Bridge',
+        layout:{...layout,visualOffsetX:0,visualOffsetY:0,visualRotationDeg:0},
+        behaviour:{...emptyBehaviour,solid:true,supportSurface:true,pushable:false},
+        collision:{halfWidthRatio:.49,heightRatio:1,fixedHeight:null,depthRatio:.18,points:points.map(p=>({...p})),shapes:[{points:points.map(p=>({...p}))}],autoGenerated:false},
+        components:{rearWheel:true,frontWheel:true}
+      };
+    }
+    return {label:'Repaired / Pushable',layout,behaviour,collision,components:{rearWheel:true,frontWheel:true}};
+  }
+
+  function ensureCartStates() {
+    const bucket=ensureStateBucket('handcart');
+    let changed=false;
+    for(const name of ['broken','repaired','landed']){
+      if(!bucket.states[name]){ bucket.states[name]=cartDefaultStateDefinition(name); changed=true; }
+    }
+    if(changed) try{ localStorage.setItem(STATE_KEY,JSON.stringify(assetStateStore)); }catch(_){}
+  }
+
+  function currentStateSnapshot(label='New State') {
+    const visual=effectiveVisual();
+    const profile=stateProfile();
+    const components=profile?.components ? clone(profile.components) : (canonicalStateAssetName()==='handcart' ? {rearWheel:true,frontWheel:true} : undefined);
+    return {
+      label,
+      layout:{defaultHeight:effectiveHeight(),groundLine:effectiveGroundLine(),visualOffsetX:visual.x,visualOffsetY:visual.y,visualRotationDeg:visual.deg,visualFlip:visual.flip},
+      behaviour:Object.fromEntries(behaviourKeys.map(k=>[k,!!effectiveBehaviour()[k]])),
+      collision:clone(effectiveCollision()),
+      ...(components?{components}:{})
+    };
+  }
+
+  function stateSlug(label) {
+    const base=String(label||'state').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'state';
+    const bucket=ensureStateBucket();
+    let key=base,n=2;
+    while(bucket.states[key]) key=`${base}-${n++}`;
+    return key;
+  }
+
+  function syncStateControls() {
+    if(!stateSelect) return;
+    const bucket=ensureStateBucket();
+    const names=['base',...Object.keys(bucket.states)];
+    if(!names.includes(state.assetState)) state.assetState=defaultStateForAsset(state.asset);
+    if(!names.includes(state.assetState)) state.assetState='base';
+    stateSelect.innerHTML=names.map(name=>`<option value="${name}">${stateLabel(name)}</option>`).join('');
+    stateSelect.value=state.assetState;
+    const protectedState=canonicalStateAssetName()==='handcart' && ['broken','repaired','landed'].includes(state.assetState);
+    stateRenameBtn.disabled=state.assetState==='base'||protectedState;
+    stateDeleteBtn.disabled=state.assetState==='base'||protectedState;
+    if(cartComponents){
+      const isCart=canonicalStateAssetName()==='handcart' && state.assetState!=='base';
+      cartComponents.hidden=!isCart;
+      if(isCart){
+        const profile=stateProfile();
+        profile.components ||= {rearWheel:true,frontWheel:true};
+        for(const [btn,key,label] of [[cartRearWheelBtn,'rearWheel','Rear Wheel'],[cartFrontWheelBtn,'frontWheel','Front Wheel']]){
+          const on=profile.components[key]!==false;
+          btn.classList.toggle('active',on);btn.setAttribute('aria-pressed',String(on));btn.textContent=`${label} · ${on?'ON':'OFF'}`;
+        }
+      }
+    }
+  }
+
+  function changeAssetState(name) {
+    state.assetState=name;
+    state.draggingHandle=-1;state.draggingEdge=null;state.selectedPoint=-1;state.selectedEdge=-1;state.selectedShape=0;
+    syncControls();buildList();
+  }
+
   function buildList() {
     listEl.innerHTML='';
     let group='';
@@ -506,7 +728,7 @@
     pairBtn.classList.toggle('active',state.pairMode);
     pairBtn.setAttribute('aria-pressed',String(state.pairMode));
     pairBtn.textContent=state.pairMode?'Single Piece':'Bridge Pair';
-    currentNameEl.textContent=`${state.asset.label}${state.pairMode?' · Pair':''}`;
+    currentNameEl.textContent=`${state.asset.label}${state.pairMode?' · Pair':''} · ${stateLabel(state.assetState)}`;
     stageHelpEl.textContent=state.pairMode
       ? 'Bridge Pair view. Click either piece to edit it. Drag empty space to pan; drag orange points or edge handles. Cyan is Y = 0.'
       : 'Drag empty space to pan. Drag orange points or edge handles. The cyan line is ground level (Y = 0).';
@@ -514,6 +736,7 @@
 
   function selectAsset(asset,{keepView=false}={}) {
     state.asset=asset;
+    state.assetState=defaultStateForAsset(asset);
     state.draggingHandle=-1;
     state.draggingEdge=null;
     state.selectedPoint=-1;
@@ -540,9 +763,11 @@
       flipBtn.setAttribute('aria-pressed',String(!!visual.flip));
       flipBtn.textContent=visual.flip?'Flipped Horizontally':'Flip Horizontally';
     }
+    syncStateControls();
     const collision=effectiveCollision();
-    const explicitCollision = Object.prototype.hasOwnProperty.call(collisionStore,state.asset.name);
-    const explicitlyRemoved = explicitCollision && collisionStore[state.asset.name] === null;
+    const profile=stateProfile();
+    const explicitCollision = profile ? Object.prototype.hasOwnProperty.call(profile,'collision') : Object.prototype.hasOwnProperty.call(collisionStore,state.asset.name);
+    const explicitlyRemoved = explicitCollision && (profile ? profile.collision === null : collisionStore[state.asset.name] === null);
     collisionToggle.textContent=explicitlyRemoved ? 'Use Auto Collision' : (collision ? (hasCustomCollision()?'Use Auto Collision':'Customise Collision') : 'Add Collision');
     collisionToggle.classList.toggle('active',!!collision);
     if(collisionRemove) collisionRemove.disabled=!collision;
@@ -559,7 +784,7 @@
     syncMechanismControls();
     syncSocketControls();
     if (brokenCartSection) {
-      const broken = state.asset?.name === 'handcart-broken';
+      const broken = canonicalStateAssetName()==='handcart' && state.assetState==='broken';
       brokenCartSection.hidden = !broken;
       if (broken) {
         brokenOffsetXInput.value = String(visual.x);
@@ -629,43 +854,45 @@
     if(key==='supportSurface'&&enabled)next.solid=true;
     if(key==='stackable'&&enabled)next.placeable=true;
     if(key==='pushable'&&enabled)next.solid=true;
-    behaviourStore[state.asset.name]=Object.fromEntries(behaviourKeys.map(k=>[k,!!next[k]]));
-    writeStore(BEHAVIOUR_KEY,behaviourStore);
+    const packed=Object.fromEntries(behaviourKeys.map(k=>[k,!!next[k]]));
+    const profile=stateProfile();
+    if(profile){ profile.behaviour=packed; writeStateStore(); }
+    else { behaviourStore[state.asset.name]=packed; writeStore(BEHAVIOUR_KEY,behaviourStore); }
     renderBehaviours(); buildList(); draw();
   }
 
   function ensureCustomCollision(asset=state.asset) {
-    if(hasCustomCollision(asset)){ ensureCollisionShapes(collisionStore[asset.name]); return collisionStore[asset.name]; }
+    if(hasCustomCollision(asset)){
+      const current=effectiveCollision(asset); ensureCollisionShapes(current); return current;
+    }
     const current=effectiveCollision(asset);
     if(!current) return null;
-    collisionStore[asset.name]={...current,autoGenerated:false};
-    ensureCollisionShapes(collisionStore[asset.name]);
-    return collisionStore[asset.name];
+    current.autoGenerated=false;
+    ensureCollisionShapes(current);
+    setCollisionOverride(asset,current);
+    return current;
   }
 
   function addOrRemoveCollision() {
-    if (hasCollisionOverride() && collisionStore[state.asset.name] === null) {
-      delete collisionStore[state.asset.name];
-    } else if (hasCustomCollision()) {
-      delete collisionStore[state.asset.name];
-    } else {
-      const current=effectiveCollision();
-      collisionStore[state.asset.name]=current ? {...current,autoGenerated:false} : {halfWidthRatio:.5,heightRatio:1,fixedHeight:null,depthRatio:.25,points:defaultPoints(),autoGenerated:false};
-      ensureCollisionShapes(collisionStore[state.asset.name]);
+    const current=effectiveCollision();
+    if (hasCollisionOverride()) deleteCollisionOverride();
+    else {
+      const next=current ? {...current,autoGenerated:false} : {halfWidthRatio:.5,heightRatio:1,fixedHeight:null,depthRatio:.25,points:defaultPoints(),autoGenerated:false};
+      ensureCollisionShapes(next); setCollisionOverride(state.asset,next);
     }
-    writeStore(COLLISION_KEY,collisionStore); state.selectedPoint=-1; state.selectedEdge=-1; state.selectedShape=0; syncControls(); buildList();
+    state.selectedPoint=-1; state.selectedEdge=-1; state.selectedShape=0; syncControls(); buildList();
   }
   function removeCollisionExplicitly() {
-    collisionStore[state.asset.name]=null;
-    writeStore(COLLISION_KEY,collisionStore);
+    setCollisionOverride(state.asset,null);
     state.selectedPoint=-1; state.selectedEdge=-1; state.selectedShape=0;
     syncControls(); buildList(); draw();
   }
   function fitCollisionRectangle() {
     const points=defaultPoints();
-    collisionStore[state.asset.name]={halfWidthRatio:.5,heightRatio:1,fixedHeight:effectiveBehaviour().stackable?STACK_ITEM_HEIGHT:null,depthRatio:.25,points:points.map(p=>({...p})),shapes:[{points:points.map(p=>({...p}))}],autoGenerated:false};
+    const next={halfWidthRatio:.5,heightRatio:1,fixedHeight:effectiveBehaviour().stackable?STACK_ITEM_HEIGHT:null,depthRatio:.25,points:points.map(p=>({...p})),shapes:[{points:points.map(p=>({...p}))}],autoGenerated:false};
+    setCollisionOverride(state.asset,next);
     state.selectedPoint=-1; state.selectedEdge=-1; state.selectedShape=0;
-    writeStore(COLLISION_KEY,collisionStore); syncControls(); buildList();
+    syncControls(); buildList();
   }
   function addCollisionBox() {
     const def=ensureCustomCollision(); if(!def) return;
@@ -680,8 +907,8 @@
       {x:clamp(xShift-.30,-1.8,1.8),y:yBase+.32}
     ];
     shapes.push({points:pts}); def.shapes=shapes; def.points=shapes[0].points.map(p=>({...p})); def.autoGenerated=false;
-    collisionStore[state.asset.name]=def; state.selectedShape=shapes.length-1; state.selectedPoint=-1; state.selectedEdge=-1;
-    writeStore(COLLISION_KEY,collisionStore); renderPointEditor(); buildList(); draw();
+    setCollisionOverride(state.asset,def); state.selectedShape=shapes.length-1; state.selectedPoint=-1; state.selectedEdge=-1;
+    renderPointEditor(); buildList(); draw();
   }
   function deleteCollisionBox() {
     const def=ensureCustomCollision(); if(!def) return;
@@ -689,13 +916,27 @@
     if(shapes.length<=1) return;
     shapes.splice(clamp(state.selectedShape,0,shapes.length-1),1);
     def.shapes=shapes; def.points=shapes[0].points.map(p=>({...p})); def.autoGenerated=false;
-    collisionStore[state.asset.name]=def; state.selectedShape=clamp(state.selectedShape,0,shapes.length-1); state.selectedPoint=-1; state.selectedEdge=-1;
-    writeStore(COLLISION_KEY,collisionStore); renderPointEditor(); buildList(); draw();
+    setCollisionOverride(state.asset,def); state.selectedShape=clamp(state.selectedShape,0,shapes.length-1); state.selectedPoint=-1; state.selectedEdge=-1;
+    renderPointEditor(); buildList(); draw();
   }
 
   function resetCurrent() {
-    delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name]; delete mechanismStore[state.asset.name]; delete socketStore[state.asset.name];
-    writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore); writeStore(MECHANISM_KEY,mechanismStore); writeStore(SOCKET_KEY,socketStore);
+    const profile=stateProfile();
+    if(profile){
+      const key=canonicalStateAssetName();
+      const protectedCart=key==='handcart' && ['broken','repaired','landed'].includes(state.assetState);
+      if(protectedCart){
+        const replacement=cartDefaultStateDefinition(state.assetState);
+        assetStateStore[key].states[state.assetState]=replacement;
+      } else {
+        delete assetStateStore[key].states[state.assetState];
+        state.assetState='base';
+      }
+      writeStateStore();
+    } else {
+      delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name]; delete mechanismStore[state.asset.name]; delete socketStore[state.asset.name];
+      writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore); writeStore(MECHANISM_KEY,mechanismStore); writeStore(SOCKET_KEY,socketStore);
+    }
     state.selectedPoint=-1; state.selectedEdge=-1; state.selectedShape=0; syncControls(); buildList();
   }
 
@@ -741,8 +982,8 @@
     shapes[index].points=worldPoints.map(p=>worldToPoint(asset,p.x,p.y));
     def.shapes=shapes; def.points=shapes[0].points.map(p=>({...p}));
     def.autoGenerated=false;
-    collisionStore[asset.name]=def;
-    if(write) writeStore(COLLISION_KEY,collisionStore);
+    if(write) setCollisionOverride(asset,def);
+    else { const profile=stateProfile(asset); if(profile) profile.collision=clone(def); else collisionStore[asset.name]=def; }
   }
 
   function renderPointEditor() {
@@ -982,7 +1223,12 @@
         if((asset.name==='handcart'||asset.name==='handcart-broken')&&cartWheelPreview.complete&&cartWheelPreview.naturalWidth){
           const wheelSize=ar.drawH*(160/255);
           const wheelY=-(91/255)*ar.drawH;
-          const wheelUs=asset.name==='handcart-broken'?[150/620]:[150/620,470/620];
+          const chosenState=(asset===state.asset)?state.assetState:defaultStateForAsset(asset);
+          const profile=stateProfile(asset,chosenState);
+          const components=profile?.components || {rearWheel:true,frontWheel:asset.name!=='handcart-broken'};
+          const wheelUs=[];
+          if(components.rearWheel!==false) wheelUs.push(150/620);
+          if(components.frontWheel!==false) wheelUs.push(470/620);
           for(const u of wheelUs){
             const wheelX=(u-.5)*ar.drawW;
             ctx.drawImage(cartWheelPreview,wheelX-wheelSize*.5,wheelY-wheelSize*.5,wheelSize,wheelSize);
@@ -1094,7 +1340,7 @@
   function finishPointer(){
     const changed=state.draggingHandle>=0||!!state.draggingEdge;
     state.draggingHandle=-1; state.draggingEdge=null; state.panning=false; state.pointerStart=null; state.panStart=null;
-    if(changed){writeStore(COLLISION_KEY,collisionStore);buildList();renderPointEditor();}
+    if(changed){ if(stateProfile()) writeStateStore(); else writeStore(COLLISION_KEY,collisionStore); buildList();renderPointEditor();}
     draw();
   }
   canvas.addEventListener('pointerup',finishPointer); canvas.addEventListener('pointercancel',finishPointer);
@@ -1109,6 +1355,38 @@
     });
   }
 
+  stateSelect?.addEventListener('change',()=>changeAssetState(stateSelect.value||'base'));
+  stateNewBtn?.addEventListener('click',()=>{
+    const label=window.prompt('Name this asset state','New State'); if(!label?.trim()) return;
+    const bucket=ensureStateBucket(); const key=stateSlug(label);
+    bucket.states[key]={label:label.trim()}; writeStateStore(); changeAssetState(key);
+  });
+  stateDuplicateBtn?.addEventListener('click',()=>{
+    const suggested=`${stateLabel(state.assetState)} Copy`;
+    const label=window.prompt('Name the duplicated state',suggested); if(!label?.trim()) return;
+    const bucket=ensureStateBucket(); const key=stateSlug(label);
+    bucket.states[key]=currentStateSnapshot(label.trim()); writeStateStore(); changeAssetState(key);
+  });
+  stateRenameBtn?.addEventListener('click',()=>{
+    const profile=stateProfile(); if(!profile) return;
+    const label=window.prompt('Rename this state',profile.label||stateLabel(state.assetState)); if(!label?.trim()) return;
+    profile.label=label.trim(); writeStateStore(); syncControls(); buildList();
+  });
+  stateDeleteBtn?.addEventListener('click',()=>{
+    if(state.assetState==='base') return;
+    const key=canonicalStateAssetName(); const bucket=ensureStateBucket();
+    if(!bucket.states[state.assetState]) return;
+    if(!window.confirm(`Delete state “${stateLabel(state.assetState)}”?`)) return;
+    delete bucket.states[state.assetState]; writeStateStore(); changeAssetState('base');
+  });
+  for(const [btn,key] of [[cartRearWheelBtn,'rearWheel'],[cartFrontWheelBtn,'frontWheel']]){
+    btn?.addEventListener('click',()=>{
+      const profile=stateProfile(); if(!profile) return;
+      profile.components ||= {rearWheel:true,frontWheel:true};
+      profile.components[key]=profile.components[key]===false;
+      writeStateStore(); syncStateControls(); draw();
+    });
+  }
   collisionShapeSelect?.addEventListener('change',()=>{state.selectedShape=clamp(Number(collisionShapeSelect.value)||0,0,99);state.selectedPoint=-1;state.selectedEdge=-1;renderPointEditor();draw();});
   collisionAddBoxBtn?.addEventListener('click',addCollisionBox);
   collisionDeleteBoxBtn?.addEventListener('click',deleteCollisionBox);
@@ -1118,7 +1396,7 @@
   flipBtn?.addEventListener('click',()=>{const next=!effectiveVisual().flip;saveLayout({visualFlip:next});syncControls();renderPointEditor();draw();});
   brokenOffsetXInput?.addEventListener('input',()=>{const v=clamp(Number(brokenOffsetXInput.value)||0,-1,1);brokenOffsetXValue.textContent=`${v.toFixed(2)} m`;saveLayout({visualOffsetX:v});draw();});
   brokenOffsetYInput?.addEventListener('input',()=>{const v=clamp(Number(brokenOffsetYInput.value)||0,-.75,.75);brokenOffsetYValue.textContent=`${v.toFixed(2)} m`;saveLayout({visualOffsetY:v});draw();});
-  depthInput.addEventListener('input',()=>{const def=ensureCustomCollision();if(!def)return;const width=assetWorldWidth();const depth=clamp(Number(depthInput.value)||.8,.15,2.5);def.depthRatio=depth/Math.max(.001,width);def.autoGenerated=false;collisionStore[state.asset.name]=def;depthValue.textContent=`${depth.toFixed(2)} m`;writeStore(COLLISION_KEY,collisionStore);syncControls();buildList();});
+  depthInput.addEventListener('input',()=>{const def=ensureCustomCollision();if(!def)return;const width=assetWorldWidth();const depth=clamp(Number(depthInput.value)||.8,.15,2.5);def.depthRatio=depth/Math.max(.001,width);def.autoGenerated=false;setCollisionOverride(state.asset,def);depthValue.textContent=`${depth.toFixed(2)} m`;syncControls();buildList();});
   collisionToggle.addEventListener('click',addOrRemoveCollision);
   collisionRemove?.addEventListener('click',removeCollisionExplicitly);
   collisionReset.addEventListener('click',fitCollisionRectangle);
@@ -1211,6 +1489,7 @@
   stageResizeObserver?.observe(document.querySelector('.assetlab-stage-wrap'));
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')settleViewport();});
 
+  ensureCartStates();
   ASSETS.slice(0,2).forEach(ensureImage);
   buildList(); selectAsset(ASSETS[0]); settleViewport();
 })();

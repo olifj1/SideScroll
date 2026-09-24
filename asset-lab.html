@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.46">
+  <link rel="stylesheet" href="style.css?v=1.0.47">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -41,6 +41,28 @@
     </section>
 
     <aside class="assetlab-controls">
+
+      <section class="assetlab-control-section" id="assetlab-state-section">
+        <div class="assetlab-control-heading"><small>STATES</small><strong>Asset state</strong></div>
+        <label class="assetlab-select-row">
+          <span><strong>Current state</strong><small>Physical / visual setup for this use case</small></span>
+          <select id="assetlab-state-select"></select>
+        </label>
+        <div class="assetlab-button-row">
+          <button type="button" id="assetlab-state-new">New State</button>
+          <button type="button" id="assetlab-state-duplicate">Duplicate</button>
+          <button type="button" id="assetlab-state-rename">Rename</button>
+          <button type="button" id="assetlab-state-delete" class="assetlab-danger">Delete</button>
+        </div>
+        <div id="assetlab-cart-components" hidden>
+          <div class="assetlab-point-head"><strong>Cart components</strong><small>state visibility</small></div>
+          <div class="assetlab-button-row">
+            <button type="button" id="assetlab-cart-rear-wheel" aria-pressed="true">Rear Wheel</button>
+            <button type="button" id="assetlab-cart-front-wheel" aria-pressed="true">Front Wheel</button>
+          </div>
+        </div>
+        <p class="assetlab-note">States inherit the asset's Base setup, then override placement, collision, behaviour and optional components. Puzzle code switches state instead of rebuilding those properties by hand.</p>
+      </section>
       <section class="assetlab-control-section">
         <div class="assetlab-control-heading"><small>PLACEMENT</small><strong>Asset defaults</strong></div>
         <label class="assetlab-range-row">
@@ -157,8 +179,8 @@
     </aside>
   </main>
 
-  <script src="site-config.js?v=1.0.46"></script>
-  <script src="core.js?v=1.0.46"></script>
-  <script src="asset-lab.js?v=1.0.46"></script>
+  <script src="site-config.js?v=1.0.47"></script>
+  <script src="core.js?v=1.0.47"></script>
+  <script src="asset-lab.js?v=1.0.47"></script>
 </body>
 </html>

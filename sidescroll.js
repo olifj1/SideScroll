@@ -1,9 +1,9 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.46: cart-rail authoring refinement. Bottom-edge spline
-  // handles are lifted above iOS system gestures, rail timing is editable, the
-  // landing angle can be set exactly level, and Reset preserves the authored path.
+  // SideScroll v1.0.47: reusable Asset States. Asset Lab can author named visual /
+  // physical / behaviour states; the cart now switches Broken -> Repaired -> Landed
+  // through those profiles, including an editable landed bridge collision.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -1347,9 +1347,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.46', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.47', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.46', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.47', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1357,7 +1357,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.46', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.47', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -2021,7 +2021,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     } catch (_) { return {}; }
   })();
 
-  function assetGroundLineDefault(assetName) {
+  function assetGroundLineDefault(assetName, stateName = null) {
+    const stateLayout=assetStateProfile(assetName,stateName)?.layout || null;
+    const stateGround=Number(stateLayout?.groundLine);
+    if(Number.isFinite(stateGround)) return Rig.clamp(stateGround,0,1);
     const layoutName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     const authored = Number(assetLayoutDefaults?.[layoutName]?.groundLine);
     if (Number.isFinite(authored)) return Rig.clamp(authored, 0, 1);
@@ -2029,25 +2032,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return Rig.clamp(Number.isFinite(value) ? value : 0, 0, 1);
   }
 
-  function assetVisualTransform(assetName) {
+  function assetVisualTransform(assetName, stateName = null) {
     const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     const stored = assetLayoutDefaults?.[settingsName] || {};
+    const stateLayout=assetStateProfile(assetName,stateName)?.layout || {};
     const fallback = ASSET_VISUAL_DEFAULTS[settingsName] || {};
     return {
-      offsetX:Number.isFinite(Number(stored.visualOffsetX)) ? Number(stored.visualOffsetX) : (Number(fallback.offsetX) || 0),
-      offsetY:Number.isFinite(Number(stored.visualOffsetY)) ? Number(stored.visualOffsetY) : (Number(fallback.offsetY) || 0),
-      rotationDeg:Number.isFinite(Number(stored.visualRotationDeg)) ? Number(stored.visualRotationDeg) : (Number(fallback.rotationDeg) || 0),
-      flip:!!stored.visualFlip
+      offsetX:Number.isFinite(Number(stateLayout.visualOffsetX)) ? Number(stateLayout.visualOffsetX) : (Number.isFinite(Number(stored.visualOffsetX)) ? Number(stored.visualOffsetX) : (Number(fallback.offsetX) || 0)),
+      offsetY:Number.isFinite(Number(stateLayout.visualOffsetY)) ? Number(stateLayout.visualOffsetY) : (Number.isFinite(Number(stored.visualOffsetY)) ? Number(stored.visualOffsetY) : (Number(fallback.offsetY) || 0)),
+      rotationDeg:Number.isFinite(Number(stateLayout.visualRotationDeg)) ? Number(stateLayout.visualRotationDeg) : (Number.isFinite(Number(stored.visualRotationDeg)) ? Number(stored.visualRotationDeg) : (Number(fallback.rotationDeg) || 0)),
+      flip:Object.prototype.hasOwnProperty.call(stateLayout,'visualFlip') ? !!stateLayout.visualFlip : !!stored.visualFlip
     };
   }
 
   function objectVisualFlip(obj, assetName = obj?.assetName) {
-    return (!!obj?.flip) !== (!!assetVisualTransform(assetName).flip);
+    return (!!obj?.flip) !== (!!assetVisualTransform(assetName,obj?.assetState).flip);
   }
 
   function objectGroundLine(obj) {
     if (!obj) return 0;
-    return Rig.clamp(Number.isFinite(obj.groundLine) ? Number(obj.groundLine) : assetGroundLineDefault(obj.assetName), 0, 1);
+    return Rig.clamp(Number.isFinite(obj.groundLine) ? Number(obj.groundLine) : assetGroundLineDefault(obj.assetName,obj.assetState), 0, 1);
   }
 
   function objectFloorWorldY(obj) {
@@ -2058,6 +2062,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function setObjectFloorWorldY(obj, floorWorldY) {
     if (!obj || !Number.isFinite(Number(floorWorldY))) return;
     obj.y = Number(floorWorldY) - objectGroundLine(obj) * (Number(obj.sy) || 0);
+  }
+
+  function setObjectAssetState(obj, stateName, { refreshCollision=true, preserveFloor=false } = {}) {
+    if(!obj) return obj;
+    const floorY=preserveFloor ? objectFloorWorldY(obj) : null;
+    obj.assetState=stateName || inferredAssetState(obj.assetName);
+    obj.groundLine=assetGroundLineDefault(obj.assetName,obj.assetState);
+    if(refreshCollision && !obj.collisionOverride){
+      obj.collision=behaviourCollisionFor(obj.assetName,obj.sx,obj.sy,obj.collision,obj.assetState);
+    }
+    if(preserveFloor && Number.isFinite(floorY)) setObjectFloorWorldY(obj,floorY);
+    return obj;
   }
 
   function objectFloorOffsetFromTerrain(obj) {
@@ -2156,6 +2172,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
   const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v3';
   const ASSET_SOCKET_STORAGE_KEY = 'sidescroll.asset-sockets.v1';
+  const ASSET_STATE_STORAGE_KEY = 'sidescroll.asset-states.v1';
   const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','pushable','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
     solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, socketHost:false, socketPiece:false
@@ -2591,6 +2608,92 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     assetCollisionDefaults['cart-wheel-ready'] = JSON.parse(JSON.stringify(assetCollisionDefaults['cart-wheel-loose']));
   }
 
+  let assetStateProfiles = (() => {
+    try {
+      const raw = localStorage.getItem(ASSET_STATE_STORAGE_KEY);
+      const parsed = raw !== null ? JSON.parse(raw || '{}') : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+  })();
+
+  function canonicalStateAssetName(assetName) {
+    if (assetName === 'handcart-broken') return 'handcart';
+    if (assetName === 'cart-wheel-ready') return 'cart-wheel-loose';
+    return assetName;
+  }
+
+  function inferredAssetState(assetName) {
+    if (assetName === 'handcart-broken') return 'broken';
+    if (assetName === 'handcart') return 'repaired';
+    return 'base';
+  }
+
+  function assetStateProfile(assetName, stateName = null) {
+    const chosen = stateName || inferredAssetState(assetName);
+    if (!chosen || chosen === 'base') return null;
+    return assetStateProfiles?.[canonicalStateAssetName(assetName)]?.states?.[chosen] || null;
+  }
+
+  function rawBehaviourForStateSeed(assetName) {
+    const defaults = ASSET_BEHAVIOUR_DEFAULTS[assetName] || EMPTY_ASSET_BEHAVIOURS;
+    const overrides = assetBehaviourOverrides[assetName] || {};
+    const merged = { ...EMPTY_ASSET_BEHAVIOURS, ...defaults, ...overrides };
+    if (merged.carryable) merged.placeable = true;
+    if (merged.supportSurface) merged.solid = true;
+    if (merged.stackable) merged.placeable = true;
+    if (merged.pushable) merged.solid = true;
+    return merged;
+  }
+
+  function rawLayoutForStateSeed(assetName, fallback = {}) {
+    const stored = assetLayoutDefaults?.[assetName] || {};
+    return {
+      ...(Number.isFinite(Number(stored.defaultHeight)) ? {defaultHeight:Number(stored.defaultHeight)} : {}),
+      groundLine:Number.isFinite(Number(stored.groundLine)) ? Number(stored.groundLine) : (Number(ASSET_GROUND_LINE_DEFAULTS[assetName]) || 0),
+      visualOffsetX:Number.isFinite(Number(stored.visualOffsetX)) ? Number(stored.visualOffsetX) : (Number(fallback.offsetX)||0),
+      visualOffsetY:Number.isFinite(Number(stored.visualOffsetY)) ? Number(stored.visualOffsetY) : (Number(fallback.offsetY)||0),
+      visualRotationDeg:Number.isFinite(Number(stored.visualRotationDeg)) ? Number(stored.visualRotationDeg) : (Number(fallback.rotationDeg)||0),
+      visualFlip:!!stored.visualFlip
+    };
+  }
+
+  function ensureBuiltInCartStates() {
+    assetStateProfiles.handcart ||= { states:{} };
+    assetStateProfiles.handcart.states ||= {};
+    const states=assetStateProfiles.handcart.states;
+    let changed=false;
+    if (!states.broken) {
+      states.broken={
+        label:'Broken',
+        layout:rawLayoutForStateSeed('handcart-broken',ASSET_VISUAL_DEFAULTS['handcart-broken']||{}),
+        behaviour:rawBehaviourForStateSeed('handcart-broken'),
+        collision:JSON.parse(JSON.stringify(assetCollisionDefaults['handcart-broken'] ?? null)),
+        components:{rearWheel:true,frontWheel:false}
+      }; changed=true;
+    }
+    if (!states.repaired) {
+      states.repaired={
+        label:'Repaired / Pushable',
+        layout:rawLayoutForStateSeed('handcart',ASSET_VISUAL_DEFAULTS.handcart||{}),
+        behaviour:rawBehaviourForStateSeed('handcart'),
+        collision:JSON.parse(JSON.stringify(assetCollisionDefaults.handcart ?? null)),
+        components:{rearWheel:true,frontWheel:true}
+      }; changed=true;
+    }
+    if (!states.landed) {
+      const points=[{x:-1,y:.59},{x:1,y:.59},{x:1,y:.72},{x:-1,y:.72}];
+      states.landed={
+        label:'Landed / Bridge',
+        layout:{...rawLayoutForStateSeed('handcart',ASSET_VISUAL_DEFAULTS.handcart||{}),visualOffsetX:0,visualOffsetY:0,visualRotationDeg:0},
+        behaviour:{...EMPTY_ASSET_BEHAVIOURS,solid:true,supportSurface:true,pushable:false},
+        collision:{halfWidthRatio:.49,heightRatio:1,fixedHeight:null,depthRatio:.18,points:points.map(p=>({...p})),shapes:[{points:points.map(p=>({...p}))}]},
+        components:{rearWheel:true,frontWheel:true}
+      }; changed=true;
+    }
+    if(changed){ try{ localStorage.setItem(ASSET_STATE_STORAGE_KEY,JSON.stringify(assetStateProfiles)); }catch(_){} }
+  }
+  ensureBuiltInCartStates();
+
   function saveAssetCollisionDefaults() {
     try { localStorage.setItem(ASSET_COLLISION_STORAGE_KEY, JSON.stringify(assetCollisionDefaults)); } catch (_) {}
   }
@@ -2616,9 +2719,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     };
   }
 
-  function collisionFromAssetDefault(assetName, sx, sy) {
+  function collisionFromAssetDefault(assetName, sx, sy, stateName = null) {
     const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
-    const def = assetCollisionDefaults[settingsName];
+    const profile=assetStateProfile(assetName,stateName);
+    const def = profile && Object.prototype.hasOwnProperty.call(profile,'collision') ? profile.collision : assetCollisionDefaults[settingsName];
     if (!def) return null;
     const width = Math.max(0.001, Math.abs(Number(sx) || 1));
     const height = Math.max(0.001, Math.abs(Number(sy) || 1));
@@ -2630,29 +2734,34 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       halfWidth: Math.max(0.01, (Number(def.halfWidthRatio) || 0.4) * width),
       height: Number.isFinite(def.fixedHeight) ? Number(def.fixedHeight) : Math.max(0.01, (Number(def.heightRatio) || 0.6) * height),
       depth: Math.max(0.01, (Number(def.depthRatio) || 0.4) * width),
-      platform: !!assetBehaviours(settingsName).supportSurface,
+      platform: !!assetBehaviours(settingsName,stateName).supportSurface,
       points: shapes[0].points.map(point => ({...point})),
       shapes,
       behaviourGenerated: false,
-      assetInherited: true
+      assetInherited: true,
+      assetState:stateName || inferredAssetState(assetName)
     };
   }
 
-  function hasAssetCollisionDefaultOverride(assetName) {
+  function hasAssetCollisionDefaultOverride(assetName, stateName = null) {
+    const profile=assetStateProfile(assetName,stateName);
+    if(profile && Object.prototype.hasOwnProperty.call(profile,'collision')) return true;
     const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     return Object.prototype.hasOwnProperty.call(assetCollisionDefaults, settingsName);
   }
 
-  function hasAssetBehaviourProfile(assetName) {
+  function hasAssetBehaviourProfile(assetName, stateName = null) {
+    if(assetStateProfile(assetName,stateName)?.behaviour) return true;
     const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     return Object.prototype.hasOwnProperty.call(ASSET_BEHAVIOUR_DEFAULTS, settingsName) || Object.prototype.hasOwnProperty.call(assetBehaviourOverrides, settingsName);
   }
 
-  function assetBehaviours(assetName) {
+  function assetBehaviours(assetName, stateName = null) {
     const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     const defaults = ASSET_BEHAVIOUR_DEFAULTS[settingsName] || EMPTY_ASSET_BEHAVIOURS;
     const overrides = assetBehaviourOverrides[settingsName] || {};
-    const merged = { ...EMPTY_ASSET_BEHAVIOURS, ...defaults, ...overrides };
+    const profile=assetStateProfile(assetName,stateName);
+    const merged = { ...EMPTY_ASSET_BEHAVIOURS, ...defaults, ...overrides, ...(profile?.behaviour || {}) };
     if (merged.carryable) merged.placeable = true;
     if (merged.supportSurface) merged.solid = true;
     if (merged.stackable) merged.placeable = true;
@@ -2662,7 +2771,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function objectHasBehaviour(obj, key) {
     if (!obj || obj.deleted) return false;
-    return !!assetBehaviours(obj.assetName)[key];
+    return !!assetBehaviours(obj.assetName,obj.assetState)[key];
   }
 
   function saveAssetBehaviourOverrides() {
@@ -2775,12 +2884,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
   }
 
-  function behaviourCollisionFor(assetName, width, height, existing = null) {
-    const behaviour = assetBehaviours(assetName);
-    const inherited = collisionFromAssetDefault(assetName, width, height);
-    if (hasAssetCollisionDefaultOverride(assetName)) return inherited;
+  function behaviourCollisionFor(assetName, width, height, existing = null, stateName = null) {
+    const behaviour = assetBehaviours(assetName,stateName);
+    const inherited = collisionFromAssetDefault(assetName, width, height,stateName);
+    if (hasAssetCollisionDefaultOverride(assetName,stateName)) return inherited;
     if (inherited) return inherited;
-    if (!hasAssetBehaviourProfile(assetName)) return cloneCollision(existing);
+    if (!hasAssetBehaviourProfile(assetName,stateName)) return cloneCollision(existing);
     let collision = cloneCollision(existing);
     if (!collision && behaviourNeedsCollision(behaviour)) {
       collision = {
@@ -2801,6 +2910,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const resolvedHeight = height;
     const resolvedWidth = width ?? resolvedHeight * (assetAspect[type] || 1);
     const category = opts.category || 'dressing';
+    const resolvedAssetState = opts.assetState || inferredAssetState(type);
     const obj = {
       id: opts.id || `proc-${++sceneIdCounter}`,
       mesh: billboardMesh,
@@ -2822,7 +2932,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       tint: opts.tint || null,
       asset: true,
       assetName: type,
-      groundLine: Rig.clamp(Number.isFinite(opts.groundLine) ? Number(opts.groundLine) : assetGroundLineDefault(type), 0, 1),
+      assetState: resolvedAssetState,
+      groundLine: Rig.clamp(Number.isFinite(opts.groundLine) ? Number(opts.groundLine) : assetGroundLineDefault(type,resolvedAssetState), 0, 1),
       category,
       gameplayType: opts.gameplayType || null,
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
@@ -2831,7 +2942,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       wrap: opts.wrap !== false,
       collision: opts.collisionOverride
         ? cloneCollision(opts.collision)
-        : behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision),
+        : behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision,resolvedAssetState),
       collisionOverride: !!opts.collisionOverride,
       shadow: opts.shadow ? { ...opts.shadow } : null,
       deleted: !!opts.deleted,
@@ -2854,8 +2965,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // Support/solid behaviour belongs to the asset, not to its editor library
     // category. This lets authored feature art such as bridge halves remain
     // puzzle dressing while still behaving as walkable/supporting geometry.
-    if (obj.collision && hasAssetBehaviourProfile(type)) {
-      obj.collision.platform = !!assetBehaviours(type).supportSurface;
+    if (obj.collision && hasAssetBehaviourProfile(type,resolvedAssetState)) {
+      obj.collision.platform = !!assetBehaviours(type,resolvedAssetState).supportSurface;
     }
     collection.push(obj);
     return obj;
@@ -4063,11 +4174,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const prop of def?.props || []) {
       objects[prop.id] = {
         asset: prop.asset,
+        assetState: prop.assetState || inferredAssetState(prop.asset),
         x: prop.x,
         z: prop.z ?? pathZ,
         yOffset: Number.isFinite(prop.yOffset) ? prop.yOffset : 0,
         floorOffset: Number.isFinite(prop.floorOffset) ? prop.floorOffset : null,
-        groundLine: Number.isFinite(prop.groundLine) ? prop.groundLine : assetGroundLineDefault(prop.asset),
+        groundLine: Number.isFinite(prop.groundLine) ? prop.groundLine : assetGroundLineDefault(prop.asset,prop.assetState || inferredAssetState(prop.asset)),
         sx: prop.width ?? null,
         sy: prop.height,
         flip: !!prop.flip,
@@ -4116,6 +4228,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!obj?.puzzleObjectId) continue;
       objects[obj.puzzleObjectId] = {
         asset: obj.assetName,
+        assetState: obj.assetState || inferredAssetState(obj.assetName),
         x: obj.x - instance.marker.x,
         z: obj.z,
         yOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked),
@@ -4166,6 +4279,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const prop = (instance.def.props || []).find(item => item.id === objectId) || null;
       let obj = existing.get(objectId);
       const asset = state.asset || prop?.asset;
+      const restoredAssetState = state.assetState || prop?.assetState || inferredAssetState(asset);
       if (!obj && asset) {
         const sy = Number.isFinite(state.sy) ? state.sy : (prop?.height ?? 0.8);
         const rawSx = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? sy * (assetAspect[asset] || 1));
@@ -4175,7 +4289,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         obj = addObject(frontOccluders, asset, x, z, sx, sy, {
           id:`puzzle-${instance.id}-${objectId}`,
           y:playSurfaceYAt(x),
-          groundLine:Number.isFinite(state.groundLine) ? state.groundLine : assetGroundLineDefault(asset),
+          groundLine:Number.isFinite(state.groundLine) ? state.groundLine : assetGroundLineDefault(asset,restoredAssetState),
+          assetState:restoredAssetState,
           flip:!!state.flip,
           shade:1, opacity:1, layer:'foreground', wrap:false,
           category:state.category || prop?.category || 'gameplay',
@@ -4208,6 +4323,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         obj.uvOffset = assetUv[asset]?.offset || [0, 0];
         obj.noFog = asset === 'axle-pin';
       }
+      obj.assetState = restoredAssetState;
       const xRel = Number.isFinite(state.x) ? state.x : (prop?.x ?? 0);
       obj.x = instance.marker.x + xRel;
       obj.z = Number.isFinite(state.z) ? state.z : (prop?.z ?? pathZ);
@@ -4226,7 +4342,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.collisionOverride = !!state.collisionOverride;
       obj.collision = obj.collisionOverride
         ? cloneCollision(state.collision ?? prop?.collision ?? null)
-        : behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, state.collision ?? prop?.collision ?? null);
+        : behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, state.collision ?? prop?.collision ?? null,obj.assetState);
       obj.shadow = state.shadow || prop?.shadow || obj.shadow || null;
       obj.sockets = Array.isArray(state.sockets ?? prop?.sockets) ? (state.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [];
       obj.socketedTo = (state.socketedTo ?? prop?.socketedTo) ? { ...(state.socketedTo ?? prop?.socketedTo) } : null;
@@ -4240,7 +4356,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.cartRailLocked = !!state.cartRailLocked;
       obj.cartRailElapsed = 0;
       obj.carried = false;
-      obj.groundLine = Rig.clamp(Number.isFinite(state.groundLine) ? Number(state.groundLine) : assetGroundLineDefault(obj.assetName), 0, 1);
+      obj.groundLine = Rig.clamp(Number.isFinite(state.groundLine) ? Number(state.groundLine) : assetGroundLineDefault(obj.assetName,obj.assetState), 0, 1);
       const baseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
       obj.y = objectUsesFreePlacement(obj) && Number.isFinite(state.worldFloorY)
         ? Number(state.worldFloorY) - objectGroundLine(obj) * obj.sy
@@ -4266,7 +4382,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     runtime.objects = {};
     for (const obj of instance.objects) {
       runtime.objects[obj.puzzleObjectId] = {
-        asset:obj.assetName,
+        asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName),
         x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
         deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
         gameplayLayerLocked:!!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
@@ -4308,7 +4424,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj?.puzzleInstanceId || !obj?.puzzleObjectId) return false;
     const state = savedPuzzleFor(obj.puzzleInstanceId);
     state.objects[obj.puzzleObjectId] = {
-      asset:obj.assetName,
+      asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName),
       x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
       deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
@@ -4341,6 +4457,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const meta = prior || startState || prop;
       const asset = prior?.asset || startState?.asset || prop?.asset;
       if (!asset) continue;
+      const restoredAssetState = prior?.assetState || startState?.assetState || prop?.assetState || inferredAssetState(asset);
       const xRel = Number.isFinite(startState?.x) ? startState.x : (prop?.x ?? 0);
       const x = Number.isFinite(prior?.x) ? prior.x : (marker.x + xRel);
       const z = Number.isFinite(prior?.z) ? prior.z : (Number.isFinite(startState?.z) ? startState.z : (prop?.z ?? pathZ));
@@ -4359,7 +4476,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const legacyBaseY = legacyTerrainAnchorBaseY(x, restoredZ, restoredCategory, restoredLocked);
       const restoredGroundLine = Rig.clamp(
         Number.isFinite(prior?.groundLine) ? Number(prior.groundLine)
-          : (Number.isFinite(startState?.groundLine) ? Number(startState.groundLine) : assetGroundLineDefault(asset)),
+          : (Number.isFinite(startState?.groundLine) ? Number(startState.groundLine) : assetGroundLineDefault(asset,restoredAssetState)),
         0, 1
       );
       const restoredOffset = Number.isFinite(prior?.floorOffset)
@@ -4378,6 +4495,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         id:`puzzle-${marker.id}-${objectId}`,
         y:restoredY,
         groundLine:restoredGroundLine,
+        assetState:restoredAssetState,
         flip:prior?.flip ?? startState?.flip ?? prop?.flip ?? false,
         shade:1, opacity:1, layer:'foreground', wrap:false,
         category:restoredCategory,
@@ -4702,6 +4820,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function applyOverrideToObject(obj, override) {
     if (!override) return;
+    if (override.assetState) obj.assetState = override.assetState;
     if (Number.isFinite(override.x)) obj.x = override.x;
     if (Number.isFinite(override.z)) obj.z = override.z;
     if (Number.isFinite(override.sx)) obj.sx = override.sx;
@@ -4719,7 +4838,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (override.collision === null) obj.collision = null;
       else if (override.collision) obj.collision = cloneCollision(override.collision);
     } else {
-      obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, override.collision);
+      obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, override.collision,obj.assetState);
     }
     obj.groundLine = Rig.clamp(Number.isFinite(override.groundLine) ? Number(override.groundLine) : objectGroundLine(obj), 0, 1);
     const currentBaseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
@@ -4743,7 +4862,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (obj.userAdded) {
       const saved = sceneData.added.find(item => item.id === obj.id);
       const payload = {
-        id: obj.id, assetName: obj.assetName, x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z,
+        id: obj.id, assetName: obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName), x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z,
         sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), deleted: !!obj.deleted
@@ -4752,7 +4871,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       else sceneData.added.push(payload);
     } else {
       sceneData.overrides[obj.id] = {
-        x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z, sx: obj.sx, sy: obj.sy, flip: obj.flip,
+        assetState:obj.assetState || inferredAssetState(obj.assetName), x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z, sx: obj.sx, sy: obj.sy, flip: obj.flip,
         collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride, category: obj.category || 'dressing',
         gameplayType: obj.gameplayType || null, gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), deleted: !!obj.deleted
       };
@@ -4796,7 +4915,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const restoredZ = restoredCategory === 'gameplay' && restoredLocked ? pathZ : saved.z;
       const currentBaseY = terrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
       const legacyBaseY = legacyTerrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
-      const restoredGroundLine = Rig.clamp(Number.isFinite(saved.groundLine) ? Number(saved.groundLine) : assetGroundLineDefault(saved.assetName), 0, 1);
+      const restoredGroundLine = Rig.clamp(Number.isFinite(saved.groundLine) ? Number(saved.groundLine) : assetGroundLineDefault(saved.assetName,saved.assetState || inferredAssetState(saved.assetName)), 0, 1);
       const restoredFreePlacement = typeof saved.freePlacement === 'boolean' ? saved.freePlacement : defaultFreePlacement(saved.assetName);
       const terrainOffset = Number.isFinite(saved.floorOffset)
         ? Number(saved.floorOffset) - restoredGroundLine * saved.sy
@@ -4807,7 +4926,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         ? Number(saved.worldFloorY) - restoredGroundLine * saved.sy
         : currentBaseY + terrainOffset;
       const obj = addObject(collection, saved.assetName, saved.x, restoredZ, restoredWidth, saved.sy, {
-        id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip,
+        id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip, assetState:saved.assetState || inferredAssetState(saved.assetName),
         y: restoredY, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(restoredZ),
         category: restoredCategory, gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
@@ -5421,11 +5540,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function applyAssetBehaviourToObject(obj) {
     if (!obj || !hasAssetBehaviourProfile(obj.assetName)) return;
-    const behaviour = assetBehaviours(obj.assetName);
+    const behaviour = assetBehaviours(obj.assetName,obj.assetState);
     if (!obj.collisionOverride) {
-      const inherited = collisionFromAssetDefault(obj.assetName, obj.sx, obj.sy);
+      const inherited = collisionFromAssetDefault(obj.assetName, obj.sx, obj.sy,obj.assetState);
       if (inherited) obj.collision = inherited;
-      else if (behaviourNeedsCollision(behaviour)) obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, null);
+      else if (behaviourNeedsCollision(behaviour)) obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, null,obj.assetState);
       else obj.collision = null;
     } else if (obj.collision) {
       obj.collision.platform = !!behaviour.supportSurface;
@@ -6277,7 +6396,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const obj of instance.objects) {
       if (!obj?.puzzleObjectId) continue;
       objects[obj.puzzleObjectId] = {
-        asset:obj.assetName,
+        asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName),
         x:obj.x-instance.marker.x,
         z:obj.z,
         yOffset:obj.y - (obj.category === 'gameplay' && obj.gameplayLayerLocked ? playSurfaceYAt(obj.x) : terrainGroundYAt(obj.x, obj.z)),
@@ -6310,7 +6429,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const diagnostics = instance.objects.map(obj => ({
       id:obj.id,
       puzzleObjectId:obj.puzzleObjectId,
-      asset:obj.assetName,
+      asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName),
       deleted:!!obj.deleted,
       x:obj.x,
       relativeX:obj.x-marker.x,
@@ -6326,7 +6445,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     }));
     const orphans = puzzleOrphanObjects(instance).map(obj => ({
-      id:obj.id, asset:obj.assetName, x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy,
+      id:obj.id, asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName), x:obj.x, y:obj.y, z:obj.z, sx:obj.sx, sy:obj.sy,
       deleted:!!obj.deleted, hasTexture:!!obj.texture, category:obj.category, gameplayType:obj.gameplayType
     }));
     return {
@@ -6386,7 +6505,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj || obj.puzzleInstanceId || obj.collectible) return null;
     return {
       id:obj.id,
-      asset:obj.assetName,
+      asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName),
       x:Number(obj.x) || 0,
       y:Number(obj.y) || 0,
       z:Number(obj.z) || 0,
@@ -7367,7 +7486,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updatePuzzlePanel();
   }
 
-  function defaultAssetHeight(name) {
+  function defaultAssetHeight(name, stateName = null) {
+    const stateHeight=Number(assetStateProfile(name,stateName)?.layout?.defaultHeight);
+    if(Number.isFinite(stateHeight)) return Rig.clamp(stateHeight,0.25,12);
     const settingsName = name === 'cart-wheel-ready' ? 'cart-wheel-loose' : name;
     const authoredHeight = Number(assetLayoutDefaults?.[settingsName]?.defaultHeight);
     if (Number.isFinite(authoredHeight)) return Rig.clamp(authoredHeight, 0.25, 12);
@@ -7431,7 +7552,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ? sourceFloorWorldY - sourceGroundLine * selectedObject.sy
       : terrainAnchorBaseY(point.x, point.z, selectedObject.category, selectedObject.gameplayLayerLocked) + sourceFloorOffset - sourceGroundLine * selectedObject.sy;
     const obj = addObject(collection, selectedObject.assetName, point.x, point.z, selectedObject.sx, selectedObject.sy, {
-      id, userAdded:!puzzleInstance, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy,
+      id, userAdded:!puzzleInstance, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy, assetState:selectedObject.assetState || inferredAssetState(selectedObject.assetName),
       y:duplicateY,
       groundLine:sourceGroundLine,
       shade:selectedObject.shade, opacity:selectedObject.opacity,
@@ -7468,7 +7589,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectedObject.sx *= ratio;
     if (selectedObject.collision) {
       if (!selectedObject.collisionOverride) {
-        selectedObject.collision = behaviourCollisionFor(selectedObject.assetName, selectedObject.sx, selectedObject.sy, null);
+        selectedObject.collision = behaviourCollisionFor(selectedObject.assetName, selectedObject.sx, selectedObject.sy, null,selectedObject.assetState);
       } else {
         selectedObject.collision.halfWidth *= ratio;
         selectedObject.collision.height = isGameplayCrate(selectedObject)
@@ -8572,7 +8693,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const c = obj.collision;
     const halfWidth = Math.max(0.001, c.halfWidth ?? Math.max(0.18, obj.sx * 0.34));
     const height = Math.max(0.001, c.height ?? Math.max(0.24, obj.sy * 0.66));
-    const visual = assetVisualTransform(obj.assetName);
+    const visual = assetVisualTransform(obj.assetName,obj.assetState);
     const visualAngle = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0);
     const visualFlip = objectVisualFlip(obj);
     const vc = Math.cos(visualAngle), vs = Math.sin(visualAngle);
@@ -8789,7 +8910,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function isBrokenHandcart(obj) {
-    return !!obj && !obj.deleted && obj.assetName === 'handcart-broken';
+    return !!obj && !obj.deleted && canonicalStateAssetName(obj.assetName)==='handcart' && (obj.assetState || inferredAssetState(obj.assetName))==='broken';
   }
 
   function isLooseCartWheel(obj) {
@@ -8898,12 +9019,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       cart.assetName = 'handcart';
       cart.texture = textures.handcart;
       cart.gameplayType = 'pushable';
-      cart.groundLine = assetGroundLineDefault('handcart');
+      cart.assetState = 'repaired';
+      cart.groundLine = assetGroundLineDefault('handcart','repaired');
       cart.sx = cart.sy * (assetAspect.handcart || (620 / 255));
       // The abandoned cart can be authored off the road. Repair is the moment
       // it becomes a gameplay vehicle: snap it to the path and preserve the
       // way it was visually facing before the state swap.
-      cart.flip = facingFlip !== !!assetVisualTransform('handcart').flip;
+      cart.flip = facingFlip !== !!assetVisualTransform('handcart','repaired').flip;
       cart.gameplayLayerLocked = true;
       cart.freePlacement = false;
       cart.z = pathZ;
@@ -8912,7 +9034,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       cart.cartRailAnimating = false;
       cart.cartRailLocked = false;
       cart.cartRailElapsed = 0;
-      cart.collision = behaviourCollisionFor('handcart', cart.sx, cart.sy, cart.collision);
+      cart.collision = behaviourCollisionFor('handcart', cart.sx, cart.sy, cart.collision,'repaired');
       cart.collisionOverride = false;
       recordObjectEdit(cart);
       carriedObject.deleted = true;
@@ -9125,23 +9247,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function cartBridgeCollision(obj) {
-    const points = [
-      {x:-1.00,y:0.59},{x:1.00,y:0.59},{x:1.00,y:0.72},{x:-1.00,y:0.72}
-    ];
-    return {
-      halfWidth:Math.max(0.4,obj.sx*0.49),
-      height:Math.max(0.4,obj.sy),
-      depth:Math.max(0.70,obj.sx*0.18),
-      platform:true,
-      points:points.map(p=>({...p})),
-      shapes:[{points:points.map(p=>({...p}))}],
-      behaviourGenerated:false,
-      cartBridge:true
-    };
+    const landedProfile=assetStateProfile('handcart','landed');
+    const authored=collisionFromAssetDefault('handcart',obj.sx,obj.sy,'landed');
+    if(landedProfile && Object.prototype.hasOwnProperty.call(landedProfile,'collision')) {
+      return authored ? {...authored,platform:!!assetBehaviours('handcart','landed').supportSurface,cartBridge:true,assetState:'landed'} : null;
+    }
+    if(authored) return {...authored,platform:true,cartBridge:true,assetState:'landed'};
+    const points = [{x:-1.00,y:0.59},{x:1.00,y:0.59},{x:1.00,y:0.72},{x:-1.00,y:0.72}];
+    return {halfWidth:Math.max(0.4,obj.sx*0.49),height:Math.max(0.4,obj.sy),depth:Math.max(0.70,obj.sx*0.18),platform:true,points:points.map(p=>({...p})),shapes:[{points:points.map(p=>({...p}))}],behaviourGenerated:false,cartBridge:true,assetState:'landed'};
   }
 
   function maybeStartCartRail(obj, previousX = null) {
-    if (!obj || obj.cartRailAnimating || obj.cartRailLocked || obj.assetName !== 'handcart') return false;
+    if (!obj || obj.cartRailAnimating || obj.cartRailLocked || obj.assetName !== 'handcart' || (obj.assetState && obj.assetState !== 'repaired')) return false;
     const setup = cartPathForObject(obj);
     if (!setup) return false;
     const { path } = setup;
@@ -9189,11 +9306,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         obj.cartRailElapsed=duration;
         obj.x=path.land.x;obj.y=path.land.y;obj.z=path.land.z;
         obj.runtimeRotation=(Number(path.finalRotationDeg)||0)*Math.PI/180;
+        obj.assetState='landed';
+        obj.groundLine=assetGroundLineDefault('handcart','landed');
         obj.gameplayType='bridge-cart';
         obj.freePlacement=true;
         obj.gameplayLayerLocked=false;
         obj.collision=cartBridgeCollision(obj);
-        obj.collisionOverride=true;
+        obj.collisionOverride=false;
         moveObjectToCorrectCollection(obj);
         sortSceneCollections();
         recordObjectEdit(obj);
@@ -9484,7 +9603,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
     const baseDrawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
-    const visual = !extra?.force ? assetVisualTransform(obj.assetName) : { offsetX:0, offsetY:0, rotationDeg:0 };
+    const visual = !extra?.force ? assetVisualTransform(obj.assetName,obj.assetState) : { offsetX:0, offsetY:0, rotationDeg:0 };
     const drawX = baseDrawX + (Number(visual.offsetX) || 0);
     if (!extra?.force && dressingHiddenByPuzzle(obj, drawX)) return;
     if (!extra?.force) drawObjectShadow(obj, view, drawX);
@@ -9536,7 +9655,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // line up with its two vertical supports and rotate around their true hubs.
     const wheelSize = obj.sy * (160 / 255);
     const wheelV = (255 - 164) / 255;
-    const wheelUs = obj.assetName === 'handcart-broken' ? [150 / 620] : [150 / 620, 470 / 620];
+    const profile=assetStateProfile(obj.assetName,obj.assetState);
+    const components=profile?.components || {rearWheel:true,frontWheel:obj.assetName!=='handcart-broken'};
+    const wheelUs=[];
+    if(components.rearWheel!==false) wheelUs.push(150/620);
+    if(components.frontWheel!==false) wheelUs.push(470/620);
     for (const uRaw of wheelUs) {
       const u = bodyFlip ? 1 - uRaw : uRaw;
       const localX = (u - 0.5) * obj.sx;
@@ -9572,10 +9695,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const travel=timed.totalLength*timed.distanceFraction;
     const direction=Math.sign(path.land.x-path.start.x)||1;
     const wheelRadius=Math.max(0.12,sy*(87/255));
+    const ghostState=rawT>=0.999?'landed':'repaired';
     const ghost={
       id:'cart-path-ghost',mesh:billboardMesh,texture:textures.handcart,uvScale:assetUv.handcart?.scale||[1,1],uvOffset:assetUv.handcart?.offset||[0,0],
       x:point.x,y:point.y,z:point.z-0.0005,sx,sy,sz:1,baseSx:sx,baseSy:sy,flip:source?.flip||false,shade:1,opacity:puzzleCartPathPreviewPlaying?0.58:0.44,noFog:true,tint:[0.86,1.0,0.91],
-      asset:true,assetName:'handcart',groundLine:assetGroundLineDefault('handcart'),category:'gameplay',gameplayType:'bridge-cart-ghost',gameplayLayerLocked:false,freePlacement:true,layer:'foreground',wrap:false,
+      asset:true,assetName:'handcart',assetState:ghostState,groundLine:assetGroundLineDefault('handcart',ghostState),category:'gameplay',gameplayType:'bridge-cart-ghost',gameplayLayerLocked:false,freePlacement:true,layer:'foreground',wrap:false,
       collision:null,collisionOverride:true,shadow:null,deleted:false,carried:false,userAdded:false,puzzleInstanceId:null,puzzleObjectId:null,sockets:[],socketedTo:null,counterweightBoundTo:null,counterweightVisualAngle:0,counterweightAngle:0,counterweightAngularVelocity:0,
       wheelRotation:(Number(source?.wheelRotation)||0)-direction*travel/wheelRadius,runtimeRotation:rotation,cartRailAnimating:false,cartRailLocked:true,cartRailElapsed:0
     };

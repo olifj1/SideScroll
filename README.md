@@ -1,8 +1,11 @@
-# SideScroll v1.0.46
+# SideScroll v1.0.47
 
-Cart-path velocity authoring pass.
+Asset States foundation.
 
-- Added START / MID / END speed controls for the cart rail.
-- Speed keys redistribute motion along the spline while keeping the authored total duration.
-- Ghost replay and scrubber now use the exact same velocity profile as gameplay.
-- Default profile eases away from the player, accelerates through the middle, then settles more gently.
+- Asset Lab now supports named states with New, Duplicate, Rename and Delete controls.
+- States can override placement/visual transform, collision, and gameplay behaviours.
+- Handcart ships with Broken, Repaired / Pushable, and Landed / Bridge states.
+- Cart wheel visibility is authored per cart state.
+- Repair now enters the Repaired state; the rail landing enters the Landed state.
+- Landed cart collision is authored in Asset Lab rather than hard-coded, with a legacy fallback.
+- Puzzle/scene snapshots now preserve asset state so Reset restores the authored state correctly.
