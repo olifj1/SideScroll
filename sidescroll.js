@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.34: cart wheel rotation now uses a true axle-centred pivot.
+  // SideScroll v1.0.36: cart wheel rotation now uses a true axle-centred pivot.
   // Floor line, scale, collision and behaviour defaults can now be authored away from the crowded scene viewport.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -1020,6 +1020,39 @@
     return tex;
   }
 
+  function createProcessedImageTexture(url, label, process, aspectOverride = null) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0, 0])
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    loadImageSource(url).then(image => {
+      const c = document.createElement('canvas');
+      c.width = image.naturalWidth;
+      c.height = image.naturalHeight;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.drawImage(image, 0, 0);
+      process?.(ctx, c.width, c.height, image);
+      assetAspect[label] = Number.isFinite(aspectOverride) ? aspectOverride : (c.width / c.height);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    }).catch(() => {
+      errorBox.hidden = false;
+      errorBox.textContent = `${label} asset could not be loaded.`;
+    });
+    return tex;
+  }
+
   const imageSourceCache = new Map();
   function loadImageSource(url) {
     let entry = imageSourceCache.get(url);
@@ -1288,9 +1321,9 @@
   // textures so wheel rotation is a real runtime transform rather than baked
   // animation. The cart's editor/world aspect is the complete 620x255 side view.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.34', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.36', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.34', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.36', 'handcart-wheel', null, 1);
   textures['handcart-wheel-mask'] = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = '#3a2c23';
@@ -1299,7 +1332,22 @@
     ctx.fill();
   }, 256, 256, false);
   assetAspect['handcart-broken'] = 620 / 255;
-  textures['handcart-broken'] = textures.handcart;
+  textures['handcart-broken'] = createProcessedImageTexture(
+    'handcart-body.png?v=1.0.36',
+    'handcart-broken',
+    (ctx) => {
+      // Mechanics-first broken state: remove the front/right wheel from the
+      // existing cart art at runtime. The final art can replace this later
+      // without changing any puzzle state or interaction code.
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(400, 162, 96, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    },
+    620 / 255
+  );
   assetAspect['cart-wheel-loose'] = 1;
   textures['cart-wheel-loose'] = textures['handcart-wheel'];
   assetAspect['cart-wheel-ready'] = 1;
@@ -1309,23 +1357,23 @@
     ctx.clearRect(0, 0, w, h);
     ctx.translate(w * 0.5, h * 0.5);
     ctx.rotate(-0.32);
-    ctx.fillStyle = 'rgba(225,196,121,.18)';
+    ctx.fillStyle = 'rgba(238,209,129,.34)';
     ctx.beginPath();
-    ctx.arc(0, 0, w * 0.34, 0, Math.PI * 2);
+    ctx.arc(0, 0, w * 0.40, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#b7a36f';
-    ctx.fillRect(-w * 0.28, -h * 0.05, w * 0.48, h * 0.10);
-    ctx.fillStyle = '#d8c48f';
-    ctx.fillRect(-w * 0.28, -h * 0.02, w * 0.44, h * 0.04);
-    ctx.fillStyle = '#8f7a4b';
-    ctx.fillRect(w * 0.12, -h * 0.10, w * 0.08, h * 0.20);
-    ctx.fillStyle = '#d9c593';
+    ctx.fillStyle = '#9e8959';
+    ctx.fillRect(-w * 0.31, -h * 0.065, w * 0.54, h * 0.13);
+    ctx.fillStyle = '#e3cd94';
+    ctx.fillRect(-w * 0.30, -h * 0.025, w * 0.49, h * 0.05);
+    ctx.fillStyle = '#75613d';
+    ctx.fillRect(w * 0.13, -h * 0.115, w * 0.10, h * 0.23);
+    ctx.fillStyle = '#e8d49c';
     ctx.beginPath();
-    ctx.arc(-w * 0.28, 0, w * 0.085, 0, Math.PI * 2);
+    ctx.arc(-w * 0.31, 0, w * 0.105, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#7f6b3e';
+    ctx.fillStyle = '#705c39';
     ctx.beginPath();
-    ctx.arc(-w * 0.28, 0, w * 0.048, 0, Math.PI * 2);
+    ctx.arc(-w * 0.31, 0, w * 0.058, 0, Math.PI * 2);
     ctx.fill();
   }, 256, 256, false);
 
@@ -1973,7 +2021,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'counterweight-plank': 0.36,
     // Wheel contact in the complete 620x255 cart frame is ~16 px above the
     // texture bottom, so 0.064 places the tyres cleanly on the gameplay floor.
-    'handcart': 0.064
+    'handcart': 0.064,
+    'handcart-broken': 0.064,
+    'cart-wheel-loose': 0.00,
+    'cart-wheel-ready': 0.00,
+    'axle-pin': 0.00
+  });
+  const ASSET_VISUAL_DEFAULTS = Object.freeze({
+    'handcart-broken': { offsetX:0.00, offsetY:-0.06, rotationDeg:-6.0 }
   });
 
   let assetLayoutDefaults = (() => {
@@ -1985,10 +2040,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   })();
 
   function assetGroundLineDefault(assetName) {
-    const authored = Number(assetLayoutDefaults?.[assetName]?.groundLine);
+    const layoutName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    const authored = Number(assetLayoutDefaults?.[layoutName]?.groundLine);
     if (Number.isFinite(authored)) return Rig.clamp(authored, 0, 1);
-    const value = ASSET_GROUND_LINE_DEFAULTS[assetName];
+    const value = ASSET_GROUND_LINE_DEFAULTS[layoutName];
     return Rig.clamp(Number.isFinite(value) ? value : 0, 0, 1);
+  }
+
+  function assetVisualTransform(assetName) {
+    const stored = assetLayoutDefaults?.[assetName] || {};
+    const fallback = ASSET_VISUAL_DEFAULTS[assetName] || {};
+    return {
+      offsetX:Number.isFinite(Number(stored.visualOffsetX)) ? Number(stored.visualOffsetX) : (Number(fallback.offsetX) || 0),
+      offsetY:Number.isFinite(Number(stored.visualOffsetY)) ? Number(stored.visualOffsetY) : (Number(fallback.offsetY) || 0),
+      rotationDeg:Number.isFinite(Number(stored.visualRotationDeg)) ? Number(stored.visualRotationDeg) : (Number(fallback.rotationDeg) || 0)
+    };
   }
 
   function objectGroundLine(obj) {
@@ -2563,7 +2629,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function collisionFromAssetDefault(assetName, sx, sy) {
-    const def = assetCollisionDefaults[assetName];
+    const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    const def = assetCollisionDefaults[settingsName];
     if (!def) return null;
     const width = Math.max(0.001, Math.abs(Number(sx) || 1));
     const height = Math.max(0.001, Math.abs(Number(sy) || 1));
@@ -2575,7 +2642,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       halfWidth: Math.max(0.01, (Number(def.halfWidthRatio) || 0.4) * width),
       height: Number.isFinite(def.fixedHeight) ? Number(def.fixedHeight) : Math.max(0.01, (Number(def.heightRatio) || 0.6) * height),
       depth: Math.max(0.01, (Number(def.depthRatio) || 0.4) * width),
-      platform: !!assetBehaviours(assetName).supportSurface,
+      platform: !!assetBehaviours(settingsName).supportSurface,
       points: shapes[0].points.map(point => ({...point})),
       shapes,
       behaviourGenerated: false,
@@ -2584,12 +2651,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function hasAssetBehaviourProfile(assetName) {
-    return Object.prototype.hasOwnProperty.call(ASSET_BEHAVIOUR_DEFAULTS, assetName) || Object.prototype.hasOwnProperty.call(assetBehaviourOverrides, assetName);
+    const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    return Object.prototype.hasOwnProperty.call(ASSET_BEHAVIOUR_DEFAULTS, settingsName) || Object.prototype.hasOwnProperty.call(assetBehaviourOverrides, settingsName);
   }
 
   function assetBehaviours(assetName) {
-    const defaults = ASSET_BEHAVIOUR_DEFAULTS[assetName] || EMPTY_ASSET_BEHAVIOURS;
-    const overrides = assetBehaviourOverrides[assetName] || {};
+    const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    const defaults = ASSET_BEHAVIOUR_DEFAULTS[settingsName] || EMPTY_ASSET_BEHAVIOURS;
+    const overrides = assetBehaviourOverrides[settingsName] || {};
     const merged = { ...EMPTY_ASSET_BEHAVIOURS, ...defaults, ...overrides };
     if (merged.carryable) merged.placeable = true;
     if (merged.supportSurface) merged.solid = true;
@@ -3843,6 +3912,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.x = instance.marker.x + xRel;
       obj.z = Number.isFinite(state.z) ? state.z : (prop?.z ?? pathZ);
       obj.sy = Number.isFinite(state.sy) ? state.sy : (prop?.height ?? obj.sy);
+      if (obj.assetName === 'axle-pin' && obj.sy < 0.66) obj.sy = 0.72;
       const rawSnapshotWidth = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? obj.sy * (assetAspect[obj.assetName] || 1));
       obj.sx = correctPuzzleAssetWidth(obj.assetName, rawSnapshotWidth, obj.sy);
       obj.flip = !!state.flip;
@@ -3963,7 +4033,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const xRel = Number.isFinite(startState?.x) ? startState.x : (prop?.x ?? 0);
       const x = Number.isFinite(prior?.x) ? prior.x : (marker.x + xRel);
       const z = Number.isFinite(prior?.z) ? prior.z : (Number.isFinite(startState?.z) ? startState.z : (prop?.z ?? pathZ));
-      const height = Number.isFinite(prior?.sy) ? prior.sy : (Number.isFinite(startState?.sy) ? startState.sy : (prop?.height ?? 0.8));
+      let height = Number.isFinite(prior?.sy) ? prior.sy : (Number.isFinite(startState?.sy) ? startState.sy : (prop?.height ?? 0.8));
+      if (asset === 'axle-pin' && height < 0.66) height = 0.72;
       const savedWidth = Number.isFinite(prior?.sx) ? prior.sx : (Number.isFinite(startState?.sx) ? startState.sx : prop?.width);
       const width = correctPuzzleAssetWidth(asset, savedWidth, height);
       const restoredCategory = prior?.category || startState?.category || prop?.category || 'gameplay';
@@ -4612,6 +4683,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let editorPuzzleLibraryGroupId = null;
   let scenePuzzleListSignature = '';
   let puzzleLibraryListSignature = '';
+  let puzzleObjectListSignature = '';
   let puzzleBrowserMode = 'scene';
 
   applyPersistedMarkerPositions();
@@ -4979,7 +5051,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
       { name:'cart-wheel-ready', label:'CART WHEEL · READY', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.06,
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
-      { name:'axle-pin', label:'AXLE PIN', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.54 }
+      { name:'axle-pin', label:'AXLE PIN', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -5192,6 +5264,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (hintTimer) {
       clearTimeout(hintTimer);
       hintTimer = 0;
+    }
+    if (typeof puzzleThoughtTimer !== 'undefined' && puzzleThoughtTimer) {
+      clearTimeout(puzzleThoughtTimer);
+      puzzleThoughtTimer = 0;
     }
   }
 
@@ -5840,7 +5916,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!puzzleObjectsEl || !puzzleObjectListEl) return;
     const instance = (editMode && editorScope === 'puzzle' && !puzzleWorkshopClear) ? selectedPuzzleInstance() : null;
     puzzleObjectsEl.hidden = !instance || puzzleTestMode;
-    if (!instance) { puzzleObjectListEl.innerHTML=''; if (puzzleObjectCountEl) puzzleObjectCountEl.textContent='0'; return; }
+    if (!instance) {
+      puzzleObjectListSignature = '';
+      puzzleObjectListEl.innerHTML='';
+      if (puzzleObjectCountEl) puzzleObjectCountEl.textContent='0';
+      return;
+    }
     const rowMatchesLayer = obj => {
       const assetScope = editorAssetScope.get(obj?.assetName);
       return puzzleEnvironmentPlacementMode ? assetScope === 'environment' : assetScope !== 'environment';
@@ -5853,6 +5934,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ...puzzleOrphanObjects(instance).filter(rowMatchesLayer).map(obj => ({obj, orphan:true}))
     ];
     if (puzzleObjectCountEl) puzzleObjectCountEl.textContent = String(rows.length);
+    const signature = `${instance.id}|${puzzleEnvironmentPlacementMode ? 'dressing' : 'pieces'}|${rows.map(({obj,orphan}) => `${obj.id}:${obj.assetName}:${obj.deleted?'d':'a'}:${orphan?'o':'n'}`).join('|')}`;
+    if (signature === puzzleObjectListSignature) return;
+    puzzleObjectListSignature = signature;
     puzzleObjectListEl.innerHTML = '';
     for (const {obj,orphan} of rows) {
       const row = document.createElement('div');
@@ -6911,9 +6995,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function defaultAssetHeight(name) {
-    const authoredHeight = Number(assetLayoutDefaults?.[name]?.defaultHeight);
+    const settingsName = name === 'cart-wheel-ready' ? 'cart-wheel-loose' : name;
+    const authoredHeight = Number(assetLayoutDefaults?.[settingsName]?.defaultHeight);
     if (Number.isFinite(authoredHeight)) return Rig.clamp(authoredHeight, 0.25, 12);
-    const info = editorAssetInfo.get(name);
+    const info = editorAssetInfo.get(settingsName) || editorAssetInfo.get(name);
     if (Number.isFinite(info?.defaultHeight)) return info.defaultHeight;
     if (name === 'crate') return 0.88;
     if (name.startsWith('tree')) return 8.2;
@@ -8188,7 +8273,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const depth = obj.collision?.depth ?? 0.9;
       if (Math.abs((obj.z ?? pathZ) - pathZ) > Math.max(0.95, depth)) continue;
       const ox = objectXNear(obj, characterXNow);
-      const distance = Math.abs(ox - characterXNow);
+      const halfWidth = Math.max(0.08, Number(obj.collision?.halfWidth) || (Math.abs(Number(obj.sx) || 0.4) * 0.48));
+      const distance = Math.max(0, Math.abs(ox - characterXNow) - halfWidth);
       if (distance <= range && distance < bestDistance) {
         best = obj;
         bestDistance = distance;
@@ -8199,14 +8285,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function nearestPuzzleContextAction() {
     if (editMode || inventoryOpen || interactionState || jumping) return null;
-    const broken = nearestGameplayObject(isBrokenHandcart, 1.1);
+    const broken = nearestGameplayObject(isBrokenHandcart, 0.82);
     if (carriedObject && isLooseCartWheel(carriedObject) && (inventoryItemCount('axle-pin') || 0) > 0) {
       return { type:'combine-wheel', label:'COMBINE', obj:carriedObject };
     }
     if (carriedObject && isReadyCartWheel(carriedObject) && broken?.obj) {
       return { type:'use-wheel', label:'USE', obj:broken.obj };
     }
-    const axlePin = !carriedObject ? nearestGameplayObject(isAxlePinObject, 0.95) : null;
+    const axlePin = !carriedObject ? nearestGameplayObject(isAxlePinObject, 0.72) : null;
     if (axlePin?.obj) {
       return { type:'pickup-axle-pin', label:'PICK UP', obj:axlePin.obj };
     }
@@ -8218,6 +8304,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function performPuzzleContextAction(action) {
     if (!action?.type) return false;
+    if (puzzleThoughtTimer) {
+      clearTimeout(puzzleThoughtTimer);
+      puzzleThoughtTimer = 0;
+    }
     if (action.type === 'pickup-axle-pin' && action.obj) {
       action.obj.deleted = true;
       recordObjectEdit(action.obj);
@@ -8266,6 +8356,39 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       return true;
     }
     return false;
+  }
+
+  const shownPuzzleThoughts = new Set();
+  let puzzleThoughtTimer = 0;
+
+  function showPuzzleThoughtOnce(key, text) {
+    if (!key || !text || shownPuzzleThoughts.has(key)) return false;
+    shownPuzzleThoughts.add(key);
+    if (puzzleThoughtTimer) clearTimeout(puzzleThoughtTimer);
+    hintEl.textContent = text;
+    hintEl.classList.remove('hidden');
+    puzzleThoughtTimer = window.setTimeout(() => {
+      hintEl.classList.add('hidden');
+      puzzleThoughtTimer = 0;
+    }, 3600);
+    return true;
+  }
+
+  function updatePuzzleThoughts() {
+    if (editMode || inventoryOpen || interactionState || pushingObject) return;
+    const broken = nearestGameplayObject(isBrokenHandcart, 0.95)?.obj || null;
+    if (carriedObject && isLooseCartWheel(carriedObject) && broken && inventoryItemCount('axle-pin') <= 0) {
+      showPuzzleThoughtOnce(`wheel-needs-pin:${broken.id}`, 'This wheel looks right, but I need a way to attach it.');
+      return;
+    }
+    if (carriedObject && isReadyCartWheel(carriedObject) && broken) {
+      showPuzzleThoughtOnce(`ready-wheel-cart:${broken.id}`, 'This might fit now.');
+      return;
+    }
+    if (inventoryItemCount('axle-pin') > 0 && !carriedObject) {
+      const wheel = nearestGameplayObject(isLooseCartWheel, 0.78)?.obj || null;
+      if (wheel) showPuzzleThoughtOnce(`pin-near-wheel:${wheel.id}`, 'Maybe my axle pin will fit that wheel.');
+    }
   }
 
   function isSupportSurfaceObject(obj) {
@@ -8697,16 +8820,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
-    const drawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
+    const baseDrawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
+    const visual = !extra?.force ? assetVisualTransform(obj.assetName) : { offsetX:0, offsetY:0, rotationDeg:0 };
+    const drawX = baseDrawX + (Number(visual.offsetX) || 0);
     if (!extra?.force && dressingHiddenByPuzzle(obj, drawX)) return;
     if (!extra?.force) drawObjectShadow(obj, view, drawX);
     const drawMesh = extra?.mesh || obj.mesh;
     bindMesh(drawMesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
-    const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || 0;
+    const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180;
+    const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
     const visualFlip = (obj.assetName || '').startsWith('tree') ? false : obj.flip;
-    let drawY = extra?.y ?? obj.y;
+    let drawY = (extra?.y ?? obj.y) + (Number(visual.offsetY) || 0);
     let modelX = drawX;
     const drawZ = extra?.z ?? obj.z;
     const drawSx = extra?.sx ?? obj.sx;
@@ -8738,10 +8864,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     gl.uniform2f(loc.uvOffset, extra?.uvOffset?.[0] ?? obj.uvOffset?.[0] ?? 0, extra?.uvOffset?.[1] ?? obj.uvOffset?.[1] ?? 0);
     gl.drawElements(gl.TRIANGLES, drawMesh.count, gl.UNSIGNED_SHORT, 0);
 
-    if (!extra?.force && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) drawHandcartWheels(obj, view, drawX);
+    if (!extra?.force && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) drawHandcartWheels(obj, view, drawX, drawY, visualRotation);
   }
 
-  function drawHandcartWheels(obj, view, drawX) {
+  function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0) {
     if (!textures['handcart-wheel']) return;
     // The generated side-view body already has a clean finished cart. A small
     // opaque inner disk masks only its baked spokes; the separately textured
@@ -8754,8 +8880,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const wheelUs = obj.assetName === 'handcart-broken' ? [225 / 620] : [225 / 620, 400 / 620];
     for (const uRaw of wheelUs) {
       const u = obj.flip ? 1 - uRaw : uRaw;
-      const centreX = drawX + (u - 0.5) * obj.sx;
-      const centreY = obj.y + wheelV * obj.sy;
+      const localX = (u - 0.5) * obj.sx;
+      const localY = wheelV * obj.sy;
+      const c = Math.cos(bodyRotation), s = Math.sin(bodyRotation);
+      const centreX = drawX + localX * c - localY * s;
+      const centreY = drawY + localX * s + localY * c;
       if (textures['handcart-wheel-mask']) {
         const mask = {
           mesh:centredBillboardMesh, texture:textures['handcart-wheel-mask'],
@@ -10037,6 +10166,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           : `3D forest · ${motionLabel} · camera X ${camera.x.toFixed(1)}${puzzleLabel}`);
     }
 
+    updatePuzzleThoughts();
     updateActionUI();
     if (editMode || puzzleTestMode) updatePuzzlePanel();
     requestAnimationFrame(render);

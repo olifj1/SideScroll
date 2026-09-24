@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.34';
+  const VERSION = '1.0.36';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -16,7 +16,10 @@
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-left',label:'Broken Bridge · Left',image:'bridge-left.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true,socketHost:true}},
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-right',label:'Broken Bridge · Right',image:'bridge-right.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true,socketHost:true}},
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'counterweight-plank',label:'Counterweight Plank · Legacy',image:'counterweight-plank.png',height:0.72,groundLine:0.36,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,socketPiece:true},collision:{halfWidthRatio:0.49,fixedHeight:0.26,heightRatio:null,depthRatio:0.12,points:null}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'handcart-broken',label:'Broken Handcart',image:'handcart-body.png',height:1.75,groundLine:0.064,behaviour:{solid:true,supportSurface:true},collision:{halfWidthRatio:0.405,heightRatio:0.72,fixedHeight:null,depthRatio:0.20,points:[{x:-1,y:0},{x:-1,y:.17},{x:-.8,y:.17},{x:-.8,y:.34},{x:-.63,y:.34},{x:-.63,y:1},{x:.63,y:1},{x:.63,y:.34},{x:.8,y:.34},{x:.8,y:.17},{x:1,y:.17},{x:1,y:0}]}},
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'handcart',label:'Wooden Handcart · Pushable',image:'handcart-body.png',height:1.75,groundLine:0.064,behaviour:{solid:true,supportSurface:true,pushable:true},collision:{halfWidthRatio:0.405,heightRatio:0.72,fixedHeight:null,depthRatio:0.20,points:[{x:-1,y:0},{x:-1,y:.17},{x:-.8,y:.17},{x:-.8,y:.34},{x:-.63,y:.34},{x:-.63,y:1},{x:.63,y:1},{x:.63,y:.34},{x:.8,y:.34},{x:.8,y:.17},{x:1,y:.17},{x:1,y:0}]}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'cart-wheel-loose',label:'Cart Wheel',image:'handcart-wheel.png',height:1.06,groundLine:0,behaviour:{solid:true,carryable:true,placeable:true},collision:{halfWidthRatio:0.30,heightRatio:0.62,fixedHeight:null,depthRatio:0.20,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'axle-pin',label:'Axle Pin',procedural:'axle-pin',height:0.72,groundLine:0,behaviour:{}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-a',label:'Moveable Log A',image:'puzzle-log-a.png',height:0.84,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true},collision:{halfWidthRatio:0.52/(0.84*1.7083),fixedHeight:STACK_ITEM_HEIGHT,heightRatio:null,depthRatio:0.56/(0.84*1.7083),points:null}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-b',label:'Moveable Log B',image:'puzzle-log-b.png',height:0.72,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-c',label:'Moveable Log C',image:'puzzle-log-c.png',height:0.76,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
@@ -92,6 +95,13 @@
   const socketXValue = document.getElementById('assetlab-socket-x-value');
   const socketYValue = document.getElementById('assetlab-socket-y-value');
   const socketNote = document.getElementById('assetlab-socket-note');
+  const brokenCartSection = document.getElementById('assetlab-broken-cart-section');
+  const brokenOffsetXInput = document.getElementById('assetlab-broken-offset-x');
+  const brokenOffsetYInput = document.getElementById('assetlab-broken-offset-y');
+  const brokenRotationInput = document.getElementById('assetlab-broken-rotation');
+  const brokenOffsetXValue = document.getElementById('assetlab-broken-offset-x-value');
+  const brokenOffsetYValue = document.getElementById('assetlab-broken-offset-y-value');
+  const brokenRotationValue = document.getElementById('assetlab-broken-rotation-value');
 
   const readStore = key => {
     try { const value = JSON.parse(localStorage.getItem(key) || '{}'); return value && typeof value === 'object' ? value : {}; }
@@ -161,10 +171,50 @@
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const clamp = (value,min,max) => Math.max(min,Math.min(max,value));
 
+  function drawAxlePin(ctx,w,h){
+    ctx.clearRect(0,0,w,h);
+    ctx.save();
+    ctx.translate(w*.5,h*.5); ctx.rotate(-.32);
+    ctx.fillStyle='rgba(238,209,129,.34)'; ctx.beginPath(); ctx.arc(0,0,w*.40,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#9e8959'; ctx.fillRect(-w*.31,-h*.065,w*.54,h*.13);
+    ctx.fillStyle='#e3cd94'; ctx.fillRect(-w*.30,-h*.025,w*.49,h*.05);
+    ctx.fillStyle='#75613d'; ctx.fillRect(w*.13,-h*.115,w*.10,h*.23);
+    ctx.fillStyle='#e8d49c'; ctx.beginPath(); ctx.arc(-w*.31,0,w*.105,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#705c39'; ctx.beginPath(); ctx.arc(-w*.31,0,w*.058,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function makeProceduralImage(asset){
+    const c=document.createElement('canvas'); c.width=256; c.height=256;
+    const cctx=c.getContext('2d');
+    if(asset?.procedural==='axle-pin') drawAxlePin(cctx,256,256);
+    const img=new Image(); img.src=c.toDataURL('image/png'); return img;
+  }
+
   function ensureImage(asset) {
     if (!asset) return null;
     const existing = imageCache.get(asset.name);
     if (existing) return existing;
+    if (asset.procedural) {
+      const img=makeProceduralImage(asset);
+      img.onload=()=>{resize();renderPointEditor();draw();};
+      imageCache.set(asset.name,img);
+      return img;
+    }
+    if (asset.name === 'handcart-broken') {
+      const img = new Image();
+      const source = new Image();
+      source.onload = () => {
+        const c=document.createElement('canvas'); c.width=source.naturalWidth; c.height=source.naturalHeight;
+        const cctx=c.getContext('2d'); cctx.drawImage(source,0,0);
+        cctx.save(); cctx.globalCompositeOperation='destination-out'; cctx.beginPath(); cctx.arc(400,162,96,0,Math.PI*2); cctx.fill(); cctx.restore();
+        img.src=c.toDataURL('image/png');
+      };
+      img.onload=()=>{resize();renderPointEditor();draw();};
+      source.src=`${asset.image}?v=${VERSION}`;
+      imageCache.set(asset.name,img);
+      return img;
+    }
     const img = new Image();
     img.onload = () => { resize(); renderPointEditor(); draw(); };
     img.src = `${asset.image}?v=${VERSION}`;
@@ -190,6 +240,15 @@
   function effectiveGroundLine(asset=state.asset) {
     const v = Number(layoutStore[asset.name]?.groundLine);
     return Number.isFinite(v) ? clamp(v,0,1) : clamp(Number(asset.groundLine)||0,0,1);
+  }
+  function effectiveVisual(asset=state.asset) {
+    const stored=layoutStore[asset?.name]||{};
+    const fallback=asset?.name==='handcart-broken' ? {visualOffsetX:0,visualOffsetY:-.06,visualRotationDeg:-6} : {visualOffsetX:0,visualOffsetY:0,visualRotationDeg:0};
+    return {
+      x:Number.isFinite(Number(stored.visualOffsetX))?Number(stored.visualOffsetX):fallback.visualOffsetX,
+      y:Number.isFinite(Number(stored.visualOffsetY))?Number(stored.visualOffsetY):fallback.visualOffsetY,
+      deg:Number.isFinite(Number(stored.visualRotationDeg))?Number(stored.visualRotationDeg):fallback.visualRotationDeg
+    };
   }
   function behaviourNeedsCollision(behaviour) {
     return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
@@ -491,6 +550,19 @@
     renderBehaviours();
     syncMechanismControls();
     syncSocketControls();
+    if (brokenCartSection) {
+      const broken = state.asset?.name === 'handcart-broken';
+      brokenCartSection.hidden = !broken;
+      if (broken) {
+        const visual = effectiveVisual();
+        brokenOffsetXInput.value = String(visual.x);
+        brokenOffsetYInput.value = String(visual.y);
+        brokenRotationInput.value = String(visual.deg);
+        brokenOffsetXValue.textContent = `${visual.x.toFixed(2)} m`;
+        brokenOffsetYValue.textContent = `${visual.y.toFixed(2)} m`;
+        brokenRotationValue.textContent = `${visual.deg.toFixed(1).replace('.0','')}°`;
+      }
+    }
     updatePairUI();
     draw();
   }
@@ -866,7 +938,19 @@
     for(const asset of r.assets){
       const ar=r.assetRenders[asset.name], image=ar.image; const active=asset.name===state.asset.name;
       if(image?.complete&&image.naturalWidth){
-        ctx.save(); ctx.globalAlpha=(state.pairMode && !active) ? .72 : 1; ctx.drawImage(image,ar.drawX,ar.drawY,ar.drawW,ar.drawH); ctx.restore();
+        ctx.save();
+        ctx.globalAlpha=(state.pairMode && !active) ? .72 : 1;
+        const visual=effectiveVisual(asset);
+        if(asset.name==='handcart-broken'){
+          const pivotX=ar.drawX+ar.drawW*.5+visual.x*r.ppm;
+          const pivotY=ar.drawY+ar.drawH-visual.y*r.ppm;
+          ctx.translate(pivotX,pivotY);
+          ctx.rotate(-visual.deg*Math.PI/180);
+          ctx.drawImage(image,-ar.drawW*.5,-ar.drawH,ar.drawW,ar.drawH);
+        }else{
+          ctx.drawImage(image,ar.drawX,ar.drawY,ar.drawW,ar.drawH);
+        }
+        ctx.restore();
       }
       if(state.pairMode){
         ctx.save(); ctx.strokeStyle=active?'rgba(126,216,199,.72)':'rgba(238,243,241,.16)'; ctx.lineWidth=active?2:1; ctx.setLineDash(active?[]:[5,5]); ctx.strokeRect(ar.drawX-5,ar.drawY-5,ar.drawW+10,ar.drawH+10); ctx.setLineDash([]);
@@ -992,6 +1076,9 @@
   collisionDeleteBoxBtn?.addEventListener('click',deleteCollisionBox);
   heightInput.addEventListener('input',()=>{const v=clamp(Number(heightInput.value)||state.asset.height,.25,12);heightValue.textContent=`${v.toFixed(2)} m`;saveLayout({defaultHeight:v});syncControls();});
   floorInput.addEventListener('input',()=>{const v=clamp((Number(floorInput.value)||0)/100,0,1);floorValue.textContent=`${Math.round(v*100)}%`;saveLayout({groundLine:v});renderPointEditor();draw();});
+  brokenOffsetXInput?.addEventListener('input',()=>{const v=clamp(Number(brokenOffsetXInput.value)||0,-1,1);brokenOffsetXValue.textContent=`${v.toFixed(2)} m`;saveLayout({visualOffsetX:v});draw();});
+  brokenOffsetYInput?.addEventListener('input',()=>{const v=clamp(Number(brokenOffsetYInput.value)||0,-.75,.75);brokenOffsetYValue.textContent=`${v.toFixed(2)} m`;saveLayout({visualOffsetY:v});draw();});
+  brokenRotationInput?.addEventListener('input',()=>{const v=clamp(Number(brokenRotationInput.value)||0,-18,18);brokenRotationValue.textContent=`${v.toFixed(1).replace('.0','')}°`;saveLayout({visualRotationDeg:v});draw();});
   depthInput.addEventListener('input',()=>{const def=ensureCustomCollision();if(!def)return;const width=assetWorldWidth();const depth=clamp(Number(depthInput.value)||.8,.15,2.5);def.depthRatio=depth/Math.max(.001,width);def.autoGenerated=false;collisionStore[state.asset.name]=def;depthValue.textContent=`${depth.toFixed(2)} m`;writeStore(COLLISION_KEY,collisionStore);syncControls();buildList();});
   collisionToggle.addEventListener('click',addOrRemoveCollision);
   collisionReset.addEventListener('click',fitCollisionRectangle);
