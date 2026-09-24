@@ -1,6 +1,7 @@
-# SideScroll v1.0.43
+# SideScroll v1.0.44
 
-- Edit mode is now collision-free for the player reference: no object blocking, no falling into gaps, and no side-penetration correction while editing.
-- Cart Path handles have much larger phone-friendly touch targets; their labels are draggable too.
-- The spline itself can now be dragged to move the entire cart route, so missing the blue MOVE PATH dot no longer starts an unwanted pan.
-- Cart Path handles are drawn larger with subtle grab halos to match their real touch areas.
+- Cart Path handles that fall into the iPhone bottom gesture area are now lifted into a safe grab band with a leader line back to the authored point.
+- Cart Path Reset/Set Start now persists the complete spline instead of rebuilding the default route; legacy path drafts are preserved during reset.
+- Cart rail duration is editable in 0.25 s steps, with a Match Push option to choose a speed close to the manual cart push.
+- Legacy 1.05 s rail timing migrates to a calmer 2.75 s default.
+- Landing rotation now adjusts in 1 degree steps and includes a dedicated Level 0° control.

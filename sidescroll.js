@@ -1,9 +1,9 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.43: refreshed authored cart-repair art. The chassis is now
-  // wheel-free artwork, runtime wheels stay separate/rotating, and the axle pin
-  // uses a large readable authored texture instead of the procedural placeholder.
+  // SideScroll v1.0.44: cart-rail authoring refinement. Bottom-edge spline
+  // handles are lifted above iOS system gestures, rail timing is editable, the
+  // landing angle can be set exactly level, and Reset preserves the authored path.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -194,8 +194,13 @@
   const puzzleCartPathTools = document.getElementById('sidescroll-puzzle-cart-path-tools');
   const puzzleCartPathToggleBtn = document.getElementById('sidescroll-puzzle-cart-path-toggle');
   const puzzleCartPathStartCartBtn = document.getElementById('sidescroll-puzzle-cart-path-start-cart');
+  const puzzleCartPathDurationDownBtn = document.getElementById('sidescroll-puzzle-cart-path-duration-down');
+  const puzzleCartPathDurationUpBtn = document.getElementById('sidescroll-puzzle-cart-path-duration-up');
+  const puzzleCartPathDurationValue = document.getElementById('sidescroll-puzzle-cart-path-duration-value');
   const puzzleCartPathAngleDownBtn = document.getElementById('sidescroll-puzzle-cart-path-angle-down');
+  const puzzleCartPathAngleZeroBtn = document.getElementById('sidescroll-puzzle-cart-path-angle-zero');
   const puzzleCartPathAngleUpBtn = document.getElementById('sidescroll-puzzle-cart-path-angle-up');
+  const puzzleCartPathMatchPushBtn = document.getElementById('sidescroll-puzzle-cart-path-match-push');
   const puzzleCartPathAngleValue = document.getElementById('sidescroll-puzzle-cart-path-angle-value');
   const puzzleEditLayerSwitch = document.getElementById('sidescroll-puzzle-edit-layer-switch');
   const puzzlePiecesLayerBtn = document.getElementById('sidescroll-puzzle-layer-pieces');
@@ -1326,13 +1331,13 @@
     1050 / 220
   );
 
-  // v1.0.43 handcart art. The body/chassis intentionally contains no wheels;
+  // v1.0.44 handcart art. The body/chassis intentionally contains no wheels;
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.43', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.44', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.43', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.44', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1340,7 +1345,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.43', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.44', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -3596,7 +3601,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const landY = playSurfaceYAt(landWorldX) - cartGroundLine * cartSy - 0.35;
     return {
       enabled:false,
-      duration:1.05,
+      duration:2.75,
+      timingVersion:2,
       finalRotationDeg:-8,
       start:{ x:startRelX, y:startY, z:pathZ },
       c1:{ x:startRelX + direction * 1.05, y:startY + 0.04, z:pathZ },
@@ -3613,9 +3619,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       y:Number.isFinite(Number(point?.y)) ? Number(point.y) : fallbackPoint.y,
       z:Number.isFinite(Number(point?.z)) ? Number(point.z) : fallbackPoint.z
     });
+    const sourceDuration = Number.isFinite(Number(source.duration)) ? Number(source.duration) : fallback.duration;
+    // v1.0.44 migration: the first rail prototype defaulted to 1.05 s, which
+    // made a cart pushed at ~0.9 m/s suddenly shoot through a multi-metre rail.
+    // There was no duration UI in those builds, so an untouched legacy default
+    // can safely migrate to the calmer authored default.
+    const migratedDuration = !Number.isFinite(Number(source.timingVersion)) && Math.abs(sourceDuration - 1.05) < 0.08
+      ? fallback.duration
+      : sourceDuration;
     return {
       enabled:source.enabled === true,
-      duration:Rig.clamp(Number.isFinite(Number(source.duration)) ? Number(source.duration) : fallback.duration, 0.45, 3.0),
+      duration:Rig.clamp(migratedDuration, 0.75, 8.0),
+      timingVersion:2,
       finalRotationDeg:Rig.clamp(Number.isFinite(Number(source.finalRotationDeg)) ? Number(source.finalRotationDeg) : fallback.finalRotationDeg, -85, 85),
       start:cleanPoint(source.start, fallback.start),
       c1:cleanPoint(source.c1, fallback.c1),
@@ -3657,6 +3672,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       y:u2*u*a.y + 3*u2*t*b.y + 3*u*t2*c.y + t2*t*d.y,
       z:u2*u*a.z + 3*u2*t*b.z + 3*u*t2*c.z + t2*t*d.z
     };
+  }
+
+  function approximateCubicBezierLength(a,b,c,d,steps=40) {
+    let total=0;
+    let prev=a;
+    for(let i=1;i<=steps;i++){
+      const point=cubicBezierPoint(a,b,c,d,i/steps);
+      total += Math.hypot(point.x-prev.x, point.y-prev.y, point.z-prev.z);
+      prev=point;
+    }
+    return total;
   }
 
   function pathPlanePointFromClient(clientX, clientY, z = pathZ) {
@@ -4025,7 +4051,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (snapshot.bounds) puzzleDraftBounds[instance.id] = { ...snapshot.bounds };
     else puzzleDraftBounds[instance.id] = { ...codeBoundsForMarker(instance.marker) };
     puzzleRespawnDraft[instance.id] = normalisePuzzleRespawn(instance.marker, snapshot.respawn || null);
-    puzzleCartPathDraft[instance.id] = normalisePuzzleCartPath(instance.marker, snapshot.cartPath || null);
+    // Legacy v1.0.41–1.0.44 authored snapshots accidentally omitted cartPath.
+    // Preserve the already-authored draft in that case instead of rebuilding a
+    // fresh default rail during Reset, which made the guide jump to the right.
+    const existingCartPath = puzzleCartPathDraft[instance.id] || puzzleSavedState?.[instance.id]?.cartPathDraft || null;
+    puzzleCartPathDraft[instance.id] = normalisePuzzleCartPath(instance.marker, snapshot.cartPath || existingCartPath || null);
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (pushingObject?.puzzleInstanceId === instance.id) { pushingObject = null; pushingSide = 0; pushingFloorOffset = 0; }
@@ -6917,7 +6947,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
                         : 'Puzzle Pieces mode · tap puzzle props to select/move them, or use Place Puzzle Piece to add more.')
                     : 'Selected from the Scene list. Use Edit Puzzle to activate its bounds and objects, or Focus to move the camera to it.')
                 : 'Choose a puzzle from the Scene list to see its controls.'));
-      if (!testing && instance && puzzleCartPathEditMode) puzzleHelpEl.textContent = 'Cart Path · drag blue MOVE PATH to move the whole route, or drag START / CURVE / LAND individually. The translucent cart previews the final locked pose.';
+      if (!testing && instance && puzzleCartPathEditMode) puzzleHelpEl.textContent = 'Cart Path · drag MOVE PATH/the spline to move the route, or drag START / CURVE / LAND. Bottom-edge handles lift above the iPhone gesture strip. The translucent cart previews the final pose.';
     }
 
     const selectionAvailable = libraryMode ? !!selectedGroupId : !!selectedMarker;
@@ -6981,6 +7011,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (instance && puzzleCartPathEditMode) {
       const cartPath = currentPuzzleCartPath(instance.marker);
       if (puzzleCartPathToggleBtn) { puzzleCartPathToggleBtn.textContent = cartPath.enabled ? 'Path ON' : 'Path OFF'; puzzleCartPathToggleBtn.classList.toggle('active', cartPath.enabled); }
+      if (puzzleCartPathDurationValue) puzzleCartPathDurationValue.textContent = `${Number(cartPath.duration).toFixed(2)} s`;
       if (puzzleCartPathAngleValue) puzzleCartPathAngleValue.textContent = `${Math.round(cartPath.finalRotationDeg)}°`;
     }
     if (puzzleSaveUniqueBtn) {
@@ -6999,7 +7030,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function authoredSnapshotFromInstance(instance) {
     const setup = currentPuzzleSetupSnapshot(instance);
-    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), respawn:deepCopy(setup.respawn) };
+    // Cart path is authored puzzle data just like respawn/bounds. Omitting it
+    // meant Set Start saved every other setup field but Reset rebuilt the rail
+    // from defaults, which looked like the whole path had jumped several metres.
+    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), respawn:deepCopy(setup.respawn), cartPath:deepCopy(setup.cartPath) };
   }
 
   function savePuzzleTemplateFromCurrent() {
@@ -7710,16 +7744,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!instance || !puzzleCartPathEditMode) return [];
     const path = puzzleCartPathWorld(instance.marker);
     if (!path) return [];
+    const rect=canvas.getBoundingClientRect();
+    // iOS reserves the bottom edge for the Home/app-switch gesture. A canvas
+    // can request touch-action:none but it cannot reliably own that system
+    // gesture. Keep the authored point where it really is, but lift its grab
+    // control into a safe screen-space band and draw a leader back to it.
+    const bottomSafeY=Math.max(68, rect.height - 96);
+    const safeHandle=(kind,p)=>{
+      const screen=projectWorldPoint(p.x,p.y,p.z);
+      if(!screen)return null;
+      const grabX=Rig.clamp(screen.x,28,Math.max(28,rect.width-28));
+      const grabY=Math.min(screen.y,bottomSafeY);
+      return {kind,...screen,grabX,grabY,lifted:Math.abs(grabY-screen.y)>1,world:p};
+    };
     const specs = [
       ['start',path.start],['c1',path.c1],['c2',path.c2],['land',path.land]
     ];
-    const handles = specs.map(([kind,p]) => {
-      const screen=projectWorldPoint(p.x,p.y,p.z);
-      return screen && {kind,...screen,world:p};
-    }).filter(Boolean);
+    const handles = specs.map(([kind,p]) => safeHandle(kind,p)).filter(Boolean);
     const mid = cubicBezierPoint(path.start,path.c1,path.c2,path.land,0.5);
-    const midScreen = projectWorldPoint(mid.x,mid.y,mid.z);
-    if(midScreen) handles.push({kind:'move',...midScreen,world:mid});
+    const moveHandle=safeHandle('move',mid);
+    if(moveHandle) handles.push(moveHandle);
     return handles;
   }
 
@@ -7730,18 +7774,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const x=clientX-rect.left,y=clientY-rect.top;
     const handles=puzzleCartPathHandlePositions(instance);
 
-    // v1.0.43: touch targets are deliberately much larger than the painted
-    // dots.  Small canvas handles were technically accurate but frustrating on
-    // a phone because the finger covers the target.  Labels count as handles
-    // too, and overlapping targets resolve to whichever centre is closest.
+    // v1.0.44: use the safe grab position, not necessarily the authored
+    // anchor position. Bottom-edge handles are visually lifted above iOS's
+    // system gesture strip, while still editing the original world point.
     const candidates=[];
     for(const h of handles){
-      const dist=Math.hypot(h.x-x,h.y-y);
-      const radius=h.kind==='move'?58:(h.kind==='start'||h.kind==='land'?54:50);
-      const halfLabel=h.kind==='move'?58:(h.kind==='start'||h.kind==='land'?48:54);
-      const inLabel=x>=h.x-halfLabel&&x<=h.x+halfLabel&&y>=h.y-48&&y<=h.y-8;
+      const hx=Number.isFinite(h.grabX)?h.grabX:h.x;
+      const hy=Number.isFinite(h.grabY)?h.grabY:h.y;
+      const dist=Math.hypot(hx-x,hy-y);
+      const radius=h.kind==='move'?66:(h.kind==='start'||h.kind==='land'?62:58);
+      const halfLabel=h.kind==='move'?66:(h.kind==='start'||h.kind==='land'?58:62);
+      const inLabel=x>=hx-halfLabel&&x<=hx+halfLabel&&y>=hy-54&&y<=hy-6;
       if(dist<=radius||inLabel){
-        const score=dist+(inLabel&&! (dist<=radius)?18:0);
+        const score=dist+(inLabel&&!(dist<=radius)?14:0);
         candidates.push({h,score});
       }
     }
@@ -7802,11 +7847,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const style={start:['#ffd972','#5c4a1e','START'],c1:['#ffe9ac','#685b34','CURVE 1'],c2:['#ffe9ac','#685b34','CURVE 2'],land:['#a9efc4','#2e6043','LAND'],move:['#8fd7ff','#264d66','MOVE PATH']};
     for(const h of handles){
       const [fill,stroke,label]=style[h.kind];
-      const dotRadius=h.kind==='move'?15:(h.kind==='start'||h.kind==='land'?14:12);
+      const hx=Number.isFinite(h.grabX)?h.grabX:h.x;
+      const hy=Number.isFinite(h.grabY)?h.grabY:h.y;
+      const dotRadius=h.kind==='move'?16:(h.kind==='start'||h.kind==='land'?15:13);
+      if(h.lifted){
+        ctx.strokeStyle='rgba(210,231,235,.62)';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);
+        ctx.beginPath();ctx.moveTo(h.x,h.y);ctx.lineTo(hx,hy);ctx.stroke();ctx.setLineDash([]);
+        ctx.beginPath();ctx.arc(h.x,h.y,5,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();
+      }
       // Faint outer halo communicates the generous phone-sized grab area.
-      ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='move'?27:24,0,Math.PI*2);ctx.fillStyle=h.kind==='move'?'rgba(143,215,255,.12)':'rgba(255,233,172,.10)';ctx.fill();
-      ctx.beginPath();ctx.arc(h.x,h.y,dotRadius,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2.5;ctx.stroke();
-      ctx.font='900 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+16;ctx.fillStyle='rgba(20,31,34,.92)';ctx.fillRect(h.x-tw*.5,h.y-35,tw,20);ctx.fillStyle=fill;ctx.fillText(label,h.x-tw*.5+8,h.y-21);
+      ctx.beginPath();ctx.arc(hx,hy,h.kind==='move'?31:28,0,Math.PI*2);ctx.fillStyle=h.kind==='move'?'rgba(143,215,255,.16)':'rgba(255,233,172,.14)';ctx.fill();
+      ctx.beginPath();ctx.arc(hx,hy,dotRadius,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2.5;ctx.stroke();
+      ctx.font='900 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+16;ctx.fillStyle='rgba(20,31,34,.92)';ctx.fillRect(hx-tw*.5,hy-37,tw,21);ctx.fillStyle=fill;ctx.fillText(label,hx-tw*.5+8,hy-22);
     }
     if(land){
       const angle=(Number(path.finalRotationDeg)||0)*Math.PI/180;
@@ -9011,7 +9063,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const setup = cartPathForObject(obj);
       if (!setup) { obj.cartRailAnimating=false; continue; }
       const { path } = setup;
-      const duration = Math.max(0.45, Number(path.duration) || 1.05);
+      const duration = Math.max(0.75, Number(path.duration) || 2.75);
       const previous = {x:obj.x,y:obj.y,z:obj.z};
       obj.cartRailElapsed = (Number(obj.cartRailElapsed)||0) + dt;
       const rawT = Rig.clamp(obj.cartRailElapsed / duration, 0, 1);
@@ -9372,7 +9424,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0, bodyFlip = false) {
     if (!textures['handcart-wheel']) return;
-    // The v1.0.43 chassis is genuinely wheel-free. These authored wheel centres
+    // The v1.0.44 chassis is genuinely wheel-free. These authored wheel centres
     // line up with its two vertical supports and rotate around their true hubs.
     const wheelSize = obj.sy * (160 / 255);
     const wheelV = (255 - 164) / 255;
@@ -10551,7 +10603,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const colliderXAfterMove = characterXAfterMove + capsule.offsetX;
     const terrainYAfterMove = playSurfaceYAt(characterXAfterMove);
     if (editMode) {
-      // v1.0.43: Edit mode is a free camera/workspace.  The character remains a
+      // v1.0.44: Edit mode is a free camera/workspace.  The character remains a
       // visual scale reference but no longer participates in terrain, object or
       // gap collision, so panning cannot strand the editor in a hole or behind
       // a collider.  Returning to Play/Test re-acquires normal support below.
@@ -11191,9 +11243,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   });
   bindEditorPress(puzzleCartPathToggleBtn,()=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);cfg.enabled=!cfg.enabled;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();});
   bindEditorPress(puzzleCartPathStartCartBtn,()=>{const instance=selectedPuzzleInstance();const cart=cartObjectForInstance(instance);if(!instance||!cart||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);const startY=playSurfaceYAt(cart.x)-assetGroundLineDefault('handcart')*cart.sy;const nextStart={x:cart.x-instance.marker.x,y:startY,z:pathZ};const dx=nextStart.x-cfg.start.x;const dy=nextStart.y-cfg.start.y;for(const key of ['start','c1','c2','land']){cfg[key]={x:cfg[key].x+dx,y:cfg[key].y+dy,z:cfg[key].z};}cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();hintEl.textContent='Whole cart path moved so START sits on the cart';hintEl.classList.remove('hidden');});
+  const nudgeCartPathDuration=delta=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);cfg.duration=Rig.clamp(Math.round((cfg.duration+delta)*100)/100,0.75,8);cfg.timingVersion=2;cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();};
+  bindEditorPress(puzzleCartPathDurationDownBtn,()=>nudgeCartPathDuration(-0.25));
+  bindEditorPress(puzzleCartPathDurationUpBtn,()=>nudgeCartPathDuration(0.25));
+  bindEditorPress(puzzleCartPathMatchPushBtn,()=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);const world=puzzleCartPathWorld(instance.marker);const length=approximateCubicBezierLength(world.start,world.c1,world.c2,world.land);cfg.duration=Rig.clamp(Math.round((length/Math.max(0.1,PUSH_SPEED*1.18))*100)/100,0.75,8);cfg.timingVersion=2;cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();hintEl.textContent=`Cart path time matched to the push speed · ${cfg.duration.toFixed(2)} s`;hintEl.classList.remove('hidden');});
   const nudgeCartPathAngle=delta=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);cfg.finalRotationDeg=Rig.clamp(cfg.finalRotationDeg+delta,-85,85);cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();};
-  bindEditorPress(puzzleCartPathAngleDownBtn,()=>nudgeCartPathAngle(-5));
-  bindEditorPress(puzzleCartPathAngleUpBtn,()=>nudgeCartPathAngle(5));
+  bindEditorPress(puzzleCartPathAngleDownBtn,()=>nudgeCartPathAngle(-1));
+  bindEditorPress(puzzleCartPathAngleZeroBtn,()=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);cfg.finalRotationDeg=0;cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();});
+  bindEditorPress(puzzleCartPathAngleUpBtn,()=>nudgeCartPathAngle(1));
 
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
   bindEditorPress(puzzleSaveUniqueBtn, savePuzzleUniqueFromCurrent);
