@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = '1.0.53';
+  const VERSION = '1.0.55';
   const PRELOAD_CACHE = `sidescroll-v${VERSION}`;
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
@@ -16,7 +16,9 @@
     'walk-rig.js',
     'puzzle-groups.js',
     'baked-game-design.js',
+    'audio.js',
     'sidescroll.js',
+    'sidescroll-music.m4a',
     'terrain-dirt.png',
     'sidescroll-tree-atlas.png',
     'sidescroll-tree-01.png',
@@ -114,8 +116,78 @@
     sessionStorage.setItem(`sidescroll-preloaded-${VERSION}`, '1');
   };
 
+  const loadPlayerScript = src => new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = withVersion(src);
+    script.onload = resolve;
+    script.onerror = () => reject(new Error(`Could not load ${src}`));
+    document.body.appendChild(script);
+  });
+
+  const enterPlayerWithoutNavigation = async () => {
+    const target = 'play.html?mode=player';
+    const response = await fetch(withVersion('play.html'), { cache: 'force-cache', credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`Player page load failed (${response.status})`);
+
+    const markup = await response.text();
+    const parsed = new DOMParser().parseFromString(markup, 'text/html');
+    parsed.querySelectorAll('script').forEach(node => node.remove());
+
+    // Keep the current Window/AudioContext alive. Only the document contents and
+    // page identity change, so the genuine PLAY gesture remains the audio unlock.
+    history.pushState({ sidescrollPlayer: true }, '', target);
+    document.documentElement.className = 'gh-game-page ss-game-page ss-player-launch';
+    document.body.className = parsed.body.className || 'modular-game ss-standalone-game';
+    for (const attr of Array.from(document.body.attributes)) {
+      if (attr.name !== 'class') document.body.removeAttribute(attr.name);
+    }
+    for (const attr of Array.from(parsed.body.attributes)) {
+      if (attr.name !== 'class') document.body.setAttribute(attr.name, attr.value);
+    }
+    document.body.innerHTML = parsed.body.innerHTML;
+
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.setAttribute('content', '#081015');
+    document.title = 'SideScroll';
+
+    // site-config/core/audio are already alive from the splash page. Load only
+    // the game-specific modules, in the same order as play.html.
+    await loadPlayerScript('walk-rig.js');
+    await loadPlayerScript('puzzle-groups.js');
+    await loadPlayerScript('baked-game-design.js');
+    await loadPlayerScript('sidescroll.js');
+  };
+
+  play?.addEventListener('pointerdown', () => {
+    if (play.getAttribute('aria-disabled') !== 'true') window.SideScrollAudio?.unlock?.();
+  }, { passive: true });
+
   play?.addEventListener('click', event => {
-    if (play.getAttribute('aria-disabled') === 'true') event.preventDefault();
+    if (play.getAttribute('aria-disabled') === 'true') {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    play.setAttribute('aria-disabled', 'true');
+    play.classList.add('is-loading');
+
+    // This call happens directly inside the genuine PLAY click. AudioContext
+    // resume therefore satisfies iOS/Safari's user-activation requirement.
+    window.SideScrollAudio?.unlock?.();
+
+    enterPlayerWithoutNavigation().catch(error => {
+      console.warn('SideScroll seamless launch fallback:', error);
+      // Keep a conventional navigation as a safety net. Audio may then need the
+      // first in-game touch, but the game itself still launches normally.
+      location.href = 'play.html?mode=player';
+    });
+  });
+
+  window.addEventListener('popstate', () => {
+    if (document.documentElement.classList.contains('ss-game-page') && new URLSearchParams(location.search).get('mode') !== 'player') {
+      location.reload();
+    }
   });
 
   const closeMenu = () => {

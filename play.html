@@ -10,7 +10,7 @@
   <script>if(new URLSearchParams(location.search).get('mode')==='player')document.documentElement.classList.add('ss-player-launch');</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.53">
+  <link rel="stylesheet" href="style.css?v=1.0.55">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -46,12 +46,20 @@
               <button id="sidescroll-collision-view" class="sidescroll-tools-item" type="button" aria-pressed="false">Collision</button>
               <button id="sidescroll-player-hints" class="sidescroll-tools-item" type="button" aria-pressed="true">Hints on</button>
               <button id="sidescroll-character" class="sidescroll-tools-item sidescroll-character-button" type="button" aria-pressed="false">Hero 1</button>
+              <button id="sidescroll-sound" class="sidescroll-tools-item sidescroll-sound-button" type="button" aria-expanded="false">Sound</button>
               <button id="sidescroll-quick-nav" class="sidescroll-tools-item sidescroll-quick-nav-button" type="button" aria-expanded="false" hidden>Go to</button>
               <button id="sidescroll-delete-save" class="sidescroll-tools-item sidescroll-delete-save-button" type="button" hidden>Delete save</button>
               <button id="sidescroll-edit" class="sidescroll-tools-item sidescroll-edit-button" type="button" aria-pressed="false">Edit</button>
             </div>
           </aside>
 
+
+          <aside class="sidescroll-sound-panel" id="sidescroll-sound-panel" hidden aria-label="Sound settings">
+            <div class="sidescroll-sound-head"><strong>SOUND</strong><button id="sidescroll-sound-close" type="button" aria-label="Close sound settings">×</button></div>
+            <label class="sidescroll-sound-toggle"><span>MUSIC</span><input id="sidescroll-music-enabled" type="checkbox" checked></label>
+            <label class="sidescroll-sound-volume"><span>VOLUME <b id="sidescroll-music-volume-value">32%</b></span><input id="sidescroll-music-volume" type="range" min="0" max="100" step="1" value="32"></label>
+            <p id="sidescroll-sound-status">Preparing music…</p>
+          </aside>
 
           <aside class="sidescroll-fog-panel" id="sidescroll-fog-panel" hidden aria-label="Fog editor">
             <div class="sidescroll-fog-head"><strong>FOG</strong><button id="sidescroll-fog-close" type="button" aria-label="Close fog editor">×</button></div>
@@ -442,11 +450,12 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=1.0.53"></script>
-  <script src="core.js?v=1.0.53"></script>
-  <script src="walk-rig.js?v=1.0.53"></script>
-  <script src="puzzle-groups.js?v=1.0.53"></script>
-  <script src="baked-game-design.js?v=1.0.53"></script>
-  <script src="sidescroll.js?v=1.0.53"></script>
+  <script src="site-config.js?v=1.0.55"></script>
+  <script src="core.js?v=1.0.55"></script>
+  <script src="walk-rig.js?v=1.0.55"></script>
+  <script src="puzzle-groups.js?v=1.0.55"></script>
+  <script src="baked-game-design.js?v=1.0.55"></script>
+  <script src="audio.js?v=1.0.55"></script>
+  <script src="sidescroll.js?v=1.0.55"></script>
 </body>
 </html>

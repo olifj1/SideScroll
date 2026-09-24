@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.53: streamlined player menu + interruptible Thought Triggers.
+  // SideScroll v1.0.55: Web Audio background music + sound controls; player menu remains streamlined.
   // Puzzle-linked Thought Trigger nodes and Asset States/cart rail work remain intact.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -72,6 +72,13 @@
   const stageMenuBtn = document.getElementById('sidescroll-tools');
   const stageMenuPanel = document.getElementById('sidescroll-tools-panel');
   const stageMenuCloseBtn = document.getElementById('sidescroll-tools-close');
+  const soundBtn = document.getElementById('sidescroll-sound');
+  const soundPanel = document.getElementById('sidescroll-sound-panel');
+  const soundCloseBtn = document.getElementById('sidescroll-sound-close');
+  const musicEnabledInput = document.getElementById('sidescroll-music-enabled');
+  const musicVolumeInput = document.getElementById('sidescroll-music-volume');
+  const musicVolumeValue = document.getElementById('sidescroll-music-volume-value');
+  const soundStatusEl = document.getElementById('sidescroll-sound-status');
   const sectionBtn = document.getElementById('sidescroll-sections');
   const sectionPanel = document.getElementById('sidescroll-section-panel');
   const sectionCloseBtn = document.getElementById('sidescroll-section-close');
@@ -281,7 +288,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, cameraEditorPanel, quickNavPanel, stageMenuPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, cameraEditorPanel, quickNavPanel, stageMenuPanel, soundPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -1252,7 +1259,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.53', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.55', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1294,7 +1301,7 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.53', 'SideScroll tree atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.55', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
     tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
@@ -1345,7 +1352,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.53`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.55`,
         key,
         null,
         size[0] / size[1]
@@ -1363,12 +1370,12 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.53`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.55`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.53',
+    'counterweight-plank.png?v=1.0.55',
     'counterweight-plank',
     null,
     1050 / 220
@@ -1378,9 +1385,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.53', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.55', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.53', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.55', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1388,7 +1395,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.53', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.55', 'axle-pin', null, 2);
 
   // Editor-only puzzle Thought Trigger. It is visible while authoring but
   // suppressed completely during play. Its activation radius is drawn in the
@@ -1588,7 +1595,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.53';
+const RIG_TEXTURE_VERSION = '1.0.55';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -4169,7 +4176,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.53" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.55" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -7921,7 +7928,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.53" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.55" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -11297,6 +11304,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       setStageMenuOpen(false);
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);
+      setSoundPanelOpen?.(false);
       setInventoryOpen?.(false);
       if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
       if (!terrainSectionGuidesVisible) terrainSectionGuidesVisible = true;
@@ -11319,9 +11327,53 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (sectionPanel && !sectionPanel.hidden) setTerrainSectionPanelOpen(false);
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);
+      setSoundPanelOpen?.(false);
       setInventoryOpen?.(false);
     }
   }
+
+  function syncSoundUi() {
+    const audio = window.SideScrollAudio;
+    const state = audio?.getState?.();
+    if (!state) {
+      if (soundStatusEl) soundStatusEl.textContent = 'Audio system unavailable';
+      return;
+    }
+    if (musicEnabledInput) musicEnabledInput.checked = !!state.musicEnabled;
+    const percent = Math.round((Number(state.musicVolume) || 0) * 100);
+    if (musicVolumeInput && document.activeElement !== musicVolumeInput) musicVolumeInput.value = String(percent);
+    if (musicVolumeValue) musicVolumeValue.textContent = `${percent}%`;
+    if (soundStatusEl) soundStatusEl.textContent = state.status || 'Music ready';
+  }
+  function setSoundPanelOpen(open) {
+    if (!soundPanel || !soundBtn) return;
+    const next = !!open;
+    soundPanel.hidden = !next;
+    soundBtn.setAttribute('aria-expanded', String(next));
+    if (next) {
+      setStageMenuOpen(false);
+      setTerrainSectionPanelOpen(false);
+      setFogPanelOpen(false);
+      setPostPanelOpen(false);
+      setInventoryOpen(false);
+      if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
+      syncSoundUi();
+    }
+  }
+  bindEditorPress(soundBtn, () => setSoundPanelOpen(soundPanel?.hidden !== false));
+  bindEditorPress(soundCloseBtn, () => setSoundPanelOpen(false));
+  musicEnabledInput?.addEventListener('input', () => {
+    window.SideScrollAudio?.setMusicEnabled?.(musicEnabledInput.checked);
+    syncSoundUi();
+  });
+  musicVolumeInput?.addEventListener('input', () => {
+    const value = Math.max(0, Math.min(100, Number(musicVolumeInput.value) || 0));
+    window.SideScrollAudio?.setMusicVolume?.(value / 100);
+    if (musicVolumeValue) musicVolumeValue.textContent = `${Math.round(value)}%`;
+  });
+  window.addEventListener('sidescroll-audio-state', syncSoundUi);
+  window.SideScrollAudio?.prepare?.();
+  syncSoundUi();
 
   function postHexToRgb(hex) {
     const n = parseInt(String(hex).replace('#',''), 16);
@@ -11349,6 +11401,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       setStageMenuOpen(false);
       setTerrainSectionPanelOpen(false);
       setFogPanelOpen(false);
+      setSoundPanelOpen(false);
       syncPostUi();
     }
   }
@@ -11391,7 +11444,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!fogPanel || !fogBtn) return;
     fogPanel.hidden = !open;
     fogBtn.setAttribute('aria-expanded', String(open));
-    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setPostPanelOpen(false); syncFogUi(); }
+    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setPostPanelOpen(false); setSoundPanelOpen(false); syncFogUi(); }
   }
   bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
   bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));
@@ -11831,6 +11884,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       setQuickNavOpen(false);
       setFogPanelOpen(false);
       setPostPanelOpen(false);
+      setSoundPanelOpen(false);
       setInventoryOpen(false);
       hintEl.textContent = 'CAMERA · smooth height follow · height · depth · tilt';
       hintEl.classList.remove('hidden');
@@ -12318,7 +12372,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   if (PLAYER_MODE) {
     document.body.classList.add('sidescroll-player-mode');
     // Player mode should feel like the game, not the authoring tool. Keep only
-    // the two useful player actions in Menu: Change character and Delete save.
+    // the useful player actions in Menu: Change character, Sound, and Delete save.
     [cameraEditorBtn, debugBtn, sectionBtn, fogBtn, postBtn, collisionViewBtn, playerHintsBtn, quickNavBtn, editBtn].forEach(btn => {
       if (btn) btn.hidden = true;
     });

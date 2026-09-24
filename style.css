@@ -13324,7 +13324,7 @@ body[data-game-id="game-16"] .sidescroll-cart-path-speeds b{text-align:center;fo
 body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:28px;padding:0;border:1px solid rgba(143,215,255,.26);border-radius:7px;background:rgba(143,215,255,.10);color:#dff5ff;font-size:14px;font-weight:900;}
 @media(max-width:900px) and (orientation:landscape){body[data-game-id="game-16"] .sidescroll-cart-path-speeds{grid-template-columns:1fr;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds>div{grid-template-columns:1fr 34px 48px 34px;padding:3px 6px;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:25px;}}
 
-/* SideScroll v1.0.53 — focused splash launcher + preload screen */
+/* SideScroll v1.0.55 — focused splash launcher + preload screen */
 body.ss-home.ss-splash-home{
   display:block!important;background:#10181d!important;color:#f4f2ed;
 }
@@ -13382,7 +13382,7 @@ body.ss-home.ss-splash-home{
   .ss-splash-play,.ss-preload{width:min(300px,44vw)}
 }
 
-/* SideScroll v1.0.53 — player launch fade and top-screen thought presentation. */
+/* SideScroll v1.0.55 — player launch fade and top-screen thought presentation. */
 .sidescroll-entry-fade{display:none;position:fixed;inset:0;z-index:2000;background:#000;opacity:1;pointer-events:auto;transition:opacity .9s cubic-bezier(.22,.7,.22,1);}
 html.ss-player-launch .sidescroll-entry-fade{display:block;}
 html.ss-player-launch .sidescroll-entry-fade.fade-out{opacity:0;}
@@ -13409,7 +13409,7 @@ body[data-game-id="game-16"] .sidescroll-hint.puzzle-thought::after{
 }
 
 
-/* SideScroll v1.0.53 — puzzle-linked Thought Trigger editor. */
+/* SideScroll v1.0.55 — puzzle-linked Thought Trigger editor. */
 body[data-game-id="game-16"] .sidescroll-thought-editor{
   position:fixed;right:max(8px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 54px);
   width:min(330px,calc(100vw - 24px));padding:9px 10px;border-radius:12px;z-index:1007;
@@ -13431,7 +13431,27 @@ body[data-game-id="game-16"] #sidescroll-thought-once[aria-pressed="false"]{back
 body[data-game-id="game-16"] .sidescroll-thought-editor p{margin:7px 1px 0;font-size:8px;line-height:1.35;color:#aebfbc;}
 @media(max-width:820px) and (orientation:landscape){body[data-game-id="game-16"] .sidescroll-thought-editor{top:calc(max(6px,env(safe-area-inset-top)) + 45px);width:min(300px,calc(100vw - 18px));max-height:calc(100vh - 58px);overflow:auto;}}
 
-/* SideScroll v1.0.53 — player-facing menu is intentionally minimal. */
+
+
+/* SideScroll v1.0.55 — compact player sound panel. */
+body[data-game-id="game-16"] .sidescroll-sound-panel{
+  position:absolute;z-index:34;top:max(52px,calc(env(safe-area-inset-top) + 52px));right:max(52px,calc(env(safe-area-inset-right) + 52px));
+  width:min(260px,calc(100vw - 110px));padding:12px;border:1px solid rgba(237,244,244,.22);border-radius:14px;
+  background:rgba(7,13,17,.92);color:#f2f7f8;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);pointer-events:auto;box-shadow:0 10px 30px rgba(0,0,0,.28);
+}
+body[data-game-id="game-16"] .sidescroll-sound-panel[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-sound-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;font-size:10px;letter-spacing:.12em;}
+body[data-game-id="game-16"] .sidescroll-sound-head button{width:28px;height:28px;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-size:18px;}
+body[data-game-id="game-16"] .sidescroll-sound-panel label{display:grid;grid-template-columns:78px minmax(0,1fr);align-items:center;gap:8px;min-height:36px;font-size:8px;font-weight:850;letter-spacing:.06em;}
+body[data-game-id="game-16"] .sidescroll-sound-panel label>span{display:flex;justify-content:space-between;gap:5px;}
+body[data-game-id="game-16"] .sidescroll-sound-panel label b{font-variant-numeric:tabular-nums;color:#b9cbc8;}
+body[data-game-id="game-16"] .sidescroll-sound-panel input[type="range"]{width:100%;accent-color:#9bb8b1;}
+body[data-game-id="game-16"] .sidescroll-sound-panel input[type="checkbox"]{justify-self:end;width:20px;height:20px;accent-color:#9bb8b1;}
+body[data-game-id="game-16"] .sidescroll-sound-panel p{margin:8px 0 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.10);font-size:8px;line-height:1.35;color:#aebfbc;}
+@media(max-height:520px){body[data-game-id="game-16"] .sidescroll-sound-panel{top:44px;padding:9px;}}
+
+/* SideScroll v1.0.55 — player-facing menu is intentionally minimal. */
 body[data-game-id="game-16"].sidescroll-player-mode .sidescroll-tools-grid>.sidescroll-tools-item{display:none!important;}
 body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-character,
+body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-sound,
 body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-delete-save{display:flex!important;}
