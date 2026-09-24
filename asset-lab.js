@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.37';
+  const VERSION = '1.0.39';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -19,7 +19,7 @@
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'handcart-broken',label:'Broken Handcart',image:'handcart-body.png',height:1.75,groundLine:0.064,behaviour:{},collision:{halfWidthRatio:0.405,heightRatio:0.72,fixedHeight:null,depthRatio:0.20,points:[{x:-1,y:0},{x:-1,y:.17},{x:-.8,y:.17},{x:-.8,y:.34},{x:-.63,y:.34},{x:-.63,y:1},{x:.63,y:1},{x:.63,y:.34},{x:.8,y:.34},{x:.8,y:.17},{x:1,y:.17},{x:1,y:0}]}},
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'handcart',label:'Wooden Handcart · Pushable',image:'handcart-body.png',height:1.75,groundLine:0.064,behaviour:{solid:true,supportSurface:true,pushable:true},collision:{halfWidthRatio:0.405,heightRatio:0.72,fixedHeight:null,depthRatio:0.20,points:[{x:-1,y:0},{x:-1,y:.17},{x:-.8,y:.17},{x:-.8,y:.34},{x:-.63,y:.34},{x:-.63,y:1},{x:.63,y:1},{x:.63,y:.34},{x:.8,y:.34},{x:.8,y:.17},{x:1,y:.17},{x:1,y:0}]}},
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'cart-wheel-loose',label:'Cart Wheel',image:'handcart-wheel.png',height:1.06,groundLine:0,behaviour:{carryable:true,placeable:true},collision:{halfWidthRatio:0.30,heightRatio:0.62,fixedHeight:null,depthRatio:0.20,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}},
-    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'axle-pin',label:'Axle Pin',procedural:'axle-pin',height:0.72,groundLine:0,behaviour:{}},
+    {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'axle-pin',label:'Axle Pin',image:'axle-pin.png',height:0.72,groundLine:0,behaviour:{}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-a',label:'Moveable Log A',image:'puzzle-log-a.png',height:0.84,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true},collision:{halfWidthRatio:0.52/(0.84*1.7083),fixedHeight:STACK_ITEM_HEIGHT,heightRatio:null,depthRatio:0.56/(0.84*1.7083),points:null}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-b',label:'Moveable Log B',image:'puzzle-log-b.png',height:0.72,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
     {group:'PUZZLE · WOODLAND',scope:'puzzle',name:'puzzle-log-c',label:'Moveable Log C',image:'puzzle-log-c.png',height:0.76,behaviour:{solid:true,carryable:true,placeable:true,supportSurface:true,stackable:true}},
@@ -172,6 +172,9 @@
   const defaultPoints = () => [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}];
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const clamp = (value,min,max) => Math.max(min,Math.min(max,value));
+  const cartWheelPreview = new Image();
+  cartWheelPreview.onload = () => draw();
+  cartWheelPreview.src = `handcart-wheel.png?v=${VERSION}`;
 
   function drawAxlePin(ctx,w,h){
     ctx.clearRect(0,0,w,h);
@@ -200,20 +203,6 @@
     if (asset.procedural) {
       const img=makeProceduralImage(asset);
       img.onload=()=>{resize();renderPointEditor();draw();};
-      imageCache.set(asset.name,img);
-      return img;
-    }
-    if (asset.name === 'handcart-broken') {
-      const img = new Image();
-      const source = new Image();
-      source.onload = () => {
-        const c=document.createElement('canvas'); c.width=source.naturalWidth; c.height=source.naturalHeight;
-        const cctx=c.getContext('2d'); cctx.drawImage(source,0,0);
-        cctx.save(); cctx.globalCompositeOperation='destination-out'; cctx.beginPath(); cctx.arc(400,162,96,0,Math.PI*2); cctx.fill(); cctx.restore();
-        img.src=c.toDataURL('image/png');
-      };
-      img.onload=()=>{resize();renderPointEditor();draw();};
-      source.src=`${asset.image}?v=${VERSION}`;
       imageCache.set(asset.name,img);
       return img;
     }
@@ -990,6 +979,15 @@
         ctx.rotate(-visual.deg*Math.PI/180);
         ctx.scale(visual.flip?-1:1,1);
         ctx.drawImage(image,-ar.drawW*.5,-ar.drawH,ar.drawW,ar.drawH);
+        if((asset.name==='handcart'||asset.name==='handcart-broken')&&cartWheelPreview.complete&&cartWheelPreview.naturalWidth){
+          const wheelSize=ar.drawH*(160/255);
+          const wheelY=-(91/255)*ar.drawH;
+          const wheelUs=asset.name==='handcart-broken'?[150/620]:[150/620,470/620];
+          for(const u of wheelUs){
+            const wheelX=(u-.5)*ar.drawW;
+            ctx.drawImage(cartWheelPreview,wheelX-wheelSize*.5,wheelY-wheelSize*.5,wheelSize,wheelSize);
+          }
+        }
         ctx.restore();
       }
       if(state.pairMode){

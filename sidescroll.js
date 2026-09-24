@@ -1,7 +1,9 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.37: cart repair setup polish. Asset rotation / flip now share one transform with collision, abandoned repair props can live off-path, and repaired carts snap back to the gameplay layer.
+  // SideScroll v1.0.39: refreshed authored cart-repair art. The chassis is now
+  // wheel-free artwork, runtime wheels stay separate/rotating, and the axle pin
+  // uses a large readable authored texture instead of the procedural placeholder.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -1317,65 +1319,21 @@
     1050 / 220
   );
 
-  // v1.0.34 handcart prototype. The body and wheels are intentionally separate
-  // textures so wheel rotation is a real runtime transform rather than baked
-  // animation. The cart's editor/world aspect is the complete 620x255 side view.
+  // v1.0.39 handcart art. The body/chassis intentionally contains no wheels;
+  // the wheel texture is rendered as separate runtime components so it remains
+  // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.37', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.39', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.37', 'handcart-wheel', null, 1);
-  textures['handcart-wheel-mask'] = createTexture((ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#3a2c23';
-    ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.5, w * 0.485, 0, Math.PI * 2);
-    ctx.fill();
-  }, 256, 256, false);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.39', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
-  textures['handcart-broken'] = createProcessedImageTexture(
-    'handcart-body.png?v=1.0.37',
-    'handcart-broken',
-    (ctx) => {
-      // Mechanics-first broken state: remove the front/right wheel from the
-      // existing cart art at runtime. The final art can replace this later
-      // without changing any puzzle state or interaction code.
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.arc(400, 162, 96, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    },
-    620 / 255
-  );
+  textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
   textures['cart-wheel-loose'] = textures['handcart-wheel'];
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
-  assetAspect['axle-pin'] = 1;
-  textures['axle-pin'] = createTexture((ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    ctx.translate(w * 0.5, h * 0.5);
-    ctx.rotate(-0.32);
-    ctx.fillStyle = 'rgba(238,209,129,.34)';
-    ctx.beginPath();
-    ctx.arc(0, 0, w * 0.40, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#9e8959';
-    ctx.fillRect(-w * 0.31, -h * 0.065, w * 0.54, h * 0.13);
-    ctx.fillStyle = '#e3cd94';
-    ctx.fillRect(-w * 0.30, -h * 0.025, w * 0.49, h * 0.05);
-    ctx.fillStyle = '#75613d';
-    ctx.fillRect(w * 0.13, -h * 0.115, w * 0.10, h * 0.23);
-    ctx.fillStyle = '#e8d49c';
-    ctx.beginPath();
-    ctx.arc(-w * 0.31, 0, w * 0.105, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#705c39';
-    ctx.beginPath();
-    ctx.arc(-w * 0.31, 0, w * 0.058, 0, Math.PI * 2);
-    ctx.fill();
-  }, 256, 256, false);
+  assetAspect['axle-pin'] = 2;
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.39', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -3125,6 +3083,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       id:'axle-pin',
       label:'Axle Pin',
       asset:'axle-pin',
+      image:'axle-pin.png',
       description:'A sturdy pin that looks like it belongs to a wheel.'
     }
   };
@@ -3226,6 +3185,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const STONE_WALL_ASPECT = 1600 / 844;
   function correctPuzzleAssetWidth(assetName, width, height) {
     if (assetName === 'stone-wall' && Number.isFinite(Number(height))) return Number(height) * STONE_WALL_ASPECT;
+    if (assetName === 'axle-pin' && Number.isFinite(Number(height))) return Number(height) * 2;
     return width;
   }
   function migratePuzzleArtV2Snapshot(snapshot) {
@@ -3978,6 +3938,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         existing.set(objectId, obj);
       }
       if (!obj) continue;
+      // Snapshot reset must restore the object's identity as well as its
+      // position/state. Repair interactions deliberately change assetName
+      // (broken cart -> fixed cart, loose wheel -> ready wheel), so leaving the
+      // live asset in place meant Reset could never truly return to the authored
+      // start state. Rebind all asset-derived render state before rebuilding
+      // behaviour/collision below.
+      if (asset && obj.assetName !== asset) {
+        obj.assetName = asset;
+        obj.texture = textures[asset];
+        obj.mesh = billboardMesh;
+        obj.uvScale = assetUv[asset]?.scale || [1, 1];
+        obj.uvOffset = assetUv[asset]?.offset || [0, 0];
+        obj.noFog = asset === 'axle-pin';
+      }
       const xRel = Number.isFinite(state.x) ? state.x : (prop?.x ?? 0);
       obj.x = instance.marker.x + xRel;
       obj.z = Number.isFinite(state.z) ? state.z : (prop?.z ?? pathZ);
@@ -3985,6 +3959,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (obj.assetName === 'axle-pin' && obj.sy < 0.66) obj.sy = 0.72;
       const rawSnapshotWidth = Number.isFinite(state.sx) ? state.sx : (prop?.width ?? obj.sy * (assetAspect[obj.assetName] || 1));
       obj.sx = correctPuzzleAssetWidth(obj.assetName, rawSnapshotWidth, obj.sy);
+      obj.baseSx = obj.sx;
+      obj.baseSy = obj.sy;
       obj.flip = !!state.flip;
       obj.deleted = !!state.deleted;
       obj.category = state.category || prop?.category || obj.category || 'gameplay';
@@ -4002,6 +3978,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.counterweightVisualAngle = 0;
       obj.counterweightAngle = 0;
       obj.counterweightAngularVelocity = 0;
+      obj.wheelRotation = 0;
       obj.carried = false;
       obj.groundLine = Rig.clamp(Number.isFinite(state.groundLine) ? Number(state.groundLine) : assetGroundLineDefault(obj.assetName), 0, 1);
       const baseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
@@ -5121,7 +5098,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
       { name:'cart-wheel-ready', label:'CART WHEEL · READY', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.06, gameplayLayerLocked:false,
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
-      { name:'axle-pin', label:'AXLE PIN', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
+      { name:'axle-pin', label:'AXLE PIN', image:'axle-pin.png', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -6942,6 +6919,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     delete state.reward;
   }
 
+  function removePuzzleOwnedInventoryItems(instance) {
+    if (!instance?.id) return;
+    const owned = [];
+    for (const [itemId, item] of Object.entries(inventoryState.items || {})) {
+      const count = Math.max(0, Number(item?.sources?.[instance.id]) || 0);
+      if (count > 0) owned.push([itemId, count]);
+    }
+    for (const [itemId, count] of owned) removeInventoryItem(itemId, count, instance.id);
+  }
+
   function resetCurrentPuzzle() {
     const instance = authoringPuzzle();
     if (!instance) return;
@@ -6954,10 +6941,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       removePuzzleRewardFromInventory(instance, { allowLegacyFallback:true });
       setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
+      shownPuzzleThoughts.clear();
       hintEl.textContent = 'Test reset to the setup you started this test with · reward removed';
     } else {
       resetPuzzleReward(instance);
+      // Small puzzle items such as the axle pin belong to the puzzle too. If
+      // the player collected one but has not yet consumed it, Reset should not
+      // duplicate it by restoring the world pickup while leaving the inventory
+      // copy behind.
+      removePuzzleOwnedInventoryItems(instance);
       applyPuzzleStart(instance, { persistRuntime:true });
+      setInventoryOpen(false);
+      positionPlayerAtPuzzleEntry(instance);
+      shownPuzzleThoughts.clear();
       hintEl.textContent = 'Puzzle reset to its saved start · completion reward reset too';
     }
     hintEl.classList.remove('hidden');
@@ -8978,15 +8974,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0, bodyFlip = false) {
     if (!textures['handcart-wheel']) return;
-    // The generated side-view body already has a clean finished cart. A small
-    // opaque inner disk masks only its baked spokes; the separately textured
-    // wheel is then drawn over the top and can rotate freely. The outer baked
-    // rim sits almost exactly under the new rim, so it reads as wheel thickness
-    // rather than a second wheel while keeping the source art clean.
-    const wheelSize = obj.sy * (185 / 255);
-    const maskSize = obj.sy * (124 / 255);
-    const wheelV = (255 - 162) / 255;
-    const wheelUs = obj.assetName === 'handcart-broken' ? [225 / 620] : [225 / 620, 400 / 620];
+    // The v1.0.39 chassis is genuinely wheel-free. These authored wheel centres
+    // line up with its two vertical supports and rotate around their true hubs.
+    const wheelSize = obj.sy * (160 / 255);
+    const wheelV = (255 - 164) / 255;
+    const wheelUs = obj.assetName === 'handcart-broken' ? [150 / 620] : [150 / 620, 470 / 620];
     for (const uRaw of wheelUs) {
       const u = bodyFlip ? 1 - uRaw : uRaw;
       const localX = (u - 0.5) * obj.sx;
@@ -8994,16 +8986,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const c = Math.cos(bodyRotation), s = Math.sin(bodyRotation);
       const centreX = drawX + localX * c - localY * s;
       const centreY = drawY + localX * s + localY * c;
-      if (textures['handcart-wheel-mask']) {
-        const mask = {
-          mesh:centredBillboardMesh, texture:textures['handcart-wheel-mask'],
-          x:centreX, y:centreY, z:obj.z + 0.001,
-          sx:maskSize, sy:maskSize, sz:1, flip:false, shade:1, opacity:1, noFog:obj.noFog, tint:null,
-          asset:true, assetName:'handcart-wheel-mask-component', layer:obj.layer, wrap:false,
-          deleted:false, carried:false, shadow:null, uvScale:[1,1], uvOffset:[0,0], counterweightVisualAngle:0
-        };
-        drawObject(mask, view, { force:true });
-      }
       const wheel = {
         mesh:centredBillboardMesh, texture:textures['handcart-wheel'],
         x:centreX, y:centreY,
