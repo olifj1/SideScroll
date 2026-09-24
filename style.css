@@ -13324,7 +13324,7 @@ body[data-game-id="game-16"] .sidescroll-cart-path-speeds b{text-align:center;fo
 body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:28px;padding:0;border:1px solid rgba(143,215,255,.26);border-radius:7px;background:rgba(143,215,255,.10);color:#dff5ff;font-size:14px;font-weight:900;}
 @media(max-width:900px) and (orientation:landscape){body[data-game-id="game-16"] .sidescroll-cart-path-speeds{grid-template-columns:1fr;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds>div{grid-template-columns:1fr 34px 48px 34px;padding:3px 6px;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:25px;}}
 
-/* SideScroll v1.0.48 — focused splash launcher + preload screen */
+/* SideScroll v1.0.49 — focused splash launcher + preload screen */
 body.ss-home.ss-splash-home{
   display:block!important;background:#10181d!important;color:#f4f2ed;
 }
@@ -13380,4 +13380,30 @@ body.ss-home.ss-splash-home{
 @media(max-width:760px){
   .ss-splash-launch{width:min(360px,54vw)}
   .ss-splash-play,.ss-preload{width:min(300px,44vw)}
+}
+
+/* SideScroll v1.0.49 — player launch fade and top-screen thought presentation. */
+.sidescroll-entry-fade{display:none;position:fixed;inset:0;z-index:2000;background:#000;opacity:1;pointer-events:auto;transition:opacity .9s cubic-bezier(.22,.7,.22,1);}
+html.ss-player-launch .sidescroll-entry-fade{display:block;}
+html.ss-player-launch .sidescroll-entry-fade.fade-out{opacity:0;}
+body[data-game-id="game-16"].sidescroll-intro-locked #sidescroll-play-controls{pointer-events:none;}
+body[data-game-id="game-16"] .sidescroll-hint.puzzle-thought{
+  top:max(72px,calc(env(safe-area-inset-top) + 62px));
+  bottom:auto;
+  width:min(600px,70vw);
+  padding:14px 20px 15px;
+  font-size:15px;
+}
+body[data-game-id="game-16"] .sidescroll-hint.puzzle-thought::after{
+  top:auto;
+  bottom:-9px;
+}
+@media(max-height:390px){
+  body[data-game-id="game-16"] .sidescroll-hint.puzzle-thought{
+    top:max(50px,calc(env(safe-area-inset-top) + 44px));
+    bottom:auto;
+    width:min(560px,72vw);
+    padding:9px 14px 10px;
+    font-size:12px;
+  }
 }

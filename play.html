@@ -7,12 +7,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#081015">
+  <script>if(new URLSearchParams(location.search).get('mode')==='player')document.documentElement.classList.add('ss-player-launch');</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.48">
+  <link rel="stylesheet" href="style.css?v=1.0.49">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
+  <div class="sidescroll-entry-fade" id="sidescroll-entry-fade" aria-hidden="true"></div>
   <a class="game-home-button" href="index.html" aria-label="Back to SideScroll home">← Home</a>
   <button class="game-info-button" type="button" aria-label="How to use SideScroll" aria-haspopup="dialog">i</button>
 
@@ -438,11 +440,11 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=1.0.48"></script>
-  <script src="core.js?v=1.0.48"></script>
-  <script src="walk-rig.js?v=1.0.48"></script>
-  <script src="puzzle-groups.js?v=1.0.48"></script>
-  <script src="baked-game-design.js?v=1.0.48"></script>
-  <script src="sidescroll.js?v=1.0.48"></script>
+  <script src="site-config.js?v=1.0.49"></script>
+  <script src="core.js?v=1.0.49"></script>
+  <script src="walk-rig.js?v=1.0.49"></script>
+  <script src="puzzle-groups.js?v=1.0.49"></script>
+  <script src="baked-game-design.js?v=1.0.49"></script>
+  <script src="sidescroll.js?v=1.0.49"></script>
 </body>
 </html>

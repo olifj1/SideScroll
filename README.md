@@ -1,9 +1,9 @@
-# SideScroll v1.0.48
+# SideScroll v1.0.49
 
-Focused splash launcher and startup preload.
+Player-entry polish and broader environmental thought guidance.
 
-- New full-screen splash artwork with Play as the primary action.
-- Edit / Test, Asset Lab and Walk Lab moved into a compact corner menu.
-- Startup loading bar preloads the game scripts and visual assets before Play is enabled.
-- Static game resources now use the current service-worker cache first, so preloaded assets are reused immediately when entering the game.
-- Splash artwork is included in the offline app shell.
+- Player launch now stays black while the initial WebGL textures finish decoding/uploading, then fades smoothly into the populated level.
+- Movement, jump and action input remain locked until the fade has fully completed.
+- Puzzle thought bubbles are moved to the top of the gameplay view so they no longer cover the interaction area.
+- Added one-time environmental thoughts for the first nearby moveable log and the fallen-tree obstacle.
+- Existing inspection-driven cart / wheel / axle guidance is unchanged.

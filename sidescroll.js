@@ -1,9 +1,8 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.48: reusable Asset States. Asset Lab can author named visual /
-  // physical / behaviour states; the cart now switches Broken -> Repaired -> Landed
-  // through those profiles, including an editable landed bridge collision.
+  // SideScroll v1.0.49: polished player entry fade + top-screen thought guidance.
+  // Asset States/cart rail work from v1.0.47 remains intact.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -28,6 +27,20 @@
   const errorBox = document.getElementById('sidescroll-error');
   const statusEl = document.getElementById('sidescroll-status');
   const hintEl = document.getElementById('sidescroll-hint');
+  const entryFadeEl = document.getElementById('sidescroll-entry-fade');
+  let introLocked = PLAYER_MODE;
+  let visualAssetsPending = 0;
+  let visualAssetsStarted = 0;
+  function beginVisualAssetLoad() {
+    visualAssetsPending += 1;
+    visualAssetsStarted += 1;
+    let finished = false;
+    return () => {
+      if (finished) return;
+      finished = true;
+      visualAssetsPending = Math.max(0, visualAssetsPending - 1);
+    };
+  }
   const debugBtn = document.getElementById('sidescroll-depth');
   const postBtn = document.getElementById('sidescroll-post');
   const postPanel = document.getElementById('sidescroll-post-panel');
@@ -1020,6 +1033,7 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    const finishVisualLoad = beginVisualAssetLoad();
     const loadIntoTexture = src => {
       const image = new Image();
       image.onload = () => {
@@ -1028,6 +1042,7 @@
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        finishVisualLoad();
       };
       image.onerror = () => {
         if (fallbackUrl && src !== fallbackUrl) {
@@ -1038,6 +1053,7 @@
           errorBox.hidden = false;
           errorBox.textContent = `${label} asset could not be loaded.`;
         }
+        finishVisualLoad();
       };
       image.src = src;
     };
@@ -1047,6 +1063,7 @@
   }
 
   function createProcessedImageTexture(url, label, process, aspectOverride = null) {
+    const finishVisualLoad = beginVisualAssetLoad();
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(
@@ -1072,9 +1089,11 @@
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+      finishVisualLoad();
     }).catch(() => {
       errorBox.hidden = false;
       errorBox.textContent = `${label} asset could not be loaded.`;
+      finishVisualLoad();
     });
     return tex;
   }
@@ -1094,6 +1113,7 @@
   }
 
   function createImageSliceTexture(url, rect, label = 'image-slice') {
+    const finishVisualLoad = beginVisualAssetLoad();
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(
@@ -1122,9 +1142,11 @@
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+      finishVisualLoad();
     }).catch(() => {
       errorBox.hidden = false;
       errorBox.textContent = `${label} asset could not be loaded.`;
+      finishVisualLoad();
     });
 
     return tex;
@@ -1170,6 +1192,7 @@
   }
 
   function createRepeatingImageTexture(url, label = 'image', options = {}) {
+    const finishVisualLoad = beginVisualAssetLoad();
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
     const placeholderSize = options.placeholderSize || 256;
@@ -1207,12 +1230,14 @@
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+        finishVisualLoad();
       };
       image.onerror = () => {
         if (!label.startsWith('ground')) {
           errorBox.hidden = false;
           errorBox.textContent = `${label} asset could not be loaded.`;
         }
+        finishVisualLoad();
       };
       image.src = src;
     };
@@ -1221,7 +1246,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.48', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.49', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1263,7 +1288,7 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.48', 'SideScroll tree atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.49', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
     tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
@@ -1314,7 +1339,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.48`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.49`,
         key,
         null,
         size[0] / size[1]
@@ -1332,12 +1357,12 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.48`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.49`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.48',
+    'counterweight-plank.png?v=1.0.49',
     'counterweight-plank',
     null,
     1050 / 220
@@ -1347,9 +1372,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.48', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.49', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.48', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.49', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1357,7 +1382,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.48', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.49', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -1539,7 +1564,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.48';
+const RIG_TEXTURE_VERSION = '1.0.49';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -4114,7 +4139,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.48" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.49" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -7802,7 +7827,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.48" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.49" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -9084,10 +9109,37 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function updatePuzzleThoughts() {
-    // Repair guidance is deliberately inspection-driven. The player sees the
-    // interaction dot + contextual verb first, then gets the thought only
-    // after choosing INSPECT/COMBINE/USE rather than having the solution pop up
-    // automatically as they walk past.
+    if (introLocked || editMode || inventoryOpen || interactionState || puzzleThoughtTimer) return;
+
+    // Keep the repair solution inspection-driven, but use occasional first-time
+    // environmental thoughts to teach the broader interaction language.
+    const nearbyLog = !carriedObject ? nearestGameplayObject(
+      obj => /^puzzle-log-[a-d]$/.test(obj.assetName || '') && !obj.carried,
+      2.35
+    ) : null;
+    const nearbyFallenTree = nearestGameplayObject(
+      obj => obj.assetName === 'fallen-tree',
+      2.65
+    );
+
+    const candidates = [];
+    if (nearbyLog && !shownPuzzleThoughts.has('tutorial-log')) {
+      candidates.push({
+        distance: nearbyLog.distance,
+        key: 'tutorial-log',
+        text: 'That log looks light enough to carry. I think I can pick it up.'
+      });
+    }
+    if (nearbyFallenTree && !shownPuzzleThoughts.has('tutorial-fallen-tree')) {
+      candidates.push({
+        distance: nearbyFallenTree.distance,
+        key: 'tutorial-fallen-tree',
+        text: 'That fallen tree is too high. I need something I can climb on.'
+      });
+    }
+    candidates.sort((a,b) => a.distance - b.distance);
+    const next = candidates[0];
+    if (next) showPuzzleThoughtOnce(next.key, next.text);
   }
 
   function isSupportSurfaceObject(obj) {
@@ -10687,7 +10739,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function performAction() {
-    if (editMode || inventoryOpen || interactionState || autoDropStep) return;
+    if (introLocked || editMode || inventoryOpen || interactionState || autoDropStep) return;
     if (pushingObject) { stopPush(); return; }
     const contextAction = nearestPuzzleContextAction();
     if (contextAction && performPuzzleContextAction(contextAction)) return;
@@ -10766,7 +10818,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
-    const rawAxis = (editMode || inventoryOpen || interactionState || autoDropStep) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
+    const rawAxis = (introLocked || editMode || inventoryOpen || interactionState || autoDropStep) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
     const axisMag = Math.abs(rawAxis);
     const moveDir = axisMag > DRIVE_DEADZONE ? Math.sign(rawAxis) : 0;
 
@@ -11017,6 +11069,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   if (driveControl) {
     driveControl.addEventListener('pointerdown', e => {
       e.preventDefault();
+      if (introLocked) return;
       drivePointer = e.pointerId;
       driveControl.classList.add('dragging');
       driveControl.setPointerCapture?.(e.pointerId);
@@ -11048,7 +11101,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function triggerJump(){
-    if (editMode || inventoryOpen || jumping || interactionState || pushingObject) return;
+    if (introLocked || editMode || inventoryOpen || jumping || interactionState || pushingObject) return;
     jumping = true;
     jumpTime = 0;
     jumpCameraBaseY = character.y;
@@ -12010,6 +12063,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) { e.preventDefault(); deleteSelected(); }
       return;
     }
+    if (introLocked) return;
     if (e.key === 'ArrowLeft' || key === 'a') {
       keyLeft = true;
       hideHint();
@@ -12064,6 +12118,49 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     previousCameraX = camera.x;
   });
 
+  async function waitForInitialVisualAssets(maxWaitMs = 4200) {
+    const startedAt = performance.now();
+    let stableFrames = 0;
+    let lastStarted = -1;
+    while (performance.now() - startedAt < maxWaitMs) {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const sameLoadSet = visualAssetsStarted === lastStarted;
+      stableFrames = visualAssetsPending === 0 && sameLoadSet ? stableFrames + 1 : 0;
+      lastStarted = visualAssetsStarted;
+      if (stableFrames >= 3) break;
+    }
+  }
+
+  async function releasePlayerIntroFade() {
+    if (!PLAYER_MODE) {
+      introLocked = false;
+      entryFadeEl?.remove();
+      document.documentElement.classList.remove('ss-player-launch');
+      return;
+    }
+    document.body.classList.add('sidescroll-intro-locked');
+    setDriveAxis(0);
+    await waitForInitialVisualAssets();
+    // Allow one fully populated frame to reach the screen before revealing it.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (!entryFadeEl) {
+      introLocked = false;
+      document.body.classList.remove('sidescroll-intro-locked');
+      return;
+    }
+    entryFadeEl.classList.add('fade-out');
+    const unlock = () => {
+      if (!introLocked) return;
+      introLocked = false;
+      setDriveAxis(0);
+      document.body.classList.remove('sidescroll-intro-locked');
+      document.documentElement.classList.remove('ss-player-launch');
+      entryFadeEl.style.display = 'none';
+    };
+    entryFadeEl.addEventListener('transitionend', unlock, { once:true });
+    window.setTimeout(unlock, 1100);
+  }
+
   populatePuzzleSelector();
   buildAssetPalette();
   updateEditorButtons();
@@ -12083,4 +12180,5 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   resize();
   renderInventory();
   requestAnimationFrame(render);
+  releasePlayerIntroFade();
 })();
