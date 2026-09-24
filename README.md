@@ -1,7 +1,8 @@
-# SideScroll v1.0.40
+# SideScroll v1.0.41
 
-- Keeps the **Items** inventory button visible in the main HUD and pulses it when a new item is collected.
-- Extends the interaction-dot language to the broken cart, axle pin, loose wheel and repaired wheel states.
-- Gives puzzle thoughts a larger, more prominent speech-bubble presentation.
-- Makes the cart-wheel repair sequence explicit: the loose wheel starts as **INSPECT** only; after collecting the axle pin, inspect the wheel again to reveal **COMBINE**; combining leaves the repaired wheel in the world and changes the action to **PICK UP**; carry it to the cart for **USE**.
-- Removes the old hidden combine-while-carrying shortcut so the player can see and understand each step.
+- Adds the first authored **Cart Path** tool for the broken-bridge puzzle.
+- In Puzzle setup, open **Cart Path** and drag four scene handles: **START**, **CURVE 1**, **CURVE 2**, and **LAND**. A translucent ghost cart previews the final landing pose.
+- START defines where normal pushing hands control to the rail. The cart then follows a cubic spline to LAND using a short physics-style eased animation with live wheel rotation.
+- Landing angle can be nudged in 5° steps. Cart Path can be enabled/disabled and START can be snapped to the cart's current repaired path position.
+- At LAND the cart becomes locked, non-pushable, and gains a dedicated walkable collider spanning the cart so it can bridge the gap.
+- Cart-path setup is saved with the puzzle start state, survives streaming, and Reset restores the pre-drop cart state.

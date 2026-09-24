@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.40: refreshed authored cart-repair art. The chassis is now
+  // SideScroll v1.0.41: refreshed authored cart-repair art. The chassis is now
   // wheel-free artwork, runtime wheels stay separate/rotating, and the axle pin
   // uses a large readable authored texture instead of the procedural placeholder.
 
@@ -190,6 +190,13 @@
   const puzzleRespawnLowerBtn = document.getElementById('sidescroll-puzzle-respawn-lower');
   const puzzleRespawnRaiseBtn = document.getElementById('sidescroll-puzzle-respawn-raise');
   const puzzleRespawnTriggerValue = document.getElementById('sidescroll-puzzle-respawn-trigger-value');
+  const puzzleCartPathEditBtn = document.getElementById('sidescroll-puzzle-cart-path-edit');
+  const puzzleCartPathTools = document.getElementById('sidescroll-puzzle-cart-path-tools');
+  const puzzleCartPathToggleBtn = document.getElementById('sidescroll-puzzle-cart-path-toggle');
+  const puzzleCartPathStartCartBtn = document.getElementById('sidescroll-puzzle-cart-path-start-cart');
+  const puzzleCartPathAngleDownBtn = document.getElementById('sidescroll-puzzle-cart-path-angle-down');
+  const puzzleCartPathAngleUpBtn = document.getElementById('sidescroll-puzzle-cart-path-angle-up');
+  const puzzleCartPathAngleValue = document.getElementById('sidescroll-puzzle-cart-path-angle-value');
   const puzzleEditLayerSwitch = document.getElementById('sidescroll-puzzle-edit-layer-switch');
   const puzzlePiecesLayerBtn = document.getElementById('sidescroll-puzzle-layer-pieces');
   const puzzleDressingLayerBtn = document.getElementById('sidescroll-puzzle-layer-dressing');
@@ -1319,13 +1326,13 @@
     1050 / 220
   );
 
-  // v1.0.40 handcart art. The body/chassis intentionally contains no wheels;
+  // v1.0.41 handcart art. The body/chassis intentionally contains no wheels;
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.40', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.41', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.40', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.41', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1333,7 +1340,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.40', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.41', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -2821,7 +2828,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       counterweightVisualAngle: 0,
       counterweightAngle: 0,
       counterweightAngularVelocity: 0,
-      wheelRotation: 0
+      wheelRotation: Number(opts.wheelRotation) || 0,
+      runtimeRotation: Number(opts.runtimeRotation) || 0,
+      cartRailAnimating: !!opts.cartRailAnimating,
+      cartRailLocked: !!opts.cartRailLocked,
+      cartRailElapsed: Number(opts.cartRailElapsed) || 0
     };
     // Support/solid behaviour belongs to the asset, not to its editor library
     // category. This lets authored feature art such as bridge halves remain
@@ -3406,6 +3417,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const puzzleRespawnDraft = Object.create(null);
   let puzzleRespawnEditMode = false;
   let puzzleRespawnHandle = null;
+  const puzzleCartPathDraft = Object.create(null);
+  let puzzleCartPathEditMode = false;
+  let puzzleCartPathHandle = null;
   let lastPuzzleRespawnAt = 0;
   const PUZZLE_EXCLUSION_STORAGE_KEY = 'sidescroll-puzzle-exclusions-v1';
   let puzzleExclusionState = {};
@@ -3561,6 +3575,96 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const centerZ = cfg.zoneCenterZ;
     const triggerY = playSurfaceYAt(centerX) + cfg.triggerOffsetY;
     return { ...cfg, centerX, centerZ, triggerY, minX:centerX-cfg.width*0.5, maxX:centerX+cfg.width*0.5, minZ:centerZ-cfg.depth*0.5, maxZ:centerZ+cfg.depth*0.5, spawnWorldX:marker.x+cfg.spawnX, spawnWorldZ:cfg.spawnZ };
+  }
+
+  function cartObjectForInstance(instance) {
+    if (!instance) return null;
+    return instance.objects.find(obj => obj && !obj.deleted && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) || null;
+  }
+
+  function defaultPuzzleCartPath(marker) {
+    const instance = marker ? activePuzzleInstances.get(marker.id) : null;
+    const cart = cartObjectForInstance(instance);
+    const cartX = cart?.x ?? marker?.x ?? 0;
+    const cartSy = cart?.sy ?? 1.75;
+    const cartGroundLine = cart ? objectGroundLine(cart) : assetGroundLineDefault('handcart');
+    const startY = playSurfaceYAt(cartX) - cartGroundLine * cartSy;
+    const direction = 1;
+    const startRelX = cartX - (marker?.x ?? 0) + direction * 1.25;
+    const landRelX = startRelX + direction * 3.6;
+    const landWorldX = (marker?.x ?? 0) + landRelX;
+    const landY = playSurfaceYAt(landWorldX) - cartGroundLine * cartSy - 0.35;
+    return {
+      enabled:false,
+      duration:1.05,
+      finalRotationDeg:-8,
+      start:{ x:startRelX, y:startY, z:pathZ },
+      c1:{ x:startRelX + direction * 1.05, y:startY + 0.04, z:pathZ },
+      c2:{ x:landRelX - direction * 0.85, y:landY + 0.55, z:pathZ },
+      land:{ x:landRelX, y:landY, z:pathZ }
+    };
+  }
+
+  function normalisePuzzleCartPath(marker, raw = null) {
+    const fallback = defaultPuzzleCartPath(marker);
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const cleanPoint = (point, fallbackPoint) => ({
+      x:Number.isFinite(Number(point?.x)) ? Number(point.x) : fallbackPoint.x,
+      y:Number.isFinite(Number(point?.y)) ? Number(point.y) : fallbackPoint.y,
+      z:Number.isFinite(Number(point?.z)) ? Number(point.z) : fallbackPoint.z
+    });
+    return {
+      enabled:source.enabled === true,
+      duration:Rig.clamp(Number.isFinite(Number(source.duration)) ? Number(source.duration) : fallback.duration, 0.45, 3.0),
+      finalRotationDeg:Rig.clamp(Number.isFinite(Number(source.finalRotationDeg)) ? Number(source.finalRotationDeg) : fallback.finalRotationDeg, -85, 85),
+      start:cleanPoint(source.start, fallback.start),
+      c1:cleanPoint(source.c1, fallback.c1),
+      c2:cleanPoint(source.c2, fallback.c2),
+      land:cleanPoint(source.land, fallback.land)
+    };
+  }
+
+  function currentPuzzleCartPath(marker) {
+    if (!marker) return null;
+    if (!puzzleCartPathDraft[marker.id]) {
+      const runtimeDraft = puzzleSavedState?.[marker.id]?.cartPathDraft || null;
+      const start = puzzleStartFor(marker);
+      puzzleCartPathDraft[marker.id] = normalisePuzzleCartPath(marker, runtimeDraft || start?.cartPath || null);
+    }
+    return puzzleCartPathDraft[marker.id];
+  }
+
+  function savePuzzleCartPathDraft(marker) {
+    if (!marker) return;
+    const cfg = currentPuzzleCartPath(marker);
+    const runtime = savedPuzzleFor(marker.id);
+    runtime.cartPathDraft = deepCopy(cfg);
+    if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(marker.id);
+    savePuzzleState();
+  }
+
+  function puzzleCartPathWorld(marker) {
+    const cfg = currentPuzzleCartPath(marker);
+    if (!marker || !cfg) return null;
+    const toWorld = p => ({ x:marker.x + p.x, y:p.y, z:p.z });
+    return { ...cfg, start:toWorld(cfg.start), c1:toWorld(cfg.c1), c2:toWorld(cfg.c2), land:toWorld(cfg.land) };
+  }
+
+  function cubicBezierPoint(a,b,c,d,t) {
+    const u=1-t, u2=u*u, t2=t*t;
+    return {
+      x:u2*u*a.x + 3*u2*t*b.x + 3*u*t2*c.x + t2*t*d.x,
+      y:u2*u*a.y + 3*u2*t*b.y + 3*u*t2*c.y + t2*t*d.y,
+      z:u2*u*a.z + 3*u2*t*b.z + 3*u*t2*c.z + t2*t*d.z
+    };
+  }
+
+  function pathPlanePointFromClient(clientX, clientY, z = pathZ) {
+    const ray = cameraRayFromClient(clientX, clientY);
+    if (Math.abs(ray.dir[2]) < 0.0001) return null;
+    const t = (z - ray.eye[2]) / ray.dir[2];
+    if (t <= 0) return null;
+    return { x:ray.eye[0] + ray.dir[0] * t, y:ray.eye[1] + ray.dir[1] * t, z };
   }
 
   function applyPersistedMarkerPositions() {
@@ -3903,10 +4007,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision: cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride,
         shadow: obj.shadow ? { ...obj.shadow } : null,
         sockets: Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
-        socketedTo: obj.socketedTo ? { ...obj.socketedTo } : null
+        socketedTo: obj.socketedTo ? { ...obj.socketedTo } : null,
+        runtimeRotation:Number(obj.runtimeRotation) || 0,
+        cartRailLocked:!!obj.cartRailLocked,
+        wheelRotation:Number(obj.wheelRotation) || 0
       };
     }
-    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)) };
+    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)) };
     puzzleStartState[instance.id] = snapshot;
     puzzleStartDirty.delete(instance.id);
     savePuzzleStarts();
@@ -3918,6 +4025,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (snapshot.bounds) puzzleDraftBounds[instance.id] = { ...snapshot.bounds };
     else puzzleDraftBounds[instance.id] = { ...codeBoundsForMarker(instance.marker) };
     puzzleRespawnDraft[instance.id] = normalisePuzzleRespawn(instance.marker, snapshot.respawn || null);
+    puzzleCartPathDraft[instance.id] = normalisePuzzleCartPath(instance.marker, snapshot.cartPath || null);
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (pushingObject?.puzzleInstanceId === instance.id) { pushingObject = null; pushingSide = 0; pushingFloorOffset = 0; }
@@ -3997,7 +4105,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.counterweightVisualAngle = 0;
       obj.counterweightAngle = 0;
       obj.counterweightAngularVelocity = 0;
-      obj.wheelRotation = 0;
+      obj.wheelRotation = Number(state.wheelRotation) || 0;
+      obj.runtimeRotation = Number(state.runtimeRotation) || 0;
+      obj.cartRailAnimating = false;
+      obj.cartRailLocked = !!state.cartRailLocked;
+      obj.cartRailElapsed = 0;
       obj.carried = false;
       obj.groundLine = Rig.clamp(Number.isFinite(state.groundLine) ? Number(state.groundLine) : assetGroundLineDefault(obj.assetName), 0, 1);
       const baseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
@@ -4021,6 +4133,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     runtime.solved = false;
     delete runtime.reward;
     runtime.respawnDraft = deepCopy(currentPuzzleRespawn(instance.marker));
+    runtime.cartPathDraft = deepCopy(currentPuzzleCartPath(instance.marker));
     runtime.objects = {};
     for (const obj of instance.objects) {
       runtime.objects[obj.puzzleObjectId] = {
@@ -4028,7 +4141,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
         deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
         gameplayLayerLocked:!!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
-        sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
+        sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
+        runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0
       };
     }
     if (persistRuntime) savePuzzleState();
@@ -4071,7 +4185,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
       freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
       collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
-      sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
+      sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
+      runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0
     };
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
     savePuzzleState();
@@ -4086,6 +4201,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const saved = savedPuzzleFor(marker.id);
     const authored = puzzleStartFor(marker);
     if (!puzzleRespawnDraft[marker.id]) puzzleRespawnDraft[marker.id] = normalisePuzzleRespawn(marker, saved.respawnDraft || authored?.respawn || null);
+    if (!puzzleCartPathDraft[marker.id]) puzzleCartPathDraft[marker.id] = normalisePuzzleCartPath(marker, saved.cartPathDraft || authored?.cartPath || null);
     const instance = { id:marker.id, marker, def, objects:[], solved:!!saved.solved };
     const baseById = new Map((def.props || []).map(prop => [prop.id, prop]));
     const ids = new Set([...baseById.keys(), ...Object.keys(authored?.objects || {}), ...Object.keys(saved.objects || {})]);
@@ -4145,6 +4261,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         sockets:Array.isArray(prior?.sockets ?? startState?.sockets ?? prop?.sockets) ? (prior?.sockets ?? startState?.sockets ?? prop?.sockets).map(socket => ({ ...socket })) : [],
         socketedTo:(prior?.socketedTo ?? startState?.socketedTo ?? prop?.socketedTo) ? { ...(prior?.socketedTo ?? startState?.socketedTo ?? prop?.socketedTo) } : null,
         deleted:prior?.deleted ?? startState?.deleted ?? false,
+        runtimeRotation:prior?.runtimeRotation ?? startState?.runtimeRotation ?? 0,
+        cartRailLocked:prior?.cartRailLocked ?? startState?.cartRailLocked ?? false,
+        wheelRotation:prior?.wheelRotation ?? startState?.wheelRotation ?? 0,
         puzzleInstanceId:marker.id,
         puzzleObjectId:objectId
       });
@@ -6046,10 +6165,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride,
         shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
-        socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
+        socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
+        runtimeRotation:Number(obj.runtimeRotation)||0,
+        cartRailLocked:!!obj.cartRailLocked,
+        wheelRotation:Number(obj.wheelRotation)||0
       };
     }
-    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)) };
+    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)) };
   }
 
   function puzzleExportPayload(instance) {
@@ -6795,6 +6917,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
                         : 'Puzzle Pieces mode · tap puzzle props to select/move them, or use Place Puzzle Piece to add more.')
                     : 'Selected from the Scene list. Use Edit Puzzle to activate its bounds and objects, or Focus to move the camera to it.')
                 : 'Choose a puzzle from the Scene list to see its controls.'));
+      if (!testing && instance && puzzleCartPathEditMode) puzzleHelpEl.textContent = 'Cart Path · drag the yellow START, two curve handles and green LAND point. The translucent cart previews the final locked pose.';
     }
 
     const selectionAvailable = libraryMode ? !!selectedGroupId : !!selectedMarker;
@@ -6846,6 +6969,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const respawn = currentPuzzleRespawn(instance.marker);
       if (puzzleRespawnToggleBtn) { puzzleRespawnToggleBtn.textContent = respawn.enabled ? 'Respawn ON' : 'Respawn OFF'; puzzleRespawnToggleBtn.classList.toggle('active', respawn.enabled); }
       if (puzzleRespawnTriggerValue) puzzleRespawnTriggerValue.textContent = `${respawn.triggerOffsetY.toFixed(2)} m`;
+    }
+    const hasCart = !!cartObjectForInstance(instance);
+    if (puzzleCartPathEditBtn) {
+      puzzleCartPathEditBtn.hidden = testing || libraryMode;
+      puzzleCartPathEditBtn.disabled = !instance || !hasCart;
+      puzzleCartPathEditBtn.classList.toggle('active', !!(instance && puzzleCartPathEditMode));
+      puzzleCartPathEditBtn.textContent = puzzleCartPathEditMode ? 'Finish Cart Path' : 'Cart Path';
+    }
+    if (puzzleCartPathTools) puzzleCartPathTools.hidden = testing || libraryMode || !instance || !puzzleCartPathEditMode;
+    if (instance && puzzleCartPathEditMode) {
+      const cartPath = currentPuzzleCartPath(instance.marker);
+      if (puzzleCartPathToggleBtn) { puzzleCartPathToggleBtn.textContent = cartPath.enabled ? 'Path ON' : 'Path OFF'; puzzleCartPathToggleBtn.classList.toggle('active', cartPath.enabled); }
+      if (puzzleCartPathAngleValue) puzzleCartPathAngleValue.textContent = `${Math.round(cartPath.finalRotationDeg)}°`;
     }
     if (puzzleSaveUniqueBtn) {
       puzzleSaveUniqueBtn.hidden = testing || libraryMode || !instance || linkMode === 'copy';
@@ -7040,7 +7176,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -7569,6 +7705,58 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const c=projectWorldPoint(r.centerX,r.triggerY+0.08,r.centerZ);if(c){ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));const ly=Math.max(48,c.y-32);ctx.fillStyle='rgba(38,24,29,.88)';ctx.fillRect(lx,ly,tw,19);ctx.fillStyle='#ffd6df';ctx.fillText(label,lx+7,ly+13);}ctx.restore();
   }
 
+  function puzzleCartPathHandlePositions(instance) {
+    if (!instance || !puzzleCartPathEditMode) return [];
+    const path = puzzleCartPathWorld(instance.marker);
+    if (!path) return [];
+    const specs = [
+      ['start',path.start],['c1',path.c1],['c2',path.c2],['land',path.land]
+    ];
+    return specs.map(([kind,p]) => {
+      const screen=projectWorldPoint(p.x,p.y,p.z);
+      return screen && {kind,...screen,world:p};
+    }).filter(Boolean);
+  }
+
+  function puzzleCartPathHandleAt(clientX, clientY) {
+    if (!editMode || editorScope !== 'puzzle' || !puzzleCartPathEditMode) return null;
+    const instance=selectedPuzzleInstance(); if(!instance) return null;
+    const rect=canvas.getBoundingClientRect();const x=clientX-rect.left,y=clientY-rect.top;
+    return puzzleCartPathHandlePositions(instance).find(h=>Math.hypot(h.x-x,h.y-y)<=22)||null;
+  }
+
+  function drawPuzzleCartPathGuide(ctx, instance) {
+    if (!instance || !puzzleCartPathEditMode) return;
+    const path=puzzleCartPathWorld(instance.marker);if(!path)return;
+    const samples=[];
+    for(let i=0;i<=32;i++){
+      const p=cubicBezierPoint(path.start,path.c1,path.c2,path.land,i/32);
+      const s=projectWorldPoint(p.x,p.y,p.z);if(s)samples.push(s);
+    }
+    if(samples.length<2)return;
+    const handles=puzzleCartPathHandlePositions(instance);
+    const byKind=new Map(handles.map(h=>[h.kind,h]));
+    ctx.save();
+    ctx.strokeStyle=path.enabled?'rgba(255,214,112,.98)':'rgba(160,166,170,.72)';
+    ctx.lineWidth=4;ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(samples[0].x,samples[0].y);
+    for(let i=1;i<samples.length;i++)ctx.lineTo(samples[i].x,samples[i].y);ctx.stroke();
+    const start=byKind.get('start'),c1=byKind.get('c1'),c2=byKind.get('c2'),land=byKind.get('land');
+    if(start&&c1){ctx.strokeStyle='rgba(255,214,112,.45)';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(start.x,start.y);ctx.lineTo(c1.x,c1.y);ctx.stroke();}
+    if(c2&&land){ctx.beginPath();ctx.moveTo(c2.x,c2.y);ctx.lineTo(land.x,land.y);ctx.stroke();}
+    ctx.setLineDash([]);
+    const style={start:['#ffd972','#5c4a1e','START'],c1:['#ffe9ac','#685b34','CURVE 1'],c2:['#ffe9ac','#685b34','CURVE 2'],land:['#a9efc4','#2e6043','LAND']};
+    for(const h of handles){
+      const [fill,stroke,label]=style[h.kind];
+      ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='start'||h.kind==='land'?10:8,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();
+      ctx.font='900 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+12;ctx.fillStyle='rgba(20,31,34,.88)';ctx.fillRect(h.x-tw*.5,h.y-31,tw,17);ctx.fillStyle=fill;ctx.fillText(label,h.x-tw*.5+6,h.y-19);
+    }
+    if(land){
+      const angle=(Number(path.finalRotationDeg)||0)*Math.PI/180;
+      const len=42;ctx.strokeStyle='rgba(169,239,196,.92)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(land.x,land.y);ctx.lineTo(land.x+Math.cos(angle)*len,land.y-Math.sin(angle)*len);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function puzzleBoundHandlePositions(instance) {
     if (!instance) return [];
     const b = puzzleBounds(instance);
@@ -7606,6 +7794,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!instance) return;
     drawPuzzleExclusionGuide(ctx, instance);
     drawPuzzleRespawnGuide(ctx, instance);
+    drawPuzzleCartPathGuide(ctx, instance);
     const b = puzzleBounds(instance);
     const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
     const right = projectWorldPoint(b.maxX, playSurfaceYAt(b.maxX)+0.04, pathZ);
@@ -8166,7 +8355,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const halfWidth = Math.max(0.001, c.halfWidth ?? Math.max(0.18, obj.sx * 0.34));
     const height = Math.max(0.001, c.height ?? Math.max(0.24, obj.sy * 0.66));
     const visual = assetVisualTransform(obj.assetName);
-    const visualAngle = (Number(visual.rotationDeg) || 0) * Math.PI / 180;
+    const visualAngle = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0);
     const visualFlip = objectVisualFlip(obj);
     const vc = Math.cos(visualAngle), vs = Math.sin(visualAngle);
     const pivotX = aroundX + (Number(visual.offsetX) || 0);
@@ -8347,7 +8536,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function collisionObjects() {
     return allSceneObjects().filter(obj => {
       if (obj === pushingObject) return false;
-      if (obj.deleted || obj.carried || obj.counterweightBoundTo || !obj.collision) return false;
+      if (obj.deleted || obj.carried || obj.cartRailAnimating || obj.counterweightBoundTo || !obj.collision) return false;
       // Collision geometry can still exist on non-solid props so carrying,
       // placement and editor tooling know their shape. Only Solid objects
       // should physically block the player or other moving gameplay objects.
@@ -8360,7 +8549,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function isPushableObject(obj) {
-    return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay' && objectHasBehaviour(obj, 'pushable');
+    return !!obj && !obj.deleted && !obj.carried && !obj.cartRailAnimating && !obj.cartRailLocked && obj.category === 'gameplay' && objectHasBehaviour(obj, 'pushable');
   }
 
   function isCarryableObject(obj) {
@@ -8501,6 +8690,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       cart.freePlacement = false;
       cart.z = pathZ;
       cart.y = playSurfaceYAt(cart.x) - cart.groundLine * cart.sy;
+      cart.runtimeRotation = 0;
+      cart.cartRailAnimating = false;
+      cart.cartRailLocked = false;
+      cart.cartRailElapsed = 0;
       cart.collision = behaviourCollisionFor('handcart', cart.sx, cart.sy, cart.collision);
       cart.collisionOverride = false;
       recordObjectEdit(cart);
@@ -8703,6 +8896,92 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     obj.y = pushableYAtX(obj, obj.x, pushingFloorOffset);
     const wheelRadius = Math.max(0.12, obj.sy * (87 / 255));
     obj.wheelRotation = (Number(obj.wheelRotation) || 0) - delta / wheelRadius;
+  }
+
+  function cartPathForObject(obj) {
+    if (!obj?.puzzleInstanceId || obj.assetName !== 'handcart') return null;
+    const instance = activePuzzleInstances.get(obj.puzzleInstanceId);
+    if (!instance) return null;
+    const path = puzzleCartPathWorld(instance.marker);
+    return path?.enabled ? { instance, path } : null;
+  }
+
+  function cartBridgeCollision(obj) {
+    const points = [
+      {x:-1.00,y:0.59},{x:1.00,y:0.59},{x:1.00,y:0.72},{x:-1.00,y:0.72}
+    ];
+    return {
+      halfWidth:Math.max(0.4,obj.sx*0.49),
+      height:Math.max(0.4,obj.sy),
+      depth:Math.max(0.70,obj.sx*0.18),
+      platform:true,
+      points:points.map(p=>({...p})),
+      shapes:[{points:points.map(p=>({...p}))}],
+      behaviourGenerated:false,
+      cartBridge:true
+    };
+  }
+
+  function maybeStartCartRail(obj, previousX = null) {
+    if (!obj || obj.cartRailAnimating || obj.cartRailLocked || obj.assetName !== 'handcart') return false;
+    const setup = cartPathForObject(obj);
+    if (!setup) return false;
+    const { path } = setup;
+    const direction = Math.sign(path.land.x - path.start.x) || 1;
+    const movedDirection = Math.sign(obj.x - (Number.isFinite(previousX) ? previousX : obj.x));
+    if (movedDirection && movedDirection !== direction) return false;
+    const reached = direction > 0 ? obj.x >= path.start.x : obj.x <= path.start.x;
+    if (!reached) return false;
+    if (Math.abs((obj.z ?? pathZ) - path.start.z) > 0.9) return false;
+    if (pushingObject === obj) stopPush(true);
+    obj.cartRailAnimating = true;
+    obj.cartRailLocked = false;
+    obj.cartRailElapsed = 0;
+    obj.runtimeRotation = 0;
+    obj.freePlacement = true;
+    obj.gameplayLayerLocked = false;
+    obj.x = path.start.x;
+    obj.y = path.start.y;
+    obj.z = path.start.z;
+    showPuzzleThought('There it goes…', 1800);
+    return true;
+  }
+
+  function updateCartRailAnimations(dt) {
+    for (const obj of allSceneObjects()) {
+      if (!obj?.cartRailAnimating || obj.deleted || obj.assetName !== 'handcart') continue;
+      const setup = cartPathForObject(obj);
+      if (!setup) { obj.cartRailAnimating=false; continue; }
+      const { path } = setup;
+      const duration = Math.max(0.45, Number(path.duration) || 1.05);
+      const previous = {x:obj.x,y:obj.y,z:obj.z};
+      obj.cartRailElapsed = (Number(obj.cartRailElapsed)||0) + dt;
+      const rawT = Rig.clamp(obj.cartRailElapsed / duration, 0, 1);
+      const t = smooth01(rawT);
+      const point = cubicBezierPoint(path.start,path.c1,path.c2,path.land,t);
+      obj.x=point.x;obj.y=point.y;obj.z=point.z;
+      const travel=Math.hypot(obj.x-previous.x,obj.y-previous.y,obj.z-previous.z);
+      const horizontalSign=Math.sign(obj.x-previous.x)||1;
+      const wheelRadius=Math.max(0.12,obj.sy*(87/255));
+      obj.wheelRotation=(Number(obj.wheelRotation)||0)-horizontalSign*travel/wheelRadius;
+      obj.runtimeRotation=(Number(path.finalRotationDeg)||0)*Math.PI/180*smooth01(Rig.clamp((rawT-0.10)/0.90,0,1));
+      if(rawT>=1){
+        obj.cartRailAnimating=false;
+        obj.cartRailLocked=true;
+        obj.cartRailElapsed=duration;
+        obj.x=path.land.x;obj.y=path.land.y;obj.z=path.land.z;
+        obj.runtimeRotation=(Number(path.finalRotationDeg)||0)*Math.PI/180;
+        obj.gameplayType='bridge-cart';
+        obj.freePlacement=true;
+        obj.gameplayLayerLocked=false;
+        obj.collision=cartBridgeCollision(obj);
+        obj.collisionOverride=true;
+        moveObjectToCorrectCollection(obj);
+        sortSceneCollections();
+        recordObjectEdit(obj);
+        showPuzzleThought('That should hold. I can get across now.', 3600);
+      }
+    }
   }
 
   function dropTargetIsClear(obj, target, ignoredObjects = null) {
@@ -8995,7 +9274,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     bindMesh(drawMesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
-    const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180;
+    const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0);
     const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
     const visualFlip = (!!obj.flip) !== (!!visual.flip);
     let drawY = (extra?.y ?? obj.y) + (Number(visual.offsetY) || 0);
@@ -9035,7 +9314,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0, bodyFlip = false) {
     if (!textures['handcart-wheel']) return;
-    // The v1.0.40 chassis is genuinely wheel-free. These authored wheel centres
+    // The v1.0.41 chassis is genuinely wheel-free. These authored wheel centres
     // line up with its two vertical supports and rotate around their true hubs.
     const wheelSize = obj.sy * (160 / 255);
     const wheelV = (255 - 164) / 255;
@@ -9054,10 +9333,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         flip:false, shade:obj.shade, opacity:obj.opacity, noFog:obj.noFog, tint:obj.tint,
         asset:true, assetName:'handcart-wheel-component', layer:obj.layer, wrap:false,
         deleted:false, carried:false, shadow:null, uvScale:[1,1], uvOffset:[0,0],
-        counterweightVisualAngle:Number(obj.wheelRotation) || 0
+        counterweightVisualAngle:bodyRotation + (Number(obj.wheelRotation) || 0)
       };
       drawObject(wheel, view, { force:true });
     }
+  }
+
+  function drawPuzzleCartPathGhost(view) {
+    if (!editMode || editorScope !== 'puzzle' || !puzzleCartPathEditMode) return;
+    const instance=selectedPuzzleInstance();if(!instance)return;
+    const path=puzzleCartPathWorld(instance.marker);if(!path)return;
+    const source=cartObjectForInstance(instance);
+    const sy=source?.sy||1.75;
+    const sx=sy*(assetAspect.handcart||(620/255));
+    const ghost={
+      id:'cart-path-ghost',mesh:billboardMesh,texture:textures.handcart,uvScale:assetUv.handcart?.scale||[1,1],uvOffset:assetUv.handcart?.offset||[0,0],
+      x:path.land.x,y:path.land.y,z:path.land.z-0.0005,sx,sy,sz:1,baseSx:sx,baseSy:sy,flip:source?.flip||false,shade:1,opacity:0.38,noFog:true,tint:[0.86,1.0,0.91],
+      asset:true,assetName:'handcart',groundLine:assetGroundLineDefault('handcart'),category:'gameplay',gameplayType:'bridge-cart-ghost',gameplayLayerLocked:false,freePlacement:true,layer:'foreground',wrap:false,
+      collision:null,collisionOverride:true,shadow:null,deleted:false,carried:false,userAdded:false,puzzleInstanceId:null,puzzleObjectId:null,sockets:[],socketedTo:null,counterweightBoundTo:null,counterweightVisualAngle:0,counterweightAngle:0,counterweightAngularVelocity:0,
+      wheelRotation:Number(source?.wheelRotation)||0,runtimeRotation:(Number(path.finalRotationDeg)||0)*Math.PI/180,cartRailAnimating:false,cartRailLocked:true,cartRailElapsed:0
+    };
+    drawObject(ghost,view);
   }
 
   function currentCharacterPhase(isWalking) {
@@ -10115,6 +10411,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
 
     updateCounterweightMechanisms(dt);
+    updateCartRailAnimations(dt);
 
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
@@ -10175,10 +10472,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const cartDelta = cartResolved - pushingObject.x;
         const allowed = Math.sign(desiredDelta) * Math.min(Math.abs(desiredDelta), Math.abs(playerDelta), Math.abs(cartDelta));
         if (Math.abs(allowed) > 0.000001) {
+          const pushedCart = pushingObject;
+          const previousCartX = pushedCart.x;
           camera.x += allowed;
-          movePushedObject(pushingObject, allowed);
+          movePushedObject(pushedCart, allowed);
           character.lastFacing = pushingSide;
           hideHint();
+          maybeStartCartRail(pushedCart, previousCartX);
         }
       } else {
         const proposedX = camera.x + moveDir * analogSpeed * dt;
@@ -10301,6 +10601,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     drawRigCharacter(view, isWalking);
 
     for (const obj of frontOccluders) drawObject(obj, view);
+    drawPuzzleCartPathGhost(view);
 
     presentSceneWithPost();
     drawEditorOverlay();
@@ -10750,7 +11051,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const ex = currentPuzzleExclusion(instance.marker);
     if (!ex.enabled) { ex.enabled = true; savePuzzleExclusionState(); }
     puzzleExclusionEditMode = !puzzleExclusionEditMode;
-    if (puzzleExclusionEditMode) { puzzleRespawnEditMode = false; puzzleRespawnHandle = null; }
+    if (puzzleExclusionEditMode) { puzzleRespawnEditMode = false; puzzleRespawnHandle = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; }
     addAssetType = null;
     setAssetPaletteOpen(false);
     selectObject(null);
@@ -10780,6 +11081,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     puzzleExclusionHandle = null;
     puzzleRespawnEditMode = false;
     puzzleRespawnHandle = null;
+    puzzleCartPathEditMode = false;
+    puzzleCartPathHandle = null;
     addAssetType = null;
     selectObject(null);
     setAssetPaletteOpen(false);
@@ -10797,7 +11100,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(puzzleDressingLayerBtn, () => setPuzzleEditLayer('dressing'));
   bindEditorPress(puzzleRespawnEditBtn, () => {
     const instance=selectedPuzzleInstance(); if(!instance||puzzleTestMode)return;
-    puzzleRespawnEditMode=!puzzleRespawnEditMode;puzzleExclusionEditMode=false;puzzleExclusionHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
+    puzzleRespawnEditMode=!puzzleRespawnEditMode;puzzleExclusionEditMode=false;puzzleExclusionHandle=null;puzzleCartPathEditMode=false;puzzleCartPathHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
     if(puzzleRespawnEditMode){const cfg=currentPuzzleRespawn(instance.marker);if(!cfg.enabled){cfg.enabled=true;savePuzzleRespawnDraft(instance.marker);}hintEl.textContent='Respawn setup · drag SPAWN or the pink volume handles · falling below the pink plane inside the volume respawns here';}
     else hintEl.textContent='Respawn setup finished';
     hintEl.classList.remove('hidden');updatePuzzlePanel();
@@ -10807,6 +11110,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const nudgeRespawnTrigger=delta=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleRespawn(instance.marker);cfg.triggerOffsetY=Rig.clamp(cfg.triggerOffsetY+delta,-4.5,0.5);cfg.enabled=true;savePuzzleRespawnDraft(instance.marker);updatePuzzlePanel();};
   bindEditorPress(puzzleRespawnLowerBtn,()=>nudgeRespawnTrigger(-0.15));
   bindEditorPress(puzzleRespawnRaiseBtn,()=>nudgeRespawnTrigger(0.15));
+  bindEditorPress(puzzleCartPathEditBtn,()=>{
+    const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode||!cartObjectForInstance(instance))return;
+    puzzleCartPathEditMode=!puzzleCartPathEditMode;
+    puzzleRespawnEditMode=false;puzzleRespawnHandle=null;puzzleExclusionEditMode=false;puzzleExclusionHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
+    if(puzzleCartPathEditMode){
+      const cfg=currentPuzzleCartPath(instance.marker);if(!cfg.enabled){cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);}
+      hintEl.textContent='Cart path · drag START, CURVE 1, CURVE 2 and LAND · green ghost shows the final cart pose';
+    } else hintEl.textContent='Cart path setup finished';
+    hintEl.classList.remove('hidden');updatePuzzlePanel();
+  });
+  bindEditorPress(puzzleCartPathToggleBtn,()=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);cfg.enabled=!cfg.enabled;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();});
+  bindEditorPress(puzzleCartPathStartCartBtn,()=>{const instance=selectedPuzzleInstance();const cart=cartObjectForInstance(instance);if(!instance||!cart||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);const startY=playSurfaceYAt(cart.x)-assetGroundLineDefault('handcart')*cart.sy;const dx=(cfg.c1.x-cfg.start.x);const dy=(cfg.c1.y-cfg.start.y);cfg.start={x:cart.x-instance.marker.x,y:startY,z:pathZ};cfg.c1={x:cfg.start.x+dx,y:cfg.start.y+dy,z:pathZ};cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();hintEl.textContent='START snapped to the cart’s repaired path position';hintEl.classList.remove('hidden');});
+  const nudgeCartPathAngle=delta=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleCartPath(instance.marker);cfg.finalRotationDeg=Rig.clamp(cfg.finalRotationDeg+delta,-85,85);cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);updatePuzzlePanel();};
+  bindEditorPress(puzzleCartPathAngleDownBtn,()=>nudgeCartPathAngle(-5));
+  bindEditorPress(puzzleCartPathAngleUpBtn,()=>nudgeCartPathAngle(5));
 
   bindEditorPress(puzzleSetStartBtn, savePuzzleTemplateFromCurrent);
   bindEditorPress(puzzleSaveUniqueBtn, savePuzzleUniqueFromCurrent);
@@ -11017,8 +11335,24 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         hintEl.textContent=respawnHandle.kind==='spawn'?'Drag the green SPAWN point':(respawnHandle.kind==='zone-center'?'Drag the pink centre to move the respawn volume':'Drag the pink edge handle to resize the respawn volume');hintEl.classList.remove('hidden');return;
       }
 
+      const cartPathHandleHit = puzzleCartPathHandleAt(e.clientX, e.clientY);
+      if (cartPathHandleHit) {
+        const instance=selectedPuzzleInstance();
+        editorGesture.kind='puzzle-cart-path';
+        editorGesture.cartPathHandle=cartPathHandleHit.kind;
+        editorGesture.cartPathMarker=instance.marker;
+        puzzleCartPathHandle=cartPathHandleHit.kind;
+        hintEl.textContent=`Drag ${cartPathHandleHit.kind==='c1'?'CURVE 1':cartPathHandleHit.kind==='c2'?'CURVE 2':cartPathHandleHit.kind.toUpperCase()} to shape the cart route`;
+        hintEl.classList.remove('hidden');
+        return;
+      }
+
       if (puzzleRespawnEditMode) {
         editorGesture.kind = 'respawn-pan';
+        return;
+      }
+      if (puzzleCartPathEditMode) {
+        editorGesture.kind = 'cart-path-pan';
         return;
       }
 
@@ -11146,6 +11480,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           else if(editorGesture.respawnHandle==='right'){const right=Math.max(localX,left0+.8);cfg.zoneCenterX=(left0+right)*.5;cfg.width=Math.max(.8,right-left0);}
           else if(editorGesture.respawnHandle==='far'){const far=Math.min(z,near0-.8);cfg.zoneCenterZ=(far+near0)*.5;cfg.depth=Math.max(.8,near0-far);}
           else if(editorGesture.respawnHandle==='near'){const near=Math.max(z,far0+.8);cfg.zoneCenterZ=(far0+near)*.5;cfg.depth=Math.max(.8,near-far0);}cfg.enabled=true;}
+      } else if (editorGesture.kind === 'puzzle-cart-path' && editorGesture.cartPathMarker) {
+        const marker=editorGesture.cartPathMarker;
+        const cfg=currentPuzzleCartPath(marker);
+        const current=cfg[editorGesture.cartPathHandle];
+        const point=pathPlanePointFromClient(e.clientX,e.clientY,current?.z ?? pathZ);
+        if(point){cfg[editorGesture.cartPathHandle]={x:point.x-marker.x,y:point.y,z:current?.z ?? pathZ};cfg.enabled=true;}
       } else if (editorGesture.kind === 'puzzle-marker' && editorGesture.marker) {
         const nextX = editorGesture.markerStartX + dx * 0.0065;
         movePuzzleMarkerTo(editorGesture.marker, nextX);
@@ -11184,6 +11524,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           }
           else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
           else if (gesture.kind==='puzzle-respawn' && gesture.respawnMarker) { savePuzzleRespawnDraft(gesture.respawnMarker); updatePuzzlePanel(); }
+          else if (gesture.kind==='puzzle-cart-path' && gesture.cartPathMarker) { savePuzzleCartPathDraft(gesture.cartPathMarker); updatePuzzlePanel(); }
           else if (gesture.kind==='puzzle-marker' && gesture.marker) {
             persistPuzzleMarkerPosition(gesture.marker);
             settleGameplayCrates();
@@ -11240,7 +11581,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           }
         }
       }
-      editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;puzzleRespawnHandle=null;
+      editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;puzzleRespawnHandle=null;puzzleCartPathHandle=null;
       return;
     }
     if (e.pointerId === activePointer) activePointer = null;

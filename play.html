@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.40">
+  <link rel="stylesheet" href="style.css?v=1.0.41">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -291,6 +291,7 @@
                 <button id="sidescroll-puzzle-exclusion-edit" type="button">Edit Exclusion</button>
                 <button id="sidescroll-puzzle-exclusion-toggle" type="button">Exclusion On</button>
                 <button id="sidescroll-puzzle-respawn-edit" type="button">Respawn Setup</button>
+                <button id="sidescroll-puzzle-cart-path-edit" type="button">Cart Path</button>
                 <button id="sidescroll-puzzle-save-unique" type="button">Save Unique</button>
                 <button id="sidescroll-puzzle-test" class="primary" type="button">Test</button>
                 <button id="sidescroll-puzzle-reset" type="button">Reset</button>
@@ -305,6 +306,16 @@
                   <button id="sidescroll-puzzle-respawn-raise" type="button">Raise Trigger</button>
                 </div>
                 <small>Drag the green spawn point and pink volume handles in the scene. Crossing below the pink plane inside the volume respawns the player.</small>
+              </div>
+              <div class="sidescroll-puzzle-respawn-tools" id="sidescroll-puzzle-cart-path-tools" hidden>
+                <div class="sidescroll-puzzle-respawn-head"><strong>CART PATH</strong><span>Land angle <b id="sidescroll-puzzle-cart-path-angle-value">−8°</b></span></div>
+                <div class="sidescroll-puzzle-respawn-grid">
+                  <button id="sidescroll-puzzle-cart-path-toggle" type="button">Path ON</button>
+                  <button id="sidescroll-puzzle-cart-path-start-cart" type="button">Start = Cart</button>
+                  <button id="sidescroll-puzzle-cart-path-angle-down" type="button">Angle −5°</button>
+                  <button id="sidescroll-puzzle-cart-path-angle-up" type="button">Angle +5°</button>
+                </div>
+                <small>Drag START, CURVE 1, CURVE 2 and LAND directly in the scene. START takes control from the player; LAND is the final locked pose. A ghost cart shows the landing position.</small>
               </div>
               <details class="sidescroll-puzzle-objects" id="sidescroll-puzzle-objects" hidden>
                 <summary>Objects <span id="sidescroll-puzzle-object-count">0</span></summary>
@@ -410,11 +421,11 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=1.0.40"></script>
-  <script src="core.js?v=1.0.40"></script>
-  <script src="walk-rig.js?v=1.0.40"></script>
-  <script src="puzzle-groups.js?v=1.0.40"></script>
-  <script src="baked-game-design.js?v=1.0.40"></script>
-  <script src="sidescroll.js?v=1.0.40"></script>
+  <script src="site-config.js?v=1.0.41"></script>
+  <script src="core.js?v=1.0.41"></script>
+  <script src="walk-rig.js?v=1.0.41"></script>
+  <script src="puzzle-groups.js?v=1.0.41"></script>
+  <script src="baked-game-design.js?v=1.0.41"></script>
+  <script src="sidescroll.js?v=1.0.41"></script>
 </body>
 </html>
