@@ -1,7 +1,8 @@
-# SideScroll v1.0.44
+# SideScroll v1.0.46
 
-- Cart Path handles that fall into the iPhone bottom gesture area are now lifted into a safe grab band with a leader line back to the authored point.
-- Cart Path Reset/Set Start now persists the complete spline instead of rebuilding the default route; legacy path drafts are preserved during reset.
-- Cart rail duration is editable in 0.25 s steps, with a Match Push option to choose a speed close to the manual cart push.
-- Legacy 1.05 s rail timing migrates to a calmer 2.75 s default.
-- Landing rotation now adjusts in 1 degree steps and includes a dedicated Level 0° control.
+Cart-path velocity authoring pass.
+
+- Added START / MID / END speed controls for the cart rail.
+- Speed keys redistribute motion along the spline while keeping the authored total duration.
+- Ghost replay and scrubber now use the exact same velocity profile as gameplay.
+- Default profile eases away from the player, accelerates through the middle, then settles more gently.

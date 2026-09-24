@@ -13236,7 +13236,7 @@ body[data-game-id="game-16"] .sidescroll-puzzle-respawn-tools small{display:bloc
 
 .assetlab-shape-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;align-items:center;margin:0 0 8px}.assetlab-shape-toolbar select,.assetlab-shape-toolbar button{height:31px;min-width:0;border:1px solid rgba(238,243,241,.12);border-radius:7px;background:rgba(10,16,20,.46);color:#dce7e3;font-size:7.5px;font-weight:850;padding:0 7px}.assetlab-shape-toolbar button{background:rgba(255,255,255,.04)}.assetlab-shape-toolbar button:disabled{opacity:.35}.assetlab-point-subhead{margin-top:2px}
 
-/* SideScroll v1.0.44 — clearer repair interaction presentation. */
+/* SideScroll v1.0.46 — clearer repair interaction presentation. */
 body[data-game-id="game-16"] .sidescroll-stage-actions .sidescroll-inventory-button{
   display:inline-flex;
   align-items:center;
@@ -13306,3 +13306,20 @@ body[data-game-id="game-16"] .sidescroll-hint.puzzle-thought::after{
     font-size:12px;
   }
 }
+
+/* SideScroll v1.0.46 — cart-path ghost replay/scrub controls. */
+body[data-game-id="game-16"] .sidescroll-cart-path-preview{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px;margin-top:7px;padding:6px 7px;border:1px solid rgba(143,215,255,.22);border-radius:9px;background:rgba(26,54,69,.22);}
+body[data-game-id="game-16"] .sidescroll-cart-path-preview button{min-height:31px;padding:0 10px;border:1px solid rgba(143,215,255,.28);border-radius:8px;background:rgba(143,215,255,.10);color:#dff5ff;font-size:8px;font-weight:900;letter-spacing:.045em;}
+body[data-game-id="game-16"] .sidescroll-cart-path-preview button.active{background:rgba(143,215,255,.30);}
+body[data-game-id="game-16"] .sidescroll-cart-path-preview label{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px;min-width:0;color:rgba(224,239,245,.72);font-size:7px;font-weight:900;letter-spacing:.05em;}
+body[data-game-id="game-16"] .sidescroll-cart-path-preview input[type="range"]{width:100%;min-width:90px;touch-action:none;accent-color:#8fd7ff;}
+body[data-game-id="game-16"] .sidescroll-cart-path-preview b{white-space:nowrap;color:#dff5ff;font-size:8px;}
+@media(max-width:820px) and (orientation:landscape){body[data-game-id="game-16"] .sidescroll-cart-path-preview{grid-template-columns:auto 1fr;gap:5px;padding:5px;}body[data-game-id="game-16"] .sidescroll-cart-path-preview b{grid-column:1/-1;text-align:right;font-size:7px;}body[data-game-id="game-16"] .sidescroll-cart-path-preview button{min-height:28px;}}
+
+/* SideScroll v1.0.46 — simple three-key cart rail velocity profile. */
+body[data-game-id="game-16"] .sidescroll-cart-path-speeds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px;}
+body[data-game-id="game-16"] .sidescroll-cart-path-speeds>div{display:grid;grid-template-columns:1fr 28px 42px 28px;align-items:center;gap:3px;padding:5px 6px;border:1px solid rgba(143,215,255,.18);border-radius:8px;background:rgba(26,54,69,.16);}
+body[data-game-id="game-16"] .sidescroll-cart-path-speeds span{font-size:7px;font-weight:900;letter-spacing:.04em;color:rgba(224,239,245,.68);white-space:nowrap;}
+body[data-game-id="game-16"] .sidescroll-cart-path-speeds b{text-align:center;font-size:8px;color:#dff5ff;white-space:nowrap;}
+body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:28px;padding:0;border:1px solid rgba(143,215,255,.26);border-radius:7px;background:rgba(143,215,255,.10);color:#dff5ff;font-size:14px;font-weight:900;}
+@media(max-width:900px) and (orientation:landscape){body[data-game-id="game-16"] .sidescroll-cart-path-speeds{grid-template-columns:1fr;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds>div{grid-template-columns:1fr 34px 48px 34px;padding:3px 6px;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:25px;}}
