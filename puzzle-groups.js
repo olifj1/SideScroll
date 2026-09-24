@@ -3,25 +3,25 @@ window.SideScrollPuzzleConfig = {
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
-        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=0.2.94", aspect: 1.345895 },
-        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=0.2.94", aspect: 1.106195 },
-        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=0.2.94", aspect: 1.345895 },
-        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=0.2.94", aspect: 1.106195 },
-        { name: "fallen-tree", url: "fallen-tree.png?v=0.2.94", aspect: 2.364393 },
-        { name: "tree-stump", url: "tree-stump.png?v=0.2.61", aspect: 2.4223 },
-        { name: "broken-branch", url: "broken-branch.png?v=0.2.61", aspect: 2.7182 },
-        { name: "bridge-left", url: "bridge-left.png?v=1.0.12", aspect: 1.298592 },
-        { name: "bridge-right", url: "bridge-right.png?v=1.0.12", aspect: 1.298592 },
+        { name: "puzzle-log-a", url: "puzzle-log-a.png?v=1.0.48", aspect: 1.345895 },
+        { name: "puzzle-log-b", url: "puzzle-log-b.png?v=1.0.48", aspect: 1.106195 },
+        { name: "puzzle-log-c", url: "puzzle-log-c.png?v=1.0.48", aspect: 1.345895 },
+        { name: "puzzle-log-d", url: "puzzle-log-d.png?v=1.0.48", aspect: 1.106195 },
+        { name: "fallen-tree", url: "fallen-tree.png?v=1.0.48", aspect: 2.364393 },
+        { name: "tree-stump", url: "tree-stump.png?v=1.0.48", aspect: 2.4223 },
+        { name: "broken-branch", url: "broken-branch.png?v=1.0.48", aspect: 2.7182 },
+        { name: "bridge-left", url: "bridge-left.png?v=1.0.48", aspect: 1.298592 },
+        { name: "bridge-right", url: "bridge-right.png?v=1.0.48", aspect: 1.298592 },
         { name: "handcart-broken", aspect: 2.431373 },
-        { name: "handcart", url: "handcart-body.png?v=1.0.47", aspect: 2.431373 },
+        { name: "handcart", url: "handcart-body.png?v=1.0.48", aspect: 2.431373 },
         { name: "cart-wheel-loose", aspect: 1 },
         { name: "cart-wheel-ready", aspect: 1 },
-        { name: "axle-pin", url: "axle-pin.png?v=1.0.47", aspect: 2 },
-        { name: "counterweight-plank", url: "counterweight-plank.png?v=1.0.25", aspect: 4.772727 },
-        { name: "stone-wall", url: "stone-wall.png?v=0.2.94", aspect: 1.895735 },
-        { name: "stone-piece-a", url: "stone-piece-a.png?v=0.2.94", aspect: 1.094391 },
-        { name: "stone-piece-b", url: "stone-piece-b.png?v=0.2.94", aspect: 0.992500 },
-        { name: "stone-piece-c", url: "stone-piece-c.png?v=0.2.94", aspect: 1.062417 }
+        { name: "axle-pin", url: "axle-pin.png?v=1.0.48", aspect: 2 },
+        { name: "counterweight-plank", url: "counterweight-plank.png?v=1.0.48", aspect: 4.772727 },
+        { name: "stone-wall", url: "stone-wall.png?v=1.0.48", aspect: 1.895735 },
+        { name: "stone-piece-a", url: "stone-piece-a.png?v=1.0.48", aspect: 1.094391 },
+        { name: "stone-piece-b", url: "stone-piece-b.png?v=1.0.48", aspect: 0.992500 },
+        { name: "stone-piece-c", url: "stone-piece-c.png?v=1.0.48", aspect: 1.062417 }
       ]
     }
   },

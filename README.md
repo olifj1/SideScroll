@@ -1,11 +1,9 @@
-# SideScroll v1.0.47
+# SideScroll v1.0.48
 
-Asset States foundation.
+Focused splash launcher and startup preload.
 
-- Asset Lab now supports named states with New, Duplicate, Rename and Delete controls.
-- States can override placement/visual transform, collision, and gameplay behaviours.
-- Handcart ships with Broken, Repaired / Pushable, and Landed / Bridge states.
-- Cart wheel visibility is authored per cart state.
-- Repair now enters the Repaired state; the rail landing enters the Landed state.
-- Landed cart collision is authored in Asset Lab rather than hard-coded, with a legacy fallback.
-- Puzzle/scene snapshots now preserve asset state so Reset restores the authored state correctly.
+- New full-screen splash artwork with Play as the primary action.
+- Edit / Test, Asset Lab and Walk Lab moved into a compact corner menu.
+- Startup loading bar preloads the game scripts and visual assets before Play is enabled.
+- Static game resources now use the current service-worker cache first, so preloaded assets are reused immediately when entering the game.
+- Splash artwork is included in the offline app shell.

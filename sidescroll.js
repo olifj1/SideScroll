@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.47: reusable Asset States. Asset Lab can author named visual /
+  // SideScroll v1.0.48: reusable Asset States. Asset Lab can author named visual /
   // physical / behaviour states; the cart now switches Broken -> Repaired -> Landed
   // through those profiles, including an editable landed bridge collision.
 
@@ -1221,7 +1221,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=0.2.67', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.48', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1263,7 +1263,7 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=0.2.73', 'SideScroll tree atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.48', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
     tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
@@ -1314,7 +1314,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=0.2.94`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.48`,
         key,
         null,
         size[0] / size[1]
@@ -1332,12 +1332,12 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.12`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.48`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.24',
+    'counterweight-plank.png?v=1.0.48',
     'counterweight-plank',
     null,
     1050 / 220
@@ -1347,9 +1347,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.47', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.48', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.47', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.48', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1357,7 +1357,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.47', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.48', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -1539,7 +1539,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.12';
+const RIG_TEXTURE_VERSION = '1.0.48';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -4114,7 +4114,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=0.2.94" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.48" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -7802,7 +7802,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=0.2.94" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.48" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {

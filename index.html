@@ -6,44 +6,34 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#172026">
+  <meta name="theme-color" content="#11191d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.12">
+  <link rel="stylesheet" href="style.css?v=1.0.48">
   <title>SideScroll</title>
 </head>
-<body class="modular-home ss-home">
-  <main class="ss-home-shell">
-    <header class="ss-home-header">
-      <p class="ss-home-kicker">WOODLAND ADVENTURE</p>
-      <h1>SideScroll</h1>
-      <p>Play the adventure, build the world, or tune reusable assets and animation.</p>
-    </header>
+<body class="modular-home ss-home ss-splash-home">
+  <main class="ss-splash-shell" aria-label="SideScroll launcher">
+    <img class="ss-splash-art" src="splash-screen.png?v=1.0.48" alt="" aria-hidden="true">
+    <div class="ss-splash-shade" aria-hidden="true"></div>
 
-    <section class="ss-launch-grid ss-launch-grid-four" aria-label="SideScroll modes">
-      <a class="ss-launch-card ss-launch-main" href="play.html?mode=player">
-        <span class="ss-launch-mark" aria-hidden="true">♠</span>
-        <span class="ss-launch-copy"><strong>Play Game</strong><small>Player save · no editor tools</small></span>
-        <span class="ss-launch-arrow" aria-hidden="true">→</span>
+    <button class="ss-splash-menu-button" id="ss-splash-menu-button" type="button" aria-expanded="false" aria-controls="ss-splash-menu">Menu</button>
+    <nav class="ss-splash-menu" id="ss-splash-menu" hidden aria-label="Development tools">
+      <a href="play.html"><strong>Edit / Test</strong><small>Scene and puzzle editor</small></a>
+      <a href="asset-lab.html"><strong>Asset Lab</strong><small>Assets, collision and states</small></a>
+      <a href="walk-lab.html"><strong>Walk Lab</strong><small>Character animation</small></a>
+      <button class="ss-install-button ss-splash-install" id="ss-install" type="button" hidden><strong>Install SideScroll</strong><small>Add to Home Screen</small></button>
+    </nav>
+
+    <section class="ss-splash-launch" aria-label="Play SideScroll">
+      <a class="ss-splash-play is-loading" id="ss-splash-play" href="play.html?mode=player" aria-disabled="true">
+        <span>PLAY</span>
       </a>
-      <a class="ss-launch-card" href="play.html">
-        <span class="ss-launch-mark" aria-hidden="true">⌘</span>
-        <span class="ss-launch-copy"><strong>Build / Test</strong><small>Scene and puzzle editor</small></span>
-        <span class="ss-launch-arrow" aria-hidden="true">→</span>
-      </a>
-      <a class="ss-launch-card" href="walk-lab.html">
-        <span class="ss-launch-mark" aria-hidden="true">↻</span>
-        <span class="ss-launch-copy"><strong>Walk Lab</strong><small>Animation editor</small></span>
-        <span class="ss-launch-arrow" aria-hidden="true">→</span>
-      </a>
-      <a class="ss-launch-card" href="asset-lab.html">
-        <span class="ss-launch-mark" aria-hidden="true">◇</span>
-        <span class="ss-launch-copy"><strong>Asset Lab</strong><small>Scale, floor, collision & behaviour</small></span>
-        <span class="ss-launch-arrow" aria-hidden="true">→</span>
-      </a>
+      <div class="ss-preload" id="ss-preload" role="status" aria-live="polite">
+        <div class="ss-preload-track"><i id="ss-preload-bar"></i></div>
+        <div class="ss-preload-copy"><span id="ss-preload-label">Preparing world…</span><b id="ss-preload-percent">0%</b></div>
+      </div>
     </section>
-
-    <button class="ss-install-button" id="ss-install" type="button" hidden>Install SideScroll</button>
   </main>
 
   <div class="gh-install-overlay" id="gh-install-overlay" hidden>
@@ -57,8 +47,8 @@
     </section>
   </div>
 
-  <script src="site-config.js?v=1.0.12"></script>
-  <script src="core.js?v=1.0.12"></script>
-  <script src="home.js?v=1.0.12"></script>
+  <script src="site-config.js?v=1.0.48"></script>
+  <script src="core.js?v=1.0.48"></script>
+  <script src="home.js?v=1.0.48"></script>
 </body>
 </html>
