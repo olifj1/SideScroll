@@ -1,8 +1,7 @@
-# SideScroll v1.0.41
+# SideScroll v1.0.42
 
-- Adds the first authored **Cart Path** tool for the broken-bridge puzzle.
-- In Puzzle setup, open **Cart Path** and drag four scene handles: **START**, **CURVE 1**, **CURVE 2**, and **LAND**. A translucent ghost cart previews the final landing pose.
-- START defines where normal pushing hands control to the rail. The cart then follows a cubic spline to LAND using a short physics-style eased animation with live wheel rotation.
-- Landing angle can be nudged in 5° steps. Cart Path can be enabled/disabled and START can be snapped to the cart's current repaired path position.
-- At LAND the cart becomes locked, non-pushable, and gains a dedicated walkable collider spanning the cart so it can bridge the gap.
-- Cart-path setup is saved with the puzzle start state, survives streaming, and Reset restores the pre-drop cart state.
+- Fixes Cart Path editing on touch: START, CURVE 1, CURVE 2 and LAND now drag reliably without snapping away from the finger.
+- Adds a blue **MOVE PATH** handle at the middle of the spline. Drag it to reposition the complete cart route while preserving its shape.
+- Enlarges the touch targets for all cart-path handles.
+- **Path = Cart** now moves the entire spline so START sits on the current cart position, instead of moving only START/Curve 1.
+- Keeps the v1.0.41 deterministic rail animation, landing ghost and bridge-lock behaviour unchanged.
