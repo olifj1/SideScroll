@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.39: refreshed authored cart-repair art. The chassis is now
+  // SideScroll v1.0.40: refreshed authored cart-repair art. The chassis is now
   // wheel-free artwork, runtime wheels stay separate/rotating, and the axle pin
   // uses a large readable authored texture instead of the procedural placeholder.
 
@@ -1319,13 +1319,13 @@
     1050 / 220
   );
 
-  // v1.0.39 handcart art. The body/chassis intentionally contains no wheels;
+  // v1.0.40 handcart art. The body/chassis intentionally contains no wheels;
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.39', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.40', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.39', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.40', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1333,7 +1333,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.39', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.40', 'axle-pin', null, 2);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
   // generated in code so it has no extra file dependency and can be used as
@@ -3129,6 +3129,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return { version:1, items:{} };
   })();
   let inventoryOpen = false;
+  let inventoryFlashTimer = 0;
   let puzzleTestInventorySnapshot = null;
   const activePuzzleInstances = new Map();
   const puzzleSavedState = (() => {
@@ -3731,6 +3732,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     inventoryState.items[itemId] = current;
     saveInventory();
     renderInventory();
+    flashInventoryAdd(itemId);
     return true;
   }
 
@@ -3789,9 +3791,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const cfg = collectibleConfig(itemId);
       const card = document.createElement('div');
       card.className = 'sidescroll-inventory-item';
+      card.dataset.itemId = itemId;
       card.innerHTML = `${inventoryThumbMarkup(def)}<span class="sidescroll-inventory-item-copy"><strong>${cfg.label || def.label}</strong><small>${def.description || ''}</small></span><b class="sidescroll-inventory-qty">×${Math.max(1, Number(state.count) || 1)}</b>`;
       inventoryListEl.appendChild(card);
     }
+  }
+
+  function flashInventoryAdd(itemId) {
+    if (!inventoryBtn) return;
+    if (inventoryFlashTimer) clearTimeout(inventoryFlashTimer);
+    inventoryBtn.classList.remove('item-added');
+    // Force the class transition to restart when collecting twice quickly.
+    void inventoryBtn.offsetWidth;
+    inventoryBtn.classList.add('item-added');
+    const card = inventoryListEl?.querySelector(`[data-item-id="${CSS.escape(itemId)}"]`);
+    if (card) card.classList.add('item-added');
+    inventoryFlashTimer = window.setTimeout(() => {
+      inventoryBtn.classList.remove('item-added');
+      card?.classList.remove('item-added');
+      inventoryFlashTimer = 0;
+    }, 1350);
   }
 
   function setInventoryOpen(open) {
@@ -5308,6 +5327,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function hideHint() {
     hintEl.classList.add('hidden');
+    hintEl.classList.remove('puzzle-thought');
     if (hintTimer) {
       clearTimeout(hintTimer);
       hintTimer = 0;
@@ -6942,6 +6962,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
       shownPuzzleThoughts.clear();
+      wheelCombinePrimed.clear();
+      hintEl.classList.remove('puzzle-thought');
       hintEl.textContent = 'Test reset to the setup you started this test with · reward removed';
     } else {
       resetPuzzleReward(instance);
@@ -6954,6 +6976,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
       shownPuzzleThoughts.clear();
+      wheelCombinePrimed.clear();
+      hintEl.classList.remove('puzzle-thought');
       hintEl.textContent = 'Puzzle reset to its saved start · completion reward reset too';
     }
     hintEl.classList.remove('hidden');
@@ -7868,9 +7892,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     };
 
     const rootX = camera.x + character.screenOffsetX;
+    let contextHintObject = null;
+    if (!interactionState) {
+      const context = nearestPuzzleContextAction();
+      contextHintObject = context?.obj || null;
+      if (contextHintObject && !contextHintObject.deleted) {
+        const ox = objectXNear(contextHintObject, rootX);
+        const oy = contextHintObject.y + Math.max(0.18, contextHintObject.sy * 0.54);
+        dot(projectWorldPoint(ox, oy, contextHintObject.z), true);
+      }
+    }
+
     if (!carriedObject && !interactionState) {
       const near = nearestActionCrate();
-      if (near) {
+      if (near && near !== contextHintObject) {
         const pivot = counterweightPickupPoint(near);
         const ox = pivot ? pivot.x : objectXNear(near, rootX);
         const oy = pivot ? pivot.y : near.y + Math.max(0.18, near.sy * 0.28);
@@ -8329,6 +8364,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function isCarryableObject(obj) {
+    // The loose wheel is deliberately inspect/combine-only. It becomes
+    // physically carryable only after the axle pin has been fitted and the
+    // object swaps to cart-wheel-ready.
+    if (isLooseCartWheel(obj)) return false;
     return !!obj && !obj.deleted && !obj.carried && obj.category === 'gameplay'
       && (objectHasBehaviour(obj, 'carryable') || obj.gameplayType === 'crate');
   }
@@ -8382,15 +8421,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function nearestPuzzleContextAction() {
     if (editMode || inventoryOpen || interactionState || jumping) return null;
     const broken = nearestGameplayObject(isBrokenHandcart, 0.82);
-    if (carriedObject && isLooseCartWheel(carriedObject) && (inventoryItemCount('axle-pin') || 0) > 0) {
-      return { type:'combine-wheel', label:'COMBINE', obj:carriedObject };
-    }
     if (carriedObject && isReadyCartWheel(carriedObject) && broken?.obj) {
       return { type:'use-wheel', label:'USE', obj:broken.obj };
     }
     const axlePin = !carriedObject ? nearestGameplayObject(isAxlePinObject, 0.72) : null;
     if (axlePin?.obj) {
       return { type:'pickup-axle-pin', label:'PICK UP', obj:axlePin.obj };
+    }
+    if (!carriedObject) {
+      const looseWheel = nearestGameplayObject(isLooseCartWheel, 0.74)?.obj || null;
+      if (looseWheel) {
+        if (inventoryItemCount('axle-pin') > 0 && wheelCombinePrimed.has(looseWheel.id)) {
+          return { type:'combine-wheel', label:'COMBINE', obj:looseWheel };
+        }
+        return { type:'inspect-wheel', label:'INSPECT', obj:looseWheel };
+      }
+      const readyWheel = nearestGameplayObject(isReadyCartWheel, 0.74)?.obj || null;
+      if (readyWheel) return { type:'pickup-ready-wheel', label:'PICK UP', obj:readyWheel };
     }
     if (broken?.obj) {
       return { type:'inspect-broken-cart', label:'INSPECT', obj:broken.obj };
@@ -8404,24 +8451,38 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       clearTimeout(puzzleThoughtTimer);
       puzzleThoughtTimer = 0;
     }
+    hintEl.classList.remove('puzzle-thought');
     if (action.type === 'pickup-axle-pin' && action.obj) {
       action.obj.deleted = true;
       recordObjectEdit(action.obj);
       addInventoryItem('axle-pin', 1, action.obj.puzzleInstanceId || action.obj.id || null);
-      hintEl.textContent = 'A wheel axle pin. That might fit the loose wheel.';
-      hintEl.classList.remove('hidden');
+      showPuzzleThought('A solid metal axle pin. This looks like it belongs to a wheel.', 4300);
       return true;
     }
-    if (action.type === 'combine-wheel' && carriedObject && isLooseCartWheel(carriedObject)) {
+    if (action.type === 'inspect-wheel' && action.obj && isLooseCartWheel(action.obj)) {
+      if (inventoryItemCount('axle-pin') > 0) {
+        wheelCombinePrimed.add(action.obj.id);
+        showPuzzleThought('I think my axle pin will fit that wheel.', 4300);
+      } else {
+        showPuzzleThought('A loose cart wheel. It looks usable, but it needs a way to attach.', 4300);
+      }
+      return true;
+    }
+    if (action.type === 'combine-wheel' && action.obj && isLooseCartWheel(action.obj)) {
       if ((inventoryItemCount('axle-pin') || 0) <= 0) return false;
       removeInventoryItem('axle-pin', 1);
-      carriedObject.assetName = 'cart-wheel-ready';
-      carriedObject.texture = textures['cart-wheel-ready'];
-      carriedObject.groundLine = assetGroundLineDefault('cart-wheel-ready');
-      carriedObject.collision = behaviourCollisionFor('cart-wheel-ready', carriedObject.sx, carriedObject.sy, carriedObject.collision);
-      recordObjectEdit(carriedObject);
-      hintEl.textContent = 'Maybe my axle pin will fit that. That should work now.';
-      hintEl.classList.remove('hidden');
+      const wheel = action.obj;
+      wheel.assetName = 'cart-wheel-ready';
+      wheel.texture = textures['cart-wheel-ready'];
+      wheel.groundLine = assetGroundLineDefault('cart-wheel-ready');
+      wheel.collision = behaviourCollisionFor('cart-wheel-ready', wheel.sx, wheel.sy, wheel.collision);
+      wheelCombinePrimed.delete(wheel.id);
+      recordObjectEdit(wheel);
+      showPuzzleThought('That fits. I think I can try this on the cart now.', 4700);
+      return true;
+    }
+    if (action.type === 'pickup-ready-wheel' && action.obj && isReadyCartWheel(action.obj)) {
+      startPickup(action.obj);
       return true;
     }
     if (action.type === 'use-wheel' && action.obj && carriedObject && isReadyCartWheel(carriedObject)) {
@@ -8448,52 +8509,52 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       carriedObject = null;
       interactionState = null;
       settleGameplayCrates();
-      hintEl.textContent = 'This should fit now.';
-      hintEl.classList.remove('hidden');
+      showPuzzleThought('That did it. The cart should move now.', 4000);
       return true;
     }
     if (action.type === 'inspect-broken-cart') {
-      const text = carriedObject && isLooseCartWheel(carriedObject)
-        ? 'This wheel looks right, but I need a way to attach it.'
+      const text = carriedObject && isReadyCartWheel(carriedObject)
+        ? 'This repaired wheel looks like it should fit the cart.'
         : 'A broken cart. Maybe it would work with a new wheel.';
-      hintEl.textContent = text;
-      hintEl.classList.remove('hidden');
+      showPuzzleThought(text, 4300);
       return true;
     }
     return false;
   }
 
   const shownPuzzleThoughts = new Set();
+  const wheelCombinePrimed = new Set();
   let puzzleThoughtTimer = 0;
+
+  function showPuzzleThought(text, duration = 4200) {
+    if (!text) return false;
+    if (hintTimer) {
+      clearTimeout(hintTimer);
+      hintTimer = 0;
+    }
+    if (puzzleThoughtTimer) clearTimeout(puzzleThoughtTimer);
+    hintEl.textContent = text;
+    hintEl.classList.add('puzzle-thought');
+    hintEl.classList.remove('hidden');
+    puzzleThoughtTimer = window.setTimeout(() => {
+      hintEl.classList.add('hidden');
+      hintEl.classList.remove('puzzle-thought');
+      puzzleThoughtTimer = 0;
+    }, duration);
+    return true;
+  }
 
   function showPuzzleThoughtOnce(key, text) {
     if (!key || !text || shownPuzzleThoughts.has(key)) return false;
     shownPuzzleThoughts.add(key);
-    if (puzzleThoughtTimer) clearTimeout(puzzleThoughtTimer);
-    hintEl.textContent = text;
-    hintEl.classList.remove('hidden');
-    puzzleThoughtTimer = window.setTimeout(() => {
-      hintEl.classList.add('hidden');
-      puzzleThoughtTimer = 0;
-    }, 3600);
-    return true;
+    return showPuzzleThought(text, 3600);
   }
 
   function updatePuzzleThoughts() {
-    if (editMode || inventoryOpen || interactionState || pushingObject) return;
-    const broken = nearestGameplayObject(isBrokenHandcart, 0.95)?.obj || null;
-    if (carriedObject && isLooseCartWheel(carriedObject) && broken && inventoryItemCount('axle-pin') <= 0) {
-      showPuzzleThoughtOnce(`wheel-needs-pin:${broken.id}`, 'This wheel looks right, but I need a way to attach it.');
-      return;
-    }
-    if (carriedObject && isReadyCartWheel(carriedObject) && broken) {
-      showPuzzleThoughtOnce(`ready-wheel-cart:${broken.id}`, 'This might fit now.');
-      return;
-    }
-    if (inventoryItemCount('axle-pin') > 0 && !carriedObject) {
-      const wheel = nearestGameplayObject(isLooseCartWheel, 0.78)?.obj || null;
-      if (wheel) showPuzzleThoughtOnce(`pin-near-wheel:${wheel.id}`, 'Maybe my axle pin will fit that wheel.');
-    }
+    // Repair guidance is deliberately inspection-driven. The player sees the
+    // interaction dot + contextual verb first, then gets the thought only
+    // after choosing INSPECT/COMBINE/USE rather than having the solution pop up
+    // automatically as they walk past.
   }
 
   function isSupportSurfaceObject(obj) {
@@ -8974,7 +9035,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawHandcartWheels(obj, view, drawX, drawY = obj.y, bodyRotation = 0, bodyFlip = false) {
     if (!textures['handcart-wheel']) return;
-    // The v1.0.39 chassis is genuinely wheel-free. These authored wheel centres
+    // The v1.0.40 chassis is genuinely wheel-free. These authored wheel centres
     // line up with its two vertical supports and rotate around their true hubs.
     const wheelSize = obj.sy * (160 / 255);
     const wheelV = (255 - 164) / 255;

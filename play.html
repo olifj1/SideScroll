@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#081015">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.39">
+  <link rel="stylesheet" href="style.css?v=1.0.40">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -39,6 +39,7 @@
           <div class="sidescroll-stage-hud">
             <div class="sidescroll-status" id="sidescroll-status">3D forest · raised dirt path · walk / run / jump</div>
             <div class="sidescroll-stage-actions">
+              <button id="sidescroll-inventory" class="sidescroll-menu-button sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
               <button id="sidescroll-tools" class="sidescroll-menu-button" type="button" aria-expanded="false" aria-haspopup="true">Menu</button>
             </div>
           </div>
@@ -54,7 +55,6 @@
               <button id="sidescroll-collision-view" class="sidescroll-tools-item" type="button" aria-pressed="false">Collision</button>
               <button id="sidescroll-player-hints" class="sidescroll-tools-item" type="button" aria-pressed="true">Hints on</button>
               <button id="sidescroll-character" class="sidescroll-tools-item sidescroll-character-button" type="button" aria-pressed="false">Hero 1</button>
-              <button id="sidescroll-inventory" class="sidescroll-tools-item sidescroll-inventory-button" type="button" aria-expanded="false" aria-haspopup="dialog">Items <span id="sidescroll-inventory-count">0</span></button>
               <button id="sidescroll-quick-nav" class="sidescroll-tools-item sidescroll-quick-nav-button" type="button" aria-expanded="false" hidden>Go to</button>
               <button id="sidescroll-delete-save" class="sidescroll-tools-item sidescroll-delete-save-button" type="button" hidden>Delete save</button>
               <button id="sidescroll-edit" class="sidescroll-tools-item sidescroll-edit-button" type="button" aria-pressed="false">Edit</button>
@@ -410,11 +410,11 @@
     </section>
   </main>
 
-  <script src="site-config.js?v=1.0.39"></script>
-  <script src="core.js?v=1.0.39"></script>
-  <script src="walk-rig.js?v=1.0.39"></script>
-  <script src="puzzle-groups.js?v=1.0.39"></script>
-  <script src="baked-game-design.js?v=1.0.39"></script>
-  <script src="sidescroll.js?v=1.0.39"></script>
+  <script src="site-config.js?v=1.0.40"></script>
+  <script src="core.js?v=1.0.40"></script>
+  <script src="walk-rig.js?v=1.0.40"></script>
+  <script src="puzzle-groups.js?v=1.0.40"></script>
+  <script src="baked-game-design.js?v=1.0.40"></script>
+  <script src="sidescroll.js?v=1.0.40"></script>
 </body>
 </html>
