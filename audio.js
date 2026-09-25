@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.55 — lightweight Web Audio music engine.
+  // SideScroll v1.0.56 — lightweight Web Audio music engine.
   // Music is cached before launch, decoded asynchronously, and only unlocked
   // after a genuine user gesture so iOS/Safari never needs brittle autoplay.
 
-  const VERSION = '1.0.55';
+  const VERSION = '1.0.56';
   const MUSIC_URL = `sidescroll-music.m4a?v=${VERSION}`;
   const STORAGE_KEY = 'sidescroll.audio.settings.v1';
   const DEFAULTS = Object.freeze({ musicEnabled: true, musicVolume: 0.32 });

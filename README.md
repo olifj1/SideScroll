@@ -1,6 +1,6 @@
-# SideScroll v1.0.55
+# SideScroll v1.0.56
 
-- Starts background music from the genuine splash-screen PLAY gesture rather than waiting for the first movement/action input.
-- Keeps the splash and player launch in the same browser document so iOS/Safari user activation is not lost across a page navigation.
-- Reuses the same Web Audio context while the game loads, preserving the existing loop, fades, volume control, persistence, background pause, and exit stop behaviour.
-- Retains a normal play-page navigation fallback if the seamless launch cannot be completed.
+- Restores the portrait “Rotate your device” guard after the seamless PLAY transition into the game.
+- Makes the shared orientation guard recreate itself whenever the launcher replaces the page body.
+- Hides underlying splash/game content while the portrait guard is active and extends the guard slightly past the visual viewport to prevent a bottom-edge strip on iOS.
+- Keeps the v1.0.55 PLAY-gesture audio unlock and seamless music startup unchanged.

@@ -356,21 +356,35 @@ document.querySelectorAll(".game-info-overlay").forEach(overlay => {
 
 // SideScroll is landscape-first on handheld/tablet devices. Desktop windows are
 // never blocked, but phones/tablets get a clear rotate prompt in portrait.
+// The launcher can swap its body contents for the game without navigating, so
+// the guard must be able to recreate itself after that body swap.
 (function installOrientationGuard() {
-  const overlay = document.createElement("div");
-  overlay.className = "orientation-guard ss-orientation-guard";
-  overlay.setAttribute("role", "status");
-  overlay.setAttribute("aria-live", "polite");
-  overlay.innerHTML = `
-    <div class="orientation-guard-card">
-      <div class="orientation-phone" aria-hidden="true"><span></span></div>
-      <strong>Rotate your device</strong>
-      <p>SideScroll plays in landscape.</p>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+  const makeOverlay = () => {
+    const overlay = document.createElement("div");
+    overlay.className = "orientation-guard ss-orientation-guard";
+    overlay.setAttribute("role", "status");
+    overlay.setAttribute("aria-live", "polite");
+    overlay.innerHTML = `
+      <div class="orientation-guard-card">
+        <div class="orientation-phone" aria-hidden="true"><span></span></div>
+        <strong>Rotate your device</strong>
+        <p>SideScroll plays in landscape.</p>
+      </div>
+    `;
+    return overlay;
+  };
+
+  const ensure = () => {
+    let overlay = document.querySelector(".ss-orientation-guard");
+    if (!overlay && document.body) {
+      overlay = makeOverlay();
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  };
 
   const update = () => {
+    ensure();
     const screenW = Number(window.screen?.width) || window.innerWidth;
     const screenH = Number(window.screen?.height) || window.innerHeight;
     const shortSide = Math.min(screenW, screenH);
@@ -381,6 +395,7 @@ document.querySelectorAll(".game-info-overlay").forEach(overlay => {
     document.documentElement.classList.toggle("ss-mobile-portrait", touch && handheldScale && portrait);
   };
 
+  window.SideScrollOrientationGuard = { ensure, update };
   update();
   window.addEventListener("resize", update, { passive: true });
   window.addEventListener("orientationchange", () => setTimeout(update, 80), { passive: true });

@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = '1.0.55';
+  const VERSION = '1.0.56';
   const PRELOAD_CACHE = `sidescroll-v${VERSION}`;
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
@@ -145,6 +145,12 @@
       if (attr.name !== 'class') document.body.setAttribute(attr.name, attr.value);
     }
     document.body.innerHTML = parsed.body.innerHTML;
+
+    // core.js stays alive across the seamless launch, but the old body (and the
+    // orientation overlay inside it) has just been replaced. Recreate the guard
+    // immediately so portrait protection works in the game as well as the splash.
+    window.SideScrollOrientationGuard?.ensure?.();
+    window.SideScrollOrientationGuard?.update?.();
 
     const theme = document.querySelector('meta[name="theme-color"]');
     if (theme) theme.setAttribute('content', '#081015');
