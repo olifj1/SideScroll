@@ -1,10 +1,14 @@
-const CACHE = "sidescroll-v1.0.56";
+const CACHE = "sidescroll-v1.0.57";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./play.html",
   "./walk-lab.html",
   "./asset-lab.html",
+  "./design-lab.html",
+  "./design-lab.css",
+  "./design-lab.js",
+  "./design-doc.json",
   "./manifest.json",
   "./site-config.js",
   "./home.js",

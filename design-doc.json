@@ -1,0 +1,1056 @@
+{
+  "schemaVersion": 1,
+  "documentVersion": "0.2",
+  "project": "SideScroll",
+  "title": "Living Game Design Document",
+  "baselineBuild": "1.0.57",
+  "updated": "25 September 2026",
+  "description": "Shared source of truth for the game, story, puzzles, systems and technology.",
+  "sections": [
+    {
+      "id": "vision",
+      "title": "Vision & Product Definition",
+      "status": "CURRENT",
+      "implementation": "CURRENT",
+      "tags": [
+        "vision",
+        "product"
+      ],
+      "body": "SideScroll began as an experiment in whether a game could be created, edited, published and played entirely from a phone. It has evolved into a bespoke side-scrolling adventure engine and a plausible foundation for a finished commercial game.\n\n## Working product vision\nA quiet, atmospheric side-scrolling adventure about travelling through a beautiful but slightly unsettling world, overcoming physical and observational obstacles, and discovering a story through place, objects, encounters and the protagonist’s own thoughts.\n\n## What the game already is\n- A landscape-led journey rather than an arena, score chase or combat loop.\n- A tactile puzzle game built around walking, jumping, carrying, stacking, repairing, combining, placing and pushing physical objects.\n- A restrained presentation: cinematic depth, fog and layered scenery, but a readable side-on interaction model.\n- A game with bespoke authoring tools inside the game itself: puzzle editing, Asset Lab, Walk Lab, terrain sections and placement tools.\n- A web-native engine that remains playable as a PWA while preserving a credible route to native mobile and desktop packaging.\n\n## Current product boundaries\n- Genre: atmospheric side-scrolling adventure / environmental puzzle game.\n- Combat is not part of the current identity.\n- Camera: side-on 3D presentation with depth, subtle follow and cinematic framing.\n- Structure: likely a mostly continuous journey with chapter/location changes.\n- Sessions should work on mobile in short bursts while accumulating into a meaningful multi-hour journey.\n- Phone-first iteration remains the primary development workflow.",
+      "children": [
+        {
+          "id": "vision-core-principle",
+          "title": "Core Principle",
+          "status": "LOCKED",
+          "implementation": "CURRENT",
+          "tags": [
+            "vision"
+          ],
+          "body": "Build the game and the engine together: every puzzle should strengthen a reusable gameplay vocabulary, and every engine feature should exist because it enables meaningful player experiences.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "pillars",
+      "title": "Player Experience & Design Pillars",
+      "status": "CURRENT",
+      "implementation": "CURRENT",
+      "tags": [
+        "design",
+        "experience"
+      ],
+      "body": "The game should feel coherent even as environments and puzzle combinations become richer.",
+      "children": [
+        {
+          "id": "pillar-journey",
+          "title": "Journey",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "pillar"
+          ],
+          "body": "**Player promise:** I am always travelling somewhere, not clearing disconnected rooms.\n\nLocations should flow into one another and reveal change over distance.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "pillar-curiosity",
+          "title": "Curiosity",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "pillar"
+          ],
+          "body": "**Player promise:** The world makes me wonder what happened and what lies ahead.\n\nUse environmental clues, restrained exposition and visual foreshadowing.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "pillar-physical",
+          "title": "Physical problem solving",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "pillar"
+          ],
+          "body": "**Player promise:** I solve believable obstacles with objects in the world.\n\nPrefer manipulation, placement and state change over abstract UI puzzles.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "pillar-readable",
+          "title": "Readable discovery",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "pillar"
+          ],
+          "body": "The player should understand the problem before knowing the solution. Strong silhouettes, interaction dots, thoughts and staged object placement should make the world readable.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "pillar-emotion",
+          "title": "Emotional attachment",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "pillar",
+            "story"
+          ],
+          "body": "The player should care about the protagonist and the reason for the journey. Story beats and character change need to be planned as carefully as puzzle difficulty.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "pillar-atmosphere",
+          "title": "Atmosphere",
+          "status": "LOCKED",
+          "implementation": "CURRENT",
+          "tags": [
+            "pillar",
+            "art"
+          ],
+          "body": "The world should be beautiful, serious and slightly uneasy. Sound, fog, light, sparse animation and art direction carry mood without clutter.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "guardrails",
+          "title": "Design Guardrails",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "rules"
+          ],
+          "body": "- Puzzle complexity should come from combining familiar mechanics, not hiding arbitrary rules.\n- New mechanics should normally be taught safely before they are required in combination.\n- Thought text should clarify perception or character, not simply state the complete solution.\n- Visual richness must not bury interactive objects or make the path unreadable.\n- Every chapter should introduce at least one fresh visual or mechanical idea while reusing established language.\n- Engine work is justified by player-facing value or by making future content significantly easier to author.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "mvp",
+      "title": "MVP & Vertical Slice",
+      "status": "PROPOSED",
+      "implementation": "PARTIAL",
+      "tags": [
+        "mvp",
+        "production"
+      ],
+      "body": "A focused, polished game of roughly **2–4 hours** is the current commercial MVP hypothesis. Completeness matters more than raw length: a beginning, escalating middle, meaningful destination and satisfying end.",
+      "children": [
+        {
+          "id": "vertical-slice",
+          "title": "20–30 Minute Vertical Slice",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "mvp",
+            "milestone"
+          ],
+          "body": "Before multiplying content, the opening should prove that SideScroll can feel like the beginning of a finished commercial game.\n\n- Deliberate opening, clear tone and understandable reason to move forward.\n- Walking, running, jumping and camera feel finished rather than prototype-like.\n- At least three polished puzzle beats that teach, reuse and combine mechanics.\n- At least one meaningful story reveal or emotional beat beyond tutorial thoughts.\n- A visible transition into a distinct second area.\n- Coherent music, ambience, sound, fades, fog/post and UI.\n- No editor artefacts, obvious reset bugs or puzzle-state traps in normal play.\n- Stable performance on the current phone target with headroom for richer content.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "commercial-mvp",
+          "title": "Commercial MVP Definition",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "mvp"
+          ],
+          "body": "- One complete protagonist arc.\n- Several distinct locations with their own visual identity and gameplay emphasis.\n- Puzzle progression from simple manipulation to multi-stage combinations.\n- Recurring mechanics that become expressive rather than disposable gimmicks.\n- Save/checkpoint model appropriate to multi-session play.\n- A final sequence that resolves the main journey and story question.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "narrative",
+      "title": "Narrative Framework",
+      "status": "OPEN",
+      "implementation": "NEEDED",
+      "tags": [
+        "story",
+        "narrative"
+      ],
+      "body": "The world, journey tone and protagonist presentation exist; the central story is not yet locked. This is one of the most important creative tasks because it should guide environments, chapter order and puzzle meaning.",
+      "children": [
+        {
+          "id": "story-questions",
+          "title": "Questions the Story Must Answer",
+          "status": "OPEN",
+          "implementation": "NEEDED",
+          "tags": [
+            "story",
+            "questions"
+          ],
+          "body": "- Who is the protagonist?\n- Why is she travelling?\n- Where does she believe she is going?\n- What does she believe at the beginning?\n- What happened to this world?\n- Who else matters to her?\n- What is discovered halfway through?\n- What changes by the end?",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "narrative-delivery",
+          "title": "Narrative Delivery Language",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "story"
+          ],
+          "body": "- **Environmental storytelling:** abandoned objects, structures, damage, traces of prior activity and landscape change.\n- **Internal thought bubbles:** immediate perception, uncertainty, memory and personality; short and replaceable rather than stacked dialogue UI.\n- **Character encounters:** future NPCs should add relationship and information without forcing the game into dialogue-heavy presentation.\n- **Objects and puzzles:** story information can be embedded in what the player repairs, moves, returns, unlocks or crosses.\n- **Music and ambience:** chapter-level emotional framing rather than constant exposition.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "characters",
+      "title": "Characters",
+      "status": "OPEN",
+      "implementation": "PARTIAL",
+      "tags": [
+        "characters"
+      ],
+      "body": "Character design should connect visual identity, emotional role and engine requirements.",
+      "children": [
+        {
+          "id": "protagonist",
+          "title": "Protagonist",
+          "status": "OPEN",
+          "implementation": "PARTIAL",
+          "tags": [
+            "character",
+            "protagonist"
+          ],
+          "body": "## Current visual baseline\n- Young girl with long dark-red hair and a light-coloured outfit.\n- No cloak in the current approved direction.\n- Small figure relative to the world; movement should feel grounded rather than heroic.\n- Interaction voice is currently expressed through concise first-person thought text.\n- Lightweight plane-based rig already supports alternate atlases / character swapping.\n\n## Still to define\n- Name and precise age.\n- Background and home.\n- Why she is travelling and who/what she is seeking.\n- Personality beyond problem-solving: fears, humour, stubbornness, optimism, grief, curiosity, etc.\n- Whether alternate character atlases are narrative, cosmetic, future protagonists or only a development feature.\n\n## Arc template\nBeginning state → inciting pressure → early competence → midpoint change → late choice → end state.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "supporting-character-template",
+          "title": "Supporting Character Template",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "character",
+            "template"
+          ],
+          "body": "For each future character record:\n- Role in the protagonist’s journey.\n- Visual silhouette.\n- Relationship to protagonist.\n- What they want.\n- Information they reveal.\n- Gameplay effect.\n- First and last appearance.\n- Dialogue, animation, pathing and unique engine requirements.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "world",
+      "title": "World, Chapters & Locations",
+      "status": "PROPOSED",
+      "implementation": "PARTIAL",
+      "tags": [
+        "world",
+        "chapters"
+      ],
+      "body": "The chapter structure is provisional. It gives the technology and art work a larger form without pretending the story has already been written.",
+      "children": [
+        {
+          "id": "chapter-1",
+          "title": "Chapter 1 — Woodland",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "chapter",
+            "woodland"
+          ],
+          "body": "**Mood:** beautiful, grounded, faintly uneasy.\n\n**Gameplay:** carry, stack, sockets, inspection and repair; teach the core interaction language.\n\n**Narrative function:** introduce protagonist, reason to move, world rules and first mystery.\n\nThis is the chapter closest to current playable content.",
+          "children": [],
+          "related": [
+            "puzzle-fallen-tree",
+            "puzzle-stone-wall",
+            "puzzle-cart-bridge"
+          ]
+        },
+        {
+          "id": "chapter-2",
+          "title": "Chapter 2 — River & Wetlands",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "chapter",
+            "wetlands",
+            "river"
+          ],
+          "body": "**Mood:** mist, water, reeds, unstable crossings.\n\n**Gameplay:** hazards, respawn, bridges, water routes, object state changes.\n\n**Narrative function:** the journey becomes materially harder and the atmosphere shifts for the first time.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "chapter-3",
+          "title": "Chapter 3 — Hills / Abandoned Settlement",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "chapter",
+            "settlement"
+          ],
+          "body": "**Mood:** signs of prior life and constructed spaces.\n\n**Gameplay:** vertical traversal, structures, mechanisms, clues and multi-stage puzzles.\n\n**Narrative function:** reveal people/history; deepen the world mystery and relationships.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "chapter-4",
+          "title": "Chapter 4 — Darker / Stranger Territory",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "chapter"
+          ],
+          "body": "**Mood:** familiar world language under greater pressure.\n\n**Gameplay:** mechanic combinations, altered presentation and more consequential sequences.\n\n**Narrative function:** reframe earlier assumptions and build toward the central revelation.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "chapter-5",
+          "title": "Chapter 5 — Destination / Finale",
+          "status": "OPEN",
+          "implementation": "NEEDED",
+          "tags": [
+            "chapter",
+            "finale"
+          ],
+          "body": "**Gameplay:** use mastered mechanics selectively; avoid a puzzle gauntlet for its own sake.\n\n**Narrative function:** resolve the reason for the journey and protagonist arc.\n\nThe location and ending remain deliberately open until the story spine is defined.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "location-template",
+          "title": "Location Design Sheet",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "template",
+            "location"
+          ],
+          "body": "Every major location should define:\n- Visual motif.\n- Palette / fog / post profile.\n- Terrain types.\n- Dressing set.\n- Ambient sound and music state.\n- Traversal feature.\n- Puzzle mechanics introduced and reused.\n- Story clues and characters present.\n- Unique VFX.\n- Performance budget.\n- Entry / exit transition.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "gameplay-loop",
+      "title": "Core Gameplay Loop",
+      "status": "CURRENT",
+      "implementation": "CURRENT",
+      "tags": [
+        "gameplay"
+      ],
+      "body": "**Explore → notice an obstacle or clue → inspect/read the environment → manipulate objects or search locally → change world state → traverse the newly available route → discover a new place/story beat → repeat with increasing mechanical combinations.**\n\nThe interaction hierarchy should remain simple on mobile: movement plus one contextual ACTION rather than a growing collection of dedicated buttons.",
+      "children": [],
+      "related": []
+    },
+    {
+      "id": "mechanics",
+      "title": "Gameplay Mechanics Library",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "mechanics",
+        "engine"
+      ],
+      "body": "This is the mechanical alphabet of SideScroll. New puzzles should preferably combine and extend these verbs instead of creating isolated systems.",
+      "children": [
+        {
+          "id": "mech-movement",
+          "title": "Movement: Walk / Run / Jump",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "movement"
+          ],
+          "body": "Continuous lateral movement with walk/run control, jumping, support surfaces and grounded camera response. Used for pacing, traversal, reaching stacked objects and crossing short gaps.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-carry",
+          "title": "Carry / Place / Drop",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "objects"
+          ],
+          "body": "Carryable gameplay props use contextual interaction. Placement supports grounded/free positioning and collision-aware outcomes. Core uses: logs, socket pieces, repaired wheel, future tools and environmental objects.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-stack",
+          "title": "Stack / Support",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "objects"
+          ],
+          "body": "Stackable object semantics support building height and creating support surfaces. Highest/top-object selection has been tuned so stacks behave predictably.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-push",
+          "title": "Push",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "objects"
+          ],
+          "body": "Large objects can be pushed. Current flagship use is the repaired handcart; future uses could include blocks, movable platforms, machinery and route clearing.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-inspect",
+          "title": "Inspect",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "interaction"
+          ],
+          "body": "Inspection can reveal a requirement, clue or changed understanding and can alter the available contextual action.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-inventory",
+          "title": "Inventory",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "inventory"
+          ],
+          "body": "Persistent small-item inventory supports components and key items without turning the game into inventory management.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-combine",
+          "title": "Combine",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "inventory"
+          ],
+          "body": "An inventory item can combine with a compatible world object to create a new usable state. Example: axle pin + wheel.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-use",
+          "title": "Use",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "interaction"
+          ],
+          "body": "A carried or prepared object can be applied to a compatible world object. Example: repaired wheel used on broken cart.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-sockets",
+          "title": "Sockets / Hosts",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "puzzle"
+          ],
+          "body": "Authored socket hosts and compatible pieces allow shape-fitting, keyed placement and future machinery/repair puzzles.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-states",
+          "title": "Asset States",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "engine"
+          ],
+          "body": "Assets can have named visual/behaviour/collision states. Current cart states include Broken, Fixed & Pushable and Landed.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-thoughts",
+          "title": "Thought Nodes",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "story"
+          ],
+          "body": "Placeable thought triggers can link to puzzles and move with them. New thoughts replace an existing visible thought rather than stacking.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-respawn",
+          "title": "Hazard / Respawn",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "mechanic",
+            "traversal"
+          ],
+          "body": "Spawn points and trigger volumes can return the character after a fall or hazard. Used around the river/bridge area.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "mech-sequences",
+          "title": "Authored Movement Sequence",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "mechanic",
+            "sequence"
+          ],
+          "body": "Ghost-path authoring drives controlled object movement such as the cart falling into the bridge gap. Control points, duration and end state are part of the developing toolset.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "puzzles",
+      "title": "Puzzle Catalogue",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "puzzles"
+      ],
+      "body": "Each puzzle should document player flow, reusable mechanics, authored content and engine work.",
+      "children": [
+        {
+          "id": "puzzle-fallen-tree",
+          "title": "P01 — Fallen Tree / Log Stacking",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "puzzle",
+            "woodland"
+          ],
+          "body": "## Purpose\nTeach carrying, placement and stacking through a believable physical obstacle.\n\n## Player flow\nNotice blocked route → inspect / thought → collect nearby logs → carry and stack them → use the stack as support → climb past the fallen tree.\n\n## Reusable mechanics\n- Carry / drop.\n- Stack / support surfaces.\n- Collision and top-object selection.\n- Thought nodes linked to a puzzle.\n- Puzzle reset / start state.\n\n## Design notes\nThe obstacle should read clearly before the player understands the exact solution. Stacking needs to feel permissive enough to be playful without allowing unstable or unreadable arrangements.",
+          "children": [],
+          "related": [
+            "mech-carry",
+            "mech-stack",
+            "mech-thoughts"
+          ]
+        },
+        {
+          "id": "puzzle-stone-wall",
+          "title": "P02 — Stone Wall / Shape Sockets",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "puzzle",
+            "woodland",
+            "sockets"
+          ],
+          "body": "## Purpose\nIntroduce keyed placement / sockets and establish a reusable “find the correct piece” puzzle family.\n\n## Current art / setup\nWide old carved wall, viewed head-on, with three recessed shapes: triangle, hexagon and inverted-U arch. Matching stones use flat, non-perspective artwork.\n\n## Player flow\nDiscover wall → understand missing shapes → locate/carry pieces → fit correct piece into each socket → trigger completion / reward / route or story consequence.\n\n## Reusable mechanics\n- Carry.\n- Socket hosts and compatibility.\n- Multi-part completion state.\n- Thought/story prompts.\n\n## Open design question\nWhat does the Stone Wall / “Forest Key” thread actually lead to in the finished story?",
+          "children": [],
+          "related": [
+            "mech-carry",
+            "mech-sockets",
+            "narrative"
+          ]
+        },
+        {
+          "id": "puzzle-cart-bridge",
+          "title": "P03 — Broken Bridge / Cart Repair & Crossing",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "puzzle",
+            "woodland",
+            "cart",
+            "bridge"
+          ],
+          "body": "## Purpose\nIntroduce a richer multi-stage chain that combines observation, inventory, combination, repair, pushing and a dramatic world-state change.\n\n## Player flow\n1. Reach broken cart with a missing wheel.\n2. Inspect loose wheel; it cannot yet be carried/useful because it needs a pin.\n3. Find axle pin elsewhere and add it to inventory.\n4. Return to wheel; contextual action becomes Combine.\n5. Combine axle pin + wheel; wheel becomes carryable.\n6. Carry wheel to cart; Use repairs the cart.\n7. Cart swaps Broken → Fixed & Pushable.\n8. Push cart toward the bridge.\n9. Authored sequence takes over; cart falls into the gap.\n10. Cart reaches Landed state with handles spanning the broken crossing.\n11. Cross using the cart as a bridge.\n\n## Current support\n- Inventory remains visible and highlights new items.\n- Thought prompts support each discovery stage.\n- Wheel and axle art have dedicated assets.\n- Asset Lab supports state-specific visuals and multiple collision boxes.\n- Ghost cart path editor supports authored movement.\n- Spawn/respawn protects against river falls.\n\n## Remaining polish\n- Final landed collision authoring should be unambiguous.\n- Path/reset persistence should remain stable.\n- Push speed and authored sequence speed should feel continuous.\n- Puzzle state must become robustly saveable for multi-session play.",
+          "children": [],
+          "related": [
+            "mech-inspect",
+            "mech-inventory",
+            "mech-combine",
+            "mech-use",
+            "mech-states",
+            "mech-push",
+            "mech-sequences",
+            "mech-respawn"
+          ]
+        },
+        {
+          "id": "puzzle-counterweight",
+          "title": "P04 — Counterweight Plank Bridge Prototype",
+          "status": "RETIRED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "puzzle",
+            "prototype"
+          ],
+          "body": "This was replaced by the cart puzzle because the physics/weight interaction felt too flaky for such an important crossing.\n\n## Reusable ideas worth keeping\n- Pivot/socket concepts.\n- Weighted zones.\n- Counting stackable objects inside a region.\n- Visible threshold lines.\n- Objects changing stability when a condition is met.\n\nThese ideas may be better used later in a purpose-built balance or machinery puzzle.",
+          "children": [],
+          "related": [
+            "mech-stack",
+            "mech-sockets"
+          ]
+        },
+        {
+          "id": "puzzle-template",
+          "title": "New Puzzle Design Card",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "template",
+            "puzzle"
+          ],
+          "body": "For every new puzzle record:\n- Purpose / player lesson.\n- Location / chapter.\n- Initial readable problem.\n- Player flow from discovery to completion.\n- Mechanics reused.\n- New mechanic, if any.\n- Required assets.\n- States / triggers / failure and reset behaviour.\n- Thoughts / story information.\n- Save-state requirements.\n- Engine work: Existing / Partial / Needed.\n- How the mechanic can be reused later.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "engine",
+      "title": "Engine Capability Map",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "engine",
+        "technical"
+      ],
+      "body": "This section connects game ambitions to the current engine so future content can expose technical needs before it depends on them.",
+      "children": [
+        {
+          "id": "engine-renderer",
+          "title": "Renderer",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "engine",
+            "rendering"
+          ],
+          "body": "Custom WebGL renderer with textured planes, terrain meshes, fog, layered depth and a full-screen post pass. Rendering is intentionally lightweight compared with a fully modelled 3D world.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-sections",
+          "title": "Terrain Sections / Streaming",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "engine",
+            "streaming"
+          ],
+          "body": "- Terrain is divided into fixed **10 m** world-space sections.\n- v1.0.56 renders a radius of 9 sections around the camera: **19 terrain sections** in the active terrain window.\n- River sections replace normal floor/path geometry with left-bank, right-bank and water meshes.\n- Puzzle groups already stream independently, loading around 24 m ahead and retaining until roughly 34 m after leaving.\n\n**Next target:** ordinary environment dressing, VFX, NPCs, local audio and unique assets should move toward section/chapter ownership so total level length can grow without total active runtime cost.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-assets",
+          "title": "Asset / Texture Lifecycle",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "engine",
+            "performance"
+          ],
+          "body": "Current assets are local and generally loaded as needed by the game, but a longer game needs explicit lifecycle management.\n\nTarget: preload upcoming chapter/section assets and release textures/audio that are no longer needed. Large atlases should not remain resident simply because they exist in the project.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-collision",
+          "title": "Collision / Support",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "engine",
+            "collision"
+          ],
+          "body": "Custom authored collision/support model tuned specifically to SideScroll-scale interactions. Continue extending it for the game we are making; only integrate specialist physics if future design genuinely demands simulation our model is unsuited to.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-save",
+          "title": "Save System",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "engine",
+            "save"
+          ],
+          "body": "Current gameplay/editor persistence relies heavily on localStorage. Before multi-hour production, route player progression through a dedicated GameSave-style abstraction with checkpoints/save slots, version migrations and later IndexedDB/native/cloud adapters.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-character",
+          "title": "Character System",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "engine",
+            "character"
+          ],
+          "body": "Lightweight rigged planes support walk/jump and alternate character atlas swapping. Future additions may include idle/interaction animations and NPC variants.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-camera",
+          "title": "Camera",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "engine",
+            "camera"
+          ],
+          "body": "Side-on camera with tilt and subtle lagged vertical follow. Future authored framing zones or story camera moments can be added if the narrative needs them.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-vfx",
+          "title": "VFX",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "engine",
+            "vfx"
+          ],
+          "body": "No general particle framework yet. Target a reusable pooled particle/emitter system with quality scaling for leaves, dust, pollen, fireflies, rain, splashes, mist and similar flourishes.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-post",
+          "title": "Post Effects",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "engine",
+            "post"
+          ],
+          "body": "Current full-screen post shader supports brightness, contrast, saturation and tint, with fog handled separately. Add cheap single-pass effects first (vignette/grade/grain). More expensive multi-pass effects such as bloom should run at reduced resolution when used.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-audio",
+          "title": "Audio",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "engine",
+            "audio"
+          ],
+          "body": "Current Web Audio path supports clean PLAY-gesture unlock, music start/loop/stop and persistent music volume. Next layers: SFX mixer, ambient loops, section/positional emitters, ducking and lifecycle handling.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-code",
+          "title": "Code Structure",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "engine",
+            "maintainability"
+          ],
+          "body": "Core splitting has begun, but sidescroll.js remains very large. Gradually split renderer, world, character, puzzles, save, VFX and editor systems into ES modules in small verified steps without introducing a mandatory build system.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "engine-input",
+          "title": "Input Abstraction",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "engine",
+            "input"
+          ],
+          "body": "Touch-first controls are current. Desktop packaging will need keyboard/controller mapping, menu focus/navigation, prompts and settings while preserving the same gameplay code.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "level-architecture",
+      "title": "Level & Section Architecture",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "levels",
+        "streaming"
+      ],
+      "body": "A chapter should be data, not a giant permanently active scene. The player moves through a rolling content window.\n\n## Scale by locality\nA ten-hour game should not be ten times heavier than a one-hour game. Only the nearby world, active puzzles and assets required for the current/upcoming area should occupy significant runtime resources.\n\n## Target section ownership\n- Terrain: section type, mesh settings, collision policy, water/hill/cliff parameters.\n- Environment dressing: trees, grass, rocks, foreground occluders and unique set dressing.\n- Gameplay: puzzle markers, puzzle-owned objects, completion state and local exclusions.\n- Characters: NPC spawn/state, animation and encounter data.\n- VFX: local emitter definitions.\n- Audio: ambient loops, one-shots, transitions and local emitters.\n- Assets: texture/audio manifest for current and upcoming sections.\n- Narrative: thought nodes, encounter triggers, story flags and checkpoint progression.",
+      "children": [],
+      "related": []
+    },
+    {
+      "id": "art",
+      "title": "Art & Presentation",
+      "status": "LOCKED",
+      "implementation": "CURRENT",
+      "tags": [
+        "art",
+        "visual"
+      ],
+      "body": "## Current art direction\n- Serious, atmospheric and slightly “horror forest” without becoming overtly frightening or cutesy.\n- Cel-shaded rendering with exactly **three shade levels** per major form: light, base and shadow.\n- Desaturated palette; avoid saturated greens and olive wash; generally darker overall values.\n- Trees: tall/slender, mostly straight trunks, restrained bends, warm brown bark, natural green foliage, airy groups and negative space.\n- Asset bottoms integrate with the ground through feathering/contact treatment rather than fake drop shadows.\n- Mid-height foliage is used sparingly so foreground and midground do not become an unreadable wall.\n- Character remains visually small in the landscape, strengthening vulnerability and scale.\n\n## Environment variety\nNew chapters should keep the same rendering language while changing material families, silhouette, density, weather, fog/post profile and landmark design.\n\n## Asset pipeline\nGenerator/source art → alpha preparation / soft edge processing → colour-channel dilation → retain correct alpha → import as local texture asset.",
+      "children": [],
+      "related": []
+    },
+    {
+      "id": "audio-design",
+      "title": "Audio & Sound",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "audio",
+        "sound"
+      ],
+      "body": "Audio should be driven by gameplay events and location states rather than hard-coded to individual puzzles wherever possible.\n\n## Target layers\n- Music: chapter theme, tension variation, finale cue.\n- Global ambience: woodland bed, wetlands, wind, distant wildlife.\n- Local ambience: stream, creaking bridge, machinery, fire.\n- Movement SFX: footsteps by surface, land/jump, grass movement.\n- Interaction SFX: pickup, place, socket fit, combine, cart repair, push/roll.\n- Narrative accents: discovery sting, reveal and danger cues.\n\nA reusable mechanic should emit reusable events; each location can skin those events with appropriate sounds.",
+      "children": [],
+      "related": []
+    },
+    {
+      "id": "ux",
+      "title": "UX, Input & Accessibility",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "ux",
+        "input",
+        "accessibility"
+      ],
+      "body": "## Current interaction language\n- Landscape play orientation with portrait rotate guard.\n- Right-side movement / run-walk control; left-side jump and action controls.\n- Context ACTION changes purpose based on nearby object/state rather than adding many buttons.\n- On-screen thought bubbles replace the previous thought when a new thought triggers.\n- Play-mode menu is intentionally reduced; authoring controls belong to edit/Asset Lab modes.\n- Opening splash is player-focused with a primary PLAY action and developer tools behind a dropdown.\n\n## Future adaptation\n- iOS/Android: keep touch-first layout; native wrapper can own orientation/lifecycle and optionally haptics.\n- Desktop/Steam: keyboard + controller, menu focus, resolution/fullscreen, controller prompts.\n- Accessibility: text size, reduced motion/post/VFX, contrast/readability, control alternatives and puzzle assistance should be decided before the content becomes too large to retrofit.",
+      "children": [],
+      "related": []
+    },
+    {
+      "id": "tooling",
+      "title": "Content Production & Tooling",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "tools",
+        "workflow"
+      ],
+      "body": "The in-game tools are becoming one of the project’s strongest assets. New content should increasingly be authorable as data rather than bespoke code.",
+      "children": [
+        {
+          "id": "tool-puzzle-editor",
+          "title": "Puzzle Editor",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "tool"
+          ],
+          "body": "Place puzzle objects, define bounds/start state, exclusions, respawn, thoughts and cart path. Long-term: general puzzle authoring surface with reusable triggers and state transitions.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "tool-asset-lab",
+          "title": "Asset Lab",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "tool"
+          ],
+          "body": "Isolate assets; set collision, behaviour, states, layout, rotation/flip and multi-shape collision. Long-term: canonical asset definition tool with versioned metadata.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "tool-section-editor",
+          "title": "Section Editor",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "tool"
+          ],
+          "body": "Select 10 m sections, swap type and tune river width/collision/dressing. Long-term: author chapter terrain and feature-section parameters.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "tool-walk-lab",
+          "title": "Walk Lab",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "tool"
+          ],
+          "body": "Character rig and animation testing. Long-term: validation for protagonist and future NPC rigs.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "tool-design-lab",
+          "title": "Design Lab",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "tool",
+            "gdd"
+          ],
+          "body": "This page. The living source of truth for game vision, story, chapters, mechanics, puzzles and engine capability. Working edits autosave locally; project data can be exported/imported so the canonical design travels with future builds.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "content-export-targets",
+          "title": "Content Data to Formalise",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "data"
+          ],
+          "body": "- Chapter manifests and ordered section definitions.\n- Puzzle template definitions plus per-instance overrides/state.\n- Asset metadata: visual layout, collision, behaviour and named states.\n- Thought/story trigger data and narrative flags.\n- Audio/VFX emitter definitions.\n- Checkpoint and save-state schema.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "technical-roadmap",
+      "title": "Technical Roadmap",
+      "status": "PROPOSED",
+      "implementation": "PARTIAL",
+      "tags": [
+        "roadmap",
+        "technical"
+      ],
+      "body": "Technical work should protect iteration speed and be pulled by actual game needs.",
+      "children": [
+        {
+          "id": "roadmap-a",
+          "title": "Phase A — Production-ready opening",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "roadmap"
+          ],
+          "body": "- Protect the direct browser/GitHub Pages workflow.\n- Modularise the largest systems safely.\n- Formalise chapter/level manifest data.\n- Move unique scenery toward section ownership/spatial indexing.\n- Add a save abstraction.\n- Use the first 20–30 minutes to expose missing production systems.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "roadmap-b",
+          "title": "Phase B — Richer world systems",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "roadmap"
+          ],
+          "body": "- Asset lifecycle / preloading and release.\n- Reusable pooled VFX emitters.\n- Expanded post stack with quality scaling.\n- SFX mixer, ambience and local emitters.\n- Narrative encounter framework when story requires it.\n- Generalised puzzle completion/state graph.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "roadmap-c",
+          "title": "Phase C — Multi-hour production",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "roadmap"
+          ],
+          "body": "- Checkpoints, Continue, save slots and migrations.\n- Draw-call / texture-memory profiling and batching where density requires it.\n- Reset/save/reload QA habits for puzzle state and chapter transitions.\n- Keyboard/controller abstraction.\n- Player-facing settings and accessibility options.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "roadmap-d",
+          "title": "Phase D — Store-ready packaging",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "roadmap"
+          ],
+          "body": "Keep gameplay code common. Wrap the finished web-native game for iOS/Android and desktop, add platform signing/store metadata and optional native services without forking gameplay logic.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "platform",
+      "title": "Platform & Store Readiness",
+      "status": "PROPOSED",
+      "implementation": "NEEDED",
+      "tags": [
+        "platform",
+        "store"
+      ],
+      "body": "Native packaging is a later distribution layer, not a reason to rewrite the game.\n\n- **iPhone / iPad:** Capacitor/native WebView wrapper. Prepare orientation/lifecycle abstraction, safe storage and optional haptics/Game Center later.\n- **Android:** Capacitor/native WebView wrapper with Android packaging/signing and device QA.\n- **Windows / Steam:** Electron initially for a predictable bundled Chromium runtime; add keyboard/controller, fullscreen/window handling and desktop save/cloud adapter.\n- **macOS/Linux:** potential Electron/Tauri packaging after the desktop game is proven.\n\nOver time gameplay code should call small SideScroll services rather than browser APIs directly: Save, Audio, Input, Orientation/Fullscreen, Haptics, Achievements/Platform and File/Cloud storage.",
+      "children": [],
+      "related": []
+    },
+    {
+      "id": "open-questions",
+      "title": "Open Design Questions",
+      "status": "OPEN",
+      "implementation": "NEEDED",
+      "tags": [
+        "questions",
+        "planning"
+      ],
+      "body": "## Priority 1 — story spine\n- Who is the protagonist: name, age, home, personality and key relationship?\n- Why does she leave, and what destination does she initially believe she is trying to reach?\n- What is the central mystery or truth of the world?\n- What emotional change should the player feel in her by the ending?\n\n## Priority 2 — structure and tone\n- Is the game one continuous physical journey, chapter-based loads, or a hybrid?\n- How unsettling, sad or frightening can the world become?\n- What is the role of other characters: rare encounters, recurring companion, settlement inhabitants, memories, or something else?\n- What does the Stone Wall / Forest Key thread lead to?\n\n## Priority 3 — production shape\n- Which 5–8 mechanics form the full game’s reusable core vocabulary?\n- What environmental families make 2–4 hours feel rich without unsustainable bespoke art?\n- What is Chapter 1’s final story beat that makes the player want to continue?\n\n## Recommended next design exercise\nWrite the one-paragraph premise and protagonist bio first, then outline the five chapter story beats in only one or two sentences each. Once that spine exists, map current/future puzzles onto it and identify where new mechanics are truly needed.",
+      "children": [],
+      "related": []
+    },
+    {
+      "id": "change-log",
+      "title": "Change Log",
+      "status": "CURRENT",
+      "implementation": "CURRENT",
+      "tags": [
+        "history"
+      ],
+      "body": "- **0.2 — 25 Sep 2026:** Living GDD moved into the new in-project Design Lab; structured contents, editable metadata, local autosave and import/export added.\n- **0.1 — 25 Sep 2026:** Initial living GDD created from SideScroll v1.0.56, established art/interaction decisions, current puzzle systems, active cart puzzle design and longer-form chapter/MVP discussion.\n\n## Maintenance rule\nUpdate this document when a decision changes player experience, world/story canon, reusable puzzle vocabulary, chapter structure, art/audio baseline, or an engine capability that materially changes what content can be authored. Minor implementation fixes do not need their own GDD entry unless they alter a design constraint.",
+      "children": [],
+      "related": []
+    }
+  ]
+}

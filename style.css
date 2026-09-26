@@ -11269,7 +11269,7 @@ html.ss-mobile-portrait .ss-orientation-guard p{
   font-size:clamp(15px,4.2vw,19px)!important;
 }
 
-/* SideScroll v1.0.56 — keep portrait guard solid across seamless splash -> game launch.
+/* SideScroll v1.0.57 — keep portrait guard solid across seamless splash -> game launch.
    Hide every underlying page child while portrait is active and bleed the fixed
    guard very slightly beyond the visual viewport so iOS cannot expose a bottom strip. */
 html.ss-mobile-portrait body > *:not(.ss-orientation-guard){
@@ -13339,7 +13339,7 @@ body[data-game-id="game-16"] .sidescroll-cart-path-speeds b{text-align:center;fo
 body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:28px;padding:0;border:1px solid rgba(143,215,255,.26);border-radius:7px;background:rgba(143,215,255,.10);color:#dff5ff;font-size:14px;font-weight:900;}
 @media(max-width:900px) and (orientation:landscape){body[data-game-id="game-16"] .sidescroll-cart-path-speeds{grid-template-columns:1fr;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds>div{grid-template-columns:1fr 34px 48px 34px;padding:3px 6px;}body[data-game-id="game-16"] .sidescroll-cart-path-speeds button{min-height:25px;}}
 
-/* SideScroll v1.0.56 — focused splash launcher + preload screen */
+/* SideScroll v1.0.57 — focused splash launcher + preload screen */
 body.ss-home.ss-splash-home{
   display:block!important;background:#10181d!important;color:#f4f2ed;
 }
@@ -13397,7 +13397,7 @@ body.ss-home.ss-splash-home{
   .ss-splash-play,.ss-preload{width:min(300px,44vw)}
 }
 
-/* SideScroll v1.0.56 — player launch fade and top-screen thought presentation. */
+/* SideScroll v1.0.57 — player launch fade and top-screen thought presentation. */
 .sidescroll-entry-fade{display:none;position:fixed;inset:0;z-index:2000;background:#000;opacity:1;pointer-events:auto;transition:opacity .9s cubic-bezier(.22,.7,.22,1);}
 html.ss-player-launch .sidescroll-entry-fade{display:block;}
 html.ss-player-launch .sidescroll-entry-fade.fade-out{opacity:0;}
@@ -13424,7 +13424,7 @@ body[data-game-id="game-16"] .sidescroll-hint.puzzle-thought::after{
 }
 
 
-/* SideScroll v1.0.56 — puzzle-linked Thought Trigger editor. */
+/* SideScroll v1.0.57 — puzzle-linked Thought Trigger editor. */
 body[data-game-id="game-16"] .sidescroll-thought-editor{
   position:fixed;right:max(8px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 54px);
   width:min(330px,calc(100vw - 24px));padding:9px 10px;border-radius:12px;z-index:1007;
@@ -13448,7 +13448,7 @@ body[data-game-id="game-16"] .sidescroll-thought-editor p{margin:7px 1px 0;font-
 
 
 
-/* SideScroll v1.0.56 — compact player sound panel. */
+/* SideScroll v1.0.57 — compact player sound panel. */
 body[data-game-id="game-16"] .sidescroll-sound-panel{
   position:absolute;z-index:34;top:max(52px,calc(env(safe-area-inset-top) + 52px));right:max(52px,calc(env(safe-area-inset-right) + 52px));
   width:min(260px,calc(100vw - 110px));padding:12px;border:1px solid rgba(237,244,244,.22);border-radius:14px;
@@ -13465,7 +13465,7 @@ body[data-game-id="game-16"] .sidescroll-sound-panel input[type="checkbox"]{just
 body[data-game-id="game-16"] .sidescroll-sound-panel p{margin:8px 0 0;padding-top:8px;border-top:1px solid rgba(255,255,255,.10);font-size:8px;line-height:1.35;color:#aebfbc;}
 @media(max-height:520px){body[data-game-id="game-16"] .sidescroll-sound-panel{top:44px;padding:9px;}}
 
-/* SideScroll v1.0.56 — player-facing menu is intentionally minimal. */
+/* SideScroll v1.0.57 — player-facing menu is intentionally minimal. */
 body[data-game-id="game-16"].sidescroll-player-mode .sidescroll-tools-grid>.sidescroll-tools-item{display:none!important;}
 body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-character,
 body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-sound,

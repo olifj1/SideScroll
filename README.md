@@ -1,6 +1,7 @@
-# SideScroll v1.0.56
+# SideScroll v1.0.57
 
-- Restores the portrait “Rotate your device” guard after the seamless PLAY transition into the game.
-- Makes the shared orientation guard recreate itself whenever the launcher replaces the page body.
-- Hides underlying splash/game content while the portrait guard is active and extends the guard slightly past the visual viewport to prevent a bottom-edge strip on iOS.
-- Keeps the v1.0.55 PLAY-gesture audio unlock and seamless music startup unchanged.
+- Adds **Design Lab** to the launcher alongside Asset Lab and Walk Lab.
+- Seeds a structured living Game Design Document covering vision, story questions, chapters, mechanics, puzzles, engine capability, art/audio direction and roadmap.
+- Adds phone-first contents navigation, search, editable sections, status/engine-support tags, subsections, reordering and local autosave.
+- Adds Design Lab JSON export/share, import and reset-to-bundled controls so design data can travel with future builds.
+- Design Lab intentionally supports both portrait and landscape editing; normal gameplay orientation behaviour is unchanged.

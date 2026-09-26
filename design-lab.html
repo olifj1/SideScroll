@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" class="design-lab-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#11191d">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="design-lab.css?v=1.0.57">
+  <title>Design Lab · SideScroll</title>
+</head>
+<body>
+  <div class="dl-shell">
+    <header class="dl-topbar">
+      <a class="dl-home" href="index.html" aria-label="Back to SideScroll">SideScroll</a>
+      <button class="dl-contents-toggle" id="dl-contents-toggle" type="button" aria-expanded="false" aria-controls="dl-sidebar">Contents</button>
+      <div class="dl-title-wrap">
+        <strong>Design Lab</strong>
+        <small id="dl-save-state">Loading design data…</small>
+      </div>
+      <button class="dl-top-action" id="dl-edit" type="button">Edit</button>
+      <button class="dl-top-action" id="dl-data" type="button" aria-expanded="false">Data</button>
+    </header>
+
+    <div class="dl-body">
+      <aside class="dl-sidebar" id="dl-sidebar" aria-label="Design document contents">
+        <div class="dl-sidebar-head">
+          <button class="dl-contents-home" id="dl-contents-home" type="button">Document overview</button>
+          <button class="dl-close-sidebar" id="dl-close-sidebar" type="button" aria-label="Close contents">Close</button>
+        </div>
+        <label class="dl-search-label" for="dl-search">Search document</label>
+        <input class="dl-search" id="dl-search" type="search" placeholder="Story, cart, VFX…" autocomplete="off" spellcheck="false">
+        <nav class="dl-tree" id="dl-tree"></nav>
+        <footer class="dl-sidebar-foot">
+          <span id="dl-doc-version">GDD</span>
+          <span id="dl-build-version">Build</span>
+        </footer>
+      </aside>
+      <button class="dl-scrim" id="dl-scrim" type="button" aria-label="Close contents" hidden></button>
+
+      <main class="dl-main" id="dl-main">
+        <article class="dl-document" id="dl-document" aria-live="polite"></article>
+      </main>
+    </div>
+
+    <div class="dl-data-menu" id="dl-data-menu" hidden>
+      <strong>Project design data</strong>
+      <small>Working edits autosave on this device. Export the JSON to carry them into another build or device.</small>
+      <button id="dl-export" type="button">Export / Share design data</button>
+      <button id="dl-import" type="button">Import design data</button>
+      <button id="dl-reset" class="danger" type="button">Reset to bundled document</button>
+      <input id="dl-import-file" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="dl-toast" id="dl-toast" role="status" aria-live="polite" hidden></div>
+  </div>
+
+  <script src="design-lab.js?v=1.0.57"></script>
+</body>
+</html>
