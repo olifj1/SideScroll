@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.2",
+  "documentVersion": "0.3",
   "project": "SideScroll",
   "title": "Living Game Design Document",
-  "baselineBuild": "1.0.57",
-  "updated": "25 September 2026",
-  "description": "Shared source of truth for the game, story, puzzles, systems and technology.",
+  "baselineBuild": "1.0.58",
+  "updated": "2026-09-26",
+  "description": "Living SideScroll game design document. v0.3 adds Aureli story foundations, player-vs-creator knowledge, companion concept, hidden universe canon, terraforming artefacts, Darkness interpretation and reveal planning.",
   "sections": [
     {
       "id": "vision",
@@ -197,6 +197,77 @@
           "related": []
         },
         {
+          "id": "canon-principle",
+          "title": "Canon Principle — We Know More Than the Characters",
+          "status": "LOCKED",
+          "implementation": "N/A",
+          "tags": [
+            "canon",
+            "story"
+          ],
+          "body": "The universe may have a coherent history spanning millennia, while each game remains a blinkered view of one character's personal journey.\n\n**Creator rule:** we should know enough of the underlying truth to make phenomena, cultures and clues consistent.\n\n**Player rule:** characters only know what their lives, cultures and direct experiences allow them to know. They may have folklore, religions, scientific ideas and incorrect assumptions. None should be treated as authorial exposition unless the story has genuinely earned that knowledge.\n\nFuture games can reveal different slices of the same universe — different regions, eras or characters — without requiring direct sequels. The audience may eventually recognise connections that individual protagonists cannot.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "story-creator-view",
+          "title": "The Story We Know — Creator View",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "story",
+            "canon",
+            "hidden",
+            "universe"
+          ],
+          "body": "## Working hidden story\nLong before Aureli's lifetime, on another world, a technologically and biologically advanced human or human-like civilisation badly damaged its home planet. Facing an uncertain future, it launched thousands of autonomous missions toward worlds that might one day become new homes.\n\nAureli's planet was one of those targets. It was promising, but not naturally suitable enough for the civilisation that sent the missions. An automated system therefore scattered a vast network of world-shaping artefacts across the planet. Different artefacts were given different jobs: alter atmospheric chemistry; encourage plant life that could create the desired air; regulate water and climate; compensate for gravity; steer or accelerate biological adaptation; balance ecological systems; and perform other forms of long-term planetary engineering.\n\nThe expected settlers did not arrive when planned — and may never have arrived at all. The terraforming network nevertheless continued its mission for an immense span of time. The planet changed around it and, in turn, the machines adapted to the planet. Forests grew over and through them. Animals nested around them. Cultures arose in a world where the artefacts had always existed. Technology and nature became so intertwined that the distinction is no longer obvious.\n\nThe network is now ancient, distributed and highly adaptive. Some components may have failed; others may have compensated for those failures; and the system may have changed how it interprets its original goal. It does not need to be conscious in a human sense to behave in ways that look purposeful, frightening or even malevolent.\n\nAt the beginning of Aureli's story, something has caused the planetary system to begin a significant correction. The phenomenon Aureli experiences as **the Darkness** is provisionally part of that process: a mobile collection, analysis, relocation or reconfiguration event moving through the living world. To Aureli it takes people and animals. To the system it may simply be acquiring or adjusting biological material in pursuit of planetary parameters it was instructed to maintain thousands of years ago.\n\nAureli's father is caught by the Darkness. A second young person is also affected and emerges in an animal form — currently imagined as a fox — either through deliberate adaptation, reconstruction or an unintended interaction between biological terraforming systems. Aureli meets this animal without knowing its human origin. Their relationship becomes central to the journey.\n\nAs Aureli follows the path of the Darkness she encounters increasingly visible effects of the artefact network: altered gravity, time or motion, biological change, environmental anomalies and other phenomena. Some encounters may leave Aureli herself changed, allowing her to reproduce limited versions of effects she first experiences in the world.\n\nThe full truth does **not** need to be revealed in Aureli's game. Her story remains the personal story of a girl looking for her father, building a relationship with another lost person and learning that her familiar world is far stranger than she believed. The deep planetary story can remain beneath that journey and support later games, other characters, other regions and other eras.\n\n## Deliberately unresolved creator questions\n- Why did the intended settlers fail to arrive?\n- Did any original settlers arrive at all?\n- Where did Aureli's human-like civilisation come from?\n- Is the network genuinely sentient, emergently intelligent, or simply adaptive at enormous scale?\n- What triggered the current correction event?\n- Is the Darkness one system, many coordinated systems, or a temporary behaviour of the wider network?\n- What does the network now consider a successful planet?\n- Does the civilisation that launched the missions still exist elsewhere?",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "story-player-view",
+          "title": "The Story the Player Knows — Aureli’s View",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "story",
+            "player-knowledge",
+            "aureli"
+          ],
+          "body": "## At the beginning\nAureli knows an ordinary life in and around a forest home with her father. The world may contain old, strange objects and local stories, but she does not understand the planet as engineered and has no knowledge of an off-world civilisation or terraforming mission.\n\nOne morning the forest falls unnaturally silent. Animals begin fleeing in panic. A vast, impossible darkness moves through the trees and Aureli sees living things caught inside it. Her father appears within it for a moment and calls to her before he is pulled away. When the phenomenon passes, it leaves mist, quiet and a changed atmosphere behind.\n\nAureli does not know what the Darkness is. She knows only that it took her father and moved onward. She packs what she can carry and follows its path.\n\n## What the player gradually experiences\n- The world ahead has been affected in ways that do not fit normal rules.\n- Ancient artefacts can alter physical and biological behaviour around them.\n- The artefacts seem different from one another, but share a recognisable language and may be connected.\n- A small animal — currently a fox — repeatedly crosses Aureli's path. It also appears to have survived or escaped the Darkness.\n- Aureli and the animal slowly learn to trust and help one another. It is not permanently attached to her and may disappear for stretches; a call or flute can later become part of their relationship and puzzle language.\n- The companion understands and reacts to the human world in ways that become increasingly difficult to explain as ordinary animal behaviour.\n- Later, an artefact or related event reveals that the animal is a human boy who was changed by whatever happened to him. The transformation may be reversible, intermittent or only partly repaired.\n- Aureli may herself acquire strange, limited abilities after repeated contact with artefact phenomena, without fully understanding why.\n- Evidence gradually suggests that the Darkness and artefacts are not random supernatural events. They are part of something old, widespread and systematic.\n\n## What the player does not need to learn\nThe player does not need an exposition scene explaining spacecraft, terraforming, the civilisation that launched the network, or the complete planetary history. Even by the end, the player may understand **more of the pattern** without knowing the ultimate origin.\n\nThe emotional story should resolve more clearly than the universe story. The player should understand what Aureli has lost, whom she has found, what choices she has made and how her relationship with her father and companion has changed, while still feeling that the world extends far beyond what this one character could possibly know.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "aureli-opening",
+          "title": "Aureli — Opening Incident",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "aureli",
+            "opening",
+            "darkness",
+            "vertical-slice"
+          ],
+          "body": "## Source concept\nAureli wakes to an ordinary forest morning and the familiar sound of her father chopping wood. She dresses for the day — the early concept gives her a long coat and distinctive bright red wellies — and steps outside to see whether he is ready for breakfast.\n\nA few steps from the house she notices something impossible: the axe has stopped, the birds have stopped, the wind has stopped. There is nothing to listen to.\n\nA deer suddenly tears past her at full speed. Aureli stumbles, and the forest sound returns all at once — but now every animal is panicking. Birds take flight, creatures flee and a growing shadow moves across the forest.\n\nA pitch-black phenomenon, more like a moving absence of light than ordinary smoke, passes through the trees. Animals and birds appear suspended or swirling within it. Aureli glimpses her father inside. He sees her and begins to call her name before being pulled back into the darkness.\n\nAureli hides and waits. When the phenomenon has moved on, it leaves mist and muted light behind. Eventually she returns to the house, packs a bag with whatever seems useful and follows the path it took through the forest.\n\n## Playable opening direction\nThe opening should preferably be **experienced**, not narrated as a long text sequence.\n\n1. Begin in warmth, daylight and rich forest ambience; the father's axe is audible offscreen.\n2. Give the player control during an ordinary task so walking and interaction are learned without a tutorial feeling.\n3. Remove the axe, birds and wind until the absence of sound becomes conspicuous.\n4. Break the silence violently with the fleeing deer and a sudden wave of panicked wildlife.\n5. Let the approaching Darkness be a world event rather than an enemy to fight.\n6. Show the father only briefly, giving Aureli and the player one unmistakable reason to follow.\n7. After the event, reveal the misty, desaturated, quieter forest that forms the main game's visual baseline.\n8. Allow a brief return to the house / packing beat, then let Aureli leave under player control.\n\nThis sequence can establish character, motivation, tone, audio language, environmental storytelling and the central mystery before the first conventional puzzle.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "reveal-map",
+          "title": "Knowledge & Reveal Map",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "story",
+            "reveal",
+            "mystery"
+          ],
+          "body": "Use this entry to control the gap between **creator truth** and **player knowledge**. A mystery should be consistent even when it remains unexplained.\n\n## Layer 0 — Hidden canon only\n- Off-world civilisation and damaged home planet.\n- Thousands of autonomous colonisation / terraforming missions.\n- Aureli's planet as one target world.\n- Artefacts as a distributed planetary engineering network.\n- Original mission parameters and deep-time history.\n\n## Layer 1 — Opening: personal certainty\nThe player learns only what Aureli can directly witness: the forest changes, the Darkness takes her father, and it leaves a path she can follow.\n\n## Layer 2 — Early journey: repeatable strangeness\nArtefacts and anomalies demonstrate consistent effects. The fox appears, disappears and begins helping. The player learns that the weirdness has rules, but not why.\n\n## Layer 3 — Middle journey: connection\nDifferent artefacts begin to look related. Settlements, folklore, ruins or environmental evidence show that the phenomena are ancient and widespread. The fox's behaviour implies a human history. The Darkness appears connected to the same underlying system.\n\n## Layer 4 — Major character reveal\nThe companion is shown to be a transformed boy. This proves that biological identity can be altered and reframes earlier scenes. Aureli may begin acquiring limited anomaly-related abilities herself.\n\n## Layer 5 — Late game: reinterpretation, not explanation\nThe player gains enough evidence to understand that the apparent 'evil force' may be performing a function rather than acting from hatred. The final act can reveal a local purpose or immediate consequence without explaining the off-world origin.\n\n## Potentially withheld beyond Game 1\nThe civilisation that launched the network, the intended colonists, Aureli's species/history, the network's full objective and the exact reason for the current correction can remain hidden for future stories.\n\n### Rule\nEvery major reveal should answer one immediate question while opening or sharpening another. Do not resolve mystery by exposition when the same information can be experienced through behaviour, environment or character consequence.",
+          "children": [],
+          "related": []
+        },
+        {
           "id": "narrative-delivery",
           "title": "Narrative Delivery Language",
           "status": "PROPOSED",
@@ -231,8 +302,63 @@
             "protagonist"
           ],
           "body": "## Current visual baseline\n- Young girl with long dark-red hair and a light-coloured outfit.\n- No cloak in the current approved direction.\n- Small figure relative to the world; movement should feel grounded rather than heroic.\n- Interaction voice is currently expressed through concise first-person thought text.\n- Lightweight plane-based rig already supports alternate atlases / character swapping.\n\n## Still to define\n- Name and precise age.\n- Background and home.\n- Why she is travelling and who/what she is seeking.\n- Personality beyond problem-solving: fears, humour, stubbornness, optimism, grief, curiosity, etc.\n- Whether alternate character atlases are narrative, cosmetic, future protagonists or only a development feature.\n\n## Arc template\nBeginning state → inciting pressure → early competence → midpoint change → late choice → end state.",
-          "children": [],
+          "children": [
+            {
+              "id": "character-aureli",
+              "title": "Aureli — Working Protagonist",
+              "status": "PROPOSED",
+              "implementation": "PARTIAL",
+              "tags": [
+                "character",
+                "aureli",
+                "protagonist"
+              ],
+              "body": "Aureli is the current working identity for the protagonist.\n\n## Starting situation\n- Lives with her father in or beside a large forest.\n- Begins from an ordinary domestic life rather than as an adventurer.\n- Her father is taken during the opening Darkness event.\n- She chooses to follow because she has direct evidence of the direction the phenomenon travelled.\n\n## Visual ideas\n- Small figure against a large landscape.\n- Long dark-red hair remains compatible with the current character direction.\n- The original story concept included a long coat and bright red wellies. The exact outfit is not locked, but one recognisable saturated element against the muted world could become a useful visual signature.\n\n## Character direction\nAureli should begin grounded, observant and recognisably human rather than heroic. Her competence grows through practical problem-solving, persistence and an increasing willingness to engage with things she does not understand.\n\nHer emotional arc should ultimately be about more than physically reaching her father. The journey can expand her concern from one lost person to other lives affected by the same phenomenon, particularly the companion.\n\n## Open\n- Exact age.\n- Personality specifics, humour, fears and flaws.\n- Family history beyond her father.\n- Whether she has prior knowledge or folklore concerning artefacts.\n- How much she changes physically through contact with the network.",
+              "children": [],
+              "related": [
+                "aureli-opening",
+                "story-player-view"
+              ]
+            }
+          ],
           "related": []
+        },
+        {
+          "id": "character-father",
+          "title": "Aureli’s Father",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "character",
+            "father",
+            "story"
+          ],
+          "body": "Aureli's father is the immediate emotional reason for the journey.\n\nThe opening establishes him through ordinary routine — the sound of chopping wood — before he is glimpsed inside the Darkness calling to Aureli. His disappearance should be simple and unmistakable enough that the player understands Aureli's decision without exposition.\n\nHis deeper role is intentionally open. He may be alive, transformed, relocated, integrated into a system, or affected in another way. The game should avoid answering that too early.\n\nHis eventual fate must serve Aureli's emotional story rather than functioning only as a plot prize at the end of the journey.",
+          "children": [],
+          "related": [
+            "aureli-opening",
+            "story-creator-view"
+          ]
+        },
+        {
+          "id": "character-companion",
+          "title": "Companion — Fox / Boy",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "character",
+            "companion",
+            "fox",
+            "boy",
+            "puzzle"
+          ],
+          "body": "## Core concept\nA small, agile animal — currently a **fox** as the leading option — also survives or escapes the Darkness. Aureli and the animal repeatedly encounter one another and gradually form a bond.\n\nThe companion should not behave like a permanently attached game-AI pet. It can disappear for stretches, take its own routes and return when narratively or mechanically appropriate. Later, Aureli may gain a simple way to call it, potentially with a flute or other distinctive sound.\n\n## Relationship progression\n1. **Suspicion / observation:** they notice one another but do not travel together.\n2. **Reciprocal help:** Aureli helps the animal or creates a route; later it helps her.\n3. **Trust:** the companion begins remaining nearby for longer periods and responds to a call.\n4. **Dependence without ownership:** puzzles require cooperation, but the animal retains agency.\n5. **Revelation:** behaviour that has seemed unusually human is explained when an artefact or related phenomenon reveals that the animal is actually a boy altered by the Darkness / biological systems.\n6. **After the reveal:** the relationship changes because they can finally understand one another as people. Human-form cooperative mechanics can expand the puzzle vocabulary.\n\n## Puzzle role in animal form\n- Traverse small openings and fragile surfaces.\n- Climb / jump routes unavailable to Aureli.\n- Retrieve or knock down light objects.\n- Hold or trigger a mechanism while Aureli moves elsewhere.\n- Draw attention to hidden or unusual things through behaviour rather than UI highlighting.\n- Follow contextual calls / interaction points rather than requiring a second joystick.\n\n## Transformation possibilities\nThe return to human form does not have to be permanent. The underlying system may be able to switch or destabilise the form, eventually making human/fox state itself a later puzzle mechanic.\n\n## Relationship tone\nFriendship is the baseline. A gentle romantic dimension can remain possible depending on the eventual ages and audience, but should not be needed for the relationship to carry emotional weight.\n\n## Foreshadowing\nSeed the reveal through behaviour that makes sense both before and after it: unusual comprehension of speech, recognition of human places or objects, fear or memory responses, and moments of distinctly human attention. Avoid clues so explicit that the twist becomes a puzzle to guess.",
+          "children": [],
+          "related": [
+            "story-creator-view",
+            "reveal-map",
+            "mech-companion"
+          ]
         },
         {
           "id": "supporting-character-template",
@@ -261,6 +387,23 @@
       ],
       "body": "The chapter structure is provisional. It gives the technology and art work a larger form without pretending the story has already been written.",
       "children": [
+        {
+          "id": "world-darkness-path",
+          "title": "Journey Spine — Following the Darkness",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "world",
+            "story",
+            "chapters"
+          ],
+          "body": "Aureli's route can be geographically unified by following the path left by the Darkness.\n\nThis gives changing regions a narrative purpose as well as visual variety. The forest shows the immediate aftermath; wetlands and rivers show different environmental consequences; settlements reveal how other people have lived with or interpreted the old systems; later territories can show increasingly active or unstable artefact behaviour as Aureli approaches the cause or destination of the current correction.\n\nThe journey can remain continuous in feeling even when technical chapter loads are used.",
+          "children": [],
+          "related": [
+            "aureli-opening",
+            "story-player-view"
+          ]
+        },
         {
           "id": "chapter-1",
           "title": "Chapter 1 — Woodland",
@@ -340,6 +483,170 @@
             "location"
           ],
           "body": "Every major location should define:\n- Visual motif.\n- Palette / fog / post profile.\n- Terrain types.\n- Dressing set.\n- Ambient sound and music state.\n- Traversal feature.\n- Puzzle mechanics introduced and reused.\n- Story clues and characters present.\n- Unique VFX.\n- Performance budget.\n- Entry / exit transition.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": []
+    },
+    {
+      "id": "universe-bible",
+      "title": "Universe Bible / Hidden Canon",
+      "status": "PROPOSED",
+      "implementation": "N/A",
+      "tags": [
+        "universe",
+        "canon",
+        "hidden"
+      ],
+      "body": "This section records the deeper reality that may never be stated directly in the games. It exists so mystery remains consistent rather than random.\n\nThe hidden canon can evolve while the first game is being designed. Fundamental rules should become firmer before deep historical detail. Entries should distinguish **what is actually true** from **what contemporary characters believe** whenever those differ.",
+      "children": [
+        {
+          "id": "universe-origin",
+          "title": "The Origin Civilisation",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "universe",
+            "humans",
+            "origin"
+          ],
+          "body": "A technologically and evolutionarily advanced human or human-like civilisation damaged its home planet badly enough to seek new worlds.\n\nRather than relying on a single colony mission, it launched thousands of autonomous ships toward planets that could potentially support future settlement after extensive preparation.\n\nThe civilisation's exact identity, whether it still exists, and how directly it resembles Aureli's people remain open.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-mission",
+          "title": "The Terraforming Mission",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "terraforming",
+            "mission"
+          ],
+          "body": "Each automated mission was intended to transform a candidate planet toward environmental parameters suitable for the civilisation that launched it.\n\nThe system works over very long timescales and is allowed to alter multiple layers of a planet at once: atmosphere, ecology, climate, water, physical conditions and living organisms. Its overriding purpose is not to preserve the untouched target world; it is to prepare a viable home.\n\nThat original optimisation target is crucial: behaviour that is catastrophic to current inhabitants may still be internally 'correct' to a system pursuing ancient specifications.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-artifacts",
+          "title": "Artefacts — Planetary Engineering Nodes",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "artefact",
+            "terraforming",
+            "mystery"
+          ],
+          "body": "The objects Aureli experiences as strange artefacts are components of the distributed terraforming system.\n\nDifferent families can serve different purposes while sharing an underlying design language:\n- **Atmospheric / botanical:** alter plant growth, gas exchange and environmental chemistry.\n- **Biological:** influence adaptation, morphology, fertility, survival traits or rates of change in living things.\n- **Physical:** alter or compensate for gravity, mass, force or other local conditions.\n- **Temporal / process-rate:** change the rate at which natural or engineered processes occur; experienced locally as strange time behaviour.\n- **Hydrological / climatic:** shape water, temperature, weather and long-term climate balance.\n- **Network / maintenance:** observe, coordinate, repair, collect or redistribute material and information.\n\nThe exact categories do not have to be visible to the player. They exist to prevent 'mystery' becoming arbitrary magic.\n\n### Visual rule\nAvoid a clean technology-versus-nature split. These systems have existed for so long that roots, stone, mineral growth, nests and whole ecosystems can incorporate them. Precise geometry can coexist with organic overgrowth; mechanical behaviours can respond to natural stimuli. The result should resist an easy 'machine' or 'magic' classification from Aureli's point of view.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-coevolution",
+          "title": "A World Grown Around the Machines",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "ecology",
+            "history"
+          ],
+          "body": "The network has operated for such a long period that modern nature is partly the product of its work. Forests and animals are not simply being invaded by machinery now; generations of ecosystems may have developed under its influence.\n\nThis makes the boundary between natural and artificial fundamentally ambiguous. Destroying an artefact may damage an ecosystem that depends on it. Restoring one may restart a process local people have never experienced.\n\nCultures can treat the artefacts as landscape, sacred objects, dangerous ruins, folklore, useful resources or unexplained natural phenomena depending on region and history.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-network",
+          "title": "The Distributed Network",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "network",
+            "ai",
+            "system"
+          ],
+          "body": "The artefacts are connected as parts of a planet-scale system. After millennia of operation, adaptation and compensation for failures, the network may behave in ways never explicitly anticipated by its makers.\n\nIt is intentionally unresolved whether this constitutes true sentience. The system may be conscious, emergently intelligent, or simply an adaptive optimisation process operating at such scale that its actions resemble intention.\n\nFor storytelling, motive should not be reduced to human malice. The most unsettling interpretation is that the network can do terrible things while faithfully pursuing a goal whose assumptions are now obsolete.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-darkness",
+          "title": "The Darkness — Working Hidden Interpretation",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "darkness",
+            "network",
+            "maintenance"
+          ],
+          "body": "The Darkness is provisionally a manifestation of the wider terraforming / maintenance network rather than an independent evil creature.\n\nPossible function: a mobile correction process that collects, analyses, transports, restructures or redistributes biological and environmental material across areas judged to be outside desired parameters.\n\nIt may look like a void, storm or living cloud because the local technology involved operates at a scale and density Aureli cannot interpret. Living things visible within it may be in transit, suspended, sampled, transformed or reconstructed elsewhere.\n\nThe system does not need to distinguish the emotional value of one person from other biological material. This creates the central horror without requiring an evil personality.\n\nThe exact mechanics and the trigger for its appearance remain open.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-transformation",
+          "title": "Transformation & Biological Reconfiguration",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "biology",
+            "transformation",
+            "companion"
+          ],
+          "body": "Because the terraforming system can manipulate living organisms, transformation is a natural consequence of the hidden technology rather than a separate magical rule.\n\nThe companion's fox form may result from survival optimisation, ecological matching, reconstruction error, deliberate adaptation or interference between multiple systems. Becoming a fox therefore does not have to be 'punishment' or an attack.\n\nThe same underlying capability can support altered creatures, unusual plant life and later changes to Aureli. Individual transformations must still obey designed rules and carry consequences; the system should not become a universal explanation for any convenient effect.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-aureli-people",
+          "title": "Aureli’s People — Origin Question",
+          "status": "OPEN",
+          "implementation": "N/A",
+          "tags": [
+            "humans",
+            "origin",
+            "mystery"
+          ],
+          "body": "A major hidden-canon question is why Aureli and her people are human-like when the network was originally preparing the world for another human or human-like civilisation.\n\nPossible explanations remain open:\n1. **Convergent development:** intelligent life arose independently in a remarkably similar form.\n2. **Network-guided evolution:** biological systems gradually pushed local life toward traits expected by the original mission.\n3. **Forgotten settlement:** some original colonists did arrive and their descendants lost the true history over millennia.\n4. **Mixed / stranger history:** more than one of these is true, or the network created conditions for an outcome neither creators nor inhabitants understand.\n\nDo not choose solely for the sake of explaining the first game. This question can support the larger universe over multiple stories.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-colonists",
+          "title": "The Missing Colonists",
+          "status": "OPEN",
+          "implementation": "N/A",
+          "tags": [
+            "colonists",
+            "history"
+          ],
+          "body": "The planet was prepared for people who apparently did not arrive as expected.\n\nOpen possibilities include: the civilisation collapsed; the colony fleet failed; the journey was abandoned; the planet was lost from records; settlers arrived but history was erased; or the timescale of the autonomous programme simply exceeded the civilisation that created it.\n\nThe absence of a confirmed answer is valuable because it separates the network's continuing purpose from any living authority capable of updating that purpose.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-timescale",
+          "title": "Deep-Time Story Potential",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "timeline",
+            "sequels"
+          ],
+          "body": "The hidden history should support stories across millennia without requiring every game to follow Aureli.\n\nPotential perspectives include:\n- Early eras when artefacts are newly active or openly technological.\n- Later societies that interpret the same systems as sacred or natural.\n- Regions where different terraforming families dominate the landscape.\n- Characters who have been altered by the network in different ways.\n- Distant future or past stories that reveal another fragment of the same truth.\n\nEach game should remain a personal journey. The audience can accumulate a larger understanding across stories that no single protagonist possesses.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "universe-design-rules",
+          "title": "Mystery Design Rules",
+          "status": "LOCKED",
+          "implementation": "N/A",
+          "tags": [
+            "mystery",
+            "rules"
+          ],
+          "body": "1. **Mystery is not randomness.** Every artefact effect must have an internal purpose or rule even when the player never learns it.\n2. **Teach behaviour before origin.** The player should understand what an artefact does well enough to reason about it without knowing what it is.\n3. **Reuse visual / sonic grammar.** Related systems should feel related across regions and games.\n4. **Nature and technology are intertwined.** Ancient machinery should feel embedded in the ecology rather than freshly placed on top of it.\n5. **Resolve emotional stories more than cosmic stories.** A character's journey can end satisfactorily while the universe remains mysterious.\n6. **Clues should survive hindsight.** Later revelations should make earlier behaviour more meaningful, not contradict it.\n7. **No exposition dump is required.** Hidden canon exists primarily to keep the world coherent.",
           "children": [],
           "related": []
         }
@@ -537,6 +844,57 @@
           "body": "Ghost-path authoring drives controlled object movement such as the cart falling into the bridge gap. Control points, duration and end state are part of the developing toolset.",
           "children": [],
           "related": []
+        },
+        {
+          "id": "mech-companion",
+          "title": "Companion Cooperation",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "mechanic",
+            "companion",
+            "fox"
+          ],
+          "body": "Contextual cooperative interaction with an independent companion.\n\nDesired vocabulary:\n- Call / attract companion when available.\n- Contextual target or request rather than direct second-character joystick control.\n- Companion can traverse small, high, fragile or inaccessible routes.\n- Retrieve / knock down light objects.\n- Hold triggers or occupy positions while Aureli acts elsewhere.\n- Companion autonomy: can leave, refuse, react or appear elsewhere when story requires.\n- Later human-form cooperation can add lifting, boosting, pulling, communication and more conventional two-person interactions.\n\nThe system should be reusable by other companions / NPCs rather than hard-coded specifically to one fox.",
+          "children": [],
+          "related": [
+            "character-companion"
+          ]
+        },
+        {
+          "id": "mech-anomaly",
+          "title": "Artefact / Anomaly Field Effects",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "mechanic",
+            "artefact",
+            "vfx",
+            "physics"
+          ],
+          "body": "Reusable world volumes or authored artefacts that alter a controlled set of game rules.\n\nCandidate channels:\n- gravity direction / strength;\n- object weight or force;\n- movement / animation / simulation rate;\n- biological growth or state;\n- visibility / perception;\n- sound filtering / pitch / time;\n- fog, light, colour and post processing;\n- object / collision state;\n- water or environmental motion.\n\nAn effect should be authorable as a combination of channels rather than one bespoke code path per puzzle. This gives the design team a versatile 'strangeness vocabulary' while keeping rules consistent.",
+          "children": [],
+          "related": [
+            "universe-artifacts",
+            "engine-anomalies"
+          ]
+        },
+        {
+          "id": "mech-aureli-abilities",
+          "title": "Aureli — Acquired Anomaly Abilities",
+          "status": "OPEN",
+          "implementation": "NEEDED",
+          "tags": [
+            "mechanic",
+            "aureli",
+            "progression"
+          ],
+          "body": "Potential progression system in which Aureli gains limited control over effects first experienced through artefacts.\n\nPreferred pattern:\n**Encounter phenomenon → learn its environmental rules → solve within it → Aureli is changed → later invoke a constrained version herself → revisit old mechanics with new possibilities.**\n\nThis should replace conventional RPG-style stat progression. Abilities must remain thematically connected to the planetary systems and should create puzzle combinations rather than combat escalation.\n\nExact abilities are not yet chosen.",
+          "children": [],
+          "related": [
+            "character-aureli",
+            "universe-transformation"
+          ]
         }
       ],
       "related": []
@@ -732,6 +1090,23 @@
           "related": []
         },
         {
+          "id": "engine-companion",
+          "title": "Companion / NPC Behaviour System",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "engine",
+            "ai",
+            "companion"
+          ],
+          "body": "Required for a recurring fox / boy companion and future NPCs.\n\nShould support contextual navigation, simple autonomous behaviours, summon/call states, authored appearance/disappearance, interaction targets, cooperation with puzzle nodes, and character state changes without requiring a heavyweight general AI system.",
+          "children": [],
+          "related": [
+            "mech-companion",
+            "character-companion"
+          ]
+        },
+        {
           "id": "engine-camera",
           "title": "Camera",
           "status": "CURRENT",
@@ -756,6 +1131,23 @@
           "body": "No general particle framework yet. Target a reusable pooled particle/emitter system with quality scaling for leaves, dust, pollen, fireflies, rain, splashes, mist and similar flourishes.",
           "children": [],
           "related": []
+        },
+        {
+          "id": "engine-anomalies",
+          "title": "Anomaly Field / World-Rule Modifier System",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "engine",
+            "artefact",
+            "vfx"
+          ],
+          "body": "A reusable system for localised artefact effects. Designers should be able to define a field or artefact and choose which world channels it modifies — physics, animation time, environment, audio, post processing, object state, particles and potentially character abilities.\n\nCentralising this prevents each strange puzzle becoming bespoke code and lets the same technology drive story spectacle, environmental variation and mechanics.",
+          "children": [],
+          "related": [
+            "mech-anomaly",
+            "universe-artifacts"
+          ]
         },
         {
           "id": "engine-post",
@@ -1037,7 +1429,22 @@
         "planning"
       ],
       "body": "## Priority 1 — story spine\n- Who is the protagonist: name, age, home, personality and key relationship?\n- Why does she leave, and what destination does she initially believe she is trying to reach?\n- What is the central mystery or truth of the world?\n- What emotional change should the player feel in her by the ending?\n\n## Priority 2 — structure and tone\n- Is the game one continuous physical journey, chapter-based loads, or a hybrid?\n- How unsettling, sad or frightening can the world become?\n- What is the role of other characters: rare encounters, recurring companion, settlement inhabitants, memories, or something else?\n- What does the Stone Wall / Forest Key thread lead to?\n\n## Priority 3 — production shape\n- Which 5–8 mechanics form the full game’s reusable core vocabulary?\n- What environmental families make 2–4 hours feel rich without unsustainable bespoke art?\n- What is Chapter 1’s final story beat that makes the player want to continue?\n\n## Recommended next design exercise\nWrite the one-paragraph premise and protagonist bio first, then outline the five chapter story beats in only one or two sentences each. Once that spine exists, map current/future puzzles onto it and identify where new mechanics are truly needed.",
-      "children": [],
+      "children": [
+        {
+          "id": "open-canon-questions",
+          "title": "Hidden Canon — Decisions Still Open",
+          "status": "OPEN",
+          "implementation": "N/A",
+          "tags": [
+            "open",
+            "canon",
+            "universe"
+          ],
+          "body": "- Why did the intended colonists not arrive as expected?\n- What is the true origin of Aureli's people?\n- What triggered the current large-scale correction?\n- Is the network sentient, emergent, or merely adaptive?\n- What exactly happens to organisms inside the Darkness?\n- What determines a transformed organism's new form?\n- Can transformation be deliberately reversed or controlled?\n- What local / global consequence would follow if the network were stopped?\n- Does the civilisation that launched the missions still exist?\n- Which truths, if any, should Game 1 reveal explicitly?",
+          "children": [],
+          "related": []
+        }
+      ],
       "related": []
     },
     {
@@ -1049,7 +1456,20 @@
         "history"
       ],
       "body": "- **0.2 — 25 Sep 2026:** Living GDD moved into the new in-project Design Lab; structured contents, editable metadata, local autosave and import/export added.\n- **0.1 — 25 Sep 2026:** Initial living GDD created from SideScroll v1.0.56, established art/interaction decisions, current puzzle systems, active cart puzzle design and longer-form chapter/MVP discussion.\n\n## Maintenance rule\nUpdate this document when a decision changes player experience, world/story canon, reusable puzzle vocabulary, chapter structure, art/audio baseline, or an engine capability that materially changes what content can be authored. Minor implementation fixes do not need their own GDD entry unless they alter a design constraint.",
-      "children": [],
+      "children": [
+        {
+          "id": "change-0-3",
+          "title": "v0.3 — Aureli / Hidden Universe Foundation",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "changelog"
+          ],
+          "body": "- Added parallel **Creator View** and **Player View** story summaries.\n- Added playable Aureli opening incident and reveal-map structure.\n- Added Aureli, her father and the fox/boy companion concepts.\n- Added full **Universe Bible / Hidden Canon** section covering the origin civilisation, terraforming mission, artefact families, planetary network, Darkness, transformation, deep-time history and mystery rules.\n- Added companion cooperation, anomaly fields and possible Aureli ability mechanics.\n- Added corresponding companion / NPC and anomaly-field engine requirements.\n- Added the Darkness-following journey spine and hidden-canon open questions.",
+          "children": [],
+          "related": []
+        }
+      ],
       "related": []
     }
   ]

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.57';
+  const VERSION = '1.0.58';
   const STORAGE_KEY = 'sidescroll-design-doc-working-v1';
   const BUNDLED_URL = `design-doc.json?v=${VERSION}`;
   const VALID_STATUSES = ['CURRENT', 'LOCKED', 'PROPOSED', 'OPEN', 'RETIRED'];
@@ -42,6 +42,32 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const normalise = value => String(value ?? '').toLowerCase().normalize('NFKD');
+
+  function mergeBundledAdditions(working, bundled) {
+    let added = 0;
+    const mergeLists = (targetList, bundledList) => {
+      bundledList.forEach((bundledNode, bundledIndex) => {
+        let targetNode = targetList.find(item => item.id === bundledNode.id);
+        if (!targetNode) {
+          targetNode = clone(bundledNode);
+          targetList.splice(Math.min(bundledIndex, targetList.length), 0, targetNode);
+          added += 1;
+          return;
+        }
+        if (!Array.isArray(targetNode.children)) targetNode.children = [];
+        mergeLists(targetNode.children, bundledNode.children || []);
+      });
+    };
+
+    if (!Array.isArray(working.sections)) working.sections = [];
+    mergeLists(working.sections, bundled.sections || []);
+    if (added || working.documentVersion !== bundled.documentVersion) {
+      working.documentVersion = bundled.documentVersion;
+      working.baselineBuild = bundled.baselineBuild;
+      working.updated = bundled.updated;
+    }
+    return added;
+  }
 
   function walkSections(sections = doc?.sections || [], parent = null, depth = 0, out = []) {
     sections.forEach((section, index) => {
@@ -536,9 +562,15 @@
       bundledDoc = await response.json();
       let working = null;
       try { working = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (_) {}
-      doc = working?.schemaVersion === bundledDoc.schemaVersion && Array.isArray(working.sections) ? working : clone(bundledDoc);
-      if (!working) saveNow('Bundled document ready');
-      else if (els.saveState) els.saveState.textContent = 'Working document loaded';
+      if (working?.schemaVersion === bundledDoc.schemaVersion && Array.isArray(working.sections)) {
+        const added = mergeBundledAdditions(working, bundledDoc);
+        doc = working;
+        if (added) saveNow(`${added} new design ${added === 1 ? 'entry' : 'entries'} added`);
+        else if (els.saveState) els.saveState.textContent = 'Working document loaded';
+      } else {
+        doc = clone(bundledDoc);
+        saveNow('Bundled document ready');
+      }
       render();
       if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
     } catch (error) {

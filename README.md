@@ -1,7 +1,8 @@
-# SideScroll v1.0.57
+# SideScroll v1.0.58
 
-- Adds **Design Lab** to the launcher alongside Asset Lab and Walk Lab.
-- Seeds a structured living Game Design Document covering vision, story questions, chapters, mechanics, puzzles, engine capability, art/audio direction and roadmap.
-- Adds phone-first contents navigation, search, editable sections, status/engine-support tags, subsections, reordering and local autosave.
-- Adds Design Lab JSON export/share, import and reset-to-bundled controls so design data can travel with future builds.
-- Design Lab intentionally supports both portrait and landscape editing; normal gameplay orientation behaviour is unchanged.
+- Expands **Design Lab** with the first full Aureli story and hidden-universe foundation.
+- Adds separate **The Story We Know — Creator View** and **The Story the Player Knows — Aureli’s View** entries, plus a staged Knowledge & Reveal Map.
+- Documents Aureli’s opening incident, her father, and the proposed fox/boy companion relationship and puzzle role.
+- Adds a new **Universe Bible / Hidden Canon** covering the off-world civilisation, autonomous terraforming mission, artefact families, planetary network, the Darkness, transformation and deep-time story potential.
+- Adds companion cooperation, anomaly-field and possible Aureli ability mechanics, with matching engine requirements.
+- Design Lab now merges new bundled entries into an existing local working document without overwriting local edits.
