@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.58';
+  const VERSION = '1.0.59';
   const STORAGE_KEY = 'sidescroll-design-doc-working-v1';
   const BUNDLED_URL = `design-doc.json?v=${VERSION}`;
   const VALID_STATUSES = ['CURRENT', 'LOCKED', 'PROPOSED', 'OPEN', 'RETIRED'];

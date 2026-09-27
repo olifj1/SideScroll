@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.3",
+  "documentVersion": "0.4",
   "project": "SideScroll",
   "title": "Living Game Design Document",
-  "baselineBuild": "1.0.58",
-  "updated": "2026-09-26",
-  "description": "Living SideScroll game design document. v0.3 adds Aureli story foundations, player-vs-creator knowledge, companion concept, hidden universe canon, terraforming artefacts, Darkness interpretation and reveal planning.",
+  "baselineBuild": "1.0.59",
+  "updated": "2026-09-27",
+  "description": "Living SideScroll game design document. v0.4 develops Aureli’s proposed ending: the central terraforming control interface, biological compatibility with the intended creators, maintenance mode, and working explanations for why the Darkness collects living things.",
   "sections": [
     {
       "id": "vision",
@@ -220,8 +220,26 @@
             "hidden",
             "universe"
           ],
-          "body": "## Working hidden story\nLong before Aureli's lifetime, on another world, a technologically and biologically advanced human or human-like civilisation badly damaged its home planet. Facing an uncertain future, it launched thousands of autonomous missions toward worlds that might one day become new homes.\n\nAureli's planet was one of those targets. It was promising, but not naturally suitable enough for the civilisation that sent the missions. An automated system therefore scattered a vast network of world-shaping artefacts across the planet. Different artefacts were given different jobs: alter atmospheric chemistry; encourage plant life that could create the desired air; regulate water and climate; compensate for gravity; steer or accelerate biological adaptation; balance ecological systems; and perform other forms of long-term planetary engineering.\n\nThe expected settlers did not arrive when planned — and may never have arrived at all. The terraforming network nevertheless continued its mission for an immense span of time. The planet changed around it and, in turn, the machines adapted to the planet. Forests grew over and through them. Animals nested around them. Cultures arose in a world where the artefacts had always existed. Technology and nature became so intertwined that the distinction is no longer obvious.\n\nThe network is now ancient, distributed and highly adaptive. Some components may have failed; others may have compensated for those failures; and the system may have changed how it interprets its original goal. It does not need to be conscious in a human sense to behave in ways that look purposeful, frightening or even malevolent.\n\nAt the beginning of Aureli's story, something has caused the planetary system to begin a significant correction. The phenomenon Aureli experiences as **the Darkness** is provisionally part of that process: a mobile collection, analysis, relocation or reconfiguration event moving through the living world. To Aureli it takes people and animals. To the system it may simply be acquiring or adjusting biological material in pursuit of planetary parameters it was instructed to maintain thousands of years ago.\n\nAureli's father is caught by the Darkness. A second young person is also affected and emerges in an animal form — currently imagined as a fox — either through deliberate adaptation, reconstruction or an unintended interaction between biological terraforming systems. Aureli meets this animal without knowing its human origin. Their relationship becomes central to the journey.\n\nAs Aureli follows the path of the Darkness she encounters increasingly visible effects of the artefact network: altered gravity, time or motion, biological change, environmental anomalies and other phenomena. Some encounters may leave Aureli herself changed, allowing her to reproduce limited versions of effects she first experiences in the world.\n\nThe full truth does **not** need to be revealed in Aureli's game. Her story remains the personal story of a girl looking for her father, building a relationship with another lost person and learning that her familiar world is far stranger than she believed. The deep planetary story can remain beneath that journey and support later games, other characters, other regions and other eras.\n\n## Deliberately unresolved creator questions\n- Why did the intended settlers fail to arrive?\n- Did any original settlers arrive at all?\n- Where did Aureli's human-like civilisation come from?\n- Is the network genuinely sentient, emergently intelligent, or simply adaptive at enormous scale?\n- What triggered the current correction event?\n- Is the Darkness one system, many coordinated systems, or a temporary behaviour of the wider network?\n- What does the network now consider a successful planet?\n- Does the civilisation that launched the missions still exist elsewhere?",
-          "children": [],
+          "body": "## Working hidden story\nLong before Aureli's lifetime, on another world, a technologically and biologically advanced human or human-like civilisation badly damaged its home planet. Facing an uncertain future, it launched thousands of autonomous missions toward worlds that might one day become new homes.\n\nAureli's planet was one of those targets. It was promising, but not naturally suitable enough for the civilisation that sent the missions. An automated system therefore scattered a vast network of world-shaping artefacts across the planet. Different artefacts were given different jobs: alter atmospheric chemistry; encourage plant life that could create the desired air; regulate water and climate; compensate for gravity; steer or accelerate biological adaptation; balance ecological systems; and perform other forms of long-term planetary engineering.\n\nThe expected settlers did not arrive when planned — and may never have arrived at all. The terraforming network nevertheless continued its mission for an immense span of time. The planet changed around it and, in turn, the machines adapted to the planet. Forests grew over and through them. Animals nested around them. Cultures arose in a world where the artefacts had always existed. Technology and nature became so intertwined that the distinction is no longer obvious.\n\nThe network is now ancient, distributed and highly adaptive. Some components may have failed; others may have compensated for those failures; and the system may have changed how it interprets its original goal. It does not need to be conscious in a human sense to behave in ways that look purposeful, frightening or even malevolent.\n\nAt the beginning of Aureli's story, something has caused the planetary system to begin a significant correction. The phenomenon Aureli experiences as **the Darkness** is provisionally part of that process: a mobile collection, analysis, relocation or reconfiguration event moving through the living world. To Aureli it takes people and animals. To the system it may simply be acquiring or adjusting biological material in pursuit of planetary parameters it was instructed to maintain thousands of years ago.\n\nAureli's father is caught by the Darkness. A second young person is also affected and emerges in an animal form — currently imagined as a fox — either through deliberate adaptation, reconstruction or an unintended interaction between biological terraforming systems. Aureli meets this animal without knowing its human origin. Their relationship becomes central to the journey.\n\nAs Aureli follows the path of the Darkness she encounters increasingly visible effects of the artefact network: altered gravity, time or motion, biological change, environmental anomalies and other phenomena. Some encounters may leave Aureli herself changed, allowing her to reproduce limited versions of effects she first experiences in the world.\n\nThe full truth does **not** need to be revealed in Aureli's game. Her story remains the personal story of a girl looking for her father, building a relationship with another lost person and learning that her familiar world is far stranger than she believed. The deep planetary story can remain beneath that journey and support later games, other characters, other regions and other eras.\n\n## Deliberately unresolved creator questions\n- Why did the intended settlers fail to arrive?\n- Did any original settlers arrive at all?\n- Where did Aureli's human-like civilisation come from?\n- Is the network genuinely sentient, emergently intelligent, or simply adaptive at enormous scale?\n- What triggered the current correction event?\n- Is the Darkness one system, many coordinated systems, or a temporary behaviour of the wider network?\n- What does the network now consider a successful planet?\n- Does the civilisation that launched the missions still exist elsewhere?## Proposed end-state of Aureli's journey\nAureli eventually reaches the deepest / central artefact: a control and reporting machine intended to be used by the original colonists when they finally arrived. Its purpose is not to run every local process manually, but to let an authorised arrival confirm that the expedition has reached the planet, assess terraforming progress and issue high-level instructions such as **continue**, **change target parameters**, **pause major correction**, or **enter maintenance**.\n\nBy the time Aureli reaches it, the planetary network has spent millennia shaping the biosphere toward compatibility with the civilisation it was built to receive. One strong hidden-canon possibility is that Aureli's people have themselves emerged under that influence and are now biologically close enough to the intended colonists that the interface recognises Aureli as an authorised human arrival. Her repeated exposure to artefact systems during the journey may complete or expose that compatibility, but she should not become important because of a prophecy or unique bloodline: she matters primarily because **she is the person who made the journey and reached the machine**.\n\nThe central interface performs a kind of identity / compatibility check that roaming maintenance processes were never designed to perform. After an immense period of waiting, the system can therefore interpret Aureli's presence as the condition it was waiting for: **colonist arrival confirmed**.\n\nAureli does not need to understand the off-world history behind this. She only needs to understand the practical choice in front of her: the world is already alive, inhabited and worth preserving, while the network's escalating correction is hurting it. Her final instruction is therefore not to destroy the artefacts, but to tell the system that the arrival condition has been satisfied and that large-scale transformation can stop. The network enters **maintenance mode**: continuing the background systems that the current ecosystem depends on while suspending the aggressive attempt to remake the planet.\n\nThis creates a circular hidden truth: the terraforming system waited for humans to arrive, but by shaping the planet for so long it may effectively have helped create the human-compatible civilisation that eventually tells it **we are already here**.\n\nThe father's fate still requires a separate emotional resolution. Reaching the control machine must not reduce him to a plot token; the ending should resolve what happened to him and what Aureli has learned or lost through the journey.",
+          "children": [
+            {
+              "id": "story-creator-ending-v04",
+              "title": "Ending Extension — Arrival Confirmed",
+              "status": "PROPOSED",
+              "implementation": "N/A",
+              "tags": [
+                "ending",
+                "creator-view",
+                "v0.4"
+              ],
+              "body": "At the end of the proposed arc, Aureli reaches the central arrival/control artefact. This is the component the original colonists were meant to use after reaching the planet: it verifies a compatible human arrival, reports on the terraforming programme and accepts mission-level feedback.\n\nThe system has spent millennia shaping the planet toward its intended users. Aureli's civilisation may therefore have become biologically compatible with the people the network was waiting for. The machine recognises Aureli as an authorised / compatible arrival and treats the ancient arrival condition as fulfilled.\n\nAureli orders the system to stop large-scale correction and enter maintenance mode. The hidden irony is that the terraformers may have effectively produced the colonists they were waiting for. The player's emotional story resolves here, while the origin civilisation and much of the deep history can remain unrevealed.",
+              "children": [],
+              "related": [
+                "narrative-ending-arrival",
+                "universe-central-interface"
+              ]
+            }
+          ],
           "related": []
         },
         {
@@ -234,8 +252,25 @@
             "player-knowledge",
             "aureli"
           ],
-          "body": "## At the beginning\nAureli knows an ordinary life in and around a forest home with her father. The world may contain old, strange objects and local stories, but she does not understand the planet as engineered and has no knowledge of an off-world civilisation or terraforming mission.\n\nOne morning the forest falls unnaturally silent. Animals begin fleeing in panic. A vast, impossible darkness moves through the trees and Aureli sees living things caught inside it. Her father appears within it for a moment and calls to her before he is pulled away. When the phenomenon passes, it leaves mist, quiet and a changed atmosphere behind.\n\nAureli does not know what the Darkness is. She knows only that it took her father and moved onward. She packs what she can carry and follows its path.\n\n## What the player gradually experiences\n- The world ahead has been affected in ways that do not fit normal rules.\n- Ancient artefacts can alter physical and biological behaviour around them.\n- The artefacts seem different from one another, but share a recognisable language and may be connected.\n- A small animal — currently a fox — repeatedly crosses Aureli's path. It also appears to have survived or escaped the Darkness.\n- Aureli and the animal slowly learn to trust and help one another. It is not permanently attached to her and may disappear for stretches; a call or flute can later become part of their relationship and puzzle language.\n- The companion understands and reacts to the human world in ways that become increasingly difficult to explain as ordinary animal behaviour.\n- Later, an artefact or related event reveals that the animal is a human boy who was changed by whatever happened to him. The transformation may be reversible, intermittent or only partly repaired.\n- Aureli may herself acquire strange, limited abilities after repeated contact with artefact phenomena, without fully understanding why.\n- Evidence gradually suggests that the Darkness and artefacts are not random supernatural events. They are part of something old, widespread and systematic.\n\n## What the player does not need to learn\nThe player does not need an exposition scene explaining spacecraft, terraforming, the civilisation that launched the network, or the complete planetary history. Even by the end, the player may understand **more of the pattern** without knowing the ultimate origin.\n\nThe emotional story should resolve more clearly than the universe story. The player should understand what Aureli has lost, whom she has found, what choices she has made and how her relationship with her father and companion has changed, while still feeling that the world extends far beyond what this one character could possibly know.",
-          "children": [],
+          "body": "## At the beginning\nAureli knows an ordinary life in and around a forest home with her father. The world may contain old, strange objects and local stories, but she does not understand the planet as engineered and has no knowledge of an off-world civilisation or terraforming mission.\n\nOne morning the forest falls unnaturally silent. Animals begin fleeing in panic. A vast, impossible darkness moves through the trees and Aureli sees living things caught inside it. Her father appears within it for a moment and calls to her before he is pulled away. When the phenomenon passes, it leaves mist, quiet and a changed atmosphere behind.\n\nAureli does not know what the Darkness is. She knows only that it took her father and moved onward. She packs what she can carry and follows its path.\n\n## What the player gradually experiences\n- The world ahead has been affected in ways that do not fit normal rules.\n- Ancient artefacts can alter physical and biological behaviour around them.\n- The artefacts seem different from one another, but share a recognisable language and may be connected.\n- A small animal — currently a fox — repeatedly crosses Aureli's path. It also appears to have survived or escaped the Darkness.\n- Aureli and the animal slowly learn to trust and help one another. It is not permanently attached to her and may disappear for stretches; a call or flute can later become part of their relationship and puzzle language.\n- The companion understands and reacts to the human world in ways that become increasingly difficult to explain as ordinary animal behaviour.\n- Later, an artefact or related event reveals that the animal is a human boy who was changed by whatever happened to him. The transformation may be reversible, intermittent or only partly repaired.\n- Aureli may herself acquire strange, limited abilities after repeated contact with artefact phenomena, without fully understanding why.\n- Evidence gradually suggests that the Darkness and artefacts are not random supernatural events. They are part of something old, widespread and systematic.\n\n## What the player does not need to learn\nThe player does not need an exposition scene explaining spacecraft, terraforming, the civilisation that launched the network, or the complete planetary history. Even by the end, the player may understand **more of the pattern** without knowing the ultimate origin.\n\nThe emotional story should resolve more clearly than the universe story. The player should understand what Aureli has lost, whom she has found, what choices she has made and how her relationship with her father and companion has changed, while still feeling that the world extends far beyond what this one character could possibly know.## Proposed finale from the player's point of view\nAureli eventually reaches an artefact unlike the others: something that reacts to her deliberately rather than merely altering the environment around her. It recognises her, opens or activates for her, and presents a simple high-level choice or communication that she can understand well enough to act on.\n\nThe player may infer that this place was built **for someone to arrive and answer it**, but does not need a lecture about another planet, automated colony ships or the complete deep-time history. Fragmentary interface language, images or behaviour can suggest immense elapsed time and a long-unfulfilled arrival condition.\n\nThe key emotional understanding is simpler: the system has been trying to change a world that is already somebody's home. Aureli can tell it, in effect, **we are here now; stop changing us**. The frightening large-scale correction ceases and the older background systems fall into a quieter maintenance state.\n\nThe world should remain strange after this. Artefacts still exist, damaged anomaly zones may persist and many questions remain unanswered. Aureli resolves the crisis affecting her journey without resolving the universe.",
+          "children": [
+            {
+              "id": "story-player-ending-v04",
+              "title": "Ending Extension — What Aureli / Player Experience",
+              "status": "PROPOSED",
+              "implementation": "N/A",
+              "tags": [
+                "ending",
+                "player-view",
+                "v0.4"
+              ],
+              "body": "Aureli reaches an artefact that behaves unlike the others: it recognises her, deliberately opens to her and presents a simple choice / request for instruction. She does not need to learn the off-world history.\n\nWhat she can understand is enough: this system has been waiting for someone like her, the current correction is something it can stop, and the living world does not need to be remade. She tells it, in effect, **we are already here**.\n\nThe correction ceases and the network settles into maintenance. The player may infer a much larger truth from fragments of interface behaviour, but Aureli's personal story remains the foreground.",
+              "children": [],
+              "related": [
+                "narrative-ending-arrival"
+              ]
+            }
+          ],
           "related": []
         },
         {
@@ -263,9 +298,49 @@
             "reveal",
             "mystery"
           ],
-          "body": "Use this entry to control the gap between **creator truth** and **player knowledge**. A mystery should be consistent even when it remains unexplained.\n\n## Layer 0 — Hidden canon only\n- Off-world civilisation and damaged home planet.\n- Thousands of autonomous colonisation / terraforming missions.\n- Aureli's planet as one target world.\n- Artefacts as a distributed planetary engineering network.\n- Original mission parameters and deep-time history.\n\n## Layer 1 — Opening: personal certainty\nThe player learns only what Aureli can directly witness: the forest changes, the Darkness takes her father, and it leaves a path she can follow.\n\n## Layer 2 — Early journey: repeatable strangeness\nArtefacts and anomalies demonstrate consistent effects. The fox appears, disappears and begins helping. The player learns that the weirdness has rules, but not why.\n\n## Layer 3 — Middle journey: connection\nDifferent artefacts begin to look related. Settlements, folklore, ruins or environmental evidence show that the phenomena are ancient and widespread. The fox's behaviour implies a human history. The Darkness appears connected to the same underlying system.\n\n## Layer 4 — Major character reveal\nThe companion is shown to be a transformed boy. This proves that biological identity can be altered and reframes earlier scenes. Aureli may begin acquiring limited anomaly-related abilities herself.\n\n## Layer 5 — Late game: reinterpretation, not explanation\nThe player gains enough evidence to understand that the apparent 'evil force' may be performing a function rather than acting from hatred. The final act can reveal a local purpose or immediate consequence without explaining the off-world origin.\n\n## Potentially withheld beyond Game 1\nThe civilisation that launched the network, the intended colonists, Aureli's species/history, the network's full objective and the exact reason for the current correction can remain hidden for future stories.\n\n### Rule\nEvery major reveal should answer one immediate question while opening or sharpening another. Do not resolve mystery by exposition when the same information can be experienced through behaviour, environment or character consequence.",
-          "children": [],
+          "body": "Use this entry to control the gap between **creator truth** and **player knowledge**. A mystery should be consistent even when it remains unexplained.\n\n## Layer 0 — Hidden canon only\n- Off-world civilisation and damaged home planet.\n- Thousands of autonomous colonisation / terraforming missions.\n- Aureli's planet as one target world.\n- Artefacts as a distributed planetary engineering network.\n- Original mission parameters and deep-time history.\n\n## Layer 1 — Opening: personal certainty\nThe player learns only what Aureli can directly witness: the forest changes, the Darkness takes her father, and it leaves a path she can follow.\n\n## Layer 2 — Early journey: repeatable strangeness\nArtefacts and anomalies demonstrate consistent effects. The fox appears, disappears and begins helping. The player learns that the weirdness has rules, but not why.\n\n## Layer 3 — Middle journey: connection\nDifferent artefacts begin to look related. Settlements, folklore, ruins or environmental evidence show that the phenomena are ancient and widespread. The fox's behaviour implies a human history. The Darkness appears connected to the same underlying system.\n\n## Layer 4 — Major character reveal\nThe companion is shown to be a transformed boy. This proves that biological identity can be altered and reframes earlier scenes. Aureli may begin acquiring limited anomaly-related abilities herself.\n\n## Layer 5 — Late game: reinterpretation, not explanation\nThe player gains enough evidence to understand that the apparent 'evil force' may be performing a function rather than acting from hatred. Clues suggest the world-changing systems have been waiting for, measuring or preparing for something.\n\n## Layer 6 — Finale: arrival recognised\nThe central interface reacts to Aureli as an intended user. The player learns that the system was built to accept feedback from an arriving human-compatible operator and has been waiting an extraordinary length of time. Aureli can halt the present correction and place the network into maintenance. The player can infer that the system has mistaken, accepted or reclassified Aureli as the arrival it expected.\n\nThe game still does **not** need to state the entire off-world origin. The finale resolves what the system is trying to do *now* and gives Aureli agency over it without explaining every historical cause.\n\n## Potentially withheld beyond Game 1\nThe civilisation that launched the network, the intended colonists, Aureli's species/history, the network's full objective and the exact reason for the current correction can remain hidden for future stories.\n\n### Rule\nEvery major reveal should answer one immediate question while opening or sharpening another. Do not resolve mystery by exposition when the same information can be experienced through behaviour, environment or character consequence.",
+          "children": [
+            {
+              "id": "reveal-map-ending-v04",
+              "title": "Final Reveal Layer — Arrival Interface",
+              "status": "PROPOSED",
+              "implementation": "N/A",
+              "tags": [
+                "reveal",
+                "ending",
+                "v0.4"
+              ],
+              "body": "**Finale reveal target:** the central machine was built to receive feedback from an arriving human-compatible operator; it recognises Aureli and allows the current correction to be halted.\n\nThis can reveal that the artefacts are purposeful engineered systems and that they have been waiting an immense time, without revealing the origin planet, the full colonisation history or why the original settlers failed to arrive.",
+              "children": [],
+              "related": [
+                "universe-central-interface"
+              ]
+            }
+          ],
           "related": []
+        },
+        {
+          "id": "narrative-ending-arrival",
+          "title": "Proposed Ending — “We Are Already Here”",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "story",
+            "ending",
+            "aureli",
+            "interface",
+            "maintenance"
+          ],
+          "body": "## Core ending idea\nAureli reaches the central control artefact / planetary coordination interface that was intended for the original colonists to use when they arrived.\n\nThe machine has spent millennia waiting for an authorised arrival to report on the terraforming programme. It can accept high-level feedback: continue, adjust, suspend major correction or move into long-term maintenance.\n\nBecause the network has spent so long shaping life toward the biological requirements of its intended users, Aureli is now compatible enough to be recognised by the system. Her journey may have altered her further, but the emotional point is not that she is a chosen superhuman; the larger irony is that the network may have helped produce the very people it was waiting for.\n\nThe machine treats Aureli's arrival as fulfilment of an ancient condition. Aureli understands only enough to recognise that the current correction is hurting a living world. Her decisive act is to tell the system that the people are already here and the world no longer needs to be remade.\n\n## Resolution\nThe network enters **maintenance mode**, preserving the planetary systems that modern ecosystems depend upon while suspending aggressive correction / reconfiguration.\n\nThe artefacts do not disappear. The planet does not become ordinary. This closes Aureli's immediate crisis while leaving the wider universe open for later stories.\n\n## Emotional bookend\nA possible echo of the opening: after Aureli issues the instruction, the world falls completely silent again. This time the silence does not herald disaster. One bird calls, then another; wind, insects and water gradually return. The same sensory language that began the journey now signals that the world has been allowed to continue being itself.\n\n## Still to resolve\n- What exactly happens to Aureli's father and how is he recovered / changed / lost?\n- What does Aureli literally perceive in the final interface?\n- How much can she understand versus how much only the player can infer?\n- Is Aureli already compatible, or do changes acquired during the journey complete the recognition threshold?\n- Does the network identify her as an original creator, a colonist, a compatible descendant/substitute, or simply an authorised human biological profile?",
+          "children": [],
+          "related": [
+            "story-creator-view",
+            "story-player-view",
+            "reveal-map",
+            "universe-central-interface",
+            "universe-compatible-arrival",
+            "universe-maintenance-mode"
+          ]
         },
         {
           "id": "narrative-delivery",
@@ -462,16 +537,37 @@
         },
         {
           "id": "chapter-5",
-          "title": "Chapter 5 — Destination / Finale",
-          "status": "OPEN",
+          "title": "Chapter 5 — Central Artefact / Arrival Interface",
+          "status": "PROPOSED",
           "implementation": "NEEDED",
           "tags": [
             "chapter",
             "finale"
           ],
-          "body": "**Gameplay:** use mastered mechanics selectively; avoid a puzzle gauntlet for its own sake.\n\n**Narrative function:** resolve the reason for the journey and protagonist arc.\n\nThe location and ending remain deliberately open until the story spine is defined.",
-          "children": [],
-          "related": []
+          "body": "## Purpose\nBring Aureli's personal pursuit and the hidden planetary machinery into the same final location without turning the finale into a conventional boss fight.\n\nAureli reaches the central control artefact that the terraforming mission expected its colonists to use upon arrival. The location should feel qualitatively different from earlier artefacts: not necessarily cleaner or less overgrown, but more obviously **responsive** and intentional.\n\n## Player experience\n- The machine recognises Aureli and grants access.\n- Fragments of interface behaviour suggest that it has been waiting for an arrival for an immense period.\n- The player understands that the ongoing correction can be stopped / changed from here.\n- Aureli chooses preservation over continued remaking and places the wider network into maintenance mode.\n- Her father's fate and the companion relationship receive their emotional resolution around this sequence.\n- The world settles rather than becoming ordinary.\n\n## Desired ending language\nConsider mirroring the opening's silence. After the command, sound disappears briefly; then birds, wind, insects and water return one by one. At the beginning silence means something is terribly wrong. At the end the return of ordinary sound confirms that the world has been allowed to continue.\n\n## Mystery boundary\nThe central artefact can prove that the systems were made for an arriving people without identifying the origin planet or explaining the complete history. Aureli solves the present crisis; she does not become an archaeologist of the entire universe.",
+          "children": [
+            {
+              "id": "chapter-5-arrival-v04",
+              "title": "Finale Direction — Central Arrival Interface",
+              "status": "PROPOSED",
+              "implementation": "NEEDED",
+              "tags": [
+                "finale",
+                "location",
+                "v0.4"
+              ],
+              "body": "The proposed final destination is the high-level control artefact intended for colonist arrival. It recognises Aureli, exposes enough of the system's purpose for her to act, and lets her suspend aggressive correction in favour of maintenance.\n\nKeep the father's resolution and companion resolution emotionally present in this location; the finale must not become a lore terminal.",
+              "children": [],
+              "related": [
+                "narrative-ending-arrival"
+              ]
+            }
+          ],
+          "related": [
+            "narrative-ending-arrival",
+            "universe-central-interface",
+            "universe-maintenance-mode"
+          ]
         },
         {
           "id": "location-template",
@@ -570,6 +666,66 @@
           "related": []
         },
         {
+          "id": "universe-central-interface",
+          "title": "Central Control Artefact — Arrival Interface",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "artefact",
+            "control",
+            "interface",
+            "colonists",
+            "finale"
+          ],
+          "body": "The distributed terraforming network includes a high-level control / reporting artefact intended for the expedition's creators or colonists to use **after arrival**.\n\nIts original purpose is practical rather than mystical: verify an authorised arrival, summarise planetary preparation, accept feedback and alter the network's top-level operating state. Possible commands include continuing terraforming, changing target parameters, suspending a problematic correction, or entering long-term maintenance.\n\nThis distinction helps explain why ordinary terraforming nodes can manipulate human-like organisms without recognising them as the awaited colonists. **Identity recognition is not necessarily a function every node possesses.** The roaming machinery follows local environmental objectives; the central arrival interface is the component designed to ask who has arrived and whether the mission is complete.\n\nThe interface should feel ancient and partially legible rather than becoming an exposition terminal. Its behaviour can communicate more than its words: it opens for Aureli, checks her, acknowledges her as compatible / authorised, reports immense elapsed time and asks for a high-level decision.\n\nWhether it literally calls Aureli a creator, colonist, authorised human, compatible arrival or some equivalent remains open until the universe terminology is settled.",
+          "children": [],
+          "related": [
+            "narrative-ending-arrival",
+            "universe-mission",
+            "universe-network",
+            "universe-compatible-arrival"
+          ]
+        },
+        {
+          "id": "universe-compatible-arrival",
+          "title": "The Arrival Paradox — The Network May Have Made Its Own Colonists",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "evolution",
+            "humans",
+            "colonists",
+            "biology",
+            "ending"
+          ],
+          "body": "A strong hidden-canon explanation for Aureli's human-like civilisation is that the terraforming system has spent millennia steering the biosphere toward conditions compatible with its intended colonists.\n\nThat influence does not mean linear 'higher' evolution. It means long-term selection, biological intervention and environmental shaping toward particular **compatibility parameters**: atmosphere, metabolism, body chemistry, gravity tolerance, disease resistance and potentially morphology or cognition.\n\nOne consequence may be that local intelligent life gradually converged on, inherited or was actively nudged toward the biological profile the system was waiting to support. The intended settlers never arrived, but the terraformer's own activity eventually produced a civilisation close enough to satisfy its arrival criteria.\n\nThis creates the central irony of the ending: the system has been waiting for humanity while helping create the humans already living there.\n\nAureli's anomaly exposure during the game may contribute to final recognition, but should not be the only reason. Keeping her people broadly compatible makes the reveal about the world rather than about a unique chosen individual.",
+          "children": [],
+          "related": [
+            "universe-aureli-people",
+            "universe-central-interface",
+            "narrative-ending-arrival"
+          ]
+        },
+        {
+          "id": "universe-maintenance-mode",
+          "title": "Maintenance Mode — Preserve, Do Not Rebuild",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "network",
+            "maintenance",
+            "ending",
+            "ecology"
+          ],
+          "body": "Aureli should not solve the crisis by destroying the terraforming network. After millennia, the machinery and the biosphere are interdependent: atmosphere, water, plant systems and whole ecosystems may rely on functions that began as artificial planetary engineering.\n\n**Maintenance mode** is therefore the proposed end state. The network stops large-scale correction and deliberate movement toward old colonist target parameters, but continues low-level functions required to keep the current world stable.\n\nThis preserves the strangeness of the setting after Game 1. Artefacts remain active, damaged local systems can still produce anomalies and future stories can explore regions where maintenance behaves differently.\n\nThe thematic distinction is important: Aureli is not commanding the world to become normal. She is telling an ancient system to **stop trying to turn an already living home into somebody else's planned destination**.",
+          "children": [],
+          "related": [
+            "narrative-ending-arrival",
+            "universe-central-interface",
+            "universe-network"
+          ]
+        },
+        {
           "id": "universe-darkness",
           "title": "The Darkness — Working Hidden Interpretation",
           "status": "PROPOSED",
@@ -579,9 +735,31 @@
             "network",
             "maintenance"
           ],
-          "body": "The Darkness is provisionally a manifestation of the wider terraforming / maintenance network rather than an independent evil creature.\n\nPossible function: a mobile correction process that collects, analyses, transports, restructures or redistributes biological and environmental material across areas judged to be outside desired parameters.\n\nIt may look like a void, storm or living cloud because the local technology involved operates at a scale and density Aureli cannot interpret. Living things visible within it may be in transit, suspended, sampled, transformed or reconstructed elsewhere.\n\nThe system does not need to distinguish the emotional value of one person from other biological material. This creates the central horror without requiring an evil personality.\n\nThe exact mechanics and the trigger for its appearance remain open.",
+          "body": "The Darkness is provisionally a manifestation of the wider terraforming / maintenance network rather than an independent evil creature.\n\nPossible function: a mobile correction process that collects, analyses, transports, restructures or redistributes biological and environmental material across areas judged to be outside desired parameters.\n\nIt may look like a void, storm or living cloud because the local technology involved operates at a scale and density Aureli cannot interpret. Living things visible within it may be in transit, suspended, sampled, transformed or reconstructed elsewhere.\n\nThe system does not need to distinguish the emotional value of one person from other biological material. This creates the central horror without requiring an evil personality.\n\nThe exact mechanics and the trigger for its appearance remain open.## Recognition question\nThe Darkness does not necessarily possess the protocol used to identify the original creators / colonists. A distributed terraforming system can be modular: one process moves and analyses biology, another controls atmosphere, another changes gravity, while the **central arrival interface** alone verifies that authorised humans have reached the planet and can alter mission-level goals.\n\nThis means there is no contradiction if the Darkness captures human-like people during correction while the final machine later recognises Aureli. The former may simply never ask the latter's question.",
           "children": [],
-          "related": []
+          "related": [
+            "universe-life-sweep-models",
+            "universe-central-interface"
+          ]
+        },
+        {
+          "id": "universe-life-sweep-models",
+          "title": "Why the Darkness Collects Living Things — Working Models",
+          "status": "OPEN",
+          "implementation": "N/A",
+          "tags": [
+            "darkness",
+            "biology",
+            "correction",
+            "open-question"
+          ],
+          "body": "The story needs a consistent reason why the Darkness can gather people and animals while the final interface can later recognise Aureli as an authorised human-compatible arrival.\n\n## Model A — Recognition belongs to the arrival interface\nThe Darkness is a local / regional maintenance process, not an immigration checkpoint. Its job is to collect, analyse, relocate or reconfigure biological material while correcting planetary conditions. It has no reason to classify every organism against the biological identity of the creators.\n\nOnly the central control artefact contains the arrival-recognition protocol. Aureli is therefore the first person in the story to reach the component that asks **is the awaited user finally here?**\n\nThis is currently the cleanest explanation because it preserves the network as a modular system with specialised jobs.\n\n## Model B — Living things are incidental to a broader correction\nThe Darkness may be moving, stripping, reseeding or rebuilding an entire environmental region. Animals and people are swept up because they physically occupy the area being processed, not because the system deliberately targets them.\n\nThis makes the horror even less personal: a human is caught in the same planetary operation as soil, seeds, water and animals. Biological transformation can occur during transport / reconstruction as a secondary consequence.\n\n## Combination model\nBoth may be true. A broad environmental correction collects everything in its path; biological sub-systems then analyse and adapt what has been collected. None of those systems needs to run the separate **arrival authority** check used by the central interface.\n\n## Design requirement\nWhichever model becomes canon must explain:\n- why living creatures are visibly present inside the Darkness;\n- why some are transformed rather than simply killed;\n- what happens to Aureli's father;\n- why the process has intensified now;\n- why reaching the central interface changes the network's behaviour.",
+          "children": [],
+          "related": [
+            "universe-darkness",
+            "universe-central-interface",
+            "universe-transformation"
+          ]
         },
         {
           "id": "universe-transformation",
@@ -880,6 +1058,24 @@
           ]
         },
         {
+          "id": "mech-artefact-interface",
+          "title": "Artefact Interface / High-Level Choice",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "artefact",
+            "interaction",
+            "story",
+            "choice"
+          ],
+          "body": "A restrained interaction language for major artefacts, culminating in the central arrival interface.\n\nThe player should not navigate a conventional sci-fi computer UI. Interaction can use proximity, light, spatial symbols, physical movement, sound and a very small number of deliberate choices. The finale needs Aureli to understand **enough to act** without requiring her to understand the hidden history.\n\nReusable use cases include activating dormant artefacts, selecting between physical states, acknowledging an anomaly, and making the final maintenance decision.",
+          "children": [],
+          "related": [
+            "narrative-ending-arrival",
+            "engine-artefact-interface"
+          ]
+        },
+        {
           "id": "mech-aureli-abilities",
           "title": "Aureli — Acquired Anomaly Abilities",
           "status": "OPEN",
@@ -1147,6 +1343,24 @@
           "related": [
             "mech-anomaly",
             "universe-artifacts"
+          ]
+        },
+        {
+          "id": "engine-artefact-interface",
+          "title": "Artefact Interface / Narrative Interaction System",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "engine",
+            "artefact",
+            "interaction",
+            "narrative"
+          ],
+          "body": "Support authored interactions with major artefacts without hard-coding each one as a bespoke cutscene.\n\nLikely capabilities:\n- trigger / proximity activation;\n- state-driven animation and VFX;\n- camera takeover and restoration;\n- contextual interaction points;\n- simple multi-choice or confirm interactions;\n- links to world-state / puzzle-state changes;\n- audio cues and optional abstract glyph / text presentation;\n- save persistence for irreversible mission-level choices.\n\nThe final central interface should be built from the same reusable system used for earlier artefact encounters wherever possible.",
+          "children": [],
+          "related": [
+            "mech-artefact-interface",
+            "engine-anomalies"
           ]
         },
         {
@@ -1440,8 +1654,26 @@
             "canon",
             "universe"
           ],
-          "body": "- Why did the intended colonists not arrive as expected?\n- What is the true origin of Aureli's people?\n- What triggered the current large-scale correction?\n- Is the network sentient, emergent, or merely adaptive?\n- What exactly happens to organisms inside the Darkness?\n- What determines a transformed organism's new form?\n- Can transformation be deliberately reversed or controlled?\n- What local / global consequence would follow if the network were stopped?\n- Does the civilisation that launched the missions still exist?\n- Which truths, if any, should Game 1 reveal explicitly?",
-          "children": [],
+          "body": "- Why did the intended colonists not arrive as expected?\n- What is the true origin of Aureli's people?\n- What triggered the current large-scale correction?\n- Is the network sentient, emergent, or merely adaptive?\n- What exactly happens to organisms inside the Darkness?\n- What determines a transformed organism's new form?\n- Can transformation be deliberately reversed or controlled?\n- What local / global consequence would follow if the network were stopped?\n- Does the civilisation that launched the missions still exist?\n- Which truths, if any, should Game 1 reveal explicitly?## Ending / Darkness questions added in v0.4\n- Why does the Darkness collect living things: targeted biological maintenance, incidental regional processing, or both?\n- Which systems are capable of recognising the intended colonists, and is that ability deliberately restricted to the central interface?\n- Does Aureli satisfy the arrival check because her species is already compatible, because the journey changes her, or through a combination of both?\n- What exact phrase / concept does the machine apply to Aureli: creator, colonist, authorised user, compatible arrival, or something less explicit?\n- How does the father return / resolve once the correction is suspended?\n- Does maintenance mode reverse any transformations, merely stop new ones, or allow particular systems to stabilise them?\n- How much of the central interface should the player be able to interpret directly?",
+          "children": [
+            {
+              "id": "open-ending-v04",
+              "title": "Ending / Darkness Questions — v0.4",
+              "status": "OPEN",
+              "implementation": "N/A",
+              "tags": [
+                "open-question",
+                "ending",
+                "v0.4"
+              ],
+              "body": "- Why does the Darkness gather living things: specialised biological maintenance, incidental regional processing, or both?\n- Is creator/colonist recognition exclusive to the central arrival interface?\n- Is Aureli already compatible, changed into compatibility during the journey, or both?\n- What happens to Aureli's father when the correction ends?\n- Does maintenance mode reverse transformations, stabilise them, or simply prevent new ones?\n- How much of the final interface can Aureli actually understand?",
+              "children": [],
+              "related": [
+                "universe-life-sweep-models",
+                "narrative-ending-arrival"
+              ]
+            }
+          ],
           "related": []
         }
       ],
@@ -1468,6 +1700,24 @@
           "body": "- Added parallel **Creator View** and **Player View** story summaries.\n- Added playable Aureli opening incident and reveal-map structure.\n- Added Aureli, her father and the fox/boy companion concepts.\n- Added full **Universe Bible / Hidden Canon** section covering the origin civilisation, terraforming mission, artefact families, planetary network, Darkness, transformation, deep-time history and mystery rules.\n- Added companion cooperation, anomaly fields and possible Aureli ability mechanics.\n- Added corresponding companion / NPC and anomaly-field engine requirements.\n- Added the Darkness-following journey spine and hidden-canon open questions.",
           "children": [],
           "related": []
+        },
+        {
+          "id": "change-0-4",
+          "title": "v0.4 — Arrival / Maintenance Ending",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "change-log",
+            "ending",
+            "canon"
+          ],
+          "body": "- Added the proposed **“We Are Already Here”** ending arc.\n- Added the central control artefact / colonist arrival interface.\n- Added the hidden-canon possibility that long-term terraforming has produced a human-compatible local civilisation.\n- Added maintenance mode as the proposed resolution rather than destroying the planetary network.\n- Added working models for why the Darkness gathers living things, including modular recognition and incidental environmental processing.\n- Updated Creator View, Player View and Knowledge & Reveal Map with the finale.\n- Reframed Chapter 5 around the central artefact.\n- Added reusable artefact-interface mechanic and engine requirements.\n- Added new open questions around the father's fate, arrival recognition and transformation reversal.",
+          "children": [],
+          "related": [
+            "narrative-ending-arrival",
+            "universe-central-interface",
+            "universe-life-sweep-models"
+          ]
         }
       ],
       "related": []
