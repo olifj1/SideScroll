@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.60: Web Audio background music + sound controls; player menu remains streamlined.
+  // SideScroll v1.0.62: Web Audio background music + sound controls; player menu remains streamlined.
   // Puzzle-linked Thought Trigger nodes and Asset States/cart rail work remain intact.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -882,7 +882,7 @@
     return terrainRiverWaterMeshCache.get(key);
   }
 
-  // v1.0.60 puzzle-owned world modifiers. River crossings are no longer forced
+  // v1.0.62 puzzle-owned world modifiers. River crossings are no longer forced
   // to occupy a pre-authored 10 m River section. A puzzle can carry a river
   // modifier relative to its marker, allowing the whole crossing to move or be
   // deleted as one portable gameplay unit.
@@ -917,6 +917,15 @@
       waterAboveBed: Rig.clamp(Number(mod?.waterAboveBed) || RIVER_WATER_ABOVE_BED, 0.04, 1.2),
       phase: Number.isFinite(Number(mod?.phase)) ? Number(mod.phase) : 0,
       bankMargin: Rig.clamp(Number(mod?.bankMargin) || 0.92, 0.45, 2.0)
+    };
+  }
+
+  function puzzleRiverBankDressingSettings(mod) {
+    const raw = mod?.bankDressing && typeof mod.bankDressing === 'object' ? mod.bankDressing : {};
+    return {
+      enabled: raw.enabled !== false,
+      style: typeof raw.style === 'string' && raw.style ? raw.style : 'woodland',
+      seed: (Number.isFinite(Number(raw.seed)) ? Number(raw.seed) : 1) >>> 0
     };
   }
 
@@ -1515,7 +1524,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.60', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.62', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1557,7 +1566,7 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.60', 'SideScroll tree atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.62', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
     tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
@@ -1608,7 +1617,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.60`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.62`,
         key,
         null,
         size[0] / size[1]
@@ -1626,12 +1635,12 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.60`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.62`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.60',
+    'counterweight-plank.png?v=1.0.62',
     'counterweight-plank',
     null,
     1050 / 220
@@ -1641,9 +1650,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.60', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.62', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.60', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.62', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1651,7 +1660,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.60', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.62', 'axle-pin', null, 2);
 
   // Editor-only puzzle Thought Trigger. It is visible while authoring but
   // suppressed completely during play. Its activation radius is drawn in the
@@ -1851,7 +1860,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.60';
+const RIG_TEXTURE_VERSION = '1.0.62';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -3362,8 +3371,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const type = chooseTreeVariant(x, z);
       if (!type) return false;
       const height = baseHeight * PROCEDURAL_TREE_SCALE;
+      const groundLine = assetGroundLineDefault(type);
       addObject(backdrop, type, x, z, null, height, {
         id: `forest263-${index}`,
+        y: terrainGroundYAt(x, z) - groundLine * height,
+        groundLine,
         shade: shadeBase + rand() * 0.09,
         opacity: opacityBase + rand() * (1.0 - opacityBase),
         layer: classifyLayer(z)
@@ -4271,15 +4283,60 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
   }
 
+  function captureEnvironmentAnchorsForPuzzleMove(marker, nextX) {
+    const target = Number(nextX);
+    const dx = target - (Number(marker?.x) || 0);
+    const raw = rawPuzzleWorldModifiersForMarker(marker);
+    let minX = Infinity, maxX = -Infinity;
+    for (const item of raw) {
+      if (item?.type !== 'river') continue;
+      const currentMod = { ...item, worldCenterX:(Number(marker.x)||0) + (Number(item.centerX)||0) };
+      const nextMod = { ...item, worldCenterX:target + (Number(item.centerX)||0) };
+      for (const extent of [puzzleRiverExtent(currentMod), puzzleRiverExtent(nextMod)]) {
+        minX = Math.min(minX, extent.minX - 0.25);
+        maxX = Math.max(maxX, extent.maxX + 0.25);
+      }
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(maxX)) return [];
+    const anchors = [];
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted || obj.carried || obj.puzzleInstanceId === marker.id) continue;
+      if (obj.category !== 'dressing' || objectUsesFreePlacement(obj)) continue;
+      if (obj.x < minX || obj.x > maxX) continue;
+      const authored = !!obj.userAdded || !!sceneData.overrides?.[obj.id];
+      anchors.push({ obj, floorOffset:authored ? objectFloorOffsetFromTerrain(obj) : 0 });
+    }
+    return anchors;
+  }
+
+  function restoreEnvironmentAnchorsAfterPuzzleMove(anchors) {
+    for (const item of anchors || []) {
+      const obj = item?.obj;
+      if (!obj || obj.deleted || objectUsesFreePlacement(obj)) continue;
+      setObjectFloorOffset(obj, Number(item.floorOffset) || 0);
+      moveObjectToCorrectCollection(obj);
+    }
+  }
+
   function movePuzzleMarkerTo(marker, nextX) {
     if (!marker || !Number.isFinite(Number(nextX))) return false;
     const target = Number(nextX);
     const previous = Number(marker.x) || 0;
     const dx = target - previous;
     if (Math.abs(dx) < 0.000001) return false;
-    marker.x = target;
 
+    const environmentAnchors = captureEnvironmentAnchorsForPuzzleMove(marker, target);
     const instance = activePuzzleInstances.get(marker.id);
+    const objectAnchors = new Map();
+    if (instance) {
+      for (const obj of instance.objects || []) {
+        if (!obj || objectUsesFreePlacement(obj)) continue;
+        objectAnchors.set(obj, objectFloorOffsetFromTerrain(obj));
+      }
+      removePuzzleModifierDressing(instance);
+    }
+
+    marker.x = target;
     if (instance) {
       for (const obj of instance.objects || []) obj.x += dx;
       instance.marker = marker;
@@ -4293,7 +4350,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         if (state && Number.isFinite(Number(state.x))) state.x = Number(state.x) + dx;
       }
     }
+
     invalidatePuzzleWorldModifierMeshes();
+
+    // Re-ground anything whose supporting terrain changed. Puzzle props preserve
+    // their authored floor offset; procedural world dressing snaps to the new
+    // terrain, while deliberately authored environment offsets are preserved.
+    if (instance) {
+      for (const [obj, floorOffset] of objectAnchors) setObjectFloorOffset(obj, floorOffset);
+      rebuildPuzzleWorldModifierDressing(instance);
+      for (const obj of instance.objects || []) {
+        if (!obj?.puzzleObjectId) continue;
+        const state = runtime?.[obj.puzzleObjectId];
+        if (!state) continue;
+        state.y = obj.y;
+        state.terrainOffset = obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+        state.floorOffset = objectFloorOffsetFromTerrain(obj);
+      }
+    }
+    restoreEnvironmentAnchorsAfterPuzzleMove(environmentAnchors);
+    sortSceneCollections();
+    if (typeof settleGameplayCrates === 'function') settleGameplayCrates();
     return true;
   }
 
@@ -4466,7 +4543,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.60" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.62" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -4644,6 +4721,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         bankMargin:0.92,
         collisionGap:true,
         ownerRole:'crossing',
+        bankDressing:{ enabled:true, style:'woodland', seed:(Math.imul(sectionIndex + 1, 2654435761) >>> 0) || 1 },
         source:sectionWasRiver ? 'migrated-section-river' : 'broken-bridge-default'
       };
 
@@ -4682,6 +4760,74 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   migrateBrokenBridgeRiverToPuzzleOwnership();
+
+  // v1.0.62: river-bank dressing belongs to the puzzle-owned river modifier,
+  // not to the absolute terrain section that happened to contain the bridge.
+  // Existing v1.0.60/61 saves may still contain section-owned auto-dressing;
+  // remove that legacy data and add a deterministic dressing recipe to the
+  // river modifier so the banks move, stream and delete with the puzzle.
+  const PUZZLE_WORLD_MODIFIER_V2_MIGRATION_KEY = 'sidescroll.puzzle-world-modifiers-v2.river-bank-dressing';
+  function migrateBrokenBridgeRiverDressingToPuzzleOwnership() {
+    let libraryChanged = false;
+    let startsChanged = false;
+    let sceneChanged = false;
+    const legacySections = new Set();
+
+    for (const marker of allPuzzleMarkers()) {
+      if (!bridgePuzzleMarker(marker)) continue;
+      const start = puzzleStartFor(marker);
+      const modifiers = Array.isArray(start?.worldModifiers) ? start.worldModifiers : [];
+      const river = modifiers.find(item => item?.type === 'river');
+      if (!river) continue;
+      const worldCenterX = Number(marker.x) + (Number.isFinite(Number(river.centerX)) ? Number(river.centerX) : 0);
+      const sectionIndex = terrainSectionIndexAt(worldCenterX);
+      legacySections.add(sectionIndex);
+      if (!river.bankDressing || typeof river.bankDressing !== 'object') {
+        river.bankDressing = {
+          enabled:true,
+          style:'woodland',
+          seed:(Math.imul(sectionIndex + 1, 2654435761) >>> 0) || 1
+        };
+        if (markerLinkMode(marker) === 'copy') startsChanged = true;
+        else libraryChanged = true;
+      } else {
+        let changed = false;
+        if (river.bankDressing.enabled == null) { river.bankDressing.enabled = true; changed = true; }
+        if (!river.bankDressing.style) { river.bankDressing.style = 'woodland'; changed = true; }
+        if (!Number.isFinite(Number(river.bankDressing.seed))) {
+          river.bankDressing.seed = (Math.imul(sectionIndex + 1, 2654435761) >>> 0) || 1;
+          changed = true;
+        }
+        if (changed) {
+          if (markerLinkMode(marker) === 'copy') startsChanged = true;
+          else libraryChanged = true;
+        }
+      }
+    }
+
+    const legacyMatch = item => {
+      if (typeof item?.id !== 'string') return false;
+      for (const sectionIndex of legacySections) if (item.id.startsWith(`riverbank-${sectionIndex}-`)) return true;
+      return false;
+    };
+    if (Array.isArray(sceneData.added)) {
+      const before = sceneData.added.length;
+      sceneData.added = sceneData.added.filter(item => !legacyMatch(item));
+      sceneChanged = sceneData.added.length !== before;
+    }
+    if (sceneData.overrides && typeof sceneData.overrides === 'object') {
+      for (const id of Object.keys(sceneData.overrides)) {
+        if (legacyMatch({ id })) { delete sceneData.overrides[id]; sceneChanged = true; }
+      }
+    }
+
+    if (libraryChanged) savePuzzleLibrary();
+    if (startsChanged) savePuzzleStarts();
+    if (sceneChanged) saveSceneData();
+    try { localStorage.setItem(PUZZLE_WORLD_MODIFIER_V2_MIGRATION_KEY, '1'); } catch (_) {}
+    invalidatePuzzleWorldModifierMeshes();
+  }
+  migrateBrokenBridgeRiverDressingToPuzzleOwnership();
 
   function hasAuthoredPuzzleStart(markerId) {
     const marker = markerForId(markerId);
@@ -4926,7 +5072,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const authored = puzzleStartFor(marker);
     if (!puzzleRespawnDraft[marker.id]) puzzleRespawnDraft[marker.id] = normalisePuzzleRespawn(marker, saved.respawnDraft || authored?.respawn || null);
     if (!puzzleCartPathDraft[marker.id]) puzzleCartPathDraft[marker.id] = normalisePuzzleCartPath(marker, saved.cartPathDraft || authored?.cartPath || null);
-    const instance = { id:marker.id, marker, def, objects:[], solved:!!saved.solved };
+    const instance = { id:marker.id, marker, def, objects:[], modifierObjects:[], solved:!!saved.solved };
     const baseById = new Map((def.props || []).map(prop => [prop.id, prop]));
     const ids = new Set([...baseById.keys(), ...Object.keys(authored?.objects || {}), ...Object.keys(saved.objects || {})]);
     for (const objectId of ids) {
@@ -5000,6 +5146,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     currentPuzzleBoundsRelative(marker);
     activePuzzleInstances.set(marker.id, instance);
+    rebuildPuzzleWorldModifierDressing(instance);
     sortSceneCollections();
     settleGameplayCrates();
     if (instance.solved) ensurePuzzleCompletionReward(instance, marker.x);
@@ -5016,12 +5163,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function removePuzzleObjects(instance) {
     if (pushingObject?.puzzleInstanceId === instance?.id) { pushingObject = null; pushingSide = 0; pushingFloorOffset = 0; }
-    const remove = new Set(instance.objects);
+    const remove = new Set([...(instance.objects || []), ...(instance.modifierObjects || [])]);
     if (instance.rewardObject) remove.add(instance.rewardObject);
     for (const list of [backdrop, midfill, frontOccluders]) {
       for (let i=list.length-1;i>=0;i--) if (remove.has(list[i])) list.splice(i,1);
     }
     instance.rewardObject = null;
+    instance.modifierObjects = [];
   }
 
   function unloadPuzzleGroup(markerId) {
@@ -5095,11 +5243,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function dressingHiddenByPuzzle(obj, drawX) {
-    // Puzzle exclusions and feature terrain remove procedural environment only.
-    // Deliberately placed global art and puzzle-owned dressing remain available
-    // so river sections can be hand-dressed with reeds, rocks and grasses.
-    if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId || obj.userAdded) return false;
+    // Feature terrain owns its physical footprint. Any non-puzzle dressing that
+    // falls inside a river channel is suppressed rather than left embedded in
+    // the bed. Deliberately placed global art is still preserved from ordinary
+    // puzzle exclusion zones; only the actual terrain channel takes priority.
+    if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId) return false;
     if (pointInsideRiverChannel(drawX, obj.z)) return true;
+    if (obj.userAdded) return false;
     for (const instance of activePuzzleInstances.values()) {
       const b = puzzleExclusionWorldBounds(instance.marker);
       if (!b.enabled) continue;
@@ -5457,6 +5607,140 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (n <= 0) return item;
     }
     return entries[entries.length - 1] || null;
+  }
+
+  function removePuzzleModifierDressing(instance) {
+    if (!instance?.modifierObjects?.length) { if (instance) instance.modifierObjects = []; return 0; }
+    const remove = new Set(instance.modifierObjects);
+    let count = 0;
+    for (const list of [backdrop, midfill, frontOccluders]) {
+      for (let i=list.length-1;i>=0;i--) {
+        if (!remove.has(list[i])) continue;
+        if (selectedObject === list[i]) selectedObject = null;
+        list.splice(i,1);
+        count += 1;
+      }
+    }
+    instance.modifierObjects = [];
+    return count;
+  }
+
+  function buildPuzzleRiverBankDressing(instance) {
+    if (!instance?.marker) return 0;
+    removePuzzleModifierDressing(instance);
+    instance.modifierObjects ||= [];
+    const modifiers = resolvedPuzzleWorldModifiers().filter(mod => mod.markerId === instance.marker.id && mod.type === 'river');
+    let totalPlaced = 0;
+
+    const innerDefs = [
+      { type:'ground11', weight:1.25, min:0.88, max:1.12, family:'foliage' },
+      { type:'ground12', weight:1.15, min:0.98, max:1.24, family:'foliage' },
+      { type:'ground03', weight:1.10, min:0.96, max:1.22, family:'foliage' },
+      { type:'ground06', weight:1.00, min:0.98, max:1.28, family:'foliage' },
+      { type:'ground02', weight:0.88, min:1.04, max:1.34, family:'foliage' },
+      { type:'ground04', weight:0.82, min:0.98, max:1.28, family:'foliage' },
+      { type:'ground09', weight:0.18, min:0.78, max:0.96, family:'rock' }
+    ];
+    const outerDefs = [
+      { type:'ground01', weight:1.18, min:0.94, max:1.20, family:'foliage' },
+      { type:'ground05', weight:0.94, min:0.84, max:1.06, family:'foliage' },
+      { type:'ground07', weight:1.05, min:0.80, max:1.02, family:'foliage' },
+      { type:'ground08', weight:0.66, min:0.96, max:1.24, family:'foliage' },
+      { type:'ground11', weight:0.74, min:0.86, max:1.10, family:'foliage' },
+      { type:'ground09', weight:0.34, min:0.78, max:0.98, family:'rock' },
+      { type:'ground10', weight:0.20, min:0.96, max:1.22, family:'rock' }
+    ];
+    const waterEdgeDefs = [
+      { type:'ground11', weight:1.30, min:0.62, max:0.88, family:'foliage' },
+      { type:'ground12', weight:1.16, min:0.68, max:0.94, family:'foliage' },
+      { type:'ground03', weight:0.88, min:0.64, max:0.90, family:'foliage' },
+      { type:'ground07', weight:0.76, min:0.58, max:0.82, family:'foliage' }
+    ];
+
+    for (const mod of modifiers) {
+      const dress = puzzleRiverBankDressingSettings(mod);
+      if (!dress.enabled || dress.style !== 'woodland') continue;
+      const random = mulberry32(dress.seed || 1);
+      const extent = puzzleRiverExtent(mod);
+      const placed = [];
+      let placedCount = 0;
+
+      function blocked(x, z, spacingX, spacingZ, allowChannel = false) {
+        if (x <= extent.minX + 0.10 || x >= extent.maxX - 0.10) return true;
+        if (z <= WORLD.farZ + 0.4 || z >= WORLD.nearZ - 0.2) return true;
+        if (!allowChannel && pointInsideRiverChannel(x, z)) return true;
+        for (const item of placed) {
+          if (Math.abs(item.x - x) < item.spacingX + spacingX && Math.abs(item.z - z) < item.spacingZ + spacingZ) return true;
+        }
+        for (const obj of allSceneObjects()) {
+          if (!obj || obj.deleted || obj.carried || obj.worldModifierDressing) continue;
+          const ox = Number(obj.x) || 0;
+          const oz = Number.isFinite(obj.z) ? obj.z : pathZ;
+          if (ox < extent.minX - 1.5 || ox > extent.maxX + 1.5) continue;
+          if (!obj.userAdded && !obj.puzzleInstanceId && obj.category === 'dressing') continue;
+          const otherSpacingX = Math.max(0.48, Math.abs(obj.sx || 1) * 0.34);
+          const otherSpacingZ = Math.max(0.36, obj.collision?.depth || Math.min(1.20, 0.26 + Math.abs(obj.sy || 1) * 0.10));
+          if (Math.abs(ox - x) < otherSpacingX + spacingX && Math.abs(oz - z) < otherSpacingZ + spacingZ) return true;
+        }
+        return false;
+      }
+
+      function place(def, x, z, height, spacingX, spacingZ, { waterEdge = false } = {}) {
+        if (blocked(x, z, spacingX, spacingZ, waterEdge)) return false;
+        const width = height * (assetAspect[def.type] || 1);
+        const groundLine = assetGroundLineDefault(def.type);
+        const profile = puzzleRiverProfileAtZ(mod, z);
+        const floorY = waterEdge ? profile.waterY - 0.09 : terrainAnchorBaseY(x, z, 'dressing', false);
+        const obj = addObject(targetCollectionForZ(z), def.type, x, z, width, height, {
+          id:`puzzle-${instance.id}-${mod.id || 'river'}-dress-${placedCount + 1}`,
+          userAdded:false,
+          baseSx:width, baseSy:height,
+          y:floorY - groundLine * height,
+          groundLine, shade:1, opacity:0.99, category:'dressing',
+          flip:random() > 0.5, wrap:false, collision:null, collisionOverride:false,
+          puzzleInstanceId:instance.id
+        });
+        obj.worldModifierDressing = true;
+        obj.worldModifierId = mod.id || 'river';
+        instance.modifierObjects.push(obj);
+        placed.push({ x, z, spacingX, spacingZ });
+        placedCount += 1;
+        totalPlaced += 1;
+        return true;
+      }
+
+      for (const side of ['left','right']) {
+        const dir = side === 'left' ? -1 : 1;
+        for (let z=WORLD.farZ+1.0; z<=WORLD.nearZ-0.7; z += 0.44 + random()*0.28) {
+          const focusFalloff = Math.abs(z - pathZ) < 0.95 ? 0.68 : 1;
+          const profile = puzzleRiverProfileAtZ(mod, z);
+          const lip = side === 'left' ? profile.leftLip : profile.rightLip;
+          if (random() < 0.90 * focusFalloff) {
+            const def=weightedChoice(innerDefs,random), attemptZ=z+(random()-0.5)*0.22, x=lip+dir*(0.14+random()*0.38), height=def.min+random()*(def.max-def.min);
+            place(def,x,attemptZ,height,def.family==='rock'?0.68:0.54,def.family==='rock'?0.46:0.34);
+          }
+          if (random() < 0.58 * focusFalloff) {
+            const def=weightedChoice(outerDefs,random), attemptZ=z+(random()-0.5)*0.34, x=lip+dir*(0.56+random()*0.94), height=def.min+random()*(def.max-def.min);
+            place(def,x,attemptZ,height,def.family==='rock'?0.86:0.70,def.family==='rock'?0.54:0.42);
+          }
+          if (random() < 0.18 * focusFalloff) {
+            const def=weightedChoice(innerDefs,random), attemptZ=z+(random()-0.5)*0.18, x=lip+dir*(0.10+random()*0.24), height=(def.min+random()*(def.max-def.min))*0.82;
+            place(def,x,attemptZ,height,0.42,0.28);
+          }
+          if (random() < 0.46 * focusFalloff) {
+            const def=weightedChoice(waterEdgeDefs,random), attemptZ=z+(random()-0.5)*0.26, x=lip-dir*(0.10+random()*0.28), height=def.min+random()*(def.max-def.min);
+            place(def,x,attemptZ,height,0.38,0.32,{waterEdge:true});
+          }
+        }
+      }
+    }
+    sortSceneCollections();
+    return totalPlaced;
+  }
+
+  function rebuildPuzzleWorldModifierDressing(instance) {
+    if (!instance) return 0;
+    return buildPuzzleRiverBankDressing(instance);
   }
 
   function autoDressRiverBanks(sectionIndex) {
@@ -8332,7 +8616,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.60" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.62" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {

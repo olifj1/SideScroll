@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.5",
+  "documentVersion": "0.6",
   "project": "SideScroll",
   "title": "Living Game Design Document",
-  "baselineBuild": "SideScroll v1.0.60",
+  "baselineBuild": "SideScroll v1.0.62",
   "updated": "2026-09-28",
   "description": "Living SideScroll game design document. v0.4 develops Aureli’s proposed ending: the central terraforming control interface, biological compatibility with the intended creators, maintenance mode, and working explanations for why the Darkness collects living things.",
   "sections": [
@@ -1316,6 +1316,25 @@
           "related": []
         },
         {
+          "id": "engine-camera-sequences",
+          "title": "Camera Sequence / Cutscene Override System",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "camera",
+            "cutscene",
+            "sequence",
+            "trigger",
+            "story"
+          ],
+          "body": "A lightweight layer above the existing smooth follow camera. Camera Sequence Nodes temporarily override normal camera ownership for authored reveals and short narrative beats, then blend back to gameplay.\n\nRequired data: trigger/approach rules, target reference or world point, in-ease duration, hold duration, optional target-follow, player-input lock policy, return duration and replay policy.\n\nThe system should support puzzle/world ownership and world-relative references so sequences remain portable when their owner moves.",
+          "children": [],
+          "related": [
+            "engine-camera",
+            "techq-10a-camera-sequences"
+          ]
+        },
+        {
           "id": "engine-vfx",
           "title": "VFX",
           "status": "PROPOSED",
@@ -1582,8 +1601,29 @@
             "bridge",
             "river"
           ],
-          "body": "[ ] Make Broken Bridge portable rather than dependent on a manually prepared River section.\n\n**Implementation landed in v1.0.60; leave unchecked until the on-device move/delete/reload portability test passes.**\n\n## Why first\nThis is the strongest existing test case for the boundary between Puzzle and World. Fallen Tree is self-contained; Broken Bridge requires the world underneath it to change. Solving this correctly defines the ownership model needed by later Puzzle Lab and World Lab work.\n\n## Implemented in v1.0.60\n- Broken Bridge gains a puzzle-owned `river` world modifier stored relative to its marker.\n- Existing saved River-section width/position is migrated into that modifier on first load.\n- The old absolute River section is released back to normal base terrain.\n- River geometry, water, depth and collision gap move with the puzzle marker.\n- The modifier can cross 10 m section boundaries; sections are runtime chunks rather than placement constraints.\n- Removing the puzzle removes its river modifier automatically.\n- Puzzle snapshots carry `worldModifiers` so linked/unique puzzle starts retain environmental requirements.\n\n## Done means\nMove the puzzle to several positions, including across a section boundary; its river follows. Delete the placed puzzle; the river disappears and underlying terrain returns. Reload/reset must not restore the old absolute River section.",
-          "children": [],
+          "body": "[ ] Make Broken Bridge portable rather than dependent on a manually prepared River section.\n\n**Implementation landed in v1.0.62; leave unchecked until the on-device move/delete/reload portability test passes.**\n\n## Why first\nThis is the strongest existing test case for the boundary between Puzzle and World. Fallen Tree is self-contained; Broken Bridge requires the world underneath it to change. Solving this correctly defines the ownership model needed by later Puzzle Lab and World Lab work.\n\n## Implemented in v1.0.62\n- Broken Bridge gains a puzzle-owned `river` world modifier stored relative to its marker.\n- Existing saved River-section width/position is migrated into that modifier on first load.\n- The old absolute River section is released back to normal base terrain.\n- River geometry, water, depth and collision gap move with the puzzle marker.\n- The modifier can cross 10 m section boundaries; sections are runtime chunks rather than placement constraints.\n- Removing the puzzle removes its river modifier automatically.\n- Puzzle snapshots carry `worldModifiers` so linked/unique puzzle starts retain environmental requirements.\n\n## Done means\nMove the puzzle to several positions, including across a section boundary; its river follows. Delete the placed puzzle; the river disappears and underlying terrain returns. Reload/reset must not restore the old absolute River section.",
+          "children": [
+            {
+              "id": "techq-01a-river-bank-dressing-grounding",
+              "title": "01A — River bank dressing & terrain grounding follow the puzzle modifier",
+              "status": "CURRENT",
+              "implementation": "PARTIAL",
+              "tags": [
+                "priority-1",
+                "puzzle",
+                "world-modifier",
+                "river",
+                "dressing",
+                "grounding"
+              ],
+              "body": "[ ] Verify on device that modifier-owned river-bank dressing, trees and nearby environment all resolve to the correct terrain height after moving Broken Bridge.\n\n## Implemented in v1.0.62\n- Broken Bridge river modifier now carries a deterministic `bankDressing` recipe rather than relying on section-owned auto-dressing.\n- Legacy section-generated bridge bank dressing is removed during migration.\n- Bank grasses/rocks are generated as puzzle-owned modifier dressing, stream with the puzzle, regenerate when it moves and disappear when it unloads/deletes.\n- Procedural trees now anchor to `terrainGroundYAt(...)` instead of the old global `groundY`.\n- Moving a puzzle re-anchors grounded puzzle props and nearby world dressing against the new terrain while preserving authored offsets.\n- Non-puzzle dressing that falls inside a river channel is hidden rather than left embedded in the river bed.\n\n## Done means\nMove Broken Bridge through several positions and section boundaries. River-bank dressing follows; bank/nearby trees sit on the visible surface; nothing remains at the old river; no unrelated dressing changes height unexpectedly.",
+              "children": [],
+              "related": [
+                "techq-01-bridge-world-ownership",
+                "puzzle-cart-bridge"
+              ]
+            }
+          ],
           "related": [
             "puzzle-cart-bridge",
             "tool-section-editor"
@@ -1744,6 +1784,27 @@
           "related": [
             "techq-09-mountain-biome",
             "techq-11-anim-lab"
+          ]
+        },
+        {
+          "id": "techq-10a-camera-sequences",
+          "title": "10A — Cutscene Camera / Camera Sequence Nodes",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-10a",
+            "camera",
+            "cutscene",
+            "storytelling",
+            "trigger"
+          ],
+          "body": "[ ] Add lightweight authored camera overrides for story beats, reveals and environmental emphasis.\n\n## Design intent\nUse a Thought-Node-like placed trigger rather than a heavyweight cutscene editor. The normal follow camera remains the default; a Camera Sequence Node temporarily takes ownership, performs a short authored move/hold, then hands control back smoothly.\n\n## Camera Sequence Node v1\n- Trigger position/range and optional approach direction.\n- Target may be a fixed world point or a linked world object/puzzle element.\n- Ease/pan time into the override.\n- Hold duration at the target.\n- Optional follow-target behaviour during the hold.\n- Optional player movement/input lock while the sequence owns the camera.\n- Smooth return/ease time back to the normal player-follow camera.\n- One-shot, resettable or repeatable trigger behaviour.\n- Optional chaining later for simple multi-shot sequences.\n\n## Example uses\n- Broken bridge: briefly look over the gap so the player cannot miss the obstacle/solution space.\n- Aureli opening: temporarily prevent the player leaving while the silence/deer/Darkness sequence is staged.\n- Artefact reveals: pan or hold on a machine as it wakes or changes the environment.\n\n## Ownership / world integration\nCamera Sequence Nodes should become World Elements and may be owned by the World, a Story beat or a Puzzle. If an owning puzzle moves, its linked camera target/trigger must move with it.\n\n## Done means\nPlace a node in-world, trigger it from either direction as configured, ease to a target, optionally lock movement, hold, and return to follow-camera without a visible snap. Moving/deleting its owner also moves/deletes the node.",
+          "children": [],
+          "related": [
+            "engine-camera",
+            "engine-camera-sequences",
+            "techq-04-world-element-model",
+            "techq-05-world-lab"
           ]
         },
         {
@@ -1957,6 +2018,23 @@
       "body": "- **0.2 — 25 Sep 2026:** Living GDD moved into the new in-project Design Lab; structured contents, editable metadata, local autosave and import/export added.\n- **0.1 — 25 Sep 2026:** Initial living GDD created from SideScroll v1.0.56, established art/interaction decisions, current puzzle systems, active cart puzzle design and longer-form chapter/MVP discussion.\n\n## Maintenance rule\nUpdate this document when a decision changes player experience, world/story canon, reusable puzzle vocabulary, chapter structure, art/audio baseline, or an engine capability that materially changes what content can be authored. Minor implementation fixes do not need their own GDD entry unless they alter a design constraint.",
       "children": [
         {
+          "id": "change-v06",
+          "title": "GDD v0.6 — Camera Sequence Nodes",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "change-log",
+            "camera",
+            "technical-design"
+          ],
+          "body": "Added the proposed Cutscene Camera / Camera Sequence Node system to the Technical Design queue and Engine Capability Map. The v1 scope is intentionally lightweight: placed triggers, linked/fixed targets, ease-in, hold, optional player lock/follow, smooth return and ownership by World/Story/Puzzle.",
+          "children": [],
+          "related": [
+            "techq-10a-camera-sequences",
+            "engine-camera-sequences"
+          ]
+        },
+        {
           "id": "change-v05",
           "title": "GDD v0.5 — Technical development queue",
           "status": "CURRENT",
@@ -1964,7 +2042,7 @@
           "tags": [
             "change-log"
           ],
-          "body": "Added the ordered Technical Design & Development Queue. v1.0.60 also introduces puzzle-owned river world modifiers for Broken Bridge as the first portability/ownership implementation.",
+          "body": "Added the ordered Technical Design & Development Queue. v1.0.62 also introduces puzzle-owned river world modifiers for Broken Bridge as the first portability/ownership implementation.",
           "children": [],
           "related": [
             "technical-design-queue"

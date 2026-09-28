@@ -1,11 +1,18 @@
-# SideScroll v1.0.60
+# SideScroll v1.0.62
 
-Broken Bridge portability + technical design queue.
+## Broken Bridge world-modifier follow-up
+- River-bank grass/rock dressing is now owned by the Broken Bridge river modifier instead of an absolute terrain section.
+- Modifier bank dressing streams, moves and deletes with the puzzle and is regenerated deterministically at the correct river-bank heights.
+- Legacy section-owned bridge bank dressing is migrated away automatically.
+- Procedural trees now anchor to the actual terrain surface rather than the old global ground baseline.
+- Moving a puzzle re-anchors its grounded props and nearby environment dressing to the terrain at the new location while preserving authored offsets.
+- Non-puzzle dressing inside the active river channel is suppressed so trees/foliage cannot remain embedded in the river bed.
 
-- Adds a new **Technical Design & Development Queue** section to Design Lab, ordered by dependency/importance and seeded with the major tasks discussed on 28 Sep 2026.
-- Broken Bridge now owns a relative **river world modifier** rather than relying on an externally prepared absolute River section.
-- Existing saved bridge River-section width/position is migrated into the puzzle on first load, then the old section override is released.
-- Puzzle-owned river geometry, water, depth and collision gap follow the puzzle marker and can cross 10 m section boundaries.
-- Removing/moving the puzzle removes/moves the owned river requirement with it.
-- Puzzle start/template snapshots now retain `worldModifiers` for linked and unique puzzle instances.
-- This is the architectural precursor to Puzzle Lab, World Elements, World Lab and biome-transition work.
+## Design Lab
+- Adds Technical Queue item 01A for the river-bank dressing / terrain-grounding portability test.
+
+## Test focus
+- Move Broken Bridge across several positions and a section boundary.
+- Confirm river, bank dressing and bridge move together.
+- Check nearby trees/foliage sit on the visible terrain surface.
+- Confirm the old river location restores cleanly.
