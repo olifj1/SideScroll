@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.7",
+  "documentVersion": "0.8",
   "project": "SideScroll",
   "title": "Living Game Design Document",
-  "baselineBuild": "SideScroll v1.0.62",
+  "baselineBuild": "SideScroll v1.0.62 + recovery / bridge-alignment patches",
   "updated": "2026-09-28",
   "description": "Living SideScroll game design document. v0.4 develops Aureli’s proposed ending: the central terraforming control interface, biological compatibility with the intended creators, maintenance mode, and working explanations for why the Darkness collects living things.",
   "sections": [
@@ -1464,6 +1464,149 @@
       "related": []
     },
     {
+      "id": "concept-development",
+      "title": "Concept Development & Image Brief",
+      "status": "PROPOSED",
+      "implementation": "N/A",
+      "tags": [
+        "concept-art",
+        "biomes",
+        "terraform-machines",
+        "visual-development"
+      ],
+      "body": "This section is the design source for visual concept exploration before Concept Lab exists. It defines the first environment / terraforming-machine concept set and the rules for keeping those images useful as production references.\n\nA standalone repository handoff file, `CONCEPT_ART_BRIEF.md`, mirrors the current brief so a new image-generation conversation can work from the same source without copying long prompts from chat.",
+      "children": [
+        {
+          "id": "concept-visual-language",
+          "title": "Shared visual language",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "concept-art",
+            "art-direction"
+          ],
+          "body": "All concept images should feel like the **same SideScroll world**.\n\n- Serious, atmospheric, slightly unsettling rather than cute or whimsical.\n- Stylised painterly concept art with the established broad **three-tone cel-shaded** feeling.\n- Desaturated/restrained colour; avoid saturated cartoon greens and generic fantasy glow.\n- Warm natural bark/wood, pale fog and strong readable silhouettes.\n- Side-scroll-friendly compositions with a believable traversable route plus foreground / midground / background depth.\n- Beautiful natural environments whose strangeness emerges gradually.\n\nTerraform machines are ancient planetary infrastructure, not clean props placed on top of nature. After millennia they should be physically assimilated into roots, rock, water and ecosystems. Their technology may glow or move, but the result should sit ambiguously between advanced engineering and something the local people might interpret as natural or magical.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "concept-woodland-machine",
+          "title": "Woodland — Biosphere / Life Machine",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "woodland",
+            "terraform-machine",
+            "biology"
+          ],
+          "body": "## Environment\nLush but restrained woodland: tall slender trees, airy canopy, grasses/ferns, layered depth and white/pale mist toward the horizon.\n\n## Machine\nA biosphere/life-management artefact fused into an ancient tree/root system. Bark, roots, vines and machine structure should be inseparable at first glance. Restrained light may travel through root/vine-like conduits or foliage.\n\n## Original role\nSeed and manage plant/animal life, atmospheric/ecological balance and biological adaptation.\n\n## Gameplay/anomaly vocabulary\nGrowth, regeneration, organic bridges/roots, creature behaviour, biological transformation — including a plausible route for the fox/boy transformation.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "concept-mountain-machine",
+          "title": "Mountain — Gravity / Geophysical Machine",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "mountain",
+            "terraform-machine",
+            "gravity",
+            "climbing"
+          ],
+          "body": "## Environment\nRocky, increasingly vertical terrain with sparse vegetation, cliff paths, ledges, exposed geology and distant pale mountain forms.\n\n## Machine\nMonumental geometric/geological infrastructure embedded in the mountain itself. It should feel as if rock has formed around or because of it: exposed seams, cavities or impossible structures rather than a free-standing sci-fi device.\n\n## Original role\nGravity/mass regulation, tectonic/topographic shaping and crust stabilisation.\n\n## Gameplay/anomaly vocabulary\nClimbing, reduced/inverted/local gravity, floating rock, unusual jumps, suspended debris, unstable/reshaped paths and vertical traversal.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "concept-wetlands-machine",
+          "title": "Wetlands — Hydrology / Water Machine",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "wetlands",
+            "water",
+            "terraform-machine",
+            "swimming"
+          ],
+          "body": "## Environment\nMarsh/wetland space with reeds, pools, channels, wet ground, reflections and a calm but uncanny atmosphere. Later exploration may include swimming/diving.\n\n## Machine\nAncient hydrology infrastructure half-submerged or fully underwater, assimilated into mud, roots, reeds and aquatic growth. Restrained lights or moving structures may be visible below the water surface.\n\n## Original role\nWater generation/distribution, groundwater and wetland regulation, aquatic ecology, salinity/temperature/current control.\n\n## Gameplay/anomaly vocabulary\nWater-level changes, currents, flooding/draining, buoyancy, underwater routes, aquatic life and potentially temperature/state changes.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "concept-biome-transition-woodland-mountain",
+          "title": "Transition study — Woodland → Mountain",
+          "status": "PROPOSED",
+          "implementation": "N/A",
+          "tags": [
+            "biome-transition",
+            "woodland",
+            "mountain"
+          ],
+          "body": "Concept a **continuous transition**, not a hard biome cut. Across one readable side-scrolling scene, woodland density should thin while exposed stone increases, the path becomes steeper/rougher, vegetation shortens and distant mountain forms begin to dominate.\n\nThe image should help define what World Lab / biome-blend percentages need to produce visually around 25% / 50% / 75% transition states.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "concept-initial-seven-image-set",
+          "title": "Initial concept batch — 7 separate images",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "concept-art",
+            "image-set",
+            "handoff"
+          ],
+          "body": "Generate **seven separate landscape concept images**, not a collage:\n\n1. Woodland environment wide concept.\n2. Woodland Biosphere/Life Machine focal concept.\n3. Mountain environment wide concept.\n4. Mountain Gravity/Geophysical Machine focal concept.\n5. Wetlands environment wide concept.\n6. Wetlands Hydrology/Water Machine focal concept.\n7. Woodland → Mountain transition concept.\n\nUse a consistent aspect ratio and art language across the set. Avoid text labels inside the art. Environment wides should clearly support side-scrolling traversal; machine studies should still show enough surrounding biome to understand how the structure belongs there.",
+          "children": [],
+          "related": [
+            "concept-woodland-machine",
+            "concept-mountain-machine",
+            "concept-wetlands-machine",
+            "concept-biome-transition-woodland-mountain"
+          ]
+        },
+        {
+          "id": "concept-record-schema",
+          "title": "Future Concept Lab record format",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "concept-lab",
+            "data",
+            "metadata"
+          ],
+          "body": "Each imported concept should eventually store:\n- stable concept ID;\n- category / biome / subject;\n- image asset path;\n- original prompt/brief;\n- notes / feedback;\n- status: Exploration / Shortlisted / Approved Direction / Superseded;\n- created/updated date;\n- related Design Lab IDs;\n- optional lineage/variant link so later iterations can be traced back to the concept they evolved from.",
+          "children": [],
+          "related": [
+            "tool-concept-lab"
+          ]
+        },
+        {
+          "id": "concept-handoff-workflow",
+          "title": "Image-generation session handoff workflow",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "concept-art",
+            "handoff",
+            "workflow"
+          ],
+          "body": "For a separate concept-art conversation:\n1. Attach `CONCEPT_ART_BRIEF.md` from the SideScroll repo (or the downloadable copy supplied with the patch).\n2. Ask the new session to carry out the brief using image generation and keep the seven outputs separate.\n3. Iterate visually there without changing the game build until useful directions emerge.\n4. When ready, provide that session the latest **full SideScroll ZIP** and ask it to build Concept Lab and import the selected generated concepts with their prompts/notes.\n5. Concept Lab additions should follow the normal SideScroll changed-files-only patch workflow unless a full milestone build is explicitly desired.",
+          "children": [],
+          "related": [
+            "workflow-assistant-fresh-chat-rules",
+            "tool-concept-lab"
+          ]
+        }
+      ],
+      "related": [
+        "art",
+        "tool-concept-lab",
+        "techq-13-concept-lab"
+      ]
+    },
+    {
       "id": "audio-design",
       "title": "Audio & Sound",
       "status": "CURRENT",
@@ -1563,6 +1706,41 @@
           "related": []
         },
         {
+          "id": "tool-world-lab",
+          "title": "World Lab",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "tool",
+            "world-lab",
+            "world-elements",
+            "authoring"
+          ],
+          "body": "**Purpose:** compose the whole playable journey.\n\nWorld Lab is a horizontal map/timeline-style editor for World Elements: biome regions and transitions, puzzle instances, bespoke dressing, semantic dressing groups, terraforming machines/landmarks and later story/camera/audio/VFX/checkpoint elements.\n\nIt is not a separate level file. It is a second editing interface over the same authoritative placement data used by the game/editor, allowing scene placements to appear as World Lab markers and World Lab changes to appear immediately back in the game.",
+          "children": [],
+          "related": [
+            "techq-05-world-lab",
+            "techq-world-element-v1-schema"
+          ]
+        },
+        {
+          "id": "tool-concept-lab",
+          "title": "Concept Lab",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "tool",
+            "concept-art",
+            "visual-development"
+          ],
+          "body": "**Purpose:** keep visual development inside the SideScroll project instead of scattered across chat history.\n\nConcept Lab should organise images by World / Biome / Terraform Machine / Character / Location. Each concept record should keep the image, source prompt/brief, notes, status, date/version and links to related Design Lab entries.\n\nSupport several iterations with states such as **Exploration / Shortlisted / Approved Direction / Superseded**. Initial implementation should focus on importing and browsing concepts; integrated generation can come later and must not expose an AI API key in the static GitHub Pages client.\n\nThe initial visual-development brief is documented in **Concept Development & Image Brief** and mirrored in repository file `CONCEPT_ART_BRIEF.md` for handoff to image-generation sessions.",
+          "children": [],
+          "related": [
+            "concept-development",
+            "techq-13-concept-lab"
+          ]
+        },
+        {
           "id": "content-export-targets",
           "title": "Content Data to Formalise",
           "status": "PROPOSED",
@@ -1590,6 +1768,26 @@
       ],
       "body": "This page is the source-of-truth for how SideScroll moves between ChatGPT, the iPhone and GitHub. The goal is to keep development **phone-first**, minimise unnecessary file transfer, preserve simple rollback points and make each change easy to understand.\n\n## Principle\nGitHub holds the live project. ChatGPT changes only the files required for a task. Normal development uses small patch ZIPs; periodic full ZIPs remain known-good snapshots.\n\n## Current baseline\nThe current full project baseline for this workflow test is **SideScroll v1.0.62**.",
       "children": [
+        {
+          "id": "workflow-assistant-fresh-chat-rules",
+          "title": "READ FIRST — Assistant / Fresh-Chat Working Rules",
+          "status": "LOCKED",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "assistant-guidance",
+            "fresh-chat",
+            "handoff",
+            "locked"
+          ],
+          "body": "This entry is written **for any future ChatGPT/Codex-style session working on SideScroll**. When a SideScroll ZIP is supplied in a fresh conversation, read the repository `README.md` and this entry before editing files. Treat these rules as the default project contract unless the user explicitly changes them.\n\n## 1. Phone-first workflow is a design constraint\nThe project is primarily developed, uploaded to GitHub and tested from an iPhone. Prefer solutions that preserve that workflow. Do not introduce a desktop-only build step, package manager or toolchain unless there is a clear need and the user agrees.\n\n## 2. Default delivery = changed-files-only PATCH ZIP\nNormal iterative work should return a flat **PATCH ZIP containing only changed/new project files plus an updated `README.md`**.\n\nDo not include unchanged textures, audio, atlases, HTML pages or other large assets simply because they exist in the project.\n\nCreate a FULL ZIP only when the user asks for one or at a meaningful safety/milestone point such as a large structural refactor, new tool/lab, major data-schema change, substantial asset pack, vertical slice or known-good checkpoint.\n\n## 3. README is mandatory in every patch\nEvery patch must include an updated `README.md` stating:\n- required base/current project state;\n- changed files;\n- added files;\n- intentional deletions/renames;\n- what the patch changes;\n- what the user should test;\n- any cache/reopen instructions.\n\nA file missing from a patch means **unchanged**, never “delete it”. Deletions must be stated explicitly.\n\n## 4. Preserve repository-relative paths\nPatch files must use their real repository-relative paths. SideScroll is currently a flat repo, so keep patch ZIPs flat unless the actual project structure changes.\n\n## 5. Protect local authoring data\nPreserve local game/editor/Design Lab data whenever possible. Do not recommend clearing site/PWA storage except as a genuine last resort. Prefer compatibility migrations, repair logic and fix-forward patches.\n\nWhen the user provides a Complete Game Design/export JSON, use it as the best evidence of their current authored world state when debugging placement, puzzle or migration issues.\n\n## 6. Design Lab merge rule — critical\nDesign Lab deliberately protects local edits. On load it merges **missing IDs** from the bundled `design-doc.json` into the working local document; it does **not** overwrite existing entries with the same ID.\n\nTherefore, when a documentation update must reliably appear for an existing user without wiping their edits:\n- add a new section/child with a new stable ID; or\n- explicitly provide an import/reset migration if replacing existing content is truly required.\n\nMerely changing the body/title of an existing bundled Design Lab ID may not appear in the user's existing working document.\n\n## 7. PWA/service-worker caution\nSideScroll is an offline PWA. Do not casually change cache names or create parallel cache strategies. Code/data should update cleanly online while retaining cached fallback offline. If a patch changes service-worker behaviour, say exactly what must be closed/reopened and test Safari plus the installed/A2HS copy when relevant.\n\n## 8. Minimise blast radius\nPrefer the smallest safe change set. Before adding a new system, identify ownership and data flow. Avoid duplicating authoritative state between scene editing, labs and runtime systems.\n\n## 9. Current ownership model\n- **Asset:** what an individual object is.\n- **Puzzle:** how objects/rules combine into gameplay; puzzle-owned elements are relative to the puzzle marker.\n- **World Element:** where authored content lives in the journey.\n- **Section:** runtime/streaming chunk, not the primary creative authoring abstraction.\n\n## 10. Current technical priority\nThe current priority is **world composition / World Lab**, not new puzzle authoring. Finish/verify Broken Bridge portability, formalise World Elements, then build World Lab before returning to Puzzle Lab unless a dependency changes that order.",
+          "children": [],
+          "related": [
+            "technical-design-queue",
+            "tool-world-lab",
+            "concept-development"
+          ]
+        },
         {
           "id": "workflow-normal-loop",
           "title": "Normal phone-first development loop",
@@ -1660,6 +1858,24 @@
           "related": []
         },
         {
+          "id": "workflow-readme-mandatory",
+          "title": "README rule — every patch carries the handoff",
+          "status": "LOCKED",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "readme",
+            "patch",
+            "handoff"
+          ],
+          "body": "Every changed-files-only patch must include an updated `README.md`, even when the functional change touched only one source file.\n\nThe README is the first-line handoff for a fresh conversation and should point future sessions toward **Design Lab → Project Workflow → READ FIRST — Assistant / Fresh-Chat Working Rules** for the full contract.\n\nThis keeps the repository self-describing rather than relying on cross-chat memory.",
+          "children": [],
+          "related": [
+            "workflow-assistant-fresh-chat-rules",
+            "workflow-patch-contract"
+          ]
+        },
+        {
           "id": "workflow-patch-contract",
           "title": "Patch packaging contract",
           "status": "LOCKED",
@@ -1684,6 +1900,24 @@
           "body": "[ ] Upload this patch containing only `design-doc.json` and `sw.js` over the existing v1.0.62 repository files.\n[ ] Confirm GitHub Pages still loads normally.\n[ ] Open Design Lab and confirm **Project Workflow** appears in the contents without losing existing local Design Lab edits.\n[ ] Confirm Play, Asset Lab and Walk Lab still work without re-uploading any of their files.\n\nIf all four pass, changed-files-only patch delivery becomes the default SideScroll development workflow.",
           "children": [],
           "related": []
+        },
+        {
+          "id": "workflow-patch-test-result-20260928",
+          "title": "Patch workflow test result — adopted with safeguards",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "patch",
+            "test",
+            "cache"
+          ],
+          "body": "The changed-files-only GitHub workflow is now adopted as the default.\n\nThe first test exposed two useful safeguards rather than invalidating the approach: avoid competing service-worker cache versions, and always ship an updated README. The recovery also confirmed that small targeted patches can restore the installed PWA without clearing local world/editor data.\n\n**Current convention:** small patch ZIPs for normal work; periodic full ZIPs for safety/milestones.",
+          "children": [],
+          "related": [
+            "workflow-assistant-fresh-chat-rules",
+            "workflow-readme-mandatory"
+          ]
         }
       ],
       "related": [
@@ -1762,6 +1996,25 @@
           ]
         },
         {
+          "id": "techq-current-priority-world-composition-20260928",
+          "title": "CURRENT PRIORITY — World composition before Puzzle Lab",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "technical-design",
+            "priority",
+            "world-lab",
+            "world-elements"
+          ],
+          "body": "The earlier queue placed Puzzle Lab immediately after puzzle ownership. Current design needs have changed: the next major authoring problem is **where the whole game is composed**, not how to invent another puzzle.\n\n## Active order\n[ ] Finish/verify Broken Bridge portability: puzzle objects + river/world modifier + bank dressing + terrain anchoring all move/delete/reload together.\n[ ] Formalise the **World Element** data model and ownership rules.\n[ ] Build **World Lab v1** as a second editing view over the same authoritative world data.\n[ ] Add Biome Profiles, transition zones/blend curves, semantic dressing groups and bespoke dressing to that model.\n[ ] Build the first Woodland → Mountain world transition and use it to drive climbing/environment development.\n[ ] Return to **Puzzle Lab** once the world model it needs to test against is stable.\n\nPuzzle Lab remains important; it is intentionally deferred, not cancelled.",
+          "children": [],
+          "related": [
+            "techq-04-world-element-model",
+            "techq-05-world-lab",
+            "techq-03-puzzle-lab"
+          ]
+        },
+        {
           "id": "techq-03-puzzle-lab",
           "title": "03 — Puzzle Lab v1",
           "status": "PROPOSED",
@@ -1791,7 +2044,26 @@
             "ownership"
           ],
           "body": "[ ] Define one common representation for intentionally authored world content.\n\nCandidate element types: Puzzle, Biome Region, Biome Transition, Dressing Group, Explicit Dressing, Artefact/Landmark, Story Trigger, Audio Zone, VFX Zone, Spawn/Checkpoint.\n\nCommon data should include world position/range, extent, owner, streaming policy, links and optional biome response.\n\n## Principle\nWorld Elements are how we author the journey; 10 m Sections are how the engine streams/renders it.",
-          "children": [],
+          "children": [
+            {
+              "id": "techq-world-element-v1-schema",
+              "title": "World Element v1 — proposed common schema",
+              "status": "PROPOSED",
+              "implementation": "NEEDED",
+              "tags": [
+                "world-element",
+                "schema",
+                "ownership",
+                "world-lab"
+              ],
+              "body": "World Elements are the authored placement layer that World Lab and in-scene Edit Mode both manipulate.\n\n## Initial element types\n- Puzzle Instance\n- Biome Region\n- Biome Transition\n- Semantic Dressing Group\n- Explicit/Bespoke Dressing\n- Terraform Machine / Landmark\n- Story Trigger\n- Camera Sequence Node\n- Audio Zone / Emitter\n- VFX / Anomaly Zone\n- Spawn / Checkpoint\n\n## Common fields\n- stable ID / type / template reference;\n- world X (and Z/Y or range/volume when needed);\n- extent: point, range or volume;\n- owner and parent links;\n- streaming/load policy;\n- links to related elements;\n- optional biome-aware behaviour;\n- authored/runtime state separated cleanly.\n\n## Rule\nWorld Lab and scene Edit Mode edit **the same data**. Neither may maintain a second copy of placement state.",
+              "children": [],
+              "related": [
+                "techq-05-world-lab",
+                "tool-world-lab"
+              ]
+            }
+          ],
           "related": [
             "level-architecture"
           ]
@@ -1808,7 +2080,26 @@
             "level-design"
           ],
           "body": "[ ] Create the horizontal whole-journey authoring view.\n\n## v1 tracks\n- Section boundaries (optional/debug).\n- Puzzle markers.\n- Biome regions / transitions.\n- Bespoke dressing and dressing groups.\n\nPlacement must be bidirectional: moving a puzzle/object in the scene moves its World Lab marker; dragging its marker in World Lab moves the real game object. Both views edit the same data, never duplicated copies.\n\nLater tracks: story beats, artefacts, checkpoints, audio/VFX and pacing diagnostics.",
-          "children": [],
+          "children": [
+            {
+              "id": "techq-world-lab-v1-scope-20260928",
+              "title": "World Lab v1 — implementation scope",
+              "status": "PROPOSED",
+              "implementation": "NEEDED",
+              "tags": [
+                "world-lab",
+                "authoring",
+                "timeline",
+                "world-elements"
+              ],
+              "body": "## Core view\nA horizontally scrollable/zoomable representation of the playable journey measured in world distance. It should show authored components as tracks/markers rather than trying to render the 3D scene.\n\n## v1 tracks\n1. **Biome regions / transitions** — ranges with draggable start/end handles and later blend-curve controls.\n2. **Puzzles** — marker plus optional extent; drag to reposition the real puzzle instance.\n3. **Dressing** — bespoke objects and semantic dressing-group ranges/markers.\n4. **Terraform machines / landmarks** — major world anchors.\n5. Optional/debug **section boundaries** so runtime chunks remain visible without becoming the authoring model.\n\n## Bidirectional editing\n- Place/move a puzzle or dressing item in the scene → World Lab marker updates.\n- Drag/move it in World Lab → scene/game placement updates.\n- Both operate on the same World Element ID/data.\n\n## Selection panel\nTapping an element should expose type, position/range, owner, biome response, links/dependencies and actions such as **Jump to Game**, duplicate/delete and eventually **Open in Puzzle Lab / Asset Lab / Design Lab**.\n\n## Later tracks\nStory beats, camera nodes, audio/VFX zones, checkpoints and pacing diagnostics can be layered in after the placement model is proven.",
+              "children": [],
+              "related": [
+                "techq-world-element-v1-schema",
+                "tool-world-lab"
+              ]
+            }
+          ],
           "related": [
             "techq-04-world-element-model"
           ]
@@ -2132,6 +2423,25 @@
       ],
       "body": "- **0.2 — 25 Sep 2026:** Living GDD moved into the new in-project Design Lab; structured contents, editable metadata, local autosave and import/export added.\n- **0.1 — 25 Sep 2026:** Initial living GDD created from SideScroll v1.0.56, established art/interaction decisions, current puzzle systems, active cart puzzle design and longer-form chapter/MVP discussion.\n\n## Maintenance rule\nUpdate this document when a decision changes player experience, world/story canon, reusable puzzle vocabulary, chapter structure, art/audio baseline, or an engine capability that materially changes what content can be authored. Minor implementation fixes do not need their own GDD entry unless they alter a design constraint.",
       "children": [
+        {
+          "id": "change-v08",
+          "title": "GDD v0.8 — Assistant handoff, World Lab priority & concept brief",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "change-log",
+            "workflow",
+            "world-lab",
+            "concept-art"
+          ],
+          "body": "- Added locked **READ FIRST — Assistant / Fresh-Chat Working Rules**, including changed-files-only patches, mandatory README, local-data safety, Design Lab merge-ID behaviour and PWA cache cautions.\n- Recorded that World composition / World Lab now takes priority over Puzzle Lab after Broken Bridge portability verification.\n- Added detailed World Element v1 schema and World Lab v1 scope.\n- Added World Lab and Concept Lab to the tooling map.\n- Added **Concept Development & Image Brief** with Woodland, Mountain, Wetlands, biome-transition studies and the initial 7-image generation set.\n- Added standalone repository brief `CONCEPT_ART_BRIEF.md` for easy new-session handoff without copying long chat text.",
+          "children": [],
+          "related": [
+            "workflow-assistant-fresh-chat-rules",
+            "techq-current-priority-world-composition-20260928",
+            "concept-development"
+          ]
+        },
         {
           "id": "change-v07",
           "title": "GDD v0.7 — Phone-first patch workflow",
