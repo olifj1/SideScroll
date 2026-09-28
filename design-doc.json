@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.4",
+  "documentVersion": "0.5",
   "project": "SideScroll",
   "title": "Living Game Design Document",
-  "baselineBuild": "1.0.59",
-  "updated": "2026-09-27",
+  "baselineBuild": "SideScroll v1.0.60",
+  "updated": "2026-09-28",
   "description": "Living SideScroll game design document. v0.4 develops Aureli’s proposed ending: the central terraforming control interface, biological compatibility with the intended creators, maintenance mode, and working explanations for why the Darkness collects living things.",
   "sections": [
     {
@@ -1559,6 +1559,273 @@
       "related": []
     },
     {
+      "id": "technical-design-queue",
+      "title": "Technical Design & Development Queue",
+      "status": "CURRENT",
+      "implementation": "PARTIAL",
+      "tags": [
+        "technical-design",
+        "development-plan",
+        "queue"
+      ],
+      "body": "This is the implementation-facing companion to the story/design sections. It records the architectural and tooling work required to turn SideScroll into a longer, multi-biome game while protecting the phone-first workflow.\n\n## How to use this section\nWork broadly top-to-bottom because later items depend on earlier architecture. Check an item only when its “done means” behaviour works in the real game, not merely when code exists. Preserve useful implementation detail here so decisions do not disappear inside chat history.\n\n## Current focus\nBroken Bridge is the reference test for portable puzzle-owned world modification. Once that contract is proven, Puzzle Lab and the World Element/World Lab systems can build on it.",
+      "children": [
+        {
+          "id": "techq-01-bridge-world-ownership",
+          "title": "01 — Broken Bridge owns its world modifiers",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "priority-1",
+            "puzzle",
+            "world-modifier",
+            "bridge",
+            "river"
+          ],
+          "body": "[ ] Make Broken Bridge portable rather than dependent on a manually prepared River section.\n\n**Implementation landed in v1.0.60; leave unchecked until the on-device move/delete/reload portability test passes.**\n\n## Why first\nThis is the strongest existing test case for the boundary between Puzzle and World. Fallen Tree is self-contained; Broken Bridge requires the world underneath it to change. Solving this correctly defines the ownership model needed by later Puzzle Lab and World Lab work.\n\n## Implemented in v1.0.60\n- Broken Bridge gains a puzzle-owned `river` world modifier stored relative to its marker.\n- Existing saved River-section width/position is migrated into that modifier on first load.\n- The old absolute River section is released back to normal base terrain.\n- River geometry, water, depth and collision gap move with the puzzle marker.\n- The modifier can cross 10 m section boundaries; sections are runtime chunks rather than placement constraints.\n- Removing the puzzle removes its river modifier automatically.\n- Puzzle snapshots carry `worldModifiers` so linked/unique puzzle starts retain environmental requirements.\n\n## Done means\nMove the puzzle to several positions, including across a section boundary; its river follows. Delete the placed puzzle; the river disappears and underlying terrain returns. Reload/reset must not restore the old absolute River section.",
+          "children": [],
+          "related": [
+            "puzzle-cart-bridge",
+            "tool-section-editor"
+          ]
+        },
+        {
+          "id": "techq-02-puzzle-ownership-contract",
+          "title": "02 — Formalise the puzzle ownership / world-modifier contract",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "priority-2",
+            "architecture",
+            "ownership",
+            "puzzle"
+          ],
+          "body": "[ ] Generalise the bridge solution into a documented puzzle contract.\n\nA puzzle may own objects, triggers, paths, respawn rules, thought nodes and world modifiers. Every owned element must be relative to the puzzle marker and disappear or move with its owner. External dependencies should be explicit requirements (for example “player must know Climb”), not hidden scene preparation.\n\n## Done means\nEvery puzzle can report: owned objects, owned world modifiers, required abilities, and deliberate external dependencies. No puzzle silently relies on manually prepared section state.",
+          "children": [],
+          "related": [
+            "techq-01-bridge-world-ownership"
+          ]
+        },
+        {
+          "id": "techq-03-puzzle-lab",
+          "title": "03 — Puzzle Lab v1",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-3",
+            "tooling",
+            "puzzle-lab",
+            "qa"
+          ],
+          "body": "[ ] Build a dedicated puzzle sandbox/test harness.\n\n## Core v1\n- Load one reusable puzzle in a disposable test world.\n- Reset/Test/Set Start without disturbing the main game layout.\n- Move the puzzle freely, including across section boundaries.\n- Delete/recreate and stream out/in.\n- Visualise bounds, owned objects, triggers, collision, paths and world modifiers.\n- Show external dependencies.\n- Environment selector initially: Blank/Test and Woodland; later Mountain/Wetlands.\n\n## Portability test\nCentre of section → boundary → arbitrary offset → reload → delete → recreate. Broken Bridge is the first acceptance puzzle.",
+          "children": [],
+          "related": [
+            "techq-02-puzzle-ownership-contract",
+            "tool-puzzle-editor"
+          ]
+        },
+        {
+          "id": "techq-04-world-element-model",
+          "title": "04 — World Element data model & ownership",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-4",
+            "world",
+            "architecture",
+            "ownership"
+          ],
+          "body": "[ ] Define one common representation for intentionally authored world content.\n\nCandidate element types: Puzzle, Biome Region, Biome Transition, Dressing Group, Explicit Dressing, Artefact/Landmark, Story Trigger, Audio Zone, VFX Zone, Spawn/Checkpoint.\n\nCommon data should include world position/range, extent, owner, streaming policy, links and optional biome response.\n\n## Principle\nWorld Elements are how we author the journey; 10 m Sections are how the engine streams/renders it.",
+          "children": [],
+          "related": [
+            "level-architecture"
+          ]
+        },
+        {
+          "id": "techq-05-world-lab",
+          "title": "05 — World Lab v1",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-5",
+            "tooling",
+            "world-lab",
+            "level-design"
+          ],
+          "body": "[ ] Create the horizontal whole-journey authoring view.\n\n## v1 tracks\n- Section boundaries (optional/debug).\n- Puzzle markers.\n- Biome regions / transitions.\n- Bespoke dressing and dressing groups.\n\nPlacement must be bidirectional: moving a puzzle/object in the scene moves its World Lab marker; dragging its marker in World Lab moves the real game object. Both views edit the same data, never duplicated copies.\n\nLater tracks: story beats, artefacts, checkpoints, audio/VFX and pacing diagnostics.",
+          "children": [],
+          "related": [
+            "techq-04-world-element-model"
+          ]
+        },
+        {
+          "id": "techq-06-biome-profiles",
+          "title": "06 — Biome Profile system",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-6",
+            "biome",
+            "environment"
+          ],
+          "body": "[ ] Turn “Woodland”, “Mountain”, “Wetlands” etc. into data profiles rather than hard-coded scenery modes.\n\nA profile can define terrain/ground materials, tree/rock/plant libraries, density tendencies, foreground/background dressing, fog/grade, ambient audio, weather/VFX and biome-specific semantic dressing mappings.\n\nStart with Woodland (existing) plus Mountain (new).",
+          "children": [],
+          "related": [
+            "techq-04-world-element-model"
+          ]
+        },
+        {
+          "id": "techq-07-biome-transitions",
+          "title": "07 — Biome transition zones & blend curves",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-7",
+            "biome",
+            "transition",
+            "sections"
+          ],
+          "body": "[ ] Allow a continuous journey from one biome to another.\n\nAuthor a transition with FROM biome, TO biome, start position/section, end position/section and blend curve. The engine samples blend weights by world position. Support Linear / Smooth / Early / Late initially, with custom curve later.\n\nBlend more than object spawn percentages: terrain dressing, density, fog/grade, ambient audio, VFX and distant silhouettes should be able to transition too.",
+          "children": [],
+          "related": [
+            "techq-06-biome-profiles",
+            "techq-05-world-lab"
+          ]
+        },
+        {
+          "id": "techq-08-semantic-dressing",
+          "title": "08 — Biome-aware dressing groups + bespoke dressing",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-8",
+            "dressing",
+            "biome",
+            "level-design"
+          ],
+          "body": "[ ] Add semantic dressing groups where the designer places an intent rather than one fixed asset.\n\nExamples: Dense Edge, Sparse Edge, Ground Detail, Path Breakup, Foreground Occluder, Background Mass, Rock Cluster, Vegetation Cluster, Artefact Disturbance.\n\nWoodland may realise Dense Edge as trees/ferns; Mountain as rock wall/boulders/scrub; Wetlands as reeds/willow/water plants.\n\nKeep explicit bespoke placement alongside this for exact hero objects and composition.",
+          "children": [],
+          "related": [
+            "techq-06-biome-profiles",
+            "techq-05-world-lab"
+          ]
+        },
+        {
+          "id": "techq-09-mountain-biome",
+          "title": "09 — Mountain biome content pack & first full environment transition",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-9",
+            "mountain",
+            "art",
+            "biome"
+          ],
+          "body": "[ ] Build enough Mountain content to prove the world can genuinely change environment.\n\nMinimum set: large rock/cliff forms, smaller rock clusters/scree, mountain grasses/scrub, sparse tree variants and distant mountain silhouettes.\n\nAcceptance target: walk continuously from established Woodland through a blended transition into a recognisably Mountain environment without a hard scene cut.",
+          "children": [],
+          "related": [
+            "techq-06-biome-profiles",
+            "techq-07-biome-transitions"
+          ]
+        },
+        {
+          "id": "techq-10-climbing",
+          "title": "10 — Climbing movement & traversal system",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-10",
+            "movement",
+            "climbing",
+            "mountain"
+          ],
+          "body": "[ ] Introduce Climb as the next major traversal mechanic, strongly associated with mountain progression but reusable elsewhere.\n\nTarget vocabulary: grab, hang, shimmy, climb up, drop and jump from ledge; possibly vertical climb surfaces later. Use a clear authored visual/gameplay language rather than making every surface climbable.\n\nClimbing should create puzzle possibilities, not turn the game into a twitch platformer.",
+          "children": [],
+          "related": [
+            "techq-09-mountain-biome",
+            "techq-11-anim-lab"
+          ]
+        },
+        {
+          "id": "techq-11-anim-lab",
+          "title": "11 — Walk Lab → Anim Lab",
+          "status": "PROPOSED",
+          "implementation": "PARTIAL",
+          "tags": [
+            "priority-11",
+            "tooling",
+            "animation",
+            "characters"
+          ],
+          "body": "[ ] Expand Walk Lab into a general character/creature animation tool without discarding the existing rig work.\n\nCharacters: Aureli, fox, boy and future NPCs. Actions can grow from Idle/Walk/Run/Jump into Carry, Push, Pull, Climb, Hang, Shimmy, Swim, Dive, Interact and companion-specific actions.\n\nLonger-term controls: rig/atlas selection, action preview, loop/speed, contact lines/targets and transition testing.",
+          "children": [],
+          "related": [
+            "tool-walk-lab",
+            "techq-10-climbing"
+          ]
+        },
+        {
+          "id": "techq-12-biome-machines",
+          "title": "12 — Terraforming-machine biome framework",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-12",
+            "artefacts",
+            "biome",
+            "gameplay"
+          ],
+          "body": "[ ] Define how major terraforming machines belong visually and mechanically to their biome.\n\nFirst pair:\n- Woodland biological/biosphere machine: ancient tree integration, bio-mechanical vines/light, plant/animal seeding and transformation. Supports the fox/boy transformation logic.\n- Mountain geophysical/gravity machine: integrated into rock/mountain mass, gravity and tectonic/topographic control. Supports gravity anomalies and mountain formation.\n\nEach machine should have: original terraforming job, centuries/millennia of environmental integration, anomaly/failure behaviour, visual language and puzzle powers.",
+          "children": [],
+          "related": [
+            "universe-bible",
+            "techq-09-mountain-biome"
+          ]
+        },
+        {
+          "id": "techq-13-concept-lab",
+          "title": "13 — Concept Lab v1",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-13",
+            "tooling",
+            "concept-art",
+            "gen-ai"
+          ],
+          "body": "[ ] Create the project visual-development library.\n\nOrganise concepts by World/Biome/Artefact/Character/Location. Store image, prompt, notes, status, version/date and links back to Design Lab. Support multiple iterations and an Approved Direction state.\n\nInitial implementation should prioritise image import/organisation and prompt history. Do not expose an AI API key in the static GitHub Pages client; integrated generation can later use a protected backend or generation through ChatGPT followed by import.",
+          "children": [],
+          "related": [
+            "techq-12-biome-machines"
+          ]
+        },
+        {
+          "id": "techq-14-wetlands",
+          "title": "14 — Wetlands / hydrology biome + swimming/diving exploration",
+          "status": "PROPOSED",
+          "implementation": "NEEDED",
+          "tags": [
+            "priority-14",
+            "wetlands",
+            "water",
+            "movement"
+          ],
+          "body": "[ ] Develop a later biome around the hydrological terraforming system.\n\nEnvironment: wetlands, deeper water, reeds/mud/aquatic life and an underwater major machine. Original responsibilities may include water creation/distribution, salinity, groundwater/rain cycles, temperature and aquatic ecosystems.\n\nPotential movement expansion: swimming/diving, buoyancy/current interactions and underwater puzzle spaces. Build only after the biome/world foundations and climbing/animation pipeline are stable.",
+          "children": [],
+          "related": [
+            "techq-06-biome-profiles",
+            "techq-11-anim-lab",
+            "techq-12-biome-machines"
+          ]
+        }
+      ],
+      "related": [
+        "technical-roadmap",
+        "tooling",
+        "level-architecture"
+      ]
+    },
+    {
       "id": "technical-roadmap",
       "title": "Technical Roadmap",
       "status": "PROPOSED",
@@ -1689,6 +1956,20 @@
       ],
       "body": "- **0.2 — 25 Sep 2026:** Living GDD moved into the new in-project Design Lab; structured contents, editable metadata, local autosave and import/export added.\n- **0.1 — 25 Sep 2026:** Initial living GDD created from SideScroll v1.0.56, established art/interaction decisions, current puzzle systems, active cart puzzle design and longer-form chapter/MVP discussion.\n\n## Maintenance rule\nUpdate this document when a decision changes player experience, world/story canon, reusable puzzle vocabulary, chapter structure, art/audio baseline, or an engine capability that materially changes what content can be authored. Minor implementation fixes do not need their own GDD entry unless they alter a design constraint.",
       "children": [
+        {
+          "id": "change-v05",
+          "title": "GDD v0.5 — Technical development queue",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "change-log"
+          ],
+          "body": "Added the ordered Technical Design & Development Queue. v1.0.60 also introduces puzzle-owned river world modifiers for Broken Bridge as the first portability/ownership implementation.",
+          "children": [],
+          "related": [
+            "technical-design-queue"
+          ]
+        },
         {
           "id": "change-0-3",
           "title": "v0.3 — Aureli / Hidden Universe Foundation",

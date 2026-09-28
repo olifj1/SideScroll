@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.59: Web Audio background music + sound controls; player menu remains streamlined.
+  // SideScroll v1.0.60: Web Audio background music + sound controls; player menu remains streamlined.
   // Puzzle-linked Thought Trigger nodes and Asset States/cart rail work remain intact.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -882,6 +882,262 @@
     return terrainRiverWaterMeshCache.get(key);
   }
 
+  // v1.0.60 puzzle-owned world modifiers. River crossings are no longer forced
+  // to occupy a pre-authored 10 m River section. A puzzle can carry a river
+  // modifier relative to its marker, allowing the whole crossing to move or be
+  // deleted as one portable gameplay unit.
+  const puzzleRiverBankMeshCache = new Map();
+  const puzzleRiverWaterMeshCache = new Map();
+  const terrainIntervalPathMeshCache = new Map();
+  const terrainIntervalGroundMeshCache = new Map();
+
+  function disposeMeshBuffers(mesh) {
+    if (!mesh) return;
+    try { if (mesh.vbo) gl.deleteBuffer(mesh.vbo); } catch (_) {}
+    try { if (mesh.ibo) gl.deleteBuffer(mesh.ibo); } catch (_) {}
+  }
+
+  function clearMeshCache(cache) {
+    for (const mesh of cache.values()) disposeMeshBuffers(mesh);
+    cache.clear();
+  }
+
+  function invalidatePuzzleWorldModifierMeshes() {
+    puzzleWorldModifierCache = null;
+    clearMeshCache(puzzleRiverBankMeshCache);
+    clearMeshCache(puzzleRiverWaterMeshCache);
+    clearMeshCache(terrainIntervalPathMeshCache);
+    clearMeshCache(terrainIntervalGroundMeshCache);
+  }
+
+  function puzzleRiverSettings(mod) {
+    return {
+      width: Rig.clamp(Number(mod?.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH),
+      bedDepth: Math.max(0.35, Number(mod?.bedDepth) || RIVER_BED_DEPTH),
+      waterAboveBed: Rig.clamp(Number(mod?.waterAboveBed) || RIVER_WATER_ABOVE_BED, 0.04, 1.2),
+      phase: Number.isFinite(Number(mod?.phase)) ? Number(mod.phase) : 0,
+      bankMargin: Rig.clamp(Number(mod?.bankMargin) || 0.92, 0.45, 2.0)
+    };
+  }
+
+  function puzzleRiverExtent(mod) {
+    const settings = puzzleRiverSettings(mod);
+    const base = Number(mod?.worldCenterX) || 0;
+    // The old section river can meander by roughly 0.52 m and vary in width by
+    // roughly 0.25 m. Reserve enough top-bank terrain around those extremes so
+    // the clipped base terrain and the replacement river mesh can never gap.
+    const half = (settings.width + 0.28) * 0.5 + 0.56 + settings.bankMargin;
+    return { minX:base-half, maxX:base+half, centerX:base, half };
+  }
+
+  function puzzleRiverProfileAtZ(mod, z) {
+    const settings = puzzleRiverSettings(mod);
+    const phase = settings.phase;
+    const rawMeander = Math.sin(z * 0.165 + phase) * 0.34 + Math.sin(z * 0.071 - phase * 1.37) * 0.18;
+    const widthVariation = Math.sin(z * 0.245 - phase * 0.43) * 0.16 + Math.sin(z * 0.113 + phase) * 0.09;
+    const width = Rig.clamp(settings.width + widthVariation, RIVER_SECTION_MIN_WIDTH - 0.25, RIVER_SECTION_MAX_WIDTH);
+    const centre = (Number(mod?.worldCenterX) || 0) + rawMeander;
+    const leftLip = centre - width * 0.5;
+    const rightLip = centre + width * 0.5;
+    const wallRun = Math.min(0.92, Math.max(0.68, width * 0.17));
+    const leftToe = leftLip + wallRun;
+    const rightToe = rightLip - wallRun;
+    const bedY = groundY - settings.bedDepth + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
+    const waterY = bedY + settings.waterAboveBed;
+    return { ...puzzleRiverExtent(mod), width, centre, leftLip, rightLip, leftToe, rightToe, wallRun, bedY, waterY };
+  }
+
+  function puzzleRiverTerrainYAt(x, z, mod) {
+    const p = puzzleRiverProfileAtZ(mod, z);
+    const base = pathGroundYAt(x, z);
+    if (x <= p.leftLip || x >= p.rightLip) return base;
+    if (x >= p.leftToe && x <= p.rightToe) return p.bedY;
+    if (x < p.leftToe) {
+      const t = smoothTerrainStep((x - p.leftLip) / Math.max(0.001, p.leftToe - p.leftLip));
+      return Rig.lerp(base, p.bedY, t);
+    }
+    const t = smoothTerrainStep((x - p.rightToe) / Math.max(0.001, p.rightLip - p.rightToe));
+    return Rig.lerp(p.bedY, base, t);
+  }
+
+  function puzzleRiverModifiers() {
+    if (!puzzleWorldModifiersReady) return [];
+    return resolvedPuzzleWorldModifiers().filter(mod => mod?.type === 'river');
+  }
+
+  function puzzleRiverModifierAtPoint(x, z = pathZ) {
+    if (!puzzleWorldModifiersReady) return null;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const mod of puzzleRiverModifiers()) {
+      const extent = puzzleRiverExtent(mod);
+      if (x < extent.minX || x > extent.maxX) continue;
+      const distance = Math.abs(x - (Number(mod.worldCenterX) || 0));
+      if (distance < bestDistance) { best = mod; bestDistance = distance; }
+    }
+    return best;
+  }
+
+  function puzzleRiverModifiersIntersectingRange(minX, maxX) {
+    return puzzleRiverModifiers().filter(mod => {
+      const extent = puzzleRiverExtent(mod);
+      return extent.maxX > minX + 0.0001 && extent.minX < maxX - 0.0001;
+    });
+  }
+
+  function subtractRanges(baseMin, baseMax, cuts) {
+    let ranges = [{ minX:baseMin, maxX:baseMax }];
+    for (const cut of cuts) {
+      const next = [];
+      for (const range of ranges) {
+        if (cut.maxX <= range.minX || cut.minX >= range.maxX) { next.push(range); continue; }
+        if (cut.minX > range.minX + 0.002) next.push({ minX:range.minX, maxX:Math.min(cut.minX, range.maxX) });
+        if (cut.maxX < range.maxX - 0.002) next.push({ minX:Math.max(cut.maxX, range.minX), maxX:range.maxX });
+      }
+      ranges = next;
+    }
+    return ranges.filter(range => range.maxX - range.minX > 0.01);
+  }
+
+  function terrainBaseIntervalsForSection(sectionIndex) {
+    const bounds = terrainSectionBounds(sectionIndex);
+    const cuts = puzzleRiverModifiersIntersectingRange(bounds.minX, bounds.maxX).map(puzzleRiverExtent);
+    return subtractRanges(bounds.minX, bounds.maxX, cuts);
+  }
+
+  function createTerrainIntervalPathMesh(sectionIndex, typeId, minX, maxX, segments = 8) {
+    const rows = [
+      { z: 1.00, y: 0.00, v: 0.00 }, { z: 0.82, y: 0.22, v: 0.12 },
+      { z: 0.68, y: 0.12, v: 0.28 }, { z:-0.68, y: 0.12, v: 0.72 },
+      { z:-0.82, y: 0.22, v: 0.88 }, { z:-1.00, y: 0.00, v: 1.00 }
+    ];
+    const bounds = terrainSectionBounds(sectionIndex);
+    const centre = (minX + maxX) * 0.5;
+    const width = Math.max(0.001, maxX - minX);
+    const vertices = [];
+    const indices = [];
+    for (let ix=0; ix<=segments; ix++) {
+      const t = ix / segments;
+      const worldX = Rig.lerp(minX, maxX, t);
+      const sectionT = Rig.clamp((worldX - bounds.minX) / TERRAIN_SECTION_LENGTH, 0, 1);
+      const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(sectionT) : 0;
+      const rise = pathUndulationAtX(worldX) + featureRise;
+      const localX = (worldX - centre) / width;
+      const u = terrainSectionWorldU(worldX);
+      for (const row of rows) vertices.push(localX, row.y + rise, row.z, u, row.v * 1.8);
+    }
+    const rowCount = rows.length;
+    for (let ix=0; ix<segments; ix++) for (let iz=0; iz<rowCount-1; iz++) {
+      const a=ix*rowCount+iz, b=(ix+1)*rowCount+iz, c=a+1, d=b+1;
+      indices.push(a,b,c,c,b,d);
+    }
+    return createMesh(new Float32Array(vertices), new Uint16Array(indices));
+  }
+
+  function createTerrainIntervalGroundMesh(sectionIndex, typeId, minX, maxX, segments = 8) {
+    if (typeId === 'normal') return groundMesh;
+    const bounds = terrainSectionBounds(sectionIndex);
+    const centre = (minX + maxX) * 0.5;
+    const width = Math.max(0.001, maxX - minX);
+    const vertices=[];
+    const indices=[];
+    for (let ix=0; ix<=segments; ix++) {
+      const t=ix/segments;
+      const worldX=Rig.lerp(minX,maxX,t);
+      const sectionT=Rig.clamp((worldX-bounds.minX)/TERRAIN_SECTION_LENGTH,0,1);
+      const y=typeId==='testHill' ? testHillRiseAtLocalT(sectionT) : 0;
+      const localX=(worldX-centre)/width;
+      vertices.push(localX,y,0,t,0);
+      vertices.push(localX,y,-1,t,1);
+    }
+    for(let ix=0;ix<segments;ix++){const a=ix*2,b=a+2,c=a+1,d=b+1;indices.push(a,b,c,c,b,d);}
+    return createMesh(new Float32Array(vertices),new Uint16Array(indices));
+  }
+
+  function terrainIntervalMeshKey(sectionIndex, typeId, minX, maxX) {
+    return `${sectionIndex}:${typeId}:${minX.toFixed(3)}:${maxX.toFixed(3)}`;
+  }
+
+  function terrainIntervalPathMesh(sectionIndex, typeId, minX, maxX) {
+    const key=terrainIntervalMeshKey(sectionIndex,typeId,minX,maxX);
+    if(!terrainIntervalPathMeshCache.has(key)) terrainIntervalPathMeshCache.set(key,createTerrainIntervalPathMesh(sectionIndex,typeId,minX,maxX));
+    return terrainIntervalPathMeshCache.get(key);
+  }
+
+  function terrainIntervalGroundMesh(sectionIndex, typeId, minX, maxX) {
+    if(typeId==='normal') return groundMesh;
+    const key=terrainIntervalMeshKey(sectionIndex,typeId,minX,maxX);
+    if(!terrainIntervalGroundMeshCache.has(key)) terrainIntervalGroundMeshCache.set(key,createTerrainIntervalGroundMesh(sectionIndex,typeId,minX,maxX));
+    return terrainIntervalGroundMeshCache.get(key);
+  }
+
+  function puzzleRiverBankCrossSection(mod, z, side) {
+    const p = puzzleRiverProfileAtZ(mod, z);
+    const extent = puzzleRiverExtent(mod);
+    const isLeft = side === 'left';
+    const outerX = isLeft ? extent.minX : extent.maxX;
+    const lipX = isLeft ? p.leftLip : p.rightLip;
+    const toeX = isLeft ? p.leftToe : p.rightToe;
+    const dir = isLeft ? 1 : -1;
+    const approachX = lipX - dir * 0.56;
+    const shoulderX = lipX + dir * 0.18;
+    const lowerWallX = lipX + dir * (p.wallRun * 0.68);
+    const centreX = p.centre;
+    const outerY = pathGroundYAt(outerX, z);
+    const approachY = pathGroundYAt(approachX, z);
+    const lipY = pathGroundYAt(lipX, z);
+    return [
+      {x:outerX,y:outerY,map:'top',sv:0},{x:approachX,y:approachY,map:'top',sv:0},{x:lipX,y:lipY,map:'top',sv:0},
+      {x:shoulderX,y:Rig.lerp(lipY,p.bedY,0.16),map:'wall',sv:0.20},{x:lowerWallX,y:Rig.lerp(lipY,p.bedY,0.73),map:'wall',sv:0.88},
+      {x:toeX,y:p.bedY,map:'wall',sv:1.24},{x:centreX,y:p.bedY,map:'bed',sv:1.24}
+    ];
+  }
+
+  function createPuzzleRiverBankMesh(mod, side, zSegments = 30) {
+    const baseX = Number(mod.worldCenterX) || 0;
+    const vertices=[],indices=[],rows=[];
+    for(let iz=0;iz<=zSegments;iz++){const t=iz/zSegments;const z=Rig.lerp(WORLD.farZ,GROUND_NEAR_Z,t);rows.push({z,points:puzzleRiverBankCrossSection(mod,z,side)});}
+    function pushVertex(point,z,bandKind){
+      let u,v;
+      if(bandKind==='wall'){u=(z-WORLD.farZ)*0.205;v=point.sv*1.22;}else{[u,v]=terrainDirtWorldUv(point.x,z);}
+      vertices.push(point.x-baseX,point.y,z,u,v);return vertices.length/5-1;
+    }
+    for(let iz=0;iz<zSegments;iz++){const a=rows[iz],b=rows[iz+1];for(let band=0;band<a.points.length-1;band++){
+      const kind=(band>=2&&band<=4)?'wall':(band===5?'bed':'top');
+      const i0=pushVertex(a.points[band],a.z,kind),i1=pushVertex(a.points[band+1],a.z,kind),i2=pushVertex(b.points[band],b.z,kind),i3=pushVertex(b.points[band+1],b.z,kind);
+      indices.push(i0,i2,i1,i1,i2,i3);
+    }}
+    return createMesh(new Float32Array(vertices),new Uint16Array(indices));
+  }
+
+  function createPuzzleRiverWaterMesh(mod, zSegments = 32, xSegments = 4) {
+    const settings=puzzleRiverSettings(mod);
+    const waterXSegments=Math.max(xSegments,Math.ceil(settings.width/0.9));
+    const baseX=Number(mod.worldCenterX)||0;
+    const vertices=[],indices=[],rows=[];
+    for(let iz=0;iz<=zSegments;iz++){const tz=iz/zSegments,z=Rig.lerp(WORLD.farZ,GROUND_NEAR_Z,tz),p=puzzleRiverProfileAtZ(mod,z);const left=p.leftLip+p.wallRun*0.30,right=p.rightLip-p.wallRun*0.30,row=[];
+      for(let ix=0;ix<=waterXSegments;ix++){const tx=ix/waterXSegments,x=Rig.lerp(left,right,tx),u=tx*0.82,v=(z-WORLD.farZ)*0.032;vertices.push(x-baseX,p.waterY,z,u,v);row.push(vertices.length/5-1);}rows.push(row);}
+    for(let iz=0;iz<zSegments;iz++)for(let ix=0;ix<waterXSegments;ix++){const a=rows[iz][ix],b=rows[iz+1][ix],c=rows[iz][ix+1],d=rows[iz+1][ix+1];indices.push(a,b,c,c,b,d);}
+    return createMesh(new Float32Array(vertices),new Uint16Array(indices));
+  }
+
+  function puzzleRiverMeshKey(mod, kind) {
+    const s=puzzleRiverSettings(mod);
+    return `${mod.markerId||'world'}:${mod.id||'river'}:${kind}:${Number(mod.worldCenterX||0).toFixed(3)}:${s.width.toFixed(2)}:${s.bedDepth.toFixed(2)}:${s.waterAboveBed.toFixed(2)}:${s.phase.toFixed(4)}:${s.bankMargin.toFixed(2)}`;
+  }
+
+  function puzzleRiverBankMesh(mod, side) {
+    const key=puzzleRiverMeshKey(mod,side);
+    if(!puzzleRiverBankMeshCache.has(key)) puzzleRiverBankMeshCache.set(key,createPuzzleRiverBankMesh(mod,side));
+    return puzzleRiverBankMeshCache.get(key);
+  }
+
+  function puzzleRiverWaterMesh(mod) {
+    const key=puzzleRiverMeshKey(mod,'water');
+    if(!puzzleRiverWaterMeshCache.has(key)) puzzleRiverWaterMeshCache.set(key,createPuzzleRiverWaterMesh(mod));
+    return puzzleRiverWaterMeshCache.get(key);
+  }
+
   function createRigPartMesh(name) {
     const r = Rig.atlasRect(name);
     if (!r) return null;
@@ -1259,7 +1515,7 @@
     return tex;
   }
 
-  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.59', 'terrain dirt texture', {
+  textures.pathDirt = createRepeatingImageTexture('terrain-dirt.png?v=1.0.60', 'terrain dirt texture', {
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
@@ -1301,7 +1557,7 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.59', 'SideScroll tree atlas');
+  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.60', 'SideScroll tree atlas');
   const assetUv = {
     tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
     tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
@@ -1352,7 +1608,7 @@
       textures[key] = textures.treeAtlas;
     } else {
       textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.59`,
+        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.60`,
         key,
         null,
         size[0] / size[1]
@@ -1370,12 +1626,12 @@
   };
   Object.entries(bridgeAssetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.59`, key, null, size[0] / size[1]);
+    textures[key] = createImageTexture(`${key}.png?v=1.0.60`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
-    'counterweight-plank.png?v=1.0.59',
+    'counterweight-plank.png?v=1.0.60',
     'counterweight-plank',
     null,
     1050 / 220
@@ -1385,9 +1641,9 @@
   // the wheel texture is rendered as separate runtime components so it remains
   // perfectly round and can rotate independently while the cart moves.
   assetAspect.handcart = 620 / 255;
-  textures.handcart = createImageTexture('handcart-body.png?v=1.0.59', 'handcart', null, 620 / 255);
+  textures.handcart = createImageTexture('handcart-body.png?v=1.0.60', 'handcart', null, 620 / 255);
   assetAspect['handcart-wheel'] = 1;
-  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.59', 'handcart-wheel', null, 1);
+  textures['handcart-wheel'] = createImageTexture('handcart-wheel.png?v=1.0.60', 'handcart-wheel', null, 1);
   assetAspect['handcart-broken'] = 620 / 255;
   textures['handcart-broken'] = textures.handcart;
   assetAspect['cart-wheel-loose'] = 1;
@@ -1395,7 +1651,7 @@
   assetAspect['cart-wheel-ready'] = 1;
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
-  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.59', 'axle-pin', null, 2);
+  textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.60', 'axle-pin', null, 2);
 
   // Editor-only puzzle Thought Trigger. It is visible while authoring but
   // suppressed completely during play. Its activation radius is drawn in the
@@ -1595,7 +1851,7 @@
 
 
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-const RIG_TEXTURE_VERSION = '1.0.59';
+const RIG_TEXTURE_VERSION = '1.0.60';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 
 function rigVariantTextureKey(id) {
@@ -1684,6 +1940,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let terrainSectionSettings = new Map();
   let terrainLastUiCurrentIndex = null;
 
+  // Puzzle-owned world modifiers are resolved later, after the puzzle library
+  // has loaded. Terrain helpers run during initial scene construction, so they
+  // must be able to operate safely before that data is ready.
+  let puzzleWorldModifiersReady = false;
+  let puzzleWorldModifierCache = null;
+
   function terrainSectionIndexAt(x) {
     return Math.floor((Number(x) + TERRAIN_SECTION_HALF) / TERRAIN_SECTION_LENGTH);
   }
@@ -1716,6 +1978,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function pointInsideRiverCollisionGap(x, z, index = terrainSectionIndexAt(x)) {
+    const owned = puzzleRiverModifierAtPoint(x, z);
+    if (owned && owned.collisionGap !== false) {
+      const p = puzzleRiverProfileAtZ(owned, z);
+      if (x > p.leftToe - 0.03 && x < p.rightToe + 0.03) return true;
+    }
     if (terrainSectionType(index) !== 'river') return false;
     const p = riverProfileAtZ(index, z);
     // Physics deliberately ignores the sloping visual banks. The solid ground
@@ -1726,7 +1993,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function terrainCollisionAvailableAt(x, z = pathZ) {
     const index = terrainSectionIndexAt(x);
     if (!terrainSectionCollisionEnabled(index)) return false;
-    if (terrainSectionType(index) === 'river' && pointInsideRiverCollisionGap(x, z, index)) return false;
+    if (pointInsideRiverCollisionGap(x, z, index)) return false;
     return true;
   }
 
@@ -1802,6 +2069,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function pointInsideRiverChannel(x, z, index = terrainSectionIndexAt(x)) {
+    const owned = puzzleRiverModifierAtPoint(x, z);
+    if (owned) {
+      const p = puzzleRiverProfileAtZ(owned, z);
+      if (x > p.leftLip - 0.05 && x < p.rightLip + 0.05) return true;
+    }
     if (terrainSectionType(index) !== 'river') return false;
     const p = riverProfileAtZ(index, z);
     return x > p.leftLip - 0.05 && x < p.rightLip + 0.05;
@@ -2024,6 +2296,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // pathGroundYAt remains the legacy/base profile so old absolute saves can be
   // migrated to a terrain-relative offset when they are restored.
   function terrainGroundYAt(x, z = 0) {
+    const owned = puzzleRiverModifierAtPoint(x, z);
+    if (owned) return puzzleRiverTerrainYAt(x, z, owned);
     const index = terrainSectionIndexAt(x);
     return terrainSurfaceYForTypeAt(x, z, terrainSectionType(index), index);
   }
@@ -2033,6 +2307,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // present. This keeps camera/jump/platform maths completely independent from
   // the decorative river-bank shape.
   function playSurfaceYAt(x) {
+    if (puzzleRiverModifierAtPoint(x, pathZ)) return pathGroundYAt(x, pathZ);
     const index = terrainSectionIndexAt(x);
     const typeId = terrainSectionType(index);
     if (typeId === 'river') return pathGroundYAt(x, pathZ);
@@ -3716,12 +3991,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     let zoneWidth = Math.max(2.5, Math.min(7.0, (bounds.maxX - bounds.minX) * 0.72));
     let triggerOffsetY = -0.90;
     const worldCentreX = marker.x + zoneCenterX;
-    const sectionIndex = terrainSectionIndexAt(worldCentreX);
-    if (terrainSectionType(sectionIndex) === 'river') {
-      const p = riverProfileAtZ(sectionIndex, pathZ);
+    const ownedRiver = puzzleWorldModifiersReady
+      ? resolvedPuzzleWorldModifiers().find(mod => mod?.type === 'river' && mod.markerId === marker.id)
+      : null;
+    if (ownedRiver) {
+      const p = puzzleRiverProfileAtZ(ownedRiver, pathZ);
       zoneCenterX = p.centre - marker.x;
       zoneWidth = Math.max(2.2, Math.min(8.5, (p.rightToe - p.leftToe) + 0.75));
       triggerOffsetY = (p.waterY + 0.12) - playSurfaceYAt(p.centre);
+    } else {
+      const sectionIndex = terrainSectionIndexAt(worldCentreX);
+      if (terrainSectionType(sectionIndex) === 'river') {
+        const p = riverProfileAtZ(sectionIndex, pathZ);
+        zoneCenterX = p.centre - marker.x;
+        zoneWidth = Math.max(2.2, Math.min(8.5, (p.rightToe - p.leftToe) + 0.75));
+        triggerOffsetY = (p.waterY + 0.12) - playSurfaceYAt(p.centre);
+      }
     }
     return { enabled:false, spawnX, spawnZ:pathZ, zoneCenterX, zoneCenterZ:pathZ, width:zoneWidth, depth:5.6, triggerOffsetY };
   }
@@ -3970,6 +4255,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const savedX = Number(puzzleSavedState?.[marker.id]?.markerX);
       if (Number.isFinite(savedX)) marker.x = savedX;
     }
+    if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
 
   function persistPuzzleMarkerPosition(marker) {
@@ -4007,6 +4293,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         if (state && Number.isFinite(Number(state.x))) state.x = Number(state.x) + dx;
       }
     }
+    invalidatePuzzleWorldModifierMeshes();
     return true;
   }
 
@@ -4020,6 +4307,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function savePuzzleStarts() {
     try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {}
+    if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
 
   function migratePuzzleTemplates() {
@@ -4039,6 +4327,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function savePuzzleLibrary() {
     try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {}
+    if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
 
   function savePuzzleWorkshopState(markerId = null) {
@@ -4046,6 +4335,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     puzzleWorkshopState.clear = !!puzzleWorkshopClear;
     puzzleWorkshopState.markerId = markerId || (!puzzleWorkshopClear ? (editorPuzzleMarkerId || puzzleWorkshopState.markerId) : null);
     try { localStorage.setItem(PUZZLE_WORKSHOP_STORAGE_KEY, JSON.stringify(puzzleWorkshopState)); } catch (_) {}
+    if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
 
   function allPuzzleMarkers() {
@@ -4176,7 +4466,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.59" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.60" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -4260,7 +4550,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         thoughtOnce: prop.thoughtOnce !== false
       };
     }
-    return { source:'default', bounds:codeBoundsForDefinition(def), objects, respawn:def?.respawn ? deepCopy(def.respawn) : null };
+    return {
+      source:'default',
+      bounds:codeBoundsForDefinition(def),
+      objects,
+      respawn:def?.respawn ? deepCopy(def.respawn) : null,
+      worldModifiers:Array.isArray(def?.worldModifiers) ? deepCopy(def.worldModifiers) : []
+    };
   }
 
   function defaultPuzzleStart(marker) {
@@ -4272,12 +4568,120 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function puzzleStartFor(marker) {
-    if (!marker) return { source:'default', bounds:{minX:-4,maxX:4}, objects:{} };
+    if (!marker) return { source:'default', bounds:{minX:-4,maxX:4}, objects:{}, worldModifiers:[] };
     if (markerLinkMode(marker) === 'copy' && puzzleStartState[marker.id]) return puzzleStartState[marker.id];
     if (userPuzzleLibrary.templates?.[marker.group]) return userPuzzleLibrary.templates[marker.group];
     if (puzzleStartState[marker.id]) return puzzleStartState[marker.id];
     return defaultPuzzleStart(marker);
   }
+
+  function rawPuzzleWorldModifiersForMarker(marker) {
+    if (!marker) return [];
+    const start = puzzleStartFor(marker);
+    const raw = Array.isArray(start?.worldModifiers)
+      ? start.worldModifiers
+      : (Array.isArray(markerDefinition(marker)?.worldModifiers) ? markerDefinition(marker).worldModifiers : []);
+    return raw.filter(item => item && typeof item === 'object' && typeof item.type === 'string');
+  }
+
+  function resolvedPuzzleWorldModifiers() {
+    if (!puzzleWorldModifiersReady) return [];
+    if (puzzleWorldModifierCache) return puzzleWorldModifierCache;
+    const resolved = [];
+    for (const marker of scenePuzzleMarkers()) {
+      const raw = rawPuzzleWorldModifiersForMarker(marker);
+      raw.forEach((item, index) => {
+        const centreOffset = Number.isFinite(Number(item.centerX)) ? Number(item.centerX) : 0;
+        resolved.push({
+          ...item,
+          id: item.id || `${item.type}-${index+1}`,
+          markerId:marker.id,
+          groupId:marker.group,
+          worldCenterX:Number(marker.x) + centreOffset
+        });
+      });
+    }
+    puzzleWorldModifierCache = resolved;
+    return resolved;
+  }
+
+  function bridgePuzzleMarker(marker) {
+    if (!marker) return false;
+    const def = markerDefinition(marker) || {};
+    const label = String(def.label || marker.group || '').trim().toLowerCase();
+    if (label.includes('broken bridge')) return true;
+    if (String(marker.group || '').toUpperCase().includes('BROKEN_BRIDGE')) return true;
+    const start = puzzleStartFor(marker);
+    return Object.values(start?.objects || {}).some(state => state?.asset === 'bridge-left' || state?.asset === 'bridge-right' || state?.asset === 'handcart-broken');
+  }
+
+  const PUZZLE_WORLD_MODIFIER_V1_MIGRATION_KEY = 'sidescroll.puzzle-world-modifiers-v1.broken-bridge-river';
+  function migrateBrokenBridgeRiverToPuzzleOwnership() {
+    let already = false;
+    try { already = localStorage.getItem(PUZZLE_WORLD_MODIFIER_V1_MIGRATION_KEY) === '1'; } catch (_) {}
+    let libraryChanged = false;
+    let startsChanged = false;
+    let terrainChanged = false;
+
+    for (const marker of allPuzzleMarkers()) {
+      if (!bridgePuzzleMarker(marker)) continue;
+      const start = puzzleStartFor(marker);
+      const existing = Array.isArray(start?.worldModifiers) ? start.worldModifiers : [];
+      if (existing.some(item => item?.type === 'river')) continue;
+
+      const sectionIndex = terrainSectionIndexAt(marker.x);
+      const sectionBounds = terrainSectionBounds(sectionIndex);
+      const sectionWasRiver = terrainSectionType(sectionIndex) === 'river';
+      const river = riverSectionSettings(sectionIndex);
+      const modifier = {
+        id:'bridge-river',
+        type:'river',
+        centerX:sectionBounds.center - Number(marker.x),
+        width:sectionWasRiver ? river.width : RIVER_SECTION_MAX_WIDTH,
+        bedDepth:RIVER_BED_DEPTH,
+        waterAboveBed:RIVER_WATER_ABOVE_BED,
+        phase:sectionIndex * 0.731,
+        bankMargin:0.92,
+        collisionGap:true,
+        ownerRole:'crossing',
+        source:sectionWasRiver ? 'migrated-section-river' : 'broken-bridge-default'
+      };
+
+      const def = markerDefinition(marker);
+      if (def && !Array.isArray(def.worldModifiers)) { def.worldModifiers = [JSON.parse(JSON.stringify(modifier))]; libraryChanged = groupIsUserCreated(marker.group) || libraryChanged; }
+
+      if (markerLinkMode(marker) === 'copy') {
+        puzzleStartState[marker.id] ||= defaultPuzzleStart(marker);
+        puzzleStartState[marker.id].worldModifiers = [JSON.parse(JSON.stringify(modifier))];
+        startsChanged = true;
+      } else {
+        userPuzzleLibrary.templates ||= {};
+        userPuzzleLibrary.templates[marker.group] ||= defaultPuzzleStart(marker);
+        userPuzzleLibrary.templates[marker.group].worldModifiers = [JSON.parse(JSON.stringify(modifier))];
+        libraryChanged = true;
+      }
+
+      // The river is now owned by the puzzle. Remove the legacy absolute section
+      // override without reanchoring objects: the puzzle modifier immediately
+      // reproduces the same crossing in the same place, then follows the marker.
+      if (sectionWasRiver) {
+        terrainSectionTypes.delete(sectionIndex);
+        terrainSectionSettings.delete(sectionIndex);
+        terrainCollisionDisabledSections.delete(sectionIndex);
+        terrainChanged = true;
+      }
+    }
+
+    if (libraryChanged) { try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {} }
+    if (startsChanged) { try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {} }
+    if (terrainChanged) saveTerrainSectionState();
+    try { localStorage.setItem(PUZZLE_WORLD_MODIFIER_V1_MIGRATION_KEY, '1'); } catch (_) {}
+    puzzleWorldModifiersReady = true;
+    invalidatePuzzleWorldModifierMeshes();
+    return !already || libraryChanged || startsChanged || terrainChanged;
+  }
+
+  migrateBrokenBridgeRiverToPuzzleOwnership();
 
   function hasAuthoredPuzzleStart(markerId) {
     const marker = markerForId(markerId);
@@ -4319,7 +4723,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         thoughtOnce:obj.thoughtOnce !== false
       };
     }
-    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)) };
+    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
     puzzleStartState[instance.id] = snapshot;
     puzzleStartDirty.delete(instance.id);
     savePuzzleStarts();
@@ -6518,7 +6922,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         thoughtOnce:obj.thoughtOnce !== false
       };
     }
-    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)) };
+    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
   }
 
   function puzzleExportPayload(instance) {
@@ -7384,7 +7788,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // Cart path is authored puzzle data just like respawn/bounds. Omitting it
     // meant Set Start saved every other setup field but Reset rebuilt the rail
     // from defaults, which looked like the whole path had jumped several metres.
-    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), respawn:deepCopy(setup.respawn), cartPath:deepCopy(setup.cartPath) };
+    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), respawn:deepCopy(setup.respawn), cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
   }
 
   function savePuzzleTemplateFromCurrent() {
@@ -7928,7 +8332,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.59" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.60" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {
@@ -10887,30 +11291,52 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!terrainHiddenSections.has(i)) indices.push(i);
     }
 
-    // First pass: normal/hill dirt floor. River sections replace the old floor
-    // entirely with their own bank meshes, so there is no hidden plane beneath
-    // the water to fight with future bridge/gap gameplay.
+    // Base terrain is drawn in intervals. Puzzle-owned river modifiers cut a
+    // world-space opening out of otherwise normal sections, so a crossing can
+    // move freely across section boundaries without leaving an invisible floor
+    // underneath its water. Legacy/manual River sections still use the original
+    // whole-section feature renderer below.
     for (const i of indices) {
       const b = terrainSectionBounds(i);
       const typeId = terrainSectionType(i);
       if (typeId === 'river') continue;
-      const u0 = terrainSectionWorldU(b.minX);
-      const uScale = (TERRAIN_SECTION_LENGTH / TILE_WIDTH) * 24.0;
-      drawObject(ground, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionGroundMesh(typeId), uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0, 0] });
+      const intervals = terrainBaseIntervalsForSection(i);
+      const uncut = intervals.length === 1 && Math.abs(intervals[0].minX-b.minX)<0.001 && Math.abs(intervals[0].maxX-b.maxX)<0.001;
+      if (uncut) {
+        const u0 = terrainSectionWorldU(b.minX);
+        const uScale = (TERRAIN_SECTION_LENGTH / TILE_WIDTH) * 24.0;
+        drawObject(ground, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionGroundMesh(typeId), uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0,0] });
+        continue;
+      }
+      for (const interval of intervals) {
+        const width = interval.maxX - interval.minX;
+        if (width <= 0.01) continue;
+        const centre = (interval.minX + interval.maxX) * 0.5;
+        const u0 = terrainSectionWorldU(interval.minX);
+        const uScale = (width / TILE_WIDTH) * 24.0;
+        drawObject(ground, view, { x:centre, sx:width, mesh:terrainIntervalGroundMesh(i,typeId,interval.minX,interval.maxX), uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0,0] });
+      }
     }
 
-    // Second pass: normal/hill raised path. River bank meshes already include
-    // the local path shoulder/profile as they approach the water, so a separate
-    // path strip would incorrectly bridge across the channel.
     for (const i of indices) {
       const b = terrainSectionBounds(i);
       const typeId = terrainSectionType(i);
       if (typeId === 'river') continue;
-      drawObject(pathStrip, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionPathMesh(i, typeId), uvScale:[1,1], uvOffset:[0,0] });
+      const intervals = terrainBaseIntervalsForSection(i);
+      const uncut = intervals.length === 1 && Math.abs(intervals[0].minX-b.minX)<0.001 && Math.abs(intervals[0].maxX-b.maxX)<0.001;
+      if (uncut) {
+        drawObject(pathStrip, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionPathMesh(i,typeId), uvScale:[1,1], uvOffset:[0,0] });
+        continue;
+      }
+      for (const interval of intervals) {
+        const width = interval.maxX - interval.minX;
+        if (width <= 0.01) continue;
+        const centre = (interval.minX + interval.maxX) * 0.5;
+        drawObject(pathStrip, view, { x:centre, sx:width, mesh:terrainIntervalPathMesh(i,typeId,interval.minX,interval.maxX), uvScale:[1,1], uvOffset:[0,0] });
+      }
     }
 
-    // Third pass: feature terrain. Each River section is genuinely three mesh
-    // objects: left bank, right bank and a separate translucent water plane.
+    // Legacy/manual feature sections remain available for world authoring.
     for (const i of indices) {
       if (terrainSectionType(i) !== 'river') continue;
       const b = terrainSectionBounds(i);
@@ -10918,6 +11344,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       drawObject(riverBankSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'right') });
       const flow = (performance.now() * 0.000010) % 1;
       drawObject(riverWaterSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverWaterMesh(i), uvOffset:[0, flow] });
+    }
+
+    // Puzzle-owned world features are rendered independently of section bounds.
+    // Their geometry is local to the puzzle marker, so moving the marker moves
+    // the environmental requirement with the puzzle.
+    const visibleMinX = terrainSectionBounds(centreIndex - TERRAIN_SECTION_RENDER_RADIUS).minX;
+    const visibleMaxX = terrainSectionBounds(centreIndex + TERRAIN_SECTION_RENDER_RADIUS).maxX;
+    for (const mod of puzzleRiverModifiers()) {
+      const extent = puzzleRiverExtent(mod);
+      if (extent.maxX < visibleMinX || extent.minX > visibleMaxX) continue;
+      const baseX = Number(mod.worldCenterX) || 0;
+      drawObject(riverBankSurface, view, { force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverBankMesh(mod,'left') });
+      drawObject(riverBankSurface, view, { force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverBankMesh(mod,'right') });
+      const flow = (performance.now() * 0.000010) % 1;
+      drawObject(riverWaterSurface, view, { force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverWaterMesh(mod), uvOffset:[0,flow] });
     }
   }
 
@@ -11265,7 +11706,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const selectedType = terrainSectionType(terrainSelectedSectionIndex);
     const selectedRiver = riverSectionSettings(terrainSelectedSectionIndex);
     const collisionEnabled = terrainSectionCollisionEnabled(terrainSelectedSectionIndex);
-    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}${selectedType === 'river' ? ` · ${selectedRiver.width.toFixed(1)} m` : ''}${collisionEnabled ? '' : ' · collision off'}`;
+    const selectedBounds = terrainSectionBounds(terrainSelectedSectionIndex);
+    const ownedRivers = puzzleWorldModifiersReady ? puzzleRiverModifiersIntersectingRange(selectedBounds.minX, selectedBounds.maxX) : [];
+    const ownedLabel = ownedRivers.length ? ` · ${ownedRivers.length === 1 ? 'puzzle river' : `${ownedRivers.length} puzzle rivers`}` : '';
+    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}${selectedType === 'river' ? ` · ${selectedRiver.width.toFixed(1)} m` : ''}${ownedLabel}${collisionEnabled ? '' : ' · collision off'}`;
     if (sectionTypeSelect) sectionTypeSelect.value = selectedType;
     if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
