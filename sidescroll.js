@@ -4328,26 +4328,40 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const environmentAnchors = captureEnvironmentAnchorsForPuzzleMove(marker, target);
     const instance = activePuzzleInstances.get(marker.id);
     const objectAnchors = new Map();
+    const localXByObject = new Map();
     if (instance) {
-      for (const obj of instance.objects || []) {
-        if (!obj || objectUsesFreePlacement(obj)) continue;
-        objectAnchors.set(obj, objectFloorOffsetFromTerrain(obj));
+      // Capture local coordinates before moving the marker, then rebuild world X
+      // from those locals after the move. Using assignment rather than += makes
+      // marker moves idempotent even if an object reference is present more than
+      // once in an instance list or another authoring path has touched it.
+      for (const obj of new Set(instance.objects || [])) {
+        if (!obj) continue;
+        localXByObject.set(obj, (Number(obj.x) || 0) - previous);
+        if (!objectUsesFreePlacement(obj)) objectAnchors.set(obj, objectFloorOffsetFromTerrain(obj));
       }
       removePuzzleModifierDressing(instance);
     }
 
+    // Runtime state is stored in world-space. Preserve its local X separately so
+    // it cannot accumulate the marker delta twice across move/save/reload cycles.
+    const runtime = puzzleSavedState?.[marker.id]?.objects;
+    const runtimeLocalX = new Map();
+    if (runtime) {
+      for (const [objectId, state] of Object.entries(runtime)) {
+        if (state && Number.isFinite(Number(state.x))) runtimeLocalX.set(objectId, Number(state.x) - previous);
+      }
+    }
+
     marker.x = target;
     if (instance) {
-      for (const obj of instance.objects || []) obj.x += dx;
+      for (const [obj, localX] of localXByObject) obj.x = target + localX;
       instance.marker = marker;
     }
 
-    // Runtime object state uses world-space x values. Keep it aligned with the
-    // marker so unload/reload cannot snap an edited puzzle back to the old spot.
-    const runtime = puzzleSavedState?.[marker.id]?.objects;
     if (runtime) {
-      for (const state of Object.values(runtime)) {
-        if (state && Number.isFinite(Number(state.x))) state.x = Number(state.x) + dx;
+      for (const [objectId, localX] of runtimeLocalX) {
+        const state = runtime[objectId];
+        if (state) state.x = target + localX;
       }
     }
 
@@ -5066,6 +5080,60 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return true;
   }
 
+  function repairUniformPuzzleMarkerDrift(instance) {
+    if (!instance?.marker) return 0;
+    const start = puzzleStartFor(instance.marker);
+    const river = rawPuzzleWorldModifiersForMarker(instance.marker).some(item => item?.type === 'river');
+    if (!river || !start?.objects) return 0;
+
+    // Use the two bridge halves as stable anchors. They never move during normal
+    // gameplay, so if both report the same local-X error we know the whole live
+    // instance has been translated relative to its marker rather than genuinely
+    // edited. This repairs the v1.0.60–1.0.62 marker-drag drift without touching
+    // arbitrary puzzles or treating player-moved props as an error.
+    const anchorDiffs = [];
+    for (const obj of new Set(instance.objects || [])) {
+      if (!obj?.puzzleObjectId || obj.deleted) continue;
+      if (obj.assetName !== 'bridge-left' && obj.assetName !== 'bridge-right') continue;
+      const authored = start.objects[obj.puzzleObjectId];
+      if (!authored || !Number.isFinite(Number(authored.x))) continue;
+      const currentLocalX = (Number(obj.x) || 0) - Number(instance.marker.x || 0);
+      anchorDiffs.push(currentLocalX - Number(authored.x));
+    }
+    if (anchorDiffs.length < 2) return 0;
+    const drift = anchorDiffs.reduce((sum, value) => sum + value, 0) / anchorDiffs.length;
+    if (!Number.isFinite(drift) || Math.abs(drift) < 0.05) return 0;
+    if (anchorDiffs.some(value => Math.abs(value - drift) > 0.025)) return 0;
+
+    const groundedOffsets = new Map();
+    for (const obj of new Set(instance.objects || [])) {
+      if (!obj || objectUsesFreePlacement(obj)) continue;
+      groundedOffsets.set(obj, objectFloorOffsetFromTerrain(obj));
+    }
+    for (const obj of new Set(instance.objects || [])) if (obj) obj.x -= drift;
+
+    const runtime = puzzleSavedState?.[instance.id]?.objects;
+    if (runtime) {
+      for (const state of Object.values(runtime)) {
+        if (state && Number.isFinite(Number(state.x))) state.x = Number(state.x) - drift;
+      }
+    }
+
+    for (const [obj, floorOffset] of groundedOffsets) setObjectFloorOffset(obj, floorOffset);
+    if (runtime) {
+      for (const obj of new Set(instance.objects || [])) {
+        if (!obj?.puzzleObjectId) continue;
+        const state = runtime[obj.puzzleObjectId];
+        if (!state) continue;
+        state.y = obj.y;
+        state.terrainOffset = obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+        state.floorOffset = objectFloorOffsetFromTerrain(obj);
+      }
+      savePuzzleState();
+    }
+    return drift;
+  }
+
   function instantiatePuzzleGroup(marker) {
     const def = markerDefinition(marker);
     if (!def || activePuzzleInstances.has(marker.id)) return activePuzzleInstances.get(marker.id) || null;
@@ -5149,6 +5217,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     currentPuzzleBoundsRelative(marker);
     activePuzzleInstances.set(marker.id, instance);
+    repairUniformPuzzleMarkerDrift(instance);
     rebuildPuzzleWorldModifierDressing(instance);
     sortSceneCollections();
     settleGameplayCrates();
