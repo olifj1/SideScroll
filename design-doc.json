@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.6",
+  "documentVersion": "0.7",
   "project": "SideScroll",
   "title": "Living Game Design Document",
   "baselineBuild": "SideScroll v1.0.62",
@@ -1578,6 +1578,121 @@
       "related": []
     },
     {
+      "id": "project-workflow",
+      "title": "Project Workflow",
+      "status": "CURRENT",
+      "implementation": "CURRENT",
+      "tags": [
+        "workflow",
+        "phone-first",
+        "github",
+        "releases"
+      ],
+      "body": "This page is the source-of-truth for how SideScroll moves between ChatGPT, the iPhone and GitHub. The goal is to keep development **phone-first**, minimise unnecessary file transfer, preserve simple rollback points and make each change easy to understand.\n\n## Principle\nGitHub holds the live project. ChatGPT changes only the files required for a task. Normal development uses small patch ZIPs; periodic full ZIPs remain known-good snapshots.\n\n## Current baseline\nThe current full project baseline for this workflow test is **SideScroll v1.0.62**.",
+      "children": [
+        {
+          "id": "workflow-normal-loop",
+          "title": "Normal phone-first development loop",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "phone"
+          ],
+          "body": "1. Work from the latest known-good SideScroll baseline.\n2. Discuss/design the next change in ChatGPT.\n3. ChatGPT edits and validates only the files required for that change.\n4. ChatGPT returns a **PATCH ZIP** containing only changed/new files.\n5. On iPhone, unzip the patch in Files.\n6. Upload those files to the root of the existing GitHub repository, replacing files with the same names.\n7. Wait for GitHub Pages to publish, then test the live/PWA build.\n8. Report the result. If the change passes, it becomes part of the working baseline; if not, fix forward or restore the prior Git version/full snapshot.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "workflow-patch-release",
+          "title": "Patch releases — default",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "patch",
+            "release"
+          ],
+          "body": "Use a patch for normal code/data changes. A patch contains **only files that differ from the current baseline**.\n\nExamples:\n- Gameplay change: perhaps `sidescroll.js` only.\n- Design Lab content: `design-doc.json` plus `sw.js` when cache refresh is required.\n- New tool: its new HTML/JS/CSS files plus any existing navigation/service-worker files that genuinely changed.\n- New artwork: only the new/replaced image files and any data/code that references them.\n\nDo **not** include unchanged texture atlases, audio, character art or other large assets merely because they exist in the project.\n\nThe patch filename should identify the baseline/target or purpose clearly.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "workflow-full-release",
+          "title": "Full snapshot releases — safety checkpoints",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "full-snapshot",
+            "backup"
+          ],
+          "body": "Keep occasional full flat ZIPs as known-good recovery points. Create a new full snapshot when a change is structurally significant, for example:\n- Puzzle Lab / World Lab introduction\n- major module/file reorganisation\n- biome-system foundation\n- save/data-schema migration\n- substantial new asset library\n- milestone/vertical-slice releases\n\nFull snapshots are backups and release checkpoints; they are **not** required for every small iteration.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "workflow-github-upload",
+          "title": "Uploading a patch to GitHub from iPhone",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "github",
+            "iphone"
+          ],
+          "body": "## Patch upload\n- Unzip the patch in the iOS Files app.\n- The patch is flat: files are intended for the repository root unless a future patch explicitly contains folders.\n- Upload every file in the patch to the existing SideScroll repository.\n- When GitHub reports an existing filename, replace/update that file.\n- Do not delete any repo files that are absent from the patch. Absence means **unchanged**, not removed.\n- Commit the upload as one logical change where practical.\n\n## After upload\nOpen the GitHub Pages build and verify the requested behaviour. For the installed PWA, a service-worker-changing patch may require closing/reopening once while the new cache activates.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "workflow-versioning",
+          "title": "Versioning, rollback & deletion rules",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "versioning",
+            "rollback"
+          ],
+          "body": "## Versioning\n- Small patch-only changes can sit on the current full-build baseline while being described by purpose/revision.\n- Promote to a new numbered full SideScroll ZIP at meaningful checkpoints.\n- Git history provides fine-grained revision history between full snapshots.\n\n## Rollback\nPreferred rollback order:\n1. Revert the GitHub commit.\n2. Restore specific files from the previous commit.\n3. If necessary, restore the latest known-good full ZIP.\n\n## Deletions\nA patch that intentionally removes a project file must say so explicitly in the accompanying chat/release notes. Never infer deletion because a file is missing from a patch.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "workflow-patch-contract",
+          "title": "Patch packaging contract",
+          "status": "LOCKED",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "contract"
+          ],
+          "body": "When producing a normal SideScroll patch:\n- Include only changed or newly added project files.\n- Keep repository-relative paths intact.\n- Keep the project flat unless the real project structure changes.\n- Identify any intentional deletions separately.\n- Mention the required base/full version when compatibility depends on it.\n- Include `sw.js` when the offline/PWA cache must be invalidated so new files/content reliably reach the installed app.\n- Do not silently overwrite user-authored Design Lab working data; new bundled Design Lab sections should use the merge-safe ID system.\n- Periodically create a complete numbered snapshot after major architectural milestones.",
+          "children": [],
+          "related": []
+        },
+        {
+          "id": "workflow-current-test",
+          "title": "Current test — Workflow page patch",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "test"
+          ],
+          "body": "[ ] Upload this patch containing only `design-doc.json` and `sw.js` over the existing v1.0.62 repository files.\n[ ] Confirm GitHub Pages still loads normally.\n[ ] Open Design Lab and confirm **Project Workflow** appears in the contents without losing existing local Design Lab edits.\n[ ] Confirm Play, Asset Lab and Walk Lab still work without re-uploading any of their files.\n\nIf all four pass, changed-files-only patch delivery becomes the default SideScroll development workflow.",
+          "children": [],
+          "related": []
+        }
+      ],
+      "related": [
+        "tooling",
+        "technical-design-queue",
+        "change-log"
+      ]
+    },
+    {
       "id": "technical-design-queue",
       "title": "Technical Design & Development Queue",
       "status": "CURRENT",
@@ -2017,6 +2132,22 @@
       ],
       "body": "- **0.2 — 25 Sep 2026:** Living GDD moved into the new in-project Design Lab; structured contents, editable metadata, local autosave and import/export added.\n- **0.1 — 25 Sep 2026:** Initial living GDD created from SideScroll v1.0.56, established art/interaction decisions, current puzzle systems, active cart puzzle design and longer-form chapter/MVP discussion.\n\n## Maintenance rule\nUpdate this document when a decision changes player experience, world/story canon, reusable puzzle vocabulary, chapter structure, art/audio baseline, or an engine capability that materially changes what content can be authored. Minor implementation fixes do not need their own GDD entry unless they alter a design constraint.",
       "children": [
+        {
+          "id": "change-v07",
+          "title": "GDD v0.7 — Phone-first patch workflow",
+          "status": "CURRENT",
+          "implementation": "N/A",
+          "tags": [
+            "change-log",
+            "workflow"
+          ],
+          "body": "Added **Project Workflow** as a dedicated Design Lab page. It defines the phone-first GitHub workflow, changed-files-only patch releases, periodic full snapshots, upload/rollback rules, PWA cache handling and the packaging contract for future SideScroll updates. The first patch test intentionally changes only `design-doc.json` and `sw.js`.",
+          "children": [],
+          "related": [
+            "project-workflow",
+            "workflow-current-test"
+          ]
+        },
         {
           "id": "change-v06",
           "title": "GDD v0.6 — Camera Sequence Nodes",
