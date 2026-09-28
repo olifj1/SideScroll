@@ -1,6 +1,6 @@
 (() => {
   const VERSION = '1.0.62';
-  const PRELOAD_CACHE = `sidescroll-v${VERSION}`;
+  const PRELOAD_CACHE = 'sidescroll-runtime-v1';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');

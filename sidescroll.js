@@ -4768,6 +4768,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // river modifier so the banks move, stream and delete with the puzzle.
   const PUZZLE_WORLD_MODIFIER_V2_MIGRATION_KEY = 'sidescroll.puzzle-world-modifiers-v2.river-bank-dressing';
   function migrateBrokenBridgeRiverDressingToPuzzleOwnership() {
+    try {
+      if (localStorage.getItem(PUZZLE_WORLD_MODIFIER_V2_MIGRATION_KEY) === '1') return;
+    } catch (_) {}
     let libraryChanged = false;
     let startsChanged = false;
     let sceneChanged = false;
@@ -5665,6 +5668,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const placed = [];
       let placedCount = 0;
 
+      // Snapshot relevant authored/gameplay blockers once for this modifier.
+      // The previous implementation rebuilt/scanned the complete scene for every
+      // attempted grass/rock placement. On a mature local save this could turn a
+      // single streamed puzzle load into hundreds of full-scene scans on iPhone.
+      const sceneBlockers = allSceneObjects().filter(obj => {
+        if (!obj || obj.deleted || obj.carried || obj.worldModifierDressing) return false;
+        const ox = Number(obj.x) || 0;
+        if (ox < extent.minX - 1.5 || ox > extent.maxX + 1.5) return false;
+        if (!obj.userAdded && !obj.puzzleInstanceId && obj.category === 'dressing') return false;
+        return true;
+      });
+
       function blocked(x, z, spacingX, spacingZ, allowChannel = false) {
         if (x <= extent.minX + 0.10 || x >= extent.maxX - 0.10) return true;
         if (z <= WORLD.farZ + 0.4 || z >= WORLD.nearZ - 0.2) return true;
@@ -5672,12 +5687,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         for (const item of placed) {
           if (Math.abs(item.x - x) < item.spacingX + spacingX && Math.abs(item.z - z) < item.spacingZ + spacingZ) return true;
         }
-        for (const obj of allSceneObjects()) {
-          if (!obj || obj.deleted || obj.carried || obj.worldModifierDressing) continue;
+        for (const obj of sceneBlockers) {
           const ox = Number(obj.x) || 0;
           const oz = Number.isFinite(obj.z) ? obj.z : pathZ;
-          if (ox < extent.minX - 1.5 || ox > extent.maxX + 1.5) continue;
-          if (!obj.userAdded && !obj.puzzleInstanceId && obj.category === 'dressing') continue;
           const otherSpacingX = Math.max(0.48, Math.abs(obj.sx || 1) * 0.34);
           const otherSpacingZ = Math.max(0.36, obj.collision?.depth || Math.min(1.20, 0.26 + Math.abs(obj.sy || 1) * 0.10));
           if (Math.abs(ox - x) < otherSpacingX + spacingX && Math.abs(oz - z) < otherSpacingZ + spacingZ) return true;
