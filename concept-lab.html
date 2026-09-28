@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#11191d">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Concept Lab · SideScroll</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0e1417;
+      --panel: #162026;
+      --panel-2: #1c2830;
+      --line: rgba(255,255,255,.12);
+      --text: #eef3f6;
+      --muted: #a9bac3;
+      --accent: #86b5c8;
+      --accent-2: #d7e8ef;
+      --warn: #d9b17b;
+      --shadow: 0 16px 40px rgba(0,0,0,.32);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    body { min-height: 100vh; }
+    button, input, textarea { font: inherit; }
+    a { color: inherit; }
+    .cl-shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .cl-topbar {
+      position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 10px;
+      align-items: center; padding: calc(14px + env(safe-area-inset-top)) 14px 14px; background: rgba(14,20,23,.92); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+    }
+    .cl-home, .cl-contents-toggle, .cl-top-action, .cl-chip, .cl-add-btn, .cl-data-menu button, .cl-close-sidebar, .cl-contents-home, .cl-remove-btn, .cl-modal-close {
+      border: 1px solid var(--line); background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); color: var(--text);
+      border-radius: 14px; padding: 10px 12px; text-decoration: none; box-shadow: var(--shadow); cursor: pointer;
+    }
+    .cl-title-wrap strong { display:block; font-size: 16px; }
+    .cl-title-wrap small { color: var(--muted); display:block; }
+    .cl-body { display:flex; min-height: calc(100vh - 84px); }
+    .cl-sidebar {
+      width: 300px; max-width: 82vw; border-right: 1px solid var(--line); background: rgba(22,32,38,.8); padding: 14px; overflow: auto;
+    }
+    .cl-sidebar-head { display:flex; gap:10px; margin-bottom: 12px; }
+    .cl-sidebar-head > * { flex: 1; }
+    .cl-tree { display:flex; flex-direction:column; gap:8px; }
+    .cl-tree button {
+      text-align:left; width:100%; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.03); color: var(--text); cursor:pointer;
+    }
+    .cl-tree button.active { border-color: rgba(134,181,200,.55); background: rgba(134,181,200,.12); }
+    .cl-tree strong, .cl-tree span { display:block; }
+    .cl-tree span { color: var(--muted); font-size: 13px; margin-top:4px; }
+    .cl-sidebar-foot { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display:flex; justify-content:space-between; color: var(--muted); font-size: 13px; }
+    .cl-main { flex:1; min-width:0; }
+    .cl-document { max-width: 1100px; margin: 0 auto; padding: 18px 16px calc(40px + env(safe-area-inset-bottom)); }
+    .cl-panel { background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+    .cl-hero { display:grid; gap:16px; }
+    .cl-hero h1, .cl-location-head h1 { margin: 0; font-size: 28px; line-height:1.1; }
+    .cl-hero p, .cl-location-head p { color: var(--accent-2); margin: 0; }
+    .cl-stack { display:grid; gap: 16px; margin-top: 16px; }
+    .cl-grid-2 { display:grid; gap: 16px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .cl-list, .cl-folder-list { margin: 0; padding-left: 18px; display:grid; gap:8px; color: var(--accent-2); }
+    .cl-folder-list code, .cl-meta code { color: #fff; }
+    .cl-gallery { display:grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .cl-card { background: rgba(255,255,255,.025); border: 1px solid var(--line); border-radius: 16px; overflow:hidden; }
+    .cl-card img { width: 100%; display:block; aspect-ratio: 16/9; object-fit: cover; background: #0a0f12; cursor: zoom-in; }
+    .cl-card-body { padding: 12px; display:grid; gap:6px; }
+    .cl-card-body strong { font-size: 15px; }
+    .cl-card-body small, .cl-muted { color: var(--muted); }
+    .cl-meta { display:grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); }
+    .cl-meta .cl-chip { cursor: default; box-shadow:none; }
+    .cl-notes textarea, .cl-add-support input {
+      width:100%; background: rgba(255,255,255,.04); color: var(--text); border:1px solid var(--line); border-radius:14px; padding:12px;
+    }
+    .cl-notes textarea { min-height: 220px; resize: vertical; }
+    .cl-add-support { display:grid; gap: 10px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items:end; }
+    .cl-field { display:grid; gap:6px; }
+    .cl-support-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom: 12px; }
+    .cl-support-list { display:grid; gap:12px; }
+    .cl-support-item { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:14px; background: rgba(255,255,255,.025); }
+    .cl-support-item code { word-break: break-all; color:#fff; }
+    .cl-data-menu { position: fixed; right: 14px; top: calc(78px + env(safe-area-inset-top)); width: min(92vw, 360px); background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); display:grid; gap:10px; z-index: 25; }
+    .cl-data-menu strong { font-size: 16px; }
+    .cl-data-menu small { color: var(--muted); }
+    .cl-toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: rgba(14,20,23,.96); color: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; z-index: 30; box-shadow: var(--shadow); }
+    .cl-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); border:0; z-index:15; }
+    .cl-modal { position: fixed; inset: 0; background: rgba(0,0,0,.82); display:none; align-items:center; justify-content:center; padding: 18px; z-index: 40; }
+    .cl-modal.open { display:flex; }
+    .cl-modal-inner { width:min(100%, 1200px); display:grid; gap:12px; }
+    .cl-modal-inner img { width:100%; max-height: calc(100vh - 110px); object-fit: contain; border-radius: 14px; background: #111; }
+    .cl-modal-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; color: #fff; }
+    .cl-overview-image { width:100%; border-radius: 16px; display:block; aspect-ratio: 16/9; object-fit: cover; border:1px solid var(--line); }
+    .cl-hidden { display:none !important; }
+    @media (max-width: 920px) {
+      .cl-topbar { grid-template-columns: auto auto 1fr auto; }
+      .cl-topbar .cl-home { grid-column: 1; }
+      .cl-topbar .cl-contents-toggle { grid-column: 2; }
+      .cl-title-wrap { grid-column: 3; }
+      .cl-topbar #cl-data-toggle { grid-column: 4; }
+      .cl-sidebar { position: fixed; inset: calc(74px + env(safe-area-inset-top)) auto 0 0; z-index: 18; transform: translateX(-102%); transition: transform .22s ease; }
+      .cl-sidebar.open { transform: translateX(0); }
+      .cl-grid-2, .cl-add-support { grid-template-columns: 1fr; }
+      .cl-document { padding-left: 12px; padding-right: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="cl-shell">
+    <header class="cl-topbar">
+      <a class="cl-home" href="index.html" aria-label="Back to SideScroll">SideScroll</a>
+      <button class="cl-contents-toggle" id="cl-contents-toggle" type="button" aria-expanded="false" aria-controls="cl-sidebar">Contents</button>
+      <div class="cl-title-wrap">
+        <strong>Concept Lab</strong>
+        <small id="cl-save-state">Loading concept data…</small>
+      </div>
+      <button class="cl-top-action" id="cl-data-toggle" type="button" aria-expanded="false">Data</button>
+    </header>
+
+    <div class="cl-body">
+      <aside class="cl-sidebar" id="cl-sidebar" aria-label="Concept locations">
+        <div class="cl-sidebar-head">
+          <button class="cl-contents-home" id="cl-contents-home" type="button">Overview</button>
+          <button class="cl-close-sidebar" id="cl-close-sidebar" type="button">Close</button>
+        </div>
+        <nav class="cl-tree" id="cl-tree"></nav>
+        <footer class="cl-sidebar-foot">
+          <span id="cl-doc-version">Concept Lab</span>
+          <span id="cl-build-version">Build</span>
+        </footer>
+      </aside>
+      <button class="cl-scrim cl-hidden" id="cl-scrim" type="button" aria-label="Close contents"></button>
+      <main class="cl-main">
+        <article class="cl-document" id="cl-document" aria-live="polite"></article>
+      </main>
+    </div>
+
+    <div class="cl-data-menu cl-hidden" id="cl-data-menu">
+      <strong>Concept Lab data</strong>
+      <small>Notes and extra repo image references are stored on this device. Export them if you want to carry them into another build or device.</small>
+      <button id="cl-export" type="button">Export / Share concept data</button>
+      <button id="cl-import" type="button">Import concept data</button>
+      <button id="cl-reset" type="button">Reset Concept Lab local data</button>
+      <input id="cl-import-file" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="cl-toast cl-hidden" id="cl-toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <div class="cl-modal" id="cl-modal" aria-hidden="true">
+    <div class="cl-modal-inner">
+      <div class="cl-modal-bar">
+        <strong id="cl-modal-title">Image</strong>
+        <button class="cl-modal-close" id="cl-modal-close" type="button">Close</button>
+      </div>
+      <img id="cl-modal-image" alt="">
+    </div>
+  </div>
+
+  <script>
+    const DATA_URL = 'concept-lab-data.json?v=1.0.63-concept-lab-flat';
+    const STORAGE_KEY = 'ss-concept-lab-state-v1';
+    const state = { current: 'overview', doc: null, local: loadLocalState(), saveTimer: 0 };
+
+    const els = {
+      tree: document.getElementById('cl-tree'),
+      doc: document.getElementById('cl-document'),
+      saveState: document.getElementById('cl-save-state'),
+      docVersion: document.getElementById('cl-doc-version'),
+      buildVersion: document.getElementById('cl-build-version'),
+      sidebar: document.getElementById('cl-sidebar'),
+      scrim: document.getElementById('cl-scrim'),
+      contentsToggle: document.getElementById('cl-contents-toggle'),
+      contentsHome: document.getElementById('cl-contents-home'),
+      closeSidebar: document.getElementById('cl-close-sidebar'),
+      dataToggle: document.getElementById('cl-data-toggle'),
+      dataMenu: document.getElementById('cl-data-menu'),
+      exportBtn: document.getElementById('cl-export'),
+      importBtn: document.getElementById('cl-import'),
+      resetBtn: document.getElementById('cl-reset'),
+      importFile: document.getElementById('cl-import-file'),
+      toast: document.getElementById('cl-toast'),
+      modal: document.getElementById('cl-modal'),
+      modalTitle: document.getElementById('cl-modal-title'),
+      modalImage: document.getElementById('cl-modal-image'),
+      modalClose: document.getElementById('cl-modal-close')
+    };
+
+    init();
+
+    async function init() {
+      bindUI();
+      try {
+        const response = await fetch(DATA_URL, { cache: 'no-store' });
+        state.doc = await response.json();
+        els.docVersion.textContent = state.doc.title || 'Concept Lab';
+        els.buildVersion.textContent = state.doc.version || 'Build';
+        renderSidebar();
+        renderCurrent();
+        setSaveState('Ready. Notes autosave on this device.');
+      } catch (error) {
+        els.doc.innerHTML = '<section class="cl-panel"><h1>Concept Lab failed to load</h1><p class="cl-muted">Check that concept-lab-data.json is present in the same folder as this page.</p></section>';
+        setSaveState('Load failed');
+      }
+    }
+
+    function bindUI() {
+      els.contentsToggle.addEventListener('click', () => toggleSidebar(true));
+      els.closeSidebar.addEventListener('click', closeSidebar);
+      els.scrim.addEventListener('click', closeSidebar);
+      els.contentsHome.addEventListener('click', () => { state.current = 'overview'; renderCurrent(); closeSidebar(); });
+      els.dataToggle.addEventListener('click', () => els.dataMenu.classList.toggle('cl-hidden'));
+      els.exportBtn.addEventListener('click', exportLocalState);
+      els.importBtn.addEventListener('click', () => els.importFile.click());
+      els.importFile.addEventListener('change', importLocalState);
+      els.resetBtn.addEventListener('click', resetLocalState);
+      els.modalClose.addEventListener('click', closeModal);
+      els.modal.addEventListener('click', event => { if (event.target === els.modal) closeModal(); });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeSidebar(); closeModal(); } });
+    }
+
+    function renderSidebar() {
+      const locations = state.doc?.locations || [];
+      els.tree.innerHTML = locations.map(loc => `
+        <button type="button" data-id="${escapeHtml(loc.id)}" class="${state.current === loc.id ? 'active' : ''}">
+          <strong>${escapeHtml(loc.title)}</strong>
+          <span>${escapeHtml(loc.summary)}</span>
+        </button>
+      `).join('');
+      els.tree.querySelectorAll('button').forEach(button => button.addEventListener('click', () => {
+        state.current = button.dataset.id;
+        renderSidebar();
+        renderCurrent();
+        closeSidebar();
+      }));
+    }
+
+    function renderCurrent() {
+      if (!state.doc) return;
+      if (state.current === 'overview') {
+        renderOverview();
+      } else {
+        const location = state.doc.locations.find(loc => loc.id === state.current);
+        if (location) renderLocation(location);
+      }
+      renderSidebar();
+    }
+
+    function renderOverview() {
+      const treeLines = state.doc.overview.folderTree.map(path => `<li><code>${escapeHtml(path)}</code></li>`).join('');
+      const workflow = state.doc.overview.workflow.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+      const locationCards = state.doc.locations.map(loc => `
+        <div class="cl-card">
+          <img src="${escapeAttr(loc.images[0]?.src || '')}" alt="${escapeAttr(loc.title)}" data-title="${escapeAttr(loc.title)}">
+          <div class="cl-card-body">
+            <strong>${escapeHtml(loc.title)}</strong>
+            <small>${escapeHtml(loc.folder)}</small>
+            <div class="cl-muted">${escapeHtml(loc.summary)}</div>
+          </div>
+        </div>
+      `).join('');
+      els.doc.innerHTML = `
+        <section class="cl-panel cl-hero">
+          <h1>${escapeHtml(state.doc.title || 'Concept Lab')}</h1>
+          <p>${escapeHtml(state.doc.overview.summary || '')}</p>
+          <img class="cl-overview-image" src="concept-shared-game-view-reference.png" alt="Current game view reference" data-title="Current game view reference">
+        </section>
+        <div class="cl-stack">
+          <section class="cl-panel cl-grid-2">
+            <div>
+              <h2>Folder structure</h2>
+              <ul class="cl-folder-list">${treeLines}</ul>
+            </div>
+            <div>
+              <h2>How to use this</h2>
+              <ol class="cl-list">${workflow}</ol>
+            </div>
+          </section>
+          <section class="cl-panel">
+            <h2>Current location set</h2>
+            <div class="cl-gallery">${locationCards}</div>
+          </section>
+        </div>
+      `;
+      bindImageClicks();
+    }
+
+    function renderLocation(location) {
+      const notes = state.local.notes?.[location.id] || '';
+      const extraRefs = state.local.extraRefs?.[location.id] || [];
+      const designQuestions = (location.designQuestions || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+      const images = [...(location.images || []), ...extraRefs];
+      const gallery = images.length ? images.map((img, index) => `
+        <div class="cl-card">
+          <img src="${escapeAttr(img.src)}" alt="${escapeAttr(img.title || location.title)}" data-title="${escapeAttr(img.title || location.title)}">
+          <div class="cl-card-body">
+            <strong>${escapeHtml(img.title || 'Reference image')}</strong>
+            <small>${escapeHtml(img.role || (index >= (location.images || []).length ? 'repo-support' : 'baseline'))}</small>
+            <div class="cl-muted"><code>${escapeHtml(img.src)}</code></div>
+          </div>
+        </div>
+      `).join('') : '<p class="cl-muted">No images yet for this location.</p>';
+
+      const supportItems = extraRefs.length ? extraRefs.map((ref, index) => `
+        <div class="cl-support-item">
+          <div>
+            <strong>${escapeHtml(ref.title || 'Support image')}</strong>
+            <div class="cl-muted"><code>${escapeHtml(ref.src)}</code></div>
+          </div>
+          <button class="cl-remove-btn" type="button" data-remove-ref="${escapeAttr(location.id)}:${index}">Remove</button>
+        </div>
+      `).join('') : '<p class="cl-muted">No extra repo references added on this device yet.</p>';
+
+      els.doc.innerHTML = `
+        <section class="cl-panel cl-location-head">
+          <h1>${escapeHtml(location.title)}</h1>
+          <p>${escapeHtml(location.summary)}</p>
+          <div class="cl-meta">
+            <div class="cl-chip">Virtual group: <code>${escapeHtml(location.group || location.title)}</code></div>
+            <div class="cl-chip">Root prefix: <code>${escapeHtml(location.filePrefix || 'concept-')}</code></div><div class="cl-chip">Core images: ${location.images.length}</div>
+            <div class="cl-chip">Extra repo refs on this device: ${extraRefs.length}</div>
+          </div>
+        </section>
+        <div class="cl-stack">
+          <section class="cl-panel cl-grid-2">
+            <div>
+              <h2>Review questions</h2>
+              <ol class="cl-list">${designQuestions}</ol>
+            </div>
+            <div>
+              <h2>Permanent repo folder</h2>
+              <p class="cl-muted">Upload new concept images to the repository root using the location prefix <code>${escapeHtml(location.filePrefix || 'concept-')}</code>. Then add the root filename below so it appears in this location.</p>
+            </div>
+          </section>
+          <section class="cl-panel">
+            <h2>Image gallery</h2>
+            <div class="cl-gallery">${gallery}</div>
+          </section>
+          <section class="cl-panel">
+            <div class="cl-support-head">
+              <div>
+                <h2 style="margin:0;">Add supporting repo image</h2>
+                <div class="cl-muted">Example root filename: <code>${escapeHtml(location.filePrefix || 'concept-')}02.png</code></div>
+              </div>
+            </div>
+            <div class="cl-add-support">
+              <label class="cl-field">
+                <span>Image title</span>
+                <input type="text" id="cl-extra-title" placeholder="Rock wall detail">
+              </label>
+              <label class="cl-field">
+                <span>Root image filename</span>
+                <input type="text" id="cl-extra-path" placeholder="${escapeAttr(location.filePrefix || 'concept-')}02.png">
+              </label>
+              <button class="cl-add-btn" id="cl-add-ref" type="button">Add</button>
+            </div>
+            <div class="cl-support-list" style="margin-top: 14px;">${supportItems}</div>
+          </section>
+          <section class="cl-panel cl-notes">
+            <h2>Notes</h2>
+            <p class="cl-muted">Use this for location-specific comments, changes to request next, or links to mechanics and story beats.</p>
+            <textarea id="cl-notes" placeholder="Write notes for ${escapeAttr(location.title)}…">${escapeHtml(notes)}</textarea>
+          </section>
+        </div>
+      `;
+
+      const notesArea = document.getElementById('cl-notes');
+      notesArea.addEventListener('input', () => {
+        if (!state.local.notes) state.local.notes = {};
+        state.local.notes[location.id] = notesArea.value;
+        queueSave('Saving notes…');
+      });
+
+      document.getElementById('cl-add-ref').addEventListener('click', () => addExtraRef(location.id));
+      document.querySelectorAll('[data-remove-ref]').forEach(btn => btn.addEventListener('click', () => removeExtraRef(btn.dataset.removeRef)));
+      bindImageClicks();
+    }
+
+    function addExtraRef(locationId) {
+      const title = (document.getElementById('cl-extra-title').value || '').trim();
+      const path = (document.getElementById('cl-extra-path').value || '').trim();
+      if (!path) {
+        toast('Enter a repo image path first.');
+        return;
+      }
+      if (!state.local.extraRefs) state.local.extraRefs = {};
+      if (!state.local.extraRefs[locationId]) state.local.extraRefs[locationId] = [];
+      state.local.extraRefs[locationId].push({ title: title || 'Support image', src: path, role: 'repo-support' });
+      queueSave('Saving support image…');
+      renderCurrent();
+      toast('Support image added.');
+    }
+
+    function removeExtraRef(token) {
+      const [locationId, indexString] = token.split(':');
+      const index = Number(indexString);
+      const list = state.local.extraRefs?.[locationId];
+      if (!list || Number.isNaN(index)) return;
+      list.splice(index, 1);
+      queueSave('Updating support images…');
+      renderCurrent();
+      toast('Support image removed.');
+    }
+
+    function loadLocalState() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { notes: {}, extraRefs: {} };
+      } catch (_) {
+        return { notes: {}, extraRefs: {} };
+      }
+    }
+
+    function queueSave(message) {
+      setSaveState(message);
+      clearTimeout(state.saveTimer);
+      state.saveTimer = setTimeout(() => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.local));
+        setSaveState('Saved on this device.');
+      }, 220);
+    }
+
+    function exportLocalState() {
+      const payload = JSON.stringify({ exportedAt: new Date().toISOString(), data: state.local }, null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sidescroll-concept-lab-data.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast('Concept Lab data exported.');
+    }
+
+    async function importLocalState(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        state.local = parsed.data || parsed;
+        if (!state.local.notes) state.local.notes = {};
+        if (!state.local.extraRefs) state.local.extraRefs = {};
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.local));
+        renderCurrent();
+        setSaveState('Imported local Concept Lab data.');
+        toast('Concept Lab data imported.');
+      } catch (_) {
+        toast('Import failed. Use a Concept Lab JSON export.');
+      }
+      event.target.value = '';
+    }
+
+    function resetLocalState() {
+      if (!confirm('Reset all Concept Lab notes and extra repo references on this device?')) return;
+      state.local = { notes: {}, extraRefs: {} };
+      localStorage.removeItem(STORAGE_KEY);
+      renderCurrent();
+      setSaveState('Local Concept Lab data reset.');
+      toast('Concept Lab reset.');
+    }
+
+    function toggleSidebar(open) {
+      const shouldOpen = open !== undefined ? open : !els.sidebar.classList.contains('open');
+      els.sidebar.classList.toggle('open', shouldOpen);
+      els.scrim.classList.toggle('cl-hidden', !shouldOpen);
+      els.contentsToggle.setAttribute('aria-expanded', String(shouldOpen));
+    }
+    function closeSidebar() { toggleSidebar(false); }
+
+    function bindImageClicks() {
+      els.doc.querySelectorAll('img[data-title]').forEach(img => img.addEventListener('click', () => openModal(img.getAttribute('src'), img.dataset.title || 'Image')));
+    }
+    function openModal(src, title) {
+      els.modalTitle.textContent = title;
+      els.modalImage.src = src;
+      els.modalImage.alt = title;
+      els.modal.classList.add('open');
+      els.modal.setAttribute('aria-hidden', 'false');
+    }
+    function closeModal() {
+      els.modal.classList.remove('open');
+      els.modal.setAttribute('aria-hidden', 'true');
+      els.modalImage.removeAttribute('src');
+    }
+
+    function setSaveState(message) { els.saveState.textContent = message; }
+    let toastTimer = 0;
+    function toast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.remove('cl-hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => els.toast.classList.add('cl-hidden'), 1800);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+    }
+    function escapeAttr(value) { return escapeHtml(value); }
+  </script>
+</body>
+</html>

@@ -6,6 +6,8 @@
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
+  const WORLD_LAB_JUMP_X = Number(queryParams.get('worldX'));
+  const WORLD_LAB_PENDING_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-puzzle-moves.v1';
   const BAKED_GAME_DESIGN = window.SIDESCROLL_BAKED_GAME_DESIGN || null;
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
   const PLAYER_PUZZLE_STATE_STORAGE_KEY = 'sidescroll.player.puzzle-state.v1';
@@ -4421,6 +4423,37 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
 
+  // World Lab edits the same authored puzzle placement data, but it deliberately
+  // queues moves instead of trying to duplicate the game's terrain / ownership
+  // logic in another page. On the next game load we consume those requests here
+  // and run them through movePuzzleMarkerTo(), then persist the result normally.
+  function applyWorldLabPendingPuzzleMoves() {
+    let pending = null;
+    try { pending = JSON.parse(localStorage.getItem(WORLD_LAB_PENDING_MOVES_STORAGE_KEY) || 'null'); } catch (_) {}
+    if (!pending || typeof pending !== 'object') return 0;
+    let applied = 0;
+    const unresolved = {};
+    for (const [markerId, request] of Object.entries(pending)) {
+      const marker = markerForId(markerId);
+      const targetX = Number(request?.x);
+      if (!marker || !Number.isFinite(targetX)) {
+        if (request && Number.isFinite(targetX)) unresolved[markerId] = request;
+        continue;
+      }
+      if (movePuzzleMarkerTo(marker, targetX)) applied++;
+      persistPuzzleMarkerPosition(marker);
+    }
+    if (applied) {
+      savePuzzleState();
+      savePuzzleLibrary();
+    }
+    try {
+      if (Object.keys(unresolved).length) localStorage.setItem(WORLD_LAB_PENDING_MOVES_STORAGE_KEY, JSON.stringify(unresolved));
+      else localStorage.removeItem(WORLD_LAB_PENDING_MOVES_STORAGE_KEY);
+    } catch (_) {}
+    return applied;
+  }
+
   function savePuzzleWorkshopState(markerId = null) {
     puzzleWorkshopState.isolated = !!puzzleWorkshopIsolated;
     puzzleWorkshopState.clear = !!puzzleWorkshopClear;
@@ -5973,6 +6006,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // persist the normalized library so previous authored work remains available.
   migratePuzzleTemplates();
   savePuzzleLibrary();
+  applyWorldLabPendingPuzzleMoves();
   if (puzzleWorkshopIsolated && !puzzleWorkshopClear) {
     const pinned = markerForId(puzzleWorkshopState.markerId);
     if (pinned) { editorPuzzleMarkerId = pinned.id; puzzleBrowserMode = 'scene'; }
@@ -6540,6 +6574,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   let lastTime = performance.now();
   let previousCameraX = camera.x;
+  if (!PLAYER_MODE && Number.isFinite(WORLD_LAB_JUMP_X)) {
+    character.x = WORLD_LAB_JUMP_X;
+    character.y = playSurfaceYAt(character.x);
+    camera.x = character.x - character.screenOffsetX;
+    previousCameraX = camera.x;
+    updatePuzzleStreaming(character.x);
+  }
   let hintTimer = window.setTimeout(() => hintEl.classList.add('hidden'), 4200);
 
   function hideHint() {

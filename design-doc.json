@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.8",
+  "documentVersion": "0.9",
   "project": "SideScroll",
   "title": "Living Game Design Document",
   "baselineBuild": "SideScroll v1.0.62 + recovery / bridge-alignment patches",
@@ -1918,6 +1918,25 @@
             "workflow-assistant-fresh-chat-rules",
             "workflow-readme-mandatory"
           ]
+        },
+        {
+          "id": "workflow-flat-patch-root-files-20260928",
+          "title": "Phone upload rule — patch ZIPs must be physically flat",
+          "status": "CURRENT",
+          "implementation": "CURRENT",
+          "tags": [
+            "workflow",
+            "patch",
+            "iphone",
+            "github",
+            "flat-files"
+          ],
+          "body": "## Critical iPhone upload constraint\nThe iOS Files → GitHub upload workflow relies on opening the unzipped patch folder and using **Select All**. Nested folders prevent selecting the whole patch in one operation.\n\n**Therefore normal SideScroll PATCH ZIPs must be physically flat:** every changed/new file sits directly at the ZIP root. Do not introduce subfolders inside a patch merely to organise assets.\n\nFor concept art and similar grouped content, preserve organisation **virtually in the lab/data model** and use descriptive root filenames, for example `concept-woodland-01.png`, `concept-wetlands-01.png`, `concept-settlement-02.png`.\n\nIf the actual production repository ever genuinely requires subdirectories, treat that as a deliberate workflow/architecture change and agree it with the user first.",
+          "related": [
+            "workflow-assistant-fresh-chat-rules",
+            "workflow-patch-contract",
+            "workflow-github-upload"
+          ]
         }
       ],
       "related": [
@@ -2097,6 +2116,25 @@
               "related": [
                 "techq-world-element-v1-schema",
                 "tool-world-lab"
+              ]
+            },
+            {
+              "id": "techq-world-lab-v1-implementation-20260928",
+              "title": "World Lab v1 — first working implementation",
+              "status": "CURRENT",
+              "implementation": "PARTIAL",
+              "tags": [
+                "world-lab",
+                "implementation",
+                "world-elements",
+                "puzzle-placement"
+              ],
+              "body": "[ ] On-device acceptance test for the first World Lab build.\n\n## Implemented\n- Horizontal scroll/zoom world strip measured in world metres.\n- Optional/debug 10 m section grid with saved special section state visible.\n- Real puzzle markers read from the same puzzle library/state used by the game.\n- Puzzle extents and puzzle-owned world-modifier indicators where start data exposes them.\n- Drag or numerically reposition a puzzle in World Lab. Moves are queued, then consumed by the real game through `movePuzzleMarkerTo(...)` on next game load so puzzle ownership, river modifiers and terrain re-grounding stay authoritative in one place.\n- Jump to Game at the selected world position.\n- Persistent `sidescroll.world-elements.v1` authoring layer with Biome Region, Biome Transition, Dressing Group, Explicit Dressing, Landmark, Story, Camera, Checkpoint, Audio and VFX/Anomaly element types.\n- Add/move/edit/delete World Elements plus JSON export/import.\n- Player-save position indicator and automatic refresh when returning to World Lab.\n\n## Deliberately not implemented yet\nBiome/transition/dressing World Elements are authoring data only in this v1. The gameplay renderer does not consume them yet; that is the next architecture step after the editor/data contract proves stable.\n\n## Acceptance test\nOpen World Lab, confirm existing puzzle positions match the scene, drag Broken Bridge to a new X, use Jump to Game, and verify the whole portable puzzle (including its river modifier) arrives at the same coordinate. Return to World Lab and confirm the queued state has become the real saved placement.",
+              "children": [],
+              "related": [
+                "techq-world-element-v1-schema",
+                "techq-05-world-lab",
+                "techq-01-bridge-world-ownership"
               ]
             }
           ],

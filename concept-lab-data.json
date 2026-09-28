@@ -1,0 +1,164 @@
+{
+  "version": "1.0.63-concept-lab-flat",
+  "title": "SideScroll Concept Lab",
+  "overview": {
+    "summary": "A lightweight concept-art browser for SideScroll. Location groups are virtual inside Concept Lab, while every physical project file remains in the repository root so iPhone GitHub uploads can use Select All.",
+    "folderTree": [
+      "Virtual group: Shared / game reference",
+      "Virtual group: Woodland",
+      "Virtual group: Mountain Trail",
+      "Virtual group: Snowy Pass",
+      "Virtual group: Wetlands",
+      "Virtual group: Caves",
+      "Virtual group: Settlement",
+      "Virtual group: Barren Wastes"
+    ],
+    "workflow": [
+      "Keep patch ZIPs physically flat: all files, including concept images, live at the project root.",
+      "Concept Lab provides the location grouping virtually, so physical subfolders are not required.",
+      "Name new location references with the matching prefix, for example concept-woodland-02.png or concept-wetlands-water-detail-01.png.",
+      "Add a new root image filename to the relevant location in Concept Lab so it appears as a support reference.",
+      "Write design notes per location inside Concept Lab. Notes autosave on this device and can be exported/imported as JSON."
+    ]
+  },
+  "locations": [
+    {
+      "id": "woodland",
+      "title": "Woodland",
+      "summary": "Primary side-scrolling forest route. This is the current closest match to the game's camera and platformer framing.",
+      "designQuestions": [
+        "How close is this to the approved in-game camera height and path readability?",
+        "What dressing density feels right around traversal spaces?",
+        "Which props or puzzle hooks should become part of the woodland baseline?"
+      ],
+      "images": [
+        {
+          "title": "Woodland platformer path",
+          "src": "concept-woodland-01.png",
+          "role": "baseline"
+        }
+      ],
+      "group": "Woodland",
+      "filePrefix": "concept-woodland-"
+    },
+    {
+      "id": "mountain-trail",
+      "title": "Mountain Trail",
+      "summary": "Rockier elevated route with a stone bridge and a more mountainous edge, intended as a distinct traversal biome before full snow conditions.",
+      "designQuestions": [
+        "What makes this feel meaningfully different from woodland while still belonging to the same game?",
+        "Where should climb points, ledges and bridge puzzles live?",
+        "How sharp should the forest-to-mountain transition be?"
+      ],
+      "images": [
+        {
+          "title": "Mountain trail and stone bridge",
+          "src": "concept-mountain-trail-01.png",
+          "role": "baseline"
+        },
+        {
+          "title": "Forest to misty peaks transition",
+          "src": "concept-mountain-transition-01.png",
+          "role": "support"
+        }
+      ],
+      "group": "Mountain Trail",
+      "filePrefix": "concept-mountain-"
+    },
+    {
+      "id": "snowy-pass",
+      "title": "Snowy Mountain Pass",
+      "summary": "A colder, clearly separate mountain location with snow cover and a stronger high-altitude identity.",
+      "designQuestions": [
+        "How much snow/ice can we support while preserving platform readability?",
+        "Should this biome introduce slipping, wind, or other traversal modifiers?",
+        "What visual anchors make it distinct from the non-snow mountain trail?"
+      ],
+      "images": [
+        {
+          "title": "Snowy mountain pass platformer",
+          "src": "concept-snowy-pass-01.png",
+          "role": "baseline"
+        }
+      ],
+      "group": "Snowy Mountain Pass",
+      "filePrefix": "concept-snowy-pass-"
+    },
+    {
+      "id": "wetlands",
+      "title": "Wetlands / Swimming Route",
+      "summary": "Reed-heavy marshland with a possible above-water and underwater traversal split, suitable for swimming and water-focused puzzles.",
+      "designQuestions": [
+        "How much of the route should be above water versus submerged?",
+        "What new mechanics are introduced here: swimming, diving, current, buoyancy?",
+        "How sparse should trees become compared with woodland?"
+      ],
+      "images": [
+        {
+          "title": "Wetlands crossing above and below water",
+          "src": "concept-wetlands-01.png",
+          "role": "baseline"
+        }
+      ],
+      "group": "Wetlands / Swimming Route",
+      "filePrefix": "concept-wetlands-"
+    },
+    {
+      "id": "caves",
+      "title": "Underground Caves",
+      "summary": "Subterranean cavern route with a different lighting logic and a more enclosed, puzzle-forward feel.",
+      "designQuestions": [
+        "How dark and mysterious should the cave route be versus maintaining readability?",
+        "What environmental mechanics belong here: climb walls, drop shafts, light, crystal/artefact interactions?",
+        "How much ruin/terraforming presence should be visible this early?"
+      ],
+      "images": [
+        {
+          "title": "Bioluminescent cavern ruins",
+          "src": "concept-caves-01.png",
+          "role": "baseline"
+        }
+      ],
+      "group": "Underground Caves",
+      "filePrefix": "concept-caves-"
+    },
+    {
+      "id": "settlement",
+      "title": "Settlement / Keep Approach",
+      "summary": "A settlement route that evolves from sparse shacks to a village and then toward a stone-walled keep, still inhabited in feel but strangely empty.",
+      "designQuestions": [
+        "How do we break this biome into outskirts, village core, and keep approach?",
+        "What props imply life and use without showing crowds of people?",
+        "What puzzles or story beats suit a more built environment?"
+      ],
+      "images": [
+        {
+          "title": "Quiet village road to the castle gate",
+          "src": "concept-settlement-01.png",
+          "role": "baseline"
+        }
+      ],
+      "group": "Settlement / Keep Approach",
+      "filePrefix": "concept-settlement-"
+    },
+    {
+      "id": "barren-wastes",
+      "title": "Barren Wastes / Sparse Gravel Biome",
+      "summary": "A more sparse, rocky, almost moonlike route that could become a later distinct biome or feed into a stranger endgame location.",
+      "designQuestions": [
+        "Is this a true biome or just a placeholder for a future final area?",
+        "How much alien/terraforming weirdness should be visible here?",
+        "What terrain language keeps it readable while feeling sparse and unusual?"
+      ],
+      "images": [
+        {
+          "title": "Barren rocky platformer landscape",
+          "src": "concept-barren-wastes-01.png",
+          "role": "baseline"
+        }
+      ],
+      "group": "Barren Wastes / Sparse Gravel Biome",
+      "filePrefix": "concept-barren-wastes-"
+    }
+  ]
+}

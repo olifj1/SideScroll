@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en" class="world-lab-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#11191d">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="world-lab.css?v=1.0.63">
+  <title>World Lab · SideScroll</title>
+</head>
+<body>
+  <div class="wl-shell">
+    <header class="wl-topbar">
+      <a class="wl-home" href="index.html">SideScroll</a>
+      <div class="wl-title"><strong>World Lab</strong><small id="wl-status">Loading world data…</small></div>
+      <button id="wl-fit" type="button">Fit</button>
+      <button id="wl-data-toggle" type="button">Data</button>
+    </header>
+
+    <section class="wl-toolbar">
+      <label>Zoom <input id="wl-zoom" type="range" min="5" max="20" step="1" value="10"><span id="wl-zoom-value">10 px/m</span></label>
+      <label>View start <input id="wl-min" type="number" step="10" value="-20"></label>
+      <label>View end <input id="wl-max" type="number" step="10" value="120"></label>
+      <button id="wl-refresh" type="button">Refresh game data</button>
+    </section>
+
+    <main class="wl-main">
+      <section class="wl-map-panel">
+        <div class="wl-map-head">
+          <div>
+            <strong>Journey layout</strong>
+            <small>World metres are the authoring space. 10 m sections are shown as runtime/debug boundaries.</small>
+          </div>
+          <div class="wl-legend">
+            <span><i class="legend puzzle"></i>Puzzle</span>
+            <span><i class="legend biome"></i>Biome</span>
+            <span><i class="legend transition"></i>Transition</span>
+            <span><i class="legend dressing"></i>Dressing</span>
+            <span><i class="legend other"></i>Other</span>
+          </div>
+        </div>
+        <div class="wl-scroll" id="wl-scroll">
+          <div class="wl-world" id="wl-world">
+            <div class="wl-section-grid" id="wl-section-grid"></div>
+            <div class="wl-ruler" id="wl-ruler"></div>
+            <div class="wl-track" data-track="biome"><div class="wl-track-label">BIOMES</div><div class="wl-track-content" id="wl-track-biome"></div></div>
+            <div class="wl-track" data-track="transition"><div class="wl-track-label">TRANSITIONS</div><div class="wl-track-content" id="wl-track-transition"></div></div>
+            <div class="wl-track puzzle-track" data-track="puzzle"><div class="wl-track-label">PUZZLES</div><div class="wl-track-content" id="wl-track-puzzle"></div></div>
+            <div class="wl-track" data-track="dressing"><div class="wl-track-label">DRESSING</div><div class="wl-track-content" id="wl-track-dressing"></div></div>
+            <div class="wl-track" data-track="other"><div class="wl-track-label">LANDMARKS / STORY / CAMERA</div><div class="wl-track-content" id="wl-track-other"></div></div>
+            <div class="wl-player-line" id="wl-player-line" hidden><span>PLAYER</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="wl-lower-grid">
+        <section class="wl-panel" id="wl-selection">
+          <h2>Selection</h2>
+          <p class="muted">Tap a puzzle marker or World Element above.</p>
+        </section>
+
+        <section class="wl-panel">
+          <h2>Add World Element</h2>
+          <p class="muted">These are the new authored placement layer. Biome/dressing elements are stored now; runtime biome rendering comes next.</p>
+          <div class="wl-form-grid">
+            <label>Type
+              <select id="wl-new-type">
+                <option value="biome-region">Biome Region</option>
+                <option value="biome-transition">Biome Transition</option>
+                <option value="dressing-group">Dressing Group</option>
+                <option value="explicit-dressing">Explicit Dressing</option>
+                <option value="landmark">Terraform Machine / Landmark</option>
+                <option value="story-node">Story Trigger</option>
+                <option value="camera-node">Camera Sequence Node</option>
+                <option value="checkpoint">Spawn / Checkpoint</option>
+                <option value="audio-zone">Audio Zone</option>
+                <option value="vfx-zone">VFX / Anomaly Zone</option>
+              </select>
+            </label>
+            <label>Label <input id="wl-new-label" type="text" placeholder="Woodland region"></label>
+            <label>Start / X <input id="wl-new-start" type="number" step="0.1" value="0"></label>
+            <label>End / X <input id="wl-new-end" type="number" step="0.1" value="20"></label>
+            <label>Owner <input id="wl-new-owner" type="text" value="world"></label>
+          </div>
+          <button class="primary" id="wl-add-element" type="button">Add to World</button>
+        </section>
+      </div>
+    </main>
+
+    <div class="wl-data-menu" id="wl-data-menu" hidden>
+      <strong>World Lab data</strong>
+      <small>World Elements are stored in <code>sidescroll.world-elements.v1</code>. Puzzle placements continue to use the game's existing puzzle storage.</small>
+      <button id="wl-export" type="button">Export World Elements JSON</button>
+      <button id="wl-import" type="button">Import World Elements JSON</button>
+      <button id="wl-reset-world" class="danger" type="button">Clear World Elements</button>
+      <input id="wl-import-file" type="file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="wl-toast" id="wl-toast" hidden></div>
+  </div>
+  <script src="baked-game-design.js?v=1.0.62"></script>
+  <script src="puzzle-groups.js?v=1.0.62"></script>
+  <script src="world-lab.js?v=1.0.63"></script>
+</body>
+</html>
