@@ -31,7 +31,7 @@
     status:$('wl-status'), world:$('wl-world'), scroll:$('wl-scroll'), sectionGrid:$('wl-section-grid'), ruler:$('wl-ruler'),
     trackBiome:$('wl-track-biome'),trackTransition:$('wl-track-transition'),trackPuzzle:$('wl-track-puzzle'),trackDressing:$('wl-track-dressing'),trackOther:$('wl-track-other'),
     playerLine:$('wl-player-line'), selection:$('wl-selection'), zoom:$('wl-zoom'),zoomValue:$('wl-zoom-value'),min:$('wl-min'),max:$('wl-max'),
-    fit:$('wl-fit'),refresh:$('wl-refresh'),dataToggle:$('wl-data-toggle'),dataMenu:$('wl-data-menu'),exportBtn:$('wl-export'),importBtn:$('wl-import'),resetWorld:$('wl-reset-world'),importFile:$('wl-import-file'),
+    fit:$('wl-fit'),refresh:$('wl-refresh'),dataToggle:$('wl-data-toggle'),dataMenu:$('wl-data-menu'),dataClose:$('wl-data-close'),dataScrim:$('wl-data-scrim'),exportBtn:$('wl-export'),importBtn:$('wl-import'),resetWorld:$('wl-reset-world'),importFile:$('wl-import-file'),
     newType:$('wl-new-type'),newLabel:$('wl-new-label'),newStart:$('wl-new-start'),newEnd:$('wl-new-end'),newOwner:$('wl-new-owner'),addElement:$('wl-add-element'),toast:$('wl-toast')
   };
 
@@ -52,12 +52,27 @@
     els.max.addEventListener('change',()=>{state.maxX=number(els.max.value,state.maxX);if(state.maxX<=state.minX+20)state.maxX=state.minX+20;syncViewInputs();render();});
     els.fit.addEventListener('click',()=>fitWorld(false));
     els.refresh.addEventListener('click',()=>{refreshGameData();fitWorld(false);toast('Game data refreshed.');});
-    els.dataToggle.addEventListener('click',()=>{els.dataMenu.hidden=!els.dataMenu.hidden;});
+    els.dataToggle.addEventListener('click',()=>{els.dataMenu.hidden?openDataMenu():closeDataMenu();});
+    els.dataClose.addEventListener('click',closeDataMenu);
+    els.dataScrim.addEventListener('click',closeDataMenu);
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')closeDataMenu();});
     els.exportBtn.addEventListener('click',exportElements);
     els.importBtn.addEventListener('click',()=>els.importFile.click());
     els.importFile.addEventListener('change',importElements);
     els.resetWorld.addEventListener('click',()=>{if(confirm('Clear all World Elements? Puzzle placement is not affected.')){state.elements=[];saveElements();state.selected=null;render();}});
     els.addElement.addEventListener('click',addElement);
+  }
+
+  function openDataMenu(){
+    els.dataMenu.hidden=false;
+    els.dataScrim.hidden=false;
+    els.dataToggle.setAttribute('aria-expanded','true');
+  }
+
+  function closeDataMenu(){
+    els.dataMenu.hidden=true;
+    els.dataScrim.hidden=true;
+    els.dataToggle.setAttribute('aria-expanded','false');
   }
 
   function refreshGameData(){

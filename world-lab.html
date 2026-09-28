@@ -91,12 +91,16 @@
       </div>
     </main>
 
-    <div class="wl-data-menu" id="wl-data-menu" hidden>
-      <strong>World Lab data</strong>
-      <small>World Elements are stored in <code>sidescroll.world-elements.v1</code>. Puzzle placements continue to use the game's existing puzzle storage.</small>
-      <button id="wl-export" type="button">Export World Elements JSON</button>
-      <button id="wl-import" type="button">Import World Elements JSON</button>
-      <button id="wl-reset-world" class="danger" type="button">Clear World Elements</button>
+    <button class="wl-data-scrim" id="wl-data-scrim" type="button" aria-label="Close World Lab data" hidden></button>
+    <div class="wl-data-menu" id="wl-data-menu" role="dialog" aria-modal="true" aria-labelledby="wl-data-title" hidden>
+      <div class="wl-data-head">
+        <strong id="wl-data-title">World Lab Data</strong>
+        <button class="wl-data-close" id="wl-data-close" type="button" aria-label="Close World Lab data">Close</button>
+      </div>
+      <small>Biomes, transitions, dressing groups, landmarks and story markers created in World Lab are saved automatically on this device. Puzzle placements remain part of the game's existing puzzle data.</small>
+      <button id="wl-export" type="button">Export World Layout</button>
+      <button id="wl-import" type="button">Import World Layout</button>
+      <button id="wl-reset-world" class="danger" type="button">Reset World Layout</button>
       <input id="wl-import-file" type="file" accept="application/json,.json" hidden>
     </div>
 
