@@ -1,5 +1,5 @@
 window.SideScrollPuzzleConfig = {
-  version: 28,
+  version: 29,
   assetPacks: {
     "woodland-puzzle-atlas-v1": {
       assets: [
@@ -25,8 +25,42 @@ window.SideScrollPuzzleConfig = {
         { name: "stone-piece-c", url: "stone-piece-c.png?v=1.0.62", aspect: 1.062417 }
       ]
     }
+    ,
+    "mountain-prototype-v1": {
+      assets: [
+        { name: "mountain-climb-rock-01", url: "mountain-climb-rock-01.png?v=1.0.68", aspect: 1.935829 }
+      ]
+    }
   },
   groups: {
+    MOUNTAIN_CLIMB_PROTO: {
+      label: "Mountain Climb Prototype",
+      width: 10,
+      bounds: { minX: -5, maxX: 5 },
+      assetPacks: ["mountain-prototype-v1"],
+      entryX: -4.35,
+      exitX: 4.35,
+      lab: {
+        category: "Traversal prototype",
+        recommendedEnvironment: "mountain",
+        mechanic: "Climbable scenic terrain",
+        note: "Prototype one climbable rock, mantle onto its painted top, walk across it, then climb down."
+      },
+      props: [
+        {
+          id: "climb-rock",
+          asset: "mountain-climb-rock-01",
+          x: 0.45,
+          z: 0,
+          width: 6.872,
+          height: 3.55,
+          flip: false,
+          category: "gameplay",
+          gameplayType: "climb-rock",
+          gameplayLayerLocked: true
+        }
+      ]
+    },
     FALLEN_TREE_TEST: {
       label: "Fallen tree test",
       width: 14.607981861570,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "documentVersion": "0.9",
+  "documentVersion": "0.10",
   "project": "SideScroll",
   "title": "Living Game Design Document",
   "baselineBuild": "SideScroll v1.0.62 + recovery / bridge-alignment patches",
@@ -2045,7 +2045,27 @@
             "qa"
           ],
           "body": "[ ] Build a dedicated puzzle sandbox/test harness.\n\n## Core v1\n- Load one reusable puzzle in a disposable test world.\n- Reset/Test/Set Start without disturbing the main game layout.\n- Move the puzzle freely, including across section boundaries.\n- Delete/recreate and stream out/in.\n- Visualise bounds, owned objects, triggers, collision, paths and world modifiers.\n- Show external dependencies.\n- Environment selector initially: Blank/Test and Woodland; later Mountain/Wetlands.\n\n## Portability test\nCentre of section → boundary → arbitrary offset → reload → delete → recreate. Broken Bridge is the first acceptance puzzle.",
-          "children": [],
+          "children": [
+            {
+              "id": "techq-puzzle-lab-v1-live-20260929",
+              "title": "Puzzle Lab v1 — live isolated sandbox",
+              "status": "IN PROGRESS",
+              "implementation": "LANDED v1.0.68",
+              "tags": [
+                "puzzle-lab",
+                "tooling",
+                "sandbox",
+                "qa",
+                "climbing"
+              ],
+              "body": "Puzzle Lab becomes a first-class tool in v1.0.68, introduced now because the mountain climb prototype is both a new reusable puzzle setup and a new traversal mechanic.\n\n## v1 architecture\n- Dedicated `puzzle-lab.html` dashboard selects a reusable puzzle definition and launches the existing game renderer/editor as the sandbox rather than duplicating puzzle runtime code.\n- Puzzle Lab mode uses its own runtime/start/library/inventory/workshop/exclusion/scene/terrain-section storage keys, so Set Start, Reset and disposable scene edits do not move or rewrite the main game/World Lab layout.\n- Asset-level definitions remain intentionally shared: collision, ground line and behaviour tags such as **Climbable** describe the reusable asset and should survive lab testing.\n- The sandbox can launch directly into **Setup** or **Run Test**. Test uses the existing disposable puzzle-test snapshot/reset path.\n- Environment selector starts with Blank, Woodland and Mountain. Woodland enables existing procedural forest dressing; Blank/Mountain currently use a clean stage until biome rendering is connected.\n- Marker presets support the first portability checks: section centre (0 m), section boundary (5 m) and arbitrary offset (2.3 m).\n- Optional collision overlay is available from launch.\n\n## First live project\n**Mountain Climb Prototype** is a built-in Puzzle Lab-only puzzle definition containing one `mountain-climb-rock-01` scenic rock. It tests: approach → CLIMB action → vertical traversal → mantle → walk on the painted top → CLIMB DOWN. It is not placed into the main world by adding Puzzle Lab.\n\n## Next development\n[ ] Tune rock scale/contact from device testing.\n[ ] Replace implicit collision-side climbing with explicit authored climb-zone data.\n[ ] Add climb/hang/mantle animation clips and hand/foot targets through Anim Lab.\n[ ] Add Puzzle Lab ownership/debug overlays for triggers, paths, modifiers and external dependencies.\n[ ] Add repeatable portability actions for move/reload/delete/recreate/stream out-in.\n[ ] Promote a proven lab puzzle into World Lab placement without copying or re-authoring its internal setup.",
+              "children": [],
+              "related": [
+                "techq-03-puzzle-lab",
+                "techq-04-world-element-model"
+              ]
+            }
+          ],
           "related": [
             "techq-02-puzzle-ownership-contract",
             "tool-puzzle-editor"
@@ -2321,6 +2341,25 @@
             "techq-06-biome-profiles",
             "techq-11-anim-lab",
             "techq-12-biome-machines"
+          ]
+        },
+        {
+          "id": "techq-climb-prototype-20260928",
+          "title": "CLIMB PROTOTYPE — Scenic rock + support collision",
+          "status": "PROTOTYPE",
+          "implementation": "IN PROGRESS",
+          "tags": [
+            "climbing",
+            "mountain",
+            "scenic-terrain",
+            "prototype"
+          ],
+          "body": "First mountain traversal prototype deliberately isolates one problem: can Aureli convincingly climb a flat scenic rock asset and then walk along its painted top surface?\n\nv1.0.67 adds a single-level mountain rock as a normal placeable environment asset. The artwork uses soft alpha with colour dilation under the edge. The asset has authored solid/support collision whose top aligns with the painted path. A new Climbable asset behaviour uses the vertical sides of that collision as temporary climb zones. When Aureli is close to a lower face, ACTION becomes CLIMB and performs a short authored climb/mantle onto the support surface. Near either top edge, ACTION becomes CLIMB DOWN. Once on top, normal walking/jumping/support collision resumes.\n\nThis is intentionally not the final climbing system. The first pass uses automatic traversal and a procedural placeholder pose so we can judge scale, contact, camera motion and whether the flat-image illusion works. If the spatial test succeeds, next steps are explicit authored climb-zone editing, Anim Lab climb/hang/mantle clips, hand/foot targets and more varied climb routes. Sloping terrain is postponed until this single-rock interaction is proven.",
+          "children": [],
+          "related": [
+            "techq-10-climbing",
+            "techq-09-mountain-biome",
+            "tool-world-lab"
           ]
         }
       ],

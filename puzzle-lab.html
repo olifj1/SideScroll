@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" class="ss-puzzle-lab-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d161b">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="puzzle-lab.css?v=1.0.68">
+  <title>SideScroll · Puzzle Lab</title>
+</head>
+<body>
+  <header class="pl-topbar">
+    <a class="pl-home" href="index.html">SideScroll</a>
+    <div class="pl-title-block">
+      <strong>Puzzle Lab</strong>
+      <span id="pl-summary">Reusable puzzle sandbox</span>
+    </div>
+    <a class="pl-tool-link" href="asset-lab.html">Asset Lab</a>
+  </header>
+
+  <main class="pl-shell">
+    <section class="pl-card">
+      <div class="pl-card-head">
+        <div>
+          <span class="pl-kicker">PROJECT</span>
+          <h1>Choose a puzzle</h1>
+        </div>
+        <span class="pl-isolated">ISOLATED</span>
+      </div>
+      <p class="pl-copy">Puzzle Lab runs one reusable puzzle in its own disposable test stage. Main-world puzzle positions, World Lab layout and scene dressing are not changed by the sandbox.</p>
+      <div class="pl-project-list" id="pl-project-list"></div>
+    </section>
+
+    <section class="pl-card pl-selected-card">
+      <span class="pl-kicker">SELECTED</span>
+      <h2 id="pl-selected-name">Puzzle</h2>
+      <p id="pl-selected-note" class="pl-copy"></p>
+      <div class="pl-meta" id="pl-selected-meta"></div>
+    </section>
+
+    <section class="pl-card">
+      <div class="pl-card-head">
+        <div>
+          <span class="pl-kicker">SANDBOX</span>
+          <h2>Test stage</h2>
+        </div>
+      </div>
+
+      <div class="pl-field-group">
+        <strong>Environment</strong>
+        <div class="pl-segment" id="pl-environment" role="group" aria-label="Sandbox environment">
+          <button type="button" data-environment="blank">Blank</button>
+          <button type="button" data-environment="woodland">Woodland</button>
+          <button type="button" data-environment="mountain">Mountain</button>
+        </div>
+        <small id="pl-environment-note">Mountain currently uses a clean stage with no woodland dressing, ready for the mountain renderer later.</small>
+      </div>
+
+      <div class="pl-field-group">
+        <div class="pl-inline-head"><strong>Puzzle marker</strong><b id="pl-position-value">0.0 m</b></div>
+        <div class="pl-position-row">
+          <button type="button" data-position="0">Section centre</button>
+          <button type="button" data-position="5">Boundary</button>
+          <button type="button" data-position="2.3">Offset</button>
+        </div>
+        <label class="pl-number-field"><span>X position</span><input id="pl-position" type="number" inputmode="decimal" step="0.1" value="0"></label>
+        <small>These presets are the first portability checks: centre → section boundary → arbitrary offset.</small>
+      </div>
+
+      <label class="pl-toggle-row">
+        <span><strong>Collision overlay</strong><small>Show terrain/support and object collision while testing.</small></span>
+        <input id="pl-collision" type="checkbox" checked>
+      </label>
+
+      <div class="pl-launch-grid">
+        <button class="pl-primary" id="pl-open-setup" type="button">Open Setup</button>
+        <button class="pl-secondary" id="pl-run-test" type="button">Run Test</button>
+      </div>
+      <p class="pl-launch-note">Setup opens the existing in-game puzzle editor around this isolated instance. Run Test starts immediately from the puzzle entry point.</p>
+    </section>
+
+    <section class="pl-card" id="pl-checks-card">
+      <span class="pl-kicker">CURRENT PROTOTYPE</span>
+      <h2>Climb rock checks</h2>
+      <div class="pl-check-list">
+        <label><input type="checkbox" data-check="approach"><span>Approach either face and get a clear CLIMB action.</span></label>
+        <label><input type="checkbox" data-check="climb"><span>Climb reaches the painted top without obvious sliding or intersection.</span></label>
+        <label><input type="checkbox" data-check="mantle"><span>Mantle/contact looks plausible at the top edge.</span></label>
+        <label><input type="checkbox" data-check="walk"><span>Feet sit convincingly on the painted path while walking across the rock.</span></label>
+        <label><input type="checkbox" data-check="down"><span>Climb Down works from either end and returns cleanly to terrain.</span></label>
+        <label><input type="checkbox" data-check="reset"><span>Reset returns the puzzle and player to the authored test start.</span></label>
+      </div>
+    </section>
+
+    <section class="pl-card pl-data-card">
+      <span class="pl-kicker">LAB DATA</span>
+      <h2>Disposable test state</h2>
+      <p class="pl-copy">Set Start, puzzle runtime state and sandbox scene edits use Puzzle Lab-only storage. Asset defaults such as collision and the Climbable behaviour remain shared intentionally, because they define the reusable asset itself.</p>
+      <button class="pl-danger" id="pl-reset-lab" type="button">Reset Puzzle Lab Test Data</button>
+    </section>
+  </main>
+
+  <script src="puzzle-groups.js?v=1.0.68"></script>
+  <script src="puzzle-lab.js?v=1.0.68"></script>
+</body>
+</html>

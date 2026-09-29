@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.62';
+  const VERSION = '1.0.67';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -10,8 +10,8 @@
   const STATE_KEY = 'sidescroll.asset-states.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
-  const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','pushable','socketHost','socketPiece'];
-  const emptyBehaviour = { solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, socketHost:false, socketPiece:false };
+  const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','pushable','climbable','socketHost','socketPiece'];
+  const emptyBehaviour = { solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, climbable:false, socketHost:false, socketPiece:false };
 
   const ASSETS = [
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-left',label:'Broken Bridge · Left',image:'bridge-left.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true,socketHost:true}},
@@ -32,6 +32,7 @@
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-a',label:'Triangle Stone',image:'stone-piece-a.png',height:1.00,behaviour:{carryable:true,placeable:true,socketPiece:true}},
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-b',label:'Arch Stone',image:'stone-piece-b.png',height:1.04,behaviour:{carryable:true,placeable:true,socketPiece:true}},
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-c',label:'Hexagon Stone',image:'stone-piece-c.png',height:1.00,behaviour:{carryable:true,placeable:true,socketPiece:true}},
+    {group:'ENVIRONMENT · MOUNTAIN',scope:'environment',name:'mountain-climb-rock-01',label:'Mountain Climb Rock 01',image:'mountain-climb-rock-01.png',height:3.55,behaviour:{solid:true,supportSurface:true,climbable:true},collision:{halfWidthRatio:0.46,heightRatio:0.72,fixedHeight:null,depthRatio:0.15,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]}},
     ...Array.from({length:8},(_,i)=>({group:'ENVIRONMENT · TREES',scope:'environment',name:`tree${String(i+1).padStart(2,'0')}`,label:`Tree ${i+1}`,image:`sidescroll-tree-${String(i+1).padStart(2,'0')}.png`,height:8.2,behaviour:{}})),
     ...Array.from({length:12},(_,i)=>({group:'ENVIRONMENT · GROUND',scope:'environment',name:`ground${String(i+1).padStart(2,'0')}`,label:`Ground ${i+1}`,image:`sidescroll-ground-${String(i+1).padStart(2,'0')}.png`,height:0.82,behaviour:{}}))
   ];
@@ -266,6 +267,7 @@
     if (b.supportSurface) b.solid = true;
     if (b.stackable) b.placeable = true;
     if (b.pushable) b.solid = true;
+    if (b.climbable) b.solid = true;
     return b;
   }
 
@@ -323,7 +325,7 @@
   }
 
   function behaviourNeedsCollision(behaviour) {
-    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
+    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable || behaviour?.climbable);
   }
   function assetAspect(asset=state.asset) {
     const image=ensureImage(asset);
@@ -715,7 +717,7 @@
       const row=document.createElement('button');row.type='button';row.className='assetlab-asset-row';row.classList.toggle('active',asset.name===state.asset.name);
       const preview=ensureImage(asset);
       const previewSrc=preview?.src || asset.image || '';
-      row.innerHTML=`<img src="${previewSrc}" alt=""><span><strong>${asset.label}</strong><small>${effectiveBehaviour(asset).pushable?'PUSH · ':''}${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
+      row.innerHTML=`<img src="${previewSrc}" alt=""><span><strong>${asset.label}</strong><small>${effectiveBehaviour(asset).pushable?'PUSH · ':''}${effectiveBehaviour(asset).climbable?'CLIMB · ':''}${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
       row.addEventListener('click',()=>selectAsset(asset,{keepView:state.pairMode&&isBridge(asset)}));
       listEl.appendChild(row);
     }
@@ -836,6 +838,7 @@
       ['placeable','Placeable','A carried copy can be put back down.'],
       ['stackable','Stackable','May settle onto other support surfaces.'],
       ['pushable','Pushable','ACTION grips the object and walking into it moves the object.'],
+      ['climbable','Climbable','ACTION can use the collision side as a prototype climb route.'],
       ['socketHost','Socket Host','Can contain authored sockets.'],
       ['socketPiece','Socket Piece','Can be assigned to an authored socket.']
     ];
@@ -854,6 +857,7 @@
     if(key==='supportSurface'&&enabled)next.solid=true;
     if(key==='stackable'&&enabled)next.placeable=true;
     if(key==='pushable'&&enabled)next.solid=true;
+    if(key==='climbable'&&enabled)next.solid=true;
     const packed=Object.fromEntries(behaviourKeys.map(k=>[k,!!next[k]]));
     const profile=stateProfile();
     if(profile){ profile.behaviour=packed; writeStateStore(); }

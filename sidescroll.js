@@ -6,7 +6,25 @@
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
-  const WORLD_LAB_JUMP_X = Number(queryParams.get('worldX'));
+  const PUZZLE_LAB_MODE = queryParams.get('lab') === 'puzzle';
+  const PUZZLE_LAB_GROUP_ID = queryParams.get('group') || 'MOUNTAIN_CLIMB_PROTO';
+  const PUZZLE_LAB_ENV_RAW = queryParams.get('environment') || 'mountain';
+  const PUZZLE_LAB_ENVIRONMENT = ['blank','woodland','mountain'].includes(PUZZLE_LAB_ENV_RAW) ? PUZZLE_LAB_ENV_RAW : 'blank';
+  const PUZZLE_LAB_MARKER_X_RAW = Number(queryParams.get('markerX'));
+  const PUZZLE_LAB_MARKER_X = Number.isFinite(PUZZLE_LAB_MARKER_X_RAW) ? PUZZLE_LAB_MARKER_X_RAW : 0;
+  const PUZZLE_LAB_AUTO_TEST = queryParams.get('autotest') === '1';
+  const PUZZLE_LAB_COLLISION = queryParams.get('collision') === '1';
+  const PUZZLE_LAB_LAUNCH = (() => {
+    if (!PUZZLE_LAB_MODE) return null;
+    try {
+      const parsed = JSON.parse(localStorage.getItem('sidescroll.puzzle-lab.launch.v1') || 'null');
+      return parsed && parsed.groupId === PUZZLE_LAB_GROUP_ID ? parsed : null;
+    } catch (_) { return null; }
+  })();
+  const PUZZLE_LAB_MARKER_ID = `puzzle-lab-${String(PUZZLE_LAB_GROUP_ID).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'puzzle'}`;
+  const puzzleLabMarker = { id:PUZZLE_LAB_MARKER_ID, group:PUZZLE_LAB_GROUP_ID, x:PUZZLE_LAB_MARKER_X, lab:true, linkMode:'copy' };
+  const WORLD_LAB_JUMP_RAW = queryParams.get('worldX');
+  const WORLD_LAB_JUMP_X = WORLD_LAB_JUMP_RAW === null || WORLD_LAB_JUMP_RAW === '' ? NaN : Number(WORLD_LAB_JUMP_RAW);
   const WORLD_LAB_PENDING_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-puzzle-moves.v1';
   const BAKED_GAME_DESIGN = window.SIDESCROLL_BAKED_GAME_DESIGN || null;
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
@@ -1640,6 +1658,17 @@
     textures[key] = createImageTexture(`${key}.png?v=1.0.62`, key, null, size[0] / size[1]);
   });
 
+  // v1.0.67 mountain traversal prototype. This is deliberately a standalone
+  // world asset rather than puzzle-pack art: it can be placed freely in the
+  // environment, carries its own support collision, and exposes climbable sides.
+  assetAspect['mountain-climb-rock-01'] = 1448 / 748;
+  textures['mountain-climb-rock-01'] = createImageTexture(
+    'mountain-climb-rock-01.png?v=1.0.67',
+    'mountain-climb-rock-01',
+    null,
+    1448 / 748
+  );
+
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
     'counterweight-plank.png?v=1.0.62',
@@ -1929,7 +1958,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const TERRAIN_SECTION_HALF = TERRAIN_SECTION_LENGTH * 0.5;
   const TERRAIN_SECTION_RENDER_RADIUS = 9;
   const TERRAIN_SECTION_PATH_PHASE_COUNT = 62; // 62 × 10 m = 620 m = 5 × old 124 m terrain periods.
-  const TERRAIN_SECTION_STORAGE_KEY = 'sidescroll.terrain-sections.v1';
+  const TERRAIN_SECTION_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.terrain-sections.v1' : 'sidescroll.terrain-sections.v1';
   const TERRAIN_SECTION_TYPES = {
     normal:{ id:'normal', label:'Normal' },
     testHill:{ id:'testHill', label:'Test Hill' },
@@ -2511,15 +2540,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const midfill = [];
   const frontOccluders = [];
 
-  const SCENE_STORAGE_KEY = 'sidescroll.scene.v1';
+  const SCENE_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.scene.v1' : 'sidescroll.scene.v1';
   const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
   const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
   const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v3';
   const ASSET_SOCKET_STORAGE_KEY = 'sidescroll.asset-sockets.v1';
   const ASSET_STATE_STORAGE_KEY = 'sidescroll.asset-states.v1';
-  const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','pushable','socketHost','socketPiece'];
+  const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','pushable','climbable','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
-    solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, socketHost:false, socketPiece:false
+    solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, climbable:false, socketHost:false, socketPiece:false
   });
   const ASSET_BEHAVIOUR_DEFAULTS = {
     crate: { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
@@ -2528,6 +2557,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'puzzle-log-c': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'puzzle-log-d': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'fallen-tree': { solid:true, supportSurface:true },
+    'mountain-climb-rock-01': { solid:true, supportSurface:true, climbable:true },
     'thought-trigger': {},
     'bridge-left': { solid:true, supportSurface:true, socketHost:true },
     'bridge-right': { solid:true, supportSurface:true, socketHost:true },
@@ -2561,6 +2591,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     { key:'supportSurface', label:'Support Surface', description:'The top of its collision can support the player and stackable props.' },
     { key:'stackable', label:'Stackable', description:'This asset may settle onto a support surface when placed.' },
     { key:'pushable', label:'Pushable', description:'ACTION can grip this large object and walking into it moves the object instead of carrying it.' },
+    { key:'climbable', label:'Climbable', description:'ACTION can use this asset\'s collision side as a prototype climb route.' },
     { key:'socketHost', label:'Socket Host', description:'Allows socket-piece targets to be authored directly onto this asset.' },
     { key:'socketPiece', label:'Socket Piece', description:'Allows an individual puzzle piece to be linked to a matching authored socket.' }
   ];
@@ -2953,6 +2984,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     assetCollisionDefaults['cart-wheel-ready'] = JSON.parse(JSON.stringify(assetCollisionDefaults['cart-wheel-loose']));
   }
 
+  // Built-in collider for the first mountain scenic-terrain prototype. The top
+  // surface lands on the painted path, while both vertical sides remain solid
+  // enough to read as a rock face until the climb action takes control.
+  if (!Object.prototype.hasOwnProperty.call(assetCollisionDefaults,'mountain-climb-rock-01')) {
+    assetCollisionDefaults['mountain-climb-rock-01'] = {
+      halfWidthRatio:0.46,
+      heightRatio:0.72,
+      fixedHeight:null,
+      depthRatio:0.15,
+      points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],
+      shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]
+    };
+  }
+
   let assetStateProfiles = (() => {
     try {
       const raw = localStorage.getItem(ASSET_STATE_STORAGE_KEY);
@@ -2987,6 +3032,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (merged.supportSurface) merged.solid = true;
     if (merged.stackable) merged.placeable = true;
     if (merged.pushable) merged.solid = true;
+    if (merged.climbable) merged.solid = true;
     return merged;
   }
 
@@ -3111,6 +3157,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (merged.supportSurface) merged.solid = true;
     if (merged.stackable) merged.placeable = true;
     if (merged.pushable) merged.solid = true;
+    if (merged.climbable) merged.solid = true;
     return merged;
   }
 
@@ -3226,7 +3273,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function behaviourNeedsCollision(behaviour) {
-    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
+    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable || behaviour?.climbable);
   }
 
   function behaviourCollisionFor(assetName, width, height, existing = null, stateName = null) {
@@ -3270,7 +3317,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       baseSx: opts.baseSx ?? resolvedWidth,
       baseSy: opts.baseSy ?? resolvedHeight,
       sz: 1,
-      flip: opts.flip ?? ((type.startsWith('tree') || type.startsWith('bridge-') || ['handcart','handcart-broken','cart-wheel-loose','cart-wheel-ready','axle-pin'].includes(type)) ? false : (rand() > 0.5)),
+      flip: opts.flip ?? ((type.startsWith('tree') || type.startsWith('bridge-') || ['handcart','handcart-broken','cart-wheel-loose','cart-wheel-ready','axle-pin','mountain-climb-rock-01'].includes(type)) ? false : (rand() > 0.5)),
       shade: opts.shade ?? 1,
       opacity: opts.opacity ?? 1,
       noFog: typeof opts.noFog === 'boolean' ? opts.noFog : type === 'axle-pin',
@@ -3284,7 +3331,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
       freePlacement: typeof opts.freePlacement === 'boolean' ? opts.freePlacement : defaultFreePlacement(type),
       layer: opts.layer || classifyLayer(z),
-      wrap: opts.wrap !== false,
+      wrap: opts.wrap !== false && type !== 'mountain-climb-rock-01',
       collision: opts.collisionOverride
         ? cloneCollision(opts.collision)
         : behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision,resolvedAssetState),
@@ -3557,11 +3604,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // -------------------------------------------------------------------------
   // PUZZLE GROUP RUNTIME
   // -------------------------------------------------------------------------
-  const PUZZLE_STATE_STORAGE_KEY = PLAYER_MODE ? PLAYER_PUZZLE_STATE_STORAGE_KEY : 'sidescroll.puzzle-groups.state.v1';
-  const PUZZLE_START_STORAGE_KEY = 'sidescroll.puzzle-groups.starts.v1';
-  const PUZZLE_LIBRARY_STORAGE_KEY = 'sidescroll.puzzle-groups.library.v1';
-  const PUZZLE_WORKSHOP_STORAGE_KEY = 'sidescroll.puzzle-groups.workshop.v1';
-  const INVENTORY_STORAGE_KEY = PLAYER_MODE ? PLAYER_INVENTORY_STORAGE_KEY : 'sidescroll.inventory.v1';
+  const PUZZLE_STATE_STORAGE_KEY = PLAYER_MODE ? PLAYER_PUZZLE_STATE_STORAGE_KEY : (PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.runtime.v1' : 'sidescroll.puzzle-groups.state.v1');
+  const PUZZLE_START_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.starts.v1' : 'sidescroll.puzzle-groups.starts.v1';
+  const PUZZLE_LIBRARY_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.library.v1' : 'sidescroll.puzzle-groups.library.v1';
+  const PUZZLE_WORKSHOP_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.workshop.v1' : 'sidescroll.puzzle-groups.workshop.v1';
+  const INVENTORY_STORAGE_KEY = PLAYER_MODE ? PLAYER_INVENTORY_STORAGE_KEY : (PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.inventory.v1' : 'sidescroll.inventory.v1');
   const INVENTORY_ITEM_DEFS = {
     'forest-key': {
       id:'forest-key',
@@ -3631,14 +3678,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const raw = localStorage.getItem(PUZZLE_START_STORAGE_KEY);
       if (raw !== null) return JSON.parse(raw || '{}') || {};
     } catch (_) {}
-    return JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.savedStarts || {}));
+    return PUZZLE_LAB_MODE ? {} : JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.savedStarts || {}));
   })();
   const userPuzzleLibrary = (() => {
     try {
       const raw = localStorage.getItem(PUZZLE_LIBRARY_STORAGE_KEY);
       const parsed = raw !== null
         ? (JSON.parse(raw || '{}') || {})
-        : JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.localLibrary || {}));
+        : (PUZZLE_LAB_MODE ? { groups:{}, templates:{}, markers:[] } : JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.localLibrary || {})));
       parsed.groups ||= {};
       parsed.templates ||= {};
       parsed.markers ||= [];
@@ -3661,7 +3708,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       return parsed;
     } catch (_) { return { groups:{}, templates:{}, markers:[] }; }
   })();
-  const PUZZLE_ART_V2_MIGRATION_KEY = 'sidescroll.puzzle-art-v2.migrated';
+  const PUZZLE_ART_V2_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.art-v2' : 'sidescroll.puzzle-art-v2.migrated';
   const PUZZLE_ART_V2_ASPECT = {
     'puzzle-log-a': 1.345895020,
     'puzzle-log-b': 1.106194690,
@@ -3710,7 +3757,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   migratePuzzleArtV2();
 
-  const PUZZLE_ART_V3_MIGRATION_KEY = 'sidescroll.puzzle-art-v3.migrated';
+  const PUZZLE_ART_V3_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.art-v3' : 'sidescroll.puzzle-art-v3.migrated';
   function migrateFallenTreeV3Objects(objects) {
     if (!objects || typeof objects !== 'object') return false;
     let changed = false;
@@ -3750,7 +3797,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   migratePuzzleArtV3();
 
-  const PUZZLE_ART_V4_MIGRATION_KEY = 'sidescroll.puzzle-art-v4.stone-wall-remap';
+  const PUZZLE_ART_V4_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.art-v4' : 'sidescroll.puzzle-art-v4.stone-wall-remap';
   function remapStoneWallV4Objects(objects) {
     if (!objects || typeof objects !== 'object') return false;
     let changed = false;
@@ -3794,7 +3841,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   migratePuzzleArtV4();
 
-  const PUZZLE_ART_V5_MIGRATION_KEY = 'sidescroll.puzzle-art-v5.force-stone-wall-aspect';
+  const PUZZLE_ART_V5_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.art-v5' : 'sidescroll.puzzle-art-v5.force-stone-wall-aspect';
   function forceStoneWallAspectV5(objects) {
     if (!objects || typeof objects !== 'object') return false;
     let changed = false;
@@ -3820,7 +3867,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   migratePuzzleArtV5();
 
-  const CART_ORIENTATION_V1_MIGRATION_KEY = 'sidescroll.cart-orientation-v1.no-random-flip';
+  const CART_ORIENTATION_V1_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.cart-orientation-v1' : 'sidescroll.cart-orientation-v1.no-random-flip';
   const CART_ORIENTATION_ASSETS = new Set(['handcart','handcart-broken','cart-wheel-loose','cart-wheel-ready','axle-pin']);
   function resetLegacyCartFlips(objects) {
     if (!objects || typeof objects !== 'object') return false;
@@ -3849,7 +3896,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   migrateLegacyCartOrientation();
 
-  const CART_PLACEMENT_V1_MIGRATION_KEY = 'sidescroll.cart-placement-v1.abandoned-off-path';
+  const CART_PLACEMENT_V1_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.cart-placement-v1' : 'sidescroll.cart-placement-v1.abandoned-off-path';
   const ABANDONED_REPAIR_ASSETS = new Set(['handcart-broken','cart-wheel-loose','cart-wheel-ready','axle-pin']);
   function unlockLegacyRepairProps(objects) {
     if (!objects || typeof objects !== 'object') return false;
@@ -3902,7 +3949,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let puzzleCartPathPreviewT = 1;
   let puzzleCartPathPreviewPlaying = false;
   let lastPuzzleRespawnAt = 0;
-  const PUZZLE_EXCLUSION_STORAGE_KEY = 'sidescroll-puzzle-exclusions-v1';
+  const PUZZLE_EXCLUSION_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.exclusions.v1' : 'sidescroll-puzzle-exclusions-v1';
   let puzzleExclusionState = {};
   try { puzzleExclusionState = JSON.parse(localStorage.getItem(PUZZLE_EXCLUSION_STORAGE_KEY) || '{}') || {}; } catch (_) { puzzleExclusionState = {}; }
   let puzzleExclusionEditMode = false;
@@ -3910,8 +3957,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // Puzzle edit layer: false = authored puzzle pieces, true = puzzle-owned environment dressing.
   // This is independent from addAssetType: choosing a layer does not itself enter placement.
   let puzzleEnvironmentPlacementMode = false;
-  let puzzleWorkshopClear = puzzleWorkshopState.clear;
-  let puzzleWorkshopIsolated = puzzleWorkshopState.isolated;
+  let puzzleWorkshopClear = PUZZLE_LAB_MODE ? false : puzzleWorkshopState.clear;
+  let puzzleWorkshopIsolated = PUZZLE_LAB_MODE ? true : puzzleWorkshopState.isolated;
 
   function codeBoundsForDefinition(def) {
     if (def?.bounds) return { minX:def.bounds.minX, maxX:def.bounds.maxX };
@@ -4428,6 +4475,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // logic in another page. On the next game load we consume those requests here
   // and run them through movePuzzleMarkerTo(), then persist the result normally.
   function applyWorldLabPendingPuzzleMoves() {
+    if (PUZZLE_LAB_MODE) return 0;
     let pending = null;
     try { pending = JSON.parse(localStorage.getItem(WORLD_LAB_PENDING_MOVES_STORAGE_KEY) || 'null'); } catch (_) {}
     if (!pending || typeof pending !== 'object') return 0;
@@ -4463,17 +4511,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function allPuzzleMarkers() {
+    if (PUZZLE_LAB_MODE) return groupDefinition(PUZZLE_LAB_GROUP_ID) ? [puzzleLabMarker] : [];
     const localLabels = new Set((userPuzzleLibrary.markers || []).map(marker => (userPuzzleLibrary.groups?.[marker.group]?.label || '').trim().toLowerCase()).filter(Boolean));
     const builtIns = (puzzleConfig.markers || []).filter(marker => !localLabels.has((puzzleConfig.groups?.[marker.group]?.label || '').trim().toLowerCase()));
     return [...builtIns, ...(userPuzzleLibrary.markers || [])];
   }
 
   function scenePuzzleMarkers() {
+    if (PUZZLE_LAB_MODE) return groupDefinition(PUZZLE_LAB_GROUP_ID) ? [puzzleLabMarker] : [];
     if (puzzleWorkshopIsolated) return puzzleWorkshopClear ? [] : [...(userPuzzleLibrary.markers || [])];
     return allPuzzleMarkers();
   }
 
   function allPuzzleGroups() {
+    if (PUZZLE_LAB_MODE) {
+      const def = groupDefinition(PUZZLE_LAB_GROUP_ID);
+      return def ? [{ id:PUZZLE_LAB_GROUP_ID, def }] : [];
+    }
     const groups = new Map();
     const localLabels = new Set(Object.values(userPuzzleLibrary.groups || {}).map(def => (def?.label || '').trim().toLowerCase()).filter(Boolean));
     for (const [id, def] of Object.entries(puzzleConfig.groups || {})) {
@@ -4484,6 +4538,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function groupDefinition(groupId) {
+    if (PUZZLE_LAB_MODE && groupId === PUZZLE_LAB_GROUP_ID && PUZZLE_LAB_LAUNCH?.groupDef) return PUZZLE_LAB_LAUNCH.groupDef;
     return userPuzzleLibrary.groups?.[groupId] || puzzleConfig.groups?.[groupId] || null;
   }
 
@@ -4694,6 +4749,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function puzzleStartFor(marker) {
     if (!marker) return { source:'default', bounds:{minX:-4,maxX:4}, objects:{}, worldModifiers:[] };
     if (markerLinkMode(marker) === 'copy' && puzzleStartState[marker.id]) return puzzleStartState[marker.id];
+    if (PUZZLE_LAB_MODE && marker.group === PUZZLE_LAB_GROUP_ID && PUZZLE_LAB_LAUNCH?.template) return PUZZLE_LAB_LAUNCH.template;
     if (userPuzzleLibrary.templates?.[marker.group]) return userPuzzleLibrary.templates[marker.group];
     if (puzzleStartState[marker.id]) return puzzleStartState[marker.id];
     return defaultPuzzleStart(marker);
@@ -4739,7 +4795,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return Object.values(start?.objects || {}).some(state => state?.asset === 'bridge-left' || state?.asset === 'bridge-right' || state?.asset === 'handcart-broken');
   }
 
-  const PUZZLE_WORLD_MODIFIER_V1_MIGRATION_KEY = 'sidescroll.puzzle-world-modifiers-v1.broken-bridge-river';
+  const PUZZLE_WORLD_MODIFIER_V1_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.world-modifier-v1' : 'sidescroll.puzzle-world-modifiers-v1.broken-bridge-river';
   function migrateBrokenBridgeRiverToPuzzleOwnership() {
     let already = false;
     try { already = localStorage.getItem(PUZZLE_WORLD_MODIFIER_V1_MIGRATION_KEY) === '1'; } catch (_) {}
@@ -4813,7 +4869,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // Existing v1.0.60/61 saves may still contain section-owned auto-dressing;
   // remove that legacy data and add a deterministic dressing recipe to the
   // river modifier so the banks move, stream and delete with the puzzle.
-  const PUZZLE_WORLD_MODIFIER_V2_MIGRATION_KEY = 'sidescroll.puzzle-world-modifiers-v2.river-bank-dressing';
+  const PUZZLE_WORLD_MODIFIER_V2_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.world-modifier-v2' : 'sidescroll.puzzle-world-modifiers-v2.river-bank-dressing';
   function migrateBrokenBridgeRiverDressingToPuzzleOwnership() {
     try {
       if (localStorage.getItem(PUZZLE_WORLD_MODIFIER_V2_MIGRATION_KEY) === '1') return;
@@ -6000,14 +6056,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let puzzleBrowserMode = 'scene';
 
   applyPersistedMarkerPositions();
-  scatterForest();
+  // Puzzle Lab owns a disposable scene. Woodland can opt into the procedural
+  // forest, while Blank/Mountain stay clean so the puzzle/mechanic is readable.
+  if (!PUZZLE_LAB_MODE || PUZZLE_LAB_ENVIRONMENT === 'woodland') scatterForest();
+  // Scene storage is namespaced in Puzzle Lab, so restoring lab-authored
+  // dressing is safe and never reads/writes the main game's scene edits.
   restoreSceneEdits();
   // Migrate older marker-specific authored starts into reusable templates, then
   // persist the normalized library so previous authored work remains available.
   migratePuzzleTemplates();
   savePuzzleLibrary();
   applyWorldLabPendingPuzzleMoves();
-  if (puzzleWorkshopIsolated && !puzzleWorkshopClear) {
+  if (PUZZLE_LAB_MODE) {
+    editorPuzzleMarkerId = puzzleLabMarker.id;
+    editorPuzzleLibraryGroupId = PUZZLE_LAB_GROUP_ID;
+    puzzleBrowserMode = 'scene';
+  } else if (puzzleWorkshopIsolated && !puzzleWorkshopClear) {
     const pinned = markerForId(puzzleWorkshopState.markerId);
     if (pinned) { editorPuzzleMarkerId = pinned.id; puzzleBrowserMode = 'scene'; }
     else {
@@ -6137,6 +6201,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!PLAYER_MODE) return;
     try {
       const saved = JSON.parse(localStorage.getItem(PLAYER_POSITION_STORAGE_KEY) || 'null');
+      // World Lab's explicit Play From Here position overrides the normal
+      // continuation position. Persist it immediately so a refresh continues
+      // from the requested test point rather than snapping back to the old save.
+      if (Number.isFinite(WORLD_LAB_JUMP_X)) {
+        character.x = WORLD_LAB_JUMP_X;
+        character.lastFacing = saved?.facing === -1 ? -1 : 1;
+        character.y = playSurfaceYAt(character.x);
+        camera.x = character.x - character.screenOffsetX;
+        previousCameraX = camera.x;
+        updatePuzzleStreaming(character.x);
+        localStorage.setItem(PLAYER_POSITION_STORAGE_KEY, JSON.stringify({ x:character.x, facing:character.lastFacing, savedAt:Date.now(), source:'world-lab' }));
+        return;
+      }
       if (!saved || !Number.isFinite(saved.x)) return;
       camera.x = saved.x - character.screenOffsetX;
       previousCameraX = camera.x;
@@ -6215,7 +6292,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   let projection = mat4Identity();
   let debugDepth = false;
-  let collisionDebugView = false;
+  let collisionDebugView = PUZZLE_LAB_MODE && PUZZLE_LAB_COLLISION;
   let driveAxis = 0;
   let drivePointer = null;
   let keyLeft = false;
@@ -6250,6 +6327,159 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let carriedObject = null;
   let interactionState = null; // { type:'pickup'|'drop', time, duration, object, startX, startY, targetX, targetY }
   let autoDropStep = null; // short authored forward stack assist or backward ground-drop shuffle
+
+  // v1.0.67 climb prototype -------------------------------------------------
+  // Climbing deliberately begins as a very small system: a Climbable asset uses
+  // the two vertical sides of its authored collision as action zones. ACTION at
+  // the base climbs to the support surface; ACTION near a top edge climbs down.
+  // The traversal is authored/automatic for this prototype so we can first test
+  // whether a flat scenic rock + invisible gameplay geometry looks convincing.
+  const CLIMB_ACTION_RANGE = 0.82;
+  const CLIMB_VERTICAL_SPEED = 1.45;
+  const CLIMB_MANTLE_FRACTION = 0.20;
+  let climbState = null;
+
+  function climbFacesFor(obj) {
+    if (!obj?.collision || !objectHasBehaviour(obj,'climbable')) return [];
+    const aroundX = character?.x ?? camera.x;
+    const centreX = objectXNear(obj, aroundX);
+    const halfWidth = Math.max(0.12, Number(obj.collision.halfWidth) || Math.abs(obj.sx) * 0.46);
+    const capsule = colliderWorld();
+    const bodyClearance = capsule.radius + 0.10;
+    const mantleInset = capsule.radius + 0.18;
+    const faces = [];
+    for (const side of [-1, 1]) {
+      const faceX = centreX + side * halfWidth;
+      const outsideX = faceX + side * bodyClearance;
+      const topX = faceX - side * mantleInset;
+      const topSampleX = faceX - side * Math.max(0.08, capsule.radius * 0.35);
+      const topY = collisionTopHeightAtX(obj, topSampleX);
+      if (!Number.isFinite(topY)) continue;
+      faces.push({
+        obj, side, centreX, faceX, outsideX, topX, topY,
+        bottomY:playSurfaceYAt(outsideX)
+      });
+    }
+    return faces;
+  }
+
+  function nearestActionClimbTarget() {
+    if (climbState || carriedObject || interactionState || pushingObject || jumping || editMode || inventoryOpen) return null;
+    let best = null;
+    const feetY = character.y;
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted || obj.carried || !objectHasBehaviour(obj,'climbable')) continue;
+      const depth = obj.collision?.depth ?? 0.9;
+      if (Math.abs((obj.z ?? pathZ) - pathZ) > Math.max(1.2, depth)) continue;
+      for (const face of climbFacesFor(obj)) {
+        const onTop = standingOnObject === obj || Math.abs(feetY - face.topY) < 0.18;
+        if (onTop) {
+          const distance = Math.abs(character.x - face.topX);
+          if (distance <= CLIMB_ACTION_RANGE && (!best || distance < best.distance)) {
+            best = { ...face, mode:'down', distance };
+          }
+          continue;
+        }
+        const verticalGap = Math.abs(feetY - face.bottomY);
+        const distance = Math.abs(character.x - face.outsideX);
+        if (verticalGap <= 0.50 && feetY < face.topY - 0.42 && distance <= CLIMB_ACTION_RANGE && (!best || distance < best.distance)) {
+          best = { ...face, mode:'up', distance };
+        }
+      }
+    }
+    return best;
+  }
+
+  function finishClimb() {
+    const st = climbState;
+    if (!st) return;
+    const endX = st.mode === 'up' ? st.topX : st.outsideX;
+    camera.x = endX - character.screenOffsetX;
+    character.x = endX;
+    const terrainY = playSurfaceYAt(endX);
+    if (st.mode === 'up') {
+      const capsule = colliderWorld();
+      const support = walkableSupportAt(endX + capsule.offsetX, Infinity, 0);
+      if (support) {
+        jumpOffset = support.offset;
+        standingOnObject = support.obj;
+        character.y = terrainY + support.offset;
+      } else {
+        jumpOffset = st.topY - terrainY;
+        standingOnObject = st.obj;
+        character.y = st.topY;
+      }
+      hintEl.textContent = 'On top · walk normally · ACTION near an edge climbs down';
+    } else {
+      jumpOffset = 0;
+      standingOnObject = null;
+      character.y = terrainY;
+      hintEl.textContent = 'Back on the path';
+    }
+    jumping = false;
+    jumpTime = 0;
+    jumpVelocity = 0;
+    climbState = null;
+    hintEl.classList.remove('hidden');
+  }
+
+  function startClimb(target) {
+    if (!target || climbState || carriedObject || interactionState || pushingObject || jumping) return false;
+    setDriveAxis(0);
+    const startY = character.y;
+    const verticalDistance = Math.abs(target.topY - target.bottomY);
+    climbState = {
+      ...target,
+      time:0,
+      duration:Math.max(1.05, verticalDistance / CLIMB_VERTICAL_SPEED + 0.38),
+      startX:character.x,
+      startY
+    };
+    character.lastFacing = target.side < 0 ? 1 : -1; // face into the rock
+    jumping = false;
+    jumpTime = 0;
+    jumpVelocity = 0;
+    standingOnObject = null;
+    hintEl.textContent = target.mode === 'up' ? 'Climbing…' : 'Climbing down…';
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function updateClimbState(dt) {
+    const st = climbState;
+    if (!st) return;
+    st.time += dt;
+    const q = Rig.clamp(st.time / Math.max(0.001, st.duration), 0, 1);
+    const mantle = CLIMB_MANTLE_FRACTION;
+    let x, y;
+    if (st.mode === 'up') {
+      const split = 1 - mantle;
+      if (q < split) {
+        const t = smooth01(q / split);
+        x = Rig.lerp(st.startX, st.outsideX, Math.min(1, t * 1.8));
+        y = Rig.lerp(st.startY, st.topY - 0.13, t);
+      } else {
+        const t = smooth01((q - split) / mantle);
+        x = Rig.lerp(st.outsideX, st.topX, t);
+        y = Rig.lerp(st.topY - 0.13, st.topY, t);
+      }
+    } else {
+      if (q < mantle) {
+        const t = smooth01(q / mantle);
+        x = Rig.lerp(st.startX, st.outsideX, t);
+        y = Rig.lerp(st.startY, st.topY - 0.13, t);
+      } else {
+        const t = smooth01((q - mantle) / (1 - mantle));
+        x = st.outsideX;
+        y = Rig.lerp(st.topY - 0.13, st.bottomY, t);
+      }
+    }
+    camera.x = x - character.screenOffsetX;
+    character.x = x;
+    character.y = y;
+    jumpOffset = y - playSurfaceYAt(x);
+    if (q >= 1) finishClimb();
+  }
 
   // Large-object interaction is deliberately separate from carrying. A pushable
   // remains a world collider; ACTION grips the nearest handle and locomotion
@@ -6370,6 +6600,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
       { name:'axle-pin', label:'AXLE PIN', image:'axle-pin.png', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
     ]},
+    { scope:'environment', title: 'MOUNTAIN · TRAVERSAL', items: [
+      { name:'mountain-climb-rock-01', label:'CLIMB ROCK 01', image:'mountain-climb-rock-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false }
+    ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
     ].map(name => ({ name, label: `TREE ${Number(name.slice(-2))}`, category: 'dressing' }))},
@@ -6390,6 +6623,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (b.supportSurface) tags.push('SUPPORT');
     if (b.stackable) tags.push('STACK');
     if (b.pushable) tags.push('PUSH');
+    if (b.climbable) tags.push('CLIMB');
     if (b.socketHost) tags.push('SOCKET HOST');
     if (b.socketPiece) tags.push('SOCKET PIECE');
     if (!tags.length && b.solid) tags.push('SOLID');
@@ -8183,6 +8417,24 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (puzzleTestBtn) { puzzleTestBtn.hidden = testing || libraryMode; puzzleTestBtn.disabled = !selectedMarker; }
     if (puzzleResetBtn) { puzzleResetBtn.hidden = libraryMode; puzzleResetBtn.disabled = !instance; }
     if (puzzleBackSetupBtn) { puzzleBackSetupBtn.hidden = !testing; puzzleBackSetupBtn.disabled = !instance; }
+
+    if (PUZZLE_LAB_MODE) {
+      // Puzzle Lab already chose the reusable project and owns the disposable
+      // stage, so hide normal scene/library stage-management controls that would
+      // only make the sandbox feel like the main-world puzzle editor.
+      if (puzzleSourceSwitch) puzzleSourceSwitch.hidden = true;
+      if (puzzleClearStageBtn) puzzleClearStageBtn.hidden = true;
+      if (puzzleRestoreStageBtn) puzzleRestoreStageBtn.hidden = true;
+      if (puzzleSpawnBtn) puzzleSpawnBtn.hidden = true;
+      if (puzzleCreateBtn) puzzleCreateBtn.hidden = true;
+      if (puzzleRemoveBtn) puzzleRemoveBtn.hidden = true;
+      if (puzzleDeleteTemplateBtn) puzzleDeleteTemplateBtn.hidden = true;
+      if (puzzleModeEl && !testing) puzzleModeEl.textContent = 'LAB SETUP';
+      if (puzzleStateEl && !testing && selectedMarker) {
+        const b = instance ? currentPuzzleBoundsRelative(instance.marker) : codeBoundsForMarker(selectedMarker);
+        puzzleStateEl.textContent = `Puzzle Lab isolated instance · marker x ${Number(selectedMarker.x).toFixed(1)} · bounds ${(b.maxX-b.minX).toFixed(1)}m.`;
+      }
+    }
 
     updatePuzzleObjectList();
     updateEditorButtons();
@@ -10750,6 +11002,31 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return p;
   }
 
+  function poseForClimbing(phase = 0) {
+    // Temporary procedural climb pose. Anim Lab can replace this with a real
+    // authored clip later; for now alternating hands/feet makes the spatial test
+    // read as climbing rather than a character simply sliding up the artwork.
+    const p = Rig.sampleFrames(characterFrames, 0.02);
+    const wave = Math.sin(phase * Math.PI * 2);
+    const opposite = -wave;
+    p.planted = null;
+    p.pelvisY = 0.495;
+    p.lean = 12 * Math.PI / 180;
+    p.aHandX = 0.235;
+    p.bHandX = 0.205;
+    p.aHandY = Rig.lerp(0.13, -0.06, (wave + 1) * 0.5);
+    p.bHandY = Rig.lerp(0.13, -0.06, (opposite + 1) * 0.5);
+    p.aFootX = 0.060;
+    p.bFootX = -0.035;
+    p.aFootLift = Rig.lerp(0.05, 0.22, (opposite + 1) * 0.5);
+    p.bFootLift = Rig.lerp(0.05, 0.22, (wave + 1) * 0.5);
+    p.aFootAngle = -8 * Math.PI / 180;
+    p.bFootAngle = 10 * Math.PI / 180;
+    p.hairAngle = 116 * Math.PI / 180;
+    p.hairBend = 10 * Math.PI / 180;
+    return p;
+  }
+
   function heldCrateTransform(facing, pose = null) {
     const obj = carriedObject || interactionState?.object;
     const sx = obj ? obj.sx : 0.96;
@@ -10869,7 +11146,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function drawRigCharacter(view, isWalking) {
     const phase = currentCharacterPhase(isWalking);
     let pose;
-    if (jumping) {
+    if (climbState) {
+      const climbPhase = (climbState.time * 1.55) % 1;
+      pose = poseForClimbing(climbPhase);
+    } else if (jumping) {
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
       pose = Rig.sampleFrames(jumpFrames, jumpPhase);
     } else if (isWalking) {
@@ -11019,6 +11299,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function updateActionUI() {
     if (!actionBtn || !actionLabel) return;
     actionBtn.classList.remove('ready', 'carrying');
+    if (climbState) {
+      actionLabel.textContent = 'CLIMBING';
+      actionBtn.classList.add('ready');
+      return;
+    }
     if (interactionState) {
       actionLabel.textContent = interactionState.type === 'pickup' ? 'PICKING UP' : 'PUTTING DOWN';
       actionBtn.classList.add('ready');
@@ -11026,6 +11311,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     if (pushingObject) {
       actionLabel.textContent = 'LET GO';
+      actionBtn.classList.add('ready');
+      return;
+    }
+    const climbTarget = nearestActionClimbTarget();
+    if (climbTarget) {
+      actionLabel.textContent = climbTarget.mode === 'up' ? 'CLIMB' : 'CLIMB DOWN';
       actionBtn.classList.add('ready');
       return;
     }
@@ -11675,8 +11966,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function performAction() {
-    if (introLocked || editMode || inventoryOpen || interactionState || autoDropStep) return;
+    if (introLocked || editMode || inventoryOpen || interactionState || autoDropStep || climbState) return;
     if (pushingObject) { stopPush(); return; }
+    const climbTarget = nearestActionClimbTarget();
+    if (climbTarget && startClimb(climbTarget)) return;
     const contextAction = nearestPuzzleContextAction();
     if (contextAction && performPuzzleContextAction(contextAction)) return;
     if (carriedObject) { startDrop(); return; }
@@ -11788,10 +12081,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updateCounterweightMechanisms(dt);
     updateCartRailAnimations(dt);
     updateCartPathPreview(dt);
+    if (climbState) updateClimbState(dt);
 
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
-    const rawAxis = (introLocked || editMode || inventoryOpen || interactionState || autoDropStep) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
+    const rawAxis = (introLocked || editMode || inventoryOpen || interactionState || autoDropStep || climbState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
     const axisMag = Math.abs(rawAxis);
     const moveDir = axisMag > DRIVE_DEADZONE ? Math.sign(rawAxis) : 0;
 
@@ -11879,6 +12173,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       jumpOffset = 0;
       standingOnObject = null;
       airborneWorldY = terrainYAfterMove;
+    } else if (climbState) {
+      // updateClimbState owns camera X, absolute character Y and jumpOffset.
+      // Normal support/side collision must stay out of the way until the mantle
+      // or descent has completed.
+      airborneWorldY = character.y;
     } else if (jumping) {
       // Re-reference the same absolute airborne height to the terrain under the
       // new horizontal position. This is the key to stable jumps over gaps/slopes.
@@ -11936,10 +12235,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // platform, but it must never finish a frame embedded in the platform side.
     // Resolve any such overlap even when the player has released the stick.
     const resolvedFeetWorldY = playSurfaceYAt(camera.x + character.screenOffsetX) + jumpOffset;
-    if (!editMode) camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY);
+    if (!editMode && !climbState) camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY);
 
     const cameraDelta = camera.x - previousCameraX;
-    const isWalking = Math.abs(cameraDelta) > 0.0001;
+    const isWalking = !climbState && Math.abs(cameraDelta) > 0.0001;
     if (moveDir) character.lastFacing = pushingObject ? pushingSide : moveDir;
     if (isWalking) {
       const travel = Math.abs(cameraDelta);
@@ -11993,7 +12292,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     presentSceneWithPost();
     drawEditorOverlay();
 
-    const baseMotionLabel = jumping ? 'JUMP' : (runBlend > .55 && isWalking ? 'RUN' : (isWalking ? 'WALK' : 'IDLE'));
+    const baseMotionLabel = climbState ? 'CLIMB' : (jumping ? 'JUMP' : (runBlend > .55 && isWalking ? 'RUN' : (isWalking ? 'WALK' : 'IDLE')));
     const motionLabel = interactionState
       ? (interactionState.type === 'pickup' ? 'PICK UP' : 'PUT DOWN')
       : (pushingObject ? `PUSH ${isWalking ? 'WALK' : 'IDLE'}` : (carriedObject ? `CARRY ${isWalking ? 'WALK' : 'IDLE'}` : baseMotionLabel));
@@ -12074,7 +12373,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function triggerJump(){
-    if (introLocked || editMode || inventoryOpen || jumping || interactionState || pushingObject) return;
+    if (introLocked || editMode || inventoryOpen || jumping || interactionState || pushingObject || climbState) return;
     jumping = true;
     jumpTime = 0;
     jumpCameraBaseY = character.y;
@@ -13232,7 +13531,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     restorePlayerPosition();
     window.addEventListener('pagehide', () => savePlayerPosition(true));
   }
-  setEditMode(false);
+  if (PUZZLE_LAB_MODE) {
+    document.body.classList.add('sidescroll-puzzle-lab-mode');
+    const homeLink = document.querySelector('.game-home-button');
+    if (homeLink) { homeLink.href = 'puzzle-lab.html'; homeLink.textContent = '← Puzzle Lab'; homeLink.setAttribute('aria-label','Back to Puzzle Lab'); }
+    if (statusEl) statusEl.textContent = `Puzzle Lab · ${markerDefinition(puzzleLabMarker)?.label || PUZZLE_LAB_GROUP_ID} · ${PUZZLE_LAB_ENVIRONMENT}`;
+    if (collisionViewBtn) {
+      collisionViewBtn.setAttribute('aria-pressed', String(collisionDebugView));
+      collisionViewBtn.textContent = collisionDebugView ? 'Hide collision' : 'Collision';
+    }
+    setEditMode(true);
+    editorScope = 'puzzle';
+    puzzleBrowserMode = 'scene';
+    editorPuzzleMarkerId = puzzleLabMarker.id;
+    editorPuzzleLibraryGroupId = PUZZLE_LAB_GROUP_ID;
+    choosePuzzleForEditing(puzzleLabMarker.id, true);
+    if (PUZZLE_LAB_AUTO_TEST) requestAnimationFrame(() => requestAnimationFrame(beginPuzzleTest));
+  } else {
+    setEditMode(false);
+  }
   updatePuzzlePanel();
   resize();
   renderInventory();
