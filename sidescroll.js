@@ -6275,10 +6275,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function updateCameraFollow(dt) {
-    // Follow actual world-space jump height. A bridge over a deep/disabled terrain
-    // section may have a large terrain-relative offset while the character has not
-    // moved vertically at all; that must not lift the camera.
-    const rawHeight = jumping ? Math.max(0, character.y - jumpCameraBaseY - CAMERA_FOLLOW_DEADZONE) : 0;
+    // Follow meaningful character height, not just the jump flag. This keeps the
+    // camera with Aureli while climbing and while she remains on an elevated
+    // walk surface. pathGroundYAt() is the stable, unmodified path reference, so
+    // a river trench below a bridge cannot falsely raise the camera. The jump
+    // baseline remains as a fallback for jumps that begin below that reference.
+    const scenicRise = Math.max(0, character.y - pathGroundYAt(character.x, pathZ) - CAMERA_FOLLOW_DEADZONE);
+    const jumpRise = jumping ? Math.max(0, character.y - jumpCameraBaseY - CAMERA_FOLLOW_DEADZONE) : 0;
+    const rawHeight = Math.max(scenicRise, jumpRise);
     const targetOffset = cameraFollowEnabled ? Rig.clamp(rawHeight * cameraFollowAmount, 0, CAMERA_FOLLOW_MAX) : 0;
     // Deliberately slower on the way down: the camera rises smoothly, then settles
     // rather than snapping back to its base framing as the character lands.
