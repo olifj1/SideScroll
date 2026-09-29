@@ -1,19 +1,42 @@
-# SideScroll v1.0.74 — code safety resync
+# SideScroll v1.0.75 — Terrain Elevation Spine
 
-This is the cumulative code/data baseline after the v1.0.73 climb-path work.
+Base expected: v1.0.74 code state.
 
-## v1.0.74 fixes
-- Restores the complete Asset Lab Climb Path editor that was accidentally omitted from the previous CODE-only safety ZIP.
-- Mountain Climb Rock 01 exposes its independent Climb Paths in normal Asset Lab.
-- World Lab **Play From Here** launches without the cinematic black entry overlay, so a developer jump cannot become trapped behind a black screen.
-- World Lab and Asset Lab script URLs are cache-busted to v1.0.74.
-- World Lab test spawn validates the terrain height and reports the requested metre position in the game status.
+## Changed files
+- play.html
+- sidescroll.js
+- style.css
+- world-lab.html
+- world-lab.js
+- world-lab.css
+- design-doc.json
+- README.md
 
-## Upload
-Upload the files over the repo root. Do not clear browser/PWA local storage. Existing PNG/audio assets remain valid and are intentionally not required by the CODE ZIP.
+## What this patch adds
+- A persistent Path-height point at every 10 m section centre.
+- Linear interpolation between section-centre heights, so normal terrain can rise/fall continuously.
+- In-game Section Editor controls for Path Height, numeric fine tuning, +/-0.25 m nudges, and Link Subsequent Sections.
+- Link Subsequent ON shifts the selected point and all later authored terrain heights by the same delta; OFF changes the selected point locally and preserves the following terrain.
+- Terrain-bound scene objects are re-grounded when terrain elevation changes; free-placement objects remain where they were authored.
+- Terrain rendering is now split conceptually and visually into four depth layers: Path, Near Strip, Far Strip A and Far Strip B.
+- Near currently follows Path directly. Far A and Far B are derived from progressively smoother/reduced versions of the Path profile so distant terrain can fall away during mountain climbs.
+- World Lab now has a collapsible TERRAIN group. Collapsed shows the Path profile; expanded shows Near / Far A / Far B tracks too.
+- Clicking a section in World Lab exposes its Path height and Link Later Sections setting.
+- Camera vertical follow can now accommodate larger authored elevation changes instead of being capped at the old small scenic-rise range.
+- Design Lab documents the first-pass terrain-elevation architecture.
+
+## First-pass limits
+- Path is the only independently authored height profile in v1.0.75.
+- Near / Far A / Far B are derived profiles; per-layer height/visibility overrides come later if the mountain prototype proves they are useful.
+- Existing section visibility still hides the whole terrain group for that section.
 
 ## Test focus
-1. Open Asset Lab directly, select Mountain Climb Rock 01, and confirm **CLIMB PATHS · Invisible ladder** is visible.
-2. Confirm the two cyan climb paths render and can be moved/resized/rotated.
-3. Open World Lab, drag PLAY, press **Play From Here**, and confirm the game appears immediately at that world X instead of a black screen.
-4. Confirm normal Play still uses the usual entry fade.
+1. Open Edit/Test > Sections.
+2. Select a section and raise Path Height by several metres with Link Subsequent ON. Later terrain should rise with it while keeping its relative shape.
+3. Turn Link Subsequent OFF and fine-tune one section. Only the local profile should change.
+4. Walk across the result and check the path interpolates smoothly between section centres.
+5. Check terrain-bound dressing follows the raised terrain.
+6. Open World Lab. TERRAIN should show the Path elevation profile; expand it to inspect Near / Far A / Far B.
+7. Select a section in World Lab and edit its Path height; reload/enter the game and confirm the same terrain profile is used.
+
+Do not clear local storage. Existing authored data is preserved and the terrain state format is backward-compatible.

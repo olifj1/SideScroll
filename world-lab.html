@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#11191d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="world-lab.css?v=1.0.74">
+  <link rel="stylesheet" href="world-lab.css?v=1.0.75">
   <title>World Lab · SideScroll</title>
 </head>
 <body>
@@ -25,6 +25,7 @@
       <label>Zoom <input id="wl-zoom" type="range" min="5" max="20" step="1" value="10"><span id="wl-zoom-value">10 px/m</span></label>
       <label>View start <input id="wl-min" type="number" step="10" value="-20"></label>
       <label>View end <input id="wl-max" type="number" step="10" value="120"></label>
+      <label class="wl-link-height"><span>Link later sections</span><input id="wl-link-height" type="checkbox" checked></label>
       <button id="wl-refresh" type="button">Refresh game data</button>
       <div class="wl-play-control">
         <span>Playhead <b id="wl-playhead-position">0.0 m</b></span>
@@ -37,7 +38,7 @@
         <div class="wl-map-head">
           <div>
             <strong>Journey layout</strong>
-            <small>World metres are the authoring space. Range elements snap to 1 m; drag either end handle to resize. 10 m sections are runtime/debug boundaries.</small>
+            <small>World metres are the authoring space. Terrain height is authored at 10 m section centres; the path profile interpolates between them.</small>
           </div>
           <div class="wl-legend">
             <span><i class="legend puzzle"></i>Puzzle</span>
@@ -50,11 +51,16 @@
           </div>
         </div>
         <div class="wl-timeline">
-          <div class="wl-track-rail" aria-hidden="true">
+          <div class="wl-track-rail">
             <div class="wl-rail-ruler"></div>
             <div class="wl-rail-label">BIOMES</div>
             <div class="wl-rail-label">TRANSITIONS</div>
-            <div class="wl-rail-label section">SECTIONS / TERRAIN</div>
+            <div class="wl-rail-label wl-terrain-rail path">
+              <button id="wl-terrain-toggle" type="button" aria-expanded="false"><strong>TERRAIN</strong><span>PATH</span><i>▾</i></button>
+            </div>
+            <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="near">NEAR STRIP</div>
+            <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="far-a">FAR STRIP A</div>
+            <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="far-b">FAR STRIP B</div>
             <div class="wl-rail-label">PUZZLES</div>
             <div class="wl-rail-label">DRESSING</div>
             <div class="wl-rail-label">LANDMARKS / STORY / CAMERA</div>
@@ -65,7 +71,10 @@
               <div class="wl-ruler" id="wl-ruler"></div>
               <div class="wl-track" data-track="biome"><div class="wl-track-content" id="wl-track-biome"></div></div>
               <div class="wl-track" data-track="transition"><div class="wl-track-content" id="wl-track-transition"></div></div>
-              <div class="wl-track wl-section-track" data-track="section"><div class="wl-track-content" id="wl-track-section"></div></div>
+              <div class="wl-track wl-terrain-track path" data-track="terrain-path"><div class="wl-track-content" id="wl-track-section"></div></div>
+              <div class="wl-track wl-terrain-track detail" data-terrain-detail="near" data-track="terrain-near"><div class="wl-track-content" id="wl-track-terrain-near"></div></div>
+              <div class="wl-track wl-terrain-track detail" data-terrain-detail="far-a" data-track="terrain-far-a"><div class="wl-track-content" id="wl-track-terrain-far-a"></div></div>
+              <div class="wl-track wl-terrain-track detail" data-terrain-detail="far-b" data-track="terrain-far-b"><div class="wl-track-content" id="wl-track-terrain-far-b"></div></div>
               <div class="wl-track puzzle-track" data-track="puzzle"><div class="wl-track-content" id="wl-track-puzzle"></div></div>
               <div class="wl-track" data-track="dressing"><div class="wl-track-content" id="wl-track-dressing"></div></div>
               <div class="wl-track" data-track="other"><div class="wl-track-content" id="wl-track-other"></div></div>
@@ -126,6 +135,6 @@
   </div>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="puzzle-groups.js?v=1.0.62"></script>
-  <script src="world-lab.js?v=1.0.74"></script>
+  <script src="world-lab.js?v=1.0.75"></script>
 </body>
 </html>

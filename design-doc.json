@@ -3,7 +3,7 @@
   "documentVersion": "0.10",
   "project": "SideScroll",
   "title": "Living Game Design Document",
-  "baselineBuild": "SideScroll v1.0.62 + recovery / bridge-alignment patches",
+  "baselineBuild": "1.0.75",
   "updated": "2026-09-29",
   "description": "Living SideScroll game design document. v0.4 develops Aureli’s proposed ending: the central terraforming control interface, biological compatibility with the intended creators, maintenance mode, and working explanations for why the Darkness collects living things.",
   "sections": [
@@ -1447,7 +1447,25 @@
         "streaming"
       ],
       "body": "A chapter should be data, not a giant permanently active scene. The player moves through a rolling content window.\n\n## Scale by locality\nA ten-hour game should not be ten times heavier than a one-hour game. Only the nearby world, active puzzles and assets required for the current/upcoming area should occupy significant runtime resources.\n\n## Target section ownership\n- Terrain: section type, mesh settings, collision policy, water/hill/cliff parameters.\n- Environment dressing: trees, grass, rocks, foreground occluders and unique set dressing.\n- Gameplay: puzzle markers, puzzle-owned objects, completion state and local exclusions.\n- Characters: NPC spawn/state, animation and encounter data.\n- VFX: local emitter definitions.\n- Audio: ambient loops, one-shots, transitions and local emitters.\n- Assets: texture/audio manifest for current and upcoming sections.\n- Narrative: thought nodes, encounter triggers, story flags and checkpoint progression.",
-      "children": [],
+      "children": [
+        {
+          "id": "terrain-elevation-spine-v1",
+          "title": "Terrain Elevation Spine & Depth Layers",
+          "status": "CURRENT",
+          "implementation": "PARTIAL",
+          "tags": [
+            "terrain",
+            "world-lab",
+            "sections",
+            "mountain"
+          ],
+          "body": "v1.0.75 introduces a section-centre terrain elevation spine. Each 10 m runtime section has a Path height point at its centre; terrain between centres interpolates continuously. Editing can use Link Subsequent Sections so a height change ripples through the later world while preserving downstream shape, or turn linking off for a local fine-tune.\n\nThe Path profile is the authored master. Four terrain depth layers are defined around it:\n- Path: gameplay/walking surface and master elevation.\n- Near Strip: foreground terrain near the camera; currently follows Path directly.\n- Far Strip A: immediate far-side terrain; derived from a lightly smoothed/reduced version of Path.\n- Far Strip B: distant ground; derived from a more strongly smoothed/reduced version so steep climbs open a larger mountain vista.\n\nWorld Lab presents these as one collapsible Terrain group: Path remains visible when collapsed, while Near/Far A/Far B can be expanded for inspection. In-game Section editing remains the precision authoring surface for meeting scenic rock/climb assets. Height, visibility and collision remain distinct concepts: a terrain spine may continue to exist as an invisible placement/support reference even where scenic rock assets provide the visible/playable surface.\n\nFirst-pass implementation deliberately keeps Near/Far layers derived from Path rather than independently authored. Per-layer overrides and more advanced visibility controls can be added once the mountain prototype proves the workflow.",
+          "children": [],
+          "related": [
+            "world-lab"
+          ]
+        }
+      ],
       "related": []
     },
     {

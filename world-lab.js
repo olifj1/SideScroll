@@ -54,6 +54,7 @@
     puzzleState:null,
     puzzleStarts:null,
     terrain:null,
+    terrainExpanded:false,
     puzzles:[]
   };
 
@@ -67,6 +68,11 @@
     trackBiome:$('wl-track-biome'),
     trackTransition:$('wl-track-transition'),
     trackSection:$('wl-track-section'),
+    trackTerrainNear:$('wl-track-terrain-near'),
+    trackTerrainFarA:$('wl-track-terrain-far-a'),
+    trackTerrainFarB:$('wl-track-terrain-far-b'),
+    terrainToggle:$('wl-terrain-toggle'),
+    terrainLinkHeight:$('wl-link-height'),
     trackPuzzle:$('wl-track-puzzle'),
     trackDressing:$('wl-track-dressing'),
     trackOther:$('wl-track-other'),
@@ -123,6 +129,14 @@
     });
     els.fit.addEventListener('click',()=>fitWorld(false));
     els.refresh.addEventListener('click',()=>{refreshGameData();fitWorld(false);toast('Game data refreshed.');});
+    els.terrainToggle?.addEventListener('click',()=>{state.terrainExpanded=!state.terrainExpanded;render();});
+    els.terrainLinkHeight?.addEventListener('change',()=>{
+      const terrain=normaliseTerrainState(state.terrain);
+      terrain.linkSubsequent=!!els.terrainLinkHeight.checked;
+      state.terrain=terrain;
+      saveJson(STORAGE.terrain,terrain);
+      renderSelection();
+    });
     els.playFromHere.addEventListener('click',playFromHere);
     bindPlayheadDrag();
 
@@ -161,7 +175,7 @@
     state.puzzleState = loadJson(STORAGE.puzzleState,{});
     state.puzzleStarts = loadJson(STORAGE.puzzleStarts,baked?.puzzles?.savedStarts || {});
     state.pending = loadJson(STORAGE.pending,{});
-    state.terrain = loadJson(STORAGE.terrain,{});
+    state.terrain = normaliseTerrainState(loadJson(STORAGE.terrain,{}));
     state.puzzles = buildPuzzleMarkers();
 
     if(!Number.isFinite(state.playheadX)){
@@ -169,6 +183,7 @@
       state.playheadX=Number.isFinite(Number(savedPlayer?.x))?Number(savedPlayer.x):0;
     }
 
+    if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain.linkSubsequent!==false;
     const pendingCount=Object.keys(state.pending||{}).length;
     els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
   }
@@ -273,8 +288,72 @@
   function sectionIndexAt(x){return Math.floor((number(x,0)+SECTION_LENGTH/2)/SECTION_LENGTH);}
   function sectionBounds(index){const center=Number(index)*SECTION_LENGTH;return {index:Number(index),center,min:center-SECTION_LENGTH/2,max:center+SECTION_LENGTH/2};}
 
+  const TERRAIN_LAYERS={
+    path:{id:'path',label:'Path',follow:1,radius:0},
+    near:{id:'near',label:'Near Strip',follow:1,radius:0},
+    farA:{id:'farA',label:'Far Strip A',follow:.88,radius:1},
+    farB:{id:'farB',label:'Far Strip B',follow:.62,radius:2}
+  };
+
+  function normaliseTerrainState(raw){
+    const terrain=raw&&typeof raw==='object'?clone(raw):{};
+    terrain.hidden=Array.isArray(terrain.hidden)?terrain.hidden:[];
+    terrain.collisionDisabled=Array.isArray(terrain.collisionDisabled)?terrain.collisionDisabled:[];
+    terrain.types=terrain.types&&typeof terrain.types==='object'?terrain.types:{};
+    terrain.settings=terrain.settings&&typeof terrain.settings==='object'?terrain.settings:{};
+    terrain.heights=terrain.heights&&typeof terrain.heights==='object'?terrain.heights:{};
+    terrain.linkSubsequent=terrain.linkSubsequent!==false;
+    return terrain;
+  }
+
+  function terrainSectionHeight(index,terrain=state.terrain){
+    const target=Math.trunc(number(index,0));
+    let best=-Infinity,value=0;
+    for(const [key,raw] of Object.entries(terrain?.heights||{})){
+      const i=Math.trunc(number(key,NaN));
+      const h=number(raw,NaN);
+      if(Number.isFinite(i)&&Number.isFinite(h)&&i<=target&&i>best){best=i;value=h;}
+    }
+    return Math.max(-50,Math.min(80,value));
+  }
+
+  function terrainLayerSectionHeight(index,layerId='path'){
+    const layer=TERRAIN_LAYERS[layerId]||TERRAIN_LAYERS.path;
+    if(layer.id==='path'||layer.id==='near')return terrainSectionHeight(index);
+    const radius=Math.max(0,Math.trunc(layer.radius||0));
+    let weighted=0,total=0;
+    for(let d=-radius;d<=radius;d++){const w=radius?radius+1-Math.abs(d):1;weighted+=terrainSectionHeight(index+d)*w;total+=w;}
+    return (total?weighted/total:terrainSectionHeight(index))*number(layer.follow,1);
+  }
+
+  function setTerrainSectionHeight(index,nextHeight,linkSubsequent=state.terrain?.linkSubsequent!==false){
+    const i=Math.trunc(number(index,0));
+    const terrain=normaliseTerrainState(state.terrain);
+    const old=terrainSectionHeight(i,terrain);
+    const oldNext=terrainSectionHeight(i+1,terrain);
+    const target=Math.max(-50,Math.min(80,number(nextHeight,old)));
+    const delta=target-old;
+    if(Math.abs(delta)<.0001)return false;
+    const heights={...(terrain.heights||{})};
+    if(linkSubsequent){
+      for(const key of Object.keys(heights)){const k=Math.trunc(number(key,NaN));if(Number.isFinite(k)&&k>i)heights[String(k)]=round(number(heights[key],0)+delta,3);}
+      heights[String(i)]=round(target,3);
+    }else{
+      heights[String(i)]=round(target,3);
+      if(!(String(i+1) in heights))heights[String(i+1)]=round(oldNext,3);
+    }
+    terrain.heights=heights;
+    terrain.linkSubsequent=!!linkSubsequent;
+    state.terrain=terrain;
+    saveJson(STORAGE.terrain,terrain);
+    return true;
+  }
+
   function render(){
     syncViewInputs();
+    document.body.classList.toggle('wl-terrain-expanded',!!state.terrainExpanded);
+    if(els.terrainToggle){els.terrainToggle.setAttribute('aria-expanded',String(!!state.terrainExpanded));const icon=els.terrainToggle.querySelector('i');if(icon)icon.textContent=state.terrainExpanded?'▴':'▾';}
+    if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain?.linkSubsequent!==false;
     const width=worldWidth();
     els.world.style.width=`${width}px`;
     renderGrid();
@@ -401,26 +480,80 @@
     });
   }
 
+  function renderTerrainProfile(host,layerId,first,last,minHeight,maxHeight,{showSections=false}={}){
+    if(!host)return;
+    const rowHeight=showSections?90:72;
+    const topPad=10,bottomPad=10;
+    const usable=Math.max(12,rowHeight-topPad-bottomPad);
+    const lo=minHeight,hi=maxHeight;
+    const span=Math.max(2,hi-lo);
+    const yFor=h=>topPad+(hi-h)/span*usable;
+    const points=[];
+    for(let index=first-1;index<=last+1;index++){
+      const x=sectionBounds(index).center;
+      const h=terrainLayerSectionHeight(index,layerId);
+      points.push({index,x,h,px:xToPx(x),py:yFor(h)});
+    }
+    for(let i=0;i<points.length-1;i++){
+      const a=points[i],b=points[i+1];
+      const dx=b.px-a.px,dy=b.py-a.py;
+      const line=document.createElement('div');
+      line.className=`wl-terrain-profile-line ${layerId}`;
+      line.style.left=`${a.px}px`;line.style.top=`${a.py}px`;line.style.width=`${Math.hypot(dx,dy)}px`;line.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+      host.appendChild(line);
+    }
+    for(const point of points.filter(p=>p.index>=first&&p.index<=last)){
+      const dot=document.createElement('button');
+      dot.type='button';
+      dot.className=`wl-terrain-height-point ${layerId}${showSections&&isSelected('section',String(point.index))?' selected':''}`;
+      dot.style.left=`${point.px}px`;dot.style.top=`${point.py}px`;
+      dot.title=`${TERRAIN_LAYERS[layerId]?.label||layerId} · S${point.index} · ${point.h>=0?'+':''}${round(point.h,2)} m`;
+      dot.innerHTML=`<span>${point.h>=0?'+':''}${round(point.h,1)}</span>`;
+      if(showSections)dot.addEventListener('click',event=>{event.stopPropagation();select('section',String(point.index));});
+      else dot.tabIndex=-1;
+      host.appendChild(dot);
+    }
+  }
+
   function renderSections(){
     els.trackSection.innerHTML='';
+    if(els.trackTerrainNear)els.trackTerrainNear.innerHTML='';
+    if(els.trackTerrainFarA)els.trackTerrainFarA.innerHTML='';
+    if(els.trackTerrainFarB)els.trackTerrainFarB.innerHTML='';
     const modifiers=modifierEntries();
     const first=Math.floor((state.minX+5)/SECTION_LENGTH);
     const last=Math.ceil((state.maxX+5)/SECTION_LENGTH);
+
+    const layerIds=state.terrainExpanded?['path','near','farA','farB']:['path'];
+    const visibleHeights=[];
+    for(const layerId of layerIds)for(let i=first-1;i<=last+1;i++)visibleHeights.push(terrainLayerSectionHeight(i,layerId));
+    let minHeight=visibleHeights.length?Math.min(...visibleHeights):-1;
+    let maxHeight=visibleHeights.length?Math.max(...visibleHeights):1;
+    if(maxHeight-minHeight<2){const mid=(maxHeight+minHeight)*.5;minHeight=mid-1;maxHeight=mid+1;}else{minHeight-=.75;maxHeight+=.75;}
+
     for(let index=first;index<=last;index++){
       const bounds=sectionBounds(index);
       const type=state.terrain?.types?.[String(index)]||'normal';
       const hidden=Array.isArray(state.terrain?.hidden)&&state.terrain.hidden.map(Number).includes(index);
       const collisionDisabled=Array.isArray(state.terrain?.collisionDisabled)&&state.terrain.collisionDisabled.map(Number).includes(index);
       const modified=modifiers.some(mod=>mod.endX>bounds.min&&mod.startX<bounds.max);
+      const height=terrainSectionHeight(index);
       const node=document.createElement('button');
       node.type='button';
       node.className=`wl-section-box${type!=='normal'?' special':''}${modified?' modified':''}${hidden?' hidden-section':''}${collisionDisabled?' no-collision':''}${isSelected('section',String(index))?' selected':''}`;
       node.style.left=`${xToPx(bounds.min)}px`;
       node.style.width=`${SECTION_LENGTH*state.scale}px`;
-      node.innerHTML=`<strong>S${index}</strong><small>${escapeHtml(type==='normal'?'Normal':type)}${modified?' · MODIFIED':''}</small>`;
-      node.title=`Section ${index} · ${round(bounds.min,1)} to ${round(bounds.max,1)} m`;
+      node.innerHTML=`<strong>S${index}</strong><small>${height>=0?'+':''}${round(height,1)} m${modified?' · MOD':''}</small>`;
+      node.title=`Section ${index} · ${round(bounds.min,1)} to ${round(bounds.max,1)} m · path ${height>=0?'+':''}${round(height,2)} m`;
       node.addEventListener('click',e=>{select('section',String(index));e.stopPropagation();});
       els.trackSection.appendChild(node);
+    }
+
+    renderTerrainProfile(els.trackSection,'path',first,last,minHeight,maxHeight,{showSections:true});
+    if(state.terrainExpanded){
+      renderTerrainProfile(els.trackTerrainNear,'near',first,last,minHeight,maxHeight);
+      renderTerrainProfile(els.trackTerrainFarA,'farA',first,last,minHeight,maxHeight);
+      renderTerrainProfile(els.trackTerrainFarB,'farB',first,last,minHeight,maxHeight);
     }
 
     for(const modifier of modifiers){
@@ -628,18 +761,34 @@
     const collisionDisabled=Array.isArray(state.terrain?.collisionDisabled)&&state.terrain.collisionDisabled.map(Number).includes(index);
     const mods=modifierEntries().filter(mod=>mod.endX>bounds.min&&mod.startX<bounds.max);
     const modRows=mods.length?mods.map(mod=>`<button class="wl-mod-row" type="button" data-mod-id="${escapeAttr(mod.id)}"><strong>${escapeHtml(mod.type.toUpperCase())}</strong><span>${escapeHtml(mod.puzzleLabel)} · ${round(mod.startX,1)} → ${round(mod.endX,1)} m</span></button>`).join(''):'<p class="muted">No puzzle-owned terrain modifiers intersect this section.</p>';
-    els.selection.innerHTML=`<h2>Section ${index}</h2><p class="muted">Runtime terrain chunk</p>
+    const height=terrainSectionHeight(index);
+    const near=terrainLayerSectionHeight(index,'near'),farA=terrainLayerSectionHeight(index,'farA'),farB=terrainLayerSectionHeight(index,'farB');
+    const linked=state.terrain?.linkSubsequent!==false;
+    els.selection.innerHTML=`<h2>Section ${index}</h2><p class="muted">Runtime terrain chunk · master path-height point</p>
       <div class="wl-selection-form">
         <label>Centre<input readonly value="${round(bounds.center,1)} m"></label>
         <label>Range<input readonly value="${round(bounds.min,1)} → ${round(bounds.max,1)} m"></label>
+        <label>Path height<input id="wl-section-height" type="number" step="0.1" min="-50" max="80" value="${round(height,2)}"></label>
+        <label>Link later sections<select id="wl-section-link"><option value="1"${linked?' selected':''}>On</option><option value="0"${linked?'':' selected'}>Off</option></select></label>
+        <label>Near strip<input readonly value="${near>=0?'+':''}${round(near,2)} m"></label>
+        <label>Far A<input readonly value="${farA>=0?'+':''}${round(farA,2)} m"></label>
+        <label>Far B<input readonly value="${farB>=0?'+':''}${round(farB,2)} m"></label>
         <label>Base terrain<input readonly value="${escapeAttr(type)}"></label>
         <label>Hidden<input readonly value="${hidden?'Yes':'No'}"></label>
         <label>Collision disabled<input readonly value="${collisionDisabled?'Yes':'No'}"></label>
-        <label>Legacy river width<input readonly value="${Number.isFinite(Number(settings.width))?`${round(settings.width,2)} m`:'—'}"></label>
       </div>
+      <p class="muted">Near/Far tracks are derived from the Path profile in this first pass. Far A and Far B progressively smooth/fall away from steep rises.</p>
       <h3>Active modifiers</h3><div class="wl-mod-list">${modRows}</div>
-      <div class="wl-actions"><button id="wl-section-playhead">Move playhead to centre</button></div>`;
+      <div class="wl-actions"><button class="primary" id="wl-section-height-apply">Apply height</button><button id="wl-section-playhead">Move playhead to centre</button></div>`;
     els.selection.querySelectorAll('[data-mod-id]').forEach(button=>button.addEventListener('click',()=>select('modifier',button.dataset.modId)));
+    $('wl-section-height-apply').addEventListener('click',()=>{
+      const link=$('wl-section-link').value!=='0';
+      state.terrain.linkSubsequent=link;
+      if(els.terrainLinkHeight)els.terrainLinkHeight.checked=link;
+      const changed=setTerrainSectionHeight(index,number($('wl-section-height').value,height),link);
+      if(changed){render();toast(link?'Height changed · later sections shifted.':'Height changed locally.');}else renderSelection();
+    });
+    $('wl-section-link').addEventListener('change',()=>{state.terrain.linkSubsequent=$('wl-section-link').value!=='0';saveJson(STORAGE.terrain,state.terrain);if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain.linkSubsequent;});
     $('wl-section-playhead').addEventListener('click',()=>{state.playheadX=bounds.center;select('playhead','player');});
   }
 

@@ -112,6 +112,13 @@
   const sectionPrevBtn = document.getElementById('sidescroll-section-prev');
   const sectionPlayerBtn = document.getElementById('sidescroll-section-player');
   const sectionNextBtn = document.getElementById('sidescroll-section-next');
+  const sectionHeightRow = document.getElementById('sidescroll-section-height-row');
+  const sectionHeightInput = document.getElementById('sidescroll-section-height');
+  const sectionHeightValue = document.getElementById('sidescroll-section-height-value');
+  const sectionHeightNumber = document.getElementById('sidescroll-section-height-number');
+  const sectionHeightDownBtn = document.getElementById('sidescroll-section-height-down');
+  const sectionHeightUpBtn = document.getElementById('sidescroll-section-height-up');
+  const sectionHeightLinkInput = document.getElementById('sidescroll-section-height-link');
   const sectionVisibleBtn = document.getElementById('sidescroll-section-visible');
   const sectionTypeSelect = document.getElementById('sidescroll-section-type');
   const sectionRiverWidthRow = document.getElementById('sidescroll-section-river-width-row');
@@ -724,7 +731,7 @@
       const worldX = Rig.lerp(bounds.minX, bounds.maxX, t);
       const localX = (worldX - bounds.center) / TERRAIN_SECTION_LENGTH;
       const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(t) : 0;
-      const rise = pathUndulationAtX(worldX) + featureRise;
+      const rise = pathUndulationAtX(worldX) + featureRise + terrainLayerElevationAt(worldX, 'path');
       const u = terrainSectionWorldU(worldX);
       for (const row of rows) vertices.push(localX, row.y + rise, row.z, u, row.v * 1.8);
     }
@@ -741,16 +748,23 @@
     return createMesh(new Float32Array(vertices), new Uint16Array(indices));
   }
 
-  function createTerrainSectionGroundMesh(typeId = 'normal', segments = 12) {
-    if (typeId === 'normal') return groundMesh;
+  function createTerrainBandMesh(sectionIndex, typeId, frontLayerId, backLayerId, minX, maxX, segments = 12) {
+    const bounds = terrainSectionBounds(sectionIndex);
+    const centre = (minX + maxX) * 0.5;
+    const width = Math.max(0.001, maxX - minX);
     const vertices = [];
     const indices = [];
     for (let ix = 0; ix <= segments; ix++) {
       const t = ix / segments;
-      const localX = t - 0.5;
-      const y = typeId === 'testHill' ? testHillRiseAtLocalT(t) : 0;
-      vertices.push(localX, y,  0.0, t, 0.0);
-      vertices.push(localX, y, -1.0, t, 1.0);
+      const worldX = Rig.lerp(minX, maxX, t);
+      const sectionT = Rig.clamp((worldX - bounds.minX) / TERRAIN_SECTION_LENGTH, 0, 1);
+      const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(sectionT) : 0;
+      const common = pathUndulationAtX(worldX) + featureRise;
+      const frontY = common + terrainLayerElevationAt(worldX, frontLayerId);
+      const backY = common + terrainLayerElevationAt(worldX, backLayerId);
+      const localX = (worldX - centre) / width;
+      vertices.push(localX, frontY,  0.0, t, 0.0);
+      vertices.push(localX, backY,  -1.0, t, 1.0);
     }
     for (let ix = 0; ix < segments; ix++) {
       const a = ix * 2;
@@ -763,15 +777,17 @@
   }
 
   function terrainSectionPathMesh(sectionIndex, typeId = terrainSectionType(sectionIndex)) {
-    const phase = ((Math.trunc(sectionIndex) % TERRAIN_SECTION_PATH_PHASE_COUNT) + TERRAIN_SECTION_PATH_PHASE_COUNT) % TERRAIN_SECTION_PATH_PHASE_COUNT;
-    const key = `${typeId}:${phase}`;
-    if (!terrainSectionPathMeshCache.has(key)) terrainSectionPathMeshCache.set(key, createTerrainSectionPathMesh(phase, typeId));
+    const key = `${typeId}:${Math.trunc(sectionIndex)}`;
+    if (!terrainSectionPathMeshCache.has(key)) terrainSectionPathMeshCache.set(key, createTerrainSectionPathMesh(sectionIndex, typeId));
     return terrainSectionPathMeshCache.get(key);
   }
 
-  function terrainSectionGroundMesh(typeId = 'normal') {
-    if (!terrainSectionGroundMeshCache.has(typeId)) terrainSectionGroundMeshCache.set(typeId, createTerrainSectionGroundMesh(typeId));
-    return terrainSectionGroundMeshCache.get(typeId);
+  function terrainBandMesh(sectionIndex, typeId, frontLayerId, backLayerId, minX, maxX) {
+    const key = `${Math.trunc(sectionIndex)}:${typeId}:${frontLayerId}:${backLayerId}:${minX.toFixed(3)}:${maxX.toFixed(3)}`;
+    if (!terrainSectionGroundMeshCache.has(key)) {
+      terrainSectionGroundMeshCache.set(key, createTerrainBandMesh(sectionIndex, typeId, frontLayerId, backLayerId, minX, maxX));
+    }
+    return terrainSectionGroundMeshCache.get(key);
   }
 
   const terrainRiverBankMeshCache = new Map();
@@ -931,6 +947,17 @@
     clearMeshCache(terrainIntervalGroundMeshCache);
   }
 
+  function invalidateTerrainElevationMeshes() {
+    clearMeshCache(terrainSectionPathMeshCache);
+    clearMeshCache(terrainSectionGroundMeshCache);
+    clearMeshCache(terrainRiverBankMeshCache);
+    clearMeshCache(terrainRiverWaterMeshCache);
+    clearMeshCache(terrainIntervalPathMeshCache);
+    clearMeshCache(terrainIntervalGroundMeshCache);
+    clearMeshCache(puzzleRiverBankMeshCache);
+    clearMeshCache(puzzleRiverWaterMeshCache);
+  }
+
   function puzzleRiverSettings(mod) {
     return {
       width: Rig.clamp(Number(mod?.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH),
@@ -972,7 +999,7 @@
     const wallRun = Math.min(0.92, Math.max(0.68, width * 0.17));
     const leftToe = leftLip + wallRun;
     const rightToe = rightLip - wallRun;
-    const bedY = groundY - settings.bedDepth + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
+    const bedY = pathGroundYAt(Number(mod?.worldCenterX) || 0, pathZ) - settings.bedDepth + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
     const waterY = bedY + settings.waterAboveBed;
     return { ...puzzleRiverExtent(mod), width, centre, leftLip, rightLip, leftToe, rightToe, wallRun, bedY, waterY };
   }
@@ -1051,7 +1078,7 @@
       const worldX = Rig.lerp(minX, maxX, t);
       const sectionT = Rig.clamp((worldX - bounds.minX) / TERRAIN_SECTION_LENGTH, 0, 1);
       const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(sectionT) : 0;
-      const rise = pathUndulationAtX(worldX) + featureRise;
+      const rise = pathUndulationAtX(worldX) + featureRise + terrainLayerElevationAt(worldX, 'path');
       const localX = (worldX - centre) / width;
       const u = terrainSectionWorldU(worldX);
       for (const row of rows) vertices.push(localX, row.y + rise, row.z, u, row.v * 1.8);
@@ -1979,7 +2006,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let terrainCollisionDisabledSections = new Set();
   let terrainSectionTypes = new Map();
   let terrainSectionSettings = new Map();
+  let terrainSectionHeights = new Map();
+  let terrainResolvedHeightCache = new Map();
+  let terrainHeightLinkSubsequent = true;
   let terrainLastUiCurrentIndex = null;
+
+  // v1.0.75 terrain elevation spine. The path is the authored master profile.
+  // Near/Far layers are derived from it for now; World Lab exposes them as
+  // separate tracks so they can later gain per-layer overrides without changing
+  // the authored path data model.
+  const TERRAIN_DEPTH_LAYERS = Object.freeze({
+    path:{ id:'path', label:'Path', follow:1.00, radius:0 },
+    near:{ id:'near', label:'Near Strip', follow:1.00, radius:0 },
+    farA:{ id:'farA', label:'Far Strip A', follow:0.88, radius:1 },
+    farB:{ id:'farB', label:'Far Strip B', follow:0.62, radius:2 }
+  });
+  const TERRAIN_FAR_A_BACK_Z = -13.0;
 
   // Puzzle-owned world modifiers are resolved later, after the puzzle library
   // has loaded. Terrain helpers run during initial scene construction, so they
@@ -1995,6 +2037,79 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const i = Math.trunc(Number(index) || 0);
     const center = i * TERRAIN_SECTION_LENGTH;
     return { index:i, center, minX:center - TERRAIN_SECTION_HALF, maxX:center + TERRAIN_SECTION_HALF };
+  }
+
+  function invalidateTerrainHeightCache() {
+    terrainResolvedHeightCache.clear();
+  }
+
+  function terrainSectionPathHeight(index) {
+    const i = Math.trunc(Number(index) || 0);
+    if (terrainResolvedHeightCache.has(i)) return terrainResolvedHeightCache.get(i);
+    let bestIndex = -Infinity;
+    let height = 0;
+    for (const [rawIndex, rawHeight] of terrainSectionHeights.entries()) {
+      const key = Math.trunc(Number(rawIndex) || 0);
+      if (key <= i && key > bestIndex) {
+        bestIndex = key;
+        height = Number(rawHeight) || 0;
+      }
+    }
+    height = Rig.clamp(height, -50, 80);
+    terrainResolvedHeightCache.set(i, height);
+    return height;
+  }
+
+  function terrainPathElevationAt(x) {
+    const worldX = Number(x) || 0;
+    const leftIndex = Math.floor(worldX / TERRAIN_SECTION_LENGTH);
+    const leftX = leftIndex * TERRAIN_SECTION_LENGTH;
+    const t = Rig.clamp((worldX - leftX) / TERRAIN_SECTION_LENGTH, 0, 1);
+    return Rig.lerp(terrainSectionPathHeight(leftIndex), terrainSectionPathHeight(leftIndex + 1), t);
+  }
+
+  function terrainLayerSectionHeight(index, layerId = 'path') {
+    const layer = TERRAIN_DEPTH_LAYERS[layerId] || TERRAIN_DEPTH_LAYERS.path;
+    if (layer.id === 'path' || layer.id === 'near') return terrainSectionPathHeight(index);
+    let weighted = 0;
+    let weightTotal = 0;
+    const radius = Math.max(0, Math.trunc(layer.radius || 0));
+    for (let d = -radius; d <= radius; d += 1) {
+      const weight = radius ? (radius + 1 - Math.abs(d)) : 1;
+      weighted += terrainSectionPathHeight(index + d) * weight;
+      weightTotal += weight;
+    }
+    return (weightTotal ? weighted / weightTotal : terrainSectionPathHeight(index)) * (Number(layer.follow) || 1);
+  }
+
+  function terrainLayerElevationAt(x, layerId = 'path') {
+    const worldX = Number(x) || 0;
+    const leftIndex = Math.floor(worldX / TERRAIN_SECTION_LENGTH);
+    const leftX = leftIndex * TERRAIN_SECTION_LENGTH;
+    const t = Rig.clamp((worldX - leftX) / TERRAIN_SECTION_LENGTH, 0, 1);
+    return Rig.lerp(terrainLayerSectionHeight(leftIndex, layerId), terrainLayerSectionHeight(leftIndex + 1, layerId), t);
+  }
+
+  function terrainDepthElevationAt(x, z = pathZ) {
+    const depth = Number(z) || 0;
+    const pathHeight = terrainLayerElevationAt(x, 'path');
+    if (depth >= PATH_OUTER_HALF) {
+      const nearHeight = terrainLayerElevationAt(x, 'near');
+      const t = Rig.clamp((depth - PATH_OUTER_HALF) / Math.max(0.001, GROUND_NEAR_Z - PATH_OUTER_HALF), 0, 1);
+      return Rig.lerp(pathHeight, nearHeight, t);
+    }
+    if (depth <= -PATH_OUTER_HALF && depth >= TERRAIN_FAR_A_BACK_Z) {
+      const farA = terrainLayerElevationAt(x, 'farA');
+      const t = Rig.clamp((-depth - PATH_OUTER_HALF) / Math.max(0.001, -TERRAIN_FAR_A_BACK_Z - PATH_OUTER_HALF), 0, 1);
+      return Rig.lerp(pathHeight, farA, t);
+    }
+    if (depth < TERRAIN_FAR_A_BACK_Z) {
+      const farA = terrainLayerElevationAt(x, 'farA');
+      const farB = terrainLayerElevationAt(x, 'farB');
+      const t = Rig.clamp((TERRAIN_FAR_A_BACK_Z - depth) / Math.max(0.001, TERRAIN_FAR_A_BACK_Z - WORLD.farZ), 0, 1);
+      return Rig.lerp(farA, farB, t);
+    }
+    return pathHeight;
   }
 
   function terrainSectionType(index) {
@@ -2046,6 +2161,49 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updateTerrainSectionUi(true);
   }
 
+  function terrainHeightBoundObjectAnchors() {
+    if (typeof allSceneObjects !== 'function') return [];
+    const anchors = [];
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted || obj.carried || objectUsesFreePlacement(obj)) continue;
+      anchors.push([obj, objectFloorOffsetFromTerrain(obj)]);
+    }
+    return anchors;
+  }
+
+  function restoreTerrainHeightBoundObjectAnchors(anchors) {
+    for (const [obj, floorOffset] of anchors || []) {
+      if (!obj || obj.deleted || objectUsesFreePlacement(obj)) continue;
+      setObjectFloorOffset(obj, floorOffset);
+    }
+    if (typeof settleGameplayCrates === 'function') settleGameplayCrates();
+  }
+
+  function setTerrainSectionPathHeight(index, nextHeight, { linkSubsequent = terrainHeightLinkSubsequent, save = true } = {}) {
+    const i = Math.trunc(Number(index) || 0);
+    const oldHeight = terrainSectionPathHeight(i);
+    const target = Rig.clamp(Number(nextHeight) || 0, -50, 80);
+    const delta = target - oldHeight;
+    if (Math.abs(delta) < 0.0001) { updateTerrainSectionUi(true); return false; }
+
+    const oldNextHeight = terrainSectionPathHeight(i + 1);
+    const anchors = terrainHeightBoundObjectAnchors();
+    if (linkSubsequent) {
+      const futureKeys = [...terrainSectionHeights.keys()].map(Number).filter(key => Number.isFinite(key) && key > i);
+      terrainSectionHeights.set(i, target);
+      for (const key of futureKeys) terrainSectionHeights.set(key, Rig.clamp((Number(terrainSectionHeights.get(key)) || 0) + delta, -50, 80));
+    } else {
+      terrainSectionHeights.set(i, target);
+      if (!terrainSectionHeights.has(i + 1)) terrainSectionHeights.set(i + 1, oldNextHeight);
+    }
+    invalidateTerrainHeightCache();
+    invalidateTerrainElevationMeshes();
+    restoreTerrainHeightBoundObjectAnchors(anchors);
+    if (save) saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+    return true;
+  }
+
   function riverSectionSettings(index, override = null) {
     const stored = override || terrainSectionSettings.get(Math.trunc(Number(index) || 0)) || null;
     const width = Rig.clamp(Number(stored?.width) || DEFAULT_RIVER_SECTION.width, RIVER_SECTION_MIN_WIDTH, RIVER_SECTION_MAX_WIDTH);
@@ -2086,7 +2244,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const wallRun = Math.min(0.92, Math.max(0.68, width * 0.17));
     const leftToe = leftLip + wallRun;
     const rightToe = rightLip - wallRun;
-    const bedY = groundY - RIVER_BED_DEPTH + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
+    const bedY = pathGroundYAt(b.center, pathZ) - RIVER_BED_DEPTH + Math.sin(z * 0.19 + phase * 0.6) * 0.035;
     const waterY = bedY + RIVER_WATER_ABOVE_BED;
     return { ...b, width, centre, leftLip, rightLip, leftToe, rightToe, wallRun, bedY, waterY };
   }
@@ -2180,6 +2338,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       terrainCollisionDisabledSections = new Set(Array.isArray(saved.collisionDisabled) ? saved.collisionDisabled.map(Number).filter(Number.isFinite).map(Math.trunc) : []);
       terrainSectionTypes = new Map();
       terrainSectionSettings = new Map();
+      terrainSectionHeights = new Map();
+      terrainHeightLinkSubsequent = saved.linkSubsequent !== false;
+      if (saved.heights && typeof saved.heights === 'object') {
+        for (const [key, value] of Object.entries(saved.heights)) {
+          const i = Number(key);
+          const h = Number(value);
+          if (Number.isFinite(i) && Number.isFinite(h)) terrainSectionHeights.set(Math.trunc(i), Rig.clamp(h, -50, 80));
+        }
+      }
+      invalidateTerrainHeightCache();
       if (saved.types && typeof saved.types === 'object') {
         for (const [key, value] of Object.entries(saved.types)) {
           const i = Number(key);
@@ -2210,6 +2378,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         hidden:[...terrainHiddenSections].sort((a,b)=>a-b),
         collisionDisabled:[...terrainCollisionDisabledSections].sort((a,b)=>a-b),
         collisionModelVersion:3,
+        linkSubsequent:!!terrainHeightLinkSubsequent,
+        heights:Object.fromEntries([...terrainSectionHeights.entries()].sort((a,b)=>a[0]-b[0]).map(([i,h])=>[String(i),Number(h.toFixed(3))])),
         types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
         settings:Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0]))
       }));
@@ -2329,13 +2499,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return 0;
   }
 
-  function pathGroundYAt(x, z = 0) {
+  function legacyPathGroundYAt(x, z = 0) {
     return groundY + pathProfileHeight(z) + pathUndulationAtX(x);
   }
 
+  function pathGroundYAt(x, z = 0) {
+    return legacyPathGroundYAt(x, z) + terrainDepthElevationAt(x, z);
+  }
+
   // Grounded scenery uses the same section height ownership as the terrain mesh.
-  // pathGroundYAt remains the legacy/base profile so old absolute saves can be
-  // migrated to a terrain-relative offset when they are restored.
+  // The old flat-world reference remains available as legacyPathGroundYAt() so
+  // saved absolute positions can still be migrated without baking new terrain
+  // elevation into their authored offsets.
   function terrainGroundYAt(x, z = 0) {
     const owned = puzzleRiverModifierAtPoint(x, z);
     if (owned) return puzzleRiverTerrainYAt(x, z, owned);
@@ -2363,8 +2538,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function legacyTerrainAnchorBaseY(x, z, category = 'dressing', gameplayLayerLocked = false) {
     return category === 'gameplay' && gameplayLayerLocked
-      ? pathGroundYAt(x, pathZ)
-      : pathGroundYAt(x, z);
+      ? legacyPathGroundYAt(x, pathZ)
+      : legacyPathGroundYAt(x, z);
   }
 
   // Floor Line is the normalised height, measured up from the bottom of the
@@ -6206,7 +6381,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const CAMERA_Z_STEP = 0.35;
   const CAMERA_TILT_STEP = 0.12;
   const CAMERA_FOLLOW_DEADZONE = 0.08;
-  const CAMERA_FOLLOW_MAX = 1.15;
+  const CAMERA_FOLLOW_MAX = 12.0;
   let cameraEditMode = false;
   let playerHintsEnabled = true;
   let cameraBaseY = camera.y;
@@ -6315,11 +6490,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function updateCameraFollow(dt) {
     // Follow meaningful character height, not just the jump flag. This keeps the
-    // camera with Aureli while climbing and while she remains on an elevated
-    // walk surface. pathGroundYAt() is the stable, unmodified path reference, so
-    // a river trench below a bridge cannot falsely raise the camera. The jump
+    // camera with Aureli while climbing, while she remains on an elevated walk
+    // surface, and while the authored terrain spine itself rises. The legacy flat
+    // path reference deliberately excludes terrain elevation, so a mountain path
+    // can lift the camera without a river trench falsely affecting it. The jump
     // baseline remains as a fallback for jumps that begin below that reference.
-    const scenicRise = Math.max(0, character.y - pathGroundYAt(character.x, pathZ) - CAMERA_FOLLOW_DEADZONE);
+    const scenicRise = Math.max(0, character.y - legacyPathGroundYAt(character.x, pathZ) - CAMERA_FOLLOW_DEADZONE);
     const jumpRise = jumping ? Math.max(0, character.y - jumpCameraBaseY - CAMERA_FOLLOW_DEADZONE) : 0;
     const rawHeight = Math.max(scenicRise, jumpRise);
     const targetOffset = cameraFollowEnabled ? Rig.clamp(rawHeight * cameraFollowAmount, 0, CAMERA_FOLLOW_MAX) : 0;
@@ -12078,30 +12254,39 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
 
     // Base terrain is drawn in intervals. Puzzle-owned river modifiers cut a
-    // world-space opening out of otherwise normal sections, so a crossing can
-    // move freely across section boundaries without leaving an invisible floor
-    // underneath its water. Legacy/manual River sections still use the original
-    // whole-section feature renderer below.
+    // world-space opening out of otherwise normal sections. v1.0.75 splits the
+    // visible floor into three depth bands around the authored path: Near, Far A
+    // and Far B. They derive from the same section-centre height spine, while the
+    // more distant layers soften/fall away from steep path elevation changes.
+    function drawGroundBandsForRange(sectionIndex, typeId, minX, maxX) {
+      const width = maxX - minX;
+      if (width <= 0.01) return;
+      const centre = (minX + maxX) * 0.5;
+      const u0 = terrainSectionWorldU(minX);
+      const uScale = (width / TILE_WIDTH) * 24.0;
+      const bands = [
+        { frontZ:GROUND_NEAR_Z, backZ:PATH_OUTER_HALF, frontLayer:'near', backLayer:'path' },
+        { frontZ:-PATH_OUTER_HALF, backZ:TERRAIN_FAR_A_BACK_Z, frontLayer:'path', backLayer:'farA' },
+        { frontZ:TERRAIN_FAR_A_BACK_Z, backZ:WORLD.farZ, frontLayer:'farA', backLayer:'farB' }
+      ];
+      for (const band of bands) {
+        const depth = band.frontZ - band.backZ;
+        if (depth <= 0.001) continue;
+        drawObject(ground, view, {
+          x:centre, y:groundY - 0.015, z:band.frontZ, sx:width, sy:1, sz:depth,
+          mesh:terrainBandMesh(sectionIndex,typeId,band.frontLayer,band.backLayer,minX,maxX),
+          uvScale:[uScale, Math.max(0.1, depth / Math.max(0.001, GROUND_NEAR_Z - WORLD.farZ) * (ground.uvScale?.[1] ?? 11))],
+          uvOffset:[u0,0]
+        });
+      }
+    }
+
     for (const i of indices) {
       const b = terrainSectionBounds(i);
       const typeId = terrainSectionType(i);
       if (typeId === 'river') continue;
       const intervals = terrainBaseIntervalsForSection(i);
-      const uncut = intervals.length === 1 && Math.abs(intervals[0].minX-b.minX)<0.001 && Math.abs(intervals[0].maxX-b.maxX)<0.001;
-      if (uncut) {
-        const u0 = terrainSectionWorldU(b.minX);
-        const uScale = (TERRAIN_SECTION_LENGTH / TILE_WIDTH) * 24.0;
-        drawObject(ground, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionGroundMesh(typeId), uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0,0] });
-        continue;
-      }
-      for (const interval of intervals) {
-        const width = interval.maxX - interval.minX;
-        if (width <= 0.01) continue;
-        const centre = (interval.minX + interval.maxX) * 0.5;
-        const u0 = terrainSectionWorldU(interval.minX);
-        const uScale = (width / TILE_WIDTH) * 24.0;
-        drawObject(ground, view, { x:centre, sx:width, mesh:terrainIntervalGroundMesh(i,typeId,interval.minX,interval.maxX), uvScale:[uScale, ground.uvScale?.[1] ?? 11], uvOffset:[u0,0] });
-      }
+      for (const interval of intervals) drawGroundBandsForRange(i,typeId,interval.minX,interval.maxX);
     }
 
     for (const i of indices) {
@@ -12501,7 +12686,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const selectedBounds = terrainSectionBounds(terrainSelectedSectionIndex);
     const ownedRivers = puzzleWorldModifiersReady ? puzzleRiverModifiersIntersectingRange(selectedBounds.minX, selectedBounds.maxX) : [];
     const ownedLabel = ownedRivers.length ? ` · ${ownedRivers.length === 1 ? 'puzzle river' : `${ownedRivers.length} puzzle rivers`}` : '';
-    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}${selectedType === 'river' ? ` · ${selectedRiver.width.toFixed(1)} m` : ''}${ownedLabel}${collisionEnabled ? '' : ' · collision off'}`;
+    const selectedPathHeight = terrainSectionPathHeight(terrainSelectedSectionIndex);
+    if (sectionSelectedBoundsEl) sectionSelectedBoundsEl.textContent = `${terrainSectionBoundsLabel(terrainSelectedSectionIndex)} · ${terrainSectionTypeLabel(terrainSelectedSectionIndex)} · path ${selectedPathHeight >= 0 ? '+' : ''}${selectedPathHeight.toFixed(1)} m${selectedType === 'river' ? ` · ${selectedRiver.width.toFixed(1)} m` : ''}${ownedLabel}${collisionEnabled ? '' : ' · collision off'}`;
+    if (sectionHeightInput && document.activeElement !== sectionHeightInput) sectionHeightInput.value = String(selectedPathHeight);
+    if (sectionHeightNumber && document.activeElement !== sectionHeightNumber) sectionHeightNumber.value = selectedPathHeight.toFixed(1);
+    if (sectionHeightValue) sectionHeightValue.textContent = `${selectedPathHeight >= 0 ? '+' : ''}${selectedPathHeight.toFixed(1)} m`;
+    if (sectionHeightLinkInput) sectionHeightLinkInput.checked = !!terrainHeightLinkSubsequent;
     if (sectionTypeSelect) sectionTypeSelect.value = selectedType;
     if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
@@ -13060,6 +13250,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(sectionPrevBtn, () => selectTerrainSection(terrainSelectedSectionIndex - 1));
   bindEditorPress(sectionNextBtn, () => selectTerrainSection(terrainSelectedSectionIndex + 1));
   bindEditorPress(sectionPlayerBtn, () => selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x)));
+  sectionHeightLinkInput?.addEventListener('change', () => {
+    terrainHeightLinkSubsequent = !!sectionHeightLinkInput.checked;
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  });
+  const commitSelectedSectionHeight = value => {
+    const changed = setTerrainSectionPathHeight(terrainSelectedSectionIndex, Number(value), { linkSubsequent:terrainHeightLinkSubsequent });
+    if (changed) {
+      const h = terrainSectionPathHeight(terrainSelectedSectionIndex);
+      hintEl.textContent = `Section ${terrainSelectedSectionIndex} path height ${h >= 0 ? '+' : ''}${h.toFixed(1)} m${terrainHeightLinkSubsequent ? ' · later sections shifted' : ''}`;
+      hintEl.classList.remove('hidden');
+    }
+  };
+  sectionHeightInput?.addEventListener('input', () => {
+    if (sectionHeightValue) { const h=Number(sectionHeightInput.value)||0; sectionHeightValue.textContent=`${h>=0?'+':''}${h.toFixed(1)} m`; }
+  });
+  sectionHeightInput?.addEventListener('change', () => commitSelectedSectionHeight(sectionHeightInput.value));
+  sectionHeightNumber?.addEventListener('change', () => commitSelectedSectionHeight(sectionHeightNumber.value));
+  bindEditorPress(sectionHeightDownBtn, () => commitSelectedSectionHeight(terrainSectionPathHeight(terrainSelectedSectionIndex) - 0.25));
+  bindEditorPress(sectionHeightUpBtn, () => commitSelectedSectionHeight(terrainSectionPathHeight(terrainSelectedSectionIndex) + 0.25));
   sectionTypeSelect?.addEventListener('change', () => {
     setTerrainSectionType(terrainSelectedSectionIndex, sectionTypeSelect.value);
     hintEl.textContent = `Section ${terrainSelectedSectionIndex} → ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}`;

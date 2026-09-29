@@ -13477,3 +13477,15 @@ body[data-game-id="game-16"].sidescroll-player-mode .sidescroll-tools-grid>.side
 body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-character,
 body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-sound,
 body[data-game-id="game-16"].sidescroll-player-mode #sidescroll-delete-save{display:flex!important;}
+
+/* SideScroll v1.0.75 — section-centre terrain elevation controls. */
+body[data-game-id="game-16"] .sidescroll-section-height-fine{
+  display:grid;grid-template-columns:58px 1fr 58px;gap:6px;align-items:center;margin:5px 0 6px;
+}
+body[data-game-id="game-16"] .sidescroll-section-height-fine button,
+body[data-game-id="game-16"] .sidescroll-section-height-fine input{
+  min-height:30px;border:1px solid rgba(237,244,244,.15);border-radius:8px;background:rgba(255,255,255,.055);color:#edf5f2;
+  font-size:8px;font-weight:900;text-align:center;
+}
+body[data-game-id="game-16"] .sidescroll-section-height-fine input{width:100%;padding:4px 6px;font-variant-numeric:tabular-nums;}
+body[data-game-id="game-16"] #sidescroll-section-height-row{border-color:rgba(126,177,187,.22);background:rgba(88,135,145,.09)}
