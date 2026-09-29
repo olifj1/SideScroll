@@ -1,13 +1,14 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.70';
+  const VERSION = '1.0.73';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
   const MECHANISM_KEY = 'sidescroll.asset-mechanisms.v3';
   const SOCKET_KEY = 'sidescroll.asset-sockets.v1';
   const STATE_KEY = 'sidescroll.asset-states.v1';
+  const CLIMB_PATH_KEY = 'sidescroll.asset-climb-paths.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
   const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','pushable','climbable','socketHost','socketPiece'];
@@ -32,7 +33,7 @@
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-a',label:'Triangle Stone',image:'stone-piece-a.png',height:1.00,behaviour:{carryable:true,placeable:true,socketPiece:true}},
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-b',label:'Arch Stone',image:'stone-piece-b.png',height:1.04,behaviour:{carryable:true,placeable:true,socketPiece:true}},
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-c',label:'Hexagon Stone',image:'stone-piece-c.png',height:1.00,behaviour:{carryable:true,placeable:true,socketPiece:true}},
-    {group:'ENVIRONMENT · MOUNTAIN',scope:'environment',name:'mountain-climb-rock-01',label:'Mountain Climb Rock 01',image:'mountain-climb-rock-01.png',height:3.55,behaviour:{solid:true,supportSurface:true,climbable:true},collision:{halfWidthRatio:0.46,heightRatio:0.72,fixedHeight:null,depthRatio:0.15,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]}},
+    {group:'ENVIRONMENT · MOUNTAIN',scope:'environment',name:'mountain-climb-rock-01',label:'Mountain Climb Rock 01',image:'mountain-climb-rock-01.png',height:3.55,behaviour:{solid:true,supportSurface:true,climbable:true},collision:{halfWidthRatio:0.46,heightRatio:0.72,fixedHeight:null,depthRatio:0.15,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]},climbPaths:[{id:'left',bottom:{x:-0.48,y:0.01},top:{x:-0.39,y:0.72},widthRatio:0.11},{id:'right',bottom:{x:0.48,y:0.01},top:{x:0.39,y:0.72},widthRatio:0.11}]},
     ...Array.from({length:8},(_,i)=>({group:'ENVIRONMENT · TREES',scope:'environment',name:`tree${String(i+1).padStart(2,'0')}`,label:`Tree ${i+1}`,image:`sidescroll-tree-${String(i+1).padStart(2,'0')}.png`,height:8.2,behaviour:{}})),
     ...Array.from({length:12},(_,i)=>({group:'ENVIRONMENT · GROUND',scope:'environment',name:`ground${String(i+1).padStart(2,'0')}`,label:`Ground ${i+1}`,image:`sidescroll-ground-${String(i+1).padStart(2,'0')}.png`,height:0.82,behaviour:{}}))
   ];
@@ -63,6 +64,16 @@
   const collisionAddBoxBtn = document.getElementById('assetlab-collision-add-box');
   const collisionDeleteBoxBtn = document.getElementById('assetlab-collision-delete-box');
   const behavioursEl = document.getElementById('assetlab-behaviours');
+  const climbSection = document.getElementById('assetlab-climb-section');
+  const climbPathSelect = document.getElementById('assetlab-climb-path-select');
+  const climbPathAddBtn = document.getElementById('assetlab-climb-path-add');
+  const climbPathDeleteBtn = document.getElementById('assetlab-climb-path-delete');
+  const climbWidthInput = document.getElementById('assetlab-climb-width');
+  const climbWidthValue = document.getElementById('assetlab-climb-width-value');
+  const climbBottomXInput = document.getElementById('assetlab-climb-bottom-x');
+  const climbBottomYInput = document.getElementById('assetlab-climb-bottom-y');
+  const climbTopXInput = document.getElementById('assetlab-climb-top-x');
+  const climbTopYInput = document.getElementById('assetlab-climb-top-y');
   const resetBtn = document.getElementById('assetlab-reset');
   const fitBtn = document.getElementById('assetlab-fit');
   const referenceBtn = document.getElementById('assetlab-reference');
@@ -125,6 +136,7 @@
   let mechanismStore = readStore(MECHANISM_KEY);
   let socketStore = readStore(SOCKET_KEY);
   let assetStateStore = readStore(STATE_KEY);
+  let climbPathStore = readStore(CLIMB_PATH_KEY);
 
   const DEFAULT_COUNTERWEIGHT = Object.freeze({
     type:'counterweightPlank',
@@ -163,7 +175,7 @@
   const requestedAsset = assetByName(urlParams.get('asset'));
 
   const state = {
-    filter:requestedAsset?.scope || 'puzzle',
+    filter:requestedAsset?.scope || 'all',
     asset:requestedAsset || ASSETS[0],
     showReference:true,
     pairMode:false,
@@ -180,7 +192,9 @@
     viewScale:1,
     render:null,
     socketPlacementMode:false,
-    assetState:'base'
+    assetState:'base',
+    selectedClimbPath:0,
+    draggingClimbHandle:null
   };
 
   const defaultPoints = () => [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}];
@@ -269,7 +283,6 @@
     if (b.supportSurface) b.solid = true;
     if (b.stackable) b.placeable = true;
     if (b.pushable) b.solid = true;
-    if (b.climbable) b.solid = true;
     return b;
   }
 
@@ -280,6 +293,45 @@
   function effectiveBehaviour(asset=state.asset, stateName=null) {
     const profile = stateProfile(asset,stateName);
     return normaliseBehaviour(profile?.behaviour ? profile.behaviour : baseBehaviour(asset));
+  }
+
+  function builtinClimbPaths(asset=state.asset) {
+    return Array.isArray(asset?.climbPaths) ? clone(asset.climbPaths) : [];
+  }
+
+  function genericClimbPath(asset=state.asset) {
+    return { id:`path-${Date.now()}`, bottom:{x:0,y:0.02}, top:{x:0,y:0.92}, widthRatio:0.12 };
+  }
+
+  function effectiveClimbPaths(asset=state.asset) {
+    if (!asset) return [];
+    if (Object.prototype.hasOwnProperty.call(climbPathStore,asset.name)) {
+      const stored=climbPathStore[asset.name];
+      return Array.isArray(stored) ? clone(stored) : [];
+    }
+    return builtinClimbPaths(asset);
+  }
+
+  function writeClimbPaths(asset,paths,{persist=true}={}) {
+    if(!asset) return;
+    climbPathStore[asset.name]=clone(Array.isArray(paths)?paths:[]);
+    if(persist) writeStore(CLIMB_PATH_KEY,climbPathStore);
+  }
+
+  function ensureClimbPath(asset=state.asset) {
+    let paths=effectiveClimbPaths(asset);
+    if(paths.length) return paths;
+    paths=[genericClimbPath(asset)];
+    writeClimbPaths(asset,paths);
+    state.selectedClimbPath=0;
+    return paths;
+  }
+
+  function selectedClimbPath(asset=state.asset) {
+    const paths=effectiveClimbPaths(asset);
+    if(!paths.length) return null;
+    state.selectedClimbPath=clamp(state.selectedClimbPath,0,paths.length-1);
+    return paths[state.selectedClimbPath] || null;
   }
 
   function baseHeight(asset=state.asset) {
@@ -327,7 +379,7 @@
   }
 
   function behaviourNeedsCollision(behaviour) {
-    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable || behaviour?.climbable);
+    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
   }
   function assetAspect(asset=state.asset) {
     const image=ensureImage(asset);
@@ -704,14 +756,14 @@
 
   function changeAssetState(name) {
     state.assetState=name;
-    state.draggingHandle=-1;state.draggingEdge=null;state.selectedPoint=-1;state.selectedEdge=-1;state.selectedShape=0;
+    state.draggingHandle=-1;state.draggingEdge=null;state.selectedPoint=-1;state.selectedEdge=-1;state.selectedShape=0;state.selectedClimbPath=0;state.draggingClimbHandle=null;
     syncControls();buildList();
   }
 
   function buildList() {
     listEl.innerHTML='';
     let group='';
-    for (const asset of ASSETS.filter(a=>a.scope===state.filter)) {
+    for (const asset of ASSETS.filter(a=>state.filter==='all' || a.scope===state.filter)) {
       if (asset.group!==group) {
         group=asset.group;
         const h=document.createElement('div');h.className='assetlab-group-label';h.textContent=group;listEl.appendChild(h);
@@ -746,6 +798,8 @@
     state.selectedPoint=-1;
     state.selectedEdge=-1;
     state.selectedShape=0;
+    state.selectedClimbPath=0;
+    state.draggingClimbHandle=null;
     if(!keepView){ state.panX=0; state.panY=0; state.viewScale=1; }
     ensureImage(asset);
     if(state.pairMode&&isBridge(asset)) BRIDGE_NAMES.forEach(name=>ensureImage(assetByName(name)));
@@ -784,6 +838,7 @@
       depthInput.value=String(clamp(depth,.15,2.5)); depthValue.textContent=`${depth.toFixed(2)} m`;
     }
     renderPointEditor();
+    renderClimbControls();
     renderBehaviours();
     syncMechanismControls();
     syncSocketControls();
@@ -830,6 +885,141 @@
     fallTipValue.textContent = `${Math.round(mech.fallAngleDeg)}°`;
   }
 
+  function climbLocalPointToWorld(asset,point) {
+    const visual=effectiveVisual(asset);
+    const floor=effectiveGroundLine(asset);
+    const width=assetWorldWidth(asset);
+    const height=effectiveHeight(asset);
+    const pivotY=-floor*height+visual.y;
+    let lx=(Number(point?.x)||0)*width;
+    const ly=(Number(point?.y)||0)*height;
+    if(visual.flip) lx=-lx;
+    const a=visual.deg*Math.PI/180,c=Math.cos(a),sn=Math.sin(a);
+    return {
+      x:visual.x+lx*c-ly*sn,
+      y:pivotY+lx*sn+ly*c
+    };
+  }
+
+  function climbWorldPointToLocal(asset,x,y) {
+    const visual=effectiveVisual(asset);
+    const floor=effectiveGroundLine(asset);
+    const width=Math.max(.001,assetWorldWidth(asset));
+    const height=Math.max(.001,effectiveHeight(asset));
+    const pivotY=-floor*height+visual.y;
+    const dx=x-visual.x,dy=y-pivotY;
+    const a=-visual.deg*Math.PI/180,c=Math.cos(a),sn=Math.sin(a);
+    let lx=dx*c-dy*sn;
+    const ly=dx*sn+dy*c;
+    if(visual.flip) lx=-lx;
+    return {x:lx/width,y:ly/height};
+  }
+
+  function climbPathWorldGeometry(asset=state.asset,path=null) {
+    const chosen=path || selectedClimbPath(asset);
+    if(!chosen) return null;
+    const bottom=climbLocalPointToWorld(asset,chosen.bottom||{x:0,y:0});
+    const top=climbLocalPointToWorld(asset,chosen.top||{x:0,y:1});
+    const width=Math.max(.12,(Number(chosen.widthRatio)||.12)*assetWorldWidth(asset));
+    return {bottom,top,width};
+  }
+
+  function climbPathMetrePoint(asset,point) {
+    return {
+      x:(Number(point?.x)||0)*assetWorldWidth(asset),
+      y:(Number(point?.y)||0)*effectiveHeight(asset)
+    };
+  }
+
+  function metrePointToClimbLocal(asset,x,y) {
+    return {
+      x:(Number(x)||0)/Math.max(.001,assetWorldWidth(asset)),
+      y:(Number(y)||0)/Math.max(.001,effectiveHeight(asset))
+    };
+  }
+
+  function renderClimbControls() {
+    if(!climbSection) return;
+    const behaviour=effectiveBehaviour();
+    const paths=effectiveClimbPaths();
+    const visible=!!behaviour.climbable || paths.length>0;
+    climbSection.hidden=!visible;
+    if(!visible) return;
+    state.selectedClimbPath=clamp(state.selectedClimbPath,0,Math.max(0,paths.length-1));
+    if(climbPathSelect){
+      climbPathSelect.innerHTML='';
+      paths.forEach((path,index)=>{
+        const option=document.createElement('option');
+        option.value=String(index);
+        option.textContent=`Path ${index+1}${path?.id?` · ${path.id}`:''}`;
+        climbPathSelect.appendChild(option);
+      });
+      if(paths.length) climbPathSelect.value=String(state.selectedClimbPath);
+      climbPathSelect.disabled=!paths.length;
+    }
+    if(climbPathDeleteBtn) climbPathDeleteBtn.disabled=!paths.length;
+    const path=paths[state.selectedClimbPath]||null;
+    const controls=[climbWidthInput,climbBottomXInput,climbBottomYInput,climbTopXInput,climbTopYInput];
+    controls.forEach(control=>{if(control)control.disabled=!path;});
+    if(!path){
+      if(climbWidthValue) climbWidthValue.textContent='—';
+      return;
+    }
+    const width=Math.max(.12,(Number(path.widthRatio)||.12)*assetWorldWidth());
+    if(climbWidthInput) climbWidthInput.value=String(clamp(width,.20,2.50));
+    if(climbWidthValue) climbWidthValue.textContent=`${width.toFixed(2)} m`;
+    const bottom=climbPathMetrePoint(state.asset,path.bottom);
+    const top=climbPathMetrePoint(state.asset,path.top);
+    if(climbBottomXInput && document.activeElement!==climbBottomXInput) climbBottomXInput.value=bottom.x.toFixed(2);
+    if(climbBottomYInput && document.activeElement!==climbBottomYInput) climbBottomYInput.value=bottom.y.toFixed(2);
+    if(climbTopXInput && document.activeElement!==climbTopXInput) climbTopXInput.value=top.x.toFixed(2);
+    if(climbTopYInput && document.activeElement!==climbTopYInput) climbTopYInput.value=top.y.toFixed(2);
+  }
+
+  function addClimbPath() {
+    const paths=effectiveClimbPaths();
+    const path=genericClimbPath();
+    path.id=`path-${paths.length+1}`;
+    paths.push(path);
+    writeClimbPaths(state.asset,paths);
+    state.selectedClimbPath=paths.length-1;
+    if(!effectiveBehaviour().climbable) setBehaviour('climbable',true);
+    else { renderClimbControls(); buildList(); draw(); }
+  }
+
+  function deleteClimbPath() {
+    const paths=effectiveClimbPaths();
+    if(!paths.length) return;
+    paths.splice(clamp(state.selectedClimbPath,0,paths.length-1),1);
+    writeClimbPaths(state.asset,paths);
+    state.selectedClimbPath=clamp(state.selectedClimbPath,0,Math.max(0,paths.length-1));
+    renderClimbControls(); buildList(); draw();
+  }
+
+  function updateSelectedClimbPath(mutator,{persist=true}={}) {
+    const paths=effectiveClimbPaths();
+    if(!paths.length) return;
+    const index=clamp(state.selectedClimbPath,0,paths.length-1);
+    const path=clone(paths[index]);
+    mutator(path);
+    path.bottom ||= {x:0,y:0};
+    path.top ||= {x:0,y:1};
+    path.widthRatio=clamp(Number(path.widthRatio)||.12,.02,.60);
+    paths[index]=path;
+    writeClimbPaths(state.asset,paths,{persist});
+    renderClimbControls();
+    draw();
+  }
+
+  function commitClimbEndpointInput(which,axis,input) {
+    const value=Number(input?.value); if(!Number.isFinite(value)) return;
+    updateSelectedClimbPath(path=>{
+      const current=climbPathMetrePoint(state.asset,path[which]);
+      current[axis]=clamp(value,-20,20);
+      path[which]=metrePointToClimbLocal(state.asset,current.x,current.y);
+    });
+  }
+
   function renderBehaviours() {
     behavioursEl.innerHTML='';
     const behaviour=effectiveBehaviour();
@@ -840,7 +1030,7 @@
       ['placeable','Placeable','A carried copy can be put back down.'],
       ['stackable','Stackable','May settle onto other support surfaces.'],
       ['pushable','Pushable','ACTION grips the object and walking into it moves the object.'],
-      ['climbable','Climbable','ACTION can use the collision side as a prototype climb route.'],
+      ['climbable','Climbable','ACTION can use authored Climb Paths. Collision is independent and optional.'],
       ['socketHost','Socket Host','Can contain authored sockets.'],
       ['socketPiece','Socket Piece','Can be assigned to an authored socket.']
     ];
@@ -859,12 +1049,12 @@
     if(key==='supportSurface'&&enabled)next.solid=true;
     if(key==='stackable'&&enabled)next.placeable=true;
     if(key==='pushable'&&enabled)next.solid=true;
-    if(key==='climbable'&&enabled)next.solid=true;
     const packed=Object.fromEntries(behaviourKeys.map(k=>[k,!!next[k]]));
     const profile=stateProfile();
     if(profile){ profile.behaviour=packed; writeStateStore(); }
     else { behaviourStore[state.asset.name]=packed; writeStore(BEHAVIOUR_KEY,behaviourStore); }
-    renderBehaviours(); buildList(); draw();
+    if(key==='climbable'&&enabled&&!effectiveClimbPaths().length) ensureClimbPath();
+    renderClimbControls(); renderBehaviours(); buildList(); draw();
   }
 
   function ensureCustomCollision(asset=state.asset) {
@@ -940,8 +1130,8 @@
       }
       writeStateStore();
     } else {
-      delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name]; delete mechanismStore[state.asset.name]; delete socketStore[state.asset.name];
-      writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore); writeStore(MECHANISM_KEY,mechanismStore); writeStore(SOCKET_KEY,socketStore);
+      delete behaviourStore[state.asset.name]; delete collisionStore[state.asset.name]; delete layoutStore[state.asset.name]; delete mechanismStore[state.asset.name]; delete socketStore[state.asset.name]; delete climbPathStore[state.asset.name];
+      writeStore(BEHAVIOUR_KEY,behaviourStore); writeStore(COLLISION_KEY,collisionStore); writeStore(LAYOUT_KEY,layoutStore); writeStore(MECHANISM_KEY,mechanismStore); writeStore(SOCKET_KEY,socketStore); writeStore(CLIMB_PATH_KEY,climbPathStore);
     }
     state.selectedPoint=-1; state.selectedEdge=-1; state.selectedShape=0; syncControls(); buildList();
   }
@@ -1208,6 +1398,62 @@
     ctx.restore();
   }
 
+  function climbPathScreenGeometry(r,asset=state.asset,path=null,index=0) {
+    const ar=r.assetRenders[asset?.name];
+    const geo=climbPathWorldGeometry(asset,path);
+    if(!ar||!geo) return null;
+    const bottom={x:ar.centerX+geo.bottom.x*r.ppm,y:r.groundY-geo.bottom.y*r.ppm};
+    const top={x:ar.centerX+geo.top.x*r.ppm,y:r.groundY-geo.top.y*r.ppm};
+    const dx=top.x-bottom.x,dy=top.y-bottom.y;
+    const len=Math.max(.001,Math.hypot(dx,dy));
+    const nx=-dy/len,ny=dx/len;
+    const half=Math.max(7,geo.width*r.ppm*.5);
+    const center={x:(bottom.x+top.x)*.5,y:(bottom.y+top.y)*.5};
+    const widthHandle={x:center.x+nx*half,y:center.y+ny*half};
+    const corners=[
+      {x:bottom.x+nx*half,y:bottom.y+ny*half},
+      {x:top.x+nx*half,y:top.y+ny*half},
+      {x:top.x-nx*half,y:top.y-ny*half},
+      {x:bottom.x-nx*half,y:bottom.y-ny*half}
+    ];
+    return {asset,path,index,bottom,top,center,widthHandle,corners,nx,ny,half};
+  }
+
+  function drawClimbPaths(r,asset=state.asset,active=true) {
+    const paths=effectiveClimbPaths(asset);
+    if(!paths.length) return;
+    paths.forEach((path,index)=>{
+      const g=climbPathScreenGeometry(r,asset,path,index); if(!g)return;
+      const selected=active && index===state.selectedClimbPath;
+      ctx.save();
+      ctx.globalAlpha=active?(selected?1:.48):.28;
+      ctx.fillStyle=selected?'rgba(91,217,236,.20)':'rgba(91,217,236,.10)';
+      ctx.strokeStyle=selected?'#76e8f4':'rgba(118,232,244,.72)';
+      ctx.lineWidth=selected?2.4:1.4;
+      ctx.setLineDash(selected?[]:[6,4]);
+      ctx.beginPath();ctx.moveTo(g.corners[0].x,g.corners[0].y);for(let i=1;i<g.corners.length;i++)ctx.lineTo(g.corners[i].x,g.corners[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
+      ctx.strokeStyle='rgba(180,250,255,.92)';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(g.bottom.x,g.bottom.y);ctx.lineTo(g.top.x,g.top.y);ctx.stroke();
+      if(selected){
+        const handles=[
+          ['bottom',g.bottom,'#7cf0a0'],
+          ['top',g.top,'#76e8f4'],
+          ['center',g.center,'#f1f7f5'],
+          ['width',g.widthHandle,'#ff6cae']
+        ];
+        for(const [kind,pt,color] of handles){
+          const dragging=state.draggingClimbHandle?.kind===kind && state.draggingClimbHandle?.index===index;
+          ctx.beginPath();ctx.arc(pt.x,pt.y,dragging?9:7,0,Math.PI*2);ctx.fillStyle=color;ctx.strokeStyle='#203037';ctx.lineWidth=2;ctx.fill();ctx.stroke();
+        }
+        const label=`CLIMB PATH ${index+1}`;
+        ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';
+        const tw=ctx.measureText(label).width+12;
+        const lx=g.center.x-tw*.5,ly=Math.min(g.bottom.y,g.top.y)-23;
+        ctx.fillStyle='rgba(14,27,33,.82)';ctx.fillRect(lx,ly,tw,17);ctx.fillStyle='#c9faff';ctx.fillText(label,lx+6,ly+12);
+      }
+      ctx.restore();
+    });
+  }
+
   function draw() {
     if(!canvas.clientWidth||!canvas.clientHeight)return;
     const r=computeRender(); drawGrid(r);
@@ -1251,6 +1497,7 @@
     if (isCounterweightPlank(state.asset)) drawMechanismOverlay(r,state.asset);
     drawAssetSockets(r);
     for(const asset of r.assets) drawCollision(r,asset,asset.name===state.asset.name);
+    for(const asset of r.assets) drawClimbPaths(r,asset,asset.name===state.asset.name);
 
     ctx.save(); ctx.fillStyle='rgba(238,243,241,.45)'; ctx.font='700 11px -apple-system,BlinkMacSystemFont,sans-serif'; const metres=Math.max(1,Math.floor(100/r.ppm)); const px=metres*r.ppm; const x=18,y=r.h-22; ctx.fillRect(x,y,px,2); ctx.fillText(`${metres} m`,x,y-7); ctx.restore();
   }
@@ -1261,6 +1508,29 @@
     if(len2<=.0001)return Math.hypot(p.x-a.x,p.y-a.y);
     const t=clamp((wx*vx+wy*vy)/len2,0,1); const x=a.x+t*vx,y=a.y+t*vy; return Math.hypot(p.x-x,p.y-y);
   }
+  function climbScreenPointToLocal(asset,p,r) {
+    const ar=r.assetRenders[asset?.name];
+    if(!ar) return {x:0,y:0};
+    const wx=(p.x-ar.centerX)/r.ppm;
+    const wy=(r.groundY-p.y)/r.ppm;
+    return climbWorldPointToLocal(asset,wx,wy);
+  }
+
+  function pickClimbHandleAt(p,r) {
+    const paths=effectiveClimbPaths(state.asset);
+    let stripHit=null;
+    for(let index=paths.length-1;index>=0;index--){
+      const g=climbPathScreenGeometry(r,state.asset,paths[index],index); if(!g)continue;
+      const handles=[['bottom',g.bottom],['top',g.top],['width',g.widthHandle],['center',g.center]];
+      for(const [kind,pt] of handles){
+        if(Math.hypot(pt.x-p.x,pt.y-p.y)<=18) return {kind,index,geometry:g};
+      }
+      const d=distanceToSegment(p,g.bottom,g.top);
+      if(d<=g.half+8&&!stripHit) stripHit={kind:'center',index,geometry:g};
+    }
+    return stripHit;
+  }
+
   function pickHandleAt(p,r) {
     const assets=[state.asset,...r.assets.filter(a=>a.name!==state.asset.name)];
     for(const asset of assets){
@@ -1295,6 +1565,15 @@
       }
       return;
     }
+    const climbHandle=pickClimbHandleAt(p,r);
+    if(climbHandle){
+      state.selectedClimbPath=climbHandle.index;
+      const paths=effectiveClimbPaths();
+      const local=climbScreenPointToLocal(state.asset,p,r);
+      state.draggingClimbHandle={kind:climbHandle.kind,index:climbHandle.index,startLocal:local,startPaths:clone(paths)};
+      state.selectedPoint=-1;state.selectedEdge=-1;
+      canvas.setPointerCapture(e.pointerId);renderClimbControls();draw();return;
+    }
     const handle=pickHandleAt(p,r);
     if(handle){
       if(handle.asset.name!==state.asset.name) selectAsset(handle.asset,{keepView:true});
@@ -1320,6 +1599,27 @@
 
   canvas.addEventListener('pointermove',e=>{
     const p=pointerPos(e); const r=state.render||computeRender();
+    if(state.draggingClimbHandle){
+      const drag=state.draggingClimbHandle;
+      const current=climbScreenPointToLocal(state.asset,p,r);
+      const paths=clone(drag.startPaths);
+      const path=paths[drag.index]; if(!path)return;
+      if(drag.kind==='bottom') path.bottom={x:clamp(current.x,-1.5,1.5),y:clamp(current.y,-1,2)};
+      else if(drag.kind==='top') path.top={x:clamp(current.x,-1.5,1.5),y:clamp(current.y,-1,2)};
+      else if(drag.kind==='center') {
+        const dx=current.x-drag.startLocal.x,dy=current.y-drag.startLocal.y;
+        path.bottom={x:clamp((Number(path.bottom?.x)||0)+dx,-1.5,1.5),y:clamp((Number(path.bottom?.y)||0)+dy,-1,2)};
+        path.top={x:clamp((Number(path.top?.x)||0)+dx,-1.5,1.5),y:clamp((Number(path.top?.y)||0)+dy,-1,2)};
+      } else if(drag.kind==='width') {
+        const g=climbPathScreenGeometry(r,state.asset,path,drag.index);
+        if(g){
+          const widthMeters=clamp(2*distanceToSegment(p,g.bottom,g.top)/r.ppm,.20,2.50);
+          path.widthRatio=widthMeters/Math.max(.001,assetWorldWidth());
+        }
+      }
+      climbPathStore[state.asset.name]=paths;
+      renderClimbControls();draw();return;
+    }
     if(state.draggingHandle>=0){
       const ar=r.assetRenders[state.asset.name]; if(!ar)return;
       const wx=(p.x-ar.centerX)/r.ppm, wy=(r.groundY-p.y)/r.ppm;
@@ -1344,9 +1644,11 @@
   });
 
   function finishPointer(){
-    const changed=state.draggingHandle>=0||!!state.draggingEdge;
-    state.draggingHandle=-1; state.draggingEdge=null; state.panning=false; state.pointerStart=null; state.panStart=null;
-    if(changed){ if(stateProfile()) writeStateStore(); else writeStore(COLLISION_KEY,collisionStore); buildList();renderPointEditor();}
+    const collisionChanged=state.draggingHandle>=0||!!state.draggingEdge;
+    const climbChanged=!!state.draggingClimbHandle;
+    state.draggingHandle=-1; state.draggingEdge=null; state.draggingClimbHandle=null; state.panning=false; state.pointerStart=null; state.panStart=null;
+    if(collisionChanged){ if(stateProfile()) writeStateStore(); else writeStore(COLLISION_KEY,collisionStore); buildList();renderPointEditor(); }
+    if(climbChanged){ writeStore(CLIMB_PATH_KEY,climbPathStore); buildList();renderClimbControls(); }
     draw();
   }
   canvas.addEventListener('pointerup',finishPointer); canvas.addEventListener('pointercancel',finishPointer);
@@ -1393,6 +1695,17 @@
       writeStateStore(); syncStateControls(); draw();
     });
   }
+  climbPathSelect?.addEventListener('change',()=>{state.selectedClimbPath=clamp(Number(climbPathSelect.value)||0,0,99);renderClimbControls();draw();});
+  climbPathAddBtn?.addEventListener('click',addClimbPath);
+  climbPathDeleteBtn?.addEventListener('click',deleteClimbPath);
+  climbWidthInput?.addEventListener('input',()=>{
+    const width=clamp(Number(climbWidthInput.value)||.70,.20,2.50);
+    updateSelectedClimbPath(path=>{path.widthRatio=width/Math.max(.001,assetWorldWidth());});
+  });
+  climbBottomXInput?.addEventListener('change',()=>commitClimbEndpointInput('bottom','x',climbBottomXInput));
+  climbBottomYInput?.addEventListener('change',()=>commitClimbEndpointInput('bottom','y',climbBottomYInput));
+  climbTopXInput?.addEventListener('change',()=>commitClimbEndpointInput('top','x',climbTopXInput));
+  climbTopYInput?.addEventListener('change',()=>commitClimbEndpointInput('top','y',climbTopYInput));
   collisionShapeSelect?.addEventListener('change',()=>{state.selectedShape=clamp(Number(collisionShapeSelect.value)||0,0,99);state.selectedPoint=-1;state.selectedEdge=-1;renderPointEditor();draw();});
   collisionAddBoxBtn?.addEventListener('click',addCollisionBox);
   collisionDeleteBoxBtn?.addEventListener('click',deleteCollisionBox);
@@ -1486,7 +1799,7 @@
 
   filterButtons.forEach(button=>button.addEventListener('click',()=>{
     state.filter=button.dataset.filter; filterButtons.forEach(b=>b.classList.toggle('active',b===button));
-    const candidate=ASSETS.find(a=>a.scope===state.filter); if(candidate)selectAsset(candidate); else buildList();
+    const candidate=state.filter==='all' ? ASSETS[0] : ASSETS.find(a=>a.scope===state.filter); if(candidate)selectAsset(candidate); else buildList();
   }));
   window.addEventListener('resize',resize,{passive:true});
   window.addEventListener('orientationchange',settleViewport,{passive:true});

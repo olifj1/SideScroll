@@ -4,7 +4,7 @@
   "project": "SideScroll",
   "title": "Living Game Design Document",
   "baselineBuild": "SideScroll v1.0.62 + recovery / bridge-alignment patches",
-  "updated": "2026-09-28",
+  "updated": "2026-09-29",
   "description": "Living SideScroll game design document. v0.4 develops Aureli’s proposed ending: the central terraforming control interface, biological compatibility with the intended creators, maintenance mode, and working explanations for why the Darkness collects living things.",
   "sections": [
     {
@@ -2244,7 +2244,27 @@
             "mountain"
           ],
           "body": "[ ] Introduce Climb as the next major traversal mechanic, strongly associated with mountain progression but reusable elsewhere.\n\nTarget vocabulary: grab, hang, shimmy, climb up, drop and jump from ledge; possibly vertical climb surfaces later. Use a clear authored visual/gameplay language rather than making every surface climbable.\n\nClimbing should create puzzle possibilities, not turn the game into a twitch platformer.",
-          "children": [],
+          "children": [
+            {
+              "id": "techq-climb-path-controller-20260929",
+              "title": "Climb Path controller — invisible ladder",
+              "status": "CURRENT",
+              "implementation": "PARTIAL",
+              "tags": [
+                "climbing",
+                "asset-lab",
+                "controller",
+                "traversal",
+                "ladder"
+              ],
+              "body": "The first climbing prototype originally inferred climbable faces from solid collision. That coupling was deliberately replaced with an authored **Climb Path** controller.\n\nA Climb Path is an invisible ladder attached to an asset. It has independent bottom/top endpoints and width, follows asset placement/flip/rotation, and is edited visually in Asset Lab. Dragging the endpoints resizes/rotates the path; dragging the centre moves it; a side handle changes width. Assets may own multiple paths.\n\n**Collision and climbing are now separate responsibilities.** A rock may remain Solid + Support Surface while its climb route is authored independently. A visible ladder, vine or pipe may be Climbable with no Solid collision at all, allowing the player to walk past it and choose ACTION to climb.\n\nv1 scope remains an automatic traversal along the path, with the temporary procedural climbing pose. Later Anim Lab work can replace this with authored climb/hang/mantle animation and hand/foot targeting without changing the path data model.",
+              "children": [],
+              "related": [
+                "techq-climb-prototype-20260928",
+                "techq-11-anim-lab"
+              ]
+            }
+          ],
           "related": [
             "techq-09-mountain-biome",
             "techq-11-anim-lab"

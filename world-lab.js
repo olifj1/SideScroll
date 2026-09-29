@@ -500,9 +500,11 @@
 
   function playFromHere(){
     const x=round(state.playheadX,3);
+    if(!Number.isFinite(x)){toast('Choose a valid playhead position first.');return;}
     const saved=loadJson(STORAGE.player,{});
     saveJson(STORAGE.player,{...saved,x,facing:saved?.facing===-1?-1:1,savedAt:Date.now(),source:'world-lab'});
-    location.href=`play.html?mode=player&worldX=${encodeURIComponent(x)}&from=world-lab`;
+    // replace() avoids leaving a broken transient launch URL in the back stack.
+    location.replace(`play.html?mode=player&worldX=${encodeURIComponent(x)}&from=world-lab`);
   }
 
   function bindDraggable(node,ref){

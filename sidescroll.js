@@ -25,6 +25,7 @@
   const puzzleLabMarker = { id:PUZZLE_LAB_MARKER_ID, group:PUZZLE_LAB_GROUP_ID, x:PUZZLE_LAB_MARKER_X, lab:true, linkMode:'copy' };
   const WORLD_LAB_JUMP_RAW = queryParams.get('worldX');
   const WORLD_LAB_JUMP_X = WORLD_LAB_JUMP_RAW === null || WORLD_LAB_JUMP_RAW === '' ? NaN : Number(WORLD_LAB_JUMP_RAW);
+  const WORLD_LAB_LAUNCH = queryParams.get('from') === 'world-lab' && Number.isFinite(WORLD_LAB_JUMP_X);
   const WORLD_LAB_PENDING_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-puzzle-moves.v1';
   const BAKED_GAME_DESIGN = window.SIDESCROLL_BAKED_GAME_DESIGN || null;
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
@@ -2543,6 +2544,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const SCENE_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.scene.v1' : 'sidescroll.scene.v1';
   const ASSET_BEHAVIOUR_STORAGE_KEY = 'sidescroll.asset-behaviours.v1';
   const ASSET_COLLISION_STORAGE_KEY = 'sidescroll.asset-collisions.v1';
+  const ASSET_CLIMB_PATH_STORAGE_KEY = 'sidescroll.asset-climb-paths.v1';
   const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v3';
   const ASSET_SOCKET_STORAGE_KEY = 'sidescroll.asset-sockets.v1';
   const ASSET_STATE_STORAGE_KEY = 'sidescroll.asset-states.v1';
@@ -2591,7 +2593,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     { key:'supportSurface', label:'Support Surface', description:'The top of its collision can support the player and stackable props.' },
     { key:'stackable', label:'Stackable', description:'This asset may settle onto a support surface when placed.' },
     { key:'pushable', label:'Pushable', description:'ACTION can grip this large object and walking into it moves the object instead of carrying it.' },
-    { key:'climbable', label:'Climbable', description:'ACTION can use this asset\'s collision side as a prototype climb route.' },
+    { key:'climbable', label:'Climbable', description:'ACTION can use authored Climb Paths. Collision is independent and optional.' },
     { key:'socketHost', label:'Socket Host', description:'Allows socket-piece targets to be authored directly onto this asset.' },
     { key:'socketPiece', label:'Socket Piece', description:'Allows an individual puzzle piece to be linked to a matching authored socket.' }
   ];
@@ -2946,6 +2948,43 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   })();
 
 
+  const BUILTIN_ASSET_CLIMB_PATHS = Object.freeze({
+    'mountain-climb-rock-01': [
+      { id:'left', bottom:{x:-0.48,y:0.01}, top:{x:-0.39,y:0.72}, widthRatio:0.11 },
+      { id:'right', bottom:{x:0.48,y:0.01}, top:{x:0.39,y:0.72}, widthRatio:0.11 }
+    ]
+  });
+
+  let assetClimbPathOverrides = (() => {
+    try {
+      const raw = localStorage.getItem(ASSET_CLIMB_PATH_STORAGE_KEY);
+      if (raw !== null) {
+        const parsed = JSON.parse(raw || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      }
+    } catch (_) {}
+    return JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.assets?.climbPaths || {}));
+  })();
+
+  function cloneClimbPaths(paths) {
+    return Array.isArray(paths) ? JSON.parse(JSON.stringify(paths)) : [];
+  }
+
+  function genericAssetClimbPath() {
+    return { id:'path-1', bottom:{x:0,y:0.02}, top:{x:0,y:0.92}, widthRatio:0.12 };
+  }
+
+  function assetClimbPaths(assetName) {
+    const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    if (Object.prototype.hasOwnProperty.call(assetClimbPathOverrides,settingsName)) return cloneClimbPaths(assetClimbPathOverrides[settingsName]);
+    return cloneClimbPaths(BUILTIN_ASSET_CLIMB_PATHS[settingsName]);
+  }
+
+  function saveAssetClimbPaths() {
+    try { localStorage.setItem(ASSET_CLIMB_PATH_STORAGE_KEY, JSON.stringify(assetClimbPathOverrides)); } catch (_) {}
+  }
+
+
   // The cart collider deliberately ignores the long handles and follows the
   // box + low end steps. This lets the player reach a handle to start pushing,
   // and gives both ends a climbable profile rather than one tall rectangle.
@@ -3032,7 +3071,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (merged.supportSurface) merged.solid = true;
     if (merged.stackable) merged.placeable = true;
     if (merged.pushable) merged.solid = true;
-    if (merged.climbable) merged.solid = true;
     return merged;
   }
 
@@ -3157,7 +3195,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (merged.supportSurface) merged.solid = true;
     if (merged.stackable) merged.placeable = true;
     if (merged.pushable) merged.solid = true;
-    if (merged.climbable) merged.solid = true;
     return merged;
   }
 
@@ -3273,7 +3310,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function behaviourNeedsCollision(behaviour) {
-    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable || behaviour?.climbable);
+    return !!(behaviour?.solid || behaviour?.carryable || behaviour?.supportSurface || behaviour?.stackable || behaviour?.pushable);
   }
 
   function behaviourCollisionFor(assetName, width, height, existing = null, stateName = null) {
@@ -6207,10 +6244,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (Number.isFinite(WORLD_LAB_JUMP_X)) {
         character.x = WORLD_LAB_JUMP_X;
         character.lastFacing = saved?.facing === -1 ? -1 : 1;
-        character.y = playSurfaceYAt(character.x);
+        const requestedY = playSurfaceYAt(character.x);
+        character.y = Number.isFinite(requestedY) ? requestedY : pathGroundYAt(character.x, pathZ);
         camera.x = character.x - character.screenOffsetX;
         previousCameraX = camera.x;
         updatePuzzleStreaming(character.x);
+        if (statusEl) statusEl.textContent = `World Lab test · ${character.x.toFixed(1)} m`;
         localStorage.setItem(PLAYER_POSITION_STORAGE_KEY, JSON.stringify({ x:character.x, facing:character.lastFacing, savedAt:Date.now(), source:'world-lab' }));
         return;
       }
@@ -6332,39 +6371,48 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let interactionState = null; // { type:'pickup'|'drop', time, duration, object, startX, startY, targetX, targetY }
   let autoDropStep = null; // short authored forward stack assist or backward ground-drop shuffle
 
-  // v1.0.67 climb prototype -------------------------------------------------
-  // Climbing deliberately begins as a very small system: a Climbable asset uses
-  // the two vertical sides of its authored collision as action zones. ACTION at
-  // the base climbs to the support surface; ACTION near a top edge climbs down.
-  // The traversal is authored/automatic for this prototype so we can first test
-  // whether a flat scenic rock + invisible gameplay geometry looks convincing.
+  // v1.0.73 climb-path controller -------------------------------------------
+  // Climbing no longer infers a route from collision geometry. A Climbable
+  // asset owns one or more independent, invisible Climb Paths: effectively
+  // ladders that may sit over rock, a real ladder sprite, vines, pipes, etc.
+  // Collision is optional, so a ladder may be walked past while still offering
+  // an ACTION climb. The path endpoints are authored in Asset Lab and follow
+  // the asset's placement, flip and visual rotation.
   const CLIMB_ACTION_RANGE = 0.82;
   const CLIMB_VERTICAL_SPEED = 1.45;
-  const CLIMB_MANTLE_FRACTION = 0.20;
+  const CLIMB_ENTRY_FRACTION = 0.14;
+  const CLIMB_SUPPORT_TOLERANCE = 0.72;
   let climbState = null;
 
-  function climbFacesFor(obj) {
-    if (!obj?.collision || !objectHasBehaviour(obj,'climbable')) return [];
-    const aroundX = character?.x ?? camera.x;
-    const centreX = objectXNear(obj, aroundX);
-    const halfWidth = Math.max(0.12, Number(obj.collision.halfWidth) || Math.abs(obj.sx) * 0.46);
-    const capsule = colliderWorld();
-    const bodyClearance = capsule.radius + 0.10;
-    const mantleInset = capsule.radius + 0.18;
-    const faces = [];
-    for (const side of [-1, 1]) {
-      const faceX = centreX + side * halfWidth;
-      const outsideX = faceX + side * bodyClearance;
-      const topX = faceX - side * mantleInset;
-      const topSampleX = faceX - side * Math.max(0.08, capsule.radius * 0.35);
-      const topY = collisionTopHeightAtX(obj, topSampleX);
-      if (!Number.isFinite(topY)) continue;
-      faces.push({
-        obj, side, centreX, faceX, outsideX, topX, topY,
-        bottomY:playSurfaceYAt(outsideX)
-      });
-    }
-    return faces;
+  function climbPathPointWorld(obj, point, aroundX = obj.x) {
+    if (!obj || !point) return null;
+    const visual = assetVisualTransform(obj.assetName,obj.assetState);
+    const visualAngle = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0);
+    const visualFlip = objectVisualFlip(obj);
+    let lx = (Number(point.x) || 0) * (Number(obj.sx) || 1);
+    const ly = (Number(point.y) || 0) * (Number(obj.sy) || 1);
+    if (visualFlip) lx = -lx;
+    const c = Math.cos(visualAngle), sn = Math.sin(visualAngle);
+    const pivotX = aroundX + (Number(visual.offsetX) || 0);
+    const pivotY = obj.y + (Number(visual.offsetY) || 0);
+    return {
+      x:pivotX + lx*c - ly*sn,
+      y:pivotY + lx*sn + ly*c
+    };
+  }
+
+  function climbPathWorldGeometries(obj, aroundX = obj?.x) {
+    if (!obj || !objectHasBehaviour(obj,'climbable')) return [];
+    const paths = assetClimbPaths(obj.assetName);
+    return paths.map((path,index) => {
+      const bottom = climbPathPointWorld(obj,path?.bottom || {x:0,y:0},aroundX);
+      const top = climbPathPointWorld(obj,path?.top || {x:0,y:1},aroundX);
+      if (!bottom || !top) return null;
+      const width = Math.max(0.16,(Number(path?.widthRatio) || 0.12) * Math.max(0.001,Math.abs(Number(obj.sx) || 1)));
+      const dx=top.x-bottom.x,dy=top.y-bottom.y;
+      const length=Math.max(0.001,Math.hypot(dx,dy));
+      return { obj,path,index,bottom,top,width,length,centreX:aroundX };
+    }).filter(Boolean);
   }
 
   function nearestActionClimbTarget() {
@@ -6373,57 +6421,60 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const feetY = character.y;
     for (const obj of allSceneObjects()) {
       if (!obj || obj.deleted || obj.carried || !objectHasBehaviour(obj,'climbable')) continue;
-      const depth = obj.collision?.depth ?? 0.9;
+      const aroundX = objectXNear(obj, character.x);
+      const depth = obj.collision?.depth ?? 1.10;
       if (Math.abs((obj.z ?? pathZ) - pathZ) > Math.max(1.2, depth)) continue;
-      for (const face of climbFacesFor(obj)) {
-        const onTop = standingOnObject === obj || Math.abs(feetY - face.topY) < 0.18;
-        if (onTop) {
-          const distance = Math.abs(character.x - face.topX);
-          if (distance <= CLIMB_ACTION_RANGE && (!best || distance < best.distance)) {
-            best = { ...face, mode:'down', distance };
-          }
-          continue;
+      for (const path of climbPathWorldGeometries(obj,aroundX)) {
+        const actionRange=Math.max(CLIMB_ACTION_RANGE,path.width*.65+0.18);
+        const bottomDx=Math.abs(character.x-path.bottom.x);
+        const bottomDy=Math.abs(feetY-path.bottom.y);
+        const topDx=Math.abs(character.x-path.top.x);
+        const topDy=Math.abs(feetY-path.top.y);
+        if (topDx<=actionRange && topDy<=0.58 && feetY>path.bottom.y+0.30) {
+          const distance=topDx+topDy*.35;
+          if(!best||distance<best.distance) best={...path,mode:'down',distance};
         }
-        const verticalGap = Math.abs(feetY - face.bottomY);
-        const distance = Math.abs(character.x - face.outsideX);
-        if (verticalGap <= 0.50 && feetY < face.topY - 0.42 && distance <= CLIMB_ACTION_RANGE && (!best || distance < best.distance)) {
-          best = { ...face, mode:'up', distance };
+        if (bottomDx<=actionRange && bottomDy<=0.62 && feetY<path.top.y-0.30) {
+          const distance=bottomDx+bottomDy*.35;
+          if(!best||distance<best.distance) best={...path,mode:'up',distance};
         }
       }
     }
     return best;
   }
 
+  function climbSupportAtPoint(x,y,preferredObj=null) {
+    const capsule=colliderWorld();
+    const support=walkableSupportAt(x+capsule.offsetX,Infinity,0);
+    if(!support) return null;
+    const supportY=playSurfaceYAt(x)+support.offset;
+    if(Math.abs(supportY-y)>CLIMB_SUPPORT_TOLERANCE) return null;
+    return { ...support, y:supportY, preferred:preferredObj && support.obj===preferredObj };
+  }
+
   function finishClimb() {
     const st = climbState;
     if (!st) return;
-    const endX = st.mode === 'up' ? st.topX : st.outsideX;
-    camera.x = endX - character.screenOffsetX;
-    character.x = endX;
-    const terrainY = playSurfaceYAt(endX);
-    if (st.mode === 'up') {
-      const capsule = colliderWorld();
-      const support = walkableSupportAt(endX + capsule.offsetX, Infinity, 0);
-      if (support) {
-        jumpOffset = support.offset;
-        standingOnObject = support.obj;
-        character.y = terrainY + support.offset;
-      } else {
-        jumpOffset = st.topY - terrainY;
-        standingOnObject = st.obj;
-        character.y = st.topY;
-      }
-      hintEl.textContent = 'On top · walk normally · ACTION near an edge climbs down';
-    } else {
-      jumpOffset = 0;
-      standingOnObject = null;
-      character.y = terrainY;
-      hintEl.textContent = 'Back on the path';
+    const end = st.mode === 'up' ? st.top : st.bottom;
+    const support = climbSupportAtPoint(end.x,end.y,st.obj);
+    const endY = support ? support.y : end.y;
+    camera.x = end.x - character.screenOffsetX;
+    character.x = end.x;
+    character.y = endY;
+    jumpOffset = endY - playSurfaceYAt(end.x);
+    standingOnObject = support?.obj || (st.mode==='up' ? st.obj : null);
+    if (st.mode==='down' && Math.abs(endY-playSurfaceYAt(end.x))<0.12) {
+      jumpOffset=0;
+      standingOnObject=null;
+      character.y=playSurfaceYAt(end.x);
     }
     jumping = false;
     jumpTime = 0;
     jumpVelocity = 0;
     climbState = null;
+    hintEl.textContent = st.mode === 'up'
+      ? 'On top · walk normally · ACTION at a climb path descends'
+      : 'Climb complete';
     hintEl.classList.remove('hidden');
   }
 
@@ -6431,15 +6482,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!target || climbState || carriedObject || interactionState || pushingObject || jumping) return false;
     setDriveAxis(0);
     const startY = character.y;
-    const verticalDistance = Math.abs(target.topY - target.bottomY);
+    const objectCentre=objectXNear(target.obj,character.x);
     climbState = {
       ...target,
       time:0,
-      duration:Math.max(1.05, verticalDistance / CLIMB_VERTICAL_SPEED + 0.38),
-      startX:character.x,
-      startY
+      duration:Math.max(0.95,target.length / CLIMB_VERTICAL_SPEED + 0.30),
+      start:{x:character.x,y:startY}
     };
-    character.lastFacing = target.side < 0 ? 1 : -1; // face into the rock
+    if(Math.abs(objectCentre-character.x)>.04) character.lastFacing = objectCentre>character.x ? 1 : -1;
     jumping = false;
     jumpTime = 0;
     jumpVelocity = 0;
@@ -6454,28 +6504,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!st) return;
     st.time += dt;
     const q = Rig.clamp(st.time / Math.max(0.001, st.duration), 0, 1);
-    const mantle = CLIMB_MANTLE_FRACTION;
-    let x, y;
-    if (st.mode === 'up') {
-      const split = 1 - mantle;
-      if (q < split) {
-        const t = smooth01(q / split);
-        x = Rig.lerp(st.startX, st.outsideX, Math.min(1, t * 1.8));
-        y = Rig.lerp(st.startY, st.topY - 0.13, t);
+    const entry=CLIMB_ENTRY_FRACTION;
+    let x,y;
+    if(st.mode==='up'){
+      if(q<entry){
+        const t=smooth01(q/entry);
+        x=Rig.lerp(st.start.x,st.bottom.x,t);
+        y=Rig.lerp(st.start.y,st.bottom.y,t);
       } else {
-        const t = smooth01((q - split) / mantle);
-        x = Rig.lerp(st.outsideX, st.topX, t);
-        y = Rig.lerp(st.topY - 0.13, st.topY, t);
+        const t=smooth01((q-entry)/(1-entry));
+        x=Rig.lerp(st.bottom.x,st.top.x,t);
+        y=Rig.lerp(st.bottom.y,st.top.y,t);
       }
     } else {
-      if (q < mantle) {
-        const t = smooth01(q / mantle);
-        x = Rig.lerp(st.startX, st.outsideX, t);
-        y = Rig.lerp(st.startY, st.topY - 0.13, t);
+      if(q<entry){
+        const t=smooth01(q/entry);
+        x=Rig.lerp(st.start.x,st.top.x,t);
+        y=Rig.lerp(st.start.y,st.top.y,t);
       } else {
-        const t = smooth01((q - mantle) / (1 - mantle));
-        x = st.outsideX;
-        y = Rig.lerp(st.topY - 0.13, st.bottomY, t);
+        const t=smooth01((q-entry)/(1-entry));
+        x=Rig.lerp(st.top.x,st.bottom.x,t);
+        y=Rig.lerp(st.top.y,st.bottom.y,t);
       }
     }
     camera.x = x - character.screenOffsetX;
@@ -6728,6 +6777,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (key === 'stackable' && enabled) next.placeable = true;
     if (key === 'pushable' && enabled) next.solid = true;
     assetBehaviourOverrides[assetName] = Object.fromEntries(ASSET_BEHAVIOUR_KEYS.map(k => [k, !!next[k]]));
+    if (key === 'climbable' && enabled && !assetClimbPaths(assetName).length) {
+      assetClimbPathOverrides[assetName] = [genericAssetClimbPath()];
+      saveAssetClimbPaths();
+    }
     saveAssetBehaviourOverrides();
     applyAssetBehaviourEverywhere(assetName);
     renderAssetSetup();
@@ -6738,8 +6791,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!assetName) return;
     delete assetBehaviourOverrides[assetName];
     delete assetCollisionDefaults[assetName];
+    delete assetClimbPathOverrides[assetName];
     saveAssetBehaviourOverrides();
     saveAssetCollisionDefaults();
+    saveAssetClimbPaths();
     applyAssetBehaviourEverywhere(assetName);
     renderAssetSetup();
     buildAssetPalette();
@@ -7728,7 +7783,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       },
       assets:{
         behaviourOverrides:deepCopy(assetBehaviourOverrides),
-        collisionDefaults:deepCopy(assetCollisionDefaults)
+        collisionDefaults:deepCopy(assetCollisionDefaults),
+        climbPaths:deepCopy({...BUILTIN_ASSET_CLIMB_PATHS,...assetClimbPathOverrides})
       },
       collectables:{
         setup:deepCopy(collectibleSetup)
@@ -9431,6 +9487,33 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
     }
 
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted || !objectHasBehaviour(obj,'climbable')) continue;
+      const ox=objectXNear(obj,camera.x);
+      for(const path of climbPathWorldGeometries(obj,ox)){
+        const dx=path.top.x-path.bottom.x,dy=path.top.y-path.bottom.y;
+        const len=Math.max(.001,Math.hypot(dx,dy));
+        const nx=-dy/len,ny=dx/len,half=path.width*.5;
+        const quad=[
+          {x:path.bottom.x+nx*half,y:path.bottom.y+ny*half},
+          {x:path.top.x+nx*half,y:path.top.y+ny*half},
+          {x:path.top.x-nx*half,y:path.top.y-ny*half},
+          {x:path.bottom.x-nx*half,y:path.bottom.y-ny*half}
+        ];
+        const poly=projectWorldPolygon(quad,obj.z ?? pathZ);
+        if(poly.length===4){
+          ctx.fillStyle='rgba(92,221,237,.12)';ctx.strokeStyle='rgba(118,232,244,.96)';ctx.lineWidth=2;ctx.setLineDash([6,3]);
+          ctx.beginPath();ctx.moveTo(poly[0].x,poly[0].y);for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i].x,poly[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
+        }
+        const b=projectWorldPoint(path.bottom.x,path.bottom.y,obj.z ?? pathZ);
+        const t=projectWorldPoint(path.top.x,path.top.y,obj.z ?? pathZ);
+        if(b&&t){
+          ctx.fillStyle='#7cf0a0';ctx.beginPath();ctx.arc(b.x,b.y,5,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle='#76e8f4';ctx.beginPath();ctx.arc(t.x,t.y,5,0,Math.PI*2);ctx.fill();
+        }
+      }
+    }
+
     const rootX = camera.x + character.screenOffsetX;
     const capsule = colliderWorld();
     const centreX = rootX + capsule.offsetX;
@@ -10053,10 +10136,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return {minX:spans[0].minX,maxX:spans[spans.length-1].maxX};
   }
 
-  function collisionTopHeightAtX(obj, worldX) {
+  function collisionTopHeightAtX(obj, worldX, aroundX = obj.x) {
     const ys = [];
     const eps = 0.0001;
-    for(const points of collisionWorldShapes(obj,obj.x)){
+    for(const points of collisionWorldShapes(obj,aroundX)){
       for (let i = 0; i < points.length; i += 1) {
         const a = points[i];
         const b = points[(i + 1) % points.length];
@@ -12797,6 +12880,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     try { localStorage.removeItem(PUZZLE_EXCLUSION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_BEHAVIOUR_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_COLLISION_STORAGE_KEY); } catch (_) {}
+    try { localStorage.removeItem(ASSET_CLIMB_PATH_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_MECHANISM_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(ASSET_SOCKET_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(INVENTORY_STORAGE_KEY); } catch (_) {}
@@ -13490,6 +13574,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   async function releasePlayerIntroFade() {
+    // World Lab is a developer/test jump rather than a cinematic game start.
+    // Reveal it immediately so a stale/failed asset wait can never strand the
+    // user behind the full-screen black launch overlay.
+    if (WORLD_LAB_LAUNCH) {
+      introLocked = false;
+      setDriveAxis(0);
+      document.body.classList.remove('sidescroll-intro-locked');
+      document.documentElement.classList.remove('ss-player-launch');
+      entryFadeEl?.remove();
+      return;
+    }
     if (!PLAYER_MODE) {
       introLocked = false;
       entryFadeEl?.remove();

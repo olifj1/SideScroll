@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.69">
+  <link rel="stylesheet" href="style.css?v=1.0.74">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -24,7 +24,8 @@
     <aside class="assetlab-library" aria-label="Asset library">
       <div class="assetlab-panel-head"><small>LIBRARY</small><strong>Assets</strong></div>
       <div class="assetlab-filter-row">
-        <button type="button" class="active" data-filter="puzzle">Puzzle</button>
+        <button type="button" class="active" data-filter="all">All</button>
+        <button type="button" data-filter="puzzle">Puzzle</button>
         <button type="button" data-filter="environment">Environment</button>
       </div>
       <div class="assetlab-asset-list" id="assetlab-asset-list"></div>
@@ -121,6 +122,36 @@
         <p class="assetlab-note">Use + Add Box to build compound collision from several shapes. Drag orange points or edge handles on the selected shape; tap another shape to edit it. Numeric Y positions use the cyan floor as 0. Yellow means a support surface.</p>
       </section>
 
+      <section class="assetlab-control-section" id="assetlab-climb-section" hidden>
+        <div class="assetlab-control-heading"><small>CLIMB PATHS</small><strong>Invisible ladder</strong></div>
+        <div class="assetlab-shape-toolbar">
+          <select id="assetlab-climb-path-select" aria-label="Selected climb path"></select>
+          <button type="button" id="assetlab-climb-path-add">+ Add Path</button>
+          <button type="button" id="assetlab-climb-path-delete">Delete Path</button>
+        </div>
+        <label class="assetlab-range-row">
+          <span><strong>Path width</strong><small id="assetlab-climb-width-value">0.70 m</small></span>
+          <input id="assetlab-climb-width" type="range" min="0.20" max="2.50" step="0.01" value="0.70">
+        </label>
+        <div class="assetlab-point-editor">
+          <div class="assetlab-point-head"><strong>Path endpoints</strong><small>asset-local metres</small></div>
+          <div class="assetlab-point-list">
+            <div class="assetlab-point-row">
+              <button type="button" class="assetlab-point-select" tabindex="-1">BOT</button>
+              <label><span>X</span><input id="assetlab-climb-bottom-x" type="number" step="0.01" inputmode="decimal"></label>
+              <label><span>Y</span><input id="assetlab-climb-bottom-y" type="number" step="0.01" inputmode="decimal"></label>
+            </div>
+            <div class="assetlab-point-row">
+              <button type="button" class="assetlab-point-select" tabindex="-1">TOP</button>
+              <label><span>X</span><input id="assetlab-climb-top-x" type="number" step="0.01" inputmode="decimal"></label>
+              <label><span>Y</span><input id="assetlab-climb-top-y" type="number" step="0.01" inputmode="decimal"></label>
+            </div>
+          </div>
+        </div>
+        <p class="assetlab-note">The cyan strip is an independent climb controller, not collision. Drag the white centre to move it, the green/blue ends to resize or rotate it, and the pink side handle to change width. A ladder can therefore be Climbable without being Solid.</p>
+      </section>
+
+
 
       <section class="assetlab-control-section" id="assetlab-counterweight-section" hidden>
         <div class="assetlab-control-heading"><small>MECHANISM</small><strong>Counterweight plank</strong></div>
@@ -181,6 +212,6 @@
 
   <script src="site-config.js?v=1.0.62"></script>
   <script src="core.js?v=1.0.62"></script>
-  <script src="asset-lab.js?v=1.0.70"></script>
+  <script src="asset-lab.js?v=1.0.74"></script>
 </body>
 </html>

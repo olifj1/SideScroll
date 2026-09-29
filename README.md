@@ -1,46 +1,19 @@
-# SideScroll v1.0.73 — Code/Data Safety Snapshot
+# SideScroll v1.0.74 — code safety resync
 
-This is a **code/data-only full snapshot** of the current SideScroll v1.0.73 state.
+This is the cumulative code/data baseline after the v1.0.73 climb-path work.
 
-Use this when the normal full build is too large for the phone → GitHub upload workflow.
-
-## Contains
-- all current HTML
-- all current JavaScript
-- all current CSS
-- JSON/data/config files
-- manifest + service worker
-- current project/design documentation
-
-## Deliberately excluded
-- PNG/JPG/WebP artwork and textures
-- icons and splash images
-- character atlases
-- concept art
-- puzzle/environment image assets
-- music/audio files
-
-Those asset files should already exist in the GitHub repository and do **not** need to be re-uploaded for this code resync.
-
-## Includes cumulative work through v1.0.73
-This snapshot includes the current code for:
-- World Lab sections/terrain track
-- draggable PLAY head + Play From Here
-- 1 m snapping and two-ended resize handles for range elements
-- pinned World Lab track labels
-- Puzzle Lab
-- Mountain Climb prototype
-- compact/scrollable launcher menu
-- Asset Lab direct-edit workflow and normal Environment listing
-- vertical camera following during climbing/elevated movement
-- independent authored Climb Path controllers
+## v1.0.74 fixes
+- Restores the complete Asset Lab Climb Path editor that was accidentally omitted from the previous CODE-only safety ZIP.
+- Mountain Climb Rock 01 exposes its independent Climb Paths in normal Asset Lab.
+- World Lab **Play From Here** launches without the cinematic black entry overlay, so a developer jump cannot become trapped behind a black screen.
+- World Lab and Asset Lab script URLs are cache-busted to v1.0.74.
+- World Lab test spawn validates the terrain height and reports the requested metre position in the game status.
 
 ## Upload
-1. Unzip `SS-FULL-1.0.73-CODE.zip`.
-2. Open the extracted folder.
-3. Select All.
-4. Upload all files to the GitHub repository root, replacing matching files.
-5. Do **not** delete image/audio files already in the repo.
-6. After GitHub Pages updates, fully close and reopen the installed PWA once.
+Upload the files over the repo root. Do not clear browser/PWA local storage. Existing PNG/audio assets remain valid and are intentionally not required by the CODE ZIP.
 
-Do not clear local storage; authored local puzzle/world/editor data should remain intact.
+## Test focus
+1. Open Asset Lab directly, select Mountain Climb Rock 01, and confirm **CLIMB PATHS · Invisible ladder** is visible.
+2. Confirm the two cyan climb paths render and can be moved/resized/rotated.
+3. Open World Lab, drag PLAY, press **Play From Here**, and confirm the game appears immediately at that world X instead of a black screen.
+4. Confirm normal Play still uses the usual entry fade.
