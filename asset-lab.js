@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.67';
+  const VERSION = '1.0.70';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -159,10 +159,12 @@
   const imageCache = new Map();
   const assetByName = name => ASSETS.find(a => a.name === name) || null;
   const isBridge = asset => !!asset && BRIDGE_NAMES.includes(asset.name);
+  const urlParams = new URLSearchParams(location.search);
+  const requestedAsset = assetByName(urlParams.get('asset'));
 
   const state = {
-    filter:'puzzle',
-    asset:ASSETS[0],
+    filter:requestedAsset?.scope || 'puzzle',
+    asset:requestedAsset || ASSETS[0],
     showReference:true,
     pairMode:false,
     draggingHandle:-1,
@@ -1495,5 +1497,8 @@
 
   ensureCartStates();
   ASSETS.slice(0,2).forEach(ensureImage);
-  buildList(); selectAsset(ASSETS[0]); settleViewport();
+  filterButtons.forEach(button => button.classList.toggle('active', button.dataset.filter === state.filter));
+  buildList();
+  selectAsset(state.asset);
+  settleViewport();
 })();

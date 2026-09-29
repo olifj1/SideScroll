@@ -66,10 +66,24 @@
   const collisionInput = document.getElementById('pl-collision');
   const setupBtn = document.getElementById('pl-open-setup');
   const testBtn = document.getElementById('pl-run-test');
+  const editAssetBtn = document.getElementById('pl-edit-asset');
   const resetBtn = document.getElementById('pl-reset-lab');
 
   function project() { return projectMap.get(state.groupId) || null; }
   function definition() { return project()?.def || null; }
+
+  function primaryAssetName() {
+    const item = project();
+    if (!item) return null;
+    const objects = item.template?.objects && typeof item.template.objects === 'object'
+      ? Object.values(item.template.objects)
+      : (Array.isArray(item.def?.props) ? item.def.props : []);
+    for (const object of objects) {
+      const name = typeof object === 'string' ? object : (object?.asset || object?.name || null);
+      if (name) return name;
+    }
+    return null;
+  }
 
   function projectBadge(id, def, source) {
     if (id === 'MOUNTAIN_CLIMB_PROTO') return 'PROTOTYPE';
@@ -124,6 +138,11 @@
     selectedMetaEl.innerHTML = tags.map(tag => `<span>${tag}</span>`).join('');
     const isClimb = state.groupId === 'MOUNTAIN_CLIMB_PROTO';
     document.getElementById('pl-checks-card').hidden = !isClimb;
+    const primaryAsset = primaryAssetName();
+    if (editAssetBtn) {
+      editAssetBtn.hidden = !primaryAsset;
+      editAssetBtn.dataset.asset = primaryAsset || '';
+    }
   }
 
   function renderEnvironment() {
@@ -223,6 +242,11 @@
 
   setupBtn?.addEventListener('click', () => launch(false));
   testBtn?.addEventListener('click', () => launch(true));
+  editAssetBtn?.addEventListener('click', () => {
+    const asset = editAssetBtn.dataset.asset || primaryAssetName();
+    if (!asset) return;
+    location.href = `asset-lab.html?asset=${encodeURIComponent(asset)}&from=puzzle-lab`;
+  });
   resetBtn?.addEventListener('click', () => {
     if (!window.confirm('Reset only Puzzle Lab test/setup state? Main-world puzzle placement and World Lab data will not be touched.')) return;
     for (const key of LAB_KEYS) {
