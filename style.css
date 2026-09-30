@@ -13495,7 +13495,10 @@ body[data-game-id="game-16"] .sidescroll-section-depth-layers{margin:7px 0;borde
 body[data-game-id="game-16"] .sidescroll-section-depth-layers summary{cursor:pointer;padding:8px 9px;font-size:7px;font-weight:950;letter-spacing:.12em;color:#b9c8c5;list-style:none}
 body[data-game-id="game-16"] .sidescroll-section-depth-layers summary::-webkit-details-marker{display:none}
 body[data-game-id="game-16"] .sidescroll-section-depth-layers>p{margin:0 9px 7px!important;padding:0!important;border:0!important}
-body[data-game-id="game-16"] .sidescroll-section-depth-row{display:grid;grid-template-columns:1fr 78px 62px;gap:6px;align-items:center;padding:7px 8px;border-top:1px solid rgba(255,255,255,.07)}
+body[data-game-id="game-16"] .sidescroll-section-depth-row{display:grid;grid-template-columns:1fr 86px;gap:6px;align-items:center;padding:7px 8px;border-top:1px solid rgba(255,255,255,.07)}
 body[data-game-id="game-16"] .sidescroll-section-depth-row strong{font-size:7px;letter-spacing:.08em;color:#d5e0de}
-body[data-game-id="game-16"] .sidescroll-section-depth-row select,body[data-game-id="game-16"] .sidescroll-section-depth-row input{min-width:0;height:28px;border:1px solid rgba(237,244,244,.15);border-radius:7px;background:rgba(255,255,255,.055);color:#edf5f2;font-size:8px;font-weight:850;text-align:center;padding:0 5px}
-body[data-game-id="game-16"] .sidescroll-section-depth-row small{grid-column:1/-1;font-size:7px;color:#93aaa6;line-height:1.25}
+body[data-game-id="game-16"] .sidescroll-section-depth-row select{min-width:0;height:28px;border:1px solid rgba(237,244,244,.15);border-radius:7px;background:rgba(255,255,255,.055);color:#edf5f2;font-size:8px;font-weight:850;text-align:center;padding:0 5px}
+body[data-game-id="game-16"] .sidescroll-section-depth-row input[type="range"]{grid-column:1/-1;width:100%;height:22px;min-width:0;margin:0;padding:0;border:0;background:transparent;accent-color:#9bb8b1;touch-action:pan-x}
+body[data-game-id="game-16"] .sidescroll-section-depth-row small{grid-column:1/-1;font-size:7px;color:#93aaa6;line-height:1.25;font-variant-numeric:tabular-nums}
+
+/* SideScroll v1.0.81 — live depth-layer sliders. */

@@ -1,5 +1,6 @@
 (() => {
-  const VERSION = '1.0.62';
+  const VERSION = '1.0.81';
+  const ASSET_VERSION = '1.0.62';
   const PRELOAD_CACHE = 'sidescroll-runtime-v1';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
@@ -8,7 +9,7 @@
   const menuButton = document.getElementById('ss-splash-menu-button');
   const menu = document.getElementById('ss-splash-menu');
 
-  const withVersion = path => `${path}${path.includes('?') ? '&' : '?'}v=${VERSION}`;
+  const withVersion = (path, version = VERSION) => `${path}${path.includes('?') ? '&' : '?'}v=${version}`;
   const GAME_PRELOAD = [
     'style.css',
     'site-config.js',
@@ -61,7 +62,7 @@
     'stone-piece-a.png',
     'stone-piece-b.png',
     'stone-piece-c.png'
-  ].map(withVersion);
+  ].map(path => withVersion(path, /\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i.test(path) ? ASSET_VERSION : VERSION));
 
   const setProgress = (done, total, failed = 0) => {
     const value = total ? Math.round((done / total) * 100) : 100;

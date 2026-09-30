@@ -719,7 +719,7 @@
     return wave * wave * 0.82;
   }
 
-  function createTerrainSectionPathMesh(sectionIndex, typeId = 'normal', segments = 12) {
+  function createTerrainSectionPathMesh(sectionIndex, typeId = 'normal', segments = TERRAIN_LONGITUDINAL_SEGMENTS) {
     const rows = [
       { z: 1.00, y: 0.00, v: 0.00 },
       { z: 0.82, y: 0.22, v: 0.12 },
@@ -753,7 +753,7 @@
     return createMesh(new Float32Array(vertices), new Uint16Array(indices));
   }
 
-  function createTerrainBandMesh(sectionIndex, typeId, frontLayerId, backLayerId, minX, maxX, segments = 12) {
+  function createTerrainBandMesh(sectionIndex, typeId, frontLayerId, backLayerId, minX, maxX, segments = TERRAIN_LONGITUDINAL_SEGMENTS) {
     const bounds = terrainSectionBounds(sectionIndex);
     const centre = (minX + maxX) * 0.5;
     const width = Math.max(0.001, maxX - minX);
@@ -1067,7 +1067,7 @@
     return subtractRanges(bounds.minX, bounds.maxX, cuts);
   }
 
-  function createTerrainIntervalPathMesh(sectionIndex, typeId, minX, maxX, segments = 8) {
+  function createTerrainIntervalPathMesh(sectionIndex, typeId, minX, maxX, segments = null) {
     const rows = [
       { z: 1.00, y: 0.00, v: 0.00 }, { z: 0.82, y: 0.22, v: 0.12 },
       { z: 0.68, y: 0.12, v: 0.28 }, { z:-0.68, y: 0.12, v: 0.72 },
@@ -1076,6 +1076,7 @@
     const bounds = terrainSectionBounds(sectionIndex);
     const centre = (minX + maxX) * 0.5;
     const width = Math.max(0.001, maxX - minX);
+    segments = Math.max(4, Math.trunc(segments || Math.ceil(TERRAIN_LONGITUDINAL_SEGMENTS * width / TERRAIN_SECTION_LENGTH)));
     const vertices = [];
     const indices = [];
     for (let ix=0; ix<=segments; ix++) {
@@ -2027,10 +2028,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     farA:{ id:'farA', label:'Far Strip A', follow:0.88, radius:1 },
     farB:{ id:'farB', label:'Far Strip B', follow:0.62, radius:2 }
   });
-  // Tiny render-only vertical staggering makes adjacent depth strips overlap in
-  // screen space instead of exposing hairline seams. Gameplay/collision still
-  // uses the mathematical terrain profile with no offset.
-  const TERRAIN_VISUAL_LAYER_OFFSETS = Object.freeze({ near:0.02, path:0.00, farA:-0.02, farB:-0.04 });
+  // Tiny render-only vertical staggering plus a small depth overlap keeps
+  // neighbouring terrain bands tucked under the path instead of exposing a
+  // hairline seam as the camera tilts across the ground plane. Gameplay and
+  // collision continue to use the mathematical terrain profile with no offset.
+  const TERRAIN_VISUAL_LAYER_OFFSETS = Object.freeze({ near:0.025, path:0.00, farA:-0.02, farB:-0.04 });
+  const TERRAIN_PATH_BAND_OVERLAP = 0.12;
+  const TERRAIN_LONGITUDINAL_SEGMENTS = 32;
   const TERRAIN_DEPTH_LAYER_IDS = Object.freeze(['near','farA','farB']);
   const TERRAIN_FAR_A_BACK_Z = -13.0;
 
@@ -2185,12 +2189,37 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return height;
   }
 
-  function terrainPathElevationAt(x) {
+  function terrainMonotoneTangent(previousDelta, nextDelta) {
+    const a = Number(previousDelta) || 0;
+    const b = Number(nextDelta) || 0;
+    if (Math.abs(a) < 0.000001 || Math.abs(b) < 0.000001 || a * b <= 0) return 0;
+    return (2 * a * b) / (a + b);
+  }
+
+  function terrainSmoothSectionProfileAt(x, sampleHeight) {
     const worldX = Number(x) || 0;
     const leftIndex = Math.floor(worldX / TERRAIN_SECTION_LENGTH);
     const leftX = leftIndex * TERRAIN_SECTION_LENGTH;
     const t = Rig.clamp((worldX - leftX) / TERRAIN_SECTION_LENGTH, 0, 1);
-    return Rig.lerp(terrainSectionPathHeight(leftIndex), terrainSectionPathHeight(leftIndex + 1), t);
+    const h0 = Number(sampleHeight(leftIndex - 1)) || 0;
+    const h1 = Number(sampleHeight(leftIndex)) || 0;
+    const h2 = Number(sampleHeight(leftIndex + 1)) || 0;
+    const h3 = Number(sampleHeight(leftIndex + 2)) || 0;
+    const d0 = h1 - h0;
+    const d1 = h2 - h1;
+    const d2 = h3 - h2;
+    const m1 = terrainMonotoneTangent(d0, d1);
+    const m2 = terrainMonotoneTangent(d1, d2);
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return (2*t3 - 3*t2 + 1) * h1
+      + (t3 - 2*t2 + t) * m1
+      + (-2*t3 + 3*t2) * h2
+      + (t3 - t2) * m2;
+  }
+
+  function terrainPathElevationAt(x) {
+    return terrainSmoothSectionProfileAt(x, terrainSectionPathHeight);
   }
 
   function terrainLayerSectionHeight(index, layerId = 'path') {
@@ -2203,11 +2232,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function terrainLayerElevationAt(x, layerId = 'path') {
-    const worldX = Number(x) || 0;
-    const leftIndex = Math.floor(worldX / TERRAIN_SECTION_LENGTH);
-    const leftX = leftIndex * TERRAIN_SECTION_LENGTH;
-    const t = Rig.clamp((worldX - leftX) / TERRAIN_SECTION_LENGTH, 0, 1);
-    return Rig.lerp(terrainLayerSectionHeight(leftIndex, layerId), terrainLayerSectionHeight(leftIndex + 1, layerId), t);
+    return terrainSmoothSectionProfileAt(x, index => terrainLayerSectionHeight(index, layerId));
   }
 
   function terrainDepthElevationAt(x, z = pathZ) {
@@ -11441,28 +11466,101 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return p;
   }
 
-  function poseForClimbing(phase = 0) {
-    // Temporary procedural climb pose. Anim Lab can replace this with a real
-    // authored clip later; for now alternating hands/feet makes the spatial test
-    // read as climbing rather than a character simply sliding up the artwork.
+  const CLIMB_ANIM_CYCLE_WORLD = 0.92;
+  const CLIMB_ANIM_HAND_HOLD = 0.52;
+  const CLIMB_ANIM_FOOT_HOLD = 0.50;
+
+  function climbAnimationMotionFrame(st) {
+    if (!st) return { ux:0, uy:1, distance:0, phaseDistance:0, entryBlend:1 };
+    const q = Rig.clamp(st.time / Math.max(0.001, st.duration), 0, 1);
+    const entryTarget = st.mode === 'up' ? st.bottom : st.top;
+    const endTarget = st.mode === 'up' ? st.top : st.bottom;
+    const mainDx = endTarget.x - entryTarget.x;
+    const mainDy = endTarget.y - entryTarget.y;
+    const mainLength = Math.max(0.001, Math.hypot(mainDx, mainDy));
+    const mainUx = mainDx / mainLength;
+    const mainUy = mainDy / mainLength;
+    if (q < CLIMB_ENTRY_FRACTION) {
+      // The approach onto the climb line is a settle, not a step. Holding the
+      // climbing phase at zero here avoids a hand/foot pop when the motion turns
+      // from the short entry move onto the authored climb path.
+      return { ux:mainUx, uy:mainUy, distance:0, phaseDistance:0, entryBlend:smooth01(q / CLIMB_ENTRY_FRACTION) };
+    }
+    const distance = Rig.clamp((character.x - entryTarget.x) * mainUx + (character.y - entryTarget.y) * mainUy, 0, mainLength);
+    return { ux:mainUx, uy:mainUy, distance, phaseDistance:distance, entryBlend:1 };
+  }
+
+  function climbLockedLimb(frame, phaseShift, holdFraction, anatomyX, anatomyY, swingAway = 0.10) {
+    const cycle = CLIMB_ANIM_CYCLE_WORLD;
+    const u = frame.phaseDistance / cycle + phaseShift;
+    const phase = ((u % 1) + 1) % 1;
+    let along;
+    let swing = 0;
+    if (phase < holdFraction) {
+      // Counter the root travel exactly while this limb owns a hold. The endpoint
+      // therefore stays planted in world space instead of sliding with the body.
+      along = -cycle * phase;
+    } else {
+      const t = smooth01((phase - holdFraction) / Math.max(0.001, 1 - holdFraction));
+      along = Rig.lerp(-cycle * holdFraction, 0, t);
+      swing = Math.sin(t * Math.PI);
+    }
+    const facing = character.lastFacing >= 0 ? 1 : -1;
+    return {
+      x:character.x + facing * (anatomyX - swingAway * swing) + frame.ux * along,
+      y:characterRenderY() + anatomyY + frame.uy * along,
+      swing,
+      phase
+    };
+  }
+
+  function poseForClimbing(st = climbState) {
     const p = Rig.sampleFrames(characterFrames, 0.02);
-    const wave = Math.sin(phase * Math.PI * 2);
-    const opposite = -wave;
+    const frame = climbAnimationMotionFrame(st);
+    const cyclePhase = ((frame.phaseDistance / CLIMB_ANIM_CYCLE_WORLD) % 1 + 1) % 1;
+    const weight = 0.5 - 0.5 * Math.cos(cyclePhase * Math.PI * 2);
+    const facing = character.lastFacing >= 0 ? 1 : -1;
+
     p.planted = null;
-    p.pelvisY = 0.495;
-    p.lean = 12 * Math.PI / 180;
-    p.aHandX = 0.235;
-    p.bHandX = 0.205;
-    p.aHandY = Rig.lerp(0.13, -0.06, (wave + 1) * 0.5);
-    p.bHandY = Rig.lerp(0.13, -0.06, (opposite + 1) * 0.5);
-    p.aFootX = 0.060;
-    p.bFootX = -0.035;
-    p.aFootLift = Rig.lerp(0.05, 0.22, (opposite + 1) * 0.5);
-    p.bFootLift = Rig.lerp(0.05, 0.22, (wave + 1) * 0.5);
-    p.aFootAngle = -8 * Math.PI / 180;
-    p.bFootAngle = 10 * Math.PI / 180;
-    p.hairAngle = 116 * Math.PI / 180;
-    p.hairBend = 10 * Math.PI / 180;
+    p.pelvisY = 0.480 - 0.025 * weight;
+    p.lean = (13.5 + 2.5 * Math.sin(cyclePhase * Math.PI * 2)) * Math.PI / 180;
+    p.hairAngle = (116 + 4 * weight) * Math.PI / 180;
+    p.hairBend = (10 + 5 * weight) * Math.PI / 180;
+    p.travel = cyclePhase;
+
+    // Diagonal pairs move together. Each limb advances to a new hold almost a
+    // metre away, while the planted half-cycle counteracts the body translation.
+    // The result is a slower, broader reach with a clearer transfer of weight.
+    const aHand = climbLockedLimb(frame, 0.00, CLIMB_ANIM_HAND_HOLD, 0.46, 1.56, 0.10);
+    const bHand = climbLockedLimb(frame, 0.50, CLIMB_ANIM_HAND_HOLD, 0.40, 1.50, 0.09);
+    const aFoot = climbLockedLimb(frame, 0.50, CLIMB_ANIM_FOOT_HOLD, 0.13, 0.47, 0.12);
+    const bFoot = climbLockedLimb(frame, 0.00, CLIMB_ANIM_FOOT_HOLD, -0.04, 0.45, 0.11);
+
+    // The short entry move settles onto the climbing line. Fade the extreme
+    // targets in through that approach so ACTION never pops the limbs abruptly.
+    const settle = Rig.clamp(0.28 + frame.entryBlend * 0.72, 0, 1);
+    const shoulderX = Math.sin(p.lean) * Rig.BODY.torso;
+    const shoulderY = p.pelvisY + Math.cos(p.lean) * Rig.BODY.torso;
+    const applyHand = (target, prefix, fallbackX, fallbackY) => {
+      const localX = (target.x - character.x) / Math.max(0.001, character.scale * facing);
+      const localY = (target.y - characterRenderY()) / Math.max(0.001, character.scale);
+      const handX = localX - shoulderX;
+      const handY = shoulderY - localY;
+      p[`${prefix}HandX`] = Rig.lerp(fallbackX, handX, settle);
+      p[`${prefix}HandY`] = Rig.lerp(fallbackY, handY, settle);
+    };
+    const applyFoot = (target, prefix, fallbackX, fallbackLift, angle) => {
+      const localX = (target.x - character.x) / Math.max(0.001, character.scale * facing);
+      const localY = (target.y - characterRenderY()) / Math.max(0.001, character.scale);
+      p[`${prefix}FootX`] = Rig.lerp(fallbackX, localX, settle);
+      p[`${prefix}FootLift`] = Rig.lerp(fallbackLift, localY, settle);
+      p[`${prefix}FootAngle`] = angle;
+    };
+
+    applyHand(aHand, 'a', 0.235, 0.02);
+    applyHand(bHand, 'b', 0.205, 0.10);
+    applyFoot(aFoot, 'a', 0.06, 0.12, -12 * Math.PI / 180);
+    applyFoot(bFoot, 'b', -0.035, 0.05, 9 * Math.PI / 180);
     return p;
   }
 
@@ -11586,8 +11684,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const phase = currentCharacterPhase(isWalking);
     let pose;
     if (climbState) {
-      const climbPhase = (climbState.time * 1.55) % 1;
-      pose = poseForClimbing(climbPhase);
+      pose = poseForClimbing(climbState);
     } else if (jumping) {
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
       pose = Rig.sampleFrames(jumpFrames, jumpPhase);
@@ -12440,9 +12537,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const centre = (minX + maxX) * 0.5;
       const u0 = terrainSectionWorldU(minX);
       const uScale = (width / TILE_WIDTH) * 24.0;
+      const pathBandEdge = Math.max(PATH_BERM_HALF + 0.02, PATH_OUTER_HALF - TERRAIN_PATH_BAND_OVERLAP);
       const bands = [
-        { frontZ:GROUND_NEAR_Z, backZ:PATH_OUTER_HALF, frontLayer:'near', backLayer:'path' },
-        { frontZ:-PATH_OUTER_HALF, backZ:TERRAIN_FAR_A_BACK_Z, frontLayer:'path', backLayer:'farA' },
+        { frontZ:GROUND_NEAR_Z, backZ:pathBandEdge, frontLayer:'near', backLayer:'path' },
+        { frontZ:-pathBandEdge, backZ:TERRAIN_FAR_A_BACK_Z, frontLayer:'path', backLayer:'farA' },
         { frontZ:TERRAIN_FAR_A_BACK_Z, backZ:WORLD.farZ, frontLayer:'farA', backLayer:'farB' }
       ];
       for (const band of bands) {
@@ -12876,7 +12974,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const resolved = terrainLayerSectionHeight(terrainSelectedSectionIndex, layerId);
       const offset = terrainLayerOffsetAt(terrainSelectedSectionIndex, layerId);
       if (control.mode && document.activeElement !== control.mode) control.mode.value = explicit ? 'explicit' : 'derived';
-      if (control.value && document.activeElement !== control.value) control.value.value = (explicit ? resolved : offset).toFixed(1);
+      if (control.value) {
+        control.value.min = explicit ? '-50' : '-6';
+        control.value.max = explicit ? '80' : '6';
+        control.value.step = explicit ? '0.1' : '0.05';
+        if (document.activeElement !== control.value) control.value.value = String(explicit ? resolved : offset);
+        control.value.setAttribute('aria-valuetext', explicit ? `${resolved.toFixed(1)} metres` : `${offset.toFixed(2)} metre offset`);
+      }
       if (control.summary) control.summary.textContent = explicit
         ? `Explicit · height ${resolved >= 0 ? '+' : ''}${resolved.toFixed(1)} m`
         : `Linked · offset ${offset >= 0 ? '+' : ''}${offset.toFixed(1)} m · resolved ${resolved >= 0 ? '+' : ''}${resolved.toFixed(1)} m`;
@@ -13446,6 +13550,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   });
   for (const layerId of TERRAIN_DEPTH_LAYER_IDS) {
     const control = sectionLayerControls[layerId];
+    const applyLayerSliderValue = (save = false) => {
+      if (!control?.value) return;
+      const anchors = terrainHeightBoundObjectAnchors();
+      const info = terrainLayerModeInfo(terrainSelectedSectionIndex, layerId);
+      if (info.mode === 'explicit') setTerrainLayerExplicitHeight(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
+      else setTerrainLayerOffset(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
+      restoreTerrainHeightBoundObjectAnchors(anchors);
+      if (save) saveTerrainSectionState();
+      updateTerrainSectionUi(true);
+    };
     control?.mode?.addEventListener('change', () => {
       const anchors = terrainHeightBoundObjectAnchors();
       setTerrainLayerMode(terrainSelectedSectionIndex, layerId, control.mode.value, { save:false });
@@ -13453,12 +13567,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       saveTerrainSectionState();
       updateTerrainSectionUi(true);
     });
+    control?.value?.addEventListener('input', () => applyLayerSliderValue(false));
     control?.value?.addEventListener('change', () => {
-      const anchors = terrainHeightBoundObjectAnchors();
-      const info = terrainLayerModeInfo(terrainSelectedSectionIndex, layerId);
-      if (info.mode === 'explicit') setTerrainLayerExplicitHeight(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
-      else setTerrainLayerOffset(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
-      restoreTerrainHeightBoundObjectAnchors(anchors);
+      applyLayerSliderValue(false);
       saveTerrainSectionState();
       updateTerrainSectionUi(true);
     });

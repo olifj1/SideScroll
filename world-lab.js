@@ -931,11 +931,12 @@
     const offset=terrainLayerOffsetAt(index,layerId);
     const height=terrainLayerSectionHeight(index,layerId);
     const label=TERRAIN_LAYERS[layerId]?.label||layerId;
+    const sliderValue=explicit?height:offset;
     return `<div class="wl-layer-control" data-layer="${layerId}">
       <div class="wl-layer-control-head"><strong>${escapeHtml(label)}</strong><span>${explicit?'Explicit':'Linked'} · ${height>=0?'+':''}${round(height,2)} m</span></div>
       <div class="wl-selection-form compact">
         <label>Mode<select data-layer-mode="${layerId}"><option value="derived"${explicit?'':' selected'}>Linked to Path</option><option value="explicit"${explicit?' selected':''}>Explicit</option></select></label>
-        <label>${explicit?'Height':'Offset'}<input data-layer-value="${layerId}" type="number" step="0.1" min="-80" max="100" value="${round(explicit?height:offset,2)}"></label>
+        <label class="wl-layer-slider"><span>${explicit?'Height':'Offset'} <b data-layer-live="${layerId}">${sliderValue>=0?'+':''}${round(sliderValue,2)} m</b></span><input data-layer-value="${layerId}" type="range" step="${explicit?'0.1':'0.05'}" min="${explicit?'-50':'-6'}" max="${explicit?'80':'6'}" value="${round(sliderValue,2)}"></label>
       </div>
       <small>${explicit?'Holds its own world height from this section until you link it again.':'Offset is held from this section forward while the strip follows the Path profile.'}</small>
     </div>`;
@@ -979,12 +980,18 @@
     els.selection.querySelectorAll('[data-layer-mode]').forEach(selectEl=>selectEl.addEventListener('change',()=>{
       const layerId=selectEl.dataset.layerMode;pushHistory(`Change ${TERRAIN_LAYERS[layerId]?.label||layerId} mode`);setTerrainLayerMode(index,layerId,selectEl.value);render();toast(`${TERRAIN_LAYERS[layerId]?.label||layerId} → ${selectEl.value==='explicit'?'Explicit':'Linked'}.`);
     }));
-    els.selection.querySelectorAll('[data-layer-value]').forEach(input=>input.addEventListener('change',()=>{
-      const layerId=input.dataset.layerValue;const info=terrainLayerModeInfo(index,layerId);pushHistory(`Change ${TERRAIN_LAYERS[layerId]?.label||layerId}`);
-      if(info.mode==='explicit')setTerrainLayerExplicitHeight(index,layerId,number(input.value,terrainLayerSectionHeight(index,layerId)));
-      else setTerrainLayerOffset(index,layerId,number(input.value,terrainLayerOffsetAt(index,layerId)));
-      render();toast(`${TERRAIN_LAYERS[layerId]?.label||layerId} updated.`);
-    }));
+    els.selection.querySelectorAll('[data-layer-value]').forEach(input=>{
+      input.addEventListener('input',()=>{
+        const layerId=input.dataset.layerValue;const live=els.selection.querySelector(`[data-layer-live="${layerId}"]`);const value=number(input.value,0);
+        if(live)live.textContent=`${value>=0?'+':''}${round(value,2)} m`;
+      });
+      input.addEventListener('change',()=>{
+        const layerId=input.dataset.layerValue;const info=terrainLayerModeInfo(index,layerId);pushHistory(`Change ${TERRAIN_LAYERS[layerId]?.label||layerId}`);
+        if(info.mode==='explicit')setTerrainLayerExplicitHeight(index,layerId,number(input.value,terrainLayerSectionHeight(index,layerId)));
+        else setTerrainLayerOffset(index,layerId,number(input.value,terrainLayerOffsetAt(index,layerId)));
+        render();toast(`${TERRAIN_LAYERS[layerId]?.label||layerId} updated.`);
+      });
+    });
     $('wl-section-playhead').addEventListener('click',()=>{state.playheadX=bounds.center;select('playhead','player');});
   }
 
@@ -1105,7 +1112,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:2,
-      appVersion:'1.0.80',
+      appVersion:'1.0.81',
       exportedAt:new Date().toISOString(),
       purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
       world:{
