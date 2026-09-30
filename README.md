@@ -1,34 +1,22 @@
-# SS-PATCH-1.0.77
+# SS-PATCH-1.0.78
 
-Base expected: SideScroll v1.0.76.
-
-## Fixes
-
-### World Lab renders again
-- Fixes the blank World Lab where static track labels appeared but puzzle markers, terrain profiles, section data and dynamic content did not.
-- Root cause: World Lab called `init()` before the terrain-layer constant had been initialised. The first render therefore stopped on a JavaScript temporal-dead-zone error.
-- Initialisation now happens after all module constants/functions are defined.
-- Verified with a local DOM harness: puzzle markers and terrain/section profile elements are generated after startup.
-
-### Raised terrain no longer separates into chunks
-- Fixes visible gaps between neighbouring 10 m terrain sections after changing section heights.
-- Root cause: the new terrain meshes already baked the interpolated elevation into their vertices, but the generic wrapped-scenery draw path then added the terrain-height offset a second time to each section object.
-- Ground/path terrain meshes now keep their authored model Y; only wrapped scenery/dressing is re-grounded against its drawn world position.
-- Section edge geometry continues to use the same interpolated height function on both sides of each boundary.
+Base expected: SideScroll through v1.0.77.
 
 ## Changed files
-- `world-lab.html`
-- `world-lab.js`
+- `README.md`
 - `play.html`
 - `sidescroll.js`
-- `README.md`
+- `world-lab.html`
+- `world-lab.js`
+
+## Changes
+- World Lab no longer ends at the last authored content / 120 m. It now keeps a 300 m authoring runway and automatically appends another 200 m when panning near the right edge.
+- Normal gameplay vertical camera follow is now mandatory at full amplitude. Saved Follow/Amount settings can no longer leave the character drifting toward the top of the frame on long climbs.
+- Removed the old 12 m effective gameplay follow cap. The camera still eases toward character height so vertical movement retains lag rather than snapping.
+- Edit mode retains the existing camera-follow tuning behaviour because it is a free workspace.
+- Script query versions bumped to 1.0.78 to avoid stale PWA code.
 
 ## Test focus
-1. Open World Lab. Puzzle markers should be visible again.
-2. The Sections / Terrain track should show section boxes and the Path height profile.
-3. Expand TERRAIN and confirm Near / Far A / Far B profiles appear.
-4. Return to the game and raise several neighbouring sections.
-5. Confirm the dirt/path terrain remains physically joined with no open seams between 10 m chunks.
-6. Confirm wrapped trees/grass still follow the raised terrain rather than sinking into it.
-
-No local-storage reset is required.
+1. Open World Lab and pan right past 120 m. Continue toward the right edge and confirm more world is appended automatically.
+2. Walk uphill across the raised terrain and confirm Aureli keeps the same vertical screen framing instead of creeping toward the ceiling.
+3. Climb stacked rock assets and confirm the camera continues following for the full climb with smooth lag.

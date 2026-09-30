@@ -14,6 +14,10 @@
 
   const SECTION_LENGTH = 10;
   const RANGE_SNAP = 1;
+  // v1.0.78: World Lab is an authoring canvas, not a view clipped to current content.
+  // Keep a generous future runway and extend it automatically as the user pans right.
+  const WORLD_MIN_SPAN = 300;
+  const WORLD_EXTEND_STEP = 200;
   const baked = window.SIDESCROLL_BAKED_GAME_DESIGN || {};
   const puzzleConfig = window.SideScrollPuzzleConfig || { groups:{}, markers:[] };
   const RANGE_TYPES = new Set(['biome-region','biome-transition','dressing-group','audio-zone','vfx-zone']);
@@ -44,7 +48,7 @@
 
   const state = {
     minX:-20,
-    maxX:120,
+    maxX:300,
     scale:10,
     selected:null,
     drag:null,
@@ -133,6 +137,7 @@
     els.fit.addEventListener('click',()=>fitWorld(false));
     els.undo?.addEventListener('click',undoLast);
     bindPinchZoom();
+    els.scroll.addEventListener('scroll', maybeExtendWorldOnScroll, {passive:true});
     els.refresh.addEventListener('click',()=>{refreshGameData();fitWorld(false);toast('Game data refreshed.');});
     els.terrainToggle?.addEventListener('click',()=>{state.terrainExpanded=!state.terrainExpanded;render();});
     els.terrainLinkHeight?.addEventListener('change',()=>{
@@ -299,8 +304,9 @@
     const hi=values.length?Math.max(...values):100;
     state.minX=Math.floor((lo-15)/10)*10;
     state.maxX=Math.ceil((hi+20)/10)*10;
-    if(state.maxX-state.minX<80)state.maxX=state.minX+80;
-    if(initial&&state.maxX<120)state.maxX=120;
+    // Always leave enough empty world ahead to keep authoring beyond the last
+    // existing puzzle/section. More runway is appended when the scroll nears it.
+    if(state.maxX-state.minX<WORLD_MIN_SPAN)state.maxX=state.minX+WORLD_MIN_SPAN;
     syncViewInputs();
     render();
   }
@@ -311,6 +317,18 @@
     els.zoom.value=String(state.scale);
     els.zoomValue.textContent=`${state.scale} px/m`;
     els.playheadPosition.textContent=`${round(state.playheadX,1)} m`;
+  }
+
+  function maybeExtendWorldOnScroll(){
+    const scroller=els.scroll;
+    if(!scroller)return;
+    const remaining=scroller.scrollWidth-scroller.clientWidth-scroller.scrollLeft;
+    const threshold=Math.max(180,scroller.clientWidth*.22);
+    if(remaining>threshold)return;
+    const keepLeft=scroller.scrollLeft;
+    state.maxX+=WORLD_EXTEND_STEP;
+    render();
+    scroller.scrollLeft=keepLeft;
   }
 
   function worldWidth(){return Math.max(500,(state.maxX-state.minX)*state.scale);}

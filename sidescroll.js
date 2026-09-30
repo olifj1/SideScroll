@@ -6523,16 +6523,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function updateCameraFollow(dt) {
-    // v1.0.76: follow the character's signed world-height change relative to the
-    // legacy flat path. This keeps the same framing while terrain rises, while
-    // climbing stacked scenic rocks, and later while descending into caves.
+    // v1.0.78: normal gameplay always follows the FULL vertical displacement of
+    // the character. Previously a saved Follow toggle/amount (and the 12 m cap)
+    // could make Aureli creep toward the top of frame on sustained climbs.
+    // The camera still eases toward the target, so the motion has lag without
+    // changing the character's long-term screen framing. Edit mode keeps the
+    // existing tuning controls because it is intentionally a free workspace.
     let rawHeight = character.y - legacyPathGroundYAt(character.x, pathZ);
     if (Math.abs(rawHeight) < CAMERA_FOLLOW_DEADZONE) rawHeight = 0;
-    const targetOffset = cameraFollowEnabled
-      ? Rig.clamp(rawHeight * cameraFollowAmount, -CAMERA_FOLLOW_MAX, CAMERA_FOLLOW_MAX)
-      : 0;
-    // Smooth both directions, with a slightly softer settle to avoid camera snap.
-    const response = Math.abs(targetOffset) > Math.abs(cameraFollowOffset) ? 4.4 : 3.2;
+    const gameplayFollow = !editMode;
+    const followActive = gameplayFollow || cameraFollowEnabled;
+    const followAmount = gameplayFollow ? 1.0 : cameraFollowAmount;
+    const targetOffset = followActive ? rawHeight * followAmount : 0;
+    const response = Math.abs(targetOffset) > Math.abs(cameraFollowOffset) ? 3.8 : 3.2;
     const blend = 1 - Math.exp(-response * Math.max(0, dt));
     cameraFollowOffset += (targetOffset - cameraFollowOffset) * blend;
     if (Math.abs(cameraFollowOffset - targetOffset) < 0.0005) cameraFollowOffset = targetOffset;
