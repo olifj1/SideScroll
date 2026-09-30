@@ -8,7 +8,8 @@
     puzzleStarts:'sidescroll.puzzle-groups.starts.v1',
     puzzleLibrary:'sidescroll.puzzle-groups.library.v1',
     terrain:'sidescroll.terrain-sections.v1',
-    player:'sidescroll.player.position.v1'
+    player:'sidescroll.player.position.v1',
+    scene:'sidescroll.scene.v1'
   };
 
   const SECTION_LENGTH = 10;
@@ -54,7 +55,9 @@
     puzzleState:null,
     puzzleStarts:null,
     terrain:null,
+    scene:null,
     terrainExpanded:false,
+    history:[],
     puzzles:[]
   };
 
@@ -86,6 +89,7 @@
     min:$('wl-min'),
     max:$('wl-max'),
     fit:$('wl-fit'),
+    undo:$('wl-undo'),
     refresh:$('wl-refresh'),
     dataToggle:$('wl-data-toggle'),
     dataMenu:$('wl-data-menu'),
@@ -128,6 +132,8 @@
       syncViewInputs();render();
     });
     els.fit.addEventListener('click',()=>fitWorld(false));
+    els.undo?.addEventListener('click',undoLast);
+    bindPinchZoom();
     els.refresh.addEventListener('click',()=>{refreshGameData();fitWorld(false);toast('Game data refreshed.');});
     els.terrainToggle?.addEventListener('click',()=>{state.terrainExpanded=!state.terrainExpanded;render();});
     els.terrainLinkHeight?.addEventListener('change',()=>{
@@ -176,6 +182,7 @@
     state.puzzleStarts = loadJson(STORAGE.puzzleStarts,baked?.puzzles?.savedStarts || {});
     state.pending = loadJson(STORAGE.pending,{});
     state.terrain = normaliseTerrainState(loadJson(STORAGE.terrain,{}));
+    state.scene = normaliseSceneState(loadJson(STORAGE.scene,{added:[],overrides:{}}));
     state.puzzles = buildPuzzleMarkers();
 
     if(!Number.isFinite(state.playheadX)){
@@ -185,7 +192,9 @@
 
     if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain.linkSubsequent!==false;
     const pendingCount=Object.keys(state.pending||{}).length;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
+    const dressingCount=sceneDressingEntries().length;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${dressingCount?` · ${dressingCount} placed dressing`:''}${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
+    syncUndoUi();
   }
 
   function normaliseLibrary(raw){
@@ -199,6 +208,28 @@
     }
     lib.markers=out;
     return lib;
+  }
+
+  function normaliseSceneState(raw){
+    const scene=raw&&typeof raw==='object'?clone(raw):{};
+    scene.added=Array.isArray(scene.added)?scene.added:[];
+    scene.overrides=scene.overrides&&typeof scene.overrides==='object'?scene.overrides:{};
+    return scene;
+  }
+
+  function sceneDressingEntries(){
+    return (state.scene?.added||[])
+      .filter(item=>item&&!item.deleted&&(item.category||'dressing')==='dressing'&&Number.isFinite(Number(item.x)))
+      .map(item=>({
+        kind:'scene-dressing',
+        id:String(item.id||`scene-${item.assetName||'asset'}-${item.x}`),
+        label:item.assetName||'Environment asset',
+        x:Number(item.x),
+        z:number(item.z,0),
+        sx:Math.max(.1,Math.abs(number(item.sx,1))),
+        sy:Math.max(.1,Math.abs(number(item.sy,1))),
+        raw:item
+      }));
   }
 
   function buildPuzzleMarkers(){
@@ -262,6 +293,7 @@
     const values=[];
     for(const p of state.puzzles)values.push(p.minX,p.maxX,p.x);
     for(const e of state.elements)values.push(number(e.startX,0),number(e.endX,e.startX));
+    for(const d of sceneDressingEntries())values.push(d.x-d.sx*.5,d.x+d.sx*.5);
     for(const m of modifierEntries())values.push(m.startX,m.endX);
     if(Number.isFinite(state.playheadX))values.push(state.playheadX);
     const lo=values.length?Math.min(...values):-10;
@@ -396,6 +428,19 @@
       const host=track==='biome'?els.trackBiome:track==='transition'?els.trackTransition:track==='dressing'?els.trackDressing:els.trackOther;
       host.appendChild(makeWorldElementNode(item,track));
     }
+    for(const item of sceneDressingEntries()) els.trackDressing.appendChild(makeSceneDressingNode(item));
+  }
+
+  function makeSceneDressingNode(item){
+    const node=document.createElement('button');
+    node.type='button';
+    node.className=`wl-item dressing scene-dressing${isSelected('scene-dressing',item.id)?' selected':''}`;
+    node.style.left=`${xToPx(item.x-item.sx*.5)}px`;
+    node.style.width=`${Math.max(14,item.sx*state.scale)}px`;
+    node.textContent=item.label;
+    node.title=`Placed environment asset · ${item.label} · ${round(item.x,2)} m`;
+    node.addEventListener('click',event=>{event.stopPropagation();select('scene-dressing',item.id);});
+    return node;
   }
 
   function makeWorldElementNode(item,track){
@@ -443,6 +488,8 @@
   function bindRangeResize(handle,item,side){
     handle.addEventListener('pointerdown',event=>{
       if(event.button!==undefined&&event.button!==0)return;
+      if(!isSelected('element',item.id))return;
+      pushHistory('Resize world element');
       event.preventDefault();event.stopPropagation();
       handle.setPointerCapture?.(event.pointerId);
       const startClient=event.clientX;
@@ -637,12 +684,16 @@
     const saved=loadJson(STORAGE.player,{});
     saveJson(STORAGE.player,{...saved,x,facing:saved?.facing===-1?-1:1,savedAt:Date.now(),source:'world-lab'});
     // replace() avoids leaving a broken transient launch URL in the back stack.
-    location.replace(`play.html?mode=player&worldX=${encodeURIComponent(x)}&from=world-lab`);
+    location.href=`play.html?worldX=${encodeURIComponent(x)}&from=world-lab`;
   }
 
   function bindDraggable(node,ref){
     node.addEventListener('pointerdown',event=>{
       if(event.button!==undefined&&event.button!==0)return;
+      // First tap/release only selects. This deliberately leaves native timeline
+      // panning untouched until a second gesture begins on the selected block.
+      if(!isSelected(ref.kind,ref.id))return;
+      pushHistory(ref.kind==='puzzle'?'Move puzzle':'Move world element');
       event.preventDefault();event.stopPropagation();
       node.setPointerCapture?.(event.pointerId);
       const startClient=event.clientX;
@@ -653,7 +704,6 @@
         const item=findElement(ref.id);startX=number(item.startX,0);startEnd=number(item.endX,startX);
       }
       state.drag={...ref,startClient,startX,startEnd,moved:false};
-      select(ref.kind,ref.id,false);
       const move=e=>{
         if(!state.drag)return;
         const delta=(e.clientX-startClient)/state.scale;
@@ -723,6 +773,11 @@
       if(!item){state.selected=null;return renderSelection();}
       return renderElementSelection(item);
     }
+    if(state.selected.kind==='scene-dressing'){
+      const item=sceneDressingEntries().find(entry=>entry.id===state.selected.id);
+      if(!item){state.selected=null;return renderSelection();}
+      return renderSceneDressingSelection(item);
+    }
     if(state.selected.kind==='section')return renderSectionSelection(Number(state.selected.id));
     if(state.selected.kind==='modifier'){
       const mod=findModifier(state.selected.id);
@@ -739,6 +794,7 @@
       ${p.pending?`<p class="muted">Move queued from ${round(p.actualX,2)} m to ${round(p.x,2)} m. The game applies it through its normal puzzle-move system on next load.</p>`:''}
       <div class="wl-actions"><button class="primary" id="wl-queue-puzzle">${p.pending?'Update queued move':'Queue move'}</button><button id="wl-open-game">Jump to Game</button><button id="wl-playhead-to-puzzle">Move playhead here</button>${p.pending?'<button id="wl-cancel-move">Cancel queued move</button>':''}</div>`;
     $('wl-queue-puzzle').addEventListener('click',()=>{
+      pushHistory('Queue puzzle move');
       const x=number($('wl-puzzle-x').value,p.x);
       queuePuzzleMove(p.id,x);refreshGameData();select('puzzle',p.id);toast('Puzzle move queued.');
     });
@@ -749,6 +805,7 @@
     });
     $('wl-playhead-to-puzzle').addEventListener('click',()=>{state.playheadX=p.x;select('playhead','player');});
     $('wl-cancel-move')?.addEventListener('click',()=>{
+      pushHistory('Cancel puzzle move');
       delete state.pending[p.id];saveJson(STORAGE.pending,state.pending);refreshGameData();select('puzzle',p.id);toast('Queued move cancelled.');
     });
   }
@@ -782,6 +839,7 @@
       <div class="wl-actions"><button class="primary" id="wl-section-height-apply">Apply height</button><button id="wl-section-playhead">Move playhead to centre</button></div>`;
     els.selection.querySelectorAll('[data-mod-id]').forEach(button=>button.addEventListener('click',()=>select('modifier',button.dataset.modId)));
     $('wl-section-height-apply').addEventListener('click',()=>{
+      pushHistory('Change terrain height');
       const link=$('wl-section-link').value!=='0';
       state.terrain.linkSubsequent=link;
       if(els.terrainLinkHeight)els.terrainLinkHeight.checked=link;
@@ -832,6 +890,7 @@
       <div class="wl-selection-form"><label>Label<input id="wl-el-label" value="${escapeAttr(item.label||'')}"></label><label>Type<select id="wl-el-type">${Object.entries(TYPE_LABEL).map(([v,l])=>`<option value="${v}"${v===item.type?' selected':''}>${escapeHtml(l)}</option>`).join('')}</select></label><label>Start / X<input id="wl-el-start" type="number" step="${range?RANGE_SNAP:0.1}" value="${round(item.startX,3)}"></label><label>End / X<input id="wl-el-end" type="number" step="${range?RANGE_SNAP:0.1}" value="${round(item.endX,3)}"${range?'':' disabled'}></label><label>Owner<input id="wl-el-owner" value="${escapeAttr(item.owner||'world')}"></label><label class="wide">Notes<textarea id="wl-el-notes">${escapeHtml(item.notes||'')}</textarea></label></div>
       <div class="wl-actions"><button class="primary" id="wl-save-element">Save</button><button id="wl-jump-element">Jump to Game</button><button id="wl-element-playhead">Move playhead here</button><button class="danger" id="wl-delete-element">Delete</button></div>`;
     $('wl-save-element').addEventListener('click',()=>{
+      pushHistory('Edit world element');
       item.label=$('wl-el-label').value.trim()||TYPE_LABEL[item.type]||item.type;
       item.type=$('wl-el-type').value;
       if(RANGE_TYPES.has(item.type)){
@@ -849,6 +908,7 @@
     $('wl-element-playhead').addEventListener('click',()=>{state.playheadX=item.startX;select('playhead','player');});
     $('wl-delete-element').addEventListener('click',()=>{
       if(!confirm(`Delete ${item.label||TYPE_LABEL[item.type]||item.type}?`))return;
+      pushHistory('Delete world element');
       state.elements=state.elements.filter(e=>e.id!==item.id);
       state.selected=null;
       saveElements();render();
@@ -865,6 +925,7 @@
   }
 
   function addElement(){
+    pushHistory('Add world element');
     const type=els.newType.value;
     const label=els.newLabel.value.trim()||TYPE_LABEL[type]||type;
     const range=RANGE_TYPES.has(type);
@@ -886,7 +947,9 @@
 
   function saveElements(){
     saveJson(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:state.elements});
-    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements`;
+    const dressingCount=sceneDressingEntries().length;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${dressingCount?` · ${dressingCount} placed dressing`:''}`;
+    syncUndoUi();
   }
 
   function exportElements(){
@@ -908,6 +971,74 @@
       saveElements();fitWorld(false);toast('World Elements imported.');
     }catch(_){toast('Import failed.');}
     event.target.value='';
+  }
+
+  function renderSceneDressingSelection(item){
+    els.selection.innerHTML=`<h2>${escapeHtml(item.label)}</h2><p class="muted">Placed environment dressing · ${escapeHtml(item.id)}</p>
+      <div class="wl-selection-form"><label>World X<input readonly value="${round(item.x,3)} m"></label><label>Depth Z<input readonly value="${round(item.z,3)}"></label><label>Width<input readonly value="${round(item.sx,2)} m"></label><label>Height<input readonly value="${round(item.sy,2)} m"></label></div>
+      <p class="muted">This object is stored in the main scene data and persists independently of Puzzle Lab. Transform it in the in-game editor.</p>
+      <div class="wl-actions"><button class="primary" id="wl-scene-dressing-jump">Jump to Game</button><button id="wl-scene-dressing-playhead">Move playhead here</button></div>`;
+    $('wl-scene-dressing-jump').addEventListener('click',()=>{location.href=`play.html?worldX=${encodeURIComponent(item.x)}&from=world-lab`;});
+    $('wl-scene-dressing-playhead').addEventListener('click',()=>{state.playheadX=item.x;select('playhead','player');});
+  }
+
+  function historySnapshot(label='World Lab change'){
+    return {label,elements:clone(state.elements),pending:clone(state.pending),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
+  }
+  function pushHistory(label){
+    state.history.push(historySnapshot(label));
+    if(state.history.length>30)state.history.shift();
+    syncUndoUi();
+  }
+  function syncUndoUi(){
+    if(!els.undo)return;
+    const last=state.history[state.history.length-1];
+    els.undo.disabled=!last;
+    els.undo.textContent=last?`Undo`:'Undo';
+    els.undo.title=last?`Undo: ${last.label}`:'Nothing to undo';
+  }
+  function undoLast(){
+    const snap=state.history.pop();
+    if(!snap)return;
+    state.elements=clone(snap.elements)||[];
+    state.pending=clone(snap.pending)||{};
+    state.terrain=normaliseTerrainState(snap.terrain||{});
+    state.playheadX=number(snap.playheadX,state.playheadX);
+    state.selected=clone(snap.selected);
+    saveElements();
+    saveJson(STORAGE.pending,state.pending);
+    saveJson(STORAGE.terrain,state.terrain);
+    refreshGameData();
+    render();
+    toast(`Undid ${snap.label}.`);
+  }
+
+  function bindPinchZoom(){
+    const host=els.scroll;
+    if(!host)return;
+    let pinch=null;
+    const touchDistance=touches=>Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY);
+    const midpointX=touches=>(touches[0].clientX+touches[1].clientX)*.5;
+    host.addEventListener('touchstart',event=>{
+      if(event.touches.length!==2)return;
+      const rect=host.getBoundingClientRect();
+      const mid=midpointX(event.touches)-rect.left;
+      pinch={distance:Math.max(1,touchDistance(event.touches)),scale:state.scale,worldX:pxToX(host.scrollLeft+mid),mid};
+    },{passive:true});
+    host.addEventListener('touchmove',event=>{
+      if(!pinch||event.touches.length!==2)return;
+      event.preventDefault();
+      const ratio=touchDistance(event.touches)/pinch.distance;
+      const min=number(els.zoom.min,5),max=number(els.zoom.max,20);
+      state.scale=Math.max(min,Math.min(max,pinch.scale*ratio));
+      render();
+      const rect=host.getBoundingClientRect();
+      const mid=midpointX(event.touches)-rect.left;
+      host.scrollLeft=Math.max(0,xToPx(pinch.worldX)-mid);
+    },{passive:false});
+    const end=event=>{if(event.touches.length<2)pinch=null;};
+    host.addEventListener('touchend',end,{passive:true});
+    host.addEventListener('touchcancel',()=>{pinch=null;},{passive:true});
   }
 
   function findPuzzle(id){return state.puzzles.find(p=>p.id===id)||null;}

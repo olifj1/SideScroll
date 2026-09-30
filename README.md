@@ -1,42 +1,60 @@
-# SideScroll v1.0.75 — Terrain Elevation Spine
+# SideScroll v1.0.76 patch
 
-Base expected: v1.0.74 code state.
+Base expected: v1.0.75 (or the v1.0.74 code safety build with v1.0.75 applied).
 
-## Changed files
-- play.html
+## What this fixes
+
+### Terrain elevation grounding
+- Wrapped/procedural trees, grasses and rocks now resolve their displayed height against the terrain at the world position where they are actually being drawn.
+- This fixes forest dressing sinking beneath raised/sloped terrain while preserving the repeating forest system.
+- Authored terrain-bound scene objects continue to retain their local floor offset when terrain heights change.
+
+### Vertical camera follow
+- Camera follow now tracks signed world-height change rather than only a partial upward rise.
+- The untouched legacy 55% follow default migrates to 100% so tall climbs and raised terrain keep the character framed consistently.
+- Downward terrain is supported too for future cave/descent work.
+
+### World Lab recovery
+- Fixes a v1.0.75 JavaScript parse error that left only the static track labels visible.
+- Terrain elevation profiles and puzzle markers render again.
+- Path / Near / Far A / Far B height tracks read the same terrain-section storage as the game.
+
+### Safer World Lab editing
+- First tap/release selects a movable puzzle/world block.
+- Only a subsequent drag of the already-selected block moves it.
+- Resize handles are inactive until their world element is selected.
+- Added an Undo button for World Lab layout/terrain edits and queued puzzle moves.
+- Added two-finger pinch zoom to the timeline.
+
+### Play From Here
+- World Lab playhead launches now use the lightweight authoring/test game route rather than Player Mode's cinematic/save-state launch path.
+- The requested world X is still applied, but this avoids the incomplete/black Player Mode launch path during world-layout testing.
+
+### Persistent environment dressing
+- A reusable puzzle asset is no longer deleted from normal scene storage just because that same asset also belongs to a puzzle asset pack.
+- This specifically fixes Mountain Climb Rock 01 disappearing when placed as ordinary Environment dressing.
+- Persistent user-placed environment dressing now appears on World Lab's DRESSING track and can be inspected/jumped to there.
+
+### In-game asset scaling
+- The general level-editor scale cap has been raised substantially so editing a large asset no longer snaps it back to the old 5 m ceiling.
+
+## Files in this patch
+- README.md
 - sidescroll.js
-- style.css
-- world-lab.html
+- play.html
 - world-lab.js
 - world-lab.css
-- design-doc.json
-- README.md
-
-## What this patch adds
-- A persistent Path-height point at every 10 m section centre.
-- Linear interpolation between section-centre heights, so normal terrain can rise/fall continuously.
-- In-game Section Editor controls for Path Height, numeric fine tuning, +/-0.25 m nudges, and Link Subsequent Sections.
-- Link Subsequent ON shifts the selected point and all later authored terrain heights by the same delta; OFF changes the selected point locally and preserves the following terrain.
-- Terrain-bound scene objects are re-grounded when terrain elevation changes; free-placement objects remain where they were authored.
-- Terrain rendering is now split conceptually and visually into four depth layers: Path, Near Strip, Far Strip A and Far Strip B.
-- Near currently follows Path directly. Far A and Far B are derived from progressively smoother/reduced versions of the Path profile so distant terrain can fall away during mountain climbs.
-- World Lab now has a collapsible TERRAIN group. Collapsed shows the Path profile; expanded shows Near / Far A / Far B tracks too.
-- Clicking a section in World Lab exposes its Path height and Link Later Sections setting.
-- Camera vertical follow can now accommodate larger authored elevation changes instead of being capped at the old small scenic-rise range.
-- Design Lab documents the first-pass terrain-elevation architecture.
-
-## First-pass limits
-- Path is the only independently authored height profile in v1.0.75.
-- Near / Far A / Far B are derived profiles; per-layer height/visibility overrides come later if the mountain prototype proves they are useful.
-- Existing section visibility still hides the whole terrain group for that section.
+- world-lab.html
 
 ## Test focus
-1. Open Edit/Test > Sections.
-2. Select a section and raise Path Height by several metres with Link Subsequent ON. Later terrain should rise with it while keeping its relative shape.
-3. Turn Link Subsequent OFF and fine-tune one section. Only the local profile should change.
-4. Walk across the result and check the path interpolates smoothly between section centres.
-5. Check terrain-bound dressing follows the raised terrain.
-6. Open World Lab. TERRAIN should show the Path elevation profile; expand it to inspect Near / Far A / Far B.
-7. Select a section in World Lab and edit its Path height; reload/enter the game and confirm the same terrain profile is used.
+1. Raise a terrain section around the current forest and confirm nearby trees/grass remain planted on the visible slope.
+2. Walk/climb several metres upward and confirm the camera keeps the character at a stable screen height.
+3. Open World Lab: terrain profiles and puzzle boxes should be visible again.
+4. Tap a World Lab block once, then pan elsewhere: it should not move. Drag it only after it is selected.
+5. Pinch the World Lab timeline to zoom.
+6. Test Undo after moving/resizing a World Element or changing a terrain height in World Lab.
+7. Use Play From Here and confirm the normal world renders at the chosen X.
+8. Place Mountain Climb Rock 01 as Environment dressing, leave/re-enter the game, and confirm it persists. Then confirm it appears on World Lab's DRESSING track.
+9. Scale the rock beyond the previous in-game cap and confirm it retains the larger size.
 
-Do not clear local storage. Existing authored data is preserved and the terrain state format is backward-compatible.
+No local-storage reset is required or desired.

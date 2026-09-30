@@ -2636,6 +2636,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     obj.y = base + (Number(floorOffset) || 0) - objectGroundLine(obj) * (Number(obj.sy) || 0);
   }
 
+  // Procedural forest dressing is stored once inside the repeating 124 m tile,
+  // then wrapped beside the camera. A rising world terrain spine means the drawn
+  // copy can be hundreds of metres away from the source object's X. Resolve its
+  // visual/collision Y against that drawn X so trees and grass stay planted on
+  // the visible terrain instead of sinking into a mountain slope.
+  function objectYAtDrawX(obj, drawX = obj?.x) {
+    if (!obj || !Number.isFinite(Number(obj.y))) return 0;
+    if (!obj.wrap || objectUsesFreePlacement(obj) || !Number.isFinite(Number(drawX))) return Number(obj.y);
+    const sourceBase = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+    const drawBase = terrainAnchorBaseY(Number(drawX), obj.z, obj.category, obj.gameplayLayerLocked);
+    return Number(obj.y) + (drawBase - sourceBase);
+  }
+
   const CRATE_HALF_WIDTH_FACTOR = 0.43;
   const CRATE_COLLISION_HEIGHT_FACTOR = 0.96;
   // Stackable props share one authored gameplay height. Their artwork can vary,
@@ -5870,7 +5883,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         id: obj.id, assetName: obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName), x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z,
         sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
-        gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), deleted: !!obj.deleted
+        gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
+        puzzleInstanceId:obj.puzzleInstanceId || null, puzzleObjectId:obj.puzzleObjectId || null, deleted: !!obj.deleted
       };
       if (saved) Object.assign(saved, payload);
       else sceneData.added.push(payload);
@@ -5891,7 +5905,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // from general scene storage and let puzzle state be the sole owner.
     const puzzleAssetNames = new Set(Object.values(puzzleConfig.assetPacks || {}).flatMap(pack => (pack.assets || []).map(asset => asset.name)));
     const beforeAdded = sceneData.added.length;
-    sceneData.added = sceneData.added.filter(saved => !puzzleAssetNames.has(saved.assetName));
+    // Puzzle assets can also be perfectly valid standalone environment dressing
+    // (the mountain climb rock is the first real example). Only remove legacy
+    // scene rows that are unmistakably puzzle-owned; never purge by asset name.
+    sceneData.added = sceneData.added.filter(saved => !(
+      puzzleAssetNames.has(saved?.assetName) &&
+      (saved?.puzzleInstanceId || saved?.puzzleObjectId || String(saved?.id || '').startsWith('puzzle-'))
+    ));
     if (sceneData.added.length !== beforeAdded) saveSceneData();
 
     let groundAspectChanged = false;
@@ -6387,7 +6407,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let cameraBaseY = camera.y;
   let cameraBaseTilt = camera.targetY - camera.y;
   let cameraFollowEnabled = true;
-  let cameraFollowAmount = 0.55;
+  // v1.0.76: full-height follow is the new baseline. Older builds defaulted to
+  // 55%, which left Aureli visibly pressed toward the top of frame on tall
+  // climbs and authored terrain rises. Keep the user control, but migrate the
+  // untouched legacy default to 100%.
+  let cameraFollowAmount = 1.0;
   let cameraFollowOffset = 0;
   try {
     const rawCamera = localStorage.getItem(CAMERA_TUNE_STORAGE_KEY);
@@ -6404,7 +6428,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const savedFollow = JSON.parse(localStorage.getItem(CAMERA_FOLLOW_STORAGE_KEY) || 'null');
     if (savedFollow) {
       if (typeof savedFollow.enabled === 'boolean') cameraFollowEnabled = savedFollow.enabled;
-      if (Number.isFinite(savedFollow.amount)) cameraFollowAmount = Rig.clamp(savedFollow.amount, 0, 1);
+      if (Number.isFinite(savedFollow.amount)) {
+        const savedAmount = Rig.clamp(savedFollow.amount, 0, 1);
+        cameraFollowAmount = Math.abs(savedAmount - 0.55) < 0.001 ? 1.0 : savedAmount;
+      }
     }
     playerHintsEnabled = localStorage.getItem(PLAYER_HINT_STORAGE_KEY) !== '0';
   } catch (_) {}
@@ -6489,19 +6516,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function updateCameraFollow(dt) {
-    // Follow meaningful character height, not just the jump flag. This keeps the
-    // camera with Aureli while climbing, while she remains on an elevated walk
-    // surface, and while the authored terrain spine itself rises. The legacy flat
-    // path reference deliberately excludes terrain elevation, so a mountain path
-    // can lift the camera without a river trench falsely affecting it. The jump
-    // baseline remains as a fallback for jumps that begin below that reference.
-    const scenicRise = Math.max(0, character.y - legacyPathGroundYAt(character.x, pathZ) - CAMERA_FOLLOW_DEADZONE);
-    const jumpRise = jumping ? Math.max(0, character.y - jumpCameraBaseY - CAMERA_FOLLOW_DEADZONE) : 0;
-    const rawHeight = Math.max(scenicRise, jumpRise);
-    const targetOffset = cameraFollowEnabled ? Rig.clamp(rawHeight * cameraFollowAmount, 0, CAMERA_FOLLOW_MAX) : 0;
-    // Deliberately slower on the way down: the camera rises smoothly, then settles
-    // rather than snapping back to its base framing as the character lands.
-    const response = targetOffset > cameraFollowOffset ? 4.0 : 2.7;
+    // v1.0.76: follow the character's signed world-height change relative to the
+    // legacy flat path. This keeps the same framing while terrain rises, while
+    // climbing stacked scenic rocks, and later while descending into caves.
+    let rawHeight = character.y - legacyPathGroundYAt(character.x, pathZ);
+    if (Math.abs(rawHeight) < CAMERA_FOLLOW_DEADZONE) rawHeight = 0;
+    const targetOffset = cameraFollowEnabled
+      ? Rig.clamp(rawHeight * cameraFollowAmount, -CAMERA_FOLLOW_MAX, CAMERA_FOLLOW_MAX)
+      : 0;
+    // Smooth both directions, with a slightly softer settle to avoid camera snap.
+    const response = Math.abs(targetOffset) > Math.abs(cameraFollowOffset) ? 4.4 : 3.2;
     const blend = 1 - Math.exp(-response * Math.max(0, dt));
     cameraFollowOffset += (targetOffset - cameraFollowOffset) * blend;
     if (Math.abs(cameraFollowOffset - targetOffset) < 0.0005) cameraFollowOffset = targetOffset;
@@ -6570,7 +6594,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (visualFlip) lx = -lx;
     const c = Math.cos(visualAngle), sn = Math.sin(visualAngle);
     const pivotX = aroundX + (Number(visual.offsetX) || 0);
-    const pivotY = obj.y + (Number(visual.offsetY) || 0);
+    const pivotY = objectYAtDrawX(obj, aroundX) + (Number(visual.offsetY) || 0);
     return {
       x:pivotX + lx*c - ly*sn,
       y:pivotY + lx*sn + ly*c
@@ -7162,11 +7186,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function objectScreenBounds(obj) {
     if (!obj || obj.deleted || obj.carried) return null;
     const x = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
+    const y = objectYAtDrawX(obj, x);
     const points = [
-      projectWorldPoint(x - obj.sx * 0.5, obj.y, obj.z),
-      projectWorldPoint(x + obj.sx * 0.5, obj.y, obj.z),
-      projectWorldPoint(x - obj.sx * 0.5, obj.y + obj.sy, obj.z),
-      projectWorldPoint(x + obj.sx * 0.5, obj.y + obj.sy, obj.z)
+      projectWorldPoint(x - obj.sx * 0.5, y, obj.z),
+      projectWorldPoint(x + obj.sx * 0.5, y, obj.z),
+      projectWorldPoint(x - obj.sx * 0.5, y + obj.sy, obj.z),
+      projectWorldPoint(x + obj.sx * 0.5, y + obj.sy, obj.z)
     ].filter(Boolean);
     if (points.length < 2) return null;
     const xs = points.map(p => p.x), ys = points.map(p => p.y);
@@ -9007,7 +9032,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!selectedObject || selectedObject.deleted) return;
     const preservedFloorOffset = objectFloorOffsetFromTerrain(selectedObject);
     const preservedFloorWorldY = objectFloorWorldY(selectedObject);
-    const next = Rig.clamp((selectedObject.sy * multiplier), 0.18, selectedObject.assetName.startsWith('tree') ? 24 : (selectedObject.assetName === 'crate' ? 3.0 : 5.0));
+    const scaleMax = selectedObject.assetName === 'crate'
+      ? 8.0
+      : (selectedObject.assetName.startsWith('tree') ? 40.0 : 40.0);
+    const next = Rig.clamp((selectedObject.sy * multiplier), 0.18, scaleMax);
     const ratio = next / Math.max(0.001, selectedObject.sy);
     selectedObject.sy = next;
     selectedObject.sx *= ratio;
@@ -10207,11 +10235,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj?.collision) return null;
     const c = obj.collision;
     const drawX = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
+    const drawY = objectYAtDrawX(obj, drawX);
     const points = [
-      projectWorldPoint(drawX - c.halfWidth, obj.y, obj.z),
-      projectWorldPoint(drawX + c.halfWidth, obj.y, obj.z),
-      projectWorldPoint(drawX - c.halfWidth, obj.y + c.height, obj.z),
-      projectWorldPoint(drawX + c.halfWidth, obj.y + c.height, obj.z)
+      projectWorldPoint(drawX - c.halfWidth, drawY, obj.z),
+      projectWorldPoint(drawX + c.halfWidth, drawY, obj.z),
+      projectWorldPoint(drawX - c.halfWidth, drawY + c.height, obj.z),
+      projectWorldPoint(drawX + c.halfWidth, drawY + c.height, obj.z)
     ].filter(Boolean);
     if (points.length < 2) return null;
     const xs = points.map(p => p.x), ys = points.map(p => p.y);
@@ -11117,7 +11146,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0);
     const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
     const visualFlip = (!!obj.flip) !== (!!visual.flip);
-    let drawY = (extra?.y ?? obj.y) + (Number(visual.offsetY) || 0);
+    let drawY = (extra?.y ?? objectYAtDrawX(obj, baseDrawX)) + (Number(visual.offsetY) || 0);
     let modelX = drawX;
     const drawZ = extra?.z ?? obj.z;
     const drawSx = extra?.sx ?? obj.sx;
