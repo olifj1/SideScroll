@@ -1,50 +1,36 @@
-# SideScroll v1.0.79 — Terrain depth groundwork
+# SS-PATCH-1.0.80
 
-Base expected: current v1.0.78 code.
-
-This is a flat changed-files-only patch. Upload every file in this ZIP to the repository root, replacing matching files. No images or audio are included. Do not clear local storage.
+Base expected: SideScroll v1.0.79.
 
 ## Changed files
-- asset-lab.html
-- asset-lab.js
-- design-doc.json
-- play.html
-- sidescroll.js
-- style.css
-- world-lab.css
-- world-lab.html
-- world-lab.js
+- `world-lab.html`
+- `world-lab.js`
+- `play.html`
+- `README.md`
 
 ## What changed
 
-### Terrain depth strips
-- Path remains the master authored elevation spine.
-- Near, Far A and Far B stay linked to Path by default.
-- Each depth strip now supports a sparse authored **Offset**. Set it once at a section and that offset carries forward.
-- Each depth strip can switch to **Explicit** at a section. Explicit mode holds its own world-height profile independently of Path until a later section switches it back to Linked.
-- This allows the walkable path to continue climbing while distant terrain stays low / falls away to open a mountain vista.
-- Both World Lab and the in-game Section editor expose Linked / Explicit plus Offset / Height controls.
-- World Lab marks explicit terrain profile points with an `E`.
+### One authoritative project export
+World Lab > Data is now the normal project handoff location.
 
-### Terrain seam treatment
-- Terrain depth bands now use a tiny render-only vertical stagger (2 cm per depth step) so adjacent strips overlap visually instead of exposing hairline seams.
-- Path collision / player ground height is unchanged.
+- `Export Complete Game` replaces the old World Elements-only export.
+- It uses the same iPhone-friendly Share Sheet flow as the original complete-game export, with a download fallback.
+- The export now includes World Elements, terrain height/depth-layer authoring, pending World Lab puzzle moves, scene edits and placed world assets, puzzle library/runtime/starts/workshop/exclusions, reusable asset behaviours/collision/climb paths/mechanisms/sockets/states/layout, collectables/inventory, camera, render, audio, Concept Lab state, Design Lab working state, animation state and player position/settings.
+- `Import Complete Game` restores the v2 complete export and remains backward compatible with the older `SideScrollGameDesign` and World Elements-only files where possible.
+- The old `Export All` button has been removed from the buried puzzle Stage panel, leaving World Lab as the single user-facing complete export location.
 
-### Surface-normal dressing
-- Asset Lab has a new **Follow Surface Normal** behaviour.
-- When enabled on a terrain-bound dressing asset, the asset visually tilts to match the local terrain slope.
-- Intended for grasses, scrub and small rocks. Leave trees / major props upright unless deliberately wanted.
+### World Lab world assets
+World Lab no longer assumes that a world-owned asset must have `category: dressing`.
 
-### Artwork workflow
-- No runtime brightness / contrast / saturation controls were added. Source textures remain authoritative.
-- If needed later, an Asset Lab "bake appearance to exported PNG" workflow can be added, but it would export a replacement texture for GitHub rather than silently altering the repo.
+Any non-deleted object in the main scene `added` list with no `puzzleInstanceId` is treated as a world-owned placed asset. This means interactive environment assets such as `mountain-climb-rock-01` appear on the World Assets track even though they use gameplay behaviours such as `climb-rock`.
+
+The existing Dressing track is labelled `WORLD ASSETS` and still also carries authored Dressing Group / Explicit Dressing World Elements.
 
 ## Test focus
-1. Raise Path across several sections and confirm existing terrain behaviour still works.
-2. Open Sections in-game, expand Depth Layers, set Far B to Explicit at the start of a climb, then keep raising Path. Far B should remain independent.
-3. Switch Far B back to Linked at a later section and confirm it resumes following the Path-derived profile.
-4. In World Lab, expand Terrain and confirm Near / Far A / Far B profiles reflect Offset / Explicit changes.
-5. Check the Near → Path / Far strip boundaries for the previous micro seam.
-6. In Asset Lab, enable Follow Surface Normal on one grass asset, place it on a slope and confirm it tilts with the ground while an ordinary tree remains upright.
+1. Open World Lab. Confirm both placed Mountain Climb Rock assets now appear on WORLD ASSETS, along with the existing manually placed ground asset.
+2. Confirm puzzle markers, terrain profiles and the Woodland biome region still appear normally.
+3. World Lab > Data > Export Complete Game. On iPhone this should open the same Share Sheet-style save flow used by the original complete exporter.
+4. Inspect/export the JSON if desired: `format` should be `SideScrollGameDesign`, `formatVersion` should be `2`, and the new `world.elements` / `world.terrain` sections should be present.
+5. The puzzle Stage panel should no longer show the old `Export All` button.
 
-Not included in this pass: climb animation v2, mountain art generation, biome/location asset pools, biome transition probability blending.
+No image/audio files are included in this patch.

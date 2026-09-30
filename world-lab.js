@@ -7,9 +7,30 @@
     puzzleState:'sidescroll.puzzle-groups.state.v1',
     puzzleStarts:'sidescroll.puzzle-groups.starts.v1',
     puzzleLibrary:'sidescroll.puzzle-groups.library.v1',
+    puzzleWorkshop:'sidescroll.puzzle-groups.workshop.v1',
+    puzzleExclusions:'sidescroll-puzzle-exclusions-v1',
+    inventory:'sidescroll.inventory.v1',
+    collectables:'sidescroll.collectibles.setup.v1',
     terrain:'sidescroll.terrain-sections.v1',
     player:'sidescroll.player.position.v1',
-    scene:'sidescroll.scene.v1'
+    playerHints:'sidescroll-player-hints-v1',
+    scene:'sidescroll.scene.v1',
+    assetBehaviours:'sidescroll.asset-behaviours.v1',
+    assetCollisions:'sidescroll.asset-collisions.v1',
+    assetClimbPaths:'sidescroll.asset-climb-paths.v1',
+    assetMechanisms:'sidescroll.asset-mechanisms.v3',
+    assetSockets:'sidescroll.asset-sockets.v1',
+    assetStates:'sidescroll.asset-states.v1',
+    assetLayout:'sidescroll.asset-layout.v1',
+    cameraTune:'sidescroll-camera-tune-v1',
+    cameraFollow:'sidescroll-camera-follow-v1',
+    renderFog:'sidescroll.render.fog.v1',
+    renderPost:'sidescroll.render.post.v1',
+    audio:'sidescroll.audio.settings.v1',
+    conceptLab:'ss-concept-lab-state-v1',
+    designLab:'sidescroll-design-doc-working-v1',
+    animClips:'gamehub.walklab.anim.v6',
+    animWalk:'gamehub.walklab.anim.v4'
   };
 
   const SECTION_LENGTH = 10;
@@ -154,9 +175,9 @@
     els.dataClose.addEventListener('click',closeDataMenu);
     els.dataScrim.addEventListener('click',closeDataMenu);
     document.addEventListener('keydown',event=>{if(event.key==='Escape')closeDataMenu();});
-    els.exportBtn.addEventListener('click',exportElements);
+    els.exportBtn.addEventListener('click',exportCompleteGameDesign);
     els.importBtn.addEventListener('click',()=>els.importFile.click());
-    els.importFile.addEventListener('change',importElements);
+    els.importFile.addEventListener('change',importCompleteGameDesign);
     els.resetWorld.addEventListener('click',()=>{
       if(confirm('Clear all World Elements? Puzzle placement is not affected.')){
         state.elements=[];
@@ -181,6 +202,7 @@
   }
 
   function refreshGameData(){
+    state.elements = loadElements();
     state.userLibrary = normaliseLibrary(loadJson(STORAGE.puzzleLibrary, baked?.puzzles?.localLibrary || {groups:{},templates:{},markers:[]}));
     state.puzzleState = loadJson(STORAGE.puzzleState,{});
     state.puzzleStarts = loadJson(STORAGE.puzzleStarts,baked?.puzzles?.savedStarts || {});
@@ -196,8 +218,8 @@
 
     if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain.linkSubsequent!==false;
     const pendingCount=Object.keys(state.pending||{}).length;
-    const dressingCount=sceneDressingEntries().length;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${dressingCount?` · ${dressingCount} placed dressing`:''}${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
+    const assetCount=sceneDressingEntries().length;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
     syncUndoUi();
   }
 
@@ -222,12 +244,15 @@
   }
 
   function sceneDressingEntries(){
+    // World ownership is independent of gameplay capability. A climbable rock,
+    // ladder or other interactive environment asset still belongs on the World
+    // Lab timeline when it is not owned by a puzzle instance.
     return (state.scene?.added||[])
-      .filter(item=>item&&!item.deleted&&(item.category||'dressing')==='dressing'&&Number.isFinite(Number(item.x)))
+      .filter(item=>item&&!item.deleted&&!item.puzzleInstanceId&&Number.isFinite(Number(item.x)))
       .map(item=>({
         kind:'scene-dressing',
         id:String(item.id||`scene-${item.assetName||'asset'}-${item.x}`),
-        label:item.assetName||'Environment asset',
+        label:item.assetName||'World asset',
         x:Number(item.x),
         z:number(item.z,0),
         sx:Math.max(.1,Math.abs(number(item.sx,1))),
@@ -526,7 +551,7 @@
     node.style.left=`${xToPx(item.x-item.sx*.5)}px`;
     node.style.width=`${Math.max(14,item.sx*state.scale)}px`;
     node.textContent=item.label;
-    node.title=`Placed environment asset · ${item.label} · ${round(item.x,2)} m`;
+    node.title=`World asset · ${item.label} · ${round(item.x,2)} m${item.raw?.gameplayType?` · ${item.raw.gameplayType}`:''}`;
     node.addEventListener('click',event=>{event.stopPropagation();select('scene-dressing',item.id);});
     return node;
   }
@@ -1060,36 +1085,178 @@
 
   function saveElements(){
     saveJson(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:state.elements});
-    const dressingCount=sceneDressingEntries().length;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${dressingCount?` · ${dressingCount} placed dressing`:''}`;
+    const assetCount=sceneDressingEntries().length;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
     syncUndoUi();
   }
 
-  function exportElements(){
-    const blob=new Blob([JSON.stringify({format:'SideScrollWorldElements',version:1,exportedAt:new Date().toISOString(),elements:state.elements},null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download='SideScroll-World-Elements.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-    toast('World Elements exported.');
+  function exportStore(key,fallback=null){
+    return loadJson(key,fallback);
   }
 
-  async function importElements(event){
+  function completeGameDesignExportPayload(){
+    refreshGameData();
+    const bakedWorld=clone(baked?.world||{});
+    const placedWorldAssets=sceneDressingEntries().map(item=>clone(item.raw));
+    const puzzleMarkers=state.puzzles.map(item=>({
+      id:item.id,group:item.group,label:item.label,x:item.x,actualX:item.actualX,local:!!item.local,
+      minX:item.minX,maxX:item.maxX,pending:!!item.pending
+    }));
+    return {
+      format:'SideScrollGameDesign',
+      formatVersion:2,
+      appVersion:'1.0.80',
+      exportedAt:new Date().toISOString(),
+      purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
+      world:{
+        ...bakedWorld,
+        elements:clone(state.elements),
+        terrain:clone(state.terrain),
+        pendingPuzzleMoves:clone(state.pending),
+        playerPosition:exportStore(STORAGE.player,null)
+      },
+      scene:{
+        edits:clone(state.scene),
+        placedWorldAssets
+      },
+      puzzles:{
+        markers:puzzleMarkers,
+        localLibrary:clone(state.userLibrary),
+        runtimeState:clone(state.puzzleState),
+        savedStarts:clone(state.puzzleStarts),
+        workshop:exportStore(STORAGE.puzzleWorkshop,{}),
+        exclusions:exportStore(STORAGE.puzzleExclusions,{})
+      },
+      assets:{
+        behaviourOverrides:exportStore(STORAGE.assetBehaviours,{}),
+        collisionDefaults:exportStore(STORAGE.assetCollisions,{}),
+        climbPaths:exportStore(STORAGE.assetClimbPaths,{}),
+        mechanisms:exportStore(STORAGE.assetMechanisms,{}),
+        sockets:exportStore(STORAGE.assetSockets,{}),
+        states:exportStore(STORAGE.assetStates,{}),
+        layout:exportStore(STORAGE.assetLayout,{})
+      },
+      collectables:{
+        setup:exportStore(STORAGE.collectables,{}),
+        inventory:exportStore(STORAGE.inventory,{})
+      },
+      camera:{
+        tune:exportStore(STORAGE.cameraTune,null),
+        follow:exportStore(STORAGE.cameraFollow,null)
+      },
+      render:{
+        fog:exportStore(STORAGE.renderFog,null),
+        post:exportStore(STORAGE.renderPost,null)
+      },
+      audio:exportStore(STORAGE.audio,null),
+      labs:{
+        concept:exportStore(STORAGE.conceptLab,null),
+        design:exportStore(STORAGE.designLab,null),
+        animationClips:exportStore(STORAGE.animClips,null),
+        animationWalk:exportStore(STORAGE.animWalk,null)
+      },
+      player:{
+        position:exportStore(STORAGE.player,null),
+        hints:localStorage.getItem(STORAGE.playerHints)
+      }
+    };
+  }
+
+  async function exportCompleteGameDesign(){
+    const payload=completeGameDesignExportPayload();
+    const text=JSON.stringify(payload,null,2);
+    const filename='SideScroll-Complete-Game-Design.json';
+    const blob=new Blob([text],{type:'application/json'});
+    try{
+      const file=new File([blob],filename,{type:'application/json'});
+      if(navigator.canShare?.({files:[file]})){
+        await navigator.share({files:[file]});
+        toast('Complete game exported.');
+        return;
+      }
+    }catch(err){
+      if(err?.name==='AbortError')return;
+    }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast('Complete game exported.');
+  }
+
+  function writeImportedStore(key,value){
+    if(value===undefined)return;
+    try{
+      if(value===null)localStorage.removeItem(key);
+      else localStorage.setItem(key,JSON.stringify(value));
+    }catch(_){}
+  }
+
+  async function importCompleteGameDesign(event){
     const file=event.target.files?.[0];
     if(!file)return;
     try{
       const parsed=JSON.parse(await file.text());
-      const list=Array.isArray(parsed)?parsed:parsed.elements;
-      if(!Array.isArray(list))throw new Error();
-      state.elements=list.filter(e=>e&&e.id&&e.type);
-      saveElements();fitWorld(false);toast('World Elements imported.');
-    }catch(_){toast('Import failed.');}
+      if(parsed?.format==='SideScrollWorldElements'){
+        const list=Array.isArray(parsed.elements)?parsed.elements:[];
+        if(!confirm('This is an older World Elements-only export. Import its World Elements into the current project?'))return;
+        writeImportedStore(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:list});
+      }else if(parsed?.format==='SideScrollGameDesign'){
+        if(!confirm('Import this complete SideScroll game snapshot? Current local authored data will be replaced where the export contains data.'))return;
+        const worldElements=Array.isArray(parsed?.world?.elements)?parsed.world.elements:null;
+        if(worldElements)writeImportedStore(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:worldElements});
+        if(parsed?.world?.terrain!==undefined)writeImportedStore(STORAGE.terrain,parsed.world.terrain);
+        if(parsed?.world?.pendingPuzzleMoves!==undefined)writeImportedStore(STORAGE.pending,parsed.world.pendingPuzzleMoves);
+        if(parsed?.scene?.edits!==undefined)writeImportedStore(STORAGE.scene,parsed.scene.edits);
+        if(parsed?.puzzles?.localLibrary!==undefined)writeImportedStore(STORAGE.puzzleLibrary,parsed.puzzles.localLibrary);
+        if(parsed?.puzzles?.runtimeState!==undefined)writeImportedStore(STORAGE.puzzleState,parsed.puzzles.runtimeState);
+        if(parsed?.puzzles?.savedStarts!==undefined)writeImportedStore(STORAGE.puzzleStarts,parsed.puzzles.savedStarts);
+        if(parsed?.puzzles?.workshop!==undefined)writeImportedStore(STORAGE.puzzleWorkshop,parsed.puzzles.workshop);
+        if(parsed?.puzzles?.exclusions!==undefined)writeImportedStore(STORAGE.puzzleExclusions,parsed.puzzles.exclusions);
+        if(parsed?.assets?.behaviourOverrides!==undefined)writeImportedStore(STORAGE.assetBehaviours,parsed.assets.behaviourOverrides);
+        if(parsed?.assets?.collisionDefaults!==undefined)writeImportedStore(STORAGE.assetCollisions,parsed.assets.collisionDefaults);
+        if(parsed?.assets?.climbPaths!==undefined)writeImportedStore(STORAGE.assetClimbPaths,parsed.assets.climbPaths);
+        if(parsed?.assets?.mechanisms!==undefined)writeImportedStore(STORAGE.assetMechanisms,parsed.assets.mechanisms);
+        if(parsed?.assets?.sockets!==undefined)writeImportedStore(STORAGE.assetSockets,parsed.assets.sockets);
+        if(parsed?.assets?.states!==undefined)writeImportedStore(STORAGE.assetStates,parsed.assets.states);
+        if(parsed?.assets?.layout!==undefined)writeImportedStore(STORAGE.assetLayout,parsed.assets.layout);
+        if(parsed?.collectables?.setup!==undefined)writeImportedStore(STORAGE.collectables,parsed.collectables.setup);
+        if(parsed?.collectables?.inventory!==undefined)writeImportedStore(STORAGE.inventory,parsed.collectables.inventory);
+        // v1 exports stored the camera tune directly in `camera`; v2 stores tune/follow.
+        if(parsed?.camera?.tune!==undefined)writeImportedStore(STORAGE.cameraTune,parsed.camera.tune);
+        else if(parsed?.camera && ('y' in parsed.camera || 'z' in parsed.camera || 'tilt' in parsed.camera))writeImportedStore(STORAGE.cameraTune,parsed.camera);
+        if(parsed?.camera?.follow!==undefined)writeImportedStore(STORAGE.cameraFollow,parsed.camera.follow);
+        if(parsed?.render?.fog!==undefined)writeImportedStore(STORAGE.renderFog,parsed.render.fog);
+        if(parsed?.render?.post!==undefined)writeImportedStore(STORAGE.renderPost,parsed.render.post);
+        if(parsed?.audio!==undefined)writeImportedStore(STORAGE.audio,parsed.audio);
+        if(parsed?.labs?.concept!==undefined)writeImportedStore(STORAGE.conceptLab,parsed.labs.concept);
+        if(parsed?.labs?.design!==undefined)writeImportedStore(STORAGE.designLab,parsed.labs.design);
+        if(parsed?.labs?.animationClips!==undefined)writeImportedStore(STORAGE.animClips,parsed.labs.animationClips);
+        if(parsed?.labs?.animationWalk!==undefined)writeImportedStore(STORAGE.animWalk,parsed.labs.animationWalk);
+        if(parsed?.player?.position!==undefined)writeImportedStore(STORAGE.player,parsed.player.position);
+        else if(parsed?.world?.playerPosition!==undefined)writeImportedStore(STORAGE.player,parsed.world.playerPosition);
+        if(parsed?.player?.hints!==undefined && parsed.player.hints!==null)localStorage.setItem(STORAGE.playerHints,String(parsed.player.hints));
+      }else{
+        throw new Error('Unsupported export format');
+      }
+      state.elements=loadElements();
+      refreshGameData();
+      fitWorld(false);
+      render();
+      toast('Game data imported.');
+    }catch(err){
+      console.error(err);
+      toast('Import failed.');
+    }
     event.target.value='';
   }
 
   function renderSceneDressingSelection(item){
-    els.selection.innerHTML=`<h2>${escapeHtml(item.label)}</h2><p class="muted">Placed environment dressing · ${escapeHtml(item.id)}</p>
-      <div class="wl-selection-form"><label>World X<input readonly value="${round(item.x,3)} m"></label><label>Depth Z<input readonly value="${round(item.z,3)}"></label><label>Width<input readonly value="${round(item.sx,2)} m"></label><label>Height<input readonly value="${round(item.sy,2)} m"></label></div>
-      <p class="muted">This object is stored in the main scene data and persists independently of Puzzle Lab. Transform it in the in-game editor.</p>
+    const category=item.raw?.category||'dressing';
+    const gameplay=item.raw?.gameplayType||'none';
+    els.selection.innerHTML=`<h2>${escapeHtml(item.label)}</h2><p class="muted">World-owned placed asset · ${escapeHtml(item.id)}</p>
+      <div class="wl-selection-form"><label>World X<input readonly value="${round(item.x,3)} m"></label><label>Depth Z<input readonly value="${round(item.z,3)}"></label><label>Width<input readonly value="${round(item.sx,2)} m"></label><label>Height<input readonly value="${round(item.sy,2)} m"></label><label>Category<input readonly value="${escapeAttr(category)}"></label><label>Gameplay<input readonly value="${escapeAttr(gameplay)}"></label></div>
+      <p class="muted">World ownership is determined separately from gameplay behaviour, so interactive environment assets such as climbable rocks appear here too. Transform it in the in-game editor.</p>
       <div class="wl-actions"><button class="primary" id="wl-scene-dressing-jump">Jump to Game</button><button id="wl-scene-dressing-playhead">Move playhead here</button></div>`;
     $('wl-scene-dressing-jump').addEventListener('click',()=>{location.href=`play.html?worldX=${encodeURIComponent(item.x)}&from=world-lab`;});
     $('wl-scene-dressing-playhead').addEventListener('click',()=>{state.playheadX=item.x;select('playhead','player');});

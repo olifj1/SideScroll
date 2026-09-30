@@ -47,7 +47,7 @@
             <span><i class="legend transition"></i>Transition</span>
             <span><i class="legend section"></i>Section</span>
             <span><i class="legend modifier"></i>Terrain modifier</span>
-            <span><i class="legend dressing"></i>Dressing</span>
+            <span><i class="legend dressing"></i>World asset / dressing</span>
             <span><i class="legend other"></i>Other</span>
           </div>
         </div>
@@ -63,7 +63,7 @@
             <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="far-a">FAR STRIP A</div>
             <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="far-b">FAR STRIP B</div>
             <div class="wl-rail-label">PUZZLES</div>
-            <div class="wl-rail-label">DRESSING</div>
+            <div class="wl-rail-label">WORLD ASSETS</div>
             <div class="wl-rail-label">LANDMARKS / STORY / CAMERA</div>
           </div>
           <div class="wl-scroll" id="wl-scroll">
@@ -125,10 +125,10 @@
         <strong id="wl-data-title">World Lab Data</strong>
         <button class="wl-data-close" id="wl-data-close" type="button" aria-label="Close World Lab data">Close</button>
       </div>
-      <small>Biomes, transitions, dressing groups, landmarks and story markers created in World Lab are saved automatically on this device. Puzzle placements remain part of the game's existing puzzle data.</small>
-      <button id="wl-export" type="button">Export World Layout</button>
-      <button id="wl-import" type="button">Import World Layout</button>
-      <button id="wl-reset-world" class="danger" type="button">Reset World Layout</button>
+      <small>World Lab is now the project handoff point. The complete export includes World Elements, terrain heights/layers, placed world assets, puzzle data, reusable asset setup, collectables, camera/render settings and Lab authoring data.</small>
+      <button id="wl-export" type="button">Export Complete Game</button>
+      <button id="wl-import" type="button">Import Complete Game</button>
+      <button id="wl-reset-world" class="danger" type="button">Clear World Elements Only</button>
       <input id="wl-import-file" type="file" accept="application/json,.json" hidden>
     </div>
 
@@ -136,6 +136,6 @@
   </div>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="puzzle-groups.js?v=1.0.62"></script>
-  <script src="world-lab.js?v=1.0.79"></script>
+  <script src="world-lab.js?v=1.0.80"></script>
 </body>
 </html>
