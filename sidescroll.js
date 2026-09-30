@@ -2643,6 +2643,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // the visible terrain instead of sinking into a mountain slope.
   function objectYAtDrawX(obj, drawX = obj?.x) {
     if (!obj || !Number.isFinite(Number(obj.y))) return 0;
+    // Section/path terrain meshes already bake the complete interpolated world
+    // elevation into their vertices. Applying the wrapped-scenery anchor delta
+    // a second time translates each 10 m chunk by its centre height and opens
+    // visible seams between otherwise matching section edges. Ground-layer
+    // meshes therefore keep their authored model Y; only scenery dressing is
+    // re-grounded at its wrapped draw X.
+    if (obj.layer === 'ground') return Number(obj.y);
     if (!obj.wrap || objectUsesFreePlacement(obj) || !Number.isFinite(Number(drawX))) return Number(obj.y);
     const sourceBase = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
     const drawBase = terrainAnchorBaseY(Number(drawX), obj.z, obj.category, obj.gameplayLayerLocked);

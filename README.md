@@ -1,60 +1,34 @@
-# SideScroll v1.0.76 patch
+# SS-PATCH-1.0.77
 
-Base expected: v1.0.75 (or the v1.0.74 code safety build with v1.0.75 applied).
+Base expected: SideScroll v1.0.76.
 
-## What this fixes
+## Fixes
 
-### Terrain elevation grounding
-- Wrapped/procedural trees, grasses and rocks now resolve their displayed height against the terrain at the world position where they are actually being drawn.
-- This fixes forest dressing sinking beneath raised/sloped terrain while preserving the repeating forest system.
-- Authored terrain-bound scene objects continue to retain their local floor offset when terrain heights change.
+### World Lab renders again
+- Fixes the blank World Lab where static track labels appeared but puzzle markers, terrain profiles, section data and dynamic content did not.
+- Root cause: World Lab called `init()` before the terrain-layer constant had been initialised. The first render therefore stopped on a JavaScript temporal-dead-zone error.
+- Initialisation now happens after all module constants/functions are defined.
+- Verified with a local DOM harness: puzzle markers and terrain/section profile elements are generated after startup.
 
-### Vertical camera follow
-- Camera follow now tracks signed world-height change rather than only a partial upward rise.
-- The untouched legacy 55% follow default migrates to 100% so tall climbs and raised terrain keep the character framed consistently.
-- Downward terrain is supported too for future cave/descent work.
+### Raised terrain no longer separates into chunks
+- Fixes visible gaps between neighbouring 10 m terrain sections after changing section heights.
+- Root cause: the new terrain meshes already baked the interpolated elevation into their vertices, but the generic wrapped-scenery draw path then added the terrain-height offset a second time to each section object.
+- Ground/path terrain meshes now keep their authored model Y; only wrapped scenery/dressing is re-grounded against its drawn world position.
+- Section edge geometry continues to use the same interpolated height function on both sides of each boundary.
 
-### World Lab recovery
-- Fixes a v1.0.75 JavaScript parse error that left only the static track labels visible.
-- Terrain elevation profiles and puzzle markers render again.
-- Path / Near / Far A / Far B height tracks read the same terrain-section storage as the game.
-
-### Safer World Lab editing
-- First tap/release selects a movable puzzle/world block.
-- Only a subsequent drag of the already-selected block moves it.
-- Resize handles are inactive until their world element is selected.
-- Added an Undo button for World Lab layout/terrain edits and queued puzzle moves.
-- Added two-finger pinch zoom to the timeline.
-
-### Play From Here
-- World Lab playhead launches now use the lightweight authoring/test game route rather than Player Mode's cinematic/save-state launch path.
-- The requested world X is still applied, but this avoids the incomplete/black Player Mode launch path during world-layout testing.
-
-### Persistent environment dressing
-- A reusable puzzle asset is no longer deleted from normal scene storage just because that same asset also belongs to a puzzle asset pack.
-- This specifically fixes Mountain Climb Rock 01 disappearing when placed as ordinary Environment dressing.
-- Persistent user-placed environment dressing now appears on World Lab's DRESSING track and can be inspected/jumped to there.
-
-### In-game asset scaling
-- The general level-editor scale cap has been raised substantially so editing a large asset no longer snaps it back to the old 5 m ceiling.
-
-## Files in this patch
-- README.md
-- sidescroll.js
-- play.html
-- world-lab.js
-- world-lab.css
-- world-lab.html
+## Changed files
+- `world-lab.html`
+- `world-lab.js`
+- `play.html`
+- `sidescroll.js`
+- `README.md`
 
 ## Test focus
-1. Raise a terrain section around the current forest and confirm nearby trees/grass remain planted on the visible slope.
-2. Walk/climb several metres upward and confirm the camera keeps the character at a stable screen height.
-3. Open World Lab: terrain profiles and puzzle boxes should be visible again.
-4. Tap a World Lab block once, then pan elsewhere: it should not move. Drag it only after it is selected.
-5. Pinch the World Lab timeline to zoom.
-6. Test Undo after moving/resizing a World Element or changing a terrain height in World Lab.
-7. Use Play From Here and confirm the normal world renders at the chosen X.
-8. Place Mountain Climb Rock 01 as Environment dressing, leave/re-enter the game, and confirm it persists. Then confirm it appears on World Lab's DRESSING track.
-9. Scale the rock beyond the previous in-game cap and confirm it retains the larger size.
+1. Open World Lab. Puzzle markers should be visible again.
+2. The Sections / Terrain track should show section boxes and the Path height profile.
+3. Expand TERRAIN and confirm Near / Far A / Far B profiles appear.
+4. Return to the game and raise several neighbouring sections.
+5. Confirm the dirt/path terrain remains physically joined with no open seams between 10 m chunks.
+6. Confirm wrapped trees/grass still follow the raised terrain rather than sinking into it.
 
-No local-storage reset is required or desired.
+No local-storage reset is required.

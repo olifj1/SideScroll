@@ -108,7 +108,6 @@
     toast:$('wl-toast')
   };
 
-  init();
 
   function init(){
     bindUi();
@@ -1058,4 +1057,8 @@
   function toast(msg){
     els.toast.textContent=msg;els.toast.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.hidden=true,1800);
   }
+  // Initialise only after all module constants (including terrain layer definitions)
+  // have been created. Calling init earlier can hit the JavaScript temporal-dead-zone
+  // when the first render asks for terrain profile data.
+  init();
 })();
