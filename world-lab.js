@@ -343,6 +343,60 @@
     farA:{id:'farA',label:'Far Strip A',follow:.88,radius:1},
     farB:{id:'farB',label:'Far Strip B',follow:.62,radius:2}
   };
+  const TERRAIN_DETAIL_IDS=['near','farA','farB'];
+
+  function normaliseTerrainLayers(raw){
+    const source=raw&&typeof raw==='object'?raw:{};
+    const out={};
+    for(const id of TERRAIN_DETAIL_IDS){
+      const item=source[id]&&typeof source[id]==='object'?source[id]:{};
+      out[id]={
+        offsets:item.offsets&&typeof item.offsets==='object'?{...item.offsets}:{},
+        modes:item.modes&&typeof item.modes==='object'?{...item.modes}:{},
+        heights:item.heights&&typeof item.heights==='object'?{...item.heights}:{}
+      };
+    }
+    return out;
+  }
+
+  function sparseNumberAt(map,index,fallback=0,min=-80,max=100){
+    const target=Math.trunc(number(index,0));let best=-Infinity,value=fallback;
+    for(const [keyRaw,valueRaw] of Object.entries(map||{})){
+      const key=Math.trunc(number(keyRaw,NaN)),next=number(valueRaw,NaN);
+      if(Number.isFinite(key)&&Number.isFinite(next)&&key<=target&&key>best){best=key;value=Math.max(min,Math.min(max,next));}
+    }
+    return value;
+  }
+
+  function terrainLayerModeInfo(index,layerId,terrain=state.terrain){
+    const target=Math.trunc(number(index,0)),settings=terrain?.layers?.[layerId]||{};
+    let best=-Infinity,mode='derived';
+    for(const [keyRaw,modeRaw] of Object.entries(settings.modes||{})){
+      const key=Math.trunc(number(keyRaw,NaN));
+      if(Number.isFinite(key)&&key<=target&&key>best){best=key;mode=modeRaw==='explicit'?'explicit':'derived';}
+    }
+    return {mode,startIndex:best};
+  }
+
+  function terrainLayerOffsetAt(index,layerId,terrain=state.terrain){return sparseNumberAt(terrain?.layers?.[layerId]?.offsets,index,0,-40,40);}
+
+  function terrainLayerDerivedHeight(index,layerId,terrain=state.terrain){
+    const layer=TERRAIN_LAYERS[layerId]||TERRAIN_LAYERS.path;
+    if(layer.id==='path')return terrainSectionHeight(index,terrain);
+    const radius=Math.max(0,Math.trunc(layer.radius||0));let weighted=0,total=0;
+    for(let d=-radius;d<=radius;d++){const w=radius?radius+1-Math.abs(d):1;weighted+=terrainSectionHeight(index+d,terrain)*w;total+=w;}
+    return (total?weighted/total:terrainSectionHeight(index,terrain))*number(layer.follow,1)+terrainLayerOffsetAt(index,layerId,terrain);
+  }
+
+  function terrainLayerExplicitHeight(index,layerId,modeStart,terrain=state.terrain){
+    const target=Math.trunc(number(index,0)),settings=terrain?.layers?.[layerId]||{};let best=-Infinity,value=null;
+    for(const [keyRaw,valueRaw] of Object.entries(settings.heights||{})){
+      const key=Math.trunc(number(keyRaw,NaN)),next=number(valueRaw,NaN);
+      if(Number.isFinite(key)&&Number.isFinite(next)&&key>=modeStart&&key<=target&&key>best){best=key;value=Math.max(-80,Math.min(100,next));}
+    }
+    return value===null?terrainLayerDerivedHeight(Number.isFinite(modeStart)?modeStart:target,layerId,terrain):value;
+  }
+
 
   function normaliseTerrainState(raw){
     const terrain=raw&&typeof raw==='object'?clone(raw):{};
@@ -351,6 +405,7 @@
     terrain.types=terrain.types&&typeof terrain.types==='object'?terrain.types:{};
     terrain.settings=terrain.settings&&typeof terrain.settings==='object'?terrain.settings:{};
     terrain.heights=terrain.heights&&typeof terrain.heights==='object'?terrain.heights:{};
+    terrain.layers=normaliseTerrainLayers(terrain.layers);
     terrain.linkSubsequent=terrain.linkSubsequent!==false;
     return terrain;
   }
@@ -366,13 +421,29 @@
     return Math.max(-50,Math.min(80,value));
   }
 
-  function terrainLayerSectionHeight(index,layerId='path'){
+  function terrainLayerSectionHeight(index,layerId='path',terrain=state.terrain){
     const layer=TERRAIN_LAYERS[layerId]||TERRAIN_LAYERS.path;
-    if(layer.id==='path'||layer.id==='near')return terrainSectionHeight(index);
-    const radius=Math.max(0,Math.trunc(layer.radius||0));
-    let weighted=0,total=0;
-    for(let d=-radius;d<=radius;d++){const w=radius?radius+1-Math.abs(d):1;weighted+=terrainSectionHeight(index+d)*w;total+=w;}
-    return (total?weighted/total:terrainSectionHeight(index))*number(layer.follow,1);
+    if(layer.id==='path')return terrainSectionHeight(index,terrain);
+    const info=terrainLayerModeInfo(index,layer.id,terrain);
+    return info.mode==='explicit'?terrainLayerExplicitHeight(index,layer.id,info.startIndex,terrain):terrainLayerDerivedHeight(index,layer.id,terrain);
+  }
+
+  function setTerrainLayerMode(index,layerId,mode){
+    if(!TERRAIN_DETAIL_IDS.includes(layerId))return false;
+    const i=Math.trunc(number(index,0));const terrain=normaliseTerrainState(state.terrain);const current=terrainLayerSectionHeight(i,layerId,terrain);const layer=terrain.layers[layerId];
+    layer.modes[String(i)]=mode==='explicit'?'explicit':'derived';
+    if(mode==='explicit'&&!(String(i) in layer.heights))layer.heights[String(i)]=round(current,3);
+    state.terrain=terrain;saveJson(STORAGE.terrain,terrain);return true;
+  }
+
+  function setTerrainLayerOffset(index,layerId,offset){
+    if(!TERRAIN_DETAIL_IDS.includes(layerId))return false;
+    const i=Math.trunc(number(index,0));const terrain=normaliseTerrainState(state.terrain);terrain.layers[layerId].offsets[String(i)]=round(Math.max(-40,Math.min(40,number(offset,0))),3);state.terrain=terrain;saveJson(STORAGE.terrain,terrain);return true;
+  }
+
+  function setTerrainLayerExplicitHeight(index,layerId,height){
+    if(!TERRAIN_DETAIL_IDS.includes(layerId))return false;
+    const i=Math.trunc(number(index,0));const terrain=normaliseTerrainState(state.terrain);const layer=terrain.layers[layerId];layer.modes[String(i)]='explicit';layer.heights[String(i)]=round(Math.max(-80,Math.min(100,number(height,0))),3);state.terrain=terrain;saveJson(STORAGE.terrain,terrain);return true;
   }
 
   function setTerrainSectionHeight(index,nextHeight,linkSubsequent=state.terrain?.linkSubsequent!==false){
@@ -569,10 +640,12 @@
     for(const point of points.filter(p=>p.index>=first&&p.index<=last)){
       const dot=document.createElement('button');
       dot.type='button';
-      dot.className=`wl-terrain-height-point ${layerId}${showSections&&isSelected('section',String(point.index))?' selected':''}`;
+      const modeInfo=layerId==='path'?{mode:'derived'}:terrainLayerModeInfo(point.index,layerId);
+      const explicit=modeInfo.mode==='explicit';
+      dot.className=`wl-terrain-height-point ${layerId}${explicit?' explicit':''}${showSections&&isSelected('section',String(point.index))?' selected':''}`;
       dot.style.left=`${point.px}px`;dot.style.top=`${point.py}px`;
-      dot.title=`${TERRAIN_LAYERS[layerId]?.label||layerId} · S${point.index} · ${point.h>=0?'+':''}${round(point.h,2)} m`;
-      dot.innerHTML=`<span>${point.h>=0?'+':''}${round(point.h,1)}</span>`;
+      dot.title=`${TERRAIN_LAYERS[layerId]?.label||layerId} · S${point.index} · ${point.h>=0?'+':''}${round(point.h,2)} m${explicit?' · explicit':''}`;
+      dot.innerHTML=`<span>${point.h>=0?'+':''}${round(point.h,1)}${explicit?' E':''}</span>`;
       if(showSections)dot.addEventListener('click',event=>{event.stopPropagation();select('section',String(point.index));});
       else dot.tabIndex=-1;
       host.appendChild(dot);
@@ -827,6 +900,22 @@
     });
   }
 
+  function terrainLayerControlHtml(index,layerId){
+    const info=terrainLayerModeInfo(index,layerId);
+    const explicit=info.mode==='explicit';
+    const offset=terrainLayerOffsetAt(index,layerId);
+    const height=terrainLayerSectionHeight(index,layerId);
+    const label=TERRAIN_LAYERS[layerId]?.label||layerId;
+    return `<div class="wl-layer-control" data-layer="${layerId}">
+      <div class="wl-layer-control-head"><strong>${escapeHtml(label)}</strong><span>${explicit?'Explicit':'Linked'} · ${height>=0?'+':''}${round(height,2)} m</span></div>
+      <div class="wl-selection-form compact">
+        <label>Mode<select data-layer-mode="${layerId}"><option value="derived"${explicit?'':' selected'}>Linked to Path</option><option value="explicit"${explicit?' selected':''}>Explicit</option></select></label>
+        <label>${explicit?'Height':'Offset'}<input data-layer-value="${layerId}" type="number" step="0.1" min="-80" max="100" value="${round(explicit?height:offset,2)}"></label>
+      </div>
+      <small>${explicit?'Holds its own world height from this section until you link it again.':'Offset is held from this section forward while the strip follows the Path profile.'}</small>
+    </div>`;
+  }
+
   function renderSectionSelection(index){
     const bounds=sectionBounds(index);
     const type=state.terrain?.types?.[String(index)]||'normal';
@@ -836,7 +925,6 @@
     const mods=modifierEntries().filter(mod=>mod.endX>bounds.min&&mod.startX<bounds.max);
     const modRows=mods.length?mods.map(mod=>`<button class="wl-mod-row" type="button" data-mod-id="${escapeAttr(mod.id)}"><strong>${escapeHtml(mod.type.toUpperCase())}</strong><span>${escapeHtml(mod.puzzleLabel)} · ${round(mod.startX,1)} → ${round(mod.endX,1)} m</span></button>`).join(''):'<p class="muted">No puzzle-owned terrain modifiers intersect this section.</p>';
     const height=terrainSectionHeight(index);
-    const near=terrainLayerSectionHeight(index,'near'),farA=terrainLayerSectionHeight(index,'farA'),farB=terrainLayerSectionHeight(index,'farB');
     const linked=state.terrain?.linkSubsequent!==false;
     els.selection.innerHTML=`<h2>Section ${index}</h2><p class="muted">Runtime terrain chunk · master path-height point</p>
       <div class="wl-selection-form">
@@ -844,14 +932,13 @@
         <label>Range<input readonly value="${round(bounds.min,1)} → ${round(bounds.max,1)} m"></label>
         <label>Path height<input id="wl-section-height" type="number" step="0.1" min="-50" max="80" value="${round(height,2)}"></label>
         <label>Link later sections<select id="wl-section-link"><option value="1"${linked?' selected':''}>On</option><option value="0"${linked?'':' selected'}>Off</option></select></label>
-        <label>Near strip<input readonly value="${near>=0?'+':''}${round(near,2)} m"></label>
-        <label>Far A<input readonly value="${farA>=0?'+':''}${round(farA,2)} m"></label>
-        <label>Far B<input readonly value="${farB>=0?'+':''}${round(farB,2)} m"></label>
         <label>Base terrain<input readonly value="${escapeAttr(type)}"></label>
         <label>Hidden<input readonly value="${hidden?'Yes':'No'}"></label>
         <label>Collision disabled<input readonly value="${collisionDisabled?'Yes':'No'}"></label>
       </div>
-      <p class="muted">Near/Far tracks are derived from the Path profile in this first pass. Far A and Far B progressively smooth/fall away from steep rises.</p>
+      <h3>Depth layers</h3>
+      <p class="muted">Linked strips follow the Path using their normal smoothing plus an authored offset. Switch a strip to Explicit when you want it to stop following the climb and hold its own elevation.</p>
+      <div class="wl-layer-controls">${TERRAIN_DETAIL_IDS.map(id=>terrainLayerControlHtml(index,id)).join('')}</div>
       <h3>Active modifiers</h3><div class="wl-mod-list">${modRows}</div>
       <div class="wl-actions"><button class="primary" id="wl-section-height-apply">Apply height</button><button id="wl-section-playhead">Move playhead to centre</button></div>`;
     els.selection.querySelectorAll('[data-mod-id]').forEach(button=>button.addEventListener('click',()=>select('modifier',button.dataset.modId)));
@@ -864,6 +951,15 @@
       if(changed){render();toast(link?'Height changed · later sections shifted.':'Height changed locally.');}else renderSelection();
     });
     $('wl-section-link').addEventListener('change',()=>{state.terrain.linkSubsequent=$('wl-section-link').value!=='0';saveJson(STORAGE.terrain,state.terrain);if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain.linkSubsequent;});
+    els.selection.querySelectorAll('[data-layer-mode]').forEach(selectEl=>selectEl.addEventListener('change',()=>{
+      const layerId=selectEl.dataset.layerMode;pushHistory(`Change ${TERRAIN_LAYERS[layerId]?.label||layerId} mode`);setTerrainLayerMode(index,layerId,selectEl.value);render();toast(`${TERRAIN_LAYERS[layerId]?.label||layerId} → ${selectEl.value==='explicit'?'Explicit':'Linked'}.`);
+    }));
+    els.selection.querySelectorAll('[data-layer-value]').forEach(input=>input.addEventListener('change',()=>{
+      const layerId=input.dataset.layerValue;const info=terrainLayerModeInfo(index,layerId);pushHistory(`Change ${TERRAIN_LAYERS[layerId]?.label||layerId}`);
+      if(info.mode==='explicit')setTerrainLayerExplicitHeight(index,layerId,number(input.value,terrainLayerSectionHeight(index,layerId)));
+      else setTerrainLayerOffset(index,layerId,number(input.value,terrainLayerOffsetAt(index,layerId)));
+      render();toast(`${TERRAIN_LAYERS[layerId]?.label||layerId} updated.`);
+    }));
     $('wl-section-playhead').addEventListener('click',()=>{state.playheadX=bounds.center;select('playhead','player');});
   }
 

@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.77">
+  <link rel="stylesheet" href="style.css?v=1.0.79">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -114,6 +114,13 @@
               <button id="sidescroll-section-height-up" type="button">+0.25</button>
             </div>
             <label class="sidescroll-section-persist-row"><span>LINK SUBSEQUENT SECTIONS</span><input id="sidescroll-section-height-link" type="checkbox" checked></label>
+            <details class="sidescroll-section-depth-layers">
+              <summary>DEPTH LAYERS</summary>
+              <p>Linked uses an offset from Path. Explicit holds its own world height from this section onward until linked again.</p>
+              <div class="sidescroll-section-depth-row" data-layer="near"><strong>NEAR STRIP</strong><select id="sidescroll-section-layer-near-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-near-value" type="number" step="0.1" min="-80" max="100" value="0"><small id="sidescroll-section-layer-near-summary">Linked · offset +0.0 m</small></div>
+              <div class="sidescroll-section-depth-row" data-layer="farA"><strong>FAR STRIP A</strong><select id="sidescroll-section-layer-far-a-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-a-value" type="number" step="0.1" min="-80" max="100" value="0"><small id="sidescroll-section-layer-far-a-summary">Linked · offset +0.0 m</small></div>
+              <div class="sidescroll-section-depth-row" data-layer="farB"><strong>FAR STRIP B</strong><select id="sidescroll-section-layer-far-b-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-b-value" type="number" step="0.1" min="-80" max="100" value="0"><small id="sidescroll-section-layer-far-b-summary">Linked · offset +0.0 m</small></div>
+            </details>
             <label class="sidescroll-section-type-row" for="sidescroll-section-type"><span>SECTION TYPE</span><select id="sidescroll-section-type"><option value="normal">Normal</option><option value="testHill">Test Hill</option><option value="river">River</option></select></label>
             <button id="sidescroll-section-collision" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain collision ON</button>
             <label class="sidescroll-section-slider-row" id="sidescroll-section-river-width-row" hidden>
@@ -466,6 +473,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.78"></script>
+  <script src="sidescroll.js?v=1.0.79"></script>
 </body>
 </html>

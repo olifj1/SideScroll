@@ -119,6 +119,11 @@
   const sectionHeightDownBtn = document.getElementById('sidescroll-section-height-down');
   const sectionHeightUpBtn = document.getElementById('sidescroll-section-height-up');
   const sectionHeightLinkInput = document.getElementById('sidescroll-section-height-link');
+  const sectionLayerControls = {
+    near:{ mode:document.getElementById('sidescroll-section-layer-near-mode'), value:document.getElementById('sidescroll-section-layer-near-value'), summary:document.getElementById('sidescroll-section-layer-near-summary') },
+    farA:{ mode:document.getElementById('sidescroll-section-layer-far-a-mode'), value:document.getElementById('sidescroll-section-layer-far-a-value'), summary:document.getElementById('sidescroll-section-layer-far-a-summary') },
+    farB:{ mode:document.getElementById('sidescroll-section-layer-far-b-mode'), value:document.getElementById('sidescroll-section-layer-far-b-value'), summary:document.getElementById('sidescroll-section-layer-far-b-summary') }
+  };
   const sectionVisibleBtn = document.getElementById('sidescroll-section-visible');
   const sectionTypeSelect = document.getElementById('sidescroll-section-type');
   const sectionRiverWidthRow = document.getElementById('sidescroll-section-river-width-row');
@@ -731,7 +736,7 @@
       const worldX = Rig.lerp(bounds.minX, bounds.maxX, t);
       const localX = (worldX - bounds.center) / TERRAIN_SECTION_LENGTH;
       const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(t) : 0;
-      const rise = pathUndulationAtX(worldX) + featureRise + terrainLayerElevationAt(worldX, 'path');
+      const rise = pathUndulationAtX(worldX) + featureRise + terrainLayerElevationAt(worldX, 'path') + TERRAIN_VISUAL_LAYER_OFFSETS.path;
       const u = terrainSectionWorldU(worldX);
       for (const row of rows) vertices.push(localX, row.y + rise, row.z, u, row.v * 1.8);
     }
@@ -760,8 +765,8 @@
       const sectionT = Rig.clamp((worldX - bounds.minX) / TERRAIN_SECTION_LENGTH, 0, 1);
       const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(sectionT) : 0;
       const common = pathUndulationAtX(worldX) + featureRise;
-      const frontY = common + terrainLayerElevationAt(worldX, frontLayerId);
-      const backY = common + terrainLayerElevationAt(worldX, backLayerId);
+      const frontY = common + terrainLayerElevationAt(worldX, frontLayerId) + (TERRAIN_VISUAL_LAYER_OFFSETS[frontLayerId] || 0);
+      const backY = common + terrainLayerElevationAt(worldX, backLayerId) + (TERRAIN_VISUAL_LAYER_OFFSETS[backLayerId] || 0);
       const localX = (worldX - centre) / width;
       vertices.push(localX, frontY,  0.0, t, 0.0);
       vertices.push(localX, backY,  -1.0, t, 1.0);
@@ -1078,7 +1083,7 @@
       const worldX = Rig.lerp(minX, maxX, t);
       const sectionT = Rig.clamp((worldX - bounds.minX) / TERRAIN_SECTION_LENGTH, 0, 1);
       const featureRise = typeId === 'testHill' ? testHillRiseAtLocalT(sectionT) : 0;
-      const rise = pathUndulationAtX(worldX) + featureRise + terrainLayerElevationAt(worldX, 'path');
+      const rise = pathUndulationAtX(worldX) + featureRise + terrainLayerElevationAt(worldX, 'path') + TERRAIN_VISUAL_LAYER_OFFSETS.path;
       const localX = (worldX - centre) / width;
       const u = terrainSectionWorldU(worldX);
       for (const row of rows) vertices.push(localX, row.y + rise, row.z, u, row.v * 1.8);
@@ -2007,6 +2012,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let terrainSectionTypes = new Map();
   let terrainSectionSettings = new Map();
   let terrainSectionHeights = new Map();
+  let terrainDepthLayerSettings = {};
   let terrainResolvedHeightCache = new Map();
   let terrainHeightLinkSubsequent = true;
   let terrainLastUiCurrentIndex = null;
@@ -2021,7 +2027,126 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     farA:{ id:'farA', label:'Far Strip A', follow:0.88, radius:1 },
     farB:{ id:'farB', label:'Far Strip B', follow:0.62, radius:2 }
   });
+  // Tiny render-only vertical staggering makes adjacent depth strips overlap in
+  // screen space instead of exposing hairline seams. Gameplay/collision still
+  // uses the mathematical terrain profile with no offset.
+  const TERRAIN_VISUAL_LAYER_OFFSETS = Object.freeze({ near:0.02, path:0.00, farA:-0.02, farB:-0.04 });
+  const TERRAIN_DEPTH_LAYER_IDS = Object.freeze(['near','farA','farB']);
   const TERRAIN_FAR_A_BACK_Z = -13.0;
+
+  function normaliseTerrainDepthLayerSettings(raw) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const out = {};
+    for (const id of TERRAIN_DEPTH_LAYER_IDS) {
+      const item = source[id] && typeof source[id] === 'object' ? source[id] : {};
+      out[id] = {
+        offsets:item.offsets && typeof item.offsets === 'object' ? { ...item.offsets } : {},
+        modes:item.modes && typeof item.modes === 'object' ? { ...item.modes } : {},
+        heights:item.heights && typeof item.heights === 'object' ? { ...item.heights } : {}
+      };
+    }
+    return out;
+  }
+
+  function terrainSparseNumberAt(map, index, fallback = 0, min = -80, max = 80) {
+    const target = Math.trunc(Number(index) || 0);
+    let best = -Infinity, value = fallback;
+    for (const [rawKey, rawValue] of Object.entries(map || {})) {
+      const key = Math.trunc(Number(rawKey));
+      const next = Number(rawValue);
+      if (Number.isFinite(key) && Number.isFinite(next) && key <= target && key > best) {
+        best = key;
+        value = Rig.clamp(next, min, max);
+      }
+    }
+    return value;
+  }
+
+  function terrainLayerModeInfo(index, layerId) {
+    const target = Math.trunc(Number(index) || 0);
+    const settings = terrainDepthLayerSettings?.[layerId] || {};
+    let best = -Infinity, mode = 'derived';
+    for (const [rawKey, rawMode] of Object.entries(settings.modes || {})) {
+      const key = Math.trunc(Number(rawKey));
+      if (!Number.isFinite(key) || key > target || key <= best) continue;
+      best = key;
+      mode = rawMode === 'explicit' ? 'explicit' : 'derived';
+    }
+    return { mode, startIndex:best };
+  }
+
+  function terrainLayerOffsetAt(index, layerId) {
+    return terrainSparseNumberAt(terrainDepthLayerSettings?.[layerId]?.offsets, index, 0, -40, 40);
+  }
+
+  function terrainLayerDerivedSectionHeight(index, layerId) {
+    const layer = TERRAIN_DEPTH_LAYERS[layerId] || TERRAIN_DEPTH_LAYERS.path;
+    if (layer.id === 'path') return terrainSectionPathHeight(index);
+    let weighted = 0;
+    let weightTotal = 0;
+    const radius = Math.max(0, Math.trunc(layer.radius || 0));
+    for (let d = -radius; d <= radius; d += 1) {
+      const weight = radius ? (radius + 1 - Math.abs(d)) : 1;
+      weighted += terrainSectionPathHeight(index + d) * weight;
+      weightTotal += weight;
+    }
+    const base = (weightTotal ? weighted / weightTotal : terrainSectionPathHeight(index)) * (Number(layer.follow) || 1);
+    return base + terrainLayerOffsetAt(index, layerId);
+  }
+
+  function terrainLayerExplicitSectionHeight(index, layerId, modeStart) {
+    const settings = terrainDepthLayerSettings?.[layerId] || {};
+    const target = Math.trunc(Number(index) || 0);
+    let best = -Infinity, value = null;
+    for (const [rawKey, rawValue] of Object.entries(settings.heights || {})) {
+      const key = Math.trunc(Number(rawKey));
+      const next = Number(rawValue);
+      if (!Number.isFinite(key) || !Number.isFinite(next) || key < modeStart || key > target || key <= best) continue;
+      best = key;
+      value = Rig.clamp(next, -80, 100);
+    }
+    if (value !== null) return value;
+    return terrainLayerDerivedSectionHeight(Number.isFinite(modeStart) ? modeStart : target, layerId);
+  }
+
+  function setTerrainLayerMode(index, layerId, mode, { save = true } = {}) {
+    if (!TERRAIN_DEPTH_LAYER_IDS.includes(layerId)) return false;
+    const i = Math.trunc(Number(index) || 0);
+    terrainDepthLayerSettings = normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings);
+    const currentHeight = terrainLayerSectionHeight(i, layerId);
+    const layer = terrainDepthLayerSettings[layerId];
+    layer.modes[String(i)] = mode === 'explicit' ? 'explicit' : 'derived';
+    if (mode === 'explicit' && !Object.prototype.hasOwnProperty.call(layer.heights, String(i))) layer.heights[String(i)] = Number(currentHeight.toFixed(3));
+    invalidateTerrainHeightCache();
+    invalidateTerrainElevationMeshes();
+    if (save) saveTerrainSectionState();
+    return true;
+  }
+
+  function setTerrainLayerOffset(index, layerId, offset, { save = true } = {}) {
+    if (!TERRAIN_DEPTH_LAYER_IDS.includes(layerId)) return false;
+    const i = Math.trunc(Number(index) || 0);
+    terrainDepthLayerSettings = normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings);
+    terrainDepthLayerSettings[layerId].offsets[String(i)] = Number(Rig.clamp(Number(offset) || 0, -40, 40).toFixed(3));
+    invalidateTerrainHeightCache();
+    invalidateTerrainElevationMeshes();
+    if (save) saveTerrainSectionState();
+    return true;
+  }
+
+  function setTerrainLayerExplicitHeight(index, layerId, height, { save = true } = {}) {
+    if (!TERRAIN_DEPTH_LAYER_IDS.includes(layerId)) return false;
+    const i = Math.trunc(Number(index) || 0);
+    terrainDepthLayerSettings = normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings);
+    const layer = terrainDepthLayerSettings[layerId];
+    layer.modes[String(i)] = 'explicit';
+    layer.heights[String(i)] = Number(Rig.clamp(Number(height) || 0, -80, 100).toFixed(3));
+    invalidateTerrainHeightCache();
+    invalidateTerrainElevationMeshes();
+    if (save) saveTerrainSectionState();
+    return true;
+  }
+
 
   // Puzzle-owned world modifiers are resolved later, after the puzzle library
   // has loaded. Terrain helpers run during initial scene construction, so they
@@ -2070,16 +2195,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function terrainLayerSectionHeight(index, layerId = 'path') {
     const layer = TERRAIN_DEPTH_LAYERS[layerId] || TERRAIN_DEPTH_LAYERS.path;
-    if (layer.id === 'path' || layer.id === 'near') return terrainSectionPathHeight(index);
-    let weighted = 0;
-    let weightTotal = 0;
-    const radius = Math.max(0, Math.trunc(layer.radius || 0));
-    for (let d = -radius; d <= radius; d += 1) {
-      const weight = radius ? (radius + 1 - Math.abs(d)) : 1;
-      weighted += terrainSectionPathHeight(index + d) * weight;
-      weightTotal += weight;
-    }
-    return (weightTotal ? weighted / weightTotal : terrainSectionPathHeight(index)) * (Number(layer.follow) || 1);
+    if (layer.id === 'path') return terrainSectionPathHeight(index);
+    const modeInfo = terrainLayerModeInfo(index, layer.id);
+    return modeInfo.mode === 'explicit'
+      ? terrainLayerExplicitSectionHeight(index, layer.id, modeInfo.startIndex)
+      : terrainLayerDerivedSectionHeight(index, layer.id);
   }
 
   function terrainLayerElevationAt(x, layerId = 'path') {
@@ -2339,6 +2459,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       terrainSectionTypes = new Map();
       terrainSectionSettings = new Map();
       terrainSectionHeights = new Map();
+      terrainDepthLayerSettings = normaliseTerrainDepthLayerSettings(saved.layers);
       terrainHeightLinkSubsequent = saved.linkSubsequent !== false;
       if (saved.heights && typeof saved.heights === 'object') {
         for (const [key, value] of Object.entries(saved.heights)) {
@@ -2380,6 +2501,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collisionModelVersion:3,
         linkSubsequent:!!terrainHeightLinkSubsequent,
         heights:Object.fromEntries([...terrainSectionHeights.entries()].sort((a,b)=>a[0]-b[0]).map(([i,h])=>[String(i),Number(h.toFixed(3))])),
+        layers:normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings),
         types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
         settings:Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0]))
       }));
@@ -2534,6 +2656,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return category === 'gameplay' && gameplayLayerLocked
       ? playSurfaceYAt(x)
       : terrainGroundYAt(x, z);
+  }
+
+
+  function terrainSurfaceAngleAt(x, z = pathZ, category = 'dressing', gameplayLayerLocked = false) {
+    const worldX = Number(x) || 0;
+    const depth = Number(z) || 0;
+    const sample = 0.18;
+    const y0 = terrainAnchorBaseY(worldX - sample, depth, category, gameplayLayerLocked);
+    const y1 = terrainAnchorBaseY(worldX + sample, depth, category, gameplayLayerLocked);
+    const angle = Math.atan2(y1 - y0, sample * 2);
+    return Rig.clamp(angle, -Math.PI * 0.28, Math.PI * 0.28);
   }
 
   function legacyTerrainAnchorBaseY(x, z, category = 'dressing', gameplayLayerLocked = false) {
@@ -2743,9 +2876,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const ASSET_MECHANISM_STORAGE_KEY = 'sidescroll.asset-mechanisms.v3';
   const ASSET_SOCKET_STORAGE_KEY = 'sidescroll.asset-sockets.v1';
   const ASSET_STATE_STORAGE_KEY = 'sidescroll.asset-states.v1';
-  const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','pushable','climbable','socketHost','socketPiece'];
+  const ASSET_BEHAVIOUR_KEYS = ['solid','carryable','placeable','supportSurface','stackable','pushable','climbable','followSurfaceNormal','socketHost','socketPiece'];
   const EMPTY_ASSET_BEHAVIOURS = Object.freeze({
-    solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, climbable:false, socketHost:false, socketPiece:false
+    solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, climbable:false, followSurfaceNormal:false, socketHost:false, socketPiece:false
   });
   const ASSET_BEHAVIOUR_DEFAULTS = {
     crate: { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
@@ -2789,6 +2922,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     { key:'stackable', label:'Stackable', description:'This asset may settle onto a support surface when placed.' },
     { key:'pushable', label:'Pushable', description:'ACTION can grip this large object and walking into it moves the object instead of carrying it.' },
     { key:'climbable', label:'Climbable', description:'ACTION can use authored Climb Paths. Collision is independent and optional.' },
+    { key:'followSurfaceNormal', label:'Follow Surface Normal', description:'Visually tilts terrain-bound dressing to match the local ground slope. Intended for grass, scrub and small rocks; trees stay upright unless explicitly enabled.' },
     { key:'socketHost', label:'Socket Host', description:'Allows socket-piece targets to be authored directly onto this asset.' },
     { key:'socketPiece', label:'Socket Piece', description:'Allows an individual puzzle piece to be linked to a matching authored socket.' }
   ];
@@ -11153,7 +11287,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     bindMesh(drawMesh);
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
-    const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0);
+    const followSurfaceRotation = !extra?.force && !objectUsesFreePlacement(obj) && assetBehaviours(obj.assetName,obj.assetState).followSurfaceNormal
+      ? terrainSurfaceAngleAt(baseDrawX, obj.z, obj.category, obj.gameplayLayerLocked)
+      : 0;
+    const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0) + followSurfaceRotation;
     const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
     const visualFlip = (!!obj.flip) !== (!!visual.flip);
     let drawY = (extra?.y ?? objectYAtDrawX(obj, baseDrawX)) + (Number(visual.offsetY) || 0);
@@ -12731,6 +12868,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (sectionHeightNumber && document.activeElement !== sectionHeightNumber) sectionHeightNumber.value = selectedPathHeight.toFixed(1);
     if (sectionHeightValue) sectionHeightValue.textContent = `${selectedPathHeight >= 0 ? '+' : ''}${selectedPathHeight.toFixed(1)} m`;
     if (sectionHeightLinkInput) sectionHeightLinkInput.checked = !!terrainHeightLinkSubsequent;
+    for (const layerId of TERRAIN_DEPTH_LAYER_IDS) {
+      const control = sectionLayerControls[layerId];
+      if (!control) continue;
+      const info = terrainLayerModeInfo(terrainSelectedSectionIndex, layerId);
+      const explicit = info.mode === 'explicit';
+      const resolved = terrainLayerSectionHeight(terrainSelectedSectionIndex, layerId);
+      const offset = terrainLayerOffsetAt(terrainSelectedSectionIndex, layerId);
+      if (control.mode && document.activeElement !== control.mode) control.mode.value = explicit ? 'explicit' : 'derived';
+      if (control.value && document.activeElement !== control.value) control.value.value = (explicit ? resolved : offset).toFixed(1);
+      if (control.summary) control.summary.textContent = explicit
+        ? `Explicit · height ${resolved >= 0 ? '+' : ''}${resolved.toFixed(1)} m`
+        : `Linked · offset ${offset >= 0 ? '+' : ''}${offset.toFixed(1)} m · resolved ${resolved >= 0 ? '+' : ''}${resolved.toFixed(1)} m`;
+    }
     if (sectionTypeSelect) sectionTypeSelect.value = selectedType;
     if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
@@ -13294,6 +13444,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
   });
+  for (const layerId of TERRAIN_DEPTH_LAYER_IDS) {
+    const control = sectionLayerControls[layerId];
+    control?.mode?.addEventListener('change', () => {
+      const anchors = terrainHeightBoundObjectAnchors();
+      setTerrainLayerMode(terrainSelectedSectionIndex, layerId, control.mode.value, { save:false });
+      restoreTerrainHeightBoundObjectAnchors(anchors);
+      saveTerrainSectionState();
+      updateTerrainSectionUi(true);
+    });
+    control?.value?.addEventListener('change', () => {
+      const anchors = terrainHeightBoundObjectAnchors();
+      const info = terrainLayerModeInfo(terrainSelectedSectionIndex, layerId);
+      if (info.mode === 'explicit') setTerrainLayerExplicitHeight(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
+      else setTerrainLayerOffset(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
+      restoreTerrainHeightBoundObjectAnchors(anchors);
+      saveTerrainSectionState();
+      updateTerrainSectionUi(true);
+    });
+  }
   const commitSelectedSectionHeight = value => {
     const changed = setTerrainSectionPathHeight(terrainSelectedSectionIndex, Number(value), { linkSubsequent:terrainHeightLinkSubsequent });
     if (changed) {

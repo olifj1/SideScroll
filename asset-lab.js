@@ -11,8 +11,8 @@
   const CLIMB_PATH_KEY = 'sidescroll.asset-climb-paths.v1';
   const STACK_ITEM_HEIGHT = 0.68;
   const BRIDGE_NAMES = ['bridge-left', 'bridge-right'];
-  const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','pushable','climbable','socketHost','socketPiece'];
-  const emptyBehaviour = { solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, climbable:false, socketHost:false, socketPiece:false };
+  const behaviourKeys = ['solid','carryable','placeable','supportSurface','stackable','pushable','climbable','followSurfaceNormal','socketHost','socketPiece'];
+  const emptyBehaviour = { solid:false, carryable:false, placeable:false, supportSurface:false, stackable:false, pushable:false, climbable:false, followSurfaceNormal:false, socketHost:false, socketPiece:false };
 
   const ASSETS = [
     {group:'PUZZLE · BRIDGE',scope:'puzzle',name:'bridge-left',label:'Broken Bridge · Left',image:'bridge-left.png',height:2.20,groundLine:1.62/2.20,behaviour:{solid:true,supportSurface:true,socketHost:true}},
@@ -1031,6 +1031,7 @@
       ['stackable','Stackable','May settle onto other support surfaces.'],
       ['pushable','Pushable','ACTION grips the object and walking into it moves the object.'],
       ['climbable','Climbable','ACTION can use authored Climb Paths. Collision is independent and optional.'],
+      ['followSurfaceNormal','Follow Surface Normal','Rotate this dressing asset to match the local terrain slope. Best for grass, scrub and small rocks; leave trees and major props upright.'],
       ['socketHost','Socket Host','Can contain authored sockets.'],
       ['socketPiece','Socket Piece','Can be assigned to an authored socket.']
     ];
