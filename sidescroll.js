@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.90: continuous two-biome blend/runtime ownership foundation.
+  // SideScroll v1.0.91: biome procedural sizing now follows Asset Lab authored defaults.
   // SideScroll v1.0.86: left-facing climb fix + constant-rate climb traversal/animation.
   // SideScroll v1.0.84: mountain Asset Lab registration + terrain-relative edit camera.
   // v1.0.83 introduced the first individual-asset mountain art test library.
@@ -2916,13 +2916,43 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'handcart-broken': { offsetX:0.00, offsetY:-0.06, rotationDeg:-6.0 }
   });
 
+  let assetLayoutStorageSnapshot = '';
   let assetLayoutDefaults = (() => {
     try {
       const raw = localStorage.getItem(ASSET_LAYOUT_STORAGE_KEY);
+      assetLayoutStorageSnapshot = raw ?? '';
       const parsed = raw !== null ? JSON.parse(raw || '{}') : {};
       return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (_) { return {}; }
+    } catch (_) { assetLayoutStorageSnapshot = ''; return {}; }
   })();
+
+  function refreshAssetLayoutDefaultsFromStorage() {
+    try {
+      const raw = localStorage.getItem(ASSET_LAYOUT_STORAGE_KEY) ?? '';
+      if (raw === assetLayoutStorageSnapshot) return false;
+      const parsed = raw ? JSON.parse(raw) : {};
+      assetLayoutDefaults = parsed && typeof parsed === 'object' ? parsed : {};
+      assetLayoutStorageSnapshot = raw;
+      return true;
+    } catch (_) { return false; }
+  }
+
+  function authoredAssetHeight(assetName) {
+    const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
+    const value = Number(assetLayoutDefaults?.[settingsName]?.defaultHeight);
+    return Number.isFinite(value) ? Rig.clamp(value, 0.25, 12) : null;
+  }
+
+  // Procedural scenery keeps its established random size range until an asset
+  // has an explicit Asset Lab height. Once authored, that value becomes the
+  // master size and scales the existing procedural variation proportionally.
+  function proceduralHeightFromAssetLab(assetName, generatedHeight, legacyDefaultHeight) {
+    const authored = authoredAssetHeight(assetName);
+    if (!Number.isFinite(authored)) return generatedHeight;
+    const legacy = Number(legacyDefaultHeight);
+    if (!Number.isFinite(legacy) || legacy <= 0.0001) return authored;
+    return generatedHeight * (authored / legacy);
+  }
 
   function assetGroundLineDefault(assetName, stateName = null) {
     const stateLayout=assetStateProfile(assetName,stateName)?.layout || null;
@@ -4046,7 +4076,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!canUseTreePosition(x, z)) return false;
       const type = chooseTreeVariant(x, z);
       if (!type) return false;
-      const height = baseHeight * PROCEDURAL_TREE_SCALE;
+      const legacyHeight = baseHeight * PROCEDURAL_TREE_SCALE;
+      const height = proceduralHeightFromAssetLab(type, legacyHeight, 8.2);
       const groundLine = assetGroundLineDefault(type);
       const obj = addObject(backdrop, type, x, z, null, height, {
         id: `forest263-${index}`,
@@ -4127,7 +4158,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const edgeDistance = Math.max(0, Math.abs(z) - PATH_FLAT_HALF);
       const edge01 = Math.min(1, edgeDistance / 6.0);
       const scaleMul = 0.98 + rand() * 0.20 + edge01 * 0.24;
-      const height = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
+      const legacyHeight = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
+      const legacyDefault = (type === 'ground09' || type === 'ground04' || type === 'ground07') ? 0.88 : 0.82;
+      const height = proceduralHeightFromAssetLab(type, legacyHeight, legacyDefault);
       if (!canUseDressingPosition(type, def, x, z, height)) return false;
       const obj = addObject(targetCollectionForZ(z), type, x, z, null, height, {
         id: `dressing263-${index}`,
@@ -4170,7 +4203,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     function addProceduralDressingSpecific(type, x, z, side, index, scaleMul = 1.0) {
       const def = dressingDefs[type];
       if (!def) return false;
-      const baseHeight = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
+      const legacyHeight = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
+      const legacyDefault = (type === 'ground09' || type === 'ground04' || type === 'ground07') ? 0.88 : 0.82;
+      const baseHeight = proceduralHeightFromAssetLab(type, legacyHeight, legacyDefault);
       if (!canUseDressingPosition(type, def, x, z, baseHeight)) return false;
       const obj = addObject(targetCollectionForZ(z), type, x, z, null, baseHeight, {
         id: `dressing263-${index}`,
@@ -4231,6 +4266,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let lastBiomeDatasetSignature = '';
 
   function scatterMountainBiomeCandidates() {
+    refreshAssetLayoutDefaultsFromStorage();
     if (mountainBiomeCandidatesLoaded) return;
     const mountainReferenced = runtimeBiomeState.defaultBiome === 'mountain'
       || runtimeBiomeState.transitions.some(item => item.from === 'mountain' || item.to === 'mountain');
@@ -4283,7 +4319,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             if (!candidateBlocked(x,z,def.spacing)) { ok=true; break; }
           }
           if (!ok) continue;
-          const height = def.height * (0.86 + random()*0.28);
+          const authoredBaseHeight = proceduralHeightFromAssetLab(type, def.height, def.height);
+          const height = authoredBaseHeight * (0.86 + random()*0.28);
           const groundLine = assetGroundLineDefault(type);
           const obj = addObject(targetCollectionForZ(z), type, x, z, null, height, {
             id:`biome-mountain-${sectionIndex}-${type}-${slot}`,
@@ -4337,6 +4374,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (editMode && editorScope === 'environment' && typeof buildAssetPalette === 'function') buildAssetPalette();
     }
   }
+
+
+  function refreshMountainProceduralSizingFromAssetLab() {
+    if (!refreshAssetLayoutDefaultsFromStorage()) return false;
+    const wantsMountain = runtimeLoadedBiomesAt(character.x).includes('mountain');
+    if (mountainBiomeCandidatesLoaded) clearProceduralBiomeCandidates('mountain');
+    if (wantsMountain) scatterMountainBiomeCandidates();
+    return true;
+  }
+
+  // iOS can restore Play from the back/forward cache after visiting Asset Lab.
+  // Refresh authored sizes on return so no separate Apply step is required.
+  window.addEventListener('pageshow', () => refreshMountainProceduralSizingFromAssetLab());
+  window.addEventListener('storage', event => {
+    if (event.key === ASSET_LAYOUT_STORAGE_KEY) refreshMountainProceduralSizingFromAssetLab();
+  });
 
   function allSceneObjects() {
     return [...backdrop, ...midfill, ...frontOccluders];
