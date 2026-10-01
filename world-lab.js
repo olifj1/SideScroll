@@ -30,7 +30,8 @@
     conceptLab:'ss-concept-lab-state-v1',
     designLab:'sidescroll-design-doc-working-v1',
     animClips:'gamehub.walklab.anim.v6',
-    animWalk:'gamehub.walklab.anim.v4'
+    animWalk:'gamehub.walklab.anim.v4',
+    biomes:'sidescroll.biomes.v1'
   };
 
   const SECTION_LENGTH = 10;
@@ -43,8 +44,8 @@
   const puzzleConfig = window.SideScrollPuzzleConfig || { groups:{}, markers:[] };
   const RANGE_TYPES = new Set(['biome-region','biome-transition','dressing-group','audio-zone','vfx-zone']);
   const TYPE_TRACK = {
-    'biome-region':'biome',
-    'biome-transition':'transition',
+    'biome-region':'legacy',
+    'biome-transition':'legacy',
     'dressing-group':'dressing',
     'explicit-dressing':'dressing',
     'landmark':'other',
@@ -67,6 +68,29 @@
     'vfx-zone':'VFX / Anomaly Zone'
   };
 
+
+  // v1.0.90: continuous biome system.  Environmental assets have exactly one
+  // biome owner or are Global / Unbound.  Only two biome datasets may be active
+  // at a time; transition weights are complementary and always sum to 100%.
+  const BIOME_DEFS = {
+    woodland:{id:'woodland',label:'Woodland',colour:'#799c72'},
+    mountain:{id:'mountain',label:'Mountain',colour:'#9a8669'}
+  };
+  const BIOME_IDS = Object.keys(BIOME_DEFS);
+  const GLOBAL_BIOME_OWNER = 'global';
+  const BIOME_ASSET_CATALOG = [
+    ...['tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'].map((name,i)=>({name,label:`Tree ${i+1}`,category:'Large tree',owner:'woodland',density:1.42,max:3})),
+    ...['ground01','ground02','ground03','ground04','ground05','ground06','ground07','ground08','ground09','ground10','ground11','ground12'].map((name,i)=>({name,label:`Ground ${i+1}`,category:i===8||i===9?'Rock / ground':'Grass / foliage',owner:'woodland',density:[5.6,4.7,4.5,4.3,3.0,4.5,3.0,2.2,3.4,1.5,4.9,3.9][i],max:[9,8,8,8,5,8,5,4,6,3,8,7][i]})),
+    {name:'mountain-climb-rock-01',label:'Climb Rock · Prototype',category:'Climbable feature',owner:'global',density:0,max:0},
+    ...['mountain-cliff-01','mountain-cliff-02','mountain-cliff-03','mountain-cliff-04'].map((name,i)=>({name,label:`Cliff ${String(i+1).padStart(2,'0')}`,category:'Climbable feature',owner:'global',density:0,max:0})),
+    ...['mountain-rock-01','mountain-rock-02','mountain-rock-03','mountain-rock-04'].map((name,i)=>({name,label:`Mountain Rock ${i+1}`,category:'Rock dressing',owner:'mountain',density:[3.0,2.5,1.8,2.4][i],max:[5,4,3,4][i]})),
+    ...['mountain-tree-01','mountain-tree-02'].map((name,i)=>({name,label:`Scrub Tree ${i+1}`,category:'Small tree',owner:'mountain',density:[0.8,0.6][i],max:2})),
+    ...['mountain-grass-01','mountain-grass-02','mountain-grass-03'].map((name,i)=>({name,label:`Dry Grass ${i+1}`,category:'Dry grass',owner:'mountain',density:[5.0,3.5,3.0][i],max:[8,6,5][i]}))
+  ];
+  const BIOME_ASSET_BY_NAME = new Map(BIOME_ASSET_CATALOG.map(item=>[item.name,item]));
+  const DEFAULT_BIOME_CURVE = {y1:1/3,y2:2/3};
+  const DEFAULT_STREAM_PADDING = {preload:12,unload:12};
+
   const state = {
     minX:-20,
     maxX:300,
@@ -75,6 +99,7 @@
     drag:null,
     playheadX:null,
     elements:loadElements(),
+    biomes:loadBiomeState(),
     pending:loadJson(STORAGE.pending,{}),
     userLibrary:null,
     puzzleState:null,
@@ -94,7 +119,6 @@
     sectionGrid:$('wl-section-grid'),
     ruler:$('wl-ruler'),
     trackBiome:$('wl-track-biome'),
-    trackTransition:$('wl-track-transition'),
     trackSection:$('wl-track-section'),
     trackTerrainNear:$('wl-track-terrain-near'),
     trackTerrainFarA:$('wl-track-terrain-far-a'),
@@ -130,6 +154,12 @@
     newEnd:$('wl-new-end'),
     newOwner:$('wl-new-owner'),
     addElement:$('wl-add-element'),
+    biomeFrom:$('wl-biome-from'),
+    biomeTo:$('wl-biome-to'),
+    biomeStart:$('wl-biome-start'),
+    biomeEnd:$('wl-biome-end'),
+    biomeAdd:$('wl-add-biome-transition'),
+    biomeSummary:$('wl-biome-summary'),
     toast:$('wl-toast')
   };
 
@@ -187,6 +217,11 @@
       }
     });
     els.addElement.addEventListener('click',addElement);
+    els.biomeStart?.addEventListener('input',syncBiomeAddPreview);
+    els.biomeTo?.addEventListener('change',syncBiomeAddPreview);
+    els.biomeAdd?.addEventListener('click',addBiomeTransition);
+    document.querySelectorAll('[data-biome-profile]').forEach(button=>button.addEventListener('click',()=>select('biome-profile',button.dataset.biomeProfile)));
+    syncBiomeAddPreview();
   }
 
   function openDataMenu(){
@@ -203,6 +238,7 @@
 
   function refreshGameData(){
     state.elements = loadElements();
+    state.biomes = loadBiomeState();
     state.userLibrary = normaliseLibrary(loadJson(STORAGE.puzzleLibrary, baked?.puzzles?.localLibrary || {groups:{},templates:{},markers:[]}));
     state.puzzleState = loadJson(STORAGE.puzzleState,{});
     state.puzzleStarts = loadJson(STORAGE.puzzleStarts,baked?.puzzles?.savedStarts || {});
@@ -219,9 +255,220 @@
     if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain.linkSubsequent!==false;
     const pendingCount=Object.keys(state.pending||{}).length;
     const assetCount=sceneDressingEntries().length;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
+    const transitionCount=state.biomes?.transitions?.length||0;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
+    syncBiomeAddPreview();
     syncUndoUi();
   }
+
+
+  function defaultBiomeState(){
+    const assetOwners={};
+    const profiles={};
+    for(const id of BIOME_IDS)profiles[id]={id,label:BIOME_DEFS[id].label,assets:{}};
+    for(const asset of BIOME_ASSET_CATALOG){
+      assetOwners[asset.name]=asset.owner;
+      if(BIOME_DEFS[asset.owner])profiles[asset.owner].assets[asset.name]={density:Number(asset.density)||0,max:Math.max(0,Math.round(Number(asset.max)||0))};
+    }
+    return {
+      version:1,
+      defaultBiome:'woodland',
+      maxActiveBiomes:2,
+      stream:{...DEFAULT_STREAM_PADDING},
+      transitions:[],
+      assetOwners,
+      profiles
+    };
+  }
+
+  function normaliseBiomeState(raw){
+    const defaults=defaultBiomeState();
+    const src=raw&&typeof raw==='object'?clone(raw):{};
+    const out={
+      version:1,
+      defaultBiome:BIOME_DEFS[src.defaultBiome]?src.defaultBiome:defaults.defaultBiome,
+      maxActiveBiomes:2,
+      stream:{
+        preload:RigClamp(number(src?.stream?.preload,defaults.stream.preload),0,80),
+        unload:RigClamp(number(src?.stream?.unload,defaults.stream.unload),0,80)
+      },
+      transitions:[],
+      assetOwners:{...defaults.assetOwners,...(src.assetOwners&&typeof src.assetOwners==='object'?src.assetOwners:{})},
+      profiles:clone(defaults.profiles)
+    };
+    for(const asset of BIOME_ASSET_CATALOG){
+      const owner=out.assetOwners[asset.name];
+      if(owner!==GLOBAL_BIOME_OWNER&&!BIOME_DEFS[owner])out.assetOwners[asset.name]=asset.owner;
+    }
+    for(const id of BIOME_IDS){
+      const saved=src?.profiles?.[id];
+      if(saved?.assets&&typeof saved.assets==='object'){
+        for(const [name,entry] of Object.entries(saved.assets)){
+          if(!BIOME_ASSET_BY_NAME.has(name))continue;
+          out.profiles[id].assets[name]={
+            density:RigClamp(number(entry?.density,out.profiles[id].assets[name]?.density||0),0,100),
+            max:Math.max(0,Math.round(number(entry?.max,out.profiles[id].assets[name]?.max||0)))
+          };
+        }
+      }
+    }
+    // Ownership is authoritative.  Keep density settings only on the owning biome.
+    for(const id of BIOME_IDS){
+      for(const name of Object.keys(out.profiles[id].assets))if(out.assetOwners[name]!==id)delete out.profiles[id].assets[name];
+    }
+    for(const asset of BIOME_ASSET_CATALOG){
+      const owner=out.assetOwners[asset.name];
+      if(BIOME_DEFS[owner]&&!out.profiles[owner].assets[asset.name]){
+        out.profiles[owner].assets[asset.name]={density:Number(asset.density)||0,max:Math.max(0,Math.round(Number(asset.max)||0))};
+      }
+    }
+    const rawTransitions=Array.isArray(src.transitions)?src.transitions:[];
+    const transitions=rawTransitions.map((item,index)=>{
+      const start=snapTo(number(item?.startX,100+index*80),RANGE_SNAP);
+      const end=Math.max(start+RANGE_SNAP,snapTo(number(item?.endX,start+30),RANGE_SNAP));
+      const to=BIOME_DEFS[item?.to]?item.to:'mountain';
+      return {
+        id:String(item?.id||uniqueId('biome')),
+        from:BIOME_DEFS[item?.from]?item.from:out.defaultBiome,
+        to,
+        startX:start,
+        endX:end,
+        curve:{
+          y1:RigClamp(number(item?.curve?.y1,DEFAULT_BIOME_CURVE.y1),0,1),
+          y2:RigClamp(number(item?.curve?.y2,DEFAULT_BIOME_CURVE.y2),0,1)
+        }
+      };
+    }).sort((a,b)=>a.startX-b.startX);
+    let current=out.defaultBiome;
+    let previousEnd=-Infinity;
+    for(const item of transitions){
+      if(item.startX<previousEnd+RANGE_SNAP)item.startX=previousEnd+RANGE_SNAP;
+      if(item.endX<item.startX+RANGE_SNAP)item.endX=item.startX+Math.max(20,RANGE_SNAP);
+      item.from=current;
+      if(item.to===current)item.to=BIOME_IDS.find(id=>id!==current)||current;
+      current=item.to;
+      previousEnd=item.endX;
+      out.transitions.push(item);
+    }
+    return out;
+  }
+
+  function loadBiomeState(){return normaliseBiomeState(loadJson(STORAGE.biomes,null));}
+  function saveBiomeState(){
+    state.biomes=normaliseBiomeState(state.biomes);
+    saveJson(STORAGE.biomes,state.biomes);
+    const assetCount=sceneDressingEntries().length,transitionCount=state.biomes?.transitions?.length||0;
+    if(els.status)els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
+    syncBiomeAddPreview();
+    syncUndoUi();
+  }
+
+  function biomeLabel(id){return id===GLOBAL_BIOME_OWNER?'Global / Unbound':(BIOME_DEFS[id]?.label||id||'Biome');}
+  function biomeColour(id){return BIOME_DEFS[id]?.colour||'#7d8b91';}
+  function transitionProgress(item,x){
+    if(x<=item.startX)return 0;if(x>=item.endX)return 1;
+    const t=RigClamp((x-item.startX)/Math.max(.001,item.endX-item.startX),0,1);
+    const u=1-t;
+    // Cubic Bezier with fixed time handles at 1/3 and 2/3.  y1/y2 are the
+    // editable transfer percentages; 1/3 + 2/3 produces a straight blend.
+    return RigClamp(3*u*u*t*item.curve.y1+3*u*t*t*item.curve.y2+t*t*t,0,1);
+  }
+  function biomeTransitionAt(x){return (state.biomes?.transitions||[]).find(item=>x>=item.startX&&x<=item.endX)||null;}
+  function biomeWeightsAt(x){
+    let current=state.biomes?.defaultBiome||'woodland';
+    for(const item of state.biomes?.transitions||[]){
+      if(x<item.startX)return {[current]:1};
+      if(x<=item.endX){const t=transitionProgress(item,x);return {[item.from]:1-t,[item.to]:t};}
+      current=item.to;
+    }
+    return {[current]:1};
+  }
+  function dominantBiomeAt(x){
+    const weights=biomeWeightsAt(x);let best=state.biomes?.defaultBiome||'woodland',value=-1;
+    for(const [id,w] of Object.entries(weights))if(w>value){best=id;value=w;}
+    return best;
+  }
+  function dominantBiomeBefore(x){
+    const trans=biomeTransitionAt(x);
+    if(trans)return trans.from;
+    return dominantBiomeAt(x-0.001);
+  }
+  function streamWindowForTransition(index){
+    const list=state.biomes?.transitions||[];const item=list[index];if(!item)return null;
+    const prev=list[index-1]||null,next=list[index+1]||null;
+    const gapBefore=prev?Math.max(0,item.startX-prev.endX):Infinity;
+    const gapAfter=next?Math.max(0,next.startX-item.endX):Infinity;
+    const splitBefore=prev?prev.endX+gapBefore*.5:-Infinity;
+    const splitAfter=next?item.endX+gapAfter*.5:Infinity;
+    return {
+      loadX:Math.max(item.startX-number(state.biomes?.stream?.preload,12),splitBefore),
+      unloadX:Math.min(item.endX+number(state.biomes?.stream?.unload,12),splitAfter)
+    };
+  }
+  function loadedBiomesAt(x){
+    const list=state.biomes?.transitions||[];
+    for(let i=0;i<list.length;i++){
+      const item=list[i];
+      if(x>=item.startX&&x<=item.endX)return [item.from,item.to];
+    }
+    const current=dominantBiomeAt(x);
+    for(let i=0;i<list.length;i++){
+      const item=list[i],win=streamWindowForTransition(i);
+      if(x>=win.loadX&&x<item.startX&&current===item.from)return [item.from,item.to];
+      if(x>item.endX&&x<=win.unloadX&&current===item.to)return [item.from,item.to];
+    }
+    return [current];
+  }
+  function biomeOwnerForAsset(name){return state.biomes?.assetOwners?.[name]||BIOME_ASSET_BY_NAME.get(name)?.owner||GLOBAL_BIOME_OWNER;}
+  function profileEntry(id,name){
+    const profile=state.biomes?.profiles?.[id];
+    if(!profile)return null;
+    profile.assets||={};
+    if(!profile.assets[name]){
+      const def=BIOME_ASSET_BY_NAME.get(name);
+      profile.assets[name]={density:Number(def?.density)||0,max:Math.max(0,Math.round(Number(def?.max)||0))};
+    }
+    return profile.assets[name];
+  }
+
+  function syncBiomeAddPreview(){
+    if(!els.biomeStart)return;
+    const x=number(els.biomeStart.value,100);
+    const inside=biomeTransitionAt(x);
+    const from=inside?inside.from:dominantBiomeBefore(x);
+    if(els.biomeFrom)els.biomeFrom.value=inside?'Inside an existing transition':biomeLabel(from);
+    if(els.biomeTo){
+      for(const option of els.biomeTo.options)option.disabled=option.value===from;
+      if(els.biomeTo.value===from)els.biomeTo.value=BIOME_IDS.find(id=>id!==from)||from;
+    }
+    if(els.biomeSummary){
+      const loaded=loadedBiomesAt(x).map(biomeLabel).join(' + ');
+      els.biomeSummary.textContent=inside
+        ? `That start point is already inside ${biomeLabel(inside.from)} → ${biomeLabel(inside.to)}. Move it outside the existing transition.`
+        : `${biomeLabel(from)} is 100% at ${round(x,1)} m · logically loaded: ${loaded}.`;
+    }
+  }
+
+  function addBiomeTransition(){
+    const start=snapTo(number(els.biomeStart?.value,100),RANGE_SNAP);
+    const end=Math.max(start+RANGE_SNAP,snapTo(number(els.biomeEnd?.value,start+30),RANGE_SNAP));
+    if(biomeTransitionAt(start)||biomeTransitionAt(end-0.001)||(state.biomes.transitions||[]).some(t=>start<t.endX&&end>t.startX)){
+      toast('Biome transitions cannot overlap.');return;
+    }
+    const from=dominantBiomeBefore(start);
+    const to=els.biomeTo?.value;
+    if(!BIOME_DEFS[to]||to===from){toast('Choose the other biome as the transition target.');return;}
+    pushHistory('Add biome transition');
+    const item={id:uniqueId('biome'),from,to,startX:start,endX:end,curve:{...DEFAULT_BIOME_CURVE}};
+    state.biomes.transitions.push(item);
+    state.biomes=normaliseBiomeState(state.biomes);
+    saveBiomeState();
+    state.selected={kind:'biome-transition',id:item.id};
+    render();toast(`${biomeLabel(from)} → ${biomeLabel(to)} transition added.`);
+  }
+
+  function findBiomeTransition(id){return state.biomes?.transitions?.find(item=>item.id===id)||null;}
+  function RigClamp(v,min,max){return Math.max(min,Math.min(max,number(v,min)));}
 
   function normaliseLibrary(raw){
     const lib=clone(raw)||{};
@@ -321,7 +568,8 @@
   function fitWorld(initial){
     const values=[];
     for(const p of state.puzzles)values.push(p.minX,p.maxX,p.x);
-    for(const e of state.elements)values.push(number(e.startX,0),number(e.endX,e.startX));
+    for(const e of state.elements)if(TYPE_TRACK[e.type]!=='legacy')values.push(number(e.startX,0),number(e.endX,e.startX));
+    for(const t of state.biomes?.transitions||[])values.push(number(t.startX,0),number(t.endX,t.startX));
     for(const d of sceneDressingEntries())values.push(d.x-d.sx*.5,d.x+d.sx*.5);
     for(const m of modifierEntries())values.push(m.startX,m.endX);
     if(Number.isFinite(state.playheadX))values.push(state.playheadX);
@@ -502,6 +750,7 @@
     const width=worldWidth();
     els.world.style.width=`${width}px`;
     renderGrid();
+    renderBiomeTrack();
     renderElements();
     renderSections();
     renderPuzzles();
@@ -534,11 +783,96 @@
     }
   }
 
+
+  function renderBiomeTrack(){
+    const host=els.trackBiome;if(!host)return;host.innerHTML='';
+    const trackHeight=116,topY=16,bottomY=101,usable=bottomY-topY;
+    const yFor=w=>topY+(1-RigClamp(w,0,1))*usable;
+    const list=state.biomes?.transitions||[];
+
+    // Continuous solid-biome bands make it explicit that there is no undefined
+    // space between authored transitions.
+    let cursor=state.minX,current=state.biomes?.defaultBiome||'woodland';
+    const addBand=(from,to,id)=>{
+      const a=Math.max(state.minX,from),b=Math.min(state.maxX,to);if(!(b>a))return;
+      const node=document.createElement('button');node.type='button';node.className='wl-biome-band';
+      node.style.left=`${xToPx(a)}px`;node.style.width=`${Math.max(1,(b-a)*state.scale)}px`;
+      node.style.background=`${biomeColour(id)}22`;node.innerHTML=`<span>${escapeHtml(biomeLabel(id))} 100%</span>`;
+      node.title=`${biomeLabel(id)} · 100% · ${round(a,1)} → ${round(b,1)} m`;
+      node.addEventListener('click',event=>{event.stopPropagation();select('biome-profile',id);});host.appendChild(node);
+    };
+    for(const item of list){
+      addBand(cursor,item.startX,current);
+      const a=Math.max(state.minX,item.startX),b=Math.min(state.maxX,item.endX);
+      if(b>a){
+        const band=document.createElement('button');band.type='button';band.className=`wl-biome-transition-band${isSelected('biome-transition',item.id)?' selected':''}`;
+        band.style.left=`${xToPx(a)}px`;band.style.width=`${Math.max(2,(b-a)*state.scale)}px`;
+        band.style.background=`linear-gradient(90deg,${biomeColour(item.from)}22,${biomeColour(item.to)}22)`;
+        band.innerHTML=`<span>${escapeHtml(biomeLabel(item.from))} → ${escapeHtml(biomeLabel(item.to))}</span>`;
+        band.title=`${biomeLabel(item.from)} → ${biomeLabel(item.to)} · ${round(item.startX,1)} → ${round(item.endX,1)} m`;
+        band.addEventListener('click',event=>{event.stopPropagation();select('biome-transition',item.id);});host.appendChild(band);
+        const index=list.indexOf(item),win=streamWindowForTransition(index);
+        for(const marker of [{x:win.loadX,label:`LOAD ${biomeLabel(item.to).toUpperCase()}`},{x:win.unloadX,label:`DROP ${biomeLabel(item.from).toUpperCase()}`}]){
+          if(marker.x<state.minX||marker.x>state.maxX)continue;
+          const line=document.createElement('div');line.className='wl-biome-stream-marker';line.style.left=`${xToPx(marker.x)}px`;line.dataset.label=marker.label;host.appendChild(line);
+        }
+        const startKey=document.createElement('button');startKey.type='button';startKey.className='wl-biome-key start';startKey.style.left=`${xToPx(item.startX)}px`;startKey.title='Transition start key · drag horizontally';
+        const endKey=document.createElement('button');endKey.type='button';endKey.className='wl-biome-key end';endKey.style.left=`${xToPx(item.endX)}px`;endKey.title='Transition end key · drag horizontally';
+        bindBiomeKeyDrag(startKey,item,'start');bindBiomeKeyDrag(endKey,item,'end');
+        startKey.addEventListener('click',event=>{event.stopPropagation();select('biome-transition',item.id);});
+        endKey.addEventListener('click',event=>{event.stopPropagation();select('biome-transition',item.id);});
+        host.append(startKey,endKey);
+      }
+      current=item.to;cursor=item.endX;
+    }
+    addBand(cursor,state.maxX,current);
+
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','wl-biome-svg');svg.setAttribute('viewBox',`0 0 ${worldWidth()} ${trackHeight}`);svg.setAttribute('preserveAspectRatio','none');
+    for(const w of [1,.5,0]){
+      const line=document.createElementNS(svg.namespaceURI,'line');line.setAttribute('class','wl-biome-gridline');line.setAttribute('x1','0');line.setAttribute('x2',String(worldWidth()));line.setAttribute('y1',String(yFor(w)));line.setAttribute('y2',String(yFor(w)));svg.appendChild(line);
+    }
+    const sampleStep=Math.max(.5,Math.min(2,8/state.scale));
+    for(const id of BIOME_IDS){
+      let d='',first=true;
+      for(let x=state.minX;x<=state.maxX+sampleStep*.5;x+=sampleStep){
+        const xx=Math.min(state.maxX,x),w=biomeWeightsAt(xx)[id]||0;d+=`${first?'M':'L'} ${xToPx(xx).toFixed(2)} ${yFor(w).toFixed(2)} `;first=false;
+      }
+      const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('class',`wl-biome-line ${id}`);path.setAttribute('d',d.trim());svg.appendChild(path);
+    }
+    host.appendChild(svg);
+    const top=document.createElement('span');top.className='wl-biome-axis-label top';top.textContent='100%';
+    const bottom=document.createElement('span');bottom.className='wl-biome-axis-label bottom';bottom.textContent='0%';host.append(top,bottom);
+  }
+
+  function bindBiomeKeyDrag(handle,item,side){
+    handle.addEventListener('pointerdown',event=>{
+      if(event.button!==undefined&&event.button!==0)return;
+      event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);
+      pushHistory(`Move biome ${side} key`);select('biome-transition',item.id,false);
+      const startClient=event.clientX,origStart=item.startX,origEnd=item.endX,list=state.biomes.transitions,index=list.indexOf(item),prev=list[index-1]||null,next=list[index+1]||null;
+      let moved=false;
+      const move=e=>{
+        const delta=(e.clientX-startClient)/state.scale;if(Math.abs(e.clientX-startClient)>2)moved=true;
+        if(side==='start')item.startX=RigClamp(snapTo(origStart+delta,RANGE_SNAP),prev?prev.endX+RANGE_SNAP:-99999,item.endX-RANGE_SNAP);
+        else item.endX=RigClamp(snapTo(origEnd+delta,RANGE_SNAP),item.startX+RANGE_SNAP,next?next.startX-RANGE_SNAP:99999);
+        handle.style.left=`${xToPx(side==='start'?item.startX:item.endX)}px`;
+      };
+      const end=()=>{
+        handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',end);handle.removeEventListener('pointercancel',end);
+        if(moved){state.biomes=normaliseBiomeState(state.biomes);saveBiomeState();toast(`Biome key moved to ${round(side==='start'?item.startX:item.endX,1)} m.`);}render();
+      };
+      handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);
+    });
+  }
+
   function renderElements(){
-    for(const el of [els.trackBiome,els.trackTransition,els.trackDressing,els.trackOther])el.innerHTML='';
+    for(const el of [els.trackDressing,els.trackOther])el.innerHTML='';
     for(const item of state.elements){
       const track=TYPE_TRACK[item.type]||'other';
-      const host=track==='biome'?els.trackBiome:track==='transition'?els.trackTransition:track==='dressing'?els.trackDressing:els.trackOther;
+      // Legacy finite biome blocks are preserved in storage/export for safety,
+      // but the continuous biome track supersedes them from v1.0.90 onward.
+      if(track==='legacy')continue;
+      const host=track==='dressing'?els.trackDressing:els.trackOther;
       host.appendChild(makeWorldElementNode(item,track));
     }
     for(const item of sceneDressingEntries()) els.trackDressing.appendChild(makeSceneDressingNode(item));
@@ -878,6 +1212,12 @@
       els.selection.innerHTML='<h2>Selection</h2><p class="muted">Tap a section, terrain modifier, puzzle marker or World Element above.</p>';
       return;
     }
+    if(state.selected.kind==='biome-transition'){
+      const item=findBiomeTransition(state.selected.id);
+      if(!item){state.selected=null;return renderSelection();}
+      return renderBiomeTransitionSelection(item);
+    }
+    if(state.selected.kind==='biome-profile')return renderBiomeProfileSelection(state.selected.id);
     if(state.selected.kind==='puzzle'){
       const p=findPuzzle(state.selected.id);
       if(!p){state.selected=null;return renderSelection();}
@@ -900,6 +1240,122 @@
       return renderModifierSelection(mod);
     }
     if(state.selected.kind==='playhead')return renderPlayheadSelection();
+  }
+
+
+  function curvePreviewSvg(item){
+    const y1=RigClamp(item?.curve?.y1,0,1),y2=RigClamp(item?.curve?.y2,0,1);
+    const points=[];
+    for(let i=0;i<=40;i++){
+      const t=i/40,u=1-t,v=3*u*u*t*y1+3*u*t*t*y2+t*t*t;
+      points.push([8+t*184,72-v*62]);
+    }
+    const d=points.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+    const inv=points.map((p,i)=>{const v=(72-p[1])/62;return `${i?'L':'M'}${p[0].toFixed(1)},${(10+v*62).toFixed(1)}`;}).join(' ');
+    return `<svg viewBox="0 0 200 82" preserveAspectRatio="none"><line x1="8" y1="72" x2="192" y2="10"></line><line x1="8" y1="41" x2="192" y2="41"></line><path d="${d}"></path><path class="inverse" d="${inv}"></path></svg>`;
+  }
+
+  function renderBiomeTransitionSelection(item){
+    const index=state.biomes.transitions.indexOf(item),win=streamWindowForTransition(index);
+    els.selection.innerHTML=`<h2>${escapeHtml(biomeLabel(item.from))} → ${escapeHtml(biomeLabel(item.to))}</h2>
+      <p class="muted">Continuous two-biome transition · percentages are coupled and always total 100%.</p>
+      <div class="wl-biome-status-pills"><span class="wl-pill">Load ${escapeHtml(biomeLabel(item.to))} ${round(win.loadX,1)} m</span><span class="wl-pill">Blend ${round(item.startX,1)} → ${round(item.endX,1)} m</span><span class="wl-pill">Drop ${escapeHtml(biomeLabel(item.from))} ${round(win.unloadX,1)} m</span></div>
+      <div class="wl-selection-form">
+        <label>From<input value="${escapeAttr(biomeLabel(item.from))}" readonly></label>
+        <label>To<select id="wl-biome-edit-to">${BIOME_IDS.map(id=>`<option value="${id}"${id===item.to?' selected':''}${id===item.from?' disabled':''}>${escapeHtml(biomeLabel(id))}</option>`).join('')}</select></label>
+        <label>Start / X<input id="wl-biome-edit-start" type="number" step="1" value="${round(item.startX,2)}"></label>
+        <label>End / X<input id="wl-biome-edit-end" type="number" step="1" value="${round(item.endX,2)}"></label>
+        <label class="wide">Start Bezier handle <b id="wl-biome-y1-label">${round(item.curve.y1*100,0)}%</b><input id="wl-biome-y1" type="range" min="0" max="100" step="1" value="${round(item.curve.y1*100,0)}"></label>
+        <label class="wide">End Bezier handle <b id="wl-biome-y2-label">${round(item.curve.y2*100,0)}%</b><input id="wl-biome-y2" type="range" min="0" max="100" step="1" value="${round(item.curve.y2*100,0)}"></label>
+        <label>Preload incoming before start<input id="wl-biome-preload" type="number" min="0" max="80" step="1" value="${round(state.biomes.stream.preload,1)}"></label>
+        <label>Keep outgoing after end<input id="wl-biome-unload" type="number" min="0" max="80" step="1" value="${round(state.biomes.stream.unload,1)}"></label>
+      </div>
+      <div class="wl-biome-curve-preview" id="wl-biome-curve-preview">${curvePreviewSvg(item)}</div>
+      <p class="muted">A straight transfer uses roughly 33% / 67%. Lower the first handle for a slower start; raise the second for a stronger finish. Stream markers are automatically squeezed between neighbouring transitions so a third biome is never active.</p>
+      <div class="wl-actions"><button class="primary" id="wl-save-biome-transition">Save Transition</button><button id="wl-biome-playhead">Move playhead to start</button><button class="danger" id="wl-delete-biome-transition">Delete</button></div>`;
+    const preview=()=>{
+      const y1=number($('wl-biome-y1').value,33)/100,y2=number($('wl-biome-y2').value,67)/100;
+      $('wl-biome-y1-label').textContent=`${round(y1*100,0)}%`;$('wl-biome-y2-label').textContent=`${round(y2*100,0)}%`;
+      $('wl-biome-curve-preview').innerHTML=curvePreviewSvg({...item,curve:{y1,y2}});
+    };
+    $('wl-biome-y1').addEventListener('input',preview);$('wl-biome-y2').addEventListener('input',preview);
+    $('wl-save-biome-transition').addEventListener('click',()=>{
+      pushHistory('Edit biome transition');
+      const start=snapTo(number($('wl-biome-edit-start').value,item.startX),RANGE_SNAP),end=snapTo(number($('wl-biome-edit-end').value,item.endX),RANGE_SNAP);
+      const list=state.biomes.transitions,index=list.indexOf(item),prev=list[index-1],next=list[index+1];
+      if(end<=start||(prev&&start<=prev.endX)||(next&&end>=next.startX)){toast('Transition must stay between its neighbours and have a positive length.');return;}
+      item.startX=start;item.endX=end;item.to=$('wl-biome-edit-to').value;
+      item.curve={y1:number($('wl-biome-y1').value,33)/100,y2:number($('wl-biome-y2').value,67)/100};
+      state.biomes.stream.preload=RigClamp(number($('wl-biome-preload').value,12),0,80);
+      state.biomes.stream.unload=RigClamp(number($('wl-biome-unload').value,12),0,80);
+      state.biomes=normaliseBiomeState(state.biomes);saveBiomeState();render();toast('Biome transition saved.');
+    });
+    $('wl-biome-playhead').addEventListener('click',()=>{state.playheadX=item.startX;select('playhead','player');});
+    $('wl-delete-biome-transition').addEventListener('click',()=>{
+      if(!confirm(`Delete ${biomeLabel(item.from)} → ${biomeLabel(item.to)} transition?`))return;
+      pushHistory('Delete biome transition');state.biomes.transitions=state.biomes.transitions.filter(t=>t.id!==item.id);state.biomes=normaliseBiomeState(state.biomes);state.selected=null;saveBiomeState();render();toast('Biome transition deleted.');
+    });
+  }
+
+  function renderBiomeProfileSelection(id){
+    if(id==='global')return renderGlobalBiomeAssetsSelection();
+    if(!BIOME_DEFS[id]){state.selected=null;return renderSelection();}
+    const owned=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)===id);
+    const totalDensity=owned.reduce((sum,asset)=>sum+number(profileEntry(id,asset.name)?.density,0),0);
+    const assignable=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)!==id);
+    els.selection.innerHTML=`<h2>${escapeHtml(biomeLabel(id))} Profile</h2>
+      <p class="muted">This table defines what 100% ${escapeHtml(biomeLabel(id))} means. Density is the target placements per 10 m; Max is the per-10 m cap. An asset can belong to only one biome, or be Global / Unbound.</p>
+      <div class="wl-biome-status-pills"><span class="wl-pill">${owned.length} assigned assets</span><span class="wl-pill">${round(totalDensity,1)} target placements / 10 m</span></div>
+      <div class="wl-selection-form"><label class="wide">Assign / move asset<select id="wl-biome-assign"><option value="">Choose an asset…</option>${assignable.map(asset=>`<option value="${escapeAttr(asset.name)}">${escapeHtml(asset.label)} · ${escapeHtml(biomeLabel(biomeOwnerForAsset(asset.name))||'Global')}</option>`).join('')}</select></label></div>
+      <div class="wl-actions"><button id="wl-biome-assign-btn">Assign to ${escapeHtml(biomeLabel(id))}</button><button data-profile-open="global">Global / Unbound</button></div>
+      <div class="wl-biome-asset-table">${owned.map(asset=>biomeAssetRowHtml(asset,id)).join('')||'<p class="muted">No assets assigned.</p>'}</div>
+      <p class="muted">These values are live in the first transition pass. Woodland keeps its existing deterministic layout and thins as its percentage/density falls; Mountain uses a deterministic streamed candidate pool driven by Density and Max. Manual placements are never regenerated.</p>`;
+    bindBiomeAssetRows();
+    $('wl-biome-assign-btn').addEventListener('click',()=>{
+      const name=$('wl-biome-assign').value;if(!name)return;pushHistory('Assign biome asset');assignAssetOwner(name,id);saveBiomeState();renderSelection();renderBiomeTrack();toast(`${BIOME_ASSET_BY_NAME.get(name)?.label||name} → ${biomeLabel(id)}.`);
+    });
+    els.selection.querySelectorAll('[data-profile-open]').forEach(button=>button.addEventListener('click',()=>select('biome-profile',button.dataset.profileOpen)));
+  }
+
+  function biomeAssetRowHtml(asset,owner){
+    const entry=BIOME_DEFS[owner]?profileEntry(owner,asset.name):null;
+    return `<div class="wl-biome-asset-row" data-biome-asset="${escapeAttr(asset.name)}">
+      <div><strong>${escapeHtml(asset.label)}</strong><small>${escapeHtml(asset.category)} · ${escapeHtml(asset.name)}</small></div>
+      <label class="owner">Owner<select data-asset-owner>${[...BIOME_IDS,GLOBAL_BIOME_OWNER].map(id=>`<option value="${id}"${id===owner?' selected':''}>${id===GLOBAL_BIOME_OWNER?'Global':biomeLabel(id)}</option>`).join('')}</select></label>
+      ${entry?`<label>Density / 10m<input data-asset-density type="number" min="0" max="100" step="0.1" value="${round(entry.density,2)}"></label><label>Max / 10m<input data-asset-max type="number" min="0" max="100" step="1" value="${Math.round(entry.max)}"></label>`:'<span></span><span></span>'}
+    </div>`;
+  }
+
+  function renderGlobalBiomeAssetsSelection(){
+    const owned=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)===GLOBAL_BIOME_OWNER);
+    const assignable=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)!==GLOBAL_BIOME_OWNER);
+    els.selection.innerHTML=`<h2>Global / Unbound Environment</h2>
+      <p class="muted">These assets are deliberately outside biome density profiles and remain available for manual placement everywhere. Climbable rock features live here by default.</p>
+      <div class="wl-biome-status-pills"><span class="wl-pill">${owned.length} global assets</span><span class="wl-pill">No procedural density</span></div>
+      <div class="wl-selection-form"><label class="wide">Make asset Global / Unbound<select id="wl-biome-assign"><option value="">Choose an asset…</option>${assignable.map(asset=>`<option value="${escapeAttr(asset.name)}">${escapeHtml(asset.label)} · ${escapeHtml(biomeLabel(biomeOwnerForAsset(asset.name)))}</option>`).join('')}</select></label></div>
+      <div class="wl-actions"><button id="wl-biome-assign-btn">Make Global / Unbound</button><button data-profile-open="woodland">Woodland profile</button><button data-profile-open="mountain">Mountain profile</button></div>
+      <div class="wl-biome-asset-table">${owned.map(asset=>biomeAssetRowHtml(asset,GLOBAL_BIOME_OWNER)).join('')||'<p class="muted">No global assets.</p>'}</div>`;
+    bindBiomeAssetRows();
+    $('wl-biome-assign-btn').addEventListener('click',()=>{const name=$('wl-biome-assign').value;if(!name)return;pushHistory('Make environment asset global');assignAssetOwner(name,GLOBAL_BIOME_OWNER);saveBiomeState();renderSelection();toast(`${BIOME_ASSET_BY_NAME.get(name)?.label||name} is Global / Unbound.`);});
+    els.selection.querySelectorAll('[data-profile-open]').forEach(button=>button.addEventListener('click',()=>select('biome-profile',button.dataset.profileOpen)));
+  }
+
+  function assignAssetOwner(name,owner){
+    if(!BIOME_ASSET_BY_NAME.has(name))return;
+    for(const id of BIOME_IDS)delete state.biomes.profiles[id].assets[name];
+    state.biomes.assetOwners[name]=owner;
+    if(BIOME_DEFS[owner]){
+      const def=BIOME_ASSET_BY_NAME.get(name);state.biomes.profiles[owner].assets[name]={density:Number(def.density)||0,max:Math.max(0,Math.round(Number(def.max)||0))};
+    }
+  }
+
+  function bindBiomeAssetRows(){
+    els.selection.querySelectorAll('[data-biome-asset]').forEach(row=>{
+      const name=row.dataset.biomeAsset,ownerSelect=row.querySelector('[data-asset-owner]'),density=row.querySelector('[data-asset-density]'),max=row.querySelector('[data-asset-max]');
+      ownerSelect?.addEventListener('change',()=>{pushHistory('Change biome asset owner');assignAssetOwner(name,ownerSelect.value);saveBiomeState();renderSelection();toast(`${BIOME_ASSET_BY_NAME.get(name)?.label||name} ownership updated.`);});
+      density?.addEventListener('change',()=>{const owner=biomeOwnerForAsset(name),entry=profileEntry(owner,name);if(!entry)return;pushHistory('Change biome density');entry.density=RigClamp(number(density.value,entry.density),0,100);saveBiomeState();renderSelection();});
+      max?.addEventListener('change',()=>{const owner=biomeOwnerForAsset(name),entry=profileEntry(owner,name);if(!entry)return;pushHistory('Change biome cap');entry.max=Math.max(0,Math.round(number(max.value,entry.max)));saveBiomeState();renderSelection();});
+    });
   }
 
   function renderPuzzleSelection(p){
@@ -1092,8 +1548,8 @@
 
   function saveElements(){
     saveJson(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:state.elements});
-    const assetCount=sceneDressingEntries().length;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${state.elements.length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
+    const assetCount=sceneDressingEntries().length,transitionCount=state.biomes?.transitions?.length||0;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
     syncUndoUi();
   }
 
@@ -1112,12 +1568,13 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:2,
-      appVersion:'1.0.83',
+      appVersion:'1.0.90',
       exportedAt:new Date().toISOString(),
       purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
       world:{
         ...bakedWorld,
         elements:clone(state.elements),
+        biomes:clone(state.biomes),
         terrain:clone(state.terrain),
         pendingPuzzleMoves:clone(state.pending),
         playerPosition:exportStore(STORAGE.player,null)
@@ -1212,6 +1669,7 @@
         if(!confirm('Import this complete SideScroll game snapshot? Current local authored data will be replaced where the export contains data.'))return;
         const worldElements=Array.isArray(parsed?.world?.elements)?parsed.world.elements:null;
         if(worldElements)writeImportedStore(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:worldElements});
+        if(parsed?.world?.biomes!==undefined)writeImportedStore(STORAGE.biomes,parsed.world.biomes);
         if(parsed?.world?.terrain!==undefined)writeImportedStore(STORAGE.terrain,parsed.world.terrain);
         if(parsed?.world?.pendingPuzzleMoves!==undefined)writeImportedStore(STORAGE.pending,parsed.world.pendingPuzzleMoves);
         if(parsed?.scene?.edits!==undefined)writeImportedStore(STORAGE.scene,parsed.scene.edits);
@@ -1261,8 +1719,9 @@
   function renderSceneDressingSelection(item){
     const category=item.raw?.category||'dressing';
     const gameplay=item.raw?.gameplayType||'none';
+    const biomeOwner=biomeOwnerForAsset(item.raw?.assetName||item.label);
     els.selection.innerHTML=`<h2>${escapeHtml(item.label)}</h2><p class="muted">World-owned placed asset · ${escapeHtml(item.id)}</p>
-      <div class="wl-selection-form"><label>World X<input readonly value="${round(item.x,3)} m"></label><label>Depth Z<input readonly value="${round(item.z,3)}"></label><label>Width<input readonly value="${round(item.sx,2)} m"></label><label>Height<input readonly value="${round(item.sy,2)} m"></label><label>Category<input readonly value="${escapeAttr(category)}"></label><label>Gameplay<input readonly value="${escapeAttr(gameplay)}"></label></div>
+      <div class="wl-selection-form"><label>World X<input readonly value="${round(item.x,3)} m"></label><label>Depth Z<input readonly value="${round(item.z,3)}"></label><label>Width<input readonly value="${round(item.sx,2)} m"></label><label>Height<input readonly value="${round(item.sy,2)} m"></label><label>Category<input readonly value="${escapeAttr(category)}"></label><label>Gameplay<input readonly value="${escapeAttr(gameplay)}"></label><label>Biome owner<input readonly value="${escapeAttr(biomeOwner===GLOBAL_BIOME_OWNER?'Global / Unbound':biomeLabel(biomeOwner))}"></label></div>
       <p class="muted">World ownership is determined separately from gameplay behaviour, so interactive environment assets such as climbable rocks appear here too. Transform it in the in-game editor.</p>
       <div class="wl-actions"><button class="primary" id="wl-scene-dressing-jump">Jump to Game</button><button id="wl-scene-dressing-playhead">Move playhead here</button></div>`;
     $('wl-scene-dressing-jump').addEventListener('click',()=>{location.href=`play.html?worldX=${encodeURIComponent(item.x)}&from=world-lab`;});
@@ -1270,7 +1729,7 @@
   }
 
   function historySnapshot(label='World Lab change'){
-    return {label,elements:clone(state.elements),pending:clone(state.pending),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
+    return {label,elements:clone(state.elements),biomes:clone(state.biomes),pending:clone(state.pending),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
   }
   function pushHistory(label){
     state.history.push(historySnapshot(label));
@@ -1288,11 +1747,13 @@
     const snap=state.history.pop();
     if(!snap)return;
     state.elements=clone(snap.elements)||[];
+    state.biomes=normaliseBiomeState(snap.biomes||defaultBiomeState());
     state.pending=clone(snap.pending)||{};
     state.terrain=normaliseTerrainState(snap.terrain||{});
     state.playheadX=number(snap.playheadX,state.playheadX);
     state.selected=clone(snap.selected);
     saveElements();
+    saveBiomeState();
     saveJson(STORAGE.pending,state.pending);
     saveJson(STORAGE.terrain,state.terrain);
     refreshGameData();

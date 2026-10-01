@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#11191d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="world-lab.css?v=1.0.79">
+  <link rel="stylesheet" href="world-lab.css?v=1.0.90">
   <title>World Lab · SideScroll</title>
 </head>
 <body>
@@ -43,8 +43,7 @@
           </div>
           <div class="wl-legend">
             <span><i class="legend puzzle"></i>Puzzle</span>
-            <span><i class="legend biome"></i>Biome</span>
-            <span><i class="legend transition"></i>Transition</span>
+            <span><i class="legend biome"></i>Biome blend</span>
             <span><i class="legend section"></i>Section</span>
             <span><i class="legend modifier"></i>Terrain modifier</span>
             <span><i class="legend dressing"></i>World asset / dressing</span>
@@ -54,8 +53,7 @@
         <div class="wl-timeline">
           <div class="wl-track-rail">
             <div class="wl-rail-ruler"></div>
-            <div class="wl-rail-label">BIOMES</div>
-            <div class="wl-rail-label">TRANSITIONS</div>
+            <div class="wl-rail-label wl-biome-rail">BIOME BLEND</div>
             <div class="wl-rail-label wl-terrain-rail path">
               <button id="wl-terrain-toggle" type="button" aria-expanded="false"><strong>TERRAIN</strong><span>PATH</span><i>▾</i></button>
             </div>
@@ -70,8 +68,7 @@
             <div class="wl-world" id="wl-world">
               <div class="wl-section-grid" id="wl-section-grid"></div>
               <div class="wl-ruler" id="wl-ruler"></div>
-              <div class="wl-track" data-track="biome"><div class="wl-track-content" id="wl-track-biome"></div></div>
-              <div class="wl-track" data-track="transition"><div class="wl-track-content" id="wl-track-transition"></div></div>
+              <div class="wl-track wl-biome-track" data-track="biome"><div class="wl-track-content" id="wl-track-biome"></div></div>
               <div class="wl-track wl-terrain-track path" data-track="terrain-path"><div class="wl-track-content" id="wl-track-section"></div></div>
               <div class="wl-track wl-terrain-track detail" data-terrain-detail="near" data-track="terrain-near"><div class="wl-track-content" id="wl-track-terrain-near"></div></div>
               <div class="wl-track wl-terrain-track detail" data-terrain-detail="far-a" data-track="terrain-far-a"><div class="wl-track-content" id="wl-track-terrain-far-a"></div></div>
@@ -92,13 +89,28 @@
         </section>
 
         <section class="wl-panel">
+          <h2>Biome System</h2>
+          <p class="muted">The world always has one primary biome. A transition may blend in exactly one second biome; their percentages always add to 100%. Global / unbound environment assets remain available everywhere.</p>
+          <div class="wl-biome-profile-buttons">
+            <button type="button" data-biome-profile="woodland">Woodland profile</button>
+            <button type="button" data-biome-profile="mountain">Mountain profile</button>
+            <button type="button" data-biome-profile="global">Global / Unbound</button>
+          </div>
+          <h3>Add transition</h3>
+          <div class="wl-form-grid">
+            <label>From <input id="wl-biome-from" type="text" value="Woodland" readonly></label>
+            <label>To <select id="wl-biome-to"><option value="mountain">Mountain</option><option value="woodland">Woodland</option></select></label>
+            <label>Start / X <input id="wl-biome-start" type="number" step="1" value="100"></label>
+            <label>End / X <input id="wl-biome-end" type="number" step="1" value="130"></label>
+          </div>
+          <p class="muted" id="wl-biome-summary">Woodland 100% until the first transition.</p>
+          <button class="primary" id="wl-add-biome-transition" type="button">Add Biome Transition</button>
+          <hr class="wl-panel-rule">
           <h2>Add World Element</h2>
-          <p class="muted">These are the new authored placement layer. Biome/dressing elements are stored now; runtime biome rendering comes next.</p>
+          <p class="muted">Authored non-biome regions, dressing groups, story, camera and other world data.</p>
           <div class="wl-form-grid">
             <label>Type
               <select id="wl-new-type">
-                <option value="biome-region">Biome Region</option>
-                <option value="biome-transition">Biome Transition</option>
                 <option value="dressing-group">Dressing Group</option>
                 <option value="explicit-dressing">Explicit Dressing</option>
                 <option value="landmark">Terraform Machine / Landmark</option>
@@ -109,7 +121,7 @@
                 <option value="vfx-zone">VFX / Anomaly Zone</option>
               </select>
             </label>
-            <label>Label <input id="wl-new-label" type="text" placeholder="Woodland region"></label>
+            <label>Label <input id="wl-new-label" type="text" placeholder="World element"></label>
             <label>Start / X <input id="wl-new-start" type="number" step="1" value="0"></label>
             <label>End / X <input id="wl-new-end" type="number" step="1" value="20"></label>
             <label>Owner <input id="wl-new-owner" type="text" value="world"></label>
@@ -136,6 +148,6 @@
   </div>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="puzzle-groups.js?v=1.0.62"></script>
-  <script src="world-lab.js?v=1.0.83"></script>
+  <script src="world-lab.js?v=1.0.90"></script>
 </body>
 </html>

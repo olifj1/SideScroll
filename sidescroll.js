@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.90: continuous two-biome blend/runtime ownership foundation.
   // SideScroll v1.0.86: left-facing climb fix + constant-rate climb traversal/animation.
   // SideScroll v1.0.84: mountain Asset Lab registration + terrain-relative edit camera.
   // v1.0.83 introduced the first individual-asset mountain art test library.
@@ -30,6 +31,118 @@
   const WORLD_LAB_LAUNCH = queryParams.get('from') === 'world-lab' && Number.isFinite(WORLD_LAB_JUMP_X);
   const WORLD_LAB_PENDING_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-puzzle-moves.v1';
   const BAKED_GAME_DESIGN = window.SIDESCROLL_BAKED_GAME_DESIGN || null;
+
+  const BIOME_STORAGE_KEY = 'sidescroll.biomes.v1';
+  const BIOME_RUNTIME_DEFS = {
+    woodland:{id:'woodland',label:'Woodland'},
+    mountain:{id:'mountain',label:'Mountain'}
+  };
+  const BIOME_RUNTIME_IDS = Object.keys(BIOME_RUNTIME_DEFS);
+  const BIOME_GLOBAL_OWNER = 'global';
+  const BIOME_RUNTIME_PROFILE_DEFAULTS = {
+    woodland:{
+      tree01:{density:1.42,max:3},tree02:{density:1.42,max:3},tree03:{density:1.42,max:3},tree04:{density:1.42,max:3},
+      tree05:{density:1.42,max:3},tree06:{density:1.42,max:3},tree07:{density:1.42,max:3},tree08:{density:1.42,max:3},
+      ground01:{density:5.6,max:9},ground02:{density:4.7,max:8},ground03:{density:4.5,max:8},ground04:{density:4.3,max:8},
+      ground05:{density:3.0,max:5},ground06:{density:4.5,max:8},ground07:{density:3.0,max:5},ground08:{density:2.2,max:4},
+      ground09:{density:3.4,max:6},ground10:{density:1.5,max:3},ground11:{density:4.9,max:8},ground12:{density:3.9,max:7}
+    },
+    mountain:{
+      'mountain-rock-01':{density:3.0,max:5},'mountain-rock-02':{density:2.5,max:4},'mountain-rock-03':{density:1.8,max:3},'mountain-rock-04':{density:2.4,max:4},
+      'mountain-tree-01':{density:.8,max:2},'mountain-tree-02':{density:.6,max:2},
+      'mountain-grass-01':{density:5.0,max:8},'mountain-grass-02':{density:3.5,max:6},'mountain-grass-03':{density:3.0,max:5}
+    }
+  };
+  function defaultRuntimeBiomeOwner(assetName){
+    const name=String(assetName||'');
+    if(/^tree(?:0[1-8])$/.test(name)||/^ground(?:0[1-9]|1[0-2])$/.test(name))return 'woodland';
+    if(/^mountain-(?:rock|tree|grass)-/.test(name))return 'mountain';
+    if(name==='mountain-climb-rock-01'||/^mountain-cliff-/.test(name))return BIOME_GLOBAL_OWNER;
+    return BIOME_GLOBAL_OWNER;
+  }
+  function loadRuntimeBiomeState(){
+    let raw=null;try{raw=JSON.parse(localStorage.getItem(BIOME_STORAGE_KEY)||'null');}catch(_){}
+    const state=raw&&typeof raw==='object'?raw:{};
+    const transitions=(Array.isArray(state.transitions)?state.transitions:[]).map((item,index)=>{
+      const start=Number.isFinite(Number(item?.startX))?Number(item.startX):100+index*80;
+      const end=Math.max(start+1,Number.isFinite(Number(item?.endX))?Number(item.endX):start+30);
+      return {id:String(item?.id||`biome-${index}`),from:BIOME_RUNTIME_DEFS[item?.from]?item.from:'woodland',to:BIOME_RUNTIME_DEFS[item?.to]?item.to:'mountain',startX:start,endX:end,curve:{y1:Number.isFinite(Number(item?.curve?.y1))?Math.max(0,Math.min(1,Number(item.curve.y1))):1/3,y2:Number.isFinite(Number(item?.curve?.y2))?Math.max(0,Math.min(1,Number(item.curve.y2))):2/3}};
+    }).sort((a,b)=>a.startX-b.startX);
+    let current=BIOME_RUNTIME_DEFS[state.defaultBiome]?state.defaultBiome:'woodland';
+    for(const item of transitions){item.from=current;if(item.to===current)item.to=BIOME_RUNTIME_IDS.find(id=>id!==current)||current;current=item.to;}
+    return {defaultBiome:BIOME_RUNTIME_DEFS[state.defaultBiome]?state.defaultBiome:'woodland',maxActiveBiomes:2,stream:{preload:Number.isFinite(Number(state?.stream?.preload))?Math.max(0,Number(state.stream.preload)):12,unload:Number.isFinite(Number(state?.stream?.unload))?Math.max(0,Number(state.stream.unload)):12},transitions,assetOwners:state.assetOwners&&typeof state.assetOwners==='object'?state.assetOwners:{},profiles:state.profiles&&typeof state.profiles==='object'?state.profiles:{}};
+  }
+  let runtimeBiomeState=loadRuntimeBiomeState();
+  function runtimeBiomeTransitionAt(x){return runtimeBiomeState.transitions.find(item=>x>=item.startX&&x<=item.endX)||null;}
+  function runtimeBiomeProgress(item,x){
+    if(x<=item.startX)return 0;if(x>=item.endX)return 1;
+    const t=Math.max(0,Math.min(1,(x-item.startX)/Math.max(.001,item.endX-item.startX))),u=1-t;
+    return Math.max(0,Math.min(1,3*u*u*t*item.curve.y1+3*u*t*t*item.curve.y2+t*t*t));
+  }
+  function runtimeBiomeWeightsAt(x){
+    let current=runtimeBiomeState.defaultBiome;
+    for(const item of runtimeBiomeState.transitions){
+      if(x<item.startX)return {[current]:1};
+      if(x<=item.endX){const t=runtimeBiomeProgress(item,x);return {[item.from]:1-t,[item.to]:t};}
+      current=item.to;
+    }
+    return {[current]:1};
+  }
+  function runtimeDominantBiomeAt(x){const weights=runtimeBiomeWeightsAt(x);let best=runtimeBiomeState.defaultBiome,bestWeight=-1;for(const [id,w] of Object.entries(weights))if(w>bestWeight){best=id;bestWeight=w;}return best;}
+  function runtimeStreamWindow(index){
+    const list=runtimeBiomeState.transitions,item=list[index];if(!item)return null;const prev=list[index-1]||null,next=list[index+1]||null;
+    const gapBefore=prev?Math.max(0,item.startX-prev.endX):Infinity,gapAfter=next?Math.max(0,next.startX-item.endX):Infinity;
+    return {loadX:Math.max(item.startX-runtimeBiomeState.stream.preload,prev?prev.endX+gapBefore*.5:-Infinity),unloadX:Math.min(item.endX+runtimeBiomeState.stream.unload,next?item.endX+gapAfter*.5:Infinity)};
+  }
+  function runtimeLoadedBiomesAt(x){
+    for(const item of runtimeBiomeState.transitions)if(x>=item.startX&&x<=item.endX)return [item.from,item.to];
+    const current=runtimeDominantBiomeAt(x);
+    for(let i=0;i<runtimeBiomeState.transitions.length;i++){
+      const item=runtimeBiomeState.transitions[i],win=runtimeStreamWindow(i);
+      if(x>=win.loadX&&x<item.startX&&current===item.from)return [item.from,item.to];
+      if(x>item.endX&&x<=win.unloadX&&current===item.to)return [item.from,item.to];
+    }
+    return [current];
+  }
+  function runtimeBiomeOwner(assetName){const saved=runtimeBiomeState.assetOwners?.[assetName];return saved===BIOME_GLOBAL_OWNER||BIOME_RUNTIME_DEFS[saved]?saved:defaultRuntimeBiomeOwner(assetName);}
+  function runtimeBiomeProfileEntry(owner,assetName){
+    const saved=runtimeBiomeState.profiles?.[owner]?.assets?.[assetName];
+    const fallback=BIOME_RUNTIME_PROFILE_DEFAULTS?.[owner]?.[assetName]||{density:0,max:0};
+    return {
+      density:Number.isFinite(Number(saved?.density))?Math.max(0,Number(saved.density)):fallback.density,
+      max:Number.isFinite(Number(saved?.max))?Math.max(0,Math.round(Number(saved.max))):fallback.max
+    };
+  }
+  function stableBiomeHash01(value){
+    const str=String(value||'');let h=2166136261>>>0;
+    for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
+    h+=h<<13;h^=h>>>7;h+=h<<3;h^=h>>>17;h+=h<<5;
+    return (h>>>0)/4294967296;
+  }
+  function tagProceduralBiomeObject(obj,owner,key,{candidatePool=false}={}){
+    if(!obj)return obj;obj.biomeProceduralOwner=owner;obj.biomeActivation=stableBiomeHash01(key||obj.id);obj.biomeCandidatePool=!!candidatePool;return obj;
+  }
+  function proceduralBiomeVisibleAt(obj,drawX){
+    if(!obj?.biomeProceduralOwner)return true;
+    const owner=runtimeBiomeOwner(obj.assetName);
+    if(owner===BIOME_GLOBAL_OWNER)return false;
+    const weight=runtimeBiomeWeightsAt(drawX)[owner]||0;if(weight<=.0001)return false;
+    const entry=runtimeBiomeProfileEntry(owner,obj.assetName);
+    let probability=weight;
+    if(obj.biomeCandidatePool){
+      probability*=entry.max>0?Math.min(1,entry.density/entry.max):0;
+    }else{
+      const base=BIOME_RUNTIME_PROFILE_DEFAULTS?.[owner]?.[obj.assetName]?.density||entry.density||1;
+      probability*=base>0?Math.min(1,entry.density/base):0;
+    }
+    return obj.biomeActivation<=Math.max(0,Math.min(1,probability));
+  }
+  function environmentAssetAvailableForBiome(assetName,x){const owner=runtimeBiomeOwner(assetName);return owner===BIOME_GLOBAL_OWNER||runtimeLoadedBiomesAt(x).includes(owner);}
+  function runtimeBiomeBlendLabel(x){
+    const weights=runtimeBiomeWeightsAt(x);
+    return Object.entries(weights).filter(([,w])=>w>.005).map(([id,w])=>`${BIOME_RUNTIME_DEFS[id]?.label||id} ${Math.round(w*100)}%`).join(' / ');
+  }
+  window.SideScrollBiomes={get state(){return runtimeBiomeState;},weightsAt:runtimeBiomeWeightsAt,loadedAt:runtimeLoadedBiomesAt,ownerOf:runtimeBiomeOwner,reload(){runtimeBiomeState=loadRuntimeBiomeState();return runtimeBiomeState;}};
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
   const PLAYER_PUZZLE_STATE_STORAGE_KEY = 'sidescroll.player.puzzle-state.v1';
   const PLAYER_INVENTORY_STORAGE_KEY = 'sidescroll.player.inventory.v1';
@@ -1622,16 +1735,19 @@
     }
   }, 512, 512, true);
 
-  textures.treeAtlas = createImageTexture('sidescroll-tree-atlas.png?v=1.0.62', 'SideScroll tree atlas');
+  // v1.0.90: keep the woodland trees as individual source/runtime textures.
+  // This deliberately steps away from the old tree atlas while the art library
+  // is still changing, so a single tree can be replaced without repacking an
+  // atlas.  Atlas packing remains an optional optimisation later.
   const assetUv = {
-    tree01: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.674316406] },
-    tree02: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.674316406] },
-    tree03: { scale: [0.242187500, 0.321777344], offset: [0.496093750, 0.674316406] },
-    tree04: { scale: [0.242187500, 0.321777344], offset: [0.742187500, 0.674316406] },
-    tree05: { scale: [0.242187500, 0.321777344], offset: [0.003906250, 0.344726562] },
-    tree06: { scale: [0.242187500, 0.321777344], offset: [0.250000000, 0.344726562] },
-    tree07: { scale: [0.242187500, 0.321777344], offset: [0.496093750, 0.344726562] },
-    tree08: { scale: [0.242187500, 0.321777344], offset: [0.742187500, 0.344726562] },
+    tree01: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    tree02: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    tree03: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    tree04: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    tree05: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    tree06: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    tree07: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
+    tree08: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
     ground01: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
     ground02: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
     ground03: { scale: [1.0, 1.0], offset: [0.0, 0.0] },
@@ -1669,16 +1785,10 @@
   };
   Object.entries(assetDimensions).forEach(([key, size]) => {
     assetAspect[key] = size[0] / size[1];
-    if (key.startsWith('tree')) {
-      textures[key] = textures.treeAtlas;
-    } else {
-      textures[key] = createImageTexture(
-        `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.62`,
-        key,
-        null,
-        size[0] / size[1]
-      );
-    }
+    const filename = key.startsWith('tree')
+      ? `sidescroll-tree-${key.slice(4).padStart(2,'0')}.png?v=1.0.90`
+      : `sidescroll-${key.replace('ground', 'ground-')}.png?v=1.0.62`;
+    textures[key] = createImageTexture(filename,key,null,size[0]/size[1]);
   });
 
   // v1.0.6 bridge feature art. These are deliberately independent dressing
@@ -3938,7 +4048,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!type) return false;
       const height = baseHeight * PROCEDURAL_TREE_SCALE;
       const groundLine = assetGroundLineDefault(type);
-      addObject(backdrop, type, x, z, null, height, {
+      const obj = addObject(backdrop, type, x, z, null, height, {
         id: `forest263-${index}`,
         y: terrainVisibleGroundYAt(x, z) - groundLine * height,
         groundLine,
@@ -3946,6 +4056,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         opacity: opacityBase + rand() * (1.0 - opacityBase),
         layer: classifyLayer(z)
       });
+      tagProceduralBiomeObject(obj,'woodland',obj.id);
       placedTrees.push({ x, z, type });
       return true;
     }
@@ -4025,6 +4136,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         opacity: 0.95 + rand() * 0.05,
         layer: classifyLayer(z)
       });
+      tagProceduralBiomeObject(obj,'woodland',obj.id);
       placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.74 + height * 0.15)), same:def.same || 5.0, obj });
       return true;
     }
@@ -4060,13 +4172,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!def) return false;
       const baseHeight = (def.hMin + rand() * (def.hMax - def.hMin)) * scaleMul;
       if (!canUseDressingPosition(type, def, x, z, baseHeight)) return false;
-      addObject(targetCollectionForZ(z), type, x, z, null, baseHeight, {
+      const obj = addObject(targetCollectionForZ(z), type, x, z, null, baseHeight, {
         id: `dressing263-${index}`,
         y: terrainVisibleGroundYAt(x, z),
         shade: 0.985 + rand() * 0.055,
         opacity: 0.95 + rand() * 0.05,
         layer: classifyLayer(z)
       });
+      tagProceduralBiomeObject(obj,'woodland',obj.id);
       placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.76 + baseHeight * 0.15)), same:def.same || 5.0 });
       return true;
     }
@@ -4112,6 +4225,117 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     backdrop.sort((a, b) => a.z - b.z);
     midfill.sort((a, b) => a.z - b.z);
     frontOccluders.sort((a, b) => a.z - b.z);
+  }
+
+  let mountainBiomeCandidatesLoaded = false;
+  let lastBiomeDatasetSignature = '';
+
+  function scatterMountainBiomeCandidates() {
+    if (mountainBiomeCandidatesLoaded) return;
+    const mountainReferenced = runtimeBiomeState.defaultBiome === 'mountain'
+      || runtimeBiomeState.transitions.some(item => item.from === 'mountain' || item.to === 'mountain');
+    if (!mountainReferenced) return;
+    mountainBiomeCandidatesLoaded = true;
+
+    const defs = {
+      'mountain-rock-01': { category:'rock', height:0.88, spacing:0.78 },
+      'mountain-rock-02': { category:'rock', height:1.05, spacing:0.88 },
+      'mountain-rock-03': { category:'rock', height:1.38, spacing:1.00 },
+      'mountain-rock-04': { category:'rock', height:1.08, spacing:0.94 },
+      'mountain-tree-01': { category:'tree', height:2.35, spacing:1.35 },
+      'mountain-tree-02': { category:'tree', height:2.50, spacing:1.42 },
+      'mountain-grass-01': { category:'grass', height:0.92, spacing:0.52 },
+      'mountain-grass-02': { category:'grass', height:1.34, spacing:0.58 },
+      'mountain-grass-03': { category:'grass', height:1.55, spacing:0.60 }
+    };
+    const random = mulberry32(0x4d4f554e); // "MOUN"; independent of woodland RNG.
+    const placed = [];
+    const minSection = Math.floor((TILE.minX + 5) / 10);
+    const maxSection = Math.ceil((TILE.maxX + 5) / 10);
+
+    function depthFor(def) {
+      const far = def.category === 'tree' ? random() < 0.82 : random() < 0.55;
+      let distance;
+      if (def.category === 'tree') distance = PATH_BERM_HALF + 0.55 + Math.pow(random(), 0.92) * 8.4;
+      else if (def.category === 'rock') distance = PATH_FLAT_HALF + 0.18 + Math.pow(random(), 1.15) * 6.7;
+      else distance = PATH_FLAT_HALF + 0.10 + Math.pow(random(), 1.42) * 5.2;
+      const z = far ? -distance : distance;
+      return Math.max(WORLD.farZ + 1.4, Math.min(WORLD.nearZ - 0.7, z));
+    }
+
+    function candidateBlocked(x,z,spacing) {
+      return placed.some(item => Math.abs(item.x-x) < (item.spacing+spacing)*0.72 && Math.abs(item.z-z) < (item.spacing+spacing)*0.58);
+    }
+
+    for (let sectionIndex = minSection; sectionIndex <= maxSection; sectionIndex += 1) {
+      const sectionMin = Math.max(TILE.minX, sectionIndex * 10 - 5);
+      const sectionMax = Math.min(TILE.maxX, sectionIndex * 10 + 5);
+      if (sectionMax <= sectionMin) continue;
+      for (const [type,def] of Object.entries(defs)) {
+        if (runtimeBiomeOwner(type) !== 'mountain') continue;
+        const profile = runtimeBiomeProfileEntry('mountain', type);
+        const poolCount = Math.max(0, Math.min(18, Math.round(profile.max)));
+        for (let slot = 0; slot < poolCount; slot += 1) {
+          let x=0,z=0,ok=false;
+          for (let attempt=0; attempt<9; attempt+=1) {
+            x = sectionMin + random() * (sectionMax-sectionMin);
+            z = depthFor(def);
+            if (!candidateBlocked(x,z,def.spacing)) { ok=true; break; }
+          }
+          if (!ok) continue;
+          const height = def.height * (0.86 + random()*0.28);
+          const groundLine = assetGroundLineDefault(type);
+          const obj = addObject(targetCollectionForZ(z), type, x, z, null, height, {
+            id:`biome-mountain-${sectionIndex}-${type}-${slot}`,
+            y:terrainVisibleGroundYAt(x,z) - groundLine * height,
+            groundLine,
+            shade:0.985 + random()*0.035,
+            opacity:0.97 + random()*0.03,
+            layer:classifyLayer(z),
+            category:'dressing',
+            wrap:true
+          });
+          tagProceduralBiomeObject(obj,'mountain',obj.id,{candidatePool:true});
+          placed.push({x,z,spacing:def.spacing});
+        }
+      }
+    }
+    backdrop.sort((a,b)=>a.z-b.z);
+    midfill.sort((a,b)=>a.z-b.z);
+    frontOccluders.sort((a,b)=>a.z-b.z);
+  }
+
+  function clearProceduralBiomeCandidates(owner) {
+    const prune = collection => {
+      for (let i = collection.length - 1; i >= 0; i -= 1) {
+        const obj = collection[i];
+        if (obj?.biomeCandidatePool && obj.biomeProceduralOwner === owner) collection.splice(i,1);
+      }
+    };
+    prune(backdrop);
+    prune(midfill);
+    prune(frontOccluders);
+    if (selectedObject?.biomeCandidatePool && selectedObject.biomeProceduralOwner === owner) {
+      selectedObject = null;
+      selectionCycleInfo = null;
+    }
+    if (owner === 'mountain') mountainBiomeCandidatesLoaded = false;
+  }
+
+  function updateBiomeDatasetStreaming(x) {
+    if (PUZZLE_LAB_MODE) return;
+    const active = runtimeLoadedBiomesAt(x);
+    const signature = active.join('|');
+    const wantsMountain = active.includes('mountain');
+    if (wantsMountain && !mountainBiomeCandidatesLoaded) scatterMountainBiomeCandidates();
+    else if (!wantsMountain && mountainBiomeCandidatesLoaded) clearProceduralBiomeCandidates('mountain');
+
+    if (signature !== lastBiomeDatasetSignature) {
+      lastBiomeDatasetSignature = signature;
+      // The environment palette is also streamed logically: while editing it
+      // exposes only the currently loaded biome pack(s), plus Global/Unbound.
+      if (editMode && editorScope === 'environment' && typeof buildAssetPalette === 'function') buildAssetPalette();
+    }
   }
 
   function allSceneObjects() {
@@ -6583,6 +6807,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // Puzzle Lab owns a disposable scene. Woodland can opt into the procedural
   // forest, while Blank/Mountain stay clean so the puzzle/mechanic is readable.
   if (!PUZZLE_LAB_MODE || PUZZLE_LAB_ENVIRONMENT === 'woodland') scatterForest();
+  // v1.0.90: secondary biome candidate pools are streamed on demand from the
+  // World Lab transition preload/drop windows instead of living in every scene.
   // Scene storage is namespaced in Puzzle Lab, so restoring lab-authored
   // dressing is safe and never reads/writes the main game's scene edits.
   restoreSceneEdits();
@@ -7560,6 +7786,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function objectScreenBounds(obj) {
     if (!obj || obj.deleted || obj.carried) return null;
     const x = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
+    if (!proceduralBiomeVisibleAt(obj, x)) return null;
     const y = objectYAtDrawX(obj, x);
     const points = [
       projectWorldPoint(x - obj.sx * 0.5, y, obj.z),
@@ -9602,17 +9829,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editorPaletteTitle) editorPaletteTitle.textContent = puzzleEnvironmentPlacementMode
       ? 'Place Puzzle Dressing'
       : (editorScope === 'puzzle' ? 'Place Puzzle Pieces' : 'Environment Assets');
-    if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = puzzleEnvironmentPlacementMode
-      ? 'Choose environment art to attach to this puzzle · Done Placing returns to Dressing edit mode'
-      : (editorScope === 'puzzle'
-          ? 'Choose a puzzle piece · Done Placing returns to Puzzle Pieces edit mode · Setup edits reusable behaviours'
-          : 'Choose dressing to place in the environment');
+    if (editorPaletteSubtitle) {
+      const activeBiomes = runtimeLoadedBiomesAt(character.x).map(id => BIOME_RUNTIME_DEFS[id]?.label || id).join(' + ');
+      editorPaletteSubtitle.textContent = puzzleEnvironmentPlacementMode
+        ? `Choose environment art from ${activeBiomes} + Global to attach to this puzzle · Done Placing returns to Dressing edit mode`
+        : (editorScope === 'puzzle'
+            ? 'Choose a puzzle piece · Done Placing returns to Puzzle Pieces edit mode · Setup edits reusable behaviours'
+            : `Available here: ${activeBiomes} + Global / Unbound`);
+    }
     editorAssetsEl.innerHTML = '';
     const allowedPuzzleAssets = editorScope === 'puzzle' && !puzzleEnvironmentPlacementMode ? puzzleAssetNamesFor(editorPuzzleMarkerId) : null;
     for (const group of editorAssetGroups) {
       const wantedScope = puzzleEnvironmentPlacementMode ? 'environment' : editorScope;
       if (group.scope !== wantedScope) continue;
-      const items = group.items.filter(info => puzzleEnvironmentPlacementMode || editorScope !== 'puzzle' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name));
+      const items = group.items.filter(info => puzzleEnvironmentPlacementMode || editorScope !== 'puzzle' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name))
+        .filter(info => group.scope !== 'environment' || environmentAssetAvailableForBiome(info.name, character.x));
       if (!items.length) continue;
       const heading = document.createElement('div');
       heading.className = 'sidescroll-editor-asset-group';
@@ -11531,6 +11762,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (obj.deleted || (obj.carried && !extra?.force)) return;
     if (!extra?.force && obj.assetName === 'thought-trigger' && (!editMode || puzzleTestMode)) return;
     const baseDrawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
+    if (!extra?.force && !proceduralBiomeVisibleAt(obj, baseDrawX)) return;
     const visual = !extra?.force ? assetVisualTransform(obj.assetName,obj.assetState) : { offsetX:0, offsetY:0, rotationDeg:0 };
     const drawX = baseDrawX + (Number(visual.offsetX) || 0);
     if (!extra?.force && dressingHiddenByPuzzle(obj, drawX)) return;
@@ -13042,6 +13274,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (cameraEditMode) updateCameraEditorUi();
     savePlayerPosition(false);
     updatePuzzleStreaming(character.x);
+    updateBiomeDatasetStreaming(character.x);
     checkPuzzleCompletion(character.x);
     updatePuzzleRewards(now);
 
@@ -13088,15 +13321,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const selected = selectedObject && !selectedObject.deleted
         ? `${selectedObject.category === 'gameplay' ? 'GAMEPLAY · ' : 'DRESSING · '}${selectedObject.assetName}${selectedObject.category === 'gameplay' && selectedObject.gameplayLayerLocked ? ' · GAME LAYER' : ''}${selectedObject.collision ? ' · COLLISION' : ''}${selectedDepth}`
         : (addAssetType ? `ADD ${addAssetType}` : 'tap scenery to select');
-      statusEl.textContent = `EDIT · ${selected}`;
+      statusEl.textContent = `EDIT · ${runtimeBiomeBlendLabel(character.x)} · ${selected}`;
     } else {
       const puzzle = activePuzzleNear(character.x);
       const puzzleLabel = puzzle ? ` · ${puzzle.def.label}${puzzle.solved ? ' ✓' : ''}` : '';
+      const biomeLabel = runtimeBiomeBlendLabel(character.x);
       statusEl.textContent = PLAYER_MODE
-        ? `Woodland adventure · ${motionLabel}${puzzleLabel}`
+        ? `${biomeLabel} · ${motionLabel}${puzzleLabel}`
         : (debugDepth
-          ? `Depth view · camera X ${camera.x.toFixed(1)} · raised path geometry${puzzleLabel}`
-          : `3D forest · ${motionLabel} · camera X ${camera.x.toFixed(1)}${puzzleLabel}`);
+          ? `Depth view · ${biomeLabel} · camera X ${camera.x.toFixed(1)}${puzzleLabel}`
+          : `${biomeLabel} · ${motionLabel} · camera X ${camera.x.toFixed(1)}${puzzleLabel}`);
     }
 
     updatePuzzleThoughts();
