@@ -6854,7 +6854,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const RUN_SPEED = 2.85;
   // The body collider now comes from Walk Lab.  Only a tiny fixed skin stays
   // game-side so contact is stable at polygon boundaries.
-  const PLAYER_COLLISION_SKIN = 0.025;
+  const PLAYER_COLLISION_SKIN = 0.040;
+  const PLAYER_COLLISION_SAMPLES = 21;
+  const PLAYER_COLLISION_FOOT_CLEARANCE = 0.012;
   const WALK_STRIDE = 1.45;
   const RUN_STRIDE = 2.05;
   const JUMP_VELOCITY = 5.05;
@@ -10655,11 +10657,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function collisionBodySpans(obj, feetY) {
     const capsule = colliderWorld();
-    const sampleCount = 11;
     const intervals=[];
+    // Horizontal wall collision starts just above the character's authored foot
+    // line.  This keeps the lower cap from snagging the platform she is already
+    // standing on, while the rest of the capsule still blocks against adjacent
+    // vertical rock faces.  Use a denser vertical sample so narrow ledges and
+    // angled mountain collision cannot slip between sparse capsule slices.
+    const minWorldY = feetY + PLAYER_COLLISION_FOOT_CLEARANCE;
+    const minLocalY = Rig.clamp(minWorldY - (feetY + capsule.bottom), 0, capsule.height);
+    const sampleCount = Math.max(5, PLAYER_COLLISION_SAMPLES);
     for (let i = 0; i < sampleCount; i += 1) {
       const t = i / (sampleCount - 1);
-      const localY = capsule.height * t;
+      const localY = Rig.lerp(minLocalY, capsule.height, t);
       const y = feetY + capsule.bottom + localY;
       const half = capsuleHalfWidthAtHeight(localY, capsule) + PLAYER_COLLISION_SKIN;
       for(const span of collisionSpansAtY(obj,y)) intervals.push({minX:span.minX-half,maxX:span.maxX+half});
@@ -11351,11 +11360,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const depth = c.depth ?? 0.8;
         if (Math.abs(obj.z - pathZ) > depth) continue;
 
-        const top = collisionTopHeightAtX(obj, centreX);
-        // Standing on or clearly above the top is valid; only side penetration
-        // below the top needs to be pushed out.
-        if (Number.isFinite(top) && feetWorldY >= top - 0.035) continue;
-
+        // Do not skip an entire object merely because the capsule centre is on
+        // one of its walkable ledges. Complex mountain assets can have a low
+        // support beside a much taller face; the low ledge is valid under the
+        // feet, but the taller neighbouring face must still push the body out.
+        // collisionBodySpans() naturally ignores geometry below the foot line.
         const spans = collisionBodySpans(obj, feetWorldY);
         const span = spans.find(candidate => centreX > candidate.minX && centreX < candidate.maxX);
         if (!span) continue;
@@ -11384,8 +11393,24 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     let resolvedCharacterX = proposedX;
     const currentFeetY = playSurfaceYAt(currentRootX) + Math.max(0, clearanceHeight);
-    const proposedFeetY = playSurfaceYAt(proposedRootX) + Math.max(0, clearanceHeight);
-    const feetY = Math.min(currentFeetY, proposedFeetY);
+    const proposedTerrainY = playSurfaceYAt(proposedRootX);
+    const proposedFeetY = proposedTerrainY + Math.max(0, clearanceHeight);
+    let feetY = Math.min(currentFeetY, proposedFeetY);
+
+    // On the ground, rebase the capsule onto the highest *reachable* support
+    // under the proposed position before testing its sides. This is the key to
+    // secure complex collision: a small ledge may raise the feet and remain
+    // walkable, but taller rock geometry beside that ledge is still sampled
+    // against the full capsule instead of being skipped wholesale.
+    if (!airborne) {
+      const maxStepWorldY = currentFeetY + capsule.stepUp + 0.025;
+      const supportCeiling = maxStepWorldY - proposedTerrainY;
+      const proposedSupport = walkableSupportAt(proposedX, supportCeiling, direction);
+      if (proposedSupport) {
+        const supportWorldY = proposedTerrainY + proposedSupport.offset;
+        if (supportWorldY <= maxStepWorldY + 0.001) feetY = Math.max(feetY, supportWorldY);
+      }
+    }
 
     for (const obj of collisionObjects()) {
       const c = obj.collision;
@@ -11393,10 +11418,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const depth = c.depth ?? 0.8;
       if (Math.abs(obj.z - pathZ) > depth) continue;
 
-      // A reachable platform surface is terrain, not a wall.  This is what lets
-      // the shared capsule walk continuously up authored slopes.
-      if (platformIsWalkableFrom(obj, proposedX, clearanceHeight, airborne)) continue;
-
+      // Reachable supports were already folded into feetY above. Do not skip
+      // this object now: higher neighbouring faces still need to block the body.
       for(const span of collisionBodySpans(obj, feetY)){
         const blockMin = span.minX;
         const blockMax = span.maxX;

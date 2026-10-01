@@ -1,11 +1,16 @@
-# SS-PATCH-1.0.86
+# SS-PATCH-1.0.87
 
-Revised combined climb-animation patch over SideScroll v1.0.85. This supersedes the earlier 1.0.86 drop.
+Base: SS-PATCH-1.0.86 (revised)
 
-- Fixes the climbing rig when the character faces left.
-- Planted hand/foot world targets now convert back to mirrored rig-local coordinates using positive character scale with facing applied separately.
-- Prevents left-facing limb offsets from exploding sideways.
-- Makes traversal along the authored climb path constant-speed instead of smoothstep-eased.
-- Because the planted-limb cycle is driven by world distance, the hand/foot cadence is now consistent rather than starting slowly and accelerating through the middle of a climb.
-- Keeps only the short approach onto the climb line eased; the climb cycle remains held until that settle is complete.
-- Includes a fresh script cache key so this revised 1.0.86 replaces the earlier drop cleanly.
+Character collision tightening pass.
+
+- Reachable ledges now raise only the player's foot reference instead of disabling side collision for the whole object.
+- Taller neighbouring faces on complex/multi-shape mountain colliders continue to block the capsule while the player stands on a lower ledge.
+- Removed the equivalent whole-object skip from static penetration recovery.
+- Increased capsule side-contact sampling density for angled and narrow collision geometry.
+- Increased the small gameplay collision skin from 0.025 m to 0.040 m for cleaner visual separation from solid walls.
+- Horizontal movement continues to sweep to the first blocking span; authored character collider dimensions are unchanged.
+
+Changed files:
+- sidescroll.js
+- play.html
