@@ -6859,7 +6859,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const PLAYER_COLLISION_FOOT_CLEARANCE = 0.012;
   const WALK_STRIDE = 1.45;
   const RUN_STRIDE = 2.05;
-  const JUMP_VELOCITY = 5.05;
+  const JUMP_VELOCITY = 5.24;
   const JUMP_GRAVITY = 9.20;
   const JUMP_DURATION = (JUMP_VELOCITY * 2) / JUMP_GRAVITY;
 
