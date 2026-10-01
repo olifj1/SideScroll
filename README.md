@@ -1,12 +1,11 @@
-# SideScroll Patch v1.0.92
+# SideScroll Patch v1.0.93
 
-Changed files only patch over **v1.0.91**.
+Changed-files-only patch over **v1.0.92**.
 
-## Included
-- `mountain-climb-rock-01.png`
+## Fix
+- Forces the newly repainted `mountain-climb-rock-01.png` to replace the cached original in the installed/PWA game.
+- Updates the runtime texture request from the old `?v=1.0.67` URL to `?v=1.0.93`.
+- Rotates the PWA runtime cache and preload version so iOS/Safari cannot continue serving the old rock from the previous cache.
+- Adds the climb-rock texture to the splash preload set.
 
-## Change
-- Replaces the original climbable rock asset with the newer image-generated repaint.
-- Keeps the same general silhouette/form while updating the styling to better match the newer mountain assets.
-- Colour balance is leaned slightly greener and less yellow than the older version.
-- Asset has been processed back into a transparent PNG and fitted to the previous asset canvas so it can drop in as a direct replacement.
+No gameplay, collision, Asset Lab setup, scale, climb paths, or biome ownership have changed.

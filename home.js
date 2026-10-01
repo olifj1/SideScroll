@@ -1,7 +1,7 @@
 (() => {
-  const VERSION = '1.0.83';
+  const VERSION = '1.0.93';
   const ASSET_VERSION = '1.0.62';
-  const PRELOAD_CACHE = 'sidescroll-runtime-v1';
+  const PRELOAD_CACHE = 'sidescroll-runtime-v2';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');
@@ -66,6 +66,7 @@
     'mountain-cliff-02.png',
     'mountain-cliff-03.png',
     'mountain-cliff-04.png',
+    'mountain-climb-rock-01.png',
     'mountain-rock-01.png',
     'mountain-rock-02.png',
     'mountain-rock-03.png',

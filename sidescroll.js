@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.91: biome procedural sizing now follows Asset Lab authored defaults.
+  // SideScroll v1.0.93: refresh climb-rock texture URL after art replacement; retains v1.0.91 biome sizing sync.
   // SideScroll v1.0.86: left-facing climb fix + constant-rate climb traversal/animation.
   // SideScroll v1.0.84: mountain Asset Lab registration + terrain-relative edit camera.
   // v1.0.83 introduced the first individual-asset mountain art test library.
@@ -1809,7 +1809,7 @@
   // environment, carries its own support collision, and exposes climbable sides.
   assetAspect['mountain-climb-rock-01'] = 1448 / 748;
   textures['mountain-climb-rock-01'] = createImageTexture(
-    'mountain-climb-rock-01.png?v=1.0.67',
+    'mountain-climb-rock-01.png?v=1.0.93',
     'mountain-climb-rock-01',
     null,
     1448 / 748
