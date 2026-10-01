@@ -1,22 +1,11 @@
-# SideScroll v1.0.83 — Mountain asset test library
+# SideScroll 1.0.84 patch
 
-Base: **v1.0.82**
+Base: `SS-PATCH-1.0.83`
 
-Changed-files-only patch for the first in-game mountain-location art pass.
+Changed files only.
 
-## Included
-- 4 individual high-resolution climbable cliff assets with provisional support collision/climb paths.
-- 4 individual rocky dressing clusters.
-- 2 scrub-tree dressing assets.
-- 3 dry/tall grass dressing assets.
-- Mountain dressing is grounded against the visible terrain surface; rock/grass dressing follows the terrain normal by default.
-- New mountain groups added to the Environment Assets palette.
-- New assets remain individual PNGs for scale/style testing before final atlas packing.
-- Mountain art-language notes added to Design Lab / Art & Presentation and `CONCEPT_ART_BRIEF.md`.
-- v1.0.83 cache/version references updated for the changed code and mountain assets.
-
-## Install
-Overlay these files onto a complete **v1.0.82** build, replacing files with matching names and adding the new PNGs.
-
-## Test focus
-Check cliff scale, visible floor line, climb entry/top-out points, repetition, depth layering, scrub-tree scale and whether the dry grasses/rock clusters sit naturally on edited terrain. Collision and climb paths are intentionally provisional and can be tuned after the visual pass.
+- Adds every v1.0.83 mountain cliff, rock, dry-grass and scrub-tree asset to Asset Lab.
+- Carries the built-in mountain cliff collision and climb-path defaults into Asset Lab so they can be tuned there immediately.
+- Keeps mountain dressing floor-line and slope-follow defaults editable in Asset Lab.
+- Fixes edit-mode camera height on raised/lowered terrain: edit mode now keeps the authored terrain elevation as its camera baseline instead of falling back toward the old flat-world Y=0 level when Follow Height is off/reduced.
+- Gameplay terrain, collision and authored section heights are unchanged.

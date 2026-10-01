@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.83: first individual-asset mountain art test library.
+  // SideScroll v1.0.84: mountain Asset Lab registration + terrain-relative edit camera.
+  // v1.0.83 introduced the first individual-asset mountain art test library.
   // Mountain cliffs, rock dressing, scrub trees and dry grasses remain separate PNGs until atlas packing is approved.
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -6806,18 +6807,30 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function updateCameraFollow(dt) {
-    // v1.0.78: normal gameplay always follows the FULL vertical displacement of
-    // the character. Previously a saved Follow toggle/amount (and the 12 m cap)
-    // could make Aureli creep toward the top of frame on sustained climbs.
-    // The camera still eases toward the target, so the motion has lag without
-    // changing the character's long-term screen framing. Edit mode keeps the
-    // existing tuning controls because it is intentionally a free workspace.
-    let rawHeight = character.y - legacyPathGroundYAt(character.x, pathZ);
+    // Normal gameplay follows the full vertical displacement of the character.
+    // Edit mode is different: its *baseline* must always follow the authored
+    // terrain height, otherwise a saved Follow Height value of 0/off drops the
+    // editor camera back to the old flat-world Y=0 reference on raised sections.
+    // Manual camera Y/Z/tilt tuning still works on top of this terrain anchor.
+    const legacySurface = legacyPathGroundYAt(character.x, pathZ);
+    const terrainSurface = playSurfaceYAt(character.x);
+    const terrainOffset = terrainSurface - legacySurface;
+    let rawHeight = character.y - legacySurface;
     if (Math.abs(rawHeight) < CAMERA_FOLLOW_DEADZONE) rawHeight = 0;
-    const gameplayFollow = !editMode;
-    const followActive = gameplayFollow || cameraFollowEnabled;
-    const followAmount = gameplayFollow ? 1.0 : cameraFollowAmount;
-    const targetOffset = followActive ? rawHeight * followAmount : 0;
+
+    let targetOffset;
+    if (editMode) {
+      // Asset placement/editing is terrain-relative by definition. Keep the
+      // viewport looking at the current section even when character-follow is
+      // disabled in the camera panel. Any above-ground character offset can
+      // still be blended in when Follow Height is enabled.
+      let aboveTerrain = character.y - terrainSurface;
+      if (Math.abs(aboveTerrain) < CAMERA_FOLLOW_DEADZONE) aboveTerrain = 0;
+      targetOffset = terrainOffset + (cameraFollowEnabled ? aboveTerrain * cameraFollowAmount : 0);
+    } else {
+      targetOffset = rawHeight;
+    }
+
     const response = Math.abs(targetOffset) > Math.abs(cameraFollowOffset) ? 3.8 : 3.2;
     const blend = 1 - Math.exp(-response * Math.max(0, dt));
     cameraFollowOffset += (targetOffset - cameraFollowOffset) * blend;
