@@ -1,11 +1,12 @@
-# SideScroll 1.0.84 patch
+# SideScroll v1.0.85 — Asset Lab viewport controls
 
-Base: `SS-PATCH-1.0.83`
+Code-only patch for v1.0.84.
 
-Changed files only.
+- Adds two-finger pinch zoom to the Asset Lab viewport.
+- Zoom stays centred on the pinch midpoint and supports simultaneous two-finger repositioning.
+- Keeps existing one-finger pan and collision / climb handle editing behaviour.
+- Zoom is clamped to a useful 0.45x–5x range.
+- Renames the existing view reset control to **Fit / Frame**; one tap restores automatic framing and clears pan/zoom.
+- Asset Lab help text now mentions pinch zoom.
 
-- Adds every v1.0.83 mountain cliff, rock, dry-grass and scrub-tree asset to Asset Lab.
-- Carries the built-in mountain cliff collision and climb-path defaults into Asset Lab so they can be tuned there immediately.
-- Keeps mountain dressing floor-line and slope-follow defaults editable in Asset Lab.
-- Fixes edit-mode camera height on raised/lowered terrain: edit mode now keeps the authored terrain elevation as its camera baseline instead of falling back toward the old flat-world Y=0 level when Follow Height is off/reduced.
-- Gameplay terrain, collision and authored section heights are unchanged.
+No art/assets or gameplay data are changed in this patch.

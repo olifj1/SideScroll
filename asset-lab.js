@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.84';
+  const VERSION = '1.0.85';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -207,7 +207,10 @@
     socketPlacementMode:false,
     assetState:'base',
     selectedClimbPath:0,
-    draggingClimbHandle:null
+    draggingClimbHandle:null,
+    activePointers:new Map(),
+    pinch:null,
+    blockSingleTouchUntilClear:false
   };
 
   const defaultPoints = () => [{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}];
@@ -1517,6 +1520,53 @@
   }
 
   function pointerPos(e){const rect=canvas.getBoundingClientRect();return{x:e.clientX-rect.left,y:e.clientY-rect.top};}
+  function pinchDistance(a,b){return Math.max(1,Math.hypot(b.x-a.x,b.y-a.y));}
+  function pinchMidpoint(a,b){return{x:(a.x+b.x)*.5,y:(a.y+b.y)*.5};}
+  function clearDirectManipulation(){
+    state.draggingHandle=-1;
+    state.draggingEdge=null;
+    state.draggingClimbHandle=null;
+    state.panning=false;
+    state.pointerStart=null;
+    state.panStart=null;
+  }
+  function beginPinch(){
+    const entries=[...state.activePointers.entries()].slice(0,2);
+    if(entries.length<2)return false;
+    const [[idA,a],[idB,b]]=entries;
+    const r=state.render||computeRender();
+    const mid=pinchMidpoint(a,b);
+    clearDirectManipulation();
+    state.pinch={
+      ids:[idA,idB],
+      startDistance:pinchDistance(a,b),
+      startScale:state.viewScale,
+      worldX:(mid.x-r.centerX)/r.ppm,
+      worldY:(r.groundY-mid.y)/r.ppm
+    };
+    return true;
+  }
+  function updatePinch(){
+    const pinch=state.pinch;if(!pinch)return false;
+    const a=state.activePointers.get(pinch.ids[0]),b=state.activePointers.get(pinch.ids[1]);
+    if(!a||!b)return false;
+    const mid=pinchMidpoint(a,b);
+    const nextScale=clamp(pinch.startScale*(pinchDistance(a,b)/pinch.startDistance),.45,5);
+    state.viewScale=nextScale;
+    // Recompute the automatic fit at the new zoom with no manual pan, then
+    // offset it so the same world-space point remains under the pinch midpoint.
+    state.panX=0;state.panY=0;
+    const base=computeRender();
+    state.panX=(mid.x-pinch.worldX*base.ppm)-base.centerX;
+    state.panY=(mid.y+pinch.worldY*base.ppm)-base.groundY;
+    draw();
+    return true;
+  }
+  function frameAssetView(){
+    state.viewScale=1;state.panX=0;state.panY=0;
+    state.pinch=null;state.blockSingleTouchUntilClear=false;
+    draw();
+  }
   function distanceToSegment(p,a,b){
     const vx=b.x-a.x,vy=b.y-a.y,wx=p.x-a.x,wy=p.y-a.y; const len2=vx*vx+vy*vy;
     if(len2<=.0001)return Math.hypot(p.x-a.x,p.y-a.y);
@@ -1570,7 +1620,19 @@
   function renderContains(ar,p){return !!ar&&p.x>=ar.drawX-8&&p.x<=ar.drawX+ar.drawW+8&&p.y>=ar.drawY-8&&p.y<=ar.drawY+ar.drawH+8;}
 
   canvas.addEventListener('pointerdown',e=>{
-    const r=state.render||computeRender(), p=pointerPos(e);
+    const p=pointerPos(e);
+    if(e.pointerType==='touch'){
+      state.activePointers.set(e.pointerId,p);
+      try{canvas.setPointerCapture(e.pointerId);}catch{}
+      if(state.activePointers.size>=2){
+        e.preventDefault();
+        if(!state.pinch)beginPinch();
+        else updatePinch();
+        return;
+      }
+      if(state.blockSingleTouchUntilClear)return;
+    }
+    const r=state.render||computeRender();
     if (state.socketPlacementMode) {
       if (setSocketAtViewportPoint(p,r)) {
         stageHelpEl.textContent='Socket saved to the asset. Every placed copy of this host now inherits it.';
@@ -1612,7 +1674,13 @@
   });
 
   canvas.addEventListener('pointermove',e=>{
-    const p=pointerPos(e); const r=state.render||computeRender();
+    const p=pointerPos(e);
+    if(e.pointerType==='touch'&&state.activePointers.has(e.pointerId)){
+      state.activePointers.set(e.pointerId,p);
+      if(state.pinch){e.preventDefault();updatePinch();return;}
+      if(state.blockSingleTouchUntilClear)return;
+    }
+    const r=state.render||computeRender();
     if(state.draggingClimbHandle){
       const drag=state.draggingClimbHandle;
       const current=climbScreenPointToLocal(state.asset,p,r);
@@ -1657,10 +1725,28 @@
     }
   });
 
-  function finishPointer(){
+  function finishPointer(e){
+    if(e?.pointerType==='touch'){
+      state.activePointers.delete(e.pointerId);
+      if(state.pinch){
+        state.pinch=null;
+        clearDirectManipulation();
+        // Do not reinterpret the remaining finger as a pan/edit gesture.
+        // Require the pinch gesture to fully release first.
+        state.blockSingleTouchUntilClear=state.activePointers.size>0;
+        draw();
+        return;
+      }
+      if(state.blockSingleTouchUntilClear){
+        if(state.activePointers.size===0)state.blockSingleTouchUntilClear=false;
+        clearDirectManipulation();
+        draw();
+        return;
+      }
+    }
     const collisionChanged=state.draggingHandle>=0||!!state.draggingEdge;
     const climbChanged=!!state.draggingClimbHandle;
-    state.draggingHandle=-1; state.draggingEdge=null; state.draggingClimbHandle=null; state.panning=false; state.pointerStart=null; state.panStart=null;
+    clearDirectManipulation();
     if(collisionChanged){ if(stateProfile()) writeStateStore(); else writeStore(COLLISION_KEY,collisionStore); buildList();renderPointEditor(); }
     if(climbChanged){ writeStore(CLIMB_PATH_KEY,climbPathStore); buildList();renderClimbControls(); }
     draw();
@@ -1734,7 +1820,7 @@
   collisionRemove?.addEventListener('click',removeCollisionExplicitly);
   collisionReset.addEventListener('click',fitCollisionRectangle);
   resetBtn.addEventListener('click',resetCurrent);
-  fitBtn.addEventListener('click',()=>{state.viewScale=1;state.panX=0;state.panY=0;draw();});
+  fitBtn.addEventListener('click',frameAssetView);
   referenceBtn.addEventListener('click',()=>{state.showReference=!state.showReference;referenceBtn.classList.toggle('active',state.showReference);referenceBtn.setAttribute('aria-pressed',String(state.showReference));draw();});
   pairBtn.addEventListener('click',()=>{
     if(!isBridge(state.asset))return;
