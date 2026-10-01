@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.86: left-facing climb fix + constant-rate climb traversal/animation.
   // SideScroll v1.0.84: mountain Asset Lab registration + terrain-relative edit camera.
   // v1.0.83 introduced the first individual-asset mountain art test library.
   // Mountain cliffs, rock dressing, scrub trees and dry grasses remain separate PNGs until atlas packing is approved.
@@ -6886,7 +6887,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // the asset's placement, flip and visual rotation.
   const CLIMB_ACTION_RANGE = 0.82;
   const CLIMB_VERTICAL_SPEED = 1.45;
-  const CLIMB_ENTRY_FRACTION = 0.14;
+  const CLIMB_ENTRY_MIN_DURATION = 0.06;
+  const CLIMB_ENTRY_MAX_DURATION = 0.22;
   const CLIMB_SUPPORT_TOLERANCE = 0.72;
   let climbState = null;
 
@@ -6989,10 +6991,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     setDriveAxis(0);
     const startY = character.y;
     const objectCentre=objectXNear(target.obj,character.x);
+    const entryTarget = target.mode === 'up' ? target.bottom : target.top;
+    const entryDistance = Math.hypot(character.x - entryTarget.x, startY - entryTarget.y);
+    const entryDuration = Rig.clamp(
+      entryDistance / Math.max(0.001, CLIMB_VERTICAL_SPEED),
+      CLIMB_ENTRY_MIN_DURATION,
+      CLIMB_ENTRY_MAX_DURATION
+    );
+    const pathDuration = Math.max(0.001, target.length / CLIMB_VERTICAL_SPEED);
     climbState = {
       ...target,
       time:0,
-      duration:Math.max(0.95,target.length / CLIMB_VERTICAL_SPEED + 0.30),
+      entryDuration,
+      pathDuration,
+      duration:entryDuration + pathDuration,
       start:{x:character.x,y:startY}
     };
     if(Math.abs(objectCentre-character.x)>.04) character.lastFacing = objectCentre>character.x ? 1 : -1;
@@ -7009,35 +7021,29 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const st = climbState;
     if (!st) return;
     st.time += dt;
-    const q = Rig.clamp(st.time / Math.max(0.001, st.duration), 0, 1);
-    const entry=CLIMB_ENTRY_FRACTION;
+    const entryDuration = Math.max(0.001, Number(st.entryDuration) || CLIMB_ENTRY_MIN_DURATION);
+    const pathDuration = Math.max(0.001, Number(st.pathDuration) || (st.length / CLIMB_VERTICAL_SPEED));
+    const entryTarget = st.mode === 'up' ? st.bottom : st.top;
+    const endTarget = st.mode === 'up' ? st.top : st.bottom;
     let x,y;
-    if(st.mode==='up'){
-      if(q<entry){
-        const t=smooth01(q/entry);
-        x=Rig.lerp(st.start.x,st.bottom.x,t);
-        y=Rig.lerp(st.start.y,st.bottom.y,t);
-      } else {
-        const t=smooth01((q-entry)/(1-entry));
-        x=Rig.lerp(st.bottom.x,st.top.x,t);
-        y=Rig.lerp(st.bottom.y,st.top.y,t);
-      }
+    if (st.time < entryDuration) {
+      // Keep the short approach soft, but do not advance the climbing cycle yet.
+      const t = smooth01(Rig.clamp(st.time / entryDuration, 0, 1));
+      x = Rig.lerp(st.start.x, entryTarget.x, t);
+      y = Rig.lerp(st.start.y, entryTarget.y, t);
     } else {
-      if(q<entry){
-        const t=smooth01(q/entry);
-        x=Rig.lerp(st.start.x,st.top.x,t);
-        y=Rig.lerp(st.start.y,st.top.y,t);
-      } else {
-        const t=smooth01((q-entry)/(1-entry));
-        x=Rig.lerp(st.top.x,st.bottom.x,t);
-        y=Rig.lerp(st.top.y,st.bottom.y,t);
-      }
+      // Once on the authored climb line, move at a genuinely constant world
+      // speed. The planted-limb animation is distance-driven, so this also
+      // removes the old slow-start / fast-middle change in animation cadence.
+      const t = Rig.clamp((st.time - entryDuration) / pathDuration, 0, 1);
+      x = Rig.lerp(entryTarget.x, endTarget.x, t);
+      y = Rig.lerp(entryTarget.y, endTarget.y, t);
     }
     camera.x = x - character.screenOffsetX;
     character.x = x;
     character.y = y;
     jumpOffset = y - playSurfaceYAt(x);
-    if (q >= 1) finishClimb();
+    if (st.time >= entryDuration + pathDuration) finishClimb();
   }
 
   // Large-object interaction is deliberately separate from carrying. A pushable
@@ -11629,7 +11635,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function climbAnimationMotionFrame(st) {
     if (!st) return { ux:0, uy:1, distance:0, phaseDistance:0, entryBlend:1 };
-    const q = Rig.clamp(st.time / Math.max(0.001, st.duration), 0, 1);
     const entryTarget = st.mode === 'up' ? st.bottom : st.top;
     const endTarget = st.mode === 'up' ? st.top : st.bottom;
     const mainDx = endTarget.x - entryTarget.x;
@@ -11637,11 +11642,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const mainLength = Math.max(0.001, Math.hypot(mainDx, mainDy));
     const mainUx = mainDx / mainLength;
     const mainUy = mainDy / mainLength;
-    if (q < CLIMB_ENTRY_FRACTION) {
-      // The approach onto the climb line is a settle, not a step. Holding the
-      // climbing phase at zero here avoids a hand/foot pop when the motion turns
-      // from the short entry move onto the authored climb path.
-      return { ux:mainUx, uy:mainUy, distance:0, phaseDistance:0, entryBlend:smooth01(q / CLIMB_ENTRY_FRACTION) };
+    const entryDuration = Math.max(0.001, Number(st.entryDuration) || CLIMB_ENTRY_MIN_DURATION);
+    if (st.time < entryDuration) {
+      // The approach onto the climb line is a settle, not a step. Hold the
+      // climbing phase at zero until the constant-speed path traversal begins.
+      return {
+        ux:mainUx,
+        uy:mainUy,
+        distance:0,
+        phaseDistance:0,
+        entryBlend:smooth01(Rig.clamp(st.time / entryDuration, 0, 1))
+      };
     }
     const distance = Rig.clamp((character.x - entryTarget.x) * mainUx + (character.y - entryTarget.y) * mainUy, 0, mainLength);
     return { ux:mainUx, uy:mainUy, distance, phaseDistance:distance, entryBlend:1 };
@@ -11699,7 +11710,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const shoulderX = Math.sin(p.lean) * Rig.BODY.torso;
     const shoulderY = p.pelvisY + Math.cos(p.lean) * Rig.BODY.torso;
     const applyHand = (target, prefix, fallbackX, fallbackY) => {
-      const localX = (target.x - character.x) / Math.max(0.001, character.scale * facing);
+      // Convert world X back into mirrored rig-local X. Keep the scale
+      // denominator positive, then apply the facing sign separately. Using
+      // Math.max() on (scale * facing) collapses left-facing (-1) to 0.001
+      // and explodes otherwise normal planted-limb offsets.
+      const localX = ((target.x - character.x) / Math.max(0.001, character.scale)) * facing;
       const localY = (target.y - characterRenderY()) / Math.max(0.001, character.scale);
       const handX = localX - shoulderX;
       const handY = shoulderY - localY;
@@ -11707,7 +11722,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       p[`${prefix}HandY`] = Rig.lerp(fallbackY, handY, settle);
     };
     const applyFoot = (target, prefix, fallbackX, fallbackLift, angle) => {
-      const localX = (target.x - character.x) / Math.max(0.001, character.scale * facing);
+      // Convert world X back into mirrored rig-local X. Keep the scale
+      // denominator positive, then apply the facing sign separately. Using
+      // Math.max() on (scale * facing) collapses left-facing (-1) to 0.001
+      // and explodes otherwise normal planted-limb offsets.
+      const localX = ((target.x - character.x) / Math.max(0.001, character.scale)) * facing;
       const localY = (target.y - characterRenderY()) / Math.max(0.001, character.scale);
       p[`${prefix}FootX`] = Rig.lerp(fallbackX, localX, settle);
       p[`${prefix}FootLift`] = Rig.lerp(fallbackLift, localY, settle);
