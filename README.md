@@ -1,12 +1,22 @@
-# SideScroll v1.0.82
+# SideScroll v1.0.83 — Mountain asset test library
 
-Code-only patch for v1.0.81.
+Base: **v1.0.82**
 
-## Changes
-- Natural scenery (trees, foliage, grass and rocks) now grounds against the visible terrain surface rather than the collision/mathematical surface.
-- Visible grounding matches the depth-band overlap, render-only layer offsets and ground-band render offset introduced for seam hiding.
-- Wrapped procedural scenery re-grounds against the visible surface as it repeats across the world.
-- Existing user-placed natural scenery keeps its authored floor offset while being re-anchored to the visible terrain.
-- Gameplay floor, character movement, collisions, bridge/support objects and puzzle geometry remain on the existing gameplay terrain surface.
+Changed-files-only patch for the first in-game mountain-location art pass.
 
-Base: SS-PATCH-1.0.81
+## Included
+- 4 individual high-resolution climbable cliff assets with provisional support collision/climb paths.
+- 4 individual rocky dressing clusters.
+- 2 scrub-tree dressing assets.
+- 3 dry/tall grass dressing assets.
+- Mountain dressing is grounded against the visible terrain surface; rock/grass dressing follows the terrain normal by default.
+- New mountain groups added to the Environment Assets palette.
+- New assets remain individual PNGs for scale/style testing before final atlas packing.
+- Mountain art-language notes added to Design Lab / Art & Presentation and `CONCEPT_ART_BRIEF.md`.
+- v1.0.83 cache/version references updated for the changed code and mountain assets.
+
+## Install
+Overlay these files onto a complete **v1.0.82** build, replacing files with matching names and adding the new PNGs.
+
+## Test focus
+Check cliff scale, visible floor line, climb entry/top-out points, repetition, depth layering, scrub-tree scale and whether the dry grasses/rock clusters sit naturally on edited terrain. Collision and climb paths are intentionally provisional and can be tuned after the visual pass.

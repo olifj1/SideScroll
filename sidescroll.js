@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.62: Web Audio background music + sound controls; player menu remains streamlined.
-  // Puzzle-linked Thought Trigger nodes and Asset States/cart rail work remain intact.
+  // SideScroll v1.0.83: first individual-asset mountain art test library.
+  // Mountain cliffs, rock dressing, scrub trees and dry grasses remain separate PNGs until atlas packing is approved.
 
   const queryParams = new URLSearchParams(window.location.search);
   const PLAYER_MODE = queryParams.get('mode') === 'player';
@@ -1703,6 +1703,29 @@
     1448 / 748
   );
 
+
+  // v1.0.83 mountain-location art test library. Keep these as individual
+  // textures for visual/scale iteration; atlas packing comes after approval.
+  const mountainAssetDimensions = {
+    'mountain-cliff-01':[1448,822],
+    'mountain-cliff-02':[1444,805],
+    'mountain-cliff-03':[1442,759],
+    'mountain-cliff-04':[1070,1224],
+    'mountain-rock-01':[1414,399],
+    'mountain-rock-02':[1384,527],
+    'mountain-rock-03':[1359,725],
+    'mountain-rock-04':[1441,557],
+    'mountain-tree-01':[977,1163],
+    'mountain-tree-02':[1043,1193],
+    'mountain-grass-01':[1380,666],
+    'mountain-grass-02':[1057,1115],
+    'mountain-grass-03':[847,1288]
+  };
+  Object.entries(mountainAssetDimensions).forEach(([key,size]) => {
+    assetAspect[key] = size[0] / size[1];
+    textures[key] = createImageTexture(`${key}.png?v=1.0.83`, key, null, size[0] / size[1]);
+  });
+
   assetAspect['counterweight-plank'] = 1050 / 220;
   textures['counterweight-plank'] = createImageTexture(
     'counterweight-plank.png?v=1.0.62',
@@ -2680,7 +2703,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function visualTerrainSceneryAsset(assetName) {
     const name = String(assetName || '');
-    return /^tree\d{2}$/.test(name) || /^ground\d{2}$/.test(name);
+    return /^tree\d{2}$/.test(name)
+      || /^ground\d{2}$/.test(name)
+      || /^mountain-(?:rock|tree|grass)-\d{2}$/.test(name);
   }
 
   // Natural scenery should meet the surface that is actually rendered, while
@@ -2758,7 +2783,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'handcart-broken': 0.064,
     'cart-wheel-loose': 0.00,
     'cart-wheel-ready': 0.00,
-    'axle-pin': 0.00
+    'axle-pin': 0.00,
+    // Mountain art has intentionally broken grass/stone silhouettes at the base.
+    // Bury the lowest fringe very slightly so the visible mass feels planted.
+    'mountain-cliff-01':0.025,
+    'mountain-cliff-02':0.025,
+    'mountain-cliff-03':0.025,
+    'mountain-cliff-04':0.025,
+    'mountain-rock-01':0.030,
+    'mountain-rock-02':0.030,
+    'mountain-rock-03':0.030,
+    'mountain-rock-04':0.030,
+    'mountain-tree-01':0.020,
+    'mountain-tree-02':0.020,
+    'mountain-grass-01':0.018,
+    'mountain-grass-02':0.018,
+    'mountain-grass-03':0.018
   });
   const ASSET_VISUAL_DEFAULTS = Object.freeze({
     'handcart-broken': { offsetX:0.00, offsetY:-0.06, rotationDeg:-6.0 }
@@ -2957,6 +2997,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'puzzle-log-d': { solid:true, carryable:true, placeable:true, supportSurface:true, stackable:true },
     'fallen-tree': { solid:true, supportSurface:true },
     'mountain-climb-rock-01': { solid:true, supportSurface:true, climbable:true },
+    'mountain-cliff-01': { solid:true, supportSurface:true, climbable:true },
+    'mountain-cliff-02': { solid:true, supportSurface:true, climbable:true },
+    'mountain-cliff-03': { solid:true, supportSurface:true, climbable:true },
+    'mountain-cliff-04': { solid:true, supportSurface:true, climbable:true },
+    'mountain-rock-01': { followSurfaceNormal:true },
+    'mountain-rock-02': { followSurfaceNormal:true },
+    'mountain-rock-03': { followSurfaceNormal:true },
+    'mountain-rock-04': { followSurfaceNormal:true },
+    'mountain-grass-01': { followSurfaceNormal:true },
+    'mountain-grass-02': { followSurfaceNormal:true },
+    'mountain-grass-03': { followSurfaceNormal:true },
     'thought-trigger': {},
     'bridge-left': { solid:true, supportSurface:true, socketHost:true },
     'bridge-right': { solid:true, supportSurface:true, socketHost:true },
@@ -3350,6 +3401,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     'mountain-climb-rock-01': [
       { id:'left', bottom:{x:-0.48,y:0.01}, top:{x:-0.39,y:0.72}, widthRatio:0.11 },
       { id:'right', bottom:{x:0.48,y:0.01}, top:{x:0.39,y:0.72}, widthRatio:0.11 }
+    ],
+    'mountain-cliff-01': [
+      { id:'left', bottom:{x:-0.34,y:0.02}, top:{x:-0.30,y:0.74}, widthRatio:0.10 },
+      { id:'right', bottom:{x:0.34,y:0.02}, top:{x:0.30,y:0.74}, widthRatio:0.10 }
+    ],
+    'mountain-cliff-02': [
+      { id:'left', bottom:{x:-0.33,y:0.02}, top:{x:-0.30,y:0.76}, widthRatio:0.10 },
+      { id:'right', bottom:{x:0.33,y:0.02}, top:{x:0.30,y:0.76}, widthRatio:0.10 }
+    ],
+    'mountain-cliff-03': [
+      { id:'left', bottom:{x:-0.35,y:0.02}, top:{x:-0.30,y:0.73}, widthRatio:0.10 },
+      { id:'right', bottom:{x:0.35,y:0.02}, top:{x:0.30,y:0.73}, widthRatio:0.10 }
+    ],
+    'mountain-cliff-04': [
+      { id:'centre', bottom:{x:-0.02,y:0.02}, top:{x:0.00,y:0.82}, widthRatio:0.18 }
     ]
   });
 
@@ -3434,6 +3500,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]
     };
   }
+  const mountainCliffCollisionDefaults = {
+    'mountain-cliff-01': { halfWidthRatio:0.44, heightRatio:0.74, depthRatio:0.16 },
+    'mountain-cliff-02': { halfWidthRatio:0.45, heightRatio:0.76, depthRatio:0.16 },
+    'mountain-cliff-03': { halfWidthRatio:0.45, heightRatio:0.73, depthRatio:0.16 },
+    'mountain-cliff-04': { halfWidthRatio:0.43, heightRatio:0.82, depthRatio:0.16 }
+  };
+  Object.entries(mountainCliffCollisionDefaults).forEach(([assetName,profile]) => {
+    if (Object.prototype.hasOwnProperty.call(assetCollisionDefaults,assetName)) return;
+    assetCollisionDefaults[assetName] = {
+      ...profile, fixedHeight:null,
+      points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],
+      shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]
+    };
+  });
 
   let assetStateProfiles = (() => {
     try {
@@ -7066,8 +7146,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
       { name:'axle-pin', label:'AXLE PIN', image:'axle-pin.png', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
     ]},
-    { scope:'environment', title: 'MOUNTAIN · TRAVERSAL', items: [
-      { name:'mountain-climb-rock-01', label:'CLIMB ROCK 01', image:'mountain-climb-rock-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false }
+    { scope:'environment', title: 'MOUNTAIN · CLIMB ROCKS', items: [
+      { name:'mountain-climb-rock-01', label:'CLIMB ROCK · PROTOTYPE', image:'mountain-climb-rock-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
+      { name:'mountain-cliff-01', label:'CLIFF 01 · STEPPED', image:'mountain-cliff-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
+      { name:'mountain-cliff-02', label:'CLIFF 02 · SHEER', image:'mountain-cliff-02.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.50, gameplayLayerLocked:true, wrap:false },
+      { name:'mountain-cliff-03', label:'CLIFF 03 · BROAD', image:'mountain-cliff-03.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.45, gameplayLayerLocked:true, wrap:false },
+      { name:'mountain-cliff-04', label:'CLIFF 04 · TALL', image:'mountain-cliff-04.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.80, gameplayLayerLocked:true, wrap:false }
+    ]},
+    { scope:'environment', title: 'MOUNTAIN · ROCK DRESSING', items: [
+      { name:'mountain-rock-01', label:'ROCK CLUSTER 01 · LOW', image:'mountain-rock-01.png', category:'dressing', defaultHeight:0.88 },
+      { name:'mountain-rock-02', label:'ROCK CLUSTER 02', image:'mountain-rock-02.png', category:'dressing', defaultHeight:1.05 },
+      { name:'mountain-rock-03', label:'ROCK CLUSTER 03 · TALL', image:'mountain-rock-03.png', category:'dressing', defaultHeight:1.38 },
+      { name:'mountain-rock-04', label:'ROCK CLUSTER 04 · WIDE', image:'mountain-rock-04.png', category:'dressing', defaultHeight:1.08 }
+    ]},
+    { scope:'environment', title: 'MOUNTAIN · DRY GRASS', items: [
+      { name:'mountain-grass-01', label:'DRY GRASS 01 · BROAD', image:'mountain-grass-01.png', category:'dressing', defaultHeight:0.92 },
+      { name:'mountain-grass-02', label:'DRY GRASS 02 · TALL', image:'mountain-grass-02.png', category:'dressing', defaultHeight:1.34 },
+      { name:'mountain-grass-03', label:'DRY GRASS 03 · NARROW', image:'mountain-grass-03.png', category:'dressing', defaultHeight:1.55 }
+    ]},
+    { scope:'environment', title: 'MOUNTAIN · SCRUB TREES', items: [
+      { name:'mountain-tree-01', label:'SCRUB TREE 01', image:'mountain-tree-01.png', category:'dressing', defaultHeight:2.35 },
+      { name:'mountain-tree-02', label:'SCRUB TREE 02', image:'mountain-tree-02.png', category:'dressing', defaultHeight:2.50 }
     ]},
     { scope:'environment', title: 'DRESSING · TREES', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
@@ -9467,7 +9566,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=1.0.62" alt="" loading="eager"></span><small>${info.label}</small>`;
+          const thumbVersion = name.startsWith('mountain-') ? '1.0.83' : '1.0.62';
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=${thumbVersion}" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {

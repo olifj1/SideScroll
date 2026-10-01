@@ -1492,7 +1492,22 @@
         "visual"
       ],
       "body": "## Current art direction\n- Serious, atmospheric and slightly “horror forest” without becoming overtly frightening or cutesy.\n- Cel-shaded rendering with exactly **three shade levels** per major form: light, base and shadow.\n- Desaturated palette; avoid saturated greens and olive wash; generally darker overall values.\n- Trees: tall/slender, mostly straight trunks, restrained bends, warm brown bark, natural green foliage, airy groups and negative space.\n- Asset bottoms integrate with the ground through feathering/contact treatment rather than fake drop shadows.\n- Mid-height foliage is used sparingly so foreground and midground do not become an unreadable wall.\n- Character remains visually small in the landscape, strengthening vulnerability and scale.\n\n## Environment variety\nNew chapters should keep the same rendering language while changing material families, silhouette, density, weather, fog/post profile and landmark design.\n\n## Asset pipeline\nGenerator/source art → alpha preparation / soft edge processing → colour-channel dilation → retain correct alpha → import as local texture asset.",
-      "children": [],
+      "children": [
+        {
+          "id": "art-mountain-location-v1083",
+          "title": "Mountain Location — Rock & Dressing Language",
+          "status": "CURRENT",
+          "implementation": "FIRST ASSET TEST SET",
+          "tags": [
+            "art",
+            "mountain",
+            "rocks",
+            "dressing",
+            "climbing"
+          ],
+          "body": "## Rock rendering\n- Match the woodland asset family rather than generic fantasy cliff art.\n- Broad, calm painted planes with the established three-tone light/base/shadow read.\n- Keep most rock values in the middle range: no near-white sun-struck faces and no crushed black shadows.\n- Primary light direction is from camera-right. Right-facing planes are lighter, but direct light must stay restrained rather than chalky.\n- Avoid sharpen-filter texture, scratchy edge wear, dense micro-cracks and noisy chipped outlines.\n- Silhouettes should be irregular/natural rather than repeated square blocks.\n- Bottom edges break through stones, dry grass and low plants instead of ending in a soft rectangular terrain fade.\n\n## Large climb pieces\n- Modular pieces are preferred over giant prefabricated cliffs so the mountain face can be authored from reusable parts.\n- The current climb prototype is the approximate target scale.\n- Include broad flat/gently broken walkable tops and genuinely sheer front faces so traversal reads as climbing rather than stair-jumping.\n- Maintain stepped, broad, sheer and tall/narrow variants while sharing one stone material and lighting language.\n\n## Mountain dressing\n- Replace much of the woodland's lush small dressing with low rock clusters, rubble and exposed stone.\n- Small rock groups feel partly buried, with irregular vegetation overlap grounding their bases.\n- Vegetation is drier, taller/thinner and more exposed: straw/ochre/muted olive rather than lush green.\n- Trees are scrubby/wind-shaped and only slightly taller than the player, not woodland-scale trunks.\n- Retain some muted green growth so the biome still belongs to the same world.\n\n## Pipeline / current test strategy\nThe first approved mountain pieces remain individual high-resolution PNGs while scale, repetition, collision, floor line and layering are tested in-game. Preserve soft alpha and colour-channel dilation beneath transparent edges. Atlas packing happens only after the useful subset has been approved in the game view."
+        }
+      ],
       "related": []
     },
     {

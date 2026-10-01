@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = '1.0.82';
+  const VERSION = '1.0.83';
   const ASSET_VERSION = '1.0.62';
   const PRELOAD_CACHE = 'sidescroll-runtime-v1';
   const play = document.getElementById('ss-splash-play');
@@ -61,8 +61,23 @@
     'stone-wall.png',
     'stone-piece-a.png',
     'stone-piece-b.png',
-    'stone-piece-c.png'
-  ].map(path => withVersion(path, /\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i.test(path) ? ASSET_VERSION : VERSION));
+    'stone-piece-c.png',
+    'mountain-cliff-01.png',
+    'mountain-cliff-02.png',
+    'mountain-cliff-03.png',
+    'mountain-cliff-04.png',
+    'mountain-rock-01.png',
+    'mountain-rock-02.png',
+    'mountain-rock-03.png',
+    'mountain-rock-04.png',
+    'mountain-tree-01.png',
+    'mountain-tree-02.png',
+    'mountain-grass-01.png',
+    'mountain-grass-02.png',
+    'mountain-grass-03.png'
+  ].map(path => withVersion(path, path.startsWith('mountain-')
+    ? VERSION
+    : (/\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i.test(path) ? ASSET_VERSION : VERSION)));
 
   const setProgress = (done, total, failed = 0) => {
     const value = total ? Math.round((done / total) * 100) : 100;

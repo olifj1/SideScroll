@@ -269,3 +269,37 @@ When selected concepts are eventually imported into SideScroll's planned **Conce
 - optional parent/variant link for iterations.
 
 Concept Lab should initially be an image-import/reference library. Do not place secret AI/API keys inside the static GitHub Pages application.
+
+---
+
+# Mountain location asset language — working rules (v1.0.83)
+
+These rules capture the current test direction for the first mountain-climbing location assets. They supplement the wider mountain concept guidance above and should be used for future individual asset generation.
+
+## Rock rendering
+- Match the woodland asset family rather than generic fantasy cliff art.
+- Use broad, calm painted planes with a restrained three-tone light/base/shadow read.
+- Overall rock values should live mostly in the middle range. Avoid near-white sunlit faces and crushed black shadows.
+- Primary light direction is from camera-right. Keep the right-facing planes lighter, but do not let direct light become chalky or blown out.
+- Avoid sharpen-filter texture, scratchy edge wear, dense micro-cracks and noisy chipped outlines.
+- Rock silhouettes should be irregular and natural rather than cut into repeated square blocks.
+- Base edges should break through stones, plants and grass. Do not finish assets with a soft rectangular ground fade.
+
+## Large climb pieces
+- Use modular pieces that can be composed into a larger mountain face rather than one enormous prefabricated cliff.
+- The current climb prototype is the approximate target scale for height/width.
+- Include broad flat or gently broken walkable tops and genuinely sheer front faces so climbing reads as climbing rather than jumping up stairs.
+- Keep enough variation for stepped, broad, sheer and tall/narrow pieces while preserving a shared stone material and lighting language.
+
+## Mountain dressing
+- Replace much of the woodland's small lush dressing with low rocky clusters, rubble and exposed stone.
+- Small rock groups should feel partly buried and should merge into terrain using irregular grass/plant overlap at the base.
+- Vegetation is sparser, drier and more exposed than the woodland.
+- Grasses should be thinner, taller and more straw/ochre/olive than the existing lush woodland grass.
+- Trees should be scrubby, wind-shaped and only slightly taller than the player, not the towering woodland trees.
+- Keep some muted green growth so the transition still belongs to the same world rather than becoming a completely barren biome.
+
+## Current implementation strategy
+- Keep the first approved mountain pieces as individual high-resolution PNGs while scale, repetition, collision and layering are tested in-game.
+- Preserve soft alpha and colour-dilate beneath transparent edges to prevent filtering fringes.
+- Atlas packing should happen only after the useful subset and final crop/ground-line behaviour have been approved in-game.
