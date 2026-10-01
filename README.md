@@ -1,17 +1,12 @@
-# SideScroll v1.0.91 — Asset Lab → Biome Scale Sync
+# SideScroll Patch v1.0.92
 
-Code-only patch. Apply over `SS-PATCH-1.0.90`.
+Changed files only patch over **v1.0.91**.
 
-## What changed
+## Included
+- `mountain-climb-rock-01.png`
 
-- Asset Lab `Default Height` is now the source of truth for procedural Mountain asset size.
-- Mountain rocks, scrub trees and dry grasses keep their deterministic procedural size variation, but that variation is centred/scaled from the height authored in Asset Lab rather than a separate hard-coded biome value.
-- The same authored-height rule is wired into existing procedural Woodland trees and ground dressing without changing their established sizes unless an explicit Asset Lab height has been saved.
-- Returning to Play from Asset Lab through iOS back/forward cache refreshes the authored layout data and rebuilds an active Mountain candidate set automatically.
-- No Apply button or biome-profile resave is required after changing an asset height.
-
-## Files
-
-- `sidescroll.js`
-- `play.html`
-- `README.md`
+## Change
+- Replaces the original climbable rock asset with the newer image-generated repaint.
+- Keeps the same general silhouette/form while updating the styling to better match the newer mountain assets.
+- Colour balance is leaned slightly greener and less yellow than the older version.
+- Asset has been processed back into a transparent PNG and fitted to the previous asset canvas so it can drop in as a direct replacement.
