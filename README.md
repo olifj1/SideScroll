@@ -1,12 +1,13 @@
-# SS-PATCH-1.0.88
+# SS-PATCH-1.0.89
 
-Base: SS-PATCH-1.0.87
+Base: SS-PATCH-1.0.88
 
-Minor jump-height tuning.
+Environment placement reliability fix.
 
-- Raised jump launch velocity from 5.05 m/s to 5.24 m/s.
-- With gravity unchanged at 9.20 m/s², this increases peak jump height by about 7.7%.
-- Gravity, falling acceleration, horizontal movement and collision behaviour are unchanged.
+- Gameplay-layer environment assets now calculate tap X directly on the gameplay plane before placement, so large mountain cliffs appear where tapped instead of being projected from a distant terrain-depth hit.
+- Free-depth dressing keeps terrain/depth placement.
+- Added a safety fallback for near-horizon taps so invalid or extreme ground-ray intersections cannot spawn dressing far offscreen.
+- No environment object-list UI added in this patch; placement remains the lightweight paint-style workflow.
 
 Changed files:
 - sidescroll.js

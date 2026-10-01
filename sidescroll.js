@@ -7516,6 +7516,47 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return { x, z, y: terrainGroundYAt(x, z) };
   }
 
+  // Placement needs to respect the layer the chosen asset will actually live
+  // on. Gameplay-layer props (including the large mountain cliffs) are snapped
+  // to pathZ after creation, so deriving X from an arbitrary terrain-depth hit
+  // can move them many metres sideways when the camera ray is shallow. Resolve
+  // those taps directly on the gameplay plane instead. Free-depth dressing
+  // keeps terrain picking, but rejects pathological near-horizon intersections
+  // and falls back to a safe path-plane position rather than spawning offscreen.
+  function placementPointFromClient(assetName, clientX, clientY) {
+    const info = editorAssetInfo?.get(assetName) || null;
+    const category = info?.category || 'dressing';
+    const gameLayerLocked = category === 'gameplay'
+      && (typeof info?.gameplayLayerLocked === 'boolean' ? info.gameplayLayerLocked : true);
+
+    if (gameLayerLocked) {
+      const plane = pathPlanePointFromClient(clientX, clientY, pathZ);
+      if (!plane || !Number.isFinite(plane.x)) return null;
+      return { x:plane.x, z:pathZ, y:playSurfaceYAt(plane.x) };
+    }
+
+    const ground = groundPointFromClient(clientX, clientY);
+    const minZ = WORLD.farZ + 0.8;
+    const maxZ = WORLD.nearZ - 0.6;
+    const maxVisibleXDelta = 18.0;
+    if (ground
+        && Number.isFinite(ground.x)
+        && Number.isFinite(ground.z)
+        && ground.z >= minZ && ground.z <= maxZ
+        && Math.abs(ground.x - camera.x) <= maxVisibleXDelta) {
+      return ground;
+    }
+
+    // The camera deliberately looks slightly upward. A tap close to the visual
+    // horizon can therefore make a horizontal-ground intersection enormous or
+    // impossible. Falling back to the gameplay-depth plane preserves the tap's
+    // horizontal screen position and, most importantly, keeps the new asset in
+    // the current working area where it can immediately be selected/moved.
+    const fallback = pathPlanePointFromClient(clientX, clientY, pathZ);
+    if (!fallback || !Number.isFinite(fallback.x)) return null;
+    return { x:fallback.x, z:pathZ, y:playSurfaceYAt(fallback.x) };
+  }
+
   function objectScreenBounds(obj) {
     if (!obj || obj.deleted || obj.carried) return null;
     const x = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
@@ -13892,7 +13933,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editMode) {
       editorPointer = e.pointerId;
       const localRect = canvas.getBoundingClientRect();
-      const startGround = groundPointFromClient(e.clientX, e.clientY);
+      const startGround = addAssetType
+        ? placementPointFromClient(addAssetType, e.clientX, e.clientY)
+        : groundPointFromClient(e.clientX, e.clientY);
       editorGesture = {
         startClientX:e.clientX, startClientY:e.clientY,
         startLocalX:e.clientX-localRect.left, startLocalY:e.clientY-localRect.top,
@@ -14176,7 +14219,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           // Taps in Placement mode go straight through visible assets to the
           // ground. Nothing is selected, so dense dressing cannot steal input.
           if(addAssetType){
-            const point=groundPointFromClient(e.clientX,e.clientY) || gesture.startGround;
+            const point=placementPointFromClient(addAssetType,e.clientX,e.clientY) || gesture.startGround;
             if(point){
               const placedType=addAssetType;
               createUserObject(placedType,point,{selectAfter:false});
