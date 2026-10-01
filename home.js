@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = '1.0.81';
+  const VERSION = '1.0.82';
   const ASSET_VERSION = '1.0.62';
   const PRELOAD_CACHE = 'sidescroll-runtime-v1';
   const play = document.getElementById('ss-splash-play');

@@ -2033,6 +2033,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // hairline seam as the camera tilts across the ground plane. Gameplay and
   // collision continue to use the mathematical terrain profile with no offset.
   const TERRAIN_VISUAL_LAYER_OFFSETS = Object.freeze({ near:0.025, path:0.00, farA:-0.02, farB:-0.04 });
+  const TERRAIN_GROUND_BAND_Y_OFFSET = -0.015;
   const TERRAIN_PATH_BAND_OVERLAP = 0.12;
   const TERRAIN_LONGITUDINAL_SEGMENTS = 32;
   const TERRAIN_DEPTH_LAYER_IDS = Object.freeze(['near','farA','farB']);
@@ -2677,19 +2678,62 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return terrainSurfaceYForTypeAt(x, pathZ, typeId, index);
   }
 
-  function terrainAnchorBaseY(x, z, category = 'dressing', gameplayLayerLocked = false) {
-    return category === 'gameplay' && gameplayLayerLocked
-      ? playSurfaceYAt(x)
-      : terrainGroundYAt(x, z);
+  function visualTerrainSceneryAsset(assetName) {
+    const name = String(assetName || '');
+    return /^tree\d{2}$/.test(name) || /^ground\d{2}$/.test(name);
+  }
+
+  // Natural scenery should meet the surface that is actually rendered, while
+  // gameplay/collision continues to use the mathematical terrain profile. The
+  // depth-band mesh starts its blend slightly underneath the path strip and has
+  // tiny render-only Y offsets to hide seams, so reproduce that exact visible
+  // profile here for tree/foliage/rock grounding.
+  function terrainVisibleGroundYAt(x, z = 0) {
+    const worldX = Number(x) || 0;
+    const depth = Number(z) || 0;
+    const owned = puzzleRiverModifierAtPoint(worldX, depth);
+    if (owned) return puzzleRiverTerrainYAt(worldX, depth, owned);
+    const index = terrainSectionIndexAt(worldX);
+    const typeId = terrainSectionType(index);
+    if (typeId === 'river' || Math.abs(depth) <= PATH_OUTER_HALF) {
+      return terrainSurfaceYForTypeAt(worldX, depth, typeId, index);
+    }
+
+    const bandEdge = Math.max(PATH_BERM_HALF + 0.02, PATH_OUTER_HALF - TERRAIN_PATH_BAND_OVERLAP);
+    const pathHeight = terrainLayerElevationAt(worldX, 'path') + (TERRAIN_VISUAL_LAYER_OFFSETS.path || 0);
+    let visibleElevation = pathHeight;
+    if (depth > PATH_OUTER_HALF) {
+      const nearHeight = terrainLayerElevationAt(worldX, 'near') + (TERRAIN_VISUAL_LAYER_OFFSETS.near || 0);
+      const t = Rig.clamp((depth - bandEdge) / Math.max(0.001, GROUND_NEAR_Z - bandEdge), 0, 1);
+      visibleElevation = Rig.lerp(pathHeight, nearHeight, t);
+    } else if (depth >= TERRAIN_FAR_A_BACK_Z) {
+      const farAHeight = terrainLayerElevationAt(worldX, 'farA') + (TERRAIN_VISUAL_LAYER_OFFSETS.farA || 0);
+      const t = Rig.clamp((-depth - bandEdge) / Math.max(0.001, -TERRAIN_FAR_A_BACK_Z - bandEdge), 0, 1);
+      visibleElevation = Rig.lerp(pathHeight, farAHeight, t);
+    } else {
+      const farAHeight = terrainLayerElevationAt(worldX, 'farA') + (TERRAIN_VISUAL_LAYER_OFFSETS.farA || 0);
+      const farBHeight = terrainLayerElevationAt(worldX, 'farB') + (TERRAIN_VISUAL_LAYER_OFFSETS.farB || 0);
+      const t = Rig.clamp((TERRAIN_FAR_A_BACK_Z - depth) / Math.max(0.001, TERRAIN_FAR_A_BACK_Z - WORLD.farZ), 0, 1);
+      visibleElevation = Rig.lerp(farAHeight, farBHeight, t);
+    }
+    return groundY + TERRAIN_GROUND_BAND_Y_OFFSET + pathUndulationAtX(worldX)
+      + terrainSectionFeatureRiseForTypeAtX(worldX, typeId, index)
+      + visibleElevation;
+  }
+
+  function terrainAnchorBaseY(x, z, category = 'dressing', gameplayLayerLocked = false, assetName = null) {
+    if (category === 'gameplay' && gameplayLayerLocked) return playSurfaceYAt(x);
+    if (category === 'dressing' && visualTerrainSceneryAsset(assetName)) return terrainVisibleGroundYAt(x, z);
+    return terrainGroundYAt(x, z);
   }
 
 
-  function terrainSurfaceAngleAt(x, z = pathZ, category = 'dressing', gameplayLayerLocked = false) {
+  function terrainSurfaceAngleAt(x, z = pathZ, category = 'dressing', gameplayLayerLocked = false, assetName = null) {
     const worldX = Number(x) || 0;
     const depth = Number(z) || 0;
     const sample = 0.18;
-    const y0 = terrainAnchorBaseY(worldX - sample, depth, category, gameplayLayerLocked);
-    const y1 = terrainAnchorBaseY(worldX + sample, depth, category, gameplayLayerLocked);
+    const y0 = terrainAnchorBaseY(worldX - sample, depth, category, gameplayLayerLocked, assetName);
+    const y1 = terrainAnchorBaseY(worldX + sample, depth, category, gameplayLayerLocked, assetName);
     const angle = Math.atan2(y1 - y0, sample * 2);
     return Rig.clamp(angle, -Math.PI * 0.28, Math.PI * 0.28);
   }
@@ -2785,12 +2829,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function objectFloorOffsetFromTerrain(obj) {
     if (!obj) return 0;
-    return objectFloorWorldY(obj) - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+    return objectFloorWorldY(obj) - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
   }
 
   function setObjectFloorOffset(obj, floorOffset = 0) {
     if (!obj) return;
-    const base = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+    const base = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
     obj.y = base + (Number(floorOffset) || 0) - objectGroundLine(obj) * (Number(obj.sy) || 0);
   }
 
@@ -2809,8 +2853,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // re-grounded at its wrapped draw X.
     if (obj.layer === 'ground') return Number(obj.y);
     if (!obj.wrap || objectUsesFreePlacement(obj) || !Number.isFinite(Number(drawX))) return Number(obj.y);
-    const sourceBase = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
-    const drawBase = terrainAnchorBaseY(Number(drawX), obj.z, obj.category, obj.gameplayLayerLocked);
+    const sourceBase = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
+    const drawBase = terrainAnchorBaseY(Number(drawX), obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
     return Number(obj.y) + (drawBase - sourceBase);
   }
 
@@ -2845,7 +2889,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     mesh: groundMesh,
     texture: textures.pathDirt,
     x: 0,
-    y: groundY - 0.015,
+    y: groundY + TERRAIN_GROUND_BAND_Y_OFFSET,
     z: GROUND_NEAR_Z,
     sx: TILE_WIDTH,
     sy: 1,
@@ -3814,7 +3858,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const groundLine = assetGroundLineDefault(type);
       addObject(backdrop, type, x, z, null, height, {
         id: `forest263-${index}`,
-        y: terrainGroundYAt(x, z) - groundLine * height,
+        y: terrainVisibleGroundYAt(x, z) - groundLine * height,
         groundLine,
         shade: shadeBase + rand() * 0.09,
         opacity: opacityBase + rand() * (1.0 - opacityBase),
@@ -3894,7 +3938,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!canUseDressingPosition(type, def, x, z, height)) return false;
       const obj = addObject(targetCollectionForZ(z), type, x, z, null, height, {
         id: `dressing263-${index}`,
-        y: terrainGroundYAt(x, z),
+        y: terrainVisibleGroundYAt(x, z),
         shade: 0.985 + rand() * 0.055,
         opacity: 0.95 + rand() * 0.05,
         layer: classifyLayer(z)
@@ -3936,7 +3980,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!canUseDressingPosition(type, def, x, z, baseHeight)) return false;
       addObject(targetCollectionForZ(z), type, x, z, null, baseHeight, {
         id: `dressing263-${index}`,
-        y: terrainGroundYAt(x, z),
+        y: terrainVisibleGroundYAt(x, z),
         shade: 0.985 + rand() * 0.055,
         opacity: 0.95 + rand() * 0.05,
         layer: classifyLayer(z)
@@ -4818,7 +4862,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const state = runtime?.[obj.puzzleObjectId];
         if (!state) continue;
         state.y = obj.y;
-        state.terrainOffset = obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+        state.terrainOffset = obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
         state.floorOffset = objectFloorOffsetFromTerrain(obj);
       }
     }
@@ -5343,7 +5387,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         assetState: obj.assetState || inferredAssetState(obj.assetName),
         x: obj.x - instance.marker.x,
         z: obj.z,
-        yOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked),
+        yOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName),
         floorOffset: objectFloorOffsetFromTerrain(obj),
         groundLine: objectGroundLine(obj),
         sx: obj.sx,
@@ -5478,7 +5522,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.cartRailElapsed = 0;
       obj.carried = false;
       obj.groundLine = Rig.clamp(Number.isFinite(state.groundLine) ? Number(state.groundLine) : assetGroundLineDefault(obj.assetName,obj.assetState), 0, 1);
-      const baseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+      const baseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
       obj.y = objectUsesFreePlacement(obj) && Number.isFinite(state.worldFloorY)
         ? Number(state.worldFloorY) - objectGroundLine(obj) * obj.sy
         : (Number.isFinite(state.floorOffset)
@@ -5504,7 +5548,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const obj of instance.objects) {
       runtime.objects[obj.puzzleObjectId] = {
         asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName),
-        x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
+        x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
         deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
         gameplayLayerLocked:!!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
@@ -5547,7 +5591,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const state = savedPuzzleFor(obj.puzzleInstanceId);
     state.objects[obj.puzzleObjectId] = {
       asset:obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName),
-      x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
+      x:obj.x, y:obj.y, terrainOffset:obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z:obj.z, sx:obj.sx, sy:obj.sy, flip:!!obj.flip,
       deleted:!!obj.deleted, category:obj.category || 'gameplay', gameplayType:obj.gameplayType || null,
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
       freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
@@ -5606,7 +5650,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const state = runtime[obj.puzzleObjectId];
         if (!state) continue;
         state.y = obj.y;
-        state.terrainOffset = obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+        state.terrainOffset = obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
         state.floorOffset = objectFloorOffsetFromTerrain(obj);
       }
       savePuzzleState();
@@ -5648,7 +5692,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         ? Number(prior.worldFloorY)
         : (Number.isFinite(startState?.worldFloorY) ? Number(startState.worldFloorY) : null);
       const restoredZ = restoredCategory === 'gameplay' && restoredLocked ? pathZ : z;
-      const currentBaseY = terrainAnchorBaseY(x, restoredZ, restoredCategory, restoredLocked);
+      const currentBaseY = terrainAnchorBaseY(x, restoredZ, restoredCategory, restoredLocked, asset);
       const legacyBaseY = legacyTerrainAnchorBaseY(x, restoredZ, restoredCategory, restoredLocked);
       const restoredGroundLine = Rig.clamp(
         Number.isFinite(prior?.groundLine) ? Number(prior.groundLine)
@@ -6025,7 +6069,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.collision = behaviourCollisionFor(obj.assetName, obj.sx, obj.sy, override.collision,obj.assetState);
     }
     obj.groundLine = Rig.clamp(Number.isFinite(override.groundLine) ? Number(override.groundLine) : objectGroundLine(obj), 0, 1);
-    const currentBaseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
+    const currentBaseY = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
     const legacyBaseY = legacyTerrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked);
     if (objectUsesFreePlacement(obj) && Number.isFinite(override.worldFloorY)) {
       setObjectFloorWorldY(obj, Number(override.worldFloorY));
@@ -6046,7 +6090,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (obj.userAdded) {
       const saved = sceneData.added.find(item => item.id === obj.id);
       const payload = {
-        id: obj.id, assetName: obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName), x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z,
+        id: obj.id, assetName: obj.assetName, assetState:obj.assetState || inferredAssetState(obj.assetName), x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z,
         sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
@@ -6056,7 +6100,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       else sceneData.added.push(payload);
     } else {
       sceneData.overrides[obj.id] = {
-        assetState:obj.assetState || inferredAssetState(obj.assetName), x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z, sx: obj.sx, sy: obj.sy, flip: obj.flip,
+        assetState:obj.assetState || inferredAssetState(obj.assetName), x: obj.x, y: obj.y, terrainOffset: obj.y - terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName), floorOffset:objectFloorOffsetFromTerrain(obj), groundLine:objectGroundLine(obj), z: obj.z, sx: obj.sx, sy: obj.sy, flip: obj.flip,
         collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride, category: obj.category || 'dressing',
         gameplayType: obj.gameplayType || null, gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), deleted: !!obj.deleted
       };
@@ -6104,7 +6148,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const restoredCategory = saved.category || (saved.assetName === 'crate' ? 'gameplay' : 'dressing');
       const restoredLocked = typeof saved.gameplayLayerLocked === 'boolean' ? saved.gameplayLayerLocked : (saved.category === 'gameplay' || saved.assetName === 'crate');
       const restoredZ = restoredCategory === 'gameplay' && restoredLocked ? pathZ : saved.z;
-      const currentBaseY = terrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
+      const currentBaseY = terrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked, saved.assetName);
       const legacyBaseY = legacyTerrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
       const restoredGroundLine = Rig.clamp(Number.isFinite(saved.groundLine) ? Number(saved.groundLine) : assetGroundLineDefault(saved.assetName,saved.assetState || inferredAssetState(saved.assetName)), 0, 1);
       const restoredFreePlacement = typeof saved.freePlacement === 'boolean' ? saved.freePlacement : defaultFreePlacement(saved.assetName);
@@ -6258,7 +6302,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const width = height * (assetAspect[def.type] || 1);
         const groundLine = assetGroundLineDefault(def.type);
         const profile = puzzleRiverProfileAtZ(mod, z);
-        const floorY = waterEdge ? profile.waterY - 0.09 : terrainAnchorBaseY(x, z, 'dressing', false);
+        const floorY = waterEdge ? profile.waterY - 0.09 : terrainAnchorBaseY(x, z, 'dressing', false, def.type);
         const obj = addObject(targetCollectionForZ(z), def.type, x, z, width, height, {
           id:`puzzle-${instance.id}-${mod.id || 'river'}-dress-${placedCount + 1}`,
           userAdded:false,
@@ -6371,7 +6415,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const width = height * (assetAspect[def.type] || 1);
       const id = `riverbank-${i}-${Date.now().toString(36)}-${placedCount + 1}`;
       const groundLine = assetGroundLineDefault(def.type);
-      const floorY = waterEdge ? riverProfileAtZ(i, z).waterY - 0.09 : terrainAnchorBaseY(x, z, 'dressing', false);
+      const floorY = waterEdge ? riverProfileAtZ(i, z).waterY - 0.09 : terrainAnchorBaseY(x, z, 'dressing', false, def.type);
       const obj = addObject(targetCollectionForZ(z), def.type, x, z, width, height, {
         id,
         userAdded:true,
@@ -9135,7 +9179,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const freePlacement = defaultFreePlacement(type);
     const placementBaseY = freePlacement || behaviour.supportSurface
       ? playSurfaceYAt(point.x)
-      : terrainAnchorBaseY(point.x, point.z, info.category, defaultGameLayerLocked);
+      : terrainAnchorBaseY(point.x, point.z, info.category, defaultGameLayerLocked, type);
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
       id, userAdded:!puzzleInstance, baseSx:w, baseSy:h,
       y:placementBaseY + (Number(info.defaultYOffset) || 0) - groundLine * h,
@@ -9167,7 +9211,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const sourceGroundLine = objectGroundLine(selectedObject);
     const duplicateY = objectUsesFreePlacement(selectedObject)
       ? sourceFloorWorldY - sourceGroundLine * selectedObject.sy
-      : terrainAnchorBaseY(point.x, point.z, selectedObject.category, selectedObject.gameplayLayerLocked) + sourceFloorOffset - sourceGroundLine * selectedObject.sy;
+      : terrainAnchorBaseY(point.x, point.z, selectedObject.category, selectedObject.gameplayLayerLocked, selectedObject.assetName) + sourceFloorOffset - sourceGroundLine * selectedObject.sy;
     const obj = addObject(collection, selectedObject.assetName, point.x, point.z, selectedObject.sx, selectedObject.sy, {
       id, userAdded:!puzzleInstance, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy, assetState:selectedObject.assetState || inferredAssetState(selectedObject.assetName),
       y:duplicateY,
@@ -10897,7 +10941,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function pushableYAtX(obj, worldX, floorOffset = 0) {
-    const baseY = terrainAnchorBaseY(worldX, obj.z, obj.category, obj.gameplayLayerLocked);
+    const baseY = terrainAnchorBaseY(worldX, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
     return baseY + (Number(floorOffset) || 0) - objectGroundLine(obj) * obj.sy;
   }
 
@@ -11313,7 +11357,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
     const followSurfaceRotation = !extra?.force && !objectUsesFreePlacement(obj) && assetBehaviours(obj.assetName,obj.assetState).followSurfaceNormal
-      ? terrainSurfaceAngleAt(baseDrawX, obj.z, obj.category, obj.gameplayLayerLocked)
+      ? terrainSurfaceAngleAt(baseDrawX, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName)
       : 0;
     const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0) + followSurfaceRotation;
     const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
@@ -12547,7 +12591,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const depth = band.frontZ - band.backZ;
         if (depth <= 0.001) continue;
         drawObject(ground, view, {
-          x:centre, y:groundY - 0.015, z:band.frontZ, sx:width, sy:1, sz:depth,
+          x:centre, y:groundY + TERRAIN_GROUND_BAND_Y_OFFSET, z:band.frontZ, sx:width, sy:1, sz:depth,
           mesh:terrainBandMesh(sectionIndex,typeId,band.frontLayer,band.backLayer,minX,maxX),
           uvScale:[uScale, Math.max(0.1, depth / Math.max(0.001, GROUND_NEAR_Z - WORLD.farZ) * (ground.uvScale?.[1] ?? 11))],
           uvOffset:[u0,0]
