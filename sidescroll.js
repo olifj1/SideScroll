@@ -12087,7 +12087,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return topOffset <= currentOffset + capsule.stepUp + 0.025;
   }
 
-  function resolveStaticBodyPenetration(cameraX, feetWorldY) {
+  function resolveStaticBodyPenetration(cameraX, feetWorldY, groundedSupport = null) {
     const offset = character.screenOffsetX;
     const capsule = colliderWorld();
     let centreX = cameraX + offset + capsule.offsetX;
@@ -12097,6 +12097,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (let pass = 0; pass < 3; pass += 1) {
       let passChanged = false;
       for (const obj of collisionObjects()) {
+        // The swept movement resolver already tests the full shape of the
+        // support we are standing on. Do not let this post-move safety pass
+        // reinterpret the uphill side of that same sloped support as a wall
+        // and push the capsule downhill. Other colliders remain fully active.
+        if (obj === groundedSupport) continue;
         const c = obj.collision;
         if (!c) continue;
         const depth = c.depth ?? 0.8;
@@ -13723,7 +13728,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // platform, but it must never finish a frame embedded in the platform side.
     // Resolve any such overlap even when the player has released the stick.
     const resolvedFeetWorldY = playSurfaceYAt(camera.x + character.screenOffsetX) + jumpOffset;
-    if (!editMode && !climbState) camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY);
+    if (!editMode && !climbState) {
+      const groundedSupport = !jumping && standingOnObject && isSupportSurfaceObject(standingOnObject)
+        ? standingOnObject
+        : null;
+      camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY, groundedSupport);
+    }
 
     const cameraDelta = camera.x - previousCameraX;
     const isWalking = !climbState && Math.abs(cameraDelta) > 0.0001;
