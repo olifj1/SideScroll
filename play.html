@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.81">
+  <link rel="stylesheet" href="style.css?v=1.0.94">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -433,6 +433,18 @@
           <p>Invisible in play. Moves with this puzzle and fires when the player enters the cyan radius.</p>
         </div>
 
+        <div class="sidescroll-thought-editor" id="sidescroll-camera-node-editor" hidden aria-label="Camera node editor">
+          <div class="sidescroll-thought-head">
+            <span><small>WORLD NODE</small><strong>CAMERA NODE</strong></span>
+            <button id="sidescroll-camera-node-close" type="button" aria-label="Close camera node editor">×</button>
+          </div>
+          <label class="sidescroll-thought-radius-label"><span>RADIUS <b id="sidescroll-camera-node-radius-value">4.00 m</b></span><input id="sidescroll-camera-node-radius" type="range" min="0.5" max="20" step="0.1" value="4"></label>
+          <label class="sidescroll-thought-radius-label"><span>OFFSET X <b id="sidescroll-camera-node-x-value">+0.0 m</b></span><input id="sidescroll-camera-node-x" type="range" min="-8" max="8" step="0.1" value="0"></label>
+          <label class="sidescroll-thought-radius-label"><span>OFFSET Y <b id="sidescroll-camera-node-y-value">+0.0 m</b></span><input id="sidescroll-camera-node-y" type="range" min="-5" max="5" step="0.1" value="0"></label>
+          <label class="sidescroll-thought-radius-label"><span>DISTANCE Z <b id="sidescroll-camera-node-z-value">+0.0 m</b></span><input id="sidescroll-camera-node-z" type="range" min="-8" max="8" step="0.1" value="0"></label>
+          <p>X pans along the journey · Y frames higher/lower · positive Z moves the camera farther back. Normal camera follow continues underneath.</p>
+        </div>
+
         <div class="sidescroll-transform-editor" id="sidescroll-transform-editor" hidden aria-label="Asset positioning editor">
           <div class="sidescroll-transform-head">
             <span><small>POSITION</small><strong id="sidescroll-transform-mode-label">GROUND</strong></span>
@@ -472,6 +484,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.93"></script>
+  <script src="sidescroll.js?v=1.0.94"></script>
 </body>
 </html>

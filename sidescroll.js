@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.94: Camera Nodes add radius-triggered, softly-eased render-only camera offsets.
   // SideScroll v1.0.93: refresh climb-rock texture URL after art replacement; retains v1.0.91 biome sizing sync.
   // SideScroll v1.0.86: left-facing climb fix + constant-rate climb traversal/animation.
   // SideScroll v1.0.84: mountain Asset Lab registration + terrain-relative edit camera.
@@ -305,6 +306,16 @@
   const thoughtRadiusValue = document.getElementById('sidescroll-thought-radius-value');
   const thoughtOnceBtn = document.getElementById('sidescroll-thought-once');
   const thoughtEditorCloseBtn = document.getElementById('sidescroll-thought-close');
+  const cameraNodeEditorEl = document.getElementById('sidescroll-camera-node-editor');
+  const cameraNodeRadiusInput = document.getElementById('sidescroll-camera-node-radius');
+  const cameraNodeRadiusValue = document.getElementById('sidescroll-camera-node-radius-value');
+  const cameraNodeXInput = document.getElementById('sidescroll-camera-node-x');
+  const cameraNodeXValue = document.getElementById('sidescroll-camera-node-x-value');
+  const cameraNodeYInput = document.getElementById('sidescroll-camera-node-y');
+  const cameraNodeYValue = document.getElementById('sidescroll-camera-node-y-value');
+  const cameraNodeZInput = document.getElementById('sidescroll-camera-node-z');
+  const cameraNodeZValue = document.getElementById('sidescroll-camera-node-z-value');
+  const cameraNodeEditorCloseBtn = document.getElementById('sidescroll-camera-node-close');
   const collectibleNameInput = document.getElementById('sidescroll-collectible-name');
   const collectibleScaleInput = document.getElementById('sidescroll-collectible-scale');
   const collectibleScaleValueEl = document.getElementById('sidescroll-collectible-scale-value');
@@ -436,7 +447,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, cameraEditorPanel, quickNavPanel, stageMenuPanel, soundPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, thoughtEditorEl, cameraNodeEditorEl, cameraEditorPanel, quickNavPanel, stageMenuPanel, soundPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -1878,6 +1889,23 @@
     ctx.font = `900 ${Math.round(w*.22)}px -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('T',0,1);
+  }, 256, 256, false);
+
+  // Editor-only world Camera Node. It remains invisible during play and only
+  // contributes a render-space camera offset while the player is inside its
+  // authored radius. Keeping it out of gameplay transforms means it can never
+  // move the player/collision root by accident.
+  assetAspect['camera-trigger'] = 1;
+  textures['camera-trigger'] = createTexture((ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.translate(w * 0.5, h * 0.5);
+    ctx.fillStyle = 'rgba(162,145,244,.20)';
+    ctx.beginPath(); ctx.arc(0,0,w*.42,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#b8abff'; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.arc(0,0,w*.31,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#f4f0ff'; ctx.beginPath(); ctx.arc(0,0,w*.095,0,Math.PI*2); ctx.fill();
+    ctx.font = `900 ${Math.round(w*.22)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('C',0,1);
   }, 256, 256, false);
 
   // Gameplay asset: a deliberately simple, readable wooden crate.  It is
@@ -4012,7 +4040,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       cartRailElapsed: Number(opts.cartRailElapsed) || 0,
       thoughtText: typeof opts.thoughtText === 'string' ? opts.thoughtText : '',
       thoughtRadius: Rig.clamp(Number(opts.thoughtRadius) || 1.4, 0.25, 8),
-      thoughtOnce: opts.thoughtOnce !== false
+      thoughtOnce: opts.thoughtOnce !== false,
+      cameraNodeRadius: Rig.clamp(Number(opts.cameraNodeRadius) || 4.0, 0.5, 20),
+      cameraNodeOffsetX: Rig.clamp(Number(opts.cameraNodeOffsetX) || 0, -8, 8),
+      cameraNodeOffsetY: Rig.clamp(Number(opts.cameraNodeOffsetY) || 0, -5, 5),
+      cameraNodeOffsetZ: Rig.clamp(Number(opts.cameraNodeOffsetZ) || 0, -8, 8)
     };
     // Support/solid behaviour belongs to the asset, not to its editor library
     // category. This lets authored feature art such as bridge halves remain
@@ -6453,7 +6485,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
-        puzzleInstanceId:obj.puzzleInstanceId || null, puzzleObjectId:obj.puzzleObjectId || null, deleted: !!obj.deleted
+        puzzleInstanceId:obj.puzzleInstanceId || null, puzzleObjectId:obj.puzzleObjectId || null, deleted: !!obj.deleted,
+        cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
+        cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
       };
       if (saved) Object.assign(saved, payload);
       else sceneData.added.push(payload);
@@ -6524,7 +6558,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         y: restoredY, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(restoredZ),
         category: restoredCategory, gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
-        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement
+        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:saved.assetName === 'camera-trigger' ? false : true,
+        cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
+        cameraNodeOffsetY:saved.cameraNodeOffsetY, cameraNodeOffsetZ:saved.cameraNodeOffsetZ
       });
       obj.sx = restoredWidth; obj.sy = saved.sy;
       if (obj.category === 'gameplay' && obj.gameplayLayerLocked) moveObjectToCorrectCollection(obj);
@@ -7119,6 +7155,46 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     camera.targetY = camera.y + cameraBaseTilt;
   }
 
+  const cameraNodeCurrentOffset = { x:0, y:0, z:0 };
+  let activeCameraNodeId = null;
+
+  function cameraNodeTargetForPlayer() {
+    if (introLocked) return null;
+    // While authoring, selecting a Camera Node previews its framing live so the
+    // composition can be tuned without bouncing in and out of Edit mode.
+    if (editMode) return selectedIsCameraTrigger() ? selectedObject : null;
+    const playerX=Number(character.x)||0;
+    const playerZ=Number(character.z)||pathZ;
+    let best=null;
+    for(const obj of allSceneObjects()){
+      if(!obj || obj.deleted || obj.assetName!=='camera-trigger')continue;
+      const radius=Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20);
+      const dx=objectXNear(obj,playerX)-playerX;
+      const dz=(Number(obj.z)||pathZ)-playerZ;
+      const distance=Math.hypot(dx,dz);
+      if(distance>radius)continue;
+      const score=distance/Math.max(.001,radius);
+      if(!best || score<best.score)best={obj,score};
+    }
+    return best?.obj || null;
+  }
+
+  function updateCameraNodeOffset(dt) {
+    const node=cameraNodeTargetForPlayer();
+    activeCameraNodeId=node?.id || null;
+    const tx=node ? Rig.clamp(Number(node.cameraNodeOffsetX)||0,-8,8) : 0;
+    const ty=node ? Rig.clamp(Number(node.cameraNodeOffsetY)||0,-5,5) : 0;
+    const tz=node ? Rig.clamp(Number(node.cameraNodeOffsetZ)||0,-8,8) : 0;
+    const response=node ? 3.2 : 2.8;
+    const blend=1-Math.exp(-response*Math.max(0,Number(dt)||0));
+    cameraNodeCurrentOffset.x += (tx-cameraNodeCurrentOffset.x)*blend;
+    cameraNodeCurrentOffset.y += (ty-cameraNodeCurrentOffset.y)*blend;
+    cameraNodeCurrentOffset.z += (tz-cameraNodeCurrentOffset.z)*blend;
+    if(Math.abs(cameraNodeCurrentOffset.x-tx)<0.0005)cameraNodeCurrentOffset.x=tx;
+    if(Math.abs(cameraNodeCurrentOffset.y-ty)<0.0005)cameraNodeCurrentOffset.y=ty;
+    if(Math.abs(cameraNodeCurrentOffset.z-tz)<0.0005)cameraNodeCurrentOffset.z=tz;
+  }
+
   let projection = mat4Identity();
   let debugDepth = false;
   let collisionDebugView = PUZZLE_LAB_MODE && PUZZLE_LAB_COLLISION;
@@ -7445,6 +7521,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       { name:'cart-wheel-ready', label:'CART WHEEL · READY', image:'handcart-wheel.png', category:'gameplay', gameplayType:'prop', thumb:'◉', defaultHeight:1.06, gameplayLayerLocked:false,
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
       { name:'axle-pin', label:'AXLE PIN', image:'axle-pin.png', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
+    ]},
+    { scope:'environment', title: 'WORLD TOOLS', items: [
+      { name:'camera-trigger', label:'CAMERA NODE', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0 }
     ]},
     { scope:'environment', title: 'MOUNTAIN · CLIMB ROCKS', items: [
       { name:'mountain-climb-rock-01', label:'CLIMB ROCK · PROTOTYPE', image:'mountain-climb-rock-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
@@ -8577,7 +8656,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
       userAdded:!!obj.userAdded,
       collision:cloneCollision(obj.collision),
-      collisionOverride:!!obj.collisionOverride
+      collisionOverride:!!obj.collisionOverride,
+      cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
+      cameraNodeOffsetX:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetX)||0) : null,
+      cameraNodeOffsetY:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetY)||0) : null,
+      cameraNodeOffsetZ:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetZ)||0) : null
     };
   }
 
@@ -9064,6 +9147,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updatePuzzleObjectList();
   }
 
+  function selectedIsCameraTrigger(){ return !!selectedObject && !selectedObject.deleted && selectedObject.assetName === 'camera-trigger'; }
+
+  function syncCameraNodeEditor(){
+    const active=!!(editMode && selectedIsCameraTrigger());
+    if(cameraNodeEditorEl) cameraNodeEditorEl.hidden=!active;
+    if(!active)return;
+    const radius=Rig.clamp(Number(selectedObject.cameraNodeRadius)||4,.5,20);
+    const ox=Rig.clamp(Number(selectedObject.cameraNodeOffsetX)||0,-8,8);
+    const oy=Rig.clamp(Number(selectedObject.cameraNodeOffsetY)||0,-5,5);
+    const oz=Rig.clamp(Number(selectedObject.cameraNodeOffsetZ)||0,-8,8);
+    if(cameraNodeRadiusInput && document.activeElement!==cameraNodeRadiusInput) cameraNodeRadiusInput.value=String(radius);
+    if(cameraNodeXInput && document.activeElement!==cameraNodeXInput) cameraNodeXInput.value=String(ox);
+    if(cameraNodeYInput && document.activeElement!==cameraNodeYInput) cameraNodeYInput.value=String(oy);
+    if(cameraNodeZInput && document.activeElement!==cameraNodeZInput) cameraNodeZInput.value=String(oz);
+    if(cameraNodeRadiusValue) cameraNodeRadiusValue.textContent=`${radius.toFixed(2)} m`;
+    if(cameraNodeXValue) cameraNodeXValue.textContent=`${ox>=0?'+':''}${ox.toFixed(1)} m`;
+    if(cameraNodeYValue) cameraNodeYValue.textContent=`${oy>=0?'+':''}${oy.toFixed(1)} m`;
+    if(cameraNodeZValue) cameraNodeZValue.textContent=`${oz>=0?'+':''}${oz.toFixed(1)} m`;
+  }
+
   function updateEditorButtons() {
     const has = !!selectedObject && !selectedObject.deleted;
     if (!has && groundLineEditMode) groundLineEditMode = false;
@@ -9132,6 +9235,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     syncGroundLineEditor();
     syncTransformEditor();
     syncThoughtEditor();
+    syncCameraNodeEditor();
   }
 
   function selectObject(obj, preserveCycle = false, options = {}) {
@@ -9628,8 +9732,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       shade:1, opacity:.99, layer:classifyLayer(placementZ),
       category:info.category || 'dressing', gameplayType:info.gameplayType || null,
       collision:gameplayCollision, gameplayLayerLocked:defaultGameLayerLocked, freePlacement,
-      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
-      thoughtText: info.defaultThoughtText || '', thoughtRadius: info.defaultThoughtRadius || 1.4, thoughtOnce: info.defaultThoughtOnce !== false
+      wrap:puzzleInstance ? false : (info.wrap !== false), puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
+      thoughtText: info.defaultThoughtText || '', thoughtRadius: info.defaultThoughtRadius || 1.4, thoughtOnce: info.defaultThoughtOnce !== false,
+      cameraNodeRadius: info.defaultCameraRadius || 4.0, cameraNodeOffsetX: info.defaultCameraOffsetX || 0,
+      cameraNodeOffsetY: info.defaultCameraOffsetY || 0, cameraNodeOffsetZ: info.defaultCameraOffsetZ || 0
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
@@ -9661,9 +9767,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       flip:selectedObject.flip, layer:classifyLayer(point.z), collision:selectedObject.collision ? cloneCollision(selectedObject.collision) : null,
       category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked:!!selectedObject.gameplayLayerLocked,
       freePlacement:objectUsesFreePlacement(selectedObject),
-      wrap:!puzzleInstance, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
+      wrap:puzzleInstance ? false : selectedObject.wrap !== false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null,
-      thoughtText:selectedObject.thoughtText || '', thoughtRadius:selectedObject.thoughtRadius || 1.4, thoughtOnce:selectedObject.thoughtOnce !== false
+      thoughtText:selectedObject.thoughtText || '', thoughtRadius:selectedObject.thoughtRadius || 1.4, thoughtOnce:selectedObject.thoughtOnce !== false,
+      cameraNodeRadius:selectedObject.cameraNodeRadius || 4.0, cameraNodeOffsetX:Number(selectedObject.cameraNodeOffsetX)||0,
+      cameraNodeOffsetY:Number(selectedObject.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(selectedObject.cameraNodeOffsetZ)||0
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
@@ -10702,6 +10810,28 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         ctx.fillStyle='#dffff9';ctx.fillText(label,centre.x-tw*.5+6,centre.y-r-10);
         ctx.restore();
       }
+    }
+
+    // Camera Nodes are world-level authoring controls. They are invisible in
+    // play, but the editor shows the trigger radius and the authored offsets.
+    for(const obj of allSceneObjects()){
+      if(!obj || obj.deleted || obj.assetName!=='camera-trigger')continue;
+      const floor=objectFloorWorldY(obj);
+      const centre=projectWorldPoint(objectXNear(obj,camera.x),floor+0.10,obj.z);
+      const edge=projectWorldPoint(objectXNear(obj,camera.x)+(Number(obj.cameraNodeRadius)||4),floor+0.10,obj.z);
+      if(!centre||!edge)continue;
+      const r=Math.max(14,Math.abs(edge.x-centre.x));
+      ctx.save();
+      ctx.strokeStyle=obj===selectedObject?'rgba(184,171,255,.98)':'rgba(184,171,255,.52)';
+      ctx.fillStyle=obj===selectedObject?'rgba(142,121,244,.10)':'rgba(142,121,244,.05)';
+      ctx.lineWidth=obj===selectedObject?2.5:1.5;ctx.setLineDash([7,5]);
+      ctx.beginPath();ctx.arc(centre.x,centre.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+      const ox=Number(obj.cameraNodeOffsetX)||0,oy=Number(obj.cameraNodeOffsetY)||0,oz=Number(obj.cameraNodeOffsetZ)||0;
+      const label=`CAM · X ${ox>=0?'+':''}${ox.toFixed(1)} · Y ${oy>=0?'+':''}${oy.toFixed(1)} · Z ${oz>=0?'+':''}${oz.toFixed(1)}`;
+      ctx.font='800 10px -apple-system, BlinkMacSystemFont, sans-serif';
+      const tw=ctx.measureText(label).width+12; ctx.fillStyle='rgba(36,29,67,.90)';
+      ctx.fillRect(centre.x-tw*.5,centre.y-r-23,tw,18); ctx.fillStyle='#f2edff';
+      ctx.fillText(label,centre.x-tw*.5+6,centre.y-r-10); ctx.restore();
     }
 
     // Show authored gameplay collision even when the object itself is partly
@@ -11813,7 +11943,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
-    if (!extra?.force && obj.assetName === 'thought-trigger' && (!editMode || puzzleTestMode)) return;
+    if (!extra?.force && (obj.assetName === 'thought-trigger' || obj.assetName === 'camera-trigger') && (!editMode || puzzleTestMode)) return;
     const baseDrawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
     if (!extra?.force && !proceduralBiomeVisibleAt(obj, baseDrawX)) return;
     const visual = !extra?.force ? assetVisualTransform(obj.assetName,obj.assetState) : { offsetX:0, offsetY:0, rotationDeg:0 };
@@ -13324,6 +13454,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     checkPuzzleRespawnVolumes();
     updateTerrainSectionUi(false);
     updateCameraFollow(dt);
+    updateCameraNodeOffset(dt);
     if (cameraEditMode) updateCameraEditorUi();
     savePlayerPosition(false);
     updatePuzzleStreaming(character.x);
@@ -13343,8 +13474,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     gl.clearColor(fogColor[0], fogColor[1], fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    const eye = [camera.x, camera.y, camera.z];
-    const target = [camera.x, camera.targetY, camera.targetZ];
+    const viewCameraX = camera.x + cameraNodeCurrentOffset.x;
+    const viewCameraY = camera.y + cameraNodeCurrentOffset.y;
+    const eye = [viewCameraX, viewCameraY, camera.z + cameraNodeCurrentOffset.z];
+    // X/Y offsets pan the framing while preserving the normal camera tilt. Z
+    // moves only the eye, acting as a local distance/zoom adjustment.
+    const target = [viewCameraX, camera.targetY + cameraNodeCurrentOffset.y, camera.targetZ];
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
@@ -13840,6 +13975,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectedObject.thoughtOnce=selectedObject.thoughtOnce===false;
     recordObjectEdit(selectedObject);syncThoughtEditor();
   });
+  bindEditorPress(cameraNodeEditorCloseBtn,()=>selectObject(null));
+  const bindCameraNodeRange=(input,valueEl,key,min,max,decimals=1)=>{
+    if(!input)return;
+    input.addEventListener('pointerdown',e=>e.stopPropagation(),{passive:true});
+    input.addEventListener('input',()=>{
+      if(!selectedIsCameraTrigger())return;
+      const value=Rig.clamp(Number(input.value)||0,min,max); selectedObject[key]=value;
+      if(valueEl)valueEl.textContent=key==='cameraNodeRadius'?`${value.toFixed(2)} m`:`${value>=0?'+':''}${value.toFixed(decimals)} m`;
+    });
+    input.addEventListener('change',()=>{if(selectedIsCameraTrigger())recordObjectEdit(selectedObject);});
+  };
+  bindCameraNodeRange(cameraNodeRadiusInput,cameraNodeRadiusValue,'cameraNodeRadius',.5,20,2);
+  bindCameraNodeRange(cameraNodeXInput,cameraNodeXValue,'cameraNodeOffsetX',-8,8,1);
+  bindCameraNodeRange(cameraNodeYInput,cameraNodeYValue,'cameraNodeOffsetY',-5,5,1);
+  bindCameraNodeRange(cameraNodeZInput,cameraNodeZValue,'cameraNodeOffsetZ',-8,8,1);
   bindEditorPress(collectibleSetupBackBtn, showAssetBrowser);
   if (collectibleNameInput) {
     const commitCollectibleName = () => {

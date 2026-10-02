@@ -13502,3 +13502,6 @@ body[data-game-id="game-16"] .sidescroll-section-depth-row input[type="range"]{g
 body[data-game-id="game-16"] .sidescroll-section-depth-row small{grid-column:1/-1;font-size:7px;color:#93aaa6;line-height:1.25;font-variant-numeric:tabular-nums}
 
 /* SideScroll v1.0.81 — live depth-layer sliders. */
+
+/* SideScroll v1.0.94 — Camera Node editor close control. */
+body[data-game-id="game-16"] #sidescroll-camera-node-close{width:30px;height:30px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.06);color:#eef8f6;font-size:18px;}
