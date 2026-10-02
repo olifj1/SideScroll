@@ -315,6 +315,10 @@
   const cameraNodeYValue = document.getElementById('sidescroll-camera-node-y-value');
   const cameraNodeZInput = document.getElementById('sidescroll-camera-node-z');
   const cameraNodeZValue = document.getElementById('sidescroll-camera-node-z-value');
+  const cameraNodeEaseInInput = document.getElementById('sidescroll-camera-node-ease-in');
+  const cameraNodeEaseInValue = document.getElementById('sidescroll-camera-node-ease-in-value');
+  const cameraNodeEaseOutInput = document.getElementById('sidescroll-camera-node-ease-out');
+  const cameraNodeEaseOutValue = document.getElementById('sidescroll-camera-node-ease-out-value');
   const cameraNodeEditorCloseBtn = document.getElementById('sidescroll-camera-node-close');
   const collectibleNameInput = document.getElementById('sidescroll-collectible-name');
   const collectibleScaleInput = document.getElementById('sidescroll-collectible-scale');
@@ -4048,7 +4052,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       cameraNodeRadius: Rig.clamp(Number(opts.cameraNodeRadius) || 4.0, 0.5, 20),
       cameraNodeOffsetX: Rig.clamp(Number(opts.cameraNodeOffsetX) || 0, -8, 8),
       cameraNodeOffsetY: Rig.clamp(Number(opts.cameraNodeOffsetY) || 0, -5, 5),
-      cameraNodeOffsetZ: Rig.clamp(Number(opts.cameraNodeOffsetZ) || 0, -8, 8)
+      cameraNodeOffsetZ: Rig.clamp(Number(opts.cameraNodeOffsetZ) || 0, -8, 8),
+      cameraNodeEaseIn: Rig.clamp(Number(opts.cameraNodeEaseIn) || 2.0, 0.2, 8),
+      cameraNodeEaseOut: Rig.clamp(Number(opts.cameraNodeEaseOut) || 2.0, 0.2, 8)
     };
     // Support/solid behaviour belongs to the asset, not to its editor library
     // category. This lets authored feature art such as bridge halves remain
@@ -5558,7 +5564,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         thoughtRadius: Rig.clamp(Number(prop.thoughtRadius) || 1.4, 0.25, 8),
         thoughtOnce: prop.thoughtOnce !== false,
         cameraNodeRadius:Rig.clamp(Number(prop.cameraNodeRadius)||4,.5,20),
-        cameraNodeOffsetX:Number(prop.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(prop.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(prop.cameraNodeOffsetZ)||0
+        cameraNodeOffsetX:Number(prop.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(prop.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(prop.cameraNodeOffsetZ)||0,
+        cameraNodeEaseIn:Rig.clamp(Number(prop.cameraNodeEaseIn)||2,.2,8), cameraNodeEaseOut:Rig.clamp(Number(prop.cameraNodeEaseOut)||2,.2,8)
       };
     }
     return {
@@ -5806,7 +5813,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
         thoughtOnce:obj.thoughtOnce !== false,
         cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
-        cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
+        cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
+        cameraNodeEaseIn:Rig.clamp(Number(obj.cameraNodeEaseIn)||2,.2,8), cameraNodeEaseOut:Rig.clamp(Number(obj.cameraNodeEaseOut)||2,.2,8)
       };
     }
     const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
@@ -5867,6 +5875,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           cameraNodeOffsetX:state.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? 0,
           cameraNodeOffsetY:state.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? 0,
           cameraNodeOffsetZ:state.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? 0,
+          cameraNodeEaseIn:state.cameraNodeEaseIn ?? prop?.cameraNodeEaseIn ?? 2.0,
+          cameraNodeEaseOut:state.cameraNodeEaseOut ?? prop?.cameraNodeEaseOut ?? 2.0,
           puzzleInstanceId:instance.id,
           puzzleObjectId:objectId
         });
@@ -5923,6 +5933,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.cameraNodeOffsetX = Number(state.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? obj.cameraNodeOffsetX) || 0;
       obj.cameraNodeOffsetY = Number(state.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? obj.cameraNodeOffsetY) || 0;
       obj.cameraNodeOffsetZ = Number(state.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? obj.cameraNodeOffsetZ) || 0;
+      obj.cameraNodeEaseIn = Rig.clamp(Number(state.cameraNodeEaseIn ?? prop?.cameraNodeEaseIn ?? obj.cameraNodeEaseIn) || 2,.2,8);
+      obj.cameraNodeEaseOut = Rig.clamp(Number(state.cameraNodeEaseOut ?? prop?.cameraNodeEaseOut ?? obj.cameraNodeEaseOut) || 2,.2,8);
       obj.runtimeRotation = Number(state.runtimeRotation) || 0;
       obj.cartRailAnimating = false;
       obj.cartRailLocked = !!state.cartRailLocked;
@@ -5962,7 +5974,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0,
       thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
       cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
-      cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
+      cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
+      cameraNodeEaseIn:Rig.clamp(Number(obj.cameraNodeEaseIn)||2,.2,8), cameraNodeEaseOut:Rig.clamp(Number(obj.cameraNodeEaseOut)||2,.2,8)
       };
     }
     if (persistRuntime) savePuzzleState();
@@ -6009,7 +6022,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0,
       thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
       cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
-      cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
+      cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
+      cameraNodeEaseIn:Rig.clamp(Number(obj.cameraNodeEaseIn)||2,.2,8), cameraNodeEaseOut:Rig.clamp(Number(obj.cameraNodeEaseOut)||2,.2,8)
     };
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
     savePuzzleState();
@@ -6150,6 +6164,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         cameraNodeOffsetX:prior?.cameraNodeOffsetX ?? startState?.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? 0,
         cameraNodeOffsetY:prior?.cameraNodeOffsetY ?? startState?.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? 0,
         cameraNodeOffsetZ:prior?.cameraNodeOffsetZ ?? startState?.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? 0,
+        cameraNodeEaseIn:prior?.cameraNodeEaseIn ?? startState?.cameraNodeEaseIn ?? prop?.cameraNodeEaseIn ?? 2.0,
+        cameraNodeEaseOut:prior?.cameraNodeEaseOut ?? startState?.cameraNodeEaseOut ?? prop?.cameraNodeEaseOut ?? 2.0,
         puzzleInstanceId:marker.id,
         puzzleObjectId:objectId
       });
@@ -6513,7 +6529,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         puzzleInstanceId:obj.puzzleInstanceId || null, puzzleObjectId:obj.puzzleObjectId || null, deleted: !!obj.deleted,
         thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
         cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
-        cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
+        cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
+        cameraNodeEaseIn:Rig.clamp(Number(obj.cameraNodeEaseIn)||2,.2,8), cameraNodeEaseOut:Rig.clamp(Number(obj.cameraNodeEaseOut)||2,.2,8)
       };
       if (saved) Object.assign(saved, payload);
       else sceneData.added.push(payload);
@@ -6591,7 +6608,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:(saved.assetName === 'camera-trigger' || saved.assetName === 'thought-trigger') ? false : true,
         thoughtText:saved.thoughtText || '', thoughtRadius:saved.thoughtRadius, thoughtOnce:saved.thoughtOnce !== false,
         cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
-        cameraNodeOffsetY:saved.cameraNodeOffsetY, cameraNodeOffsetZ:saved.cameraNodeOffsetZ
+        cameraNodeOffsetY:saved.cameraNodeOffsetY, cameraNodeOffsetZ:saved.cameraNodeOffsetZ,
+        cameraNodeEaseIn:saved.cameraNodeEaseIn, cameraNodeEaseOut:saved.cameraNodeEaseOut
       });
       obj.sx = restoredWidth; obj.sy = saved.sy;
       if (obj.category === 'gameplay' && obj.gameplayLayerLocked) moveObjectToCorrectCollection(obj);
@@ -7191,6 +7209,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   const cameraNodeCurrentOffset = { x:0, y:0, z:0 };
   let activeCameraNodeId = null;
+  let cameraNodeLastEaseOut = 2.0;
 
   function cameraNodeTargetForPlayer() {
     if (introLocked) return null;
@@ -7219,7 +7238,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const tx=node ? Rig.clamp(Number(node.cameraNodeOffsetX)||0,-8,8) : 0;
     const ty=node ? Rig.clamp(Number(node.cameraNodeOffsetY)||0,-5,5) : 0;
     const tz=node ? Rig.clamp(Number(node.cameraNodeOffsetZ)||0,-8,8) : 0;
-    const response=node ? 3.2 : 2.8;
+    if(node) cameraNodeLastEaseOut=Rig.clamp(Number(node.cameraNodeEaseOut)||2,.2,8);
+    // Ease values are authored as an intuitive settle duration: after roughly
+    // this many seconds the camera is ~95% of the way to its target. Keeping
+    // this as an exponential response preserves the existing soft camera feel
+    // while making large authored offsets controllably gentle.
+    const easeSeconds=node
+      ? Rig.clamp(Number(node.cameraNodeEaseIn)||2,.2,8)
+      : Rig.clamp(Number(cameraNodeLastEaseOut)||2,.2,8);
+    const response=3/Math.max(.001,easeSeconds);
     const blend=1-Math.exp(-response*Math.max(0,Number(dt)||0));
     cameraNodeCurrentOffset.x += (tx-cameraNodeCurrentOffset.x)*blend;
     cameraNodeCurrentOffset.y += (ty-cameraNodeCurrentOffset.y)*blend;
@@ -7555,7 +7582,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ]},
     { scope:'both', title: 'WORLD OBJECTS', selectionKey:'world-objects', selectionLabel:'World Objects', items: [
       { name:'thought-trigger', label:'THOUGHT NODE', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true, wrap:false },
-      { name:'camera-trigger', label:'CAMERA NODE', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0 }
+      { name:'camera-trigger', label:'CAMERA NODE', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0, defaultCameraEaseIn:2.0, defaultCameraEaseOut:2.0 }
     ]},
     { scope:'environment', title: 'MOUNTAIN · CLIMB ROCKS', selectionKey:'climb-rocks', selectionLabel:'Climb Rocks', items: [
       { name:'mountain-climb-rock-01', label:'CLIMB ROCK · PROTOTYPE', image:'mountain-climb-rock-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
@@ -8723,7 +8750,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
         thoughtOnce:obj.thoughtOnce !== false,
         cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
-        cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
+        cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
+        cameraNodeEaseIn:Rig.clamp(Number(obj.cameraNodeEaseIn)||2,.2,8), cameraNodeEaseOut:Rig.clamp(Number(obj.cameraNodeEaseOut)||2,.2,8)
       };
     }
     return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
@@ -8753,6 +8781,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       cameraNodeOffsetX:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetX)||0 : null,
       cameraNodeOffsetY:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetY)||0 : null,
       cameraNodeOffsetZ:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetZ)||0 : null,
+      cameraNodeEaseIn:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeEaseIn)||2,.2,8) : null,
+      cameraNodeEaseOut:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeEaseOut)||2,.2,8) : null,
       sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
       socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     }));
@@ -8838,7 +8868,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
       cameraNodeOffsetX:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetX)||0) : null,
       cameraNodeOffsetY:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetY)||0) : null,
-      cameraNodeOffsetZ:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetZ)||0) : null
+      cameraNodeOffsetZ:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetZ)||0) : null,
+      cameraNodeEaseIn:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeEaseIn)||2,.2,8) : null,
+      cameraNodeEaseOut:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeEaseOut)||2,.2,8) : null
     };
   }
 
@@ -9336,14 +9368,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const ox=Rig.clamp(Number(selectedObject.cameraNodeOffsetX)||0,-8,8);
     const oy=Rig.clamp(Number(selectedObject.cameraNodeOffsetY)||0,-5,5);
     const oz=Rig.clamp(Number(selectedObject.cameraNodeOffsetZ)||0,-8,8);
+    const easeIn=Rig.clamp(Number(selectedObject.cameraNodeEaseIn)||2,.2,8);
+    const easeOut=Rig.clamp(Number(selectedObject.cameraNodeEaseOut)||2,.2,8);
     if(cameraNodeRadiusInput && document.activeElement!==cameraNodeRadiusInput) cameraNodeRadiusInput.value=String(radius);
     if(cameraNodeXInput && document.activeElement!==cameraNodeXInput) cameraNodeXInput.value=String(ox);
     if(cameraNodeYInput && document.activeElement!==cameraNodeYInput) cameraNodeYInput.value=String(oy);
     if(cameraNodeZInput && document.activeElement!==cameraNodeZInput) cameraNodeZInput.value=String(oz);
+    if(cameraNodeEaseInInput && document.activeElement!==cameraNodeEaseInInput) cameraNodeEaseInInput.value=String(easeIn);
+    if(cameraNodeEaseOutInput && document.activeElement!==cameraNodeEaseOutInput) cameraNodeEaseOutInput.value=String(easeOut);
     if(cameraNodeRadiusValue) cameraNodeRadiusValue.textContent=`${radius.toFixed(2)} m`;
     if(cameraNodeXValue) cameraNodeXValue.textContent=`${ox>=0?'+':''}${ox.toFixed(1)} m`;
     if(cameraNodeYValue) cameraNodeYValue.textContent=`${oy>=0?'+':''}${oy.toFixed(1)} m`;
     if(cameraNodeZValue) cameraNodeZValue.textContent=`${oz>=0?'+':''}${oz.toFixed(1)} m`;
+    if(cameraNodeEaseInValue) cameraNodeEaseInValue.textContent=`${easeIn.toFixed(1)} s`;
+    if(cameraNodeEaseOutValue) cameraNodeEaseOutValue.textContent=`${easeOut.toFixed(1)} s`;
   }
 
   function updateEditorButtons() {
@@ -9415,6 +9453,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     syncTransformEditor();
     syncThoughtEditor();
     syncCameraNodeEditor();
+    syncFocusedObjectEditorWorkspace();
+  }
+
+  // Thought / Camera nodes are drill-in editors. Keep only one authoring panel
+  // on screen at a time on phone-sized landscape views: when one of these
+  // focused editors is active, the main Environment/Puzzle panel is hidden by
+  // CSS and the focused editor occupies the same left-hand workspace. Closing
+  // the focused editor clears the selection and the parent panel returns.
+  function syncFocusedObjectEditorWorkspace(){
+    const focused = !!(editMode && (selectedIsThoughtTrigger() || selectedIsCameraTrigger()));
+    document.body.classList.toggle('sidescroll-focused-object-editor', focused);
+    if(thoughtEditorEl) thoughtEditorEl.classList.toggle('sidescroll-workspace-replacement', focused && selectedIsThoughtTrigger());
+    if(cameraNodeEditorEl) cameraNodeEditorEl.classList.toggle('sidescroll-workspace-replacement', focused && selectedIsCameraTrigger());
   }
 
   function selectObject(obj, preserveCycle = false, options = {}) {
@@ -9916,7 +9967,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       wrap:puzzleInstance ? false : (info.wrap !== false), puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       thoughtText: info.defaultThoughtText || '', thoughtRadius: info.defaultThoughtRadius || 1.4, thoughtOnce: info.defaultThoughtOnce !== false,
       cameraNodeRadius: info.defaultCameraRadius || 4.0, cameraNodeOffsetX: info.defaultCameraOffsetX || 0,
-      cameraNodeOffsetY: info.defaultCameraOffsetY || 0, cameraNodeOffsetZ: info.defaultCameraOffsetZ || 0
+      cameraNodeOffsetY: info.defaultCameraOffsetY || 0, cameraNodeOffsetZ: info.defaultCameraOffsetZ || 0,
+      cameraNodeEaseIn: info.defaultCameraEaseIn || 2.0, cameraNodeEaseOut: info.defaultCameraEaseOut || 2.0
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
@@ -9952,7 +10004,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null,
       thoughtText:selectedObject.thoughtText || '', thoughtRadius:selectedObject.thoughtRadius || 1.4, thoughtOnce:selectedObject.thoughtOnce !== false,
       cameraNodeRadius:selectedObject.cameraNodeRadius || 4.0, cameraNodeOffsetX:Number(selectedObject.cameraNodeOffsetX)||0,
-      cameraNodeOffsetY:Number(selectedObject.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(selectedObject.cameraNodeOffsetZ)||0
+      cameraNodeOffsetY:Number(selectedObject.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(selectedObject.cameraNodeOffsetZ)||0,
+      cameraNodeEaseIn:Rig.clamp(Number(selectedObject.cameraNodeEaseIn)||2,.2,8), cameraNodeEaseOut:Rig.clamp(Number(selectedObject.cameraNodeEaseOut)||2,.2,8)
     });
     if (puzzleInstance) puzzleInstance.objects.push(obj);
     if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, obj.x, obj.z);
@@ -14161,7 +14214,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     input.addEventListener('input',()=>{
       if(!selectedIsCameraTrigger())return;
       const value=Rig.clamp(Number(input.value)||0,min,max); selectedObject[key]=value;
-      if(valueEl)valueEl.textContent=key==='cameraNodeRadius'?`${value.toFixed(2)} m`:`${value>=0?'+':''}${value.toFixed(decimals)} m`;
+      if(valueEl){
+        if(key==='cameraNodeRadius') valueEl.textContent=`${value.toFixed(2)} m`;
+        else if(key==='cameraNodeEaseIn' || key==='cameraNodeEaseOut') valueEl.textContent=`${value.toFixed(1)} s`;
+        else valueEl.textContent=`${value>=0?'+':''}${value.toFixed(decimals)} m`;
+      }
     });
     input.addEventListener('change',()=>{if(selectedIsCameraTrigger())recordObjectEdit(selectedObject);});
   };
@@ -14169,6 +14226,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindCameraNodeRange(cameraNodeXInput,cameraNodeXValue,'cameraNodeOffsetX',-8,8,1);
   bindCameraNodeRange(cameraNodeYInput,cameraNodeYValue,'cameraNodeOffsetY',-5,5,1);
   bindCameraNodeRange(cameraNodeZInput,cameraNodeZValue,'cameraNodeOffsetZ',-8,8,1);
+  bindCameraNodeRange(cameraNodeEaseInInput,cameraNodeEaseInValue,'cameraNodeEaseIn',.2,8,1);
+  bindCameraNodeRange(cameraNodeEaseOutInput,cameraNodeEaseOutValue,'cameraNodeEaseOut',.2,8,1);
   bindEditorPress(collectibleSetupBackBtn, showAssetBrowser);
   if (collectibleNameInput) {
     const commitCollectibleName = () => {

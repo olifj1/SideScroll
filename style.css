@@ -13541,3 +13541,33 @@ body[data-game-id="game-16"] .sidescroll-environment-scene-row.active{
   body[data-game-id="game-16"] .sidescroll-environment-scene-list{max-height:112px;}
   body[data-game-id="game-16"] .sidescroll-environment-filter-chip{min-height:27px;font-size:8px;padding:0 8px;}
 }
+
+
+/* SideScroll v1.0.96 — focused World Object editors replace the main authoring panel. */
+body[data-game-id="game-16"].sidescroll-focused-object-editor .sidescroll-puzzle-panel{
+  display:none!important;
+}
+body[data-game-id="game-16"] .sidescroll-thought-editor.sidescroll-workspace-replacement{
+  position:fixed!important;
+  z-index:1007!important;
+  left:max(12px,env(safe-area-inset-left))!important;
+  right:auto!important;
+  top:max(88px,calc(env(safe-area-inset-top) + 78px))!important;
+  width:clamp(330px,34vw,510px)!important;
+  max-height:calc(100vh - max(100px,calc(env(safe-area-inset-top) + 90px)))!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  box-sizing:border-box!important;
+  -webkit-overflow-scrolling:touch;
+}
+@media(max-width:900px){
+  body[data-game-id="game-16"] .sidescroll-thought-editor.sidescroll-workspace-replacement{
+    width:46vw!important;
+  }
+}
+@media(max-height:390px){
+  body[data-game-id="game-16"] .sidescroll-thought-editor.sidescroll-workspace-replacement{
+    top:max(52px,calc(env(safe-area-inset-top) + 48px))!important;
+    max-height:calc(100vh - 62px)!important;
+  }
+}

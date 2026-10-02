@@ -1,25 +1,18 @@
-# SideScroll Patch v1.0.95
+# SideScroll Patch v1.0.96
 
-Changed-files-only patch over **v1.0.94**.
+Changed-files-only patch over **v1.0.95**. This revised build supersedes the earlier v1.0.96 drop.
 
-## Scene selection pass
-- Repeated taps on the same screen point now cycle exhaustively through the full selectable depth stack rather than getting trapped between the front-most objects.
-- Environment edit mode has a **Select Filter**: All, World Objects, Climb Rocks, Rock Dressing, Grass, Trees and Ground.
-- The tap filter removes non-matching asset categories before hit testing, making dense scenes much easier to target.
-- Invisible World Objects use a larger editor hit target and now show a centre marker.
+## Focused object editor workspace
 
-## Placed World Assets
-- Environment edit mode now includes a grouped **Placed World Assets** list for manually placed world-owned assets.
-- Rows are grouped by the same high-level environment categories used by selection filtering.
-- Tapping a row selects that object and focuses the editor horizontally on it.
-- Procedural biome dressing is intentionally excluded from this list so it remains manageable.
+- Camera Node settings replace the main Environment/Puzzle panel instead of opening as a second floating panel.
+- Thought Node settings use the same drill-in behaviour for consistency.
+- Closing the focused node editor restores the previous Environment/Puzzle authoring panel.
 
-## Shared World Objects
-- Thought Node and Camera Node now live in one **World Objects** asset category.
-- Both are available from Environment and Puzzle authoring.
-- Environment placements belong to the world; Puzzle placements belong to the selected puzzle and move/save/reset with it.
-- Puzzle-owned Camera Node radius/offset values are now included in puzzle runtime/start/template persistence.
-- World-owned Thought Node text/radius/once settings are now included in scene persistence and runtime triggering.
+## Camera Node easing
 
-## Deferred
-- Environment object Groups are not included in this patch; the new scene-list/category structure is intended to support that next.
+- Added per-node **Ease In** and **Ease Out** sliders.
+- Range: 0.2–8.0 seconds; existing nodes default to 2.0 s in / 2.0 s out.
+- Ease In controls how gently the node takes over the camera after entering its radius.
+- Ease Out controls how gently the camera returns to normal after leaving the radius.
+- Values are saved for both world-owned and puzzle-owned Camera Nodes and survive duplicate/save/reset workflows.
+- Camera Node movement remains an additive render-only offset, so player position, collision, normal follow, streaming and saves are unaffected.

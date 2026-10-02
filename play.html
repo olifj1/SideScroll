@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.95">
+  <link rel="stylesheet" href="style.css?v=1.0.96">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -455,7 +455,9 @@
           <label class="sidescroll-thought-radius-label"><span>OFFSET X <b id="sidescroll-camera-node-x-value">+0.0 m</b></span><input id="sidescroll-camera-node-x" type="range" min="-8" max="8" step="0.1" value="0"></label>
           <label class="sidescroll-thought-radius-label"><span>OFFSET Y <b id="sidescroll-camera-node-y-value">+0.0 m</b></span><input id="sidescroll-camera-node-y" type="range" min="-5" max="5" step="0.1" value="0"></label>
           <label class="sidescroll-thought-radius-label"><span>DISTANCE Z <b id="sidescroll-camera-node-z-value">+0.0 m</b></span><input id="sidescroll-camera-node-z" type="range" min="-8" max="8" step="0.1" value="0"></label>
-          <p>X pans along the journey · Y frames higher/lower · positive Z moves the camera farther back. Normal camera follow continues underneath.</p>
+          <label class="sidescroll-thought-radius-label"><span>EASE IN <b id="sidescroll-camera-node-ease-in-value">2.0 s</b></span><input id="sidescroll-camera-node-ease-in" type="range" min="0.2" max="8" step="0.1" value="2"></label>
+          <label class="sidescroll-thought-radius-label"><span>EASE OUT <b id="sidescroll-camera-node-ease-out-value">2.0 s</b></span><input id="sidescroll-camera-node-ease-out" type="range" min="0.2" max="8" step="0.1" value="2"></label>
+          <p>X pans along the journey · Y frames higher/lower · positive Z moves the camera farther back. Ease In/Out control how gently the node takes and releases the camera. Normal camera follow continues underneath.</p>
         </div>
 
         <div class="sidescroll-transform-editor" id="sidescroll-transform-editor" hidden aria-label="Asset positioning editor">
@@ -497,6 +499,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.95"></script>
+  <script src="sidescroll.js?v=1.0.96"></script>
 </body>
 </html>
