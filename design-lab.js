@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.62';
-  const STORAGE_KEY = 'sidescroll-design-doc-working-v1';
+  const VERSION = '1.0.99';
+  const STORAGE_KEY = 'sidescroll-design-doc-working-v2';
+  const LEGACY_STORAGE_KEY = 'sidescroll-design-doc-working-v1';
   const BUNDLED_URL = `design-doc.json?v=${VERSION}`;
   const VALID_STATUSES = ['CURRENT', 'LOCKED', 'PROPOSED', 'OPEN', 'RETIRED'];
   const VALID_IMPLEMENTATION = ['CURRENT', 'PARTIAL', 'NEEDED', 'N/A'];
@@ -569,7 +570,9 @@
         else if (els.saveState) els.saveState.textContent = 'Working document loaded';
       } else {
         doc = clone(bundledDoc);
-        saveNow('Bundled document ready');
+        let legacy = null;
+        try { legacy = localStorage.getItem(LEGACY_STORAGE_KEY); } catch (_) {}
+        saveNow(legacy ? 'New GDD layout ready · previous local document preserved' : 'Bundled document ready');
       }
       render();
       if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
