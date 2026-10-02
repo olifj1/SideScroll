@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.94: Camera Nodes add radius-triggered, softly-eased render-only camera offsets.
+  // SideScroll v1.0.95: editor selection filters + placed-world list + exhaustive tap cycling + shared World Objects.
   // SideScroll v1.0.93: refresh climb-rock texture URL after art replacement; retains v1.0.91 biome sizing sync.
   // SideScroll v1.0.86: left-facing climb fix + constant-rate climb traversal/animation.
   // SideScroll v1.0.84: mountain Asset Lab registration + terrain-relative edit camera.
@@ -342,6 +342,10 @@
   const puzzleSceneEmptyEl = document.getElementById('sidescroll-scene-puzzle-empty');
   const puzzleSelectionEl = document.getElementById('sidescroll-puzzle-selection');
   const environmentSelectionEl = document.getElementById('sidescroll-environment-selection');
+  const environmentFilterRowEl = document.getElementById('sidescroll-environment-filter-row');
+  const environmentSceneListEl = document.getElementById('sidescroll-environment-scene-list');
+  const environmentSceneEmptyEl = document.getElementById('sidescroll-environment-scene-empty');
+  const environmentSceneCountEl = document.getElementById('sidescroll-environment-scene-count');
   const puzzleStageSection = document.getElementById('sidescroll-puzzle-stage-section');
   const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
   const puzzleEditBtn = document.getElementById('sidescroll-puzzle-edit');
@@ -5552,7 +5556,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         socketedTo: prop.socketedTo ? { ...prop.socketedTo } : null,
         thoughtText: typeof prop.thoughtText === 'string' ? prop.thoughtText : '',
         thoughtRadius: Rig.clamp(Number(prop.thoughtRadius) || 1.4, 0.25, 8),
-        thoughtOnce: prop.thoughtOnce !== false
+        thoughtOnce: prop.thoughtOnce !== false,
+        cameraNodeRadius:Rig.clamp(Number(prop.cameraNodeRadius)||4,.5,20),
+        cameraNodeOffsetX:Number(prop.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(prop.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(prop.cameraNodeOffsetZ)||0
       };
     }
     return {
@@ -5798,7 +5804,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         wheelRotation:Number(obj.wheelRotation) || 0,
         thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '',
         thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
-        thoughtOnce:obj.thoughtOnce !== false
+        thoughtOnce:obj.thoughtOnce !== false,
+        cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
+        cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
       };
     }
     const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
@@ -5855,6 +5863,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           thoughtText:state.thoughtText ?? prop?.thoughtText ?? '',
           thoughtRadius:state.thoughtRadius ?? prop?.thoughtRadius ?? 1.4,
           thoughtOnce:state.thoughtOnce ?? prop?.thoughtOnce ?? true,
+          cameraNodeRadius:state.cameraNodeRadius ?? prop?.cameraNodeRadius ?? 4.0,
+          cameraNodeOffsetX:state.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? 0,
+          cameraNodeOffsetY:state.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? 0,
+          cameraNodeOffsetZ:state.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? 0,
           puzzleInstanceId:instance.id,
           puzzleObjectId:objectId
         });
@@ -5907,6 +5919,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       obj.thoughtText = typeof state.thoughtText === 'string' ? state.thoughtText : (typeof prop?.thoughtText === 'string' ? prop.thoughtText : obj.thoughtText || '');
       obj.thoughtRadius = Rig.clamp(Number(state.thoughtRadius ?? prop?.thoughtRadius ?? obj.thoughtRadius) || 1.4,0.25,8);
       obj.thoughtOnce = (state.thoughtOnce ?? prop?.thoughtOnce ?? obj.thoughtOnce) !== false;
+      obj.cameraNodeRadius = Rig.clamp(Number(state.cameraNodeRadius ?? prop?.cameraNodeRadius ?? obj.cameraNodeRadius) || 4,.5,20);
+      obj.cameraNodeOffsetX = Number(state.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? obj.cameraNodeOffsetX) || 0;
+      obj.cameraNodeOffsetY = Number(state.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? obj.cameraNodeOffsetY) || 0;
+      obj.cameraNodeOffsetZ = Number(state.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? obj.cameraNodeOffsetZ) || 0;
       obj.runtimeRotation = Number(state.runtimeRotation) || 0;
       obj.cartRailAnimating = false;
       obj.cartRailLocked = !!state.cartRailLocked;
@@ -5944,7 +5960,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         gameplayLayerLocked:!!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj), collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
         runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0,
-      thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false
+      thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
+      cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
+      cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
       };
     }
     if (persistRuntime) savePuzzleState();
@@ -5988,7 +6006,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
       collision:cloneCollision(obj.collision), collisionOverride:!!obj.collisionOverride, shadow:obj.shadow ? { ...obj.shadow } : null,
       sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
-      runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0
+      runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0,
+      thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
+      cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
+      cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
     };
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
     savePuzzleState();
@@ -6125,6 +6146,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         thoughtText:prior?.thoughtText ?? startState?.thoughtText ?? prop?.thoughtText ?? '',
         thoughtRadius:prior?.thoughtRadius ?? startState?.thoughtRadius ?? prop?.thoughtRadius ?? 1.4,
         thoughtOnce:prior?.thoughtOnce ?? startState?.thoughtOnce ?? prop?.thoughtOnce ?? true,
+        cameraNodeRadius:prior?.cameraNodeRadius ?? startState?.cameraNodeRadius ?? prop?.cameraNodeRadius ?? 4.0,
+        cameraNodeOffsetX:prior?.cameraNodeOffsetX ?? startState?.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? 0,
+        cameraNodeOffsetY:prior?.cameraNodeOffsetY ?? startState?.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? 0,
+        cameraNodeOffsetZ:prior?.cameraNodeOffsetZ ?? startState?.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? 0,
         puzzleInstanceId:marker.id,
         puzzleObjectId:objectId
       });
@@ -6486,6 +6511,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
         puzzleInstanceId:obj.puzzleInstanceId || null, puzzleObjectId:obj.puzzleObjectId || null, deleted: !!obj.deleted,
+        thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
         cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
         cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
       };
@@ -6499,6 +6525,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       };
     }
     saveSceneData();
+    if (editMode && editorScope === 'environment') {
+      sceneEnvironmentListSignature = '';
+      renderEnvironmentSelectionTools();
+    }
   }
 
   function restoreSceneEdits() {
@@ -6558,7 +6588,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         y: restoredY, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(restoredZ),
         category: restoredCategory, gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
-        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:saved.assetName === 'camera-trigger' ? false : true,
+        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:(saved.assetName === 'camera-trigger' || saved.assetName === 'thought-trigger') ? false : true,
+        thoughtText:saved.thoughtText || '', thoughtRadius:saved.thoughtRadius, thoughtOnce:saved.thoughtOnce !== false,
         cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
         cameraNodeOffsetY:saved.cameraNodeOffsetY, cameraNodeOffsetZ:saved.cameraNodeOffsetZ
       });
@@ -6888,6 +6919,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let editorPuzzleMarkerId = null;
   let editorPuzzleLibraryGroupId = null;
   let scenePuzzleListSignature = '';
+  let sceneEnvironmentListSignature = '';
+  let environmentSelectionFilter = 'all';
+  let selectionTapCycle = null;
   let puzzleLibraryListSignature = '';
   let puzzleObjectListSignature = '';
   let puzzleBrowserMode = 'scene';
@@ -7498,9 +7532,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       { name:'stone-piece-b', label:'ARCH STONE', image:'stone-piece-b.png', category:'gameplay', gameplayType:'prop', thumb:'◒', defaultHeight:1.04 },
       { name:'stone-piece-c', label:'HEXAGON STONE', image:'stone-piece-c.png', category:'gameplay', gameplayType:'prop', thumb:'⬡', defaultHeight:1.00 }
     ]},
-    { scope:'puzzle', title: 'PUZZLE TOOLS', items: [
-      { name:'thought-trigger', label:'THOUGHT TRIGGER', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true }
-    ]},
     { scope:'puzzle', title: 'PUZZLE PROPS · BRIDGE', items: [
       { name:'bridge-left', label:'BROKEN BRIDGE · LEFT', image:'bridge-left.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
       { name:'bridge-right', label:'BROKEN BRIDGE · RIGHT', image:'bridge-right.png', category:'dressing', gameplayType:'prop', defaultHeight:2.20, defaultGroundLine:1.62/2.20 },
@@ -7522,41 +7553,59 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collision:{halfWidth:0.33,height:0.66,depth:0.32,platform:false,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]} },
       { name:'axle-pin', label:'AXLE PIN', image:'axle-pin.png', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
     ]},
-    { scope:'environment', title: 'WORLD TOOLS', items: [
+    { scope:'both', title: 'WORLD OBJECTS', selectionKey:'world-objects', selectionLabel:'World Objects', items: [
+      { name:'thought-trigger', label:'THOUGHT NODE', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true, wrap:false },
       { name:'camera-trigger', label:'CAMERA NODE', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0 }
     ]},
-    { scope:'environment', title: 'MOUNTAIN · CLIMB ROCKS', items: [
+    { scope:'environment', title: 'MOUNTAIN · CLIMB ROCKS', selectionKey:'climb-rocks', selectionLabel:'Climb Rocks', items: [
       { name:'mountain-climb-rock-01', label:'CLIMB ROCK · PROTOTYPE', image:'mountain-climb-rock-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
       { name:'mountain-cliff-01', label:'CLIFF 01 · STEPPED', image:'mountain-cliff-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
       { name:'mountain-cliff-02', label:'CLIFF 02 · SHEER', image:'mountain-cliff-02.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.50, gameplayLayerLocked:true, wrap:false },
       { name:'mountain-cliff-03', label:'CLIFF 03 · BROAD', image:'mountain-cliff-03.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.45, gameplayLayerLocked:true, wrap:false },
       { name:'mountain-cliff-04', label:'CLIFF 04 · TALL', image:'mountain-cliff-04.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.80, gameplayLayerLocked:true, wrap:false }
     ]},
-    { scope:'environment', title: 'MOUNTAIN · ROCK DRESSING', items: [
+    { scope:'environment', title: 'MOUNTAIN · ROCK DRESSING', selectionKey:'rock-dressing', selectionLabel:'Rock Dressing', items: [
       { name:'mountain-rock-01', label:'ROCK CLUSTER 01 · LOW', image:'mountain-rock-01.png', category:'dressing', defaultHeight:0.88 },
       { name:'mountain-rock-02', label:'ROCK CLUSTER 02', image:'mountain-rock-02.png', category:'dressing', defaultHeight:1.05 },
       { name:'mountain-rock-03', label:'ROCK CLUSTER 03 · TALL', image:'mountain-rock-03.png', category:'dressing', defaultHeight:1.38 },
       { name:'mountain-rock-04', label:'ROCK CLUSTER 04 · WIDE', image:'mountain-rock-04.png', category:'dressing', defaultHeight:1.08 }
     ]},
-    { scope:'environment', title: 'MOUNTAIN · DRY GRASS', items: [
+    { scope:'environment', title: 'MOUNTAIN · DRY GRASS', selectionKey:'grass', selectionLabel:'Grass', items: [
       { name:'mountain-grass-01', label:'DRY GRASS 01 · BROAD', image:'mountain-grass-01.png', category:'dressing', defaultHeight:0.92 },
       { name:'mountain-grass-02', label:'DRY GRASS 02 · TALL', image:'mountain-grass-02.png', category:'dressing', defaultHeight:1.34 },
       { name:'mountain-grass-03', label:'DRY GRASS 03 · NARROW', image:'mountain-grass-03.png', category:'dressing', defaultHeight:1.55 }
     ]},
-    { scope:'environment', title: 'MOUNTAIN · SCRUB TREES', items: [
+    { scope:'environment', title: 'MOUNTAIN · SCRUB TREES', selectionKey:'trees', selectionLabel:'Trees', items: [
       { name:'mountain-tree-01', label:'SCRUB TREE 01', image:'mountain-tree-01.png', category:'dressing', defaultHeight:2.35 },
       { name:'mountain-tree-02', label:'SCRUB TREE 02', image:'mountain-tree-02.png', category:'dressing', defaultHeight:2.50 }
     ]},
-    { scope:'environment', title: 'DRESSING · TREES', items: [
+    { scope:'environment', title: 'DRESSING · TREES', selectionKey:'trees', selectionLabel:'Trees', items: [
       'tree01','tree02','tree03','tree04','tree05','tree06','tree07','tree08'
     ].map(name => ({ name, label: `TREE ${Number(name.slice(-2))}`, category: 'dressing' }))},
-    { scope:'environment', title: 'DRESSING · GROUND', items: [
+    { scope:'environment', title: 'DRESSING · GROUND', selectionKey:'ground', selectionLabel:'Ground', items: [
       'ground01','ground02','ground03','ground04','ground05','ground06',
       'ground07','ground08','ground09','ground10','ground11','ground12'
     ].map(name => ({ name, label: `GROUND ${Number(name.slice(-2))}`, category: 'dressing' }))}
   ];
   const editorAssetInfo = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, item])));
   const editorAssetScope = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, group.scope])));
+  const editorAssetSelectionMeta = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, {
+    key:group.selectionKey || (group.scope === 'both' ? 'world-objects' : 'other'),
+    label:group.selectionLabel || group.title
+  }])));
+  const environmentSelectionCategories = (() => {
+    const seen = new Set();
+    const rows = [{ key:'all', label:'All' }];
+    for (const group of editorAssetGroups) {
+      if (group.scope !== 'environment' && group.scope !== 'both') continue;
+      const key = group.selectionKey || (group.scope === 'both' ? 'world-objects' : 'other');
+      const label = group.selectionLabel || group.title;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({ key, label });
+    }
+    return rows;
+  })();
   let assetSetupName = null;
   let collectibleSetupItemId = null;
 
@@ -7932,6 +7981,30 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return { left, right, top, bottom, width: right-left, height: bottom-top, cx:(left+right)*0.5, cy:(top+bottom)*0.5 };
   }
 
+  function selectionCategoryForObject(obj) {
+    return editorAssetSelectionMeta.get(obj?.assetName)?.key || 'other';
+  }
+
+  function environmentObjectPassesSelectionFilter(obj) {
+    if (environmentSelectionFilter === 'all') return true;
+    return selectionCategoryForObject(obj) === environmentSelectionFilter;
+  }
+
+  function objectPickBounds(obj) {
+    const bounds = objectScreenBounds(obj);
+    if (!bounds) return null;
+    if (selectionCategoryForObject(obj) !== 'world-objects') return bounds;
+    // World Objects are invisible during play and are represented by editor
+    // guides rather than artwork. Give their centre marker a generous fixed
+    // screen-space hit target so dense foliage cannot make them impossible to
+    // pick. The selection filter can then isolate them completely.
+    const floor = objectFloorWorldY(obj);
+    const centre = projectWorldPoint(objectXNear(obj,camera.x), floor + 0.10, obj.z);
+    if (!centre) return bounds;
+    const r = 22;
+    return { left:centre.x-r, right:centre.x+r, top:centre.y-r, bottom:centre.y+r, width:r*2, height:r*2, cx:centre.x, cy:centre.y };
+  }
+
   function pickSceneObjects(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const px = clientX - rect.left;
@@ -7940,15 +8013,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const obj of allSceneObjects()) {
       if (obj.deleted || obj.carried) continue;
       if (editMode && !editorObjectIsEditable(obj)) continue;
-      const b = objectScreenBounds(obj);
+      if (editMode && editorScope === 'environment' && !environmentObjectPassesSelectionFilter(obj)) continue;
+      const b = objectPickBounds(obj);
       if (!b || b.right < -20 || b.left > rect.width + 20 || b.bottom < -20 || b.top > rect.height + 20) continue;
-      const pad = 7;
+      const pad = selectionCategoryForObject(obj) === 'world-objects' ? 4 : 7;
       if (px < b.left-pad || px > b.right+pad || py < b.top-pad || py > b.bottom+pad) continue;
       const centreDist = Math.hypot(px-b.cx, py-b.cy);
       candidates.push({ obj, centreDist });
     }
-    // Camera is on +Z, so larger Z is visually nearer. Start with the
-    // foremost item and let repeated taps cycle backward through the stack.
+    // Camera is on +Z, so larger Z is visually nearer. The tap-cycle state
+    // below walks this entire sorted stack, rather than repeatedly snapping
+    // back to the foremost object after the second tap.
     candidates.sort((a,b) => (b.obj.z - a.obj.z) || (a.centreDist - b.centreDist));
     return candidates.map(item => item.obj);
   }
@@ -7957,6 +8032,100 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj || !candidates?.length) return null;
     const index = candidates.indexOf(obj);
     return index >= 0 ? { objects: candidates.slice(), index } : null;
+  }
+
+  function nextTapCycleObject(candidates, clientX, clientY) {
+    if (!candidates?.length) { selectionTapCycle = null; return null; }
+    const ids = candidates.map(obj => obj.id || obj.assetName);
+    const samePoint = selectionTapCycle && Math.hypot(clientX-selectionTapCycle.x, clientY-selectionTapCycle.y) <= 14;
+    const sameStack = samePoint
+      && selectionTapCycle.ids.length === ids.length
+      && ids.every((id,index) => id === selectionTapCycle.ids[index]);
+    const index = sameStack ? (selectionTapCycle.index + 1) % candidates.length : 0;
+    selectionTapCycle = { x:clientX, y:clientY, ids, index };
+    return candidates[index];
+  }
+
+  function placedWorldEnvironmentObjects() {
+    return allSceneObjects().filter(obj => obj && !obj.deleted && !obj.carried && !obj.puzzleInstanceId && obj.userAdded
+      && !String(obj.id || '').startsWith('riverbank-'));
+  }
+
+  function renderEnvironmentSelectionTools({ force=false } = {}) {
+    if (!environmentFilterRowEl || !environmentSceneListEl) return;
+    const categoryOrder = new Map(environmentSelectionCategories.map((item,index) => [item.key,index]));
+    const objects = placedWorldEnvironmentObjects().slice().sort((a,b) => {
+      const ak = selectionCategoryForObject(a), bk = selectionCategoryForObject(b);
+      if (ak !== bk) return (categoryOrder.get(ak) ?? 999) - (categoryOrder.get(bk) ?? 999);
+      return (Number(a.x)||0) - (Number(b.x)||0);
+    });
+    const signature = `${environmentSelectionFilter}|${selectedObject?.id || ''}|` + objects.map(obj => `${obj.id}:${obj.assetName}:${Number(obj.x).toFixed(3)}:${Number(obj.z).toFixed(3)}`).join('|');
+    if (!force && signature === sceneEnvironmentListSignature) return;
+    sceneEnvironmentListSignature = signature;
+
+    environmentFilterRowEl.innerHTML = '';
+    for (const category of environmentSelectionCategories) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sidescroll-environment-filter-chip';
+      btn.textContent = category.label;
+      btn.classList.toggle('active', environmentSelectionFilter === category.key);
+      btn.setAttribute('aria-pressed', String(environmentSelectionFilter === category.key));
+      bindEditorPress(btn, () => {
+        environmentSelectionFilter = category.key;
+        selectionTapCycle = null;
+        selectionCycleInfo = null;
+        sceneEnvironmentListSignature = '';
+        renderEnvironmentSelectionTools({ force:true });
+        hintEl.textContent = category.key === 'all' ? 'Selection filter · all world assets' : `Selection filter · ${category.label}`;
+        hintEl.classList.remove('hidden');
+      });
+      environmentFilterRowEl.appendChild(btn);
+    }
+
+    environmentSceneListEl.innerHTML = '';
+    if (environmentSceneCountEl) environmentSceneCountEl.textContent = `${objects.length} placed`;
+    if (environmentSceneEmptyEl) environmentSceneEmptyEl.hidden = objects.length > 0;
+    let lastKey = null;
+    for (const obj of objects) {
+      const meta = editorAssetSelectionMeta.get(obj.assetName) || { key:'other', label:'Other' };
+      if (meta.key !== lastKey) {
+        lastKey = meta.key;
+        const heading = document.createElement('div');
+        heading.className = 'sidescroll-environment-scene-group';
+        heading.textContent = meta.label;
+        environmentSceneListEl.appendChild(heading);
+      }
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'sidescroll-environment-scene-row';
+      row.classList.toggle('active', obj === selectedObject);
+      row.setAttribute('aria-selected', String(obj === selectedObject));
+      const main = document.createElement('span');
+      main.className = 'scene-puzzle-main';
+      const strong = document.createElement('strong');
+      strong.textContent = editorAssetInfo.get(obj.assetName)?.label || obj.assetName;
+      const small = document.createElement('small');
+      small.textContent = obj.category === 'gameplay' ? 'WORLD OBJECT' : 'ENVIRONMENT';
+      main.append(strong, small);
+      const pos = document.createElement('span');
+      pos.className = 'scene-puzzle-x';
+      pos.textContent = `x ${Number(obj.x).toFixed(1)}`;
+      row.append(main, pos);
+      bindEditorPress(row, () => {
+        environmentSelectionFilter = meta.key;
+        selectionTapCycle = null;
+        camera.x = Number(obj.x) - character.screenOffsetX;
+        previousCameraX = camera.x;
+        selectObject(obj, false);
+        selectionCycleInfo = { objects:[obj], index:0 };
+        sceneEnvironmentListSignature = '';
+        renderEnvironmentSelectionTools({ force:true });
+        hintEl.textContent = `Selected ${strong.textContent.toLowerCase()} · focused in scene`;
+        hintEl.classList.remove('hidden');
+      });
+      environmentSceneListEl.appendChild(row);
+    }
   }
 
   function sortSceneCollections() {
@@ -8552,7 +8721,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         wheelRotation:Number(obj.wheelRotation)||0,
         thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '',
         thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
-        thoughtOnce:obj.thoughtOnce !== false
+        thoughtOnce:obj.thoughtOnce !== false,
+        cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
+        cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0
       };
     }
     return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
@@ -8578,6 +8749,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       gameplayType:obj.gameplayType,
       collision:cloneCollision(obj.collision),
       thoughtText:obj.thoughtText || null, thoughtRadius:Number(obj.thoughtRadius)||null, thoughtOnce:obj.thoughtOnce !== false,
+      cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
+      cameraNodeOffsetX:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetX)||0 : null,
+      cameraNodeOffsetY:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetY)||0 : null,
+      cameraNodeOffsetZ:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetZ)||0 : null,
       sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [],
       socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null
     }));
@@ -8657,6 +8832,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       userAdded:!!obj.userAdded,
       collision:cloneCollision(obj.collision),
       collisionOverride:!!obj.collisionOverride,
+      thoughtText:obj.assetName==='thought-trigger' ? (obj.thoughtText || '') : null,
+      thoughtRadius:obj.assetName==='thought-trigger' ? Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8) : null,
+      thoughtOnce:obj.assetName==='thought-trigger' ? obj.thoughtOnce !== false : null,
       cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
       cameraNodeOffsetX:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetX)||0) : null,
       cameraNodeOffsetY:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetY)||0) : null,
@@ -8770,6 +8948,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     puzzleExclusionEditMode = false;
     puzzleExclusionHandle = null;
     selectObject(null);
+    selectionTapCycle = null;
     addAssetType = null;
     updatePlacementModeUi();
     if (scope === 'puzzle') {
@@ -9242,7 +9421,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (socketPlacementPiece && obj !== socketPlacementPiece) socketPlacementPiece = null;
     selectedObject = obj && !obj.deleted ? obj : null;
     if (!selectedObject) transformEditMode = false;
-    if (!preserveCycle) selectionCycleInfo = null;
+    if (!preserveCycle) { selectionCycleInfo = null; selectionTapCycle = null; }
     if (!options.keepPlacement) addAssetType = null;
     collisionEditMode = false;
     collisionHandleIndex = -1;
@@ -9251,6 +9430,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
     updateEditorButtons();
+    if (editMode && editorScope === 'environment') renderEnvironmentSelectionTools();
   }
 
 
@@ -9290,6 +9470,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     puzzleSourceSceneBtn?.classList.toggle('active', !testing && sceneMode);
 
     if (environmentSelectionEl) environmentSelectionEl.hidden = testing || editorScope !== 'environment';
+    if (!testing && editorScope === 'environment') renderEnvironmentSelectionTools();
     if (puzzleLibraryView) puzzleLibraryView.hidden = testing || !libraryMode;
     if (puzzleSceneView) puzzleSceneView.hidden = testing || !sceneMode;
     if (puzzleStageSection) puzzleStageSection.hidden = testing || editorScope !== 'puzzle';
@@ -10002,8 +10183,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const allowedPuzzleAssets = editorScope === 'puzzle' && !puzzleEnvironmentPlacementMode ? puzzleAssetNamesFor(editorPuzzleMarkerId) : null;
     for (const group of editorAssetGroups) {
       const wantedScope = puzzleEnvironmentPlacementMode ? 'environment' : editorScope;
-      if (group.scope !== wantedScope) continue;
-      const items = group.items.filter(info => puzzleEnvironmentPlacementMode || editorScope !== 'puzzle' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name))
+      if (group.scope !== wantedScope && group.scope !== 'both') continue;
+      const items = group.items.filter(info => puzzleEnvironmentPlacementMode || editorScope !== 'puzzle' || group.scope === 'both' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name))
         .filter(info => group.scope !== 'environment' || environmentAssetAvailableForBiome(info.name, character.x));
       if (!items.length) continue;
       const heading = document.createElement('div');
@@ -10788,28 +10969,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     drawAuthoredSockets(ctx);
     drawSelectedCounterweightMechanism(ctx);
 
-    // Thought Trigger nodes are puzzle pieces but invisible in play. Authoring
-    // shows their activation radius and a readable label in screen space.
-    for(const instance of activePuzzleInstances.values()){
-      for(const obj of instance.objects||[]){
-        if(!obj || obj.deleted || obj.assetName!=='thought-trigger')continue;
-        const floor=objectFloorWorldY(obj);
-        const centre=projectWorldPoint(objectXNear(obj,camera.x),floor+0.10,obj.z);
-        const edge=projectWorldPoint(objectXNear(obj,camera.x)+(Number(obj.thoughtRadius)||1.4),floor+0.10,obj.z);
-        if(!centre||!edge)continue;
-        const r=Math.max(12,Math.abs(edge.x-centre.x));
-        ctx.save();
-        ctx.strokeStyle=obj===selectedObject?'rgba(121,241,223,.95)':'rgba(121,241,223,.48)';
-        ctx.fillStyle=obj===selectedObject?'rgba(70,210,190,.10)':'rgba(70,210,190,.05)';
-        ctx.lineWidth=obj===selectedObject?2.5:1.5;ctx.setLineDash([6,5]);
-        ctx.beginPath();ctx.arc(centre.x,centre.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
-        const label=(obj.thoughtText||'Thought').slice(0,34);
-        ctx.font='800 10px -apple-system, BlinkMacSystemFont, sans-serif';
-        const tw=ctx.measureText(label).width+12;
-        ctx.fillStyle='rgba(15,42,40,.88)';ctx.fillRect(centre.x-tw*.5,centre.y-r-23,tw,18);
-        ctx.fillStyle='#dffff9';ctx.fillText(label,centre.x-tw*.5+6,centre.y-r-10);
-        ctx.restore();
-      }
+    // Thought Nodes can be world-owned or puzzle-owned. They are invisible in
+    // play, so authoring shows their activation radius and label in screen space.
+    for(const obj of allSceneObjects()){
+      if(!obj || obj.deleted || obj.assetName!=='thought-trigger')continue;
+      const floor=objectFloorWorldY(obj);
+      const centre=projectWorldPoint(objectXNear(obj,camera.x),floor+0.10,obj.z);
+      const edge=projectWorldPoint(objectXNear(obj,camera.x)+(Number(obj.thoughtRadius)||1.4),floor+0.10,obj.z);
+      if(!centre||!edge)continue;
+      const r=Math.max(12,Math.abs(edge.x-centre.x));
+      ctx.save();
+      ctx.strokeStyle=obj===selectedObject?'rgba(121,241,223,.95)':'rgba(121,241,223,.48)';
+      ctx.fillStyle=obj===selectedObject?'rgba(70,210,190,.10)':'rgba(70,210,190,.05)';
+      ctx.lineWidth=obj===selectedObject?2.5:1.5;ctx.setLineDash([6,5]);
+      ctx.beginPath();ctx.arc(centre.x,centre.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(centre.x,centre.y,5,0,Math.PI*2);ctx.fillStyle=obj===selectedObject?'#dffff9':'rgba(121,241,223,.82)';ctx.fill();
+      const label=(obj.thoughtText||'Thought').slice(0,34);
+      ctx.font='800 10px -apple-system, BlinkMacSystemFont, sans-serif';
+      const tw=ctx.measureText(label).width+12;
+      ctx.fillStyle='rgba(15,42,40,.88)';ctx.fillRect(centre.x-tw*.5,centre.y-r-23,tw,18);
+      ctx.fillStyle='#dffff9';ctx.fillText(label,centre.x-tw*.5+6,centre.y-r-10);
+      ctx.restore();
     }
 
     // Camera Nodes are world-level authoring controls. They are invisible in
@@ -10826,6 +11006,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ctx.fillStyle=obj===selectedObject?'rgba(142,121,244,.10)':'rgba(142,121,244,.05)';
       ctx.lineWidth=obj===selectedObject?2.5:1.5;ctx.setLineDash([7,5]);
       ctx.beginPath();ctx.arc(centre.x,centre.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(centre.x,centre.y,5,0,Math.PI*2);ctx.fillStyle=obj===selectedObject?'#f2edff':'rgba(184,171,255,.86)';ctx.fill();
       const ox=Number(obj.cameraNodeOffsetX)||0,oy=Number(obj.cameraNodeOffsetY)||0,oz=Number(obj.cameraNodeOffsetZ)||0;
       const label=`CAM · X ${ox>=0?'+':''}${ox.toFixed(1)} · Y ${oy>=0?'+':''}${oy.toFixed(1)} · Z ${oz>=0?'+':''}${oz.toFixed(1)}`;
       ctx.font='800 10px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -11395,20 +11576,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // player always sees the most recent contextual observation.
     if (introLocked || editMode || inventoryOpen || interactionState) return;
     const candidates=[];
-    for (const instance of activePuzzleInstances.values()) {
-      for (const obj of instance.objects || []) {
-        if (!obj || obj.deleted || obj.assetName !== 'thought-trigger' || !obj.thoughtText) continue;
-        const radius=Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8);
-        const dx=objectXNear(obj,character.x)-character.x;
-        const dz=(Number(obj.z)||0)-(Number(character.z)||pathZ);
-        const distance=Math.hypot(dx,dz);
-        const key=thoughtTriggerKey(obj);
-        if(distance>radius){thoughtTriggerInside.delete(key);continue;}
-        if(thoughtTriggerInside.has(key))continue;
-        thoughtTriggerInside.add(key);
-        if(obj.thoughtOnce!==false && shownPuzzleThoughts.has(key))continue;
-        candidates.push({obj,key,distance});
-      }
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted || obj.assetName !== 'thought-trigger' || !obj.thoughtText) continue;
+      const radius=Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8);
+      const dx=objectXNear(obj,character.x)-character.x;
+      const dz=(Number(obj.z)||0)-(Number(character.z)||pathZ);
+      const distance=Math.hypot(dx,dz);
+      const key=thoughtTriggerKey(obj);
+      if(distance>radius){thoughtTriggerInside.delete(key);continue;}
+      if(thoughtTriggerInside.has(key))continue;
+      thoughtTriggerInside.add(key);
+      if(obj.thoughtOnce!==false && shownPuzzleThoughts.has(key))continue;
+      candidates.push({obj,key,distance});
     }
     if(!candidates.length)return;
     candidates.sort((a,b)=>a.distance-b.distance);
@@ -14671,14 +14850,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           // Selection happens only on a clean tap/release. A drag can never
           // select a different object, which keeps panning and moving separate.
           const candidates=pickSceneObjects(e.clientX,e.clientY).filter(editorObjectIsEditable);
-          const hit=candidates[0]||null;
+          const hit=nextTapCycleObject(candidates,e.clientX,e.clientY);
           if(hit){
-            if(hit===selectedObject && candidates.length>1 && selectionCycleInfo?.objects?.length){
-              const current=Math.max(0,candidates.indexOf(selectedObject));selectObject(candidates[(current+1)%candidates.length],true);
-            } else selectObject(hit,true);
+            selectObject(hit,true);
             selectionCycleInfo=cycleInfoFor(selectedObject,candidates);
-            hintEl.textContent='Selected · drag inside this asset to move it · drag elsewhere to pan';hintEl.classList.remove('hidden');
+            hintEl.textContent=candidates.length>1
+              ? `Selected · tap the same spot again to cycle ${selectionCycleInfo.index+1}/${candidates.length}`
+              : 'Selected · drag inside this asset to move it · drag elsewhere to pan';
+            hintEl.classList.remove('hidden');
           } else {
+            selectionTapCycle=null;
             selectObject(null);
           }
         }

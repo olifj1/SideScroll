@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.94">
+  <link rel="stylesheet" href="style.css?v=1.0.95">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -362,8 +362,21 @@
                 <span class="sidescroll-puzzle-mode">ENV</span>
                 <strong>Environment</strong>
               </div>
-              <p>Editing scene dressing only. Puzzle props are locked and cannot be selected.</p>
-              <p class="sidescroll-puzzle-help">Drag anywhere to pan. Tap and release to select. Drag inside the selected asset to move it. Environment edits are saved automatically.</p>
+              <p>Editing world-owned assets only. Puzzle-owned objects remain locked.</p>
+              <div class="sidescroll-environment-select-tools">
+                <div class="sidescroll-panel-section-head compact">
+                  <strong>Select Filter</strong>
+                  <small>Limits scene taps</small>
+                </div>
+                <div class="sidescroll-environment-filter-row" id="sidescroll-environment-filter-row" role="group" aria-label="Environment selection filter"></div>
+                <div class="sidescroll-panel-section-head compact">
+                  <strong>Placed World Assets</strong>
+                  <small id="sidescroll-environment-scene-count">0 placed</small>
+                </div>
+                <div class="sidescroll-environment-scene-list" id="sidescroll-environment-scene-list" role="listbox" aria-label="Placed world assets"></div>
+                <p class="sidescroll-scene-empty" id="sidescroll-environment-scene-empty" hidden>No manually placed world assets in this scene.</p>
+              </div>
+              <p class="sidescroll-puzzle-help">Tap an object or select it from the list. Repeated taps on the same stack cycle through every matching object from front to back. Drag inside the selected asset to move it.</p>
             </section>
 
             <section class="sidescroll-puzzle-stage-section" id="sidescroll-puzzle-stage-section" hidden>
@@ -484,6 +497,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.94"></script>
+  <script src="sidescroll.js?v=1.0.95"></script>
 </body>
 </html>
