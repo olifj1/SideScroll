@@ -307,21 +307,331 @@ These rules capture the current test direction for the first mountain-climbing l
 
 ---
 
-# Texture production and runtime-prep workflow
+# Art asset production pipeline — ImageGen to game
 
-Use `SETTLEMENT_TEXTURE_PROCESSING_WORKFLOW.md` as the detailed checklist whenever newly generated environment art is prepared for SideScroll. The same principles apply to future biome asset sets.
+This is the **required production path for all new SideScroll image assets**, regardless of biome. Use it for trees, grasses, rocks, buildings, props, puzzle art, structural pieces and future character/environment textures.
 
-## Required production rules
-- Bank and preserve the approved generated source before processing.
-- Map each runtime filename one-to-one to its intended source before editing.
-- Prefer native transparency from image generation. If a white-background source produces contaminated/fringed edges, regenerate the approved image with native alpha rather than treating white-background extraction as the production solution.
-- If a clean native-alpha source already exists, return to that source instead of flattening and extracting it again.
-- Processing must not change the approved colour, contrast or lighting language.
-- Normalize faint/near-opaque generated alpha only where necessary, then colour-dilate from nearby opaque asset pixels beneath the transparent fringe. Never dilate white/background colour.
-- Crop tightly. For ground-contact assets, the final texture bottom must coincide with the visible floor contact so the asset cannot float because of transparent padding.
-- Preserve source resolution during cleanup unless a deliberate texel-density decision is made later.
-- Validate every processed batch on both light and dark backgrounds and then in the game scene.
-- If the runtime result differs from the source, trace the fault back to the stage where it entered rather than repeatedly processing the bad export.
+A compact operational copy is stored in `ART_ASSET_PIPELINE.md`. Read that checklist before starting a new texture batch.
 
-## Batch validation
-Before a processed batch is signed off, verify: correct source mapping, clean alpha, no white fringe, no colour drift, correct crop/floor line, consistent scale/resolution, and an in-game check.
+The purpose of this pipeline is to prevent the failures found during the first Settlement test: source swaps, accidental colour/contrast changes, white alpha fringes, incorrect floor crops, inconsistent resolution/scale, stale cached images and assets entering the game without the correct Asset Lab/category setup.
+
+---
+
+## 1 — Define the asset set before generating
+
+Before calling ImageGen, decide what the batch is supposed to achieve in the game.
+
+For each intended asset define:
+- gameplay/category purpose;
+- whether it is procedural-biome dressing, manually placed environment art, puzzle-owned art, or a reusable/global object;
+- intended rough real-world/game scale;
+- whether it needs a floor contact line, walkable top, collision, climb paths, sockets, exclusion zones or other authored behaviour;
+- whether pieces need to fit together modularly;
+- whether the asset will be a standalone PNG or is likely to become part of an atlas later.
+
+Do not generate a broad “asset sheet” when the game requires precise modular compatibility. If a roof must fit a particular house, generate against that house/reference and state the required width/perspective explicitly.
+
+---
+
+## 2 — Build the ImageGen request from approved art direction
+
+Every generation request must inherit the relevant Art Bible rules rather than inventing a fresh style.
+
+Include the important visual constraints for that batch, for example:
+- SideScroll side-on/front-on perspective as required;
+- broad readable painterly forms;
+- restrained three-tone cel shading;
+- approved contrast/value range;
+- approved light direction for the location;
+- restrained saturation;
+- no sharpen-filter noise, scratchy edge wear or unwanted micro-detail;
+- proportions/silhouette preserved when revising an approved asset;
+- enough resolution for intended on-screen size;
+- isolated subject with no unnecessary scene/background content.
+
+### Transparency rule
+For any asset intended to be cut out in-game, request **native transparent background / alpha from ImageGen**.
+
+Do not deliberately generate against white and plan to remove it later. White-background extraction is only a diagnostic/fallback path and should not become the production source when it causes edge contamination.
+
+For open structures such as lean-tos, market stalls, archways and scaffolds, explicitly require all intended holes/open spaces to be transparent too.
+
+---
+
+## 3 — Generate small reviewable subsets
+
+Prefer a few purposeful assets at a time over a huge uncontrolled sheet.
+
+Recommended loop:
+1. generate a small subset;
+2. evaluate silhouette, perspective, colour, contrast and usefulness;
+3. correct the prompt/style if necessary;
+4. bank approved assets;
+5. only then expand the set.
+
+When matching an existing approved asset, feed/reference that source and request only the intended change. Avoid reinterpreting the entire asset unless a redesign is actually required.
+
+---
+
+## 4 — Bank the approved source unchanged
+
+Every approved ImageGen output must be preserved as the **source-of-truth art file** before processing.
+
+Record:
+- stable source filename;
+- category/biome;
+- intended runtime asset name;
+- approval/status;
+- native alpha: yes/no;
+- intended scale/use;
+- any fit/collision/ground-line notes.
+
+Never overwrite the approved source with a processed runtime copy.
+
+---
+
+## 5 — Create a one-to-one source audit
+
+Before processing a batch, map every runtime target to exactly one approved source.
+
+Check for:
+- swapped filenames;
+- duplicate/mismatched sources;
+- wrong variants entering a runtime slot;
+- stale intermediate files being used instead of the approved original.
+
+If source mapping is uncertain, stop here and resolve it before further processing.
+
+---
+
+## 6 — Alpha assessment and regeneration decision
+
+Classify each source:
+
+### A — Clean native alpha
+Preferred. Preserve it and process non-destructively.
+
+### B — Native alpha with faint/generated fringe
+Usually repairable by alpha normalization plus colour dilation without changing the artwork.
+
+### C — Opaque/white-background source
+If edge extraction produces white/grey contamination or loses fine silhouette detail, **regenerate through ImageGen with native alpha** while preserving the approved art.
+
+### Regenerate rather than patch when:
+- white matte is baked into the visible edge;
+- silhouette cannot be recovered cleanly;
+- source resolution is inadequate;
+- perspective/style is fundamentally wrong.
+
+### Reprocess rather than regenerate when:
+- source art is already correct;
+- source has usable alpha;
+- the failure entered during crop, dilation, brightness/colour processing, export or runtime caching.
+
+---
+
+## 7 — Non-destructive runtime processing
+
+Processing is technical preparation, **not another art pass**.
+
+Do not change:
+- brightness;
+- contrast;
+- saturation;
+- hue;
+- lighting direction;
+- painted detail;
+unless the user explicitly asks for an art change.
+
+Always compare source and processed result side-by-side. If the processed version is visibly brighter, flatter or otherwise different, the processing has failed.
+
+---
+
+## 8 — Alpha cleanup and colour-safe dilation
+
+After the alpha is accepted:
+- remove meaningless near-zero ghost alpha outside the visible asset if ImageGen produced it;
+- normalize near-opaque body pixels where appropriate;
+- preserve intentional semi-transparent edge pixels;
+- fill RGB beneath the alpha fringe using **nearby opaque asset colour**;
+- extend that colour beneath fully transparent pixels by a small dilation radius for bilinear filtering safety.
+
+Never dilate the old background colour (especially white/magenta) into transparent pixels.
+
+Validation:
+- inspect on both light and dark backgrounds;
+- there should be no white/grey/dark outline caused by matte contamination;
+- dilation must not change the visible silhouette.
+
+---
+
+## 9 — Crop and floor-line rules
+
+Crop to the useful silhouette with only intentional padding.
+
+### Ground-contact assets
+Buildings, rocks, fences, trees, props and other floor-standing art must have their visible contact line aligned to the final texture bottom unless a deliberate ground-line offset is authored.
+
+Avoid:
+- transparent rows below the asset that make it float;
+- cutting off grass/roots/feet/contact details;
+- wildly inconsistent side/top padding between similar assets.
+
+### Non-ground attachments
+Roofs, awnings and modular overlays may retain useful attachment padding, but that padding must be deliberate and documented.
+
+---
+
+## 10 — Resolution, texel density and gameplay scale
+
+Do not arbitrarily shrink generated sources during cleanup.
+
+Before runtime export:
+- compare similar assets side-by-side;
+- compare likely in-game height against the player;
+- ensure no asset is being enlarged far beyond its source resolution;
+- keep texel density reasonably consistent within a category.
+
+Game scale and texture resolution are separate decisions: default world height controls physical size, while source pixels determine visual sharpness.
+
+Atlas packing should happen only after the useful asset set and sizing are approved. During iteration, individual textures are preferred when they speed replacement/testing.
+
+---
+
+## 11 — Runtime naming and file export
+
+Use stable, semantic runtime names such as:
+- `settlement-house-01.png`
+- `mountain-rock-03.png`
+- `sidescroll-tree-05.png`
+
+For each runtime file verify:
+- correct approved source;
+- PNG/alpha mode;
+- final crop dimensions;
+- bottom/floor behaviour;
+- intended category;
+- intended world/default height.
+
+Update any dimension/aspect table in code to the **actual final crop size**, not an earlier source/intermediate size.
+
+---
+
+## 12 — Register the asset in SideScroll
+
+Every new asset must be registered in all required runtime/editor surfaces rather than merely copied into the repository.
+
+### Main Environment asset library
+Set:
+- stable asset name;
+- label;
+- image filename;
+- category/group;
+- sensible `defaultHeight`;
+- gameplay/dressing role;
+- `wrap`/layering behaviour as appropriate.
+
+### Asset Lab
+Add the same asset with:
+- matching stable name and image;
+- matching useful label/group;
+- initial height/scale;
+- `groundLine` or equivalent floor setup;
+- behaviour metadata/collision/climb/support settings if required.
+
+### Ownership / categorisation
+Decide deliberately whether the asset is:
+- biome-owned/procedural;
+- Global / Unbound manual environment art;
+- puzzle-owned;
+- group/world-object owned.
+
+Do not bind an asset to a biome purely because it visually belongs there if gameplay requires it across multiple locations.
+
+---
+
+## 13 — Asset Lab setup and authored behaviour
+
+Before calling an asset gameplay-ready, open it in Asset Lab and check:
+- framing / Fit;
+- pinch zoom usability;
+- floor line;
+- collision bounds;
+- support/walk surface;
+- climb paths;
+- sockets or special authored behaviour;
+- default scale.
+
+Visual-only dressing may need no collision, but that should be a deliberate choice rather than missing setup.
+
+For modular structures, test attachment pieces together in Asset Lab or in scene before expanding the family.
+
+---
+
+## 14 — Cache/version handling is part of art deployment
+
+SideScroll's service worker keeps large visual assets cache-first. Replacing a PNG under the same filename is **not enough** to guarantee that Safari/A2HS will display the new art.
+
+Whenever the contents of a runtime image change:
+- increment the version query used when loading that asset, e.g. `settlement-house-01.png?v=1.0.102`;
+- update matching editor/thumbnail version queries;
+- update Asset Lab's image version constant if it loads the same file;
+- update stored final dimensions/aspect ratios after crop changes.
+
+This is required deployment work, not optional cache cleanup. The exact new URL ensures the service worker fetches and stores the replacement texture rather than reusing a previous cached response.
+
+---
+
+## 15 — In-game scene validation
+
+After integration, manually place/test examples in the real game view.
+
+Check:
+- colour/contrast against surrounding approved art;
+- edge quality against light fog and dark foliage;
+- floor contact/no floating;
+- default scale;
+- sharpness/resolution;
+- perspective compatibility;
+- useful overlap/layering;
+- modular fit;
+- collision/interaction where relevant;
+- editor selection/category behaviour.
+
+A preview sheet alone is not final approval. The asset must be judged in SideScroll.
+
+---
+
+## 16 — Sign-off and iteration
+
+For each batch mark assets as:
+- approved/runtime-ready;
+- reprocess;
+- regenerate;
+- superseded.
+
+If a runtime issue appears, trace it to the stage that introduced it. Do not repeatedly process an already-bad intermediate file.
+
+### Final batch checklist
+- [ ] Asset need/category defined before generation.
+- [ ] Prompt inherited current Art Bible style rules.
+- [ ] Native alpha requested where applicable.
+- [ ] Approved raw source banked unchanged.
+- [ ] Runtime source mapping verified.
+- [ ] Alpha inspected; regen/reprocess decision made correctly.
+- [ ] No unintended colour/contrast/style change during processing.
+- [ ] Colour-safe dilation performed.
+- [ ] Crop is intentional.
+- [ ] Floor-contact assets have correct bottom alignment.
+- [ ] Resolution/texel density is suitable.
+- [ ] Final pixel dimensions recorded.
+- [ ] Asset registered in main Environment library.
+- [ ] Asset registered/categorised in Asset Lab.
+- [ ] Ownership set deliberately: biome/global/puzzle/group.
+- [ ] Collision/support/climb/socket setup checked if relevant.
+- [ ] Image URL/version/cache bust updated.
+- [ ] Thumbnail/Asset Lab version updated.
+- [ ] In-game validation completed.
+
+---
+
