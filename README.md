@@ -1,21 +1,27 @@
-# SS-PATCH-1.0.106
+# SS-PATCH-1.0.107
 
-Applies over `SS-PATCH-1.0.105`.
+Applies over `SS-PATCH-1.0.106`.
 
-## World Groups v3 — exclusion zones
-- Selected World Groups can now own a procedural-dressing exclusion zone.
-- Enable/disable, edit and `Fit Exclusion` controls live with the World Group tools.
-- The exclusion is stored relative to the group, so it moves with the group automatically.
-- Exclusions suppress procedural biome dressing only; deliberately placed world assets are preserved.
-- Group templates carry their exclusion setup into new instances.
+## World Group interaction correction
 
-## Stage 3 — World Lab integration
-- Adds a dedicated `WORLD GROUPS` timeline track.
-- Group members no longer clutter the standalone `WORLD ASSETS` track; loose individual objects remain there.
-- World Group blocks show their authored extent and member count.
-- Select a group, then drag its timeline block horizontally to adjust pacing.
-- World Lab queues the new X position rather than duplicating terrain logic. On the next game load, SideScroll consumes the request through the normal terrain-aware World Group move, so Ground/Upright, Ground/Follow Normal and Free members retain their correct behaviour.
-- Group selection supports numeric X entry, Jump to Game, Move Playhead and Cancel Queued Move.
-- Complete World Lab export/import now includes queued World Group moves.
+### Groups are locked by default
+- In normal Environment Edit mode, assets that belong to a World Group can no longer be selected or moved individually.
+- Tapping a grouped asset selects its World Group instead.
+- Other World Groups stay locked while you work elsewhere.
 
-Streaming is intentionally not implemented here; Stage 4 remains the later global World Lab streaming policy for puzzles, World Groups and standalone objects.
+### Edit Group now has a clear purpose
+- `Edit Group` unlocks only the selected group's members.
+- Individual members can then be selected, moved and edited normally.
+- New assets placed while Group Edit is active automatically join the selected group.
+- `Lock Group` exits member editing and returns the composition to locked whole-group behaviour.
+- Standalone assets remain selectable while editing a group so they can be added with `Add Selected`.
+
+### Direct whole-group movement
+- Once a group is selected, drag any of its grouped assets, the yellow bounds, or the yellow origin dot to move the complete group.
+- The group follows the existing terrain-aware movement rules:
+  - Ground + Upright re-grounds but stays vertical.
+  - Ground + Follow Surface Normal re-grounds and follows slope.
+  - Free assets keep their group-relative vertical offset.
+- The existing `Move Group` button remains available as an alternate tap-to-destination workflow.
+
+This patch does not change World Lab or streaming behaviour.

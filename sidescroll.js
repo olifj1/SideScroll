@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.107: World Group lock/edit semantics + direct whole-group dragging.
   // SideScroll v1.0.106: World Groups v3 · group-owned exclusion zones + World Lab group timeline moves.
   // SideScroll v1.0.105: World Groups v2 · reusable templates + terrain-aware group moves.
   // SideScroll v1.0.104: World Groups v1 · optional authored environment grouping/edit/move workflow.
@@ -8275,6 +8276,90 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return{minX,maxX,minZ,maxZ,empty:false};
   }
 
+  function worldGroupScreenPolygon(group){
+    const b=worldGroupBounds(group);if(!b)return null;
+    const corners=[[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]].map(([x,z])=>
+      projectWorldPoint(x,terrainGroundYAt(x,z)+.06,z)
+    );
+    return corners.some(p=>!p)?null:corners;
+  }
+
+  function pointInScreenPolygon(x,y,points){
+    if(!points||points.length<3)return false;
+    let inside=false;
+    for(let i=0,j=points.length-1;i<points.length;j=i++){
+      const xi=points[i].x,yi=points[i].y,xj=points[j].x,yj=points[j].y;
+      const cross=((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/Math.max(1e-6,yj-yi)+xi);
+      if(cross)inside=!inside;
+    }
+    return inside;
+  }
+
+  function screenPointSegmentDistance(px,py,a,b){
+    const vx=b.x-a.x,vy=b.y-a.y,wx=px-a.x,wy=py-a.y;
+    const vv=vx*vx+vy*vy;
+    const t=vv>1e-6?Rig.clamp((wx*vx+wy*vy)/vv,0,1):0;
+    return Math.hypot(px-(a.x+vx*t),py-(a.y+vy*t));
+  }
+
+  function worldGroupGuideHitAt(group,clientX,clientY,{allowInterior=false}={}){
+    if(!group)return false;
+    const rect=canvas.getBoundingClientRect(),px=clientX-rect.left,py=clientY-rect.top;
+    const origin=projectWorldPoint(Number(group.x)||0,terrainGroundYAt(Number(group.x)||0,Number(group.z)||pathZ)+.12,Number(group.z)||pathZ);
+    if(origin&&Math.hypot(px-origin.x,py-origin.y)<=26)return true;
+    const poly=worldGroupScreenPolygon(group);
+    if(!poly)return false;
+    if(allowInterior&&pointInScreenPolygon(px,py,poly))return true;
+    for(let i=0;i<poly.length;i++){
+      if(screenPointSegmentDistance(px,py,poly[i],poly[(i+1)%poly.length])<=14)return true;
+    }
+    return false;
+  }
+
+  function worldGroupMemberHitAt(group,clientX,clientY){
+    if(!group)return null;
+    const rect=canvas.getBoundingClientRect(),px=clientX-rect.left,py=clientY-rect.top;
+    const hits=[];
+    for(const obj of worldGroupMembers(group.id)){
+      const b=objectPickBounds(obj);if(!b)continue;
+      const pad=selectionCategoryForObject(obj)==='world-objects'?5:8;
+      if(px<b.left-pad||px>b.right+pad||py<b.top-pad||py>b.bottom+pad)continue;
+      hits.push({obj,dist:Math.hypot(px-b.cx,py-b.cy)});
+    }
+    hits.sort((a,b)=>(b.obj.z-a.obj.z)||(a.dist-b.dist));
+    return hits[0]?.obj||null;
+  }
+
+  function worldGroupAtEditorPoint(clientX,clientY){
+    if(!editMode||editorScope!=='environment')return null;
+    const selected=worldGroupById(selectedWorldGroupId);
+    // Once selected, the whole yellow footprint becomes an easy group drag
+    // target. This is deliberately disabled in Edit Group mode so members can
+    // be manipulated normally.
+    if(selected&&!worldGroupEditMode&&worldGroupGuideHitAt(selected,clientX,clientY,{allowInterior:true}))return selected;
+    const memberHits=[];
+    for(const group of worldGroups()){
+      const obj=worldGroupMemberHitAt(group,clientX,clientY);
+      if(obj)memberHits.push({group,obj});
+    }
+    memberHits.sort((a,b)=>b.obj.z-a.obj.z);
+    if(memberHits.length)return memberHits[0].group;
+    for(const group of worldGroups()){
+      if(worldGroupGuideHitAt(group,clientX,clientY))return group;
+    }
+    return null;
+  }
+
+  function persistWorldGroupMove(group){
+    if(!group)return;
+    for(const obj of worldGroupMembers(group.id))recordObjectEdit(obj);
+    saveSceneData();
+    worldGroupListSignature='';
+    sceneEnvironmentListSignature='';
+    renderWorldGroupTools({force:true});
+    renderEnvironmentSelectionTools({force:true});
+  }
+
   function defaultWorldGroupExclusion(group){
     const b=worldGroupBounds(group);
     const gx=Number(group?.x)||0,gz=Number(group?.z)||pathZ;
@@ -8344,16 +8429,35 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function selectWorldGroup(id,{edit=null,focus=false}={}){
-    const group=worldGroupById(id);selectedWorldGroupId=group?.id||null;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;
-    if(edit!==null)worldGroupEditMode=!!(group&&edit);else if(!group)worldGroupEditMode=false;
+    const group=worldGroupById(id);
+    const changed=(group?.id||null)!==selectedWorldGroupId;
+    selectedWorldGroupId=group?.id||null;
+    worldGroupMoveMode=false;worldGroupExclusionEditMode=false;
+    if(edit!==null)worldGroupEditMode=!!(group&&edit);
+    else if(changed||!group)worldGroupEditMode=false;
+    if(!worldGroupEditMode&&selectedObject?.worldGroupId)selectObject(null);
     if(focus&&group){const b=worldGroupBounds(group);const x=b?(b.minX+b.maxX)*.5:Number(group.x)||0;camera.x=x-character.screenOffsetX;previousCameraX=camera.x;}
-    worldGroupListSignature='';sceneEnvironmentListSignature='';renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
+    worldGroupListSignature='';sceneEnvironmentListSignature='';
+    renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
   }
 
   function setWorldGroupEditMode(on){
-    const group=worldGroupById(selectedWorldGroupId);worldGroupEditMode=!!(on&&group);if(worldGroupEditMode)worldGroupExclusionEditMode=false;if(!worldGroupEditMode)worldGroupMoveMode=false;
+    const group=worldGroupById(selectedWorldGroupId);
+    worldGroupEditMode=!!(on&&group);
+    if(worldGroupEditMode){
+      worldGroupExclusionEditMode=false;
+      worldGroupMoveMode=false;
+    }else{
+      worldGroupMoveMode=false;
+      if(selectedObject?.worldGroupId===group?.id)selectObject(null);
+    }
     renderWorldGroupTools({force:true});
-    if(group){hintEl.textContent=worldGroupEditMode?`Editing ${group.label} · new placements automatically join this group`:`${group.label} selected · new placements remain standalone`;hintEl.classList.remove('hidden');}
+    if(group){
+      hintEl.textContent=worldGroupEditMode
+        ? `Editing ${group.label} · members unlocked · new placements automatically join`
+        : `${group.label} locked · drag the yellow group/member area to move it · Edit Group unlocks members`;
+      hintEl.classList.remove('hidden');
+    }
   }
 
   function setObjectWorldGroup(obj,groupId){
@@ -8384,7 +8488,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // preserving their authored floor offset; Follow Surface Normal remains an
   // asset behaviour and therefore rotates only assets that opt in. Free members
   // keep their vertical offset relative to the group's local ground height.
-  function moveWorldGroupTo(group,point,{silent=false}={}){
+  function moveWorldGroupTo(group,point,{silent=false,persist=true}={}){
     if(!group||!point)return false;
     const oldX=Number(group.x)||0,oldZ=Number(group.z)||pathZ;
     const nextX=Number(point.x)||oldX,nextZ=Rig.clamp(Number(point.z)||oldZ,WORLD.farZ+.8,WORLD.nearZ-.6);
@@ -8407,10 +8511,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if(state.free) setObjectFloorWorldY(obj,newGroupGround+state.freeGroupOffset);
       else setObjectFloorOffset(obj,state.floorOffset);
       moveObjectToCorrectCollection(obj);
-      recordObjectEdit(obj);
+      if(persist)recordObjectEdit(obj);
     }
     group.x=nextX;group.z=nextZ;
-    sortSceneCollections();saveSceneData();
+    sortSceneCollections();
+    if(persist)saveSceneData();
     worldGroupListSignature='';sceneEnvironmentListSignature='';
     if(!silent){renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});}
     return true;
@@ -8678,13 +8783,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(!force&&signature===worldGroupListSignature)return;worldGroupListSignature=signature;
     if(worldGroupCountEl)worldGroupCountEl.textContent=`${groups.length} ${groups.length===1?'group':'groups'}`;if(worldGroupEmptyEl)worldGroupEmptyEl.hidden=groups.length>0;worldGroupListEl.innerHTML='';
     for(const group of groups){const members=worldGroupMembers(group.id),b=worldGroupBounds(group);const row=document.createElement('button');row.type='button';row.className='sidescroll-environment-scene-row';row.classList.toggle('active',group.id===selectedWorldGroupId);row.setAttribute('aria-selected',String(group.id===selectedWorldGroupId));const main=document.createElement('span');main.className='scene-puzzle-main';const strong=document.createElement('strong');strong.textContent=group.label||'World Group';const small=document.createElement('small');small.textContent=`${members.length} ${members.length===1?'asset':'assets'}${worldGroupEditMode&&group.id===selectedWorldGroupId?' · EDITING':''}`;main.append(strong,small);const pos=document.createElement('span');pos.className='scene-puzzle-x';pos.textContent=b?`x ${((b.minX+b.maxX)*.5).toFixed(1)}`:`x ${Number(group.x||0).toFixed(1)}`;row.append(main,pos);bindEditorPress(row,()=>selectWorldGroup(group.id,{focus:true}));worldGroupListEl.appendChild(row);}
-    const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Finish Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;
+    const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;
     const ex=selected?currentWorldGroupExclusion(selected):null;
     if(worldGroupExclusionToggleBtn){worldGroupExclusionToggleBtn.disabled=!has;worldGroupExclusionToggleBtn.textContent=ex?.enabled?'Disable Exclusion':'Enable Exclusion';}
     if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.disabled=!has;worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Exclusion':'Edit Exclusion';worldGroupExclusionEditBtn.classList.toggle('primary',worldGroupExclusionEditMode);}
     if(worldGroupExclusionFitBtn)worldGroupExclusionFitBtn.disabled=!has;
     const selectedCanGroup=!!(selectedObject&&!selectedObject.deleted&&selectedObject.userAdded&&!selectedObject.puzzleInstanceId);if(worldGroupMembershipBtn){const inSelected=selectedCanGroup&&selected&&selectedObject.worldGroupId===selected.id;worldGroupMembershipBtn.disabled=!(selectedCanGroup&&selected);worldGroupMembershipBtn.textContent=inSelected?'Remove Selected':'Add Selected';}
-    if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected?'Standalone placement · create or select a group to organise authored world assets.':worldGroupExclusionEditMode?`${selected.label} · exclusion ${ex?.enabled?'ON':'OFF'} · drag handles to move/resize`:worldGroupMoveMode?`${selected.label} · tap a new scene position to move the complete group`:worldGroupEditMode?`${selected.label} · new assets automatically join · existing assets can be added/removed below`:`${selected.label} selected · ${worldGroupMembers(selected.id).length} assets${ex?.enabled?' · exclusion ON':''} · new placements remain standalone until Edit Group is enabled`;
+    if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected
+      ? 'Standalone placement · create or select a group to organise authored world assets.'
+      : worldGroupExclusionEditMode
+        ? `${selected.label} · exclusion ${ex?.enabled?'ON':'OFF'} · drag handles to move/resize`
+        : worldGroupMoveMode
+          ? `${selected.label} · tap a new scene position to move the complete group`
+          : worldGroupEditMode
+            ? `${selected.label} · MEMBERS UNLOCKED · new assets auto-join · select members to edit/add/remove`
+            : `${selected.label} · LOCKED GROUP · drag a member/yellow bounds to move the whole group · Edit Group unlocks members${ex?.enabled?' · exclusion ON':''}`;
   }
 
   function placedWorldEnvironmentObjects() {
@@ -8799,7 +8912,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       return puzzleEnvironmentPlacementMode ? assetScope === 'environment' : assetScope !== 'environment';
     }
     // Environment editing never reaches into an instantiated puzzle.
-    return !obj.puzzleInstanceId;
+    if (obj.puzzleInstanceId) return false;
+    // World Groups are locked compositions by default. Their children become
+    // individually editable only after the author explicitly enters Edit Group
+    // for that same group. Standalone objects remain editable at all times.
+    if (obj.worldGroupId) {
+      return !!(worldGroupEditMode && selectedWorldGroupId === obj.worldGroupId);
+    }
+    return true;
   }
 
   function pointInsideScreenBounds(clientX, clientY, bounds, pad = 4) {
@@ -11664,7 +11784,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const y0=playSurfaceYAt(b.minX)+.05,y1=playSurfaceYAt(b.maxX)+.05;
       const pts=[projectWorldPoint(b.minX,y0,b.minZ),projectWorldPoint(b.maxX,y1,b.minZ),projectWorldPoint(b.maxX,y1,b.maxZ),projectWorldPoint(b.minX,y0,b.maxZ)];if(pts.some(p=>!p))continue;
       ctx.save();ctx.strokeStyle=selected?'rgba(255,205,111,.98)':'rgba(255,205,111,.34)';ctx.fillStyle=selected?'rgba(255,205,111,.065)':'rgba(255,205,111,.025)';ctx.lineWidth=selected?2.3:1.1;ctx.setLineDash(selected?[7,4]:[4,5]);ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
-      if(selected){const origin=projectWorldPoint(Number(group.x)||0,playSurfaceYAt(Number(group.x)||0)+.12,Number(group.z)||pathZ);if(origin){ctx.beginPath();ctx.arc(origin.x,origin.y,6,0,Math.PI*2);ctx.fillStyle='#ffd77d';ctx.fill();ctx.strokeStyle='#4a3920';ctx.lineWidth=1.4;ctx.stroke();const label=`${group.label||'World Group'} · ${worldGroupMembers(group.id).length} assets${worldGroupEditMode?' · EDITING':''}`;ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;ctx.fillStyle='rgba(47,38,24,.88)';ctx.fillRect(origin.x-tw*.5,origin.y-30,tw,19);ctx.fillStyle='#fff0c7';ctx.fillText(label,origin.x-tw*.5+7,origin.y-17);}}
+      if(selected){const origin=projectWorldPoint(Number(group.x)||0,playSurfaceYAt(Number(group.x)||0)+.12,Number(group.z)||pathZ);if(origin){ctx.beginPath();ctx.arc(origin.x,origin.y,6,0,Math.PI*2);ctx.fillStyle='#ffd77d';ctx.fill();ctx.strokeStyle='#4a3920';ctx.lineWidth=1.4;ctx.stroke();const label=`${group.label||'World Group'} · ${worldGroupMembers(group.id).length} assets${worldGroupEditMode?' · MEMBERS UNLOCKED':' · LOCKED · DRAG TO MOVE'}`;ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;ctx.fillStyle='rgba(47,38,24,.88)';ctx.fillRect(origin.x-tw*.5,origin.y-30,tw,19);ctx.fillStyle='#fff0c7';ctx.fillText(label,origin.x-tw*.5+7,origin.y-17);}}
       ctx.restore();
       if(selected)drawWorldGroupExclusionGuide(ctx,group);
     }
@@ -15416,6 +15536,26 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         }
       }
 
+      // Locked World Groups are selected/moved as one composition. Tapping any
+      // member selects the group; once selected, its yellow footprint and origin
+      // are also direct drag handles. Edit Group deliberately bypasses this so
+      // the selected group's children become normal editable objects.
+      if(editorScope==='environment'&&!worldGroupEditMode){
+        const hitGroup=worldGroupAtEditorPoint(e.clientX,e.clientY);
+        if(hitGroup){
+          if(selectedWorldGroupId!==hitGroup.id)selectWorldGroup(hitGroup.id,{focus:false});
+          selectObject(null);
+          editorGesture.kind='world-group-direct';
+          editorGesture.group=hitGroup;
+          editorGesture.groupStartX=Number(hitGroup.x)||0;
+          editorGesture.groupStartZ=Number(hitGroup.z)||pathZ;
+          editorGesture.groupStartGround=groundPointFromClient(e.clientX,e.clientY)||editorGesture.startGround;
+          hintEl.textContent=`${hitGroup.label} selected · drag to move whole group · Edit Group to unlock members`;
+          hintEl.classList.remove('hidden');
+          return;
+        }
+      }
+
       // Crucial editor rule: an object only moves when the drag STARTS inside
       // the object that was already selected. Everything else begins as a pan.
       if (selectedObject && editorObjectIsEditable(selectedObject) && pointInsideScreenBounds(e.clientX,e.clientY,objectScreenBounds(selectedObject),3)) {
@@ -15451,7 +15591,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (travel < 7 && !editorGesture.moved) return;
       editorGesture.moved = true;
 
-      if (editorGesture.kind === 'selected-object' && editorGesture.object) {
+      if(editorGesture.kind==='world-group-direct'&&editorGesture.group){
+        const point=groundPointFromClient(e.clientX,e.clientY);
+        const start=editorGesture.groupStartGround;
+        if(point&&start){
+          const nextX=editorGesture.groupStartX+(point.x-start.x);
+          const nextZ=editorGesture.groupStartZ+(point.z-start.z);
+          moveWorldGroupTo(editorGesture.group,{x:nextX,z:nextZ},{silent:true,persist:false});
+        }else{
+          const nextX=editorGesture.groupStartX+dx*.0065;
+          moveWorldGroupTo(editorGesture.group,{x:nextX,z:editorGesture.groupStartZ},{silent:true,persist:false});
+        }
+        worldGroupListSignature='';
+      } else if (editorGesture.kind === 'selected-object' && editorGesture.object) {
         const obj = editorGesture.object;
         if (obj.socketedTo) obj.socketedTo = null;
         const point = groundPointFromClient(e.clientX,e.clientY);
@@ -15571,7 +15723,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const gesture=editorGesture;
       if (gesture) {
         if (gesture.moved) {
-          if (gesture.kind==='selected-object' && gesture.object) {
+          if(gesture.kind==='world-group-direct'&&gesture.group){
+            persistWorldGroupMove(gesture.group);
+            hintEl.textContent=`Moved ${gesture.group.label} · group remains locked`;
+            hintEl.classList.remove('hidden');
+          }
+          else if (gesture.kind==='selected-object' && gesture.object) {
             if (gesture.object.category === 'gameplay') settleGameplayCrates();
             const instance = gesture.object.puzzleInstanceId ? activePuzzleInstances.get(gesture.object.puzzleInstanceId) : null;
             if (instance) capturePuzzleInstance(instance);
@@ -15596,6 +15753,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             savePuzzleExclusionState();
             updatePuzzlePanel();
           }
+        } else if (!gesture.moved && gesture.kind==='world-group-direct' && gesture.group) {
+          selectWorldGroup(gesture.group.id,{focus:false});
+          selectObject(null);
+          hintEl.textContent=`${gesture.group.label} selected · locked as a group · drag it to move · Edit Group to edit members`;
+          hintEl.classList.remove('hidden');
         } else if (!gesture.moved && gesture.kind==='world-group-template-place') {
           const template=worldGroupTemplateById(selectedWorldTemplateId);
           const point=groundPointFromClient(e.clientX,e.clientY)||gesture.startGround;
@@ -15650,8 +15812,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
               : 'Selected · drag inside this asset to move it · drag elsewhere to pan';
             hintEl.classList.remove('hidden');
           } else {
-            selectionTapCycle=null;
-            selectObject(null);
+            const lockedGroup=editorScope==='environment'?worldGroupAtEditorPoint(e.clientX,e.clientY):null;
+            if(lockedGroup&&(!worldGroupEditMode||lockedGroup.id!==selectedWorldGroupId)){
+              selectionTapCycle=null;
+              selectObject(null);
+              selectWorldGroup(lockedGroup.id,{edit:false,focus:false});
+              hintEl.textContent=`${lockedGroup.label} selected · locked group`;
+              hintEl.classList.remove('hidden');
+            }else{
+              selectionTapCycle=null;
+              selectObject(null);
+            }
           }
         }
       }
