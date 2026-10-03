@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.102: settlement cache-bust + corrected cropped asset dimensions.
   // SideScroll v1.0.100: settlement building test library (global/manual placement + Asset Lab registration).
   // SideScroll v1.0.95: editor selection filters + placed-world list + exhaustive tap cycling + shared World Objects.
   // SideScroll v1.0.93: refresh climb-rock texture URL after art replacement; retains v1.0.91 biome sizing sync.
@@ -1863,26 +1864,29 @@
   // manual-placement assets so the village composition can be judged before a
   // settlement biome/profile or default collision behaviour is introduced.
   const settlementAssetDimensions = {
-    'settlement-house-01':[1122,835],
-    'settlement-house-02':[1120,1103],
-    'settlement-house-03':[1122,704],
-    'settlement-house-04':[939,1236],
-    'settlement-house-05':[1122,1402],
-    'settlement-house-06':[1122,1402],
-    'settlement-roof-01':[1439,588],
-    'settlement-roof-02':[1448,918],
-    'settlement-roof-03':[1429,623],
-    'settlement-roof-04':[1436,659],
-    'settlement-fence-01':[1448,1086],
-    'settlement-fence-02':[1448,1086],
-    'settlement-fence-03':[1448,1051],
-    'settlement-wall-01':[1448,1068],
-    'settlement-wall-02':[1428,1082],
-    'settlement-wall-03':[1448,1086],
+    // v1.0.101 clean exports: native/clean alpha, tight crop, floor aligned.
+    'settlement-house-01':[1121,858],
+    'settlement-house-02':[1116,771],
+    'settlement-house-03':[1120,663],
+    'settlement-house-04':[934,1241],
+    'settlement-house-05':[1119,1112],
+    'settlement-house-06':[1077,1097],
+    'settlement-roof-01':[1399,548],
+    'settlement-roof-02':[1409,678],
+    'settlement-roof-03':[1389,581],
+    'settlement-roof-04':[1395,618],
+    'settlement-fence-01':[1404,784],
+    'settlement-fence-02':[1424,461],
+    'settlement-fence-03':[1433,413],
+    'settlement-wall-01':[1423,288],
+    'settlement-wall-02':[1364,937],
+    'settlement-wall-03':[1136,992],
   };
   Object.entries(settlementAssetDimensions).forEach(([key,size]) => {
     assetAspect[key] = size[0] / size[1];
-    textures[key] = createImageTexture(`${key}.png?v=1.0.100`, key, null, size[0] / size[1]);
+    // Important: large visual assets are cache-first in sw.js, so changing art
+    // under the same filename requires a new exact query URL.
+    textures[key] = createImageTexture(`${key}.png?v=1.0.102`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
@@ -10359,7 +10363,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          const thumbVersion = name.startsWith('settlement-') ? '1.0.100' : (name.startsWith('mountain-') ? '1.0.83' : '1.0.62');
+          const thumbVersion = name.startsWith('settlement-') ? '1.0.102' : (name.startsWith('mountain-') ? '1.0.83' : '1.0.62');
           btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=${thumbVersion}" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;

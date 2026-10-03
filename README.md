@@ -1,21 +1,10 @@
-Settlement Core Clean v2
+# SS-PATCH-1.0.102
 
-Corrected runtime-ready settlement core asset set.
+Applies over `SS-PATCH-1.0.101`.
 
-Includes:
-- 6 houses
-- 4 roofs
-- 3 fences
-- 3 walls
+## Fix
+- Forces the corrected settlement textures to load under a new versioned URL instead of reusing the service worker's cached v1.0.100 copies.
+- Updates settlement runtime aspect/dimension data to match the newly cropped v1.0.101 PNGs.
+- Updates Environment palette thumbnails and Asset Lab image versioning.
 
-Processing rules applied:
-- houses 01-04 regenerated from the approved facades with native alpha
-- roofs rebuilt from the earlier clean alpha sources, not from the contaminated runtime exports
-- houses 05-06, fences and walls rebuilt directly from their original alpha sources
-- near-opaque ImageGen alpha normalized to opaque
-- faint ghost alpha removed
-- local asset colour dilated 12 px under transparent pixels
-- no white matte introduced
-- full source resolution retained; no resizing
-- ground-contact assets cropped with zero bottom transparent padding
-- roofs tightly cropped with a small transparent safety border
+No art files are repeated in this patch; it expects the corrected v1.0.101 settlement PNGs to already be present.
