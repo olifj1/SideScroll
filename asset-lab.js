@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.85';
+  const VERSION = '1.0.100';
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -33,6 +33,22 @@
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-a',label:'Triangle Stone',image:'stone-piece-a.png',height:1.00,behaviour:{carryable:true,placeable:true,socketPiece:true}},
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-b',label:'Arch Stone',image:'stone-piece-b.png',height:1.04,behaviour:{carryable:true,placeable:true,socketPiece:true}},
     {group:'PUZZLE · STONE WALL',scope:'puzzle',name:'stone-piece-c',label:'Hexagon Stone',image:'stone-piece-c.png',height:1.00,behaviour:{carryable:true,placeable:true,socketPiece:true}},
+    {group:'ENVIRONMENT · SETTLEMENT · BUILDINGS',scope:'environment',name:'settlement-house-01',label:'House 01 · Cottage Front',image:'settlement-house-01.png',height:4.20,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · BUILDINGS',scope:'environment',name:'settlement-house-02',label:'House 02 · Wide Cottage',image:'settlement-house-02.png',height:4.00,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · BUILDINGS',scope:'environment',name:'settlement-house-03',label:'House 03 · Wide Hall',image:'settlement-house-03.png',height:3.60,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · BUILDINGS',scope:'environment',name:'settlement-house-04',label:'House 04 · Tall House',image:'settlement-house-04.png',height:5.00,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · BUILDINGS',scope:'environment',name:'settlement-house-05',label:'House 05 · Ramshackle Cottage',image:'settlement-house-05.png',height:4.40,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · BUILDINGS',scope:'environment',name:'settlement-house-06',label:'House 06 · Ramshackle Hut',image:'settlement-house-06.png',height:4.30,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · ROOFS',scope:'environment',name:'settlement-roof-01',label:'Roof 01 · Terracotta Gable',image:'settlement-roof-01.png',height:1.65,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · ROOFS',scope:'environment',name:'settlement-roof-02',label:'Roof 02 · Double Chimney',image:'settlement-roof-02.png',height:2.15,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · ROOFS',scope:'environment',name:'settlement-roof-03',label:'Roof 03 · Low Chimney',image:'settlement-roof-03.png',height:1.70,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · ROOFS',scope:'environment',name:'settlement-roof-04',label:'Roof 04 · Rustic Shingle',image:'settlement-roof-04.png',height:1.80,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · FENCES + WALLS',scope:'environment',name:'settlement-fence-01',label:'Fence 01 · Straight',image:'settlement-fence-01.png',height:1.35,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · FENCES + WALLS',scope:'environment',name:'settlement-fence-02',label:'Fence 02 · Broken',image:'settlement-fence-02.png',height:1.25,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · FENCES + WALLS',scope:'environment',name:'settlement-fence-03',label:'Fence 03 · Gate',image:'settlement-fence-03.png',height:1.55,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · FENCES + WALLS',scope:'environment',name:'settlement-wall-01',label:'Wall 01 · Low Stone',image:'settlement-wall-01.png',height:1.35,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · FENCES + WALLS',scope:'environment',name:'settlement-wall-02',label:'Wall 02 · Timber + Stone',image:'settlement-wall-02.png',height:2.55,groundLine:0,behaviour:{}},
+    {group:'ENVIRONMENT · SETTLEMENT · FENCES + WALLS',scope:'environment',name:'settlement-wall-03',label:'Wall 03 · Stone Corner',image:'settlement-wall-03.png',height:2.45,groundLine:0,behaviour:{}},
     {group:'ENVIRONMENT · MOUNTAIN',scope:'environment',name:'mountain-climb-rock-01',label:'Mountain Climb Rock 01',image:'mountain-climb-rock-01.png',height:3.55,behaviour:{solid:true,supportSurface:true,climbable:true},collision:{halfWidthRatio:0.46,heightRatio:0.72,fixedHeight:null,depthRatio:0.15,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]},climbPaths:[{id:'left',bottom:{x:-0.48,y:0.01},top:{x:-0.39,y:0.72},widthRatio:0.11},{id:'right',bottom:{x:0.48,y:0.01},top:{x:0.39,y:0.72},widthRatio:0.11}]},
     {group:'ENVIRONMENT · MOUNTAIN · CLIFFS',scope:'environment',name:'mountain-cliff-01',label:'Mountain Cliff 01 · Stepped',image:'mountain-cliff-01.png',height:3.55,groundLine:0.025,behaviour:{solid:true,supportSurface:true,climbable:true},collision:{halfWidthRatio:0.44,heightRatio:0.74,fixedHeight:null,depthRatio:0.16,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]},climbPaths:[{id:'left',bottom:{x:-0.34,y:0.02},top:{x:-0.30,y:0.74},widthRatio:0.10},{id:'right',bottom:{x:0.34,y:0.02},top:{x:0.30,y:0.74},widthRatio:0.10}]},
     {group:'ENVIRONMENT · MOUNTAIN · CLIFFS',scope:'environment',name:'mountain-cliff-02',label:'Mountain Cliff 02 · Sheer',image:'mountain-cliff-02.png',height:3.50,groundLine:0.025,behaviour:{solid:true,supportSurface:true,climbable:true},collision:{halfWidthRatio:0.45,heightRatio:0.76,fixedHeight:null,depthRatio:0.16,points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}],shapes:[{points:[{x:-1,y:0},{x:1,y:0},{x:1,y:1},{x:-1,y:1}]}]},climbPaths:[{id:'left',bottom:{x:-0.33,y:0.02},top:{x:-0.30,y:0.76},widthRatio:0.10},{id:'right',bottom:{x:0.33,y:0.02},top:{x:0.30,y:0.76},widthRatio:0.10}]},

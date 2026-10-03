@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.100: settlement building test library (global/manual placement + Asset Lab registration).
   // SideScroll v1.0.95: editor selection filters + placed-world list + exhaustive tap cycling + shared World Objects.
   // SideScroll v1.0.93: refresh climb-rock texture URL after art replacement; retains v1.0.91 biome sizing sync.
   // SideScroll v1.0.86: left-facing climb fix + constant-rate climb traversal/animation.
@@ -1855,6 +1856,33 @@
   Object.entries(mountainAssetDimensions).forEach(([key,size]) => {
     assetAspect[key] = size[0] / size[1];
     textures[key] = createImageTexture(`${key}.png?v=1.0.83`, key, null, size[0] / size[1]);
+  });
+
+
+  // v1.0.100 settlement visual test library. These are deliberately Global / Unbound
+  // manual-placement assets so the village composition can be judged before a
+  // settlement biome/profile or default collision behaviour is introduced.
+  const settlementAssetDimensions = {
+    'settlement-house-01':[1122,835],
+    'settlement-house-02':[1120,1103],
+    'settlement-house-03':[1122,704],
+    'settlement-house-04':[939,1236],
+    'settlement-house-05':[1122,1402],
+    'settlement-house-06':[1122,1402],
+    'settlement-roof-01':[1439,588],
+    'settlement-roof-02':[1448,918],
+    'settlement-roof-03':[1429,623],
+    'settlement-roof-04':[1436,659],
+    'settlement-fence-01':[1448,1086],
+    'settlement-fence-02':[1448,1086],
+    'settlement-fence-03':[1448,1051],
+    'settlement-wall-01':[1448,1068],
+    'settlement-wall-02':[1428,1082],
+    'settlement-wall-03':[1448,1086],
+  };
+  Object.entries(settlementAssetDimensions).forEach(([key,size]) => {
+    assetAspect[key] = size[0] / size[1];
+    textures[key] = createImageTexture(`${key}.png?v=1.0.100`, key, null, size[0] / size[1]);
   });
 
   assetAspect['counterweight-plank'] = 1050 / 220;
@@ -7639,6 +7667,28 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       { name:'thought-trigger', label:'THOUGHT NODE', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true, wrap:false },
       { name:'camera-trigger', label:'CAMERA NODE', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0, defaultCameraCurveStart:0, defaultCameraCurveEnd:0 }
     ]},
+    { scope:'environment', title: 'SETTLEMENT · BUILDINGS', selectionKey:'settlement-buildings', selectionLabel:'Settlement Buildings', items: [
+      { name:'settlement-house-01', label:'HOUSE 01 · COTTAGE FRONT', image:'settlement-house-01.png', category:'dressing', defaultHeight:4.20, wrap:false },
+      { name:'settlement-house-02', label:'HOUSE 02 · WIDE COTTAGE', image:'settlement-house-02.png', category:'dressing', defaultHeight:4.00, wrap:false },
+      { name:'settlement-house-03', label:'HOUSE 03 · WIDE HALL', image:'settlement-house-03.png', category:'dressing', defaultHeight:3.60, wrap:false },
+      { name:'settlement-house-04', label:'HOUSE 04 · TALL HOUSE', image:'settlement-house-04.png', category:'dressing', defaultHeight:5.00, wrap:false },
+      { name:'settlement-house-05', label:'HOUSE 05 · RAMSHACKLE COTTAGE', image:'settlement-house-05.png', category:'dressing', defaultHeight:4.40, wrap:false },
+      { name:'settlement-house-06', label:'HOUSE 06 · RAMSHACKLE HUT', image:'settlement-house-06.png', category:'dressing', defaultHeight:4.30, wrap:false },
+    ]},
+    { scope:'environment', title: 'SETTLEMENT · ROOFS', selectionKey:'settlement-roofs', selectionLabel:'Settlement Roofs', items: [
+      { name:'settlement-roof-01', label:'ROOF 01 · TERRACOTTA GABLE', image:'settlement-roof-01.png', category:'dressing', defaultHeight:1.65, wrap:false },
+      { name:'settlement-roof-02', label:'ROOF 02 · DOUBLE CHIMNEY', image:'settlement-roof-02.png', category:'dressing', defaultHeight:2.15, wrap:false },
+      { name:'settlement-roof-03', label:'ROOF 03 · LOW CHIMNEY', image:'settlement-roof-03.png', category:'dressing', defaultHeight:1.70, wrap:false },
+      { name:'settlement-roof-04', label:'ROOF 04 · RUSTIC SHINGLE', image:'settlement-roof-04.png', category:'dressing', defaultHeight:1.80, wrap:false },
+    ]},
+    { scope:'environment', title: 'SETTLEMENT · FENCES + WALLS', selectionKey:'settlement-structures', selectionLabel:'Settlement Fences + Walls', items: [
+      { name:'settlement-fence-01', label:'FENCE 01 · STRAIGHT', image:'settlement-fence-01.png', category:'dressing', defaultHeight:1.35, wrap:false },
+      { name:'settlement-fence-02', label:'FENCE 02 · BROKEN', image:'settlement-fence-02.png', category:'dressing', defaultHeight:1.25, wrap:false },
+      { name:'settlement-fence-03', label:'FENCE 03 · GATE', image:'settlement-fence-03.png', category:'dressing', defaultHeight:1.55, wrap:false },
+      { name:'settlement-wall-01', label:'WALL 01 · LOW STONE', image:'settlement-wall-01.png', category:'dressing', defaultHeight:1.35, wrap:false },
+      { name:'settlement-wall-02', label:'WALL 02 · TIMBER + STONE', image:'settlement-wall-02.png', category:'dressing', defaultHeight:2.55, wrap:false },
+      { name:'settlement-wall-03', label:'WALL 03 · STONE CORNER', image:'settlement-wall-03.png', category:'dressing', defaultHeight:2.45, wrap:false },
+    ]},
     { scope:'environment', title: 'MOUNTAIN · CLIMB ROCKS', selectionKey:'climb-rocks', selectionLabel:'Climb Rocks', items: [
       { name:'mountain-climb-rock-01', label:'CLIMB ROCK · PROTOTYPE', image:'mountain-climb-rock-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
       { name:'mountain-cliff-01', label:'CLIFF 01 · STEPPED', image:'mountain-cliff-01.png', category:'gameplay', gameplayType:'climb-rock', thumb:'▰', defaultHeight:3.55, gameplayLayerLocked:true, wrap:false },
@@ -10309,7 +10359,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
-          const thumbVersion = name.startsWith('mountain-') ? '1.0.83' : '1.0.62';
+          const thumbVersion = name.startsWith('settlement-') ? '1.0.100' : (name.startsWith('mountain-') ? '1.0.83' : '1.0.62');
           btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=${thumbVersion}" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
