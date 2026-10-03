@@ -1,32 +1,24 @@
-# SideScroll Patch v1.0.104
+# SS-PATCH-1.0.105
 
-Changed files only over **v1.0.103**.
+Applies over `SS-PATCH-1.0.104`.
 
-## World Groups v1
+## World Groups v2
 
-Adds optional grouping for manually authored Environment objects. Standalone objects remain fully supported.
+### Terrain-aware group movement
+- Ground-bound members now re-sample the terrain at their own new X/Z after the group moves.
+- Each ground-bound member preserves its authored floor offset.
+- Assets with `Follow Surface Normal` continue to tilt to the new local slope.
+- Ground-bound assets without that behaviour stay upright (useful for houses, walls and similar architecture).
+- Free-placement members keep their vertical offset relative to the group's local ground height.
 
-### Workflows
-- **New Group** creates a group and immediately enters Group Edit mode.
-- While Group Edit is active, every newly placed Environment asset automatically joins the selected group.
-- Select a manually placed world asset and use **Add Selected / Remove Selected** to change its membership.
-- Select a group from the World Groups list, then **Edit Group / Finish Group** to control automatic ownership.
-- **Move Group** then tap a new world position to translate the whole composition together.
-- **Rename** changes the group label.
-- **Dissolve** removes only the grouping; all child assets remain in place as standalone world objects.
+### Reusable group templates
+- `Save Group` stores the selected World Group as a reusable template.
+- Templates keep member layout, scale, flip, collision state, ground/free placement rules, Thought Node data and Camera Node data.
+- Select a template and use `Place Template`, then tap the scene to create a new independent World Group.
+- Ground-bound members are re-grounded individually at the new location when a template is placed.
+- Templates can be deleted without affecting groups already placed from them.
 
-### Editor feedback
-- Automatic group bounds are shown in the scene.
-- The active group shows an origin marker/name and member count.
-- Placed World Assets rows display their group name.
+### Storage
+Scene edit storage is migrated to v6 and now includes `worldGroupTemplates`.
 
-### Storage/export
-- Scene edit data migrates to version 5 with `worldGroups` and per-object `worldGroupId`.
-- Existing v2–v4 saves migrate without changing their authored objects.
-- Complete design export includes group ownership.
-
-### Not in v1
-- reusable group templates / group library
-- group duplication
-- group-owned exclusion zones or manual bounds
-- streaming. A later World Lab Streaming panel will apply universal load/unload margins to groups, puzzles and standalone authored objects.
+Streaming remains deliberately separate and will be handled later as a global World Lab policy for standalone objects, World Groups and puzzles.

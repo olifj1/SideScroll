@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.105: World Groups v2 · reusable templates + terrain-aware group moves.
   // SideScroll v1.0.104: World Groups v1 · optional authored environment grouping/edit/move workflow.
   // SideScroll v1.0.102: settlement cache-bust + corrected cropped asset dimensions.
   // SideScroll v1.0.100: settlement building test library (global/manual placement + Asset Lab registration).
@@ -363,6 +364,13 @@
   const worldGroupStatusEl = document.getElementById('sidescroll-world-group-status');
   const worldGroupListEl = document.getElementById('sidescroll-world-group-list');
   const worldGroupEmptyEl = document.getElementById('sidescroll-world-group-empty');
+  const worldTemplateCountEl = document.getElementById('sidescroll-world-template-count');
+  const worldTemplateSaveBtn = document.getElementById('sidescroll-world-template-save');
+  const worldTemplatePlaceBtn = document.getElementById('sidescroll-world-template-place');
+  const worldTemplateDeleteBtn = document.getElementById('sidescroll-world-template-delete');
+  const worldTemplateStatusEl = document.getElementById('sidescroll-world-template-status');
+  const worldTemplateListEl = document.getElementById('sidescroll-world-template-list');
+  const worldTemplateEmptyEl = document.getElementById('sidescroll-world-template-empty');
   const puzzleStageSection = document.getElementById('sidescroll-puzzle-stage-section');
   const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
   const puzzleEditBtn = document.getElementById('sidescroll-puzzle-edit');
@@ -3914,25 +3922,27 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const raw = localStorage.getItem(SCENE_STORAGE_KEY);
       if (raw !== null) {
         const parsed = JSON.parse(raw || 'null');
-        if (parsed && [2,3,4,5].includes(parsed.version)) {
-          parsed.version = 5;
+        if (parsed && [2,3,4,5,6].includes(parsed.version)) {
+          parsed.version = 6;
           parsed.overrides ||= {};
           parsed.added ||= [];
           parsed.worldGroups ||= [];
+          parsed.worldGroupTemplates ||= [];
           return parsed;
         }
       }
     } catch (_) {}
     const baked = BAKED_GAME_DESIGN?.scene?.edits;
-    if (baked && [2,3,4,5].includes(baked.version)) {
+    if (baked && [2,3,4,5,6].includes(baked.version)) {
       const parsed = JSON.parse(JSON.stringify(baked));
-      parsed.version = 5;
+      parsed.version = 6;
       parsed.overrides ||= {};
       parsed.added ||= [];
       parsed.worldGroups ||= [];
+      parsed.worldGroupTemplates ||= [];
       return parsed;
     }
-    return { version: 5, overrides: {}, added: [], worldGroups: [] };
+    return { version: 6, overrides: {}, added: [], worldGroups: [], worldGroupTemplates: [] };
   })();
 
   function saveSceneData() {
@@ -6993,6 +7003,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let worldGroupEditMode = false;
   let worldGroupMoveMode = false;
   let worldGroupListSignature = '';
+  let selectedWorldTemplateId = null;
+  let worldGroupTemplatePlaceMode = false;
+  let worldGroupTemplateListSignature = '';
   let puzzleLibraryListSignature = '';
   let puzzleObjectListSignature = '';
   let puzzleBrowserMode = 'scene';
@@ -8282,14 +8295,285 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group=worldGroupById(selectedWorldGroupId);if(!group)return;const next=window.prompt('World group name',group.label||'World Group');if(next==null)return;const label=String(next).trim();if(!label)return;group.label=label.slice(0,60);saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
   }
 
+  function worldGroupAnchorGroundY(x,z){
+    return terrainGroundYAt(Number(x)||0,Number(z)||pathZ);
+  }
+
+  // A World Group owns X/Z composition, but each child keeps its own placement
+  // rule. Ground-bound members re-sample terrain at their new location while
+  // preserving their authored floor offset; Follow Surface Normal remains an
+  // asset behaviour and therefore rotates only assets that opt in. Free members
+  // keep their vertical offset relative to the group's local ground height.
   function moveWorldGroupTo(group,point){
-    if(!group||!point)return false;const oldX=Number(group.x)||0,oldZ=Number(group.z)||pathZ;const nextX=Number(point.x)||oldX,nextZ=Rig.clamp(Number(point.z)||oldZ,WORLD.farZ+.8,WORLD.nearZ-.6);const dx=nextX-oldX,dz=nextZ-oldZ;if(Math.abs(dx)<1e-6&&Math.abs(dz)<1e-6)return false;
-    const dy=playSurfaceYAt(nextX)-playSurfaceYAt(oldX);
-    for(const obj of worldGroupMembers(group.id)){const floor=objectFloorWorldY(obj);obj.x+=dx;obj.z=obj.category==='gameplay'&&obj.gameplayLayerLocked?pathZ:Rig.clamp(obj.z+dz,WORLD.farZ+.8,WORLD.nearZ-.6);setObjectFloorWorldY(obj,floor+dy);moveObjectToCorrectCollection(obj);recordObjectEdit(obj);}
-    group.x=nextX;group.z=nextZ;sortSceneCollections();saveSceneData();worldGroupListSignature='';sceneEnvironmentListSignature='';renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});return true;
+    if(!group||!point)return false;
+    const oldX=Number(group.x)||0,oldZ=Number(group.z)||pathZ;
+    const nextX=Number(point.x)||oldX,nextZ=Rig.clamp(Number(point.z)||oldZ,WORLD.farZ+.8,WORLD.nearZ-.6);
+    const dx=nextX-oldX,dz=nextZ-oldZ;
+    if(Math.abs(dx)<1e-6&&Math.abs(dz)<1e-6)return false;
+    const oldGroupGround=worldGroupAnchorGroundY(oldX,oldZ);
+    const newGroupGround=worldGroupAnchorGroundY(nextX,nextZ);
+    const members=worldGroupMembers(group.id).map(obj=>({
+      obj,
+      free:objectUsesFreePlacement(obj),
+      floorOffset:objectFloorOffsetFromTerrain(obj),
+      freeGroupOffset:objectFloorWorldY(obj)-oldGroupGround
+    }));
+    for(const state of members){
+      const obj=state.obj;
+      obj.x+=dx;
+      obj.z=obj.category==='gameplay'&&obj.gameplayLayerLocked
+        ? pathZ
+        : Rig.clamp(obj.z+dz,WORLD.farZ+.8,WORLD.nearZ-.6);
+      if(state.free) setObjectFloorWorldY(obj,newGroupGround+state.freeGroupOffset);
+      else setObjectFloorOffset(obj,state.floorOffset);
+      moveObjectToCorrectCollection(obj);
+      recordObjectEdit(obj);
+    }
+    group.x=nextX;group.z=nextZ;
+    sortSceneCollections();saveSceneData();
+    worldGroupListSignature='';sceneEnvironmentListSignature='';
+    renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
+    return true;
+  }
+
+  function worldGroupTemplates(){
+    sceneData.worldGroupTemplates ||= [];
+    return sceneData.worldGroupTemplates;
+  }
+
+  function worldGroupTemplateById(id){
+    return id ? worldGroupTemplates().find(template=>template?.id===id) || null : null;
+  }
+
+  function uniqueWorldGroupLabel(base='World Group'){
+    const clean=String(base||'World Group').trim() || 'World Group';
+    const used=new Set(worldGroups().map(group=>String(group?.label||'').trim().toLowerCase()));
+    if(!used.has(clean.toLowerCase()))return clean;
+    let index=2;
+    while(used.has(`${clean} ${index}`.toLowerCase()))index+=1;
+    return `${clean} ${index}`;
+  }
+
+  function uniqueWorldTemplateLabel(base='Group Template'){
+    const clean=String(base||'Group Template').trim() || 'Group Template';
+    const used=new Set(worldGroupTemplates().map(template=>String(template?.label||'').trim().toLowerCase()));
+    if(!used.has(clean.toLowerCase()))return clean;
+    let index=2;
+    while(used.has(`${clean} ${index}`.toLowerCase()))index+=1;
+    return `${clean} ${index}`;
+  }
+
+  function worldGroupTemplateMember(obj,group){
+    const free=objectUsesFreePlacement(obj);
+    const groupGround=worldGroupAnchorGroundY(group.x,group.z);
+    return{
+      assetName:obj.assetName,
+      assetState:obj.assetState || inferredAssetState(obj.assetName),
+      dx:(Number(obj.x)||0)-(Number(group.x)||0),
+      dz:(Number(obj.z)||0)-(Number(group.z)||pathZ),
+      sx:Number(obj.sx)||1,sy:Number(obj.sy)||1,
+      flip:!!obj.flip,groundLine:objectGroundLine(obj),
+      category:obj.category||'dressing',gameplayType:obj.gameplayType||null,
+      gameplayLayerLocked:!!obj.gameplayLayerLocked,
+      freePlacement:free,
+      floorOffset:free?null:objectFloorOffsetFromTerrain(obj),
+      freeGroupFloorOffset:free?(objectFloorWorldY(obj)-groupGround):null,
+      collision:obj.collision?cloneCollision(obj.collision):null,
+      collisionOverride:!!obj.collisionOverride,
+      wrap:obj.wrap!==false,
+      thoughtText:typeof obj.thoughtText==='string'?obj.thoughtText:'',
+      thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8),
+      thoughtOnce:obj.thoughtOnce!==false,
+      cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
+      cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
+      cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0,
+      cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
+      cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart),
+      cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
+    };
+  }
+
+  function saveSelectedWorldGroupAsTemplate(){
+    const group=worldGroupById(selectedWorldGroupId);
+    if(!group)return;
+    const members=worldGroupMembers(group.id);
+    if(!members.length){
+      hintEl.textContent='Add at least one asset before saving a group template';
+      hintEl.classList.remove('hidden');
+      return;
+    }
+    const proposed=uniqueWorldTemplateLabel(group.label||'Group Template');
+    const entered=window.prompt('Group template name',proposed);
+    if(entered==null)return;
+    const label=uniqueWorldTemplateLabel(String(entered).trim()||proposed);
+    const template={
+      id:`world-template-${Date.now().toString(36)}-${++userSceneCounter}`,
+      label,
+      createdAt:Date.now(),
+      members:members.map(obj=>worldGroupTemplateMember(obj,group))
+    };
+    worldGroupTemplates().push(template);
+    selectedWorldTemplateId=template.id;
+    worldGroupTemplatePlaceMode=false;
+    saveSceneData();
+    worldGroupTemplateListSignature='';
+    renderWorldGroupTools({force:true});
+    hintEl.textContent=`Saved ${label} · ${template.members.length} ${template.members.length===1?'asset':'assets'}`;
+    hintEl.classList.remove('hidden');
+  }
+
+  function deleteSelectedWorldGroupTemplate(){
+    const template=worldGroupTemplateById(selectedWorldTemplateId);
+    if(!template)return;
+    if(!window.confirm(`Delete ${template.label}? Existing placed groups will not be affected.`))return;
+    sceneData.worldGroupTemplates=worldGroupTemplates().filter(item=>item.id!==template.id);
+    selectedWorldTemplateId=null;
+    worldGroupTemplatePlaceMode=false;
+    saveSceneData();
+    worldGroupTemplateListSignature='';
+    renderWorldGroupTools({force:true});
+  }
+
+  function createTemplateObject(member,group,anchor){
+    const x=(Number(anchor.x)||0)+(Number(member.dx)||0);
+    const locked=!!member.gameplayLayerLocked && (member.category||'dressing')==='gameplay';
+    const z=locked
+      ? pathZ
+      : Rig.clamp((Number(anchor.z)||pathZ)+(Number(member.dz)||0),WORLD.farZ+.8,WORLD.nearZ-.6);
+    const sx=Math.max(.02,Number(member.sx)||1);
+    const sy=Math.max(.02,Number(member.sy)||1);
+    const groundLine=Rig.clamp(Number.isFinite(Number(member.groundLine))?Number(member.groundLine):assetGroundLineDefault(member.assetName,member.assetState),0,1);
+    const free=!!member.freePlacement;
+    const groupGround=worldGroupAnchorGroundY(anchor.x,anchor.z);
+    const floorY=free
+      ? groupGround+(Number(member.freeGroupFloorOffset)||0)
+      : terrainAnchorBaseY(x,z,member.category||'dressing',locked,member.assetName)+(Number(member.floorOffset)||0);
+    const id=`user-${Date.now().toString(36)}-${++userSceneCounter}`;
+    const category=member.category||'dressing';
+    const collection=category==='gameplay'?frontOccluders:targetCollectionForZ(z);
+    const collision=member.collisionOverride
+      ? cloneCollision(member.collision)
+      : behaviourCollisionFor(member.assetName,sx,sy,member.collision,member.assetState);
+    const obj=addObject(collection,member.assetName,x,z,sx,sy,{
+      id,userAdded:true,baseSx:sx,baseSy:sy,
+      assetState:member.assetState || inferredAssetState(member.assetName),
+      y:floorY-groundLine*sy,groundLine,
+      shade:1,opacity:.99,flip:!!member.flip,layer:classifyLayer(z),
+      category,gameplayType:member.gameplayType||null,
+      gameplayLayerLocked:locked,freePlacement:free,
+      collision,collisionOverride:!!member.collisionOverride,
+      worldGroupId:group.id,wrap:member.wrap!==false,
+      thoughtText:member.thoughtText||'',thoughtRadius:member.thoughtRadius,thoughtOnce:member.thoughtOnce!==false,
+      cameraNodeRadius:member.cameraNodeRadius,cameraNodeOffsetX:member.cameraNodeOffsetX,
+      cameraNodeOffsetY:member.cameraNodeOffsetY,cameraNodeOffsetZ:member.cameraNodeOffsetZ,
+      cameraNodeCurveStart:cameraNodeCurveSetting(member.cameraNodeCurveStart),
+      cameraNodeCurveEnd:cameraNodeCurveSetting(member.cameraNodeCurveEnd)
+    });
+    moveObjectToCorrectCollection(obj);
+    recordObjectEdit(obj);
+    return obj;
+  }
+
+  function spawnWorldGroupTemplateAt(template,point){
+    if(!template||!point||!Array.isArray(template.members)||!template.members.length)return null;
+    const anchor={
+      x:Number(point.x)||0,
+      z:Rig.clamp(Number(point.z)||pathZ,WORLD.farZ+.8,WORLD.nearZ-.6)
+    };
+    const group={
+      id:`world-group-${Date.now().toString(36)}-${++userSceneCounter}`,
+      label:uniqueWorldGroupLabel(template.label||'World Group'),
+      x:anchor.x,z:anchor.z,createdAt:Date.now(),templateId:template.id
+    };
+    worldGroups().push(group);
+    for(const member of template.members)createTemplateObject(member,group,anchor);
+    sortSceneCollections();
+    selectedWorldGroupId=group.id;
+    worldGroupEditMode=false;
+    worldGroupMoveMode=false;
+    worldGroupTemplatePlaceMode=false;
+    saveSceneData();
+    worldGroupListSignature='';
+    worldGroupTemplateListSignature='';
+    sceneEnvironmentListSignature='';
+    renderWorldGroupTools({force:true});
+    renderEnvironmentSelectionTools({force:true});
+    return group;
+  }
+
+  function setWorldGroupTemplatePlaceMode(on){
+    const template=worldGroupTemplateById(selectedWorldTemplateId);
+    worldGroupTemplatePlaceMode=!!(on&&template);
+    if(worldGroupTemplatePlaceMode){
+      worldGroupMoveMode=false;
+      worldGroupEditMode=false;
+      if(addAssetType)exitPlacementMode();
+    }
+    worldGroupTemplateListSignature='';
+    renderWorldGroupTools({force:true});
+    if(template){
+      hintEl.textContent=worldGroupTemplatePlaceMode
+        ? `PLACE ${template.label.toUpperCase()} · tap the scene`
+        : 'Template placement cancelled';
+      hintEl.classList.remove('hidden');
+    }
+  }
+
+  function renderWorldGroupTemplateTools({force=false}={}){
+    if(!worldTemplateListEl)return;
+    const templates=worldGroupTemplates();
+    if(selectedWorldTemplateId&&!worldGroupTemplateById(selectedWorldTemplateId)){
+      selectedWorldTemplateId=null;
+      worldGroupTemplatePlaceMode=false;
+    }
+    const selected=worldGroupTemplateById(selectedWorldTemplateId);
+    const group=worldGroupById(selectedWorldGroupId);
+    const signature=`${selectedWorldTemplateId||''}|${worldGroupTemplatePlaceMode?'p':'-'}|${selectedWorldGroupId||''}|`+
+      templates.map(t=>`${t.id}:${t.label}:${Array.isArray(t.members)?t.members.length:0}`).join('|');
+    if(!force&&signature===worldGroupTemplateListSignature)return;
+    worldGroupTemplateListSignature=signature;
+    if(worldTemplateCountEl)worldTemplateCountEl.textContent=`${templates.length} ${templates.length===1?'template':'templates'}`;
+    if(worldTemplateEmptyEl)worldTemplateEmptyEl.hidden=templates.length>0;
+    worldTemplateListEl.innerHTML='';
+    for(const template of templates){
+      const row=document.createElement('button');
+      row.type='button';
+      row.className='sidescroll-environment-scene-row';
+      row.classList.toggle('active',template.id===selectedWorldTemplateId);
+      row.setAttribute('aria-selected',String(template.id===selectedWorldTemplateId));
+      const main=document.createElement('span');
+      main.className='scene-puzzle-main';
+      const strong=document.createElement('strong');
+      strong.textContent=template.label||'Group Template';
+      const small=document.createElement('small');
+      const count=Array.isArray(template.members)?template.members.length:0;
+      small.textContent=`${count} ${count===1?'asset':'assets'}${worldGroupTemplatePlaceMode&&template.id===selectedWorldTemplateId?' · PLACE MODE':''}`;
+      main.append(strong,small);
+      row.append(main);
+      bindEditorPress(row,()=>{
+        selectedWorldTemplateId=template.id;
+        worldGroupTemplatePlaceMode=false;
+        worldGroupTemplateListSignature='';
+        renderWorldGroupTools({force:true});
+      });
+      worldTemplateListEl.appendChild(row);
+    }
+    if(worldTemplateSaveBtn)worldTemplateSaveBtn.disabled=!(group&&worldGroupMembers(group.id).length);
+    if(worldTemplatePlaceBtn){
+      worldTemplatePlaceBtn.disabled=!selected;
+      worldTemplatePlaceBtn.textContent=worldGroupTemplatePlaceMode?'Tap Scene…':'Place Template';
+      worldTemplatePlaceBtn.classList.toggle('primary',worldGroupTemplatePlaceMode);
+    }
+    if(worldTemplateDeleteBtn)worldTemplateDeleteBtn.disabled=!selected;
+    if(worldTemplateStatusEl)worldTemplateStatusEl.textContent=worldGroupTemplatePlaceMode&&selected
+      ? `${selected.label} · tap a scene position to create a new independent group`
+      : selected
+        ? `${selected.label} · reusable ${selected.members?.length||0}-asset composition`
+        : 'Save a finished group as a reusable template, then tap the scene to place a complete copy.';
   }
 
   function renderWorldGroupTools({force=false}={}){
+    renderWorldGroupTemplateTools({force});
     if(!worldGroupListEl)return;const groups=worldGroups();
     if(selectedWorldGroupId&&!worldGroupById(selectedWorldGroupId)){selectedWorldGroupId=null;worldGroupEditMode=false;worldGroupMoveMode=false;}
     const selected=worldGroupById(selectedWorldGroupId);
@@ -9024,7 +9308,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return {
       format:'SideScrollPuzzle',
       formatVersion:1,
-      appVersion:'0.2.59',
+      appVersion:'1.0.105',
       exportedAt:new Date().toISOString(),
       marker:{ id:marker.id, group:marker.group, x:marker.x, local:markerIsUserCreated(marker) },
       definition:deepCopy(def),
@@ -9043,7 +9327,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const def = groupDefinition(groupId);
       if (!groupId || !def) return;
       payload = {
-        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'0.2.59', exportedAt:new Date().toISOString(),
+        format:'SideScrollPuzzleTemplate', formatVersion:1, appVersion:'1.0.105', exportedAt:new Date().toISOString(),
         group:groupId, definition:deepCopy(def), savedStart:deepCopy(templateStartForGroup(groupId)),
         source:groupIsUserCreated(groupId) ? 'local-library' : 'library'
       };
@@ -9144,9 +9428,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return {
       format:'SideScrollGameDesign',
       formatVersion:1,
-      appVersion:'0.2.59',
+      appVersion:'1.0.105',
       exportedAt:new Date().toISOString(),
-      purpose:'Complete authoring handoff: scene placement, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
+      purpose:'Complete authoring handoff: scene placement, World Groups/templates, puzzle placement/setup, reusable asset settings, collectables and camera tuning.',
       world:{
         tile:{ minX:TILE.minX, maxX:TILE.maxX, width:TILE_WIDTH },
         path:{ z:pathZ, flatHalf:PATH_FLAT_HALF, bermHalf:PATH_BERM_HALF, outerHalf:PATH_OUTER_HALF },
@@ -9208,7 +9492,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // Environment/Puzzle is only an editor filter. It must not change whether
     // the workshop stage is isolated or clear.
     editorScope = scope;
-    if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; }
+    if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupTemplatePlaceMode=false; }
     puzzleEnvironmentPlacementMode = false;
     puzzleExclusionEditMode = false;
     puzzleExclusionHandle = null;
@@ -10107,7 +10391,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -14444,12 +14728,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   bindEditorPress(openAssetsBtn, toggleAssetBrowserForCurrentScope);
   bindEditorPress(openEnvironmentAssetsBtn, toggleAssetBrowserForCurrentScope);
-  bindEditorPress(worldGroupNewBtn,()=>{if(editorScope!=='environment')setEditorScope('environment');if(addAssetType)exitPlacementMode();createWorldGroup();});
-  bindEditorPress(worldGroupEditBtn,()=>setWorldGroupEditMode(!worldGroupEditMode));
-  bindEditorPress(worldGroupMoveBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;if(addAssetType)exitPlacementMode();worldGroupMoveMode=!worldGroupMoveMode;renderWorldGroupTools({force:true});hintEl.textContent=worldGroupMoveMode?`MOVE ${group.label.toUpperCase()} · tap its new scene position`:'Group move cancelled';hintEl.classList.remove('hidden');});
+  bindEditorPress(worldGroupNewBtn,()=>{if(editorScope!=='environment')setEditorScope('environment');if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;createWorldGroup();});
+  bindEditorPress(worldGroupEditBtn,()=>{worldGroupTemplatePlaceMode=false;setWorldGroupEditMode(!worldGroupEditMode);});
+  bindEditorPress(worldGroupMoveBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;worldGroupMoveMode=!worldGroupMoveMode;renderWorldGroupTools({force:true});hintEl.textContent=worldGroupMoveMode?`MOVE ${group.label.toUpperCase()} · tap its new scene position`:'Group move cancelled';hintEl.classList.remove('hidden');});
   bindEditorPress(worldGroupRenameBtn,renameSelectedWorldGroup);
   bindEditorPress(worldGroupDissolveBtn,dissolveSelectedWorldGroup);
   bindEditorPress(worldGroupMembershipBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group||!selectedObject||selectedObject.deleted||selectedObject.puzzleInstanceId||!selectedObject.userAdded)return;const remove=selectedObject.worldGroupId===group.id;if(setObjectWorldGroup(selectedObject,remove?null:group.id)){hintEl.textContent=remove?`Removed asset from ${group.label}`:`Added asset to ${group.label}`;hintEl.classList.remove('hidden');}});
+  bindEditorPress(worldTemplateSaveBtn,saveSelectedWorldGroupAsTemplate);
+  bindEditorPress(worldTemplatePlaceBtn,()=>setWorldGroupTemplatePlaceMode(!worldGroupTemplatePlaceMode));
+  bindEditorPress(worldTemplateDeleteBtn,deleteSelectedWorldGroupTemplate);
   bindEditorPress(editorPaletteClose, () => {
     setAssetPaletteOpen(false);
     updateAssetPaletteState();
@@ -14891,6 +15178,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         objectStartFloorWorldY:selectedObject ? objectFloorWorldY(selectedObject) : 0
       };
 
+      if (worldGroupTemplatePlaceMode && editorScope === 'environment' && worldGroupTemplateById(selectedWorldTemplateId)) {
+        editorGesture.kind = 'world-group-template-place';
+        return;
+      }
+
       if (worldGroupMoveMode && editorScope === 'environment' && worldGroupById(selectedWorldGroupId)) {
         editorGesture.kind = 'world-group-move';
         return;
@@ -15153,9 +15445,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             savePuzzleExclusionState();
             updatePuzzlePanel();
           }
+        } else if (!gesture.moved && gesture.kind==='world-group-template-place') {
+          const template=worldGroupTemplateById(selectedWorldTemplateId);
+          const point=groundPointFromClient(e.clientX,e.clientY)||gesture.startGround;
+          const group=template&&point?spawnWorldGroupTemplateAt(template,point):null;
+          if(group){
+            hintEl.textContent=`Placed ${group.label} · ground-bound assets re-grounded individually`;
+            hintEl.classList.remove('hidden');
+          }
+          worldGroupTemplatePlaceMode=false;
+          renderWorldGroupTools({force:true});
         } else if (!gesture.moved && gesture.kind==='world-group-move') {
           const group=worldGroupById(selectedWorldGroupId);const point=groundPointFromClient(e.clientX,e.clientY)||gesture.startGround;
-          if(group&&point&&moveWorldGroupTo(group,point)){hintEl.textContent=`Moved ${group.label} · composition preserved`;hintEl.classList.remove('hidden');}
+          if(group&&point&&moveWorldGroupTo(group,point)){hintEl.textContent=`Moved ${group.label} · ground assets re-grounded · free assets kept their group-relative height`;hintEl.classList.remove('hidden');}
           worldGroupMoveMode=false;renderWorldGroupTools({force:true});
         } else if (!gesture.moved && gesture.kind==='socket-place-pan' && gesture.socketPiece) {
           const host = socketHostAt(e.clientX,e.clientY);
@@ -15227,7 +15529,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editMode) {
       if (e.key === 'Escape') {
         if (inventoryOpen) { setInventoryOpen(false); return; }
-        socketPlacementPiece = null; worldGroupMoveMode=false; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); renderWorldGroupTools({force:true});
+        socketPlacementPiece = null; worldGroupMoveMode=false; worldGroupTemplatePlaceMode=false; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); renderWorldGroupTools({force:true});
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) { e.preventDefault(); deleteSelected(); }
       return;
