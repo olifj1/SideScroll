@@ -303,3 +303,25 @@ These rules capture the current test direction for the first mountain-climbing l
 - Keep the first approved mountain pieces as individual high-resolution PNGs while scale, repetition, collision and layering are tested in-game.
 - Preserve soft alpha and colour-dilate beneath transparent edges to prevent filtering fringes.
 - Atlas packing should happen only after the useful subset and final crop/ground-line behaviour have been approved in-game.
+
+
+---
+
+# Texture production and runtime-prep workflow
+
+Use `SETTLEMENT_TEXTURE_PROCESSING_WORKFLOW.md` as the detailed checklist whenever newly generated environment art is prepared for SideScroll. The same principles apply to future biome asset sets.
+
+## Required production rules
+- Bank and preserve the approved generated source before processing.
+- Map each runtime filename one-to-one to its intended source before editing.
+- Prefer native transparency from image generation. If a white-background source produces contaminated/fringed edges, regenerate the approved image with native alpha rather than treating white-background extraction as the production solution.
+- If a clean native-alpha source already exists, return to that source instead of flattening and extracting it again.
+- Processing must not change the approved colour, contrast or lighting language.
+- Normalize faint/near-opaque generated alpha only where necessary, then colour-dilate from nearby opaque asset pixels beneath the transparent fringe. Never dilate white/background colour.
+- Crop tightly. For ground-contact assets, the final texture bottom must coincide with the visible floor contact so the asset cannot float because of transparent padding.
+- Preserve source resolution during cleanup unless a deliberate texel-density decision is made later.
+- Validate every processed batch on both light and dark backgrounds and then in the game scene.
+- If the runtime result differs from the source, trace the fault back to the stage where it entered rather than repeatedly processing the bad export.
+
+## Batch validation
+Before a processed batch is signed off, verify: correct source mapping, clean alpha, no white fringe, no colour drift, correct crop/floor line, consistent scale/resolution, and an in-game check.

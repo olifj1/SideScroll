@@ -1,19 +1,21 @@
-# SideScroll Patch v1.0.100
+Settlement Core Clean v2
 
-Changed-files-only patch over **v1.0.99**.
+Corrected runtime-ready settlement core asset set.
 
-## Settlement visual test
-Adds the first processed Settlement structural set directly to the game for manual scene testing.
+Includes:
+- 6 houses
+- 4 roofs
+- 3 fences
+- 3 walls
 
-### Environment Asset groups
-- Settlement · Buildings — 6 pieces
-- Settlement · Roofs — 4 pieces
-- Settlement · Fences + Walls — 6 pieces
-
-All 16 assets are **Global / Unbound** environment assets. They are intentionally manual-placement only for this pass: no procedural settlement spawning and no default collision have been added yet.
-
-## Asset Lab
-All 16 assets are registered in Asset Lab so default height, floor line, behaviour and collision can be tuned before the set is committed further.
-
-## Art preparation
-The included PNGs are the cropped / transparent / edge-dilated versions from the settlement preparation pass.
+Processing rules applied:
+- houses 01-04 regenerated from the approved facades with native alpha
+- roofs rebuilt from the earlier clean alpha sources, not from the contaminated runtime exports
+- houses 05-06, fences and walls rebuilt directly from their original alpha sources
+- near-opaque ImageGen alpha normalized to opaque
+- faint ghost alpha removed
+- local asset colour dilated 12 px under transparent pixels
+- no white matte introduced
+- full source resolution retained; no resizing
+- ground-contact assets cropped with zero bottom transparent padding
+- roofs tightly cropped with a small transparent safety border
