@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#11191d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="world-lab.css?v=1.0.90">
+  <link rel="stylesheet" href="world-lab.css?v=1.0.106">
   <title>World Lab · SideScroll</title>
 </head>
 <body>
@@ -43,6 +43,7 @@
           </div>
           <div class="wl-legend">
             <span><i class="legend puzzle"></i>Puzzle</span>
+            <span><i class="legend world-group"></i>World Group</span>
             <span><i class="legend biome"></i>Biome blend</span>
             <span><i class="legend section"></i>Section</span>
             <span><i class="legend modifier"></i>Terrain modifier</span>
@@ -61,6 +62,7 @@
             <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="far-a">FAR STRIP A</div>
             <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="far-b">FAR STRIP B</div>
             <div class="wl-rail-label">PUZZLES</div>
+            <div class="wl-rail-label">WORLD GROUPS</div>
             <div class="wl-rail-label">WORLD ASSETS</div>
             <div class="wl-rail-label">LANDMARKS / STORY / CAMERA</div>
           </div>
@@ -74,6 +76,7 @@
               <div class="wl-track wl-terrain-track detail" data-terrain-detail="far-a" data-track="terrain-far-a"><div class="wl-track-content" id="wl-track-terrain-far-a"></div></div>
               <div class="wl-track wl-terrain-track detail" data-terrain-detail="far-b" data-track="terrain-far-b"><div class="wl-track-content" id="wl-track-terrain-far-b"></div></div>
               <div class="wl-track puzzle-track" data-track="puzzle"><div class="wl-track-content" id="wl-track-puzzle"></div></div>
+              <div class="wl-track world-group-track" data-track="world-groups"><div class="wl-track-content" id="wl-track-groups"></div></div>
               <div class="wl-track" data-track="dressing"><div class="wl-track-content" id="wl-track-dressing"></div></div>
               <div class="wl-track" data-track="other"><div class="wl-track-content" id="wl-track-other"></div></div>
               <div class="wl-player-line" id="wl-player-line"><button class="wl-playhead" id="wl-playhead" type="button" aria-label="Drag playhead"><span>PLAY</span></button></div>
@@ -85,7 +88,7 @@
       <div class="wl-lower-grid">
         <section class="wl-panel" id="wl-selection">
           <h2>Selection</h2>
-          <p class="muted">Tap a section, terrain modifier, puzzle marker or World Element above.</p>
+          <p class="muted">Tap a section, terrain modifier, puzzle, World Group or World Element above.</p>
         </section>
 
         <section class="wl-panel">
@@ -148,6 +151,6 @@
   </div>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="puzzle-groups.js?v=1.0.62"></script>
-  <script src="world-lab.js?v=1.0.90"></script>
+  <script src="world-lab.js?v=1.0.106"></script>
 </body>
 </html>

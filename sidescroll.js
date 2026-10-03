@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.106: World Groups v3 · group-owned exclusion zones + World Lab group timeline moves.
   // SideScroll v1.0.105: World Groups v2 · reusable templates + terrain-aware group moves.
   // SideScroll v1.0.104: World Groups v1 · optional authored environment grouping/edit/move workflow.
   // SideScroll v1.0.102: settlement cache-bust + corrected cropped asset dimensions.
@@ -35,6 +36,7 @@
   const WORLD_LAB_JUMP_X = WORLD_LAB_JUMP_RAW === null || WORLD_LAB_JUMP_RAW === '' ? NaN : Number(WORLD_LAB_JUMP_RAW);
   const WORLD_LAB_LAUNCH = queryParams.get('from') === 'world-lab' && Number.isFinite(WORLD_LAB_JUMP_X);
   const WORLD_LAB_PENDING_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-puzzle-moves.v1';
+  const WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-world-group-moves.v1';
   const BAKED_GAME_DESIGN = window.SIDESCROLL_BAKED_GAME_DESIGN || null;
 
   const BIOME_STORAGE_KEY = 'sidescroll.biomes.v1';
@@ -361,6 +363,9 @@
   const worldGroupRenameBtn = document.getElementById('sidescroll-world-group-rename');
   const worldGroupMembershipBtn = document.getElementById('sidescroll-world-group-membership');
   const worldGroupDissolveBtn = document.getElementById('sidescroll-world-group-dissolve');
+  const worldGroupExclusionToggleBtn = document.getElementById('sidescroll-world-group-exclusion-toggle');
+  const worldGroupExclusionEditBtn = document.getElementById('sidescroll-world-group-exclusion-edit');
+  const worldGroupExclusionFitBtn = document.getElementById('sidescroll-world-group-exclusion-fit');
   const worldGroupStatusEl = document.getElementById('sidescroll-world-group-status');
   const worldGroupListEl = document.getElementById('sidescroll-world-group-list');
   const worldGroupEmptyEl = document.getElementById('sidescroll-world-group-empty');
@@ -6333,6 +6338,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId) return false;
     if (pointInsideRiverChannel(drawX, obj.z)) return true;
     if (obj.userAdded) return false;
+    for (const group of worldGroups()) {
+      const b = worldGroupExclusionWorldBounds(group);
+      if (!b?.enabled) continue;
+      if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
+    }
     for (const instance of activePuzzleInstances.values()) {
       const b = puzzleExclusionWorldBounds(instance.marker);
       if (!b.enabled) continue;
@@ -7002,6 +7012,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let selectedWorldGroupId = null;
   let worldGroupEditMode = false;
   let worldGroupMoveMode = false;
+  let worldGroupExclusionEditMode = false;
+  let worldGroupExclusionHandle = null;
   let worldGroupListSignature = '';
   let selectedWorldTemplateId = null;
   let worldGroupTemplatePlaceMode = false;
@@ -8242,7 +8254,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const x=Number(character?.x ?? (camera.x+character.screenOffsetX))||0;
     const group={id,label:nextWorldGroupLabel(),x,z:pathZ,createdAt:Date.now()};
     worldGroups().push(group);
-    selectedWorldGroupId=id; worldGroupEditMode=true; worldGroupMoveMode=false;
+    selectedWorldGroupId=id; worldGroupEditMode=true; worldGroupMoveMode=false; worldGroupExclusionEditMode=false;
     saveSceneData(); worldGroupListSignature=''; sceneEnvironmentListSignature='';
     renderWorldGroupTools({force:true}); renderEnvironmentSelectionTools({force:true});
     hintEl.textContent=`${group.label} created · new environment assets will join this group`;hintEl.classList.remove('hidden');
@@ -8263,15 +8275,83 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return{minX,maxX,minZ,maxZ,empty:false};
   }
 
+  function defaultWorldGroupExclusion(group){
+    const b=worldGroupBounds(group);
+    const gx=Number(group?.x)||0,gz=Number(group?.z)||pathZ;
+    const minX=b?.minX ?? gx-.6,maxX=b?.maxX ?? gx+.6,minZ=b?.minZ ?? gz-.5,maxZ=b?.maxZ ?? gz+.5;
+    const pad=.65;
+    return{
+      enabled:false,
+      centerX:(minX+maxX)*.5-gx,
+      centerZ:(minZ+maxZ)*.5-gz,
+      width:Math.max(2.2,maxX-minX+pad*2),
+      depth:Math.max(2.2,maxZ-minZ+pad*2)
+    };
+  }
+
+  function cleanWorldGroupExclusion(group,raw=group?.exclusion){
+    const fallback=defaultWorldGroupExclusion(group);
+    if(!raw||typeof raw!=='object')return{...fallback};
+    return{
+      enabled:raw.enabled!==false,
+      centerX:Number.isFinite(Number(raw.centerX))?Number(raw.centerX):fallback.centerX,
+      centerZ:Number.isFinite(Number(raw.centerZ))?Number(raw.centerZ):fallback.centerZ,
+      width:Math.max(1,Number.isFinite(Number(raw.width))?Number(raw.width):fallback.width),
+      depth:Math.max(1,Number.isFinite(Number(raw.depth))?Number(raw.depth):fallback.depth)
+    };
+  }
+
+  function currentWorldGroupExclusion(group){return cleanWorldGroupExclusion(group,group?.exclusion);}
+
+  function ensureWorldGroupExclusion(group){
+    if(!group)return null;
+    group.exclusion=cleanWorldGroupExclusion(group,group.exclusion);
+    return group.exclusion;
+  }
+
+  function worldGroupExclusionWorldBounds(group){
+    if(!group)return null;
+    const ex=currentWorldGroupExclusion(group),gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
+    const centerX=gx+ex.centerX,centerZ=gz+ex.centerZ;
+    return{enabled:ex.enabled,centerX,centerZ,width:ex.width,depth:ex.depth,minX:centerX-ex.width*.5,maxX:centerX+ex.width*.5,minZ:centerZ-ex.depth*.5,maxZ:centerZ+ex.depth*.5};
+  }
+
+  function fitWorldGroupExclusion(group,{enable=true}={}){
+    if(!group)return false;
+    const b=worldGroupBounds(group),gx=Number(group.x)||0,gz=Number(group.z)||pathZ,pad=.65;
+    const minX=b?.minX ?? gx-.6,maxX=b?.maxX ?? gx+.6,minZ=b?.minZ ?? gz-.5,maxZ=b?.maxZ ?? gz+.5;
+    group.exclusion={
+      enabled:enable ? true : currentWorldGroupExclusion(group).enabled,
+      centerX:(minX+maxX)*.5-gx,
+      centerZ:(minZ+maxZ)*.5-gz,
+      width:Math.max(2.2,maxX-minX+pad*2),
+      depth:Math.max(2.2,maxZ-minZ+pad*2)
+    };
+    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});return true;
+  }
+
+  function setWorldGroupExclusionEditMode(on){
+    const group=worldGroupById(selectedWorldGroupId);
+    worldGroupExclusionEditMode=!!(on&&group);
+    worldGroupExclusionHandle=null;
+    if(worldGroupExclusionEditMode){
+      if(addAssetType)exitPlacementMode();
+      worldGroupMoveMode=false;worldGroupEditMode=false;worldGroupTemplatePlaceMode=false;
+      ensureWorldGroupExclusion(group);
+    }
+    worldGroupListSignature='';renderWorldGroupTools({force:true});
+    if(group){hintEl.textContent=worldGroupExclusionEditMode?`Editing ${group.label} exclusion · drag centre or edge handles`:`${group.label} exclusion edit finished`;hintEl.classList.remove('hidden');}
+  }
+
   function selectWorldGroup(id,{edit=null,focus=false}={}){
-    const group=worldGroupById(id);selectedWorldGroupId=group?.id||null;worldGroupMoveMode=false;
+    const group=worldGroupById(id);selectedWorldGroupId=group?.id||null;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;
     if(edit!==null)worldGroupEditMode=!!(group&&edit);else if(!group)worldGroupEditMode=false;
     if(focus&&group){const b=worldGroupBounds(group);const x=b?(b.minX+b.maxX)*.5:Number(group.x)||0;camera.x=x-character.screenOffsetX;previousCameraX=camera.x;}
     worldGroupListSignature='';sceneEnvironmentListSignature='';renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
   }
 
   function setWorldGroupEditMode(on){
-    const group=worldGroupById(selectedWorldGroupId);worldGroupEditMode=!!(on&&group);if(!worldGroupEditMode)worldGroupMoveMode=false;
+    const group=worldGroupById(selectedWorldGroupId);worldGroupEditMode=!!(on&&group);if(worldGroupEditMode)worldGroupExclusionEditMode=false;if(!worldGroupEditMode)worldGroupMoveMode=false;
     renderWorldGroupTools({force:true});
     if(group){hintEl.textContent=worldGroupEditMode?`Editing ${group.label} · new placements automatically join this group`:`${group.label} selected · new placements remain standalone`;hintEl.classList.remove('hidden');}
   }
@@ -8287,7 +8367,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group=worldGroupById(selectedWorldGroupId);if(!group)return;
     if(!window.confirm(`Dissolve ${group.label}? Its assets will stay in the world as standalone objects.`))return;
     for(const obj of worldGroupMembers(group.id)){obj.worldGroupId=null;recordObjectEdit(obj);}
-    sceneData.worldGroups=worldGroups().filter(item=>item.id!==group.id);selectedWorldGroupId=null;worldGroupEditMode=false;worldGroupMoveMode=false;
+    sceneData.worldGroups=worldGroups().filter(item=>item.id!==group.id);selectedWorldGroupId=null;worldGroupEditMode=false;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;
     saveSceneData();worldGroupListSignature='';sceneEnvironmentListSignature='';renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});hintEl.textContent='World group dissolved · assets kept as standalone world objects';hintEl.classList.remove('hidden');
   }
 
@@ -8304,7 +8384,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // preserving their authored floor offset; Follow Surface Normal remains an
   // asset behaviour and therefore rotates only assets that opt in. Free members
   // keep their vertical offset relative to the group's local ground height.
-  function moveWorldGroupTo(group,point){
+  function moveWorldGroupTo(group,point,{silent=false}={}){
     if(!group||!point)return false;
     const oldX=Number(group.x)||0,oldZ=Number(group.z)||pathZ;
     const nextX=Number(point.x)||oldX,nextZ=Rig.clamp(Number(point.z)||oldZ,WORLD.farZ+.8,WORLD.nearZ-.6);
@@ -8332,9 +8412,24 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     group.x=nextX;group.z=nextZ;
     sortSceneCollections();saveSceneData();
     worldGroupListSignature='';sceneEnvironmentListSignature='';
-    renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
+    if(!silent){renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});}
     return true;
   }
+
+  function applyWorldLabPendingWorldGroupMoves(){
+    if(PUZZLE_LAB_MODE)return 0;
+    let pending=null;try{pending=JSON.parse(localStorage.getItem(WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY)||'null');}catch(_){}
+    if(!pending||typeof pending!=='object')return 0;
+    let applied=0;const unresolved={};
+    for(const [groupId,request] of Object.entries(pending)){
+      const group=worldGroupById(groupId),targetX=Number(request?.x);
+      if(!group||!Number.isFinite(targetX)){if(request&&Number.isFinite(targetX))unresolved[groupId]=request;continue;}
+      if(moveWorldGroupTo(group,{x:targetX,z:Number(group.z)||pathZ},{silent:true}))applied++;
+    }
+    try{if(Object.keys(unresolved).length)localStorage.setItem(WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY,JSON.stringify(unresolved));else localStorage.removeItem(WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY);}catch(_){}
+    return applied;
+  }
+  applyWorldLabPendingWorldGroupMoves();
 
   function worldGroupTemplates(){
     sceneData.worldGroupTemplates ||= [];
@@ -8410,6 +8505,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       id:`world-template-${Date.now().toString(36)}-${++userSceneCounter}`,
       label,
       createdAt:Date.now(),
+      exclusion:group.exclusion?deepCopy(currentWorldGroupExclusion(group)):null,
       members:members.map(obj=>worldGroupTemplateMember(obj,group))
     };
     worldGroupTemplates().push(template);
@@ -8483,7 +8579,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group={
       id:`world-group-${Date.now().toString(36)}-${++userSceneCounter}`,
       label:uniqueWorldGroupLabel(template.label||'World Group'),
-      x:anchor.x,z:anchor.z,createdAt:Date.now(),templateId:template.id
+      x:anchor.x,z:anchor.z,createdAt:Date.now(),templateId:template.id,
+      exclusion:template.exclusion?deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},template.exclusion)):null
     };
     worldGroups().push(group);
     for(const member of template.members)createTemplateObject(member,group,anchor);
@@ -8575,15 +8672,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function renderWorldGroupTools({force=false}={}){
     renderWorldGroupTemplateTools({force});
     if(!worldGroupListEl)return;const groups=worldGroups();
-    if(selectedWorldGroupId&&!worldGroupById(selectedWorldGroupId)){selectedWorldGroupId=null;worldGroupEditMode=false;worldGroupMoveMode=false;}
+    if(selectedWorldGroupId&&!worldGroupById(selectedWorldGroupId)){selectedWorldGroupId=null;worldGroupEditMode=false;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;}
     const selected=worldGroupById(selectedWorldGroupId);
-    const signature=`${selectedWorldGroupId||''}|${worldGroupEditMode?'e':'-'}|${worldGroupMoveMode?'m':'-'}|${selectedObject?.id||''}|`+groups.map(g=>`${g.id}:${g.label}:${Number(g.x).toFixed(2)}:${Number(g.z).toFixed(2)}:${worldGroupMembers(g.id).map(o=>o.id).join(',')}`).join('|');
+    const signature=`${selectedWorldGroupId||''}|${worldGroupEditMode?'e':'-'}|${worldGroupMoveMode?'m':'-'}|${worldGroupExclusionEditMode?'x':'-'}|${selectedObject?.id||''}|`+groups.map(g=>{const ex=currentWorldGroupExclusion(g);return`${g.id}:${g.label}:${Number(g.x).toFixed(2)}:${Number(g.z).toFixed(2)}:${ex.enabled?'1':'0'}:${ex.centerX.toFixed(2)}:${ex.centerZ.toFixed(2)}:${ex.width.toFixed(2)}:${ex.depth.toFixed(2)}:${worldGroupMembers(g.id).map(o=>o.id).join(',')}`;}).join('|');
     if(!force&&signature===worldGroupListSignature)return;worldGroupListSignature=signature;
     if(worldGroupCountEl)worldGroupCountEl.textContent=`${groups.length} ${groups.length===1?'group':'groups'}`;if(worldGroupEmptyEl)worldGroupEmptyEl.hidden=groups.length>0;worldGroupListEl.innerHTML='';
     for(const group of groups){const members=worldGroupMembers(group.id),b=worldGroupBounds(group);const row=document.createElement('button');row.type='button';row.className='sidescroll-environment-scene-row';row.classList.toggle('active',group.id===selectedWorldGroupId);row.setAttribute('aria-selected',String(group.id===selectedWorldGroupId));const main=document.createElement('span');main.className='scene-puzzle-main';const strong=document.createElement('strong');strong.textContent=group.label||'World Group';const small=document.createElement('small');small.textContent=`${members.length} ${members.length===1?'asset':'assets'}${worldGroupEditMode&&group.id===selectedWorldGroupId?' · EDITING':''}`;main.append(strong,small);const pos=document.createElement('span');pos.className='scene-puzzle-x';pos.textContent=b?`x ${((b.minX+b.maxX)*.5).toFixed(1)}`:`x ${Number(group.x||0).toFixed(1)}`;row.append(main,pos);bindEditorPress(row,()=>selectWorldGroup(group.id,{focus:true}));worldGroupListEl.appendChild(row);}
     const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Finish Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;
+    const ex=selected?currentWorldGroupExclusion(selected):null;
+    if(worldGroupExclusionToggleBtn){worldGroupExclusionToggleBtn.disabled=!has;worldGroupExclusionToggleBtn.textContent=ex?.enabled?'Disable Exclusion':'Enable Exclusion';}
+    if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.disabled=!has;worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Exclusion':'Edit Exclusion';worldGroupExclusionEditBtn.classList.toggle('primary',worldGroupExclusionEditMode);}
+    if(worldGroupExclusionFitBtn)worldGroupExclusionFitBtn.disabled=!has;
     const selectedCanGroup=!!(selectedObject&&!selectedObject.deleted&&selectedObject.userAdded&&!selectedObject.puzzleInstanceId);if(worldGroupMembershipBtn){const inSelected=selectedCanGroup&&selected&&selectedObject.worldGroupId===selected.id;worldGroupMembershipBtn.disabled=!(selectedCanGroup&&selected);worldGroupMembershipBtn.textContent=inSelected?'Remove Selected':'Add Selected';}
-    if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected?'Standalone placement · create or select a group to organise authored world assets.':worldGroupMoveMode?`${selected.label} · tap a new scene position to move the complete group`:worldGroupEditMode?`${selected.label} · new assets automatically join · existing assets can be added/removed below`:`${selected.label} selected · ${worldGroupMembers(selected.id).length} assets · new placements remain standalone until Edit Group is enabled`;
+    if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected?'Standalone placement · create or select a group to organise authored world assets.':worldGroupExclusionEditMode?`${selected.label} · exclusion ${ex?.enabled?'ON':'OFF'} · drag handles to move/resize`:worldGroupMoveMode?`${selected.label} · tap a new scene position to move the complete group`:worldGroupEditMode?`${selected.label} · new assets automatically join · existing assets can be added/removed below`:`${selected.label} selected · ${worldGroupMembers(selected.id).length} assets${ex?.enabled?' · exclusion ON':''} · new placements remain standalone until Edit Group is enabled`;
   }
 
   function placedWorldEnvironmentObjects() {
@@ -9492,7 +9593,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // Environment/Puzzle is only an editor filter. It must not change whether
     // the workshop stage is isolated or clear.
     editorScope = scope;
-    if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupTemplatePlaceMode=false; }
+    if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; }
     puzzleEnvironmentPlacementMode = false;
     puzzleExclusionEditMode = false;
     puzzleExclusionHandle = null;
@@ -10391,7 +10492,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -11531,6 +11632,31 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ctx.restore();
   }
 
+  function worldGroupExclusionHandlePositions(group){
+    if(!group||!worldGroupExclusionEditMode||group.id!==selectedWorldGroupId)return[];
+    const b=worldGroupExclusionWorldBounds(group);if(!b)return[];
+    return[['center',b.centerX,b.centerZ],['left',b.minX,b.centerZ],['right',b.maxX,b.centerZ],['far',b.centerX,b.minZ],['near',b.centerX,b.maxZ]].map(([kind,x,z])=>{
+      const p=projectWorldPoint(x,terrainGroundYAt(x,z)+.055,z);return p&&{kind,...p};
+    }).filter(Boolean);
+  }
+
+  function worldGroupExclusionHandleAt(clientX,clientY){
+    if(!editMode||editorScope!=='environment'||!worldGroupExclusionEditMode)return null;
+    const group=worldGroupById(selectedWorldGroupId);if(!group)return null;
+    const rect=canvas.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top;
+    return worldGroupExclusionHandlePositions(group).find(h=>Math.hypot(h.x-x,h.y-y)<=21)||null;
+  }
+
+  function drawWorldGroupExclusionGuide(ctx,group){
+    if(!group||group.id!==selectedWorldGroupId)return;
+    const b=worldGroupExclusionWorldBounds(group);if(!b||(!b.enabled&&!worldGroupExclusionEditMode))return;
+    const corners=[[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]].map(([x,z])=>projectWorldPoint(x,terrainGroundYAt(x,z)+.04,z));
+    if(corners.some(p=>!p))return;
+    ctx.save();ctx.fillStyle=b.enabled?'rgba(89,190,171,.13)':'rgba(120,130,135,.08)';ctx.strokeStyle=b.enabled?'rgba(119,231,205,.9)':'rgba(160,170,174,.7)';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);for(let i=1;i<corners.length;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
+    if(worldGroupExclusionEditMode){for(const h of worldGroupExclusionHandlePositions(group)){ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='center'?8:7,0,Math.PI*2);ctx.fillStyle=h.kind==='center'?'#e1fff8':'#78e1c7';ctx.fill();ctx.strokeStyle='#244c43';ctx.lineWidth=1.5;ctx.stroke();}}
+    const label=`GROUP EXCLUSION · ${b.width.toFixed(1)} × ${b.depth.toFixed(1)}m${b.enabled?'':' · OFF'}`;const c=projectWorldPoint(b.centerX,terrainGroundYAt(b.centerX,b.centerZ)+.1,b.centerZ);if(c){ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));const ly=Math.max(48,c.y-34);ctx.fillStyle='rgba(19,46,40,.88)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle='#dffff6';ctx.fillText(label,lx+7,ly+14);}ctx.restore();
+  }
+
   function drawWorldGroupGuides(ctx){
     if(!editMode||editorScope!=='environment')return;
     for(const group of worldGroups()){
@@ -11540,6 +11666,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ctx.save();ctx.strokeStyle=selected?'rgba(255,205,111,.98)':'rgba(255,205,111,.34)';ctx.fillStyle=selected?'rgba(255,205,111,.065)':'rgba(255,205,111,.025)';ctx.lineWidth=selected?2.3:1.1;ctx.setLineDash(selected?[7,4]:[4,5]);ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
       if(selected){const origin=projectWorldPoint(Number(group.x)||0,playSurfaceYAt(Number(group.x)||0)+.12,Number(group.z)||pathZ);if(origin){ctx.beginPath();ctx.arc(origin.x,origin.y,6,0,Math.PI*2);ctx.fillStyle='#ffd77d';ctx.fill();ctx.strokeStyle='#4a3920';ctx.lineWidth=1.4;ctx.stroke();const label=`${group.label||'World Group'} · ${worldGroupMembers(group.id).length} assets${worldGroupEditMode?' · EDITING':''}`;ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;ctx.fillStyle='rgba(47,38,24,.88)';ctx.fillRect(origin.x-tw*.5,origin.y-30,tw,19);ctx.fillStyle='#fff0c7';ctx.fillText(label,origin.x-tw*.5+7,origin.y-17);}}
       ctx.restore();
+      if(selected)drawWorldGroupExclusionGuide(ctx,group);
     }
   }
 
@@ -14733,6 +14860,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(worldGroupMoveBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;worldGroupMoveMode=!worldGroupMoveMode;renderWorldGroupTools({force:true});hintEl.textContent=worldGroupMoveMode?`MOVE ${group.label.toUpperCase()} · tap its new scene position`:'Group move cancelled';hintEl.classList.remove('hidden');});
   bindEditorPress(worldGroupRenameBtn,renameSelectedWorldGroup);
   bindEditorPress(worldGroupDissolveBtn,dissolveSelectedWorldGroup);
+  bindEditorPress(worldGroupExclusionToggleBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;const ex=ensureWorldGroupExclusion(group);ex.enabled=!ex.enabled;saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});hintEl.textContent=ex.enabled?`${group.label} exclusion enabled · procedural dressing inside it is suppressed`:`${group.label} exclusion disabled · procedural dressing restored`;hintEl.classList.remove('hidden');});
+  bindEditorPress(worldGroupExclusionEditBtn,()=>setWorldGroupExclusionEditMode(!worldGroupExclusionEditMode));
+  bindEditorPress(worldGroupExclusionFitBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;fitWorldGroupExclusion(group,{enable:true});hintEl.textContent=`${group.label} exclusion fitted around current members`;hintEl.classList.remove('hidden');});
   bindEditorPress(worldGroupMembershipBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group||!selectedObject||selectedObject.deleted||selectedObject.puzzleInstanceId||!selectedObject.userAdded)return;const remove=selectedObject.worldGroupId===group.id;if(setObjectWorldGroup(selectedObject,remove?null:group.id)){hintEl.textContent=remove?`Removed asset from ${group.label}`:`Added asset to ${group.label}`;hintEl.classList.remove('hidden');}});
   bindEditorPress(worldTemplateSaveBtn,saveSelectedWorldGroupAsTemplate);
   bindEditorPress(worldTemplatePlaceBtn,()=>setWorldGroupTemplatePlaceMode(!worldGroupTemplatePlaceMode));
@@ -15178,6 +15308,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         objectStartFloorWorldY:selectedObject ? objectFloorWorldY(selectedObject) : 0
       };
 
+      const groupExclusionHandle = worldGroupExclusionHandleAt(e.clientX,e.clientY);
+      if(groupExclusionHandle){
+        const group=worldGroupById(selectedWorldGroupId),start=group?currentWorldGroupExclusion(group):null;
+        if(group&&start){editorGesture.kind='world-group-exclusion';editorGesture.groupExclusionHandle=groupExclusionHandle.kind;editorGesture.groupExclusionStart={...start};editorGesture.groupExclusionGroup=group;worldGroupExclusionHandle=groupExclusionHandle.kind;hintEl.textContent=groupExclusionHandle.kind==='center'?'Drag the centre dot to move the group exclusion':'Drag the green handle to resize the group exclusion';hintEl.classList.remove('hidden');return;}
+      }
+
       if (worldGroupTemplatePlaceMode && editorScope === 'environment' && worldGroupTemplateById(selectedWorldTemplateId)) {
         editorGesture.kind = 'world-group-template-place';
         return;
@@ -15347,6 +15483,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const ny=Rig.clamp((bounds.bottom-ly)/Math.max(1,bounds.bottom-bounds.top),-0.20,3.0);
         const points=selectedCollisionShapePoints(selectedObject.collision).map(point=>({...point}));
         if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;writeSelectedCollisionShape(selectedObject.collision,points);}
+      } else if (editorGesture.kind === 'world-group-exclusion' && editorGesture.groupExclusionGroup) {
+        const point=groundPointFromClient(e.clientX,e.clientY);
+        if(point){
+          const group=editorGesture.groupExclusionGroup,start=editorGesture.groupExclusionStart,ex=ensureWorldGroupExclusion(group),gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
+          const localX=point.x-gx,localZ=point.z-gz;
+          const left0=start.centerX-start.width*.5,right0=start.centerX+start.width*.5,far0=start.centerZ-start.depth*.5,near0=start.centerZ+start.depth*.5;
+          if(editorGesture.groupExclusionHandle==='center'){ex.centerX=localX;ex.centerZ=localZ;}
+          else if(editorGesture.groupExclusionHandle==='left'){const left=Math.min(localX,right0-1);ex.centerX=(left+right0)*.5;ex.width=Math.max(1,right0-left);}
+          else if(editorGesture.groupExclusionHandle==='right'){const right=Math.max(localX,left0+1);ex.centerX=(left0+right)*.5;ex.width=Math.max(1,right-left0);}
+          else if(editorGesture.groupExclusionHandle==='far'){const far=Math.min(localZ,near0-1);ex.centerZ=(far+near0)*.5;ex.depth=Math.max(1,near0-far);}
+          else if(editorGesture.groupExclusionHandle==='near'){const near=Math.max(localZ,far0+1);ex.centerZ=(far0+near)*.5;ex.depth=Math.max(1,near-far0);}
+        }
       } else if (editorGesture.kind === 'puzzle-exclusion' && editorGesture.exclusionMarker) {
         const point=groundPointFromClient(e.clientX,e.clientY);
         if(point){
@@ -15441,6 +15589,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           else if (gesture.kind==='puzzle-bound') {
             const instance=selectedPuzzleInstance(); if(instance) puzzleStartDirty.add(instance.id);
           }
+          else if (gesture.kind==='world-group-exclusion' && gesture.groupExclusionGroup) {
+            saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
+          }
           else if (gesture.kind==='puzzle-exclusion' && gesture.exclusionMarker) {
             savePuzzleExclusionState();
             updatePuzzlePanel();
@@ -15529,7 +15680,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editMode) {
       if (e.key === 'Escape') {
         if (inventoryOpen) { setInventoryOpen(false); return; }
-        socketPlacementPiece = null; worldGroupMoveMode=false; worldGroupTemplatePlaceMode=false; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); renderWorldGroupTools({force:true});
+        socketPlacementPiece = null; worldGroupMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); renderWorldGroupTools({force:true});
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) { e.preventDefault(); deleteSelected(); }
       return;

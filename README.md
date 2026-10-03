@@ -1,24 +1,21 @@
-# SS-PATCH-1.0.105
+# SS-PATCH-1.0.106
 
-Applies over `SS-PATCH-1.0.104`.
+Applies over `SS-PATCH-1.0.105`.
 
-## World Groups v2
+## World Groups v3 — exclusion zones
+- Selected World Groups can now own a procedural-dressing exclusion zone.
+- Enable/disable, edit and `Fit Exclusion` controls live with the World Group tools.
+- The exclusion is stored relative to the group, so it moves with the group automatically.
+- Exclusions suppress procedural biome dressing only; deliberately placed world assets are preserved.
+- Group templates carry their exclusion setup into new instances.
 
-### Terrain-aware group movement
-- Ground-bound members now re-sample the terrain at their own new X/Z after the group moves.
-- Each ground-bound member preserves its authored floor offset.
-- Assets with `Follow Surface Normal` continue to tilt to the new local slope.
-- Ground-bound assets without that behaviour stay upright (useful for houses, walls and similar architecture).
-- Free-placement members keep their vertical offset relative to the group's local ground height.
+## Stage 3 — World Lab integration
+- Adds a dedicated `WORLD GROUPS` timeline track.
+- Group members no longer clutter the standalone `WORLD ASSETS` track; loose individual objects remain there.
+- World Group blocks show their authored extent and member count.
+- Select a group, then drag its timeline block horizontally to adjust pacing.
+- World Lab queues the new X position rather than duplicating terrain logic. On the next game load, SideScroll consumes the request through the normal terrain-aware World Group move, so Ground/Upright, Ground/Follow Normal and Free members retain their correct behaviour.
+- Group selection supports numeric X entry, Jump to Game, Move Playhead and Cancel Queued Move.
+- Complete World Lab export/import now includes queued World Group moves.
 
-### Reusable group templates
-- `Save Group` stores the selected World Group as a reusable template.
-- Templates keep member layout, scale, flip, collision state, ground/free placement rules, Thought Node data and Camera Node data.
-- Select a template and use `Place Template`, then tap the scene to create a new independent World Group.
-- Ground-bound members are re-grounded individually at the new location when a template is placed.
-- Templates can be deleted without affecting groups already placed from them.
-
-### Storage
-Scene edit storage is migrated to v6 and now includes `worldGroupTemplates`.
-
-Streaming remains deliberately separate and will be handled later as a global World Lab policy for standalone objects, World Groups and puzzles.
+Streaming is intentionally not implemented here; Stage 4 remains the later global World Lab streaming policy for puzzles, World Groups and standalone objects.

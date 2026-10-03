@@ -4,6 +4,7 @@
   const STORAGE = {
     elements:'sidescroll.world-elements.v1',
     pending:'sidescroll.world-lab.pending-puzzle-moves.v1',
+    groupMoves:'sidescroll.world-lab.pending-world-group-moves.v1',
     puzzleState:'sidescroll.puzzle-groups.state.v1',
     puzzleStarts:'sidescroll.puzzle-groups.starts.v1',
     puzzleLibrary:'sidescroll.puzzle-groups.library.v1',
@@ -101,6 +102,7 @@
     elements:loadElements(),
     biomes:loadBiomeState(),
     pending:loadJson(STORAGE.pending,{}),
+    groupMoves:loadJson(STORAGE.groupMoves,{}),
     userLibrary:null,
     puzzleState:null,
     puzzleStarts:null,
@@ -108,7 +110,8 @@
     scene:null,
     terrainExpanded:false,
     history:[],
-    puzzles:[]
+    puzzles:[],
+    worldGroups:[]
   };
 
   const $ = id => document.getElementById(id);
@@ -126,6 +129,7 @@
     terrainToggle:$('wl-terrain-toggle'),
     terrainLinkHeight:$('wl-link-height'),
     trackPuzzle:$('wl-track-puzzle'),
+    trackGroups:$('wl-track-groups'),
     trackDressing:$('wl-track-dressing'),
     trackOther:$('wl-track-other'),
     playerLine:$('wl-player-line'),
@@ -243,9 +247,11 @@
     state.puzzleState = loadJson(STORAGE.puzzleState,{});
     state.puzzleStarts = loadJson(STORAGE.puzzleStarts,baked?.puzzles?.savedStarts || {});
     state.pending = loadJson(STORAGE.pending,{});
+    state.groupMoves = loadJson(STORAGE.groupMoves,{});
     state.terrain = normaliseTerrainState(loadJson(STORAGE.terrain,{}));
-    state.scene = normaliseSceneState(loadJson(STORAGE.scene,{added:[],overrides:{}}));
+    state.scene = normaliseSceneState(loadJson(STORAGE.scene,{added:[],overrides:{},worldGroups:[],worldGroupTemplates:[]}));
     state.puzzles = buildPuzzleMarkers();
+    state.worldGroups = buildWorldGroupEntries();
 
     if(!Number.isFinite(state.playheadX)){
       const savedPlayer=loadJson(STORAGE.player,null);
@@ -255,8 +261,10 @@
     if(els.terrainLinkHeight)els.terrainLinkHeight.checked=state.terrain.linkSubsequent!==false;
     const pendingCount=Object.keys(state.pending||{}).length;
     const assetCount=sceneDressingEntries().length;
+    const groupCount=state.worldGroups.length;
+    const groupMoveCount=Object.keys(state.groupMoves||{}).length;
     const transitionCount=state.biomes?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}${pendingCount?` · ${pendingCount} queued move${pendingCount===1?'':'s'}`:''}`;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}${pendingCount||groupMoveCount?` · ${pendingCount+groupMoveCount} queued move${pendingCount+groupMoveCount===1?'':'s'}`:''}`;
     syncBiomeAddPreview();
     syncUndoUi();
   }
@@ -487,15 +495,33 @@
     const scene=raw&&typeof raw==='object'?clone(raw):{};
     scene.added=Array.isArray(scene.added)?scene.added:[];
     scene.overrides=scene.overrides&&typeof scene.overrides==='object'?scene.overrides:{};
+    scene.worldGroups=Array.isArray(scene.worldGroups)?scene.worldGroups:[];
+    scene.worldGroupTemplates=Array.isArray(scene.worldGroupTemplates)?scene.worldGroupTemplates:[];
     return scene;
   }
+
+  function buildWorldGroupEntries(){
+    const scene=state.scene||{added:[],worldGroups:[]},members=scene.added||[];
+    return (scene.worldGroups||[]).filter(group=>group?.id).map(group=>{
+      const owned=members.filter(item=>item&&!item.deleted&&!item.puzzleInstanceId&&item.worldGroupId===group.id&&Number.isFinite(Number(item.x)));
+      let minX=Infinity,maxX=-Infinity;
+      for(const item of owned){const half=Math.max(.1,Math.abs(number(item.sx,1)))*.5;minX=Math.min(minX,Number(item.x)-half);maxX=Math.max(maxX,Number(item.x)+half);}
+      const actualX=number(group.x,Number.isFinite(minX)?(minX+maxX)*.5:0);
+      if(!Number.isFinite(minX)){minX=actualX-.6;maxX=actualX+.6;}
+      const queued=state.groupMoves?.[group.id],x=Number.isFinite(Number(queued?.x))?Number(queued.x):actualX,dx=x-actualX;
+      const exclusion=group.exclusion&&typeof group.exclusion==='object'?group.exclusion:null;
+      return{kind:'world-group',id:String(group.id),label:String(group.label||'World Group'),x,actualX,z:number(group.z,0),minX:minX+dx,maxX:maxX+dx,minLocal:minX-actualX,maxLocal:maxX-actualX,memberCount:owned.length,pending:!!queued,exclusion,templateId:group.templateId||null,raw:group};
+    });
+  }
+
+  function findWorldGroup(id){return state.worldGroups.find(group=>group.id===id)||null;}
 
   function sceneDressingEntries(){
     // World ownership is independent of gameplay capability. A climbable rock,
     // ladder or other interactive environment asset still belongs on the World
     // Lab timeline when it is not owned by a puzzle instance.
     return (state.scene?.added||[])
-      .filter(item=>item&&!item.deleted&&!item.puzzleInstanceId&&Number.isFinite(Number(item.x)))
+      .filter(item=>item&&!item.deleted&&!item.puzzleInstanceId&&!item.worldGroupId&&Number.isFinite(Number(item.x)))
       .map(item=>({
         kind:'scene-dressing',
         id:String(item.id||`scene-${item.assetName||'asset'}-${item.x}`),
@@ -568,6 +594,7 @@
   function fitWorld(initial){
     const values=[];
     for(const p of state.puzzles)values.push(p.minX,p.maxX,p.x);
+    for(const g of state.worldGroups)values.push(g.minX,g.maxX,g.x);
     for(const e of state.elements)if(TYPE_TRACK[e.type]!=='legacy')values.push(number(e.startX,0),number(e.endX,e.startX));
     for(const t of state.biomes?.transitions||[])values.push(number(t.startX,0),number(t.endX,t.startX));
     for(const d of sceneDressingEntries())values.push(d.x-d.sx*.5,d.x+d.sx*.5);
@@ -754,6 +781,7 @@
     renderElements();
     renderSections();
     renderPuzzles();
+    renderWorldGroups();
     renderPlayhead();
     renderSelection();
   }
@@ -1083,6 +1111,20 @@
     }
   }
 
+  function renderWorldGroups(){
+    if(!els.trackGroups)return;els.trackGroups.innerHTML='';
+    for(const group of state.worldGroups){
+      const node=document.createElement('button');node.type='button';
+      node.className=`wl-item world-group range${group.pending?' pending':''}${isSelected('world-group',group.id)?' selected':''}`;
+      node.dataset.kind='world-group';node.dataset.id=group.id;
+      node.style.left=`${xToPx(group.minX)}px`;node.style.width=`${Math.max(18,(group.maxX-group.minX)*state.scale)}px`;
+      node.textContent=group.label;node.title=`World Group · ${group.label} · ${group.memberCount} assets · ${round(group.minX,1)} → ${round(group.maxX,1)} m`;
+      bindDraggable(node,{kind:'world-group',id:group.id});
+      node.addEventListener('click',event=>{if(state.drag?.moved)return;select('world-group',group.id);event.stopPropagation();});
+      els.trackGroups.appendChild(node);
+    }
+  }
+
   function renderPlayhead(){
     const x=number(state.playheadX,0);
     els.playheadPosition.textContent=`${round(x,1)} m`;
@@ -1142,17 +1184,20 @@
       // First tap/release only selects. This deliberately leaves native timeline
       // panning untouched until a second gesture begins on the selected block.
       if(!isSelected(ref.kind,ref.id))return;
-      pushHistory(ref.kind==='puzzle'?'Move puzzle':'Move world element');
+      pushHistory(ref.kind==='puzzle'?'Move puzzle':(ref.kind==='world-group'?'Move World Group':'Move world element'));
       event.preventDefault();event.stopPropagation();
       node.setPointerCapture?.(event.pointerId);
       const startClient=event.clientX;
       let startX,startEnd;
       if(ref.kind==='puzzle'){
         const p=findPuzzle(ref.id);startX=p.x;startEnd=null;
+      }else if(ref.kind==='world-group'){
+        const group=findWorldGroup(ref.id);startX=group.x;startEnd=null;
       }else{
         const item=findElement(ref.id);startX=number(item.startX,0);startEnd=number(item.endX,startX);
       }
-      state.drag={...ref,startClient,startX,startEnd,moved:false};
+      const groupStart=ref.kind==='world-group'?findWorldGroup(ref.id):null;
+      state.drag={...ref,startClient,startX,startEnd,startMin:groupStart?.minX,startMax:groupStart?.maxX,moved:false};
       const move=e=>{
         if(!state.drag)return;
         const delta=(e.clientX-startClient)/state.scale;
@@ -1167,6 +1212,9 @@
             renderSections();
             renderSelection();
           }
+        }else if(ref.kind==='world-group'){
+          const group=findWorldGroup(ref.id);
+          if(group){group.x=round(startX+delta,3);group.minX=round(state.drag.startMin+delta,3);group.maxX=round(state.drag.startMax+delta,3);node.style.left=`${xToPx(group.minX)}px`;renderSelection();}
         }else{
           const item=findElement(ref.id);
           if(item){
@@ -1193,6 +1241,8 @@
         if(moved){
           if(ref.kind==='puzzle'){
             const p=findPuzzle(ref.id);queuePuzzleMove(p.id,p.x);
+          }else if(ref.kind==='world-group'){
+            const group=findWorldGroup(ref.id);queueWorldGroupMove(group.id,group.x);
           }else saveElements();
         }
         state.drag=null;
@@ -1209,7 +1259,7 @@
 
   function renderSelection(){
     if(!state.selected){
-      els.selection.innerHTML='<h2>Selection</h2><p class="muted">Tap a section, terrain modifier, puzzle marker or World Element above.</p>';
+      els.selection.innerHTML='<h2>Selection</h2><p class="muted">Tap a section, terrain modifier, puzzle, World Group or World Element above.</p>';
       return;
     }
     if(state.selected.kind==='biome-transition'){
@@ -1222,6 +1272,11 @@
       const p=findPuzzle(state.selected.id);
       if(!p){state.selected=null;return renderSelection();}
       return renderPuzzleSelection(p);
+    }
+    if(state.selected.kind==='world-group'){
+      const group=findWorldGroup(state.selected.id);
+      if(!group){state.selected=null;return renderSelection();}
+      return renderWorldGroupSelection(group);
     }
     if(state.selected.kind==='element'){
       const item=findElement(state.selected.id);
@@ -1381,6 +1436,20 @@
     });
   }
 
+  function renderWorldGroupSelection(group){
+    const ex=group.exclusion&&typeof group.exclusion==='object'?group.exclusion:null;
+    const exclusionText=ex?.enabled!==false&&ex?`${round(number(ex.width,0),1)} × ${round(number(ex.depth,0),1)} m`:'Off';
+    els.selection.innerHTML=`<h2>${escapeHtml(group.label)}</h2><p class="muted">World Group · ${escapeHtml(group.id)}</p>
+      <div class="wl-biome-status-pills"><span class="wl-pill">${group.memberCount} ${group.memberCount===1?'asset':'assets'}</span><span class="wl-pill">Exclusion ${escapeHtml(exclusionText)}</span>${group.templateId?'<span class="wl-pill">Template instance</span>':''}</div>
+      <div class="wl-selection-form"><label>Anchor X<input id="wl-world-group-x" type="number" step="0.1" value="${round(group.x,3)}"></label><label>Extent<input type="text" readonly value="${round(group.minX,1)} → ${round(group.maxX,1)} m"></label><label>Depth Z<input type="text" readonly value="${round(group.z,2)}"></label><label>Status<input type="text" readonly value="${group.pending?'Move queued':'Placed'}"></label></div>
+      ${group.pending?`<p class="muted">Move queued from ${round(group.actualX,2)} m to ${round(group.x,2)} m. The game applies it using the normal terrain-aware World Group move on next load.</p>`:'<p class="muted">Drag the selected group block horizontally to adjust pacing. The move is queued so the game can re-ground every child correctly when it loads.</p>'}
+      <div class="wl-actions"><button class="primary" id="wl-queue-world-group">${group.pending?'Update queued move':'Queue move'}</button><button id="wl-open-world-group">Jump to Game</button><button id="wl-playhead-world-group">Move playhead here</button>${group.pending?'<button id="wl-cancel-world-group">Cancel queued move</button>':''}</div>`;
+    $('wl-queue-world-group').addEventListener('click',()=>{pushHistory('Queue World Group move');const x=number($('wl-world-group-x').value,group.x);queueWorldGroupMove(group.id,x);refreshGameData();select('world-group',group.id);toast('World Group move queued.');});
+    $('wl-open-world-group').addEventListener('click',()=>{const x=number($('wl-world-group-x').value,group.x);if(Math.abs(x-group.actualX)>.0001)queueWorldGroupMove(group.id,x);location.href=`play.html?worldX=${encodeURIComponent(x)}&from=world-lab`;});
+    $('wl-playhead-world-group').addEventListener('click',()=>{state.playheadX=group.x;select('playhead','player');});
+    $('wl-cancel-world-group')?.addEventListener('click',()=>{pushHistory('Cancel World Group move');cancelWorldGroupMove(group.id);select('world-group',group.id);toast('Queued World Group move cancelled.');});
+  }
+
   function terrainLayerControlHtml(index,layerId){
     const info=terrainLayerModeInfo(index,layerId);
     const explicit=info.mode==='explicit';
@@ -1525,6 +1594,17 @@
     render();
   }
 
+
+  function queueWorldGroupMove(groupId,x){
+    state.groupMoves||={};state.groupMoves[groupId]={x:round(number(x,0),3),updatedAt:Date.now()};saveJson(STORAGE.groupMoves,state.groupMoves);
+    const group=findWorldGroup(groupId);if(group){group.pending=true;group.x=state.groupMoves[groupId].x;group.minX=group.x+group.minLocal;group.maxX=group.x+group.maxLocal;}
+  }
+
+  function cancelWorldGroupMove(groupId){
+    if(!state.groupMoves?.[groupId])return;
+    delete state.groupMoves[groupId];saveJson(STORAGE.groupMoves,state.groupMoves);refreshGameData();
+  }
+
   function addElement(){
     pushHistory('Add world element');
     const type=els.newType.value;
@@ -1548,8 +1628,8 @@
 
   function saveElements(){
     saveJson(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:state.elements});
-    const assetCount=sceneDressingEntries().length,transitionCount=state.biomes?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
+    const assetCount=sceneDressingEntries().length,groupCount=state.worldGroups.length,transitionCount=state.biomes?.transitions?.length||0;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}`;
     syncUndoUi();
   }
 
@@ -1560,7 +1640,7 @@
   function completeGameDesignExportPayload(){
     refreshGameData();
     const bakedWorld=clone(baked?.world||{});
-    const placedWorldAssets=sceneDressingEntries().map(item=>clone(item.raw));
+    const placedWorldAssets=(state.scene?.added||[]).filter(item=>item&&!item.deleted&&!item.puzzleInstanceId).map(item=>clone(item));
     const puzzleMarkers=state.puzzles.map(item=>({
       id:item.id,group:item.group,label:item.label,x:item.x,actualX:item.actualX,local:!!item.local,
       minX:item.minX,maxX:item.maxX,pending:!!item.pending
@@ -1568,7 +1648,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:2,
-      appVersion:'1.0.90',
+      appVersion:'1.0.106',
       exportedAt:new Date().toISOString(),
       purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
       world:{
@@ -1577,6 +1657,7 @@
         biomes:clone(state.biomes),
         terrain:clone(state.terrain),
         pendingPuzzleMoves:clone(state.pending),
+        pendingWorldGroupMoves:clone(state.groupMoves),
         playerPosition:exportStore(STORAGE.player,null)
       },
       scene:{
@@ -1672,6 +1753,7 @@
         if(parsed?.world?.biomes!==undefined)writeImportedStore(STORAGE.biomes,parsed.world.biomes);
         if(parsed?.world?.terrain!==undefined)writeImportedStore(STORAGE.terrain,parsed.world.terrain);
         if(parsed?.world?.pendingPuzzleMoves!==undefined)writeImportedStore(STORAGE.pending,parsed.world.pendingPuzzleMoves);
+        if(parsed?.world?.pendingWorldGroupMoves!==undefined)writeImportedStore(STORAGE.groupMoves,parsed.world.pendingWorldGroupMoves);
         if(parsed?.scene?.edits!==undefined)writeImportedStore(STORAGE.scene,parsed.scene.edits);
         if(parsed?.puzzles?.localLibrary!==undefined)writeImportedStore(STORAGE.puzzleLibrary,parsed.puzzles.localLibrary);
         if(parsed?.puzzles?.runtimeState!==undefined)writeImportedStore(STORAGE.puzzleState,parsed.puzzles.runtimeState);
@@ -1729,7 +1811,7 @@
   }
 
   function historySnapshot(label='World Lab change'){
-    return {label,elements:clone(state.elements),biomes:clone(state.biomes),pending:clone(state.pending),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
+    return {label,elements:clone(state.elements),biomes:clone(state.biomes),pending:clone(state.pending),groupMoves:clone(state.groupMoves),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
   }
   function pushHistory(label){
     state.history.push(historySnapshot(label));
@@ -1749,12 +1831,14 @@
     state.elements=clone(snap.elements)||[];
     state.biomes=normaliseBiomeState(snap.biomes||defaultBiomeState());
     state.pending=clone(snap.pending)||{};
+    state.groupMoves=clone(snap.groupMoves)||{};
     state.terrain=normaliseTerrainState(snap.terrain||{});
     state.playheadX=number(snap.playheadX,state.playheadX);
     state.selected=clone(snap.selected);
     saveElements();
     saveBiomeState();
     saveJson(STORAGE.pending,state.pending);
+    saveJson(STORAGE.groupMoves,state.groupMoves);
     saveJson(STORAGE.terrain,state.terrain);
     refreshGameData();
     render();
