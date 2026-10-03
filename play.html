@@ -358,6 +358,23 @@
 
             <section class="sidescroll-environment-selection" id="sidescroll-environment-selection">
               <button class="sidescroll-open-assets" id="sidescroll-open-environment-assets" type="button">＋ Add Environment Asset</button>
+
+              <div class="sidescroll-panel-section-head compact">
+                <strong>World Groups</strong>
+                <small id="sidescroll-world-group-count">0 groups</small>
+              </div>
+              <div class="sidescroll-puzzle-manage" id="sidescroll-world-group-actions">
+                <button id="sidescroll-world-group-new" type="button">New Group</button>
+                <button id="sidescroll-world-group-edit" type="button">Edit Group</button>
+                <button id="sidescroll-world-group-move" type="button">Move Group</button>
+                <button id="sidescroll-world-group-rename" type="button">Rename</button>
+                <button id="sidescroll-world-group-membership" type="button">Add Selected</button>
+                <button id="sidescroll-world-group-dissolve" class="danger" type="button">Dissolve</button>
+              </div>
+              <p class="sidescroll-puzzle-help" id="sidescroll-world-group-status">Standalone placement · create or select a group to organise authored world assets.</p>
+              <div class="sidescroll-environment-scene-list" id="sidescroll-world-group-list" role="listbox" aria-label="World groups"></div>
+              <p class="sidescroll-scene-empty" id="sidescroll-world-group-empty">No world groups yet.</p>
+
               <div class="sidescroll-puzzle-panel-head">
                 <span class="sidescroll-puzzle-mode">ENV</span>
                 <strong>Environment</strong>
