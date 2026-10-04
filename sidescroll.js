@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.110: World Group recovery controls · Position panel + Delete Group.
   // SideScroll v1.0.109: precise screen-space asset/group dragging + dot-only group move handle.
   // SideScroll v1.0.108: persist World Group ownership through scene reconstruction.
   // SideScroll v1.0.107: World Group lock/edit semantics + direct whole-group dragging.
@@ -366,6 +367,7 @@
   const worldGroupRenameBtn = document.getElementById('sidescroll-world-group-rename');
   const worldGroupMembershipBtn = document.getElementById('sidescroll-world-group-membership');
   const worldGroupDissolveBtn = document.getElementById('sidescroll-world-group-dissolve');
+  const worldGroupDeleteBtn = document.getElementById('sidescroll-world-group-delete');
   const worldGroupExclusionToggleBtn = document.getElementById('sidescroll-world-group-exclusion-toggle');
   const worldGroupExclusionEditBtn = document.getElementById('sidescroll-world-group-exclusion-edit');
   const worldGroupExclusionFitBtn = document.getElementById('sidescroll-world-group-exclusion-fit');
@@ -468,6 +470,7 @@
   const transformFloorWalkBtn = document.getElementById('sidescroll-transform-floor-walk');
   const transformSupportWalkBtn = document.getElementById('sidescroll-transform-support-walk');
   const transformAlignSupportsBtn = document.getElementById('sidescroll-transform-align-supports');
+  const transformHelpEl = document.getElementById('sidescroll-transform-help');
   const groundLineEditor = document.getElementById('sidescroll-ground-line-editor');
   const groundLineInput = document.getElementById('sidescroll-ground-line-input');
   const groundLineValueEl = document.getElementById('sidescroll-ground-line-value');
@@ -8523,8 +8526,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     else if(changed||!group)worldGroupEditMode=false;
     if(!worldGroupEditMode&&selectedObject?.worldGroupId)selectObject(null);
     if(focus&&group){const b=worldGroupBounds(group);const x=b?(b.minX+b.maxX)*.5:Number(group.x)||0;camera.x=x-character.screenOffsetX;previousCameraX=camera.x;}
+    if(changed)transformEditMode=false;
     worldGroupListSignature='';sceneEnvironmentListSignature='';
     renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
+    updateEditorButtons();
   }
 
   function setWorldGroupEditMode(on){
@@ -8551,6 +8556,45 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group=groupId?worldGroupById(groupId):null;const nextId=group?.id||null;if((obj.worldGroupId||null)===nextId)return false;
     if(group&&worldGroupMembers(group.id).length===0){group.x=Number(obj.x)||0;group.z=Number(obj.z)||pathZ;}
     obj.worldGroupId=nextId;recordObjectEdit(obj);saveSceneData();worldGroupListSignature='';sceneEnvironmentListSignature='';renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});return true;
+  }
+
+  function deleteSelectedWorldGroup(){
+    const group=worldGroupById(selectedWorldGroupId);if(!group)return false;
+    const members=worldGroupMembers(group.id,{includeDeleted:true});
+    const liveCount=members.filter(obj=>!obj.deleted).length;
+    if(!window.confirm(`Delete ${group.label} and ${liveCount} ${liveCount===1?'asset':'assets'}? This removes the complete placed group from the scene.`))return false;
+
+    for(const obj of members){
+      if(!obj)continue;
+      obj.deleted=true;
+      obj.worldGroupId=null;
+      recordObjectEdit(obj);
+    }
+    sceneData.worldGroups=worldGroups().filter(item=>item.id!==group.id);
+
+    // Clear any queued World Lab move for a group that no longer exists.
+    try{
+      const pending=JSON.parse(localStorage.getItem(WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY)||'null');
+      if(pending&&typeof pending==='object'&&group.id in pending){
+        delete pending[group.id];
+        if(Object.keys(pending).length)localStorage.setItem(WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY,JSON.stringify(pending));
+        else localStorage.removeItem(WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY);
+      }
+    }catch(_){}
+
+    selectedWorldGroupId=null;
+    worldGroupEditMode=false;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;
+    transformEditMode=false;selectedObject=null;
+    saveSceneData();
+    sortSceneCollections();
+    worldGroupListSignature='';sceneEnvironmentListSignature='';
+    renderWorldGroupTools({force:true});
+    renderEnvironmentSelectionTools({force:true});
+    updateEditorButtons();
+    syncTransformEditor();
+    hintEl.textContent='World Group deleted with its placed assets';
+    hintEl.classList.remove('hidden');
+    return true;
   }
 
   function dissolveSelectedWorldGroup(){
@@ -8896,7 +8940,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(!force&&signature===worldGroupListSignature)return;worldGroupListSignature=signature;
     if(worldGroupCountEl)worldGroupCountEl.textContent=`${groups.length} ${groups.length===1?'group':'groups'}`;if(worldGroupEmptyEl)worldGroupEmptyEl.hidden=groups.length>0;worldGroupListEl.innerHTML='';
     for(const group of groups){const members=worldGroupMembers(group.id),b=worldGroupBounds(group);const row=document.createElement('button');row.type='button';row.className='sidescroll-environment-scene-row';row.classList.toggle('active',group.id===selectedWorldGroupId);row.setAttribute('aria-selected',String(group.id===selectedWorldGroupId));const main=document.createElement('span');main.className='scene-puzzle-main';const strong=document.createElement('strong');strong.textContent=group.label||'World Group';const small=document.createElement('small');small.textContent=`${members.length} ${members.length===1?'asset':'assets'}${worldGroupEditMode&&group.id===selectedWorldGroupId?' · EDITING':''}`;main.append(strong,small);const pos=document.createElement('span');pos.className='scene-puzzle-x';pos.textContent=b?`x ${((b.minX+b.maxX)*.5).toFixed(1)}`:`x ${Number(group.x||0).toFixed(1)}`;row.append(main,pos);bindEditorPress(row,()=>selectWorldGroup(group.id,{focus:true}));worldGroupListEl.appendChild(row);}
-    const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;
+    const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;if(worldGroupDeleteBtn)worldGroupDeleteBtn.disabled=!has;
     const ex=selected?currentWorldGroupExclusion(selected):null;
     if(worldGroupExclusionToggleBtn){worldGroupExclusionToggleBtn.disabled=!has;worldGroupExclusionToggleBtn.textContent=ex?.enabled?'Disable Exclusion':'Enable Exclusion';}
     if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.disabled=!has;worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Exclusion':'Edit Exclusion';worldGroupExclusionEditBtn.classList.toggle('primary',worldGroupExclusionEditMode);}
@@ -10001,11 +10045,49 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       && !objectHasBehaviour(obj, 'carryable') && !objectHasBehaviour(obj, 'stackable'));
   }
 
+  function selectedLockedWorldGroupForEditor(){
+    if(!editMode || editorScope!=='environment' || worldGroupEditMode)return null;
+    return worldGroupById(selectedWorldGroupId);
+  }
+
   function syncTransformEditor() {
-    const has = !!(editMode && transformEditMode && selectedObject && !selectedObject.deleted);
+    const group=selectedLockedWorldGroupForEditor();
+    const hasObject=!!(selectedObject && !selectedObject.deleted);
+    const has=!!(editMode && transformEditMode && (hasObject || group));
     if (transformEditor) transformEditor.hidden = !has;
     if (editorTransformBtn) editorTransformBtn.classList.toggle('active', has);
     if (!has) return;
+
+    const yRow=transformYInput?.closest?.('.sidescroll-transform-axis') || null;
+
+    if(group && !hasObject){
+      if(transformModeLabel)transformModeLabel.textContent='GROUP';
+      if(transformModeBtn)transformModeBtn.hidden=true;
+      if(transformXInput)transformXInput.value=(Number(group.x)||0).toFixed(2);
+      if(transformZInput){
+        transformZInput.value=(Number(group.z)||pathZ).toFixed(2);
+        transformZInput.disabled=false;
+      }
+      if(yRow)yRow.hidden=true;
+      if(transformXMinusBtn)transformXMinusBtn.disabled=false;
+      if(transformXPlusBtn)transformXPlusBtn.disabled=false;
+      if(transformZMinusBtn)transformZMinusBtn.disabled=false;
+      if(transformZPlusBtn)transformZPlusBtn.disabled=false;
+
+      // In group mode this familiar action becomes an emergency/recovery tool:
+      // it moves the whole composition back to gameplay depth.
+      if(transformFloorWalkBtn){
+        transformFloorWalkBtn.hidden=false;
+        transformFloorWalkBtn.textContent='Depth = Path';
+      }
+      if(transformSupportWalkBtn)transformSupportWalkBtn.hidden=true;
+      if(transformAlignSupportsBtn)transformAlignSupportsBtn.hidden=true;
+      if(transformHelpEl)transformHelpEl.textContent='World Group anchor. X moves along the journey; Z moves scene depth. Members keep their local layout and their individual Ground / Free / Follow Normal behaviour.';
+      return;
+    }
+
+    if(yRow)yRow.hidden=false;
+    if(transformModeBtn)transformModeBtn.hidden=false;
     const free = objectUsesFreePlacement(selectedObject);
     if (transformModeLabel) transformModeLabel.textContent = free ? 'FREE' : 'GROUND';
     if (transformModeBtn) transformModeBtn.textContent = free ? 'Use Ground' : 'Make Free';
@@ -10018,12 +10100,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const lockedDepth = !!(selectedObject.category === 'gameplay' && selectedObject.gameplayLayerLocked);
     if (transformZMinusBtn) transformZMinusBtn.disabled = lockedDepth;
     if (transformZPlusBtn) transformZPlusBtn.disabled = lockedDepth;
+    if(transformFloorWalkBtn){
+      transformFloorWalkBtn.hidden=false;
+      transformFloorWalkBtn.textContent='Floor = walk';
+    }
     if (transformSupportWalkBtn) transformSupportWalkBtn.hidden = !isSupportSurfaceObject(selectedObject);
     if (transformAlignSupportsBtn) transformAlignSupportsBtn.hidden = fixedSupportObjectsForSelectedPuzzle().length < 2 || !isSupportSurfaceObject(selectedObject);
+    if(transformHelpEl)transformHelpEl.textContent='Free mode holds Y while X/Z move. Y is the asset floor/deck height, not the image pivot.';
   }
 
   function setTransformEditorOpen(open) {
-    transformEditMode = !!open && !!selectedObject && !selectedObject.deleted;
+    const group=selectedLockedWorldGroupForEditor();
+    const hasObject=!!(selectedObject && !selectedObject.deleted);
+    transformEditMode = !!open && !!(hasObject || group);
     if (transformEditMode) {
       groundLineEditMode = false;
       collisionEditMode = false;
@@ -10031,7 +10120,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       socketPlacementPiece = null;
       addAssetType = null;
       updatePlacementModeUi();
-      hintEl.textContent = 'Position · use one axis at a time. Free mode keeps height independent from the terrain.';
+      hintEl.textContent = group && !hasObject
+        ? 'Group Position · X moves along the journey · Z moves scene depth · Depth = Path recovers an off-screen group'
+        : 'Position · use one axis at a time. Free mode keeps height independent from the terrain.';
       hintEl.classList.remove('hidden');
     }
     syncGroundLineEditor();
@@ -10056,7 +10147,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function moveSelectedTransformAxis(axis, value) {
-    if (!selectedObject || selectedObject.deleted || !Number.isFinite(Number(value))) return;
+    if (!Number.isFinite(Number(value))) return;
+    const group=selectedLockedWorldGroupForEditor();
+    if(group && (!selectedObject || selectedObject.deleted)){
+      if(axis!=='x' && axis!=='z')return;
+      const next=Number(value);
+      const x=axis==='x'?next:(Number(group.x)||0);
+      const z=axis==='z'?next:(Number(group.z)||pathZ);
+      if(moveWorldGroupTo(group,{x,z})){
+        syncTransformEditor();
+        renderWorldGroupTools({force:true});
+        renderEnvironmentSelectionTools({force:true});
+      }
+      return;
+    }
+    if (!selectedObject || selectedObject.deleted) return;
     const obj = selectedObject;
     const next = Number(value);
     const floorOffset = objectFloorOffsetFromTerrain(obj);
@@ -10090,13 +10195,31 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function nudgeSelectedTransformAxis(axis, direction) {
-    if (!selectedObject || selectedObject.deleted) return;
+    const group=selectedLockedWorldGroupForEditor();
     const step = Math.max(0.005, Number(transformStepInput?.value) || 0.1) * (direction < 0 ? -1 : 1);
+    if(group && (!selectedObject || selectedObject.deleted)){
+      if(axis!=='x' && axis!=='z')return;
+      const current=axis==='x'?(Number(group.x)||0):(Number(group.z)||pathZ);
+      moveSelectedTransformAxis(axis,current+step);
+      return;
+    }
+    if (!selectedObject || selectedObject.deleted) return;
     const current = axis === 'x' ? selectedObject.x : (axis === 'z' ? selectedObject.z : objectFloorWorldY(selectedObject));
     moveSelectedTransformAxis(axis, current + step);
   }
 
   function snapSelectedFloorToWalk() {
+    const group=selectedLockedWorldGroupForEditor();
+    if(group && (!selectedObject || selectedObject.deleted)){
+      if(moveWorldGroupTo(group,{x:Number(group.x)||0,z:pathZ})){
+        syncTransformEditor();
+        renderWorldGroupTools({force:true});
+        renderEnvironmentSelectionTools({force:true});
+        hintEl.textContent=`${group.label} moved back to normal path depth`;
+        hintEl.classList.remove('hidden');
+      }
+      return;
+    }
     if (!selectedObject || selectedObject.deleted) return;
     selectedObject.freePlacement = true;
     setObjectFloorWorldY(selectedObject, playSurfaceYAt(selectedObject.x));
@@ -10237,8 +10360,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function updateEditorButtons() {
     const has = !!selectedObject && !selectedObject.deleted;
+    const selectedGroup=selectedLockedWorldGroupForEditor();
+    const hasGroup=!!selectedGroup;
     if (!has && groundLineEditMode) groundLineEditMode = false;
-    if (!has && transformEditMode) transformEditMode = false;
+    if (!has && !hasGroup && transformEditMode) transformEditMode = false;
     const collisionFocus = !!(has && collisionEditMode);
     const socketFocus = !!socketPlacementPiece;
     const isGameplay = has && selectedObject.category === 'gameplay';
@@ -10270,8 +10395,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       editorGroundLineBtn.classList.toggle('active', !!(has && groundLineEditMode));
     }
     if (editorTransformBtn) {
-      editorTransformBtn.hidden = !has || collisionFocus || socketFocus;
-      editorTransformBtn.classList.toggle('active', !!(has && transformEditMode));
+      editorTransformBtn.hidden = !(has || hasGroup) || collisionFocus || socketFocus;
+      editorTransformBtn.classList.toggle('active', !!((has || hasGroup) && transformEditMode));
     }
     if (editorGameLayerBtn) {
       editorGameLayerBtn.hidden = !isGameplay || collisionFocus || socketFocus;
@@ -10298,7 +10423,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (label) label.textContent = hasAuthoredSocket ? 'MOVE SOCKET' : 'SET SOCKET';
     }
     if (editorSocketClearBtn) editorSocketClearBtn.hidden = !isSocketPiece || assetManagedSocket || !hasAuthoredSocket || collisionFocus || socketFocus;
-    if (editorDeleteBtn) editorDeleteBtn.hidden = !has || collisionFocus || socketFocus;
+    if (editorDeleteBtn) {
+      editorDeleteBtn.hidden = !(has || hasGroup) || collisionFocus || socketFocus;
+      const label=editorDeleteBtn.querySelector('small');
+      if(label)label.textContent=hasGroup&&!has?'DELETE GROUP':'DELETE';
+    }
     updateCollisionShapeControls();
     syncGroundLineEditor();
     syncTransformEditor();
@@ -11042,6 +11171,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function deleteSelected() {
+    const group=selectedLockedWorldGroupForEditor();
+    if(group && (!selectedObject || selectedObject.deleted)){
+      deleteSelectedWorldGroup();
+      return;
+    }
     if (!selectedObject || selectedObject.deleted) return;
     const wasGameplay = selectedObject.category === 'gameplay';
     selectedObject.deleted = true;
@@ -15093,6 +15227,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(worldGroupMoveBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;worldGroupMoveMode=!worldGroupMoveMode;renderWorldGroupTools({force:true});hintEl.textContent=worldGroupMoveMode?`MOVE ${group.label.toUpperCase()} · tap its new scene position`:'Group move cancelled';hintEl.classList.remove('hidden');});
   bindEditorPress(worldGroupRenameBtn,renameSelectedWorldGroup);
   bindEditorPress(worldGroupDissolveBtn,dissolveSelectedWorldGroup);
+  bindEditorPress(worldGroupDeleteBtn,deleteSelectedWorldGroup);
   bindEditorPress(worldGroupExclusionToggleBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;const ex=ensureWorldGroupExclusion(group);ex.enabled=!ex.enabled;saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});hintEl.textContent=ex.enabled?`${group.label} exclusion enabled · procedural dressing inside it is suppressed`:`${group.label} exclusion disabled · procedural dressing restored`;hintEl.classList.remove('hidden');});
   bindEditorPress(worldGroupExclusionEditBtn,()=>setWorldGroupExclusionEditMode(!worldGroupExclusionEditMode));
   bindEditorPress(worldGroupExclusionFitBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;fitWorldGroupExclusion(group,{enable:true});hintEl.textContent=`${group.label} exclusion fitted around current members`;hintEl.classList.remove('hidden');});
@@ -15332,7 +15467,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   groundLineInput?.addEventListener('input', () => setSelectedGroundLine(Number(groundLineInput.value)));
   bindEditorPress(editorTransformBtn, () => setTransformEditorOpen(!transformEditMode));
   bindEditorPress(transformCloseBtn, () => setTransformEditorOpen(false));
-  bindEditorPress(transformModeBtn, () => setSelectedFreePlacement(!objectUsesFreePlacement(selectedObject)));
+  bindEditorPress(transformModeBtn, () => {
+    if(selectedLockedWorldGroupForEditor() && (!selectedObject || selectedObject.deleted))return;
+    setSelectedFreePlacement(!objectUsesFreePlacement(selectedObject));
+  });
   bindEditorPress(transformXMinusBtn, () => nudgeSelectedTransformAxis('x', -1));
   bindEditorPress(transformXPlusBtn, () => nudgeSelectedTransformAxis('x', 1));
   bindEditorPress(transformYMinusBtn, () => nudgeSelectedTransformAxis('y', -1));

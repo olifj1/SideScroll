@@ -1,37 +1,32 @@
-# SS-PATCH-1.0.109
+# SS-PATCH-1.0.110
 
-Applies over `SS-PATCH-1.0.108`.
+Applies over `SS-PATCH-1.0.109`.
 
-## Group movement correction
+## World Group recovery / selection controls
 
-- A locked World Group can now be moved **only from its yellow origin dot**.
-- Group assets and the yellow bounds remain selection aids, but dragging them no
-  longer moves the group.
-- The origin dot is slightly larger and its label explicitly says `DRAG DOT TO MOVE`.
+A selected locked World Group now exposes editor controls even when no child
+asset is selected.
 
-## Precise screen-space dragging
+### POSITION
+- The normal `POSITION` button appears for a selected locked group.
+- Group mode exposes X and Z numerically with the same step/nudge controls used
+  for individual assets.
+- X/Z changes move the complete group through the terrain-aware group movement
+  system, preserving member layout and each child's Ground/Free rules.
+- Y and the asset Free/Ground toggle are hidden because vertical placement is
+  still resolved per member.
+- `Depth = Path` is an emergency/recovery action that moves the group anchor back
+  to normal gameplay depth. This is specifically useful if the yellow movement
+  dot has been dragged too close to the camera or off-screen.
 
-The old movement path used ground-ray intersections for scene depth. Near the
-horizon that could turn a small finger movement into a very large world-space
-jump.
+### DELETE GROUP
+- Added an explicit `Delete Group` button beside `Dissolve`.
+- Delete Group removes the group and all of its placed member assets.
+- Dissolve remains the non-destructive option: it removes only the grouping and
+  leaves the assets in place.
+- When a locked group is selected, the normal bottom DELETE control also changes
+  to `DELETE GROUP`.
 
-Asset and World Group dragging now solve movement from the projected screen
-position instead:
-- horizontal finger movement tracks horizontal screen movement;
-- vertical finger movement controls scene depth;
-- no horizon ray-pick is used during the drag;
-- path-locked gameplay assets remain depth-locked.
-
-## Stable group composition
-
-Direct group movement now captures a snapshot of every member at drag start.
-Each preview frame is rebuilt from that snapshot rather than accumulating
-incremental transforms. This preserves the group's internal X/Z layout exactly
-while still allowing each member to obey its Ground/Free and Follow Normal rules.
-
-## Membership integrity
-
-On every scene restore the game validates saved `worldGroupId` ownership against
-the reconstructed runtime objects and repairs any mismatch. Membership continues
-to be stored on each authored scene object, with the World Group record storing
-the group-level transform/settings.
+This means an off-screen or badly positioned group can always be recovered or
+deleted by selecting it from the World Groups list; access to the yellow dot is
+no longer required.
