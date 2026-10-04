@@ -1,40 +1,33 @@
-# SS-PATCH-1.0.112
+# SS-PATCH-1.0.113
 
-Applies over `SS-PATCH-1.0.111`.
+Applies over `SS-PATCH-1.0.112`.
 
-## Explicit Biome / Profile authoring
+## Critical fix: authored assets no longer wrap
 
-The previous profile implementation existed, but profile creation was buried
-inside the profile detail screen and there was no user-created biome flow.
-This patch makes both concepts explicit in the main World Lab Biome System.
+The old scenery system wraps procedural objects by one world-tile width so the
+forest can repeat around the camera. Authored objects were accidentally allowed
+to inherit that behaviour after reload, which could make a manually placed
+house/fence/group member appear again roughly one world width later.
 
-### Biome library
-- New always-visible **+ New Biome** button.
-- New always-visible **+ New Profile** button.
-- A **Biome** selector and **Open Biome / Profiles** button.
-- Dynamic shortcut buttons are generated for every biome, not just Woodland
-  and Mountain.
-- User-created biomes persist with their definitions, profiles and asset
-  ownership.
-- Custom biomes can be renamed or deleted from their detail page.
-- Deleting an unused custom biome returns its assigned assets to Global /
-  Unbound. A biome referenced by the world cannot be deleted until its
-  transitions are removed.
+That phantom copy was not a second World Group, so deleting it could actually
+delete the real authored object.
 
-### Profiles
-- **+ New Profile** creates a profile for the biome selected in the Biome
-  library.
-- The profile detail screen still supports New, Duplicate, Rename and Delete.
-- After creating a Woodland profile such as `Settlement Edge`, the normal
-  transition controls allow:
-  `Woodland / Default -> Woodland / Settlement Edge`.
+### New rule
 
-### Runtime
-- Gameplay now discovers user-created biome definitions from the saved biome
-  state rather than recognising only Woodland and Mountain.
-- Existing procedural assets can be reassigned to a custom biome and still use
-  their underlying candidate pool.
-- Same-biome profile transitions continue to use one loaded asset dataset while
-  blending Density / Max values.
+- Procedural/generated biome scenery may wrap.
+- Manually placed world assets never wrap.
+- World Group members never wrap.
+- World Group template instances never wrap.
+- Puzzle-owned objects never wrap.
+- Auto-authored river-bank dressing is local to its section and never wraps.
 
-Existing Woodland/Mountain data migrates automatically.
+### Migration / safety
+
+- Existing `sceneData.added` rows are migrated to `wrap:false` on load.
+- `wrap:false` is now persisted explicitly on authored scene rows.
+- `addObject()` contains a safety guard so `userAdded` or puzzle-owned content
+  cannot wrap even if an older call path mistakenly requests it.
+- Existing World Group membership/position data is not changed.
+
+This should remove phantom authored assets without deleting or relocating the
+real placements.

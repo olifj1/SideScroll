@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.113: authored world/puzzle assets never wrap across the world tile.
   // SideScroll v1.0.112: dynamic user-created biomes + explicit biome/profile library.
   // SideScroll v1.0.111: reusable Biome Profiles + same-biome profile transitions.
   // SideScroll v1.0.110: World Group recovery controls · Position panel + Delete Group.
@@ -4221,7 +4222,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       gameplayLayerLocked: typeof opts.gameplayLayerLocked === 'boolean' ? opts.gameplayLayerLocked : category === 'gameplay',
       freePlacement: typeof opts.freePlacement === 'boolean' ? opts.freePlacement : defaultFreePlacement(type),
       layer: opts.layer || classifyLayer(z),
-      wrap: opts.wrap !== false && type !== 'mountain-climb-rock-01',
+      // Only generated/procedural scenery may use world-tile wrapping.
+      // Authored world placements and puzzle-owned objects are spatially unique.
+      wrap: !opts.userAdded && !opts.puzzleInstanceId && opts.wrap !== false && type !== 'mountain-climb-rock-01',
       collision: opts.collisionOverride
         ? cloneCollision(opts.collision)
         : behaviourCollisionFor(type, resolvedWidth, resolvedHeight, opts.collision,resolvedAssetState),
@@ -6734,6 +6737,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         sx: obj.sx, sy: obj.sy, flip: obj.flip, collision: obj.collision ? cloneCollision(obj.collision) : null, collisionOverride:!!obj.collisionOverride,
         category: obj.category || 'dressing', gameplayType: obj.gameplayType || null,
         gameplayLayerLocked: !!obj.gameplayLayerLocked, freePlacement:objectUsesFreePlacement(obj), worldFloorY:objectFloorWorldY(obj),
+        // Authored scene objects are spatially unique. Never allow them to
+        // reappear one world-tile later through the old scenery wrap system.
+        wrap:false,
         worldGroupId:obj.worldGroupId || null,
         puzzleInstanceId:obj.puzzleInstanceId || null, puzzleObjectId:obj.puzzleObjectId || null, deleted: !!obj.deleted,
         thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
@@ -6773,6 +6779,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       (saved?.puzzleInstanceId || saved?.puzzleObjectId || String(saved?.id || '').startsWith('puzzle-'))
     ));
     if (sceneData.added.length !== beforeAdded) saveSceneData();
+
+    // v1.0.113 migration: anything in sceneData.added is an authored world
+    // placement (including World Group members and auto-authored local dressing).
+    // It must exist at one world coordinate only, never at x +/- WORLD width.
+    let authoredWrapChanged = false;
+    for (const saved of sceneData.added || []) {
+      if (saved && saved.wrap !== false) {
+        saved.wrap = false;
+        authoredWrapChanged = true;
+      }
+    }
+    if (authoredWrapChanged) saveSceneData();
 
     let groundAspectChanged = false;
     for (const obj of allSceneObjects()) {
@@ -6815,7 +6833,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         y: restoredY, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
         userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(restoredZ),
         category: restoredCategory, gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
-        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:(saved.assetName === 'camera-trigger' || saved.assetName === 'thought-trigger') ? false : true,
+        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:false,
         worldGroupId:saved.worldGroupId || null,
         thoughtText:saved.thoughtText || '', thoughtRadius:saved.thoughtRadius, thoughtOnce:saved.thoughtOnce !== false,
         cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
@@ -7084,7 +7102,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         opacity:0.99,
         category:'dressing',
         flip:random() > 0.5,
-        wrap:true,
+        wrap:false,
         collision:null,
         collisionOverride:false
       });
@@ -8869,7 +8887,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       freeGroupFloorOffset:free?(objectFloorWorldY(obj)-groupGround):null,
       collision:obj.collision?cloneCollision(obj.collision):null,
       collisionOverride:!!obj.collisionOverride,
-      wrap:obj.wrap!==false,
+      wrap:false,
       thoughtText:typeof obj.thoughtText==='string'?obj.thoughtText:'',
       thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8),
       thoughtOnce:obj.thoughtOnce!==false,
@@ -8952,7 +8970,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       category,gameplayType:member.gameplayType||null,
       gameplayLayerLocked:locked,freePlacement:free,
       collision,collisionOverride:!!member.collisionOverride,
-      worldGroupId:group.id,wrap:member.wrap!==false,
+      worldGroupId:group.id,wrap:false,
       thoughtText:member.thoughtText||'',thoughtRadius:member.thoughtRadius,thoughtOnce:member.thoughtOnce!==false,
       cameraNodeRadius:member.cameraNodeRadius,cameraNodeOffsetX:member.cameraNodeOffsetX,
       cameraNodeOffsetY:member.cameraNodeOffsetY,cameraNodeOffsetZ:member.cameraNodeOffsetZ,
@@ -11077,7 +11095,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       category:info.category || 'dressing', gameplayType:info.gameplayType || null,
       collision:gameplayCollision, gameplayLayerLocked:defaultGameLayerLocked, freePlacement,
       worldGroupId:(!puzzleInstance && worldGroupEditMode && worldGroupById(selectedWorldGroupId)) ? selectedWorldGroupId : null,
-      wrap:puzzleInstance ? false : (info.wrap !== false), puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
+      wrap:false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       thoughtText: info.defaultThoughtText || '', thoughtRadius: info.defaultThoughtRadius || 1.4, thoughtOnce: info.defaultThoughtOnce !== false,
       cameraNodeRadius: info.defaultCameraRadius || 4.0, cameraNodeOffsetX: info.defaultCameraOffsetX || 0,
       cameraNodeOffsetY: info.defaultCameraOffsetY || 0, cameraNodeOffsetZ: info.defaultCameraOffsetZ || 0,
@@ -11118,7 +11136,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked:!!selectedObject.gameplayLayerLocked,
       freePlacement:objectUsesFreePlacement(selectedObject),
       worldGroupId:puzzleInstance ? null : ((worldGroupEditMode && worldGroupById(selectedWorldGroupId)) ? selectedWorldGroupId : (selectedObject.worldGroupId || null)),
-      wrap:puzzleInstance ? false : selectedObject.wrap !== false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
+      wrap:false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null,
       thoughtText:selectedObject.thoughtText || '', thoughtRadius:selectedObject.thoughtRadius || 1.4, thoughtOnce:selectedObject.thoughtOnce !== false,
       cameraNodeRadius:selectedObject.cameraNodeRadius || 4.0, cameraNodeOffsetX:Number(selectedObject.cameraNodeOffsetX)||0,
