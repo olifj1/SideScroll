@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.109: precise screen-space asset/group dragging + dot-only group move handle.
   // SideScroll v1.0.108: persist World Group ownership through scene reconstruction.
   // SideScroll v1.0.107: World Group lock/edit semantics + direct whole-group dragging.
   // SideScroll v1.0.106: World Groups v3 · group-owned exclusion zones + World Lab group timeline moves.
@@ -7039,6 +7040,28 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // Scene storage is namespaced in Puzzle Lab, so restoring lab-authored
   // dressing is safe and never reads/writes the main game's scene edits.
   restoreSceneEdits();
+
+  // Group membership is stored on each authored scene row as worldGroupId.
+  // Validate that saved ownership and reconstructed runtime ownership match on
+  // every load; repair runtime state from the saved row if anything diverges.
+  function reconcileWorldGroupMembershipIntegrity(){
+    const validGroups=new Set(worldGroups().map(group=>group.id));
+    const runtimeById=new Map(allSceneObjects().filter(obj=>obj?.userAdded).map(obj=>[obj.id,obj]));
+    let repaired=0;
+    for(const saved of sceneData.added||[]){
+      if(!saved?.id)continue;
+      if(saved.worldGroupId&&!validGroups.has(saved.worldGroupId)){
+        saved.worldGroupId=null;repaired+=1;
+      }
+      const obj=runtimeById.get(saved.id);
+      if(obj&&(obj.worldGroupId||null)!==(saved.worldGroupId||null)){
+        obj.worldGroupId=saved.worldGroupId||null;repaired+=1;
+      }
+    }
+    if(repaired)saveSceneData();
+    return repaired;
+  }
+  reconcileWorldGroupMembershipIntegrity();
   // Migrate older marker-specific authored starts into reusable templates, then
   // persist the normalized library so previous authored work remains available.
   migratePuzzleTemplates();
@@ -8113,6 +8136,52 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return { x, z, y: terrainGroundYAt(x, z) };
   }
 
+
+  // Editor movement should follow the finger in SCREEN space rather than use a
+  // ray/ground intersection. The latter becomes extremely sensitive near the
+  // horizon. We solve X from horizontal pixels and Z from vertical pixels,
+  // alternating a few small Newton steps so the projected anchor follows the
+  // finger closely even as perspective/terrain height changes.
+  function solveEditorScreenDragXZ({
+    startX,startZ,startScreenX,startScreenY,targetScreenX,targetScreenY,
+    yAt,lockZ=false,minZ=WORLD.farZ+0.8,maxZ=WORLD.nearZ-0.6
+  }){
+    let x=Number(startX)||0;
+    let z=Rig.clamp(Number(startZ)||pathZ,minZ,maxZ);
+    const yFor=(px,pz)=>Number(yAt?.(px,pz))||0;
+    const epsX=.06,epsZ=.08;
+
+    for(let iteration=0;iteration<6;iteration+=1){
+      // Vertical finger travel controls scene depth. Locked gameplay-layer
+      // objects deliberately skip this axis.
+      if(!lockZ){
+        const p=projectWorldPoint(x,yFor(x,z),z);
+        const z2=Rig.clamp(z+epsZ,minZ,maxZ);
+        const pz=projectWorldPoint(x,yFor(x,z2),z2);
+        if(p&&pz){
+          const deriv=(pz.y-p.y)/(z2-z || epsZ);
+          if(Math.abs(deriv)>.001){
+            const step=Rig.clamp((targetScreenY-p.y)/deriv,-2.0,2.0);
+            z=Rig.clamp(z+step,minZ,maxZ);
+          }
+        }
+      }
+
+      // Horizontal finger travel controls world X. Solve after Z so perspective
+      // depth changes do not make the object race ahead of the finger.
+      const p=projectWorldPoint(x,yFor(x,z),z);
+      const px=projectWorldPoint(x+epsX,yFor(x+epsX,z),z);
+      if(p&&px){
+        const deriv=(px.x-p.x)/epsX;
+        if(Math.abs(deriv)>.001){
+          const step=Rig.clamp((targetScreenX-p.x)/deriv,-2.0,2.0);
+          x+=step;
+        }
+      }
+    }
+    return{x,z:lockZ?Number(startZ)||pathZ:Rig.clamp(z,minZ,maxZ)};
+  }
+
   // Placement needs to respect the layer the chosen asset will actually live
   // on. Gameplay-layer props (including the large mountain cliffs) are snapped
   // to pathZ after creation, so deriving X from an arbitrary terrain-depth hit
@@ -8309,11 +8378,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return Math.hypot(px-(a.x+vx*t),py-(a.y+vy*t));
   }
 
+  function worldGroupOriginScreenPoint(group){
+    if(!group)return null;
+    const x=Number(group.x)||0,z=Number(group.z)||pathZ;
+    return projectWorldPoint(x,terrainGroundYAt(x,z)+.12,z);
+  }
+
+  function worldGroupOriginHandleHitAt(group,clientX,clientY){
+    const origin=worldGroupOriginScreenPoint(group);if(!origin)return false;
+    const rect=canvas.getBoundingClientRect(),px=clientX-rect.left,py=clientY-rect.top;
+    return Math.hypot(px-origin.x,py-origin.y)<=24;
+  }
+
   function worldGroupGuideHitAt(group,clientX,clientY,{allowInterior=false}={}){
     if(!group)return false;
     const rect=canvas.getBoundingClientRect(),px=clientX-rect.left,py=clientY-rect.top;
-    const origin=projectWorldPoint(Number(group.x)||0,terrainGroundYAt(Number(group.x)||0,Number(group.z)||pathZ)+.12,Number(group.z)||pathZ);
-    if(origin&&Math.hypot(px-origin.x,py-origin.y)<=26)return true;
+    if(worldGroupOriginHandleHitAt(group,clientX,clientY))return true;
     const poly=worldGroupScreenPolygon(group);
     if(!poly)return false;
     if(allowInterior&&pointInScreenPolygon(px,py,poly))return true;
@@ -8340,9 +8420,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function worldGroupAtEditorPoint(clientX,clientY){
     if(!editMode||editorScope!=='environment')return null;
     const selected=worldGroupById(selectedWorldGroupId);
-    // Once selected, the whole yellow footprint becomes an easy group drag
-    // target. This is deliberately disabled in Edit Group mode so members can
-    // be manipulated normally.
+    // This function is for GROUP SELECTION only. Movement is intentionally
+    // restricted to the selected group's yellow origin dot.
     if(selected&&!worldGroupEditMode&&worldGroupGuideHitAt(selected,clientX,clientY,{allowInterior:true}))return selected;
     const memberHits=[];
     for(const group of worldGroups()){
@@ -8462,7 +8541,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(group){
       hintEl.textContent=worldGroupEditMode
         ? `Editing ${group.label} · members unlocked · new placements automatically join`
-        : `${group.label} locked · drag the yellow group/member area to move it · Edit Group unlocks members`;
+        : `${group.label} locked · drag ONLY the yellow dot to move it · Edit Group unlocks members`;
       hintEl.classList.remove('hidden');
     }
   }
@@ -8495,38 +8574,65 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // preserving their authored floor offset; Follow Surface Normal remains an
   // asset behaviour and therefore rotates only assets that opt in. Free members
   // keep their vertical offset relative to the group's local ground height.
-  function moveWorldGroupTo(group,point,{silent=false,persist=true}={}){
-    if(!group||!point)return false;
-    const oldX=Number(group.x)||0,oldZ=Number(group.z)||pathZ;
-    const nextX=Number(point.x)||oldX,nextZ=Rig.clamp(Number(point.z)||oldZ,WORLD.farZ+.8,WORLD.nearZ-.6);
-    const dx=nextX-oldX,dz=nextZ-oldZ;
-    if(Math.abs(dx)<1e-6&&Math.abs(dz)<1e-6)return false;
-    const oldGroupGround=worldGroupAnchorGroundY(oldX,oldZ);
+  function captureWorldGroupMoveState(group){
+    if(!group)return null;
+    const groupX=Number(group.x)||0,groupZ=Number(group.z)||pathZ;
+    const groupGround=worldGroupAnchorGroundY(groupX,groupZ);
+    return{
+      group,groupX,groupZ,
+      members:worldGroupMembers(group.id).map(obj=>({
+        obj,
+        localX:(Number(obj.x)||0)-groupX,
+        localZ:(Number(obj.z)||0)-groupZ,
+        free:objectUsesFreePlacement(obj),
+        floorOffset:objectFloorOffsetFromTerrain(obj),
+        freeGroupOffset:objectFloorWorldY(obj)-groupGround
+      }))
+    };
+  }
+
+  function applyWorldGroupMoveState(state,nextX,nextZ,{silent=false,persist=true}={}){
+    if(!state?.group)return false;
+    const group=state.group;
+    nextX=Number(nextX);
+    nextZ=Rig.clamp(Number(nextZ),WORLD.farZ+.8,WORLD.nearZ-.6);
+    if(!Number.isFinite(nextX)||!Number.isFinite(nextZ))return false;
     const newGroupGround=worldGroupAnchorGroundY(nextX,nextZ);
-    const members=worldGroupMembers(group.id).map(obj=>({
-      obj,
-      free:objectUsesFreePlacement(obj),
-      floorOffset:objectFloorOffsetFromTerrain(obj),
-      freeGroupOffset:objectFloorWorldY(obj)-oldGroupGround
-    }));
-    for(const state of members){
-      const obj=state.obj;
-      obj.x+=dx;
+
+    for(const member of state.members){
+      const obj=member.obj;
+      if(!obj||obj.deleted)continue;
+      obj.x=nextX+member.localX;
       obj.z=obj.category==='gameplay'&&obj.gameplayLayerLocked
         ? pathZ
-        : Rig.clamp(obj.z+dz,WORLD.farZ+.8,WORLD.nearZ-.6);
-      if(state.free) setObjectFloorWorldY(obj,newGroupGround+state.freeGroupOffset);
-      else setObjectFloorOffset(obj,state.floorOffset);
+        : Rig.clamp(nextZ+member.localZ,WORLD.farZ+.8,WORLD.nearZ-.6);
+      if(member.free)setObjectFloorWorldY(obj,newGroupGround+member.freeGroupOffset);
+      else setObjectFloorOffset(obj,member.floorOffset);
       moveObjectToCorrectCollection(obj);
       if(persist)recordObjectEdit(obj);
     }
+
     group.x=nextX;group.z=nextZ;
     sortSceneCollections();
     if(persist)saveSceneData();
     worldGroupListSignature='';sceneEnvironmentListSignature='';
-    if(!silent){renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});}
+    if(!silent){
+      renderWorldGroupTools({force:true});
+      renderEnvironmentSelectionTools({force:true});
+    }
     return true;
   }
+
+  function moveWorldGroupTo(group,point,{silent=false,persist=true}={}){
+    if(!group||!point)return false;
+    const nextX=Number(point.x),nextZ=Rig.clamp(Number(point.z),WORLD.farZ+.8,WORLD.nearZ-.6);
+    if(!Number.isFinite(nextX)||!Number.isFinite(nextZ))return false;
+    const oldX=Number(group.x)||0,oldZ=Number(group.z)||pathZ;
+    if(Math.abs(nextX-oldX)<1e-6&&Math.abs(nextZ-oldZ)<1e-6)return false;
+    const state=captureWorldGroupMoveState(group);
+    return applyWorldGroupMoveState(state,nextX,nextZ,{silent,persist});
+  }
+
 
   function applyWorldLabPendingWorldGroupMoves(){
     if(PUZZLE_LAB_MODE)return 0;
@@ -8804,7 +8910,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           ? `${selected.label} · tap a new scene position to move the complete group`
           : worldGroupEditMode
             ? `${selected.label} · MEMBERS UNLOCKED · new assets auto-join · select members to edit/add/remove`
-            : `${selected.label} · LOCKED GROUP · drag a member/yellow bounds to move the whole group · Edit Group unlocks members${ex?.enabled?' · exclusion ON':''}`;
+            : `${selected.label} · LOCKED GROUP · drag ONLY the yellow dot to move · Edit Group unlocks members${ex?.enabled?' · exclusion ON':''}`;
   }
 
   function placedWorldEnvironmentObjects() {
@@ -11791,7 +11897,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const y0=playSurfaceYAt(b.minX)+.05,y1=playSurfaceYAt(b.maxX)+.05;
       const pts=[projectWorldPoint(b.minX,y0,b.minZ),projectWorldPoint(b.maxX,y1,b.minZ),projectWorldPoint(b.maxX,y1,b.maxZ),projectWorldPoint(b.minX,y0,b.maxZ)];if(pts.some(p=>!p))continue;
       ctx.save();ctx.strokeStyle=selected?'rgba(255,205,111,.98)':'rgba(255,205,111,.34)';ctx.fillStyle=selected?'rgba(255,205,111,.065)':'rgba(255,205,111,.025)';ctx.lineWidth=selected?2.3:1.1;ctx.setLineDash(selected?[7,4]:[4,5]);ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
-      if(selected){const origin=projectWorldPoint(Number(group.x)||0,playSurfaceYAt(Number(group.x)||0)+.12,Number(group.z)||pathZ);if(origin){ctx.beginPath();ctx.arc(origin.x,origin.y,6,0,Math.PI*2);ctx.fillStyle='#ffd77d';ctx.fill();ctx.strokeStyle='#4a3920';ctx.lineWidth=1.4;ctx.stroke();const label=`${group.label||'World Group'} · ${worldGroupMembers(group.id).length} assets${worldGroupEditMode?' · MEMBERS UNLOCKED':' · LOCKED · DRAG TO MOVE'}`;ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;ctx.fillStyle='rgba(47,38,24,.88)';ctx.fillRect(origin.x-tw*.5,origin.y-30,tw,19);ctx.fillStyle='#fff0c7';ctx.fillText(label,origin.x-tw*.5+7,origin.y-17);}}
+      if(selected){const origin=worldGroupOriginScreenPoint(group);if(origin){ctx.beginPath();ctx.arc(origin.x,origin.y,9,0,Math.PI*2);ctx.fillStyle='#ffd77d';ctx.fill();ctx.strokeStyle='#4a3920';ctx.lineWidth=1.8;ctx.stroke();const label=`${group.label||'World Group'} · ${worldGroupMembers(group.id).length} assets${worldGroupEditMode?' · MEMBERS UNLOCKED':' · LOCKED · DRAG DOT TO MOVE'}`;ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;ctx.fillStyle='rgba(47,38,24,.88)';ctx.fillRect(origin.x-tw*.5,origin.y-30,tw,19);ctx.fillStyle='#fff0c7';ctx.fillText(label,origin.x-tw*.5+7,origin.y-17);}}
       ctx.restore();
       if(selected)drawWorldGroupExclusionGuide(ctx,group);
     }
@@ -15432,7 +15538,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         moved:false, kind:'pan', object:null,
         objectStartX:selectedObject?.x ?? 0, objectStartZ:selectedObject?.z ?? 0,
         objectStartFloorOffset:selectedObject ? objectFloorOffsetFromTerrain(selectedObject) : 0,
-        objectStartFloorWorldY:selectedObject ? objectFloorWorldY(selectedObject) : 0
+        objectStartFloorWorldY:selectedObject ? objectFloorWorldY(selectedObject) : 0,
+        objectStartScreen:selectedObject
+          ? projectWorldPoint(selectedObject.x,objectFloorWorldY(selectedObject)+.08,selectedObject.z)
+          : null
       };
 
       const groupExclusionHandle = worldGroupExclusionHandleAt(e.clientX,e.clientY);
@@ -15543,21 +15652,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         }
       }
 
-      // Locked World Groups are selected/moved as one composition. Tapping any
-      // member selects the group; once selected, its yellow footprint and origin
-      // are also direct drag handles. Edit Group deliberately bypasses this so
-      // the selected group's children become normal editable objects.
+      // A locked World Group can ONLY be moved from its yellow origin dot.
+      // Group members/bounds remain useful selection targets, but dragging them
+      // pans the scene rather than moving the composition accidentally.
       if(editorScope==='environment'&&!worldGroupEditMode){
-        const hitGroup=worldGroupAtEditorPoint(e.clientX,e.clientY);
-        if(hitGroup){
-          if(selectedWorldGroupId!==hitGroup.id)selectWorldGroup(hitGroup.id,{focus:false});
+        const selectedGroup=worldGroupById(selectedWorldGroupId);
+        if(selectedGroup&&worldGroupOriginHandleHitAt(selectedGroup,e.clientX,e.clientY)){
           selectObject(null);
           editorGesture.kind='world-group-direct';
-          editorGesture.group=hitGroup;
-          editorGesture.groupStartX=Number(hitGroup.x)||0;
-          editorGesture.groupStartZ=Number(hitGroup.z)||pathZ;
-          editorGesture.groupStartGround=groundPointFromClient(e.clientX,e.clientY)||editorGesture.startGround;
-          hintEl.textContent=`${hitGroup.label} selected · drag to move whole group · Edit Group to unlock members`;
+          editorGesture.group=selectedGroup;
+          editorGesture.groupMoveState=captureWorldGroupMoveState(selectedGroup);
+          editorGesture.groupStartX=Number(selectedGroup.x)||0;
+          editorGesture.groupStartZ=Number(selectedGroup.z)||pathZ;
+          editorGesture.groupStartScreen=worldGroupOriginScreenPoint(selectedGroup);
+          hintEl.textContent=`${selectedGroup.label} · drag the yellow dot · horizontal = along path · vertical = scene depth`;
           hintEl.classList.remove('hidden');
           return;
         }
@@ -15599,39 +15707,50 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       editorGesture.moved = true;
 
       if(editorGesture.kind==='world-group-direct'&&editorGesture.group){
-        const point=groundPointFromClient(e.clientX,e.clientY);
-        const start=editorGesture.groupStartGround;
-        if(point&&start){
-          const nextX=editorGesture.groupStartX+(point.x-start.x);
-          const nextZ=editorGesture.groupStartZ+(point.z-start.z);
-          moveWorldGroupTo(editorGesture.group,{x:nextX,z:nextZ},{silent:true,persist:false});
-        }else{
-          const nextX=editorGesture.groupStartX+dx*.0065;
-          moveWorldGroupTo(editorGesture.group,{x:nextX,z:editorGesture.groupStartZ},{silent:true,persist:false});
+        const startScreen=editorGesture.groupStartScreen;
+        const moveState=editorGesture.groupMoveState;
+        if(startScreen&&moveState){
+          const solved=solveEditorScreenDragXZ({
+            startX:editorGesture.groupStartX,
+            startZ:editorGesture.groupStartZ,
+            startScreenX:startScreen.x,startScreenY:startScreen.y,
+            targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
+            yAt:(x,z)=>terrainGroundYAt(x,z)+.12
+          });
+          applyWorldGroupMoveState(moveState,solved.x,solved.z,{silent:true,persist:false});
         }
         worldGroupListSignature='';
       } else if (editorGesture.kind === 'selected-object' && editorGesture.object) {
         const obj = editorGesture.object;
         if (obj.socketedTo) obj.socketedTo = null;
-        const point = groundPointFromClient(e.clientX,e.clientY);
-        // Horizontal editing now uses the same world-per-pixel scale as scene
-        // panning. This makes the selected asset visually track the finger
-        // instead of perspective projection making it race ahead.
-        const desiredX = editorGesture.objectStartX + dx * 0.0065;
-        const desiredZ = obj.category === 'gameplay' && obj.gameplayLayerLocked
-          ? pathZ
-          : (point && editorGesture.startGround
-              ? Rig.clamp(editorGesture.objectStartZ + (point.z-editorGesture.startGround.z)*0.55, WORLD.farZ+0.8, WORLD.nearZ-0.6)
-              : editorGesture.objectStartZ);
+        const startScreen=editorGesture.objectStartScreen ||
+          projectWorldPoint(editorGesture.objectStartX,editorGesture.objectStartFloorWorldY+.08,editorGesture.objectStartZ);
+        const locked=obj.category==='gameplay'&&obj.gameplayLayerLocked;
+        const free=objectUsesFreePlacement(obj);
+        const yAt=(x,z)=>free
+          ? editorGesture.objectStartFloorWorldY+.08
+          : terrainAnchorBaseY(x,z,obj.category,obj.gameplayLayerLocked,obj.assetName)+editorGesture.objectStartFloorOffset+.08;
+        const solved=startScreen
+          ? solveEditorScreenDragXZ({
+              startX:editorGesture.objectStartX,
+              startZ:editorGesture.objectStartZ,
+              startScreenX:startScreen.x,startScreenY:startScreen.y,
+              targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
+              yAt,lockZ:locked
+            })
+          : {x:editorGesture.objectStartX+dx*.0065,z:editorGesture.objectStartZ};
+        const desiredX=solved.x;
+        const desiredZ=locked?pathZ:solved.z;
+
         if (obj.category === 'gameplay') placeGameplayObjectInEditor(obj, desiredX, desiredZ, editorGesture.stackIgnore);
         else {
           obj.x = desiredX; obj.z = desiredZ;
-          if (objectUsesFreePlacement(obj)) {
-            // Free placement is explicit editor state: X/Z movement never changes
-            // the authored floor/deck height, regardless of the terrain below.
-            setObjectFloorWorldY(obj, Number(editorGesture.objectStartFloorWorldY) || objectFloorWorldY(obj));
+          if (free) {
+            // Free placement retains its authored world floor height while X/Z
+            // tracks the finger in screen space.
+            setObjectFloorWorldY(obj, editorGesture.objectStartFloorWorldY);
           } else {
-            setObjectFloorOffset(obj, Number(editorGesture.objectStartFloorOffset) || 0);
+            setObjectFloorOffset(obj, editorGesture.objectStartFloorOffset);
           }
         }
         moveObjectToCorrectCollection(obj);sortSceneCollections();selectionCycleInfo=null;
@@ -15763,7 +15882,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         } else if (!gesture.moved && gesture.kind==='world-group-direct' && gesture.group) {
           selectWorldGroup(gesture.group.id,{focus:false});
           selectObject(null);
-          hintEl.textContent=`${gesture.group.label} selected · locked as a group · drag it to move · Edit Group to edit members`;
+          hintEl.textContent=`${gesture.group.label} selected · locked · drag ONLY the yellow dot to move · Edit Group to edit members`;
           hintEl.classList.remove('hidden');
         } else if (!gesture.moved && gesture.kind==='world-group-template-place') {
           const template=worldGroupTemplateById(selectedWorldTemplateId);
@@ -15816,7 +15935,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             selectionCycleInfo=cycleInfoFor(selectedObject,candidates);
             hintEl.textContent=candidates.length>1
               ? `Selected · tap the same spot again to cycle ${selectionCycleInfo.index+1}/${candidates.length}`
-              : 'Selected · drag inside this asset to move it · drag elsewhere to pan';
+              : 'Selected · drag the asset to move · horizontal follows screen X · vertical controls depth';
             hintEl.classList.remove('hidden');
           } else {
             const lockedGroup=editorScope==='environment'?worldGroupAtEditorPoint(e.clientX,e.clientY):null;
@@ -15824,7 +15943,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
               selectionTapCycle=null;
               selectObject(null);
               selectWorldGroup(lockedGroup.id,{edit:false,focus:false});
-              hintEl.textContent=`${lockedGroup.label} selected · locked group`;
+              hintEl.textContent=`${lockedGroup.label} selected · locked · use the yellow dot to move it`;
               hintEl.classList.remove('hidden');
             }else{
               selectionTapCycle=null;
