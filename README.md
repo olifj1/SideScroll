@@ -1,64 +1,40 @@
-# SS-PATCH-1.0.111
+# SS-PATCH-1.0.112
 
-Applies over `SS-PATCH-1.0.110`.
+Applies over `SS-PATCH-1.0.111`.
 
-## Reusable Biome Profiles
+## Explicit Biome / Profile authoring
 
-Biome ownership and procedural dressing profiles are now separate concepts.
+The previous profile implementation existed, but profile creation was buried
+inside the profile detail screen and there was no user-created biome flow.
+This patch makes both concepts explicit in the main World Lab Biome System.
 
-Each biome keeps one permanent `Default` profile and can have any number of
-additional named profiles. World Lab profile editing now supports:
+### Biome library
+- New always-visible **+ New Biome** button.
+- New always-visible **+ New Profile** button.
+- A **Biome** selector and **Open Biome / Profiles** button.
+- Dynamic shortcut buttons are generated for every biome, not just Woodland
+  and Mountain.
+- User-created biomes persist with their definitions, profiles and asset
+  ownership.
+- Custom biomes can be renamed or deleted from their detail page.
+- Deleting an unused custom biome returns its assigned assets to Global /
+  Unbound. A biome referenced by the world cannot be deleted until its
+  transitions are removed.
 
-- New Profile
-- Duplicate
-- Rename
-- Delete unused non-default profiles
-- per-profile Density / 10m
-- per-profile Max / 10m
-- shared asset ownership at biome level
+### Profiles
+- **+ New Profile** creates a profile for the biome selected in the Biome
+  library.
+- The profile detail screen still supports New, Duplicate, Rename and Delete.
+- After creating a Woodland profile such as `Settlement Edge`, the normal
+  transition controls allow:
+  `Woodland / Default -> Woodland / Settlement Edge`.
 
-Existing v1 biome data migrates automatically into each biome's `Default`
-profile.
+### Runtime
+- Gameplay now discovers user-created biome definitions from the saved biome
+  state rather than recognising only Woodland and Mountain.
+- Existing procedural assets can be reassigned to a custom biome and still use
+  their underlying candidate pool.
+- Same-biome profile transitions continue to use one loaded asset dataset while
+  blending Density / Max values.
 
-## Same-biome profile transitions
-
-Biome transitions now store both endpoint biome and endpoint profile:
-
-- Woodland / Default -> Woodland / Settlement Edge
-- Woodland / Settlement Edge -> Mountain / Default
-- Mountain / Default -> Mountain / Snowline
-
-The only invalid transition is an exact state-to-itself transition.
-
-For a same-biome transition:
-- only one biome asset dataset remains loaded;
-- the procedural Density / Max values blend continuously between profiles;
-- the normal transition curve controls that blend;
-- World Lab labels the transition with both profile names.
-
-Cross-biome transitions continue to use the existing two-biome streaming rule.
-
-## World Lab workflow
-
-1. Open `Woodland Profiles`.
-2. Duplicate `Default`.
-3. Rename the copy, for example `Settlement Edge`.
-4. Reduce tree/ground densities and caps in that profile.
-5. Add a transition with:
-   - To biome: Woodland
-   - To profile: Settlement Edge
-6. Set the transition start/end and curve as normal.
-7. Add authored settlement World Groups alongside/after the procedural thinning.
-
-The add-transition panel automatically chooses another profile when the target
-biome matches the current biome and an alternative profile is available.
-
-## Runtime
-
-The runtime now evaluates a biome/profile state rather than only a biome ID.
-During same-biome transitions, biome weight stays at 100% while the profile
-values blend. Mountain candidate pools use the largest authored profile cap so
-sparser/denser mountain profiles can share one deterministic pool.
-
-Woodland retains its existing deterministic full-density pool; profiles can
-continuously thin/cap that pool without regenerating manually authored content.
+Existing Woodland/Mountain data migrates automatically.
