@@ -160,6 +160,7 @@
     addElement:$('wl-add-element'),
     biomeFrom:$('wl-biome-from'),
     biomeTo:$('wl-biome-to'),
+    biomeToProfile:$('wl-biome-to-profile'),
     biomeStart:$('wl-biome-start'),
     biomeEnd:$('wl-biome-end'),
     biomeAdd:$('wl-add-biome-transition'),
@@ -222,7 +223,8 @@
     });
     els.addElement.addEventListener('click',addElement);
     els.biomeStart?.addEventListener('input',syncBiomeAddPreview);
-    els.biomeTo?.addEventListener('change',syncBiomeAddPreview);
+    els.biomeTo?.addEventListener('change',()=>{refreshBiomeToProfileOptions();syncBiomeAddPreview();});
+    els.biomeToProfile?.addEventListener('change',syncBiomeAddPreview);
     els.biomeAdd?.addEventListener('click',addBiomeTransition);
     document.querySelectorAll('[data-biome-profile]').forEach(button=>button.addEventListener('click',()=>select('biome-profile',button.dataset.biomeProfile)));
     syncBiomeAddPreview();
@@ -264,23 +266,29 @@
     const groupCount=state.worldGroups.length;
     const groupMoveCount=Object.keys(state.groupMoves||{}).length;
     const transitionCount=state.biomes?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}${pendingCount||groupMoveCount?` · ${pendingCount+groupMoveCount} queued move${pendingCount+groupMoveCount===1?'':'s'}`:''}`;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}${pendingCount||groupMoveCount?` · ${pendingCount+groupMoveCount} queued move${pendingCount+groupMoveCount===1?'':'s'}`:''}`;
     syncBiomeAddPreview();
     syncUndoUi();
   }
 
 
+  function defaultBiomeProfile(id){
+    const assets={};
+    for(const asset of BIOME_ASSET_CATALOG){
+      if(asset.owner===id)assets[asset.name]={density:Number(asset.density)||0,max:Math.max(0,Math.round(Number(asset.max)||0))};
+    }
+    return{id:'default',label:'Default',assets};
+  }
+
   function defaultBiomeState(){
     const assetOwners={};
     const profiles={};
-    for(const id of BIOME_IDS)profiles[id]={id,label:BIOME_DEFS[id].label,assets:{}};
-    for(const asset of BIOME_ASSET_CATALOG){
-      assetOwners[asset.name]=asset.owner;
-      if(BIOME_DEFS[asset.owner])profiles[asset.owner].assets[asset.name]={density:Number(asset.density)||0,max:Math.max(0,Math.round(Number(asset.max)||0))};
-    }
+    for(const id of BIOME_IDS)profiles[id]={default:defaultBiomeProfile(id)};
+    for(const asset of BIOME_ASSET_CATALOG)assetOwners[asset.name]=asset.owner;
     return {
-      version:1,
+      version:2,
       defaultBiome:'woodland',
+      defaultProfile:'default',
       maxActiveBiomes:2,
       stream:{...DEFAULT_STREAM_PADDING},
       transitions:[],
@@ -289,12 +297,30 @@
     };
   }
 
+  function sanitiseProfileId(value){
+    return String(value||'profile').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'profile';
+  }
+
+  function normaliseProfileAssets(rawAssets,biomeId,assetOwners,fallbackAssets={}){
+    const assets={};
+    for(const asset of BIOME_ASSET_CATALOG){
+      if(assetOwners[asset.name]!==biomeId)continue;
+      const entry=rawAssets?.[asset.name]||fallbackAssets?.[asset.name]||asset;
+      assets[asset.name]={
+        density:RigClamp(number(entry?.density,asset.density||0),0,100),
+        max:Math.max(0,Math.round(number(entry?.max,asset.max||0)))
+      };
+    }
+    return assets;
+  }
+
   function normaliseBiomeState(raw){
     const defaults=defaultBiomeState();
     const src=raw&&typeof raw==='object'?clone(raw):{};
     const out={
-      version:1,
+      version:2,
       defaultBiome:BIOME_DEFS[src.defaultBiome]?src.defaultBiome:defaults.defaultBiome,
+      defaultProfile:'default',
       maxActiveBiomes:2,
       stream:{
         preload:RigClamp(number(src?.stream?.preload,defaults.stream.preload),0,80),
@@ -302,59 +328,95 @@
       },
       transitions:[],
       assetOwners:{...defaults.assetOwners,...(src.assetOwners&&typeof src.assetOwners==='object'?src.assetOwners:{})},
-      profiles:clone(defaults.profiles)
+      profiles:{}
     };
+
     for(const asset of BIOME_ASSET_CATALOG){
       const owner=out.assetOwners[asset.name];
       if(owner!==GLOBAL_BIOME_OWNER&&!BIOME_DEFS[owner])out.assetOwners[asset.name]=asset.owner;
     }
+
     for(const id of BIOME_IDS){
-      const saved=src?.profiles?.[id];
-      if(saved?.assets&&typeof saved.assets==='object'){
-        for(const [name,entry] of Object.entries(saved.assets)){
-          if(!BIOME_ASSET_BY_NAME.has(name))continue;
-          out.profiles[id].assets[name]={
-            density:RigClamp(number(entry?.density,out.profiles[id].assets[name]?.density||0),0,100),
-            max:Math.max(0,Math.round(number(entry?.max,out.profiles[id].assets[name]?.max||0)))
+      out.profiles[id]={};
+      const rawBiome=src?.profiles?.[id];
+
+      // v1 migration: profiles[biome] used to be one {assets:{...}} record.
+      if(rawBiome?.assets&&typeof rawBiome.assets==='object'){
+        out.profiles[id].default={
+          id:'default',
+          label:String(rawBiome.label||'Default'),
+          assets:normaliseProfileAssets(rawBiome.assets,id,out.assetOwners,defaults.profiles[id].default.assets)
+        };
+      }else if(rawBiome&&typeof rawBiome==='object'){
+        for(const [rawId,profile] of Object.entries(rawBiome)){
+          if(!profile||typeof profile!=='object')continue;
+          const pid=rawId==='default'?'default':sanitiseProfileId(rawId);
+          out.profiles[id][pid]={
+            id:pid,
+            label:String(profile.label|| (pid==='default'?'Default':rawId)).slice(0,60),
+            assets:normaliseProfileAssets(profile.assets,id,out.assetOwners,defaults.profiles[id].default.assets)
           };
         }
       }
-    }
-    // Ownership is authoritative.  Keep density settings only on the owning biome.
-    for(const id of BIOME_IDS){
-      for(const name of Object.keys(out.profiles[id].assets))if(out.assetOwners[name]!==id)delete out.profiles[id].assets[name];
-    }
-    for(const asset of BIOME_ASSET_CATALOG){
-      const owner=out.assetOwners[asset.name];
-      if(BIOME_DEFS[owner]&&!out.profiles[owner].assets[asset.name]){
-        out.profiles[owner].assets[asset.name]={density:Number(asset.density)||0,max:Math.max(0,Math.round(Number(asset.max)||0))};
+
+      if(!out.profiles[id].default){
+        out.profiles[id].default={
+          id:'default',label:'Default',
+          assets:normaliseProfileAssets(null,id,out.assetOwners,defaults.profiles[id].default.assets)
+        };
+      }
+
+      // Ownership is authoritative across every profile.
+      for(const profile of Object.values(out.profiles[id])){
+        profile.assets=normaliseProfileAssets(profile.assets,id,out.assetOwners,out.profiles[id].default.assets);
       }
     }
+
+    const requestedDefault=String(src.defaultProfile||'default');
+    out.defaultProfile=out.profiles[out.defaultBiome]?.[requestedDefault]?requestedDefault:'default';
+
     const rawTransitions=Array.isArray(src.transitions)?src.transitions:[];
     const transitions=rawTransitions.map((item,index)=>{
       const start=snapTo(number(item?.startX,100+index*80),RANGE_SNAP);
       const end=Math.max(start+RANGE_SNAP,snapTo(number(item?.endX,start+30),RANGE_SNAP));
       const to=BIOME_DEFS[item?.to]?item.to:'mountain';
-      return {
+      const rawToProfile=String(item?.toProfile||'default');
+      return{
         id:String(item?.id||uniqueId('biome')),
         from:BIOME_DEFS[item?.from]?item.from:out.defaultBiome,
+        fromProfile:String(item?.fromProfile||'default'),
         to,
-        startX:start,
-        endX:end,
+        toProfile:out.profiles[to]?.[rawToProfile]?rawToProfile:'default',
+        startX:start,endX:end,
         curve:{
           y1:RigClamp(number(item?.curve?.y1,DEFAULT_BIOME_CURVE.y1),0,1),
           y2:RigClamp(number(item?.curve?.y2,DEFAULT_BIOME_CURVE.y2),0,1)
         }
       };
     }).sort((a,b)=>a.startX-b.startX);
-    let current=out.defaultBiome;
+
+    let current={biome:out.defaultBiome,profile:out.defaultProfile};
     let previousEnd=-Infinity;
     for(const item of transitions){
       if(item.startX<previousEnd+RANGE_SNAP)item.startX=previousEnd+RANGE_SNAP;
       if(item.endX<item.startX+RANGE_SNAP)item.endX=item.startX+Math.max(20,RANGE_SNAP);
-      item.from=current;
-      if(item.to===current)item.to=BIOME_IDS.find(id=>id!==current)||current;
-      current=item.to;
+
+      item.from=current.biome;
+      item.fromProfile=out.profiles[current.biome]?.[current.profile]?current.profile:'default';
+      if(!out.profiles[item.to]?.[item.toProfile])item.toProfile='default';
+
+      // An exact state-to-itself transition has no effect. Keep old/corrupt data
+      // usable by choosing another profile first, then another biome if needed.
+      if(item.to===item.from&&item.toProfile===item.fromProfile){
+        const altProfile=Object.keys(out.profiles[item.to]||{}).find(pid=>pid!==item.fromProfile);
+        if(altProfile)item.toProfile=altProfile;
+        else{
+          const altBiome=BIOME_IDS.find(id=>id!==item.from)||item.from;
+          item.to=altBiome;item.toProfile='default';
+        }
+      }
+
+      current={biome:item.to,profile:item.toProfile};
       previousEnd=item.endX;
       out.transitions.push(item);
     }
@@ -366,41 +428,68 @@
     state.biomes=normaliseBiomeState(state.biomes);
     saveJson(STORAGE.biomes,state.biomes);
     const assetCount=sceneDressingEntries().length,transitionCount=state.biomes?.transitions?.length||0;
-    if(els.status)els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
+    if(els.status)els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
     syncBiomeAddPreview();
     syncUndoUi();
   }
 
   function biomeLabel(id){return id===GLOBAL_BIOME_OWNER?'Global / Unbound':(BIOME_DEFS[id]?.label||id||'Biome');}
   function biomeColour(id){return BIOME_DEFS[id]?.colour||'#7d8b91';}
+  function profileRecord(biomeId,profileId='default'){return state.biomes?.profiles?.[biomeId]?.[profileId]||state.biomes?.profiles?.[biomeId]?.default||null;}
+  function profileLabel(biomeId,profileId='default'){return profileRecord(biomeId,profileId)?.label||profileId||'Default';}
+  function biomeProfileKey(biomeId,profileId='default'){return `${biomeId}::${profileId||'default'}`;}
+  function parseBiomeProfileKey(value){
+    if(value===GLOBAL_BIOME_OWNER)return{biome:GLOBAL_BIOME_OWNER,profile:null};
+    const [biome,profile='default']=String(value||'').split('::');
+    return{biome,profile:state.biomes?.profiles?.[biome]?.[profile]?profile:'default'};
+  }
+  function biomeStateLabel(biomeId,profileId='default'){return `${biomeLabel(biomeId)} / ${profileLabel(biomeId,profileId)}`;}
+
   function transitionProgress(item,x){
     if(x<=item.startX)return 0;if(x>=item.endX)return 1;
-    const t=RigClamp((x-item.startX)/Math.max(.001,item.endX-item.startX),0,1);
-    const u=1-t;
-    // Cubic Bezier with fixed time handles at 1/3 and 2/3.  y1/y2 are the
-    // editable transfer percentages; 1/3 + 2/3 produces a straight blend.
+    const t=RigClamp((x-item.startX)/Math.max(.001,item.endX-item.startX),0,1),u=1-t;
     return RigClamp(3*u*u*t*item.curve.y1+3*u*t*t*item.curve.y2+t*t*t,0,1);
   }
   function biomeTransitionAt(x){return (state.biomes?.transitions||[]).find(item=>x>=item.startX&&x<=item.endX)||null;}
-  function biomeWeightsAt(x){
-    let current=state.biomes?.defaultBiome||'woodland';
+
+  function biomeStatesAt(x){
+    let current={biome:state.biomes?.defaultBiome||'woodland',profile:state.biomes?.defaultProfile||'default'};
     for(const item of state.biomes?.transitions||[]){
-      if(x<item.startX)return {[current]:1};
-      if(x<=item.endX){const t=transitionProgress(item,x);return {[item.from]:1-t,[item.to]:t};}
-      current=item.to;
+      if(x<item.startX)return[{...current,weight:1}];
+      if(x<=item.endX){
+        const t=transitionProgress(item,x);
+        return[
+          {biome:item.from,profile:item.fromProfile||'default',weight:1-t},
+          {biome:item.to,profile:item.toProfile||'default',weight:t}
+        ];
+      }
+      current={biome:item.to,profile:item.toProfile||'default'};
     }
-    return {[current]:1};
+    return[{...current,weight:1}];
+  }
+
+  function biomeWeightsAt(x){
+    const weights={};
+    for(const stateAt of biomeStatesAt(x))weights[stateAt.biome]=(weights[stateAt.biome]||0)+stateAt.weight;
+    return weights;
   }
   function dominantBiomeAt(x){
-    const weights=biomeWeightsAt(x);let best=state.biomes?.defaultBiome||'woodland',value=-1;
-    for(const [id,w] of Object.entries(weights))if(w>value){best=id;value=w;}
-    return best;
+    const states=biomeStatesAt(x);let best=states[0]||{biome:state.biomes.defaultBiome,profile:state.biomes.defaultProfile,weight:1};
+    for(const item of states)if(item.weight>best.weight)best=item;
+    return best.biome;
   }
-  function dominantBiomeBefore(x){
+  function dominantBiomeStateAt(x){
+    const states=biomeStatesAt(x);let best=states[0]||{biome:state.biomes.defaultBiome,profile:state.biomes.defaultProfile,weight:1};
+    for(const item of states)if(item.weight>best.weight)best=item;
+    return{biome:best.biome,profile:best.profile};
+  }
+  function biomeStateBefore(x){
     const trans=biomeTransitionAt(x);
-    if(trans)return trans.from;
-    return dominantBiomeAt(x-0.001);
+    if(trans)return{biome:trans.from,profile:trans.fromProfile||'default'};
+    return dominantBiomeStateAt(x-0.001);
   }
+  function dominantBiomeBefore(x){return biomeStateBefore(x).biome;}
+
   function streamWindowForTransition(index){
     const list=state.biomes?.transitions||[];const item=list[index];if(!item)return null;
     const prev=list[index-1]||null,next=list[index+1]||null;
@@ -408,7 +497,7 @@
     const gapAfter=next?Math.max(0,next.startX-item.endX):Infinity;
     const splitBefore=prev?prev.endX+gapBefore*.5:-Infinity;
     const splitAfter=next?item.endX+gapAfter*.5:Infinity;
-    return {
+    return{
       loadX:Math.max(item.startX-number(state.biomes?.stream?.preload,12),splitBefore),
       unloadX:Math.min(item.endX+number(state.biomes?.stream?.unload,12),splitAfter)
     };
@@ -417,19 +506,22 @@
     const list=state.biomes?.transitions||[];
     for(let i=0;i<list.length;i++){
       const item=list[i];
-      if(x>=item.startX&&x<=item.endX)return [item.from,item.to];
+      if(x>=item.startX&&x<=item.endX)return [...new Set([item.from,item.to])];
     }
-    const current=dominantBiomeAt(x);
+    const current=dominantBiomeStateAt(x);
     for(let i=0;i<list.length;i++){
       const item=list[i],win=streamWindowForTransition(i);
-      if(x>=win.loadX&&x<item.startX&&current===item.from)return [item.from,item.to];
-      if(x>item.endX&&x<=win.unloadX&&current===item.to)return [item.from,item.to];
+      if(item.from===item.to)continue;
+      if(x>=win.loadX&&x<item.startX&&current.biome===item.from)return [...new Set([item.from,item.to])];
+      if(x>item.endX&&x<=win.unloadX&&current.biome===item.to)return [...new Set([item.from,item.to])];
     }
-    return [current];
+    return[current.biome];
   }
   function biomeOwnerForAsset(name){return state.biomes?.assetOwners?.[name]||BIOME_ASSET_BY_NAME.get(name)?.owner||GLOBAL_BIOME_OWNER;}
-  function profileEntry(id,name){
-    const profile=state.biomes?.profiles?.[id];
+  function profileEntry(id,profileId,name){
+    // Backwards-compatible two-argument form: profileEntry(biome,name)
+    if(name===undefined){name=profileId;profileId='default';}
+    const profile=profileRecord(id,profileId);
     if(!profile)return null;
     profile.assets||={};
     if(!profile.assets[name]){
@@ -439,21 +531,33 @@
     return profile.assets[name];
   }
 
+  function refreshBiomeToProfileOptions(preferred=null){
+    if(!els.biomeToProfile||!els.biomeTo)return;
+    const biome=els.biomeTo.value;
+    const profiles=state.biomes?.profiles?.[biome]||{};
+    const previous=preferred||els.biomeToProfile.value;
+    els.biomeToProfile.innerHTML=Object.values(profiles).map(profile=>`<option value="${escapeAttr(profile.id)}">${escapeHtml(profile.label)}</option>`).join('');
+    if(profiles[previous])els.biomeToProfile.value=previous;
+    else if(profiles.default)els.biomeToProfile.value='default';
+  }
+
   function syncBiomeAddPreview(){
     if(!els.biomeStart)return;
     const x=number(els.biomeStart.value,100);
     const inside=biomeTransitionAt(x);
-    const from=inside?inside.from:dominantBiomeBefore(x);
-    if(els.biomeFrom)els.biomeFrom.value=inside?'Inside an existing transition':biomeLabel(from);
-    if(els.biomeTo){
-      for(const option of els.biomeTo.options)option.disabled=option.value===from;
-      if(els.biomeTo.value===from)els.biomeTo.value=BIOME_IDS.find(id=>id!==from)||from;
+    const from=inside?{biome:inside.from,profile:inside.fromProfile||'default'}:biomeStateBefore(x);
+    if(els.biomeFrom)els.biomeFrom.value=inside?'Inside an existing transition':biomeStateLabel(from.biome,from.profile);
+    refreshBiomeToProfileOptions();
+    if(!inside&&els.biomeTo?.value===from.biome&&els.biomeToProfile?.value===from.profile){
+      const alt=Object.keys(state.biomes.profiles?.[from.biome]||{}).find(pid=>pid!==from.profile);
+      if(alt)els.biomeToProfile.value=alt;
     }
     if(els.biomeSummary){
+      const toBiome=els.biomeTo?.value,toProfile=els.biomeToProfile?.value||'default';
       const loaded=loadedBiomesAt(x).map(biomeLabel).join(' + ');
       els.biomeSummary.textContent=inside
-        ? `That start point is already inside ${biomeLabel(inside.from)} → ${biomeLabel(inside.to)}. Move it outside the existing transition.`
-        : `${biomeLabel(from)} is 100% at ${round(x,1)} m · logically loaded: ${loaded}.`;
+        ? `That start point is already inside ${biomeStateLabel(inside.from,inside.fromProfile)} → ${biomeStateLabel(inside.to,inside.toProfile)}. Move it outside the existing transition.`
+        : `${biomeStateLabel(from.biome,from.profile)} is active at ${round(x,1)} m · target: ${biomeStateLabel(toBiome,toProfile)} · loaded asset sets: ${loaded}.`;
     }
   }
 
@@ -461,18 +565,19 @@
     const start=snapTo(number(els.biomeStart?.value,100),RANGE_SNAP);
     const end=Math.max(start+RANGE_SNAP,snapTo(number(els.biomeEnd?.value,start+30),RANGE_SNAP));
     if(biomeTransitionAt(start)||biomeTransitionAt(end-0.001)||(state.biomes.transitions||[]).some(t=>start<t.endX&&end>t.startX)){
-      toast('Biome transitions cannot overlap.');return;
+      toast('Biome/profile transitions cannot overlap.');return;
     }
-    const from=dominantBiomeBefore(start);
-    const to=els.biomeTo?.value;
-    if(!BIOME_DEFS[to]||to===from){toast('Choose the other biome as the transition target.');return;}
-    pushHistory('Add biome transition');
-    const item={id:uniqueId('biome'),from,to,startX:start,endX:end,curve:{...DEFAULT_BIOME_CURVE}};
+    const from=biomeStateBefore(start);
+    const to=els.biomeTo?.value,toProfile=els.biomeToProfile?.value||'default';
+    if(!BIOME_DEFS[to]||!profileRecord(to,toProfile)){toast('Choose a valid target biome/profile.');return;}
+    if(to===from.biome&&toProfile===from.profile){toast('Choose a different biome or a different profile.');return;}
+    pushHistory('Add biome/profile transition');
+    const item={id:uniqueId('biome'),from:from.biome,fromProfile:from.profile,to,toProfile,startX:start,endX:end,curve:{...DEFAULT_BIOME_CURVE}};
     state.biomes.transitions.push(item);
     state.biomes=normaliseBiomeState(state.biomes);
     saveBiomeState();
     state.selected={kind:'biome-transition',id:item.id};
-    render();toast(`${biomeLabel(from)} → ${biomeLabel(to)} transition added.`);
+    render();toast(`${biomeStateLabel(from.biome,from.profile)} → ${biomeStateLabel(to,toProfile)} transition added.`);
   }
 
   function findBiomeTransition(id){return state.biomes?.transitions?.find(item=>item.id===id)||null;}
@@ -818,32 +923,39 @@
     const yFor=w=>topY+(1-RigClamp(w,0,1))*usable;
     const list=state.biomes?.transitions||[];
 
-    // Continuous solid-biome bands make it explicit that there is no undefined
-    // space between authored transitions.
-    let cursor=state.minX,current=state.biomes?.defaultBiome||'woodland';
-    const addBand=(from,to,id)=>{
+    let cursor=state.minX,current={biome:state.biomes?.defaultBiome||'woodland',profile:state.biomes?.defaultProfile||'default'};
+    const addBand=(from,to,stateAt)=>{
       const a=Math.max(state.minX,from),b=Math.min(state.maxX,to);if(!(b>a))return;
       const node=document.createElement('button');node.type='button';node.className='wl-biome-band';
       node.style.left=`${xToPx(a)}px`;node.style.width=`${Math.max(1,(b-a)*state.scale)}px`;
-      node.style.background=`${biomeColour(id)}22`;node.innerHTML=`<span>${escapeHtml(biomeLabel(id))} 100%</span>`;
-      node.title=`${biomeLabel(id)} · 100% · ${round(a,1)} → ${round(b,1)} m`;
-      node.addEventListener('click',event=>{event.stopPropagation();select('biome-profile',id);});host.appendChild(node);
+      node.style.background=`${biomeColour(stateAt.biome)}22`;
+      node.innerHTML=`<span>${escapeHtml(biomeStateLabel(stateAt.biome,stateAt.profile))}</span>`;
+      node.title=`${biomeStateLabel(stateAt.biome,stateAt.profile)} · ${round(a,1)} → ${round(b,1)} m`;
+      node.addEventListener('click',event=>{event.stopPropagation();select('biome-profile',biomeProfileKey(stateAt.biome,stateAt.profile));});host.appendChild(node);
     };
+
     for(const item of list){
       addBand(cursor,item.startX,current);
       const a=Math.max(state.minX,item.startX),b=Math.min(state.maxX,item.endX);
       if(b>a){
+        const sameBiome=item.from===item.to;
         const band=document.createElement('button');band.type='button';band.className=`wl-biome-transition-band${isSelected('biome-transition',item.id)?' selected':''}`;
         band.style.left=`${xToPx(a)}px`;band.style.width=`${Math.max(2,(b-a)*state.scale)}px`;
-        band.style.background=`linear-gradient(90deg,${biomeColour(item.from)}22,${biomeColour(item.to)}22)`;
-        band.innerHTML=`<span>${escapeHtml(biomeLabel(item.from))} → ${escapeHtml(biomeLabel(item.to))}</span>`;
-        band.title=`${biomeLabel(item.from)} → ${biomeLabel(item.to)} · ${round(item.startX,1)} → ${round(item.endX,1)} m`;
+        band.style.background=sameBiome
+          ? `${biomeColour(item.from)}2f`
+          : `linear-gradient(90deg,${biomeColour(item.from)}22,${biomeColour(item.to)}22)`;
+        band.innerHTML=`<span>${escapeHtml(biomeStateLabel(item.from,item.fromProfile))} → ${escapeHtml(biomeStateLabel(item.to,item.toProfile))}</span>`;
+        band.title=`${biomeStateLabel(item.from,item.fromProfile)} → ${biomeStateLabel(item.to,item.toProfile)} · ${round(item.startX,1)} → ${round(item.endX,1)} m`;
         band.addEventListener('click',event=>{event.stopPropagation();select('biome-transition',item.id);});host.appendChild(band);
-        const index=list.indexOf(item),win=streamWindowForTransition(index);
-        for(const marker of [{x:win.loadX,label:`LOAD ${biomeLabel(item.to).toUpperCase()}`},{x:win.unloadX,label:`DROP ${biomeLabel(item.from).toUpperCase()}`}]){
-          if(marker.x<state.minX||marker.x>state.maxX)continue;
-          const line=document.createElement('div');line.className='wl-biome-stream-marker';line.style.left=`${xToPx(marker.x)}px`;line.dataset.label=marker.label;host.appendChild(line);
+
+        if(!sameBiome){
+          const index=list.indexOf(item),win=streamWindowForTransition(index);
+          for(const marker of [{x:win.loadX,label:`LOAD ${biomeLabel(item.to).toUpperCase()}`},{x:win.unloadX,label:`DROP ${biomeLabel(item.from).toUpperCase()}`}]){
+            if(marker.x<state.minX||marker.x>state.maxX)continue;
+            const line=document.createElement('div');line.className='wl-biome-stream-marker';line.style.left=`${xToPx(marker.x)}px`;line.dataset.label=marker.label;host.appendChild(line);
+          }
         }
+
         const startKey=document.createElement('button');startKey.type='button';startKey.className='wl-biome-key start';startKey.style.left=`${xToPx(item.startX)}px`;startKey.title='Transition start key · drag horizontally';
         const endKey=document.createElement('button');endKey.type='button';endKey.className='wl-biome-key end';endKey.style.left=`${xToPx(item.endX)}px`;endKey.title='Transition end key · drag horizontally';
         bindBiomeKeyDrag(startKey,item,'start');bindBiomeKeyDrag(endKey,item,'end');
@@ -851,7 +963,7 @@
         endKey.addEventListener('click',event=>{event.stopPropagation();select('biome-transition',item.id);});
         host.append(startKey,endKey);
       }
-      current=item.to;cursor=item.endX;
+      current={biome:item.to,profile:item.toProfile||'default'};cursor=item.endX;
     }
     addBand(cursor,state.maxX,current);
 
@@ -871,6 +983,7 @@
     const top=document.createElement('span');top.className='wl-biome-axis-label top';top.textContent='100%';
     const bottom=document.createElement('span');bottom.className='wl-biome-axis-label bottom';bottom.textContent='0%';host.append(top,bottom);
   }
+
 
   function bindBiomeKeyDrag(handle,item,side){
     handle.addEventListener('pointerdown',event=>{
@@ -1312,12 +1425,17 @@
 
   function renderBiomeTransitionSelection(item){
     const index=state.biomes.transitions.indexOf(item),win=streamWindowForTransition(index);
-    els.selection.innerHTML=`<h2>${escapeHtml(biomeLabel(item.from))} → ${escapeHtml(biomeLabel(item.to))}</h2>
-      <p class="muted">Continuous two-biome transition · percentages are coupled and always total 100%.</p>
-      <div class="wl-biome-status-pills"><span class="wl-pill">Load ${escapeHtml(biomeLabel(item.to))} ${round(win.loadX,1)} m</span><span class="wl-pill">Blend ${round(item.startX,1)} → ${round(item.endX,1)} m</span><span class="wl-pill">Drop ${escapeHtml(biomeLabel(item.from))} ${round(win.unloadX,1)} m</span></div>
+    const sameBiome=item.from===item.to;
+    const toProfileOptions=Object.values(state.biomes.profiles?.[item.to]||{}).map(profile=>`<option value="${escapeAttr(profile.id)}"${profile.id===item.toProfile?' selected':''}>${escapeHtml(profile.label)}</option>`).join('');
+    els.selection.innerHTML=`<h2>${escapeHtml(biomeStateLabel(item.from,item.fromProfile))} → ${escapeHtml(biomeStateLabel(item.to,item.toProfile))}</h2>
+      <p class="muted">${sameBiome?'Same-biome profile blend · one asset dataset remains loaded.':'Continuous two-biome transition · biome percentages remain coupled and total 100%.'}</p>
+      <div class="wl-biome-status-pills">${sameBiome
+        ? `<span class="wl-pill">Profile blend only</span><span class="wl-pill">Blend ${round(item.startX,1)} → ${round(item.endX,1)} m</span>`
+        : `<span class="wl-pill">Load ${escapeHtml(biomeLabel(item.to))} ${round(win.loadX,1)} m</span><span class="wl-pill">Blend ${round(item.startX,1)} → ${round(item.endX,1)} m</span><span class="wl-pill">Drop ${escapeHtml(biomeLabel(item.from))} ${round(win.unloadX,1)} m</span>`}</div>
       <div class="wl-selection-form">
-        <label>From<input value="${escapeAttr(biomeLabel(item.from))}" readonly></label>
-        <label>To<select id="wl-biome-edit-to">${BIOME_IDS.map(id=>`<option value="${id}"${id===item.to?' selected':''}${id===item.from?' disabled':''}>${escapeHtml(biomeLabel(id))}</option>`).join('')}</select></label>
+        <label>From<input value="${escapeAttr(biomeStateLabel(item.from,item.fromProfile))}" readonly></label>
+        <label>To biome<select id="wl-biome-edit-to">${BIOME_IDS.map(id=>`<option value="${id}"${id===item.to?' selected':''}>${escapeHtml(biomeLabel(id))}</option>`).join('')}</select></label>
+        <label>To profile<select id="wl-biome-edit-profile">${toProfileOptions}</select></label>
         <label>Start / X<input id="wl-biome-edit-start" type="number" step="1" value="${round(item.startX,2)}"></label>
         <label>End / X<input id="wl-biome-edit-end" type="number" step="1" value="${round(item.endX,2)}"></label>
         <label class="wide">Start Bezier handle <b id="wl-biome-y1-label">${round(item.curve.y1*100,0)}%</b><input id="wl-biome-y1" type="range" min="0" max="100" step="1" value="${round(item.curve.y1*100,0)}"></label>
@@ -1326,8 +1444,17 @@
         <label>Keep outgoing after end<input id="wl-biome-unload" type="number" min="0" max="80" step="1" value="${round(state.biomes.stream.unload,1)}"></label>
       </div>
       <div class="wl-biome-curve-preview" id="wl-biome-curve-preview">${curvePreviewSvg(item)}</div>
-      <p class="muted">A straight transfer uses roughly 33% / 67%. Lower the first handle for a slower start; raise the second for a stronger finish. Stream markers are automatically squeezed between neighbouring transitions so a third biome is never active.</p>
+      <p class="muted">The same curve transfers profile values as well as biome weight. A same-biome transition blends Density/Max between its two profiles without loading another biome pack.</p>
       <div class="wl-actions"><button class="primary" id="wl-save-biome-transition">Save Transition</button><button id="wl-biome-playhead">Move playhead to start</button><button class="danger" id="wl-delete-biome-transition">Delete</button></div>`;
+
+    const refreshEditProfiles=preferred=>{
+      const biome=$('wl-biome-edit-to').value,profiles=state.biomes.profiles?.[biome]||{},selectEl=$('wl-biome-edit-profile');
+      const prev=preferred||selectEl.value;
+      selectEl.innerHTML=Object.values(profiles).map(profile=>`<option value="${escapeAttr(profile.id)}">${escapeHtml(profile.label)}</option>`).join('');
+      selectEl.value=profiles[prev]?prev:'default';
+    };
+    $('wl-biome-edit-to').addEventListener('change',()=>refreshEditProfiles());
+
     const preview=()=>{
       const y1=number($('wl-biome-y1').value,33)/100,y2=number($('wl-biome-y2').value,67)/100;
       $('wl-biome-y1-label').textContent=`${round(y1*100,0)}%`;$('wl-biome-y2-label').textContent=`${round(y2*100,0)}%`;
@@ -1335,45 +1462,107 @@
     };
     $('wl-biome-y1').addEventListener('input',preview);$('wl-biome-y2').addEventListener('input',preview);
     $('wl-save-biome-transition').addEventListener('click',()=>{
-      pushHistory('Edit biome transition');
+      pushHistory('Edit biome/profile transition');
       const start=snapTo(number($('wl-biome-edit-start').value,item.startX),RANGE_SNAP),end=snapTo(number($('wl-biome-edit-end').value,item.endX),RANGE_SNAP);
       const list=state.biomes.transitions,index=list.indexOf(item),prev=list[index-1],next=list[index+1];
       if(end<=start||(prev&&start<=prev.endX)||(next&&end>=next.startX)){toast('Transition must stay between its neighbours and have a positive length.');return;}
-      item.startX=start;item.endX=end;item.to=$('wl-biome-edit-to').value;
+      const to=$('wl-biome-edit-to').value,toProfile=$('wl-biome-edit-profile').value||'default';
+      if(to===item.from&&toProfile===(item.fromProfile||'default')){toast('Choose a different biome or profile from the source state.');return;}
+      item.startX=start;item.endX=end;item.to=to;item.toProfile=toProfile;
       item.curve={y1:number($('wl-biome-y1').value,33)/100,y2:number($('wl-biome-y2').value,67)/100};
       state.biomes.stream.preload=RigClamp(number($('wl-biome-preload').value,12),0,80);
       state.biomes.stream.unload=RigClamp(number($('wl-biome-unload').value,12),0,80);
-      state.biomes=normaliseBiomeState(state.biomes);saveBiomeState();render();toast('Biome transition saved.');
+      state.biomes=normaliseBiomeState(state.biomes);saveBiomeState();render();toast('Biome/profile transition saved.');
     });
     $('wl-biome-playhead').addEventListener('click',()=>{state.playheadX=item.startX;select('playhead','player');});
     $('wl-delete-biome-transition').addEventListener('click',()=>{
-      if(!confirm(`Delete ${biomeLabel(item.from)} → ${biomeLabel(item.to)} transition?`))return;
-      pushHistory('Delete biome transition');state.biomes.transitions=state.biomes.transitions.filter(t=>t.id!==item.id);state.biomes=normaliseBiomeState(state.biomes);state.selected=null;saveBiomeState();render();toast('Biome transition deleted.');
+      if(!confirm(`Delete ${biomeStateLabel(item.from,item.fromProfile)} → ${biomeStateLabel(item.to,item.toProfile)} transition?`))return;
+      pushHistory('Delete biome/profile transition');state.biomes.transitions=state.biomes.transitions.filter(t=>t.id!==item.id);state.biomes=normaliseBiomeState(state.biomes);state.selected=null;saveBiomeState();render();toast('Biome/profile transition deleted.');
     });
   }
 
-  function renderBiomeProfileSelection(id){
-    if(id==='global')return renderGlobalBiomeAssetsSelection();
+
+  function profileIsUsed(biomeId,profileId){
+    if(state.biomes.defaultBiome===biomeId&&state.biomes.defaultProfile===profileId)return true;
+    return (state.biomes.transitions||[]).some(item=>
+      (item.from===biomeId&&(item.fromProfile||'default')===profileId)||
+      (item.to===biomeId&&(item.toProfile||'default')===profileId)
+    );
+  }
+
+  function uniqueProfileId(biomeId,label){
+    const profiles=state.biomes.profiles?.[biomeId]||{};
+    const base=sanitiseProfileId(label);
+    if(!profiles[base])return base;
+    let i=2;while(profiles[`${base}-${i}`])i+=1;return`${base}-${i}`;
+  }
+
+  function createBiomeProfile(biomeId,{sourceProfile='default',duplicate=false}={}){
+    const profiles=state.biomes.profiles?.[biomeId];if(!profiles)return;
+    const source=profiles[sourceProfile]||profiles.default;
+    const suggested=duplicate?`${source.label} Copy`:'New Profile';
+    const entered=prompt('Profile name',suggested);if(entered==null)return;
+    const label=String(entered).trim();if(!label)return;
+    const id=uniqueProfileId(biomeId,label);
+    const base=duplicate?source:profiles.default;
+    pushHistory(duplicate?'Duplicate biome profile':'Create biome profile');
+    profiles[id]={id,label:label.slice(0,60),assets:clone(base.assets||{})};
+    saveBiomeState();
+    select('biome-profile',biomeProfileKey(biomeId,id));
+    toast(`${biomeLabel(biomeId)} / ${label} created.`);
+  }
+
+  function renderBiomeProfileSelection(key){
+    if(key==='global')return renderGlobalBiomeAssetsSelection();
+    const parsed=parseBiomeProfileKey(key),id=parsed.biome,profileId=parsed.profile;
     if(!BIOME_DEFS[id]){state.selected=null;return renderSelection();}
+    const profile=profileRecord(id,profileId);if(!profile){state.selected=null;return renderSelection();}
     const owned=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)===id);
-    const totalDensity=owned.reduce((sum,asset)=>sum+number(profileEntry(id,asset.name)?.density,0),0);
+    const totalDensity=owned.reduce((sum,asset)=>sum+number(profileEntry(id,profileId,asset.name)?.density,0),0);
     const assignable=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)!==id);
-    els.selection.innerHTML=`<h2>${escapeHtml(biomeLabel(id))} Profile</h2>
-      <p class="muted">This table defines what 100% ${escapeHtml(biomeLabel(id))} means. Density is the target placements per 10 m; Max is the per-10 m cap. An asset can belong to only one biome, or be Global / Unbound.</p>
-      <div class="wl-biome-status-pills"><span class="wl-pill">${owned.length} assigned assets</span><span class="wl-pill">${round(totalDensity,1)} target placements / 10 m</span></div>
-      <div class="wl-selection-form"><label class="wide">Assign / move asset<select id="wl-biome-assign"><option value="">Choose an asset…</option>${assignable.map(asset=>`<option value="${escapeAttr(asset.name)}">${escapeHtml(asset.label)} · ${escapeHtml(biomeLabel(biomeOwnerForAsset(asset.name))||'Global')}</option>`).join('')}</select></label></div>
-      <div class="wl-actions"><button id="wl-biome-assign-btn">Assign to ${escapeHtml(biomeLabel(id))}</button><button data-profile-open="global">Global / Unbound</button></div>
-      <div class="wl-biome-asset-table">${owned.map(asset=>biomeAssetRowHtml(asset,id)).join('')||'<p class="muted">No assets assigned.</p>'}</div>
-      <p class="muted">These values are live in the first transition pass. Woodland keeps its existing deterministic layout and thins as its percentage/density falls; Mountain uses a deterministic streamed candidate pool driven by Density and Max. Manual placements are never regenerated.</p>`;
-    bindBiomeAssetRows();
+    const profileOptions=Object.values(state.biomes.profiles?.[id]||{}).map(p=>`<option value="${escapeAttr(p.id)}"${p.id===profileId?' selected':''}>${escapeHtml(p.label)}</option>`).join('');
+    const canDelete=profileId!=='default'&&!profileIsUsed(id,profileId);
+
+    els.selection.innerHTML=`<h2>${escapeHtml(biomeLabel(id))} / ${escapeHtml(profile.label)}</h2>
+      <p class="muted">Profiles share the same ${escapeHtml(biomeLabel(id))} asset ownership but can use different Density and Max values. Transitioning between two profiles of this biome blends those values without loading another biome pack.</p>
+      <div class="wl-selection-form">
+        <label class="wide">Profile<select id="wl-biome-profile-select">${profileOptions}</select></label>
+        <label class="wide">Assign / move asset<select id="wl-biome-assign"><option value="">Choose an asset…</option>${assignable.map(asset=>`<option value="${escapeAttr(asset.name)}">${escapeHtml(asset.label)} · ${escapeHtml(biomeLabel(biomeOwnerForAsset(asset.name))||'Global')}</option>`).join('')}</select></label>
+      </div>
+      <div class="wl-actions">
+        <button id="wl-profile-new">New Profile</button>
+        <button id="wl-profile-duplicate">Duplicate</button>
+        <button id="wl-profile-rename">Rename</button>
+        <button class="danger" id="wl-profile-delete"${canDelete?'':' disabled'}>Delete Profile</button>
+        <button id="wl-biome-assign-btn">Assign asset to ${escapeHtml(biomeLabel(id))}</button>
+        <button data-profile-open="global">Global / Unbound</button>
+      </div>
+      <div class="wl-biome-status-pills"><span class="wl-pill">${owned.length} assigned assets</span><span class="wl-pill">${round(totalDensity,1)} target placements / 10 m</span>${profileIsUsed(id,profileId)?'<span class="wl-pill">Used by world</span>':''}</div>
+      <div class="wl-biome-asset-table">${owned.map(asset=>biomeAssetRowHtml(asset,id,profileId)).join('')||'<p class="muted">No assets assigned.</p>'}</div>
+      <p class="muted">The Default profile is permanent. Other profiles can be deleted only while no transition refers to them. For settlement approaches, duplicate Default, reduce trees/ground dressing as needed, then transition Woodland → Woodland using that new profile.</p>`;
+
+    $('wl-biome-profile-select').addEventListener('change',()=>select('biome-profile',biomeProfileKey(id,$('wl-biome-profile-select').value)));
+    $('wl-profile-new').addEventListener('click',()=>createBiomeProfile(id,{sourceProfile:'default',duplicate:false}));
+    $('wl-profile-duplicate').addEventListener('click',()=>createBiomeProfile(id,{sourceProfile:profileId,duplicate:true}));
+    $('wl-profile-rename').addEventListener('click',()=>{
+      const entered=prompt('Profile name',profile.label);if(entered==null)return;const label=String(entered).trim();if(!label)return;
+      pushHistory('Rename biome profile');profile.label=label.slice(0,60);saveBiomeState();render();select('biome-profile',biomeProfileKey(id,profileId));toast('Profile renamed.');
+    });
+    $('wl-profile-delete').addEventListener('click',()=>{
+      if(profileId==='default'||profileIsUsed(id,profileId))return;
+      if(!confirm(`Delete ${biomeStateLabel(id,profileId)}?`))return;
+      pushHistory('Delete biome profile');delete state.biomes.profiles[id][profileId];saveBiomeState();select('biome-profile',biomeProfileKey(id,'default'));toast('Profile deleted.');
+    });
+
+    bindBiomeAssetRows(id,profileId);
     $('wl-biome-assign-btn').addEventListener('click',()=>{
       const name=$('wl-biome-assign').value;if(!name)return;pushHistory('Assign biome asset');assignAssetOwner(name,id);saveBiomeState();renderSelection();renderBiomeTrack();toast(`${BIOME_ASSET_BY_NAME.get(name)?.label||name} → ${biomeLabel(id)}.`);
     });
     els.selection.querySelectorAll('[data-profile-open]').forEach(button=>button.addEventListener('click',()=>select('biome-profile',button.dataset.profileOpen)));
   }
 
-  function biomeAssetRowHtml(asset,owner){
-    const entry=BIOME_DEFS[owner]?profileEntry(owner,asset.name):null;
+  function biomeAssetRowHtml(asset,owner,profileId='default'){
+    const entry=BIOME_DEFS[owner]?profileEntry(owner,profileId,asset.name):null;
     return `<div class="wl-biome-asset-row" data-biome-asset="${escapeAttr(asset.name)}">
       <div><strong>${escapeHtml(asset.label)}</strong><small>${escapeHtml(asset.category)} · ${escapeHtml(asset.name)}</small></div>
       <label class="owner">Owner<select data-asset-owner>${[...BIOME_IDS,GLOBAL_BIOME_OWNER].map(id=>`<option value="${id}"${id===owner?' selected':''}>${id===GLOBAL_BIOME_OWNER?'Global':biomeLabel(id)}</option>`).join('')}</select></label>
@@ -1385,33 +1574,40 @@
     const owned=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)===GLOBAL_BIOME_OWNER);
     const assignable=BIOME_ASSET_CATALOG.filter(asset=>biomeOwnerForAsset(asset.name)!==GLOBAL_BIOME_OWNER);
     els.selection.innerHTML=`<h2>Global / Unbound Environment</h2>
-      <p class="muted">These assets are deliberately outside biome density profiles and remain available for manual placement everywhere. Climbable rock features live here by default.</p>
-      <div class="wl-biome-status-pills"><span class="wl-pill">${owned.length} global assets</span><span class="wl-pill">No procedural density</span></div>
+      <p class="muted">These assets sit outside biome profiles and remain available for manual placement everywhere.</p>
+      <div class="wl-biome-status-pills"><span class="wl-pill">${owned.length} global assets</span><span class="wl-pill">No procedural profile</span></div>
       <div class="wl-selection-form"><label class="wide">Make asset Global / Unbound<select id="wl-biome-assign"><option value="">Choose an asset…</option>${assignable.map(asset=>`<option value="${escapeAttr(asset.name)}">${escapeHtml(asset.label)} · ${escapeHtml(biomeLabel(biomeOwnerForAsset(asset.name)))}</option>`).join('')}</select></label></div>
-      <div class="wl-actions"><button id="wl-biome-assign-btn">Make Global / Unbound</button><button data-profile-open="woodland">Woodland profile</button><button data-profile-open="mountain">Mountain profile</button></div>
+      <div class="wl-actions"><button id="wl-biome-assign-btn">Make Global / Unbound</button><button data-profile-open="woodland::default">Woodland Profiles</button><button data-profile-open="mountain::default">Mountain Profiles</button></div>
       <div class="wl-biome-asset-table">${owned.map(asset=>biomeAssetRowHtml(asset,GLOBAL_BIOME_OWNER)).join('')||'<p class="muted">No global assets.</p>'}</div>`;
-    bindBiomeAssetRows();
+    bindBiomeAssetRows(null,null);
     $('wl-biome-assign-btn').addEventListener('click',()=>{const name=$('wl-biome-assign').value;if(!name)return;pushHistory('Make environment asset global');assignAssetOwner(name,GLOBAL_BIOME_OWNER);saveBiomeState();renderSelection();toast(`${BIOME_ASSET_BY_NAME.get(name)?.label||name} is Global / Unbound.`);});
     els.selection.querySelectorAll('[data-profile-open]').forEach(button=>button.addEventListener('click',()=>select('biome-profile',button.dataset.profileOpen)));
   }
 
   function assignAssetOwner(name,owner){
     if(!BIOME_ASSET_BY_NAME.has(name))return;
-    for(const id of BIOME_IDS)delete state.biomes.profiles[id].assets[name];
+    for(const id of BIOME_IDS){
+      for(const profile of Object.values(state.biomes.profiles?.[id]||{}))delete profile.assets?.[name];
+    }
     state.biomes.assetOwners[name]=owner;
     if(BIOME_DEFS[owner]){
-      const def=BIOME_ASSET_BY_NAME.get(name);state.biomes.profiles[owner].assets[name]={density:Number(def.density)||0,max:Math.max(0,Math.round(Number(def.max)||0))};
+      const def=BIOME_ASSET_BY_NAME.get(name);
+      for(const profile of Object.values(state.biomes.profiles?.[owner]||{})){
+        profile.assets||={};
+        profile.assets[name]={density:Number(def.density)||0,max:Math.max(0,Math.round(Number(def.max)||0))};
+      }
     }
   }
 
-  function bindBiomeAssetRows(){
+  function bindBiomeAssetRows(biomeId,profileId){
     els.selection.querySelectorAll('[data-biome-asset]').forEach(row=>{
       const name=row.dataset.biomeAsset,ownerSelect=row.querySelector('[data-asset-owner]'),density=row.querySelector('[data-asset-density]'),max=row.querySelector('[data-asset-max]');
       ownerSelect?.addEventListener('change',()=>{pushHistory('Change biome asset owner');assignAssetOwner(name,ownerSelect.value);saveBiomeState();renderSelection();toast(`${BIOME_ASSET_BY_NAME.get(name)?.label||name} ownership updated.`);});
-      density?.addEventListener('change',()=>{const owner=biomeOwnerForAsset(name),entry=profileEntry(owner,name);if(!entry)return;pushHistory('Change biome density');entry.density=RigClamp(number(density.value,entry.density),0,100);saveBiomeState();renderSelection();});
-      max?.addEventListener('change',()=>{const owner=biomeOwnerForAsset(name),entry=profileEntry(owner,name);if(!entry)return;pushHistory('Change biome cap');entry.max=Math.max(0,Math.round(number(max.value,entry.max)));saveBiomeState();renderSelection();});
+      density?.addEventListener('change',()=>{const owner=biomeId||biomeOwnerForAsset(name),entry=profileEntry(owner,profileId||'default',name);if(!entry)return;pushHistory('Change biome profile density');entry.density=RigClamp(number(density.value,entry.density),0,100);saveBiomeState();renderSelection();});
+      max?.addEventListener('change',()=>{const owner=biomeId||biomeOwnerForAsset(name),entry=profileEntry(owner,profileId||'default',name);if(!entry)return;pushHistory('Change biome profile cap');entry.max=Math.max(0,Math.round(number(max.value,entry.max)));saveBiomeState();renderSelection();});
     });
   }
+
 
   function renderPuzzleSelection(p){
     const mods=(p.worldModifiers||[]).map(mod=>`<span class="wl-pill">${escapeHtml(mod.type||'modifier')}</span>`).join('')||'<span class="muted">No owned modifier recorded in the current start snapshot.</span>';
@@ -1629,7 +1825,7 @@
   function saveElements(){
     saveJson(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:state.elements});
     const assetCount=sceneDressingEntries().length,groupCount=state.worldGroups.length,transitionCount=state.biomes?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}`;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}`;
     syncUndoUi();
   }
 
@@ -1648,7 +1844,7 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:2,
-      appVersion:'1.0.106',
+      appVersion:'1.0.111',
       exportedAt:new Date().toISOString(),
       purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
       world:{

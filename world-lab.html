@@ -93,21 +93,22 @@
 
         <section class="wl-panel">
           <h2>Biome System</h2>
-          <p class="muted">The world always has one primary biome. A transition may blend in exactly one second biome; their percentages always add to 100%. Global / unbound environment assets remain available everywhere.</p>
+          <p class="muted">Biomes define the asset family; profiles define how that family is dressed. A transition can change biome, profile, or both. Same-biome profile blends do not load a second asset set.</p>
           <div class="wl-biome-profile-buttons">
-            <button type="button" data-biome-profile="woodland">Woodland profile</button>
-            <button type="button" data-biome-profile="mountain">Mountain profile</button>
+            <button type="button" data-biome-profile="woodland::default">Woodland Profiles</button>
+            <button type="button" data-biome-profile="mountain::default">Mountain Profiles</button>
             <button type="button" data-biome-profile="global">Global / Unbound</button>
           </div>
           <h3>Add transition</h3>
           <div class="wl-form-grid">
-            <label>From <input id="wl-biome-from" type="text" value="Woodland" readonly></label>
-            <label>To <select id="wl-biome-to"><option value="mountain">Mountain</option><option value="woodland">Woodland</option></select></label>
+            <label>From <input id="wl-biome-from" type="text" value="Woodland / Default" readonly></label>
+            <label>To biome <select id="wl-biome-to"><option value="mountain">Mountain</option><option value="woodland">Woodland</option></select></label>
+            <label>To profile <select id="wl-biome-to-profile"></select></label>
             <label>Start / X <input id="wl-biome-start" type="number" step="1" value="100"></label>
             <label>End / X <input id="wl-biome-end" type="number" step="1" value="130"></label>
           </div>
-          <p class="muted" id="wl-biome-summary">Woodland 100% until the first transition.</p>
-          <button class="primary" id="wl-add-biome-transition" type="button">Add Biome Transition</button>
+          <p class="muted" id="wl-biome-summary">Woodland / Default until the first transition.</p>
+          <button class="primary" id="wl-add-biome-transition" type="button">Add Biome / Profile Transition</button>
           <hr class="wl-panel-rule">
           <h2>Add World Element</h2>
           <p class="muted">Authored non-biome regions, dressing groups, story, camera and other world data.</p>
@@ -151,6 +152,6 @@
   </div>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="puzzle-groups.js?v=1.0.62"></script>
-  <script src="world-lab.js?v=1.0.106"></script>
+  <script src="world-lab.js?v=1.0.111"></script>
 </body>
 </html>

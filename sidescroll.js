@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.111: reusable Biome Profiles + same-biome profile transitions.
   // SideScroll v1.0.110: World Group recovery controls · Position panel + Delete Group.
   // SideScroll v1.0.109: precise screen-space asset/group dragging + dot-only group move handle.
   // SideScroll v1.0.108: persist World Group ownership through scene reconstruction.
@@ -71,17 +72,72 @@
     if(name==='mountain-climb-rock-01'||/^mountain-cliff-/.test(name))return BIOME_GLOBAL_OWNER;
     return BIOME_GLOBAL_OWNER;
   }
+  function runtimeProfileDefaults(biome){
+    const assets={};
+    for(const [name,entry] of Object.entries(BIOME_RUNTIME_PROFILE_DEFAULTS[biome]||{}))assets[name]={density:Number(entry.density)||0,max:Math.max(0,Math.round(Number(entry.max)||0))};
+    return{id:'default',label:'Default',assets};
+  }
+  function normaliseRuntimeProfiles(rawProfiles){
+    const out={};
+    for(const biome of BIOME_RUNTIME_IDS){
+      out[biome]={};
+      const rawBiome=rawProfiles?.[biome];
+      if(rawBiome?.assets&&typeof rawBiome.assets==='object'){
+        out[biome].default={id:'default',label:String(rawBiome.label||'Default'),assets:{...runtimeProfileDefaults(biome).assets,...rawBiome.assets}};
+      }else if(rawBiome&&typeof rawBiome==='object'){
+        for(const [pid,profile] of Object.entries(rawBiome)){
+          if(!profile||typeof profile!=='object')continue;
+          out[biome][pid]={id:pid,label:String(profile.label||pid),assets:{...runtimeProfileDefaults(biome).assets,...(profile.assets||{})}};
+        }
+      }
+      if(!out[biome].default)out[biome].default=runtimeProfileDefaults(biome);
+    }
+    return out;
+  }
   function loadRuntimeBiomeState(){
     let raw=null;try{raw=JSON.parse(localStorage.getItem(BIOME_STORAGE_KEY)||'null');}catch(_){}
     const state=raw&&typeof raw==='object'?raw:{};
+    const profiles=normaliseRuntimeProfiles(state.profiles);
+    const defaultBiome=BIOME_RUNTIME_DEFS[state.defaultBiome]?state.defaultBiome:'woodland';
+    const defaultProfile=profiles[defaultBiome]?.[state.defaultProfile]?state.defaultProfile:'default';
     const transitions=(Array.isArray(state.transitions)?state.transitions:[]).map((item,index)=>{
       const start=Number.isFinite(Number(item?.startX))?Number(item.startX):100+index*80;
       const end=Math.max(start+1,Number.isFinite(Number(item?.endX))?Number(item.endX):start+30);
-      return {id:String(item?.id||`biome-${index}`),from:BIOME_RUNTIME_DEFS[item?.from]?item.from:'woodland',to:BIOME_RUNTIME_DEFS[item?.to]?item.to:'mountain',startX:start,endX:end,curve:{y1:Number.isFinite(Number(item?.curve?.y1))?Math.max(0,Math.min(1,Number(item.curve.y1))):1/3,y2:Number.isFinite(Number(item?.curve?.y2))?Math.max(0,Math.min(1,Number(item.curve.y2))):2/3}};
+      const to=BIOME_RUNTIME_DEFS[item?.to]?item.to:'mountain';
+      const toProfile=profiles[to]?.[item?.toProfile]?item.toProfile:'default';
+      return{
+        id:String(item?.id||`biome-${index}`),
+        from:BIOME_RUNTIME_DEFS[item?.from]?item.from:defaultBiome,
+        fromProfile:String(item?.fromProfile||'default'),
+        to,toProfile,startX:start,endX:end,
+        curve:{
+          y1:Number.isFinite(Number(item?.curve?.y1))?Math.max(0,Math.min(1,Number(item.curve.y1))):1/3,
+          y2:Number.isFinite(Number(item?.curve?.y2))?Math.max(0,Math.min(1,Number(item.curve.y2))):2/3
+        }
+      };
     }).sort((a,b)=>a.startX-b.startX);
-    let current=BIOME_RUNTIME_DEFS[state.defaultBiome]?state.defaultBiome:'woodland';
-    for(const item of transitions){item.from=current;if(item.to===current)item.to=BIOME_RUNTIME_IDS.find(id=>id!==current)||current;current=item.to;}
-    return {defaultBiome:BIOME_RUNTIME_DEFS[state.defaultBiome]?state.defaultBiome:'woodland',maxActiveBiomes:2,stream:{preload:Number.isFinite(Number(state?.stream?.preload))?Math.max(0,Number(state.stream.preload)):12,unload:Number.isFinite(Number(state?.stream?.unload))?Math.max(0,Number(state.stream.unload)):12},transitions,assetOwners:state.assetOwners&&typeof state.assetOwners==='object'?state.assetOwners:{},profiles:state.profiles&&typeof state.profiles==='object'?state.profiles:{}};
+    let current={biome:defaultBiome,profile:defaultProfile};
+    for(const item of transitions){
+      item.from=current.biome;
+      item.fromProfile=profiles[current.biome]?.[current.profile]?current.profile:'default';
+      if(!profiles[item.to]?.[item.toProfile])item.toProfile='default';
+      if(item.to===item.from&&item.toProfile===item.fromProfile){
+        const alt=Object.keys(profiles[item.to]||{}).find(pid=>pid!==item.fromProfile);
+        if(alt)item.toProfile=alt;
+        else{item.to=BIOME_RUNTIME_IDS.find(id=>id!==item.from)||item.from;item.toProfile='default';}
+      }
+      current={biome:item.to,profile:item.toProfile};
+    }
+    return{
+      version:2,defaultBiome,defaultProfile,maxActiveBiomes:2,
+      stream:{
+        preload:Number.isFinite(Number(state?.stream?.preload))?Math.max(0,Number(state.stream.preload)):12,
+        unload:Number.isFinite(Number(state?.stream?.unload))?Math.max(0,Number(state.stream.unload)):12
+      },
+      transitions,
+      assetOwners:state.assetOwners&&typeof state.assetOwners==='object'?state.assetOwners:{},
+      profiles
+    };
   }
   let runtimeBiomeState=loadRuntimeBiomeState();
   function runtimeBiomeTransitionAt(x){return runtimeBiomeState.transitions.find(item=>x>=item.startX&&x<=item.endX)||null;}
@@ -90,45 +146,85 @@
     const t=Math.max(0,Math.min(1,(x-item.startX)/Math.max(.001,item.endX-item.startX))),u=1-t;
     return Math.max(0,Math.min(1,3*u*u*t*item.curve.y1+3*u*t*t*item.curve.y2+t*t*t));
   }
-  function runtimeBiomeWeightsAt(x){
-    let current=runtimeBiomeState.defaultBiome;
+  function runtimeBiomeStatesAt(x){
+    let current={biome:runtimeBiomeState.defaultBiome,profile:runtimeBiomeState.defaultProfile||'default'};
     for(const item of runtimeBiomeState.transitions){
-      if(x<item.startX)return {[current]:1};
-      if(x<=item.endX){const t=runtimeBiomeProgress(item,x);return {[item.from]:1-t,[item.to]:t};}
-      current=item.to;
+      if(x<item.startX)return[{...current,weight:1}];
+      if(x<=item.endX){
+        const t=runtimeBiomeProgress(item,x);
+        return[
+          {biome:item.from,profile:item.fromProfile||'default',weight:1-t},
+          {biome:item.to,profile:item.toProfile||'default',weight:t}
+        ];
+      }
+      current={biome:item.to,profile:item.toProfile||'default'};
     }
-    return {[current]:1};
+    return[{...current,weight:1}];
   }
-  function runtimeDominantBiomeAt(x){const weights=runtimeBiomeWeightsAt(x);let best=runtimeBiomeState.defaultBiome,bestWeight=-1;for(const [id,w] of Object.entries(weights))if(w>bestWeight){best=id;bestWeight=w;}return best;}
+  function runtimeBiomeWeightsAt(x){
+    const out={};
+    for(const stateAt of runtimeBiomeStatesAt(x))out[stateAt.biome]=(out[stateAt.biome]||0)+stateAt.weight;
+    return out;
+  }
+  function runtimeDominantBiomeAt(x){
+    const states=runtimeBiomeStatesAt(x);let best=states[0]||{biome:runtimeBiomeState.defaultBiome,weight:1};
+    for(const item of states)if(item.weight>best.weight)best=item;
+    return best.biome;
+  }
+  function runtimeDominantBiomeStateAt(x){
+    const states=runtimeBiomeStatesAt(x);let best=states[0]||{biome:runtimeBiomeState.defaultBiome,profile:runtimeBiomeState.defaultProfile,weight:1};
+    for(const item of states)if(item.weight>best.weight)best=item;
+    return best;
+  }
   function runtimeStreamWindow(index){
     const list=runtimeBiomeState.transitions,item=list[index];if(!item)return null;const prev=list[index-1]||null,next=list[index+1]||null;
     const gapBefore=prev?Math.max(0,item.startX-prev.endX):Infinity,gapAfter=next?Math.max(0,next.startX-item.endX):Infinity;
-    return {loadX:Math.max(item.startX-runtimeBiomeState.stream.preload,prev?prev.endX+gapBefore*.5:-Infinity),unloadX:Math.min(item.endX+runtimeBiomeState.stream.unload,next?item.endX+gapAfter*.5:Infinity)};
+    return{loadX:Math.max(item.startX-runtimeBiomeState.stream.preload,prev?prev.endX+gapBefore*.5:-Infinity),unloadX:Math.min(item.endX+runtimeBiomeState.stream.unload,next?item.endX+gapAfter*.5:Infinity)};
   }
   function runtimeLoadedBiomesAt(x){
-    for(const item of runtimeBiomeState.transitions)if(x>=item.startX&&x<=item.endX)return [item.from,item.to];
-    const current=runtimeDominantBiomeAt(x);
+    for(const item of runtimeBiomeState.transitions)if(x>=item.startX&&x<=item.endX)return [...new Set([item.from,item.to])];
+    const current=runtimeDominantBiomeStateAt(x);
     for(let i=0;i<runtimeBiomeState.transitions.length;i++){
       const item=runtimeBiomeState.transitions[i],win=runtimeStreamWindow(i);
-      if(x>=win.loadX&&x<item.startX&&current===item.from)return [item.from,item.to];
-      if(x>item.endX&&x<=win.unloadX&&current===item.to)return [item.from,item.to];
+      if(item.from===item.to)continue;
+      if(x>=win.loadX&&x<item.startX&&current.biome===item.from)return [...new Set([item.from,item.to])];
+      if(x>item.endX&&x<=win.unloadX&&current.biome===item.to)return [...new Set([item.from,item.to])];
     }
-    return [current];
+    return[current.biome];
   }
   function runtimeBiomeOwner(assetName){const saved=runtimeBiomeState.assetOwners?.[assetName];return saved===BIOME_GLOBAL_OWNER||BIOME_RUNTIME_DEFS[saved]?saved:defaultRuntimeBiomeOwner(assetName);}
-  function runtimeBiomeProfileEntry(owner,assetName){
-    const saved=runtimeBiomeState.profiles?.[owner]?.assets?.[assetName];
+  function runtimeProfileRecord(owner,profileId='default'){return runtimeBiomeState.profiles?.[owner]?.[profileId]||runtimeBiomeState.profiles?.[owner]?.default||null;}
+  function runtimeProfileEntry(owner,profileId,assetName){
+    const saved=runtimeProfileRecord(owner,profileId)?.assets?.[assetName];
     const fallback=BIOME_RUNTIME_PROFILE_DEFAULTS?.[owner]?.[assetName]||{density:0,max:0};
-    return {
+    return{
       density:Number.isFinite(Number(saved?.density))?Math.max(0,Number(saved.density)):fallback.density,
       max:Number.isFinite(Number(saved?.max))?Math.max(0,Math.round(Number(saved.max))):fallback.max
     };
+  }
+  function runtimeBiomeProfileEntryAt(owner,assetName,x){
+    const states=runtimeBiomeStatesAt(x).filter(stateAt=>stateAt.biome===owner&&stateAt.weight>.000001);
+    if(!states.length)return{density:0,max:0};
+    const total=states.reduce((sum,stateAt)=>sum+stateAt.weight,0)||1;
+    let density=0,max=0;
+    for(const stateAt of states){
+      const entry=runtimeProfileEntry(owner,stateAt.profile,assetName),w=stateAt.weight/total;
+      density+=entry.density*w;max+=entry.max*w;
+    }
+    return{density,max};
+  }
+  function runtimeBiomeProfilePoolMax(owner,assetName){
+    let max=Number(BIOME_RUNTIME_PROFILE_DEFAULTS?.[owner]?.[assetName]?.max)||0;
+    for(const profile of Object.values(runtimeBiomeState.profiles?.[owner]||{})){
+      const value=Number(profile?.assets?.[assetName]?.max);if(Number.isFinite(value))max=Math.max(max,value);
+    }
+    return Math.max(0,Math.round(max));
   }
   function stableBiomeHash01(value){
     const str=String(value||'');let h=2166136261>>>0;
     for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
     h+=h<<13;h^=h>>>7;h+=h<<3;h^=h>>>17;h+=h<<5;
-    return (h>>>0)/4294967296;
+    return(h>>>0)/4294967296;
   }
   function tagProceduralBiomeObject(obj,owner,key,{candidatePool=false}={}){
     if(!obj)return obj;obj.biomeProceduralOwner=owner;obj.biomeActivation=stableBiomeHash01(key||obj.id);obj.biomeCandidatePool=!!candidatePool;return obj;
@@ -137,23 +233,39 @@
     if(!obj?.biomeProceduralOwner)return true;
     const owner=runtimeBiomeOwner(obj.assetName);
     if(owner===BIOME_GLOBAL_OWNER)return false;
-    const weight=runtimeBiomeWeightsAt(drawX)[owner]||0;if(weight<=.0001)return false;
-    const entry=runtimeBiomeProfileEntry(owner,obj.assetName);
-    let probability=weight;
+    const ownerWeight=runtimeBiomeWeightsAt(drawX)[owner]||0;if(ownerWeight<=.0001)return false;
+    const entry=runtimeBiomeProfileEntryAt(owner,obj.assetName,drawX);
+    let probability=ownerWeight;
     if(obj.biomeCandidatePool){
-      probability*=entry.max>0?Math.min(1,entry.density/entry.max):0;
+      const poolMax=Math.max(1,runtimeBiomeProfilePoolMax(owner,obj.assetName));
+      const target=Math.min(Math.max(0,entry.density),Math.max(0,entry.max));
+      probability*=Math.min(1,target/poolMax);
     }else{
-      const base=BIOME_RUNTIME_PROFILE_DEFAULTS?.[owner]?.[obj.assetName]?.density||entry.density||1;
-      probability*=base>0?Math.min(1,entry.density/base):0;
+      // Woodland's existing deterministic layout is its full-density pool.
+      // Profiles can thin that pool continuously; Max still acts as a cap.
+      const fallback=BIOME_RUNTIME_PROFILE_DEFAULTS?.[owner]?.[obj.assetName]||{density:entry.density,max:entry.max};
+      const base=Math.min(Math.max(0,Number(fallback.density)||0),Math.max(0,Number(fallback.max)||Number(fallback.density)||0))||1;
+      const target=Math.min(Math.max(0,entry.density),Math.max(0,entry.max));
+      probability*=Math.min(1,target/base);
     }
     return obj.biomeActivation<=Math.max(0,Math.min(1,probability));
   }
   function environmentAssetAvailableForBiome(assetName,x){const owner=runtimeBiomeOwner(assetName);return owner===BIOME_GLOBAL_OWNER||runtimeLoadedBiomesAt(x).includes(owner);}
   function runtimeBiomeBlendLabel(x){
-    const weights=runtimeBiomeWeightsAt(x);
-    return Object.entries(weights).filter(([,w])=>w>.005).map(([id,w])=>`${BIOME_RUNTIME_DEFS[id]?.label||id} ${Math.round(w*100)}%`).join(' / ');
+    return runtimeBiomeStatesAt(x).filter(stateAt=>stateAt.weight>.005).map(stateAt=>{
+      const profile=runtimeProfileRecord(stateAt.biome,stateAt.profile);
+      return`${BIOME_RUNTIME_DEFS[stateAt.biome]?.label||stateAt.biome} / ${profile?.label||stateAt.profile} ${Math.round(stateAt.weight*100)}%`;
+    }).join(' / ');
   }
-  window.SideScrollBiomes={get state(){return runtimeBiomeState;},weightsAt:runtimeBiomeWeightsAt,loadedAt:runtimeLoadedBiomesAt,ownerOf:runtimeBiomeOwner,reload(){runtimeBiomeState=loadRuntimeBiomeState();return runtimeBiomeState;}};
+  window.SideScrollBiomes={
+    get state(){return runtimeBiomeState;},
+    statesAt:runtimeBiomeStatesAt,
+    weightsAt:runtimeBiomeWeightsAt,
+    loadedAt:runtimeLoadedBiomesAt,
+    ownerOf:runtimeBiomeOwner,
+    reload(){runtimeBiomeState=loadRuntimeBiomeState();return runtimeBiomeState;}
+  };
+
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
   const PLAYER_PUZZLE_STATE_STORAGE_KEY = 'sidescroll.player.puzzle-state.v1';
   const PLAYER_INVENTORY_STORAGE_KEY = 'sidescroll.player.inventory.v1';
@@ -4421,8 +4533,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (sectionMax <= sectionMin) continue;
       for (const [type,def] of Object.entries(defs)) {
         if (runtimeBiomeOwner(type) !== 'mountain') continue;
-        const profile = runtimeBiomeProfileEntry('mountain', type);
-        const poolCount = Math.max(0, Math.min(18, Math.round(profile.max)));
+        const poolCount = Math.max(0, Math.min(18, runtimeBiomeProfilePoolMax('mountain', type)));
         for (let slot = 0; slot < poolCount; slot += 1) {
           let x=0,z=0,ok=false;
           for (let attempt=0; attempt<9; attempt+=1) {
