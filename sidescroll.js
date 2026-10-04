@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.108: persist World Group ownership through scene reconstruction.
   // SideScroll v1.0.107: World Group lock/edit semantics + direct whole-group dragging.
   // SideScroll v1.0.106: World Groups v3 · group-owned exclusion zones + World Lab group timeline moves.
   // SideScroll v1.0.105: World Groups v2 · reusable templates + terrain-aware group moves.
@@ -4094,6 +4095,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       deleted: !!opts.deleted,
       carried: false,
       userAdded: !!opts.userAdded,
+      // World Group ownership is persistent scene data. This must be copied at
+      // object construction time so restored/template-spawned objects remain
+      // members after a page reload.
+      worldGroupId: opts.worldGroupId || null,
       puzzleInstanceId: opts.puzzleInstanceId || null,
       puzzleObjectId: opts.puzzleObjectId || null,
       sockets: Array.isArray(opts.sockets) ? opts.sockets.map(socket => ({ ...socket })) : [],
@@ -6682,6 +6687,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         cameraNodeCurveStart:saved.cameraNodeCurveStart, cameraNodeCurveEnd:saved.cameraNodeCurveEnd
       });
       obj.sx = restoredWidth; obj.sy = saved.sy;
+      // Defensive ownership reconciliation. sceneData is authoritative.
+      if ('worldGroupId' in saved) obj.worldGroupId = saved.worldGroupId || null;
       if (obj.category === 'gameplay' && obj.gameplayLayerLocked) moveObjectToCorrectCollection(obj);
     }
     if (groundAspectChanged) saveSceneData();
