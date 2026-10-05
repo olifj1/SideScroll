@@ -16151,7 +16151,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(worldGroupTabContentsBtn,()=>setWorldGroupEditorTab('contents'));
   bindEditorPress(worldGroupTabExclusionsBtn,()=>setWorldGroupEditorTab('exclusions'));
   bindEditorPress(worldGroupTabGroupBtn,()=>setWorldGroupEditorTab('group'));
-  bindEditorPress(worldGroupEditorAddAssetBtn,()=>{
+  bindEditorPress(worldGroupAddAssetBtn,()=>{
     if(!worldGroupEditSession)return;
     setWorldGroupEditorTab('contents');
     toggleAssetBrowserForCurrentScope();
