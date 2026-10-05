@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.119">
+  <link rel="stylesheet" href="style.css?v=1.0.122">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -538,6 +538,7 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-up" type="button"><span>＋</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-ground-line" type="button"><span>⌁</span><small>FLOOR LINE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-transform" type="button"><span>↕</span><small>POSITION</small></button>
+          <button class="sidescroll-editor-tool" id="sidescroll-editor-move" type="button" hidden><span>✥</span><small>MOVE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-game-layer" type="button"><span>↔</span><small>GAME LAYER</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision" type="button"><span>▣</span><small>COLLISION</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-collision-shape" type="button"><span>◫</span><small>SHAPE 1</small></button>
@@ -617,6 +618,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.119"></script>
+  <script src="sidescroll.js?v=1.0.122"></script>
 </body>
 </html>

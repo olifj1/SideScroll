@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.122: restore selected-object Quick Tools in Group Edit + explicit relative Move mode.
   // SideScroll v1.0.116: duplicate World Groups + stable relative screen-space depth dragging + persistent task backlog.
   // SideScroll v1.0.115: multiple World Group exclusions + procedural reset controls + climb interaction dots.
   // SideScroll v1.0.114: refresh Asset Lab behaviour/config changes when returning to Play.
@@ -430,6 +431,7 @@
   const editorDoneBtn = document.getElementById('sidescroll-editor-done');
   const editorDrawerBackBtn = document.getElementById('sidescroll-editor-drawer-back');
   const editorDrawerHeader = document.getElementById('sidescroll-editor-drawer-header');
+  const editorDrawerBody = document.getElementById('sidescroll-editor-drawer-body');
   const editorDrawerContextEl = document.getElementById('sidescroll-editor-drawer-context');
   const editorDrawerTitleEl = document.getElementById('sidescroll-editor-drawer-title');
   const editorDrawerDirtyEl = document.getElementById('sidescroll-editor-drawer-dirty');
@@ -642,6 +644,7 @@
   const editorScaleUpBtn = document.getElementById('sidescroll-editor-scale-up');
   const editorGroundLineBtn = document.getElementById('sidescroll-editor-ground-line');
   const editorTransformBtn = document.getElementById('sidescroll-editor-transform');
+  const editorMoveBtn = document.getElementById('sidescroll-editor-move');
   const transformEditor = document.getElementById('sidescroll-transform-editor');
   const transformModeLabel = document.getElementById('sidescroll-transform-mode-label');
   const transformModeBtn = document.getElementById('sidescroll-transform-mode');
@@ -7335,6 +7338,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let selectedWorldGroupId = null;
   let worldGroupEditMode = false; // compatibility mirror for existing selection/direct-manipulation paths
   let worldGroupMoveMode = false;
+  let worldGroupMemberMoveMode = false;
   let worldGroupExclusionEditMode = false; // Group Edit sub-tool, never a competing top-level mode
   let worldGroupExclusionHandle = null;
   let worldGroupExclusionIndex = 0;
@@ -7347,6 +7351,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const EDITOR_HISTORY_LIMIT = 40;
   let editorContext = { type:'environment', id:null };
   let editorDrawerCollapsed = false;
+  let worldGroupWorkspaceSubtool = null;
+  let worldGroupWorkspaceReturnState = null;
   let editorTransaction = null;
   const editorUndoStack = [];
   const editorRedoStack = [];
@@ -8794,9 +8800,41 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return true;
   }
 
+  function setWorldGroupWorkspaceSubtool(name=null){
+    const next=name||null;
+    if(next===worldGroupWorkspaceSubtool)return;
+    if(next&&worldGroupEditSession){
+      if(!worldGroupWorkspaceReturnState){
+        worldGroupWorkspaceReturnState={
+          collapsed:editorDrawerCollapsed,
+          tab:worldGroupEditorTab,
+          scrollTop:Number(editorDrawerBody?.scrollTop)||0
+        };
+      }
+      worldGroupWorkspaceSubtool=next;
+      // A focused sub-tool replaces the drawer in the same workspace slot. It
+      // is not a collapsed drawer state, so never expose the rail behind it.
+      setEditorDrawerCollapsed(false);
+    }else{
+      worldGroupWorkspaceSubtool=null;
+      const restore=worldGroupWorkspaceReturnState;
+      worldGroupWorkspaceReturnState=null;
+      if(restore){
+        if(['contents','exclusions','group'].includes(restore.tab))worldGroupEditorTab=restore.tab;
+        setEditorDrawerCollapsed(!!restore.collapsed);
+        requestAnimationFrame(()=>{
+          if(editorDrawerBody)editorDrawerBody.scrollTop=Number(restore.scrollTop)||0;
+        });
+      }
+    }
+    document.body.classList.toggle('sidescroll-world-group-position-subtool',worldGroupWorkspaceSubtool==='position');
+    document.body.classList.toggle('sidescroll-world-group-ground-line-subtool',worldGroupWorkspaceSubtool==='ground-line');
+  }
+
   function setEditorDrawerCollapsed(collapsed){
     editorDrawerCollapsed=!!collapsed;
     puzzlePanel?.classList.toggle('sidescroll-drawer-collapsed',editorDrawerCollapsed);
+    document.body.classList.toggle('sidescroll-editor-drawer-collapsed',editorDrawerCollapsed);
     if(editorDrawerRailBtn)editorDrawerRailBtn.hidden=!editorDrawerCollapsed;
     if(editorDrawerCollapseBtn){
       editorDrawerCollapseBtn.textContent=editorDrawerCollapsed?'›':'‹';
@@ -8846,6 +8884,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setWorldGroupEditorTab(tab){
     if(!['contents','exclusions','group'].includes(tab))tab='contents';
+    if(tab!=='contents')worldGroupMemberMoveMode=false;
     worldGroupEditorTab=tab;
     for(const [name,button,panel] of [
       ['contents',worldGroupTabContentsBtn,worldGroupContentsPanel],
@@ -8858,14 +8897,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     if(tab!=='exclusions'&&worldGroupExclusionEditMode)setWorldGroupExclusionEditMode(false);
     renderWorldGroupEditor({force:true});
+    updateEditorButtons();
   }
 
   function beginWorldGroupEditSession(group,{checkpointOverride=null,persistenceAlreadyHeld=false}={}){
     if(!group)return false;
+    if(worldGroupWorkspaceSubtool)setWorldGroupWorkspaceSubtool(null);
     if(worldGroupEditSession?.groupId===group.id){updateEditorDrawerUi();return true;}
     if(worldGroupEditSession)return false;
     if(addAssetType)exitPlacementMode();
-    worldGroupTemplatePlaceMode=false;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;
+    worldGroupTemplatePlaceMode=false;worldGroupMoveMode=false;worldGroupMemberMoveMode=false;worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;
     selectedWorldGroupId=group.id;
     // Stable IDs are a schema migration for the newly list-addressable zones.
     worldGroupExclusions(group);
@@ -8893,9 +8934,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(editorTransaction)commitEditorTransaction();
     const groupId=worldGroupEditSession.groupId;
     const group=worldGroupById(groupId);
-    worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;worldGroupEditMode=false;worldGroupNodeInspectorOpen=false;
+    worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;worldGroupEditMode=false;worldGroupMemberMoveMode=false;worldGroupNodeInspectorOpen=false;
     transformEditMode=false;collisionEditMode=false;groundLineEditMode=false;
     selectedObject=null;
+    if(worldGroupWorkspaceSubtool)setWorldGroupWorkspaceSubtool(null);
     worldGroupEditSession=null;clearEditorHistory();
     releaseScenePersistence({flush:true});
     editorContext={type:'environment',id:null};worldGroupEditorTab='contents';
@@ -8911,8 +8953,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const label=worldGroupById(worldGroupEditSession.groupId)?.label||'World Group';
     editorTransaction=null;
     applyWorldGroupEditorSnapshot(checkpoint);
-    worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;worldGroupEditMode=false;worldGroupNodeInspectorOpen=false;
+    worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;worldGroupEditMode=false;worldGroupMemberMoveMode=false;worldGroupNodeInspectorOpen=false;
     transformEditMode=false;collisionEditMode=false;groundLineEditMode=false;selectedObject=null;
+    if(worldGroupWorkspaceSubtool)setWorldGroupWorkspaceSubtool(null);
     worldGroupEditSession=null;clearEditorHistory();
     releaseScenePersistence({flush:false});
     editorContext={type:'environment',id:null};worldGroupEditorTab='contents';
@@ -8962,6 +9005,34 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const copy={...deepCopy(source),id:newWorldGroupExclusionId(),centerX:source.centerX+Math.max(1.0,source.width*.35)};
     worldGroupExclusions(group).push(copy);selectedWorldGroupExclusionId=copy.id;worldGroupExclusionIndex=worldGroupExclusions(group).length-1;
     saveSceneData();commitEditorTransaction();renderWorldGroupEditor({force:true});return true;
+  }
+
+  function setWorldGroupMemberMoveMode(on){
+    const child=selectedWorldGroupMember();
+    const next=!!(on&&worldGroupEditSession&&child);
+    worldGroupMemberMoveMode=next;
+    if(next){
+      worldGroupExclusionEditMode=false;
+      worldGroupExclusionHandle=null;
+      collisionEditMode=false;
+      collisionHandleIndex=-1;
+      groundLineEditMode=false;
+      transformEditMode=false;
+      socketPlacementPiece=null;
+      worldGroupNodeInspectorOpen=false;
+      syncTransformEditor();
+      syncGroundLineEditor();
+      syncThoughtEditor();
+      syncCameraNodeEditor();
+      hintEl.textContent=`MOVE ${worldGroupMemberTypeLabel(child).toUpperCase()} · drag anywhere in the scene · horizontal = along path · vertical = scene depth · lift and touch again to continue`;
+      hintEl.classList.remove('hidden');
+    }else if(worldGroupEditSession&&child){
+      hintEl.textContent=`${worldGroupMemberTypeLabel(child)} selected`;
+      hintEl.classList.remove('hidden');
+    }
+    renderWorldGroupEditor({force:true});
+    updateEditorButtons();
+    return next;
   }
 
   function renderWorldGroupEditor({force=false}={}){
@@ -9345,7 +9416,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     worldGroupExclusionHandle=null;
     if(worldGroupExclusionEditMode){
       if(addAssetType)exitPlacementMode();
-      worldGroupMoveMode=false;worldGroupTemplatePlaceMode=false;worldGroupEditMode=true;
+      worldGroupMoveMode=false;worldGroupMemberMoveMode=false;worldGroupTemplatePlaceMode=false;worldGroupEditMode=true;
       const ex=ensureWorldGroupExclusion(group);selectedWorldGroupExclusionId=ex?.id||null;
     }
     worldGroupListSignature='';renderWorldGroupTools({force:true});renderWorldGroupEditor({force:true});
@@ -10737,7 +10808,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // Environment/Puzzle is only an editor filter. It must not change whether
     // the workshop stage is isolated or clear.
     editorScope = scope;
-    if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; }
+    if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; }
     puzzleEnvironmentPlacementMode = false;
     puzzleExclusionEditMode = false;
     puzzleExclusionHandle = null;
@@ -10923,8 +10994,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group=selectedLockedWorldGroupForEditor();
     const hasObject=!!(selectedObject && !selectedObject.deleted);
     const has=!!(editMode && transformEditMode && (hasObject || group));
+    const groupWorkspacePosition=!!(has && worldGroupEditSession);
+    if(groupWorkspacePosition)setWorldGroupWorkspaceSubtool('position');
+    else if(worldGroupWorkspaceSubtool==='position')setWorldGroupWorkspaceSubtool(null);
     if (transformEditor) transformEditor.hidden = !has;
     if (editorTransformBtn) editorTransformBtn.classList.toggle('active', has);
+    if(transformCloseBtn){
+      transformCloseBtn.textContent=groupWorkspacePosition?'‹ Back':'×';
+      transformCloseBtn.setAttribute('aria-label',groupWorkspacePosition?'Back to World Group':'Close positioning editor');
+    }
     if (!has) return;
 
     const yRow=transformYInput?.closest?.('.sidescroll-transform-axis') || null;
@@ -11134,8 +11212,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function syncGroundLineEditor() {
     const has = !!(editMode && groundLineEditMode && selectedObject && !selectedObject.deleted);
+    const groupWorkspaceGroundLine=!!(has&&worldGroupEditSession);
+    if(groupWorkspaceGroundLine)setWorldGroupWorkspaceSubtool('ground-line');
+    else if(worldGroupWorkspaceSubtool==='ground-line')setWorldGroupWorkspaceSubtool(null);
     if (groundLineEditor) groundLineEditor.hidden = !has;
     if (editorGroundLineBtn) editorGroundLineBtn.classList.toggle('active', has);
+    if(groundLineCloseBtn){
+      groundLineCloseBtn.textContent=groupWorkspaceGroundLine?'‹ Back':'×';
+      groundLineCloseBtn.setAttribute('aria-label',groupWorkspaceGroundLine?'Back to World Group':'Close floor line editor');
+    }
     if (!has) return;
     const value = objectGroundLine(selectedObject);
     if (groundLineInput) groundLineInput.value = String(value);
@@ -11241,7 +11326,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const socketInstance = isSocketPiece ? activePuzzleInstances.get(selectedObject.puzzleInstanceId) : null;
     const hasAuthoredSocket = !!(isSocketPiece && socketForPiece(socketInstance, selectedObject));
     const placing = placementModeActive();
-    if (editorControls) editorControls.hidden = !editMode || placing || !!worldGroupEditSession;
+    const groupMemberSelected=!!(worldGroupEditSession&&worldGroupEditorTab==='contents'&&selectedWorldGroupMember());
+    const groupNodeSelected=!!(groupMemberSelected&&(selectedIsThoughtTrigger()||selectedIsCameraTrigger()));
+    if (editorControls) editorControls.hidden = !editMode || placing || (!!worldGroupEditSession&&!groupMemberSelected);
     if (openAssetsBtn) {
       const puzzleInstanceReady = editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId;
       openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || !puzzleInstanceReady;
@@ -11254,25 +11341,31 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     if (editorDuplicateBtn) editorDuplicateBtn.hidden = !has || collisionFocus || socketFocus;
     if (editorFlipBtn) {
-      editorFlipBtn.hidden = !has || collisionFocus || socketFocus;
+      editorFlipBtn.hidden = !has || collisionFocus || socketFocus || groupNodeSelected;
       editorFlipBtn.classList.toggle('active', !!(has && objectVisualFlip(selectedObject)));
     }
-    if (editorScaleDownBtn) editorScaleDownBtn.hidden = !has || collisionFocus || socketFocus;
-    if (editorScaleUpBtn) editorScaleUpBtn.hidden = !has || collisionFocus || socketFocus;
+    if (editorScaleDownBtn) editorScaleDownBtn.hidden = !has || collisionFocus || socketFocus || groupNodeSelected;
+    if (editorScaleUpBtn) editorScaleUpBtn.hidden = !has || collisionFocus || socketFocus || groupNodeSelected;
     if (editorGroundLineBtn) {
-      editorGroundLineBtn.hidden = !has || collisionFocus || socketFocus;
+      editorGroundLineBtn.hidden = !has || collisionFocus || socketFocus || groupNodeSelected;
       editorGroundLineBtn.classList.toggle('active', !!(has && groundLineEditMode));
     }
     if (editorTransformBtn) {
       editorTransformBtn.hidden = !(has || hasGroup) || collisionFocus || socketFocus;
       editorTransformBtn.classList.toggle('active', !!((has || hasGroup) && transformEditMode));
     }
+    if(editorMoveBtn){
+      editorMoveBtn.hidden=!groupMemberSelected||collisionFocus||socketFocus;
+      editorMoveBtn.classList.toggle('active',!!worldGroupMemberMoveMode);
+      const label=editorMoveBtn.querySelector('small');
+      if(label)label.textContent=worldGroupMemberMoveMode?'FINISH MOVE':'MOVE';
+    }
     if (editorGameLayerBtn) {
       editorGameLayerBtn.hidden = !isGameplay || collisionFocus || socketFocus;
       editorGameLayerBtn.classList.toggle('active', !!(isGameplay && selectedObject.gameplayLayerLocked));
     }
     if (editorCollisionBtn) {
-      editorCollisionBtn.hidden = !has || socketFocus;
+      editorCollisionBtn.hidden = !has || socketFocus || groupNodeSelected;
       editorCollisionBtn.classList.toggle('active', !!(selectedObject?.collision && collisionEditMode));
     }
     if (editorCollisionShapeBtn) {
@@ -11322,7 +11415,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (socketPlacementPiece && obj !== socketPlacementPiece) socketPlacementPiece = null;
     const previousSelectedObject=selectedObject;
     selectedObject = obj && !obj.deleted ? obj : null;
-    if(worldGroupEditSession&&selectedObject!==previousSelectedObject)worldGroupNodeInspectorOpen=false;
+    if(worldGroupEditSession&&selectedObject!==previousSelectedObject){
+      worldGroupNodeInspectorOpen=false;
+      worldGroupMemberMoveMode=false;
+    }
     if (!selectedObject) transformEditMode = false;
     if (!preserveCycle) { selectionCycleInfo = null; selectionTapCycle = null; }
     if (!options.keepPlacement) addAssetType = null;
@@ -11735,7 +11831,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -16203,16 +16299,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   bindEditorPress(worldGroupChildPositionBtn,()=>{
     if(!selectedWorldGroupMember())return;
+    worldGroupMemberMoveMode=false;
     setTransformEditorOpen(true);
-    setEditorDrawerCollapsed(true);
   });
   bindEditorPress(worldGroupChildPlacementToggleBtn,()=>{
     const child=selectedWorldGroupMember();if(!child)return;
+    worldGroupMemberMoveMode=false;
     runEditorTransaction(objectUsesFreePlacement(child)?'Use ground placement':'Use free placement',()=>setSelectedFreePlacement(!objectUsesFreePlacement(child)));
     renderWorldGroupEditor({force:true});
   });
   bindEditorPress(worldGroupChildCollisionBtn,()=>{
     const child=selectedWorldGroupMember();if(!child)return;
+    worldGroupMemberMoveMode=false;
     runEditorTransaction(child.collision?'Edit collision':'Add collision',toggleSelectedCollision);
     renderWorldGroupEditor({force:true});
   });
@@ -16223,6 +16321,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   });
   bindEditorPress(worldGroupChildNodeEditBtn,()=>{
     if(!selectedWorldGroupMember())return;
+    worldGroupMemberMoveMode=false;
     worldGroupNodeInspectorOpen=true;
     setEditorDrawerCollapsed(true);
     syncThoughtEditor();syncCameraNodeEditor();syncFocusedObjectEditorWorkspace();
@@ -16239,6 +16338,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   });
   bindEditorPress(worldGroupPositionBtn,()=>{
     const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
+    worldGroupMemberMoveMode=false;
     setEditorDrawerCollapsed(true);
     hintEl.textContent=`${group.label} · drag the yellow origin dot to move the whole group`;hintEl.classList.remove('hidden');
   });
@@ -16491,15 +16591,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(puzzleTestBtn, beginPuzzleTest);
   bindEditorPress(puzzleResetBtn, resetCurrentPuzzle);
   bindEditorPress(puzzleBackSetupBtn, backToPuzzleSetup);
-  bindEditorPress(editorDuplicateBtn, duplicateSelected);
-  bindEditorPress(editorFlipBtn, flipSelectedObject);
-  bindEditorPress(editorScaleDownBtn, () => scaleSelected(0.90));
-  bindEditorPress(editorScaleUpBtn, () => scaleSelected(1.10));
-  bindEditorPress(editorGroundLineBtn, () => setGroundLineEditorOpen(!groundLineEditMode));
-  bindEditorPress(groundLineResetBtn, resetSelectedGroundLine);
+  bindEditorPress(editorDuplicateBtn,()=>worldGroupEditSession?runEditorTransaction('Duplicate group member',duplicateSelected):duplicateSelected());
+  bindEditorPress(editorFlipBtn,()=>{if(worldGroupEditSession)worldGroupMemberMoveMode=false;return worldGroupEditSession?runEditorTransaction('Flip group member',flipSelectedObject):flipSelectedObject();});
+  bindEditorPress(editorScaleDownBtn,()=>{if(worldGroupEditSession)worldGroupMemberMoveMode=false;return worldGroupEditSession?runEditorTransaction('Scale group member',()=>scaleSelected(0.90)):scaleSelected(0.90);});
+  bindEditorPress(editorScaleUpBtn,()=>{if(worldGroupEditSession)worldGroupMemberMoveMode=false;return worldGroupEditSession?runEditorTransaction('Scale group member',()=>scaleSelected(1.10)):scaleSelected(1.10);});
+  bindEditorPress(editorGroundLineBtn,()=>{worldGroupMemberMoveMode=false;setGroundLineEditorOpen(!groundLineEditMode);});
+  bindEditorPress(groundLineResetBtn,()=>worldGroupEditSession?runEditorTransaction('Reset floor line',resetSelectedGroundLine):resetSelectedGroundLine());
   bindEditorPress(groundLineCloseBtn, () => setGroundLineEditorOpen(false));
+  groundLineInput?.addEventListener('pointerdown',()=>{if(worldGroupEditSession)beginEditorTransaction('Adjust floor line');},{passive:true});
   groundLineInput?.addEventListener('input', () => setSelectedGroundLine(Number(groundLineInput.value)));
-  bindEditorPress(editorTransformBtn, () => setTransformEditorOpen(!transformEditMode));
+  groundLineInput?.addEventListener('pointerup',()=>{if(editorTransaction)commitEditorTransaction();},{passive:true});
+  groundLineInput?.addEventListener('pointercancel',()=>{if(editorTransaction)commitEditorTransaction();},{passive:true});
+  bindEditorPress(editorTransformBtn,()=>{worldGroupMemberMoveMode=false;setTransformEditorOpen(!transformEditMode);});
+  bindEditorPress(editorMoveBtn,()=>setWorldGroupMemberMoveMode(!worldGroupMemberMoveMode));
   bindEditorPress(transformCloseBtn, () => setTransformEditorOpen(false));
   bindEditorPress(transformModeBtn, () => {
     if(selectedLockedWorldGroupForEditor() && (!selectedObject || selectedObject.deleted))return;
@@ -16524,7 +16628,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindTransformNumberInput(transformYInput, 'y');
   bindTransformNumberInput(transformZInput, 'z');
   bindEditorPress(editorGameLayerBtn, toggleSelectedGameplayLayer);
-  bindEditorPress(editorCollisionBtn, toggleSelectedCollision);
+  bindEditorPress(editorCollisionBtn,()=>{
+    worldGroupMemberMoveMode=false;
+    if(worldGroupEditSession)runEditorTransaction(selectedObject?.collision?'Edit collision':'Add collision',toggleSelectedCollision);
+    else toggleSelectedCollision();
+  });
   bindEditorPress(editorCollisionShapeBtn, cycleSelectedCollisionShape);
   bindEditorPress(editorCollisionAddShapeBtn, addCollisionShape);
   bindEditorPress(editorCollisionRemoveShapeBtn, removeCollisionShape);
@@ -16749,7 +16857,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   syncCameraFollowUi();
   bindEditorPress(editorSocketBtn, startSocketPlacement);
   bindEditorPress(editorSocketClearBtn, clearSelectedPieceSocket);
-  bindEditorPress(editorDeleteBtn, deleteSelected);
+  bindEditorPress(editorDeleteBtn,()=>worldGroupEditSession?runEditorTransaction('Delete group member',deleteSelected):deleteSelected());
   const puzzleObjectsSummary = puzzleObjectsEl?.querySelector('summary');
   bindEditorPress(puzzleObjectsSummary, () => { if (puzzleObjectsEl) puzzleObjectsEl.open = !puzzleObjectsEl.open; });
 
@@ -16883,6 +16991,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           hintEl.classList.remove('hidden');
           return;
         }
+      }
+
+      // Explicit Group-member Move mode is deliberately relative rather than
+      // hit-tested. Once armed, the finger may start anywhere in the scene;
+      // each new touch uses the member's current position as its zero point.
+      if(worldGroupMemberMoveMode&&worldGroupEditSession&&selectedWorldGroupMember()&&editorObjectIsEditable(selectedObject)){
+        editorGesture.kind='selected-object';
+        editorGesture.object=selectedObject;
+        editorGesture.explicitMove=true;
+        editorGesture.stackIgnore=new Set();
+        beginEditorTransaction('Move group member');
+        hintEl.textContent='Move · drag anywhere · lift and touch again to continue from the current position';
+        hintEl.classList.remove('hidden');
+        return;
       }
 
       // A locked World Group can ONLY be moved from its yellow origin dot.
@@ -17165,7 +17287,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
               hintEl.classList.remove('hidden');
             }
           }
-        } else if (gesture.kind==='pan' || gesture.kind==='selected-object') {
+        } else if ((gesture.kind==='pan' || gesture.kind==='selected-object') && !gesture.explicitMove) {
           // Selection happens only on a clean tap/release. A drag can never
           // select a different object, which keeps panning and moving separate.
           const candidates=pickSceneObjects(e.clientX,e.clientY).filter(editorObjectIsEditable);
@@ -17218,7 +17340,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (editMode) {
       if (e.key === 'Escape') {
         if (inventoryOpen) { setInventoryOpen(false); return; }
-        socketPlacementPiece = null; worldGroupMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); renderWorldGroupTools({force:true});
+        socketPlacementPiece = null; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); renderWorldGroupTools({force:true});
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) { e.preventDefault(); deleteSelected(); }
       return;

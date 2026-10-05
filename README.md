@@ -1,20 +1,31 @@
-# SideScroll patch 1.0.119
+# SideScroll patch 1.0.122
 
-Performance correction for the Stage 1 editor architecture introduced in 1.0.117/1.0.118.
+Stage 1 selected-object control correction. Apply over **1.0.121**.
 
 ## Changes
 
-- Removed live `backdrop-filter` blur from the large persistent Editor Drawer and Puzzle Test drawer. The old compact panel blur became expensive once the drawer expanded to a large portion of the live WebGL viewport on iPhone Safari.
-- Moved World Group exclusion normalisation / stable-ID repair out of the per-object render hot path. Exclusions are now normalised once per group object.
-- Added a per-frame flattened World Group exclusion-bounds cache. Procedural dressing now tests against that list instead of rebuilding/scanning every group's exclusions for every rendered dressing object.
-- Simplified exclusion bounds-list generation so it reads the normalised zone array once.
-- Updated `SIDESCROLL_TASKS.md` with the Stage 1 performance rules discovered by the on-device test.
-- Cache-busted `style.css` and `sidescroll.js` to `1.0.119`.
+- Restores the contextual horizontal **Quick Tools** strip while editing a selected World Group member. The useful existing controls are available again instead of disappearing during the new Group Edit session: Duplicate, Flip, Scale −/+, Floor Line, Position, Collision and the applicable deeper collision/socket actions.
+- Adds an explicit **Move** tool for World Group members. Once armed, the drag may start anywhere in the free viewport; horizontal finger movement moves along the journey and vertical movement changes scene depth relative to the member's current position. Lift/reposition/touch again to continue from the new position.
+- Move is disarmed when selection changes, another focused tool is entered, or the editor leaves the Group `Contents` tab, preventing a stale Move mode from stealing later gestures.
+- The Quick Tools strip is only shown for a selected Group child and remains hidden during placement or on Group/Exclusion pages.
+- Thought and Camera Nodes hide irrelevant Flip / Scale / Floor Line / Collision controls while retaining relevant positioning/duplicate/delete actions.
+- Restores meaningful World Group Undo transactions for Quick Tool Duplicate, Flip, Scale, Collision and Delete operations. Floor Line slider adjustment is grouped into one pointer gesture rather than one history entry per input frame.
+- `Floor Line` now follows the same **same-slot** navigation rule as `Position`: during Group Edit it replaces the drawer at the left workspace anchor and Back restores the Group workspace.
+- The Quick Tools strip now anchors from the actual Stage 1 drawer width and reclaims horizontal room when the drawer is collapsed.
+- Updates `SIDESCROLL_TASKS.md` to retain Quick Tools as an intentional high-frequency authoring surface alongside the unified drawer.
+- Cache-busts `style.css` and `sidescroll.js` to `1.0.122`.
+
+## Changed project files
+
+- `play.html`
+- `style.css`
+- `sidescroll.js`
+- `SIDESCROLL_TASKS.md`
 
 ## Validation
 
 - All 14 JavaScript files pass `node --check`.
 - `play.html` contains no duplicate IDs.
-- No Stage 1 Group Editor workflow behaviour was intentionally changed by this patch.
-
-Apply over the existing project including 1.0.118.
+- The set of optional/missing legacy DOM bindings is unchanged from 1.0.121; the new Move binding resolves correctly.
+- CSS brace counts balance.
+- Only the four intended project files differ from 1.0.121.

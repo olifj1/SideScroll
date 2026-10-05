@@ -28,6 +28,30 @@ Implemented in the first Stage 1 code pass:
 - Existing Position, Collision, Thought and Camera inspectors remain reusable sub-tools; opening them does not end the Group session.
 - Normal Environment mode now exposes only group-instance operations such as Edit, Move, Rename, Duplicate, Dissolve and Delete.
 
+### Stage 1 drawer-position correction — v1.0.120
+
+The first Group Add Asset phone test exposed a legacy CSS collision between the old centred placement HUD and the new persistent Editor Drawer. The unified drawer now explicitly owns its screen transform/left anchor in every authoring sub-tool, including placement. Entering Add Asset / placement must never inherit an old panel transform or move the drawer to an arbitrary intermediate position.
+
+Editor-shell invariant: the drawer has only two intentional horizontal states — **fully anchored open** or **collapsed to its fixed rail**. Sub-tools may change drawer contents or deliberately collapse it, but may not directly reposition the shell.
+
+### Stage 1 same-slot sub-tool correction — v1.0.121
+
+Focused authoring tools must not appear on a different side of the viewport and force the user to reframe the scene. World Group `Position` is the first converted sub-tool: opening it records the current drawer route/scroll state, temporarily replaces the drawer at the **same left/top/width workspace anchor**, and uses `Back` rather than a dismiss-style `×`. Closing Position automatically restores the Group drawer to the route and scroll position it came from.
+
+This is the reusable rule for later Collision / Thought / Camera / Puzzle / Terrain focused tools: **drill in within the same workspace slot; Back restores the parent workspace; never make the user chase editor panels around the screen.**
+
+### Stage 1 selected-object Quick Tools correction — v1.0.122
+
+On-device Group editing showed that Stage 1 accidentally removed a fast workflow that was already working well: the contextual object-action strip. The strip is therefore retained deliberately as **Quick Tools** rather than treated as obsolete UI. The drawer owns hierarchy/context/session navigation; Quick Tools owns immediate manipulation of the currently selected object.
+
+- Selecting a World Group member restores the contextual Quick Tools strip: Duplicate, Flip, Scale −/+, Floor Line, Position, Collision and the applicable deeper collision/socket actions.
+- Quick Tools disappears when no Group child is selected, while placing assets, or when an action does not apply to the selected child.
+- Thought/Camera Nodes suppress irrelevant Scale/Flip/Floor/Collision actions but retain positioning, duplication and deletion controls.
+- Add an explicit **Move** tool for World Group members. When armed, a drag can begin anywhere in the free viewport: the touch location is only a relative zero point for the selected object's current position. Lifting and touching elsewhere continues from the new position. This is the intended mouse-style mobile movement model.
+- The Quick Tools strip has one stable bottom/free-workspace location and reclaims the space beside the collapsed drawer rather than leaving an invisible full-drawer gap.
+- `Floor Line` now follows the same same-slot drill-in rule as `Position` during Group Edit: it replaces the drawer at the left workspace anchor and Back restores the Group workspace.
+- Architectural clarification: the unified drawer does not need to absorb every high-frequency action. A stable context-sensitive Quick Tools strip is useful on iPhone landscape and should be reused consistently where it speeds repeated authoring.
+
 ### Stage 1 performance correction — v1.0.119
 
 The first on-device Stage 1 test exposed two performance-sensitive implementation details that must remain part of the editor-shell rules:
@@ -355,7 +379,7 @@ Do not attempt to restyle every legacy panel at once.
 
 **Stage 3 — general Environment / Inspector / placement**
 
-- Replace the legacy bottom action strip and asset palette with drawer-hosted selection/Inspector/library flows where appropriate.
+- Keep the selected-object Quick Tools strip as a stable high-frequency transform/action surface; move hierarchy/Inspector/library/context navigation into the drawer rather than duplicating those responsibilities in the strip.
 - Asset placement can temporarily collapse the drawer automatically to give viewport space, but the rail remains present and placement status remains visible.
 
 **Stage 4 — Terrain, World/Look, Diagnostics**

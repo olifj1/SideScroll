@@ -13591,6 +13591,7 @@ body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer{
   background:rgba(7,14,18,.96)!important;
   backdrop-filter:none!important;
   -webkit-backdrop-filter:none!important;
+  transform:none!important;
   transition:width .16s ease,background .16s ease,border-color .16s ease;
 }
 body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer[hidden]{display:none!important;}
@@ -13645,6 +13646,11 @@ body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer.s
 body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed)>.sidescroll-editor-drawer-header{display:grid!important;}
 body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed)>.sidescroll-editor-drawer-body{display:block!important;}
 body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed)>.sidescroll-editor-drawer-footer{display:flex!important;}
+body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-puzzle-panel.sidescroll-editor-drawer{
+  left:max(8px,env(safe-area-inset-left))!important;
+  right:auto!important;
+  transform:none!important;
+}
 
 body[data-game-id="game-16"] .sidescroll-world-group-editor{display:grid;gap:9px;}
 body[data-game-id="game-16"] .sidescroll-world-group-editor[hidden]{display:none!important;}
@@ -13728,4 +13734,98 @@ body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-editor-drawer
 }
 @media(max-width:720px){
   body[data-game-id="game-16"].sidescroll-assets-open .sidescroll-puzzle-panel.sidescroll-editor-drawer{display:none!important;}
+}
+
+/* SideScroll v1.0.121 — focused Group sub-tools replace the drawer in-place. */
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-position-subtool .sidescroll-puzzle-panel.sidescroll-editor-drawer{
+  display:none!important;
+}
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-position-subtool .sidescroll-transform-editor{
+  position:absolute!important;
+  z-index:1005!important;
+  left:max(8px,env(safe-area-inset-left))!important;
+  right:auto!important;
+  top:max(50px,calc(env(safe-area-inset-top) + 46px))!important;
+  width:clamp(310px,38vw,430px)!important;
+  max-width:calc(100vw - max(16px,calc(env(safe-area-inset-left) + env(safe-area-inset-right) + 16px)))!important;
+  max-height:calc(100vh - max(66px,calc(env(safe-area-inset-top) + env(safe-area-inset-bottom) + 58px)))!important;
+  overflow:auto!important;
+  box-sizing:border-box!important;
+  background:rgba(7,14,18,.96)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  transform:none!important;
+}
+body[data-game-id="game-16"].sidescroll-world-group-position-subtool #sidescroll-transform-close{
+  order:-1;
+  width:auto!important;
+  min-width:60px!important;
+  padding:0 9px!important;
+  font-size:10px!important;
+}
+body[data-game-id="game-16"].sidescroll-world-group-position-subtool .sidescroll-transform-head{
+  min-height:36px;
+}
+@media(max-height:420px){
+  body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-position-subtool .sidescroll-transform-editor{
+    top:max(42px,calc(env(safe-area-inset-top) + 40px))!important;
+    width:clamp(285px,42vw,390px)!important;
+  }
+}
+
+/* SideScroll v1.0.122 — selected-object Quick Tools remain available during World Group Edit. */
+body[data-game-id="game-16"].sidescroll-world-group-editing .sidescroll-editor-controls{
+  left:calc(max(8px,env(safe-area-inset-left)) + clamp(310px,38vw,430px) + 12px)!important;
+  z-index:1004!important;
+}
+/* A collapsed drawer gives the strip its horizontal workspace back instead of preserving a drawer-sized gap. */
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-editor-drawer-collapsed:not(.sidescroll-world-group-position-subtool):not(.sidescroll-world-group-ground-line-subtool) .sidescroll-editor-controls{
+  left:calc(max(8px,env(safe-area-inset-left)) + 58px + 10px)!important;
+}
+/* Focused Group sub-tools replace the drawer at exactly the same workspace anchor. */
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-ground-line-subtool .sidescroll-puzzle-panel.sidescroll-editor-drawer{
+  display:none!important;
+}
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-ground-line-subtool .sidescroll-ground-line-editor{
+  position:absolute!important;
+  z-index:1005!important;
+  left:max(8px,env(safe-area-inset-left))!important;
+  right:auto!important;
+  top:max(50px,calc(env(safe-area-inset-top) + 46px))!important;
+  bottom:auto!important;
+  width:clamp(310px,38vw,430px)!important;
+  min-width:0!important;
+  max-width:calc(100vw - max(16px,calc(env(safe-area-inset-left) + env(safe-area-inset-right) + 16px)))!important;
+  box-sizing:border-box!important;
+  background:rgba(7,14,18,.96)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  transform:none!important;
+}
+body[data-game-id="game-16"].sidescroll-world-group-ground-line-subtool #sidescroll-ground-line-close{
+  order:-1;
+  width:auto!important;
+  min-width:60px!important;
+  padding:0 9px!important;
+  font-size:10px!important;
+}
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-position-subtool .sidescroll-editor-controls,
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-ground-line-subtool .sidescroll-editor-controls{
+  left:calc(max(8px,env(safe-area-inset-left)) + clamp(310px,38vw,430px) + 12px)!important;
+}
+@media(max-height:420px){
+  body[data-game-id="game-16"].sidescroll-world-group-editing .sidescroll-editor-controls{
+    left:calc(max(8px,env(safe-area-inset-left)) + clamp(285px,42vw,390px) + 10px)!important;
+  }
+  body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-editor-drawer-collapsed:not(.sidescroll-world-group-position-subtool):not(.sidescroll-world-group-ground-line-subtool) .sidescroll-editor-controls{
+    left:calc(max(8px,env(safe-area-inset-left)) + 58px + 8px)!important;
+  }
+  body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-ground-line-subtool .sidescroll-ground-line-editor{
+    top:max(42px,calc(env(safe-area-inset-top) + 40px))!important;
+    width:clamp(285px,42vw,390px)!important;
+  }
+  body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-position-subtool .sidescroll-editor-controls,
+  body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-world-group-ground-line-subtool .sidescroll-editor-controls{
+    left:calc(max(8px,env(safe-area-inset-left)) + clamp(285px,42vw,390px) + 10px)!important;
+  }
 }
