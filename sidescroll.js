@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.116: duplicate World Groups + stable relative screen-space depth dragging + persistent task backlog.
   // SideScroll v1.0.115: multiple World Group exclusions + procedural reset controls + climb interaction dots.
   // SideScroll v1.0.114: refresh Asset Lab behaviour/config changes when returning to Play.
   // SideScroll v1.0.113: authored world/puzzle assets never wrap across the world tile.
@@ -503,6 +504,7 @@
   const worldGroupRenameBtn = document.getElementById('sidescroll-world-group-rename');
   const worldGroupMembershipBtn = document.getElementById('sidescroll-world-group-membership');
   const worldGroupDissolveBtn = document.getElementById('sidescroll-world-group-dissolve');
+  const worldGroupDuplicateBtn = document.getElementById('sidescroll-world-group-duplicate');
   const worldGroupDeleteBtn = document.getElementById('sidescroll-world-group-delete');
   const worldGroupExclusionAddBtn = document.getElementById('sidescroll-world-group-exclusion-add');
   const worldGroupExclusionPrevBtn = document.getElementById('sidescroll-world-group-exclusion-prev');
@@ -8370,49 +8372,45 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
 
-  // Editor movement should follow the finger in SCREEN space rather than use a
-  // ray/ground intersection. The latter becomes extremely sensitive near the
-  // horizon. We solve X from horizontal pixels and Z from vertical pixels,
-  // alternating a few small Newton steps so the projected anchor follows the
-  // finger closely even as perspective/terrain height changes.
+  // Editor dragging is deliberately RELATIVE screen-space input, not a
+  // ray/terrain intersection. Each pointer-down snapshots the object's current
+  // X/Z and projected anchor; finger deltas are then converted from that zero
+  // point. Lifting and touching down elsewhere therefore continues from the
+  // object's new position exactly like repositioning a mouse.
+  //
+  // Horizontal sensitivity is derived once from the local screen projection so
+  // the existing left/right feel is retained. Depth uses a fixed screen-height
+  // scale instead of projection inversion: that prevents shallow camera angles
+  // from producing the large Newton-solver jumps seen near the horizon.
+  const EDITOR_DEPTH_DRAG_METRES_PER_SCREEN_HEIGHT = 5.0;
   function solveEditorScreenDragXZ({
     startX,startZ,startScreenX,startScreenY,targetScreenX,targetScreenY,
     yAt,lockZ=false,minZ=WORLD.farZ+0.8,maxZ=WORLD.nearZ-0.6
   }){
-    let x=Number(startX)||0;
-    let z=Rig.clamp(Number(startZ)||pathZ,minZ,maxZ);
+    const baseX=Number(startX)||0;
+    const baseZ=Rig.clamp(Number(startZ)||pathZ,minZ,maxZ);
     const yFor=(px,pz)=>Number(yAt?.(px,pz))||0;
-    const epsX=.06,epsZ=.08;
+    const dxPixels=Number(targetScreenX)-Number(startScreenX);
+    const dyPixels=Number(targetScreenY)-Number(startScreenY);
+    const rect=canvas.getBoundingClientRect();
 
-    for(let iteration=0;iteration<6;iteration+=1){
-      // Vertical finger travel controls scene depth. Locked gameplay-layer
-      // objects deliberately skip this axis.
-      if(!lockZ){
-        const p=projectWorldPoint(x,yFor(x,z),z);
-        const z2=Rig.clamp(z+epsZ,minZ,maxZ);
-        const pz=projectWorldPoint(x,yFor(x,z2),z2);
-        if(p&&pz){
-          const deriv=(pz.y-p.y)/(z2-z || epsZ);
-          if(Math.abs(deriv)>.001){
-            const step=Rig.clamp((targetScreenY-p.y)/deriv,-2.0,2.0);
-            z=Rig.clamp(z+step,minZ,maxZ);
-          }
-        }
-      }
+    // Keep horizontal motion familiar, but make it a stable relative mapping
+    // from the drag-start projection rather than repeatedly re-solving it.
+    const epsX=.06;
+    const p0=projectWorldPoint(baseX,yFor(baseX,baseZ),baseZ);
+    const p1=projectWorldPoint(baseX+epsX,yFor(baseX+epsX,baseZ),baseZ);
+    const screenDxPerWorld=(p0&&p1)?(p1.x-p0.x)/epsX:0;
+    const x=Math.abs(screenDxPerWorld)>.001
+      ? baseX + dxPixels/screenDxPerWorld
+      : baseX + dxPixels*.0065;
 
-      // Horizontal finger travel controls world X. Solve after Z so perspective
-      // depth changes do not make the object race ahead of the finger.
-      const p=projectWorldPoint(x,yFor(x,z),z);
-      const px=projectWorldPoint(x+epsX,yFor(x+epsX,z),z);
-      if(p&&px){
-        const deriv=(px.x-p.x)/epsX;
-        if(Math.abs(deriv)>.001){
-          const step=Rig.clamp((targetScreenX-p.x)/deriv,-2.0,2.0);
-          x+=step;
-        }
-      }
-    }
-    return{x,z:lockZ?Number(startZ)||pathZ:Rig.clamp(z,minZ,maxZ)};
+    // A full-height vertical drag equals five metres of scene depth. This is
+    // intentionally conservative for iPhone fine placement and independent of
+    // where on the screen the finger starts.
+    const z=lockZ
+      ? baseZ
+      : Rig.clamp(baseZ + dyPixels * (EDITOR_DEPTH_DRAG_METRES_PER_SCREEN_HEIGHT / Math.max(1,rect.height)),minZ,maxZ);
+    return{x,z};
   }
 
   // Placement needs to respect the layer the chosen asset will actually live
@@ -8924,6 +8922,34 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group=worldGroupById(selectedWorldGroupId);if(!group)return;const next=window.prompt('World group name',group.label||'World Group');if(next==null)return;const label=String(next).trim();if(!label)return;group.label=label.slice(0,60);saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
   }
 
+  function duplicateSelectedWorldGroup(){
+    const source=worldGroupById(selectedWorldGroupId);if(!source)return null;
+    const anchor={x:Number(source.x)||0,z:Rig.clamp(Number(source.z)||pathZ,WORLD.farZ+.8,WORLD.nearZ-.6)};
+    const duplicate={
+      id:`world-group-${Date.now().toString(36)}-${++userSceneCounter}`,
+      label:uniqueWorldGroupLabel(`${source.label||'World Group'} Copy`),
+      x:anchor.x,z:anchor.z,createdAt:Date.now(),
+      exclusions:worldGroupExclusions(source).map(ex=>deepCopy(ex))
+    };
+    const memberSnapshots=worldGroupMembers(source.id).map(obj=>worldGroupTemplateMember(obj,source));
+    worldGroups().push(duplicate);
+    for(const member of memberSnapshots)createTemplateObject(member,duplicate,anchor);
+    sortSceneCollections();
+    selectedWorldGroupId=duplicate.id;
+    worldGroupEditMode=false;
+    worldGroupMoveMode=false;
+    worldGroupExclusionEditMode=false;
+    worldGroupExclusionIndex=0;
+    worldGroupTemplatePlaceMode=false;
+    selectObject(null);
+    saveSceneData();
+    worldGroupListSignature='';worldGroupTemplateListSignature='';sceneEnvironmentListSignature='';
+    renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
+    hintEl.textContent=`Duplicated ${source.label} → ${duplicate.label} · drag the yellow dot to move the independent copy`;
+    hintEl.classList.remove('hidden');
+    return duplicate;
+  }
+
   function worldGroupAnchorGroundY(x,z){
     return terrainGroundYAt(Number(x)||0,Number(z)||pathZ);
   }
@@ -9257,7 +9283,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(!force&&signature===worldGroupListSignature)return;worldGroupListSignature=signature;
     if(worldGroupCountEl)worldGroupCountEl.textContent=`${groups.length} ${groups.length===1?'group':'groups'}`;if(worldGroupEmptyEl)worldGroupEmptyEl.hidden=groups.length>0;worldGroupListEl.innerHTML='';
     for(const group of groups){const members=worldGroupMembers(group.id),b=worldGroupBounds(group);const row=document.createElement('button');row.type='button';row.className='sidescroll-environment-scene-row';row.classList.toggle('active',group.id===selectedWorldGroupId);row.setAttribute('aria-selected',String(group.id===selectedWorldGroupId));const main=document.createElement('span');main.className='scene-puzzle-main';const strong=document.createElement('strong');strong.textContent=group.label||'World Group';const small=document.createElement('small');small.textContent=`${members.length} ${members.length===1?'asset':'assets'}${worldGroupEditMode&&group.id===selectedWorldGroupId?' · EDITING':''}`;main.append(strong,small);const pos=document.createElement('span');pos.className='scene-puzzle-x';pos.textContent=b?`x ${((b.minX+b.maxX)*.5).toFixed(1)}`:`x ${Number(group.x||0).toFixed(1)}`;row.append(main,pos);bindEditorPress(row,()=>selectWorldGroup(group.id,{focus:true}));worldGroupListEl.appendChild(row);}
-    const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;if(worldGroupDeleteBtn)worldGroupDeleteBtn.disabled=!has;
+    const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDuplicateBtn)worldGroupDuplicateBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;if(worldGroupDeleteBtn)worldGroupDeleteBtn.disabled=!has;
     const zones=selected?worldGroupExclusions(selected):[];
     const ex=selected&&zones.length?currentWorldGroupExclusion(selected):null;
     if(worldGroupExclusionAddBtn)worldGroupExclusionAddBtn.disabled=!has;
@@ -15589,6 +15615,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(worldGroupEditBtn,()=>{worldGroupTemplatePlaceMode=false;setWorldGroupEditMode(!worldGroupEditMode);});
   bindEditorPress(worldGroupMoveBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;worldGroupMoveMode=!worldGroupMoveMode;renderWorldGroupTools({force:true});hintEl.textContent=worldGroupMoveMode?`MOVE ${group.label.toUpperCase()} · tap its new scene position`:'Group move cancelled';hintEl.classList.remove('hidden');});
   bindEditorPress(worldGroupRenameBtn,renameSelectedWorldGroup);
+  bindEditorPress(worldGroupDuplicateBtn,duplicateSelectedWorldGroup);
   bindEditorPress(worldGroupDissolveBtn,dissolveSelectedWorldGroup);
   bindEditorPress(worldGroupDeleteBtn,deleteSelectedWorldGroup);
   bindEditorPress(worldGroupExclusionAddBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;addWorldGroupExclusion(group);setWorldGroupExclusionEditMode(true);hintEl.textContent=`${group.label} · added exclusion ${worldGroupExclusionIndex+1}/${worldGroupExclusions(group).length} · drag handles to position it`;hintEl.classList.remove('hidden');});
