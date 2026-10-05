@@ -13571,3 +13571,157 @@ body[data-game-id="game-16"] .sidescroll-thought-editor.sidescroll-workspace-rep
     max-height:calc(100vh - 62px)!important;
   }
 }
+
+/* SideScroll v1.0.117 — unified editor drawer + World Group Edit context. */
+body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer{
+  position:absolute!important;
+  z-index:1004!important;
+  top:max(50px,calc(env(safe-area-inset-top) + 46px))!important;
+  bottom:max(8px,env(safe-area-inset-bottom))!important;
+  left:max(8px,env(safe-area-inset-left))!important;
+  width:clamp(310px,38vw,430px)!important;
+  max-height:none!important;
+  height:auto!important;
+  padding:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  border-radius:14px!important;
+  box-sizing:border-box!important;
+  transition:width .16s ease,background .16s ease,border-color .16s ease;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-header{
+  flex:0 0 auto;min-height:52px;display:grid;grid-template-columns:auto minmax(0,1fr) 38px;align-items:center;gap:7px;
+  padding:7px 7px 7px 9px;border-bottom:1px solid rgba(236,243,241,.12);background:rgba(10,18,21,.84);
+  touch-action:pan-y;-webkit-user-select:none;user-select:none;
+}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-back,
+body[data-game-id="game-16"] .sidescroll-editor-drawer-collapse{
+  min-height:36px;border:1px solid rgba(236,243,241,.14);border-radius:9px;background:rgba(255,255,255,.055);color:#edf4f2;
+  font-size:10px;font-weight:900;padding:0 9px;
+}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-collapse{width:36px;padding:0;font-size:22px;line-height:1;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-title{display:flex;min-width:0;flex-direction:column;gap:1px;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-title>small{font-size:7px;font-weight:950;letter-spacing:.14em;color:#8fcfc5;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-title>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;line-height:1.15;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-title>span{font-size:7px;font-weight:850;color:#e7b976;letter-spacing:.035em;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-body{
+  min-height:0;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:9px 10px 11px;box-sizing:border-box;scrollbar-gutter:stable;
+}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-footer{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:7px 8px max(7px,env(safe-area-inset-bottom));
+  border-top:1px solid rgba(236,243,241,.12);background:rgba(8,16,19,.94);
+}
+body[data-game-id="game-16"] .sidescroll-editor-history-actions,
+body[data-game-id="game-16"] .sidescroll-editor-session-actions{display:flex;align-items:center;gap:5px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-footer button{
+  min-height:34px;padding:0 9px;border:1px solid rgba(236,243,241,.16);border-radius:9px;background:rgba(255,255,255,.055);color:#edf4f2;
+  font-size:8px;font-weight:900;letter-spacing:.035em;white-space:nowrap;
+}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-footer button.primary{background:#dbe7e2;color:#385a55;border-color:#aec7c0;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-footer button.danger{background:rgba(157,76,68,.19);color:#f2cfca;border-color:rgba(214,119,107,.25);}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-footer button:disabled{opacity:.30;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-rail{
+  position:absolute;inset:0!important;width:44px!important;height:100%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:0!important;border:0!important;border-radius:13px!important;background:rgba(8,16,19,.91)!important;color:#edf4f2!important;touch-action:none!important;
+}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-rail[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-rail span{font-size:7px;font-weight:950;letter-spacing:.16em;writing-mode:vertical-rl;transform:rotate(180deg);}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-rail b{font-size:24px;font-weight:500;line-height:1;}
+body[data-game-id="game-16"] .sidescroll-editor-drawer-rail i{width:7px;height:7px;border-radius:50%;background:#e7b976;box-shadow:0 0 0 3px rgba(231,185,118,.13);}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer.sidescroll-drawer-collapsed{
+  width:44px!important;background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer.sidescroll-drawer-collapsed>.sidescroll-editor-drawer-header,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer.sidescroll-drawer-collapsed>.sidescroll-editor-drawer-body,
+body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer.sidescroll-drawer-collapsed>.sidescroll-editor-drawer-footer{display:none!important;}
+
+/* The old placement layout used direct-child hiding. The drawer shell stays structurally stable in every editor mode. */
+body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed)>.sidescroll-editor-drawer-header{display:grid!important;}
+body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed)>.sidescroll-editor-drawer-body{display:block!important;}
+body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed)>.sidescroll-editor-drawer-footer{display:flex!important;}
+
+body[data-game-id="game-16"] .sidescroll-world-group-editor{display:grid;gap:9px;}
+body[data-game-id="game-16"] .sidescroll-world-group-editor[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-world-group-edit-summary{display:flex;align-items:center;gap:8px;padding:2px 1px 1px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-world-group-edit-summary>div{display:flex;flex-direction:column;gap:1px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-world-group-edit-summary strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+body[data-game-id="game-16"] .sidescroll-world-group-edit-summary small{font-size:8px;color:rgba(238,244,243,.58);}
+body[data-game-id="game-16"] .sidescroll-world-group-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;position:sticky;top:-9px;z-index:2;padding:4px 0;background:rgba(7,14,18,.96);}
+body[data-game-id="game-16"] .sidescroll-world-group-tabs button{min-height:34px;border:1px solid rgba(236,243,241,.14);border-radius:9px;background:rgba(255,255,255,.045);color:#cfdad8;font-size:8px;font-weight:900;}
+body[data-game-id="game-16"] .sidescroll-world-group-tabs button.active{background:#dbe7e2;color:#385a55;border-color:#aec7c0;}
+body[data-game-id="game-16"] .sidescroll-world-group-tab-panel{display:grid;gap:7px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-world-group-tab-panel[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-world-group-child-list,
+body[data-game-id="game-16"] .sidescroll-world-group-exclusion-list{display:grid;gap:5px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-world-group-list-row{
+  width:100%;min-height:45px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 9px;
+  border:1px solid rgba(236,243,241,.13);border-radius:10px;background:rgba(255,255,255,.045);color:#edf4f2;text-align:left;touch-action:pan-y!important;
+}
+body[data-game-id="game-16"] .sidescroll-world-group-list-row.active{background:#dcebe7;color:#34534f;border-color:#dcebe7;}
+body[data-game-id="game-16"] .sidescroll-world-group-list-row>span{display:flex;min-width:0;flex-direction:column;gap:2px;}
+body[data-game-id="game-16"] .sidescroll-world-group-list-row strong{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+body[data-game-id="game-16"] .sidescroll-world-group-list-row small{font-size:7px;opacity:.68;}
+body[data-game-id="game-16"] .sidescroll-world-group-list-row>b{font-size:8px;font-weight:900;opacity:.72;}
+body[data-game-id="game-16"] .sidescroll-world-group-child-inspector,
+body[data-game-id="game-16"] .sidescroll-world-group-exclusion-inspector{margin-top:2px;padding:8px;border:1px solid rgba(143,207,197,.17);border-radius:10px;background:rgba(82,130,122,.08);}
+body[data-game-id="game-16"] .sidescroll-world-group-child-inspector[hidden],
+body[data-game-id="game-16"] .sidescroll-world-group-exclusion-inspector[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-world-group-child-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:7px;}
+body[data-game-id="game-16"] .sidescroll-world-group-child-actions button,
+body[data-game-id="game-16"] #sidescroll-world-group-position{min-height:34px;border:1px solid rgba(236,243,241,.15);border-radius:9px;background:rgba(255,255,255,.055);color:#edf4f2;font-size:8px;font-weight:900;}
+body[data-game-id="game-16"] .sidescroll-world-group-child-actions button.active{background:#dbe7e2;color:#385a55;}
+body[data-game-id="game-16"] .sidescroll-world-group-child-actions button.danger{color:#f2cfca;border-color:rgba(214,119,107,.25);background:rgba(157,76,68,.15);}
+body[data-game-id="game-16"] .sidescroll-world-group-name-field{display:grid;gap:4px;font-size:8px;font-weight:900;color:#b9c8c5;}
+body[data-game-id="game-16"] .sidescroll-world-group-name-field input{width:100%;min-height:36px;padding:0 9px;border:1px solid rgba(236,243,241,.16);border-radius:9px;background:rgba(255,255,255,.055);color:#edf4f2;font-size:11px;font-weight:800;box-sizing:border-box;}
+body[data-game-id="game-16"] .sidescroll-world-group-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;}
+body[data-game-id="game-16"] .sidescroll-world-group-info-grid>div{display:flex;flex-direction:column;gap:2px;padding:7px 8px;border-radius:9px;background:rgba(255,255,255,.045);}
+body[data-game-id="game-16"] .sidescroll-world-group-info-grid>.wide{grid-column:1/-1;}
+body[data-game-id="game-16"] .sidescroll-world-group-info-grid small{font-size:7px;color:rgba(238,244,243,.55);font-weight:850;}
+body[data-game-id="game-16"] .sidescroll-world-group-info-grid strong{font-size:10px;font-variant-numeric:tabular-nums;}
+
+/* A focused Thought/Camera node is still a child of the active Group context; keep the drawer rather than replacing it. */
+body[data-game-id="game-16"].sidescroll-world-group-editing.sidescroll-focused-object-editor .sidescroll-puzzle-panel.sidescroll-editor-drawer{display:flex!important;}
+body[data-game-id="game-16"].sidescroll-world-group-editing .sidescroll-thought-editor.sidescroll-workspace-replacement{
+  left:auto!important;right:max(8px,env(safe-area-inset-right))!important;width:min(340px,42vw)!important;
+}
+
+@media(max-height:420px){
+  body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer{top:max(42px,calc(env(safe-area-inset-top) + 40px))!important;width:clamp(285px,42vw,390px)!important;}
+  body[data-game-id="game-16"] .sidescroll-editor-drawer-header{min-height:44px;padding-top:4px;padding-bottom:4px;}
+  body[data-game-id="game-16"] .sidescroll-editor-drawer-body{padding:6px 8px 8px;}
+  body[data-game-id="game-16"] .sidescroll-editor-drawer-footer{padding-top:5px;padding-bottom:max(5px,env(safe-area-inset-bottom));}
+  body[data-game-id="game-16"] .sidescroll-editor-drawer-footer button{min-height:30px;padding:0 7px;font-size:7px;}
+  body[data-game-id="game-16"] .sidescroll-world-group-list-row{min-height:38px;}
+}
+body[data-game-id="game-16"].sidescroll-world-group-editing #sidescroll-environment-selection,
+body[data-game-id="game-16"].sidescroll-world-group-editing #sidescroll-puzzle-library-view,
+body[data-game-id="game-16"].sidescroll-world-group-editing #sidescroll-puzzle-scene-view,
+body[data-game-id="game-16"].sidescroll-world-group-editing #sidescroll-puzzle-selection,
+body[data-game-id="game-16"].sidescroll-world-group-editing #sidescroll-puzzle-stage-section,
+body[data-game-id="game-16"].sidescroll-world-group-editing #sidescroll-puzzle-source-switch,
+body[data-game-id="game-16"].sidescroll-world-group-editing #sidescroll-editor-scope-switch{display:none!important;}
+
+/* Keep specialist sub-workflows inside the new shell without losing their existing intent. */
+body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-editor-drawer-body > :not(.sidescroll-placement-strip){display:none!important;}
+body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-editor-drawer-body > .sidescroll-placement-strip{display:flex!important;}
+
+/* Puzzle Test is runtime, not an authoring context: preserve its compact HUD rather than forcing the full drawer. */
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer{
+  position:fixed!important;top:max(82px,calc(env(safe-area-inset-top) + 74px))!important;bottom:auto!important;left:50%!important;
+  width:min(620px,calc(100vw - 340px))!important;min-width:360px!important;height:auto!important;transform:translateX(-50%)!important;
+  display:block!important;padding:9px 12px!important;overflow:visible!important;border-color:rgba(232,240,238,.19)!important;background:rgba(7,14,18,.82)!important;
+}
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer > .sidescroll-editor-drawer-header,
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer > .sidescroll-editor-drawer-footer,
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer > .sidescroll-editor-drawer-rail{display:none!important;}
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer > .sidescroll-editor-drawer-body{display:block!important;overflow:visible!important;padding:0!important;}
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-editor-drawer-body > :not(.sidescroll-puzzle-selection){display:none!important;}
+body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-editor-drawer-body > .sidescroll-puzzle-selection{
+  display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:12px!important;margin:0!important;padding:0!important;border:0!important;
+}
+@media(max-width:720px){
+  body[data-game-id="game-16"].sidescroll-assets-open .sidescroll-puzzle-panel.sidescroll-editor-drawer{display:none!important;}
+}

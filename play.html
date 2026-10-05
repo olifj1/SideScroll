@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.98">
+  <link rel="stylesheet" href="style.css?v=1.0.117">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -232,11 +232,17 @@
             </section>
           </aside>
 
-          <aside class="sidescroll-puzzle-panel" id="sidescroll-puzzle-panel" hidden aria-live="polite">
-            <div class="sidescroll-editor-panel-topbar">
-              <strong>EDIT</strong>
-              <button id="sidescroll-editor-done" type="button">Done</button>
+          <aside class="sidescroll-puzzle-panel sidescroll-editor-drawer" id="sidescroll-puzzle-panel" hidden aria-live="polite">
+            <div class="sidescroll-editor-drawer-header" id="sidescroll-editor-drawer-header">
+              <button class="sidescroll-editor-drawer-back" id="sidescroll-editor-drawer-back" type="button" hidden>‹ Back</button>
+              <div class="sidescroll-editor-drawer-title">
+                <small id="sidescroll-editor-drawer-context">EDIT</small>
+                <strong id="sidescroll-editor-drawer-title">Environment</strong>
+                <span id="sidescroll-editor-drawer-dirty" hidden>Unsaved changes</span>
+              </div>
+              <button class="sidescroll-editor-drawer-collapse" id="sidescroll-editor-drawer-collapse" type="button" aria-label="Collapse editor drawer">‹</button>
             </div>
+            <div class="sidescroll-editor-drawer-body" id="sidescroll-editor-drawer-body">
             <div class="sidescroll-placement-strip" id="sidescroll-placement-strip" hidden>
               <div class="sidescroll-placement-status">
                 <span class="sidescroll-placement-mode" id="sidescroll-placement-mode-label">PLACE</span>
@@ -366,20 +372,12 @@
                 <strong>World Groups</strong>
                 <small id="sidescroll-world-group-count">0 groups</small>
               </div>
-              <div class="sidescroll-puzzle-manage" id="sidescroll-world-group-actions">
+              <div class="sidescroll-puzzle-manage sidescroll-world-group-instance-actions" id="sidescroll-world-group-actions">
                 <button id="sidescroll-world-group-new" type="button">New Group</button>
-                <button id="sidescroll-world-group-edit" type="button">Edit Group</button>
+                <button id="sidescroll-world-group-edit" class="primary" type="button">Edit Group</button>
                 <button id="sidescroll-world-group-move" type="button">Move Group</button>
                 <button id="sidescroll-world-group-rename" type="button">Rename</button>
                 <button id="sidescroll-world-group-duplicate" type="button">Duplicate Group</button>
-                <button id="sidescroll-world-group-membership" type="button">Add Selected</button>
-                <button id="sidescroll-world-group-exclusion-add" type="button">＋ Add Exclusion</button>
-                <button id="sidescroll-world-group-exclusion-prev" type="button">← Zone</button>
-                <button id="sidescroll-world-group-exclusion-next" type="button">Zone →</button>
-                <button id="sidescroll-world-group-exclusion-toggle" type="button">Enable Exclusion</button>
-                <button id="sidescroll-world-group-exclusion-edit" type="button">Edit Exclusion</button>
-                <button id="sidescroll-world-group-exclusion-fit" type="button">Fit Exclusion</button>
-                <button id="sidescroll-world-group-exclusion-delete" class="danger" type="button">Delete Exclusion</button>
                 <button id="sidescroll-world-group-dissolve" class="danger" type="button">Dissolve</button>
                 <button id="sidescroll-world-group-delete" class="danger" type="button">Delete Group</button>
               </div>
@@ -421,6 +419,69 @@
               <p class="sidescroll-puzzle-help">Tap an object or select it from the list. Repeated taps on the same stack cycle through every matching object from front to back. Drag inside the selected asset to move it.</p>
             </section>
 
+            <section class="sidescroll-world-group-editor" id="sidescroll-world-group-editor" hidden>
+              <div class="sidescroll-world-group-edit-summary">
+                <span class="sidescroll-puzzle-mode">GROUP</span>
+                <div><strong id="sidescroll-world-group-editor-name">World Group</strong><small id="sidescroll-world-group-editor-summary">0 contents · 0 exclusions</small></div>
+              </div>
+              <div class="sidescroll-world-group-tabs" role="tablist" aria-label="World Group editor sections">
+                <button id="sidescroll-world-group-tab-contents" class="active" type="button" role="tab">Contents</button>
+                <button id="sidescroll-world-group-tab-exclusions" type="button" role="tab">Exclusions</button>
+                <button id="sidescroll-world-group-tab-group" type="button" role="tab">Group</button>
+              </div>
+
+              <div class="sidescroll-world-group-tab-panel" id="sidescroll-world-group-contents-panel">
+                <button class="sidescroll-open-assets" id="sidescroll-world-group-add-asset" type="button">＋ Add Group Asset</button>
+                <div class="sidescroll-panel-section-head compact"><strong>Contents</strong><small id="sidescroll-world-group-editor-content-count">0 items</small></div>
+                <div class="sidescroll-world-group-child-list" id="sidescroll-world-group-child-list" role="listbox" aria-label="World Group contents"></div>
+                <p class="sidescroll-scene-empty" id="sidescroll-world-group-child-empty">This group has no contents yet.</p>
+                <div class="sidescroll-world-group-child-inspector" id="sidescroll-world-group-child-inspector" hidden>
+                  <div class="sidescroll-panel-section-head compact"><strong id="sidescroll-world-group-child-name">Selected item</strong><small id="sidescroll-world-group-child-type">Asset</small></div>
+                  <p id="sidescroll-world-group-child-placement">Ground placement</p>
+                  <div class="sidescroll-world-group-child-actions">
+                    <button id="sidescroll-world-group-child-position" type="button">Position</button>
+                    <button id="sidescroll-world-group-child-placement-toggle" type="button">Make Free</button>
+                    <button id="sidescroll-world-group-child-collision" type="button">Collision</button>
+                    <button id="sidescroll-world-group-child-duplicate" type="button">Duplicate</button>
+                    <button id="sidescroll-world-group-child-node-edit" type="button" hidden>Edit Node</button>
+                    <button id="sidescroll-world-group-child-detach" type="button">Detach</button>
+                    <button id="sidescroll-world-group-child-delete" class="danger" type="button">Delete</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sidescroll-world-group-tab-panel" id="sidescroll-world-group-exclusions-panel" hidden>
+                <button class="sidescroll-open-assets" id="sidescroll-world-group-exclusion-add" type="button">＋ Add Exclusion</button>
+                <div class="sidescroll-panel-section-head compact"><strong>Exclusions</strong><small id="sidescroll-world-group-exclusion-count">0 zones</small></div>
+                <div class="sidescroll-world-group-exclusion-list" id="sidescroll-world-group-exclusion-list" role="listbox" aria-label="World Group exclusions"></div>
+                <p class="sidescroll-scene-empty" id="sidescroll-world-group-exclusion-empty">No procedural exclusion zones.</p>
+                <div class="sidescroll-world-group-exclusion-inspector" id="sidescroll-world-group-exclusion-inspector" hidden>
+                  <div class="sidescroll-panel-section-head compact"><strong id="sidescroll-world-group-exclusion-name">Exclusion</strong><small id="sidescroll-world-group-exclusion-size">0 × 0 m</small></div>
+                  <div class="sidescroll-world-group-child-actions">
+                    <button id="sidescroll-world-group-exclusion-toggle" type="button">Enabled</button>
+                    <button id="sidescroll-world-group-exclusion-edit" type="button">Edit Shape</button>
+                    <button id="sidescroll-world-group-exclusion-fit" type="button">Fit to Group</button>
+                    <button id="sidescroll-world-group-exclusion-duplicate" type="button">Duplicate</button>
+                    <button id="sidescroll-world-group-exclusion-delete" class="danger" type="button">Delete</button>
+                  </div>
+                  <p class="sidescroll-puzzle-help">Edit Shape keeps you inside Group Edit. Drag the centre or edge handles in the scene, then switch zones from this list.</p>
+                </div>
+              </div>
+
+              <div class="sidescroll-world-group-tab-panel" id="sidescroll-world-group-group-panel" hidden>
+                <label class="sidescroll-world-group-name-field"><span>Name</span><input id="sidescroll-world-group-name-input" type="text" maxlength="60" autocomplete="off"></label>
+                <div class="sidescroll-world-group-info-grid">
+                  <div><small>Origin X</small><strong id="sidescroll-world-group-info-x">0.00</strong></div>
+                  <div><small>Origin Z</small><strong id="sidescroll-world-group-info-z">0.00</strong></div>
+                  <div><small>Contents</small><strong id="sidescroll-world-group-info-members">0</strong></div>
+                  <div><small>Exclusions</small><strong id="sidescroll-world-group-info-exclusions">0</strong></div>
+                  <div class="wide"><small>Bounds</small><strong id="sidescroll-world-group-info-bounds">0 × 0 m</strong></div>
+                </div>
+                <button id="sidescroll-world-group-position" type="button">Position Group</button>
+                <p class="sidescroll-puzzle-help">Group movement changes the authored spatial instance while every member keeps its own Ground / Free behaviour.</p>
+              </div>
+            </section>
+
             <section class="sidescroll-puzzle-stage-section" id="sidescroll-puzzle-stage-section" hidden>
               <div class="sidescroll-panel-section-head compact">
                 <strong>Stage</strong>
@@ -431,6 +492,21 @@
                 <button id="sidescroll-puzzle-restore-stage" type="button" hidden>Restore Game</button>
               </div>
             </section>
+            </div>
+            <div class="sidescroll-editor-drawer-footer" id="sidescroll-editor-drawer-footer">
+              <div class="sidescroll-editor-history-actions">
+                <button id="sidescroll-editor-undo" type="button" disabled>Undo</button>
+                <button id="sidescroll-editor-redo" type="button" disabled>Redo</button>
+              </div>
+              <div class="sidescroll-editor-session-actions">
+                <button id="sidescroll-editor-discard" class="danger" type="button" hidden>Discard</button>
+                <button id="sidescroll-editor-save" class="primary" type="button" hidden>Save</button>
+                <button id="sidescroll-editor-done" type="button">Done Editing</button>
+              </div>
+            </div>
+            <button class="sidescroll-editor-drawer-rail" id="sidescroll-editor-drawer-rail" type="button" aria-label="Expand editor drawer" hidden>
+              <span>EDIT</span><b>›</b><i id="sidescroll-editor-drawer-rail-dirty" hidden></i>
+            </button>
           </aside>
 
         <div class="sidescroll-secondary-controls sidescroll-left-actions" id="sidescroll-secondary-controls" aria-label="Jump and action controls">
@@ -541,6 +617,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.116"></script>
+  <script src="sidescroll.js?v=1.0.117"></script>
 </body>
 </html>

@@ -428,6 +428,18 @@
   const actionLabel = document.getElementById('sidescroll-action-label');
   const editBtn = document.getElementById('sidescroll-edit');
   const editorDoneBtn = document.getElementById('sidescroll-editor-done');
+  const editorDrawerBackBtn = document.getElementById('sidescroll-editor-drawer-back');
+  const editorDrawerHeader = document.getElementById('sidescroll-editor-drawer-header');
+  const editorDrawerContextEl = document.getElementById('sidescroll-editor-drawer-context');
+  const editorDrawerTitleEl = document.getElementById('sidescroll-editor-drawer-title');
+  const editorDrawerDirtyEl = document.getElementById('sidescroll-editor-drawer-dirty');
+  const editorDrawerCollapseBtn = document.getElementById('sidescroll-editor-drawer-collapse');
+  const editorDrawerRailBtn = document.getElementById('sidescroll-editor-drawer-rail');
+  const editorDrawerRailDirtyEl = document.getElementById('sidescroll-editor-drawer-rail-dirty');
+  const editorUndoBtn = document.getElementById('sidescroll-editor-undo');
+  const editorRedoBtn = document.getElementById('sidescroll-editor-redo');
+  const editorDiscardBtn = document.getElementById('sidescroll-editor-discard');
+  const editorSaveBtn = document.getElementById('sidescroll-editor-save');
   const deleteSaveBtn = document.getElementById('sidescroll-delete-save');
   const playControls = document.getElementById('sidescroll-play-controls');
   const editorControls = document.getElementById('sidescroll-editor-controls');
@@ -502,13 +514,10 @@
   const worldGroupEditBtn = document.getElementById('sidescroll-world-group-edit');
   const worldGroupMoveBtn = document.getElementById('sidescroll-world-group-move');
   const worldGroupRenameBtn = document.getElementById('sidescroll-world-group-rename');
-  const worldGroupMembershipBtn = document.getElementById('sidescroll-world-group-membership');
   const worldGroupDissolveBtn = document.getElementById('sidescroll-world-group-dissolve');
   const worldGroupDuplicateBtn = document.getElementById('sidescroll-world-group-duplicate');
   const worldGroupDeleteBtn = document.getElementById('sidescroll-world-group-delete');
   const worldGroupExclusionAddBtn = document.getElementById('sidescroll-world-group-exclusion-add');
-  const worldGroupExclusionPrevBtn = document.getElementById('sidescroll-world-group-exclusion-prev');
-  const worldGroupExclusionNextBtn = document.getElementById('sidescroll-world-group-exclusion-next');
   const worldGroupExclusionToggleBtn = document.getElementById('sidescroll-world-group-exclusion-toggle');
   const worldGroupExclusionEditBtn = document.getElementById('sidescroll-world-group-exclusion-edit');
   const worldGroupExclusionFitBtn = document.getElementById('sidescroll-world-group-exclusion-fit');
@@ -516,6 +525,44 @@
   const worldGroupStatusEl = document.getElementById('sidescroll-world-group-status');
   const worldGroupListEl = document.getElementById('sidescroll-world-group-list');
   const worldGroupEmptyEl = document.getElementById('sidescroll-world-group-empty');
+  const worldGroupEditorEl = document.getElementById('sidescroll-world-group-editor');
+  const worldGroupEditorNameEl = document.getElementById('sidescroll-world-group-editor-name');
+  const worldGroupEditorSummaryEl = document.getElementById('sidescroll-world-group-editor-summary');
+  const worldGroupTabContentsBtn = document.getElementById('sidescroll-world-group-tab-contents');
+  const worldGroupTabExclusionsBtn = document.getElementById('sidescroll-world-group-tab-exclusions');
+  const worldGroupTabGroupBtn = document.getElementById('sidescroll-world-group-tab-group');
+  const worldGroupContentsPanel = document.getElementById('sidescroll-world-group-contents-panel');
+  const worldGroupExclusionsPanel = document.getElementById('sidescroll-world-group-exclusions-panel');
+  const worldGroupGroupPanel = document.getElementById('sidescroll-world-group-group-panel');
+  const worldGroupAddAssetBtn = document.getElementById('sidescroll-world-group-add-asset');
+  const worldGroupChildListEl = document.getElementById('sidescroll-world-group-child-list');
+  const worldGroupChildEmptyEl = document.getElementById('sidescroll-world-group-child-empty');
+  const worldGroupEditorContentCountEl = document.getElementById('sidescroll-world-group-editor-content-count');
+  const worldGroupChildInspectorEl = document.getElementById('sidescroll-world-group-child-inspector');
+  const worldGroupChildNameEl = document.getElementById('sidescroll-world-group-child-name');
+  const worldGroupChildTypeEl = document.getElementById('sidescroll-world-group-child-type');
+  const worldGroupChildPlacementEl = document.getElementById('sidescroll-world-group-child-placement');
+  const worldGroupChildPositionBtn = document.getElementById('sidescroll-world-group-child-position');
+  const worldGroupChildPlacementToggleBtn = document.getElementById('sidescroll-world-group-child-placement-toggle');
+  const worldGroupChildCollisionBtn = document.getElementById('sidescroll-world-group-child-collision');
+  const worldGroupChildDuplicateBtn = document.getElementById('sidescroll-world-group-child-duplicate');
+  const worldGroupChildNodeEditBtn = document.getElementById('sidescroll-world-group-child-node-edit');
+  const worldGroupChildDetachBtn = document.getElementById('sidescroll-world-group-child-detach');
+  const worldGroupChildDeleteBtn = document.getElementById('sidescroll-world-group-child-delete');
+  const worldGroupExclusionCountEl = document.getElementById('sidescroll-world-group-exclusion-count');
+  const worldGroupExclusionListEl = document.getElementById('sidescroll-world-group-exclusion-list');
+  const worldGroupExclusionEmptyEl = document.getElementById('sidescroll-world-group-exclusion-empty');
+  const worldGroupExclusionInspectorEl = document.getElementById('sidescroll-world-group-exclusion-inspector');
+  const worldGroupExclusionNameEl = document.getElementById('sidescroll-world-group-exclusion-name');
+  const worldGroupExclusionSizeEl = document.getElementById('sidescroll-world-group-exclusion-size');
+  const worldGroupExclusionDuplicateBtn = document.getElementById('sidescroll-world-group-exclusion-duplicate');
+  const worldGroupNameInput = document.getElementById('sidescroll-world-group-name-input');
+  const worldGroupInfoXEl = document.getElementById('sidescroll-world-group-info-x');
+  const worldGroupInfoZEl = document.getElementById('sidescroll-world-group-info-z');
+  const worldGroupInfoMembersEl = document.getElementById('sidescroll-world-group-info-members');
+  const worldGroupInfoExclusionsEl = document.getElementById('sidescroll-world-group-info-exclusions');
+  const worldGroupInfoBoundsEl = document.getElementById('sidescroll-world-group-info-bounds');
+  const worldGroupPositionBtn = document.getElementById('sidescroll-world-group-position');
   const worldTemplateCountEl = document.getElementById('sidescroll-world-template-count');
   const worldTemplateSaveBtn = document.getElementById('sidescroll-world-template-save');
   const worldTemplatePlaceBtn = document.getElementById('sidescroll-world-template-place');
@@ -4098,8 +4145,29 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return { version: 7, overrides: {}, added: [], worldGroups: [], worldGroupTemplates: [] };
   })();
 
-  function saveSceneData() {
+  let scenePersistenceHold = 0;
+  let scenePersistenceDirty = false;
+
+  function holdScenePersistence() {
+    scenePersistenceHold += 1;
+  }
+
+  function releaseScenePersistence({ flush = false } = {}) {
+    scenePersistenceHold = Math.max(0, scenePersistenceHold - 1);
+    if (scenePersistenceHold === 0) {
+      if (flush) saveSceneData({ force:true });
+      else scenePersistenceDirty = false;
+    }
+  }
+
+  function saveSceneData({ force = false } = {}) {
+    if (scenePersistenceHold > 0 && !force) {
+      scenePersistenceDirty = true;
+      if (worldGroupEditSession && !editorTransaction) recordImplicitEditorMutation('Edit group');
+      return;
+    }
     try { localStorage.setItem(SCENE_STORAGE_KEY, JSON.stringify(sceneData)); } catch (_) {}
+    scenePersistenceDirty = false;
   }
 
   function classifyLayer(z) {
@@ -6845,6 +6913,47 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
   }
 
+  function restoreAuthoredWorldObject(saved) {
+    if (!saved || (HIDE_LEGACY_GROUND_DRESSING && /^ground(?:0[1-9]|1[0-2])$/.test(saved.assetName || ''))) return null;
+    userSceneCounter += 1;
+    const collection = saved.category === 'gameplay' || saved.assetName === 'crate' ? frontOccluders : targetCollectionForZ(saved.z);
+    const restoredWidth = /^ground(?:0[1-9]|1[0-2])$/.test(saved.assetName || '')
+      ? saved.sy * (assetAspect[saved.assetName] || 1)
+      : saved.sx;
+    if (restoredWidth !== saved.sx) saved.sx = restoredWidth;
+    const restoredCategory = saved.category || (saved.assetName === 'crate' ? 'gameplay' : 'dressing');
+    const restoredLocked = typeof saved.gameplayLayerLocked === 'boolean' ? saved.gameplayLayerLocked : (saved.category === 'gameplay' || saved.assetName === 'crate');
+    const restoredZ = restoredCategory === 'gameplay' && restoredLocked ? pathZ : saved.z;
+    const currentBaseY = terrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked, saved.assetName);
+    const legacyBaseY = legacyTerrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
+    const restoredGroundLine = Rig.clamp(Number.isFinite(saved.groundLine) ? Number(saved.groundLine) : assetGroundLineDefault(saved.assetName,saved.assetState || inferredAssetState(saved.assetName)), 0, 1);
+    const restoredFreePlacement = typeof saved.freePlacement === 'boolean' ? saved.freePlacement : defaultFreePlacement(saved.assetName);
+    const terrainOffset = Number.isFinite(saved.floorOffset)
+      ? Number(saved.floorOffset) - restoredGroundLine * saved.sy
+      : (Number.isFinite(saved.terrainOffset)
+          ? Number(saved.terrainOffset)
+          : (Number.isFinite(saved.y) ? Number(saved.y) - legacyBaseY : 0));
+    const restoredY = restoredFreePlacement && Number.isFinite(saved.worldFloorY)
+      ? Number(saved.worldFloorY) - restoredGroundLine * saved.sy
+      : currentBaseY + terrainOffset;
+    const obj = addObject(collection, saved.assetName, saved.x, restoredZ, restoredWidth, saved.sy, {
+      id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip, assetState:saved.assetState || inferredAssetState(saved.assetName),
+      y: restoredY, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
+      userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(restoredZ),
+      category: restoredCategory, gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
+      gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:false,
+      worldGroupId:saved.worldGroupId || null,
+      thoughtText:saved.thoughtText || '', thoughtRadius:saved.thoughtRadius, thoughtOnce:saved.thoughtOnce !== false,
+      cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
+      cameraNodeOffsetY:saved.cameraNodeOffsetY, cameraNodeOffsetZ:saved.cameraNodeOffsetZ,
+      cameraNodeCurveStart:saved.cameraNodeCurveStart, cameraNodeCurveEnd:saved.cameraNodeCurveEnd
+    });
+    obj.sx = restoredWidth; obj.sy = saved.sy;
+    if ('worldGroupId' in saved) obj.worldGroupId = saved.worldGroupId || null;
+    if (obj.category === 'gameplay' && obj.gameplayLayerLocked) moveObjectToCorrectCollection(obj);
+    return obj;
+  }
+
   function restoreSceneEdits() {
     // Puzzle props are now owned by puzzle instances. Older releases could save
     // them as free-standing scene objects; those stale entries are the source of
@@ -6887,44 +6996,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
     }
     for (const saved of sceneData.added || []) {
-      if (HIDE_LEGACY_GROUND_DRESSING && /^ground(?:0[1-9]|1[0-2])$/.test(saved.assetName || '')) continue;
-      userSceneCounter += 1;
-      const collection = saved.category === 'gameplay' || saved.assetName === 'crate' ? frontOccluders : targetCollectionForZ(saved.z);
-      const restoredWidth = /^ground(?:0[1-9]|1[0-2])$/.test(saved.assetName || '')
-        ? saved.sy * (assetAspect[saved.assetName] || 1)
-        : saved.sx;
-      if (restoredWidth !== saved.sx) { saved.sx = restoredWidth; groundAspectChanged = true; }
-      const restoredCategory = saved.category || (saved.assetName === 'crate' ? 'gameplay' : 'dressing');
-      const restoredLocked = typeof saved.gameplayLayerLocked === 'boolean' ? saved.gameplayLayerLocked : (saved.category === 'gameplay' || saved.assetName === 'crate');
-      const restoredZ = restoredCategory === 'gameplay' && restoredLocked ? pathZ : saved.z;
-      const currentBaseY = terrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked, saved.assetName);
-      const legacyBaseY = legacyTerrainAnchorBaseY(saved.x, restoredZ, restoredCategory, restoredLocked);
-      const restoredGroundLine = Rig.clamp(Number.isFinite(saved.groundLine) ? Number(saved.groundLine) : assetGroundLineDefault(saved.assetName,saved.assetState || inferredAssetState(saved.assetName)), 0, 1);
-      const restoredFreePlacement = typeof saved.freePlacement === 'boolean' ? saved.freePlacement : defaultFreePlacement(saved.assetName);
-      const terrainOffset = Number.isFinite(saved.floorOffset)
-        ? Number(saved.floorOffset) - restoredGroundLine * saved.sy
-        : (Number.isFinite(saved.terrainOffset)
-            ? Number(saved.terrainOffset)
-            : (Number.isFinite(saved.y) ? Number(saved.y) - legacyBaseY : 0));
-      const restoredY = restoredFreePlacement && Number.isFinite(saved.worldFloorY)
-        ? Number(saved.worldFloorY) - restoredGroundLine * saved.sy
-        : currentBaseY + terrainOffset;
-      const obj = addObject(collection, saved.assetName, saved.x, restoredZ, restoredWidth, saved.sy, {
-        id: saved.id, baseSx: saved.sx, baseSy: saved.sy, flip: saved.flip, assetState:saved.assetState || inferredAssetState(saved.assetName),
-        y: restoredY, groundLine:restoredGroundLine, collision: cloneCollision(saved.collision), collisionOverride:!!saved.collisionOverride, deleted: saved.deleted,
-        userAdded: true, shade: 1.0, opacity: 0.98, layer: classifyLayer(restoredZ),
-        category: restoredCategory, gameplayType: saved.gameplayType || (saved.assetName === 'crate' ? 'crate' : null),
-        gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:false,
-        worldGroupId:saved.worldGroupId || null,
-        thoughtText:saved.thoughtText || '', thoughtRadius:saved.thoughtRadius, thoughtOnce:saved.thoughtOnce !== false,
-        cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
-        cameraNodeOffsetY:saved.cameraNodeOffsetY, cameraNodeOffsetZ:saved.cameraNodeOffsetZ,
-        cameraNodeCurveStart:saved.cameraNodeCurveStart, cameraNodeCurveEnd:saved.cameraNodeCurveEnd
-      });
-      obj.sx = restoredWidth; obj.sy = saved.sy;
-      // Defensive ownership reconciliation. sceneData is authoritative.
-      if ('worldGroupId' in saved) obj.worldGroupId = saved.worldGroupId || null;
-      if (obj.category === 'gameplay' && obj.gameplayLayerLocked) moveObjectToCorrectCollection(obj);
+      const beforeWidth = saved?.sx;
+      restoreAuthoredWorldObject(saved);
+      if (saved && beforeWidth !== saved.sx) groundAspectChanged = true;
     }
     if (groundAspectChanged) saveSceneData();
     backdrop.sort((a,b)=>a.z-b.z);
@@ -7253,12 +7327,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let environmentSelectionFilter = 'all';
   let selectionTapCycle = null;
   let selectedWorldGroupId = null;
-  let worldGroupEditMode = false;
+  let worldGroupEditMode = false; // compatibility mirror for existing selection/direct-manipulation paths
   let worldGroupMoveMode = false;
-  let worldGroupExclusionEditMode = false;
+  let worldGroupExclusionEditMode = false; // Group Edit sub-tool, never a competing top-level mode
   let worldGroupExclusionHandle = null;
   let worldGroupExclusionIndex = 0;
+  let selectedWorldGroupExclusionId = null;
+  let worldGroupEditorTab = 'contents';
+  let worldGroupEditSession = null;
+  let worldGroupNodeInspectorOpen = false;
   let worldGroupListSignature = '';
+
+  const EDITOR_HISTORY_LIMIT = 40;
+  let editorContext = { type:'environment', id:null };
+  let editorDrawerCollapsed = false;
+  let editorTransaction = null;
+  const editorUndoStack = [];
+  const editorRedoStack = [];
   let selectedWorldTemplateId = null;
   let worldGroupTemplatePlaceMode = false;
   let worldGroupTemplateListSignature = '';
@@ -8550,6 +8635,405 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return allSceneObjects().filter(obj => obj && !obj.puzzleInstanceId && obj.userAdded && obj.worldGroupId === id && (includeDeleted || !obj.deleted));
   }
 
+  function authoredSnapshotState(snapshot){
+    return snapshot ? { worldGroups:snapshot.worldGroups, added:snapshot.added, overrides:snapshot.overrides } : null;
+  }
+
+  function authoredSnapshotsEqual(a,b){
+    try{return JSON.stringify(authoredSnapshotState(a))===JSON.stringify(authoredSnapshotState(b));}catch(_){return false;}
+  }
+
+  function captureWorldGroupEditorSnapshot(){
+    return{
+      worldGroups:deepCopy(sceneData.worldGroups||[]),
+      added:deepCopy(sceneData.added||[]),
+      overrides:deepCopy(sceneData.overrides||{}),
+      selectedWorldGroupId:selectedWorldGroupId||null,
+      selectedObjectId:selectedObject?.id||null,
+      selectedWorldGroupExclusionId:selectedWorldGroupExclusionId||null,
+      worldGroupEditorTab
+    };
+  }
+
+  function removeRuntimeAuthoredWorldObjects(){
+    for(const list of [backdrop,midfill,frontOccluders]){
+      for(let i=list.length-1;i>=0;i--){
+        const obj=list[i];
+        if(obj?.userAdded&&!obj.puzzleInstanceId)list.splice(i,1);
+      }
+    }
+  }
+
+  function applyWorldGroupEditorSnapshot(snapshot){
+    if(!snapshot)return false;
+    sceneData.worldGroups=deepCopy(snapshot.worldGroups||[]);
+    sceneData.added=deepCopy(snapshot.added||[]);
+    sceneData.overrides=deepCopy(snapshot.overrides||{});
+    removeRuntimeAuthoredWorldObjects();
+    for(const saved of sceneData.added||[])restoreAuthoredWorldObject(saved);
+    sortSceneCollections();
+    selectedWorldGroupId=worldGroupById(snapshot.selectedWorldGroupId)?.id || worldGroupById(worldGroupEditSession?.groupId)?.id || null;
+    selectedWorldGroupExclusionId=snapshot.selectedWorldGroupExclusionId||null;
+    worldGroupEditorTab=['contents','exclusions','group'].includes(snapshot.worldGroupEditorTab)?snapshot.worldGroupEditorTab:worldGroupEditorTab;
+    selectedObject=snapshot.selectedObjectId?allSceneObjects().find(obj=>obj?.id===snapshot.selectedObjectId&&!obj.deleted)||null:null;
+    const group=worldGroupById(selectedWorldGroupId);
+    if(group){
+      const zones=worldGroupExclusions(group);
+      let idx=zones.findIndex(ex=>ex.id===selectedWorldGroupExclusionId);
+      if(idx<0&&zones.length){idx=0;selectedWorldGroupExclusionId=zones[0].id;}
+      worldGroupExclusionIndex=Math.max(0,idx);
+    }else{
+      worldGroupExclusionIndex=0;selectedWorldGroupExclusionId=null;
+    }
+    worldGroupListSignature='';sceneEnvironmentListSignature='';
+    renderWorldGroupTools({force:true});
+    renderEnvironmentSelectionTools({force:true});
+    renderWorldGroupEditor({force:true});
+    updateEditorButtons();
+    syncTransformEditor();
+    syncGroundLineEditor();
+    syncThoughtEditor();
+    syncCameraNodeEditor();
+    updateEditorDrawerUi();
+    return true;
+  }
+
+  function clearEditorHistory(){
+    editorUndoStack.length=0;editorRedoStack.length=0;editorTransaction=null;
+  }
+
+  function trimEditorHistory(){
+    while(editorUndoStack.length>EDITOR_HISTORY_LIMIT)editorUndoStack.shift();
+  }
+
+  function updateWorldGroupSessionDirty(){
+    if(!worldGroupEditSession)return false;
+    const current=captureWorldGroupEditorSnapshot();
+    worldGroupEditSession.dirty=!authoredSnapshotsEqual(worldGroupEditSession.checkpoint,current);
+    updateEditorDrawerUi();
+    return worldGroupEditSession.dirty;
+  }
+
+  function pushEditorHistory(label,before,after){
+    if(!worldGroupEditSession||authoredSnapshotsEqual(before,after))return false;
+    editorUndoStack.push({label:String(label||'Edit'),before:deepCopy(before),after:deepCopy(after)});
+    trimEditorHistory();
+    editorRedoStack.length=0;
+    worldGroupEditSession.lastSnapshot=deepCopy(after);
+    updateWorldGroupSessionDirty();
+    renderWorldGroupEditor({force:true});
+    return true;
+  }
+
+  function beginEditorTransaction(label='Edit'){
+    if(!worldGroupEditSession||editorTransaction)return false;
+    editorTransaction={label:String(label||'Edit'),before:captureWorldGroupEditorSnapshot()};
+    return true;
+  }
+
+  function commitEditorTransaction(){
+    if(!editorTransaction)return false;
+    const tx=editorTransaction;editorTransaction=null;
+    return pushEditorHistory(tx.label,tx.before,captureWorldGroupEditorSnapshot());
+  }
+
+  function cancelEditorTransaction(){
+    if(!editorTransaction)return false;
+    const tx=editorTransaction;editorTransaction=null;
+    applyWorldGroupEditorSnapshot(tx.before);
+    if(worldGroupEditSession)worldGroupEditSession.lastSnapshot=deepCopy(tx.before);
+    updateWorldGroupSessionDirty();
+    return true;
+  }
+
+  function runEditorTransaction(label,fn){
+    if(!worldGroupEditSession)return fn?.();
+    beginEditorTransaction(label);
+    try{
+      const result=fn?.();
+      commitEditorTransaction();
+      return result;
+    }catch(error){
+      cancelEditorTransaction();
+      throw error;
+    }
+  }
+
+  function recordImplicitEditorMutation(label='Edit'){
+    if(!worldGroupEditSession||editorTransaction)return false;
+    const before=worldGroupEditSession.lastSnapshot||worldGroupEditSession.checkpoint;
+    const after=captureWorldGroupEditorSnapshot();
+    return pushEditorHistory(label,before,after);
+  }
+
+  function undoEditorTransaction(){
+    if(!worldGroupEditSession||!editorUndoStack.length)return false;
+    const entry=editorUndoStack.pop();
+    editorRedoStack.push(entry);
+    applyWorldGroupEditorSnapshot(entry.before);
+    worldGroupEditSession.lastSnapshot=deepCopy(entry.before);
+    updateWorldGroupSessionDirty();
+    hintEl.textContent=`Undo · ${entry.label}`;hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function redoEditorTransaction(){
+    if(!worldGroupEditSession||!editorRedoStack.length)return false;
+    const entry=editorRedoStack.pop();
+    editorUndoStack.push(entry);trimEditorHistory();
+    applyWorldGroupEditorSnapshot(entry.after);
+    worldGroupEditSession.lastSnapshot=deepCopy(entry.after);
+    updateWorldGroupSessionDirty();
+    hintEl.textContent=`Redo · ${entry.label}`;hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function setEditorDrawerCollapsed(collapsed){
+    editorDrawerCollapsed=!!collapsed;
+    puzzlePanel?.classList.toggle('sidescroll-drawer-collapsed',editorDrawerCollapsed);
+    if(editorDrawerRailBtn)editorDrawerRailBtn.hidden=!editorDrawerCollapsed;
+    if(editorDrawerCollapseBtn){
+      editorDrawerCollapseBtn.textContent=editorDrawerCollapsed?'›':'‹';
+      editorDrawerCollapseBtn.setAttribute('aria-label',editorDrawerCollapsed?'Expand editor drawer':'Collapse editor drawer');
+    }
+  }
+
+  function bindEditorDrawerSwipeSurface(element,{collapsedSurface=false}={}){
+    if(!element)return;
+    let start=null;
+    element.addEventListener('pointerdown',event=>{
+      if(event.pointerType==='mouse'&&event.button!==0)return;
+      start={id:event.pointerId,x:event.clientX,y:event.clientY};
+    },{passive:true});
+    const finish=event=>{
+      if(!start||event.pointerId!==start.id)return;
+      const dx=event.clientX-start.x,dy=event.clientY-start.y;
+      start=null;
+      if(Math.abs(dx)<42||Math.abs(dx)<Math.abs(dy)*1.2)return;
+      if(collapsedSurface&&dx>0)setEditorDrawerCollapsed(false);
+      else if(!collapsedSurface&&dx<0)setEditorDrawerCollapsed(true);
+    };
+    element.addEventListener('pointerup',finish,{passive:true});
+    element.addEventListener('pointercancel',()=>{start=null;},{passive:true});
+  }
+
+  function updateEditorDrawerUi(){
+    const groupSession=!!worldGroupEditSession;
+    const group=groupSession?worldGroupById(worldGroupEditSession.groupId):null;
+    editorContext=groupSession?{type:'world-group',id:group?.id||null}:{type:editorScope==='puzzle'?'puzzle':'environment',id:null};
+    document.body.classList.toggle('sidescroll-world-group-editing',groupSession);
+    if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':'EDIT';
+    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(editorScope==='puzzle'?'Puzzle':'Environment');
+    const dirty=!!worldGroupEditSession?.dirty;
+    if(editorDrawerDirtyEl)editorDrawerDirtyEl.hidden=!dirty;
+    if(editorDrawerRailDirtyEl)editorDrawerRailDirtyEl.hidden=!dirty;
+    if(editorDrawerBackBtn)editorDrawerBackBtn.hidden=!groupSession;
+    if(editorUndoBtn){editorUndoBtn.disabled=!groupSession||!editorUndoStack.length;editorUndoBtn.textContent=editorUndoStack.length?`Undo ${editorUndoStack.length}`:'Undo';}
+    if(editorRedoBtn){editorRedoBtn.disabled=!groupSession||!editorRedoStack.length;editorRedoBtn.textContent=editorRedoStack.length?`Redo ${editorRedoStack.length}`:'Redo';}
+    if(editorDiscardBtn)editorDiscardBtn.hidden=!groupSession;
+    if(editorSaveBtn){editorSaveBtn.hidden=!groupSession;editorSaveBtn.disabled=!dirty;}
+    if(editorDoneBtn)editorDoneBtn.hidden=groupSession;
+    if(editorScopeSwitch)editorScopeSwitch.hidden=groupSession;
+    if(worldGroupEditorEl)worldGroupEditorEl.hidden=!groupSession;
+    setEditorDrawerCollapsed(editorDrawerCollapsed);
+  }
+
+  function setWorldGroupEditorTab(tab){
+    if(!['contents','exclusions','group'].includes(tab))tab='contents';
+    worldGroupEditorTab=tab;
+    for(const [name,button,panel] of [
+      ['contents',worldGroupTabContentsBtn,worldGroupContentsPanel],
+      ['exclusions',worldGroupTabExclusionsBtn,worldGroupExclusionsPanel],
+      ['group',worldGroupTabGroupBtn,worldGroupGroupPanel]
+    ]){
+      button?.classList.toggle('active',name===tab);
+      if(button)button.setAttribute('aria-selected',String(name===tab));
+      if(panel)panel.hidden=name!==tab;
+    }
+    if(tab!=='exclusions'&&worldGroupExclusionEditMode)setWorldGroupExclusionEditMode(false);
+    renderWorldGroupEditor({force:true});
+  }
+
+  function beginWorldGroupEditSession(group,{checkpointOverride=null,persistenceAlreadyHeld=false}={}){
+    if(!group)return false;
+    if(worldGroupEditSession?.groupId===group.id){updateEditorDrawerUi();return true;}
+    if(worldGroupEditSession)return false;
+    if(addAssetType)exitPlacementMode();
+    worldGroupTemplatePlaceMode=false;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;
+    selectedWorldGroupId=group.id;
+    // Stable IDs are a schema migration for the newly list-addressable zones.
+    worldGroupExclusions(group);
+    if(!persistenceAlreadyHeld)saveSceneData();
+    const current=captureWorldGroupEditorSnapshot();
+    const checkpoint=checkpointOverride?deepCopy(checkpointOverride):deepCopy(current);
+    if(!persistenceAlreadyHeld)holdScenePersistence();
+    clearEditorHistory();
+    worldGroupEditSession={groupId:group.id,checkpoint,lastSnapshot:deepCopy(current),dirty:!authoredSnapshotsEqual(checkpoint,current)};
+    worldGroupEditMode=true;
+    worldGroupNodeInspectorOpen=false;
+    worldGroupEditorTab='contents';
+    const zones=worldGroupExclusions(group);
+    selectedWorldGroupExclusionId=zones[0]?.id||null;
+    worldGroupExclusionIndex=0;
+    selectObject(null);
+    renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
+    renderWorldGroupEditor({force:true});updateEditorDrawerUi();updateEditorButtons();
+    hintEl.textContent=`Editing ${group.label} · changes stay in this session until Save`;hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function saveWorldGroupEditSession(){
+    if(!worldGroupEditSession)return false;
+    if(editorTransaction)commitEditorTransaction();
+    const groupId=worldGroupEditSession.groupId;
+    const group=worldGroupById(groupId);
+    worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;worldGroupEditMode=false;worldGroupNodeInspectorOpen=false;
+    transformEditMode=false;collisionEditMode=false;groundLineEditMode=false;
+    selectedObject=null;
+    worldGroupEditSession=null;clearEditorHistory();
+    releaseScenePersistence({flush:true});
+    editorContext={type:'environment',id:null};worldGroupEditorTab='contents';
+    renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});renderWorldGroupEditor({force:true});updateEditorDrawerUi();updateEditorButtons();
+    hintEl.textContent=`Saved ${group?.label||'World Group'}`;hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function discardWorldGroupEditSession({silent=false}={}){
+    if(!worldGroupEditSession)return false;
+    if(!silent&&worldGroupEditSession.dirty&&!window.confirm('Discard all unsaved changes from this World Group edit session?'))return false;
+    const checkpoint=deepCopy(worldGroupEditSession.checkpoint);
+    const label=worldGroupById(worldGroupEditSession.groupId)?.label||'World Group';
+    editorTransaction=null;
+    applyWorldGroupEditorSnapshot(checkpoint);
+    worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;worldGroupEditMode=false;worldGroupNodeInspectorOpen=false;
+    transformEditMode=false;collisionEditMode=false;groundLineEditMode=false;selectedObject=null;
+    worldGroupEditSession=null;clearEditorHistory();
+    releaseScenePersistence({flush:false});
+    editorContext={type:'environment',id:null};worldGroupEditorTab='contents';
+    renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});renderWorldGroupEditor({force:true});updateEditorDrawerUi();updateEditorButtons();
+    if(!silent){hintEl.textContent=`Discarded changes to ${label}`;hintEl.classList.remove('hidden');}
+    return true;
+  }
+
+  function requestLeaveWorldGroupEdit(){
+    if(!worldGroupEditSession)return true;
+    if(worldGroupEditSession.dirty){
+      hintEl.textContent='Unsaved Group changes · choose Save or Discard at the bottom of the drawer';hintEl.classList.remove('hidden');
+      return false;
+    }
+    return discardWorldGroupEditSession({silent:true});
+  }
+
+  function selectedWorldGroupMember(){
+    const group=worldGroupEditSession?worldGroupById(worldGroupEditSession.groupId):null;
+    return group&&selectedObject?.worldGroupId===group.id&&!selectedObject.deleted?selectedObject:null;
+  }
+
+  function worldGroupMemberTypeLabel(obj){
+    if(!obj)return'Asset';
+    if(obj.assetName==='thought-trigger')return'Thought';
+    if(obj.assetName==='camera-trigger')return'Camera';
+    return editorAssetInfo.get(obj.assetName)?.label||obj.assetName||'Asset';
+  }
+
+  function worldGroupMemberPlacementLabel(obj){
+    if(!obj)return'';
+    if(objectUsesFreePlacement(obj))return'Free';
+    return assetBehaviours(obj.assetName,obj.assetState)?.followSurfaceNormal?'Ground · Follow Normal':'Ground';
+  }
+
+  function selectWorldGroupExclusionById(id){
+    const group=worldGroupById(selectedWorldGroupId);if(!group)return false;
+    const zones=worldGroupExclusions(group),index=zones.findIndex(ex=>ex.id===id);if(index<0)return false;
+    selectedWorldGroupExclusionId=id;worldGroupExclusionIndex=index;worldGroupExclusionHandle=null;
+    renderWorldGroupEditor({force:true});renderWorldGroupTools({force:true});return true;
+  }
+
+  function duplicateCurrentWorldGroupExclusion(){
+    const group=worldGroupById(selectedWorldGroupId);if(!group||!worldGroupEditSession)return false;
+    const source=currentWorldGroupExclusion(group);if(!source)return false;
+    beginEditorTransaction('Duplicate exclusion');
+    const copy={...deepCopy(source),id:newWorldGroupExclusionId(),centerX:source.centerX+Math.max(1.0,source.width*.35)};
+    worldGroupExclusions(group).push(copy);selectedWorldGroupExclusionId=copy.id;worldGroupExclusionIndex=worldGroupExclusions(group).length-1;
+    saveSceneData();commitEditorTransaction();renderWorldGroupEditor({force:true});return true;
+  }
+
+  function renderWorldGroupEditor({force=false}={}){
+    if(!worldGroupEditorEl)return;
+    const active=!!worldGroupEditSession;
+    worldGroupEditorEl.hidden=!active;
+    if(!active)return;
+    const group=worldGroupById(worldGroupEditSession.groupId);
+    if(!group)return;
+    selectedWorldGroupId=group.id;worldGroupEditMode=true;
+    const members=worldGroupMembers(group.id).slice().sort((a,b)=>{
+      const ta=a.assetName==='thought-trigger'?1:a.assetName==='camera-trigger'?2:0;
+      const tb=b.assetName==='thought-trigger'?1:b.assetName==='camera-trigger'?2:0;
+      return ta-tb||(Number(a.x)||0)-(Number(b.x)||0)||String(a.id).localeCompare(String(b.id));
+    });
+    const zones=worldGroupExclusions(group);
+    if(selectedWorldGroupExclusionId){const idx=zones.findIndex(ex=>ex.id===selectedWorldGroupExclusionId);if(idx>=0)worldGroupExclusionIndex=idx;}
+    if(!selectedWorldGroupExclusionId&&zones.length){selectedWorldGroupExclusionId=zones[0].id;worldGroupExclusionIndex=0;}
+    const ex=currentWorldGroupExclusion(group);
+    const bounds=worldGroupBounds(group);
+    if(worldGroupEditorNameEl)worldGroupEditorNameEl.textContent=group.label||'World Group';
+    if(worldGroupEditorSummaryEl)worldGroupEditorSummaryEl.textContent=`${members.length} ${members.length===1?'item':'items'} · ${zones.length} ${zones.length===1?'exclusion':'exclusions'}`;
+    if(worldGroupEditorContentCountEl)worldGroupEditorContentCountEl.textContent=`${members.length} ${members.length===1?'item':'items'}`;
+    if(worldGroupChildEmptyEl)worldGroupChildEmptyEl.hidden=members.length>0;
+    if(worldGroupChildListEl){
+      worldGroupChildListEl.innerHTML='';
+      for(const obj of members){
+        const row=document.createElement('button');row.type='button';row.className='sidescroll-world-group-list-row';row.classList.toggle('active',selectedObject===obj);row.setAttribute('aria-selected',String(selectedObject===obj));
+        const text=document.createElement('span');const strong=document.createElement('strong');strong.textContent=worldGroupMemberTypeLabel(obj);const small=document.createElement('small');small.textContent=worldGroupMemberPlacementLabel(obj);text.append(strong,small);
+        const pos=document.createElement('b');pos.textContent=`x ${Number(obj.x).toFixed(1)}`;row.append(text,pos);
+        bindEditorPress(row,()=>{selectObject(obj,true,{keepPlacement:true});renderWorldGroupEditor({force:true});});worldGroupChildListEl.appendChild(row);
+      }
+    }
+    const child=selectedWorldGroupMember();
+    if(worldGroupChildInspectorEl)worldGroupChildInspectorEl.hidden=!child;
+    if(child){
+      if(worldGroupChildNameEl)worldGroupChildNameEl.textContent=worldGroupMemberTypeLabel(child);
+      if(worldGroupChildTypeEl)worldGroupChildTypeEl.textContent=child.assetName==='thought-trigger'?'Thought Node':child.assetName==='camera-trigger'?'Camera Node':'Group member';
+      if(worldGroupChildPlacementEl)worldGroupChildPlacementEl.textContent=`${worldGroupMemberPlacementLabel(child)} · x ${Number(child.x).toFixed(2)} · z ${Number(child.z).toFixed(2)}`;
+      if(worldGroupChildPlacementToggleBtn)worldGroupChildPlacementToggleBtn.textContent=objectUsesFreePlacement(child)?'Use Ground':'Make Free';
+      if(worldGroupChildCollisionBtn){worldGroupChildCollisionBtn.disabled=child.assetName==='thought-trigger'||child.assetName==='camera-trigger';worldGroupChildCollisionBtn.classList.toggle('active',collisionEditMode);worldGroupChildCollisionBtn.textContent=collisionEditMode?'Finish Collision':'Collision';}
+      if(worldGroupChildNodeEditBtn){const node=child.assetName==='thought-trigger'||child.assetName==='camera-trigger';worldGroupChildNodeEditBtn.hidden=!node;worldGroupChildNodeEditBtn.textContent=child.assetName==='camera-trigger'?'Edit Camera Node':'Edit Thought';}
+    }
+    if(worldGroupExclusionCountEl)worldGroupExclusionCountEl.textContent=`${zones.length} ${zones.length===1?'zone':'zones'}`;
+    if(worldGroupExclusionEmptyEl)worldGroupExclusionEmptyEl.hidden=zones.length>0;
+    if(worldGroupExclusionListEl){
+      worldGroupExclusionListEl.innerHTML='';
+      zones.forEach((zone,index)=>{
+        const row=document.createElement('button');row.type='button';row.className='sidescroll-world-group-list-row';row.classList.toggle('active',zone.id===selectedWorldGroupExclusionId);row.setAttribute('aria-selected',String(zone.id===selectedWorldGroupExclusionId));
+        const text=document.createElement('span');const strong=document.createElement('strong');strong.textContent=`Exclusion ${index+1}`;const small=document.createElement('small');small.textContent=`${zone.enabled?'ON':'OFF'} · ${zone.width.toFixed(1)} × ${zone.depth.toFixed(1)} m`;text.append(strong,small);
+        const state=document.createElement('b');state.textContent=zone.enabled?'ON':'OFF';row.append(text,state);bindEditorPress(row,()=>selectWorldGroupExclusionById(zone.id));worldGroupExclusionListEl.appendChild(row);
+      });
+    }
+    if(worldGroupExclusionInspectorEl)worldGroupExclusionInspectorEl.hidden=!zones.length;
+    if(zones.length&&ex){
+      const idx=zones.findIndex(zone=>zone.id===ex.id);
+      if(worldGroupExclusionNameEl)worldGroupExclusionNameEl.textContent=`Exclusion ${idx+1}`;
+      if(worldGroupExclusionSizeEl)worldGroupExclusionSizeEl.textContent=`${ex.width.toFixed(1)} × ${ex.depth.toFixed(1)} m`;
+      if(worldGroupExclusionToggleBtn)worldGroupExclusionToggleBtn.textContent=ex.enabled?'Enabled · ON':'Enabled · OFF';
+      if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Shape':'Edit Shape';worldGroupExclusionEditBtn.classList.toggle('active',worldGroupExclusionEditMode);}
+    }
+    if(worldGroupNameInput&&document.activeElement!==worldGroupNameInput)worldGroupNameInput.value=group.label||'';
+    if(worldGroupInfoXEl)worldGroupInfoXEl.textContent=Number(group.x||0).toFixed(2);
+    if(worldGroupInfoZEl)worldGroupInfoZEl.textContent=Number(group.z||pathZ).toFixed(2);
+    if(worldGroupInfoMembersEl)worldGroupInfoMembersEl.textContent=String(members.length);
+    if(worldGroupInfoExclusionsEl)worldGroupInfoExclusionsEl.textContent=String(zones.length);
+    if(worldGroupInfoBoundsEl)worldGroupInfoBoundsEl.textContent=bounds?`${(bounds.maxX-bounds.minX).toFixed(1)} × ${(bounds.maxZ-bounds.minZ).toFixed(1)} m`:'—';
+    setWorldGroupEditorTabVisuals();
+    updateEditorDrawerUi();
+  }
+
+  function setWorldGroupEditorTabVisuals(){
+    for(const [name,button,panel] of [['contents',worldGroupTabContentsBtn,worldGroupContentsPanel],['exclusions',worldGroupTabExclusionsBtn,worldGroupExclusionsPanel],['group',worldGroupTabGroupBtn,worldGroupGroupPanel]]){
+      button?.classList.toggle('active',name===worldGroupEditorTab);
+      if(panel)panel.hidden=name!==worldGroupEditorTab;
+    }
+  }
+
   function nextWorldGroupLabel() {
     let index=1;
     const used=new Set(worldGroups().map(group=>String(group?.label||'').trim().toLowerCase()));
@@ -8562,7 +9046,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const x=Number(character?.x ?? (camera.x+character.screenOffsetX))||0;
     const group={id,label:nextWorldGroupLabel(),x,z:pathZ,createdAt:Date.now()};
     worldGroups().push(group);
-    selectedWorldGroupId=id; worldGroupEditMode=true; worldGroupMoveMode=false; worldGroupExclusionEditMode=false;
+    selectedWorldGroupId=id; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupExclusionEditMode=false;
     saveSceneData(); worldGroupListSignature=''; sceneEnvironmentListSignature='';
     renderWorldGroupTools({force:true}); renderEnvironmentSelectionTools({force:true});
     hintEl.textContent=`${group.label} created · new environment assets will join this group`;hintEl.classList.remove('hidden');
@@ -8649,7 +9133,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function worldGroupAtEditorPoint(clientX,clientY){
-    if(!editMode||editorScope!=='environment')return null;
+    if(!editMode||editorScope!=='environment'||worldGroupEditSession)return null;
     const selected=worldGroupById(selectedWorldGroupId);
     // This function is for GROUP SELECTION only. Movement is intentionally
     // restricted to the selected group's yellow origin dot.
@@ -8677,7 +9161,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     renderEnvironmentSelectionTools({force:true});
   }
 
-  function defaultWorldGroupExclusion(group){
+  function newWorldGroupExclusionId(){
+    return `world-exclusion-${Date.now().toString(36)}-${++userSceneCounter}`;
+  }
+
+  function worldGroupExclusionDefaults(group){
     const b=worldGroupBounds(group);
     const gx=Number(group?.x)||0,gz=Number(group?.z)||pathZ;
     const minX=b?.minX ?? gx-.6,maxX=b?.maxX ?? gx+.6,minZ=b?.minZ ?? gz-.5,maxZ=b?.maxZ ?? gz+.5;
@@ -8691,10 +9179,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     };
   }
 
+  function defaultWorldGroupExclusion(group){
+    return{id:newWorldGroupExclusionId(),...worldGroupExclusionDefaults(group)};
+  }
+
   function cleanWorldGroupExclusion(group,raw=null){
-    const fallback=defaultWorldGroupExclusion(group);
-    if(!raw||typeof raw!=='object')return{...fallback};
+    const fallback=worldGroupExclusionDefaults(group);
+    if(!raw||typeof raw!=='object')return{id:newWorldGroupExclusionId(),...fallback};
     return{
+      id:String(raw.id||'').trim()||newWorldGroupExclusionId(),
       enabled:raw.enabled!==false,
       centerX:Number.isFinite(Number(raw.centerX))?Number(raw.centerX):fallback.centerX,
       centerZ:Number.isFinite(Number(raw.centerZ))?Number(raw.centerZ):fallback.centerZ,
@@ -8712,11 +9205,22 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         : [];
       delete group.exclusion;
     }else{
+      const seenIds=new Set();
       group.exclusions=group.exclusions
         .filter(item=>item&&typeof item==='object')
-        .map(item=>cleanWorldGroupExclusion(group,item));
+        .map(item=>{
+          const ex=cleanWorldGroupExclusion(group,item);
+          if(seenIds.has(ex.id))ex.id=newWorldGroupExclusionId();
+          seenIds.add(ex.id);
+          return ex;
+        });
     }
     if(worldGroupExclusionIndex>=group.exclusions.length)worldGroupExclusionIndex=Math.max(0,group.exclusions.length-1);
+    if(selectedWorldGroupId===group.id&&group.exclusions.length){
+      const selectedIndex=selectedWorldGroupExclusionId?group.exclusions.findIndex(ex=>ex.id===selectedWorldGroupExclusionId):-1;
+      if(selectedIndex>=0)worldGroupExclusionIndex=selectedIndex;
+      else{worldGroupExclusionIndex=Math.min(worldGroupExclusionIndex,group.exclusions.length-1);selectedWorldGroupExclusionId=group.exclusions[worldGroupExclusionIndex]?.id||null;}
+    }
     return group.exclusions;
   }
 
@@ -8769,7 +9273,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     zones.push(cleanWorldGroupExclusion(group,ex));
     worldGroupExclusionIndex=zones.length-1;
-    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
+    selectedWorldGroupExclusionId=zones[worldGroupExclusionIndex]?.id||null;
+    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});renderWorldGroupEditor({force:true});
     return zones[worldGroupExclusionIndex];
   }
 
@@ -8777,9 +9282,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group=worldGroupById(selectedWorldGroupId);if(!group)return;
     const zones=worldGroupExclusions(group);if(!zones.length){worldGroupExclusionIndex=0;return;}
     worldGroupExclusionIndex=((Math.trunc(index)%zones.length)+zones.length)%zones.length;
+    selectedWorldGroupExclusionId=zones[worldGroupExclusionIndex]?.id||null;
     worldGroupExclusionHandle=null;
     worldGroupListSignature='';
-    renderWorldGroupTools({force:true});
+    renderWorldGroupTools({force:true});renderWorldGroupEditor({force:true});
   }
 
   function deleteCurrentWorldGroupExclusion(){
@@ -8789,8 +9295,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(!window.confirm(`Delete exclusion zone ${number} from ${group.label}?`))return false;
     zones.splice(worldGroupExclusionIndex,1);
     worldGroupExclusionIndex=Math.max(0,Math.min(worldGroupExclusionIndex,zones.length-1));
+    selectedWorldGroupExclusionId=zones[worldGroupExclusionIndex]?.id||null;
     if(!zones.length)worldGroupExclusionEditMode=false;
-    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
+    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});renderWorldGroupEditor({force:true});
     hintEl.textContent=zones.length?`${group.label} · exclusion zone deleted · ${zones.length} remaining`:`${group.label} · all exclusion zones removed`;
     hintEl.classList.remove('hidden');
     return true;
@@ -8806,30 +9313,31 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     ex.centerZ=(minZ+maxZ)*.5-gz;
     ex.width=Math.max(2.2,maxX-minX+pad*2);
     ex.depth=Math.max(2.2,maxZ-minZ+pad*2);
-    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});return true;
+    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});renderWorldGroupEditor({force:true});return true;
   }
 
   function setWorldGroupExclusionEditMode(on){
     const group=worldGroupById(selectedWorldGroupId);
-    worldGroupExclusionEditMode=!!(on&&group);
+    worldGroupExclusionEditMode=!!(on&&group&&worldGroupEditSession?.groupId===group.id);
     worldGroupExclusionHandle=null;
     if(worldGroupExclusionEditMode){
       if(addAssetType)exitPlacementMode();
-      worldGroupMoveMode=false;worldGroupEditMode=false;worldGroupTemplatePlaceMode=false;
-      ensureWorldGroupExclusion(group);
+      worldGroupMoveMode=false;worldGroupTemplatePlaceMode=false;worldGroupEditMode=true;
+      const ex=ensureWorldGroupExclusion(group);selectedWorldGroupExclusionId=ex?.id||null;
     }
-    worldGroupListSignature='';renderWorldGroupTools({force:true});
+    worldGroupListSignature='';renderWorldGroupTools({force:true});renderWorldGroupEditor({force:true});
     if(group){
       const zones=worldGroupExclusions(group);
       hintEl.textContent=worldGroupExclusionEditMode
         ? `Editing ${group.label} exclusion ${worldGroupExclusionIndex+1}/${zones.length} · drag centre or edge handles`
-        : `${group.label} exclusion edit finished`;
+        : `${group.label} exclusion shape edit finished`;
       hintEl.classList.remove('hidden');
     }
   }
 
 
   function selectWorldGroup(id,{edit=null,focus=false}={}){
+    if(worldGroupEditSession&&id!==worldGroupEditSession.groupId)return;
     const group=worldGroupById(id);
     const changed=(group?.id||null)!==selectedWorldGroupId;
     selectedWorldGroupId=group?.id||null;
@@ -8847,21 +9355,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setWorldGroupEditMode(on){
     const group=worldGroupById(selectedWorldGroupId);
-    worldGroupEditMode=!!(on&&group);
-    if(worldGroupEditMode){
-      worldGroupExclusionEditMode=false;
-      worldGroupMoveMode=false;
-    }else{
-      worldGroupMoveMode=false;
-      if(selectedObject?.worldGroupId===group?.id)selectObject(null);
-    }
-    renderWorldGroupTools({force:true});
-    if(group){
-      hintEl.textContent=worldGroupEditMode
-        ? `Editing ${group.label} · members unlocked · new placements automatically join`
-        : `${group.label} locked · drag ONLY the yellow dot to move it · Edit Group unlocks members`;
-      hintEl.classList.remove('hidden');
-    }
+    if(on)return beginWorldGroupEditSession(group);
+    return requestLeaveWorldGroupEdit();
   }
 
   function setObjectWorldGroup(obj,groupId){
@@ -8929,7 +9424,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       id:`world-group-${Date.now().toString(36)}-${++userSceneCounter}`,
       label:uniqueWorldGroupLabel(`${source.label||'World Group'} Copy`),
       x:anchor.x,z:anchor.z,createdAt:Date.now(),
-      exclusions:worldGroupExclusions(source).map(ex=>deepCopy(ex))
+      exclusions:worldGroupExclusions(source).map(ex=>({...deepCopy(ex),id:newWorldGroupExclusionId()}))
     };
     const memberSnapshots=worldGroupMembers(source.id).map(obj=>worldGroupTemplateMember(obj,source));
     worldGroups().push(duplicate);
@@ -9184,8 +9679,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       label:uniqueWorldGroupLabel(template.label||'World Group'),
       x:anchor.x,z:anchor.z,createdAt:Date.now(),templateId:template.id,
       exclusions:Array.isArray(template.exclusions)
-        ? template.exclusions.map(ex=>deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},ex)))
-        : (template.exclusion ? [deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},template.exclusion))] : [])
+        ? template.exclusions.map(ex=>({...deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},ex)),id:newWorldGroupExclusionId()}))
+        : (template.exclusion ? [{...deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},template.exclusion)),id:newWorldGroupExclusionId()}] : [])
     };
     worldGroups().push(group);
     for(const member of template.members)createTemplateObject(member,group,anchor);
@@ -9286,14 +9781,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDuplicateBtn)worldGroupDuplicateBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;if(worldGroupDeleteBtn)worldGroupDeleteBtn.disabled=!has;
     const zones=selected?worldGroupExclusions(selected):[];
     const ex=selected&&zones.length?currentWorldGroupExclusion(selected):null;
-    if(worldGroupExclusionAddBtn)worldGroupExclusionAddBtn.disabled=!has;
-    if(worldGroupExclusionPrevBtn){worldGroupExclusionPrevBtn.disabled=!has||zones.length<2;worldGroupExclusionPrevBtn.textContent=zones.length?`← Zone ${worldGroupExclusionIndex+1}/${zones.length}`:'← Zone';}
-    if(worldGroupExclusionNextBtn){worldGroupExclusionNextBtn.disabled=!has||zones.length<2;worldGroupExclusionNextBtn.textContent=zones.length?`Zone ${worldGroupExclusionIndex+1}/${zones.length} →`:'Zone →';}
-    if(worldGroupExclusionToggleBtn){worldGroupExclusionToggleBtn.disabled=!has;worldGroupExclusionToggleBtn.textContent=ex?.enabled?'Disable Exclusion':'Enable Exclusion';}
-    if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.disabled=!has;worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Exclusion':'Edit Exclusion';worldGroupExclusionEditBtn.classList.toggle('primary',worldGroupExclusionEditMode);}
-    if(worldGroupExclusionFitBtn)worldGroupExclusionFitBtn.disabled=!has;
-    if(worldGroupExclusionDeleteBtn)worldGroupExclusionDeleteBtn.disabled=!has||!zones.length;
-    const selectedCanGroup=!!(selectedObject&&!selectedObject.deleted&&selectedObject.userAdded&&!selectedObject.puzzleInstanceId);if(worldGroupMembershipBtn){const inSelected=selectedCanGroup&&selected&&selectedObject.worldGroupId===selected.id;worldGroupMembershipBtn.disabled=!(selectedCanGroup&&selected);worldGroupMembershipBtn.textContent=inSelected?'Remove Selected':'Add Selected';}
     if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected
       ? 'Standalone placement · create or select a group to organise authored world assets.'
       : worldGroupExclusionEditMode
@@ -9418,6 +9905,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     // Environment editing never reaches into an instantiated puzzle.
     if (obj.puzzleInstanceId) return false;
+    // A dedicated Group Edit session owns viewport picking. Surrounding authored
+    // content stays visible for context but is deliberately non-pickable.
+    if (worldGroupEditSession) return obj.worldGroupId === worldGroupEditSession.groupId;
     // World Groups are locked compositions by default. Their children become
     // individually editable only after the author explicitly enters Edit Group
     // for that same group. Standalone objects remain editable at all times.
@@ -10215,6 +10705,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setEditorScope(scope) {
     if (scope !== 'environment' && scope !== 'puzzle') return;
+    if(worldGroupEditSession&&scope!=='environment'){
+      hintEl.textContent='Finish the current World Group edit with Save or Discard first';
+      hintEl.classList.remove('hidden');
+      setEditorDrawerCollapsed(false);
+      return false;
+    }
     // Environment/Puzzle is only an editor filter. It must not change whether
     // the workshop stage is isolated or clear.
     editorScope = scope;
@@ -10241,6 +10737,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     buildAssetPalette();
     updatePuzzlePanel();
     updateEditorButtons();
+    updateEditorDrawerUi();
+    return true;
   }
 
   function socketLabelForPiece(objOrName) {
@@ -10660,7 +11158,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function selectedIsThoughtTrigger(){ return !!selectedObject && !selectedObject.deleted && selectedObject.assetName === 'thought-trigger'; }
 
   function syncThoughtEditor(){
-    const active=!!(editMode && selectedIsThoughtTrigger());
+    const active=!!(editMode && selectedIsThoughtTrigger() && (!worldGroupEditSession || worldGroupNodeInspectorOpen));
     if(thoughtEditorEl) thoughtEditorEl.hidden=!active;
     if(!active)return;
     if(thoughtTextInput && document.activeElement!==thoughtTextInput) thoughtTextInput.value=selectedObject.thoughtText || '';
@@ -10683,7 +11181,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function selectedIsCameraTrigger(){ return !!selectedObject && !selectedObject.deleted && selectedObject.assetName === 'camera-trigger'; }
 
   function syncCameraNodeEditor(){
-    const active=!!(editMode && selectedIsCameraTrigger());
+    const active=!!(editMode && selectedIsCameraTrigger() && (!worldGroupEditSession || worldGroupNodeInspectorOpen));
     if(cameraNodeEditorEl) cameraNodeEditorEl.hidden=!active;
     if(!active)return;
     const radius=Rig.clamp(Number(selectedObject.cameraNodeRadius)||4,.5,20);
@@ -10720,7 +11218,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const socketInstance = isSocketPiece ? activePuzzleInstances.get(selectedObject.puzzleInstanceId) : null;
     const hasAuthoredSocket = !!(isSocketPiece && socketForPiece(socketInstance, selectedObject));
     const placing = placementModeActive();
-    if (editorControls) editorControls.hidden = !editMode || placing;
+    if (editorControls) editorControls.hidden = !editMode || placing || !!worldGroupEditSession;
     if (openAssetsBtn) {
       const puzzleInstanceReady = editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId;
       openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || !puzzleInstanceReady;
@@ -10790,7 +11288,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // CSS and the focused editor occupies the same left-hand workspace. Closing
   // the focused editor clears the selection and the parent panel returns.
   function syncFocusedObjectEditorWorkspace(){
-    const focused = !!(editMode && (selectedIsThoughtTrigger() || selectedIsCameraTrigger()));
+    const nodeSelected=selectedIsThoughtTrigger() || selectedIsCameraTrigger();
+    const focused = !!(editMode && nodeSelected && (!worldGroupEditSession || worldGroupNodeInspectorOpen));
     document.body.classList.toggle('sidescroll-focused-object-editor', focused);
     if(thoughtEditorEl) thoughtEditorEl.classList.toggle('sidescroll-workspace-replacement', focused && selectedIsThoughtTrigger());
     if(cameraNodeEditorEl) cameraNodeEditorEl.classList.toggle('sidescroll-workspace-replacement', focused && selectedIsCameraTrigger());
@@ -10798,7 +11297,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function selectObject(obj, preserveCycle = false, options = {}) {
     if (socketPlacementPiece && obj !== socketPlacementPiece) socketPlacementPiece = null;
+    const previousSelectedObject=selectedObject;
     selectedObject = obj && !obj.deleted ? obj : null;
+    if(worldGroupEditSession&&selectedObject!==previousSelectedObject)worldGroupNodeInspectorOpen=false;
     if (!selectedObject) transformEditMode = false;
     if (!preserveCycle) { selectionCycleInfo = null; selectionTapCycle = null; }
     if (!options.keepPlacement) addAssetType = null;
@@ -10824,7 +11325,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function updatePuzzlePanel() {
     if (!puzzlePanel) return;
-    const visible = (editMode || puzzleTestMode) && !transformEditMode;
+    const visible = (editMode || puzzleTestMode) && (!transformEditMode || !!worldGroupEditSession);
     puzzlePanel.hidden = !visible;
     document.body.classList.toggle('sidescroll-puzzle-testing', puzzleTestMode);
     if (!visible) return;
@@ -11193,6 +11694,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setEditMode(on) {
     if (PLAYER_MODE && on) return;
+    if(!on&&worldGroupEditSession){
+      if(worldGroupEditSession.dirty){
+        hintEl.textContent='World Group has unsaved changes · use Save or Discard before leaving edit mode';
+        hintEl.classList.remove('hidden');
+        setEditorDrawerCollapsed(false);
+        return false;
+      }
+      discardWorldGroupEditSession({silent:true});
+    }
     if (on) setInventoryOpen(false);
     if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = true; }
     if (!on && editorPuzzlePackPinned) { releasePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = false; }
@@ -11249,6 +11759,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updatePlacementModeUi();
     updateEditorButtons();
     updatePuzzlePanel();
+    updateEditorDrawerUi();
+    return true;
   }
 
   function defaultAssetHeight(name, stateName = null) {
@@ -12375,7 +12887,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const bounds=worldGroupExclusionWorldBoundsList(group);
     if(!bounds.length)return;
     for(const b of bounds){
-      if(!b.enabled&&!worldGroupExclusionEditMode)continue;
+      if(!b.enabled&&!worldGroupEditSession)continue;
       const selectedZone=b.index===worldGroupExclusionIndex;
       const corners=[[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]].map(([x,z])=>projectWorldPoint(x,terrainGroundYAt(x,z)+.04,z));
       if(corners.some(p=>!p))continue;
@@ -12420,7 +12932,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const y0=playSurfaceYAt(b.minX)+.05,y1=playSurfaceYAt(b.maxX)+.05;
       const pts=[projectWorldPoint(b.minX,y0,b.minZ),projectWorldPoint(b.maxX,y1,b.minZ),projectWorldPoint(b.maxX,y1,b.maxZ),projectWorldPoint(b.minX,y0,b.maxZ)];if(pts.some(p=>!p))continue;
       ctx.save();ctx.strokeStyle=selected?'rgba(255,205,111,.98)':'rgba(255,205,111,.34)';ctx.fillStyle=selected?'rgba(255,205,111,.065)':'rgba(255,205,111,.025)';ctx.lineWidth=selected?2.3:1.1;ctx.setLineDash(selected?[7,4]:[4,5]);ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
-      if(selected){const origin=worldGroupOriginScreenPoint(group);if(origin){ctx.beginPath();ctx.arc(origin.x,origin.y,9,0,Math.PI*2);ctx.fillStyle='#ffd77d';ctx.fill();ctx.strokeStyle='#4a3920';ctx.lineWidth=1.8;ctx.stroke();const label=`${group.label||'World Group'} · ${worldGroupMembers(group.id).length} assets${worldGroupEditMode?' · MEMBERS UNLOCKED':' · LOCKED · DRAG DOT TO MOVE'}`;ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;ctx.fillStyle='rgba(47,38,24,.88)';ctx.fillRect(origin.x-tw*.5,origin.y-30,tw,19);ctx.fillStyle='#fff0c7';ctx.fillText(label,origin.x-tw*.5+7,origin.y-17);}}
+      if(selected){const origin=worldGroupOriginScreenPoint(group);if(origin){ctx.beginPath();ctx.arc(origin.x,origin.y,9,0,Math.PI*2);ctx.fillStyle='#ffd77d';ctx.fill();ctx.strokeStyle='#4a3920';ctx.lineWidth=1.8;ctx.stroke();const label=`${group.label||'World Group'} · ${worldGroupMembers(group.id).length} assets${worldGroupEditSession?' · GROUP EDIT · DRAG DOT TO MOVE':(worldGroupEditMode?' · MEMBERS UNLOCKED':' · LOCKED · DRAG DOT TO MOVE')}`;ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;ctx.fillStyle='rgba(47,38,24,.88)';ctx.fillRect(origin.x-tw*.5,origin.y-30,tw,19);ctx.fillStyle='#fff0c7';ctx.fillText(label,origin.x-tw*.5+7,origin.y-17);}}
       ctx.restore();
       if(selected)drawWorldGroupExclusionGuide(ctx,group);
     }
@@ -15550,7 +16062,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (puzzleTestMode) backToPuzzleSetup();
     else if (!editMode) { editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel(); }
   });
-  bindEditorPress(editorDoneBtn, () => setEditMode(false));
+  bindEditorPress(editorDoneBtn, () => { if(!worldGroupEditSession)setEditMode(false); });
   bindEditorPress(environmentScopeBtn, () => setEditorScope('environment'));
   bindEditorPress(puzzleScopeBtn, () => setEditorScope('puzzle'));
   bindEditorPress(puzzleSourceLibraryBtn, () => setPuzzleBrowserMode('library'));
@@ -15611,21 +16123,125 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   bindEditorPress(openAssetsBtn, toggleAssetBrowserForCurrentScope);
   bindEditorPress(openEnvironmentAssetsBtn, toggleAssetBrowserForCurrentScope);
-  bindEditorPress(worldGroupNewBtn,()=>{if(editorScope!=='environment')setEditorScope('environment');if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;createWorldGroup();});
-  bindEditorPress(worldGroupEditBtn,()=>{worldGroupTemplatePlaceMode=false;setWorldGroupEditMode(!worldGroupEditMode);});
-  bindEditorPress(worldGroupMoveBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;worldGroupMoveMode=!worldGroupMoveMode;renderWorldGroupTools({force:true});hintEl.textContent=worldGroupMoveMode?`MOVE ${group.label.toUpperCase()} · tap its new scene position`:'Group move cancelled';hintEl.classList.remove('hidden');});
+  bindEditorPress(worldGroupNewBtn,()=>{
+    if(editorScope!=='environment')setEditorScope('environment');
+    if(addAssetType)exitPlacementMode();
+    worldGroupTemplatePlaceMode=false;
+    const checkpoint=captureWorldGroupEditorSnapshot();
+    holdScenePersistence();
+    const group=createWorldGroup();
+    if(group)beginWorldGroupEditSession(group,{checkpointOverride:checkpoint,persistenceAlreadyHeld:true});
+    else releaseScenePersistence({flush:false});
+  });
+  bindEditorPress(worldGroupEditBtn,()=>{
+    worldGroupTemplatePlaceMode=false;
+    beginWorldGroupEditSession(worldGroupById(selectedWorldGroupId));
+  });
+  bindEditorPress(worldGroupMoveBtn,()=>{
+    const group=worldGroupById(selectedWorldGroupId);if(!group)return;
+    if(addAssetType)exitPlacementMode();worldGroupTemplatePlaceMode=false;worldGroupMoveMode=!worldGroupMoveMode;
+    renderWorldGroupTools({force:true});
+    hintEl.textContent=worldGroupMoveMode?`MOVE ${group.label.toUpperCase()} · tap its new scene position`:'Group move cancelled';hintEl.classList.remove('hidden');
+  });
   bindEditorPress(worldGroupRenameBtn,renameSelectedWorldGroup);
   bindEditorPress(worldGroupDuplicateBtn,duplicateSelectedWorldGroup);
   bindEditorPress(worldGroupDissolveBtn,dissolveSelectedWorldGroup);
   bindEditorPress(worldGroupDeleteBtn,deleteSelectedWorldGroup);
-  bindEditorPress(worldGroupExclusionAddBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;addWorldGroupExclusion(group);setWorldGroupExclusionEditMode(true);hintEl.textContent=`${group.label} · added exclusion ${worldGroupExclusionIndex+1}/${worldGroupExclusions(group).length} · drag handles to position it`;hintEl.classList.remove('hidden');});
-  bindEditorPress(worldGroupExclusionPrevBtn,()=>selectWorldGroupExclusionIndex(worldGroupExclusionIndex-1));
-  bindEditorPress(worldGroupExclusionNextBtn,()=>selectWorldGroupExclusionIndex(worldGroupExclusionIndex+1));
-  bindEditorPress(worldGroupExclusionToggleBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;const ex=ensureWorldGroupExclusion(group);ex.enabled=!ex.enabled;saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});hintEl.textContent=ex.enabled?`${group.label} exclusion ${worldGroupExclusionIndex+1} enabled · procedural dressing inside it is suppressed`:`${group.label} exclusion ${worldGroupExclusionIndex+1} disabled · procedural dressing restored`;hintEl.classList.remove('hidden');});
+
+  bindEditorPress(worldGroupTabContentsBtn,()=>setWorldGroupEditorTab('contents'));
+  bindEditorPress(worldGroupTabExclusionsBtn,()=>setWorldGroupEditorTab('exclusions'));
+  bindEditorPress(worldGroupTabGroupBtn,()=>setWorldGroupEditorTab('group'));
+  bindEditorPress(worldGroupEditorAddAssetBtn,()=>{
+    if(!worldGroupEditSession)return;
+    setWorldGroupEditorTab('contents');
+    toggleAssetBrowserForCurrentScope();
+  });
+  bindEditorPress(worldGroupExclusionAddBtn,()=>{
+    const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
+    runEditorTransaction('Add exclusion',()=>addWorldGroupExclusion(group));
+    setWorldGroupEditorTab('exclusions');
+    setWorldGroupExclusionEditMode(true);
+    hintEl.textContent=`${group.label} · added Exclusion ${worldGroupExclusionIndex+1} · drag its handles to position it`;hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(worldGroupExclusionToggleBtn,()=>{
+    const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
+    runEditorTransaction('Toggle exclusion',()=>{const ex=ensureWorldGroupExclusion(group);ex.enabled=!ex.enabled;saveSceneData();});
+    renderWorldGroupEditor({force:true});
+  });
   bindEditorPress(worldGroupExclusionEditBtn,()=>setWorldGroupExclusionEditMode(!worldGroupExclusionEditMode));
-  bindEditorPress(worldGroupExclusionFitBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;fitWorldGroupExclusion(group,{enable:true});hintEl.textContent=`${group.label} exclusion ${worldGroupExclusionIndex+1} fitted around current members`;hintEl.classList.remove('hidden');});
-  bindEditorPress(worldGroupExclusionDeleteBtn,deleteCurrentWorldGroupExclusion);
-  bindEditorPress(worldGroupMembershipBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group||!selectedObject||selectedObject.deleted||selectedObject.puzzleInstanceId||!selectedObject.userAdded)return;const remove=selectedObject.worldGroupId===group.id;if(setObjectWorldGroup(selectedObject,remove?null:group.id)){hintEl.textContent=remove?`Removed asset from ${group.label}`:`Added asset to ${group.label}`;hintEl.classList.remove('hidden');}});
+  bindEditorPress(worldGroupExclusionFitBtn,()=>{
+    const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
+    runEditorTransaction('Fit exclusion',()=>fitWorldGroupExclusion(group,{enable:true}));
+    hintEl.textContent=`${group.label} · selected exclusion fitted around current members`;hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(worldGroupExclusionDuplicateBtn,duplicateCurrentWorldGroupExclusion);
+  bindEditorPress(worldGroupExclusionDeleteBtn,()=>runEditorTransaction('Delete exclusion',deleteCurrentWorldGroupExclusion));
+
+  bindEditorPress(worldGroupChildPositionBtn,()=>{
+    if(!selectedWorldGroupMember())return;
+    setTransformEditorOpen(true);
+    setEditorDrawerCollapsed(true);
+  });
+  bindEditorPress(worldGroupChildPlacementToggleBtn,()=>{
+    const child=selectedWorldGroupMember();if(!child)return;
+    runEditorTransaction(objectUsesFreePlacement(child)?'Use ground placement':'Use free placement',()=>setSelectedFreePlacement(!objectUsesFreePlacement(child)));
+    renderWorldGroupEditor({force:true});
+  });
+  bindEditorPress(worldGroupChildCollisionBtn,()=>{
+    const child=selectedWorldGroupMember();if(!child)return;
+    runEditorTransaction(child.collision?'Edit collision':'Add collision',toggleSelectedCollision);
+    renderWorldGroupEditor({force:true});
+  });
+  bindEditorPress(worldGroupChildDuplicateBtn,()=>{
+    if(!selectedWorldGroupMember())return;
+    runEditorTransaction('Duplicate group member',duplicateSelected);
+    renderWorldGroupEditor({force:true});
+  });
+  bindEditorPress(worldGroupChildNodeEditBtn,()=>{
+    if(!selectedWorldGroupMember())return;
+    worldGroupNodeInspectorOpen=true;
+    setEditorDrawerCollapsed(true);
+    syncThoughtEditor();syncCameraNodeEditor();syncFocusedObjectEditorWorkspace();
+  });
+  bindEditorPress(worldGroupChildDetachBtn,()=>{
+    const child=selectedWorldGroupMember();if(!child)return;
+    runEditorTransaction('Detach group member',()=>{setObjectWorldGroup(child,null);selectObject(null);});
+    renderWorldGroupEditor({force:true});
+  });
+  bindEditorPress(worldGroupChildDeleteBtn,()=>{
+    if(!selectedWorldGroupMember())return;
+    runEditorTransaction('Delete group member',deleteSelected);
+    renderWorldGroupEditor({force:true});
+  });
+  bindEditorPress(worldGroupPositionBtn,()=>{
+    const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
+    setEditorDrawerCollapsed(true);
+    hintEl.textContent=`${group.label} · drag the yellow origin dot to move the whole group`;hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(editorDrawerBackBtn,requestLeaveWorldGroupEdit);
+  bindEditorPress(editorDrawerCollapseBtn,()=>setEditorDrawerCollapsed(true));
+  bindEditorPress(editorDrawerRailBtn,()=>setEditorDrawerCollapsed(false));
+  bindEditorDrawerSwipeSurface(editorDrawerHeader);
+  bindEditorDrawerSwipeSurface(editorDrawerRailBtn,{collapsedSurface:true});
+  bindEditorPress(editorUndoBtn,undoEditorTransaction);
+  bindEditorPress(editorRedoBtn,redoEditorTransaction);
+  bindEditorPress(editorDiscardBtn,()=>discardWorldGroupEditSession());
+  bindEditorPress(editorSaveBtn,saveWorldGroupEditSession);
+
+  if(worldGroupNameInput){
+    const commitWorldGroupName=()=>{
+      const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
+      const next=String(worldGroupNameInput.value||'').trim();
+      if(!next||next===group.label){worldGroupNameInput.value=group.label||'';return;}
+      runEditorTransaction('Rename group',()=>{group.label=next.slice(0,60);saveSceneData();});
+      renderWorldGroupEditor({force:true});renderWorldGroupTools({force:true});
+    };
+    worldGroupNameInput.addEventListener('pointerdown',event=>event.stopPropagation(),{passive:true});
+    worldGroupNameInput.addEventListener('change',commitWorldGroupName);
+    worldGroupNameInput.addEventListener('blur',commitWorldGroupName);
+    worldGroupNameInput.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();commitWorldGroupName();worldGroupNameInput.blur();}});
+  }
+
   bindEditorPress(worldTemplateSaveBtn,saveSelectedWorldGroupAsTemplate);
   bindEditorPress(worldTemplatePlaceBtn,()=>setWorldGroupTemplatePlaceMode(!worldGroupTemplatePlaceMode));
   bindEditorPress(worldTemplateDeleteBtn,deleteSelectedWorldGroupTemplate);
@@ -16139,7 +16755,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const groupExclusionHandle = worldGroupExclusionHandleAt(e.clientX,e.clientY);
       if(groupExclusionHandle){
         const group=worldGroupById(selectedWorldGroupId),start=group?currentWorldGroupExclusion(group):null;
-        if(group&&start){editorGesture.kind='world-group-exclusion';editorGesture.groupExclusionHandle=groupExclusionHandle.kind;editorGesture.groupExclusionIndex=worldGroupExclusionIndex;editorGesture.groupExclusionStart={...start};editorGesture.groupExclusionGroup=group;worldGroupExclusionHandle=groupExclusionHandle.kind;hintEl.textContent=groupExclusionHandle.kind==='center'?'Drag the centre dot to move this exclusion zone':'Drag the green handle to resize this exclusion zone';hintEl.classList.remove('hidden');return;}
+        if(group&&start){editorGesture.kind='world-group-exclusion';editorGesture.groupExclusionHandle=groupExclusionHandle.kind;editorGesture.groupExclusionIndex=worldGroupExclusionIndex;editorGesture.groupExclusionStart={...start};editorGesture.groupExclusionGroup=group;worldGroupExclusionHandle=groupExclusionHandle.kind;beginEditorTransaction('Edit exclusion shape');hintEl.textContent=groupExclusionHandle.kind==='center'?'Drag the centre dot to move this exclusion zone':'Drag the green handle to resize this exclusion zone';hintEl.classList.remove('hidden');return;}
       }
 
       if (worldGroupTemplatePlaceMode && editorScope === 'environment' && worldGroupTemplateById(selectedWorldTemplateId)) {
@@ -16238,6 +16854,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         if (handle) {
           editorGesture.kind = 'collision-handle';
           collisionHandleIndex = handle.index;
+          if(worldGroupEditSession)beginEditorTransaction('Edit collision');
           hintEl.textContent = 'Drag the orange handle to reshape the collision';
           hintEl.classList.remove('hidden');
           return;
@@ -16247,7 +16864,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       // A locked World Group can ONLY be moved from its yellow origin dot.
       // Group members/bounds remain useful selection targets, but dragging them
       // pans the scene rather than moving the composition accidentally.
-      if(editorScope==='environment'&&!worldGroupEditMode){
+      if(editorScope==='environment'&&(!worldGroupEditMode||worldGroupEditSession)){
         const selectedGroup=worldGroupById(selectedWorldGroupId);
         if(selectedGroup&&worldGroupOriginHandleHitAt(selectedGroup,e.clientX,e.clientY)){
           selectObject(null);
@@ -16257,6 +16874,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           editorGesture.groupStartX=Number(selectedGroup.x)||0;
           editorGesture.groupStartZ=Number(selectedGroup.z)||pathZ;
           editorGesture.groupStartScreen=worldGroupOriginScreenPoint(selectedGroup);
+          if(worldGroupEditSession)beginEditorTransaction('Move group');
           hintEl.textContent=`${selectedGroup.label} · drag the yellow dot · horizontal = along path · vertical = scene depth`;
           hintEl.classList.remove('hidden');
           return;
@@ -16269,6 +16887,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         editorGesture.kind = 'selected-object';
         editorGesture.object = selectedObject;
         editorGesture.stackIgnore = new Set();
+        if(worldGroupEditSession)beginEditorTransaction('Move group member');
         if (isGameplayCrate(selectedObject)) {
           const anchor = stackBottomFor(selectedObject, selectedObject.x);
           const column = stackColumnFor(anchor, selectedObject.x);
@@ -16512,8 +17131,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             const point=placementPointFromClient(addAssetType,e.clientX,e.clientY) || gesture.startGround;
             if(point){
               const placedType=addAssetType;
+              if(worldGroupEditSession)beginEditorTransaction('Add group asset');
               createUserObject(placedType,point,{selectAfter:false});
               selectedObject=null;
+              if(editorTransaction)commitEditorTransaction();
               selectionCycleInfo=null;
               const info=editorAssetInfo.get(placedType);
               hintEl.textContent=`Placed ${String(info?.label || placedType).toLowerCase()} · tap again to add another · drag anywhere to pan`;
@@ -16546,6 +17167,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             }
           }
         }
+        if(editorTransaction)commitEditorTransaction();
       }
       editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;puzzleRespawnHandle=null;puzzleCartPathHandle=null;
       return;
