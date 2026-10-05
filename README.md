@@ -1,33 +1,30 @@
-# SS-PATCH-1.0.113
+# SS-PATCH-1.0.114
 
-Applies over `SS-PATCH-1.0.112`.
+Applies over `SS-PATCH-1.0.113`.
 
-## Critical fix: authored assets no longer wrap
+## Asset Lab live refresh
 
-The old scenery system wraps procedural objects by one world-tile width so the
-forest can repeat around the camera. Authored objects were accidentally allowed
-to inherit that behaviour after reload, which could make a manually placed
-house/fence/group member appear again roughly one world width later.
+Asset Lab settings are now reloaded whenever Play is restored or becomes
+visible again.
 
-That phantom copy was not a second World Group, so deleting it could actually
-delete the real authored object.
+This fixes the case where an asset is changed in Asset Lab — for example
+enabling `Follow Surface Normal` — but Play returns from iOS back/forward cache
+with its old in-memory behaviour table.
 
-### New rule
+The refresh covers:
+- behaviours, including Follow Surface Normal, Solid, Climbable, Support etc.;
+- inherited collision defaults;
+- climb paths;
+- mechanisms;
+- asset-level sockets;
+- asset state profiles;
+- existing Asset Lab layout/size refresh.
 
-- Procedural/generated biome scenery may wrap.
-- Manually placed world assets never wrap.
-- World Group members never wrap.
-- World Group template instances never wrap.
-- Puzzle-owned objects never wrap.
-- Auto-authored river-bank dressing is local to its section and never wraps.
+Existing objects are not recreated. Inherited behaviour/collision is refreshed
+in place, while per-instance collision overrides remain protected.
 
-### Migration / safety
-
-- Existing `sceneData.added` rows are migrated to `wrap:false` on load.
-- `wrap:false` is now persisted explicitly on authored scene rows.
-- `addObject()` contains a safety guard so `userAdded` or puzzle-owned content
-  cannot wrap even if an older call path mistakenly requests it.
-- Existing World Group membership/position data is not changed.
-
-This should remove phantom authored assets without deleting or relocating the
-real placements.
+Placement remains separate from gameplay-layer locking:
+- Ground = follows terrain height and may follow its normal if the asset enables it.
+- Free = keeps authored world height/orientation.
+- Gameplay-layer lock = constrains the object to the gameplay/path depth.
+So an Environment asset can be Ground-attached without being gameplay-layer locked.

@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.114: refresh Asset Lab behaviour/config changes when returning to Play.
   // SideScroll v1.0.113: authored world/puzzle assets never wrap across the world tile.
   // SideScroll v1.0.112: dynamic user-created biomes + explicit biome/profile library.
   // SideScroll v1.0.111: reusable Biome Profiles + same-biome profile transitions.
@@ -4631,11 +4632,77 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return true;
   }
 
-  // iOS can restore Play from the back/forward cache after visiting Asset Lab.
-  // Refresh authored sizes on return so no separate Apply step is required.
-  window.addEventListener('pageshow', () => refreshMountainProceduralSizingFromAssetLab());
+  function readAssetLabJson(key, fallback = {}) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === null) return JSON.parse(JSON.stringify(fallback || {}));
+      const parsed = JSON.parse(raw || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : JSON.parse(JSON.stringify(fallback || {}));
+    } catch (_) {
+      return JSON.parse(JSON.stringify(fallback || {}));
+    }
+  }
+
+  function refreshAssetLabAuthoringFromStorage({layout=true}={}) {
+    // Asset Lab is the source of truth. iOS frequently restores Play from the
+    // back/forward cache, so in-memory copies can otherwise remain stale even
+    // though localStorage already contains the new settings.
+    assetBehaviourOverrides = readAssetLabJson(
+      ASSET_BEHAVIOUR_STORAGE_KEY,
+      BAKED_GAME_DESIGN?.assets?.behaviourOverrides || {}
+    );
+    assetCollisionDefaults = readAssetLabJson(
+      ASSET_COLLISION_STORAGE_KEY,
+      BAKED_GAME_DESIGN?.assets?.collisionDefaults || {}
+    );
+    assetClimbPathOverrides = readAssetLabJson(
+      ASSET_CLIMB_PATH_STORAGE_KEY,
+      BAKED_GAME_DESIGN?.assets?.climbPaths || {}
+    );
+    assetMechanismDefaults = readAssetLabJson(ASSET_MECHANISM_STORAGE_KEY, {});
+    assetSocketDefaults = readAssetLabJson(ASSET_SOCKET_STORAGE_KEY, {});
+    assetStateProfiles = readAssetLabJson(ASSET_STATE_STORAGE_KEY, {});
+
+    // Layout has its own snapshot-aware refresh because changing authored
+    // mountain sizes requires rebuilding the procedural candidate pool.
+    if (layout) refreshMountainProceduralSizingFromAssetLab();
+
+    // Re-apply inherited behaviour/collision to all existing authored/runtime
+    // objects. Per-instance collision overrides remain untouched.
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted) continue;
+      applyAssetBehaviourToObject(obj);
+    }
+
+    settleGameplayCrates();
+    sortSceneCollections();
+
+    if (editMode) {
+      if (typeof buildAssetPalette === 'function') buildAssetPalette();
+      if (typeof renderAssetSetup === 'function' && assetSetupName) renderAssetSetup();
+      if (typeof updateEditorButtons === 'function') updateEditorButtons();
+      if (typeof renderEnvironmentSelectionTools === 'function') renderEnvironmentSelectionTools({force:true});
+    }
+    return true;
+  }
+
+  const ASSET_LAB_REFRESH_KEYS = new Set([
+    ASSET_LAYOUT_STORAGE_KEY,
+    ASSET_BEHAVIOUR_STORAGE_KEY,
+    ASSET_COLLISION_STORAGE_KEY,
+    ASSET_CLIMB_PATH_STORAGE_KEY,
+    ASSET_MECHANISM_STORAGE_KEY,
+    ASSET_SOCKET_STORAGE_KEY,
+    ASSET_STATE_STORAGE_KEY
+  ]);
+
+  // Returning from Asset Lab must behave like a live refresh. In particular,
+  // Follow Surface Normal is read every draw from assetBehaviours(), so once the
+  // in-memory behaviour table is refreshed an existing Ground object updates
+  // immediately without being recreated or moved.
+  window.addEventListener('pageshow', () => refreshAssetLabAuthoringFromStorage());
   window.addEventListener('storage', event => {
-    if (event.key === ASSET_LAYOUT_STORAGE_KEY) refreshMountainProceduralSizingFromAssetLab();
+    if (ASSET_LAB_REFRESH_KEYS.has(event.key)) refreshAssetLabAuthoringFromStorage();
   });
 
   function allSceneObjects() {
@@ -16295,6 +16362,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   window.addEventListener('resize', resize, { passive: true });
   document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshAssetLabAuthoringFromStorage();
     refreshCharacterCollider();
     keyLeft = false;
     keyRight = false;
