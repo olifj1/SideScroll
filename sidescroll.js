@@ -6623,6 +6623,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
   }
 
+  let frameWorldGroupExclusionBounds=[];
+  function refreshFrameWorldGroupExclusionBounds(){
+    const next=[];
+    for(const group of worldGroups()){
+      for(const b of worldGroupExclusionWorldBoundsList(group))if(b?.enabled)next.push(b);
+    }
+    frameWorldGroupExclusionBounds=next;
+  }
+
   function dressingHiddenByPuzzle(obj, drawX) {
     // Feature terrain owns its physical footprint. Any non-puzzle dressing that
     // falls inside a river channel is suppressed rather than left embedded in
@@ -6631,11 +6640,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj || obj.category !== 'dressing' || obj.puzzleInstanceId) return false;
     if (pointInsideRiverChannel(drawX, obj.z)) return true;
     if (obj.userAdded) return false;
-    for (const group of worldGroups()) {
-      for(const b of worldGroupExclusionWorldBoundsList(group)){
-        if (!b?.enabled) continue;
-        if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
-      }
+    for(const b of frameWorldGroupExclusionBounds){
+      if(drawX>=b.minX&&drawX<=b.maxX&&obj.z>=b.minZ&&obj.z<=b.maxZ)return true;
     }
     for (const instance of activePuzzleInstances.values()) {
       const b = puzzleExclusionWorldBounds(instance.marker);
@@ -9196,24 +9202,33 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     };
   }
 
+  const normalizedWorldGroupExclusionSets = new WeakSet();
+
   function worldGroupExclusions(group){
     if(!group)return[];
-    if(!Array.isArray(group.exclusions)){
-      // v1.0.115 migration: the old single `exclusion` record becomes Zone 1.
-      group.exclusions=group.exclusion&&typeof group.exclusion==='object'
-        ? [cleanWorldGroupExclusion(group,group.exclusion)]
-        : [];
-      delete group.exclusion;
-    }else{
-      const seenIds=new Set();
-      group.exclusions=group.exclusions
-        .filter(item=>item&&typeof item==='object')
-        .map(item=>{
-          const ex=cleanWorldGroupExclusion(group,item);
-          if(seenIds.has(ex.id))ex.id=newWorldGroupExclusionId();
-          seenIds.add(ex.id);
-          return ex;
-        });
+    // Normalisation is a migration/editor concern, not a render-loop concern.
+    // This function is reached by procedural dressing visibility checks, so do
+    // the object rebuilding / ID repair once per group object rather than once
+    // per rendered dressing item.
+    if(!normalizedWorldGroupExclusionSets.has(group)){
+      if(!Array.isArray(group.exclusions)){
+        // v1.0.115 migration: the old single `exclusion` record becomes Zone 1.
+        group.exclusions=group.exclusion&&typeof group.exclusion==='object'
+          ? [cleanWorldGroupExclusion(group,group.exclusion)]
+          : [];
+        delete group.exclusion;
+      }else{
+        const seenIds=new Set();
+        group.exclusions=group.exclusions
+          .filter(item=>item&&typeof item==='object')
+          .map(item=>{
+            const ex=cleanWorldGroupExclusion(group,item);
+            if(seenIds.has(ex.id))ex.id=newWorldGroupExclusionId();
+            seenIds.add(ex.id);
+            return ex;
+          });
+      }
+      normalizedWorldGroupExclusionSets.add(group);
     }
     if(worldGroupExclusionIndex>=group.exclusions.length)worldGroupExclusionIndex=Math.max(0,group.exclusions.length-1);
     if(selectedWorldGroupId===group.id&&group.exclusions.length){
@@ -9223,7 +9238,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
     return group.exclusions;
   }
-
   function currentWorldGroupExclusion(group){
     const zones=worldGroupExclusions(group);
     return zones[worldGroupExclusionIndex] || cleanWorldGroupExclusion(group,null);
@@ -9251,7 +9265,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function worldGroupExclusionWorldBoundsList(group){
-    return worldGroupExclusions(group).map((_,index)=>worldGroupExclusionWorldBounds(group,index)).filter(Boolean);
+    if(!group)return[];
+    const zones=worldGroupExclusions(group);
+    const gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
+    const bounds=[];
+    for(let index=0;index<zones.length;index++){
+      const ex=zones[index];
+      const centerX=gx+ex.centerX,centerZ=gz+ex.centerZ;
+      bounds.push({index,enabled:ex.enabled,centerX,centerZ,width:ex.width,depth:ex.depth,minX:centerX-ex.width*.5,maxX:centerX+ex.width*.5,minZ:centerZ-ex.depth*.5,maxZ:centerZ+ex.depth*.5});
+    }
+    return bounds;
   }
 
   function addWorldGroupExclusion(group){
@@ -15662,6 +15685,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // With every section visible this should be visually indistinguishable from
     // the previous continuous terrain; the section editor can hide any one
     // piece to verify that the segmentation is genuinely working.
+    refreshFrameWorldGroupExclusionBounds();
     drawTerrainSections(view);
     for (const obj of backdrop) drawObject(obj, view);
     for (const obj of midfill) drawObject(obj, view);

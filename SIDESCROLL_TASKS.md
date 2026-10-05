@@ -28,6 +28,15 @@ Implemented in the first Stage 1 code pass:
 - Existing Position, Collision, Thought and Camera inspectors remain reusable sub-tools; opening them does not end the Group session.
 - Normal Environment mode now exposes only group-instance operations such as Edit, Move, Rename, Duplicate, Dissolve and Delete.
 
+### Stage 1 performance correction — v1.0.119
+
+The first on-device Stage 1 test exposed two performance-sensitive implementation details that must remain part of the editor-shell rules:
+
+- The persistent drawer must **not** use live `backdrop-filter` blur over the WebGL viewport. The Stage 1 drawer is much larger than the old compact panel, so continuously blurring the live scene is an avoidable iPhone/Safari compositor cost. Use a sufficiently opaque panel surface instead.
+- Read-only render queries must never perform schema migration/normalisation. World Group exclusion IDs are now normalised once per group object rather than rebuilding exclusion records in the per-object draw path.
+- Procedural dressing exclusion bounds are flattened once per rendered frame and reused by every dressing object rather than rescanning/rebuilding all World Group zones for every object.
+- Treat this as a general engine rule: **migration, validation, deep-copy/history work and DOM rebuilding belong at load/edit/transaction boundaries, not inside per-frame or per-object render paths.**
+
 Still pending within the wider Stage 1 shell work:
 
 - General-purpose drawer route stack/navigation service; v1.0.117 has the first Environment -> World Group context transition but not the fully reusable route stack yet.
@@ -1079,6 +1088,7 @@ See **Shared authoring transaction / Undo architecture — revised direction** a
 
 ## Streaming / performance
 
+- [x] Remove the v1.0.117 Stage 1 performance regression: no live backdrop blur on the full-height Editor Drawer; exclusion normalisation moved out of the per-object draw hot path; World Group exclusion bounds reused per frame. (v1.0.119)
 - [ ] Build a diagnostic Performance panel aimed at finding intermittent stutter rather than only displaying FPS.
 - [ ] Show FPS and current/average frame time plus recent/worst frame spikes.
 - [ ] Show active/rendered object totals broken down into procedural biome objects, authored loose objects, World Group members and puzzle objects.

@@ -13588,6 +13588,9 @@ body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer{
   overflow:hidden!important;
   border-radius:14px!important;
   box-sizing:border-box!important;
+  background:rgba(7,14,18,.96)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
   transition:width .16s ease,background .16s ease,border-color .16s ease;
 }
 body[data-game-id="game-16"] .sidescroll-puzzle-panel.sidescroll-editor-drawer[hidden]{display:none!important;}
@@ -13712,7 +13715,8 @@ body[data-game-id="game-16"].sidescroll-placement-mode .sidescroll-editor-drawer
 body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer{
   position:fixed!important;top:max(82px,calc(env(safe-area-inset-top) + 74px))!important;bottom:auto!important;left:50%!important;
   width:min(620px,calc(100vw - 340px))!important;min-width:360px!important;height:auto!important;transform:translateX(-50%)!important;
-  display:block!important;padding:9px 12px!important;overflow:visible!important;border-color:rgba(232,240,238,.19)!important;background:rgba(7,14,18,.82)!important;
+  display:block!important;padding:9px 12px!important;overflow:visible!important;border-color:rgba(232,240,238,.19)!important;background:rgba(7,14,18,.96)!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
 }
 body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer > .sidescroll-editor-drawer-header,
 body[data-game-id="game-16"].sidescroll-puzzle-testing .sidescroll-puzzle-panel.sidescroll-editor-drawer > .sidescroll-editor-drawer-footer,
