@@ -1,30 +1,35 @@
-# SS-PATCH-1.0.114
+# SS-PATCH-1.0.115
 
-Applies over `SS-PATCH-1.0.113`.
+Applies over `SS-PATCH-1.0.114`.
 
-## Asset Lab live refresh
+## Multiple World Group exclusion zones
+- A World Group can now own any number of rectangular procedural exclusion zones.
+- Existing single exclusions migrate automatically to Zone 1.
+- Added `+ Add Exclusion`, previous/next zone navigation and `Delete Exclusion`.
+- Enable/Disable, Edit and Fit operate on the currently selected zone.
+- All enabled zones suppress procedural biome dressing.
+- Group templates save/restore every exclusion zone.
 
-Asset Lab settings are now reloaded whenever Play is restored or becomes
-visible again.
+## Procedural placement reset
+Added to the Section panel:
+- `Reset procedural changes · this section`
+- `Reset procedural changes · ALL`
 
-This fixes the case where an asset is changed in Asset Lab — for example
-enabling `Follow Surface Normal` — but Play returns from iOS back/forward cache
-with its old in-memory behaviour table.
+Reset affects only editor overrides on deterministic biome-generated trees,
+grass/foliage and rocks. It does not reset:
+- manually placed world assets;
+- World Groups;
+- puzzles;
+- terrain height/type/layers;
+- river-bank authored dressing.
 
-The refresh covers:
-- behaviours, including Follow Surface Normal, Solid, Climbable, Support etc.;
-- inherited collision defaults;
-- climb paths;
-- mechanisms;
-- asset-level sockets;
-- asset state profiles;
-- existing Asset Lab layout/size refresh.
+Per-section reset checks both the object's original deterministic X position and
+its current edited X position, so a procedural object moved into or out of the
+selected section is still recoverable. The scene reloads after a successful
+reset so the deterministic procedural layout is rebuilt cleanly.
 
-Existing objects are not recreated. Inherited behaviour/collision is refreshed
-in place, while per-instance collision overrides remain protected.
-
-Placement remains separate from gameplay-layer locking:
-- Ground = follows terrain height and may follow its normal if the asset enables it.
-- Free = keeps authored world height/orientation.
-- Gameplay-layer lock = constrains the object to the gameplay/path depth.
-So an Environment asset can be Ground-attached without being gameplay-layer locked.
+## Climb-path interaction dot
+When the player is close enough to enter an authored Climb Path, the same small
+interaction dot used by logs/actionable objects now appears at the valid climb
+entry point. For a path usable from either end, the currently valid/nearest end
+is indicated. The dot disappears once climbing begins.

@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.115: multiple World Group exclusions + procedural reset controls + climb interaction dots.
   // SideScroll v1.0.114: refresh Asset Lab behaviour/config changes when returning to Play.
   // SideScroll v1.0.113: authored world/puzzle assets never wrap across the world tile.
   // SideScroll v1.0.112: dynamic user-created biomes + explicit biome/profile library.
@@ -392,6 +393,8 @@
   const sectionBankDressBtn = document.getElementById('sidescroll-section-bank-dress');
   const sectionBankClearBtn = document.getElementById('sidescroll-section-bank-clear');
   const sectionResetBtn = document.getElementById('sidescroll-section-reset');
+  const sectionResetProceduralBtn = document.getElementById('sidescroll-section-reset-procedural');
+  const sectionResetProceduralAllBtn = document.getElementById('sidescroll-section-reset-procedural-all');
   const characterSwapBtn = document.getElementById('sidescroll-character');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
   const cameraEditorPanel = document.getElementById('sidescroll-camera-editor');
@@ -501,9 +504,13 @@
   const worldGroupMembershipBtn = document.getElementById('sidescroll-world-group-membership');
   const worldGroupDissolveBtn = document.getElementById('sidescroll-world-group-dissolve');
   const worldGroupDeleteBtn = document.getElementById('sidescroll-world-group-delete');
+  const worldGroupExclusionAddBtn = document.getElementById('sidescroll-world-group-exclusion-add');
+  const worldGroupExclusionPrevBtn = document.getElementById('sidescroll-world-group-exclusion-prev');
+  const worldGroupExclusionNextBtn = document.getElementById('sidescroll-world-group-exclusion-next');
   const worldGroupExclusionToggleBtn = document.getElementById('sidescroll-world-group-exclusion-toggle');
   const worldGroupExclusionEditBtn = document.getElementById('sidescroll-world-group-exclusion-edit');
   const worldGroupExclusionFitBtn = document.getElementById('sidescroll-world-group-exclusion-fit');
+  const worldGroupExclusionDeleteBtn = document.getElementById('sidescroll-world-group-exclusion-delete');
   const worldGroupStatusEl = document.getElementById('sidescroll-world-group-status');
   const worldGroupListEl = document.getElementById('sidescroll-world-group-list');
   const worldGroupEmptyEl = document.getElementById('sidescroll-world-group-empty');
@@ -4066,8 +4073,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const raw = localStorage.getItem(SCENE_STORAGE_KEY);
       if (raw !== null) {
         const parsed = JSON.parse(raw || 'null');
-        if (parsed && [2,3,4,5,6].includes(parsed.version)) {
-          parsed.version = 6;
+        if (parsed && [2,3,4,5,6,7].includes(parsed.version)) {
+          parsed.version = 7;
           parsed.overrides ||= {};
           parsed.added ||= [];
           parsed.worldGroups ||= [];
@@ -4077,16 +4084,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
     } catch (_) {}
     const baked = BAKED_GAME_DESIGN?.scene?.edits;
-    if (baked && [2,3,4,5,6].includes(baked.version)) {
+    if (baked && [2,3,4,5,6,7].includes(baked.version)) {
       const parsed = JSON.parse(JSON.stringify(baked));
-      parsed.version = 6;
+      parsed.version = 7;
       parsed.overrides ||= {};
       parsed.added ||= [];
       parsed.worldGroups ||= [];
       parsed.worldGroupTemplates ||= [];
       return parsed;
     }
-    return { version: 6, overrides: {}, added: [], worldGroups: [], worldGroupTemplates: [] };
+    return { version: 7, overrides: {}, added: [], worldGroups: [], worldGroupTemplates: [] };
   })();
 
   function saveSceneData() {
@@ -4204,6 +4211,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       x,
       y: opts.y ?? groundY,
       z,
+      // Original deterministic placement, retained even if a procedural object
+      // is later moved/deleted by the editor. Used by per-section reset.
+      proceduralBaseX:x,
+      proceduralBaseZ:z,
       sx: resolvedWidth,
       sy: resolvedHeight,
       baseSx: opts.baseSx ?? resolvedWidth,
@@ -6551,9 +6562,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (pointInsideRiverChannel(drawX, obj.z)) return true;
     if (obj.userAdded) return false;
     for (const group of worldGroups()) {
-      const b = worldGroupExclusionWorldBounds(group);
-      if (!b?.enabled) continue;
-      if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
+      for(const b of worldGroupExclusionWorldBoundsList(group)){
+        if (!b?.enabled) continue;
+        if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
+      }
     }
     for (const instance of activePuzzleInstances.values()) {
       const b = puzzleExclusionWorldBounds(instance.marker);
@@ -7243,6 +7255,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let worldGroupMoveMode = false;
   let worldGroupExclusionEditMode = false;
   let worldGroupExclusionHandle = null;
+  let worldGroupExclusionIndex = 0;
   let worldGroupListSignature = '';
   let selectedWorldTemplateId = null;
   let worldGroupTemplatePlaceMode = false;
@@ -8680,7 +8693,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     };
   }
 
-  function cleanWorldGroupExclusion(group,raw=group?.exclusion){
+  function cleanWorldGroupExclusion(group,raw=null){
     const fallback=defaultWorldGroupExclusion(group);
     if(!raw||typeof raw!=='object')return{...fallback};
     return{
@@ -8692,32 +8705,109 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     };
   }
 
-  function currentWorldGroupExclusion(group){return cleanWorldGroupExclusion(group,group?.exclusion);}
+  function worldGroupExclusions(group){
+    if(!group)return[];
+    if(!Array.isArray(group.exclusions)){
+      // v1.0.115 migration: the old single `exclusion` record becomes Zone 1.
+      group.exclusions=group.exclusion&&typeof group.exclusion==='object'
+        ? [cleanWorldGroupExclusion(group,group.exclusion)]
+        : [];
+      delete group.exclusion;
+    }else{
+      group.exclusions=group.exclusions
+        .filter(item=>item&&typeof item==='object')
+        .map(item=>cleanWorldGroupExclusion(group,item));
+    }
+    if(worldGroupExclusionIndex>=group.exclusions.length)worldGroupExclusionIndex=Math.max(0,group.exclusions.length-1);
+    return group.exclusions;
+  }
+
+  function currentWorldGroupExclusion(group){
+    const zones=worldGroupExclusions(group);
+    return zones[worldGroupExclusionIndex] || cleanWorldGroupExclusion(group,null);
+  }
 
   function ensureWorldGroupExclusion(group){
     if(!group)return null;
-    group.exclusion=cleanWorldGroupExclusion(group,group.exclusion);
-    return group.exclusion;
+    const zones=worldGroupExclusions(group);
+    if(!zones.length){
+      const ex=defaultWorldGroupExclusion(group);
+      zones.push(ex);
+      worldGroupExclusionIndex=0;
+    }
+    worldGroupExclusionIndex=Rig.clamp(worldGroupExclusionIndex,0,Math.max(0,zones.length-1));
+    return zones[worldGroupExclusionIndex];
   }
 
-  function worldGroupExclusionWorldBounds(group){
+  function worldGroupExclusionWorldBounds(group,index=worldGroupExclusionIndex){
     if(!group)return null;
-    const ex=currentWorldGroupExclusion(group),gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
+    const zones=worldGroupExclusions(group),ex=zones[index];
+    if(!ex)return null;
+    const gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
     const centerX=gx+ex.centerX,centerZ=gz+ex.centerZ;
-    return{enabled:ex.enabled,centerX,centerZ,width:ex.width,depth:ex.depth,minX:centerX-ex.width*.5,maxX:centerX+ex.width*.5,minZ:centerZ-ex.depth*.5,maxZ:centerZ+ex.depth*.5};
+    return{index,enabled:ex.enabled,centerX,centerZ,width:ex.width,depth:ex.depth,minX:centerX-ex.width*.5,maxX:centerX+ex.width*.5,minZ:centerZ-ex.depth*.5,maxZ:centerZ+ex.depth*.5};
+  }
+
+  function worldGroupExclusionWorldBoundsList(group){
+    return worldGroupExclusions(group).map((_,index)=>worldGroupExclusionWorldBounds(group,index)).filter(Boolean);
+  }
+
+  function addWorldGroupExclusion(group){
+    if(!group)return null;
+    const zones=worldGroupExclusions(group);
+    let ex;
+    if(zones.length){
+      const source=zones[Math.min(worldGroupExclusionIndex,zones.length-1)];
+      ex={
+        enabled:true,
+        centerX:source.centerX+Math.max(1.2,source.width*.62),
+        centerZ:source.centerZ,
+        width:Math.max(2.2,source.width),
+        depth:Math.max(2.2,source.depth)
+      };
+    }else{
+      ex=defaultWorldGroupExclusion(group);
+      ex.enabled=true;
+    }
+    zones.push(cleanWorldGroupExclusion(group,ex));
+    worldGroupExclusionIndex=zones.length-1;
+    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
+    return zones[worldGroupExclusionIndex];
+  }
+
+  function selectWorldGroupExclusionIndex(index){
+    const group=worldGroupById(selectedWorldGroupId);if(!group)return;
+    const zones=worldGroupExclusions(group);if(!zones.length){worldGroupExclusionIndex=0;return;}
+    worldGroupExclusionIndex=((Math.trunc(index)%zones.length)+zones.length)%zones.length;
+    worldGroupExclusionHandle=null;
+    worldGroupListSignature='';
+    renderWorldGroupTools({force:true});
+  }
+
+  function deleteCurrentWorldGroupExclusion(){
+    const group=worldGroupById(selectedWorldGroupId);if(!group)return false;
+    const zones=worldGroupExclusions(group);if(!zones.length)return false;
+    const number=worldGroupExclusionIndex+1;
+    if(!window.confirm(`Delete exclusion zone ${number} from ${group.label}?`))return false;
+    zones.splice(worldGroupExclusionIndex,1);
+    worldGroupExclusionIndex=Math.max(0,Math.min(worldGroupExclusionIndex,zones.length-1));
+    if(!zones.length)worldGroupExclusionEditMode=false;
+    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
+    hintEl.textContent=zones.length?`${group.label} · exclusion zone deleted · ${zones.length} remaining`:`${group.label} · all exclusion zones removed`;
+    hintEl.classList.remove('hidden');
+    return true;
   }
 
   function fitWorldGroupExclusion(group,{enable=true}={}){
     if(!group)return false;
     const b=worldGroupBounds(group),gx=Number(group.x)||0,gz=Number(group.z)||pathZ,pad=.65;
     const minX=b?.minX ?? gx-.6,maxX=b?.maxX ?? gx+.6,minZ=b?.minZ ?? gz-.5,maxZ=b?.maxZ ?? gz+.5;
-    group.exclusion={
-      enabled:enable ? true : currentWorldGroupExclusion(group).enabled,
-      centerX:(minX+maxX)*.5-gx,
-      centerZ:(minZ+maxZ)*.5-gz,
-      width:Math.max(2.2,maxX-minX+pad*2),
-      depth:Math.max(2.2,maxZ-minZ+pad*2)
-    };
+    const ex=ensureWorldGroupExclusion(group);
+    ex.enabled=enable ? true : ex.enabled;
+    ex.centerX=(minX+maxX)*.5-gx;
+    ex.centerZ=(minZ+maxZ)*.5-gz;
+    ex.width=Math.max(2.2,maxX-minX+pad*2);
+    ex.depth=Math.max(2.2,maxZ-minZ+pad*2);
     saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});return true;
   }
 
@@ -8731,13 +8821,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       ensureWorldGroupExclusion(group);
     }
     worldGroupListSignature='';renderWorldGroupTools({force:true});
-    if(group){hintEl.textContent=worldGroupExclusionEditMode?`Editing ${group.label} exclusion · drag centre or edge handles`:`${group.label} exclusion edit finished`;hintEl.classList.remove('hidden');}
+    if(group){
+      const zones=worldGroupExclusions(group);
+      hintEl.textContent=worldGroupExclusionEditMode
+        ? `Editing ${group.label} exclusion ${worldGroupExclusionIndex+1}/${zones.length} · drag centre or edge handles`
+        : `${group.label} exclusion edit finished`;
+      hintEl.classList.remove('hidden');
+    }
   }
+
 
   function selectWorldGroup(id,{edit=null,focus=false}={}){
     const group=worldGroupById(id);
     const changed=(group?.id||null)!==selectedWorldGroupId;
     selectedWorldGroupId=group?.id||null;
+    if(changed)worldGroupExclusionIndex=0;
     worldGroupMoveMode=false;worldGroupExclusionEditMode=false;
     if(edit!==null)worldGroupEditMode=!!(group&&edit);
     else if(changed||!group)worldGroupEditMode=false;
@@ -8984,7 +9082,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       id:`world-template-${Date.now().toString(36)}-${++userSceneCounter}`,
       label,
       createdAt:Date.now(),
-      exclusion:group.exclusion?deepCopy(currentWorldGroupExclusion(group)):null,
+      exclusions:worldGroupExclusions(group).map(ex=>deepCopy(ex)),
       members:members.map(obj=>worldGroupTemplateMember(obj,group))
     };
     worldGroupTemplates().push(template);
@@ -9059,7 +9157,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       id:`world-group-${Date.now().toString(36)}-${++userSceneCounter}`,
       label:uniqueWorldGroupLabel(template.label||'World Group'),
       x:anchor.x,z:anchor.z,createdAt:Date.now(),templateId:template.id,
-      exclusion:template.exclusion?deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},template.exclusion)):null
+      exclusions:Array.isArray(template.exclusions)
+        ? template.exclusions.map(ex=>deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},ex)))
+        : (template.exclusion ? [deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},template.exclusion))] : [])
     };
     worldGroups().push(group);
     for(const member of template.members)createTemplateObject(member,group,anchor);
@@ -9153,25 +9253,30 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(!worldGroupListEl)return;const groups=worldGroups();
     if(selectedWorldGroupId&&!worldGroupById(selectedWorldGroupId)){selectedWorldGroupId=null;worldGroupEditMode=false;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;}
     const selected=worldGroupById(selectedWorldGroupId);
-    const signature=`${selectedWorldGroupId||''}|${worldGroupEditMode?'e':'-'}|${worldGroupMoveMode?'m':'-'}|${worldGroupExclusionEditMode?'x':'-'}|${selectedObject?.id||''}|`+groups.map(g=>{const ex=currentWorldGroupExclusion(g);return`${g.id}:${g.label}:${Number(g.x).toFixed(2)}:${Number(g.z).toFixed(2)}:${ex.enabled?'1':'0'}:${ex.centerX.toFixed(2)}:${ex.centerZ.toFixed(2)}:${ex.width.toFixed(2)}:${ex.depth.toFixed(2)}:${worldGroupMembers(g.id).map(o=>o.id).join(',')}`;}).join('|');
+    const signature=`${selectedWorldGroupId||''}|${worldGroupEditMode?'e':'-'}|${worldGroupMoveMode?'m':'-'}|${worldGroupExclusionEditMode?'x':'-'}|zone:${worldGroupExclusionIndex}|${selectedObject?.id||''}|`+groups.map(g=>{const exSig=worldGroupExclusions(g).map(ex=>`${ex.enabled?'1':'0'}:${ex.centerX.toFixed(2)}:${ex.centerZ.toFixed(2)}:${ex.width.toFixed(2)}:${ex.depth.toFixed(2)}`).join(';');return`${g.id}:${g.label}:${Number(g.x).toFixed(2)}:${Number(g.z).toFixed(2)}:${exSig}:${worldGroupMembers(g.id).map(o=>o.id).join(',')}`;}).join('|');
     if(!force&&signature===worldGroupListSignature)return;worldGroupListSignature=signature;
     if(worldGroupCountEl)worldGroupCountEl.textContent=`${groups.length} ${groups.length===1?'group':'groups'}`;if(worldGroupEmptyEl)worldGroupEmptyEl.hidden=groups.length>0;worldGroupListEl.innerHTML='';
     for(const group of groups){const members=worldGroupMembers(group.id),b=worldGroupBounds(group);const row=document.createElement('button');row.type='button';row.className='sidescroll-environment-scene-row';row.classList.toggle('active',group.id===selectedWorldGroupId);row.setAttribute('aria-selected',String(group.id===selectedWorldGroupId));const main=document.createElement('span');main.className='scene-puzzle-main';const strong=document.createElement('strong');strong.textContent=group.label||'World Group';const small=document.createElement('small');small.textContent=`${members.length} ${members.length===1?'asset':'assets'}${worldGroupEditMode&&group.id===selectedWorldGroupId?' · EDITING':''}`;main.append(strong,small);const pos=document.createElement('span');pos.className='scene-puzzle-x';pos.textContent=b?`x ${((b.minX+b.maxX)*.5).toFixed(1)}`:`x ${Number(group.x||0).toFixed(1)}`;row.append(main,pos);bindEditorPress(row,()=>selectWorldGroup(group.id,{focus:true}));worldGroupListEl.appendChild(row);}
     const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;if(worldGroupDeleteBtn)worldGroupDeleteBtn.disabled=!has;
-    const ex=selected?currentWorldGroupExclusion(selected):null;
+    const zones=selected?worldGroupExclusions(selected):[];
+    const ex=selected&&zones.length?currentWorldGroupExclusion(selected):null;
+    if(worldGroupExclusionAddBtn)worldGroupExclusionAddBtn.disabled=!has;
+    if(worldGroupExclusionPrevBtn){worldGroupExclusionPrevBtn.disabled=!has||zones.length<2;worldGroupExclusionPrevBtn.textContent=zones.length?`← Zone ${worldGroupExclusionIndex+1}/${zones.length}`:'← Zone';}
+    if(worldGroupExclusionNextBtn){worldGroupExclusionNextBtn.disabled=!has||zones.length<2;worldGroupExclusionNextBtn.textContent=zones.length?`Zone ${worldGroupExclusionIndex+1}/${zones.length} →`:'Zone →';}
     if(worldGroupExclusionToggleBtn){worldGroupExclusionToggleBtn.disabled=!has;worldGroupExclusionToggleBtn.textContent=ex?.enabled?'Disable Exclusion':'Enable Exclusion';}
     if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.disabled=!has;worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Exclusion':'Edit Exclusion';worldGroupExclusionEditBtn.classList.toggle('primary',worldGroupExclusionEditMode);}
     if(worldGroupExclusionFitBtn)worldGroupExclusionFitBtn.disabled=!has;
+    if(worldGroupExclusionDeleteBtn)worldGroupExclusionDeleteBtn.disabled=!has||!zones.length;
     const selectedCanGroup=!!(selectedObject&&!selectedObject.deleted&&selectedObject.userAdded&&!selectedObject.puzzleInstanceId);if(worldGroupMembershipBtn){const inSelected=selectedCanGroup&&selected&&selectedObject.worldGroupId===selected.id;worldGroupMembershipBtn.disabled=!(selectedCanGroup&&selected);worldGroupMembershipBtn.textContent=inSelected?'Remove Selected':'Add Selected';}
     if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected
       ? 'Standalone placement · create or select a group to organise authored world assets.'
       : worldGroupExclusionEditMode
-        ? `${selected.label} · exclusion ${ex?.enabled?'ON':'OFF'} · drag handles to move/resize`
+        ? `${selected.label} · exclusion ${worldGroupExclusionIndex+1}/${zones.length} ${ex?.enabled?'ON':'OFF'} · drag handles to move/resize`
         : worldGroupMoveMode
           ? `${selected.label} · tap a new scene position to move the complete group`
           : worldGroupEditMode
             ? `${selected.label} · MEMBERS UNLOCKED · new assets auto-join · select members to edit/add/remove`
-            : `${selected.label} · LOCKED GROUP · drag ONLY the yellow dot to move · Edit Group unlocks members${ex?.enabled?' · exclusion ON':''}`;
+            : `${selected.label} · LOCKED GROUP · drag ONLY the yellow dot to move · Edit Group unlocks members${zones.length?` · ${zones.filter(zone=>zone.enabled).length}/${zones.length} exclusions ON`:''}`;
   }
 
   function placedWorldEnvironmentObjects() {
@@ -12119,6 +12224,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
     }
 
+    if (!carriedObject && !interactionState && !climbState) {
+      const climbTarget=nearestActionClimbTarget();
+      if(climbTarget){
+        const entry=climbTarget.mode==='down'?climbTarget.top:climbTarget.bottom;
+        dot(projectWorldPoint(entry.x,entry.y,climbTarget.obj?.z ?? pathZ),true);
+      }
+    }
+
     if (!carriedObject && !interactionState) {
       const near = nearestActionCrate();
       if (near && near !== contextHintObject) {
@@ -12218,9 +12331,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function worldGroupExclusionHandlePositions(group){
     if(!group||!worldGroupExclusionEditMode||group.id!==selectedWorldGroupId)return[];
-    const b=worldGroupExclusionWorldBounds(group);if(!b)return[];
+    const b=worldGroupExclusionWorldBounds(group,worldGroupExclusionIndex);if(!b)return[];
     return[['center',b.centerX,b.centerZ],['left',b.minX,b.centerZ],['right',b.maxX,b.centerZ],['far',b.centerX,b.minZ],['near',b.centerX,b.maxZ]].map(([kind,x,z])=>{
-      const p=projectWorldPoint(x,terrainGroundYAt(x,z)+.055,z);return p&&{kind,...p};
+      const p=projectWorldPoint(x,terrainGroundYAt(x,z)+.055,z);return p&&{kind,index:worldGroupExclusionIndex,...p};
     }).filter(Boolean);
   }
 
@@ -12233,13 +12346,46 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function drawWorldGroupExclusionGuide(ctx,group){
     if(!group||group.id!==selectedWorldGroupId)return;
-    const b=worldGroupExclusionWorldBounds(group);if(!b||(!b.enabled&&!worldGroupExclusionEditMode))return;
-    const corners=[[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]].map(([x,z])=>projectWorldPoint(x,terrainGroundYAt(x,z)+.04,z));
-    if(corners.some(p=>!p))return;
-    ctx.save();ctx.fillStyle=b.enabled?'rgba(89,190,171,.13)':'rgba(120,130,135,.08)';ctx.strokeStyle=b.enabled?'rgba(119,231,205,.9)':'rgba(160,170,174,.7)';ctx.lineWidth=2;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);for(let i=1;i<corners.length;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
-    if(worldGroupExclusionEditMode){for(const h of worldGroupExclusionHandlePositions(group)){ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='center'?8:7,0,Math.PI*2);ctx.fillStyle=h.kind==='center'?'#e1fff8':'#78e1c7';ctx.fill();ctx.strokeStyle='#244c43';ctx.lineWidth=1.5;ctx.stroke();}}
-    const label=`GROUP EXCLUSION · ${b.width.toFixed(1)} × ${b.depth.toFixed(1)}m${b.enabled?'':' · OFF'}`;const c=projectWorldPoint(b.centerX,terrainGroundYAt(b.centerX,b.centerZ)+.1,b.centerZ);if(c){ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));const ly=Math.max(48,c.y-34);ctx.fillStyle='rgba(19,46,40,.88)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle='#dffff6';ctx.fillText(label,lx+7,ly+14);}ctx.restore();
+    const bounds=worldGroupExclusionWorldBoundsList(group);
+    if(!bounds.length)return;
+    for(const b of bounds){
+      if(!b.enabled&&!worldGroupExclusionEditMode)continue;
+      const selectedZone=b.index===worldGroupExclusionIndex;
+      const corners=[[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]].map(([x,z])=>projectWorldPoint(x,terrainGroundYAt(x,z)+.04,z));
+      if(corners.some(p=>!p))continue;
+      ctx.save();
+      ctx.fillStyle=b.enabled
+        ? (selectedZone?'rgba(89,190,171,.16)':'rgba(89,190,171,.08)')
+        : 'rgba(120,130,135,.06)';
+      ctx.strokeStyle=b.enabled
+        ? (selectedZone?'rgba(119,231,205,.96)':'rgba(119,231,205,.58)')
+        : 'rgba(160,170,174,.52)';
+      ctx.lineWidth=selectedZone?2.4:1.4;
+      ctx.setLineDash(selectedZone?[7,5]:[4,5]);
+      ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);
+      for(let i=1;i<corners.length;i++)ctx.lineTo(corners[i].x,corners[i].y);
+      ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
+      if(selectedZone&&worldGroupExclusionEditMode){
+        for(const h of worldGroupExclusionHandlePositions(group)){
+          ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='center'?8:7,0,Math.PI*2);
+          ctx.fillStyle=h.kind==='center'?'#e1fff8':'#78e1c7';ctx.fill();
+          ctx.strokeStyle='#244c43';ctx.lineWidth=1.5;ctx.stroke();
+        }
+      }
+      const label=`EXCLUSION ${b.index+1}/${bounds.length} · ${b.width.toFixed(1)} × ${b.depth.toFixed(1)}m${b.enabled?'':' · OFF'}`;
+      const c=projectWorldPoint(b.centerX,terrainGroundYAt(b.centerX,b.centerZ)+.1,b.centerZ);
+      if(c&&selectedZone){
+        ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';
+        const tw=ctx.measureText(label).width+14;
+        const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));
+        const ly=Math.max(48,c.y-34);
+        ctx.fillStyle='rgba(19,46,40,.88)';ctx.fillRect(lx,ly,tw,20);
+        ctx.fillStyle='#dffff6';ctx.fillText(label,lx+7,ly+14);
+      }
+      ctx.restore();
+    }
   }
+
 
   function drawWorldGroupGuides(ctx){
     if(!editMode||editorScope!=='environment')return;
@@ -15445,9 +15591,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(worldGroupRenameBtn,renameSelectedWorldGroup);
   bindEditorPress(worldGroupDissolveBtn,dissolveSelectedWorldGroup);
   bindEditorPress(worldGroupDeleteBtn,deleteSelectedWorldGroup);
-  bindEditorPress(worldGroupExclusionToggleBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;const ex=ensureWorldGroupExclusion(group);ex.enabled=!ex.enabled;saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});hintEl.textContent=ex.enabled?`${group.label} exclusion enabled · procedural dressing inside it is suppressed`:`${group.label} exclusion disabled · procedural dressing restored`;hintEl.classList.remove('hidden');});
+  bindEditorPress(worldGroupExclusionAddBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;addWorldGroupExclusion(group);setWorldGroupExclusionEditMode(true);hintEl.textContent=`${group.label} · added exclusion ${worldGroupExclusionIndex+1}/${worldGroupExclusions(group).length} · drag handles to position it`;hintEl.classList.remove('hidden');});
+  bindEditorPress(worldGroupExclusionPrevBtn,()=>selectWorldGroupExclusionIndex(worldGroupExclusionIndex-1));
+  bindEditorPress(worldGroupExclusionNextBtn,()=>selectWorldGroupExclusionIndex(worldGroupExclusionIndex+1));
+  bindEditorPress(worldGroupExclusionToggleBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;const ex=ensureWorldGroupExclusion(group);ex.enabled=!ex.enabled;saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});hintEl.textContent=ex.enabled?`${group.label} exclusion ${worldGroupExclusionIndex+1} enabled · procedural dressing inside it is suppressed`:`${group.label} exclusion ${worldGroupExclusionIndex+1} disabled · procedural dressing restored`;hintEl.classList.remove('hidden');});
   bindEditorPress(worldGroupExclusionEditBtn,()=>setWorldGroupExclusionEditMode(!worldGroupExclusionEditMode));
-  bindEditorPress(worldGroupExclusionFitBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;fitWorldGroupExclusion(group,{enable:true});hintEl.textContent=`${group.label} exclusion fitted around current members`;hintEl.classList.remove('hidden');});
+  bindEditorPress(worldGroupExclusionFitBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group)return;fitWorldGroupExclusion(group,{enable:true});hintEl.textContent=`${group.label} exclusion ${worldGroupExclusionIndex+1} fitted around current members`;hintEl.classList.remove('hidden');});
+  bindEditorPress(worldGroupExclusionDeleteBtn,deleteCurrentWorldGroupExclusion);
   bindEditorPress(worldGroupMembershipBtn,()=>{const group=worldGroupById(selectedWorldGroupId);if(!group||!selectedObject||selectedObject.deleted||selectedObject.puzzleInstanceId||!selectedObject.userAdded)return;const remove=selectedObject.worldGroupId===group.id;if(setObjectWorldGroup(selectedObject,remove?null:group.id)){hintEl.textContent=remove?`Removed asset from ${group.label}`:`Added asset to ${group.label}`;hintEl.classList.remove('hidden');}});
   bindEditorPress(worldTemplateSaveBtn,saveSelectedWorldGroupAsTemplate);
   bindEditorPress(worldTemplatePlaceBtn,()=>setWorldGroupTemplatePlaceMode(!worldGroupTemplatePlaceMode));
@@ -15772,6 +15922,64 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       hintEl.classList.remove('hidden');
     }
   };
+  function isResettableProceduralObject(obj){
+    return !!(obj && !obj.userAdded && !obj.puzzleInstanceId && obj.category==='dressing' && obj.biomeProceduralOwner);
+  }
+
+  function knownProceduralOverrideId(id){
+    const value=String(id||'');
+    return value.startsWith('forest263-') || value.startsWith('dressing263-') || value.startsWith('biome-mountain-');
+  }
+
+  function resetProceduralPlacementChanges({sectionIndex=null}={}){
+    const runtimeById=new Map(allSceneObjects().map(obj=>[obj?.id,obj]).filter(([id])=>!!id));
+    const bounds=sectionIndex===null?null:terrainSectionBounds(sectionIndex);
+    let removed=0;
+    for(const id of Object.keys(sceneData.overrides||{})){
+      const obj=runtimeById.get(id);
+      const procedural=isResettableProceduralObject(obj)||knownProceduralOverrideId(id);
+      if(!procedural)continue;
+      if(bounds){
+        const currentX=Number(obj?.x ?? sceneData.overrides[id]?.x);
+        const baseX=Number(obj?.proceduralBaseX);
+        const currentInside=Number.isFinite(currentX)&&currentX>=bounds.minX&&currentX<=bounds.maxX;
+        const baseInside=Number.isFinite(baseX)&&baseX>=bounds.minX&&baseX<=bounds.maxX;
+        if(!currentInside&&!baseInside)continue;
+      }
+      delete sceneData.overrides[id];
+      removed+=1;
+    }
+    if(!removed)return 0;
+    saveSceneData();
+    return removed;
+  }
+
+  function confirmAndResetProceduralSection(){
+    const i=terrainSelectedSectionIndex;
+    if(!window.confirm(`Reset all procedural placement changes in Section ${i}? Moved/deleted biome trees, grass and rocks in this section will return to their deterministic positions. Manual assets, groups, puzzles and terrain are not changed.`))return;
+    const count=resetProceduralPlacementChanges({sectionIndex:i});
+    if(!count){
+      hintEl.textContent=`Section ${i} · no procedural placement changes to reset`;
+      hintEl.classList.remove('hidden');
+      return;
+    }
+    // Reload is intentional: procedural placement is deterministic, so rebuilding
+    // the scene from its seed gives the exact original objects after overrides
+    // are removed.
+    location.reload();
+  }
+
+  function confirmAndResetAllProcedural(){
+    if(!window.confirm('Reset procedural placement changes in ALL sections? This restores moved/deleted biome trees, grass and rocks everywhere. Manual assets, World Groups, puzzles and terrain settings are not changed.'))return;
+    const count=resetProceduralPlacementChanges({sectionIndex:null});
+    if(!count){
+      hintEl.textContent='No procedural placement changes to reset';
+      hintEl.classList.remove('hidden');
+      return;
+    }
+    location.reload();
+  }
+
   sectionHeightInput?.addEventListener('input', () => {
     if (sectionHeightValue) { const h=Number(sectionHeightInput.value)||0; sectionHeightValue.textContent=`${h>=0?'+':''}${h.toFixed(1)} m`; }
   });
@@ -15811,6 +16019,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
   });
+  bindEditorPress(sectionResetProceduralBtn, confirmAndResetProceduralSection);
+  bindEditorPress(sectionResetProceduralAllBtn, confirmAndResetAllProcedural);
   bindEditorPress(sectionBankDressBtn, () => {
     if (terrainSectionType(terrainSelectedSectionIndex) !== 'river') return;
     const count = autoDressRiverBanks(terrainSelectedSectionIndex);
@@ -15902,7 +16112,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const groupExclusionHandle = worldGroupExclusionHandleAt(e.clientX,e.clientY);
       if(groupExclusionHandle){
         const group=worldGroupById(selectedWorldGroupId),start=group?currentWorldGroupExclusion(group):null;
-        if(group&&start){editorGesture.kind='world-group-exclusion';editorGesture.groupExclusionHandle=groupExclusionHandle.kind;editorGesture.groupExclusionStart={...start};editorGesture.groupExclusionGroup=group;worldGroupExclusionHandle=groupExclusionHandle.kind;hintEl.textContent=groupExclusionHandle.kind==='center'?'Drag the centre dot to move the group exclusion':'Drag the green handle to resize the group exclusion';hintEl.classList.remove('hidden');return;}
+        if(group&&start){editorGesture.kind='world-group-exclusion';editorGesture.groupExclusionHandle=groupExclusionHandle.kind;editorGesture.groupExclusionIndex=worldGroupExclusionIndex;editorGesture.groupExclusionStart={...start};editorGesture.groupExclusionGroup=group;worldGroupExclusionHandle=groupExclusionHandle.kind;hintEl.textContent=groupExclusionHandle.kind==='center'?'Drag the centre dot to move this exclusion zone':'Drag the green handle to resize this exclusion zone';hintEl.classList.remove('hidden');return;}
       }
 
       if (worldGroupTemplatePlaceMode && editorScope === 'environment' && worldGroupTemplateById(selectedWorldTemplateId)) {
@@ -16119,7 +16329,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       } else if (editorGesture.kind === 'world-group-exclusion' && editorGesture.groupExclusionGroup) {
         const point=groundPointFromClient(e.clientX,e.clientY);
         if(point){
-          const group=editorGesture.groupExclusionGroup,start=editorGesture.groupExclusionStart,ex=ensureWorldGroupExclusion(group),gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
+          const group=editorGesture.groupExclusionGroup,start=editorGesture.groupExclusionStart;
+          const zones=worldGroupExclusions(group);
+          const ex=zones[editorGesture.groupExclusionIndex]||ensureWorldGroupExclusion(group);
+          const gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
           const localX=point.x-gx,localZ=point.z-gz;
           const left0=start.centerX-start.width*.5,right0=start.centerX+start.width*.5,far0=start.centerZ-start.depth*.5,near0=start.centerZ+start.depth*.5;
           if(editorGesture.groupExclusionHandle==='center'){ex.centerX=localX;ex.centerZ=localZ;}

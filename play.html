@@ -131,6 +131,9 @@
             <button id="sidescroll-section-bank-clear" class="sidescroll-section-wide subtle" type="button" hidden>Clear auto bank dressing</button>
             <button id="sidescroll-section-visible" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain visible</button>
             <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
+            <button id="sidescroll-section-reset-procedural" class="sidescroll-section-wide subtle" type="button">Reset procedural changes · this section</button>
+            <button id="sidescroll-section-reset-procedural-all" class="sidescroll-section-wide danger" type="button">Reset procedural changes · ALL</button>
+            <p>Procedural reset restores the deterministic biome placement only. Manually placed assets, World Groups, puzzles and terrain settings are untouched.</p>
             <p>Path height is authored at each 10 m section centre and interpolated between centres. Link Subsequent raises/lowers the rest of the world by the same delta; turn it off for a local fine-tune.</p>
           </aside>
 
@@ -369,9 +372,13 @@
                 <button id="sidescroll-world-group-move" type="button">Move Group</button>
                 <button id="sidescroll-world-group-rename" type="button">Rename</button>
                 <button id="sidescroll-world-group-membership" type="button">Add Selected</button>
+                <button id="sidescroll-world-group-exclusion-add" type="button">＋ Add Exclusion</button>
+                <button id="sidescroll-world-group-exclusion-prev" type="button">← Zone</button>
+                <button id="sidescroll-world-group-exclusion-next" type="button">Zone →</button>
                 <button id="sidescroll-world-group-exclusion-toggle" type="button">Enable Exclusion</button>
                 <button id="sidescroll-world-group-exclusion-edit" type="button">Edit Exclusion</button>
                 <button id="sidescroll-world-group-exclusion-fit" type="button">Fit Exclusion</button>
+                <button id="sidescroll-world-group-exclusion-delete" class="danger" type="button">Delete Exclusion</button>
                 <button id="sidescroll-world-group-dissolve" class="danger" type="button">Dissolve</button>
                 <button id="sidescroll-world-group-delete" class="danger" type="button">Delete Group</button>
               </div>
@@ -533,6 +540,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.114"></script>
+  <script src="sidescroll.js?v=1.0.115"></script>
 </body>
 </html>
