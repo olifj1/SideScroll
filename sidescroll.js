@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.127: manual Ground placement shares authored walk/support surfaces; procedural placement stays terrain-only.
   // SideScroll v1.0.122: restore selected-object Quick Tools in Group Edit + explicit relative Move mode.
   // SideScroll v1.0.116: duplicate World Groups + stable relative screen-space depth dragging + persistent task backlog.
   // SideScroll v1.0.115: multiple World Group exclusions + procedural reset controls + climb interaction dots.
@@ -3188,6 +3189,57 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const y1 = terrainAnchorBaseY(worldX + sample, depth, category, gameplayLayerLocked, assetName);
     const angle = Math.atan2(y1 - y0, sample * 2);
     return Rig.clamp(angle, -Math.PI * 0.28, Math.PI * 0.28);
+  }
+
+
+  // Manual/authored Ground placement uses the same authored Support Surface
+  // collision that the player can stand on. Procedural biome dressing must NOT
+  // use this resolver: it remains terrain-only so adding a climbable rock or
+  // bridge never causes procedural grass/trees/rocks to spawn on top of it.
+  function objectUsesAuthoredPlacementSurface(obj) {
+    return !!obj && (!!obj.userAdded || !!obj.puzzleInstanceId || !!obj.worldGroupId);
+  }
+
+  function authoredPlacementSurfaceAt(x, z, {
+    category='dressing', gameplayLayerLocked=false, assetName=null,
+    ignoreObject=null, ceiling=Infinity
+  } = {}) {
+    const worldX=Number(x)||0;
+    const worldZ=gameplayLayerLocked ? pathZ : (Number(z)||0);
+    let bestY=terrainAnchorBaseY(worldX,worldZ,category,gameplayLayerLocked,assetName);
+    let bestObject=null;
+    for(const support of supportSurfaceCandidates()){
+      if(!support || support===ignoreObject)continue;
+      const top=supportSurfaceTopAt(support,worldX,worldZ);
+      if(!Number.isFinite(top) || top>ceiling+.08 || top<=bestY+.001)continue;
+      bestY=top;
+      bestObject=support;
+    }
+    return {y:bestY,obj:bestObject,source:bestObject?'platform':'terrain'};
+  }
+
+  function editorGroundBaseYForObject(obj, x=obj?.x, z=obj?.z, ceiling=Infinity) {
+    if(!obj)return terrainGroundYAt(Number(x)||0,Number(z)||0);
+    if(!objectUsesAuthoredPlacementSurface(obj)){
+      return terrainAnchorBaseY(x,z,obj.category,obj.gameplayLayerLocked,obj.assetName);
+    }
+    return authoredPlacementSurfaceAt(x,z,{
+      category:obj.category,gameplayLayerLocked:obj.gameplayLayerLocked,assetName:obj.assetName,
+      ignoreObject:obj,ceiling
+    }).y;
+  }
+
+  function objectFloorOffsetFromEditorGround(obj) {
+    if(!obj)return 0;
+    const floorY=objectFloorWorldY(obj);
+    const baseY=editorGroundBaseYForObject(obj,obj.x,obj.z,floorY+.08);
+    return floorY-baseY;
+  }
+
+  function setObjectFloorOffsetFromEditorGround(obj, floorOffset=0) {
+    if(!obj)return;
+    const baseY=editorGroundBaseYForObject(obj,obj.x,obj.z);
+    obj.y=baseY+(Number(floorOffset)||0)-objectGroundLine(obj)*(Number(obj.sy)||0);
   }
 
   function legacyTerrainAnchorBaseY(x, z, category = 'dressing', gameplayLayerLocked = false) {
@@ -8509,6 +8561,34 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
 
+  // When placing a manual asset, let taps near the visible top of an authored
+  // walk/support surface resolve on that collision instead of shooting through
+  // to the terrain behind it. This is placement-only; relative drag movement
+  // remains screen-space and never returns to ray/terrain dragging.
+  function authoredSupportPointFromClient(clientX,clientY){
+    const ray=cameraRayFromClient(clientX,clientY);
+    const rect=canvas.getBoundingClientRect();
+    const localX=clientX-rect.left,localY=clientY-rect.top;
+    const tolerance=Math.max(26,Math.min(44,rect.height*.055));
+    let best=null;
+    for(const support of supportSurfaceCandidates()){
+      const z=Number(support.z)||pathZ;
+      if(Math.abs(ray.dir[2])<.0001)continue;
+      const t=(z-ray.eye[2])/ray.dir[2];
+      if(t<=0)continue;
+      const x=ray.eye[0]+ray.dir[0]*t;
+      const top=supportSurfaceTopAt(support,x,z);
+      if(!Number.isFinite(top))continue;
+      const screen=projectWorldPoint(x,top,z);
+      if(!screen)continue;
+      const distance=Math.hypot(screen.x-localX,screen.y-localY);
+      if(distance>tolerance || (best&&distance>=best.distance))continue;
+      best={x,z,y:top,support,distance};
+    }
+    return best;
+  }
+
+
   // Editor dragging is deliberately RELATIVE screen-space input, not a
   // ray/terrain intersection. Each pointer-down snapshots the object's current
   // X/Z and projected anchor; finger deltas are then converted from that zero
@@ -8568,6 +8648,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (!plane || !Number.isFinite(plane.x)) return null;
       return { x:plane.x, z:pathZ, y:playSurfaceYAt(plane.x) };
     }
+
+    const supportPoint=authoredSupportPointFromClient(clientX,clientY);
+    if(supportPoint) return {x:supportPoint.x,z:supportPoint.z,y:supportPoint.y};
 
     const ground = groundPointFromClient(clientX, clientY);
     const minZ = WORLD.farZ + 0.8;
@@ -11454,13 +11537,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const floorWorldY = objectFloorWorldY(selectedObject);
     selectedObject.freePlacement = !!enabled;
     if (selectedObject.freePlacement) setObjectFloorWorldY(selectedObject, floorWorldY);
-    else setObjectFloorOffset(selectedObject, 0);
+    else setObjectFloorOffsetFromEditorGround(selectedObject, 0);
     recordObjectEdit(selectedObject);
     syncTransformEditor();
     updatePuzzleObjectList();
     hintEl.textContent = selectedObject.freePlacement
       ? 'Free placement · moving X/Z will no longer change this asset’s height'
-      : 'Ground placement · the asset is snapped back onto its terrain anchor';
+      : 'Ground placement · the asset is snapped onto the highest valid walk/support surface';
     hintEl.classList.remove('hidden');
   }
 
@@ -11482,7 +11565,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!selectedObject || selectedObject.deleted) return;
     const obj = selectedObject;
     const next = Number(value);
-    const floorOffset = objectFloorOffsetFromTerrain(obj);
+    const floorOffset = objectFloorOffsetFromEditorGround(obj);
     const floorWorldY = objectFloorWorldY(obj);
     if (axis === 'y') {
       obj.freePlacement = true;
@@ -11493,7 +11576,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       } else {
         obj.x = next;
         if (objectUsesFreePlacement(obj)) setObjectFloorWorldY(obj, floorWorldY);
-        else setObjectFloorOffset(obj, floorOffset);
+        else setObjectFloorOffsetFromEditorGround(obj, floorOffset);
       }
     } else if (axis === 'z') {
       if (obj.category === 'gameplay' && obj.gameplayLayerLocked) return;
@@ -11502,7 +11585,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       } else {
         obj.z = Rig.clamp(next, WORLD.farZ + 0.8, WORLD.nearZ - 0.6);
         if (objectUsesFreePlacement(obj)) setObjectFloorWorldY(obj, floorWorldY);
-        else setObjectFloorOffset(obj, floorOffset);
+        else setObjectFloorOffsetFromEditorGround(obj, floorOffset);
       }
     }
     moveObjectToCorrectCollection(obj);
@@ -11619,11 +11702,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setSelectedGroundLine(value) {
     if (!selectedObject || selectedObject.deleted) return;
-    const preservedFloorOffset = objectFloorOffsetFromTerrain(selectedObject);
+    const preservedFloorOffset = objectFloorOffsetFromEditorGround(selectedObject);
     const preservedFloorWorldY = objectFloorWorldY(selectedObject);
     selectedObject.groundLine = Rig.clamp(Number(value) || 0, 0, 1);
     if (objectUsesFreePlacement(selectedObject)) setObjectFloorWorldY(selectedObject, preservedFloorWorldY);
-    else setObjectFloorOffset(selectedObject, preservedFloorOffset);
+    else setObjectFloorOffsetFromEditorGround(selectedObject, preservedFloorOffset);
     recordObjectEdit(selectedObject);
     syncGroundLineEditor();
     updatePuzzleObjectList();
@@ -12315,7 +12398,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const freePlacement = defaultFreePlacement(type);
     const placementBaseY = freePlacement || behaviour.supportSurface
       ? playSurfaceYAt(point.x)
-      : terrainAnchorBaseY(point.x, point.z, info.category, defaultGameLayerLocked, type);
+      : authoredPlacementSurfaceAt(point.x,placementZ,{
+          category:info.category,gameplayLayerLocked:defaultGameLayerLocked,assetName:type
+        }).y;
     const obj = addObject(collection, type, point.x, placementZ, w, h, {
       id, userAdded:!puzzleInstance, baseSx:w, baseSy:h,
       y:placementBaseY + (Number(info.defaultYOffset) || 0) - groundLine * h,
@@ -12350,12 +12435,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const puzzleObjectId = puzzleInstance ? `authored-${Date.now().toString(36)}-${++userSceneCounter}` : null;
     const id = puzzleInstance ? `puzzle-${puzzleInstance.id}-${puzzleObjectId}` : `user-${Date.now().toString(36)}-${++userSceneCounter}`;
     const collection = selectedObject.category === 'gameplay' ? frontOccluders : targetCollectionForZ(point.z);
-    const sourceFloorOffset = objectFloorOffsetFromTerrain(selectedObject);
+    const sourceFloorOffset = objectFloorOffsetFromEditorGround(selectedObject);
     const sourceFloorWorldY = objectFloorWorldY(selectedObject);
     const sourceGroundLine = objectGroundLine(selectedObject);
     const duplicateY = objectUsesFreePlacement(selectedObject)
       ? sourceFloorWorldY - sourceGroundLine * selectedObject.sy
-      : terrainAnchorBaseY(point.x, point.z, selectedObject.category, selectedObject.gameplayLayerLocked, selectedObject.assetName) + sourceFloorOffset - sourceGroundLine * selectedObject.sy;
+      : authoredPlacementSurfaceAt(point.x,point.z,{
+          category:selectedObject.category,gameplayLayerLocked:selectedObject.gameplayLayerLocked,assetName:selectedObject.assetName
+        }).y + sourceFloorOffset - sourceGroundLine * selectedObject.sy;
     const obj = addObject(collection, selectedObject.assetName, point.x, point.z, selectedObject.sx, selectedObject.sy, {
       id, userAdded:!puzzleInstance, baseSx:selectedObject.baseSx || selectedObject.sx, baseSy:selectedObject.baseSy || selectedObject.sy, assetState:selectedObject.assetState || inferredAssetState(selectedObject.assetName),
       y:duplicateY,
@@ -12391,7 +12478,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function scaleSelected(multiplier) {
     if (!selectedObject || selectedObject.deleted) return;
-    const preservedFloorOffset = objectFloorOffsetFromTerrain(selectedObject);
+    const preservedFloorOffset = objectFloorOffsetFromEditorGround(selectedObject);
     const preservedFloorWorldY = objectFloorWorldY(selectedObject);
     const scaleMax = selectedObject.assetName === 'crate'
       ? 8.0
@@ -12416,7 +12503,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     } else if (selectedObject.category === 'gameplay' && objectGroundLine(selectedObject) <= 0.0001) {
       selectedObject.y = restYForGameplayObject(selectedObject);
     } else {
-      setObjectFloorOffset(selectedObject, preservedFloorOffset);
+      setObjectFloorOffsetFromEditorGround(selectedObject, preservedFloorOffset);
     }
     if (selectedObject.category === 'gameplay') settleGameplayCrates();
     recordObjectEdit(selectedObject);
@@ -14095,6 +14182,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return objectHasBehaviour(obj, 'supportSurface') || !!obj.collision.platform;
   }
 
+
+  // Support candidates are shared by player grounding and manual editor Ground
+  // placement. Cache the list once per rendered frame so Follow Normal/manual
+  // placement never re-filters the whole scene for every authored object.
+  let supportSurfaceCacheFrame=-1;
+  let supportSurfaceCache=[];
+  let renderFrameSerial=0;
+  function supportSurfaceCandidates(){
+    if(supportSurfaceCacheFrame===renderFrameSerial)return supportSurfaceCache;
+    supportSurfaceCache=collisionObjects().filter(isSupportSurfaceObject);
+    supportSurfaceCacheFrame=renderFrameSerial;
+    return supportSurfaceCache;
+  }
+
   function crateHalfWidth(obj) {
     return obj?.collision?.halfWidth ?? Math.max(0.18, (obj?.sx || 0.9) * CRATE_HALF_WIDTH_FACTOR);
   }
@@ -14399,10 +14500,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
   }
 
-  function platformOffsetFor(obj, sampleX, terrainReferenceX = sampleX) {
+  function supportSurfaceTopAt(obj, sampleX, sampleZ = pathZ) {
     if (!isSupportSurfaceObject(obj)) return -Infinity;
     if (isCounterweightPlank(obj) && !counterweightPlankWalkable(obj)) return -Infinity;
-    const platformTop = collisionTopHeightAtX(obj, sampleX);
+    const depth = obj.collision?.depth ?? 0.82;
+    if (Math.abs((Number(obj.z)||pathZ) - (Number(sampleZ)||0)) > depth) return -Infinity;
+    return collisionTopHeightAtX(obj, sampleX);
+  }
+
+  function platformOffsetFor(obj, sampleX, terrainReferenceX = sampleX) {
+    const platformTop = supportSurfaceTopAt(obj,sampleX,pathZ);
     if (!Number.isFinite(platformTop)) return -Infinity;
     return platformTop - playSurfaceYAt(terrainReferenceX);
   }
@@ -14426,8 +14533,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       : waterSafetySupportAt(rootX);
     const probe = direction ? direction * capsule.footProbe : 0;
     const sampleXs = direction ? [characterX, characterX + probe] : [characterX];
-    for (const obj of collisionObjects()) {
-      if (!isSupportSurfaceObject(obj)) continue;
+    for (const obj of supportSurfaceCandidates()) {
       const c = obj.collision;
       const depth = c.depth ?? 0.82;
       if (Math.abs(obj.z - pathZ) > depth) continue;
@@ -14630,7 +14736,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
     const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
     const followSurfaceRotation = !extra?.force && !objectUsesFreePlacement(obj) && assetBehaviours(obj.assetName,obj.assetState).followSurfaceNormal
-      ? terrainSurfaceAngleAt(baseDrawX, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName)
+      ? (objectUsesAuthoredPlacementSurface(obj)
+          ? (()=>{
+              const sample=.18;
+              const y0=editorGroundBaseYForObject(obj,baseDrawX-sample,obj.z);
+              const y1=editorGroundBaseYForObject(obj,baseDrawX+sample,obj.z);
+              return Rig.clamp(Math.atan2(y1-y0,sample*2),-Math.PI*.28,Math.PI*.28);
+            })()
+          : terrainSurfaceAngleAt(baseDrawX, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName))
       : 0;
     const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0) + followSurfaceRotation;
     const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
@@ -15938,6 +16051,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function render(now) {
+    renderFrameSerial+=1;
     resize();
     updatePuzzleStreaming(character?.x ?? camera.x);
     const dt = Math.min(0.05, (now - lastTime) / 1000);
@@ -17355,7 +17469,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         startCameraX:camera.x, startGround,
         moved:false, kind:'pan', object:null,
         objectStartX:selectedObject?.x ?? 0, objectStartZ:selectedObject?.z ?? 0,
-        objectStartFloorOffset:selectedObject ? objectFloorOffsetFromTerrain(selectedObject) : 0,
+        objectStartFloorOffset:selectedObject ? objectFloorOffsetFromEditorGround(selectedObject) : 0,
         objectStartFloorWorldY:selectedObject ? objectFloorWorldY(selectedObject) : 0,
         objectStartScreen:selectedObject
           ? projectWorldPoint(selectedObject.x,objectFloorWorldY(selectedObject)+.08,selectedObject.z)
@@ -17587,7 +17701,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const free=objectUsesFreePlacement(obj);
         const yAt=(x,z)=>free
           ? editorGesture.objectStartFloorWorldY+.08
-          : terrainAnchorBaseY(x,z,obj.category,obj.gameplayLayerLocked,obj.assetName)+editorGesture.objectStartFloorOffset+.08;
+          : editorGroundBaseYForObject(obj,x,z)+editorGesture.objectStartFloorOffset+.08;
         const solved=startScreen
           ? solveEditorScreenDragXZ({
               startX:editorGesture.objectStartX,
@@ -17608,7 +17722,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             // tracks the finger in screen space.
             setObjectFloorWorldY(obj, editorGesture.objectStartFloorWorldY);
           } else {
-            setObjectFloorOffset(obj, editorGesture.objectStartFloorOffset);
+            setObjectFloorOffsetFromEditorGround(obj, editorGesture.objectStartFloorOffset);
           }
         }
         moveObjectToCorrectCollection(obj);sortSceneCollections();selectionCycleInfo=null;

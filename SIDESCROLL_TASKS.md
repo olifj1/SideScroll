@@ -4,7 +4,7 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 
 ## Editor architecture / workflow system update — October 2026
 
-**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; tab interaction isolation/focus polish added in v1.0.126**. The reusable drawer/session/history foundation and World Group Editor v2 are now the first production implementation. On-device workflow tuning and the remaining generic route-stack work are still pending before Stage 1 is considered fully closed. The same principles should then be reused for Puzzle editing and other authoring systems where appropriate.
+**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125**. The reusable drawer/session/history foundation and World Group Editor v2 are now the first production implementation. On-device workflow tuning and the remaining generic route-stack work are still pending before Stage 1 is considered fully closed. The same principles should then be reused for Puzzle editing and other authoring systems where appropriate.
 
 ### Stage 1 implementation progress — v1.0.117
 
@@ -74,7 +74,6 @@ Stage 2A delivered:
 - [x] Puzzle Position / Floor Line use the same left-side replacement position as the drawer and return via Back. Returning from Test restores the current workspace; switching tabs deactivates irrelevant viewport zone/path edit tools.
 - [x] No new per-frame loops, DOM reconstruction in drawing, or heavy blur. List rebuilding is signature-guarded and happens on editor updates.
 - [x] **v1.0.124 exclusion interaction cleanup:** World Group and Puzzle procedural exclusions no longer use perspective-sensitive centre/edge drag dots. A selected zone can enter explicit `Move` mode and then uses the same relative screen-space/mouse-style X/Z mapping as authored assets: drag anywhere in the free viewport, lift/reposition the finger, and continue from the zone's current position. Width and Length are edited with stable UI sliders instead of four scene resize handles. World Group slider drags are one Undo transaction; Puzzle slider gestures join the shared transaction history from v1.0.125 onward.
-- [x] **v1.0.126 tab interaction isolation:** specialist editor tabs are now true viewport interaction filters rather than just alternate panels. World Group `Exclusions`/`Group` and Puzzle `Zones`/`Logic`/`Setup` keep authored assets visible for context but clear asset selection/Quick Tools and prevent viewport picking or dragging until `Contents` is active again. Selecting a World Group exclusion row also recentres the authoring camera on that zone so list navigation takes the user directly to the selected spatial item. This interaction-ownership rule should be reused by later Terrain/Node/Logic workspaces.
 
 ### Stage 2B — Puzzle edit sessions + shared history (v1.0.125)
 
@@ -102,6 +101,23 @@ Still pending before Puzzle Editor v2 is complete:
 - [ ] On-device iPhone QA for Save/Discard/Undo/Test boundaries across several puzzle types before declaring Stage 2 complete.
 
 **Navigation rule from v1.0.125:** Back from a clean Puzzle session returns to the scene puzzle list. Back from a dirty session stays in Puzzle Edit and directs the author to the fixed Save/Discard controls. Save commits the working scene-instance edits; Discard restores the session entry checkpoint. `Set Start` remains a separate, more consequential operation.
+
+
+### Shared walk-surface placement correction — v1.0.127
+
+Manual/authored Ground placement now deliberately shares the same authored **Support Surface** collision concept used by player walking, instead of treating `Ground` as terrain-only.
+
+- [x] Manual standalone assets, World Group members and Puzzle-authored objects in Ground mode can rest on valid walk/support collision such as climbable-rock tops, bridge/platform collision and other existing `Support Surface` assets.
+- [x] The support query chooses the highest valid support at the authored X/Z position, with terrain remaining the normal fallback.
+- [x] The object being edited is excluded from its own support query.
+- [x] Relative/mouse-style asset dragging remains screen-space. Only the resulting Ground height is resolved from the shared support system; depth dragging does **not** revert to ray/terrain-intersection movement.
+- [x] Initial manual placement can resolve a tap near a visible support top onto that authored collision instead of always shooting through to the terrain behind it.
+- [x] Ground/Free toggling, Position X/Z edits, Scale, Floor Line and Duplicate preserve their local floor offset relative to the current manual placement surface.
+- [x] Authored `Follow Surface Normal` dressing can use the local authored support profile; procedural dressing keeps its terrain-normal behaviour.
+- [x] **Procedural biome placement remains terrain-only.** Authored/climbable rocks, bridges and other Support Surfaces must never become procedural spawn surfaces merely because the player can walk on them.
+- [x] No hidden support-parent/attachment relationship is created. Placement asks “where is the valid surface now?” only. If we later need one authored object to follow another independently, make that an explicit visible `Attach/Parent to Support`-style feature rather than secret coupling.
+
+Current deliberate limitation: whole-World-Group relocation/template semantics retain their existing independent member re-grounding rules. Do not infer a persistent rock→dressing parent relationship from a one-time placement. Revisit only if a concrete grouped-support use case proves it is needed.
 
 Still pending within the wider Stage 1 shell work:
 
