@@ -1,19 +1,16 @@
-# SideScroll patch 1.0.127
+# SideScroll patch 1.0.128
 
-Shared walk-surface placement correction.
+Edit-mode authored-support grounding hotfix.
 
 ## Changes
 
-- Manual/authored Ground placement now uses the same authored Support Surface collision concept as player walking instead of terrain height only.
-- Grounded standalone assets, World Group members and Puzzle-authored objects can therefore sit on climbable-rock tops, bridge/platform collision and other valid Support Surfaces.
-- Initial manual placement can resolve a tap near a visible support top onto that collision rather than always shooting through to terrain behind it.
-- Relative mouse-style dragging is unchanged: finger movement still controls X/Z in screen space; only the resolved Ground height changes.
-- Ground/Free, Position, Scale, Floor Line and Duplicate preserve local floor offset relative to the current manual placement surface.
-- Authored Follow Surface Normal can follow an authored support profile.
-- Procedural biome placement remains strictly terrain-only. Authored rocks/platforms do not become procedural spawn surfaces.
-- No implicit parent/support binding is created; this is a placement query only.
-- `SIDESCROLL_TASKS.md` documents the authored-vs-procedural surface split and the deliberate no-hidden-parenting rule.
+- Fixes a terrain-only snap that still ran when entering Edit mode.
+- If the player is standing on a climbable rock, bridge/platform, or other authored Support Surface, entering Edit now preserves that support instead of dropping the character and camera to terrain below.
+- The support lookup is capped to the player's current feet height, so Edit entry will not jump the player upward onto a higher overlapping platform.
+- Manual Ground placement remains on the shared Support Surface resolver introduced in 1.0.127.
+- Procedural biome placement remains terrain-only.
+- No hidden object-to-support parenting is introduced.
 
 ## Apply
 
-Changed-files-only patch. Apply over SideScroll 1.0.126.
+Changed-files-only patch. Apply over SideScroll 1.0.127.

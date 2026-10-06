@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.127: manual Ground placement shares authored walk/support surfaces; procedural placement stays terrain-only.
+  // SideScroll v1.0.128: Edit-mode entry preserves authored walk/support grounding; manual placement still shares Support Surfaces while procedural placement stays terrain-only.
   // SideScroll v1.0.122: restore selected-object Quick Tools in Group Edit + explicit relative Move mode.
   // SideScroll v1.0.116: duplicate World Groups + stable relative screen-space depth dragging + persistent task backlog.
   // SideScroll v1.0.115: multiple World Group exclusions + procedural reset controls + climb interaction dots.
@@ -12351,10 +12351,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       jumping = false;
       jumpTime = 0;
       jumpVelocity = 0;
-      jumpOffset = 0;
-      standingOnObject = null;
       character.x = camera.x + character.screenOffsetX;
-      character.y = playSurfaceYAt(character.x);
+      // Entering Edit must preserve the same authored walk/support surface the
+      // player is currently standing on. The old terrain-only snap here made
+      // the character (and camera framing) fall through climbable-rock tops as
+      // soon as Edit was enabled. Limit the query to the current feet height so
+      // a higher overlapping platform cannot pull the player upward on entry.
+      const currentSurfaceOffset = character.y - playSurfaceYAt(character.x);
+      const supportCeiling = Number.isFinite(currentSurfaceOffset)
+        ? currentSurfaceOffset + 0.12
+        : Infinity;
+      const support = editorSafeSupportAt(character.x + colliderWorld().offsetX, supportCeiling, 0);
+      jumpOffset = support.offset;
+      standingOnObject = support.obj || null;
+      character.y = playSurfaceYAt(character.x) + jumpOffset;
       hintEl.classList.remove('hidden');
     }
     updateAssetPaletteState();

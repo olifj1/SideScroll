@@ -103,6 +103,12 @@ Still pending before Puzzle Editor v2 is complete:
 **Navigation rule from v1.0.125:** Back from a clean Puzzle session returns to the scene puzzle list. Back from a dirty session stays in Puzzle Edit and directs the author to the fixed Save/Discard controls. Save commits the working scene-instance edits; Discard restores the session entry checkpoint. `Set Start` remains a separate, more consequential operation.
 
 
+### Edit-mode support preservation — v1.0.128
+
+- [x] Entering Edit mode while the player is standing on an authored Support Surface no longer clears that support and snaps the character/camera down to terrain.
+- [x] Edit entry resolves the same `editorSafeSupportAt(...)` surface used elsewhere in the editor, capped to the player's current feet height so an overlapping higher platform cannot pull the character upward.
+- [x] This is an editor-transition correction only: procedural biome placement remains terrain-only and no hidden support parenting is introduced.
+
 ### Shared walk-surface placement correction — v1.0.127
 
 Manual/authored Ground placement now deliberately shares the same authored **Support Surface** collision concept used by player walking, instead of treating `Ground` as terrain-only.
