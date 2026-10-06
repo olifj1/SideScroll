@@ -1,17 +1,17 @@
-# SideScroll patch 1.0.129
+# SideScroll patch 1.0.130
 
-Support-surface lifecycle correction.
+Changed-files-only patch over 1.0.129.
 
-## Changes
+## Fixes
 
-- Fixes the remaining Edit-mode terrain drop found after 1.0.128.
-- The main frame loop no longer clears authored support every Edit frame. The editor character/scale reference now remains on the same walk/support collision used by Play.
-- Restoring the saved player position now resolves authored Support Surfaces immediately instead of starting at terrain height and lifting on the next gameplay frame.
-- The player launch path performs a final support resolve after initial streaming/loading and before the entry fade is revealed.
-- World Lab jump positions use the same support-aware initial grounding.
-- Manual Ground placement remains support-aware; procedural biome placement remains terrain-only.
-- No hidden object-to-support parenting is introduced.
+- Edit-camera vertical framing now anchors to the current authored walk/Support Surface rather than terrain hidden below it.
+- Camera/Thought nodes and other Ground-positioned gameplay editor objects can now be placed/moved on authored Support Surfaces such as climbable-rock tops and bridge/platform collision.
+- Camera Node live preview uses the same support-aware camera baseline.
+- Procedural biome dressing remains terrain-only.
+- No hidden support binding/parenting is introduced.
 
-## Apply
+## Validation
 
-Changed-files-only patch. Apply over SideScroll 1.0.128.
+- JavaScript syntax checked with `node --check`.
+- HTML duplicate-ID/static wiring checks performed.
+- Requires on-device touch/camera verification.

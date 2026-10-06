@@ -103,6 +103,15 @@ Still pending before Puzzle Editor v2 is complete:
 **Navigation rule from v1.0.125:** Back from a clean Puzzle session returns to the scene puzzle list. Back from a dirty session stays in Puzzle Edit and directs the author to the fixed Save/Discard controls. Save commits the working scene-instance edits; Discard restores the session entry checkpoint. `Set Start` remains a separate, more consequential operation.
 
 
+
+### Camera/support-surface consistency — v1.0.130
+
+- [x] Edit-camera vertical baseline now follows the currently resolved authored walk/Support Surface (the mint walk surface), not terrain underneath it. Follow Height only affects extra character displacement above that support.
+- [x] Ground-positioned gameplay authoring objects such as Camera Nodes, Thought Nodes and collectibles now use the authored placement Support Surface resolver instead of being re-grounded to gameplay terrain after placement/movement.
+- [x] Camera Node preview therefore inherits the same support-aware camera baseline while authoring.
+- [x] Procedural biome placement remains terrain-only; this change is confined to authored/manual editor placement and camera framing.
+- [x] No hidden support-parent relationship is created.
+
 ### Edit-mode / startup support preservation — v1.0.128–1.0.129
 
 - [x] Entering Edit mode while the player is standing on an authored Support Surface preserves that support instead of snapping the character/camera down to terrain.

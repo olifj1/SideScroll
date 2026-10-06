@@ -7733,13 +7733,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     let targetOffset;
     if (editMode) {
-      // Asset placement/editing is terrain-relative by definition. Keep the
-      // viewport looking at the current section even when character-follow is
-      // disabled in the camera panel. Any above-ground character offset can
-      // still be blended in when Follow Height is enabled.
-      let aboveTerrain = character.y - terrainSurface;
-      if (Math.abs(aboveTerrain) < CAMERA_FOLLOW_DEADZONE) aboveTerrain = 0;
-      targetOffset = terrainOffset + (cameraFollowEnabled ? aboveTerrain * cameraFollowAmount : 0);
+      // Edit-camera framing must use the same authored walk/support floor as
+      // the character, not the terrain hidden underneath it. jumpOffset has
+      // already been resolved from editorSafeSupportAt() earlier this frame,
+      // so terrainSurface + jumpOffset is the current mint Support Surface.
+      // The support baseline is unconditional; Follow Height only affects any
+      // additional character displacement above that support.
+      const supportSurface = terrainSurface + jumpOffset;
+      const supportOffset = supportSurface - legacySurface;
+      let aboveSupport = character.y - supportSurface;
+      if (Math.abs(aboveSupport) < CAMERA_FOLLOW_DEADZONE) aboveSupport = 0;
+      targetOffset = supportOffset + (cameraFollowEnabled ? aboveSupport * cameraFollowAmount : 0);
     } else {
       targetOffset = rawHeight;
     }
@@ -15509,9 +15513,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       return stack;
     }
 
-    // Outside a stack snap, retain the existing editor behaviour for fixed
-    // support surfaces such as the fallen tree/platform collision.
-    obj.y = restYForGameplayObject(obj, obj.x, null, true) - objectGroundLine(obj) * (Number(obj.sy) || 0);
+    // Outside a stack snap, normal Ground-positioned gameplay authoring uses
+    // the same authored walk/support resolver as dressing. This is especially
+    // important for Camera/Thought nodes and collectibles placed on climbable
+    // rocks or bridge decks. Procedural dressing never calls this editor path.
+    // Stackable gameplay props keep their established stacking/support rules.
+    const groundY = (!objectUsesFreePlacement(obj) && !isGameplayCrate(obj))
+      ? editorGroundBaseYForObject(obj, obj.x, obj.z)
+      : restYForGameplayObject(obj, obj.x, null, true);
+    obj.y = groundY - objectGroundLine(obj) * (Number(obj.sy) || 0);
     return null;
   }
 
