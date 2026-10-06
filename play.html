@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.124">
+  <link rel="stylesheet" href="style.css?v=1.0.125">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -365,7 +365,7 @@
               </details>
             </section>
 
-            <!-- Stage 2A: Puzzle editing workspace. Existing mechanics remain the source of truth. -->
+            <!-- Stage 2B: Puzzle editing workspace with bounded session Save/Discard + Undo/Redo. -->
             <section class="sidescroll-puzzle-workspace-v2" id="sidescroll-puzzle-workspace-v2" hidden>
               <div class="sidescroll-world-group-edit-summary">
                 <span class="sidescroll-puzzle-mode">PUZZLE</span>
@@ -431,7 +431,7 @@
                   <button data-puzzle-legacy="sidescroll-puzzle-save-unique" type="button">Save Unique</button>
                   <button data-puzzle-legacy="sidescroll-puzzle-set-start" type="button">Set Start</button>
                 </div>
-                <p class="sidescroll-puzzle-workspace-warning">Stage 2A retains the existing puzzle save behaviour. Undo and session-wide Save/Discard are not active here yet. On a linked puzzle, Set Start also updates its shared template.</p>
+                <p class="sidescroll-puzzle-workspace-warning">Save commits this scene-instance edit session; Discard restores the state from when Edit Puzzle was entered. Undo/Redo works inside the session. Set Start remains a separate explicit action: on a linked puzzle it updates the shared template and all linked instances.</p>
               </div>
             </section>
 
@@ -692,6 +692,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.124"></script>
+  <script src="sidescroll.js?v=1.0.125"></script>
 </body>
 </html>

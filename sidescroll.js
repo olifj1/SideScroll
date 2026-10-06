@@ -5191,17 +5191,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function currentPuzzleBoundsRelative(marker) {
     if (!marker) return { minX:-4, maxX:4 };
     if (puzzleDraftBounds[marker.id]) return puzzleDraftBounds[marker.id];
+    const runtimeDraft = puzzleSavedState?.[marker.id]?.boundsDraft;
     const authored = markerLinkMode(marker) === 'copy'
       ? puzzleStartState[marker.id]?.bounds
       : (userPuzzleLibrary.templates?.[marker.group]?.bounds || puzzleStartState[marker.id]?.bounds);
-    const initial = authored && Number.isFinite(authored.minX) && Number.isFinite(authored.maxX)
-      ? { minX:authored.minX, maxX:authored.maxX }
+    const source = runtimeDraft && Number.isFinite(runtimeDraft.minX) && Number.isFinite(runtimeDraft.maxX) ? runtimeDraft : authored;
+    const initial = source && Number.isFinite(source.minX) && Number.isFinite(source.maxX)
+      ? { minX:source.minX, maxX:source.maxX }
       : codeBoundsForMarker(marker);
     puzzleDraftBounds[marker.id] = { ...initial };
     return puzzleDraftBounds[marker.id];
   }
 
-  function savePuzzleExclusionState() {
+  function savePuzzleExclusionState(force = false) {
+    if (!force && puzzleEditSession && !puzzleTestMode) { puzzleEditSession.pendingPersistence.add('exclusion'); return; }
     try { localStorage.setItem(PUZZLE_EXCLUSION_STORAGE_KEY, JSON.stringify(puzzleExclusionState)); } catch (_) {}
   }
 
@@ -5321,6 +5324,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     runtime.respawnDraft = deepCopy(cfg);
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(marker.id);
     savePuzzleState();
+    if(puzzleEditSession?.markerId===marker.id&&!editorTransaction)recordImplicitEditorMutation('Edit respawn');
   }
 
   function puzzleRespawnWorld(marker) {
@@ -5414,6 +5418,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     runtime.cartPathDraft = deepCopy(cfg);
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(marker.id);
     savePuzzleState();
+    if(puzzleEditSession?.markerId===marker.id&&!editorTransaction)recordImplicitEditorMutation('Edit cart path');
   }
 
   function puzzleCartPathWorld(marker) {
@@ -5654,15 +5659,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return true;
   }
 
-  function savePuzzleState() {
+  function savePuzzleState(force = false) {
     if (PLAYER_MODE) savePlayerPosition(true);
     // Test runs are disposable.  They may mutate the in-memory state, but the
     // authored start remains the durable source of truth for Reset/Test.
     if (puzzleTestMode) return;
+    if (!force && puzzleEditSession) { puzzleEditSession.pendingPersistence.add('state'); return; }
     try { localStorage.setItem(PUZZLE_STATE_STORAGE_KEY, JSON.stringify(puzzleSavedState)); } catch (_) {}
   }
 
-  function savePuzzleStarts() {
+  function savePuzzleStarts(force = false) {
+    if (!force && puzzleEditSession && !puzzleTestMode) { puzzleEditSession.pendingPersistence.add('starts'); return; }
     try { localStorage.setItem(PUZZLE_START_STORAGE_KEY, JSON.stringify(puzzleStartState)); } catch (_) {}
     if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
@@ -5682,7 +5689,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return changed;
   }
 
-  function savePuzzleLibrary() {
+  function savePuzzleLibrary(force = false) {
+    if (!force && puzzleEditSession && !puzzleTestMode) { puzzleEditSession.pendingPersistence.add('library'); if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes(); return; }
     try { localStorage.setItem(PUZZLE_LIBRARY_STORAGE_KEY, JSON.stringify(userPuzzleLibrary)); } catch (_) {}
     if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
@@ -6342,6 +6350,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const runtime = savedPuzzleFor(instance.id);
     runtime.solved = false;
     delete runtime.reward;
+    runtime.boundsDraft = deepCopy(currentPuzzleBoundsRelative(instance.marker));
     runtime.respawnDraft = deepCopy(currentPuzzleRespawn(instance.marker));
     runtime.cartPathDraft = deepCopy(currentPuzzleCartPath(instance.marker));
     runtime.objects = {};
@@ -6408,6 +6417,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     };
     if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(obj.puzzleInstanceId);
     savePuzzleState();
+    if(puzzleEditSession?.markerId===obj.puzzleInstanceId&&!editorTransaction)recordImplicitEditorMutation('Edit puzzle object');
     return true;
   }
 
@@ -7370,6 +7380,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let selectedWorldGroupExclusionId = null;
   let worldGroupEditorTab = 'contents';
   let worldGroupEditSession = null;
+  var puzzleEditSession = null;
   let puzzleWorkspaceActive = false;
   let puzzleWorkspaceTab = 'contents';
   let puzzleWorkspaceListSignature = '';
@@ -7382,6 +7393,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let worldGroupWorkspaceSubtool = null;
   let worldGroupWorkspaceReturnState = null;
   let editorTransaction = null;
+  let editorHistorySuspended = false;
   const editorUndoStack = [];
   const editorRedoStack = [];
   let selectedWorldTemplateId = null;
@@ -8738,6 +8750,183 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return true;
   }
 
+  function puzzleEditorSnapshotState(snapshot){
+    if(!snapshot)return null;
+    return {
+      markerId:snapshot.markerId,
+      markerX:snapshot.markerX,
+      markerRecord:snapshot.markerRecord,
+      groupDef:snapshot.groupDef,
+      setup:snapshot.setup,
+      exclusion:snapshot.exclusion
+    };
+  }
+
+  function puzzleEditorSnapshotsEqual(a,b){
+    try{return JSON.stringify(puzzleEditorSnapshotState(a))===JSON.stringify(puzzleEditorSnapshotState(b));}catch(_){return false;}
+  }
+
+  function capturePuzzleEditorSnapshot(markerId=puzzleEditSession?.markerId||selectedPuzzleMarker()?.id||null){
+    const marker=markerForId(markerId);
+    const instance=marker?activePuzzleInstances.get(marker.id)||null:null;
+    if(!marker||!instance)return null;
+    const localMarker=(userPuzzleLibrary.markers||[]).find(item=>item?.id===marker.id)||null;
+    const hasRuntime=Object.prototype.hasOwnProperty.call(puzzleSavedState,marker.id);
+    const hasExclusion=Object.prototype.hasOwnProperty.call(puzzleExclusionState,marker.id);
+    const groupDef=groupIsUserCreated(marker.group)?deepCopy(userPuzzleLibrary.groups?.[marker.group]||null):null;
+    return {
+      markerId:marker.id,
+      markerX:Number(marker.x)||0,
+      markerRecord:localMarker?deepCopy(localMarker):null,
+      groupDef,
+      setup:deepCopy(currentPuzzleSetupSnapshot(instance)),
+      exclusion:hasExclusion?deepCopy(puzzleExclusionState[marker.id]):null,
+      hadExclusion:hasExclusion,
+      runtimeState:hasRuntime?deepCopy(puzzleSavedState[marker.id]):null,
+      hadRuntime:hasRuntime,
+      startDirty:puzzleStartDirty.has(marker.id),
+      selectedObjectId:selectedObject?.puzzleInstanceId===marker.id?selectedObject.id:null,
+      workspaceTab:puzzleWorkspaceTab,
+      environmentPlacementMode:!!puzzleEnvironmentPlacementMode
+    };
+  }
+
+  function applyPuzzleEditorSnapshot(snapshot){
+    if(!snapshot?.markerId)return false;
+    const marker=markerForId(snapshot.markerId);
+    if(!marker)return false;
+    let instance=activePuzzleInstances.get(marker.id)||instantiatePuzzleGroup(marker);
+    if(!instance)return false;
+
+    if(Math.abs((Number(marker.x)||0)-(Number(snapshot.markerX)||0))>0.000001){
+      movePuzzleMarkerTo(marker,Number(snapshot.markerX)||0);
+    }
+    if(snapshot.markerRecord){
+      const stored=(userPuzzleLibrary.markers||[]).find(item=>item?.id===marker.id);
+      if(stored)Object.assign(stored,deepCopy(snapshot.markerRecord));
+      Object.assign(marker,deepCopy(snapshot.markerRecord));
+    }else marker.x=Number(snapshot.markerX)||0;
+    if(snapshot.groupDef&&groupIsUserCreated(marker.group)){
+      userPuzzleLibrary.groups[marker.group]=deepCopy(snapshot.groupDef);
+      instance.def=markerDefinition(marker)||instance.def;
+    }
+
+    applyPuzzleSnapshot(instance,deepCopy(snapshot.setup),{persistRuntime:false,clearDirty:false});
+    if(snapshot.hadRuntime)puzzleSavedState[marker.id]=deepCopy(snapshot.runtimeState||{});
+    else delete puzzleSavedState[marker.id];
+    if(snapshot.hadExclusion)puzzleExclusionState[marker.id]=deepCopy(snapshot.exclusion||{});
+    else delete puzzleExclusionState[marker.id];
+    if(snapshot.startDirty)puzzleStartDirty.add(marker.id);else puzzleStartDirty.delete(marker.id);
+    puzzleEnvironmentPlacementMode=!!snapshot.environmentPlacementMode;
+    puzzleWorkspaceTab=puzzleWorkspaceTabs.includes(snapshot.workspaceTab)?snapshot.workspaceTab:'contents';
+    selectedObject=snapshot.selectedObjectId?instance.objects.find(obj=>obj?.id===snapshot.selectedObjectId&&!obj.deleted)||null:null;
+    puzzleWorkspaceListSignature='';
+    if(puzzleWorldModifiersReady)invalidatePuzzleWorldModifierMeshes();
+    setPuzzleWorkspaceTab(puzzleWorkspaceTab);
+    renderScenePuzzleList({force:true});
+    updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});updateEditorButtons();syncTransformEditor();syncGroundLineEditor();updateEditorDrawerUi();
+    return true;
+  }
+
+  function activeEditorSession(){return worldGroupEditSession||puzzleEditSession||null;}
+  function captureActiveEditorSnapshot(){return worldGroupEditSession?captureWorldGroupEditorSnapshot():(puzzleEditSession?capturePuzzleEditorSnapshot(puzzleEditSession.markerId):null);}
+  function activeEditorSnapshotsEqual(a,b){return worldGroupEditSession?authoredSnapshotsEqual(a,b):(puzzleEditSession?puzzleEditorSnapshotsEqual(a,b):true);}
+  function applyActiveEditorSnapshot(snapshot){return worldGroupEditSession?applyWorldGroupEditorSnapshot(snapshot):(puzzleEditSession?applyPuzzleEditorSnapshot(snapshot):false);}
+
+  function updateActiveEditorSessionDirty(){
+    const session=activeEditorSession();if(!session)return false;
+    const current=captureActiveEditorSnapshot();
+    session.dirty=!activeEditorSnapshotsEqual(session.checkpoint,current);
+    updateEditorDrawerUi();
+    return session.dirty;
+  }
+
+  function flushPuzzleEditPersistence(){
+    if(!puzzleEditSession)return;
+    const marker=markerForId(puzzleEditSession.markerId);
+    const instance=marker?activePuzzleInstances.get(marker.id)||null:null;
+    if(instance)savedPuzzleFor(marker.id).boundsDraft=deepCopy(currentPuzzleBoundsRelative(marker));
+    savePuzzleState(true);
+    savePuzzleExclusionState(true);
+    savePuzzleLibrary(true);
+    if(puzzleEditSession.pendingPersistence.has('starts'))savePuzzleStarts(true);
+    puzzleEditSession.pendingPersistence.clear();
+  }
+
+  function checkpointPuzzleEditSession(){
+    if(!puzzleEditSession)return false;
+    const current=capturePuzzleEditorSnapshot(puzzleEditSession.markerId);if(!current)return false;
+    puzzleEditSession.checkpoint=deepCopy(current);
+    puzzleEditSession.lastSnapshot=deepCopy(current);
+    puzzleEditSession.dirty=false;
+    puzzleEditSession.pendingPersistence.clear();
+    clearEditorHistory();
+    updateEditorDrawerUi();
+    return true;
+  }
+
+  function closePuzzleEditShell(){
+    puzzleWorkspaceActive=false;
+    puzzleExclusionEditMode=false;puzzleExclusionHandle=null;
+    puzzleRespawnEditMode=false;puzzleRespawnHandle=null;
+    puzzleCartPathEditMode=false;puzzleCartPathHandle=null;puzzleCartPathPreviewPlaying=false;
+    if(addAssetType)exitPlacementMode();
+    transformEditMode=false;groundLineEditMode=false;collisionEditMode=false;
+    selectObject(null);puzzleWorkspaceListSignature='';
+  }
+
+  function beginPuzzleEditSession(marker){
+    if(!marker||worldGroupEditSession)return false;
+    if(puzzleEditSession?.markerId===marker.id){updateEditorDrawerUi();return true;}
+    if(puzzleEditSession)return false;
+    const instance=activePuzzleInstances.get(marker.id)||instantiatePuzzleGroup(marker);if(!instance)return false;
+    const checkpoint=capturePuzzleEditorSnapshot(marker.id);if(!checkpoint)return false;
+    clearEditorHistory();
+    puzzleEditSession={markerId:marker.id,checkpoint:deepCopy(checkpoint),lastSnapshot:deepCopy(checkpoint),dirty:false,pendingPersistence:new Set()};
+    updateEditorDrawerUi();
+    return true;
+  }
+
+  function savePuzzleEditSession(){
+    if(!puzzleEditSession)return false;
+    if(editorTransaction)commitEditorTransaction();
+    const marker=markerForId(puzzleEditSession.markerId);
+    flushPuzzleEditPersistence();
+    closePuzzleEditShell();
+    puzzleEditSession=null;clearEditorHistory();
+    updatePuzzlePanel();updateEditorDrawerUi();updateEditorButtons();
+    hintEl.textContent=`Saved ${markerDefinition(marker)?.label||marker?.group||'Puzzle'} edits · Set Start still controls the reset/start state`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function discardPuzzleEditSession({silent=false}={}){
+    if(!puzzleEditSession)return false;
+    if(!silent&&puzzleEditSession.dirty&&!window.confirm('Discard all unsaved changes from this Puzzle edit session?'))return false;
+    const checkpoint=deepCopy(puzzleEditSession.checkpoint);
+    const marker=markerForId(puzzleEditSession.markerId);
+    editorTransaction=null;
+    applyPuzzleEditorSnapshot(checkpoint);
+    closePuzzleEditShell();
+    puzzleEditSession=null;clearEditorHistory();
+    updatePuzzlePanel();updateEditorDrawerUi();updateEditorButtons();
+    if(!silent){hintEl.textContent=`Discarded changes to ${markerDefinition(marker)?.label||marker?.group||'Puzzle'}`;hintEl.classList.remove('hidden');}
+    return true;
+  }
+
+  function requestLeavePuzzleEdit(){
+    if(!puzzleEditSession)return true;
+    if(puzzleEditSession.dirty){
+      hintEl.textContent='Unsaved Puzzle changes · choose Save or Discard at the bottom of the drawer';hintEl.classList.remove('hidden');
+      setEditorDrawerCollapsed(false);
+      return false;
+    }
+    closePuzzleEditShell();
+    puzzleEditSession=null;clearEditorHistory();
+    updatePuzzlePanel();updateEditorDrawerUi();updateEditorButtons();
+    return true;
+  }
+
   function clearEditorHistory(){
     editorUndoStack.length=0;editorRedoStack.length=0;editorTransaction=null;
   }
@@ -8748,46 +8937,47 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function updateWorldGroupSessionDirty(){
     if(!worldGroupEditSession)return false;
-    const current=captureWorldGroupEditorSnapshot();
-    worldGroupEditSession.dirty=!authoredSnapshotsEqual(worldGroupEditSession.checkpoint,current);
-    updateEditorDrawerUi();
-    return worldGroupEditSession.dirty;
+    return updateActiveEditorSessionDirty();
   }
 
   function pushEditorHistory(label,before,after){
-    if(!worldGroupEditSession||authoredSnapshotsEqual(before,after))return false;
+    const session=activeEditorSession();
+    if(!session||activeEditorSnapshotsEqual(before,after))return false;
     editorUndoStack.push({label:String(label||'Edit'),before:deepCopy(before),after:deepCopy(after)});
     trimEditorHistory();
     editorRedoStack.length=0;
-    worldGroupEditSession.lastSnapshot=deepCopy(after);
-    updateWorldGroupSessionDirty();
-    renderWorldGroupEditor({force:true});
+    session.lastSnapshot=deepCopy(after);
+    updateActiveEditorSessionDirty();
+    if(worldGroupEditSession)renderWorldGroupEditor({force:true});
+    else if(puzzleEditSession)renderPuzzleWorkspaceV2({force:true});
     return true;
   }
 
   function beginEditorTransaction(label='Edit'){
-    if(!worldGroupEditSession||editorTransaction)return false;
-    editorTransaction={label:String(label||'Edit'),before:captureWorldGroupEditorSnapshot()};
+    if(!activeEditorSession()||editorTransaction)return false;
+    const before=captureActiveEditorSnapshot();if(!before)return false;
+    editorTransaction={label:String(label||'Edit'),before};
     return true;
   }
 
   function commitEditorTransaction(){
     if(!editorTransaction)return false;
     const tx=editorTransaction;editorTransaction=null;
-    return pushEditorHistory(tx.label,tx.before,captureWorldGroupEditorSnapshot());
+    const after=captureActiveEditorSnapshot();
+    return after?pushEditorHistory(tx.label,tx.before,after):false;
   }
 
   function cancelEditorTransaction(){
     if(!editorTransaction)return false;
     const tx=editorTransaction;editorTransaction=null;
-    applyWorldGroupEditorSnapshot(tx.before);
-    if(worldGroupEditSession)worldGroupEditSession.lastSnapshot=deepCopy(tx.before);
-    updateWorldGroupSessionDirty();
+    applyActiveEditorSnapshot(tx.before);
+    const session=activeEditorSession();if(session)session.lastSnapshot=deepCopy(tx.before);
+    updateActiveEditorSessionDirty();
     return true;
   }
 
   function runEditorTransaction(label,fn){
-    if(!worldGroupEditSession)return fn?.();
+    if(!activeEditorSession())return fn?.();
     beginEditorTransaction(label);
     try{
       const result=fn?.();
@@ -8800,30 +8990,33 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function recordImplicitEditorMutation(label='Edit'){
-    if(!worldGroupEditSession||editorTransaction)return false;
-    const before=worldGroupEditSession.lastSnapshot||worldGroupEditSession.checkpoint;
-    const after=captureWorldGroupEditorSnapshot();
-    return pushEditorHistory(label,before,after);
+    const session=activeEditorSession();
+    if(editorHistorySuspended||!session||editorTransaction)return false;
+    const before=session.lastSnapshot||session.checkpoint;
+    const after=captureActiveEditorSnapshot();
+    return after?pushEditorHistory(label,before,after):false;
   }
 
   function undoEditorTransaction(){
-    if(!worldGroupEditSession||!editorUndoStack.length)return false;
+    const session=activeEditorSession();
+    if(!session||!editorUndoStack.length)return false;
     const entry=editorUndoStack.pop();
     editorRedoStack.push(entry);
-    applyWorldGroupEditorSnapshot(entry.before);
-    worldGroupEditSession.lastSnapshot=deepCopy(entry.before);
-    updateWorldGroupSessionDirty();
+    applyActiveEditorSnapshot(entry.before);
+    session.lastSnapshot=deepCopy(entry.before);
+    updateActiveEditorSessionDirty();
     hintEl.textContent=`Undo · ${entry.label}`;hintEl.classList.remove('hidden');
     return true;
   }
 
   function redoEditorTransaction(){
-    if(!worldGroupEditSession||!editorRedoStack.length)return false;
+    const session=activeEditorSession();
+    if(!session||!editorRedoStack.length)return false;
     const entry=editorRedoStack.pop();
     editorUndoStack.push(entry);trimEditorHistory();
-    applyWorldGroupEditorSnapshot(entry.after);
-    worldGroupEditSession.lastSnapshot=deepCopy(entry.after);
-    updateWorldGroupSessionDirty();
+    applyActiveEditorSnapshot(entry.after);
+    session.lastSnapshot=deepCopy(entry.after);
+    updateActiveEditorSessionDirty();
     hintEl.textContent=`Redo · ${entry.label}`;hintEl.classList.remove('hidden');
     return true;
   }
@@ -8891,22 +9084,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function updateEditorDrawerUi(){
     const groupSession=!!worldGroupEditSession;
+    const puzzleSession=!!puzzleEditSession;
     const group=groupSession?worldGroupById(worldGroupEditSession.groupId):null;
-    editorContext=groupSession?{type:'world-group',id:group?.id||null}:{type:editorScope==='puzzle'?'puzzle':'environment',id:null};
+    const sessionPuzzleMarker=puzzleSession?markerForId(puzzleEditSession.markerId):null;
+    editorContext=groupSession?{type:'world-group',id:group?.id||null}:(puzzleSession?{type:'puzzle',id:sessionPuzzleMarker?.id||null}:{type:editorScope==='puzzle'?'puzzle':'environment',id:null});
     document.body.classList.toggle('sidescroll-world-group-editing',groupSession);
     const puzzleWorkspaceShown=!!(puzzleWorkspaceActive&&editMode&&!puzzleTestMode&&editorScope==='puzzle'&&puzzleBrowserMode==='scene'&&selectedPuzzleMarker());
     document.body.classList.toggle('sidescroll-puzzle-workspace-active',puzzleWorkspaceShown);
     if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':(puzzleWorkspaceShown?'PUZZLE EDIT':'EDIT');
-    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(selectedPuzzleMarker())?.label||'Puzzle'):(editorScope==='puzzle'?'Puzzle':'Environment'));
-    const dirty=!!worldGroupEditSession?.dirty;
+    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(editorScope==='puzzle'?'Puzzle':'Environment'));
+    const session=groupSession?worldGroupEditSession:(puzzleSession?puzzleEditSession:null);
+    const dirty=!!session?.dirty;
     if(editorDrawerDirtyEl)editorDrawerDirtyEl.hidden=!dirty;
     if(editorDrawerRailDirtyEl)editorDrawerRailDirtyEl.hidden=!dirty;
     if(editorDrawerBackBtn)editorDrawerBackBtn.hidden=!(groupSession||puzzleWorkspaceShown);
-    if(editorUndoBtn){editorUndoBtn.disabled=!groupSession||!editorUndoStack.length;editorUndoBtn.textContent=editorUndoStack.length?`Undo ${editorUndoStack.length}`:'Undo';}
-    if(editorRedoBtn){editorRedoBtn.disabled=!groupSession||!editorRedoStack.length;editorRedoBtn.textContent=editorRedoStack.length?`Redo ${editorRedoStack.length}`:'Redo';}
-    if(editorDiscardBtn)editorDiscardBtn.hidden=!groupSession;
-    if(editorSaveBtn){editorSaveBtn.hidden=!groupSession;editorSaveBtn.disabled=!dirty;}
-    if(editorDoneBtn)editorDoneBtn.hidden=groupSession;
+    if(editorUndoBtn){editorUndoBtn.disabled=!session||!editorUndoStack.length;editorUndoBtn.textContent=editorUndoStack.length?`Undo ${editorUndoStack.length}`:'Undo';}
+    if(editorRedoBtn){editorRedoBtn.disabled=!session||!editorRedoStack.length;editorRedoBtn.textContent=editorRedoStack.length?`Redo ${editorRedoStack.length}`:'Redo';}
+    if(editorDiscardBtn)editorDiscardBtn.hidden=!session;
+    if(editorSaveBtn){editorSaveBtn.hidden=!session;editorSaveBtn.disabled=!dirty;}
+    if(editorDoneBtn)editorDoneBtn.hidden=!!session;
     if(editorScopeSwitch)editorScopeSwitch.hidden=groupSession||puzzleWorkspaceShown;
     if(worldGroupEditorEl)worldGroupEditorEl.hidden=!groupSession;
     if(puzzleWorkspaceEl)puzzleWorkspaceEl.hidden=!puzzleWorkspaceShown;
@@ -8939,16 +9135,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function leavePuzzleWorkspace({confirmDirty=true}={}){
     if(!puzzleWorkspaceActive)return false;
+    if(puzzleEditSession)return requestLeavePuzzleEdit();
     const marker=selectedPuzzleMarker();
     if(confirmDirty&&marker&&puzzleStartDirty.has(marker.id)
         &&!window.confirm('This puzzle has working changes that may not be its saved Start State. Return to the puzzle list without setting a new Start State?'))return false;
-    puzzleWorkspaceActive=false;
-    if(puzzleExclusionEditMode)puzzleExclusionEditBtn?.click();
-    if(puzzleRespawnEditMode)puzzleRespawnEditBtn?.click();
-    if(puzzleCartPathEditMode)puzzleCartPathEditBtn?.click();
-    if(addAssetType)exitPlacementMode();
-    selectObject(null);
-    puzzleWorkspaceListSignature='';
+    closePuzzleEditShell();
     updatePuzzlePanel();updateEditorDrawerUi();
     return true;
   }
@@ -8961,11 +9152,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const linkMode=markerLinkMode(marker);
     const isCopy=linkMode==='copy';
     if(puzzleWorkspaceNameEl)puzzleWorkspaceNameEl.textContent=def?.label||marker.group||'Puzzle';
-    if(puzzleWorkspaceStatusEl)puzzleWorkspaceStatusEl.textContent=`${isCopy?'Unique scene copy':'Linked template instance'} · x ${Number(marker.x).toFixed(1)}`;
+    const sessionDirty=!!(puzzleEditSession?.markerId===marker.id&&puzzleEditSession.dirty);
+    if(puzzleWorkspaceStatusEl)puzzleWorkspaceStatusEl.textContent=`${isCopy?'Unique scene copy':'Linked template instance'} · x ${Number(marker.x).toFixed(1)}${sessionDirty?' · Unsaved session changes':''}`;
     if(puzzleWorkspaceSourceEl)puzzleWorkspaceSourceEl.textContent=isCopy?'UNIQUE COPY':'LINKED TEMPLATE';
     if(puzzleWorkspaceInfoEl)puzzleWorkspaceInfoEl.textContent=isCopy
-      ? 'Set Start saves this independent scene copy. The reusable library template is not changed.'
-      : 'Set Start updates the shared reusable template and every linked scene instance. Save Unique creates a separate scene copy.';
+      ? 'Save commits this edit session. Set Start separately defines the Reset/Test start for this independent scene copy.'
+      : 'Save commits this scene-instance edit session. Set Start is separate and updates the shared reusable template plus every linked instance; Save Unique detaches this scene copy.';
     const respawn=instance?currentPuzzleRespawn(instance.marker):null;
     if(puzzleWorkspaceRespawnEl)puzzleWorkspaceRespawnEl.textContent=`Respawn ${respawn?.enabled?'ON':'OFF'} · Trigger ${Number(respawn?.triggerOffsetY||0).toFixed(2)} m`;
     const cart=instance?cartObjectForInstance(instance):null;
@@ -10376,6 +10568,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     puzzleWorkspaceActive=true;
     puzzleWorkspaceTab='contents';
     puzzleWorkspaceListSignature='';
+    if(!beginPuzzleEditSession(marker)){ puzzleWorkspaceActive=false; return; }
     setPuzzleWorkspaceTab('contents');
     updateEditorDrawerUi();
     hintEl.textContent = `Editing ${markerDefinition(marker)?.label || marker.group} · Contents, Zones, Logic and Setup are in the left drawer`;
@@ -11803,14 +11996,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const snapshot = authoredSnapshotFromInstance(instance);
     if (markerLinkMode(marker) === 'copy') {
       puzzleStartState[marker.id] = snapshot;
-      savePuzzleStarts();
+      savePuzzleStarts(true);
       puzzleStartDirty.delete(marker.id);
       applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
       hintEl.textContent = 'Start state set for this unique scene copy';
     } else {
       userPuzzleLibrary.templates ||= {};
       userPuzzleLibrary.templates[marker.group] = snapshot;
-      savePuzzleLibrary();
+      savePuzzleLibrary(true);
       for (const otherMarker of allPuzzleMarkers()) {
         if (otherMarker.group !== marker.group || markerLinkMode(otherMarker) !== 'instance') continue;
         delete puzzleStartState[otherMarker.id];
@@ -11820,12 +12013,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const active = activePuzzleInstances.get(otherMarker.id);
         if (active) applyPuzzleSnapshot(active, snapshot, { persistRuntime:true, clearDirty:true });
       }
-      savePuzzleStarts();
-      savePuzzleState();
+      savePuzzleStarts(true);
+      savePuzzleState(true);
       hintEl.textContent = 'Start state set · linked instances now use this setup';
     }
+    savePuzzleState(true);
+    if(puzzleEditSession?.markerId===marker.id)checkpointPuzzleEditSession();
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
+    renderPuzzleWorkspaceV2({force:true});
   }
 
   function savePuzzleUniqueFromCurrent() {
@@ -11842,13 +12038,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     marker.linkMode = 'copy';
     puzzleStartState[marker.id] = snapshot;
     puzzleStartDirty.delete(marker.id);
-    savePuzzleStarts();
-    savePuzzleLibrary();
+    savePuzzleStarts(true);
+    savePuzzleLibrary(true);
     applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
+    savePuzzleState(true);
     populatePuzzleSelector();
+    if(puzzleEditSession?.markerId===marker.id)checkpointPuzzleEditSession();
     hintEl.textContent = 'Saved as a unique scene copy · future template changes will not affect it';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
+    renderPuzzleWorkspaceV2({force:true});
   }
 
   function resetPuzzleReward(instance) {
@@ -11881,6 +12080,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function resetCurrentPuzzle() {
     const instance = authoringPuzzle();
     if (!instance) return;
+    if(puzzleEditSession&&!puzzleTestMode){
+      applyPuzzleStart(instance,{persistRuntime:true});
+      hintEl.classList.remove('puzzle-thought');
+      hintEl.textContent='Puzzle setup reset to its saved Start State · Undo can restore the previous edit-session setup';
+      hintEl.classList.remove('hidden');
+      updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+      return;
+    }
     if (puzzleTestMode && puzzleTestSnapshot) {
       resetPuzzleReward(instance);
       applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:false, clearDirty:false });
@@ -11968,6 +12175,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         return false;
       }
       discardWorldGroupEditSession({silent:true});
+    }
+    if(!on&&!puzzleTestMode&&puzzleEditSession){
+      if(puzzleEditSession.dirty){
+        hintEl.textContent='Puzzle has unsaved changes · use Save or Discard before leaving edit mode';
+        hintEl.classList.remove('hidden');
+        setEditorDrawerCollapsed(false);
+        return false;
+      }
+      requestLeavePuzzleEdit();
     }
     if (on) setInventoryOpen(false);
     if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = true; }
@@ -16508,6 +16724,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   });
   bindEditorPress(editorDrawerBackBtn,()=>{
     if(worldGroupEditSession)return requestLeaveWorldGroupEdit();
+    if(puzzleEditSession)return requestLeavePuzzleEdit();
     if(puzzleWorkspaceActive)return leavePuzzleWorkspace();
   });
   for(const [tab,{button}] of puzzleWorkspaceTabControls){
@@ -16520,7 +16737,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if(id==='sidescroll-puzzle-set-start'&&markerLinkMode(selectedPuzzleMarker())!=='copy'
           &&!window.confirm('Set Start updates the reusable puzzle template AND every linked scene instance. Continue?'))return;
       const source=document.getElementById(id);
-      if(source&&!source.disabled)source.click();
+      if(source&&!source.disabled){
+        const labels={
+          'sidescroll-puzzle-exclusion-toggle':'Toggle puzzle exclusion',
+          'sidescroll-puzzle-respawn-edit':'Edit respawn',
+          'sidescroll-puzzle-respawn-toggle':'Toggle respawn',
+          'sidescroll-puzzle-respawn-set-spawn':'Set respawn point',
+          'sidescroll-puzzle-respawn-lower':'Adjust respawn trigger',
+          'sidescroll-puzzle-respawn-raise':'Adjust respawn trigger',
+          'sidescroll-puzzle-cart-path-edit':'Edit cart path',
+          'sidescroll-puzzle-cart-path-toggle':'Toggle cart path',
+          'sidescroll-puzzle-cart-path-start-cart':'Move cart path start',
+          'sidescroll-puzzle-cart-path-duration-down':'Adjust cart path',
+          'sidescroll-puzzle-cart-path-duration-up':'Adjust cart path',
+          'sidescroll-puzzle-reset':'Reset puzzle to Start State'
+        };
+        const label=labels[id];
+        if(label&&puzzleEditSession)runEditorTransaction(label,()=>source.click());
+        else source.click();
+      }
       renderPuzzleWorkspaceV2({force:true});
     });
   }
@@ -16530,8 +16765,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorDrawerSwipeSurface(editorDrawerRailBtn,{collapsedSurface:true});
   bindEditorPress(editorUndoBtn,undoEditorTransaction);
   bindEditorPress(editorRedoBtn,redoEditorTransaction);
-  bindEditorPress(editorDiscardBtn,()=>discardWorldGroupEditSession());
-  bindEditorPress(editorSaveBtn,saveWorldGroupEditSession);
+  bindEditorPress(editorDiscardBtn,()=>worldGroupEditSession?discardWorldGroupEditSession():(puzzleEditSession?discardPuzzleEditSession():false));
+  bindEditorPress(editorSaveBtn,()=>worldGroupEditSession?saveWorldGroupEditSession():(puzzleEditSession?savePuzzleEditSession():false));
 
   if(worldGroupNameInput){
     const commitWorldGroupName=()=>{
@@ -16661,7 +16896,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const instance = selectedPuzzleInstance();
     if (!instance || puzzleTestMode) return;
     const ex = currentPuzzleExclusion(instance.marker);
-    if (!ex.enabled) { ex.enabled = true; savePuzzleExclusionState(); }
+    if (!ex.enabled) {
+      const enable=()=>{ex.enabled=true;savePuzzleExclusionState();};
+      if(puzzleEditSession)runEditorTransaction('Enable puzzle exclusion',enable);else enable();
+    }
     puzzleExclusionEditMode = !puzzleExclusionEditMode;
     if (puzzleExclusionEditMode) { puzzleRespawnEditMode = false; puzzleRespawnHandle = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; }
     addAssetType = null;
@@ -16676,9 +16914,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(puzzleExclusionToggleBtn, () => {
     const instance = selectedPuzzleInstance();
     if (!instance || puzzleTestMode) return;
-    const ex=currentPuzzleExclusion(instance.marker);
-    ex.enabled=!ex.enabled;
-    savePuzzleExclusionState();
+    const toggle=()=>{const ex=currentPuzzleExclusion(instance.marker);ex.enabled=!ex.enabled;savePuzzleExclusionState();return ex;};
+    const ex=puzzleEditSession?runEditorTransaction('Toggle puzzle exclusion',toggle):toggle();
     if (!ex.enabled) puzzleExclusionEditMode=false;
     updatePuzzlePanel();
     hintEl.textContent=ex.enabled ? 'Puzzle exclusion enabled' : 'Puzzle exclusion disabled · procedural forest restored';
@@ -16686,15 +16923,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   });
   function bindPuzzleExclusionSizeSlider(input,valueEl,key){
     if(!input)return;
+    let ownsTransaction=false;
     const apply=()=>{
       const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;
+      if(puzzleEditSession&&!ownsTransaction)ownsTransaction=beginEditorTransaction(`Resize puzzle exclusion ${key==='width'?'width':'length'}`);
       const ex=currentPuzzleExclusion(instance.marker);
       ex[key]=Rig.clamp(Number(input.value)||1,1,60);
       if(valueEl)valueEl.textContent=`${ex[key].toFixed(1)} m`;
     };
     const commit=()=>{
       const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;
-      apply();savePuzzleExclusionState();updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+      apply();savePuzzleExclusionState();
+      if(ownsTransaction&&editorTransaction)commitEditorTransaction();
+      ownsTransaction=false;
+      updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
     };
     input.addEventListener('input',apply);
     input.addEventListener('change',commit);
@@ -16798,7 +17040,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   bindEditorPress(editorGroundLineBtn,()=>{worldGroupMemberMoveMode=false;setGroundLineEditorOpen(!groundLineEditMode);});
   bindEditorPress(groundLineResetBtn,()=>worldGroupEditSession?runEditorTransaction('Reset floor line',resetSelectedGroundLine):resetSelectedGroundLine());
   bindEditorPress(groundLineCloseBtn, () => setGroundLineEditorOpen(false));
-  groundLineInput?.addEventListener('pointerdown',()=>{if(worldGroupEditSession)beginEditorTransaction('Adjust floor line');},{passive:true});
+  groundLineInput?.addEventListener('pointerdown',()=>{if(activeEditorSession())beginEditorTransaction('Adjust floor line');},{passive:true});
   groundLineInput?.addEventListener('input', () => setSelectedGroundLine(Number(groundLineInput.value)));
   groundLineInput?.addEventListener('pointerup',()=>{if(editorTransaction)commitEditorTransaction();},{passive:true});
   groundLineInput?.addEventListener('pointercancel',()=>{if(editorTransaction)commitEditorTransaction();},{passive:true});
@@ -17139,6 +17381,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           editorGesture.exclusionStartWorldX=worldX;
           editorGesture.exclusionStartWorldZ=worldZ;
           editorGesture.exclusionStartScreen=projectWorldPoint(worldX,terrainGroundYAt(worldX,worldZ)+.055,worldZ);
+          if(puzzleEditSession?.markerId===instance.id)beginEditorTransaction('Move puzzle exclusion');
           hintEl.textContent='Move exclusion · drag anywhere · lift and touch again to continue from the current position';
           hintEl.classList.remove('hidden');
           return;
@@ -17148,6 +17391,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const respawnHandle = puzzleRespawnHandleAt(e.clientX, e.clientY);
       if (respawnHandle) {
         const instance=selectedPuzzleInstance();editorGesture.kind='puzzle-respawn';editorGesture.respawnHandle=respawnHandle.kind;editorGesture.respawnStart={...currentPuzzleRespawn(instance.marker)};editorGesture.respawnMarker=instance.marker;puzzleRespawnHandle=respawnHandle.kind;
+        if(puzzleEditSession?.markerId===instance?.id)beginEditorTransaction('Edit respawn');
         hintEl.textContent=respawnHandle.kind==='spawn'?'Drag the green SPAWN point':(respawnHandle.kind==='zone-center'?'Drag the pink centre to move the respawn volume':'Drag the pink edge handle to resize the respawn volume');hintEl.classList.remove('hidden');return;
       }
 
@@ -17160,6 +17404,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         editorGesture.cartPathStart=deepCopy(currentPuzzleCartPath(instance.marker));
         editorGesture.cartPathPointerStart=pathPlanePointFromClient(e.clientX,e.clientY,cartPathHandleHit.world?.z ?? pathZ);
         puzzleCartPathHandle=cartPathHandleHit.kind;
+        if(puzzleEditSession?.markerId===instance?.id)beginEditorTransaction('Edit cart path');
         hintEl.textContent=cartPathHandleHit.kind==='move'
           ? 'Drag MOVE PATH or the spline itself to reposition the whole cart route'
           : `Drag ${cartPathHandleHit.kind==='c1'?'CURVE 1':cartPathHandleHit.kind==='c2'?'CURVE 2':cartPathHandleHit.kind.toUpperCase()} to shape the cart route`;
@@ -17182,6 +17427,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         editorGesture.kind = 'puzzle-marker';
         editorGesture.marker = marker;
         editorGesture.markerStartX = marker?.x ?? 0;
+        if(puzzleEditSession?.markerId===marker?.id)beginEditorTransaction('Move puzzle marker');
         hintEl.textContent = 'Drag the centre dot to move this puzzle marker';
         hintEl.classList.remove('hidden');
         return;
@@ -17191,6 +17437,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (boundHandle) {
         editorGesture.kind = 'puzzle-bound';
         puzzleBoundSide = boundHandle.side;
+        if(puzzleEditSession)beginEditorTransaction('Resize puzzle bounds');
         hintEl.textContent = 'Drag to resize the selected puzzle bounds';
         hintEl.classList.remove('hidden');
         return;
@@ -17203,7 +17450,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         if (handle) {
           editorGesture.kind = 'collision-handle';
           collisionHandleIndex = handle.index;
-          if(worldGroupEditSession)beginEditorTransaction('Edit collision');
+          if(activeEditorSession())beginEditorTransaction('Edit collision');
           hintEl.textContent = 'Drag the orange handle to reshape the collision';
           hintEl.classList.remove('hidden');
           return;
@@ -17251,6 +17498,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         editorGesture.object = selectedObject;
         editorGesture.stackIgnore = new Set();
         if(worldGroupEditSession)beginEditorTransaction('Move group member');
+        else if(puzzleEditSession?.markerId===selectedObject.puzzleInstanceId)beginEditorTransaction('Move puzzle object');
         if (isGameplayCrate(selectedObject)) {
           const anchor = stackBottomFor(selectedObject, selectedObject.x);
           const column = stackColumnFor(anchor, selectedObject.x);
@@ -17472,6 +17720,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           worldGroupMoveMode=false;renderWorldGroupTools({force:true});
         } else if (!gesture.moved && gesture.kind==='socket-place-pan' && gesture.socketPiece) {
           const host = socketHostAt(e.clientX,e.clientY);
+          if(puzzleEditSession&&host)beginEditorTransaction('Set puzzle socket');
           if (host && placeSocketOnHost(gesture.socketPiece, host, e.clientX, e.clientY)) {
             hintEl.textContent = `Socket set for ${socketLabelForPiece(gesture.socketPiece)} · select another piece or press Move Socket to adjust`;
             hintEl.classList.remove('hidden');
@@ -17490,6 +17739,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
             if(point){
               const placedType=addAssetType;
               if(worldGroupEditSession)beginEditorTransaction('Add group asset');
+              else if(puzzleEditSession)beginEditorTransaction('Add puzzle object');
               createUserObject(placedType,point,{selectAfter:false});
               selectedObject=null;
               if(editorTransaction)commitEditorTransaction();

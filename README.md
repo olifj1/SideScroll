@@ -1,35 +1,23 @@
-# SideScroll patch 1.0.124
+# SideScroll patch 1.0.125
 
-Cumulative Stage 2A + exclusion interaction patch.
+Apply over **v1.0.124**.
 
-Apply over **v1.0.122 or v1.0.123**. This patch includes the v1.0.123 Puzzle Editor workspace plus the v1.0.124 exclusion-zone changes.
+## Stage 2B — Puzzle edit sessions and Undo/Redo
 
-## Included
-
-- Puzzle Editor v2 Stage 2A workspace: Contents / Zones / Logic / Setup in the unified left drawer.
-- Puzzle contents list drives the existing Quick Tools and existing puzzle mechanics.
-- World Group and Puzzle procedural exclusions no longer use perspective-sensitive centre/edge drag handles.
-- Exclusion **Move** uses the same relative mouse-style screen-space mapping as authored assets:
-  - drag anywhere in the free viewport;
-  - horizontal finger movement moves along world X;
-  - vertical finger movement changes scene depth;
-  - lift/reposition the finger and continue from the zone's current position.
-- Exclusion resizing moved to stable **Width** and **Length** sliders in the editor UI.
-- World Group exclusion Move is one Undo action per drag; Width/Length slider gestures are one Undo action each.
-- Puzzle exclusions use the same Move/slider interaction while retaining the current Stage 2A persistence model.
-- Style and script cache-busters bumped to 1.0.124.
-
-## Not yet included
-
-- Full Puzzle Save / Discard edit sessions.
-- Puzzle-wide central Undo / Redo.
-- Final template / linked-instance Apply / Revert semantics.
+- `Edit Puzzle` now starts a bounded edit session with a checkpoint.
+- The shared drawer footer now provides Puzzle `Undo`, `Redo`, `Discard` and `Save`.
+- Ordinary Puzzle authoring writes are held during the session; `Save` commits the current scene-instance working edits, while `Discard` restores the session-entry state.
+- Common Puzzle authoring actions now use the shared transaction history: object transforms/placement, Quick Tools edits, marker/bounds moves, exclusion move/resize/toggle, respawn edits, cart-path edits, sockets and authoring Reset. Continuous drags/sliders become one history action.
+- Puzzle bounds now persist as a scene-instance working draft when the session is saved.
+- `Test Current` stays disposable and returns to the active edit session.
+- `Reset to Saved` inside Puzzle Edit now resets authored setup only, avoiding player inventory/reward mutations, and can be undone.
+- `Set Start` and `Save Unique` remain explicit commit boundaries. They persist immediately, reset the session checkpoint/history, and are not reverted by later session Discard.
+- Semantics are now explicit: `Save` = current scene-instance working overrides; `Set Start` = Reset/Test start state (and shared template for linked instances); `Save Unique` = detach the scene copy from its shared template.
 
 ## Validation
 
-- All 14 JavaScript files syntax-checked with Node.
-- No duplicate IDs in play.html.
-- New exclusion slider IDs are present and wired.
-- CSS brace structure validated.
+- `sidescroll.js` syntax checked after the Stage 2B changes.
+- Full v1.0.125 tree reconstructed from the v1.0.115 baseline plus released patches for project-wide JavaScript syntax checks before packaging.
+- HTML ID and external-script reference checks performed.
 
-Changed project files only: `play.html`, `style.css`, `sidescroll.js`, `SIDESCROLL_TASKS.md` plus this README.
+This is still Stage 2 work, not the final Puzzle Editor v2 pass. Detailed cart-path controls, richer template Apply/Revert presentation, rare puzzle-type action audit and crash-recovery drafts remain on the backlog.
