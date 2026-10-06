@@ -103,11 +103,14 @@ Still pending before Puzzle Editor v2 is complete:
 **Navigation rule from v1.0.125:** Back from a clean Puzzle session returns to the scene puzzle list. Back from a dirty session stays in Puzzle Edit and directs the author to the fixed Save/Discard controls. Save commits the working scene-instance edits; Discard restores the session entry checkpoint. `Set Start` remains a separate, more consequential operation.
 
 
-### Edit-mode support preservation — v1.0.128
+### Edit-mode / startup support preservation — v1.0.128–1.0.129
 
-- [x] Entering Edit mode while the player is standing on an authored Support Surface no longer clears that support and snaps the character/camera down to terrain.
-- [x] Edit entry resolves the same `editorSafeSupportAt(...)` surface used elsewhere in the editor, capped to the player's current feet height so an overlapping higher platform cannot pull the character upward.
-- [x] This is an editor-transition correction only: procedural biome placement remains terrain-only and no hidden support parenting is introduced.
+- [x] Entering Edit mode while the player is standing on an authored Support Surface preserves that support instead of snapping the character/camera down to terrain.
+- [x] v1.0.128 corrected the one-time `setEditMode(true)` transition, but phone testing exposed an older per-frame Edit branch that immediately reset `jumpOffset = 0` and cleared `standingOnObject` on the following render. v1.0.129 removes that terrain-only per-frame override and resolves the current authored/editor-safe Support Surface every Edit frame.
+- [x] Edit entry still resolves `editorSafeSupportAt(...)` with a ceiling based on the player's current feet height, so entering Edit cannot jump the player upward onto a higher overlapping platform.
+- [x] Player-position restore now resolves the real walk/support surface before display instead of restoring terrain Y first and relying on the next gameplay tick to lift the character.
+- [x] The launch fade performs one final support resolve after initial streaming/loading and before reveal, preventing a visible terrain-to-rock/platform pop at game start.
+- [x] This remains an editor/player grounding correction only: procedural biome placement stays terrain-only and no hidden support parenting is introduced.
 
 ### Shared walk-surface placement correction — v1.0.127
 

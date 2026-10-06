@@ -1,16 +1,17 @@
-# SideScroll patch 1.0.128
+# SideScroll patch 1.0.129
 
-Edit-mode authored-support grounding hotfix.
+Support-surface lifecycle correction.
 
 ## Changes
 
-- Fixes a terrain-only snap that still ran when entering Edit mode.
-- If the player is standing on a climbable rock, bridge/platform, or other authored Support Surface, entering Edit now preserves that support instead of dropping the character and camera to terrain below.
-- The support lookup is capped to the player's current feet height, so Edit entry will not jump the player upward onto a higher overlapping platform.
-- Manual Ground placement remains on the shared Support Surface resolver introduced in 1.0.127.
-- Procedural biome placement remains terrain-only.
+- Fixes the remaining Edit-mode terrain drop found after 1.0.128.
+- The main frame loop no longer clears authored support every Edit frame. The editor character/scale reference now remains on the same walk/support collision used by Play.
+- Restoring the saved player position now resolves authored Support Surfaces immediately instead of starting at terrain height and lifting on the next gameplay frame.
+- The player launch path performs a final support resolve after initial streaming/loading and before the entry fade is revealed.
+- World Lab jump positions use the same support-aware initial grounding.
+- Manual Ground placement remains support-aware; procedural biome placement remains terrain-only.
 - No hidden object-to-support parenting is introduced.
 
 ## Apply
 
-Changed-files-only patch. Apply over SideScroll 1.0.127.
+Changed-files-only patch. Apply over SideScroll 1.0.128.

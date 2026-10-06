@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.128: Edit-mode entry preserves authored walk/support grounding; manual placement still shares Support Surfaces while procedural placement stays terrain-only.
+  // SideScroll v1.0.129: support grounding is preserved through Edit frames and resolved before player reveal; manual placement still shares Support Surfaces while procedural placement stays terrain-only.
   // SideScroll v1.0.122: restore selected-object Quick Tools in Group Edit + explicit relative Move mode.
   // SideScroll v1.0.116: duplicate World Groups + stable relative screen-space depth dragging + persistent task backlog.
   // SideScroll v1.0.115: multiple World Group exclusions + procedural reset controls + climb interaction dots.
@@ -7638,11 +7638,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if (Number.isFinite(WORLD_LAB_JUMP_X)) {
         character.x = WORLD_LAB_JUMP_X;
         character.lastFacing = saved?.facing === -1 ? -1 : 1;
-        const requestedY = playSurfaceYAt(character.x);
-        character.y = Number.isFinite(requestedY) ? requestedY : pathGroundYAt(character.x, pathZ);
         camera.x = character.x - character.screenOffsetX;
         previousCameraX = camera.x;
         updatePuzzleStreaming(character.x);
+        // Streaming may have just instantiated a support object, so force the
+        // cached candidate list to rebuild before resolving the initial height.
+        supportSurfaceCacheFrame = -1;
+        const support = walkableSupportAt(character.x + colliderWorld().offsetX, Infinity, 0);
+        jumpOffset = support?.offset ?? 0;
+        standingOnObject = support?.obj || null;
+        character.y = playSurfaceYAt(character.x) + jumpOffset;
         if (statusEl) statusEl.textContent = `World Lab test · ${character.x.toFixed(1)} m`;
         localStorage.setItem(PLAYER_POSITION_STORAGE_KEY, JSON.stringify({ x:character.x, facing:character.lastFacing, savedAt:Date.now(), source:'world-lab' }));
         return;
@@ -7652,8 +7657,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       previousCameraX = camera.x;
       character.x = saved.x;
       character.lastFacing = saved.facing === -1 ? -1 : 1;
-      character.y = playSurfaceYAt(character.x);
       updatePuzzleStreaming(character.x);
+      // Restore directly onto the real walk/support surface rather than first
+      // drawing at terrain height and waiting for the gameplay loop to lift the
+      // player on the next frame.
+      supportSurfaceCacheFrame = -1;
+      const support = walkableSupportAt(character.x + colliderWorld().offsetX, Infinity, 0);
+      jumpOffset = support?.offset ?? 0;
+      standingOnObject = support?.obj || null;
+      character.y = playSurfaceYAt(character.x) + jumpOffset;
     } catch (_) {}
   }
 
@@ -16163,16 +16175,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const colliderXAfterMove = characterXAfterMove + capsule.offsetX;
     const terrainYAfterMove = playSurfaceYAt(characterXAfterMove);
     if (editMode) {
-      // v1.0.46: Edit mode is a free camera/workspace.  The character remains a
-      // visual scale reference but no longer participates in terrain, object or
-      // gap collision, so panning cannot strand the editor in a hole or behind
-      // a collider.  Returning to Play/Test re-acquires normal support below.
+      // Edit remains a free camera/workspace for horizontal collision, but the
+      // character's vertical scale reference must use the same authored walk
+      // surface as Play.  The old terrain-only reset here overwrote the support
+      // chosen by setEditMode() on the very next frame, making the character and
+      // camera fall through climbable-rock/platform tops whenever Edit opened.
       jumping = false;
       jumpTime = 0;
       jumpVelocity = 0;
-      jumpOffset = 0;
-      standingOnObject = null;
-      airborneWorldY = terrainYAfterMove;
+      const support = editorSafeSupportAt(colliderXAfterMove, Infinity, 0);
+      jumpOffset = support.offset;
+      standingOnObject = support.obj || null;
+      airborneWorldY = terrainYAfterMove + jumpOffset;
     } else if (climbState) {
       // updateClimbState owns camera X, absolute character Y and jumpOffset.
       // Normal support/side collision must stay out of the way until the mantle
@@ -18057,6 +18071,17 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     document.body.classList.add('sidescroll-intro-locked');
     setDriveAxis(0);
     await waitForInitialVisualAssets();
+    // Re-resolve support after initial streaming/loading and before the launch
+    // overlay is revealed. This prevents a visible terrain->platform lift on
+    // startup even if an authored support was instantiated after position load.
+    updatePuzzleStreaming(character.x);
+    supportSurfaceCacheFrame = -1;
+    const launchSupport = walkableSupportAt(character.x + colliderWorld().offsetX, Infinity, 0);
+    if (launchSupport) {
+      jumpOffset = launchSupport.offset;
+      standingOnObject = launchSupport.obj || null;
+      character.y = playSurfaceYAt(character.x) + jumpOffset;
+    }
     // Allow one fully populated frame to reach the screen before revealing it.
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (!entryFadeEl) {
