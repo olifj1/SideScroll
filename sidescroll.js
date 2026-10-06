@@ -557,6 +557,10 @@
   const worldGroupExclusionInspectorEl = document.getElementById('sidescroll-world-group-exclusion-inspector');
   const worldGroupExclusionNameEl = document.getElementById('sidescroll-world-group-exclusion-name');
   const worldGroupExclusionSizeEl = document.getElementById('sidescroll-world-group-exclusion-size');
+  const worldGroupExclusionWidthInput = document.getElementById('sidescroll-world-group-exclusion-width');
+  const worldGroupExclusionWidthValue = document.getElementById('sidescroll-world-group-exclusion-width-value');
+  const worldGroupExclusionDepthInput = document.getElementById('sidescroll-world-group-exclusion-depth');
+  const worldGroupExclusionDepthValue = document.getElementById('sidescroll-world-group-exclusion-depth-value');
   const worldGroupExclusionDuplicateBtn = document.getElementById('sidescroll-world-group-exclusion-duplicate');
   const worldGroupNameInput = document.getElementById('sidescroll-world-group-name-input');
   const worldGroupInfoXEl = document.getElementById('sidescroll-world-group-info-x');
@@ -572,6 +576,27 @@
   const worldTemplateStatusEl = document.getElementById('sidescroll-world-template-status');
   const worldTemplateListEl = document.getElementById('sidescroll-world-template-list');
   const worldTemplateEmptyEl = document.getElementById('sidescroll-world-template-empty');
+  // Stage 2A: light Puzzle workspace routing. No new puzzle persistence semantics yet.
+  const puzzleWorkspaceEl = document.getElementById('sidescroll-puzzle-workspace-v2');
+  const puzzleWorkspaceNameEl = document.getElementById('sidescroll-puzzle-workspace-name');
+  const puzzleWorkspaceStatusEl = document.getElementById('sidescroll-puzzle-workspace-status');
+  const puzzleWorkspaceListEl = document.getElementById('sidescroll-puzzle-workspace-list');
+  const puzzleWorkspaceCountEl = document.getElementById('sidescroll-puzzle-workspace-count');
+  const puzzleWorkspaceEmptyEl = document.getElementById('sidescroll-puzzle-workspace-empty');
+  const puzzleWorkspaceSourceEl = document.getElementById('sidescroll-puzzle-workspace-source');
+  const puzzleWorkspaceInfoEl = document.getElementById('sidescroll-puzzle-workspace-info');
+  const puzzleWorkspaceRespawnEl = document.getElementById('sidescroll-puzzle-workspace-respawn-info');
+  const puzzleWorkspaceCartEl = document.getElementById('sidescroll-puzzle-workspace-cart-info');
+  const puzzleExclusionWidthInput = document.getElementById('sidescroll-puzzle-exclusion-width');
+  const puzzleExclusionWidthValue = document.getElementById('sidescroll-puzzle-exclusion-width-value');
+  const puzzleExclusionDepthInput = document.getElementById('sidescroll-puzzle-exclusion-depth');
+  const puzzleExclusionDepthValue = document.getElementById('sidescroll-puzzle-exclusion-depth-value');
+  const puzzleWorkspaceLegacyButtons = [...document.querySelectorAll('#sidescroll-puzzle-workspace-v2 [data-puzzle-legacy]')];
+  const puzzleWorkspaceTabs = ['contents','zones','logic','setup'];
+  const puzzleWorkspaceTabControls = new Map(puzzleWorkspaceTabs.map(tab=>[tab,{
+    button:document.getElementById(`sidescroll-puzzle-workspace-tab-${tab}`),
+    panel:document.getElementById(`sidescroll-puzzle-workspace-panel-${tab}`)
+  }]));
   const puzzleStageSection = document.getElementById('sidescroll-puzzle-stage-section');
   const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
   const puzzleEditBtn = document.getElementById('sidescroll-puzzle-edit');
@@ -7345,6 +7370,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let selectedWorldGroupExclusionId = null;
   let worldGroupEditorTab = 'contents';
   let worldGroupEditSession = null;
+  let puzzleWorkspaceActive = false;
+  let puzzleWorkspaceTab = 'contents';
+  let puzzleWorkspaceListSignature = '';
   let worldGroupNodeInspectorOpen = false;
   let worldGroupListSignature = '';
 
@@ -8866,20 +8894,121 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const group=groupSession?worldGroupById(worldGroupEditSession.groupId):null;
     editorContext=groupSession?{type:'world-group',id:group?.id||null}:{type:editorScope==='puzzle'?'puzzle':'environment',id:null};
     document.body.classList.toggle('sidescroll-world-group-editing',groupSession);
-    if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':'EDIT';
-    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(editorScope==='puzzle'?'Puzzle':'Environment');
+    const puzzleWorkspaceShown=!!(puzzleWorkspaceActive&&editMode&&!puzzleTestMode&&editorScope==='puzzle'&&puzzleBrowserMode==='scene'&&selectedPuzzleMarker());
+    document.body.classList.toggle('sidescroll-puzzle-workspace-active',puzzleWorkspaceShown);
+    if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':(puzzleWorkspaceShown?'PUZZLE EDIT':'EDIT');
+    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(selectedPuzzleMarker())?.label||'Puzzle'):(editorScope==='puzzle'?'Puzzle':'Environment'));
     const dirty=!!worldGroupEditSession?.dirty;
     if(editorDrawerDirtyEl)editorDrawerDirtyEl.hidden=!dirty;
     if(editorDrawerRailDirtyEl)editorDrawerRailDirtyEl.hidden=!dirty;
-    if(editorDrawerBackBtn)editorDrawerBackBtn.hidden=!groupSession;
+    if(editorDrawerBackBtn)editorDrawerBackBtn.hidden=!(groupSession||puzzleWorkspaceShown);
     if(editorUndoBtn){editorUndoBtn.disabled=!groupSession||!editorUndoStack.length;editorUndoBtn.textContent=editorUndoStack.length?`Undo ${editorUndoStack.length}`:'Undo';}
     if(editorRedoBtn){editorRedoBtn.disabled=!groupSession||!editorRedoStack.length;editorRedoBtn.textContent=editorRedoStack.length?`Redo ${editorRedoStack.length}`:'Redo';}
     if(editorDiscardBtn)editorDiscardBtn.hidden=!groupSession;
     if(editorSaveBtn){editorSaveBtn.hidden=!groupSession;editorSaveBtn.disabled=!dirty;}
     if(editorDoneBtn)editorDoneBtn.hidden=groupSession;
-    if(editorScopeSwitch)editorScopeSwitch.hidden=groupSession;
+    if(editorScopeSwitch)editorScopeSwitch.hidden=groupSession||puzzleWorkspaceShown;
     if(worldGroupEditorEl)worldGroupEditorEl.hidden=!groupSession;
+    if(puzzleWorkspaceEl)puzzleWorkspaceEl.hidden=!puzzleWorkspaceShown;
     setEditorDrawerCollapsed(editorDrawerCollapsed);
+  }
+
+  // The Puzzle Editor v2 foundation deliberately delegates gameplay changes to the
+  // existing controls; this pass adds dependable navigation/selection without
+  // pretending the legacy Set Start and drafts already have Save/Discard semantics.
+  function puzzleWorkspaceVisible(){
+    return !!(puzzleWorkspaceActive&&editMode&&!puzzleTestMode&&editorScope==='puzzle'&&puzzleBrowserMode==='scene'&&selectedPuzzleMarker());
+  }
+
+  function setPuzzleWorkspaceTab(tab){
+    if(!puzzleWorkspaceTabs.includes(tab))tab='contents';
+    if(tab!=='zones'){
+      if(puzzleExclusionEditMode)puzzleExclusionEditBtn?.click();
+      if(puzzleRespawnEditMode)puzzleRespawnEditBtn?.click();
+    }
+    if(tab!=='logic'&&puzzleCartPathEditMode)puzzleCartPathEditBtn?.click();
+    puzzleWorkspaceTab=tab;
+    for(const [name,{button,panel}] of puzzleWorkspaceTabControls){
+      button?.classList.toggle('active',name===tab);
+      button?.setAttribute('aria-selected',String(name===tab));
+      if(panel)panel.hidden=name!==tab;
+    }
+    if(editorDrawerBody)editorDrawerBody.scrollTop=0;
+    renderPuzzleWorkspaceV2({force:true});
+  }
+
+  function leavePuzzleWorkspace({confirmDirty=true}={}){
+    if(!puzzleWorkspaceActive)return false;
+    const marker=selectedPuzzleMarker();
+    if(confirmDirty&&marker&&puzzleStartDirty.has(marker.id)
+        &&!window.confirm('This puzzle has working changes that may not be its saved Start State. Return to the puzzle list without setting a new Start State?'))return false;
+    puzzleWorkspaceActive=false;
+    if(puzzleExclusionEditMode)puzzleExclusionEditBtn?.click();
+    if(puzzleRespawnEditMode)puzzleRespawnEditBtn?.click();
+    if(puzzleCartPathEditMode)puzzleCartPathEditBtn?.click();
+    if(addAssetType)exitPlacementMode();
+    selectObject(null);
+    puzzleWorkspaceListSignature='';
+    updatePuzzlePanel();updateEditorDrawerUi();
+    return true;
+  }
+
+  function renderPuzzleWorkspaceV2({force=false}={}){
+    if(!puzzleWorkspaceVisible())return;
+    const marker=selectedPuzzleMarker();
+    const instance=activePuzzleInstances.get(marker.id)||null;
+    const def=markerDefinition(marker);
+    const linkMode=markerLinkMode(marker);
+    const isCopy=linkMode==='copy';
+    if(puzzleWorkspaceNameEl)puzzleWorkspaceNameEl.textContent=def?.label||marker.group||'Puzzle';
+    if(puzzleWorkspaceStatusEl)puzzleWorkspaceStatusEl.textContent=`${isCopy?'Unique scene copy':'Linked template instance'} · x ${Number(marker.x).toFixed(1)}`;
+    if(puzzleWorkspaceSourceEl)puzzleWorkspaceSourceEl.textContent=isCopy?'UNIQUE COPY':'LINKED TEMPLATE';
+    if(puzzleWorkspaceInfoEl)puzzleWorkspaceInfoEl.textContent=isCopy
+      ? 'Set Start saves this independent scene copy. The reusable library template is not changed.'
+      : 'Set Start updates the shared reusable template and every linked scene instance. Save Unique creates a separate scene copy.';
+    const respawn=instance?currentPuzzleRespawn(instance.marker):null;
+    if(puzzleWorkspaceRespawnEl)puzzleWorkspaceRespawnEl.textContent=`Respawn ${respawn?.enabled?'ON':'OFF'} · Trigger ${Number(respawn?.triggerOffsetY||0).toFixed(2)} m`;
+    const cart=instance?cartObjectForInstance(instance):null;
+    const cartCfg=instance&&cart?currentPuzzleCartPath(instance.marker):null;
+    if(puzzleWorkspaceCartEl)puzzleWorkspaceCartEl.textContent=cartCfg?`Cart path ${cartCfg.enabled?'ON':'OFF'} · ${Number(cartCfg.duration||0).toFixed(2)} s`:'This puzzle has no cart path.';
+    const puzzleEx=instance?currentPuzzleExclusion(instance.marker):null;
+    if(puzzleExclusionWidthInput){puzzleExclusionWidthInput.disabled=!puzzleEx;if(document.activeElement!==puzzleExclusionWidthInput&&puzzleEx)puzzleExclusionWidthInput.value=String(puzzleEx.width);}
+    if(puzzleExclusionWidthValue)puzzleExclusionWidthValue.textContent=puzzleEx?`${puzzleEx.width.toFixed(1)} m`:'—';
+    if(puzzleExclusionDepthInput){puzzleExclusionDepthInput.disabled=!puzzleEx;if(document.activeElement!==puzzleExclusionDepthInput&&puzzleEx)puzzleExclusionDepthInput.value=String(puzzleEx.depth);}
+    if(puzzleExclusionDepthValue)puzzleExclusionDepthValue.textContent=puzzleEx?`${puzzleEx.depth.toFixed(1)} m`:'—';
+    // Proxy buttons never copy puzzle logic. Sync with the original action's
+    // disabled state and label, and invoke its existing, tested click handler.
+    for(const button of puzzleWorkspaceLegacyButtons){
+      const legacy=document.getElementById(button.dataset.puzzleLegacy||'');
+      button.disabled=!instance||!legacy?.isConnected||!!legacy.disabled||(button.dataset.puzzleLegacy.startsWith('sidescroll-puzzle-cart-path')&&!cart);
+      button.classList.toggle('active',!!legacy?.classList.contains('active'));
+      if(legacy&&button.dataset.puzzleLegacy!=='sidescroll-open-assets')button.textContent=legacy.textContent.trim();
+      if(button.dataset.puzzleLegacy==='sidescroll-open-assets')button.textContent=puzzleEnvironmentPlacementMode?'＋ Add Dressing':'＋ Add Puzzle Piece';
+      const extraRespawn=['sidescroll-puzzle-respawn-toggle','sidescroll-puzzle-respawn-set-spawn','sidescroll-puzzle-respawn-lower','sidescroll-puzzle-respawn-raise'];
+      const extraCart=['sidescroll-puzzle-cart-path-toggle','sidescroll-puzzle-cart-path-start-cart','sidescroll-puzzle-cart-path-duration-down','sidescroll-puzzle-cart-path-duration-up','sidescroll-puzzle-cart-path-preview'];
+      button.hidden=(extraRespawn.includes(button.dataset.puzzleLegacy)&&!puzzleRespawnEditMode)
+        ||(extraCart.includes(button.dataset.puzzleLegacy)&&!puzzleCartPathEditMode);
+    }
+    if(!instance||!puzzleWorkspaceListEl)return;
+    const scope=obj=>editorAssetScope.get(obj?.assetName)==='environment';
+    const rows=instance.objects.filter(obj=>!!obj&&!obj.deleted&&scope(obj)===!!puzzleEnvironmentPlacementMode);
+    const signature=`${instance.id}:${puzzleEnvironmentPlacementMode?'dressing':'pieces'}:${selectedObject?.id||''}:${rows.map(obj=>`${obj.id}:${obj.assetName}`).join('|')}`;
+    if(!force&&signature===puzzleWorkspaceListSignature)return;
+    puzzleWorkspaceListSignature=signature;
+    if(puzzleWorkspaceCountEl)puzzleWorkspaceCountEl.textContent=`${rows.length} objects`;
+    if(puzzleWorkspaceEmptyEl)puzzleWorkspaceEmptyEl.hidden=rows.length>0;
+    puzzleWorkspaceListEl.replaceChildren();
+    for(const obj of rows){
+      const row=document.createElement('button');row.type='button';
+      row.className=`sidescroll-world-group-list-row${selectedObject?.id===obj.id?' active':''}`;
+      row.setAttribute('role','option');row.setAttribute('aria-selected',String(selectedObject?.id===obj.id));
+      const label=document.createElement('span');const title=document.createElement('strong');const details=document.createElement('small');
+      title.textContent=editorAssetInfo.get(obj.assetName)?.label||obj.assetName||'Puzzle object';
+      details.textContent=`${obj.category||'Asset'} · ${obj.puzzleObjectId||obj.id}`;
+      label.append(title,details);row.append(label);
+      bindEditorPress(row,()=>{focusObjectForAuthoring(obj);renderPuzzleWorkspaceV2({force:true});});
+      puzzleWorkspaceListEl.append(row);
+    }
   }
 
   function setWorldGroupEditorTab(tab){
@@ -9091,8 +9220,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const idx=zones.findIndex(zone=>zone.id===ex.id);
       if(worldGroupExclusionNameEl)worldGroupExclusionNameEl.textContent=`Exclusion ${idx+1}`;
       if(worldGroupExclusionSizeEl)worldGroupExclusionSizeEl.textContent=`${ex.width.toFixed(1)} × ${ex.depth.toFixed(1)} m`;
+      if(worldGroupExclusionWidthInput&&document.activeElement!==worldGroupExclusionWidthInput)worldGroupExclusionWidthInput.value=String(ex.width);
+      if(worldGroupExclusionWidthValue)worldGroupExclusionWidthValue.textContent=`${ex.width.toFixed(1)} m`;
+      if(worldGroupExclusionDepthInput&&document.activeElement!==worldGroupExclusionDepthInput)worldGroupExclusionDepthInput.value=String(ex.depth);
+      if(worldGroupExclusionDepthValue)worldGroupExclusionDepthValue.textContent=`${ex.depth.toFixed(1)} m`;
       if(worldGroupExclusionToggleBtn)worldGroupExclusionToggleBtn.textContent=ex.enabled?'Enabled · ON':'Enabled · OFF';
-      if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Shape':'Edit Shape';worldGroupExclusionEditBtn.classList.toggle('active',worldGroupExclusionEditMode);}
+      if(worldGroupExclusionEditBtn){worldGroupExclusionEditBtn.textContent=worldGroupExclusionEditMode?'Finish Move':'Move';worldGroupExclusionEditBtn.classList.toggle('active',worldGroupExclusionEditMode);}
     }
     if(worldGroupNameInput&&document.activeElement!==worldGroupNameInput)worldGroupNameInput.value=group.label||'';
     if(worldGroupInfoXEl)worldGroupInfoXEl.textContent=Number(group.x||0).toFixed(2);
@@ -9423,8 +9556,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(group){
       const zones=worldGroupExclusions(group);
       hintEl.textContent=worldGroupExclusionEditMode
-        ? `Editing ${group.label} exclusion ${worldGroupExclusionIndex+1}/${zones.length} · drag centre or edge handles`
-        : `${group.label} exclusion shape edit finished`;
+        ? `Move ${group.label} exclusion ${worldGroupExclusionIndex+1}/${zones.length} · drag anywhere · lift and touch again to continue`
+        : `${group.label} exclusion move finished`;
       hintEl.classList.remove('hidden');
     }
   }
@@ -9878,7 +10011,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected
       ? 'Standalone placement · create or select a group to organise authored world assets.'
       : worldGroupExclusionEditMode
-        ? `${selected.label} · exclusion ${worldGroupExclusionIndex+1}/${zones.length} ${ex?.enabled?'ON':'OFF'} · drag handles to move/resize`
+        ? `${selected.label} · exclusion ${worldGroupExclusionIndex+1}/${zones.length} ${ex?.enabled?'ON':'OFF'} · Move uses relative viewport drag · resize with Width/Length sliders`
         : worldGroupMoveMode
           ? `${selected.label} · tap a new scene position to move the complete group`
           : worldGroupEditMode
@@ -10129,6 +10262,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setPuzzleBrowserMode(mode) {
     if (mode !== 'library' && mode !== 'scene') return;
+    if(mode!=='scene')puzzleWorkspaceActive=false;
     puzzleBrowserMode = mode;
     selectObject(null);
     if (mode === 'library') {
@@ -10239,7 +10373,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updatePlacementModeUi();
     selectObject(null);
     buildAssetPalette();
-    hintEl.textContent = `Editing ${markerDefinition(marker)?.label || marker.group} · tap props or bounds to modify them`;
+    puzzleWorkspaceActive=true;
+    puzzleWorkspaceTab='contents';
+    puzzleWorkspaceListSignature='';
+    setPuzzleWorkspaceTab('contents');
+    updateEditorDrawerUi();
+    hintEl.textContent = `Editing ${markerDefinition(marker)?.label || marker.group} · Contents, Zones, Logic and Setup are in the left drawer`;
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -10805,6 +10944,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       setEditorDrawerCollapsed(false);
       return false;
     }
+    if(scope!=='puzzle')puzzleWorkspaceActive=false;
     // Environment/Puzzle is only an editor filter. It must not change whether
     // the workshop stage is isolated or clear.
     editorScope = scope;
@@ -10995,13 +11135,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const hasObject=!!(selectedObject && !selectedObject.deleted);
     const has=!!(editMode && transformEditMode && (hasObject || group));
     const groupWorkspacePosition=!!(has && worldGroupEditSession);
+    const puzzleWorkspacePosition=!!(has && puzzleWorkspaceVisible());
+    document.body.classList.toggle('sidescroll-puzzle-position-subtool',puzzleWorkspacePosition);
     if(groupWorkspacePosition)setWorldGroupWorkspaceSubtool('position');
     else if(worldGroupWorkspaceSubtool==='position')setWorldGroupWorkspaceSubtool(null);
     if (transformEditor) transformEditor.hidden = !has;
     if (editorTransformBtn) editorTransformBtn.classList.toggle('active', has);
     if(transformCloseBtn){
-      transformCloseBtn.textContent=groupWorkspacePosition?'‹ Back':'×';
-      transformCloseBtn.setAttribute('aria-label',groupWorkspacePosition?'Back to World Group':'Close positioning editor');
+      transformCloseBtn.textContent=(groupWorkspacePosition||puzzleWorkspacePosition)?'‹ Back':'×';
+      transformCloseBtn.setAttribute('aria-label',groupWorkspacePosition?'Back to World Group':(puzzleWorkspacePosition?'Back to Puzzle':'Close positioning editor'));
     }
     if (!has) return;
 
@@ -11213,13 +11355,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function syncGroundLineEditor() {
     const has = !!(editMode && groundLineEditMode && selectedObject && !selectedObject.deleted);
     const groupWorkspaceGroundLine=!!(has&&worldGroupEditSession);
+    const puzzleWorkspaceGroundLine=!!(has&&puzzleWorkspaceVisible());
+    document.body.classList.toggle('sidescroll-puzzle-floor-line-subtool',puzzleWorkspaceGroundLine);
     if(groupWorkspaceGroundLine)setWorldGroupWorkspaceSubtool('ground-line');
     else if(worldGroupWorkspaceSubtool==='ground-line')setWorldGroupWorkspaceSubtool(null);
     if (groundLineEditor) groundLineEditor.hidden = !has;
     if (editorGroundLineBtn) editorGroundLineBtn.classList.toggle('active', has);
     if(groundLineCloseBtn){
-      groundLineCloseBtn.textContent=groupWorkspaceGroundLine?'‹ Back':'×';
-      groundLineCloseBtn.setAttribute('aria-label',groupWorkspaceGroundLine?'Back to World Group':'Close floor line editor');
+      groundLineCloseBtn.textContent=(groupWorkspaceGroundLine||puzzleWorkspaceGroundLine)?'‹ Back':'×';
+      groundLineCloseBtn.setAttribute('aria-label',groupWorkspaceGroundLine?'Back to World Group':(puzzleWorkspaceGroundLine?'Back to Puzzle':'Close floor line editor'));
     }
     if (!has) return;
     const value = objectGroundLine(selectedObject);
@@ -11430,6 +11574,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     updateAssetPaletteState();
     updateEditorButtons();
     if (editMode && editorScope === 'environment') renderEnvironmentSelectionTools();
+    if(puzzleWorkspaceVisible())renderPuzzleWorkspaceV2();
   }
 
 
@@ -11444,7 +11589,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function updatePuzzlePanel() {
     if (!puzzlePanel) return;
-    const visible = (editMode || puzzleTestMode) && (!transformEditMode || !!worldGroupEditSession);
+    const visible = (editMode || puzzleTestMode) && (!transformEditMode || !!worldGroupEditSession || puzzleWorkspaceActive);
     puzzlePanel.hidden = !visible;
     document.body.classList.toggle('sidescroll-puzzle-testing', puzzleTestMode);
     if (!visible) return;
@@ -11564,7 +11709,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       puzzleExclusionEditBtn.hidden = testing || libraryMode;
       puzzleExclusionEditBtn.disabled = !instance;
       puzzleExclusionEditBtn.classList.toggle('active', !!(instance && puzzleExclusionEditMode));
-      puzzleExclusionEditBtn.textContent = puzzleExclusionEditMode ? 'Finish Exclusion' : 'Edit Exclusion';
+      puzzleExclusionEditBtn.textContent = puzzleExclusionEditMode ? 'Finish Move' : 'Move Exclusion';
     }
     if (puzzleExclusionToggleBtn) {
       const ex = instance ? currentPuzzleExclusion(instance.marker) : null;
@@ -11637,6 +11782,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     updatePuzzleObjectList();
     updateEditorButtons();
+    renderPuzzleWorkspaceV2();
+    updateEditorDrawerUi();
   }
 
 
@@ -11831,6 +11978,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       interactionState = null;
     }
     if (on && carriedObject) dropCarriedImmediate();
+    if(!on&&!puzzleTestMode)puzzleWorkspaceActive=false;
     if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
@@ -12303,19 +12451,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
 
   function puzzleExclusionHandlePositions(instance) {
-    if (!instance || !puzzleExclusionEditMode) return [];
-    const b = puzzleExclusionWorldBounds(instance.marker);
-    const specs = [
-      ['center', b.centerX, b.centerZ],
-      ['left', b.minX, b.centerZ],
-      ['right', b.maxX, b.centerZ],
-      ['far', b.centerX, b.minZ],
-      ['near', b.centerX, b.maxZ]
-    ];
-    return specs.map(([kind,x,z]) => {
-      const p = projectWorldPoint(x, terrainGroundYAt(x,z)+0.055, z);
-      return p && { kind, ...p };
-    }).filter(Boolean);
+    // v1.0.124: no perspective resize/move handles; move is relative and size uses sliders.
+    return [];
   }
 
   function puzzleExclusionHandleAt(clientX, clientY) {
@@ -12987,11 +13124,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function worldGroupExclusionHandlePositions(group){
-    if(!group||!worldGroupExclusionEditMode||group.id!==selectedWorldGroupId)return[];
-    const b=worldGroupExclusionWorldBounds(group,worldGroupExclusionIndex);if(!b)return[];
-    return[['center',b.centerX,b.centerZ],['left',b.minX,b.centerZ],['right',b.maxX,b.centerZ],['far',b.centerX,b.minZ],['near',b.centerX,b.maxZ]].map(([kind,x,z])=>{
-      const p=projectWorldPoint(x,terrainGroundYAt(x,z)+.055,z);return p&&{kind,index:worldGroupExclusionIndex,...p};
-    }).filter(Boolean);
+    // v1.0.124: exclusion movement is mouse-style relative input and sizing lives in UI sliders.
+    return [];
   }
 
   function worldGroupExclusionHandleAt(clientX,clientY){
@@ -16182,7 +16316,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (puzzleTestMode) backToPuzzleSetup();
     else if (!editMode) { editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel(); }
   });
-  bindEditorPress(editorDoneBtn, () => { if(!worldGroupEditSession)setEditMode(false); });
+  bindEditorPress(editorDoneBtn, () => {
+    if(worldGroupEditSession)return;
+    if(puzzleWorkspaceActive&&!leavePuzzleWorkspace())return;
+    setEditMode(false);
+  });
   bindEditorPress(environmentScopeBtn, () => setEditorScope('environment'));
   bindEditorPress(puzzleScopeBtn, () => setEditorScope('puzzle'));
   bindEditorPress(puzzleSourceLibraryBtn, () => setPuzzleBrowserMode('library'));
@@ -16281,7 +16419,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     runEditorTransaction('Add exclusion',()=>addWorldGroupExclusion(group));
     setWorldGroupEditorTab('exclusions');
     setWorldGroupExclusionEditMode(true);
-    hintEl.textContent=`${group.label} · added Exclusion ${worldGroupExclusionIndex+1} · drag its handles to position it`;hintEl.classList.remove('hidden');
+    hintEl.textContent=`${group.label} · added Exclusion ${worldGroupExclusionIndex+1} · press Move, then drag anywhere to position it`;hintEl.classList.remove('hidden');
   });
   bindEditorPress(worldGroupExclusionToggleBtn,()=>{
     const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
@@ -16296,6 +16434,32 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   });
   bindEditorPress(worldGroupExclusionDuplicateBtn,duplicateCurrentWorldGroupExclusion);
   bindEditorPress(worldGroupExclusionDeleteBtn,()=>runEditorTransaction('Delete exclusion',deleteCurrentWorldGroupExclusion));
+
+  function bindWorldGroupExclusionSizeSlider(input,valueEl,key,label){
+    if(!input)return;
+    let ownsTransaction=false;
+    const apply=()=>{
+      const group=worldGroupById(worldGroupEditSession?.groupId);if(!group)return;
+      const ex=ensureWorldGroupExclusion(group);if(!ex)return;
+      const next=Rig.clamp(Number(input.value)||1,1,60);
+      if(!ownsTransaction)ownsTransaction=beginEditorTransaction(`Resize exclusion ${label}`);
+      ex[key]=next;
+      saveSceneData();worldGroupListSignature='';
+      if(valueEl)valueEl.textContent=`${next.toFixed(1)} m`;
+      if(worldGroupExclusionSizeEl)worldGroupExclusionSizeEl.textContent=`${ex.width.toFixed(1)} × ${ex.depth.toFixed(1)} m`;
+    };
+    const finish=()=>{
+      if(ownsTransaction&&editorTransaction)commitEditorTransaction();
+      ownsTransaction=false;
+      renderWorldGroupEditor({force:true});
+    };
+    input.addEventListener('input',apply);
+    input.addEventListener('change',finish);
+    input.addEventListener('pointerup',finish);
+    input.addEventListener('pointercancel',finish);
+  }
+  bindWorldGroupExclusionSizeSlider(worldGroupExclusionWidthInput,worldGroupExclusionWidthValue,'width','width');
+  bindWorldGroupExclusionSizeSlider(worldGroupExclusionDepthInput,worldGroupExclusionDepthValue,'depth','length');
 
   bindEditorPress(worldGroupChildPositionBtn,()=>{
     if(!selectedWorldGroupMember())return;
@@ -16342,7 +16506,24 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     setEditorDrawerCollapsed(true);
     hintEl.textContent=`${group.label} · drag the yellow origin dot to move the whole group`;hintEl.classList.remove('hidden');
   });
-  bindEditorPress(editorDrawerBackBtn,requestLeaveWorldGroupEdit);
+  bindEditorPress(editorDrawerBackBtn,()=>{
+    if(worldGroupEditSession)return requestLeaveWorldGroupEdit();
+    if(puzzleWorkspaceActive)return leavePuzzleWorkspace();
+  });
+  for(const [tab,{button}] of puzzleWorkspaceTabControls){
+    bindEditorPress(button,()=>setPuzzleWorkspaceTab(tab));
+  }
+  for(const proxy of puzzleWorkspaceLegacyButtons){
+    bindEditorPress(proxy,()=>{
+      if(!puzzleWorkspaceVisible())return;
+      const id=proxy.dataset.puzzleLegacy;
+      if(id==='sidescroll-puzzle-set-start'&&markerLinkMode(selectedPuzzleMarker())!=='copy'
+          &&!window.confirm('Set Start updates the reusable puzzle template AND every linked scene instance. Continue?'))return;
+      const source=document.getElementById(id);
+      if(source&&!source.disabled)source.click();
+      renderPuzzleWorkspaceV2({force:true});
+    });
+  }
   bindEditorPress(editorDrawerCollapseBtn,()=>setEditorDrawerCollapsed(true));
   bindEditorPress(editorDrawerRailBtn,()=>setEditorDrawerCollapsed(false));
   bindEditorDrawerSwipeSurface(editorDrawerHeader);
@@ -16488,7 +16669,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectObject(null);
     updatePuzzlePanel();
     hintEl.textContent = puzzleExclusionEditMode
-      ? 'Exclusion edit · centre moves · cyan edge handles resize width/depth · procedural forest updates live'
+      ? 'Move exclusion · drag anywhere · lift and touch again to continue · resize with Width/Length sliders'
       : 'Exclusion edit finished';
     hintEl.classList.remove('hidden');
   });
@@ -16503,6 +16684,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     hintEl.textContent=ex.enabled ? 'Puzzle exclusion enabled' : 'Puzzle exclusion disabled · procedural forest restored';
     hintEl.classList.remove('hidden');
   });
+  function bindPuzzleExclusionSizeSlider(input,valueEl,key){
+    if(!input)return;
+    const apply=()=>{
+      const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;
+      const ex=currentPuzzleExclusion(instance.marker);
+      ex[key]=Rig.clamp(Number(input.value)||1,1,60);
+      if(valueEl)valueEl.textContent=`${ex[key].toFixed(1)} m`;
+    };
+    const commit=()=>{
+      const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;
+      apply();savePuzzleExclusionState();updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+    };
+    input.addEventListener('input',apply);
+    input.addEventListener('change',commit);
+    input.addEventListener('pointerup',commit);
+    input.addEventListener('pointercancel',commit);
+  }
+  bindPuzzleExclusionSizeSlider(puzzleExclusionWidthInput,puzzleExclusionWidthValue,'width');
+  bindPuzzleExclusionSizeSlider(puzzleExclusionDepthInput,puzzleExclusionDepthValue,'depth');
   function setPuzzleEditLayer(layer) {
     if (layer !== 'pieces' && layer !== 'dressing') return;
     const instance = selectedPuzzleInstance();
@@ -16884,10 +17084,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
           : null
       };
 
-      const groupExclusionHandle = worldGroupExclusionHandleAt(e.clientX,e.clientY);
-      if(groupExclusionHandle){
+      if(worldGroupExclusionEditMode&&editorScope==='environment'&&worldGroupEditSession){
         const group=worldGroupById(selectedWorldGroupId),start=group?currentWorldGroupExclusion(group):null;
-        if(group&&start){editorGesture.kind='world-group-exclusion';editorGesture.groupExclusionHandle=groupExclusionHandle.kind;editorGesture.groupExclusionIndex=worldGroupExclusionIndex;editorGesture.groupExclusionStart={...start};editorGesture.groupExclusionGroup=group;worldGroupExclusionHandle=groupExclusionHandle.kind;beginEditorTransaction('Edit exclusion shape');hintEl.textContent=groupExclusionHandle.kind==='center'?'Drag the centre dot to move this exclusion zone':'Drag the green handle to resize this exclusion zone';hintEl.classList.remove('hidden');return;}
+        if(group&&start){
+          const gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
+          const worldX=gx+start.centerX,worldZ=gz+start.centerZ;
+          editorGesture.kind='world-group-exclusion';
+          editorGesture.groupExclusionIndex=worldGroupExclusionIndex;
+          editorGesture.groupExclusionStart={...start};
+          editorGesture.groupExclusionGroup=group;
+          editorGesture.groupExclusionStartWorldX=worldX;
+          editorGesture.groupExclusionStartWorldZ=worldZ;
+          editorGesture.groupExclusionStartScreen=projectWorldPoint(worldX,terrainGroundYAt(worldX,worldZ)+.055,worldZ);
+          beginEditorTransaction('Move exclusion');
+          hintEl.textContent='Move exclusion · drag anywhere · lift and touch again to continue from the current position';
+          hintEl.classList.remove('hidden');
+          return;
+        }
       }
 
       if (worldGroupTemplatePlaceMode && editorScope === 'environment' && worldGroupTemplateById(selectedWorldTemplateId)) {
@@ -16915,17 +17128,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         return;
       }
 
-      const exclusionHandle = puzzleExclusionHandleAt(e.clientX, e.clientY);
-      if (exclusionHandle) {
+      if(puzzleExclusionEditMode&&editorScope==='puzzle'){
         const instance=selectedPuzzleInstance();
-        editorGesture.kind='puzzle-exclusion';
-        editorGesture.exclusionHandle=exclusionHandle.kind;
-        editorGesture.exclusionStart={...currentPuzzleExclusion(instance.marker)};
-        editorGesture.exclusionMarker=instance.marker;
-        puzzleExclusionHandle=exclusionHandle.kind;
-        hintEl.textContent=exclusionHandle.kind==='center' ? 'Drag the centre dot to move the exclusion plane' : 'Drag the cyan handle to resize the exclusion plane';
-        hintEl.classList.remove('hidden');
-        return;
+        if(instance){
+          const start=currentPuzzleExclusion(instance.marker);
+          const worldX=instance.marker.x+start.centerX,worldZ=start.centerZ;
+          editorGesture.kind='puzzle-exclusion';
+          editorGesture.exclusionStart={...start};
+          editorGesture.exclusionMarker=instance.marker;
+          editorGesture.exclusionStartWorldX=worldX;
+          editorGesture.exclusionStartWorldZ=worldZ;
+          editorGesture.exclusionStartScreen=projectWorldPoint(worldX,terrainGroundYAt(worldX,worldZ)+.055,worldZ);
+          hintEl.textContent='Move exclusion · drag anywhere · lift and touch again to continue from the current position';
+          hintEl.classList.remove('hidden');
+          return;
+        }
       }
 
       const respawnHandle = puzzleRespawnHandleAt(e.clientX, e.clientY);
@@ -17119,36 +17336,31 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         const points=selectedCollisionShapePoints(selectedObject.collision).map(point=>({...point}));
         if(points[collisionHandleIndex]){selectedObject.collisionOverride=true;points[collisionHandleIndex].x=nx;points[collisionHandleIndex].y=ny;writeSelectedCollisionShape(selectedObject.collision,points);}
       } else if (editorGesture.kind === 'world-group-exclusion' && editorGesture.groupExclusionGroup) {
-        const point=groundPointFromClient(e.clientX,e.clientY);
-        if(point){
-          const group=editorGesture.groupExclusionGroup,start=editorGesture.groupExclusionStart;
-          const zones=worldGroupExclusions(group);
-          const ex=zones[editorGesture.groupExclusionIndex]||ensureWorldGroupExclusion(group);
-          const gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
-          const localX=point.x-gx,localZ=point.z-gz;
-          const left0=start.centerX-start.width*.5,right0=start.centerX+start.width*.5,far0=start.centerZ-start.depth*.5,near0=start.centerZ+start.depth*.5;
-          if(editorGesture.groupExclusionHandle==='center'){ex.centerX=localX;ex.centerZ=localZ;}
-          else if(editorGesture.groupExclusionHandle==='left'){const left=Math.min(localX,right0-1);ex.centerX=(left+right0)*.5;ex.width=Math.max(1,right0-left);}
-          else if(editorGesture.groupExclusionHandle==='right'){const right=Math.max(localX,left0+1);ex.centerX=(left0+right)*.5;ex.width=Math.max(1,right-left0);}
-          else if(editorGesture.groupExclusionHandle==='far'){const far=Math.min(localZ,near0-1);ex.centerZ=(far+near0)*.5;ex.depth=Math.max(1,near0-far);}
-          else if(editorGesture.groupExclusionHandle==='near'){const near=Math.max(localZ,far0+1);ex.centerZ=(far0+near)*.5;ex.depth=Math.max(1,near-far0);}
-        }
+        const group=editorGesture.groupExclusionGroup;
+        const zones=worldGroupExclusions(group);
+        const ex=zones[editorGesture.groupExclusionIndex]||ensureWorldGroupExclusion(group);
+        const startScreen=editorGesture.groupExclusionStartScreen;
+        const gx=Number(group.x)||0,gz=Number(group.z)||pathZ;
+        const solved=startScreen?solveEditorScreenDragXZ({
+          startX:editorGesture.groupExclusionStartWorldX,
+          startZ:editorGesture.groupExclusionStartWorldZ,
+          startScreenX:startScreen.x,startScreenY:startScreen.y,
+          targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
+          yAt:(x,z)=>terrainGroundYAt(x,z)+.055
+        }):{x:editorGesture.groupExclusionStartWorldX+dx*.0065,z:editorGesture.groupExclusionStartWorldZ};
+        ex.centerX=solved.x-gx;ex.centerZ=solved.z-gz;
       } else if (editorGesture.kind === 'puzzle-exclusion' && editorGesture.exclusionMarker) {
-        const point=groundPointFromClient(e.clientX,e.clientY);
-        if(point){
-          const marker=editorGesture.exclusionMarker;
-          const start=editorGesture.exclusionStart;
-          const ex=currentPuzzleExclusion(marker);
-          const localX=point.x-marker.x;
-          const z=point.z;
-          const left0=start.centerX-start.width*0.5, right0=start.centerX+start.width*0.5;
-          const far0=start.centerZ-start.depth*0.5, near0=start.centerZ+start.depth*0.5;
-          if(editorGesture.exclusionHandle==='center'){ex.centerX=localX;ex.centerZ=z;}
-          else if(editorGesture.exclusionHandle==='left'){const left=Math.min(localX,right0-1);ex.centerX=(left+right0)*0.5;ex.width=Math.max(1,right0-left);}
-          else if(editorGesture.exclusionHandle==='right'){const right=Math.max(localX,left0+1);ex.centerX=(left0+right)*0.5;ex.width=Math.max(1,right-left0);}
-          else if(editorGesture.exclusionHandle==='far'){const far=Math.min(z,near0-1);ex.centerZ=(far+near0)*0.5;ex.depth=Math.max(1,near0-far);}
-          else if(editorGesture.exclusionHandle==='near'){const near=Math.max(z,far0+1);ex.centerZ=(far0+near)*0.5;ex.depth=Math.max(1,near-far0);}
-        }
+        const marker=editorGesture.exclusionMarker;
+        const ex=currentPuzzleExclusion(marker);
+        const startScreen=editorGesture.exclusionStartScreen;
+        const solved=startScreen?solveEditorScreenDragXZ({
+          startX:editorGesture.exclusionStartWorldX,
+          startZ:editorGesture.exclusionStartWorldZ,
+          startScreenX:startScreen.x,startScreenY:startScreen.y,
+          targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
+          yAt:(x,z)=>terrainGroundYAt(x,z)+.055
+        }):{x:editorGesture.exclusionStartWorldX+dx*.0065,z:editorGesture.exclusionStartWorldZ};
+        ex.centerX=solved.x-marker.x;ex.centerZ=solved.z;
       } else if (editorGesture.kind === 'puzzle-respawn' && editorGesture.respawnMarker) {
         const point=groundPointFromClient(e.clientX,e.clientY);if(point){const marker=editorGesture.respawnMarker;const start=editorGesture.respawnStart;const cfg=currentPuzzleRespawn(marker);const localX=point.x-marker.x;const z=point.z;const left0=start.zoneCenterX-start.width*.5,right0=start.zoneCenterX+start.width*.5,far0=start.zoneCenterZ-start.depth*.5,near0=start.zoneCenterZ+start.depth*.5;
           if(editorGesture.respawnHandle==='spawn'){cfg.spawnX=localX;cfg.spawnZ=z;}

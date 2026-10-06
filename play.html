@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.122">
+  <link rel="stylesheet" href="style.css?v=1.0.124">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -365,6 +365,76 @@
               </details>
             </section>
 
+            <!-- Stage 2A: Puzzle editing workspace. Existing mechanics remain the source of truth. -->
+            <section class="sidescroll-puzzle-workspace-v2" id="sidescroll-puzzle-workspace-v2" hidden>
+              <div class="sidescroll-world-group-edit-summary">
+                <span class="sidescroll-puzzle-mode">PUZZLE</span>
+                <div><strong id="sidescroll-puzzle-workspace-name">Puzzle</strong><small id="sidescroll-puzzle-workspace-status">Editing scene instance</small></div>
+              </div>
+              <div class="sidescroll-puzzle-workspace-tabs" role="tablist" aria-label="Puzzle edit sections">
+                <button id="sidescroll-puzzle-workspace-tab-contents" class="active" type="button" role="tab">Contents</button>
+                <button id="sidescroll-puzzle-workspace-tab-zones" type="button" role="tab">Zones</button>
+                <button id="sidescroll-puzzle-workspace-tab-logic" type="button" role="tab">Logic</button>
+                <button id="sidescroll-puzzle-workspace-tab-setup" type="button" role="tab">Setup</button>
+              </div>
+              <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-contents">
+                <div class="sidescroll-puzzle-workspace-actions">
+                  <button data-puzzle-legacy="sidescroll-puzzle-layer-pieces" type="button">Puzzle Pieces</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-layer-dressing" type="button">Dressing</button>
+                </div>
+                <button class="sidescroll-open-assets" data-puzzle-legacy="sidescroll-open-assets" type="button">＋ Add Puzzle Piece</button>
+                <div class="sidescroll-panel-section-head compact"><strong>Contents</strong><small id="sidescroll-puzzle-workspace-count">0 objects</small></div>
+                <div class="sidescroll-world-group-child-list" id="sidescroll-puzzle-workspace-list" role="listbox" aria-label="Puzzle contents"></div>
+                <p class="sidescroll-scene-empty" id="sidescroll-puzzle-workspace-empty">No objects on this layer.</p>
+                <p class="sidescroll-puzzle-help">Choose an object to use the bottom Quick Tools for Position, Scale, Collision, Flip and sockets.</p>
+              </div>
+              <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-zones" hidden>
+                <div class="sidescroll-panel-section-head compact"><strong>Procedural exclusion</strong></div>
+                <div class="sidescroll-puzzle-workspace-actions">
+                  <button data-puzzle-legacy="sidescroll-puzzle-exclusion-toggle" type="button">Add Exclusion</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-exclusion-edit" type="button">Move Exclusion</button>
+                </div>
+                <div class="sidescroll-exclusion-sliders">
+                  <label><span>WIDTH <b id="sidescroll-puzzle-exclusion-width-value">0.0 m</b></span><input id="sidescroll-puzzle-exclusion-width" type="range" min="1" max="60" step="0.1" value="6"></label>
+                  <label><span>LENGTH <b id="sidescroll-puzzle-exclusion-depth-value">0.0 m</b></span><input id="sidescroll-puzzle-exclusion-depth" type="range" min="1" max="60" step="0.1" value="8"></label>
+                </div>
+                <p class="sidescroll-puzzle-help">Press Move Exclusion, then drag anywhere in the free viewport. Resize with Width and Length instead of scene handles.</p>
+                <div class="sidescroll-panel-section-head compact"><strong>Respawn</strong></div>
+                <div class="sidescroll-puzzle-workspace-actions">
+                  <button data-puzzle-legacy="sidescroll-puzzle-respawn-edit" type="button">Respawn Setup</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-respawn-toggle" type="button">Respawn OFF</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-respawn-set-spawn" type="button">Spawn = Player</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-respawn-lower" type="button">Lower Trigger</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-respawn-raise" type="button">Raise Trigger</button>
+                </div>
+                <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-respawn-info">Edit the respawn handles in the scene after entering Respawn Setup.</p>
+              </div>
+              <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-logic" hidden>
+                <div class="sidescroll-panel-section-head compact"><strong>Cart path</strong></div>
+                <div class="sidescroll-puzzle-workspace-actions">
+                  <button data-puzzle-legacy="sidescroll-puzzle-cart-path-edit" type="button">Cart Path</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-cart-path-toggle" type="button">Path ON</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-cart-path-start-cart" type="button">Path = Cart</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-cart-path-duration-down" type="button">Time −</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-cart-path-duration-up" type="button">Time +</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-cart-path-preview" type="button">Replay Ghost</button>
+                </div>
+                <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-cart-info">Cart path controls are available for puzzles with a cart.</p>
+                <p class="sidescroll-puzzle-help">Sockets remain in the selected object’s bottom Quick Tools. The more detailed path curve/speed controls remain in the legacy editor for this first pass.</p>
+              </div>
+              <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-setup" hidden>
+                <div class="sidescroll-panel-section-head compact"><strong>Scene instance</strong><small id="sidescroll-puzzle-workspace-source">Linked</small></div>
+                <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-info">Editing the current puzzle setup.</p>
+                <div class="sidescroll-puzzle-workspace-actions">
+                  <button data-puzzle-legacy="sidescroll-puzzle-test" type="button">Test Current</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-reset" type="button">Reset to Saved</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-save-unique" type="button">Save Unique</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-set-start" type="button">Set Start</button>
+                </div>
+                <p class="sidescroll-puzzle-workspace-warning">Stage 2A retains the existing puzzle save behaviour. Undo and session-wide Save/Discard are not active here yet. On a linked puzzle, Set Start also updates its shared template.</p>
+              </div>
+            </section>
+
             <section class="sidescroll-environment-selection" id="sidescroll-environment-selection">
               <button class="sidescroll-open-assets" id="sidescroll-open-environment-assets" type="button">＋ Add Environment Asset</button>
 
@@ -457,14 +527,18 @@
                 <p class="sidescroll-scene-empty" id="sidescroll-world-group-exclusion-empty">No procedural exclusion zones.</p>
                 <div class="sidescroll-world-group-exclusion-inspector" id="sidescroll-world-group-exclusion-inspector" hidden>
                   <div class="sidescroll-panel-section-head compact"><strong id="sidescroll-world-group-exclusion-name">Exclusion</strong><small id="sidescroll-world-group-exclusion-size">0 × 0 m</small></div>
+                  <div class="sidescroll-exclusion-sliders">
+                    <label><span>WIDTH <b id="sidescroll-world-group-exclusion-width-value">0.0 m</b></span><input id="sidescroll-world-group-exclusion-width" type="range" min="1" max="60" step="0.1" value="6"></label>
+                    <label><span>LENGTH <b id="sidescroll-world-group-exclusion-depth-value">0.0 m</b></span><input id="sidescroll-world-group-exclusion-depth" type="range" min="1" max="60" step="0.1" value="8"></label>
+                  </div>
                   <div class="sidescroll-world-group-child-actions">
                     <button id="sidescroll-world-group-exclusion-toggle" type="button">Enabled</button>
-                    <button id="sidescroll-world-group-exclusion-edit" type="button">Edit Shape</button>
+                    <button id="sidescroll-world-group-exclusion-edit" type="button">Move</button>
                     <button id="sidescroll-world-group-exclusion-fit" type="button">Fit to Group</button>
                     <button id="sidescroll-world-group-exclusion-duplicate" type="button">Duplicate</button>
                     <button id="sidescroll-world-group-exclusion-delete" class="danger" type="button">Delete</button>
                   </div>
-                  <p class="sidescroll-puzzle-help">Edit Shape keeps you inside Group Edit. Drag the centre or edge handles in the scene, then switch zones from this list.</p>
+                  <p class="sidescroll-puzzle-help">Select a zone, press Move, then drag anywhere in the free viewport. Width and Length are adjusted here rather than with scene handles.</p>
                 </div>
               </div>
 
@@ -618,6 +692,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.122"></script>
+  <script src="sidescroll.js?v=1.0.124"></script>
 </body>
 </html>

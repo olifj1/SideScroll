@@ -4,7 +4,7 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 
 ## Editor architecture / workflow system update — October 2026
 
-**Status:** approved architecture; **Stage 1 implementation started in v1.0.117**. The reusable drawer/session/history foundation and World Group Editor v2 are now the first production implementation. On-device workflow tuning and the remaining generic route-stack work are still pending before Stage 1 is considered fully closed. The same principles should then be reused for Puzzle editing and other authoring systems where appropriate.
+**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123**. The reusable drawer/session/history foundation and World Group Editor v2 are now the first production implementation. On-device workflow tuning and the remaining generic route-stack work are still pending before Stage 1 is considered fully closed. The same principles should then be reused for Puzzle editing and other authoring systems where appropriate.
 
 ### Stage 1 implementation progress — v1.0.117
 
@@ -17,7 +17,7 @@ Implemented in the first Stage 1 code pass:
 - `Save` commits the session; `Discard` restores the full entry checkpoint. A newly created unsaved group is also removed by Discard.
 - Dirty-session guards prevent scope/Play exit from silently abandoning or committing Group changes.
 - Shared `beginEditorTransaction` / `commitEditorTransaction` / `cancelEditorTransaction` foundation with bounded Undo/Redo history.
-- Pointer drag transactions for group-member movement, whole-group movement, exclusion-shape editing and collision-handle editing: one drag becomes one history action.
+- Pointer drag transactions for group-member movement, whole-group movement, exclusion movement and collision-handle editing: one drag becomes one history action. Exclusion width/length slider gestures also commit as one history action.
 - Dedicated World Group workspace with `Contents / Exclusions / Group` tabs.
 - Authoritative group child list including ordinary assets, Thought Nodes and Camera Nodes.
 - Authoritative exclusion list with stable exclusion IDs; old previous/next zone navigation removed from the UI.
@@ -60,6 +60,31 @@ The first on-device Stage 1 test exposed two performance-sensitive implementatio
 - Read-only render queries must never perform schema migration/normalisation. World Group exclusion IDs are now normalised once per group object rather than rebuilding exclusion records in the per-object draw path.
 - Procedural dressing exclusion bounds are flattened once per rendered frame and reused by every dressing object rather than rescanning/rebuilding all World Group zones for every object.
 - Treat this as a general engine rule: **migration, validation, deep-copy/history work and DOM rebuilding belong at load/edit/transaction boundaries, not inside per-frame or per-object render paths.**
+
+### Stage 2A — first bounded Puzzle workspace migration (v1.0.123)
+
+**This is a deliberately smaller first increment, not Puzzle Editor v2 completion.** The overnight draft had new HTML controls but no implementation behind them, and its documentation prematurely claimed that Save/Discard, central Undo and linked-instance overrides were finished. Those claims were withdrawn. This tested-for-static-integrity slice starts from the verified v1.0.122 build rather than shipping that incomplete draft.
+
+Stage 2A delivered:
+
+- [x] `Edit Puzzle` now enters a distinct Puzzle workspace in the **same left-hand drawer**, with stable `Contents / Zones / Logic / Setup` tab navigation and a fixed `Back` to the scene puzzle list.
+- [x] `Contents` has a directly selectable list of the current puzzle's active pieces or dressing assets. List selection drives the **existing object selection and Quick Tools**, not a duplicate transform implementation.
+- [x] `Zones` groups the existing procedural exclusion and respawn entry/actions; `Logic` groups the existing cart-path entry/basic actions. These are **delegated to existing handlers**, so the runtime puzzle algorithms are unchanged. Detailed cart speed/curve controls remain a later migration.
+- [x] `Setup` keeps existing `Test Current`, `Reset`, `Save Unique` and `Set Start` actions. Linked-instance `Set Start` now asks for explicit confirmation because the *legacy* action also overwrites the shared template and updates its linked scene instances.
+- [x] Puzzle Position / Floor Line use the same left-side replacement position as the drawer and return via Back. Returning from Test restores the current workspace; switching tabs deactivates irrelevant viewport zone/path edit tools.
+- [x] No new per-frame loops, DOM reconstruction in drawing, or heavy blur. List rebuilding is signature-guarded and happens on editor updates.
+- [x] **v1.0.124 exclusion interaction cleanup:** World Group and Puzzle procedural exclusions no longer use perspective-sensitive centre/edge drag dots. A selected zone can enter explicit `Move` mode and then uses the same relative screen-space/mouse-style X/Z mapping as authored assets: drag anywhere in the free viewport, lift/reposition the finger, and continue from the zone's current position. Width and Length are edited with stable UI sliders instead of four scene resize handles. World Group slider drags are one Undo transaction; Puzzle sliders continue to use the existing Stage 2A persistence until Puzzle sessions/Undo are migrated.
+
+**Important Stage 2B blockers — explicitly NOT delivered:**
+
+- [ ] True Puzzle edit-session checkpoint with isolated working authored state, a reliable Save and complete Discard/Cancel (the existing puzzle draft/storage writes are still used in 2A).
+- [ ] Central bounded Undo/Redo transactions across puzzle transforms, placement, zones, logic, and reset.
+- [ ] Template/instance/unique/override persistence policy; ensure `Set Start` cannot silently modify shared templates once a session system exists. Dedicated Apply/Revert must be intentional.
+- [ ] All detailed cart-path timing/speed/scrub controls, sockets/Thought/Camera child inspectors and consistency across the different puzzle types.
+- [ ] Formal runtime/Test vs authored state isolation and recovery drafts.
+- [ ] On-device iPhone QA for the 2A workspace, then scope the next transaction/persistence slice before calling Stage 2 complete.
+
+**Navigation rule:** Back from this initial workspace returns to the puzzle scene list, retaining the legacy working puzzle state; it is **not Discard**. When the puzzle has an unsaved Start State, confirm before Back/Done. The UI explicitly explains that its new Save/Discard/Undo semantics have not been implemented yet.
 
 Still pending within the wider Stage 1 shell work:
 
@@ -830,12 +855,12 @@ Template/instance semantics should become clearer and closer to prefab overrides
 
 Tasks:
 
-- [ ] Design Puzzle Editor v2 after World Group Editor v2 proves the shared session/list/inspector pattern.
+- [x] Begin Puzzle Editor v2 with the shared drawer/list/inspector navigation pattern. *(v1.0.123 Stage 2A; persistence/Undo not yet migrated.)*
 - [ ] Separate scene-instance operations from internal puzzle editing.
 - [ ] Convert exclusion, respawn and cart path into sub-tools inside Puzzle Edit rather than independent editor modes.
-- [ ] Add owned Contents list for puzzle pieces, dressing, Thought/Camera Nodes and future logic objects.
+- [ ] Complete authoritative Contents list for all puzzle-owned child types. *(v1.0.123: active pieces/dressing selection first; node/logic child coverage still pending.)*
 - [ ] Replace current persistence wording with explicit Instance vs Template semantics.
-- [ ] Preserve fast current-state Test workflow inside the edit session.
+- [x] Preserve fast current-state Test workflow in the Puzzle drawer. *(v1.0.123; edit-session checkpoint still pending.)*
 - [ ] Reuse central Undo/Redo and Save/Discard.
 
 ### 5. Terrain / Sections — HIGH/MEDIUM priority
