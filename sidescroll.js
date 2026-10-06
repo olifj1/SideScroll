@@ -9118,6 +9118,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setPuzzleWorkspaceTab(tab){
     if(!puzzleWorkspaceTabs.includes(tab))tab='contents';
+    // Workspace tabs are editing filters, not just different views. Only the
+    // Contents tab owns puzzle-object selection/manipulation; specialist tabs
+    // keep the scene visible for context but must not leave an asset live in
+    // the Quick Tools strip or pickable from the viewport.
+    if(tab!=='contents'&&selectedObject?.puzzleInstanceId===editorPuzzleMarkerId){
+      selectObject(null);
+    }
     if(tab!=='zones'){
       if(puzzleExclusionEditMode)puzzleExclusionEditBtn?.click();
       if(puzzleRespawnEditMode)puzzleRespawnEditBtn?.click();
@@ -9205,7 +9212,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function setWorldGroupEditorTab(tab){
     if(!['contents','exclusions','group'].includes(tab))tab='contents';
-    if(tab!=='contents')worldGroupMemberMoveMode=false;
+    // Just like Puzzle Editor, World Group tabs are hard editing filters.
+    // Leaving Contents clears any live member selection/Quick Tool so the
+    // Exclusions and Group tabs cannot accidentally edit assets behind them.
+    if(tab!=='contents'){
+      worldGroupMemberMoveMode=false;
+      const group=worldGroupEditSession?worldGroupById(worldGroupEditSession.groupId):null;
+      if(group&&selectedObject?.worldGroupId===group.id)selectObject(null);
+    }
     worldGroupEditorTab=tab;
     for(const [name,button,panel] of [
       ['contents',worldGroupTabContentsBtn,worldGroupContentsPanel],
@@ -9312,10 +9326,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return assetBehaviours(obj.assetName,obj.assetState)?.followSurfaceNormal?'Ground · Follow Normal':'Ground';
   }
 
-  function selectWorldGroupExclusionById(id){
+  function focusWorldGroupExclusion(group,zone){
+    if(!group||!zone)return false;
+    const worldX=(Number(group.x)||0)+(Number(zone.centerX)||0);
+    camera.x=worldX-character.screenOffsetX;
+    previousCameraX=camera.x;
+    return true;
+  }
+
+  function selectWorldGroupExclusionById(id,{focus=false}={}){
     const group=worldGroupById(selectedWorldGroupId);if(!group)return false;
     const zones=worldGroupExclusions(group),index=zones.findIndex(ex=>ex.id===id);if(index<0)return false;
     selectedWorldGroupExclusionId=id;worldGroupExclusionIndex=index;worldGroupExclusionHandle=null;
+    if(focus)focusWorldGroupExclusion(group,zones[index]);
     renderWorldGroupEditor({force:true});renderWorldGroupTools({force:true});return true;
   }
 
@@ -9404,7 +9427,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       zones.forEach((zone,index)=>{
         const row=document.createElement('button');row.type='button';row.className='sidescroll-world-group-list-row';row.classList.toggle('active',zone.id===selectedWorldGroupExclusionId);row.setAttribute('aria-selected',String(zone.id===selectedWorldGroupExclusionId));
         const text=document.createElement('span');const strong=document.createElement('strong');strong.textContent=`Exclusion ${index+1}`;const small=document.createElement('small');small.textContent=`${zone.enabled?'ON':'OFF'} · ${zone.width.toFixed(1)} × ${zone.depth.toFixed(1)} m`;text.append(strong,small);
-        const state=document.createElement('b');state.textContent=zone.enabled?'ON':'OFF';row.append(text,state);bindEditorPress(row,()=>selectWorldGroupExclusionById(zone.id));worldGroupExclusionListEl.appendChild(row);
+        const state=document.createElement('b');state.textContent=zone.enabled?'ON':'OFF';row.append(text,state);bindEditorPress(row,()=>{
+          selectWorldGroupExclusionById(zone.id,{focus:true});
+          hintEl.textContent=`Exclusion ${index+1} selected · viewport centred on this zone`;
+          hintEl.classList.remove('hidden');
+        });worldGroupExclusionListEl.appendChild(row);
       });
     }
     if(worldGroupExclusionInspectorEl)worldGroupExclusionInspectorEl.hidden=!zones.length;
@@ -10317,6 +10344,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!obj || obj.deleted) return false;
     if (editorScope === 'puzzle') {
       if (!(puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId)) return false;
+      // Puzzle workspace tabs own different viewport interaction domains.
+      // Assets are selectable/manipulable only from Contents; Zones/Logic/Setup
+      // remain visually in-context but cannot pick or drag puzzle objects.
+      if(puzzleWorkspaceVisible()&&puzzleWorkspaceTab!=='contents')return false;
       // Pieces and Dressing are explicit edit layers. Placement is a separate
       // state, so existing dressing remains selectable/movable after Done Placing.
       const assetScope = editorAssetScope.get(obj.assetName);
@@ -10326,7 +10357,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (obj.puzzleInstanceId) return false;
     // A dedicated Group Edit session owns viewport picking. Surrounding authored
     // content stays visible for context but is deliberately non-pickable.
-    if (worldGroupEditSession) return obj.worldGroupId === worldGroupEditSession.groupId;
+    if (worldGroupEditSession) {
+      // Group internals are interactive only from Contents. Exclusions owns
+      // exclusion-zone interaction; Group owns composition-level controls.
+      if(worldGroupEditorTab!=='contents')return false;
+      return obj.worldGroupId === worldGroupEditSession.groupId;
+    }
     // World Groups are locked compositions by default. Their children become
     // individually editable only after the author explicitly enters Edit Group
     // for that same group. Standalone objects remain editable at all times.

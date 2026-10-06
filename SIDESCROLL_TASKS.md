@@ -4,7 +4,7 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 
 ## Editor architecture / workflow system update — October 2026
 
-**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125**. The reusable drawer/session/history foundation and World Group Editor v2 are now the first production implementation. On-device workflow tuning and the remaining generic route-stack work are still pending before Stage 1 is considered fully closed. The same principles should then be reused for Puzzle editing and other authoring systems where appropriate.
+**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; tab interaction isolation/focus polish added in v1.0.126**. The reusable drawer/session/history foundation and World Group Editor v2 are now the first production implementation. On-device workflow tuning and the remaining generic route-stack work are still pending before Stage 1 is considered fully closed. The same principles should then be reused for Puzzle editing and other authoring systems where appropriate.
 
 ### Stage 1 implementation progress — v1.0.117
 
@@ -74,6 +74,7 @@ Stage 2A delivered:
 - [x] Puzzle Position / Floor Line use the same left-side replacement position as the drawer and return via Back. Returning from Test restores the current workspace; switching tabs deactivates irrelevant viewport zone/path edit tools.
 - [x] No new per-frame loops, DOM reconstruction in drawing, or heavy blur. List rebuilding is signature-guarded and happens on editor updates.
 - [x] **v1.0.124 exclusion interaction cleanup:** World Group and Puzzle procedural exclusions no longer use perspective-sensitive centre/edge drag dots. A selected zone can enter explicit `Move` mode and then uses the same relative screen-space/mouse-style X/Z mapping as authored assets: drag anywhere in the free viewport, lift/reposition the finger, and continue from the zone's current position. Width and Length are edited with stable UI sliders instead of four scene resize handles. World Group slider drags are one Undo transaction; Puzzle slider gestures join the shared transaction history from v1.0.125 onward.
+- [x] **v1.0.126 tab interaction isolation:** specialist editor tabs are now true viewport interaction filters rather than just alternate panels. World Group `Exclusions`/`Group` and Puzzle `Zones`/`Logic`/`Setup` keep authored assets visible for context but clear asset selection/Quick Tools and prevent viewport picking or dragging until `Contents` is active again. Selecting a World Group exclusion row also recentres the authoring camera on that zone so list navigation takes the user directly to the selected spatial item. This interaction-ownership rule should be reused by later Terrain/Node/Logic workspaces.
 
 ### Stage 2B — Puzzle edit sessions + shared history (v1.0.125)
 
