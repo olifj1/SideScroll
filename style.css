@@ -13887,3 +13887,11 @@ body[data-game-id="game-16"] .sidescroll-exclusion-sliders label{display:grid;gr
 body[data-game-id="game-16"] .sidescroll-exclusion-sliders label span{display:flex;justify-content:space-between;gap:8px;align-items:center;}
 body[data-game-id="game-16"] .sidescroll-exclusion-sliders label b{color:#bfe0d7;font-size:8px;}
 body[data-game-id="game-16"] .sidescroll-exclusion-sliders input[type="range"]{width:100%;min-width:0;height:22px;margin:0;padding:0;border:0;background:transparent;accent-color:#9bcfc2;touch-action:pan-x;}
+
+/* v1.0.131 · Puzzle Editor v2 completion pass: relationship + selected-child inspector. */
+body[data-game-id="game-16"] .sidescroll-puzzle-child-inspector{display:grid;gap:6px;padding:7px 8px;border:1px solid rgba(143,207,197,.15);border-radius:10px;background:rgba(255,255,255,.035);}
+body[data-game-id="game-16"] .sidescroll-puzzle-child-inspector[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-relationship-status{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px;border-radius:9px;background:rgba(255,255,255,.04);font-size:8px;color:#bdcbc8;}
+body[data-game-id="game-16"] .sidescroll-puzzle-relationship-status b{font-size:8px;color:#d8e7e3;text-align:right;}
+body[data-game-id="game-16"] .sidescroll-puzzle-relationship-status b.active{color:#e6c993;}
+body[data-game-id="game-16"] .sidescroll-puzzle-workspace-actions button.danger{color:#f2cfca;border-color:rgba(214,119,107,.25);background:rgba(157,76,68,.15);}

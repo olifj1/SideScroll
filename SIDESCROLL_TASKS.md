@@ -4,7 +4,7 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 
 ## Editor architecture / workflow system update — October 2026
 
-**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125**. The reusable drawer/session/history foundation and World Group Editor v2 are now the first production implementation. On-device workflow tuning and the remaining generic route-stack work are still pending before Stage 1 is considered fully closed. The same principles should then be reused for Puzzle editing and other authoring systems where appropriate.
+**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; Stage 2C Puzzle Editor v2 completion candidate is v1.0.131**. World Group and Puzzle editing now share the production drawer/session/history grammar. Puzzle Editor v2 is code-complete for the planned migration and is awaiting focused on-device QA before Stage 2 is formally closed. The next major tooling stage after that is the general Environment Outliner/Inspector.
 
 ### Stage 1 implementation progress — v1.0.117
 
@@ -91,16 +91,23 @@ Delivered in v1.0.125:
 - [x] `Set Start` and `Save Unique` are explicit **commit boundaries**. They force their intended template/start-state persistence, clear the session history/checkpoint to the newly committed state, and cannot later be undone by session Discard. Linked-template `Set Start` still requires explicit confirmation.
 - [x] Working scene-instance edits and shared template start-state edits now have clearer semantics: **Save = current scene instance working overrides; Set Start = Reset/Test start state (and shared template for linked instances); Save Unique = detach this scene instance from the shared template.**
 
-Still pending before Puzzle Editor v2 is complete:
+### Stage 2C — Puzzle Editor v2 completion candidate (v1.0.131)
 
-- [ ] Complete the Template / Instance / Unique / Override UX, including explicit Apply/Revert presentation where it genuinely helps; do not hide shared-template effects behind ordinary Save.
-- [ ] Migrate the remaining detailed cart-path timing/speed/scrub UI into the Puzzle drawer instead of relying on legacy controls.
-- [ ] Bring socket, Thought and Camera child inspectors fully into the same Puzzle drawer/sub-tool grammar rather than relying only on Quick Tools/focused legacy inspectors.
-- [ ] Finish auditing every puzzle mutation path for shared history coverage, particularly rare puzzle-type-specific actions and destructive template operations.
-- [ ] Formal recovery-draft/crash-recovery policy for an unfinished Puzzle edit session.
-- [ ] On-device iPhone QA for Save/Discard/Undo/Test boundaries across several puzzle types before declaring Stage 2 complete.
+Delivered in the completion pass:
 
-**Navigation rule from v1.0.125:** Back from a clean Puzzle session returns to the scene puzzle list. Back from a dirty session stays in Puzzle Edit and directs the author to the fixed Save/Discard controls. Save commits the working scene-instance edits; Discard restores the session entry checkpoint. `Set Start` remains a separate, more consequential operation.
+- [x] **Explicit relationship UX:** Setup now distinguishes Linked Template vs Unique Copy, shows whether the scene matches its reference or carries a local scene override, and keeps ordinary `Save` scene-local.
+- [x] **Revert Scene to Template:** linked instances can explicitly discard their local setup override and return to the reusable Template without moving the scene marker. The revert is an ordinary Undoable session action until Save.
+- [x] **Make Unique:** the detach action is named explicitly and requires confirmation. It preserves the current scene setup, then stops future Template propagation to that scene copy.
+- [x] **Apply as Template + Start:** the consequential shared action is named explicitly, confirms before changing shared content, and continues to update every linked scene instance intentionally. Unique copies instead expose `Set Start for Unique`.
+- [x] **Detailed cart-path migration:** duration, landing angle, start/mid/end speed profile, Match Push, ghost replay and scrub now live inside the Puzzle `Logic` drawer route; only the spline/handles remain in the viewport.
+- [x] **Selected-child Inspector:** Puzzle `Contents` now has an authoritative selected-child action block for Position, Ground/Free placement, Collision, Duplicate/Delete, socket Set/Clear and node Settings.
+- [x] **Thought / Camera child drill-in:** node settings no longer open merely because a node is selected during Puzzle Edit. They open deliberately from the child Inspector and return to Puzzle Contents with Back while keeping the child selected.
+- [x] **Socket workflow integration:** socket pieces expose Set/Move/Clear from the Puzzle child Inspector while retaining the existing viewport host-placement mechanic and transaction history.
+- [x] **History audit:** marker text-entry moves now join the shared Puzzle transaction history; detailed cart controls, node edits, sockets, object edits, bounds, zones, respawn and path handles all participate through the central transaction/implicit-mutation paths. Destructive Template/Unique operations remain deliberate commit boundaries rather than misleading Undo entries.
+- [x] **Recovery draft:** dirty Puzzle edit sessions write a separate recovery snapshot at authoring transaction boundaries and on page hide. Re-entering the same puzzle after an interrupted session offers Recover vs discard-recovery, while normal Save/Discard/commit boundaries clear the draft.
+- [ ] **On-device iPhone QA:** exercise Save/Discard/Undo/Redo/Test, relationship actions, cart path, sockets, Thought/Camera nodes and recovery across several puzzle types before formally declaring Stage 2 complete.
+
+**Current Puzzle navigation rule:** Back from a clean Puzzle session returns to the scene puzzle list. Back from a dirty session stays in Puzzle Edit and directs the author to the fixed Save/Discard controls. Save commits working scene-instance edits; Discard restores the session entry checkpoint. `Apply as Template + Start` (linked) or `Set Start for Unique` remains a separate, more consequential commit action.
 
 
 
@@ -485,7 +492,7 @@ Do not attempt to restyle every legacy panel at once.
 - [x] Make dirty-session guards run before context/route changes that would abandon work. *(World Group first production integration.)*
 - [x] Keep global `Menu` in one fixed viewport position.
 - [x] Migrate World Group Editor v2 into the drawer first. *(v1.0.117)*
-- [ ] Migrate Puzzle Editor v2 second.
+- [x] Migrate Puzzle Editor v2 second. *(v1.0.123–v1.0.131; final on-device QA still required.)*
 - [ ] Migrate Environment Outliner/Inspector/asset placement as the general editor shell matures.
 - [ ] Migrate Terrain, Camera/Fog/Post and Diagnostics away from floating independent panels.
 - [ ] Reserve `×` for transient overlays/dialogs, not authoring navigation.
@@ -907,12 +914,12 @@ Template/instance semantics should become clearer and closer to prefab overrides
 Tasks:
 
 - [x] Begin Puzzle Editor v2 with the shared drawer/list/inspector navigation pattern. *(v1.0.123 Stage 2A; persistence/Undo not yet migrated.)*
-- [ ] Separate scene-instance operations from internal puzzle editing.
-- [ ] Convert exclusion, respawn and cart path into sub-tools inside Puzzle Edit rather than independent editor modes.
-- [ ] Complete authoritative Contents list for all puzzle-owned child types. *(v1.0.123: active pieces/dressing selection first; node/logic child coverage still pending.)*
-- [ ] Replace current persistence wording with explicit Instance vs Template semantics.
+- [x] Separate scene-instance operations from internal puzzle editing.
+- [x] Convert exclusion, respawn and cart path into sub-tools inside Puzzle Edit rather than independent editor modes.
+- [x] Complete authoritative Contents list and selected-child Inspector for puzzle-owned asset/node child types. *(v1.0.131)*
+- [x] Replace persistence wording/actions with explicit Linked Template vs Unique Copy semantics, including Revert / Make Unique / Apply as Template + Start. *(v1.0.131)*
 - [x] Preserve fast current-state Test workflow in the Puzzle drawer. *(v1.0.123; edit-session checkpoint still pending.)*
-- [ ] Reuse central Undo/Redo and Save/Discard.
+- [x] Reuse central Undo/Redo and Save/Discard. *(v1.0.125 onward)*
 
 ### 5. Terrain / Sections — HIGH/MEDIUM priority
 
@@ -1032,9 +1039,9 @@ The existing focused editor replacement is already a good phone-first pattern.
 
 Tasks:
 
-- [ ] Make nodes normal owned children in Environment/World Group/Puzzle lists.
-- [ ] Keep their focused Details UI but enter it through central selection/context rather than special-case navigation.
-- [ ] Include node edits in shared Undo and owner-session Save/Discard.
+- [~] Thought/Camera Nodes are normal owned children in World Group and Puzzle lists; general Environment Outliner integration remains for Stage 3.
+- [~] World Group/Puzzle contexts now enter focused node Details through their selected-child workflow; general Environment integration remains.
+- [x] Include node edits in shared Undo and owner-session Save/Discard for World Group and Puzzle Edit.
 
 ### 11. Design Lab — KEEP current direction
 
@@ -1087,10 +1094,10 @@ Unity's current Undo design is a useful reference because it groups actions arou
 
 - [x] Define the first common history entry shape and owner refresh hooks. *(World Group integration)*
 - [x] Implement begin/commit/cancel transaction API.
-- [ ] Implement bounded Undo + Redo stacks and memory accounting/debug information.
+- [~] Bounded Undo + Redo stacks are implemented for active editor sessions; memory accounting/debug instrumentation remains pending.
 - [ ] Integrate pointer drag lifecycle once centrally rather than separately per tool.
 - [x] First production integration: World Group Editor v2.
-- [ ] Second integration: Puzzle Editor v2.
+- [x] Second integration: Puzzle Editor v2. *(v1.0.123–v1.0.131)*
 - [ ] Then migrate standalone Environment transforms, Terrain, World Lab and Asset Lab.
 
 ---
@@ -1112,8 +1119,8 @@ Unity's current Undo design is a useful reference because it groups actions arou
 ### Phase B — Puzzle Editor v2
 
 - [x] Reuse the proven Group shell/list/inspector/session machinery. *(v1.0.123 workspace; v1.0.125 session/history)*
-- [x] Make puzzle exclusion/respawn/cart path sub-tools of Puzzle Edit. *(basic entry/actions migrated; detailed cart controls still pending)*
-- [~] Clarify Puzzle Template vs Scene Instance vs Unique/Override semantics. *(v1.0.125 establishes Save vs Set Start vs Save Unique; richer Apply/Revert UX still pending)*
+- [x] Make puzzle exclusion/respawn/cart path sub-tools of Puzzle Edit. *(detailed cart controls migrated in v1.0.131)**
+- [x] Clarify Puzzle Template vs Scene Instance vs Unique/Override semantics. *(v1.0.131 explicit Revert / Make Unique / Apply-as-Template UX)**
 - [x] Keep Test tightly integrated. *(Test remains disposable and returns to the active session)*
 
 ### Phase C — general Environment editor
@@ -1235,7 +1242,7 @@ Later, separate from authored-object activation:
 - [x] Puzzle exclusion, respawn and cart-path editing tools are integrated into Play.
 - [x] Thought Nodes and Camera Nodes can be authored as placeable objects.
 - [x] Asset Lab supports collision editing and reusable asset behaviour configuration.
-- [ ] Proper Undo coverage for puzzle editing once the shared history architecture exists.
+- [x] Proper Undo coverage for Puzzle Edit through the shared history architecture. *(v1.0.125–v1.0.131 audit; on-device QA pending)*
 - [ ] Continue puzzle authoring workflow polish before reviving a larger standalone Puzzle Lab redesign.
 - [ ] Continue validating stack/socket/support behaviours on complex puzzle set-pieces.
 
@@ -1463,3 +1470,33 @@ Phase A remains **shared editor foundation + unified drawer + World Group Editor
 - schema migration hooks for new stored fields.
 
 The full Test/runtime-state separation, Problems UI and richer recovery workflow can follow after Group Editor v2, but the new architecture should not make them harder to add.
+
+
+## Content / character / concept art backlog additions — October 2026
+
+### Fox companion playable character pipeline — HIGH priority
+
+- [ ] Generate an approved **side-on fox reference image** in the established SideScroll character style.
+- [ ] Build a dedicated fox rig matched to the approved image and suitable for readable side-on gameplay.
+- [ ] Cut the reference artwork into rig parts and apply the pieces to the rig planes/meshes.
+- [ ] Assemble a first-pass fox atlas from the cut parts.
+- [ ] Pass that atlas back through image generation to produce a clean/refined atlas while preserving the approved design and part layout.
+- [ ] Re-import and validate atlas alignment, pivots, scale and deformation.
+- [ ] Create/tune fox **walk, run and jump** animations, including convincing tail/body secondary motion.
+- [ ] Add the fox as a **playable swappable character** alongside the existing playable characters and validate the normal character-swap flow.
+
+### Woodland artefact concept exploration — HIGH priority
+
+- [ ] Generate a **series of woodland artefact concepts** rather than committing to the first design.
+- [ ] Explore several balances of forest/natural growth and visible technical structure.
+- [ ] Target a visual language that feels woodland, ancient/mythical, magical/mysterious and technologically purposeful without becoming clean generic sci-fi.
+- [ ] Favour designs where the forest and mechanism appear to have grown/fused together over time rather than a machine merely placed in a forest.
+- [ ] Review the concept set, shortlist the strongest direction(s), then refine the preferred artefact family toward game-ready production assets.
+
+### Market stall asset processing — MEDIUM priority
+
+- [ ] Locate the previously generated **market stall source images** in accessible project/work storage.
+- [ ] Review the variants and identify which are production-ready for the settlement.
+- [ ] Process approved stalls through the normal SideScroll asset/background/alpha workflow.
+- [ ] Add the finished market stalls to the settlement asset library for in-game placement/testing.
+- [ ] If the original sources cannot be recovered or are not production-ready, explicitly schedule regeneration/refinement rather than silently dropping the set.
