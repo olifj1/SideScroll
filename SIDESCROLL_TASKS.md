@@ -4,7 +4,7 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 
 ## October 8, 2026 — v1.0.132 Management/Edit + stable Puzzle Zones
 
-**Current status:** v1.0.132 implements the bounded Management/Edit separation and stable Puzzle Zones refactor identified by the v1.0.131 on-device review. Static validation is complete; focused iPhone regression testing of Stone Wall and Broken Bridge is still required before this slice is considered device-verified. Applied Puzzle Logic remains deliberately deferred to v1.0.133.
+**Current status:** v1.0.132a implements the bounded Management/Edit separation and stable Puzzle Zones refactor identified by the v1.0.131 on-device review. The first v1.0.132 phone check exposed two Zones issues: list rows were being rebuilt every render frame so iPhone presses could not complete reliably, and the Respawn Trigger exposed only a `Spawn = Player` shortcut rather than a proper independently movable Spawn Point. v1.0.132a corrects both. Focused iPhone regression testing of Stone Wall and Broken Bridge is still required before this slice is considered device-verified. Applied Puzzle Logic remains deliberately deferred to v1.0.133.
 
 ### v1.0.132 — Management/Edit separation + stable Puzzle Zones
 
@@ -13,11 +13,13 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 - [x] Replace legacy Puzzle exclusion/respawn special cases with a stable ID-bearing zone collection.
 - [x] Initial zone types: Procedural Exclusion and Respawn Trigger.
 - [x] Provide authoritative Add/List/Select/Focus/Move/Width/Length/Enabled/Delete zone workflow.
+- [x] Fix iPhone zone-row selection by keeping list rows stable between render frames instead of recreating them every frame.
+- [x] Give Respawn Trigger a distinct editable Spawn Point with `Move Spawn`, visible coordinates and `Spawn = Player`, separate from `Move Trigger`.
 - [x] Make Respawn use the same stable zone interaction; retire the crash-prone viewport edge-handle route.
 - [x] Safely migrate existing puzzle/template exclusion and Broken Bridge respawn data.
 - [x] Integrate zone mutations with Puzzle Save/Discard and Undo/Redo.
 - [x] Move/rename destructive `Clear Stage` to an explicit Advanced/Workshop utility.
-- [ ] Complete focused iPhone regression testing of Stone Wall and Broken Bridge before closing the slice.
+- [ ] Complete focused iPhone regression testing of Stone Wall and Broken Bridge before closing the slice; specifically verify Respawn Trigger selection, Move Trigger, Move Spawn, Spawn = Player, Save/Discard and Undo/Redo.
 
 ### v1.0.133 — Applied Puzzle Logic systems
 
@@ -32,7 +34,7 @@ See `WIP_STATUS.md` for the authoritative handoff description.
 
 ## Editor architecture / workflow system update — October 2026
 
-**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; v1.0.132 adds the Management/Edit correction and stable Puzzle Zones migration**. World Group and Puzzle editing now share the production drawer/session/history grammar, with internal authoring gated behind explicit Edit sessions. v1.0.132 is awaiting focused on-device QA; Applied Puzzle Logic is the deliberately separate v1.0.133 slice. The general Environment Outliner/Inspector remains a later tooling stage.
+**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; v1.0.132a adds the Management/Edit correction and stable Puzzle Zones migration, including the iPhone list-selection and independent Respawn Spawn Point correction**. World Group and Puzzle editing now share the production drawer/session/history grammar, with internal authoring gated behind explicit Edit sessions. v1.0.132 is awaiting focused on-device QA; Applied Puzzle Logic is the deliberately separate v1.0.133 slice. The general Environment Outliner/Inspector remains a later tooling stage.
 
 ### Stage 1 implementation progress — v1.0.117
 

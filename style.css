@@ -13921,3 +13921,10 @@ body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced .sidescroll-pu
 body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced .sidescroll-puzzle-stage-actions .danger{
   color:#f2cfca!important;border-color:rgba(214,119,107,.28)!important;background:rgba(157,76,68,.15)!important;
 }
+
+/* v1.0.132a · respawn trigger / spawn-point authoring clarity. */
+body[data-game-id="game-16"] .sidescroll-puzzle-spawn-point{
+  display:grid;gap:4px;margin-top:7px;padding:7px 8px;border:1px solid rgba(155,207,194,.18);
+  border-radius:9px;background:rgba(100,154,138,.07);
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-spawn-point[hidden]{display:none!important;}
