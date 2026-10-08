@@ -1,37 +1,45 @@
-# SideScroll patch 1.0.133
+# SideScroll patch 1.0.134
 
-Changed-files-only patch over v1.0.132b. This is the bounded **Applied Puzzle Logic** slice; it does not build the wider reusable Environment Animation Path system yet.
+Changed-files-only patch over v1.0.133. This is the bounded **Puzzle Entry / Exit Logic** pass. It does not start the wider Environment Animation Path work.
 
-## Applied Puzzle Logic
+## Puzzle Entry / Exit Logic
 
-- The Puzzle `Logic` tab is now an authoritative applied-systems list. Puzzles show only Logic they actually use; `+ Add Logic` offers compatible systems that are not already attached.
-- First formalised systems are `Cart Path`, `Socket Completion` and `Completion Reward`.
-- Existing Stone Wall semantics migrate to explicit Socket Completion + Completion Reward. Existing authored Cart Path use migrates to an applied Cart Path record while retaining its current spline/timing data and behaviour.
-- An explicit `logic[]` list is authoritative. Removing a system does not cause legacy metadata to silently add it back during ordinary rendering/reset.
-- Physical socket placement remains a Contents/child property. Creating or moving a socket no longer silently enables socket-completion semantics.
-- Completion Reward currently exposes its collectible choice through the existing inventory/collectable definitions.
-- Cart Path remains the existing cart-specific authoring/runtime tool in this release. Its applied Logic record carries a target-object identity and activation metadata so later generalisation does not require more cart assumptions to be added to the registry.
-- The older Fallen Tree `cross-x` completion rule remains supported as legacy runtime behaviour; it is intentionally outside this first Logic formalisation pass.
-- Logic edits participate in the existing Puzzle session Save/Discard, recovery snapshots and Undo/Redo model.
+- Adds `Puzzle Entry / Exit` as a reusable applied Logic system.
+- Entry marks a puzzle as started; Exit marks it complete.
+- New instances default to AUTO placement from the puzzle bounds: Entry at the near bound and Exit at the far bound.
+- `Move Entry` and `Move Exit` use the same stable relative screen-space drag pattern as Puzzle Zones. Moving a marker changes only that marker to MANUAL.
+- `Entry = Bounds`, `Exit = Bounds` and `Use Puzzle Bounds` return markers to automatic bounds-following placement.
+- Entry / Exit markers are drawn and labelled in the viewport while this Logic item is selected.
+- Socket Completion and Puzzle Entry / Exit are treated as alternative completion rules; Completion Reward remains a separate event and can coexist with either.
 
-## Future Animation Path note
+## Fallen Tree migration
 
-The current Cart Path should later become a reusable Environment Animation Path system: author a path, assign an object, assign an activation trigger/condition, define playback/takeover behaviour, and define the end/settle state. v1.0.133 records that direction in `SIDESCROLL_TASKS.md` but deliberately does not expand scope into that system.
+- Fallen Tree's old `cross-x` completion now migrates into Puzzle Entry / Exit Logic.
+- Its Entry follows the near puzzle bound.
+- Its legacy completion threshold is preserved exactly as the initial MANUAL Exit, so this refactor does not subtly move the point at which the existing puzzle completes.
+- v1.0.133 could already have written an explicit `logic[]` before Entry / Exit existed. v1.0.134 adds a Logic schema version so those saves still receive the migration, while deliberately removing Entry / Exit in v1.0.134 remains authoritative and does not resurrect `cross-x`.
+
+## Runtime / session behaviour
+
+- Crossing Entry records the puzzle as started; crossing Exit after that records it complete and continues to drive the existing Completion Reward system when attached.
+- Entry / Exit data is included in the existing Puzzle Undo/Redo, Save/Discard, recovery, Reset/Test, Set Start and template snapshots.
+- The old `cross-x` runtime check remains only as a safety fallback for genuinely old/unmigrated schema data.
 
 ## Changed files
 
 - `sidescroll.js`
 - `play.html`
-- `style.css`
 - `SIDESCROLL_TASKS.md`
 - `README.md`
 
 ## Validation / device test
 
-Static validation includes project-wide `node --check`, HTML duplicate-ID/control-target checks, CSS brace balance, and a changed-file diff against v1.0.132b. This build has **not** been tested on-device.
+Static validation includes `node --check` for the changed JavaScript, HTML duplicate-ID/control-target checks, CSS/HTML structure checks, and ZIP integrity. This build has **not** been tested on-device.
 
 On iPhone, prioritise:
 
-1. Stone Wall → Edit Puzzle → Logic: confirm Socket Completion + Completion Reward appear, select/edit cleanly, and the existing socket-completion/reward gameplay still works in Test Current.
-2. Broken Bridge → Logic: confirm Cart Path appears, Edit Path/ghost preview still work, and repaired-cart takeover/landing behaves as before.
-3. On a disposable/user puzzle, exercise `+ Add Logic`, Remove Logic, Undo/Redo, Save/Discard and Reset to Start. If testing linked-template controls, verify Revert and Apply as Template + Start deliberately affect the expected scope.
+1. Fallen Tree → Edit Puzzle → Logic: confirm `Puzzle Entry / Exit` appears and both labelled markers are visible.
+2. Move Entry and Move Exit, use the individual Bounds buttons and `Use Puzzle Bounds`, then exercise Undo/Redo and Save/Discard.
+3. Test Current: approach from the left, confirm Entry starts the puzzle and the preserved Exit completes it. Reset and repeat.
+4. Resize puzzle bounds while Entry/Exit are AUTO and confirm they follow the new bounds. A MANUAL marker should stay where authored.
+5. Re-check Stone Wall Socket Completion + Completion Reward and Broken Bridge Cart Path to ensure the new completion-rule type did not disturb the v1.0.133 systems.

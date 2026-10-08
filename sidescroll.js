@@ -670,6 +670,15 @@
   const puzzleLogicRewardEl = document.getElementById('sidescroll-puzzle-logic-reward');
   const puzzleLogicRewardItemEl = document.getElementById('sidescroll-puzzle-logic-reward-item');
   const puzzleLogicRewardStatusEl = document.getElementById('sidescroll-puzzle-logic-reward-status');
+  const puzzleLogicEntryExitEl = document.getElementById('sidescroll-puzzle-logic-entry-exit');
+  const puzzleLogicEntryExitStatusEl = document.getElementById('sidescroll-puzzle-logic-entry-exit-status');
+  const puzzleLogicEntryValueEl = document.getElementById('sidescroll-puzzle-logic-entry-value');
+  const puzzleLogicExitValueEl = document.getElementById('sidescroll-puzzle-logic-exit-value');
+  const puzzleLogicEntryMoveBtn = document.getElementById('sidescroll-puzzle-logic-entry-move');
+  const puzzleLogicExitMoveBtn = document.getElementById('sidescroll-puzzle-logic-exit-move');
+  const puzzleLogicEntryAutoBtn = document.getElementById('sidescroll-puzzle-logic-entry-auto');
+  const puzzleLogicExitAutoBtn = document.getElementById('sidescroll-puzzle-logic-exit-auto');
+  const puzzleLogicEntryExitAutoBtn = document.getElementById('sidescroll-puzzle-logic-entry-exit-auto');
   const puzzleLogicRemoveBtn = document.getElementById('sidescroll-puzzle-logic-remove');
   const puzzleCartPathEditBtn = document.getElementById('sidescroll-puzzle-cart-path-edit');
   const puzzleCartPathTools = document.getElementById('sidescroll-puzzle-cart-path-tools');
@@ -5258,6 +5267,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let selectedPuzzleLogicId = null;
   let puzzleLogicListSignature = '';
   let puzzleLogicAddSignature = '';
+  let puzzleEntryExitMoveHandle = null;
   const puzzleCartPathDraft = Object.create(null);
   let puzzleCartPathEditMode = false;
   let puzzleCartPathHandle = null;
@@ -5516,6 +5526,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       label:'Completion Reward',
       short:'Completion event',
       description:'Spawn a collectible when the puzzle reaches its completion state.'
+    },
+    'entry-exit': {
+      label:'Puzzle Entry / Exit',
+      short:'Completion rule',
+      description:'Mark the puzzle as started at Entry and complete it at Exit. Markers can follow the puzzle bounds automatically or be positioned manually.'
     }
   });
 
@@ -5545,6 +5560,19 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         id,type,
         targetObjectId:typeof raw?.targetObjectId==='string'&&raw.targetObjectId?raw.targetObjectId:(puzzleCartTargetObjectId(marker)||null),
         activation:raw?.activation&&typeof raw.activation==='object'?deepCopy(raw.activation):{type:'reach-path-start'}
+      };
+    }
+    if(type==='entry-exit'){
+      const entryMode=raw?.entryMode==='manual'?'manual':'bounds';
+      const exitMode=raw?.exitMode==='manual'?'manual':'bounds';
+      const entryEdge=raw?.entryEdge==='max'?'max':'min';
+      const exitEdge=raw?.exitEdge==='min'?'min':'max';
+      return {
+        id,type,
+        entryMode,entryEdge,
+        exitMode,exitEdge,
+        entryX:Number.isFinite(Number(raw?.entryX))?Number(raw.entryX):null,
+        exitX:Number.isFinite(Number(raw?.exitX))?Number(raw.exitX):null
       };
     }
     if(type==='completion-reward'){
@@ -5578,6 +5606,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const def=markerDefinition(marker)||{};
     const completion=def.completion;
     if(completion?.type==='sockets')result.push(cleanPuzzleLogicRecord(marker,null,'socket-completion',result.length));
+    if(completion?.type==='cross-x'){
+      const direction=(completion.direction??1)>=0?1:-1;
+      result.push(cleanPuzzleLogicRecord(marker,{
+        entryMode:'bounds',entryEdge:direction>=0?'min':'max',
+        exitMode:'manual',exitEdge:direction>=0?'max':'min',
+        exitX:Number.isFinite(Number(completion.x))?Number(completion.x):null
+      },'entry-exit',result.length));
+    }
 
     const explicitReward=def.completionEvent?.type==='spawn-collectible'?def.completionEvent:null;
     if(explicitReward){
@@ -5599,9 +5635,24 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return result.filter(Boolean);
   }
 
-  function normalisePuzzleLogic(marker,rawLogic) {
+  function normalisePuzzleLogic(marker,rawLogic,{schemaVersion=0}={}) {
     if(!marker)return [];
-    const source=Array.isArray(rawLogic)?rawLogic:legacyPuzzleLogic(marker);
+    const source=Array.isArray(rawLogic)?rawLogic.map(item=>deepCopy(item)):legacyPuzzleLogic(marker);
+    // v1.0.134 migration: v1.0.133 could persist an explicit logic[] before
+    // Entry / Exit existed, so an empty array must not erase an older cross-x
+    // completion rule. Once schema v2 is saved, explicit logic[] is fully
+    // authoritative and removing Entry / Exit stays removed.
+    const legacyCompletion=markerDefinition(marker)?.completion;
+    if(Array.isArray(rawLogic)&&schemaVersion<2&&legacyCompletion?.type==='cross-x'
+        &&!source.some(item=>item?.type==='entry-exit'||item?.type==='socket-completion')){
+      const direction=(legacyCompletion.direction??1)>=0?1:-1;
+      source.push({
+        type:'entry-exit',
+        entryMode:'bounds',entryEdge:direction>=0?'min':'max',
+        exitMode:'manual',exitEdge:direction>=0?'max':'min',
+        exitX:Number.isFinite(Number(legacyCompletion.x))?Number(legacyCompletion.x):null
+      });
+    }
     const result=[];
     const usedTypes=new Set();
     const usedIds=new Set();
@@ -5619,10 +5670,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function currentPuzzleLogic(marker) {
     if(!marker)return [];
     if(Array.isArray(puzzleLogicDraft[marker.id]))return puzzleLogicDraft[marker.id];
-    const runtimeRaw=puzzleSavedState?.[marker.id]?.logicDraft;
+    const runtime=puzzleSavedState?.[marker.id]||null;
+    const runtimeRaw=runtime?.logicDraft;
     const start=puzzleStartFor(marker);
-    const raw=Array.isArray(runtimeRaw)?runtimeRaw:(Array.isArray(start?.logic)?start.logic:null);
-    puzzleLogicDraft[marker.id]=normalisePuzzleLogic(marker,raw);
+    const useRuntime=Array.isArray(runtimeRaw);
+    const raw=useRuntime?runtimeRaw:(Array.isArray(start?.logic)?start.logic:null);
+    const schemaVersion=useRuntime?Number(runtime?.logicSchemaVersion||0):Number(start?.logicSchemaVersion||0);
+    puzzleLogicDraft[marker.id]=normalisePuzzleLogic(marker,raw,{schemaVersion});
     return puzzleLogicDraft[marker.id];
   }
 
@@ -5630,11 +5684,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return currentPuzzleLogic(marker).find(record=>record?.type===type)||null;
   }
 
+  function puzzleEntryExitPoints(instance,record=puzzleLogicRecord(instance?.marker,'entry-exit')){
+    if(!instance||!record)return null;
+    const bounds=currentPuzzleBoundsRelative(instance.marker);
+    const resolve=(mode,edge,manual)=>{
+      if(mode==='manual'&&Number.isFinite(Number(manual)))return Number(manual);
+      return edge==='max'?Number(bounds.maxX):Number(bounds.minX);
+    };
+    const entryRelX=resolve(record.entryMode,record.entryEdge,record.entryX);
+    const exitRelX=resolve(record.exitMode,record.exitEdge,record.exitX);
+    const entryX=instance.marker.x+entryRelX,exitX=instance.marker.x+exitRelX;
+    return {entryRelX,exitRelX,entryX,exitX,direction:exitX>=entryX?1:-1};
+  }
+
   function savePuzzleLogicDraft(marker) {
     if(!marker)return;
     const logic=deepCopy(currentPuzzleLogic(marker));
     const runtime=savedPuzzleFor(marker.id);
     runtime.logicDraft=logic;
+    runtime.logicSchemaVersion=2;
     if(typeof editMode!=='undefined'&&editMode&&!puzzleTestMode)puzzleStartDirty.add(marker.id);
     savePuzzleState();
     if(puzzleEditSession?.markerId===marker.id&&!editorTransaction)recordImplicitEditorMutation('Edit puzzle logic');
@@ -6098,7 +6166,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function savedPuzzleFor(markerId) {
-    puzzleSavedState[markerId] ||= { solved:false, objects:{} };
+    puzzleSavedState[markerId] ||= { solved:false, started:false, objects:{} };
     puzzleSavedState[markerId].objects ||= {};
     return puzzleSavedState[markerId];
   }
@@ -6519,7 +6587,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
     }
-    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), logic:deepCopy(currentPuzzleLogic(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
+    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), logic:deepCopy(currentPuzzleLogic(instance.marker)), logicSchemaVersion:2, cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
     puzzleStartState[instance.id] = snapshot;
     puzzleStartDirty.delete(instance.id);
     savePuzzleStarts();
@@ -6541,7 +6609,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // fresh default rail during Reset, which made the guide jump to the right.
     const existingCartPath = puzzleCartPathDraft[instance.id] || puzzleSavedState?.[instance.id]?.cartPathDraft || null;
     puzzleCartPathDraft[instance.id] = normalisePuzzleCartPath(instance.marker, snapshot.cartPath || existingCartPath || null);
-    puzzleLogicDraft[instance.id] = normalisePuzzleLogic(instance.marker, Array.isArray(snapshot.logic) ? snapshot.logic : null);
+    puzzleLogicDraft[instance.id] = normalisePuzzleLogic(instance.marker, Array.isArray(snapshot.logic) ? snapshot.logic : null, {schemaVersion:Number(snapshot.logicSchemaVersion||0)});
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (pushingObject?.puzzleInstanceId === instance.id) { pushingObject = null; pushingSide = 0; pushingFloorOffset = 0; }
@@ -6662,17 +6730,21 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     }
 
     instance.solved = false;
+    instance.started = false;
+    instance.logicLastPlayerX = null;
     if (clearDirty) puzzleStartDirty.delete(instance.id);
     sortSceneCollections();
     settleGameplayCrates();
 
     const runtime = savedPuzzleFor(instance.id);
     runtime.solved = false;
+    runtime.started = false;
     delete runtime.reward;
     runtime.boundsDraft = deepCopy(currentPuzzleBoundsRelative(instance.marker));
     runtime.zonesDraft = deepCopy(currentPuzzleZones(instance.marker));
     delete runtime.respawnDraft;
     runtime.logicDraft = deepCopy(currentPuzzleLogic(instance.marker));
+    runtime.logicSchemaVersion = 2;
     runtime.cartPathDraft = deepCopy(currentPuzzleCartPath(instance.marker));
     runtime.objects = {};
     for (const obj of instance.objects) {
@@ -6809,7 +6881,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       legacyRespawn:saved.respawnDraft || authored?.respawn || def?.respawn || null
     });
     if (!puzzleCartPathDraft[marker.id]) puzzleCartPathDraft[marker.id] = normalisePuzzleCartPath(marker, saved.cartPathDraft || authored?.cartPath || null);
-    const instance = { id:marker.id, marker, def, objects:[], modifierObjects:[], solved:!!saved.solved };
+    const instance = { id:marker.id, marker, def, objects:[], modifierObjects:[], solved:!!saved.solved, started:!!saved.started, logicLastPlayerX:null };
     const baseById = new Map((def.props || []).map(prop => [prop.id, prop]));
     const ids = new Set([...baseById.keys(), ...Object.keys(authored?.objects || {}), ...Object.keys(saved.objects || {})]);
     for (const objectId of ids) {
@@ -6902,6 +6974,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const obj of instance.objects) recordPuzzleObjectState(obj);
     const state = savedPuzzleFor(instance.id);
     state.solved = !!instance.solved;
+    state.started = !!instance.started;
     savePuzzleState();
   }
 
@@ -7168,7 +7241,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for (const instance of activePuzzleInstances.values()) {
       if (instance.solved) continue;
       let done = false;
+      const hadPreviousX=Number.isFinite(instance.logicLastPlayerX);
+      const previousX=hadPreviousX?instance.logicLastPlayerX:playerX;
       const socketLogic=puzzleLogicRecord(instance.marker,'socket-completion');
+      const entryExitLogic=puzzleLogicRecord(instance.marker,'entry-exit');
       if(socketLogic){
         const sockets = [];
         for (const host of socketHostsForInstance(instance)) {
@@ -7176,19 +7252,48 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         }
         done = sockets.length > 0 && sockets.every(({host,socket}) => instance.objects.some(obj => !obj.deleted && socketMatchesPiece(socket,obj)
           && obj.socketedTo?.hostObjectId === host.id && obj.socketedTo?.socketId === socket.id));
+      }else if(entryExitLogic){
+        const points=puzzleEntryExitPoints(instance,entryExitLogic);
+        if(points){
+          const direction=points.direction;
+          const crossedEntry=direction>=0
+            ? previousX<points.entryX&&playerX>=points.entryX
+            : previousX>points.entryX&&playerX<=points.entryX;
+          const insideSpan=direction>=0
+            ? playerX>=points.entryX&&playerX<points.exitX
+            : playerX<=points.entryX&&playerX>points.exitX;
+          if(!instance.started&&(crossedEntry||(!hadPreviousX&&insideSpan))){
+            instance.started=true;
+            const state=savedPuzzleFor(instance.id);state.started=true;savePuzzleState();
+            hintEl.textContent=`${instance.def.label||'Puzzle'} started`;hintEl.classList.remove('hidden');
+          }
+          if(instance.started){
+            const crossedExit=direction>=0
+              ? previousX<points.exitX&&playerX>=points.exitX
+              : previousX>points.exitX&&playerX<=points.exitX;
+            const beyondExit=direction>=0?playerX>=points.exitX:playerX<=points.exitX;
+            done=crossedExit||beyondExit;
+          }
+        }
       }else{
-        // Preserve the older non-socket completion family until it gets its own
-        // applied-Logic component. v1.0.133 intentionally formalises only the
-        // existing Socket Completion / Reward / Cart Path systems.
+        // Safety fallback for very old/custom definitions that have not yet
+        // been normalised into explicit Entry / Exit Logic. Schema v2 makes
+        // logic[] authoritative, so an intentionally removed Entry / Exit must
+        // not silently re-enable the old cross-x rule.
+        const runtime=puzzleSavedState?.[instance.id]||null;
+        const start=puzzleStartFor(instance.marker);
+        const useRuntime=Array.isArray(runtime?.logicDraft);
+        const schemaVersion=useRuntime?Number(runtime?.logicSchemaVersion||0):Number(start?.logicSchemaVersion||0);
         const legacyRule=instance.def?.completion;
-        if(legacyRule?.type==='cross-x'){
+        if(schemaVersion<2&&legacyRule?.type==='cross-x'){
           const target=instance.marker.x+legacyRule.x;
           done=(legacyRule.direction??1)>=0?playerX>=target:playerX<=target;
         }
       }
+      instance.logicLastPlayerX=playerX;
       if (!done) continue;
       instance.solved = true;
-      const state=savedPuzzleFor(instance.id);state.solved=true;savePuzzleState();
+      const state=savedPuzzleFor(instance.id);state.solved=true;state.started=true;savePuzzleState();
       const spawned = ensurePuzzleCompletionReward(instance, playerX);
       hintEl.textContent = spawned
         ? `${instance.def.label || 'Puzzle'} complete · something appeared`
@@ -9201,7 +9306,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectedPuzzleZoneId=zones.some(zone=>zone.id===snapshot.selectedPuzzleZoneId)?snapshot.selectedPuzzleZoneId:(zones[0]?.id||null);
     const logic=currentPuzzleLogic(marker);
     selectedPuzzleLogicId=logic.some(record=>record.id===snapshot.selectedPuzzleLogicId)?snapshot.selectedPuzzleLogicId:(logic[0]?.id||null);
-    puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;
+    puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;puzzleEntryExitMoveHandle=null;
     puzzleWorkspaceListSignature='';puzzleZoneListSignature='';puzzleLogicListSignature='';puzzleLogicAddSignature='';
     if(puzzleWorldModifiersReady)invalidatePuzzleWorldModifierMeshes();
     setPuzzleWorkspaceTab(puzzleWorkspaceTab);
@@ -9233,6 +9338,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       runtime.zonesDraft=deepCopy(currentPuzzleZones(marker));
       delete runtime.respawnDraft;
       runtime.logicDraft=deepCopy(currentPuzzleLogic(marker));
+      runtime.logicSchemaVersion=2;
       if(Object.prototype.hasOwnProperty.call(puzzleExclusionState,marker.id))delete puzzleExclusionState[marker.id];
       if(markerLinkMode(marker)==='copy')delete runtime.authoringOverride;
       else runtime.authoringOverride=puzzleStartDirty.has(marker.id);
@@ -9260,7 +9366,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function closePuzzleEditShell(){
     puzzleWorkspaceActive=false;
     puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;selectedPuzzleZoneId=null;
-    selectedPuzzleLogicId=null;puzzleLogicListSignature='';puzzleLogicAddSignature='';
+    selectedPuzzleLogicId=null;puzzleLogicListSignature='';puzzleLogicAddSignature='';puzzleEntryExitMoveHandle=null;
     puzzleCartPathEditMode=false;puzzleCartPathHandle=null;puzzleCartPathPreviewPlaying=false;
     puzzleNodeInspectorOpen=false;
     if(addAssetType)exitPlacementMode();
@@ -9277,7 +9383,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectedPuzzleZoneId=initialZones[0]?.id||null;
     const initialLogic=currentPuzzleLogic(marker);
     selectedPuzzleLogicId=initialLogic[0]?.id||null;
-    puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;
+    puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;puzzleEntryExitMoveHandle=null;
     if(markerLinkMode(marker)!=='copy'&&puzzleSavedState?.[marker.id]?.authoringOverride===true)puzzleStartDirty.add(marker.id);
     const checkpoint=capturePuzzleEditorSnapshot(marker.id);if(!checkpoint)return false;
     clearEditorHistory();
@@ -9600,6 +9706,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       runtime.zonesDraft=deepCopy(currentPuzzleZones(marker));
       delete runtime.respawnDraft;
       runtime.logicDraft=deepCopy(currentPuzzleLogic(marker));
+      runtime.logicSchemaVersion=2;
       runtime.cartPathDraft=deepCopy(currentPuzzleCartPath(marker));
       runtime.authoringOverride=false;
       savePuzzleState();
@@ -9623,6 +9730,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(selectedObject?.puzzleInstanceId===editorPuzzleMarkerId)selectObject(null);
     }
     if(tab!=='zones'){puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;}
+    if(tab!=='logic')puzzleEntryExitMoveHandle=null;
     if(tab!=='logic'&&puzzleCartPathEditMode)puzzleCartPathEditBtn?.click();
     puzzleWorkspaceTab=tab;
     for(const [name,{button,panel}] of puzzleWorkspaceTabControls){
@@ -9741,6 +9849,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const stats=puzzleSocketCompletionStats(instance);
       return `${stats.filled}/${stats.total} sockets filled`;
     }
+    if(record.type==='entry-exit'){
+      const points=puzzleEntryExitPoints(instance,record);
+      if(!points)return 'Entry / Exit';
+      const entryMode=record.entryMode==='manual'?'MANUAL':'AUTO';
+      const exitMode=record.exitMode==='manual'?'MANUAL':'AUTO';
+      return `Entry ${points.entryRelX.toFixed(1)}m ${entryMode} · Exit ${points.exitRelX.toFixed(1)}m ${exitMode}`;
+    }
     if(record.type==='completion-reward'){
       const cfg=collectibleConfig(record.itemId||'forest-key');
       return `${cfg.label||INVENTORY_ITEM_DEFS[record.itemId]?.label||record.itemId||'Collectible'} · on completion`;
@@ -9751,7 +9866,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function puzzleLogicCompatible(instance,type){
     if(!instance||!PUZZLE_LOGIC_REGISTRY[type])return false;
     if(type==='cart-path')return !!firstCartObjectForInstance(instance);
-    if(type==='socket-completion')return instance.objects.some(obj=>obj&&!obj.deleted&&(objectHasBehaviour(obj,'socketHost')||objectHasBehaviour(obj,'socketPiece')));
+    if(type==='socket-completion')return !puzzleLogicRecord(instance.marker,'entry-exit')&&instance.objects.some(obj=>obj&&!obj.deleted&&(objectHasBehaviour(obj,'socketHost')||objectHasBehaviour(obj,'socketPiece')));
+    if(type==='entry-exit')return !puzzleLogicRecord(instance.marker,'socket-completion');
     return true;
   }
 
@@ -9781,6 +9897,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const marker=selectedPuzzleMarker();if(!marker)return false;
     const record=currentPuzzleLogic(marker).find(item=>item.id===id);if(!record)return false;
     if(record.type!=='cart-path'&&puzzleCartPathEditMode){puzzleCartPathEditMode=false;puzzleCartPathPreviewPlaying=false;puzzleCartPathHandle=null;}
+    if(record.type!=='entry-exit')puzzleEntryExitMoveHandle=null;
     selectedPuzzleLogicId=record.id;
     renderPuzzleWorkspaceV2({force:true});
     return true;
@@ -9824,6 +9941,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         puzzleCartPathEditMode=false;puzzleCartPathPreviewPlaying=false;puzzleCartPathHandle=null;
         const cfg=currentPuzzleCartPath(instance.marker);cfg.enabled=false;savePuzzleCartPathDraft(instance.marker);
       }
+      if(record.type==='entry-exit')puzzleEntryExitMoveHandle=null;
       logic.splice(index,1);
       selectedPuzzleLogicId=logic[Math.min(index,logic.length-1)]?.id||null;
       savePuzzleLogicDraft(instance.marker);
@@ -9864,6 +9982,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(puzzleLogicCartEl)puzzleLogicCartEl.hidden=selected?.type!=='cart-path';
     if(puzzleLogicSocketsEl)puzzleLogicSocketsEl.hidden=selected?.type!=='socket-completion';
     if(puzzleLogicRewardEl)puzzleLogicRewardEl.hidden=selected?.type!=='completion-reward';
+    if(puzzleLogicEntryExitEl)puzzleLogicEntryExitEl.hidden=selected?.type!=='entry-exit';
     if(!selected)return;
 
     const meta=PUZZLE_LOGIC_REGISTRY[selected.type]||{};
@@ -9886,6 +10005,19 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const stats=puzzleSocketCompletionStats(instance);
       puzzleLogicSocketStatusEl.textContent=`${stats.filled}/${stats.total} filled`;
     }
+
+    if(selected.type==='entry-exit'){
+      const points=puzzleEntryExitPoints(instance,selected);
+      if(points){
+        if(puzzleLogicEntryValueEl)puzzleLogicEntryValueEl.textContent=`x ${points.entryRelX.toFixed(2)} · ${selected.entryMode==='manual'?'MANUAL':'AUTO'}`;
+        if(puzzleLogicExitValueEl)puzzleLogicExitValueEl.textContent=`x ${points.exitRelX.toFixed(2)} · ${selected.exitMode==='manual'?'MANUAL':'AUTO'}`;
+        if(puzzleLogicEntryExitStatusEl)puzzleLogicEntryExitStatusEl.textContent=instance.solved?'Complete':(instance.started?'Started · waiting for Exit':'Waiting for Entry');
+      }
+      if(puzzleLogicEntryMoveBtn){puzzleLogicEntryMoveBtn.textContent=puzzleEntryExitMoveHandle==='entry'?'Finish Entry Move':'Move Entry';puzzleLogicEntryMoveBtn.classList.toggle('active',puzzleEntryExitMoveHandle==='entry');}
+      if(puzzleLogicExitMoveBtn){puzzleLogicExitMoveBtn.textContent=puzzleEntryExitMoveHandle==='exit'?'Finish Exit Move':'Move Exit';puzzleLogicExitMoveBtn.classList.toggle('active',puzzleEntryExitMoveHandle==='exit');}
+      if(puzzleLogicEntryAutoBtn)puzzleLogicEntryAutoBtn.disabled=selected.entryMode!=='manual';
+      if(puzzleLogicExitAutoBtn)puzzleLogicExitAutoBtn.disabled=selected.exitMode!=='manual';
+    }else if(puzzleEntryExitMoveHandle){puzzleEntryExitMoveHandle=null;}
 
     if(selected.type==='completion-reward'&&puzzleLogicRewardItemEl){
       if(!puzzleLogicRewardItemEl.options.length){
@@ -11494,7 +11626,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     while (userPuzzleLibrary.groups[groupId] || puzzleConfig.groups?.[groupId]) groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}_${suffix++}`;
     userPuzzleLibrary.groups[groupId] = { label, width:8, assetPacks:['woodland-puzzle-atlas-v1'], entryX:-3.5, exitX:3.5, props:[] };
     userPuzzleLibrary.templates ||= {};
-    userPuzzleLibrary.templates[groupId] = { source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{}, zones:[], logic:[] };
+    userPuzzleLibrary.templates[groupId] = { source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{}, zones:[], logic:[], logicSchemaVersion:2 };
     savePuzzleLibrary();
     puzzleBrowserMode = 'library';
     editorPuzzleLibraryGroupId = groupId;
@@ -11748,7 +11880,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
     }
-    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), logic:deepCopy(currentPuzzleLogic(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
+    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), logic:deepCopy(currentPuzzleLogic(instance.marker)), logicSchemaVersion:2, cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
   }
 
   function puzzleExportPayload(instance) {
@@ -12808,7 +12940,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Cart path and zones are authored puzzle data just like bounds. Omitting cartPath
     // meant Set Start saved every other setup field but Reset rebuilt the rail
     // from defaults, which looked like the whole path had jumped several metres.
-    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), zones:deepCopy(setup.zones || []), logic:deepCopy(setup.logic || []), cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
+    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), zones:deepCopy(setup.zones || []), logic:deepCopy(setup.logic || []), logicSchemaVersion:2, cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
   }
 
   function savePuzzleTemplateFromCurrent() {
@@ -13549,6 +13681,33 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     ctx.restore();
   }
 
+  function drawPuzzleEntryExitGuide(ctx,instance){
+    if(!instance||!puzzleWorkspaceVisible()||puzzleWorkspaceTab!=='logic')return;
+    const record=currentPuzzleLogic(instance.marker).find(item=>item.id===selectedPuzzleLogicId&&item.type==='entry-exit');
+    if(!record)return;
+    const points=puzzleEntryExitPoints(instance,record);if(!points)return;
+    const specs=[
+      {kind:'entry',x:points.entryX,label:'ENTRY',mode:record.entryMode,fill:'#bfe7ff',stroke:'#28536a'},
+      {kind:'exit',x:points.exitX,label:'EXIT',mode:record.exitMode,fill:'#c9f4ca',stroke:'#335b3c'}
+    ];
+    ctx.save();
+    for(const spec of specs){
+      const groundY=playSurfaceYAt(spec.x)+.05;
+      const ground=projectWorldPoint(spec.x,groundY,pathZ);
+      const top=projectWorldPoint(spec.x,groundY+1.35,pathZ);
+      if(!ground||!top)continue;
+      const moving=puzzleEntryExitMoveHandle===spec.kind;
+      ctx.strokeStyle=moving?'rgba(255,224,133,.98)':spec.fill;ctx.lineWidth=moving?3:2;ctx.setLineDash([6,5]);
+      ctx.beginPath();ctx.moveTo(ground.x,ground.y);ctx.lineTo(top.x,top.y);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(ground.x,ground.y,moving?10:8,0,Math.PI*2);ctx.fillStyle=moving?'#ffe08a':spec.fill;ctx.fill();ctx.strokeStyle=spec.stroke;ctx.lineWidth=2;ctx.stroke();
+      const label=`${spec.label}${moving?' · MOVE':''} · ${spec.mode==='manual'?'MANUAL':'AUTO'}`;
+      ctx.font='900 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;
+      const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,top.x-tw*.5));const ly=Math.max(48,top.y-23);
+      ctx.fillStyle='rgba(20,31,38,.92)';ctx.fillRect(lx,ly,tw,18);ctx.fillStyle=moving?'#fff2b9':spec.fill;ctx.fillText(label,lx+7,ly+13);
+    }
+    ctx.restore();
+  }
+
   function puzzleCartPathHandlePositions(instance) {
     if (!instance || !puzzleCartPathEditMode) return [];
     const path = puzzleCartPathWorld(instance.marker);
@@ -13712,6 +13871,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const instance = selectedPuzzleInstance();
     if (!instance) return;
     drawPuzzleZonesGuide(ctx, instance);
+    drawPuzzleEntryExitGuide(ctx, instance);
     drawPuzzleCartPathGuide(ctx, instance);
     const b = puzzleBounds(instance);
     const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
@@ -17624,6 +17784,45 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   bindEditorPress(puzzleLogicAddBtn,addSelectedPuzzleLogic);
   bindEditorPress(puzzleLogicRemoveBtn,removeSelectedPuzzleLogic);
+  const selectedEntryExitLogic=()=>{
+    const instance=selectedPuzzleInstance();if(!instance)return {instance:null,record:null};
+    const record=currentPuzzleLogic(instance.marker).find(item=>item.id===selectedPuzzleLogicId&&item.type==='entry-exit')||null;
+    return {instance,record};
+  };
+  const toggleEntryExitMove=handle=>{
+    const {instance,record}=selectedEntryExitLogic();if(!instance||!record||!puzzleEditSession||puzzleTestMode)return;
+    puzzleEntryExitMoveHandle=puzzleEntryExitMoveHandle===handle?null:handle;
+    if(puzzleEntryExitMoveHandle){
+      puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;puzzleCartPathEditMode=false;puzzleCartPathPreviewPlaying=false;puzzleCartPathHandle=null;
+      addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
+    }
+    renderPuzzleWorkspaceV2({force:true});
+    hintEl.textContent=puzzleEntryExitMoveHandle
+      ? `Move ${handle==='entry'?'Entry':'Exit'} · drag anywhere · lift and touch again to continue`
+      : `${handle==='entry'?'Entry':'Exit'} move finished`;
+    hintEl.classList.remove('hidden');
+  };
+  bindEditorPress(puzzleLogicEntryMoveBtn,()=>toggleEntryExitMove('entry'));
+  bindEditorPress(puzzleLogicExitMoveBtn,()=>toggleEntryExitMove('exit'));
+  bindEditorPress(puzzleLogicEntryAutoBtn,()=>{
+    const {instance,record}=selectedEntryExitLogic();if(!instance||!record||!puzzleEditSession||record.entryMode!=='manual')return;
+    runEditorTransaction('Set puzzle Entry to bounds',()=>{record.entryMode='bounds';record.entryX=null;savePuzzleLogicDraft(instance.marker);});
+    puzzleEntryExitMoveHandle=null;puzzleLogicListSignature='';renderPuzzleWorkspaceV2({force:true});
+  });
+  bindEditorPress(puzzleLogicExitAutoBtn,()=>{
+    const {instance,record}=selectedEntryExitLogic();if(!instance||!record||!puzzleEditSession||record.exitMode!=='manual')return;
+    runEditorTransaction('Set puzzle Exit to bounds',()=>{record.exitMode='bounds';record.exitX=null;savePuzzleLogicDraft(instance.marker);});
+    puzzleEntryExitMoveHandle=null;puzzleLogicListSignature='';renderPuzzleWorkspaceV2({force:true});
+  });
+  bindEditorPress(puzzleLogicEntryExitAutoBtn,()=>{
+    const {instance,record}=selectedEntryExitLogic();if(!instance||!record||!puzzleEditSession)return;
+    const points=puzzleEntryExitPoints(instance,record);const reverse=points?.direction<0;
+    runEditorTransaction('Set puzzle Entry / Exit to bounds',()=>{
+      record.entryMode='bounds';record.exitMode='bounds';record.entryX=null;record.exitX=null;
+      record.entryEdge=reverse?'max':'min';record.exitEdge=reverse?'min':'max';savePuzzleLogicDraft(instance.marker);
+    });
+    puzzleEntryExitMoveHandle=null;puzzleLogicListSignature='';renderPuzzleWorkspaceV2({force:true});
+  });
   if(puzzleLogicRewardItemEl){
     puzzleLogicRewardItemEl.addEventListener('pointerdown',event=>event.stopPropagation(),{passive:true});
     puzzleLogicRewardItemEl.addEventListener('change',()=>{
@@ -17833,7 +18032,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(puzzleZoneMoveBtn,()=>{
     const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||!zone||!puzzleEditSession)return;
     puzzleZoneMoveMode=!puzzleZoneMoveMode;
-    if(puzzleZoneMoveMode){puzzleZoneSpawnMoveMode=false;puzzleCartPathEditMode=false;puzzleCartPathHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);}
+    if(puzzleZoneMoveMode){puzzleZoneSpawnMoveMode=false;puzzleEntryExitMoveHandle=null;puzzleCartPathEditMode=false;puzzleCartPathHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);}
     renderPuzzleWorkspaceV2({force:true});
     hintEl.textContent=puzzleZoneMoveMode
       ? `Move ${puzzleZoneTypeLabel(zone.type)} · drag anywhere · lift and touch again to continue from the current position`
@@ -17843,7 +18042,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(puzzleZoneMoveSpawnBtn,()=>{
     const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||zone?.type!=='respawn-trigger'||!puzzleEditSession)return;
     puzzleZoneSpawnMoveMode=!puzzleZoneSpawnMoveMode;
-    if(puzzleZoneSpawnMoveMode){puzzleZoneMoveMode=false;puzzleCartPathEditMode=false;puzzleCartPathHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);}
+    if(puzzleZoneSpawnMoveMode){puzzleZoneMoveMode=false;puzzleEntryExitMoveHandle=null;puzzleCartPathEditMode=false;puzzleCartPathHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);}
     renderPuzzleWorkspaceV2({force:true});
     hintEl.textContent=puzzleZoneSpawnMoveMode
       ? 'Move Respawn Spawn Point · drag anywhere · lift and touch again to continue from the current position'
@@ -17899,6 +18098,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     puzzleEnvironmentPlacementMode = layer === 'dressing';
     puzzleZoneMoveMode = false;
     puzzleZoneSpawnMoveMode = false;
+    puzzleEntryExitMoveHandle = null;
     puzzleCartPathEditMode = false;
     puzzleCartPathHandle = null;
     addAssetType = null;
@@ -17919,7 +18119,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(puzzleCartPathEditBtn,()=>{
     const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode||!cartObjectForInstance(instance)||!puzzleLogicRecord(instance.marker,'cart-path'))return;
     puzzleCartPathEditMode=!puzzleCartPathEditMode;
-    puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
+    puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;puzzleEntryExitMoveHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
     if(puzzleCartPathEditMode){
       const cfg=currentPuzzleCartPath(instance.marker);if(!cfg.enabled){cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);}
       puzzleCartPathPreviewT=1;puzzleCartPathPreviewPlaying=false;
@@ -18340,6 +18540,27 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         }
       }
 
+      if(puzzleEntryExitMoveHandle&&editorScope==='puzzle'&&puzzleEditSession&&puzzleWorkspaceTab==='logic'){
+        const instance=selectedPuzzleInstance();
+        const record=instance?currentPuzzleLogic(instance.marker).find(item=>item.id===selectedPuzzleLogicId&&item.type==='entry-exit'):null;
+        const points=record?puzzleEntryExitPoints(instance,record):null;
+        if(instance&&record&&points){
+          const handle=puzzleEntryExitMoveHandle;
+          const worldX=handle==='entry'?points.entryX:points.exitX;
+          const worldY=playSurfaceYAt(worldX)+.06;
+          editorGesture.kind='puzzle-entry-exit';
+          editorGesture.entryExitMarker=instance.marker;
+          editorGesture.entryExitLogicId=record.id;
+          editorGesture.entryExitHandle=handle;
+          editorGesture.entryExitStartWorldX=worldX;
+          editorGesture.entryExitStartScreen=projectWorldPoint(worldX,worldY,pathZ);
+          beginEditorTransaction(`Move puzzle ${handle}`);
+          hintEl.textContent=`Move ${handle==='entry'?'Entry':'Exit'} · drag anywhere · lift and touch again to continue`;
+          hintEl.classList.remove('hidden');
+          return;
+        }
+      }
+
       const cartPathHandleHit = puzzleCartPathHandleAt(e.clientX, e.clientY);
       if (cartPathHandleHit) {
         const instance=selectedPuzzleInstance();
@@ -18569,6 +18790,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           }):{x:editorGesture.zoneStartWorldX+dx*.0065,z:editorGesture.zoneStartWorldZ};
           zone.centerX=solved.x-marker.x;zone.centerZ=solved.z;
         }
+      } else if (editorGesture.kind === 'puzzle-entry-exit' && editorGesture.entryExitMarker) {
+        const marker=editorGesture.entryExitMarker;
+        const record=currentPuzzleLogic(marker).find(item=>item.id===editorGesture.entryExitLogicId&&item.type==='entry-exit');
+        const startScreen=editorGesture.entryExitStartScreen;
+        if(record&&startScreen){
+          const solved=solveEditorScreenDragXZ({
+            startX:editorGesture.entryExitStartWorldX,startZ:pathZ,
+            startScreenX:startScreen.x,startScreenY:startScreen.y,
+            targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
+            yAt:(x)=>playSurfaceYAt(x)+.06
+          });
+          const handle=editorGesture.entryExitHandle;
+          if(handle==='entry'){record.entryMode='manual';record.entryX=solved.x-marker.x;}
+          else if(handle==='exit'){record.exitMode='manual';record.exitX=solved.x-marker.x;}
+        }
       } else if (editorGesture.kind === 'puzzle-cart-path' && editorGesture.cartPathMarker) {
         const marker=editorGesture.cartPathMarker;
         const cfg=currentPuzzleCartPath(marker);
@@ -18633,6 +18869,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
             else recordObjectEdit(gesture.object);
           }
           else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
+          else if (gesture.kind==='puzzle-entry-exit' && gesture.entryExitMarker) {
+            savePuzzleLogicDraft(gesture.entryExitMarker);puzzleLogicListSignature='';updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+          }
           else if (gesture.kind==='puzzle-cart-path' && gesture.cartPathMarker) { savePuzzleCartPathDraft(gesture.cartPathMarker); updatePuzzlePanel(); }
           else if (gesture.kind==='puzzle-marker' && gesture.marker) {
             persistPuzzleMarkerPosition(gesture.marker);

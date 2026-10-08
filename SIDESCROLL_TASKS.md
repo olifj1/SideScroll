@@ -2,6 +2,26 @@
 
 Persistent working backlog for the SideScroll / Aureli project. Keep this file in future builds and update it as tasks are completed, split, reprioritised or discovered.
 
+## October 8, 2026 — v1.0.134 Puzzle Entry / Exit Logic
+
+**Current status:** v1.0.134 replaces the Fallen Tree's opaque legacy `cross-x` completion with a reusable applied `Puzzle Entry / Exit` Logic system. The system defaults to puzzle-bound markers, supports independent manual Entry/Exit placement, participates in the existing Puzzle transaction/session model, and preserves the exact old Fallen Tree completion point during migration. On-device regression testing is still required.
+
+### v1.0.134 — Puzzle Entry / Exit
+
+- [x] Add `Puzzle Entry / Exit` as a reusable applied Logic system.
+- [x] Entry marks a puzzle as started; Exit marks it complete.
+- [x] Default new Entry / Exit Logic to AUTO markers derived from the current puzzle bounds.
+- [x] Allow Entry and Exit to be moved independently; moving a marker changes only that marker to MANUAL.
+- [x] Provide `Entry = Bounds`, `Exit = Bounds` and `Use Puzzle Bounds` actions to return manual markers to automatic bounds-following placement.
+- [x] Draw labelled Entry / Exit markers in the viewport while this Logic item is selected; Move Entry / Move Exit use the same relative screen-space drag pattern as stable Puzzle Zones.
+- [x] Preserve the Fallen Tree's old `cross-x` threshold as a manual Exit during migration, while its Entry follows the near puzzle bound.
+- [x] Migrate v1.0.133 explicit `logic[]` saves safely with a Logic schema version so an older empty list cannot erase legacy `cross-x`, while an intentionally removed Entry / Exit in v1.0.134 stays removed.
+- [x] Keep Socket Completion and Puzzle Entry / Exit mutually exclusive as completion rules in `+ Add Logic`; Completion Reward remains independent and can coexist with either.
+- [x] Integrate Entry / Exit edits with Puzzle Undo/Redo, Save/Discard, recovery, Reset/Test and template/start snapshots.
+- [ ] Focused iPhone regression: Fallen Tree should show Puzzle Entry / Exit in Logic, show/move both markers, start on crossing Entry and complete on crossing Exit.
+- [ ] Regression-test AUTO markers after resizing puzzle bounds, then MANUAL marker placement, Undo/Redo, Save/Discard and Reset to Start.
+- [ ] Confirm removing Puzzle Entry / Exit from a disposable puzzle remains removed after reload/reset rather than reviving legacy metadata.
+
 ## October 8, 2026 — v1.0.133 Applied Puzzle Logic
 
 **Current status:** v1.0.133 formalises the first three existing puzzle behaviours as an applied Logic registry while preserving the v1.0.132 Management → Edit / Zones architecture. Only attached systems appear in the Logic tab; `+ Add Logic` attaches a compatible system. Legacy Stone Wall and Cart Path data are migrated when read, but an explicit `logic[]` list becomes authoritative once authored. On-device regression testing is still required before this slice is device-verified.
@@ -16,7 +36,7 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 - [x] Keep physical socket placement/matching under Contents; placing a socket no longer silently creates completion semantics.
 - [x] Make explicit `logic[]` authoritative so removing a Logic system does not reappear from legacy metadata on the next render/reset.
 - [x] Integrate Logic additions/removals/reward changes with the existing Puzzle Save/Discard, recovery and Undo/Redo snapshots.
-- [x] Preserve the older `cross-x` completion rule for Fallen Tree as a legacy runtime rule; it is intentionally not yet turned into a new Logic component.
+- [x] v1.0.133 preserved the older Fallen Tree `cross-x` rule temporarily; this was superseded in v1.0.134 by reusable Puzzle Entry / Exit Logic.
 - [x] Do not introduce a generic visual-scripting/node-graph system.
 - [ ] Focused iPhone regression: Stone Wall should list Socket Completion + Completion Reward, complete from its existing sockets, and still spawn/collect its reward.
 - [ ] Focused iPhone regression: Broken Bridge should list Cart Path only when attached; Edit Path, ghost preview, reset/test and the repaired-cart takeover should behave exactly as before.
