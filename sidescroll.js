@@ -637,14 +637,20 @@
   const puzzleMarkerEditor = document.getElementById('sidescroll-puzzle-marker-editor');
   const puzzleMarkerXInput = document.getElementById('sidescroll-puzzle-marker-x');
   const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
-  const puzzleExclusionEditBtn = document.getElementById('sidescroll-puzzle-exclusion-edit');
-  const puzzleExclusionToggleBtn = document.getElementById('sidescroll-puzzle-exclusion-toggle');
-  const puzzleRespawnEditBtn = document.getElementById('sidescroll-puzzle-respawn-edit');
-  const puzzleRespawnTools = document.getElementById('sidescroll-puzzle-respawn-tools');
-  const puzzleRespawnSetSpawnBtn = document.getElementById('sidescroll-puzzle-respawn-set-spawn');
-  const puzzleRespawnToggleBtn = document.getElementById('sidescroll-puzzle-respawn-toggle');
-  const puzzleRespawnLowerBtn = document.getElementById('sidescroll-puzzle-respawn-lower');
-  const puzzleRespawnRaiseBtn = document.getElementById('sidescroll-puzzle-respawn-raise');
+  const puzzleZoneCountEl = document.getElementById('sidescroll-puzzle-zone-count');
+  const puzzleZoneAddTypeEl = document.getElementById('sidescroll-puzzle-zone-add-type');
+  const puzzleZoneAddBtn = document.getElementById('sidescroll-puzzle-zone-add');
+  const puzzleZoneListEl = document.getElementById('sidescroll-puzzle-zone-list');
+  const puzzleZoneEmptyEl = document.getElementById('sidescroll-puzzle-zone-empty');
+  const puzzleZoneInspectorEl = document.getElementById('sidescroll-puzzle-zone-inspector');
+  const puzzleZoneNameEl = document.getElementById('sidescroll-puzzle-zone-name');
+  const puzzleZoneTypeEl = document.getElementById('sidescroll-puzzle-zone-type');
+  const puzzleZoneToggleBtn = document.getElementById('sidescroll-puzzle-zone-toggle');
+  const puzzleZoneMoveBtn = document.getElementById('sidescroll-puzzle-zone-move');
+  const puzzleZoneSetSpawnBtn = document.getElementById('sidescroll-puzzle-zone-set-spawn');
+  const puzzleZoneDeleteBtn = document.getElementById('sidescroll-puzzle-zone-delete');
+  const puzzleRespawnTriggerRowEl = document.getElementById('sidescroll-puzzle-respawn-trigger-row');
+  const puzzleRespawnTriggerInput = document.getElementById('sidescroll-puzzle-respawn-trigger');
   const puzzleRespawnTriggerValue = document.getElementById('sidescroll-puzzle-respawn-trigger-value');
   const puzzleCartPathEditBtn = document.getElementById('sidescroll-puzzle-cart-path-edit');
   const puzzleCartPathTools = document.getElementById('sidescroll-puzzle-cart-path-tools');
@@ -5225,20 +5231,20 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let puzzleTestSnapshot = null;
   const puzzleStartDirty = new Set();
   const puzzleDraftBounds = Object.create(null);
-  const puzzleRespawnDraft = Object.create(null);
-  let puzzleRespawnEditMode = false;
-  let puzzleRespawnHandle = null;
+  const puzzleZonesDraft = Object.create(null);
+  let selectedPuzzleZoneId = null;
+  let puzzleZoneMoveMode = false;
   const puzzleCartPathDraft = Object.create(null);
   let puzzleCartPathEditMode = false;
   let puzzleCartPathHandle = null;
   let puzzleCartPathPreviewT = 1;
   let puzzleCartPathPreviewPlaying = false;
   let lastPuzzleRespawnAt = 0;
+  // Legacy puzzle exclusions lived in their own localStorage dictionary. Keep
+  // this reader only as a migration source. New authoring is stored in zones[].
   const PUZZLE_EXCLUSION_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.exclusions.v1' : 'sidescroll-puzzle-exclusions-v1';
   let puzzleExclusionState = {};
   try { puzzleExclusionState = JSON.parse(localStorage.getItem(PUZZLE_EXCLUSION_STORAGE_KEY) || '{}') || {}; } catch (_) { puzzleExclusionState = {}; }
-  let puzzleExclusionEditMode = false;
-  let puzzleExclusionHandle = null;
   // Puzzle edit layer: false = authored puzzle pieces, true = puzzle-owned environment dressing.
   // This is independent from addAssetType: choosing a layer does not itself enter placement.
   let puzzleEnvironmentPlacementMode = false;
@@ -5271,8 +5277,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return puzzleDraftBounds[marker.id];
   }
 
-  function savePuzzleExclusionState(force = false) {
-    if (!force && puzzleEditSession && !puzzleTestMode) { puzzleEditSession.pendingPersistence.add('exclusion'); return; }
+  function persistLegacyPuzzleExclusionState() {
     try { localStorage.setItem(PUZZLE_EXCLUSION_STORAGE_KEY, JSON.stringify(puzzleExclusionState)); } catch (_) {}
   }
 
@@ -5284,8 +5289,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         enabled:true,
         centerX:(legacy.minX + legacy.maxX) * 0.5,
         centerZ:(legacy.minZ + legacy.maxZ) * 0.5,
-        width:Math.max(1, legacy.maxX - legacy.minX),
-        depth:Math.max(1, legacy.maxZ - legacy.minZ)
+        width:Math.max(0.8, legacy.maxX - legacy.minX),
+        depth:Math.max(0.8, legacy.maxZ - legacy.minZ)
       };
     }
     const bounds = currentPuzzleBoundsRelative(marker);
@@ -5295,41 +5300,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       centerZ:0,
       width:Math.max(3, bounds.maxX - bounds.minX),
       depth:8.4
-    };
-  }
-
-  function currentPuzzleExclusion(marker) {
-    if (!marker) return { enabled:false, centerX:0, centerZ:0, width:8, depth:8 };
-    const raw = puzzleExclusionState[marker.id];
-    const fallback = defaultPuzzleExclusion(marker);
-    if (!raw || typeof raw !== 'object') {
-      puzzleExclusionState[marker.id] = { ...fallback };
-      return puzzleExclusionState[marker.id];
-    }
-    const clean = {
-      enabled: raw.enabled !== false,
-      centerX: Number.isFinite(Number(raw.centerX)) ? Number(raw.centerX) : fallback.centerX,
-      centerZ: Number.isFinite(Number(raw.centerZ)) ? Number(raw.centerZ) : fallback.centerZ,
-      width: Math.max(1, Number.isFinite(Number(raw.width)) ? Number(raw.width) : fallback.width),
-      depth: Math.max(1, Number.isFinite(Number(raw.depth)) ? Number(raw.depth) : fallback.depth)
-    };
-    puzzleExclusionState[marker.id] = clean;
-    return clean;
-  }
-
-  function puzzleExclusionWorldBounds(marker) {
-    const ex = currentPuzzleExclusion(marker);
-    const centerX = marker.x + ex.centerX;
-    return {
-      enabled:ex.enabled,
-      centerX,
-      centerZ:ex.centerZ,
-      width:ex.width,
-      depth:ex.depth,
-      minX:centerX-ex.width*0.5,
-      maxX:centerX+ex.width*0.5,
-      minZ:ex.centerZ-ex.depth*0.5,
-      maxZ:ex.centerZ+ex.depth*0.5
     };
   }
 
@@ -5367,41 +5337,144 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       enabled: source.enabled === true,
       spawnX: Number.isFinite(Number(source.spawnX)) ? Number(source.spawnX) : fallback.spawnX,
       spawnZ: Number.isFinite(Number(source.spawnZ)) ? Number(source.spawnZ) : fallback.spawnZ,
-      zoneCenterX: Number.isFinite(Number(source.zoneCenterX)) ? Number(source.zoneCenterX) : fallback.zoneCenterX,
-      zoneCenterZ: Number.isFinite(Number(source.zoneCenterZ)) ? Number(source.zoneCenterZ) : fallback.zoneCenterZ,
+      zoneCenterX: Number.isFinite(Number(source.zoneCenterX ?? source.centerX)) ? Number(source.zoneCenterX ?? source.centerX) : fallback.zoneCenterX,
+      zoneCenterZ: Number.isFinite(Number(source.zoneCenterZ ?? source.centerZ)) ? Number(source.zoneCenterZ ?? source.centerZ) : fallback.zoneCenterZ,
       width: Math.max(0.8, Number.isFinite(Number(source.width)) ? Number(source.width) : fallback.width),
       depth: Math.max(0.8, Number.isFinite(Number(source.depth)) ? Number(source.depth) : fallback.depth),
       triggerOffsetY: Rig.clamp(Number.isFinite(Number(source.triggerOffsetY)) ? Number(source.triggerOffsetY) : fallback.triggerOffsetY, -4.5, 0.5)
     };
   }
 
-  function currentPuzzleRespawn(marker) {
-    if (!marker) return null;
-    if (!puzzleRespawnDraft[marker.id]) {
-      const runtimeDraft = puzzleSavedState?.[marker.id]?.respawnDraft || null;
-      const start = puzzleStartFor(marker);
-      puzzleRespawnDraft[marker.id] = normalisePuzzleRespawn(marker, runtimeDraft || start?.respawn || null);
+  function puzzleZoneId(type='zone') {
+    const slug=type==='respawn-trigger'?'respawn':'exclusion';
+    return `zone-${slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+  }
+
+  function cleanPuzzleZone(marker, raw, fallbackType='procedural-exclusion', fallbackId='zone-1') {
+    const type = raw?.type === 'respawn-trigger' ? 'respawn-trigger' : (raw?.type === 'procedural-exclusion' ? 'procedural-exclusion' : fallbackType);
+    if (type === 'respawn-trigger') {
+      const legacy=normalisePuzzleRespawn(marker,raw);
+      return {
+        id:typeof raw?.id==='string'&&raw.id.trim()?raw.id.trim():fallbackId,
+        type,
+        enabled:raw?.enabled===true,
+        centerX:legacy.zoneCenterX,
+        centerZ:legacy.zoneCenterZ,
+        width:legacy.width,
+        depth:legacy.depth,
+        triggerOffsetY:legacy.triggerOffsetY,
+        spawnX:legacy.spawnX,
+        spawnZ:legacy.spawnZ
+      };
     }
-    return puzzleRespawnDraft[marker.id];
+    const fallback=defaultPuzzleExclusion(marker);
+    return {
+      id:typeof raw?.id==='string'&&raw.id.trim()?raw.id.trim():fallbackId,
+      type:'procedural-exclusion',
+      enabled:raw?.enabled!==false,
+      centerX:Number.isFinite(Number(raw?.centerX))?Number(raw.centerX):fallback.centerX,
+      centerZ:Number.isFinite(Number(raw?.centerZ))?Number(raw.centerZ):fallback.centerZ,
+      width:Math.max(0.8,Number.isFinite(Number(raw?.width))?Number(raw.width):fallback.width),
+      depth:Math.max(0.8,Number.isFinite(Number(raw?.depth))?Number(raw.depth):fallback.depth)
+    };
   }
 
-  function savePuzzleRespawnDraft(marker) {
-    if (!marker) return;
-    const cfg = currentPuzzleRespawn(marker);
-    const runtime = savedPuzzleFor(marker.id);
-    runtime.respawnDraft = deepCopy(cfg);
-    if (typeof editMode !== 'undefined' && editMode && !puzzleTestMode) puzzleStartDirty.add(marker.id);
+  function meaningfulLegacyRespawn(marker, raw) {
+    if (!raw || typeof raw !== 'object') return false;
+    if (raw.enabled === true) return true;
+    const clean=normalisePuzzleRespawn(marker,raw), fallback=normalisePuzzleRespawn(marker,null);
+    return ['spawnX','spawnZ','zoneCenterX','zoneCenterZ','width','depth','triggerOffsetY']
+      .some(key=>Math.abs(Number(clean[key])-Number(fallback[key]))>0.0001);
+  }
+
+  function normalisePuzzleZones(marker, rawZones, { legacyExclusion=null, legacyRespawn=null }={}) {
+    const result=[];
+    const used=new Set();
+    const add=(raw,type,index)=>{
+      let id=typeof raw?.id==='string'&&raw.id.trim()?raw.id.trim():`zone-${type==='respawn-trigger'?'respawn':'exclusion'}-${index+1}`;
+      while(used.has(id))id=`${id}-${index+1}`;
+      used.add(id);
+      result.push(cleanPuzzleZone(marker,raw,type,id));
+    };
+    if (Array.isArray(rawZones)) {
+      rawZones.forEach((raw,index)=>{
+        if(raw?.type!=='procedural-exclusion'&&raw?.type!=='respawn-trigger')return;
+        add(raw,raw.type,index);
+      });
+      return result;
+    }
+    if (legacyExclusion && typeof legacyExclusion === 'object') add(legacyExclusion,'procedural-exclusion',result.length);
+    if (meaningfulLegacyRespawn(marker,legacyRespawn)) add(legacyRespawn,'respawn-trigger',result.length);
+    return result;
+  }
+
+  function initialisePuzzleZones(marker, { sourceZones, legacyExclusion, legacyRespawn, force=false }={}) {
+    if(!marker)return [];
+    if(!force&&Array.isArray(puzzleZonesDraft[marker.id]))return puzzleZonesDraft[marker.id];
+    const hasExplicitZones=Array.isArray(sourceZones);
+    const zones=normalisePuzzleZones(marker,hasExplicitZones?sourceZones:null,{
+      legacyExclusion:hasExplicitZones?null:legacyExclusion,
+      legacyRespawn:hasExplicitZones?null:legacyRespawn
+    });
+    puzzleZonesDraft[marker.id]=zones;
+    return zones;
+  }
+
+  function currentPuzzleZones(marker) {
+    if(!marker)return [];
+    return Array.isArray(puzzleZonesDraft[marker.id])?puzzleZonesDraft[marker.id]:[];
+  }
+
+  function currentPuzzleZone(marker) {
+    const zones=currentPuzzleZones(marker);
+    if(!zones.length)return null;
+    return zones.find(zone=>zone.id===selectedPuzzleZoneId)||zones[0]||null;
+  }
+
+  function puzzleZoneTypeLabel(type) {
+    return type==='respawn-trigger'?'Respawn Trigger':'Procedural Exclusion';
+  }
+
+  function puzzleZoneWorld(marker, zone) {
+    if(!marker||!zone)return null;
+    const centerX=Number(marker.x)+Number(zone.centerX||0);
+    const centerZ=Number(zone.centerZ||0);
+    const width=Math.max(.8,Number(zone.width)||.8),depth=Math.max(.8,Number(zone.depth)||.8);
+    const base={...zone,centerX,centerZ,width,depth,minX:centerX-width*.5,maxX:centerX+width*.5,minZ:centerZ-depth*.5,maxZ:centerZ+depth*.5};
+    if(zone.type==='respawn-trigger'){
+      base.triggerY=playSurfaceYAt(centerX)+Number(zone.triggerOffsetY||0);
+      base.spawnWorldX=Number(marker.x)+Number(zone.spawnX||0);
+      base.spawnWorldZ=Number(zone.spawnZ||0);
+    }
+    return base;
+  }
+
+  function puzzleExclusionWorldBoundsList(marker) {
+    return currentPuzzleZones(marker).filter(zone=>zone.type==='procedural-exclusion').map(zone=>puzzleZoneWorld(marker,zone)).filter(Boolean);
+  }
+
+  function puzzleRespawnWorldList(marker) {
+    return currentPuzzleZones(marker).filter(zone=>zone.type==='respawn-trigger').map(zone=>puzzleZoneWorld(marker,zone)).filter(Boolean);
+  }
+
+  // Backward-compatible readers for gameplay code that expects one respawn.
+  // New code should iterate puzzleRespawnWorldList where multiple zones matter.
+  function currentPuzzleRespawn(marker) {
+    return currentPuzzleZones(marker).find(zone=>zone.type==='respawn-trigger')||null;
+  }
+
+  function savePuzzleZonesDraft(marker) {
+    if(!marker)return;
+    const zones=deepCopy(currentPuzzleZones(marker));
+    const runtime=savedPuzzleFor(marker.id);
+    runtime.zonesDraft=zones;
+    delete runtime.respawnDraft;
+    // Keep the legacy exclusion source untouched until Save commits the session.
+    // That way Discard can still reconstruct a legacy-only puzzle if it unloads
+    // and reloads again during the same page lifetime.
+    if(typeof editMode!=='undefined'&&editMode&&!puzzleTestMode)puzzleStartDirty.add(marker.id);
     savePuzzleState();
-    if(puzzleEditSession?.markerId===marker.id&&!editorTransaction)recordImplicitEditorMutation('Edit respawn');
-  }
-
-  function puzzleRespawnWorld(marker) {
-    const cfg = currentPuzzleRespawn(marker);
-    if (!marker || !cfg) return null;
-    const centerX = marker.x + cfg.zoneCenterX;
-    const centerZ = cfg.zoneCenterZ;
-    const triggerY = playSurfaceYAt(centerX) + cfg.triggerOffsetY;
-    return { ...cfg, centerX, centerZ, triggerY, minX:centerX-cfg.width*0.5, maxX:centerX+cfg.width*0.5, minZ:centerZ-cfg.depth*0.5, maxZ:centerZ+cfg.depth*0.5, spawnWorldX:marker.x+cfg.spawnX, spawnWorldZ:cfg.spawnZ };
+    if(puzzleEditSession?.markerId===marker.id&&!editorTransaction)recordImplicitEditorMutation('Edit puzzle zone');
   }
 
   function cartObjectForInstance(instance) {
@@ -6274,7 +6347,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
     }
-    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
+    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
     puzzleStartState[instance.id] = snapshot;
     puzzleStartDirty.delete(instance.id);
     savePuzzleStarts();
@@ -6285,7 +6358,12 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (!instance || !snapshot) return;
     if (snapshot.bounds) puzzleDraftBounds[instance.id] = { ...snapshot.bounds };
     else puzzleDraftBounds[instance.id] = { ...codeBoundsForMarker(instance.marker) };
-    puzzleRespawnDraft[instance.id] = normalisePuzzleRespawn(instance.marker, snapshot.respawn || null);
+    initialisePuzzleZones(instance.marker, {
+      sourceZones:Array.isArray(snapshot.zones)?snapshot.zones:undefined,
+      legacyExclusion:Array.isArray(snapshot.zones)?null:(Object.prototype.hasOwnProperty.call(puzzleExclusionState,instance.id)?puzzleExclusionState[instance.id]:(markerDefinition(instance.marker)?.exclusion?defaultPuzzleExclusion(instance.marker):null)),
+      legacyRespawn:Array.isArray(snapshot.zones)?null:(snapshot.respawn || markerDefinition(instance.marker)?.respawn || null),
+      force:true
+    });
     // Legacy v1.0.41–1.0.46 authored snapshots accidentally omitted cartPath.
     // Preserve the already-authored draft in that case instead of rebuilding a
     // fresh default rail during Reset, which made the guide jump to the right.
@@ -6419,7 +6497,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     runtime.solved = false;
     delete runtime.reward;
     runtime.boundsDraft = deepCopy(currentPuzzleBoundsRelative(instance.marker));
-    runtime.respawnDraft = deepCopy(currentPuzzleRespawn(instance.marker));
+    runtime.zonesDraft = deepCopy(currentPuzzleZones(instance.marker));
+    delete runtime.respawnDraft;
     runtime.cartPathDraft = deepCopy(currentPuzzleCartPath(instance.marker));
     runtime.objects = {};
     for (const obj of instance.objects) {
@@ -6550,7 +6629,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
     const saved = savedPuzzleFor(marker.id);
     const authored = puzzleStartFor(marker);
-    if (!puzzleRespawnDraft[marker.id]) puzzleRespawnDraft[marker.id] = normalisePuzzleRespawn(marker, saved.respawnDraft || authored?.respawn || null);
+    initialisePuzzleZones(marker, {
+      sourceZones:Array.isArray(saved.zonesDraft)?saved.zonesDraft:(Array.isArray(authored?.zones)?authored.zones:undefined),
+      legacyExclusion:Object.prototype.hasOwnProperty.call(puzzleExclusionState,marker.id)?puzzleExclusionState[marker.id]:(def?.exclusion?defaultPuzzleExclusion(marker):null),
+      legacyRespawn:saved.respawnDraft || authored?.respawn || def?.respawn || null
+    });
     if (!puzzleCartPathDraft[marker.id]) puzzleCartPathDraft[marker.id] = normalisePuzzleCartPath(marker, saved.cartPathDraft || authored?.cartPath || null);
     const instance = { id:marker.id, marker, def, objects:[], modifierObjects:[], solved:!!saved.solved };
     const baseById = new Map((def.props || []).map(prop => [prop.id, prop]));
@@ -6730,12 +6813,18 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   let frameWorldGroupExclusionBounds=[];
-  function refreshFrameWorldGroupExclusionBounds(){
-    const next=[];
+  let framePuzzleExclusionBounds=[];
+  function refreshFrameExclusionBounds(){
+    const groupBounds=[];
     for(const group of worldGroups()){
-      for(const b of worldGroupExclusionWorldBoundsList(group))if(b?.enabled)next.push(b);
+      for(const b of worldGroupExclusionWorldBoundsList(group))if(b?.enabled)groupBounds.push(b);
     }
-    frameWorldGroupExclusionBounds=next;
+    frameWorldGroupExclusionBounds=groupBounds;
+    const puzzleBounds=[];
+    for(const instance of activePuzzleInstances.values()){
+      for(const b of puzzleExclusionWorldBoundsList(instance.marker))if(b?.enabled)puzzleBounds.push(b);
+    }
+    framePuzzleExclusionBounds=puzzleBounds;
   }
 
   function dressingHiddenByPuzzle(obj, drawX) {
@@ -6749,10 +6838,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     for(const b of frameWorldGroupExclusionBounds){
       if(drawX>=b.minX&&drawX<=b.maxX&&obj.z>=b.minZ&&obj.z<=b.maxZ)return true;
     }
-    for (const instance of activePuzzleInstances.values()) {
-      const b = puzzleExclusionWorldBounds(instance.marker);
-      if (!b.enabled) continue;
-      if (drawX >= b.minX && drawX <= b.maxX && obj.z >= b.minZ && obj.z <= b.maxZ) return true;
+    for(const b of framePuzzleExclusionBounds){
+      if(drawX>=b.minX&&drawX<=b.maxX&&obj.z>=b.minZ&&obj.z<=b.maxZ)return true;
     }
     return false;
   }
@@ -6766,10 +6853,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return bestD <= 12 ? best : null;
   }
 
-  function respawnPlayerForPuzzle(instance) {
-    if (!instance) return false;
-    const cfg = currentPuzzleRespawn(instance.marker);
-    if (!cfg?.enabled) return false;
+  function respawnPlayerForPuzzle(instance, cfg=currentPuzzleRespawn(instance?.marker)) {
+    if (!instance || !cfg?.enabled) return false;
     const capsule = colliderWorld();
     let spawnX = instance.marker.x + cfg.spawnX;
     let support = walkableSupportAt(spawnX + capsule.offsetX, Infinity, 0);
@@ -6800,14 +6885,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function checkPuzzleRespawnVolumes() {
     if (editMode || interactionState || performance.now() - lastPuzzleRespawnAt < 450) return false;
     for (const instance of activePuzzleInstances.values()) {
-      const cfg = currentPuzzleRespawn(instance.marker);
-      if (!cfg?.enabled) continue;
-      const volume = puzzleRespawnWorld(instance.marker);
-      if (!volume) continue;
-      if (character.x < volume.minX || character.x > volume.maxX) continue;
-      if (pathZ < volume.minZ || pathZ > volume.maxZ) continue;
-      if (character.y > volume.triggerY) continue;
-      return respawnPlayerForPuzzle(instance);
+      for(const volume of puzzleRespawnWorldList(instance.marker)){
+        if (!volume?.enabled) continue;
+        if (character.x < volume.minX || character.x > volume.maxX) continue;
+        if (pathZ < volume.minZ || pathZ > volume.maxZ) continue;
+        if (character.y > volume.triggerY) continue;
+        return respawnPlayerForPuzzle(instance,volume);
+      }
     }
     return false;
   }
@@ -8873,8 +8957,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       markerX:snapshot.markerX,
       markerRecord:snapshot.markerRecord,
       groupDef:snapshot.groupDef,
-      setup:snapshot.setup,
-      exclusion:snapshot.exclusion
+      setup:snapshot.setup
     };
   }
 
@@ -8888,7 +8971,6 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(!marker||!instance)return null;
     const localMarker=(userPuzzleLibrary.markers||[]).find(item=>item?.id===marker.id)||null;
     const hasRuntime=Object.prototype.hasOwnProperty.call(puzzleSavedState,marker.id);
-    const hasExclusion=Object.prototype.hasOwnProperty.call(puzzleExclusionState,marker.id);
     const groupDef=groupIsUserCreated(marker.group)?deepCopy(userPuzzleLibrary.groups?.[marker.group]||null):null;
     return {
       markerId:marker.id,
@@ -8896,12 +8978,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       markerRecord:localMarker?deepCopy(localMarker):null,
       groupDef,
       setup:deepCopy(currentPuzzleSetupSnapshot(instance)),
-      exclusion:hasExclusion?deepCopy(puzzleExclusionState[marker.id]):null,
-      hadExclusion:hasExclusion,
       runtimeState:hasRuntime?deepCopy(puzzleSavedState[marker.id]):null,
       hadRuntime:hasRuntime,
       startDirty:puzzleStartDirty.has(marker.id),
       selectedObjectId:selectedObject?.puzzleInstanceId===marker.id?selectedObject.id:null,
+      selectedPuzzleZoneId:selectedPuzzleZoneId||null,
       workspaceTab:puzzleWorkspaceTab,
       environmentPlacementMode:!!puzzleEnvironmentPlacementMode
     };
@@ -8930,12 +9011,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     applyPuzzleSnapshot(instance,deepCopy(snapshot.setup),{persistRuntime:false,clearDirty:false});
     if(snapshot.hadRuntime)puzzleSavedState[marker.id]=deepCopy(snapshot.runtimeState||{});
     else delete puzzleSavedState[marker.id];
-    if(snapshot.hadExclusion)puzzleExclusionState[marker.id]=deepCopy(snapshot.exclusion||{});
-    else delete puzzleExclusionState[marker.id];
     if(snapshot.startDirty)puzzleStartDirty.add(marker.id);else puzzleStartDirty.delete(marker.id);
     puzzleEnvironmentPlacementMode=!!snapshot.environmentPlacementMode;
     puzzleWorkspaceTab=puzzleWorkspaceTabs.includes(snapshot.workspaceTab)?snapshot.workspaceTab:'contents';
     selectedObject=snapshot.selectedObjectId?instance.objects.find(obj=>obj?.id===snapshot.selectedObjectId&&!obj.deleted)||null:null;
+    const zones=currentPuzzleZones(marker);
+    selectedPuzzleZoneId=zones.some(zone=>zone.id===snapshot.selectedPuzzleZoneId)?snapshot.selectedPuzzleZoneId:(zones[0]?.id||null);
+    puzzleZoneMoveMode=false;
     puzzleWorkspaceListSignature='';
     if(puzzleWorldModifiersReady)invalidatePuzzleWorldModifierMeshes();
     setPuzzleWorkspaceTab(puzzleWorkspaceTab);
@@ -8964,11 +9046,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(instance){
       const runtime=savedPuzzleFor(marker.id);
       runtime.boundsDraft=deepCopy(currentPuzzleBoundsRelative(marker));
+      runtime.zonesDraft=deepCopy(currentPuzzleZones(marker));
+      delete runtime.respawnDraft;
+      if(Object.prototype.hasOwnProperty.call(puzzleExclusionState,marker.id))delete puzzleExclusionState[marker.id];
       if(markerLinkMode(marker)==='copy')delete runtime.authoringOverride;
       else runtime.authoringOverride=puzzleStartDirty.has(marker.id);
     }
     savePuzzleState(true);
-    savePuzzleExclusionState(true);
+    persistLegacyPuzzleExclusionState();
     savePuzzleLibrary(true);
     if(puzzleEditSession.pendingPersistence.has('starts'))savePuzzleStarts(true);
     puzzleEditSession.pendingPersistence.clear();
@@ -8989,8 +9074,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function closePuzzleEditShell(){
     puzzleWorkspaceActive=false;
-    puzzleExclusionEditMode=false;puzzleExclusionHandle=null;
-    puzzleRespawnEditMode=false;puzzleRespawnHandle=null;
+    puzzleZoneMoveMode=false;selectedPuzzleZoneId=null;
     puzzleCartPathEditMode=false;puzzleCartPathHandle=null;puzzleCartPathPreviewPlaying=false;
     puzzleNodeInspectorOpen=false;
     if(addAssetType)exitPlacementMode();
@@ -9003,6 +9087,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(puzzleEditSession?.markerId===marker.id){updateEditorDrawerUi();return true;}
     if(puzzleEditSession)return false;
     const instance=activePuzzleInstances.get(marker.id)||instantiatePuzzleGroup(marker);if(!instance)return false;
+    const initialZones=currentPuzzleZones(marker);
+    selectedPuzzleZoneId=initialZones[0]?.id||null;
+    puzzleZoneMoveMode=false;
     if(markerLinkMode(marker)!=='copy'&&puzzleSavedState?.[marker.id]?.authoringOverride===true)puzzleStartDirty.add(marker.id);
     const checkpoint=capturePuzzleEditorSnapshot(marker.id);if(!checkpoint)return false;
     clearEditorHistory();
@@ -9322,7 +9409,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       applyPuzzleSnapshot(instance,template,{persistRuntime:false,clearDirty:true});
       const runtime=savedPuzzleFor(marker.id);
       runtime.boundsDraft=deepCopy(currentPuzzleBoundsRelative(marker));
-      runtime.respawnDraft=deepCopy(currentPuzzleRespawn(marker));
+      runtime.zonesDraft=deepCopy(currentPuzzleZones(marker));
+      delete runtime.respawnDraft;
       runtime.cartPathDraft=deepCopy(currentPuzzleCartPath(marker));
       runtime.authoringOverride=false;
       savePuzzleState();
@@ -9345,10 +9433,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleNodeInspectorOpen=false;
       if(selectedObject?.puzzleInstanceId===editorPuzzleMarkerId)selectObject(null);
     }
-    if(tab!=='zones'){
-      if(puzzleExclusionEditMode)puzzleExclusionEditBtn?.click();
-      if(puzzleRespawnEditMode)puzzleRespawnEditBtn?.click();
-    }
+    if(tab!=='zones')puzzleZoneMoveMode=false;
     if(tab!=='logic'&&puzzleCartPathEditMode)puzzleCartPathEditBtn?.click();
     puzzleWorkspaceTab=tab;
     for(const [name,{button,panel}] of puzzleWorkspaceTabControls){
@@ -9369,6 +9454,68 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     closePuzzleEditShell();
     updatePuzzlePanel();updateEditorDrawerUi();
     return true;
+  }
+
+  function focusPuzzleZone(marker,zone){
+    if(!marker||!zone)return false;
+    const worldX=Number(marker.x)+Number(zone.centerX||0);
+    camera.x=worldX-character.screenOffsetX;
+    previousCameraX=camera.x;
+    return true;
+  }
+
+  function selectPuzzleZoneById(id,{focus=false}={}){
+    const marker=selectedPuzzleMarker();if(!marker)return false;
+    const zones=currentPuzzleZones(marker),zone=zones.find(item=>item.id===id);if(!zone)return false;
+    selectedPuzzleZoneId=zone.id;puzzleZoneMoveMode=false;
+    if(focus)focusPuzzleZone(marker,zone);
+    renderPuzzleWorkspaceV2({force:true});
+    return true;
+  }
+
+  function renderPuzzleZonesWorkspace(marker){
+    const zones=marker?currentPuzzleZones(marker):[];
+    if(selectedPuzzleZoneId&&!zones.some(zone=>zone.id===selectedPuzzleZoneId))selectedPuzzleZoneId=null;
+    if(!selectedPuzzleZoneId&&zones.length)selectedPuzzleZoneId=zones[0].id;
+    const zone=currentPuzzleZone(marker);
+    if(puzzleZoneCountEl)puzzleZoneCountEl.textContent=`${zones.length} ${zones.length===1?'zone':'zones'}`;
+    if(puzzleZoneEmptyEl)puzzleZoneEmptyEl.hidden=zones.length>0;
+    if(puzzleZoneListEl){
+      puzzleZoneListEl.replaceChildren();
+      zones.forEach((item,index)=>{
+        const row=document.createElement('button');row.type='button';row.className='sidescroll-world-group-list-row';row.classList.toggle('active',item.id===selectedPuzzleZoneId);row.setAttribute('aria-selected',String(item.id===selectedPuzzleZoneId));
+        const text=document.createElement('span');const strong=document.createElement('strong');const small=document.createElement('small');
+        strong.textContent=`${puzzleZoneTypeLabel(item.type)} ${index+1}`;
+        small.textContent=`${item.enabled?'ON':'OFF'} · ${Number(item.width).toFixed(1)} × ${Number(item.depth).toFixed(1)} m`;
+        text.append(strong,small);const state=document.createElement('b');state.textContent=item.enabled?'ON':'OFF';row.append(text,state);
+        bindEditorPress(row,()=>{
+          selectPuzzleZoneById(item.id,{focus:true});
+          hintEl.textContent=`${puzzleZoneTypeLabel(item.type)} selected · viewport centred on this zone`;
+          hintEl.classList.remove('hidden');
+        });
+        puzzleZoneListEl.appendChild(row);
+      });
+    }
+    if(puzzleZoneInspectorEl)puzzleZoneInspectorEl.hidden=!zone;
+    if(!zone)return;
+    const index=zones.findIndex(item=>item.id===zone.id);
+    if(puzzleZoneNameEl)puzzleZoneNameEl.textContent=`${puzzleZoneTypeLabel(zone.type)} ${index+1}`;
+    if(puzzleZoneTypeEl)puzzleZoneTypeEl.textContent=zone.type==='respawn-trigger'?'Player recovery volume':'Procedural dressing suppression';
+    if(puzzleExclusionWidthInput){puzzleExclusionWidthInput.disabled=false;if(document.activeElement!==puzzleExclusionWidthInput)puzzleExclusionWidthInput.value=String(zone.width);}
+    if(puzzleExclusionWidthValue)puzzleExclusionWidthValue.textContent=`${Number(zone.width).toFixed(1)} m`;
+    if(puzzleExclusionDepthInput){puzzleExclusionDepthInput.disabled=false;if(document.activeElement!==puzzleExclusionDepthInput)puzzleExclusionDepthInput.value=String(zone.depth);}
+    if(puzzleExclusionDepthValue)puzzleExclusionDepthValue.textContent=`${Number(zone.depth).toFixed(1)} m`;
+    const respawn=zone.type==='respawn-trigger';
+    if(puzzleRespawnTriggerRowEl)puzzleRespawnTriggerRowEl.hidden=!respawn;
+    if(puzzleWorkspaceRespawnEl)puzzleWorkspaceRespawnEl.hidden=!respawn;
+    if(puzzleZoneSetSpawnBtn)puzzleZoneSetSpawnBtn.hidden=!respawn;
+    if(respawn){
+      if(puzzleRespawnTriggerInput&&document.activeElement!==puzzleRespawnTriggerInput)puzzleRespawnTriggerInput.value=String(zone.triggerOffsetY);
+      if(puzzleRespawnTriggerValue)puzzleRespawnTriggerValue.textContent=`${Number(zone.triggerOffsetY).toFixed(2)} m`;
+      if(puzzleWorkspaceRespawnEl)puzzleWorkspaceRespawnEl.textContent=`Spawn x ${Number(zone.spawnX).toFixed(2)} · z ${Number(zone.spawnZ).toFixed(2)} · crossing below this trigger plane inside the zone respawns here.`;
+    }
+    if(puzzleZoneToggleBtn){puzzleZoneToggleBtn.textContent=zone.enabled?'Enabled · ON':'Enabled · OFF';puzzleZoneToggleBtn.classList.toggle('active',!!zone.enabled);}
+    if(puzzleZoneMoveBtn){puzzleZoneMoveBtn.textContent=puzzleZoneMoveMode?'Finish Move':'Move';puzzleZoneMoveBtn.classList.toggle('active',puzzleZoneMoveMode);}
   }
 
   function renderPuzzleWorkspaceV2({force=false}={}){
@@ -9399,16 +9546,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(puzzleWorkspaceTemplateWarningEl)puzzleWorkspaceTemplateWarningEl.textContent=isCopy
       ? 'Save commits this independent scene copy. Set Start changes only this copy’s Reset/Test start. It will not update the reusable Template.'
       : 'Save commits only this scene instance. Apply as Template + Start changes the reusable Template and every linked instance. Make Unique detaches this scene copy first.';
-    const respawn=instance?currentPuzzleRespawn(instance.marker):null;
-    if(puzzleWorkspaceRespawnEl)puzzleWorkspaceRespawnEl.textContent=`Respawn ${respawn?.enabled?'ON':'OFF'} · Trigger ${Number(respawn?.triggerOffsetY||0).toFixed(2)} m`;
+    renderPuzzleZonesWorkspace(instance?.marker||null);
     const cart=instance?cartObjectForInstance(instance):null;
     const cartCfg=instance&&cart?currentPuzzleCartPath(instance.marker):null;
     if(puzzleWorkspaceCartEl)puzzleWorkspaceCartEl.textContent=cartCfg?`Cart path ${cartCfg.enabled?'ON':'OFF'} · ${Number(cartCfg.duration||0).toFixed(2)} s`:'This puzzle has no cart path.';
-    const puzzleEx=instance?currentPuzzleExclusion(instance.marker):null;
-    if(puzzleExclusionWidthInput){puzzleExclusionWidthInput.disabled=!puzzleEx;if(document.activeElement!==puzzleExclusionWidthInput&&puzzleEx)puzzleExclusionWidthInput.value=String(puzzleEx.width);}
-    if(puzzleExclusionWidthValue)puzzleExclusionWidthValue.textContent=puzzleEx?`${puzzleEx.width.toFixed(1)} m`:'—';
-    if(puzzleExclusionDepthInput){puzzleExclusionDepthInput.disabled=!puzzleEx;if(document.activeElement!==puzzleExclusionDepthInput&&puzzleEx)puzzleExclusionDepthInput.value=String(puzzleEx.depth);}
-    if(puzzleExclusionDepthValue)puzzleExclusionDepthValue.textContent=puzzleEx?`${puzzleEx.depth.toFixed(1)} m`:'—';
     // Proxy buttons never copy puzzle logic. Sync with the original action's
     // disabled state and label, and invoke its existing, tested click handler.
     for(const button of puzzleWorkspaceLegacyButtons){
@@ -9420,10 +9561,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique')button.textContent='Make Unique';
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-set-start')button.textContent=isCopy?'Set Start for Unique':'Apply as Template + Start';
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-reset')button.textContent='Reset to Start';
-      const extraRespawn=['sidescroll-puzzle-respawn-toggle','sidescroll-puzzle-respawn-set-spawn','sidescroll-puzzle-respawn-lower','sidescroll-puzzle-respawn-raise'];
       const extraCart=['sidescroll-puzzle-cart-path-toggle','sidescroll-puzzle-cart-path-start-cart','sidescroll-puzzle-cart-path-duration-down','sidescroll-puzzle-cart-path-duration-up','sidescroll-puzzle-cart-path-preview'];
-      button.hidden=(extraRespawn.includes(button.dataset.puzzleLegacy)&&!puzzleRespawnEditMode)
-        ||(extraCart.includes(button.dataset.puzzleLegacy)&&!puzzleCartPathEditMode)
+      button.hidden=(extraCart.includes(button.dataset.puzzleLegacy)&&!puzzleCartPathEditMode)
         ||(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique'&&isCopy);
     }
     const child=selectedPuzzleWorkspaceChild();
@@ -9733,7 +9872,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     selectedWorldGroupId=id; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupExclusionEditMode=false;
     saveSceneData(); worldGroupListSignature=''; sceneEnvironmentListSignature='';
     renderWorldGroupTools({force:true}); renderEnvironmentSelectionTools({force:true});
-    hintEl.textContent=`${group.label} created · new environment assets will join this group`;hintEl.classList.remove('hidden');
+    hintEl.textContent=`${group.label} created · choose Edit Group to add or edit its contents`;hintEl.classList.remove('hidden');
     return group;
   }
 
@@ -10564,13 +10703,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       bindEditorPress(row, () => {
         environmentSelectionFilter = meta.key;
         selectionTapCycle = null;
-        camera.x = Number(obj.x) - character.screenOffsetX;
-        previousCameraX = camera.x;
-        selectObject(obj, false);
-        selectionCycleInfo = { objects:[obj], index:0 };
+        const group=obj.worldGroupId?worldGroupById(obj.worldGroupId):null;
+        if(group&&!worldGroupEditSession){
+          selectObject(null);
+          selectWorldGroup(group.id,{edit:false,focus:true});
+          selectionCycleInfo=null;
+          hintEl.textContent=`${group.label} selected · grouped children stay locked until Edit Group`;
+        }else{
+          camera.x = Number(obj.x) - character.screenOffsetX;
+          previousCameraX = camera.x;
+          selectObject(obj, false);
+          selectionCycleInfo = { objects:[obj], index:0 };
+          hintEl.textContent = `Selected ${strong.textContent.toLowerCase()} · focused in scene`;
+        }
         sceneEnvironmentListSignature = '';
         renderEnvironmentSelectionTools({ force:true });
-        hintEl.textContent = `Selected ${strong.textContent.toLowerCase()} · focused in scene`;
         hintEl.classList.remove('hidden');
       });
       environmentSceneListEl.appendChild(row);
@@ -10599,10 +10746,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!obj || obj.deleted) return false;
     if (editorScope === 'puzzle') {
       if (!(puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId)) return false;
-      // Puzzle workspace tabs own different viewport interaction domains.
-      // Assets are selectable/manipulable only from Contents; Zones/Logic/Setup
-      // remain visually in-context but cannot pick or drag puzzle objects.
-      if(puzzleWorkspaceVisible()&&puzzleWorkspaceTab!=='contents')return false;
+      // Management never exposes child authoring. Puzzle objects become
+      // interactive only inside an explicit Edit Puzzle session, and Contents
+      // is the only workspace tab that owns puzzle-object picking/manipulation.
+      if(!puzzleEditSession || !puzzleWorkspaceVisible() || puzzleWorkspaceTab!=='contents')return false;
       // Pieces and Dressing are explicit edit layers. Placement is a separate
       // state, so existing dressing remains selectable/movable after Done Placing.
       const assetScope = editorAssetScope.get(obj.assetName);
@@ -10621,9 +10768,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // World Groups are locked compositions by default. Their children become
     // individually editable only after the author explicitly enters Edit Group
     // for that same group. Standalone objects remain editable at all times.
-    if (obj.worldGroupId) {
-      return !!(worldGroupEditMode && selectedWorldGroupId === obj.worldGroupId);
-    }
+    if (obj.worldGroupId) return false;
     return true;
   }
 
@@ -10983,12 +11128,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       delete puzzleStartState[id];
       delete puzzleSavedState[id];
       delete puzzleDraftBounds[id];
-      delete puzzleRespawnDraft[id];
+      delete puzzleZonesDraft[id];
+      delete puzzleExclusionState[id];
     }
     userPuzzleLibrary.markers = [];
     savePuzzleLibrary();
     savePuzzleStarts();
     savePuzzleState();
+    persistLegacyPuzzleExclusionState();
 
     // Clearing the stage leaves the reusable Puzzle Library untouched.
     editorPuzzleMarkerId = null;
@@ -11029,8 +11176,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     delete puzzleStartState[marker.id];
     delete puzzleSavedState[marker.id];
     delete puzzleDraftBounds[marker.id];
-    delete puzzleRespawnDraft[marker.id];
-    savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState();
+    delete puzzleZonesDraft[marker.id];
+    delete puzzleExclusionState[marker.id];
+    savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState(); persistLegacyPuzzleExclusionState();
     if (puzzleWorkshopState.markerId === marker.id) savePuzzleWorkshopState(null);
     editorPuzzleMarkerId = null;
     populatePuzzleSelector({ force:true });
@@ -11053,7 +11201,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       delete puzzleStartState[marker.id];
       delete puzzleSavedState[marker.id];
       delete puzzleDraftBounds[marker.id];
-    delete puzzleRespawnDraft[marker.id];
+    delete puzzleZonesDraft[marker.id];
+    delete puzzleExclusionState[marker.id];
     }
     userPuzzleLibrary.markers = (userPuzzleLibrary.markers || []).filter(marker => marker.group !== groupId);
     delete userPuzzleLibrary.groups[groupId];
@@ -11065,6 +11214,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     savePuzzleLibrary();
     savePuzzleStarts();
     savePuzzleState();
+    persistLegacyPuzzleExclusionState();
     if (puzzleWorkshopIsolated && !(userPuzzleLibrary.markers || []).length) {
       puzzleWorkshopClear = true;
       savePuzzleWorkshopState(null);
@@ -11202,7 +11352,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
     }
-    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, respawn:deepCopy(currentPuzzleRespawn(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
+    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
   }
 
   function puzzleExportPayload(instance) {
@@ -11434,8 +11584,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     editorScope = scope;
     if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; }
     puzzleEnvironmentPlacementMode = false;
-    puzzleExclusionEditMode = false;
-    puzzleExclusionHandle = null;
+    puzzleZoneMoveMode = false;
     selectObject(null);
     selectionTapCycle = null;
     addAssetType = null;
@@ -12122,7 +12271,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (puzzleSelectionEl) puzzleSelectionEl.hidden = !testing && (!puzzleEditing || (sceneMode && !selectedMarker));
     if (puzzlePicker) puzzlePicker.hidden = !libraryMode;
     if (puzzleMarkerEditor) puzzleMarkerEditor.hidden = testing || !sceneMode || !selectedMarker;
-    if (puzzleEditLayerSwitch) puzzleEditLayerSwitch.hidden = testing || libraryMode || !instance;
+    if (puzzleEditLayerSwitch) puzzleEditLayerSwitch.hidden = true;
     puzzlePiecesLayerBtn?.classList.toggle('active', !puzzleEnvironmentPlacementMode);
     puzzleDressingLayerBtn?.classList.toggle('active', !!puzzleEnvironmentPlacementMode);
     if (puzzleMarkerXInput && sceneMode && selectedMarker && document.activeElement !== puzzleMarkerXInput) {
@@ -12159,7 +12308,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           const b = currentPuzzleBoundsRelative(instance.marker);
           const width = (b.maxX - b.minX).toFixed(1);
           const dirty = puzzleStartDirty.has(instance.id) ? 'Unsaved setup changes. ' : '';
-          puzzleStateEl.textContent = `${dirty}${relationship} Marker x ${Number(selectedMarker.x).toFixed(1)} · bounds ${width}m · EDITING.`;
+          puzzleStateEl.textContent = `${dirty}${relationship} Marker x ${Number(selectedMarker.x).toFixed(1)} · bounds ${width}m · selected for management.`;
         } else {
           puzzleStateEl.textContent = `${relationship} Marker x ${Number(selectedMarker.x).toFixed(1)} · selected in scene.`;
         }
@@ -12172,12 +12321,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         : (libraryMode
             ? 'Choose a template from the Library. Spawn Here places a linked instance at the current camera position.'
             : (selectedMarker
-                ? (instance
-                    ? (puzzleEnvironmentPlacementMode
-                        ? 'Dressing mode · tap existing puzzle dressing to select/move it, or use Place Dressing to add more.'
-                        : 'Puzzle Pieces mode · tap puzzle props to select/move them, or use Place Puzzle Piece to add more.')
-                    : 'Selected from the Scene list. Use Edit Puzzle to activate its bounds and objects, or Focus to move the camera to it.')
-                : 'Choose a puzzle from the Scene list to see its controls.'));
+                ? 'Puzzle Management · drag the centre dot or type Marker X to move the whole instance. Use Edit Puzzle for contents, zones, logic and setup.'
+                : 'Choose a puzzle from the Scene list to see its management controls.'));
       if (!testing && instance && puzzleCartPathEditMode) puzzleHelpEl.textContent = 'Cart Path · drag MOVE PATH/the spline to move the route, or drag START / CURVE / LAND. Bottom-edge handles lift above the iPhone gesture strip. The translucent cart previews the final pose.';
     }
 
@@ -12205,31 +12350,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleSetStartBtn.hidden = testing || libraryMode;
       puzzleSetStartBtn.disabled = !instance;
       puzzleSetStartBtn.textContent = linkMode === 'copy' ? 'Set Start for Unique' : 'Apply as Template + Start';
-    }
-    if (puzzleExclusionEditBtn) {
-      puzzleExclusionEditBtn.hidden = testing || libraryMode;
-      puzzleExclusionEditBtn.disabled = !instance;
-      puzzleExclusionEditBtn.classList.toggle('active', !!(instance && puzzleExclusionEditMode));
-      puzzleExclusionEditBtn.textContent = puzzleExclusionEditMode ? 'Finish Move' : 'Move Exclusion';
-    }
-    if (puzzleExclusionToggleBtn) {
-      const ex = instance ? currentPuzzleExclusion(instance.marker) : null;
-      puzzleExclusionToggleBtn.hidden = testing || libraryMode;
-      puzzleExclusionToggleBtn.disabled = !instance;
-      puzzleExclusionToggleBtn.classList.toggle('active', !!ex?.enabled);
-      puzzleExclusionToggleBtn.textContent = ex?.enabled ? 'Disable Exclusion' : 'Add Exclusion';
-    }
-    if (puzzleRespawnEditBtn) {
-      puzzleRespawnEditBtn.hidden = testing || libraryMode;
-      puzzleRespawnEditBtn.disabled = !instance;
-      puzzleRespawnEditBtn.classList.toggle('active', !!(instance && puzzleRespawnEditMode));
-      puzzleRespawnEditBtn.textContent = puzzleRespawnEditMode ? 'Finish Respawn' : 'Respawn Setup';
-    }
-    if (puzzleRespawnTools) puzzleRespawnTools.hidden = testing || libraryMode || !instance || !puzzleRespawnEditMode;
-    if (instance && puzzleRespawnEditMode) {
-      const respawn = currentPuzzleRespawn(instance.marker);
-      if (puzzleRespawnToggleBtn) { puzzleRespawnToggleBtn.textContent = respawn.enabled ? 'Respawn ON' : 'Respawn OFF'; puzzleRespawnToggleBtn.classList.toggle('active', respawn.enabled); }
-      if (puzzleRespawnTriggerValue) puzzleRespawnTriggerValue.textContent = `${respawn.triggerOffsetY.toFixed(2)} m`;
     }
     const hasCart = !!cartObjectForInstance(instance);
     if (puzzleCartPathEditBtn) {
@@ -12291,10 +12411,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function authoredSnapshotFromInstance(instance) {
     const setup = currentPuzzleSetupSnapshot(instance);
-    // Cart path is authored puzzle data just like respawn/bounds. Omitting it
+    // Cart path and zones are authored puzzle data just like bounds. Omitting cartPath
     // meant Set Start saved every other setup field but Reset rebuilt the rail
     // from defaults, which looked like the whole path had jumped several metres.
-    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), respawn:deepCopy(setup.respawn), cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
+    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), zones:deepCopy(setup.zones || []), cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
   }
 
   function savePuzzleTemplateFromCurrent() {
@@ -12308,6 +12428,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleStartState[marker.id] = snapshot;
       savePuzzleStarts(true);
       puzzleStartDirty.delete(marker.id);
+      delete puzzleExclusionState[marker.id];
+      persistLegacyPuzzleExclusionState();
       applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
       hintEl.textContent = 'Start State updated for this unique scene copy';
     } else {
@@ -12319,12 +12441,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         delete puzzleStartState[otherMarker.id];
         delete puzzleSavedState[otherMarker.id];
         delete puzzleDraftBounds[otherMarker.id];
+        delete puzzleZonesDraft[otherMarker.id];
+        delete puzzleExclusionState[otherMarker.id];
         puzzleStartDirty.delete(otherMarker.id);
         const active = activePuzzleInstances.get(otherMarker.id);
         if (active) applyPuzzleSnapshot(active, snapshot, { persistRuntime:true, clearDirty:true });
       }
       savePuzzleStarts(true);
       savePuzzleState(true);
+      persistLegacyPuzzleExclusionState();
       hintEl.textContent = 'Puzzle Template + Start applied · all linked scene instances now use this setup';
     }
     savePuzzleState(true);
@@ -12349,6 +12474,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     marker.linkMode = 'copy';
     puzzleStartState[marker.id] = snapshot;
     puzzleStartDirty.delete(marker.id);
+    delete puzzleExclusionState[marker.id];
+    persistLegacyPuzzleExclusionState();
     savePuzzleStarts(true);
     savePuzzleLibrary(true);
     applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
@@ -12611,7 +12738,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       shade:1, opacity:.99, layer:classifyLayer(placementZ),
       category:info.category || 'dressing', gameplayType:info.gameplayType || null,
       collision:gameplayCollision, gameplayLayerLocked:defaultGameLayerLocked, freePlacement,
-      worldGroupId:(!puzzleInstance && worldGroupEditMode && worldGroupById(selectedWorldGroupId)) ? selectedWorldGroupId : null,
+      worldGroupId:(!puzzleInstance && worldGroupEditSession && worldGroupById(worldGroupEditSession.groupId)) ? worldGroupEditSession.groupId : null,
       wrap:false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       thoughtText: info.defaultThoughtText || '', thoughtRadius: info.defaultThoughtRadius || 1.4, thoughtOnce: info.defaultThoughtOnce !== false,
       cameraNodeRadius: info.defaultCameraRadius || 4.0, cameraNodeOffsetX: info.defaultCameraOffsetX || 0,
@@ -12654,7 +12781,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       flip:selectedObject.flip, layer:classifyLayer(point.z), collision:selectedObject.collision ? cloneCollision(selectedObject.collision) : null,
       category:selectedObject.category || 'dressing', gameplayType:selectedObject.gameplayType || null, gameplayLayerLocked:!!selectedObject.gameplayLayerLocked,
       freePlacement:objectUsesFreePlacement(selectedObject),
-      worldGroupId:puzzleInstance ? null : ((worldGroupEditMode && worldGroupById(selectedWorldGroupId)) ? selectedWorldGroupId : (selectedObject.worldGroupId || null)),
+      worldGroupId:puzzleInstance ? null : (worldGroupEditSession ? worldGroupEditSession.groupId : null),
       wrap:false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null,
       thoughtText:selectedObject.thoughtText || '', thoughtRadius:selectedObject.thoughtRadius || 1.4, thoughtOnce:selectedObject.thoughtOnce !== false,
@@ -12992,83 +13119,39 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
 
-  function puzzleExclusionHandlePositions(instance) {
-    // v1.0.124: no perspective resize/move handles; move is relative and size uses sliders.
-    return [];
-  }
-
-  function puzzleExclusionHandleAt(clientX, clientY) {
-    if (!editMode || editorScope !== 'puzzle' || !puzzleExclusionEditMode) return null;
-    const instance = selectedPuzzleInstance();
-    if (!instance) return null;
-    const rect = canvas.getBoundingClientRect();
-    const x=clientX-rect.left, y=clientY-rect.top;
-    return puzzleExclusionHandlePositions(instance).find(h => Math.hypot(h.x-x,h.y-y) <= 21) || null;
-  }
-
-  function drawPuzzleExclusionGuide(ctx, instance) {
-    if (!instance || !puzzleExclusionEditMode) return;
-    const b = puzzleExclusionWorldBounds(instance.marker);
-    const corners = [[b.minX,b.minZ],[b.maxX,b.minZ],[b.maxX,b.maxZ],[b.minX,b.maxZ]]
-      .map(([x,z]) => projectWorldPoint(x,terrainGroundYAt(x,z)+0.035,z));
-    if (corners.some(p=>!p)) return;
+  function drawPuzzleZonesGuide(ctx,instance){
+    if(!instance||!puzzleWorkspaceVisible()||puzzleWorkspaceTab!=='zones')return;
+    const zones=currentPuzzleZones(instance.marker);
+    if(!zones.length)return;
     ctx.save();
-    ctx.fillStyle = b.enabled ? 'rgba(83,178,205,.18)' : 'rgba(120,130,135,.10)';
-    ctx.strokeStyle = b.enabled ? 'rgba(117,220,241,.96)' : 'rgba(160,170,174,.72)';
-    ctx.lineWidth=2; ctx.setLineDash([7,5]);
-    ctx.beginPath(); ctx.moveTo(corners[0].x,corners[0].y);
-    for(let i=1;i<corners.length;i++) ctx.lineTo(corners[i].x,corners[i].y);
-    ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
-    for(const h of puzzleExclusionHandlePositions(instance)){
-      ctx.beginPath(); ctx.arc(h.x,h.y,h.kind==='center'?8:7,0,Math.PI*2);
-      ctx.fillStyle=h.kind==='center'?'#d9f7fb':'#7bd5e8'; ctx.fill();
-      ctx.strokeStyle='#254850'; ctx.lineWidth=1.5; ctx.stroke();
-    }
-    const label=`EXCLUSION · ${b.width.toFixed(1)} × ${b.depth.toFixed(1)}m`;
-    const c=projectWorldPoint(b.centerX,terrainGroundYAt(b.centerX,b.centerZ)+0.1,b.centerZ);
-    if(c){ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));const ly=Math.max(48,c.y-34);ctx.fillStyle='rgba(23,32,38,.86)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle='#d9f7fb';ctx.fillText(label,lx+7,ly+14);}
+    zones.forEach((zone,index)=>{
+      const world=puzzleZoneWorld(instance.marker,zone);if(!world)return;
+      const selected=zone.id===selectedPuzzleZoneId;
+      const yAt=(x,z)=>zone.type==='respawn-trigger'?world.triggerY:terrainGroundYAt(x,z)+.035;
+      const corners=[[world.minX,world.minZ],[world.maxX,world.minZ],[world.maxX,world.maxZ],[world.minX,world.maxZ]].map(([x,z])=>projectWorldPoint(x,yAt(x,z),z));
+      if(corners.some(point=>!point))return;
+      const respawn=zone.type==='respawn-trigger';
+      ctx.fillStyle=respawn?(zone.enabled?'rgba(221,86,116,.15)':'rgba(120,130,135,.08)'):(zone.enabled?'rgba(83,178,205,.15)':'rgba(120,130,135,.08)');
+      ctx.strokeStyle=respawn?(zone.enabled?'rgba(255,123,151,.96)':'rgba(165,170,174,.72)'):(zone.enabled?'rgba(117,220,241,.96)':'rgba(160,170,174,.72)');
+      ctx.lineWidth=selected?3:1.5;ctx.setLineDash(selected?[7,5]:[5,6]);
+      ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);for(let i=1;i<corners.length;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
+      const centre=projectWorldPoint(world.centerX,yAt(world.centerX,world.centerZ)+.07,world.centerZ);
+      if(centre){
+        ctx.beginPath();ctx.arc(centre.x,centre.y,selected?8:5,0,Math.PI*2);ctx.fillStyle=respawn?'#ffd0d8':'#d9f7fb';ctx.fill();ctx.strokeStyle=respawn?'#633241':'#254850';ctx.lineWidth=1.5;ctx.stroke();
+      }
+      if(respawn&&selected){
+        const spawnX=world.spawnWorldX;
+        const spawnSupport=walkableSupportAt(spawnX+colliderWorld().offsetX,Infinity,0);
+        const spawnY=playSurfaceYAt(spawnX)+(spawnSupport?.offset||0)+.06;
+        const spawn=projectWorldPoint(spawnX,spawnY,world.spawnWorldZ);
+        if(spawn){ctx.beginPath();ctx.arc(spawn.x,spawn.y,9,0,Math.PI*2);ctx.fillStyle='#c9f4ca';ctx.fill();ctx.strokeStyle='#335b3c';ctx.lineWidth=2;ctx.stroke();ctx.font='900 9px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillStyle='rgba(20,38,28,.92)';ctx.fillRect(spawn.x-27,spawn.y-30,54,17);ctx.fillStyle='#dbf8df';ctx.fillText('SPAWN',spawn.x-20,spawn.y-18);}
+      }
+      if(selected&&centre){
+        const label=`${puzzleZoneTypeLabel(zone.type).toUpperCase()} ${index+1} · ${world.width.toFixed(1)} × ${world.depth.toFixed(1)}m${respawn?` · Y ${Number(zone.triggerOffsetY).toFixed(2)}`:''}`;
+        ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,centre.x-tw*.5));const ly=Math.max(48,centre.y-34);ctx.fillStyle='rgba(23,32,38,.88)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle=respawn?'#ffd6df':'#d9f7fb';ctx.fillText(label,lx+7,ly+14);
+      }
+    });
     ctx.restore();
-  }
-
-  function puzzleRespawnHandlePositions(instance) {
-    if (!instance || !puzzleRespawnEditMode) return [];
-    const r = puzzleRespawnWorld(instance.marker);
-    if (!r) return [];
-    const specs = [['zone-center',r.centerX,r.centerZ,r.triggerY],['left',r.minX,r.centerZ,r.triggerY],['right',r.maxX,r.centerZ,r.triggerY],['far',r.centerX,r.minZ,r.triggerY],['near',r.centerX,r.maxZ,r.triggerY]];
-    const handles = specs.map(([kind,x,z,y]) => { const p=projectWorldPoint(x,y,z); return p && {kind,...p}; }).filter(Boolean);
-    const spawnX=r.spawnWorldX;
-    const spawnSupport=walkableSupportAt(spawnX+colliderWorld().offsetX,Infinity,0);
-    const spawnY=playSurfaceYAt(spawnX)+(spawnSupport?.offset||0)+0.06;
-    const spawn=projectWorldPoint(spawnX,spawnY,r.spawnWorldZ);
-    if(spawn) handles.push({kind:'spawn',...spawn});
-    return handles;
-  }
-
-  function puzzleRespawnHandleAt(clientX, clientY) {
-    if (!editMode || editorScope !== 'puzzle' || !puzzleRespawnEditMode) return null;
-    const instance=selectedPuzzleInstance(); if(!instance) return null;
-    const rect=canvas.getBoundingClientRect(); const x=clientX-rect.left,y=clientY-rect.top;
-    return puzzleRespawnHandlePositions(instance).find(h=>Math.hypot(h.x-x,h.y-y)<=(h.kind==='spawn'?23:20))||null;
-  }
-
-  function drawPuzzleRespawnGuide(ctx, instance) {
-    if (!instance || !puzzleRespawnEditMode) return;
-    const r=puzzleRespawnWorld(instance.marker); if(!r) return;
-    const corners=[[r.minX,r.minZ],[r.maxX,r.minZ],[r.maxX,r.maxZ],[r.minX,r.maxZ]].map(([x,z])=>projectWorldPoint(x,r.triggerY,z));
-    if(corners.some(p=>!p)) return;
-    ctx.save();
-    ctx.fillStyle=r.enabled?'rgba(221,86,116,.17)':'rgba(120,130,135,.10)';
-    ctx.strokeStyle=r.enabled?'rgba(255,123,151,.96)':'rgba(165,170,174,.72)';
-    ctx.lineWidth=2; ctx.setLineDash([7,5]); ctx.beginPath(); ctx.moveTo(corners[0].x,corners[0].y);
-    for(let i=1;i<corners.length;i++)ctx.lineTo(corners[i].x,corners[i].y);ctx.closePath();ctx.fill();ctx.stroke();ctx.setLineDash([]);
-    for(const h of puzzleRespawnHandlePositions(instance)){
-      if(h.kind==='spawn'){
-        ctx.beginPath();ctx.arc(h.x,h.y,10,0,Math.PI*2);ctx.fillStyle='#c9f4ca';ctx.fill();ctx.strokeStyle='#335b3c';ctx.lineWidth=2;ctx.stroke();
-        ctx.font='900 9px -apple-system,BlinkMacSystemFont,sans-serif';ctx.fillStyle='rgba(20,38,28,.92)';ctx.fillRect(h.x-27,h.y-30,54,17);ctx.fillStyle='#dbf8df';ctx.fillText('SPAWN',h.x-20,h.y-18);
-      }else{ctx.beginPath();ctx.arc(h.x,h.y,h.kind==='zone-center'?8:7,0,Math.PI*2);ctx.fillStyle=h.kind==='zone-center'?'#ffd0d8':'#ff7f9a';ctx.fill();ctx.strokeStyle='#633241';ctx.lineWidth=1.5;ctx.stroke();}
-    }
-    const label=`RESPAWN · ${r.width.toFixed(1)} × ${r.depth.toFixed(1)}m · Y ${r.triggerOffsetY.toFixed(2)}`;
-    const c=projectWorldPoint(r.centerX,r.triggerY+0.08,r.centerZ);if(c){ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,c.x-tw*.5));const ly=Math.max(48,c.y-32);ctx.fillStyle='rgba(38,24,29,.88)';ctx.fillRect(lx,ly,tw,19);ctx.fillStyle='#ffd6df';ctx.fillText(label,lx+7,ly+13);}ctx.restore();
   }
 
   function puzzleCartPathHandlePositions(instance) {
@@ -13207,7 +13290,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function puzzleBoundHandleAt(clientX, clientY) {
-    if (!editMode || editorScope !== 'puzzle') return null;
+    if (!editMode || editorScope !== 'puzzle' || !puzzleWorkspaceVisible() || puzzleWorkspaceTab !== 'setup') return null;
     const instance = selectedPuzzleInstance();
     if (!instance) return null;
     const rect = canvas.getBoundingClientRect();
@@ -13221,7 +13304,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function puzzleMarkerHandleAt(clientX, clientY) {
-    if (!editMode || editorScope !== 'puzzle' || puzzleBrowserMode !== 'scene') return null;
+    if (!editMode || editorScope !== 'puzzle' || puzzleBrowserMode !== 'scene' || puzzleWorkspaceVisible()) return null;
     const instance = selectedPuzzleInstance();
     const mark = puzzleMarkerHandlePosition(instance);
     if (!mark) return null;
@@ -13233,8 +13316,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!editMode || editorScope !== 'puzzle') return;
     const instance = selectedPuzzleInstance();
     if (!instance) return;
-    drawPuzzleExclusionGuide(ctx, instance);
-    drawPuzzleRespawnGuide(ctx, instance);
+    drawPuzzleZonesGuide(ctx, instance);
     drawPuzzleCartPathGuide(ctx, instance);
     const b = puzzleBounds(instance);
     const left = projectWorldPoint(b.minX, playSurfaceYAt(b.minX)+0.04, pathZ);
@@ -13244,10 +13326,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     ctx.save();
     ctx.strokeStyle='rgba(240,205,127,.96)';ctx.fillStyle='rgba(23,32,38,.82)';ctx.lineWidth=2;ctx.setLineDash([6,4]);
     ctx.beginPath();ctx.moveTo(left.x,left.y);ctx.lineTo(right.x,right.y);ctx.stroke();ctx.setLineDash([]);
-    for (const handle of [left,right]) {
-      ctx.beginPath();ctx.arc(handle.x,handle.y,7,0,Math.PI*2);ctx.fillStyle='#f0cd7f';ctx.fill();ctx.strokeStyle='#493d28';ctx.lineWidth=1.5;ctx.stroke();
+    if(puzzleWorkspaceVisible()&&puzzleWorkspaceTab==='setup'){
+      for (const handle of [left,right]) {
+        ctx.beginPath();ctx.arc(handle.x,handle.y,7,0,Math.PI*2);ctx.fillStyle='#f0cd7f';ctx.fill();ctx.strokeStyle='#493d28';ctx.lineWidth=1.5;ctx.stroke();
+      }
     }
-    ctx.beginPath();ctx.arc(mark.x,mark.y,8,0,Math.PI*2);ctx.fillStyle='#f5e6b7';ctx.fill();ctx.strokeStyle='#493d28';ctx.lineWidth=1.5;ctx.stroke();
+    if(!puzzleWorkspaceVisible()){ctx.beginPath();ctx.arc(mark.x,mark.y,8,0,Math.PI*2);ctx.fillStyle='#f5e6b7';ctx.fill();ctx.strokeStyle='#493d28';ctx.lineWidth=1.5;ctx.stroke();}
     const rel=currentPuzzleBoundsRelative(instance.marker);
     const label=`${instance.def.label || instance.marker.group} · BOUNDS ${(rel.maxX-rel.minX).toFixed(1)}m`;
     ctx.font='800 10px -apple-system,BlinkMacSystemFont,sans-serif';
@@ -16492,7 +16576,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // With every section visible this should be visually indistinguishable from
     // the previous continuous terrain; the section editor can hide any one
     // piece to verify that the segmentation is genuinely working.
-    refreshFrameWorldGroupExclusionBounds();
+    refreshFrameExclusionBounds();
     drawTerrainSections(view);
     for (const obj of backdrop) drawObject(obj, view);
     for (const obj of midfill) drawObject(obj, view);
@@ -16951,7 +17035,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const opening = editorPalette.hidden;
     setAssetPaletteOpen(opening, { clearPending: !opening });
     if (opening) {
-      puzzleExclusionEditMode = false;
+      puzzleZoneMoveMode = false;
       addAssetType = null;
       selectedObject = null;
       collisionEditMode = false;
@@ -17146,12 +17230,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const source=document.getElementById(id);
       if(source&&!source.disabled){
         const labels={
-          'sidescroll-puzzle-exclusion-toggle':'Toggle puzzle exclusion',
-          'sidescroll-puzzle-respawn-edit':'Edit respawn',
-          'sidescroll-puzzle-respawn-toggle':'Toggle respawn',
-          'sidescroll-puzzle-respawn-set-spawn':'Set respawn point',
-          'sidescroll-puzzle-respawn-lower':'Adjust respawn trigger',
-          'sidescroll-puzzle-respawn-raise':'Adjust respawn trigger',
           'sidescroll-puzzle-cart-path-edit':'Edit cart path',
           'sidescroll-puzzle-cart-path-toggle':'Toggle cart path',
           'sidescroll-puzzle-cart-path-start-cart':'Move cart path start',
@@ -17307,68 +17385,93 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     window.location.reload();
   });
   bindEditorPress(exportAllBtn, exportAllGameDesign);
-  bindEditorPress(puzzleExclusionEditBtn, () => {
-    const instance = selectedPuzzleInstance();
-    if (!instance || puzzleTestMode) return;
-    const ex = currentPuzzleExclusion(instance.marker);
-    if (!ex.enabled) {
-      const enable=()=>{ex.enabled=true;savePuzzleExclusionState();};
-      if(puzzleEditSession)runEditorTransaction('Enable puzzle exclusion',enable);else enable();
+  function addPuzzleZone(type){
+    const instance=selectedPuzzleInstance();if(!instance||!puzzleEditSession||puzzleTestMode)return null;
+    const marker=instance.marker,zones=currentPuzzleZones(marker);
+    let zone;
+    if(type==='respawn-trigger'){
+      const fallback=normalisePuzzleRespawn(marker,null);
+      const id=puzzleZoneId('respawn-trigger');zone=cleanPuzzleZone(marker,{...fallback,type:'respawn-trigger',enabled:true,id},'respawn-trigger',id);
+    }else{
+      const fallback=defaultPuzzleExclusion(marker);
+      const id=puzzleZoneId('procedural-exclusion');zone=cleanPuzzleZone(marker,{...fallback,type:'procedural-exclusion',enabled:true,id},'procedural-exclusion',id);
     }
-    puzzleExclusionEditMode = !puzzleExclusionEditMode;
-    if (puzzleExclusionEditMode) { puzzleRespawnEditMode = false; puzzleRespawnHandle = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; }
-    addAssetType = null;
-    setAssetPaletteOpen(false);
-    selectObject(null);
-    updatePuzzlePanel();
-    hintEl.textContent = puzzleExclusionEditMode
-      ? 'Move exclusion · drag anywhere · lift and touch again to continue · resize with Width/Length sliders'
-      : 'Exclusion edit finished';
+    const same=zones.filter(item=>item.type===zone.type);
+    if(same.length){const source=same[same.length-1];zone.centerX=Number(source.centerX)+Math.max(1.0,Number(source.width)*.35);zone.centerZ=Number(source.centerZ);}
+    zones.push(zone);selectedPuzzleZoneId=zone.id;puzzleZoneMoveMode=false;savePuzzleZonesDraft(marker);return zone;
+  }
+
+  bindEditorPress(puzzleZoneAddBtn,()=>{
+    const type=puzzleZoneAddTypeEl?.value==='respawn-trigger'?'respawn-trigger':'procedural-exclusion';
+    const zone=runEditorTransaction(`Add ${puzzleZoneTypeLabel(type)}`,()=>addPuzzleZone(type));
+    if(!zone)return;
+    renderPuzzleWorkspaceV2({force:true});
+    hintEl.textContent=`Added ${puzzleZoneTypeLabel(type)} · select Move, then drag anywhere to position it`;
     hintEl.classList.remove('hidden');
   });
-  bindEditorPress(puzzleExclusionToggleBtn, () => {
-    const instance = selectedPuzzleInstance();
-    if (!instance || puzzleTestMode) return;
-    const toggle=()=>{const ex=currentPuzzleExclusion(instance.marker);ex.enabled=!ex.enabled;savePuzzleExclusionState();return ex;};
-    const ex=puzzleEditSession?runEditorTransaction('Toggle puzzle exclusion',toggle):toggle();
-    if (!ex.enabled) puzzleExclusionEditMode=false;
-    updatePuzzlePanel();
-    hintEl.textContent=ex.enabled ? 'Puzzle exclusion enabled' : 'Puzzle exclusion disabled · procedural forest restored';
+  bindEditorPress(puzzleZoneToggleBtn,()=>{
+    const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||!zone||!puzzleEditSession)return;
+    runEditorTransaction(`Toggle ${puzzleZoneTypeLabel(zone.type)}`,()=>{zone.enabled=!zone.enabled;savePuzzleZonesDraft(instance.marker);});
+    if(!zone.enabled)puzzleZoneMoveMode=false;
+    renderPuzzleWorkspaceV2({force:true});
+  });
+  bindEditorPress(puzzleZoneMoveBtn,()=>{
+    const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||!zone||!puzzleEditSession)return;
+    puzzleZoneMoveMode=!puzzleZoneMoveMode;
+    if(puzzleZoneMoveMode){puzzleCartPathEditMode=false;puzzleCartPathHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);}
+    renderPuzzleWorkspaceV2({force:true});
+    hintEl.textContent=puzzleZoneMoveMode
+      ? `Move ${puzzleZoneTypeLabel(zone.type)} · drag anywhere · lift and touch again to continue from the current position`
+      : `${puzzleZoneTypeLabel(zone.type)} move finished`;
     hintEl.classList.remove('hidden');
   });
-  function bindPuzzleExclusionSizeSlider(input,valueEl,key){
+  bindEditorPress(puzzleZoneSetSpawnBtn,()=>{
+    const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||zone?.type!=='respawn-trigger'||!puzzleEditSession)return;
+    runEditorTransaction('Set respawn spawn point',()=>{zone.enabled=true;zone.spawnX=character.x-instance.marker.x;zone.spawnZ=pathZ;savePuzzleZonesDraft(instance.marker);});
+    renderPuzzleWorkspaceV2({force:true});
+    hintEl.textContent='Respawn spawn point set to the player position';hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(puzzleZoneDeleteBtn,()=>{
+    const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||!zone||!puzzleEditSession)return;
+    if(!window.confirm(`Delete this ${puzzleZoneTypeLabel(zone.type)} zone?`))return;
+    runEditorTransaction(`Delete ${puzzleZoneTypeLabel(zone.type)}`,()=>{
+      const zones=currentPuzzleZones(instance.marker),index=zones.findIndex(item=>item.id===zone.id);if(index<0)return;
+      zones.splice(index,1);selectedPuzzleZoneId=zones[Math.min(index,zones.length-1)]?.id||null;puzzleZoneMoveMode=false;savePuzzleZonesDraft(instance.marker);
+    });
+    renderPuzzleWorkspaceV2({force:true});
+  });
+
+  function bindPuzzleZoneSlider(input,valueEl,key,{min=.8,max=60,digits=1,label=key}={}){
     if(!input)return;
     let ownsTransaction=false;
     const apply=()=>{
-      const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;
-      if(puzzleEditSession&&!ownsTransaction)ownsTransaction=beginEditorTransaction(`Resize puzzle exclusion ${key==='width'?'width':'length'}`);
-      const ex=currentPuzzleExclusion(instance.marker);
-      ex[key]=Rig.clamp(Number(input.value)||1,1,60);
-      if(valueEl)valueEl.textContent=`${ex[key].toFixed(1)} m`;
+      const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||!zone||!puzzleEditSession||puzzleTestMode)return;
+      if(key==='triggerOffsetY'&&zone.type!=='respawn-trigger')return;
+      if(!ownsTransaction)ownsTransaction=beginEditorTransaction(`Adjust ${puzzleZoneTypeLabel(zone.type)} ${label}`);
+      zone[key]=Rig.clamp(Number(input.value)||0,min,max);
+      if(valueEl)valueEl.textContent=`${Number(zone[key]).toFixed(digits)} m`;
     };
-    const commit=()=>{
-      const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;
-      apply();savePuzzleExclusionState();
-      if(ownsTransaction&&editorTransaction)commitEditorTransaction();
-      ownsTransaction=false;
-      updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+    const finish=()=>{
+      if(!ownsTransaction)return;
+      const instance=selectedPuzzleInstance();if(instance)savePuzzleZonesDraft(instance.marker);
+      if(editorTransaction)commitEditorTransaction();ownsTransaction=false;
+      renderPuzzleWorkspaceV2({force:true});updatePuzzlePanel();
     };
     input.addEventListener('input',apply);
-    input.addEventListener('change',commit);
-    input.addEventListener('pointerup',commit);
-    input.addEventListener('pointercancel',commit);
+    input.addEventListener('change',finish);
+    input.addEventListener('pointerup',finish);
+    input.addEventListener('pointercancel',finish);
   }
-  bindPuzzleExclusionSizeSlider(puzzleExclusionWidthInput,puzzleExclusionWidthValue,'width');
-  bindPuzzleExclusionSizeSlider(puzzleExclusionDepthInput,puzzleExclusionDepthValue,'depth');
+  bindPuzzleZoneSlider(puzzleExclusionWidthInput,puzzleExclusionWidthValue,'width',{min:.8,max:60,digits:1,label:'width'});
+  bindPuzzleZoneSlider(puzzleExclusionDepthInput,puzzleExclusionDepthValue,'depth',{min:.8,max:60,digits:1,label:'length'});
+  bindPuzzleZoneSlider(puzzleRespawnTriggerInput,puzzleRespawnTriggerValue,'triggerOffsetY',{min:-4.5,max:.5,digits:2,label:'trigger height'});
+
   function setPuzzleEditLayer(layer) {
     if (layer !== 'pieces' && layer !== 'dressing') return;
     const instance = selectedPuzzleInstance();
     if (!instance || puzzleTestMode) return;
     puzzleEnvironmentPlacementMode = layer === 'dressing';
-    puzzleExclusionEditMode = false;
-    puzzleExclusionHandle = null;
-    puzzleRespawnEditMode = false;
-    puzzleRespawnHandle = null;
+    puzzleZoneMoveMode = false;
     puzzleCartPathEditMode = false;
     puzzleCartPathHandle = null;
     addAssetType = null;
@@ -17386,22 +17489,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   bindEditorPress(puzzlePiecesLayerBtn, () => setPuzzleEditLayer('pieces'));
   bindEditorPress(puzzleDressingLayerBtn, () => setPuzzleEditLayer('dressing'));
-  bindEditorPress(puzzleRespawnEditBtn, () => {
-    const instance=selectedPuzzleInstance(); if(!instance||puzzleTestMode)return;
-    puzzleRespawnEditMode=!puzzleRespawnEditMode;puzzleExclusionEditMode=false;puzzleExclusionHandle=null;puzzleCartPathEditMode=false;puzzleCartPathHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
-    if(puzzleRespawnEditMode){const cfg=currentPuzzleRespawn(instance.marker);if(!cfg.enabled){cfg.enabled=true;savePuzzleRespawnDraft(instance.marker);}hintEl.textContent='Respawn setup · drag SPAWN or the pink volume handles · falling below the pink plane inside the volume respawns here';}
-    else hintEl.textContent='Respawn setup finished';
-    hintEl.classList.remove('hidden');updatePuzzlePanel();
-  });
-  bindEditorPress(puzzleRespawnSetSpawnBtn, () => {const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleRespawn(instance.marker);cfg.enabled=true;cfg.spawnX=character.x-instance.marker.x;cfg.spawnZ=pathZ;savePuzzleRespawnDraft(instance.marker);updatePuzzlePanel();hintEl.textContent='Respawn spawn point set to the player position';hintEl.classList.remove('hidden');});
-  bindEditorPress(puzzleRespawnToggleBtn, () => {const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleRespawn(instance.marker);cfg.enabled=!cfg.enabled;savePuzzleRespawnDraft(instance.marker);updatePuzzlePanel();});
-  const nudgeRespawnTrigger=delta=>{const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode)return;const cfg=currentPuzzleRespawn(instance.marker);cfg.triggerOffsetY=Rig.clamp(cfg.triggerOffsetY+delta,-4.5,0.5);cfg.enabled=true;savePuzzleRespawnDraft(instance.marker);updatePuzzlePanel();};
-  bindEditorPress(puzzleRespawnLowerBtn,()=>nudgeRespawnTrigger(-0.15));
-  bindEditorPress(puzzleRespawnRaiseBtn,()=>nudgeRespawnTrigger(0.15));
   bindEditorPress(puzzleCartPathEditBtn,()=>{
     const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode||!cartObjectForInstance(instance))return;
     puzzleCartPathEditMode=!puzzleCartPathEditMode;
-    puzzleRespawnEditMode=false;puzzleRespawnHandle=null;puzzleExclusionEditMode=false;puzzleExclusionHandle=null;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
+    puzzleZoneMoveMode=false;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
     if(puzzleCartPathEditMode){
       const cfg=currentPuzzleCartPath(instance.marker);if(!cfg.enabled){cfg.enabled=true;savePuzzleCartPathDraft(instance.marker);}
       puzzleCartPathPreviewT=1;puzzleCartPathPreviewPlaying=false;
@@ -17785,29 +17876,22 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         return;
       }
 
-      if(puzzleExclusionEditMode&&editorScope==='puzzle'){
-        const instance=selectedPuzzleInstance();
-        if(instance){
-          const start=currentPuzzleExclusion(instance.marker);
-          const worldX=instance.marker.x+start.centerX,worldZ=start.centerZ;
-          editorGesture.kind='puzzle-exclusion';
-          editorGesture.exclusionStart={...start};
-          editorGesture.exclusionMarker=instance.marker;
-          editorGesture.exclusionStartWorldX=worldX;
-          editorGesture.exclusionStartWorldZ=worldZ;
-          editorGesture.exclusionStartScreen=projectWorldPoint(worldX,terrainGroundYAt(worldX,worldZ)+.055,worldZ);
-          if(puzzleEditSession?.markerId===instance.id)beginEditorTransaction('Move puzzle exclusion');
-          hintEl.textContent='Move exclusion · drag anywhere · lift and touch again to continue from the current position';
+      if(puzzleZoneMoveMode&&editorScope==='puzzle'&&puzzleEditSession&&puzzleWorkspaceTab==='zones'){
+        const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);
+        if(instance&&zone){
+          const worldX=instance.marker.x+Number(zone.centerX||0),worldZ=Number(zone.centerZ||0);
+          editorGesture.kind='puzzle-zone';
+          editorGesture.zoneMarker=instance.marker;
+          editorGesture.zoneId=zone.id;
+          editorGesture.zoneStartWorldX=worldX;
+          editorGesture.zoneStartWorldZ=worldZ;
+          const zoneY=zone.type==='respawn-trigger'?playSurfaceYAt(worldX)+Number(zone.triggerOffsetY||0):terrainGroundYAt(worldX,worldZ)+.055;
+          editorGesture.zoneStartScreen=projectWorldPoint(worldX,zoneY,worldZ);
+          beginEditorTransaction(`Move ${puzzleZoneTypeLabel(zone.type)}`);
+          hintEl.textContent=`Move ${puzzleZoneTypeLabel(zone.type)} · drag anywhere · lift and touch again to continue from the current position`;
           hintEl.classList.remove('hidden');
           return;
         }
-      }
-
-      const respawnHandle = puzzleRespawnHandleAt(e.clientX, e.clientY);
-      if (respawnHandle) {
-        const instance=selectedPuzzleInstance();editorGesture.kind='puzzle-respawn';editorGesture.respawnHandle=respawnHandle.kind;editorGesture.respawnStart={...currentPuzzleRespawn(instance.marker)};editorGesture.respawnMarker=instance.marker;puzzleRespawnHandle=respawnHandle.kind;
-        if(puzzleEditSession?.markerId===instance?.id)beginEditorTransaction('Edit respawn');
-        hintEl.textContent=respawnHandle.kind==='spawn'?'Drag the green SPAWN point':(respawnHandle.kind==='zone-center'?'Drag the pink centre to move the respawn volume':'Drag the pink edge handle to resize the respawn volume');hintEl.classList.remove('hidden');return;
       }
 
       const cartPathHandleHit = puzzleCartPathHandleAt(e.clientX, e.clientY);
@@ -17827,10 +17911,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         return;
       }
 
-      if (puzzleRespawnEditMode) {
-        editorGesture.kind = 'respawn-pan';
-        return;
-      }
       if (puzzleCartPathEditMode) {
         editorGesture.kind = 'cart-path-pan';
         return;
@@ -18012,26 +18092,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           yAt:(x,z)=>terrainGroundYAt(x,z)+.055
         }):{x:editorGesture.groupExclusionStartWorldX+dx*.0065,z:editorGesture.groupExclusionStartWorldZ};
         ex.centerX=solved.x-gx;ex.centerZ=solved.z-gz;
-      } else if (editorGesture.kind === 'puzzle-exclusion' && editorGesture.exclusionMarker) {
-        const marker=editorGesture.exclusionMarker;
-        const ex=currentPuzzleExclusion(marker);
-        const startScreen=editorGesture.exclusionStartScreen;
-        const solved=startScreen?solveEditorScreenDragXZ({
-          startX:editorGesture.exclusionStartWorldX,
-          startZ:editorGesture.exclusionStartWorldZ,
-          startScreenX:startScreen.x,startScreenY:startScreen.y,
-          targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
-          yAt:(x,z)=>terrainGroundYAt(x,z)+.055
-        }):{x:editorGesture.exclusionStartWorldX+dx*.0065,z:editorGesture.exclusionStartWorldZ};
-        ex.centerX=solved.x-marker.x;ex.centerZ=solved.z;
-      } else if (editorGesture.kind === 'puzzle-respawn' && editorGesture.respawnMarker) {
-        const point=groundPointFromClient(e.clientX,e.clientY);if(point){const marker=editorGesture.respawnMarker;const start=editorGesture.respawnStart;const cfg=currentPuzzleRespawn(marker);const localX=point.x-marker.x;const z=point.z;const left0=start.zoneCenterX-start.width*.5,right0=start.zoneCenterX+start.width*.5,far0=start.zoneCenterZ-start.depth*.5,near0=start.zoneCenterZ+start.depth*.5;
-          if(editorGesture.respawnHandle==='spawn'){cfg.spawnX=localX;cfg.spawnZ=z;}
-          else if(editorGesture.respawnHandle==='zone-center'){cfg.zoneCenterX=localX;cfg.zoneCenterZ=z;}
-          else if(editorGesture.respawnHandle==='left'){const left=Math.min(localX,right0-.8);cfg.zoneCenterX=(left+right0)*.5;cfg.width=Math.max(.8,right0-left);}
-          else if(editorGesture.respawnHandle==='right'){const right=Math.max(localX,left0+.8);cfg.zoneCenterX=(left0+right)*.5;cfg.width=Math.max(.8,right-left0);}
-          else if(editorGesture.respawnHandle==='far'){const far=Math.min(z,near0-.8);cfg.zoneCenterZ=(far+near0)*.5;cfg.depth=Math.max(.8,near0-far);}
-          else if(editorGesture.respawnHandle==='near'){const near=Math.max(z,far0+.8);cfg.zoneCenterZ=(far0+near)*.5;cfg.depth=Math.max(.8,near-far0);}cfg.enabled=true;}
+      } else if (editorGesture.kind === 'puzzle-zone' && editorGesture.zoneMarker) {
+        const marker=editorGesture.zoneMarker;
+        const zone=currentPuzzleZones(marker).find(item=>item.id===editorGesture.zoneId);
+        const startScreen=editorGesture.zoneStartScreen;
+        if(zone){
+          const solved=startScreen?solveEditorScreenDragXZ({
+            startX:editorGesture.zoneStartWorldX,
+            startZ:editorGesture.zoneStartWorldZ,
+            startScreenX:startScreen.x,startScreenY:startScreen.y,
+            targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
+            yAt:(x,z)=>zone.type==='respawn-trigger'?playSurfaceYAt(x)+Number(zone.triggerOffsetY||0):terrainGroundYAt(x,z)+.055
+          }):{x:editorGesture.zoneStartWorldX+dx*.0065,z:editorGesture.zoneStartWorldZ};
+          zone.centerX=solved.x-marker.x;zone.centerZ=solved.z;
+        }
       } else if (editorGesture.kind === 'puzzle-cart-path' && editorGesture.cartPathMarker) {
         const marker=editorGesture.cartPathMarker;
         const cfg=currentPuzzleCartPath(marker);
@@ -18096,7 +18170,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
             else recordObjectEdit(gesture.object);
           }
           else if (gesture.kind==='collision-handle' && selectedObject) recordObjectEdit(selectedObject);
-          else if (gesture.kind==='puzzle-respawn' && gesture.respawnMarker) { savePuzzleRespawnDraft(gesture.respawnMarker); updatePuzzlePanel(); }
           else if (gesture.kind==='puzzle-cart-path' && gesture.cartPathMarker) { savePuzzleCartPathDraft(gesture.cartPathMarker); updatePuzzlePanel(); }
           else if (gesture.kind==='puzzle-marker' && gesture.marker) {
             persistPuzzleMarkerPosition(gesture.marker);
@@ -18110,9 +18183,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           else if (gesture.kind==='world-group-exclusion' && gesture.groupExclusionGroup) {
             saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});
           }
-          else if (gesture.kind==='puzzle-exclusion' && gesture.exclusionMarker) {
-            savePuzzleExclusionState();
-            updatePuzzlePanel();
+          else if (gesture.kind==='puzzle-zone' && gesture.zoneMarker) {
+            savePuzzleZonesDraft(gesture.zoneMarker);
+            updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
           }
         } else if (!gesture.moved && gesture.kind==='world-group-direct' && gesture.group) {
           selectWorldGroup(gesture.group.id,{focus:false});
@@ -18192,7 +18265,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         }
         if(editorTransaction)commitEditorTransaction();
       }
-      editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;puzzleRespawnHandle=null;puzzleCartPathHandle=null;
+      editorGesture=null;editorPointer=null;editorDragKind=null;editorTapState=null;collisionHandleIndex=-1;puzzleBoundSide=null;puzzleCartPathHandle=null;
       return;
     }
     if (e.pointerId === activePointer) activePointer = null;

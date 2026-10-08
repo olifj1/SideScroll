@@ -2,9 +2,37 @@
 
 Persistent working backlog for the SideScroll / Aureli project. Keep this file in future builds and update it as tasks are completed, split, reprioritised or discovered.
 
+## October 8, 2026 — v1.0.132 Management/Edit + stable Puzzle Zones
+
+**Current status:** v1.0.132 implements the bounded Management/Edit separation and stable Puzzle Zones refactor identified by the v1.0.131 on-device review. Static validation is complete; focused iPhone regression testing of Stone Wall and Broken Bridge is still required before this slice is considered device-verified. Applied Puzzle Logic remains deliberately deferred to v1.0.133.
+
+### v1.0.132 — Management/Edit separation + stable Puzzle Zones
+
+- [x] Make Puzzle first-level UI management-only; no internal puzzle authoring before `Edit Puzzle`.
+- [x] Apply the same management-only boundary to World Groups; child/exclusion editing only inside `Edit Group`.
+- [x] Replace legacy Puzzle exclusion/respawn special cases with a stable ID-bearing zone collection.
+- [x] Initial zone types: Procedural Exclusion and Respawn Trigger.
+- [x] Provide authoritative Add/List/Select/Focus/Move/Width/Length/Enabled/Delete zone workflow.
+- [x] Make Respawn use the same stable zone interaction; retire the crash-prone viewport edge-handle route.
+- [x] Safely migrate existing puzzle/template exclusion and Broken Bridge respawn data.
+- [x] Integrate zone mutations with Puzzle Save/Discard and Undo/Redo.
+- [x] Move/rename destructive `Clear Stage` to an explicit Advanced/Workshop utility.
+- [ ] Complete focused iPhone regression testing of Stone Wall and Broken Bridge before closing the slice.
+
+### v1.0.133 — Applied Puzzle Logic systems
+
+- [ ] Replace permanent feature panels with an applied Logic collection/registry.
+- [ ] Show only systems actually attached to a puzzle plus `+ Add Logic`.
+- [ ] Formalise existing Cart Path, Socket Completion and Completion Reward/Collectible systems first.
+- [ ] Represent Stone Wall socket completion and completion reward explicitly.
+- [ ] Keep physical socket editing in Contents while completion rules live in Logic.
+- [ ] Do not introduce a generic visual scripting/node graph.
+
+See `WIP_STATUS.md` for the authoritative handoff description.
+
 ## Editor architecture / workflow system update — October 2026
 
-**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; Stage 2C Puzzle Editor v2 completion candidate is v1.0.131**. World Group and Puzzle editing now share the production drawer/session/history grammar. Puzzle Editor v2 is code-complete for the planned migration and is awaiting focused on-device QA before Stage 2 is formally closed. The next major tooling stage after that is the general Environment Outliner/Inspector.
+**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; v1.0.132 adds the Management/Edit correction and stable Puzzle Zones migration**. World Group and Puzzle editing now share the production drawer/session/history grammar, with internal authoring gated behind explicit Edit sessions. v1.0.132 is awaiting focused on-device QA; Applied Puzzle Logic is the deliberately separate v1.0.133 slice. The general Environment Outliner/Inspector remains a later tooling stage.
 
 ### Stage 1 implementation progress — v1.0.117
 

@@ -13895,3 +13895,29 @@ body[data-game-id="game-16"] .sidescroll-puzzle-relationship-status{display:flex
 body[data-game-id="game-16"] .sidescroll-puzzle-relationship-status b{font-size:8px;color:#d8e7e3;text-align:right;}
 body[data-game-id="game-16"] .sidescroll-puzzle-relationship-status b.active{color:#e6c993;}
 body[data-game-id="game-16"] .sidescroll-puzzle-workspace-actions button.danger{color:#f2cfca;border-color:rgba(214,119,107,.25);background:rgba(157,76,68,.15);}
+
+/* v1.0.132 · stable Puzzle Zones + explicit workshop boundary. */
+body[data-game-id="game-16"] .sidescroll-puzzle-zone-add-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-zone-add-row select{
+  min-width:0;min-height:36px;padding:0 8px;border:1px solid rgba(236,243,241,.15);
+  border-radius:9px;background:rgba(255,255,255,.055);color:#edf4f2;font-size:9px;font-weight:850;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-zone-add-row button{
+  min-height:36px;padding:4px 9px;border:1px solid rgba(236,243,241,.15);border-radius:9px;
+  background:rgba(255,255,255,.055);color:#edf4f2;font-size:9px;font-weight:850;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced{display:grid;gap:7px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced>summary{
+  cursor:pointer;list-style:none;min-height:34px;display:flex;align-items:center;padding:0 8px;
+  border:1px solid rgba(236,243,241,.12);border-radius:9px;background:rgba(255,255,255,.035);
+  color:rgba(238,244,243,.68);font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;
+}
+body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced>summary::-webkit-details-marker{display:none;}
+body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced[open]>summary{color:#efd3cd;border-color:rgba(214,119,107,.25);}
+body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced .sidescroll-puzzle-help{margin:7px 0 0!important;}
+body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced .sidescroll-puzzle-stage-actions{margin-top:7px;}
+body[data-game-id="game-16"] .sidescroll-puzzle-workshop-advanced .sidescroll-puzzle-stage-actions .danger{
+  color:#f2cfca!important;border-color:rgba(214,119,107,.28)!important;background:rgba(157,76,68,.15)!important;
+}
