@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.132a">
+  <link rel="stylesheet" href="style.css?v=1.0.133">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -234,13 +234,13 @@
 
           <aside class="sidescroll-puzzle-panel sidescroll-editor-drawer" id="sidescroll-puzzle-panel" hidden aria-live="polite">
             <div class="sidescroll-editor-drawer-header" id="sidescroll-editor-drawer-header">
+              <button class="sidescroll-editor-drawer-collapse" id="sidescroll-editor-drawer-collapse" type="button" aria-label="Collapse editor drawer">‹</button>
               <button class="sidescroll-editor-drawer-back" id="sidescroll-editor-drawer-back" type="button" hidden>‹ Back</button>
               <div class="sidescroll-editor-drawer-title">
                 <small id="sidescroll-editor-drawer-context">EDIT</small>
                 <strong id="sidescroll-editor-drawer-title">Environment</strong>
                 <span id="sidescroll-editor-drawer-dirty" hidden>Unsaved changes</span>
               </div>
-              <button class="sidescroll-editor-drawer-collapse" id="sidescroll-editor-drawer-collapse" type="button" aria-label="Collapse editor drawer">‹</button>
             </div>
             <div class="sidescroll-editor-drawer-body" id="sidescroll-editor-drawer-body">
             <div class="sidescroll-placement-strip" id="sidescroll-placement-strip" hidden>
@@ -401,39 +401,67 @@
                 </div>
               </div>
               <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-logic" hidden>
-                <div class="sidescroll-panel-section-head compact"><strong>Cart path</strong></div>
-                <div class="sidescroll-puzzle-workspace-actions">
-                  <button data-puzzle-legacy="sidescroll-puzzle-cart-path-edit" type="button">Cart Path</button>
+                <div class="sidescroll-panel-section-head compact"><strong>Logic</strong><small id="sidescroll-puzzle-logic-count">0 systems</small></div>
+                <div class="sidescroll-puzzle-zone-add-row">
+                  <select id="sidescroll-puzzle-logic-add-type" aria-label="Logic system type"></select>
+                  <button id="sidescroll-puzzle-logic-add" type="button">＋ Add Logic</button>
                 </div>
-                <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-cart-info">Cart path controls are available for puzzles with a cart.</p>
-                <div class="sidescroll-puzzle-respawn-tools" id="sidescroll-puzzle-cart-path-tools" hidden>
-                <div class="sidescroll-puzzle-respawn-head"><strong>CART PATH</strong><span>Time <b id="sidescroll-puzzle-cart-path-duration-value">2.75 s</b> · Land <b id="sidescroll-puzzle-cart-path-angle-value">−8°</b></span></div>
-                <div class="sidescroll-puzzle-respawn-grid">
-                <button id="sidescroll-puzzle-cart-path-toggle" type="button">Path ON</button>
-                <button id="sidescroll-puzzle-cart-path-start-cart" type="button">Path = Cart</button>
-                <button id="sidescroll-puzzle-cart-path-duration-down" type="button">Time −0.25 s</button>
-                <button id="sidescroll-puzzle-cart-path-duration-up" type="button">Time +0.25 s</button>
-                <button id="sidescroll-puzzle-cart-path-angle-down" type="button">Angle −1°</button>
-                <button id="sidescroll-puzzle-cart-path-angle-zero" type="button">Level 0°</button>
-                <button id="sidescroll-puzzle-cart-path-angle-up" type="button">Angle +1°</button>
-                <button id="sidescroll-puzzle-cart-path-match-push" type="button">Match Push</button>
+                <div class="sidescroll-world-group-exclusion-list" id="sidescroll-puzzle-logic-list" role="listbox" aria-label="Applied puzzle logic"></div>
+                <p class="sidescroll-scene-empty" id="sidescroll-puzzle-logic-empty">No applied Logic systems. Add only the behaviours this puzzle actually uses.</p>
+
+                <div class="sidescroll-world-group-exclusion-inspector" id="sidescroll-puzzle-logic-inspector" hidden>
+                  <div class="sidescroll-panel-section-head compact"><strong id="sidescroll-puzzle-logic-name">Logic</strong><small id="sidescroll-puzzle-logic-type">Applied system</small></div>
+                  <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-logic-description">Choose an applied system to edit it.</p>
+
+                  <div id="sidescroll-puzzle-logic-cart" hidden>
+                    <div class="sidescroll-puzzle-workspace-actions">
+                      <button data-puzzle-legacy="sidescroll-puzzle-cart-path-edit" type="button">Edit Path</button>
+                    </div>
+                    <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-cart-info">Cart Path is attached to this puzzle.</p>
+                    <div class="sidescroll-puzzle-respawn-tools" id="sidescroll-puzzle-cart-path-tools" hidden>
+                      <div class="sidescroll-puzzle-respawn-head"><strong>CART PATH</strong><span>Time <b id="sidescroll-puzzle-cart-path-duration-value">2.75 s</b> · Land <b id="sidescroll-puzzle-cart-path-angle-value">−8°</b></span></div>
+                      <div class="sidescroll-puzzle-respawn-grid">
+                        <button id="sidescroll-puzzle-cart-path-toggle" type="button">Path ON</button>
+                        <button id="sidescroll-puzzle-cart-path-start-cart" type="button">Path = Cart</button>
+                        <button id="sidescroll-puzzle-cart-path-duration-down" type="button">Time −0.25 s</button>
+                        <button id="sidescroll-puzzle-cart-path-duration-up" type="button">Time +0.25 s</button>
+                        <button id="sidescroll-puzzle-cart-path-angle-down" type="button">Angle −1°</button>
+                        <button id="sidescroll-puzzle-cart-path-angle-zero" type="button">Level 0°</button>
+                        <button id="sidescroll-puzzle-cart-path-angle-up" type="button">Angle +1°</button>
+                        <button id="sidescroll-puzzle-cart-path-match-push" type="button">Match Push</button>
+                      </div>
+                      <div class="sidescroll-cart-path-speeds">
+                        <div><span>START SPEED</span><button id="sidescroll-puzzle-cart-path-speed-start-down" type="button">−</button><b id="sidescroll-puzzle-cart-path-speed-start-value">0.70×</b><button id="sidescroll-puzzle-cart-path-speed-start-up" type="button">+</button></div>
+                        <div><span>MID SPEED</span><button id="sidescroll-puzzle-cart-path-speed-mid-down" type="button">−</button><b id="sidescroll-puzzle-cart-path-speed-mid-value">1.40×</b><button id="sidescroll-puzzle-cart-path-speed-mid-up" type="button">+</button></div>
+                        <div><span>END SPEED</span><button id="sidescroll-puzzle-cart-path-speed-end-down" type="button">−</button><b id="sidescroll-puzzle-cart-path-speed-end-value">0.55×</b><button id="sidescroll-puzzle-cart-path-speed-end-up" type="button">+</button></div>
+                      </div>
+                      <div class="sidescroll-cart-path-preview">
+                        <button id="sidescroll-puzzle-cart-path-preview" type="button">Replay Ghost</button>
+                        <label>
+                          <span>SCRUB</span>
+                          <input id="sidescroll-puzzle-cart-path-scrub" type="range" min="0" max="1000" step="1" value="1000" aria-label="Scrub cart path preview">
+                        </label>
+                        <b id="sidescroll-puzzle-cart-path-preview-time">2.75 / 2.75 s</b>
+                      </div>
+                      <small>Drag START, CURVE 1, CURVE 2 or LAND to reshape the route. Drag the blue MOVE PATH handle — or the spline — to reposition the whole route. START / MID / END speed shape motion along the rail without changing total duration. Replay Ghost or scrub to preview the exact result.</small>
+                    </div>
+                    <p class="sidescroll-puzzle-help">Cart Path remains the current cart-specific authoring tool, but its applied-Logic record is kept separate from the path data so the motion-path technique can later be generalised for other environment assets.</p>
+                  </div>
+
+                  <div id="sidescroll-puzzle-logic-sockets" hidden>
+                    <div class="sidescroll-puzzle-relationship-status"><span>Socket state</span><b id="sidescroll-puzzle-logic-socket-status">0 sockets</b></div>
+                    <p class="sidescroll-puzzle-help">The puzzle completes when every authored socket is occupied by its matching piece. Socket positions and matching pieces remain physical child properties under Contents.</p>
+                  </div>
+
+                  <div id="sidescroll-puzzle-logic-reward" hidden>
+                    <label class="sidescroll-puzzle-logic-field"><span>Collectible</span><select id="sidescroll-puzzle-logic-reward-item" aria-label="Completion reward collectible"></select></label>
+                    <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-logic-reward-status">Spawn this collectible when the puzzle completes.</p>
+                  </div>
+
+                  <div class="sidescroll-world-group-child-actions">
+                    <button id="sidescroll-puzzle-logic-remove" class="danger" type="button">Remove Logic</button>
+                  </div>
                 </div>
-                <div class="sidescroll-cart-path-speeds">
-                <div><span>START SPEED</span><button id="sidescroll-puzzle-cart-path-speed-start-down" type="button">−</button><b id="sidescroll-puzzle-cart-path-speed-start-value">0.70×</b><button id="sidescroll-puzzle-cart-path-speed-start-up" type="button">+</button></div>
-                <div><span>MID SPEED</span><button id="sidescroll-puzzle-cart-path-speed-mid-down" type="button">−</button><b id="sidescroll-puzzle-cart-path-speed-mid-value">1.40×</b><button id="sidescroll-puzzle-cart-path-speed-mid-up" type="button">+</button></div>
-                <div><span>END SPEED</span><button id="sidescroll-puzzle-cart-path-speed-end-down" type="button">−</button><b id="sidescroll-puzzle-cart-path-speed-end-value">0.55×</b><button id="sidescroll-puzzle-cart-path-speed-end-up" type="button">+</button></div>
-                </div>
-                <div class="sidescroll-cart-path-preview">
-                <button id="sidescroll-puzzle-cart-path-preview" type="button">Replay Ghost</button>
-                <label>
-                <span>SCRUB</span>
-                <input id="sidescroll-puzzle-cart-path-scrub" type="range" min="0" max="1000" step="1" value="1000" aria-label="Scrub cart path preview">
-                </label>
-                <b id="sidescroll-puzzle-cart-path-preview-time">2.75 / 2.75 s</b>
-                </div>
-                <small>Drag START, CURVE 1, CURVE 2 or LAND to reshape the route. Handles close to the iPhone home-gesture area are lifted upward with a guide line so they remain draggable. Drag the blue MOVE PATH handle — or drag directly on the spline — to reposition the whole route. Use START / MID / END speed to shape the velocity along the rail without changing its total duration. Replay Ghost or scrub to preview the exact result. Match Push chooses an overall travel time close to the cart's pushing speed.</small>
-                </div>
-                <p class="sidescroll-puzzle-help">The detailed timing, landing angle, speed profile and ghost scrub controls now live here in the Puzzle drawer. The viewport remains responsible only for the path handles themselves.</p>
               </div>
               <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-setup" hidden>
                 <div class="sidescroll-panel-section-head compact"><strong>Relationship</strong><small id="sidescroll-puzzle-workspace-source">Linked</small></div>
@@ -713,6 +741,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.132a"></script>
+  <script src="sidescroll.js?v=1.0.133"></script>
 </body>
 </html>

@@ -655,6 +655,22 @@
   const puzzleRespawnTriggerRowEl = document.getElementById('sidescroll-puzzle-respawn-trigger-row');
   const puzzleRespawnTriggerInput = document.getElementById('sidescroll-puzzle-respawn-trigger');
   const puzzleRespawnTriggerValue = document.getElementById('sidescroll-puzzle-respawn-trigger-value');
+  const puzzleLogicCountEl = document.getElementById('sidescroll-puzzle-logic-count');
+  const puzzleLogicAddTypeEl = document.getElementById('sidescroll-puzzle-logic-add-type');
+  const puzzleLogicAddBtn = document.getElementById('sidescroll-puzzle-logic-add');
+  const puzzleLogicListEl = document.getElementById('sidescroll-puzzle-logic-list');
+  const puzzleLogicEmptyEl = document.getElementById('sidescroll-puzzle-logic-empty');
+  const puzzleLogicInspectorEl = document.getElementById('sidescroll-puzzle-logic-inspector');
+  const puzzleLogicNameEl = document.getElementById('sidescroll-puzzle-logic-name');
+  const puzzleLogicTypeEl = document.getElementById('sidescroll-puzzle-logic-type');
+  const puzzleLogicDescriptionEl = document.getElementById('sidescroll-puzzle-logic-description');
+  const puzzleLogicCartEl = document.getElementById('sidescroll-puzzle-logic-cart');
+  const puzzleLogicSocketsEl = document.getElementById('sidescroll-puzzle-logic-sockets');
+  const puzzleLogicSocketStatusEl = document.getElementById('sidescroll-puzzle-logic-socket-status');
+  const puzzleLogicRewardEl = document.getElementById('sidescroll-puzzle-logic-reward');
+  const puzzleLogicRewardItemEl = document.getElementById('sidescroll-puzzle-logic-reward-item');
+  const puzzleLogicRewardStatusEl = document.getElementById('sidescroll-puzzle-logic-reward-status');
+  const puzzleLogicRemoveBtn = document.getElementById('sidescroll-puzzle-logic-remove');
   const puzzleCartPathEditBtn = document.getElementById('sidescroll-puzzle-cart-path-edit');
   const puzzleCartPathTools = document.getElementById('sidescroll-puzzle-cart-path-tools');
   const puzzleCartPathToggleBtn = document.getElementById('sidescroll-puzzle-cart-path-toggle');
@@ -5238,6 +5254,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let selectedPuzzleZoneId = null;
   let puzzleZoneMoveMode = false;
   let puzzleZoneSpawnMoveMode = false;
+  const puzzleLogicDraft = Object.create(null);
+  let selectedPuzzleLogicId = null;
+  let puzzleLogicListSignature = '';
+  let puzzleLogicAddSignature = '';
   const puzzleCartPathDraft = Object.create(null);
   let puzzleCartPathEditMode = false;
   let puzzleCartPathHandle = null;
@@ -5481,9 +5501,157 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if(puzzleEditSession?.markerId===marker.id&&!editorTransaction)recordImplicitEditorMutation('Edit puzzle zone');
   }
 
-  function cartObjectForInstance(instance) {
+  const PUZZLE_LOGIC_REGISTRY = Object.freeze({
+    'cart-path': {
+      label:'Cart Path',
+      short:'Motion path',
+      description:'Move the puzzle cart along an authored spline when it reaches the path start.'
+    },
+    'socket-completion': {
+      label:'Socket Completion',
+      short:'Completion rule',
+      description:'Complete the puzzle when every authored socket contains its matching piece.'
+    },
+    'completion-reward': {
+      label:'Completion Reward',
+      short:'Completion event',
+      description:'Spawn a collectible when the puzzle reaches its completion state.'
+    }
+  });
+
+  function firstCartObjectForInstance(instance) {
     if (!instance) return null;
     return instance.objects.find(obj => obj && !obj.deleted && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) || null;
+  }
+
+  function puzzleCartTargetObjectId(marker) {
+    if (!marker) return null;
+    const instance=activePuzzleInstances.get(marker.id);
+    const live=firstCartObjectForInstance(instance);
+    if(live?.puzzleObjectId)return live.puzzleObjectId;
+    const start=puzzleStartFor(marker);
+    for(const [objectId,state] of Object.entries(start?.objects||{})){
+      if(state&&!state.deleted&&(state.asset==='handcart'||state.asset==='handcart-broken'))return objectId;
+    }
+    const prop=(markerDefinition(marker)?.props||[]).find(item=>item&&(item.asset==='handcart'||item.asset==='handcart-broken'));
+    return prop?.id||null;
+  }
+
+  function cleanPuzzleLogicRecord(marker,raw,type,index=0) {
+    if(!PUZZLE_LOGIC_REGISTRY[type])return null;
+    const id=typeof raw?.id==='string'&&raw.id.trim()?raw.id.trim():`logic-${type}`;
+    if(type==='cart-path'){
+      return {
+        id,type,
+        targetObjectId:typeof raw?.targetObjectId==='string'&&raw.targetObjectId?raw.targetObjectId:(puzzleCartTargetObjectId(marker)||null),
+        activation:raw?.activation&&typeof raw.activation==='object'?deepCopy(raw.activation):{type:'reach-path-start'}
+      };
+    }
+    if(type==='completion-reward'){
+      const itemId=typeof raw?.itemId==='string'&&INVENTORY_ITEM_DEFS[raw.itemId]?raw.itemId:'forest-key';
+      return {
+        id,type,itemId,
+        asset:typeof raw?.asset==='string'&&raw.asset?raw.asset:(INVENTORY_ITEM_DEFS[itemId]?.asset||itemId),
+        height:Number.isFinite(Number(raw?.height))?Number(raw.height):0.62,
+        offsetX:Number.isFinite(Number(raw?.offsetX))?Number(raw.offsetX):1.20
+      };
+    }
+    return {id,type};
+  }
+
+  function puzzleCartPathHasAuthoredSignal(marker,raw){
+    if(!marker||!raw||typeof raw!=='object')return false;
+    if(raw.enabled===true)return true;
+    const clean=normalisePuzzleCartPath(marker,raw),fallback=normalisePuzzleCartPath(marker,null);
+    for(const key of ['duration','speedStart','speedMid','speedEnd','finalRotationDeg']){
+      if(Math.abs(Number(clean[key])-Number(fallback[key]))>0.0001)return true;
+    }
+    for(const pointKey of ['start','c1','c2','land']){
+      for(const axis of ['x','y','z'])if(Math.abs(Number(clean[pointKey]?.[axis])-Number(fallback[pointKey]?.[axis]))>0.0001)return true;
+    }
+    return false;
+  }
+
+  function legacyPuzzleLogic(marker) {
+    if(!marker)return [];
+    const result=[];
+    const def=markerDefinition(marker)||{};
+    const completion=def.completion;
+    if(completion?.type==='sockets')result.push(cleanPuzzleLogicRecord(marker,null,'socket-completion',result.length));
+
+    const explicitReward=def.completionEvent?.type==='spawn-collectible'?def.completionEvent:null;
+    if(explicitReward){
+      result.push(cleanPuzzleLogicRecord(marker,{
+        itemId:explicitReward.itemId,asset:explicitReward.asset,height:explicitReward.height,offsetX:explicitReward.offsetX
+      },'completion-reward',result.length));
+    }else if(completion?.type==='sockets'){
+      // Preserve the pre-v1.0.133 prototype rule during migration: socket
+      // completion awarded the Forest Key even when no explicit event existed.
+      result.push(cleanPuzzleLogicRecord(marker,null,'completion-reward',result.length));
+    }
+
+    const start=puzzleStartFor(marker);
+    const authoredPath=puzzleSavedState?.[marker.id]?.cartPathDraft || start?.cartPath || null;
+    const targetObjectId=puzzleCartTargetObjectId(marker);
+    if(targetObjectId&&puzzleCartPathHasAuthoredSignal(marker,authoredPath)){
+      result.push(cleanPuzzleLogicRecord(marker,{targetObjectId},'cart-path',result.length));
+    }
+    return result.filter(Boolean);
+  }
+
+  function normalisePuzzleLogic(marker,rawLogic) {
+    if(!marker)return [];
+    const source=Array.isArray(rawLogic)?rawLogic:legacyPuzzleLogic(marker);
+    const result=[];
+    const usedTypes=new Set();
+    const usedIds=new Set();
+    source.forEach((raw,index)=>{
+      const type=raw?.type;
+      if(!PUZZLE_LOGIC_REGISTRY[type]||usedTypes.has(type))return;
+      const clean=cleanPuzzleLogicRecord(marker,raw,type,index);
+      if(!clean)return;
+      while(usedIds.has(clean.id))clean.id=`${clean.id}-${index+1}`;
+      usedTypes.add(type);usedIds.add(clean.id);result.push(clean);
+    });
+    return result;
+  }
+
+  function currentPuzzleLogic(marker) {
+    if(!marker)return [];
+    if(Array.isArray(puzzleLogicDraft[marker.id]))return puzzleLogicDraft[marker.id];
+    const runtimeRaw=puzzleSavedState?.[marker.id]?.logicDraft;
+    const start=puzzleStartFor(marker);
+    const raw=Array.isArray(runtimeRaw)?runtimeRaw:(Array.isArray(start?.logic)?start.logic:null);
+    puzzleLogicDraft[marker.id]=normalisePuzzleLogic(marker,raw);
+    return puzzleLogicDraft[marker.id];
+  }
+
+  function puzzleLogicRecord(marker,type) {
+    return currentPuzzleLogic(marker).find(record=>record?.type===type)||null;
+  }
+
+  function savePuzzleLogicDraft(marker) {
+    if(!marker)return;
+    const logic=deepCopy(currentPuzzleLogic(marker));
+    const runtime=savedPuzzleFor(marker.id);
+    runtime.logicDraft=logic;
+    if(typeof editMode!=='undefined'&&editMode&&!puzzleTestMode)puzzleStartDirty.add(marker.id);
+    savePuzzleState();
+    if(puzzleEditSession?.markerId===marker.id&&!editorTransaction)recordImplicitEditorMutation('Edit puzzle logic');
+  }
+
+  function cartObjectForInstance(instance) {
+    if (!instance) return null;
+    const logicInitialised=Array.isArray(puzzleLogicDraft[instance.id]);
+    const record=logicInitialised?puzzleLogicDraft[instance.id].find(item=>item?.type==='cart-path'):null;
+    if(record?.targetObjectId){
+      // Once an applied Cart Path has an explicit target, a missing/deleted
+      // target is an authoring problem rather than permission to silently jump
+      // to a different cart. This also leaves a clean seam for the later
+      // general Animation Path system where target assignment is first-class.
+      return instance.objects.find(obj=>obj&&!obj.deleted&&obj.puzzleObjectId===record.targetObjectId&&(obj.assetName==='handcart'||obj.assetName==='handcart-broken'))||null;
+    }
+    return firstCartObjectForInstance(instance);
   }
 
   function defaultPuzzleCartPath(marker) {
@@ -6351,7 +6519,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
     }
-    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
+    const snapshot = { source:'authored', savedAt:Date.now(), bounds:{ ...currentPuzzleBoundsRelative(instance.marker) }, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), logic:deepCopy(currentPuzzleLogic(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
     puzzleStartState[instance.id] = snapshot;
     puzzleStartDirty.delete(instance.id);
     savePuzzleStarts();
@@ -6373,6 +6541,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     // fresh default rail during Reset, which made the guide jump to the right.
     const existingCartPath = puzzleCartPathDraft[instance.id] || puzzleSavedState?.[instance.id]?.cartPathDraft || null;
     puzzleCartPathDraft[instance.id] = normalisePuzzleCartPath(instance.marker, snapshot.cartPath || existingCartPath || null);
+    puzzleLogicDraft[instance.id] = normalisePuzzleLogic(instance.marker, Array.isArray(snapshot.logic) ? snapshot.logic : null);
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (pushingObject?.puzzleInstanceId === instance.id) { pushingObject = null; pushingSide = 0; pushingFloorOffset = 0; }
@@ -6503,6 +6672,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     runtime.boundsDraft = deepCopy(currentPuzzleBoundsRelative(instance.marker));
     runtime.zonesDraft = deepCopy(currentPuzzleZones(instance.marker));
     delete runtime.respawnDraft;
+    runtime.logicDraft = deepCopy(currentPuzzleLogic(instance.marker));
     runtime.cartPathDraft = deepCopy(currentPuzzleCartPath(instance.marker));
     runtime.objects = {};
     for (const obj of instance.objects) {
@@ -6903,15 +7073,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const COLLECTIBLE_PICKUP_RADIUS = 0.72;
 
   function completionRewardFor(instance) {
-    const explicit = instance?.def?.completionEvent;
-    if (explicit?.type === 'spawn-collectible') return explicit;
-    // Prototype rule for now: every socket-completion puzzle awards the same
-    // key. This is deliberately centralised so a later logic/event editor can
-    // replace the hard-coded branch without changing inventory or collection.
-    if (instance?.def?.completion?.type === 'sockets') {
-      return { type:'spawn-collectible', itemId:'forest-key', asset:'forest-key', height:0.62, offsetX:1.20 };
-    }
-    return null;
+    if(!instance?.marker)return null;
+    const logic=puzzleLogicRecord(instance.marker,'completion-reward');
+    if(!logic)return null;
+    return {
+      type:'spawn-collectible',
+      itemId:logic.itemId||'forest-key',
+      asset:logic.asset||INVENTORY_ITEM_DEFS[logic.itemId]?.asset||logic.itemId||'forest-key',
+      height:Number.isFinite(Number(logic.height))?Number(logic.height):0.62,
+      offsetX:Number.isFinite(Number(logic.offsetX))?Number(logic.offsetX):1.20
+    };
   }
 
   function removePuzzleRewardObject(instance) {
@@ -6996,19 +7167,24 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function checkPuzzleCompletion(playerX) {
     for (const instance of activePuzzleInstances.values()) {
       if (instance.solved) continue;
-      const rule = instance.def.completion;
-      if (!rule) continue;
       let done = false;
-      if (rule.type === 'cross-x') {
-        const target = instance.marker.x + rule.x;
-        done = (rule.direction ?? 1) >= 0 ? playerX >= target : playerX <= target;
-      } else if (rule.type === 'sockets') {
+      const socketLogic=puzzleLogicRecord(instance.marker,'socket-completion');
+      if(socketLogic){
         const sockets = [];
         for (const host of socketHostsForInstance(instance)) {
           for (const socket of socketsForHost(host)) sockets.push({ host, socket });
         }
         done = sockets.length > 0 && sockets.every(({host,socket}) => instance.objects.some(obj => !obj.deleted && socketMatchesPiece(socket,obj)
           && obj.socketedTo?.hostObjectId === host.id && obj.socketedTo?.socketId === socket.id));
+      }else{
+        // Preserve the older non-socket completion family until it gets its own
+        // applied-Logic component. v1.0.133 intentionally formalises only the
+        // existing Socket Completion / Reward / Cart Path systems.
+        const legacyRule=instance.def?.completion;
+        if(legacyRule?.type==='cross-x'){
+          const target=instance.marker.x+legacyRule.x;
+          done=(legacyRule.direction??1)>=0?playerX>=target:playerX<=target;
+        }
       }
       if (!done) continue;
       instance.solved = true;
@@ -8988,6 +9164,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       startDirty:puzzleStartDirty.has(marker.id),
       selectedObjectId:selectedObject?.puzzleInstanceId===marker.id?selectedObject.id:null,
       selectedPuzzleZoneId:selectedPuzzleZoneId||null,
+      selectedPuzzleLogicId:selectedPuzzleLogicId||null,
       workspaceTab:puzzleWorkspaceTab,
       environmentPlacementMode:!!puzzleEnvironmentPlacementMode
     };
@@ -9022,8 +9199,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectedObject=snapshot.selectedObjectId?instance.objects.find(obj=>obj?.id===snapshot.selectedObjectId&&!obj.deleted)||null:null;
     const zones=currentPuzzleZones(marker);
     selectedPuzzleZoneId=zones.some(zone=>zone.id===snapshot.selectedPuzzleZoneId)?snapshot.selectedPuzzleZoneId:(zones[0]?.id||null);
+    const logic=currentPuzzleLogic(marker);
+    selectedPuzzleLogicId=logic.some(record=>record.id===snapshot.selectedPuzzleLogicId)?snapshot.selectedPuzzleLogicId:(logic[0]?.id||null);
     puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;
-    puzzleWorkspaceListSignature='';puzzleZoneListSignature='';
+    puzzleWorkspaceListSignature='';puzzleZoneListSignature='';puzzleLogicListSignature='';puzzleLogicAddSignature='';
     if(puzzleWorldModifiersReady)invalidatePuzzleWorldModifierMeshes();
     setPuzzleWorkspaceTab(puzzleWorkspaceTab);
     renderScenePuzzleList({force:true});
@@ -9053,6 +9232,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       runtime.boundsDraft=deepCopy(currentPuzzleBoundsRelative(marker));
       runtime.zonesDraft=deepCopy(currentPuzzleZones(marker));
       delete runtime.respawnDraft;
+      runtime.logicDraft=deepCopy(currentPuzzleLogic(marker));
       if(Object.prototype.hasOwnProperty.call(puzzleExclusionState,marker.id))delete puzzleExclusionState[marker.id];
       if(markerLinkMode(marker)==='copy')delete runtime.authoringOverride;
       else runtime.authoringOverride=puzzleStartDirty.has(marker.id);
@@ -9080,6 +9260,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   function closePuzzleEditShell(){
     puzzleWorkspaceActive=false;
     puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;selectedPuzzleZoneId=null;
+    selectedPuzzleLogicId=null;puzzleLogicListSignature='';puzzleLogicAddSignature='';
     puzzleCartPathEditMode=false;puzzleCartPathHandle=null;puzzleCartPathPreviewPlaying=false;
     puzzleNodeInspectorOpen=false;
     if(addAssetType)exitPlacementMode();
@@ -9094,6 +9275,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const instance=activePuzzleInstances.get(marker.id)||instantiatePuzzleGroup(marker);if(!instance)return false;
     const initialZones=currentPuzzleZones(marker);
     selectedPuzzleZoneId=initialZones[0]?.id||null;
+    const initialLogic=currentPuzzleLogic(marker);
+    selectedPuzzleLogicId=initialLogic[0]?.id||null;
     puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;
     if(markerLinkMode(marker)!=='copy'&&puzzleSavedState?.[marker.id]?.authoringOverride===true)puzzleStartDirty.add(marker.id);
     const checkpoint=capturePuzzleEditorSnapshot(marker.id);if(!checkpoint)return false;
@@ -9416,11 +9599,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       runtime.boundsDraft=deepCopy(currentPuzzleBoundsRelative(marker));
       runtime.zonesDraft=deepCopy(currentPuzzleZones(marker));
       delete runtime.respawnDraft;
+      runtime.logicDraft=deepCopy(currentPuzzleLogic(marker));
       runtime.cartPathDraft=deepCopy(currentPuzzleCartPath(marker));
       runtime.authoringOverride=false;
       savePuzzleState();
     });
-    puzzleWorkspaceListSignature='';puzzleZoneListSignature='';
+    puzzleWorkspaceListSignature='';puzzleZoneListSignature='';puzzleLogicListSignature='';puzzleLogicAddSignature='';
     renderPuzzleWorkspaceV2({force:true});
     updatePuzzlePanel();
     hintEl.textContent='Scene instance reverted to the shared Puzzle Template · Undo is available until you Save';
@@ -9532,6 +9716,189 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(puzzleZoneMoveSpawnBtn){puzzleZoneMoveSpawnBtn.textContent=puzzleZoneSpawnMoveMode?'Finish Spawn Move':'Move Spawn';puzzleZoneMoveSpawnBtn.classList.toggle('active',puzzleZoneSpawnMoveMode);}
   }
 
+  function puzzleSocketCompletionStats(instance){
+    if(!instance)return {total:0,filled:0};
+    let total=0,filled=0;
+    for(const host of socketHostsForInstance(instance)){
+      for(const socket of socketsForHost(host)){
+        total+=1;
+        if(instance.objects.some(obj=>!obj.deleted&&socketMatchesPiece(socket,obj)
+          &&obj.socketedTo?.hostObjectId===host.id&&obj.socketedTo?.socketId===socket.id))filled+=1;
+      }
+    }
+    return {total,filled};
+  }
+
+  function puzzleLogicStatus(instance,record){
+    if(!instance||!record)return'';
+    if(record.type==='cart-path'){
+      const cart=cartObjectForInstance(instance);
+      const cfg=currentPuzzleCartPath(instance.marker);
+      const target=cart?(editorAssetInfo.get(cart.assetName)?.label||cart.assetName||'Cart'):'Target missing';
+      return `${target} · ${cfg?.enabled?'ON':'OFF'} · ${Number(cfg?.duration||0).toFixed(2)} s`;
+    }
+    if(record.type==='socket-completion'){
+      const stats=puzzleSocketCompletionStats(instance);
+      return `${stats.filled}/${stats.total} sockets filled`;
+    }
+    if(record.type==='completion-reward'){
+      const cfg=collectibleConfig(record.itemId||'forest-key');
+      return `${cfg.label||INVENTORY_ITEM_DEFS[record.itemId]?.label||record.itemId||'Collectible'} · on completion`;
+    }
+    return PUZZLE_LOGIC_REGISTRY[record.type]?.short||'Applied system';
+  }
+
+  function puzzleLogicCompatible(instance,type){
+    if(!instance||!PUZZLE_LOGIC_REGISTRY[type])return false;
+    if(type==='cart-path')return !!firstCartObjectForInstance(instance);
+    if(type==='socket-completion')return instance.objects.some(obj=>obj&&!obj.deleted&&(objectHasBehaviour(obj,'socketHost')||objectHasBehaviour(obj,'socketPiece')));
+    return true;
+  }
+
+  function updatePuzzleLogicAddOptions(instance,{force=false}={}){
+    if(!puzzleLogicAddTypeEl||!puzzleLogicAddBtn||!instance)return;
+    const applied=new Set(currentPuzzleLogic(instance.marker).map(record=>record.type));
+    const available=Object.keys(PUZZLE_LOGIC_REGISTRY).filter(type=>!applied.has(type)&&puzzleLogicCompatible(instance,type));
+    const signature=`${instance.id}:${available.join('|')}`;
+    if(force||signature!==puzzleLogicAddSignature){
+      puzzleLogicAddSignature=signature;
+      const previous=puzzleLogicAddTypeEl.value;
+      puzzleLogicAddTypeEl.replaceChildren();
+      if(available.length){
+        for(const type of available){
+          const option=document.createElement('option');option.value=type;option.textContent=PUZZLE_LOGIC_REGISTRY[type].label;puzzleLogicAddTypeEl.append(option);
+        }
+        if(available.includes(previous))puzzleLogicAddTypeEl.value=previous;
+      }else{
+        const option=document.createElement('option');option.value='';option.textContent='No additional systems';puzzleLogicAddTypeEl.append(option);
+      }
+    }
+    puzzleLogicAddBtn.disabled=!available.length;
+    puzzleLogicAddTypeEl.disabled=!available.length;
+  }
+
+  function selectPuzzleLogicById(id){
+    const marker=selectedPuzzleMarker();if(!marker)return false;
+    const record=currentPuzzleLogic(marker).find(item=>item.id===id);if(!record)return false;
+    if(record.type!=='cart-path'&&puzzleCartPathEditMode){puzzleCartPathEditMode=false;puzzleCartPathPreviewPlaying=false;puzzleCartPathHandle=null;}
+    selectedPuzzleLogicId=record.id;
+    renderPuzzleWorkspaceV2({force:true});
+    return true;
+  }
+
+  function addSelectedPuzzleLogic(){
+    const instance=selectedPuzzleInstance();
+    if(!instance||!puzzleEditSession||puzzleTestMode)return false;
+    const type=puzzleLogicAddTypeEl?.value;
+    if(!type||!PUZZLE_LOGIC_REGISTRY[type]||!puzzleLogicCompatible(instance,type))return false;
+    if(puzzleLogicRecord(instance.marker,type))return false;
+    const raw=type==='cart-path'?{targetObjectId:firstCartObjectForInstance(instance)?.puzzleObjectId||null}:null;
+    const record=cleanPuzzleLogicRecord(instance.marker,raw,type,currentPuzzleLogic(instance.marker).length);
+    if(!record)return false;
+    runEditorTransaction(`Add ${PUZZLE_LOGIC_REGISTRY[type].label}`,()=>{
+      currentPuzzleLogic(instance.marker).push(record);
+      selectedPuzzleLogicId=record.id;
+      if(type==='cart-path'){
+        const cfg=currentPuzzleCartPath(instance.marker);
+        cfg.enabled=false;
+        savePuzzleCartPathDraft(instance.marker);
+      }
+      savePuzzleLogicDraft(instance.marker);
+    });
+    puzzleLogicListSignature='';puzzleLogicAddSignature='';
+    renderPuzzleWorkspaceV2({force:true});
+    hintEl.textContent=`${PUZZLE_LOGIC_REGISTRY[type].label} added to this puzzle`;hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function removeSelectedPuzzleLogic(){
+    const instance=selectedPuzzleInstance();
+    if(!instance||!puzzleEditSession||puzzleTestMode)return false;
+    const logic=currentPuzzleLogic(instance.marker);
+    const index=logic.findIndex(record=>record.id===selectedPuzzleLogicId);
+    if(index<0)return false;
+    const record=logic[index],label=PUZZLE_LOGIC_REGISTRY[record.type]?.label||'Logic';
+    if(!window.confirm(`Remove ${label} from this puzzle? The underlying assets and authored path data are kept.`))return false;
+    runEditorTransaction(`Remove ${label}`,()=>{
+      if(record.type==='cart-path'){
+        puzzleCartPathEditMode=false;puzzleCartPathPreviewPlaying=false;puzzleCartPathHandle=null;
+        const cfg=currentPuzzleCartPath(instance.marker);cfg.enabled=false;savePuzzleCartPathDraft(instance.marker);
+      }
+      logic.splice(index,1);
+      selectedPuzzleLogicId=logic[Math.min(index,logic.length-1)]?.id||null;
+      savePuzzleLogicDraft(instance.marker);
+    });
+    puzzleLogicListSignature='';puzzleLogicAddSignature='';
+    renderPuzzleWorkspaceV2({force:true});
+    hintEl.textContent=`${label} removed · physical puzzle assets were not changed`;hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function renderPuzzleLogicWorkspace(instance,{force=false}={}){
+    const marker=instance?.marker||null;
+    const logic=marker?currentPuzzleLogic(marker):[];
+    if(selectedPuzzleLogicId&&!logic.some(record=>record.id===selectedPuzzleLogicId))selectedPuzzleLogicId=null;
+    if(!selectedPuzzleLogicId&&logic.length)selectedPuzzleLogicId=logic[0].id;
+    const selected=logic.find(record=>record.id===selectedPuzzleLogicId)||null;
+    if(puzzleLogicCountEl)puzzleLogicCountEl.textContent=`${logic.length} ${logic.length===1?'system':'systems'}`;
+    if(puzzleLogicEmptyEl)puzzleLogicEmptyEl.hidden=logic.length>0;
+    if(instance)updatePuzzleLogicAddOptions(instance,{force});
+
+    if(puzzleLogicListEl){
+      const signature=`${marker?.id||''}:${selectedPuzzleLogicId||''}:${logic.map(record=>`${record.id}:${record.type}:${puzzleLogicStatus(instance,record)}`).join('|')}`;
+      if(force||signature!==puzzleLogicListSignature){
+        puzzleLogicListSignature=signature;
+        puzzleLogicListEl.replaceChildren();
+        for(const record of logic){
+          const row=document.createElement('button');row.type='button';row.className='sidescroll-world-group-list-row';row.classList.toggle('active',record.id===selectedPuzzleLogicId);row.setAttribute('role','option');row.setAttribute('aria-selected',String(record.id===selectedPuzzleLogicId));
+          const text=document.createElement('span'),strong=document.createElement('strong'),small=document.createElement('small');
+          strong.textContent=PUZZLE_LOGIC_REGISTRY[record.type]?.label||record.type;small.textContent=puzzleLogicStatus(instance,record);text.append(strong,small);
+          const state=document.createElement('b');state.textContent='APPLIED';row.append(text,state);
+          bindEditorPress(row,()=>selectPuzzleLogicById(record.id));
+          puzzleLogicListEl.append(row);
+        }
+      }
+    }
+
+    if(puzzleLogicInspectorEl)puzzleLogicInspectorEl.hidden=!selected;
+    if(puzzleLogicCartEl)puzzleLogicCartEl.hidden=selected?.type!=='cart-path';
+    if(puzzleLogicSocketsEl)puzzleLogicSocketsEl.hidden=selected?.type!=='socket-completion';
+    if(puzzleLogicRewardEl)puzzleLogicRewardEl.hidden=selected?.type!=='completion-reward';
+    if(!selected)return;
+
+    const meta=PUZZLE_LOGIC_REGISTRY[selected.type]||{};
+    if(puzzleLogicNameEl)puzzleLogicNameEl.textContent=meta.label||selected.type;
+    if(puzzleLogicTypeEl)puzzleLogicTypeEl.textContent=meta.short||'Applied system';
+    if(puzzleLogicDescriptionEl)puzzleLogicDescriptionEl.textContent=meta.description||'';
+    if(puzzleLogicRemoveBtn)puzzleLogicRemoveBtn.textContent=`Remove ${meta.label||'Logic'}`;
+
+    if(selected.type==='cart-path'){
+      const cart=cartObjectForInstance(instance);
+      const cfg=cart?currentPuzzleCartPath(marker):null;
+      if(puzzleWorkspaceCartEl)puzzleWorkspaceCartEl.textContent=cart&&cfg
+        ? `${editorAssetInfo.get(cart.assetName)?.label||'Cart'} assigned · path ${cfg.enabled?'ON':'OFF'} · ${Number(cfg.duration||0).toFixed(2)} s`
+        : 'The assigned cart is missing. Restore or add the cart in Contents before editing this path.';
+    }else if(puzzleCartPathEditMode){
+      puzzleCartPathEditMode=false;puzzleCartPathPreviewPlaying=false;puzzleCartPathHandle=null;
+    }
+
+    if(selected.type==='socket-completion'&&puzzleLogicSocketStatusEl){
+      const stats=puzzleSocketCompletionStats(instance);
+      puzzleLogicSocketStatusEl.textContent=`${stats.filled}/${stats.total} filled`;
+    }
+
+    if(selected.type==='completion-reward'&&puzzleLogicRewardItemEl){
+      if(!puzzleLogicRewardItemEl.options.length){
+        for(const def of Object.values(INVENTORY_ITEM_DEFS)){
+          const option=document.createElement('option');option.value=def.id;option.textContent=collectibleConfig(def.id).label||def.label||def.id;puzzleLogicRewardItemEl.append(option);
+        }
+      }
+      if(document.activeElement!==puzzleLogicRewardItemEl)puzzleLogicRewardItemEl.value=selected.itemId||'forest-key';
+      const cfg=collectibleConfig(selected.itemId||'forest-key');
+      if(puzzleLogicRewardStatusEl)puzzleLogicRewardStatusEl.textContent=`Spawn ${cfg.label||'this collectible'} when the puzzle completes. Collectible appearance remains configured in the existing Collectables setup.`;
+    }
+  }
+
   function renderPuzzleWorkspaceV2({force=false}={}){
     if(!puzzleWorkspaceVisible())return;
     const marker=selectedPuzzleMarker();
@@ -9561,16 +9928,17 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       ? 'Save commits this independent scene copy. Set Start changes only this copy’s Reset/Test start. It will not update the reusable Template.'
       : 'Save commits only this scene instance. Apply as Template + Start changes the reusable Template and every linked instance. Make Unique detaches this scene copy first.';
     renderPuzzleZonesWorkspace(instance?.marker||null,{force});
+    renderPuzzleLogicWorkspace(instance,{force});
     const cart=instance?cartObjectForInstance(instance):null;
-    const cartCfg=instance&&cart?currentPuzzleCartPath(instance.marker):null;
-    if(puzzleWorkspaceCartEl)puzzleWorkspaceCartEl.textContent=cartCfg?`Cart path ${cartCfg.enabled?'ON':'OFF'} · ${Number(cartCfg.duration||0).toFixed(2)} s`:'This puzzle has no cart path.';
+    const selectedLogic=instance?currentPuzzleLogic(instance.marker).find(record=>record.id===selectedPuzzleLogicId)||null:null;
     // Proxy buttons never copy puzzle logic. Sync with the original action's
     // disabled state and label, and invoke its existing, tested click handler.
     for(const button of puzzleWorkspaceLegacyButtons){
       const legacy=document.getElementById(button.dataset.puzzleLegacy||'');
-      button.disabled=!instance||!legacy?.isConnected||!!legacy.disabled||(button.dataset.puzzleLegacy.startsWith('sidescroll-puzzle-cart-path')&&!cart);
+      button.disabled=!instance||!legacy?.isConnected||!!legacy.disabled||(button.dataset.puzzleLegacy.startsWith('sidescroll-puzzle-cart-path')&&(!cart||selectedLogic?.type!=='cart-path'));
       button.classList.toggle('active',!!legacy?.classList.contains('active'));
       if(legacy&&button.dataset.puzzleLegacy!=='sidescroll-open-assets')button.textContent=legacy.textContent.trim();
+      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-cart-path-edit')button.textContent=puzzleCartPathEditMode?'Finish Path':'Edit Path';
       if(button.dataset.puzzleLegacy==='sidescroll-open-assets')button.textContent=puzzleEnvironmentPlacementMode?'＋ Add Dressing':'＋ Add Puzzle Piece';
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique')button.textContent='Make Unique';
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-set-start')button.textContent=isCopy?'Set Start for Unique':'Apply as Template + Start';
@@ -10664,24 +11032,35 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!force && signature === sceneEnvironmentListSignature) return;
     sceneEnvironmentListSignature = signature;
 
-    environmentFilterRowEl.innerHTML = '';
-    for (const category of environmentSelectionCategories) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'sidescroll-environment-filter-chip';
-      btn.textContent = category.label;
-      btn.classList.toggle('active', environmentSelectionFilter === category.key);
-      btn.setAttribute('aria-pressed', String(environmentSelectionFilter === category.key));
-      bindEditorPress(btn, () => {
-        environmentSelectionFilter = category.key;
-        selectionTapCycle = null;
-        selectionCycleInfo = null;
-        sceneEnvironmentListSignature = '';
-        renderEnvironmentSelectionTools({ force:true });
-        hintEl.textContent = category.key === 'all' ? 'Selection filter · all world assets' : `Selection filter · ${category.label}`;
-        hintEl.classList.remove('hidden');
-      });
-      environmentFilterRowEl.appendChild(btn);
+    // Keep the horizontal filter strip's DOM stable. Recreating these buttons
+    // during forced Environment refreshes can cancel an in-progress iPhone
+    // horizontal swipe and also resets the strip's scroll position.
+    const filterKeys = environmentSelectionCategories.map(category => category.key).join('|');
+    if (environmentFilterRowEl.dataset.filterKeys !== filterKeys) {
+      environmentFilterRowEl.innerHTML = '';
+      for (const category of environmentSelectionCategories) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sidescroll-environment-filter-chip';
+        btn.dataset.filterKey = category.key;
+        btn.textContent = category.label;
+        bindEditorPress(btn, () => {
+          environmentSelectionFilter = category.key;
+          selectionTapCycle = null;
+          selectionCycleInfo = null;
+          sceneEnvironmentListSignature = '';
+          renderEnvironmentSelectionTools({ force:true });
+          hintEl.textContent = category.key === 'all' ? 'Selection filter · all world assets' : `Selection filter · ${category.label}`;
+          hintEl.classList.remove('hidden');
+        });
+        environmentFilterRowEl.appendChild(btn);
+      }
+      environmentFilterRowEl.dataset.filterKeys = filterKeys;
+    }
+    for (const btn of environmentFilterRowEl.querySelectorAll('.sidescroll-environment-filter-chip')) {
+      const active = environmentSelectionFilter === btn.dataset.filterKey;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
     }
 
     environmentSceneListEl.innerHTML = '';
@@ -11115,7 +11494,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     while (userPuzzleLibrary.groups[groupId] || puzzleConfig.groups?.[groupId]) groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}_${suffix++}`;
     userPuzzleLibrary.groups[groupId] = { label, width:8, assetPacks:['woodland-puzzle-atlas-v1'], entryX:-3.5, exitX:3.5, props:[] };
     userPuzzleLibrary.templates ||= {};
-    userPuzzleLibrary.templates[groupId] = { source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{} };
+    userPuzzleLibrary.templates[groupId] = { source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{}, zones:[], logic:[] };
     savePuzzleLibrary();
     puzzleBrowserMode = 'library';
     editorPuzzleLibraryGroupId = groupId;
@@ -11143,6 +11522,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       delete puzzleSavedState[id];
       delete puzzleDraftBounds[id];
       delete puzzleZonesDraft[id];
+      delete puzzleLogicDraft[id];
       delete puzzleExclusionState[id];
     }
     userPuzzleLibrary.markers = [];
@@ -11191,6 +11571,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     delete puzzleSavedState[marker.id];
     delete puzzleDraftBounds[marker.id];
     delete puzzleZonesDraft[marker.id];
+    delete puzzleLogicDraft[marker.id];
     delete puzzleExclusionState[marker.id];
     savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState(); persistLegacyPuzzleExclusionState();
     if (puzzleWorkshopState.markerId === marker.id) savePuzzleWorkshopState(null);
@@ -11216,6 +11597,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       delete puzzleSavedState[marker.id];
       delete puzzleDraftBounds[marker.id];
     delete puzzleZonesDraft[marker.id];
+    delete puzzleLogicDraft[marker.id];
     delete puzzleExclusionState[marker.id];
     }
     userPuzzleLibrary.markers = (userPuzzleLibrary.markers || []).filter(marker => marker.group !== groupId);
@@ -11366,7 +11748,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
     }
-    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
+    return { bounds:{...currentPuzzleBoundsRelative(instance.marker)}, objects, zones:deepCopy(currentPuzzleZones(instance.marker)), logic:deepCopy(currentPuzzleLogic(instance.marker)), cartPath:deepCopy(currentPuzzleCartPath(instance.marker)), worldModifiers:deepCopy(rawPuzzleWorldModifiersForMarker(instance.marker)) };
   }
 
   function puzzleExportPayload(instance) {
@@ -11711,12 +12093,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     recordObjectEdit(host);
     puzzleStartDirty.add(instance.id);
 
-    // A user-authored puzzle containing sockets is a socket-completion puzzle
-    // unless the author has already supplied another completion rule.
-    if (!instance.def.completion && groupIsUserCreated(instance.marker.group)) {
-      instance.def.completion = { type:'sockets' };
-      savePuzzleLibrary();
-    }
+    // Socket placement is physical authoring only. Completion semantics are
+    // attached explicitly from the Puzzle Logic tab.
     return true;
   }
 
@@ -12367,9 +12745,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleSetStartBtn.textContent = linkMode === 'copy' ? 'Set Start for Unique' : 'Apply as Template + Start';
     }
     const hasCart = !!cartObjectForInstance(instance);
+    const hasCartPathLogic = !!(instance && puzzleLogicRecord(instance.marker,'cart-path'));
     if (puzzleCartPathEditBtn) {
       puzzleCartPathEditBtn.hidden = testing || libraryMode;
-      puzzleCartPathEditBtn.disabled = !instance || !hasCart;
+      puzzleCartPathEditBtn.disabled = !instance || !hasCart || !hasCartPathLogic;
       puzzleCartPathEditBtn.classList.toggle('active', !!(instance && puzzleCartPathEditMode));
       puzzleCartPathEditBtn.textContent = puzzleCartPathEditMode ? 'Finish Cart Path' : 'Cart Path';
     }
@@ -12429,7 +12808,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Cart path and zones are authored puzzle data just like bounds. Omitting cartPath
     // meant Set Start saved every other setup field but Reset rebuilt the rail
     // from defaults, which looked like the whole path had jumped several metres.
-    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), zones:deepCopy(setup.zones || []), cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
+    return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), zones:deepCopy(setup.zones || []), logic:deepCopy(setup.logic || []), cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
   }
 
   function savePuzzleTemplateFromCurrent() {
@@ -12457,6 +12836,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         delete puzzleSavedState[otherMarker.id];
         delete puzzleDraftBounds[otherMarker.id];
         delete puzzleZonesDraft[otherMarker.id];
+        delete puzzleLogicDraft[otherMarker.id];
         delete puzzleExclusionState[otherMarker.id];
         puzzleStartDirty.delete(otherMarker.id);
         const active = activePuzzleInstances.get(otherMarker.id);
@@ -14642,8 +15022,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!obj?.puzzleInstanceId || obj.assetName !== 'handcart') return null;
     const instance = activePuzzleInstances.get(obj.puzzleInstanceId);
     if (!instance) return null;
+    const logic=puzzleLogicRecord(instance.marker,'cart-path');
+    if(!logic)return null;
+    if(logic.targetObjectId&&obj.puzzleObjectId!==logic.targetObjectId)return null;
     const path = puzzleCartPathWorld(instance.marker);
-    return path?.enabled ? { instance, path } : null;
+    return path?.enabled ? { instance, path, logic } : null;
   }
 
   function cartBridgeCollision(obj) {
@@ -17239,6 +17622,22 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     renderPuzzleWorkspaceV2({force:true});
   });
 
+  bindEditorPress(puzzleLogicAddBtn,addSelectedPuzzleLogic);
+  bindEditorPress(puzzleLogicRemoveBtn,removeSelectedPuzzleLogic);
+  if(puzzleLogicRewardItemEl){
+    puzzleLogicRewardItemEl.addEventListener('pointerdown',event=>event.stopPropagation(),{passive:true});
+    puzzleLogicRewardItemEl.addEventListener('change',()=>{
+      const instance=selectedPuzzleInstance();if(!instance||!puzzleEditSession||puzzleTestMode)return;
+      const record=currentPuzzleLogic(instance.marker).find(item=>item.id===selectedPuzzleLogicId&&item.type==='completion-reward');
+      const itemId=puzzleLogicRewardItemEl.value;
+      if(!record||!INVENTORY_ITEM_DEFS[itemId]||record.itemId===itemId)return;
+      runEditorTransaction('Change completion reward',()=>{
+        record.itemId=itemId;record.asset=INVENTORY_ITEM_DEFS[itemId].asset||itemId;savePuzzleLogicDraft(instance.marker);
+      });
+      puzzleLogicListSignature='';renderPuzzleWorkspaceV2({force:true});
+    });
+  }
+
   for(const proxy of puzzleWorkspaceLegacyButtons){
     bindEditorPress(proxy,()=>{
       if(!puzzleWorkspaceVisible())return;
@@ -17518,7 +17917,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(puzzlePiecesLayerBtn, () => setPuzzleEditLayer('pieces'));
   bindEditorPress(puzzleDressingLayerBtn, () => setPuzzleEditLayer('dressing'));
   bindEditorPress(puzzleCartPathEditBtn,()=>{
-    const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode||!cartObjectForInstance(instance))return;
+    const instance=selectedPuzzleInstance();if(!instance||puzzleTestMode||!cartObjectForInstance(instance)||!puzzleLogicRecord(instance.marker,'cart-path'))return;
     puzzleCartPathEditMode=!puzzleCartPathEditMode;
     puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;addAssetType=null;setAssetPaletteOpen(false);selectObject(null);
     if(puzzleCartPathEditMode){

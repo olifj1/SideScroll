@@ -1,20 +1,22 @@
-# SideScroll patch 1.0.132a
+# SideScroll patch 1.0.133
 
-Changed-files-only patch over v1.0.131. This supersedes the first v1.0.132 patch with a focused Zones interaction correction.
+Changed-files-only patch over v1.0.132b. This is the bounded **Applied Puzzle Logic** slice; it does not build the wider reusable Environment Animation Path system yet.
 
-## Management/Edit separation + stable Puzzle Zones
+## Applied Puzzle Logic
 
-- Puzzle Management is now management-only. Puzzle child objects are not selectable/editable until `Edit Puzzle`, and only `Contents` owns child manipulation.
-- World Group children stay locked outside an explicit `Edit Group` session, including viewport and Environment-list selection paths.
-- Puzzle exclusion and respawn authoring now share one stable `zones[]` collection with stable IDs and typed `procedural-exclusion` / `respawn-trigger` records.
-- The Zones tab now provides Add, authoritative List/Select/Focus, Enabled, relative-screen Move, Width/Length sliders and Delete. Zone list DOM is no longer rebuilt every animation frame, fixing failed iPhone row selection.
-- Respawn Trigger now separates `Move Trigger` from its associated Spawn Point. The spawn point has its own visible coordinates, `Move Spawn` relative-drag mode and `Spawn = Player` shortcut.
-- Legacy puzzle exclusion and respawn data is read as migration input and becomes the new zone representation without creating new records merely by rendering the UI.
-- The old perspective/edge-handle respawn editing path has been retired. Respawn uses the same stable relative Move interaction as other zones.
-- Zone edits participate in the existing Puzzle session Save/Discard and central Undo/Redo model; one drag/slider gesture is one history action.
-- Runtime procedural exclusion and respawn checks now consume the typed zone collection. Puzzle exclusion bounds are flattened once per rendered frame rather than rebuilt per dressing object.
-- `Clear Stage` is now the explicitly destructive `Clear Puzzle Workshop` utility under `Advanced / Workshop`.
-- Applied Puzzle Logic remains intentionally deferred to v1.0.133.
+- The Puzzle `Logic` tab is now an authoritative applied-systems list. Puzzles show only Logic they actually use; `+ Add Logic` offers compatible systems that are not already attached.
+- First formalised systems are `Cart Path`, `Socket Completion` and `Completion Reward`.
+- Existing Stone Wall semantics migrate to explicit Socket Completion + Completion Reward. Existing authored Cart Path use migrates to an applied Cart Path record while retaining its current spline/timing data and behaviour.
+- An explicit `logic[]` list is authoritative. Removing a system does not cause legacy metadata to silently add it back during ordinary rendering/reset.
+- Physical socket placement remains a Contents/child property. Creating or moving a socket no longer silently enables socket-completion semantics.
+- Completion Reward currently exposes its collectible choice through the existing inventory/collectable definitions.
+- Cart Path remains the existing cart-specific authoring/runtime tool in this release. Its applied Logic record carries a target-object identity and activation metadata so later generalisation does not require more cart assumptions to be added to the registry.
+- The older Fallen Tree `cross-x` completion rule remains supported as legacy runtime behaviour; it is intentionally outside this first Logic formalisation pass.
+- Logic edits participate in the existing Puzzle session Save/Discard, recovery snapshots and Undo/Redo model.
+
+## Future Animation Path note
+
+The current Cart Path should later become a reusable Environment Animation Path system: author a path, assign an object, assign an activation trigger/condition, define playback/takeover behaviour, and define the end/settle state. v1.0.133 records that direction in `SIDESCROLL_TASKS.md` but deliberately does not expand scope into that system.
 
 ## Changed files
 
@@ -24,11 +26,12 @@ Changed-files-only patch over v1.0.131. This supersedes the first v1.0.132 patch
 - `SIDESCROLL_TASKS.md`
 - `README.md`
 
-## Validation
+## Validation / device test
 
-- All project JavaScript files syntax checked with `node --check`.
-- HTML duplicate-ID/static control wiring checked.
-- Puzzle workspace proxy targets checked.
-- CSS brace balance checked.
-- Source scan confirms the legacy puzzle exclusion/respawn viewport-handle editor is no longer present.
-- This correction has **not** been tested on-device. Focused iPhone regression testing of Broken Bridge should verify Respawn Trigger row selection, Move Trigger, Move Spawn, Spawn = Player, Save/Discard and Undo/Redo; Stone Wall remains part of the wider v1.0.132 regression pass.
+Static validation includes project-wide `node --check`, HTML duplicate-ID/control-target checks, CSS brace balance, and a changed-file diff against v1.0.132b. This build has **not** been tested on-device.
+
+On iPhone, prioritise:
+
+1. Stone Wall → Edit Puzzle → Logic: confirm Socket Completion + Completion Reward appear, select/edit cleanly, and the existing socket-completion/reward gameplay still works in Test Current.
+2. Broken Bridge → Logic: confirm Cart Path appears, Edit Path/ghost preview still work, and repaired-cart takeover/landing behaves as before.
+3. On a disposable/user puzzle, exercise `+ Add Logic`, Remove Logic, Undo/Redo, Save/Discard and Reset to Start. If testing linked-template controls, verify Revert and Apply as Template + Start deliberately affect the expected scope.

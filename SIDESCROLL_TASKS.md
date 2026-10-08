@@ -2,9 +2,42 @@
 
 Persistent working backlog for the SideScroll / Aureli project. Keep this file in future builds and update it as tasks are completed, split, reprioritised or discovered.
 
+## October 8, 2026 — v1.0.133 Applied Puzzle Logic
+
+**Current status:** v1.0.133 formalises the first three existing puzzle behaviours as an applied Logic registry while preserving the v1.0.132 Management → Edit / Zones architecture. Only attached systems appear in the Logic tab; `+ Add Logic` attaches a compatible system. Legacy Stone Wall and Cart Path data are migrated when read, but an explicit `logic[]` list becomes authoritative once authored. On-device regression testing is still required before this slice is device-verified.
+
+### v1.0.133 — Applied Puzzle Logic systems
+
+- [x] Replace the permanent Cart Path feature panel with an applied Logic collection/registry.
+- [x] Show only systems actually attached to a puzzle, plus `+ Add Logic` for compatible systems not already present.
+- [x] Formalise the existing `Cart Path`, `Socket Completion` and `Completion Reward` behaviours first.
+- [x] Migrate legacy Stone Wall semantics into explicit Socket Completion + Completion Reward without requiring a destructive data rewrite on load.
+- [x] Migrate existing authored Cart Path use into an applied Cart Path record while keeping the established spline/path data and runtime behaviour.
+- [x] Keep physical socket placement/matching under Contents; placing a socket no longer silently creates completion semantics.
+- [x] Make explicit `logic[]` authoritative so removing a Logic system does not reappear from legacy metadata on the next render/reset.
+- [x] Integrate Logic additions/removals/reward changes with the existing Puzzle Save/Discard, recovery and Undo/Redo snapshots.
+- [x] Preserve the older `cross-x` completion rule for Fallen Tree as a legacy runtime rule; it is intentionally not yet turned into a new Logic component.
+- [x] Do not introduce a generic visual-scripting/node-graph system.
+- [ ] Focused iPhone regression: Stone Wall should list Socket Completion + Completion Reward, complete from its existing sockets, and still spawn/collect its reward.
+- [ ] Focused iPhone regression: Broken Bridge should list Cart Path only when attached; Edit Path, ghost preview, reset/test and the repaired-cart takeover should behave exactly as before.
+- [ ] Regression-test `+ Add Logic`, Remove Logic, Undo/Redo, Save/Discard, Reset to Start, linked Template apply/revert and Make Unique on at least one disposable/user puzzle.
+
+### Future — reusable Environment Animation Path system
+
+The existing Cart Path is now treated as the first specialised consumer of a more general motion-path technique. **Do not fold this larger system into v1.0.133.** When the need is proven, generalise the underlying path model rather than building another one-off path editor.
+
+- [ ] Promote the reusable spline/path data and preview tooling out of cart-specific semantics.
+- [ ] Create an Animation Path that can target an authored Environment/Puzzle object rather than assuming a handcart.
+- [ ] Make target-object assignment explicit and visible.
+- [ ] Add an explicit activation source/condition (for example a trigger zone, interaction or another Logic event) rather than hard-coding “cart reaches path start”.
+- [ ] Define playback/takeover behaviour and what happens to normal object physics/interaction while the path owns the object.
+- [ ] Define an explicit end/settle state so the object can become ordinary world geometry/gameplay again after animation.
+- [ ] Reuse the current START / CURVE / LAND shaping, whole-path movement, speed profile and ghost/scrub preview where they remain appropriate.
+- [ ] Keep the reusable animation system separate from the higher-level puzzle Logic that decides *when* and *why* it runs.
+
 ## October 8, 2026 — v1.0.132 Management/Edit + stable Puzzle Zones
 
-**Current status:** v1.0.132a implements the bounded Management/Edit separation and stable Puzzle Zones refactor identified by the v1.0.131 on-device review. The first v1.0.132 phone check exposed two Zones issues: list rows were being rebuilt every render frame so iPhone presses could not complete reliably, and the Respawn Trigger exposed only a `Spawn = Player` shortcut rather than a proper independently movable Spawn Point. v1.0.132a corrects both. Focused iPhone regression testing of Stone Wall and Broken Bridge is still required before this slice is considered device-verified. Applied Puzzle Logic remains deliberately deferred to v1.0.133.
+**Current status:** v1.0.132b implements the bounded Management/Edit separation and stable Puzzle Zones refactor identified by the v1.0.131 on-device review, plus the focused iPhone interaction corrections from v1.0.132a and two small editor-shell polish fixes: the Environment Selection Filter strip now keeps stable DOM/scroll state during refreshes, and the drawer collapse arrow is permanently anchored at the far-left of the header. Functionality has looked broadly correct during follow-up use, but focused Stone Wall/Broken Bridge regression remains part of the combined v1.0.132/v1.0.133 device pass.
 
 ### v1.0.132 — Management/Edit separation + stable Puzzle Zones
 
@@ -19,22 +52,13 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 - [x] Safely migrate existing puzzle/template exclusion and Broken Bridge respawn data.
 - [x] Integrate zone mutations with Puzzle Save/Discard and Undo/Redo.
 - [x] Move/rename destructive `Clear Stage` to an explicit Advanced/Workshop utility.
+- [x] Keep Environment Selection Filter chips stable across forced refreshes so iPhone horizontal scrolling is not interrupted/reset.
+- [x] Anchor the drawer collapse arrow at the far-left of the header in every editor route.
 - [ ] Complete focused iPhone regression testing of Stone Wall and Broken Bridge before closing the slice; specifically verify Respawn Trigger selection, Move Trigger, Move Spawn, Spawn = Player, Save/Discard and Undo/Redo.
-
-### v1.0.133 — Applied Puzzle Logic systems
-
-- [ ] Replace permanent feature panels with an applied Logic collection/registry.
-- [ ] Show only systems actually attached to a puzzle plus `+ Add Logic`.
-- [ ] Formalise existing Cart Path, Socket Completion and Completion Reward/Collectible systems first.
-- [ ] Represent Stone Wall socket completion and completion reward explicitly.
-- [ ] Keep physical socket editing in Contents while completion rules live in Logic.
-- [ ] Do not introduce a generic visual scripting/node graph.
-
-See `WIP_STATUS.md` for the authoritative handoff description.
 
 ## Editor architecture / workflow system update — October 2026
 
-**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; v1.0.132a adds the Management/Edit correction and stable Puzzle Zones migration, including the iPhone list-selection and independent Respawn Spawn Point correction**. World Group and Puzzle editing now share the production drawer/session/history grammar, with internal authoring gated behind explicit Edit sessions. v1.0.132 is awaiting focused on-device QA; Applied Puzzle Logic is the deliberately separate v1.0.133 slice. The general Environment Outliner/Inspector remains a later tooling stage.
+**Status:** approved architecture; **Stage 1 started in v1.0.117; Stage 2A Puzzle workspace started in v1.0.123; Stage 2B Puzzle sessions/history started in v1.0.125; v1.0.132b adds the Management/Edit correction and stable Puzzle Zones migration, including the iPhone list-selection and independent Respawn Spawn Point correction plus the Selection Filter/drawer-header polish**. World Group and Puzzle editing now share the production drawer/session/history grammar, with internal authoring gated behind explicit Edit sessions. v1.0.132 is awaiting focused on-device QA; Applied Puzzle Logic is the deliberately separate v1.0.133 slice. The general Environment Outliner/Inspector remains a later tooling stage.
 
 ### Stage 1 implementation progress — v1.0.117
 
