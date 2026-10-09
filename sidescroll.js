@@ -642,10 +642,6 @@
   const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
   const puzzleZoneCountEl = document.getElementById('sidescroll-puzzle-zone-count');
   const puzzleZoneAddBtn = document.getElementById('sidescroll-puzzle-zone-add');
-  const puzzleZoneAddMenuEl = document.getElementById('sidescroll-puzzle-zone-add-menu');
-  const puzzleZoneAddExclusionBtn = document.getElementById('sidescroll-puzzle-zone-add-exclusion');
-  const puzzleZoneAddRespawnBtn = document.getElementById('sidescroll-puzzle-zone-add-respawn');
-  const puzzleZoneAddCancelBtn = document.getElementById('sidescroll-puzzle-zone-add-cancel');
   const puzzleZoneListEl = document.getElementById('sidescroll-puzzle-zone-list');
   const puzzleZoneEmptyEl = document.getElementById('sidescroll-puzzle-zone-empty');
   const puzzleZoneInspectorEl = document.getElementById('sidescroll-puzzle-zone-inspector');
@@ -662,7 +658,6 @@
   const puzzleRespawnTriggerInput = document.getElementById('sidescroll-puzzle-respawn-trigger');
   const puzzleRespawnTriggerValue = document.getElementById('sidescroll-puzzle-respawn-trigger-value');
   const puzzleLogicCountEl = document.getElementById('sidescroll-puzzle-logic-count');
-  const puzzleLogicAddTypeEl = document.getElementById('sidescroll-puzzle-logic-add-type');
   const puzzleLogicAddBtn = document.getElementById('sidescroll-puzzle-logic-add');
   const puzzleLogicListEl = document.getElementById('sidescroll-puzzle-logic-list');
   const puzzleLogicEmptyEl = document.getElementById('sidescroll-puzzle-logic-empty');
@@ -7911,6 +7906,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   var puzzleEditSession = null;
   let puzzleWorkspaceActive = false;
   let puzzleWorkspaceTab = 'contents';
+  let editorPalettePickerMode = null; // null | 'zone' | 'logic' — shared right-side add-picker workflow
   let puzzleWorkspaceListSignature = '';
   let puzzleZoneListSignature = '';
   let puzzleNodeInspectorOpen = false;
@@ -8922,7 +8918,69 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     renderCollectibleSetup();
   }
 
+  function openEditorChoicePicker(config) {
+    const mode=config?.mode||null,title=config?.title||'Add',subtitle=config?.subtitle||'Choose an item',groupLabel=config?.groupLabel||'Available';
+    const choices=Array.isArray(config?.choices)?config.choices:[];
+    if(!editorPalette||!editorAssetsEl||!choices.length)return false;
+    editorPalettePickerMode=mode;
+    assetSetupName=null;collectibleSetupItemId=null;addAssetType=null;
+    updatePlacementModeUi();
+    if(assetSetupEl)assetSetupEl.hidden=true;
+    if(collectibleSetupEl)collectibleSetupEl.hidden=true;
+    editorAssetsEl.hidden=false;
+    editorPalette.hidden=false;
+    document.body.classList.add('sidescroll-assets-open');
+    if(mode==='zone'&&puzzleZoneAddBtn){puzzleZoneAddBtn.setAttribute('aria-expanded','true');puzzleZoneAddBtn.classList.add('active');}
+    if(mode==='logic'&&puzzleLogicAddBtn){puzzleLogicAddBtn.setAttribute('aria-expanded','true');puzzleLogicAddBtn.classList.add('active');}
+    if(editorPaletteTitle)editorPaletteTitle.textContent=title;
+    if(editorPaletteSubtitle)editorPaletteSubtitle.textContent=subtitle;
+    editorAssetsEl.replaceChildren();
+    if(groupLabel){const heading=document.createElement('div');heading.className='sidescroll-editor-asset-group';heading.textContent=groupLabel;editorAssetsEl.appendChild(heading);}
+    choices.forEach(choice=>{
+      const btn=document.createElement('button');btn.type='button';btn.className='sidescroll-editor-asset gameplay';
+      btn.innerHTML=`<span class="sidescroll-puzzle-thumb" aria-hidden="true">${choice.thumb||'◇'}</span><small>${choice.label}</small>`;
+      if(choice.description)btn.title=choice.description;
+      bindEditorPress(btn,()=>{
+        const action=choice.onSelect;
+        setAssetPaletteOpen(false);
+        action?.();
+      });
+      editorAssetsEl.appendChild(btn);
+    });
+    updateEditorButtons();
+    return true;
+  }
+
+  function openPuzzleZonePicker(){
+    if(!puzzleEditSession||puzzleTestMode)return false;
+    if(editorPalettePickerMode==='zone'&&!editorPalette?.hidden){setAssetPaletteOpen(false);renderPuzzleWorkspaceV2({force:true});return false;}
+    return openEditorChoicePicker({
+      mode:'zone',title:'Add Zone',subtitle:'Choose a zone type to add to this puzzle',groupLabel:'Zone Types',
+      choices:[
+        {label:'Procedural Exclusion',thumb:'▧',description:'Suppress procedural dressing inside an authored area.',onSelect:()=>addPuzzleZoneFromPicker('procedural-exclusion')},
+        {label:'Respawn Trigger',thumb:'↺',description:'Return the player to an authored spawn point after falling through this trigger.',onSelect:()=>addPuzzleZoneFromPicker('respawn-trigger')}
+      ]
+    });
+  }
+
+  function openPuzzleLogicPicker(){
+    if(editorPalettePickerMode==='logic'&&!editorPalette?.hidden){setAssetPaletteOpen(false);renderPuzzleWorkspaceV2({force:true});return false;}
+    const instance=selectedPuzzleInstance();
+    if(!instance||!puzzleEditSession||puzzleTestMode)return false;
+    const available=puzzleLogicAvailableTypes(instance);
+    if(!available.length)return false;
+    return openEditorChoicePicker({
+      mode:'logic',title:'Add Logic',subtitle:'Choose a compatible system to apply to this puzzle',groupLabel:'Logic Systems',
+      choices:available.map(type=>({
+        label:PUZZLE_LOGIC_REGISTRY[type].label,thumb:type==='cart-path'?'⌁':(type==='socket-completion'?'◇':(type==='completion-reward'?'◆':'⇥')),
+        description:PUZZLE_LOGIC_REGISTRY[type].description,
+        onSelect:()=>addSelectedPuzzleLogic(type)
+      }))
+    });
+  }
+
   function showAssetBrowser() {
+    editorPalettePickerMode = null;
     assetSetupName = null;
     collectibleSetupItemId = null;
     if (assetSetupEl) assetSetupEl.hidden = true;
@@ -9460,6 +9518,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     selectedPuzzleLogicId=null;puzzleLogicListSignature='';puzzleLogicAddSignature='';puzzleEntryExitMoveHandle=null;
     puzzleCartPathEditMode=false;puzzleCartPathHandle=null;puzzleCartPathPreviewPlaying=false;
     puzzleNodeInspectorOpen=false;
+    if(editorPalettePickerMode)setAssetPaletteOpen(false);
     if(addAssetType)exitPlacementMode();
     transformEditMode=false;groundLineEditMode=false;collisionEditMode=false;
     selectObject(null);puzzleWorkspaceListSignature='';
@@ -9818,8 +9877,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleNodeInspectorOpen=false;
       if(selectedObject?.puzzleInstanceId===editorPuzzleMarkerId)selectObject(null);
     }
-    if(tab!=='zones'){puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;setPuzzleZoneAddMenuOpen(false);}
-    if(tab!=='logic')puzzleEntryExitMoveHandle=null;
+    if(tab!=='zones'){puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;if(editorPalettePickerMode==='zone')setAssetPaletteOpen(false);}
+    if(tab!=='logic'){puzzleEntryExitMoveHandle=null;if(editorPalettePickerMode==='logic')setAssetPaletteOpen(false);}
     if(tab!=='logic'&&puzzleCartPathEditMode)puzzleCartPathEditBtn?.click();
     puzzleWorkspaceTab=tab;
     for(const [name,{button,panel}] of puzzleWorkspaceTabControls){
@@ -9842,16 +9901,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return true;
   }
 
-  function setPuzzleZoneAddMenuOpen(open){
-    const next=!!open;
-    if(puzzleZoneAddMenuEl)puzzleZoneAddMenuEl.hidden=!next;
-    if(puzzleZoneAddBtn){
-      puzzleZoneAddBtn.setAttribute('aria-expanded',String(next));
-      puzzleZoneAddBtn.classList.toggle('active',next);
-    }
-    return next;
-  }
-
   function focusPuzzleZone(marker,zone){
     if(!marker||!zone)return false;
     const worldX=Number(marker.x)+Number(zone.centerX||0);
@@ -9863,7 +9912,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function selectPuzzleZoneById(id,{focus=false}={}){
     const marker=selectedPuzzleMarker();if(!marker)return false;
     const zones=currentPuzzleZones(marker),zone=zones.find(item=>item.id===id);if(!zone)return false;
-    setPuzzleZoneAddMenuOpen(false);
+    if(editorPalettePickerMode==='zone')setAssetPaletteOpen(false);
     selectedPuzzleZoneId=zone.id;puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;
     if(focus)focusPuzzleZone(marker,zone);
     renderPuzzleWorkspaceV2({force:true});
@@ -9876,6 +9925,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(!selectedPuzzleZoneId&&zones.length)selectedPuzzleZoneId=zones[0].id;
     const zone=currentPuzzleZone(marker);
     if(puzzleZoneCountEl)puzzleZoneCountEl.textContent=`${zones.length} ${zones.length===1?'zone':'zones'}`;
+    if(puzzleZoneAddBtn){const open=editorPalettePickerMode==='zone'&&!editorPalette?.hidden;puzzleZoneAddBtn.setAttribute('aria-expanded',String(open));puzzleZoneAddBtn.classList.toggle('active',open);}
     if(puzzleZoneEmptyEl)puzzleZoneEmptyEl.hidden=zones.length>0;
     if(puzzleZoneListEl){
       const signature=`${marker?.id||''}:${selectedPuzzleZoneId||''}:${zones.map(item=>`${item.id}:${item.type}:${item.enabled?'1':'0'}:${Number(item.width).toFixed(2)}:${Number(item.depth).toFixed(2)}`).join('|')}`;
@@ -9973,26 +10023,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return true;
   }
 
-  function updatePuzzleLogicAddOptions(instance,{force=false}={}){
-    if(!puzzleLogicAddTypeEl||!puzzleLogicAddBtn||!instance)return;
+  function puzzleLogicAvailableTypes(instance){
+    if(!instance)return [];
     const applied=new Set(currentPuzzleLogic(instance.marker).map(record=>record.type));
-    const available=Object.keys(PUZZLE_LOGIC_REGISTRY).filter(type=>!applied.has(type)&&puzzleLogicCompatible(instance,type));
+    return Object.keys(PUZZLE_LOGIC_REGISTRY).filter(type=>!applied.has(type)&&puzzleLogicCompatible(instance,type));
+  }
+
+  function updatePuzzleLogicAddOptions(instance,{force=false}={}){
+    if(!puzzleLogicAddBtn||!instance)return;
+    const available=puzzleLogicAvailableTypes(instance);
     const signature=`${instance.id}:${available.join('|')}`;
-    if(force||signature!==puzzleLogicAddSignature){
-      puzzleLogicAddSignature=signature;
-      const previous=puzzleLogicAddTypeEl.value;
-      puzzleLogicAddTypeEl.replaceChildren();
-      if(available.length){
-        for(const type of available){
-          const option=document.createElement('option');option.value=type;option.textContent=PUZZLE_LOGIC_REGISTRY[type].label;puzzleLogicAddTypeEl.append(option);
-        }
-        if(available.includes(previous))puzzleLogicAddTypeEl.value=previous;
-      }else{
-        const option=document.createElement('option');option.value='';option.textContent='No additional systems';puzzleLogicAddTypeEl.append(option);
-      }
-    }
+    if(force||signature!==puzzleLogicAddSignature)puzzleLogicAddSignature=signature;
     puzzleLogicAddBtn.disabled=!available.length;
-    puzzleLogicAddTypeEl.disabled=!available.length;
+    puzzleLogicAddBtn.setAttribute('aria-expanded',String(editorPalettePickerMode==='logic'&&!editorPalette?.hidden));
+    puzzleLogicAddBtn.classList.toggle('active',editorPalettePickerMode==='logic'&&!editorPalette?.hidden);
+    if(!available.length&&editorPalettePickerMode==='logic')setAssetPaletteOpen(false);
   }
 
   function selectPuzzleLogicById(id){
@@ -10000,15 +10045,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const record=currentPuzzleLogic(marker).find(item=>item.id===id);if(!record)return false;
     if(record.type!=='cart-path'&&puzzleCartPathEditMode){puzzleCartPathEditMode=false;puzzleCartPathPreviewPlaying=false;puzzleCartPathHandle=null;}
     if(record.type!=='entry-exit')puzzleEntryExitMoveHandle=null;
+    if(editorPalettePickerMode==='logic')setAssetPaletteOpen(false);
     selectedPuzzleLogicId=record.id;
     renderPuzzleWorkspaceV2({force:true});
     return true;
   }
 
-  function addSelectedPuzzleLogic(){
+  function addSelectedPuzzleLogic(type){
     const instance=selectedPuzzleInstance();
     if(!instance||!puzzleEditSession||puzzleTestMode)return false;
-    const type=puzzleLogicAddTypeEl?.value;
     if(!type||!PUZZLE_LOGIC_REGISTRY[type]||!puzzleLogicCompatible(instance,type))return false;
     if(puzzleLogicRecord(instance.marker,type))return false;
     const raw=type==='cart-path'?{targetObjectId:firstCartObjectForInstance(instance)?.puzzleObjectId||null}:null;
@@ -12759,11 +12804,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const puzzleInstanceReady = editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId;
       openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || !puzzleInstanceReady;
       openAssetsBtn.textContent = puzzleEnvironmentPlacementMode ? '＋ Place Dressing' : '＋ Place Puzzle Piece';
-      openAssetsBtn.classList.toggle('active', !editorPalette?.hidden && editorScope === 'puzzle');
+      openAssetsBtn.classList.toggle('active', !editorPalette?.hidden && editorScope === 'puzzle' && !editorPalettePickerMode);
     }
     if (openEnvironmentAssetsBtn) {
       openEnvironmentAssetsBtn.hidden = !editMode || puzzleTestMode || placing || editorScope !== 'environment';
-      openEnvironmentAssetsBtn.classList.toggle('active', !editorPalette?.hidden && editorScope === 'environment');
+      openEnvironmentAssetsBtn.classList.toggle('active', !editorPalette?.hidden && editorScope === 'environment' && !editorPalettePickerMode);
     }
     if (editorDuplicateBtn) editorDuplicateBtn.hidden = !has || collisionFocus || socketFocus;
     if (editorFlipBtn) {
@@ -13649,15 +13694,19 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function setAssetPaletteOpen(open, { clearPending = false, keepSetup = false } = {}) {
     if (!editorPalette) return;
+    const closingPickerMode=!open?editorPalettePickerMode:null;
     editorPalette.hidden = !open;
     document.body.classList.toggle('sidescroll-assets-open', !!open);
     if (!open && clearPending) addAssetType = null;
     if (!open) {
+      editorPalettePickerMode=null;
       assetSetupName = null;
       collectibleSetupItemId = null;
       if (assetSetupEl) assetSetupEl.hidden = true;
       if (collectibleSetupEl) collectibleSetupEl.hidden = true;
       if (editorAssetsEl) editorAssetsEl.hidden = false;
+      if(closingPickerMode==='zone'&&puzzleZoneAddBtn){puzzleZoneAddBtn.setAttribute('aria-expanded','false');puzzleZoneAddBtn.classList.remove('active');}
+      if(closingPickerMode==='logic'&&puzzleLogicAddBtn){puzzleLogicAddBtn.setAttribute('aria-expanded','false');puzzleLogicAddBtn.classList.remove('active');}
       return;
     }
     if (!keepSetup) showAssetBrowser();
@@ -13671,7 +13720,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function buildAssetPalette() {
-    if (!editorAssetsEl) return;
+    if (!editorAssetsEl || editorPalettePickerMode) return;
     if (editorPaletteTitle) editorPaletteTitle.textContent = puzzleEnvironmentPlacementMode
       ? 'Place Puzzle Dressing'
       : (editorScope === 'puzzle' ? 'Place Puzzle Pieces' : 'Environment Assets');
@@ -17921,7 +17970,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     renderPuzzleWorkspaceV2({force:true});
   });
 
-  bindEditorPress(puzzleLogicAddBtn,addSelectedPuzzleLogic);
+  bindEditorPress(puzzleLogicAddBtn,openPuzzleLogicPicker);
   bindEditorPress(puzzleLogicRemoveBtn,removeSelectedPuzzleLogic);
   const selectedEntryExitLogic=()=>{
     const instance=selectedPuzzleInstance();if(!instance)return {instance:null,record:null};
@@ -18029,6 +18078,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     updateAssetPaletteState();
     updatePlacementModeUi();
     updateEditorButtons();
+    if(puzzleWorkspaceActive)renderPuzzleWorkspaceV2({force:true});
   });
   bindEditorPress(assetSetupBackBtn, showAssetBrowser);
   bindEditorPress(thoughtEditorCloseBtn,()=>{
@@ -18155,20 +18205,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   const addPuzzleZoneFromPicker=type=>{
-    setPuzzleZoneAddMenuOpen(false);
     const zone=runEditorTransaction(`Add ${puzzleZoneTypeLabel(type)}`,()=>addPuzzleZone(type));
     if(!zone)return;
     renderPuzzleWorkspaceV2({force:true});
     hintEl.textContent=`Added ${puzzleZoneTypeLabel(type)} · select Move, then drag anywhere to position it`;
     hintEl.classList.remove('hidden');
   };
-  bindEditorPress(puzzleZoneAddBtn,()=>{
-    if(!puzzleEditSession||puzzleTestMode)return;
-    setPuzzleZoneAddMenuOpen(puzzleZoneAddMenuEl?.hidden!==false);
-  });
-  bindEditorPress(puzzleZoneAddExclusionBtn,()=>addPuzzleZoneFromPicker('procedural-exclusion'));
-  bindEditorPress(puzzleZoneAddRespawnBtn,()=>addPuzzleZoneFromPicker('respawn-trigger'));
-  bindEditorPress(puzzleZoneAddCancelBtn,()=>setPuzzleZoneAddMenuOpen(false));
+  bindEditorPress(puzzleZoneAddBtn,openPuzzleZonePicker);
   bindEditorPress(puzzleZoneToggleBtn,()=>{
     const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||!zone||!puzzleEditSession)return;
     runEditorTransaction(`Toggle ${puzzleZoneTypeLabel(zone.type)}`,()=>{zone.enabled=!zone.enabled;savePuzzleZonesDraft(instance.marker);});

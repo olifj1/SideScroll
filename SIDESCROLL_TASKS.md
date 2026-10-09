@@ -1,19 +1,34 @@
 # SideScroll Development Tasks
 
+## October 9, 2026 — v1.0.134e shared Add picker workflow
+
+**Current status:** follow-up phone review showed the first v1.0.134d `+ Add Zone` picker was functionally correct but nested awkwardly inside the left Puzzle drawer, while Logic still used the older permanent type-select + Add button pattern. Zones, Logic and asset placement now use one consistent authoring grammar: the main drawer contains only the authoritative applied list plus one Add button; Add opens the existing separate right-hand editor palette; choosing an item creates it, closes the palette and selects the new record.
+
+- [x] Remove the nested Add Zone choice block from the Puzzle drawer.
+- [x] `+ Add Zone` opens the shared right-side editor palette, using the same surface and close behaviour as Add Asset.
+- [x] Remove the permanent Logic type selector; `+ Add Logic` now uses the same right-side picker workflow.
+- [x] Zone and Logic pickers list only types that can actually be added; existing/applied records remain solely in the authoritative main lists.
+- [x] Choosing a Zone or Logic type closes the picker automatically and selects the newly created record.
+- [x] Re-tapping the active Add button or pressing the palette close button dismisses the picker without mutation; switching away from Zones/Logic also closes its picker.
+- [x] Keep Add Asset highlighting separate from Zone/Logic picker state even though all three reuse the same palette shell.
+- [ ] iPhone regression: Add Zone opens on the right, closes after choice, and creates exactly one selected record.
+- [ ] iPhone regression: Add Logic mirrors the same workflow and shows only compatible unapplied systems.
+- [ ] UX rule going forward: collection authoring uses **authoritative applied list + one Add button + shared right-side picker** unless a tool has a concrete reason to diverge.
+
 ## October 9, 2026 — v1.0.134d authoritative Puzzle Zones list / Add Zone picker
 
 **Current status:** phone testing showed the Zones screen still mixed available zone types with applied zones, and some puzzles could display a disabled Respawn Trigger that had never genuinely been authored. The cause was legacy pre-Zones respawn scaffolding: v1.0.131 lazily generated a complete disabled respawn configuration for every puzzle, and earlier migration could mistake a stale calculated default for authored data.
 
 - [x] Make the Zones list authoritative: only zone records genuinely attached to the puzzle appear in the list.
 - [x] Remove the permanently visible zone-type select beside `+ Add Zone`.
-- [x] Make `+ Add Zone` open a dedicated choice menu listing `Procedural Exclusion` and `Respawn Trigger`; choosing a type creates/selects that zone, and Cancel closes the menu without mutation.
+- [x] Make `+ Add Zone` the sole zone-creation entry point. The initial nested choice menu from v1.0.134d is superseded by the shared right-side picker in v1.0.134e.
 - [x] Migrate legacy respawn data only when the old respawn was actually enabled. A disabled old default is not evidence of an authored zone.
 - [x] Filter already-migrated disabled synthetic respawn records that use the old sequential `zone-respawn-N` migration IDs. Modern explicitly-added respawn zones use unique IDs and remain real even if later disabled.
 - [x] Number zone labels per type (`Procedural Exclusion 1`, `Respawn Trigger 1`) rather than by their mixed-list position.
 - [ ] iPhone regression: a puzzle that never used respawn shows no Respawn Trigger at all after reload.
 - [ ] iPhone regression: Broken Bridge keeps its genuinely authored/enabled Respawn Trigger through migration/reset/reload.
 - [ ] iPhone regression: add a new Respawn Trigger, switch it OFF, save/reload and confirm it remains in the list as an explicitly-authored disabled zone.
-- [ ] iPhone usability: `+ Add Zone` opens/closes cleanly and choosing each type creates exactly one selectable zone with no placeholder/type-selector row.
+- [ ] iPhone usability: verify the v1.0.134e shared right-side `+ Add Zone` picker opens/closes cleanly and each type creates exactly one selectable zone with no placeholder/type-selector row.
 
 ## October 8, 2026 — v1.0.134c cumulative workflow / migration audit
 
