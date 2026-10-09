@@ -506,6 +506,8 @@
   const puzzleSceneView = document.getElementById('sidescroll-puzzle-scene-view');
   const puzzleSceneListEl = document.getElementById('sidescroll-scene-puzzle-list');
   const puzzleSceneEmptyEl = document.getElementById('sidescroll-scene-puzzle-empty');
+  const puzzleNewStandaloneBtn = document.getElementById('sidescroll-puzzle-new-standalone');
+  const puzzlePlaceTemplateBtn = document.getElementById('sidescroll-puzzle-place-template');
   const puzzleSelectionEl = document.getElementById('sidescroll-puzzle-selection');
   const environmentSelectionEl = document.getElementById('sidescroll-environment-selection');
   const environmentFilterRowEl = document.getElementById('sidescroll-environment-filter-row');
@@ -520,6 +522,9 @@
   const worldGroupDissolveBtn = document.getElementById('sidescroll-world-group-dissolve');
   const worldGroupDuplicateBtn = document.getElementById('sidescroll-world-group-duplicate');
   const worldGroupDeleteBtn = document.getElementById('sidescroll-world-group-delete');
+  const worldGroupPlaceTemplateBtn = document.getElementById('sidescroll-world-group-place-template');
+  const worldGroupCreateTemplateBtn = document.getElementById('sidescroll-world-group-create-template');
+  const worldGroupMakeStandaloneBtn = document.getElementById('sidescroll-world-group-make-standalone');
   const worldGroupExclusionAddBtn = document.getElementById('sidescroll-world-group-exclusion-add');
   const worldGroupExclusionToggleBtn = document.getElementById('sidescroll-world-group-exclusion-toggle');
   const worldGroupExclusionEditBtn = document.getElementById('sidescroll-world-group-exclusion-edit');
@@ -620,14 +625,13 @@
   const puzzleFocusBtn = document.getElementById('sidescroll-puzzle-focus');
   const puzzleManageResetBtn = document.getElementById('sidescroll-puzzle-manage-reset');
   const puzzleManageEl = document.getElementById('sidescroll-puzzle-manage');
-  const puzzleSpawnBtn = document.getElementById('sidescroll-puzzle-spawn');
-  const puzzleCreateBtn = document.getElementById('sidescroll-puzzle-create');
   const puzzleClearStageBtn = document.getElementById('sidescroll-puzzle-clear-stage');
   const puzzleRestoreStageBtn = document.getElementById('sidescroll-puzzle-restore-stage');
   const exportAllBtn = document.getElementById('sidescroll-export-all');
   const puzzleExportBtn = document.getElementById('sidescroll-puzzle-export');
   const puzzleRemoveBtn = document.getElementById('sidescroll-puzzle-remove');
-  const puzzleDeleteTemplateBtn = document.getElementById('sidescroll-puzzle-delete-template');
+  const puzzleCreateTemplateBtn = document.getElementById('sidescroll-puzzle-create-template');
+  const puzzleMakeStandaloneBtn = document.getElementById('sidescroll-puzzle-make-standalone');
   const puzzleLegacyBridgeEl = document.querySelector('.sidescroll-legacy-puzzle-bridge');
   const puzzleActionsEl = document.getElementById('sidescroll-puzzle-actions');
   const puzzleObjectsEl = document.getElementById('sidescroll-puzzle-objects');
@@ -5005,9 +5009,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       const raw = localStorage.getItem(PUZZLE_LIBRARY_STORAGE_KEY);
       const parsed = raw !== null
         ? (JSON.parse(raw || '{}') || {})
-        : (PUZZLE_LAB_MODE ? { groups:{}, templates:{}, markers:[] } : JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.localLibrary || {})));
+        : (PUZZLE_LAB_MODE ? { groups:{}, templates:{}, puzzleTemplates:[], markers:[] } : JSON.parse(JSON.stringify(BAKED_GAME_DESIGN?.puzzles?.localLibrary || {})));
       parsed.groups ||= {};
       parsed.templates ||= {};
+      parsed.puzzleTemplates ||= [];
       parsed.markers ||= [];
 
       // Older authoring builds could leave repeated marker records behind.
@@ -5018,7 +5023,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       for (const raw of parsed.markers) {
         if (!raw || !raw.id || !raw.group || !Number.isFinite(Number(raw.x))) continue;
         if (seenIds.has(raw.id)) continue;
-        const marker = { ...raw, x:Number(raw.x), local:true, linkMode:raw.linkMode === 'copy' ? 'copy' : 'instance' };
+        const relationship = raw.relationship === 'template-instance' && raw.templateId ? 'template-instance' : 'standalone';
+        const marker = { ...raw, x:Number(raw.x), local:true, relationship, templateId:relationship === 'template-instance' ? raw.templateId : null, linkMode:relationship === 'template-instance' ? 'instance' : 'copy' };
         const spatialDuplicate = normalized.some(item => item.group === marker.group && Math.abs(item.x - marker.x) < 0.08);
         if (spatialDuplicate) continue;
         seenIds.add(marker.id);
@@ -5026,7 +5032,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       }
       parsed.markers = normalized;
       return parsed;
-    } catch (_) { return { groups:{}, templates:{}, markers:[] }; }
+    } catch (_) { return { groups:{}, templates:{}, puzzleTemplates:[], markers:[] }; }
   })();
   const PUZZLE_ART_V2_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.migration.art-v2' : 'sidescroll.puzzle-art-v2.migrated';
   const PUZZLE_ART_V2_ASPECT = {
@@ -6072,20 +6078,77 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes();
   }
 
-  function migratePuzzleTemplates() {
-    userPuzzleLibrary.templates ||= {};
-    let changed = false;
-    for (const marker of userPuzzleLibrary.markers || []) {
-      if (!marker.linkMode) { marker.linkMode = 'instance'; changed = true; }
-      if (marker.linkMode === 'copy') continue;
-      if (userPuzzleLibrary.templates[marker.group]) continue;
-      const legacy = puzzleStartState[marker.id];
-      if (!legacy) continue;
-      userPuzzleLibrary.templates[marker.group] = JSON.parse(JSON.stringify(legacy));
-      changed = true;
+  const PUZZLE_TEMPLATE_RELATIONSHIP_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.template-relationship-v1' : 'sidescroll.puzzle-template-relationship-v1';
+  const WORLD_GROUP_TEMPLATE_RELATIONSHIP_MIGRATION_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.group-template-relationship-v1' : 'sidescroll.world-group-template-relationship-v1';
+
+  function migrateExplicitPuzzleTemplateRelationships(){
+    if(PUZZLE_LAB_MODE)return false;
+    try{if(localStorage.getItem(PUZZLE_TEMPLATE_RELATIONSHIP_MIGRATION_KEY)==='1')return false;}catch(_){}
+
+    // v1.0.135 changes the ownership model deliberately: every puzzle already
+    // placed in the scene becomes Standalone. Reuse starts only after the author
+    // explicitly creates a Template. Adopt baked scene markers into the local
+    // scene list first so their relationship can be persisted just like newer
+    // authored markers.
+    const localLabels=new Set((userPuzzleLibrary.markers||[]).map(marker=>(userPuzzleLibrary.groups?.[marker.group]?.label||puzzleConfig.groups?.[marker.group]?.label||'').trim().toLowerCase()).filter(Boolean));
+    const localIds=new Set((userPuzzleLibrary.markers||[]).map(marker=>marker.id));
+    for(const baked of puzzleConfig.markers||[]){
+      const label=(puzzleConfig.groups?.[baked.group]?.label||'').trim().toLowerCase();
+      if(localIds.has(baked.id)||localLabels.has(label))continue;
+      // Adopt the baked definition as scene-owned data too. With one placed
+      // copy of each current puzzle this gives the Standalone object an
+      // explicit editable definition instead of continuing to borrow a hidden
+      // built-in/library source.
+      if(!userPuzzleLibrary.groups?.[baked.group]&&puzzleConfig.groups?.[baked.group]){
+        userPuzzleLibrary.groups[baked.group]=deepCopy(puzzleConfig.groups[baked.group]);
+      }
+      userPuzzleLibrary.markers.push({...deepCopy(baked),local:true});
+      localIds.add(baked.id);if(label)localLabels.add(label);
     }
+
+    // Previous builds automatically treated definitions as reusable templates.
+    // Keep those legacy snapshots available as migration sources, but do not
+    // expose any of them as explicit Templates until the author chooses Create
+    // Template. This provides the requested clean slate without losing starts.
+    userPuzzleLibrary.puzzleTemplates=[];
+    for(const marker of userPuzzleLibrary.markers||[]){
+      const previousStart=puzzleStartState[marker.id] || userPuzzleLibrary.templates?.[marker.group] || defaultPuzzleStart(marker);
+      if(!puzzleStartState[marker.id]&&previousStart){
+        puzzleStartState[marker.id]=deepCopy(previousStart);
+        puzzleStartState[marker.id].source='authored';
+        puzzleStartState[marker.id].savedAt=Date.now();
+      }
+      marker.relationship='standalone';
+      marker.templateId=null;
+      marker.linkMode='copy';
+    }
+    // Every placed puzzle now owns an explicit per-marker Start State. The old
+    // implicit group-template snapshot map is therefore migration input only;
+    // clear it so no hidden legacy Template can influence future Standalone
+    // authoring. New explicit Templates will repopulate this map deliberately.
+    userPuzzleLibrary.templates={};
+    savePuzzleStarts(true);
+    savePuzzleLibrary(true);
+    try{localStorage.setItem(PUZZLE_TEMPLATE_RELATIONSHIP_MIGRATION_KEY,'1');}catch(_){}
+    return true;
+  }
+
+  function migrateExplicitWorldGroupTemplateRelationships(){
+    if(PUZZLE_LAB_MODE)return false;
+    try{if(localStorage.getItem(WORLD_GROUP_TEMPLATE_RELATIONSHIP_MIGRATION_KEY)==='1')return false;}catch(_){}
+    let changed=false;
+    for(const group of worldGroups()){
+      if(group.relationship!=='standalone'||group.templateId){
+        group.relationship='standalone';
+        group.templateId=null;
+        changed=true;
+      }
+    }
+    if(changed)saveSceneData();
+    try{localStorage.setItem(WORLD_GROUP_TEMPLATE_RELATIONSHIP_MIGRATION_KEY,'1');}catch(_){}
     return changed;
   }
+
 
   function savePuzzleLibrary(force = false) {
     if (!force && puzzleEditSession && !puzzleTestMode) { puzzleEditSession.pendingPersistence.add('library'); if (puzzleWorldModifiersReady) invalidatePuzzleWorldModifierMeshes(); return; }
@@ -6135,8 +6198,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function allPuzzleMarkers() {
     if (PUZZLE_LAB_MODE) return groupDefinition(PUZZLE_LAB_GROUP_ID) ? [puzzleLabMarker] : [];
-    const localLabels = new Set((userPuzzleLibrary.markers || []).map(marker => (userPuzzleLibrary.groups?.[marker.group]?.label || '').trim().toLowerCase()).filter(Boolean));
-    const builtIns = (puzzleConfig.markers || []).filter(marker => !localLabels.has((puzzleConfig.groups?.[marker.group]?.label || '').trim().toLowerCase()));
+    const localIds = new Set((userPuzzleLibrary.markers || []).map(marker=>marker.id));
+    const localLabels = new Set((userPuzzleLibrary.markers || []).map(marker => (userPuzzleLibrary.groups?.[marker.group]?.label || puzzleConfig.groups?.[marker.group]?.label || '').trim().toLowerCase()).filter(Boolean));
+    const builtIns = (puzzleConfig.markers || []).filter(marker => !localIds.has(marker.id) && !localLabels.has((puzzleConfig.groups?.[marker.group]?.label || '').trim().toLowerCase()));
     return [...builtIns, ...(userPuzzleLibrary.markers || [])];
   }
 
@@ -6178,8 +6242,32 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return !!marker && (userPuzzleLibrary.markers || []).some(item => item.id === marker.id);
   }
 
+  function puzzleTemplates(){
+    userPuzzleLibrary.puzzleTemplates ||= [];
+    return userPuzzleLibrary.puzzleTemplates;
+  }
+
+  function puzzleTemplateById(id){
+    return id ? puzzleTemplates().find(template=>template?.id===id) || null : null;
+  }
+
+  function puzzleTemplateForGroup(groupId){
+    return groupId ? puzzleTemplates().find(template=>template?.groupId===groupId) || null : null;
+  }
+
+  function puzzleTemplateForMarker(marker){
+    return marker?.templateId ? puzzleTemplateById(marker.templateId) : null;
+  }
+
+  function puzzleMarkerRelationship(marker){
+    return marker?.relationship === 'template-instance' && puzzleTemplateForMarker(marker) ? 'template-instance' : 'standalone';
+  }
+
+  // Keep the old link-mode helper as an internal compatibility shim while the
+  // runtime is migrated onto explicit Standalone / Template Instance language.
+  // No UI should expose COPY / INSTANCE terminology from this point onward.
   function markerLinkMode(marker) {
-    return marker?.linkMode === 'copy' ? 'copy' : 'instance';
+    return puzzleMarkerRelationship(marker) === 'template-instance' ? 'instance' : 'copy';
   }
 
   function savedPuzzleFor(markerId) {
@@ -7906,7 +7994,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   var puzzleEditSession = null;
   let puzzleWorkspaceActive = false;
   let puzzleWorkspaceTab = 'contents';
-  let editorPalettePickerMode = null; // null | 'zone' | 'logic' — shared right-side add-picker workflow
+  let editorPalettePickerMode = null; // null | zone | logic | puzzle-template | group-template — shared right-side picker workflow
   let puzzleWorkspaceListSignature = '';
   let puzzleZoneListSignature = '';
   let puzzleNodeInspectorOpen = false;
@@ -7924,6 +8012,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const editorRedoStack = [];
   let selectedWorldTemplateId = null;
   let worldGroupTemplatePlaceMode = false;
+  let selectedPuzzleTemplateId = null;
+  let puzzleTemplatePlaceMode = false;
   let worldGroupTemplateListSignature = '';
   let puzzleLibraryListSignature = '';
   let puzzleObjectListSignature = '';
@@ -7960,9 +8050,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return repaired;
   }
   reconcileWorldGroupMembershipIntegrity();
-  // Migrate older marker-specific authored starts into reusable templates, then
-  // persist the normalized library so previous authored work remains available.
-  migratePuzzleTemplates();
+  // v1.0.135 relationship migration: existing placed content is explicitly
+  // Standalone. Templates are opt-in reusable sources from this point onward.
+  migrateExplicitPuzzleTemplateRelationships();
+  migrateExplicitWorldGroupTemplateRelationships();
   savePuzzleLibrary();
   applyWorldLabPendingPuzzleMoves();
   if (PUZZLE_LAB_MODE) {
@@ -8932,6 +9023,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     document.body.classList.add('sidescroll-assets-open');
     if(mode==='zone'&&puzzleZoneAddBtn){puzzleZoneAddBtn.setAttribute('aria-expanded','true');puzzleZoneAddBtn.classList.add('active');}
     if(mode==='logic'&&puzzleLogicAddBtn){puzzleLogicAddBtn.setAttribute('aria-expanded','true');puzzleLogicAddBtn.classList.add('active');}
+    if(mode==='puzzle-template'&&puzzlePlaceTemplateBtn){puzzlePlaceTemplateBtn.setAttribute('aria-expanded','true');puzzlePlaceTemplateBtn.classList.add('active');}
+    if(mode==='group-template'&&worldGroupPlaceTemplateBtn){worldGroupPlaceTemplateBtn.setAttribute('aria-expanded','true');worldGroupPlaceTemplateBtn.classList.add('active');}
     if(editorPaletteTitle)editorPaletteTitle.textContent=title;
     if(editorPaletteSubtitle)editorPaletteSubtitle.textContent=subtitle;
     editorAssetsEl.replaceChildren();
@@ -9562,12 +9655,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(!puzzleEditSession)return false;
     if(editorTransaction)commitEditorTransaction();
     const marker=markerForId(puzzleEditSession.markerId);
+    const wasTemplateInstance=puzzleMarkerRelationship(marker)==='template-instance';
+    const wasDirty=!!puzzleEditSession.dirty;
+    if(wasTemplateInstance&&wasDirty){
+      // Template Instances do not accumulate silent local overrides. Committing
+      // an edited instance explicitly updates its source Template (and linked
+      // instances), or the author cancels and can choose Make Standalone.
+      if(!savePuzzleTemplateFromCurrent({confirmImpact:true,silentHint:true,commitKind:'save'}))return false;
+    }
     flushPuzzleEditPersistence();
     clearPuzzleEditRecovery(puzzleEditSession.markerId);
     closePuzzleEditShell();
     puzzleEditSession=null;clearEditorHistory();
     updatePuzzlePanel();updateEditorDrawerUi();updateEditorButtons();
-    hintEl.textContent=`Saved ${markerDefinition(marker)?.label||marker?.group||'Puzzle'} edits · Set Start State still controls the Reset/Test starting state`;
+    const relation=wasTemplateInstance?'Template updated':'Standalone scene puzzle saved';
+    hintEl.textContent=`${relation} · ${markerDefinition(marker)?.label||marker?.group||'Puzzle'}`;
     hintEl.classList.remove('hidden');
     return true;
   }
@@ -9843,8 +9945,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function revertPuzzleSceneToTemplate(){
     const instance=selectedPuzzleInstance();
     const marker=instance?.marker;
-    if(!instance||!marker||puzzleTestMode||markerLinkMode(marker)==='copy')return false;
-    const rawTemplate=deepCopy(templateStartForGroup(marker.group));
+    if(!instance||!marker||puzzleTestMode||puzzleMarkerRelationship(marker)!=='template-instance')return false;
+    const sourceTemplate=puzzleTemplateForMarker(marker);
+    if(!sourceTemplate)return false;
+    const rawTemplate=deepCopy(userPuzzleLibrary.templates?.[sourceTemplate.groupId]);
     if(!rawTemplate)return false;
     const template=materialiseExplicitPuzzleSnapshot(marker,rawTemplate);
     runEditorTransaction('Revert scene to template',()=>{
@@ -9862,7 +9966,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     puzzleWorkspaceListSignature='';puzzleZoneListSignature='';puzzleLogicListSignature='';puzzleLogicAddSignature='';
     renderPuzzleWorkspaceV2({force:true});
     updatePuzzlePanel();
-    hintEl.textContent='Scene instance reverted to the shared Puzzle Template · Undo is available until you Save';
+    hintEl.textContent=`Reloaded ${sourceTemplate.label||'Puzzle Template'} · Undo is available until you Save`; 
     hintEl.classList.remove('hidden');
     return true;
   }
@@ -10183,32 +10287,34 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const marker=selectedPuzzleMarker();
     const instance=activePuzzleInstances.get(marker.id)||null;
     const def=markerDefinition(marker);
-    const linkMode=markerLinkMode(marker);
-    const isCopy=linkMode==='copy';
+    const relationship=puzzleMarkerRelationship(marker);
+    const isStandalone=relationship==='standalone';
+    const template=puzzleTemplateForMarker(marker);
     if(puzzleWorkspaceNameEl)puzzleWorkspaceNameEl.textContent=def?.label||marker.group||'Puzzle';
     const sessionDirty=!!(puzzleEditSession?.markerId===marker.id&&puzzleEditSession.dirty);
-    if(puzzleWorkspaceStatusEl)puzzleWorkspaceStatusEl.textContent=`${isCopy?'Unique scene copy':'Linked template instance'} · x ${Number(marker.x).toFixed(1)}${sessionDirty?' · Unsaved session changes':''}`;
-    if(puzzleWorkspaceSourceEl)puzzleWorkspaceSourceEl.textContent=isCopy?'UNIQUE COPY':'LINKED TEMPLATE';
-    const hasSceneOverride=!!(puzzleStartDirty.has(marker.id)||(markerLinkMode(marker)!=='copy'&&!puzzleEditSession&&puzzleSavedState?.[marker.id]?.authoringOverride===true));
+    if(puzzleWorkspaceStatusEl)puzzleWorkspaceStatusEl.textContent=`${isStandalone?'Standalone puzzle':`Template Instance · ${template?.label||'Template'}`} · x ${Number(marker.x).toFixed(1)}${sessionDirty?' · Unsaved session changes':''}`;
+    if(puzzleWorkspaceSourceEl)puzzleWorkspaceSourceEl.textContent=isStandalone?'STANDALONE':'TEMPLATE INSTANCE';
+    const hasSceneOverride=!!(sessionDirty||puzzleStartDirty.has(marker.id)||(!isStandalone&&!puzzleEditSession&&puzzleSavedState?.[marker.id]?.authoringOverride===true));
     if(puzzleWorkspaceOverrideStatusEl){
-      puzzleWorkspaceOverrideStatusEl.textContent=isCopy
-        ? (hasSceneOverride?'Scene changes':'Matches own Start')
-        : (hasSceneOverride?'Scene override':'Matches template');
+      puzzleWorkspaceOverrideStatusEl.textContent=isStandalone
+        ? 'This scene only'
+        : (hasSceneOverride?'Working changes':`Linked · ${template?.label||'Template'}`);
       puzzleWorkspaceOverrideStatusEl.classList.toggle('active',hasSceneOverride);
     }
     if(puzzleWorkspaceRevertTemplateBtn){
-      puzzleWorkspaceRevertTemplateBtn.hidden=isCopy;
-      puzzleWorkspaceRevertTemplateBtn.disabled=!instance||isCopy||!hasSceneOverride;
+      puzzleWorkspaceRevertTemplateBtn.hidden=isStandalone;
+      puzzleWorkspaceRevertTemplateBtn.disabled=!instance||isStandalone||!hasSceneOverride;
+      puzzleWorkspaceRevertTemplateBtn.textContent='Reload from Template';
     }
-    if(puzzleWorkspaceInfoEl)puzzleWorkspaceInfoEl.textContent=isCopy
-      ? 'This scene puzzle is independent. Save commits local working changes; Set Start State records the setup used by Reset and Test.'
-      : 'This scene puzzle remains linked to its reusable Template. Save keeps local scene overrides; Revert removes them; setting the Start State also updates the shared Template and its linked instances.';
-    if(puzzleWorkspaceStartHelpEl)puzzleWorkspaceStartHelpEl.textContent=isCopy
-      ? 'Records the current setup as this unique puzzle’s Reset/Test starting state.'
-      : 'Records the current setup as the reusable Template Start State and updates every linked instance.';
-    if(puzzleWorkspaceTemplateWarningEl)puzzleWorkspaceTemplateWarningEl.textContent=isCopy
-      ? 'Save commits this independent scene copy. Set Start State changes only this copy’s Reset/Test start.'
-      : 'Save commits only this scene instance. Set Start State + Apply Template is broader: it changes the reusable Template and every linked instance. Make Unique first if this puzzle needs its own Start State.';
+    if(puzzleWorkspaceInfoEl)puzzleWorkspaceInfoEl.textContent=isStandalone
+      ? 'This puzzle belongs only to this scene. Save affects only this puzzle.'
+      : `This puzzle is linked to “${template?.label||'its Template'}”. Saving authored changes updates the Template and its linked instances. Make Standalone first if this puzzle should diverge.`;
+    if(puzzleWorkspaceStartHelpEl)puzzleWorkspaceStartHelpEl.textContent=isStandalone
+      ? 'Records the current setup as this puzzle’s Reset/Test starting state.'
+      : 'Records the current setup as the Template Start State. Linked instances receive the same start.';
+    if(puzzleWorkspaceTemplateWarningEl)puzzleWorkspaceTemplateWarningEl.textContent=isStandalone
+      ? 'Standalone · Save and Set Start State affect only this scene puzzle.'
+      : `Template Instance · committing changes can affect every instance of “${template?.label||'this Template'}”. The editor will confirm before doing that.`;
     renderPuzzleZonesWorkspace(instance?.marker||null,{force});
     renderPuzzleLogicWorkspace(instance,{force});
     const cart=instance?cartObjectForInstance(instance):null;
@@ -10222,12 +10328,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(legacy&&button.dataset.puzzleLegacy!=='sidescroll-open-assets')button.textContent=legacy.textContent.trim();
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-cart-path-edit')button.textContent=puzzleCartPathEditMode?'Finish Path':'Edit Path';
       if(button.dataset.puzzleLegacy==='sidescroll-open-assets')button.textContent=puzzleEnvironmentPlacementMode?'＋ Add Dressing':'＋ Add Puzzle Piece';
-      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique')button.textContent='Make Unique';
-      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-set-start')button.textContent=isCopy?'Set Start State':'Set Start State + Apply Template';
+      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique')button.textContent='Make Standalone';
+      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-set-start')button.textContent='Set Start State';
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-reset')button.textContent='Reset to Start State';
       const extraCart=['sidescroll-puzzle-cart-path-toggle','sidescroll-puzzle-cart-path-start-cart','sidescroll-puzzle-cart-path-duration-down','sidescroll-puzzle-cart-path-duration-up','sidescroll-puzzle-cart-path-preview'];
       button.hidden=(extraCart.includes(button.dataset.puzzleLegacy)&&!puzzleCartPathEditMode)
-        ||(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique'&&isCopy);
+        ||(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique'&&isStandalone);
     }
     const child=selectedPuzzleWorkspaceChild();
     if(puzzleChildInspectorEl)puzzleChildInspectorEl.hidden=!child;
@@ -10327,6 +10433,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(editorTransaction)commitEditorTransaction();
     const groupId=worldGroupEditSession.groupId;
     const group=worldGroupById(groupId);
+    const wasTemplateInstance=worldGroupRelationship(group)==='template-instance';
+    const wasDirty=!!worldGroupEditSession.dirty;
+    if(wasTemplateInstance&&wasDirty){
+      // Template Instances do not silently accumulate scene-only composition
+      // overrides. Saving an edited instance updates its explicit source
+      // Template (and linked instances), or the author cancels and can choose
+      // Make Standalone before saving.
+      if(!updateWorldGroupTemplateFromInstance(group,{confirmImpact:true}))return false;
+    }
     worldGroupExclusionEditMode=false;worldGroupExclusionHandle=null;worldGroupEditMode=false;worldGroupMemberMoveMode=false;worldGroupNodeInspectorOpen=false;
     transformEditMode=false;collisionEditMode=false;groundLineEditMode=false;
     selectedObject=null;
@@ -10335,7 +10450,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     releaseScenePersistence({flush:true});
     editorContext={type:'environment',id:null};worldGroupEditorTab='contents';
     renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});renderWorldGroupEditor({force:true});updateEditorDrawerUi();updateEditorButtons();
-    hintEl.textContent=`Saved ${group?.label||'World Group'}`;hintEl.classList.remove('hidden');
+    hintEl.textContent=wasTemplateInstance&&wasDirty
+      ? `Updated Group Template · ${group?.label||'World Group'}`
+      : `Saved ${group?.label||'World Group'} · Standalone scene group`;
+    hintEl.classList.remove('hidden');
     return true;
   }
 
@@ -10456,7 +10574,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const ex=currentWorldGroupExclusion(group);
     const bounds=worldGroupBounds(group);
     if(worldGroupEditorNameEl)worldGroupEditorNameEl.textContent=group.label||'World Group';
-    if(worldGroupEditorSummaryEl)worldGroupEditorSummaryEl.textContent=`${members.length} ${members.length===1?'item':'items'} · ${zones.length} ${zones.length===1?'exclusion':'exclusions'}`;
+    if(worldGroupEditorSummaryEl){
+      const relationship=worldGroupRelationship(group)==='template-instance'?`TEMPLATE INSTANCE · ${worldGroupSourceTemplate(group)?.label||'Group Template'}`:'STANDALONE';
+      worldGroupEditorSummaryEl.textContent=`${relationship} · ${members.length} ${members.length===1?'item':'items'} · ${zones.length} ${zones.length===1?'exclusion':'exclusions'}`;
+    }
     if(worldGroupEditorContentCountEl)worldGroupEditorContentCountEl.textContent=`${members.length} ${members.length===1?'item':'items'}`;
     if(worldGroupChildEmptyEl)worldGroupChildEmptyEl.hidden=members.length>0;
     if(worldGroupChildListEl){
@@ -10531,7 +10652,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function createWorldGroup() {
     const id=`world-group-${Date.now().toString(36)}-${++userSceneCounter}`;
     const x=Number(character?.x ?? (camera.x+character.screenOffsetX))||0;
-    const group={id,label:nextWorldGroupLabel(),x,z:pathZ,createdAt:Date.now()};
+    const group={id,label:nextWorldGroupLabel(),x,z:pathZ,createdAt:Date.now(),relationship:'standalone',templateId:null};
     worldGroups().push(group);
     selectedWorldGroupId=id; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupExclusionEditMode=false;
     saveSceneData(); worldGroupListSignature=''; sceneEnvironmentListSignature='';
@@ -10927,7 +11048,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const duplicate={
       id:`world-group-${Date.now().toString(36)}-${++userSceneCounter}`,
       label:uniqueWorldGroupLabel(`${source.label||'World Group'} Copy`),
-      x:anchor.x,z:anchor.z,createdAt:Date.now(),
+      x:anchor.x,z:anchor.z,createdAt:Date.now(),relationship:'standalone',templateId:null,
       exclusions:worldGroupExclusions(source).map(ex=>({...deepCopy(ex),id:newWorldGroupExclusionId()}))
     };
     const memberSnapshots=worldGroupMembers(source.id).map(obj=>worldGroupTemplateMember(obj,source));
@@ -11042,6 +11163,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return id ? worldGroupTemplates().find(template=>template?.id===id) || null : null;
   }
 
+  function worldGroupRelationship(group){
+    return group?.relationship==='template-instance'&&worldGroupTemplateById(group.templateId)?'template-instance':'standalone';
+  }
+
+  function worldGroupSourceTemplate(group){
+    return worldGroupRelationship(group)==='template-instance'?worldGroupTemplateById(group.templateId):null;
+  }
+
   function uniqueWorldGroupLabel(base='World Group'){
     const clean=String(base||'World Group').trim() || 'World Group';
     const used=new Set(worldGroups().map(group=>String(group?.label||'').trim().toLowerCase()));
@@ -11090,45 +11219,114 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     };
   }
 
-  function saveSelectedWorldGroupAsTemplate(){
-    const group=worldGroupById(selectedWorldGroupId);
-    if(!group)return;
+  function captureWorldGroupTemplate(group,base=null){
     const members=worldGroupMembers(group.id);
-    if(!members.length){
-      hintEl.textContent='Add at least one asset before saving a group template';
-      hintEl.classList.remove('hidden');
-      return;
-    }
-    const proposed=uniqueWorldTemplateLabel(group.label||'Group Template');
-    const entered=window.prompt('Group template name',proposed);
-    if(entered==null)return;
-    const label=uniqueWorldTemplateLabel(String(entered).trim()||proposed);
-    const template={
-      id:`world-template-${Date.now().toString(36)}-${++userSceneCounter}`,
-      label,
-      createdAt:Date.now(),
+    return{
+      ...(base?deepCopy(base):{}),
+      id:base?.id||`world-template-${Date.now().toString(36)}-${++userSceneCounter}`,
+      label:base?.label||group.label||'Group Template',
+      createdAt:base?.createdAt||Date.now(),updatedAt:Date.now(),
       exclusions:worldGroupExclusions(group).map(ex=>deepCopy(ex)),
       members:members.map(obj=>worldGroupTemplateMember(obj,group))
     };
+  }
+
+  function applyWorldGroupTemplateToGroup(group,template){
+    if(!group||!template)return false;
+    for(const obj of worldGroupMembers(group.id)){
+      obj.deleted=true;
+      recordObjectEdit(obj);
+    }
+    group.exclusions=Array.isArray(template.exclusions)
+      ? template.exclusions.map(ex=>({...deepCopy(cleanWorldGroupExclusion(group,ex)),id:newWorldGroupExclusionId()}))
+      : [];
+    const anchor={x:Number(group.x)||0,z:Number(group.z)||pathZ};
+    for(const member of template.members||[])createTemplateObject(member,group,anchor);
+    group.relationship='template-instance';group.templateId=template.id;
+    sortSceneCollections();
+    worldGroupListSignature='';sceneEnvironmentListSignature='';
+    return true;
+  }
+
+  function updateWorldGroupTemplateFromInstance(group,{confirmImpact=true}={}){
+    const template=worldGroupSourceTemplate(group);if(!group||!template)return false;
+    const linked=worldGroups().filter(other=>other.templateId===template.id&&worldGroupRelationship(other)==='template-instance');
+    if(confirmImpact&&!window.confirm(`This is a Template Instance of “${template.label}”.\n\nUpdate the Group Template and ${linked.length} linked scene instance${linked.length===1?'':'s'}?\n\nCancel keeps the editor open. Use Make Standalone first if this group should diverge.`))return false;
+    const updated=captureWorldGroupTemplate(group,template);
+    const index=worldGroupTemplates().findIndex(item=>item.id===template.id);
+    if(index>=0)worldGroupTemplates()[index]=updated;
+    for(const other of linked){if(other.id!==group.id)applyWorldGroupTemplateToGroup(other,updated);}
+    saveSceneData();worldGroupTemplateListSignature='';worldGroupListSignature='';sceneEnvironmentListSignature='';
+    return true;
+  }
+
+  function saveSelectedWorldGroupAsTemplate(){
+    const group=worldGroupById(selectedWorldGroupId);
+    if(!group||worldGroupRelationship(group)!=='standalone')return false;
+    const members=worldGroupMembers(group.id);
+    if(!members.length){
+      hintEl.textContent='Add at least one asset before creating a Group Template';
+      hintEl.classList.remove('hidden');
+      return false;
+    }
+    const proposed=uniqueWorldTemplateLabel(group.label||'Group Template');
+    const entered=window.prompt('Group template name',proposed);
+    if(entered==null)return false;
+    const label=uniqueWorldTemplateLabel(String(entered).trim()||proposed);
+    const template=captureWorldGroupTemplate(group,{id:`world-template-${Date.now().toString(36)}-${++userSceneCounter}`,label,createdAt:Date.now()});
+    template.label=label;
     worldGroupTemplates().push(template);
     selectedWorldTemplateId=template.id;
+    const linkCurrent=window.confirm(`Created Group Template “${label}”.\n\nLink this current group to the new template?\n\nOK = make it a Template Instance\nCancel = keep it Standalone`);
+    if(linkCurrent){group.relationship='template-instance';group.templateId=template.id;}
+    else{group.relationship='standalone';group.templateId=null;}
     worldGroupTemplatePlaceMode=false;
     saveSceneData();
-    worldGroupTemplateListSignature='';
+    worldGroupTemplateListSignature='';worldGroupListSignature='';
     renderWorldGroupTools({force:true});
-    hintEl.textContent=`Saved ${label} · ${template.members.length} ${template.members.length===1?'asset':'assets'}`;
+    hintEl.textContent=linkCurrent?`Created ${label} · current group is now a Template Instance`:`Created ${label} · current group remains Standalone`;
     hintEl.classList.remove('hidden');
+    return true;
   }
+
+  function makeSelectedWorldGroupStandalone(){
+    const group=worldGroupById(selectedWorldGroupId);if(!group||worldGroupRelationship(group)!=='template-instance')return false;
+    const template=worldGroupSourceTemplate(group);
+    if(!window.confirm(`Make ${group.label} Standalone?\n\nIt will keep its current composition but stop receiving changes from “${template?.label||'the template'}”.`))return false;
+    group.relationship='standalone';group.templateId=null;
+    saveSceneData();worldGroupListSignature='';renderWorldGroupTools({force:true});renderEnvironmentSelectionTools({force:true});
+    hintEl.textContent=`${group.label} is now Standalone`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function openWorldGroupTemplatePlacementPicker(){
+    if(editorPalettePickerMode==='group-template'&&!editorPalette?.hidden){setAssetPaletteOpen(false);renderWorldGroupTools({force:true});return false;}
+    if(!editMode||editorScope!=='environment')return false;
+    const templates=worldGroupTemplates();
+    if(!templates.length){hintEl.textContent='No Group Templates yet · select a Standalone group and choose Create Template first';hintEl.classList.remove('hidden');return false;}
+    return openEditorChoicePicker({
+      mode:'group-template',title:'Place Group Template',subtitle:'Choose a reusable Group Template, then tap the scene',groupLabel:'Group Templates',
+      choices:templates.map(template=>({
+        label:template.label||'Group Template',thumb:'▦',description:`Place a linked Template Instance · ${worldGroups().filter(group=>group.templateId===template.id&&worldGroupRelationship(group)==='template-instance').length} currently placed`,
+        onSelect:()=>{selectedWorldTemplateId=template.id;setWorldGroupTemplatePlaceMode(true);}
+      }))
+    });
+  }
+
 
   function deleteSelectedWorldGroupTemplate(){
     const template=worldGroupTemplateById(selectedWorldTemplateId);
     if(!template)return;
-    if(!window.confirm(`Delete ${template.label}? Existing placed groups will not be affected.`))return;
+    const linked=worldGroups().filter(group=>group.templateId===template.id&&worldGroupRelationship(group)==='template-instance');
+    const consequence=linked.length?`\n\n${linked.length} placed Template Instance${linked.length===1?' will':'s will'} become Standalone and keep their current composition.`:'';
+    if(!window.confirm(`Delete Group Template “${template.label}”?${consequence}`))return;
+    for(const group of linked){group.relationship='standalone';group.templateId=null;}
     sceneData.worldGroupTemplates=worldGroupTemplates().filter(item=>item.id!==template.id);
     selectedWorldTemplateId=null;
     worldGroupTemplatePlaceMode=false;
     saveSceneData();
-    worldGroupTemplateListSignature='';
+    worldGroupTemplateListSignature='';worldGroupListSignature='';
     renderWorldGroupTools({force:true});
   }
 
@@ -11181,7 +11379,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const group={
       id:`world-group-${Date.now().toString(36)}-${++userSceneCounter}`,
       label:uniqueWorldGroupLabel(template.label||'World Group'),
-      x:anchor.x,z:anchor.z,createdAt:Date.now(),templateId:template.id,
+      x:anchor.x,z:anchor.z,createdAt:Date.now(),relationship:'template-instance',templateId:template.id,
       exclusions:Array.isArray(template.exclusions)
         ? template.exclusions.map(ex=>({...deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},ex)),id:newWorldGroupExclusionId()}))
         : (template.exclusion ? [{...deepCopy(cleanWorldGroupExclusion({x:anchor.x,z:anchor.z},template.exclusion)),id:newWorldGroupExclusionId()}] : [])
@@ -11278,11 +11476,30 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(!worldGroupListEl)return;const groups=worldGroups();
     if(selectedWorldGroupId&&!worldGroupById(selectedWorldGroupId)){selectedWorldGroupId=null;worldGroupEditMode=false;worldGroupMoveMode=false;worldGroupExclusionEditMode=false;}
     const selected=worldGroupById(selectedWorldGroupId);
-    const signature=`${selectedWorldGroupId||''}|${worldGroupEditMode?'e':'-'}|${worldGroupMoveMode?'m':'-'}|${worldGroupExclusionEditMode?'x':'-'}|zone:${worldGroupExclusionIndex}|${selectedObject?.id||''}|`+groups.map(g=>{const exSig=worldGroupExclusions(g).map(ex=>`${ex.enabled?'1':'0'}:${ex.centerX.toFixed(2)}:${ex.centerZ.toFixed(2)}:${ex.width.toFixed(2)}:${ex.depth.toFixed(2)}`).join(';');return`${g.id}:${g.label}:${Number(g.x).toFixed(2)}:${Number(g.z).toFixed(2)}:${exSig}:${worldGroupMembers(g.id).map(o=>o.id).join(',')}`;}).join('|');
+    const signature=`${selectedWorldGroupId||''}|${worldGroupEditMode?'e':'-'}|${worldGroupMoveMode?'m':'-'}|${worldGroupExclusionEditMode?'x':'-'}|zone:${worldGroupExclusionIndex}|${selectedObject?.id||''}|`+groups.map(g=>{const exSig=worldGroupExclusions(g).map(ex=>`${ex.enabled?'1':'0'}:${ex.centerX.toFixed(2)}:${ex.centerZ.toFixed(2)}:${ex.width.toFixed(2)}:${ex.depth.toFixed(2)}`).join(';');return`${g.id}:${g.label}:${worldGroupRelationship(g)}:${g.templateId||''}:${Number(g.x).toFixed(2)}:${Number(g.z).toFixed(2)}:${exSig}:${worldGroupMembers(g.id).map(o=>o.id).join(',')}`;}).join('|');
     if(!force&&signature===worldGroupListSignature)return;worldGroupListSignature=signature;
     if(worldGroupCountEl)worldGroupCountEl.textContent=`${groups.length} ${groups.length===1?'group':'groups'}`;if(worldGroupEmptyEl)worldGroupEmptyEl.hidden=groups.length>0;worldGroupListEl.innerHTML='';
-    for(const group of groups){const members=worldGroupMembers(group.id),b=worldGroupBounds(group);const row=document.createElement('button');row.type='button';row.className='sidescroll-environment-scene-row';row.classList.toggle('active',group.id===selectedWorldGroupId);row.setAttribute('aria-selected',String(group.id===selectedWorldGroupId));const main=document.createElement('span');main.className='scene-puzzle-main';const strong=document.createElement('strong');strong.textContent=group.label||'World Group';const small=document.createElement('small');small.textContent=`${members.length} ${members.length===1?'asset':'assets'}${worldGroupEditMode&&group.id===selectedWorldGroupId?' · EDITING':''}`;main.append(strong,small);const pos=document.createElement('span');pos.className='scene-puzzle-x';pos.textContent=b?`x ${((b.minX+b.maxX)*.5).toFixed(1)}`:`x ${Number(group.x||0).toFixed(1)}`;row.append(main,pos);bindEditorPress(row,()=>selectWorldGroup(group.id,{focus:true}));worldGroupListEl.appendChild(row);}
-    const has=!!selected;if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDuplicateBtn)worldGroupDuplicateBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;if(worldGroupDeleteBtn)worldGroupDeleteBtn.disabled=!has;
+    for(const group of groups){
+      const members=worldGroupMembers(group.id),b=worldGroupBounds(group);
+      const relationship=worldGroupRelationship(group);
+      const source=worldGroupSourceTemplate(group);
+      const row=document.createElement('button');row.type='button';row.className='sidescroll-environment-scene-row';row.classList.toggle('active',group.id===selectedWorldGroupId);row.setAttribute('aria-selected',String(group.id===selectedWorldGroupId));
+      const main=document.createElement('span');main.className='scene-puzzle-main';
+      const strong=document.createElement('strong');strong.textContent=group.label||'World Group';
+      const small=document.createElement('small');
+      const relationshipLabel=relationship==='template-instance'?`TEMPLATE INSTANCE · ${source?.label||'Group Template'}`:'STANDALONE';
+      small.textContent=`${relationshipLabel} · ${members.length} ${members.length===1?'asset':'assets'}${worldGroupEditMode&&group.id===selectedWorldGroupId?' · EDITING':''}`;
+      main.append(strong,small);
+      const pos=document.createElement('span');pos.className='scene-puzzle-x';pos.textContent=b?`x ${((b.minX+b.maxX)*.5).toFixed(1)}`:`x ${Number(group.x||0).toFixed(1)}`;row.append(main,pos);bindEditorPress(row,()=>selectWorldGroup(group.id,{focus:true}));worldGroupListEl.appendChild(row);
+    }
+    const has=!!selected;
+    const selectedRelationship=selected?worldGroupRelationship(selected):null;
+    if(worldGroupEditBtn){worldGroupEditBtn.disabled=!has;worldGroupEditBtn.textContent=worldGroupEditMode?'Lock Group':'Edit Group';worldGroupEditBtn.classList.toggle('primary',worldGroupEditMode);}
+    if(worldGroupMoveBtn){worldGroupMoveBtn.disabled=!has;worldGroupMoveBtn.textContent=worldGroupMoveMode?'Tap Scene…':'Move Group';worldGroupMoveBtn.classList.toggle('primary',worldGroupMoveMode);}
+    if(worldGroupRenameBtn)worldGroupRenameBtn.disabled=!has;if(worldGroupDuplicateBtn)worldGroupDuplicateBtn.disabled=!has;if(worldGroupDissolveBtn)worldGroupDissolveBtn.disabled=!has;if(worldGroupDeleteBtn)worldGroupDeleteBtn.disabled=!has;
+    if(worldGroupPlaceTemplateBtn){worldGroupPlaceTemplateBtn.disabled=!worldGroupTemplates().length||!!worldGroupEditSession;worldGroupPlaceTemplateBtn.classList.toggle('active',worldGroupTemplatePlaceMode);worldGroupPlaceTemplateBtn.textContent=worldGroupTemplatePlaceMode?'Tap Scene…':'Place Group Template';}
+    if(worldGroupCreateTemplateBtn){worldGroupCreateTemplateBtn.hidden=!selected||selectedRelationship!=='standalone';worldGroupCreateTemplateBtn.disabled=!selected||!worldGroupMembers(selected.id).length||!!worldGroupEditSession;}
+    if(worldGroupMakeStandaloneBtn){worldGroupMakeStandaloneBtn.hidden=!selected||selectedRelationship!=='template-instance';worldGroupMakeStandaloneBtn.disabled=!selected||!!worldGroupEditSession;}
     const zones=selected?worldGroupExclusions(selected):[];
     const ex=selected&&zones.length?currentWorldGroupExclusion(selected):null;
     if(worldGroupStatusEl)worldGroupStatusEl.textContent=!selected
@@ -11292,8 +11509,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         : worldGroupMoveMode
           ? `${selected.label} · tap a new scene position to move the complete group`
           : worldGroupEditMode
-            ? `${selected.label} · MEMBERS UNLOCKED · new assets auto-join · select members to edit/add/remove`
-            : `${selected.label} · LOCKED GROUP · drag ONLY the yellow dot to move · Edit Group unlocks members${zones.length?` · ${zones.filter(zone=>zone.enabled).length}/${zones.length} exclusions ON`:''}`;
+            ? `${selected.label} · ${worldGroupRelationship(selected)==='template-instance'?`TEMPLATE INSTANCE · ${worldGroupSourceTemplate(selected)?.label||'Group Template'}`:'STANDALONE'} · MEMBERS UNLOCKED · new assets auto-join · select members to edit/add/remove`
+            : `${selected.label} · ${worldGroupRelationship(selected)==='template-instance'?`TEMPLATE INSTANCE · ${worldGroupSourceTemplate(selected)?.label||'Group Template'}`:'STANDALONE'} · LOCKED GROUP · drag ONLY the yellow dot to move · Edit Group unlocks members${zones.length?` · ${zones.filter(zone=>zone.enabled).length}/${zones.length} exclusions ON`:''}`;
   }
 
   function placedWorldEnvironmentObjects() {
@@ -11466,28 +11683,17 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function selectedLibraryGroupId() {
-    if (editorPuzzleLibraryGroupId && groupDefinition(editorPuzzleLibraryGroupId)) return editorPuzzleLibraryGroupId;
-    const marker = selectedPuzzleMarker();
-    if (marker?.group && groupDefinition(marker.group)) return marker.group;
-    return allPuzzleGroups()[0]?.id || null;
+    if (editorPuzzleLibraryGroupId && puzzleTemplateForGroup(editorPuzzleLibraryGroupId)) return editorPuzzleLibraryGroupId;
+    return puzzleTemplates()[0]?.groupId || null;
   }
 
   function puzzleGroupDisplayRows() {
-    const groups = allPuzzleGroups();
-    const labelCounts = new Map();
-    for (const { id, def } of groups) {
-      const label = def?.label || id;
-      labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
-    }
-    const seenLabels = new Map();
-    return groups.map(({ id, def }) => {
-      const label = def?.label || id;
-      const source = groupIsUserCreated(id) ? 'LOCAL' : 'BUILT-IN';
-      const nth = (seenLabels.get(label) || 0) + 1;
-      seenLabels.set(label, nth);
-      const duplicateSuffix = (labelCounts.get(label) || 0) > 1 ? ` ${nth}` : '';
-      return { id, def, label, source, displayLabel:`${label}${duplicateSuffix} · ${source}` };
-    });
+    return puzzleTemplates().map(template=>{
+      const id=template.groupId;
+      const def=groupDefinition(id);
+      const label=template.label || def?.label || id || 'Puzzle Template';
+      return { id, def, label, source:'TEMPLATE', templateId:template.id, displayLabel:`${label} · TEMPLATE` };
+    }).filter(row=>row.id&&row.def);
   }
 
   function renderScenePuzzleList({ force=false } = {}) {
@@ -11496,7 +11702,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const signature = markers.map(marker => [
       marker.id,
       marker.group,
-      markerLinkMode(marker),
+      puzzleMarkerRelationship(marker),
+      marker.templateId||'',
       Number(marker.x).toFixed(4)
     ].join(':')).join('|') + `|selected:${editorPuzzleMarkerId || ''}`;
     if (!force && signature === scenePuzzleListSignature) return;
@@ -11508,7 +11715,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const marker of markers) {
       const def = markerDefinition(marker);
       const label = def?.label || marker.group || marker.id;
-      const kind = markerLinkMode(marker) === 'copy' ? 'COPY' : 'INSTANCE';
+      const template=puzzleTemplateForMarker(marker);
+      const kind = puzzleMarkerRelationship(marker)==='template-instance'
+        ? `TEMPLATE INSTANCE · ${template?.label||'Template'}`
+        : 'STANDALONE';
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'sidescroll-scene-puzzle-row';
@@ -11662,8 +11872,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (puzzleBrowserMode !== 'scene') return;
     const marker = selectedPuzzleMarker();
     if (!marker) return;
-    // Explicitly activate the selected puzzle for bounds/object editing. This is
+    // Explicitly activate the selected puzzle for internal authoring. This is
     // separate from row selection so browsing the Scene list stays predictable.
+    puzzleTemplatePlaceMode=false;
     editorPuzzleLibraryGroupId = marker.group || editorPuzzleLibraryGroupId;
     instantiatePuzzleGroup(marker);
     if (puzzleWorkshopIsolated) {
@@ -11694,10 +11905,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       currentPuzzleBoundsRelative(marker);
       editorPuzzleLibraryGroupId = marker.group || editorPuzzleLibraryGroupId;
 
-      // A cleared workshop is a template-picking state. Merely choosing a
-      // puzzle (or switching to the Puzzle tab) must not put anything into the
-      // world. Spawn Here / New Puzzle are the only authoring actions that turn
-      // a template into a live instance.
+      // Selecting a Scene Puzzle is management-only. In an intentionally
+      // cleared workshop it does not implicitly place/recreate content; New
+      // Puzzle and Place Puzzle Template remain explicit authoring actions.
       if (!(puzzleWorkshopIsolated && puzzleWorkshopClear)) {
         instantiatePuzzleGroup(marker);
         if (puzzleWorkshopIsolated) savePuzzleWorkshopState(marker.id);
@@ -11735,10 +11945,125 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return `${prefix}-${Date.now().toString(36)}-${Math.floor(Math.random()*0xffff).toString(36)}`;
   }
 
-  function addLocalMarker(groupId, x, { linkMode='instance', startSnapshot=null } = {}) {
-    const marker = { id:uniqueLocalId('marker'), group:groupId, x:Number(x) || 0, local:true, linkMode:linkMode === 'copy' ? 'copy' : 'instance' };
+  function uniquePuzzleTemplateLabel(base='Puzzle Template'){
+    const clean=String(base||'Puzzle Template').trim()||'Puzzle Template';
+    const used=new Set(puzzleTemplates().map(template=>String(template?.label||'').trim().toLowerCase()));
+    if(!used.has(clean.toLowerCase()))return clean;
+    let index=2;while(used.has(`${clean} ${index}`.toLowerCase()))index+=1;
+    return `${clean} ${index}`;
+  }
+
+  function uniquePuzzleTemplateGroupId(label='Puzzle Template'){
+    const stem=`TEMPLATE_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}`;
+    let id=stem,index=2;
+    while(userPuzzleLibrary.groups[id]||puzzleConfig.groups?.[id]||puzzleTemplateForGroup(id))id=`${stem}_${index++}`;
+    return id;
+  }
+
+  function uniqueStandalonePuzzleGroupId(label='Puzzle'){
+    const stem=`USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}`;
+    let id=stem,index=2;
+    while(userPuzzleLibrary.groups[id]||puzzleConfig.groups?.[id])id=`${stem}_${index++}`;
+    return id;
+  }
+
+  function cleanupUnusedPuzzleDefinition(groupId){
+    if(!groupId||puzzleTemplateForGroup(groupId))return false;
+    if((userPuzzleLibrary.markers||[]).some(marker=>marker.group===groupId))return false;
+    if(!userPuzzleLibrary.groups?.[groupId])return false;
+    delete userPuzzleLibrary.groups[groupId];
+    delete userPuzzleLibrary.templates?.[groupId];
+    return true;
+  }
+
+  function createPuzzleTemplateFromSelected(){
+    const marker=selectedPuzzleMarker();
+    const instance=selectedPuzzleInstance();
+    if(!marker||!instance||puzzleMarkerRelationship(marker)!=='standalone')return false;
+    const originalGroupId=marker.group;
+    settleGameplayCrates();
+    const sourceDef=deepCopy(markerDefinition(marker)||{});
+    const proposed=uniquePuzzleTemplateLabel(sourceDef.label||'Puzzle Template');
+    const entered=window.prompt('Puzzle template name',proposed);
+    if(entered==null)return false;
+    const label=uniquePuzzleTemplateLabel(String(entered).trim()||proposed);
+    const groupId=uniquePuzzleTemplateGroupId(label);
+    sourceDef.label=label;
+    userPuzzleLibrary.groups[groupId]=sourceDef;
+    // A reusable Puzzle Template must begin from the puzzle's explicit authored
+    // Start State, never from incidental live gameplay (for example a cart that
+    // happens to be repaired or a puzzle that is currently solved). If the
+    // author wants the current setup to become the reusable source, Set Start
+    // State is the deliberate commit boundary before Create Template.
+    const snapshot=materialiseExplicitPuzzleSnapshot(marker,puzzleStartFor(marker));
+    snapshot.source='authored';
+    snapshot.savedAt=Date.now();
+    userPuzzleLibrary.templates[groupId]=deepCopy(snapshot);
+    const template={id:uniqueLocalId('puzzle-template'),groupId,label,createdAt:Date.now()};
+    puzzleTemplates().push(template);
+    selectedPuzzleTemplateId=template.id;
+    editorPuzzleLibraryGroupId=groupId;
+
+    const linkCurrent=window.confirm(`Created Puzzle Template “${label}” from this puzzle's saved Start State.\n\nLink this current puzzle to the new template?\n\nOK = make it a Template Instance\nCancel = keep it Standalone`);
+    if(linkCurrent){
+      marker.group=groupId;
+      marker.relationship='template-instance';
+      marker.templateId=template.id;
+      marker.linkMode='instance';
+      const stored=(userPuzzleLibrary.markers||[]).find(item=>item.id===marker.id);
+      if(stored)Object.assign(stored,{group:groupId,relationship:'template-instance',templateId:template.id,linkMode:'instance'});
+      delete puzzleStartState[marker.id];
+      puzzleStartDirty.delete(marker.id);
+      instance.def=markerDefinition(marker)||instance.def;
+      applyPuzzleSnapshot(instance,snapshot,{persistRuntime:true,clearDirty:true});
+      cleanupUnusedPuzzleDefinition(originalGroupId);
+    }
+    savePuzzleLibrary(true);savePuzzleStarts(true);savePuzzleState(true);
+    populatePuzzleSelector({force:true});renderScenePuzzleList({force:true});updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+    hintEl.textContent=linkCurrent
+      ? `Created ${label} · current puzzle is now a Template Instance`
+      : `Created ${label} · current puzzle remains Standalone`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function openPuzzleTemplatePlacementPicker(){
+    if(editorPalettePickerMode==='puzzle-template'&&!editorPalette?.hidden){setAssetPaletteOpen(false);updatePuzzlePanel();return false;}
+    if(!editMode||editorScope!=='puzzle')return false;
+    const templates=puzzleTemplates().filter(template=>template?.groupId&&groupDefinition(template.groupId));
+    if(!templates.length){
+      hintEl.textContent='No Puzzle Templates yet · select a Standalone puzzle and choose Create Template first';
+      hintEl.classList.remove('hidden');
+      return false;
+    }
+    return openEditorChoicePicker({
+      mode:'puzzle-template',title:'Place Puzzle Template',subtitle:'Choose a reusable Puzzle Template, then tap the scene',groupLabel:'Puzzle Templates',
+      choices:templates.map(template=>({
+        label:template.label||groupDefinition(template.groupId)?.label||'Puzzle Template',thumb:'◆',
+        description:`Place a linked Template Instance · ${allPuzzleMarkers().filter(marker=>marker.templateId===template.id&&puzzleMarkerRelationship(marker)==='template-instance').length} currently placed`,
+        onSelect:()=>{
+          selectedPuzzleTemplateId=template.id;
+          editorPuzzleLibraryGroupId=template.groupId;
+          puzzleTemplatePlaceMode=true;
+          selectObject(null);
+          hintEl.textContent=`PLACE ${(template.label||'PUZZLE TEMPLATE').toUpperCase()} · tap the scene`;
+          hintEl.classList.remove('hidden');
+          updatePuzzlePanel();
+        }
+      }))
+    });
+  }
+
+  function addLocalMarker(groupId, x, { relationship='standalone', templateId=null, startSnapshot=null } = {}) {
+    const linked=relationship==='template-instance'&&!!templateId;
+    const marker = {
+      id:uniqueLocalId('marker'), group:groupId, x:Number(x) || 0, local:true,
+      relationship:linked?'template-instance':'standalone',
+      templateId:linked?templateId:null,
+      linkMode:linked?'instance':'copy'
+    };
     userPuzzleLibrary.markers.push(marker);
-    if (marker.linkMode === 'copy' && startSnapshot) {
+    if (!linked && startSnapshot) {
       puzzleStartState[marker.id] = deepCopy(startSnapshot);
       puzzleStartState[marker.id].source = 'authored';
       puzzleStartState[marker.id].savedAt = Date.now();
@@ -11749,22 +12074,31 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return marker;
   }
 
-  function spawnSelectedPuzzleHere() {
-    const groupId = puzzleBrowserMode === 'library' ? selectedLibraryGroupId() : selectedPuzzleMarker()?.group;
-    if (!groupId || !groupDefinition(groupId)) return;
-    const marker = addLocalMarker(groupId, puzzleSpawnX(), { linkMode:'instance' });
-    puzzleWorkshopIsolated = true;
-    puzzleWorkshopClear = false;
-    puzzleBrowserMode = 'scene';
-    editorPuzzleMarkerId = marker.id;
-    editorPuzzleLibraryGroupId = marker.group;
-    populatePuzzleSelector({ force:true });
-    choosePuzzleForEditing(marker.id, true);
-    savePuzzleWorkshopState(marker.id);
-    applyPuzzleStart(selectedPuzzleInstance(), { persistRuntime:true });
-    hintEl.textContent = 'Linked puzzle instance spawned here · edit it, then Set Start or Save Unique';
-    hintEl.classList.remove('hidden');
+  function spawnPuzzleTemplateAtX(template,x){
+    if(!template?.groupId||!groupDefinition(template.groupId))return null;
+    const marker=addLocalMarker(template.groupId,x,{relationship:'template-instance',templateId:template.id});
+    puzzleBrowserMode='scene';
+    editorPuzzleMarkerId=marker.id;
+    editorPuzzleLibraryGroupId=template.groupId;
+    selectedPuzzleTemplateId=template.id;
+    puzzleTemplatePlaceMode=false;
+    populatePuzzleSelector({force:true});
+    choosePuzzleForEditing(marker.id,false);
+    const instance=selectedPuzzleInstance();
+    if(instance)applyPuzzleStart(instance,{persistRuntime:true});
+    renderScenePuzzleList({force:true});
     updatePuzzlePanel();
+    return marker;
+  }
+
+  function spawnSelectedPuzzleHere() {
+    const template=puzzleTemplateForGroup(selectedLibraryGroupId());
+    if(!template)return;
+    const marker=spawnPuzzleTemplateAtX(template,puzzleSpawnX());
+    if(!marker)return;
+    focusSelectedPuzzle();
+    hintEl.textContent = `Placed ${template.label||'Puzzle Template'} as a linked Template Instance`;
+    hintEl.classList.remove('hidden');
   }
 
   function createPuzzleHere() {
@@ -11774,17 +12108,24 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     let groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}`;
     let suffix = 2;
     while (userPuzzleLibrary.groups[groupId] || puzzleConfig.groups?.[groupId]) groupId = `USER_${puzzleSlug(label).replace(/-/g,'_').toUpperCase()}_${suffix++}`;
-    userPuzzleLibrary.groups[groupId] = { label, width:8, assetPacks:['woodland-puzzle-atlas-v1'], entryX:-3.5, exitX:3.5, props:[] };
-    userPuzzleLibrary.templates ||= {};
-    userPuzzleLibrary.templates[groupId] = { source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{}, zones:[], logic:[], logicSchemaVersion:2 };
-    savePuzzleLibrary();
-    puzzleBrowserMode = 'library';
-    editorPuzzleLibraryGroupId = groupId;
-    populatePuzzleSelector({ force:true });
-    hintEl.textContent = 'Blank puzzle added to the Library · press Spawn Here when you are ready to build it';
+    const def={ label, width:8, assetPacks:['woodland-puzzle-atlas-v1'], entryX:-3.5, exitX:3.5, props:[] };
+    userPuzzleLibrary.groups[groupId] = def;
+    const start={ source:'authored', savedAt:Date.now(), bounds:{minX:-4,maxX:4}, objects:{}, zones:[], logic:[], logicSchemaVersion:2, cartPath:normalisePuzzleCartPath({id:'new',group:groupId,x:0},null), worldModifiers:[] };
+    const marker=addLocalMarker(groupId,puzzleSpawnX(),{relationship:'standalone',startSnapshot:start});
+    puzzleBrowserMode='scene';
+    editorPuzzleMarkerId=marker.id;
+    editorPuzzleLibraryGroupId=null;
+    puzzleWorkshopClear=false;
+    savePuzzleWorkshopState(marker.id);
+    populatePuzzleSelector({force:true});
+    choosePuzzleForEditing(marker.id,true);
+    const instance=selectedPuzzleInstance();
+    if(instance)applyPuzzleStart(instance,{persistRuntime:true});
+    hintEl.textContent = `${label} created as a Standalone puzzle · use Create Template only when you want reuse`;
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
+
 
   function clearPuzzleStage() {
     if (puzzleTestMode) return;
@@ -11797,7 +12138,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Clear means clear the authored workshop stage, not merely hide it for the
     // current session. Remove every locally placed marker instance while
     // preserving the reusable puzzle group/template definitions themselves.
-    const localIds = new Set((userPuzzleLibrary.markers || []).map(marker => marker.id));
+    const localMarkers=[...(userPuzzleLibrary.markers||[])];
+    const localIds = new Set(localMarkers.map(marker => marker.id));
+    const standaloneGroupIds=new Set(localMarkers.filter(marker=>puzzleMarkerRelationship(marker)==='standalone').map(marker=>marker.group));
     for (const id of [...activePuzzleInstances.keys()]) unloadPuzzleGroup(id);
     for (const id of localIds) {
       delete puzzleStartState[id];
@@ -11809,21 +12152,22 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       delete puzzleExclusionState[id];
     }
     userPuzzleLibrary.markers = [];
+    for(const groupId of standaloneGroupIds)cleanupUnusedPuzzleDefinition(groupId);
     savePuzzleLibrary();
     savePuzzleStarts();
     savePuzzleState();
     persistLegacyPuzzleExclusionState();
 
-    // Clearing the stage leaves the reusable Puzzle Library untouched.
+    // Clearing the stage leaves explicit reusable Puzzle Templates untouched.
     editorPuzzleMarkerId = null;
-    puzzleBrowserMode = 'library';
-    editorPuzzleLibraryGroupId = selectedGroupBeforeClear && groupDefinition(selectedGroupBeforeClear)
+    puzzleBrowserMode = 'scene';
+    editorPuzzleLibraryGroupId = selectedGroupBeforeClear && puzzleTemplateForGroup(selectedGroupBeforeClear)
       ? selectedGroupBeforeClear
-      : (allPuzzleGroups()[0]?.id || null);
+      : (puzzleTemplates()[0]?.groupId || null);
     populatePuzzleSelector({ force:true });
     savePuzzleWorkshopState(null);
 
-    hintEl.textContent = 'Stage cleared and saved · choose a Library puzzle then Spawn Here, or create a new puzzle';
+    hintEl.textContent = 'Puzzle Workshop cleared · create a Standalone puzzle or place an explicit Puzzle Template';
     hintEl.classList.remove('hidden');
     updatePuzzlePanel();
   }
@@ -11848,8 +12192,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const marker = selectedPuzzleMarker();
     if (!marker || !markerIsUserCreated(marker)) return;
     if (!window.confirm('Remove this locally spawned puzzle instance?')) return;
+    const removedGroupId=marker.group;
     unloadPuzzleGroup(marker.id);
     userPuzzleLibrary.markers = userPuzzleLibrary.markers.filter(item => item.id !== marker.id);
+    cleanupUnusedPuzzleDefinition(removedGroupId);
     delete puzzleStartState[marker.id];
     delete puzzleSavedState[marker.id];
     delete puzzleDraftBounds[marker.id];
@@ -11865,45 +12211,31 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function deleteSelectedPuzzleTemplate() {
-    const groupId = selectedLibraryGroupId();
-    if (!groupId || !groupIsUserCreated(groupId)) return;
-    const def = groupDefinition(groupId);
-    const linkedMarkers = (userPuzzleLibrary.markers || []).filter(marker => marker.group === groupId);
-    const suffix = linkedMarkers.length
-      ? ` This will also remove ${linkedMarkers.length} placed scene puzzle${linkedMarkers.length === 1 ? '' : 's'} that use it.`
-      : '';
-    if (!window.confirm(`Delete "${def?.label || groupId}" from the Puzzle Library?${suffix}`)) return;
-
-    const removedIds = new Set(linkedMarkers.map(marker => marker.id));
-    for (const marker of linkedMarkers) {
-      unloadPuzzleGroup(marker.id);
-      delete puzzleStartState[marker.id];
-      delete puzzleSavedState[marker.id];
-      delete puzzleDraftBounds[marker.id];
-    delete puzzleZonesDraft[marker.id];
-    delete puzzleLogicDraft[marker.id];
-    delete puzzleCartPathDraft[marker.id];
-    delete puzzleExclusionState[marker.id];
+    const template=puzzleTemplateById(selectedPuzzleTemplateId)||puzzleTemplateForGroup(selectedLibraryGroupId());
+    if(!template)return false;
+    const linked=(userPuzzleLibrary.markers||[]).filter(marker=>marker.templateId===template.id&&puzzleMarkerRelationship(marker)==='template-instance');
+    const consequence=linked.length?`\n\n${linked.length} placed Template Instance${linked.length===1?' will':'s will'} become Standalone and keep their current authored setup.`:'';
+    if(!window.confirm(`Delete Puzzle Template “${template.label}”?${consequence}`))return false;
+    const sourceDef=deepCopy(groupDefinition(template.groupId)||{});
+    const sourceStart=deepCopy(userPuzzleLibrary.templates?.[template.groupId]||null);
+    for(const marker of linked){
+      const label=sourceDef.label||template.label||'Puzzle';
+      const standaloneGroupId=uniqueStandalonePuzzleGroupId(label);
+      userPuzzleLibrary.groups[standaloneGroupId]=deepCopy(sourceDef);
+      marker.group=standaloneGroupId;marker.relationship='standalone';marker.templateId=null;marker.linkMode='copy';
+      if(sourceStart){puzzleStartState[marker.id]=deepCopy(sourceStart);puzzleStartState[marker.id].source='authored';puzzleStartState[marker.id].savedAt=Date.now();}
+      const active=activePuzzleInstances.get(marker.id);
+      if(active){active.def=markerDefinition(marker)||active.def;if(sourceStart)applyPuzzleSnapshot(active,deepCopy(sourceStart),{persistRuntime:true,clearDirty:true});}
     }
-    userPuzzleLibrary.markers = (userPuzzleLibrary.markers || []).filter(marker => marker.group !== groupId);
-    delete userPuzzleLibrary.groups[groupId];
-    delete userPuzzleLibrary.templates[groupId];
-    if (editorPuzzleMarkerId && removedIds.has(editorPuzzleMarkerId)) editorPuzzleMarkerId = null;
-
-    const fallback = allPuzzleGroups()[0]?.id || null;
-    editorPuzzleLibraryGroupId = fallback;
-    savePuzzleLibrary();
-    savePuzzleStarts();
-    savePuzzleState();
-    persistLegacyPuzzleExclusionState();
-    if (puzzleWorkshopIsolated && !(userPuzzleLibrary.markers || []).length) {
-      puzzleWorkshopClear = true;
-      savePuzzleWorkshopState(null);
-    }
-    populatePuzzleSelector({ force:true });
-    hintEl.textContent = 'Puzzle template deleted';
-    hintEl.classList.remove('hidden');
-    updatePuzzlePanel();
+    puzzleTemplates().splice(0,puzzleTemplates().length,...puzzleTemplates().filter(item=>item.id!==template.id));
+    delete userPuzzleLibrary.templates[template.groupId];
+    if(!(userPuzzleLibrary.markers||[]).some(marker=>marker.group===template.groupId))delete userPuzzleLibrary.groups[template.groupId];
+    if(selectedPuzzleTemplateId===template.id)selectedPuzzleTemplateId=null;
+    puzzleTemplatePlaceMode=false;
+    savePuzzleLibrary(true);savePuzzleStarts(true);savePuzzleState(true);
+    populatePuzzleSelector({force:true});renderScenePuzzleList({force:true});updatePuzzlePanel();
+    hintEl.textContent=`Deleted ${template.label} · placed instances preserved as Standalone`;hintEl.classList.remove('hidden');
+    return true;
   }
 
   function puzzleOrphanObjects(instance) {
@@ -12264,6 +12596,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // the workshop stage is isolated or clear.
     editorScope = scope;
     if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; }
+    if (scope !== 'puzzle') puzzleTemplatePlaceMode=false;
     puzzleEnvironmentPlacementMode = false;
     puzzleZoneMoveMode = false;
     puzzleZoneSpawnMoveMode = false;
@@ -12272,16 +12605,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     addAssetType = null;
     updatePlacementModeUi();
     if (scope === 'puzzle') {
-      if (puzzleWorkshopClear) {
-        puzzleBrowserMode = 'library';
-        editorPuzzleLibraryGroupId ||= allPuzzleGroups()[0]?.id || null;
-        populatePuzzleSelector();
-      } else {
-        if (puzzleBrowserMode === 'scene' && editorPuzzleMarkerId && !scenePuzzleMarkers().some(marker => marker.id === editorPuzzleMarkerId)) {
-          editorPuzzleMarkerId = null;
-        }
-        populatePuzzleSelector();
-      }
+      // Scene-first authoring: Puzzle Templates are placed explicitly from the
+      // shared right-side picker. The main Puzzle screen always represents the
+      // scene, never an implicit library/template mode.
+      puzzleBrowserMode='scene';
+      if (editorPuzzleMarkerId && !scenePuzzleMarkers().some(marker => marker.id === editorPuzzleMarkerId)) editorPuzzleMarkerId=null;
+      populatePuzzleSelector();
     }
     buildAssetPalette();
     updatePuzzlePanel();
@@ -12944,17 +13273,17 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (editorScopeSwitch) editorScopeSwitch.hidden = testing;
     environmentScopeBtn?.classList.toggle('active', !testing && editorScope === 'environment');
     puzzleScopeBtn?.classList.toggle('active', testing || editorScope === 'puzzle');
-    if (puzzleSourceSwitch) puzzleSourceSwitch.hidden = testing || editorScope !== 'puzzle';
+    if (puzzleSourceSwitch) puzzleSourceSwitch.hidden = true;
     puzzleSourceLibraryBtn?.classList.toggle('active', !testing && libraryMode);
     puzzleSourceSceneBtn?.classList.toggle('active', !testing && sceneMode);
 
     if (environmentSelectionEl) environmentSelectionEl.hidden = testing || editorScope !== 'environment';
     if (!testing && editorScope === 'environment') renderEnvironmentSelectionTools();
-    if (puzzleLibraryView) puzzleLibraryView.hidden = testing || !libraryMode;
-    if (puzzleSceneView) puzzleSceneView.hidden = testing || !sceneMode;
+    if (puzzleLibraryView) puzzleLibraryView.hidden = true;
+    if (puzzleSceneView) puzzleSceneView.hidden = testing || editorScope!=='puzzle';
     if (puzzleStageSection) puzzleStageSection.hidden = testing || editorScope !== 'puzzle';
     if (puzzleSelectionEl) puzzleSelectionEl.hidden = !testing && (!puzzleEditing || (sceneMode && !selectedMarker));
-    if (puzzlePicker) puzzlePicker.hidden = !libraryMode;
+    if (puzzlePicker) puzzlePicker.hidden = true;
     if (puzzleMarkerEditor) puzzleMarkerEditor.hidden = testing || !sceneMode || !selectedMarker;
     if (puzzleEditLayerSwitch) puzzleEditLayerSwitch.hidden = true;
     puzzlePiecesLayerBtn?.classList.toggle('active', !puzzleEnvironmentPlacementMode);
@@ -12973,22 +13302,19 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       return;
     }
 
-    if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : (libraryMode ? 'TEMPLATE' : (linkMode === 'copy' ? 'COPY' : 'INSTANCE'));
+    if (puzzleModeEl) puzzleModeEl.textContent = testing ? 'TEST' : (selectedMarker ? (puzzleMarkerRelationship(selectedMarker)==='template-instance'?'TEMPLATE INSTANCE':'STANDALONE') : 'PUZZLE');
     if (puzzleNameEl) puzzleNameEl.textContent = instance?.def?.label || selectedDef?.label || 'No puzzle selected';
 
     if (puzzleStateEl) {
-      if (libraryMode) {
-        const source = groupIsUserCreated(selectedGroupId) ? 'Local reusable template.' : 'Built-in reusable template.';
-        const linkedCount = scenePuzzleMarkers().filter(marker => marker.group === selectedGroupId && markerLinkMode(marker) === 'instance').length;
-        puzzleStateEl.textContent = `${source} ${linkedCount} linked scene instance${linkedCount === 1 ? '' : 's'}.`;
-      } else if (testing && instance) {
+      if (testing && instance) {
         puzzleStateEl.textContent = instance.solved
           ? 'Puzzle complete. Reset to run it again, or return to Setup.'
           : 'Testing the current setup. Test moves do not change the saved puzzle.';
       } else if (selectedMarker) {
-        const relationship = linkMode === 'copy'
-          ? 'COPY · unique to this scene.'
-          : `INSTANCE · linked to ${selectedDef?.label || selectedMarker.group}.`;
+        const sourceTemplate=puzzleTemplateForMarker(selectedMarker);
+        const relationship = puzzleMarkerRelationship(selectedMarker)==='standalone'
+          ? 'STANDALONE · belongs only to this scene.'
+          : `TEMPLATE INSTANCE · linked to ${sourceTemplate?.label || selectedDef?.label || selectedMarker.group}.`;
         if (instance) {
           const b = currentPuzzleBoundsRelative(instance.marker);
           const width = (b.maxX - b.minX).toFixed(1);
@@ -13003,26 +13329,22 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (puzzleHelpEl) {
       puzzleHelpEl.textContent = testing
         ? 'Reset restarts this test setup. Back to Setup returns to the same editable setup you tested.'
-        : (libraryMode
-            ? 'Choose a template from the Library. Spawn Here places a linked instance at the current camera position.'
-            : (selectedMarker
-                ? 'Puzzle Management · drag the centre dot or type Marker X to move the whole instance. Use Edit Puzzle for contents, zones, logic and setup.'
-                : 'Choose a puzzle from the Scene list to see its management controls.'));
+        : (selectedMarker
+            ? 'Puzzle Management · move, reset, edit or explicitly change this puzzle’s Template relationship.'
+            : 'Choose a puzzle from the Scene list, create a new Standalone puzzle, or place an explicit Puzzle Template.');
       if (!testing && instance && puzzleCartPathEditMode) puzzleHelpEl.textContent = 'Cart Path · drag MOVE PATH/the spline to move the route, or drag START / CURVE / LAND. Bottom-edge handles lift above the iPhone gesture strip. The translucent cart previews the final pose.';
     }
 
-    const selectionAvailable = libraryMode ? !!selectedGroupId : !!selectedMarker;
+    const selectionAvailable = !!selectedMarker;
     if (puzzleManageEl) puzzleManageEl.hidden = testing || !selectionAvailable;
-    if (puzzleSpawnBtn) { puzzleSpawnBtn.hidden = !libraryMode; puzzleSpawnBtn.disabled = !selectedGroupId; }
-    if (puzzleCreateBtn) puzzleCreateBtn.hidden = !libraryMode;
+    if(puzzleNewStandaloneBtn)puzzleNewStandaloneBtn.disabled=testing||editorScope!=='puzzle'||!!puzzleEditSession;
+    if(puzzlePlaceTemplateBtn){puzzlePlaceTemplateBtn.disabled=testing||editorScope!=='puzzle'||!puzzleTemplates().length||!!puzzleEditSession;puzzlePlaceTemplateBtn.classList.toggle('active',puzzleTemplatePlaceMode);puzzlePlaceTemplateBtn.textContent=puzzleTemplatePlaceMode?'Tap Scene…':'Place Puzzle Template';}
     if (puzzleEditBtn) { puzzleEditBtn.hidden = libraryMode || testing; puzzleEditBtn.disabled = !selectedMarker; }
     if (puzzleFocusBtn) { puzzleFocusBtn.hidden = libraryMode; puzzleFocusBtn.disabled = !selectedMarker; }
     if (puzzleManageResetBtn) { puzzleManageResetBtn.hidden = libraryMode || testing; puzzleManageResetBtn.disabled = !selectedMarker; }
     if (puzzleExportBtn) { puzzleExportBtn.hidden = false; puzzleExportBtn.disabled = !selectionAvailable; }
-    if (puzzleDeleteTemplateBtn) {
-      puzzleDeleteTemplateBtn.hidden = !libraryMode || !groupIsUserCreated(selectedGroupId);
-      puzzleDeleteTemplateBtn.disabled = !selectedGroupId || !groupIsUserCreated(selectedGroupId);
-    }
+    if(puzzleCreateTemplateBtn){puzzleCreateTemplateBtn.hidden=!selectedMarker||puzzleMarkerRelationship(selectedMarker)!=='standalone';puzzleCreateTemplateBtn.disabled=!selectedMarker;}
+    if(puzzleMakeStandaloneBtn){puzzleMakeStandaloneBtn.hidden=!selectedMarker||puzzleMarkerRelationship(selectedMarker)!=='template-instance';puzzleMakeStandaloneBtn.disabled=!selectedMarker;}
     if (puzzleRemoveBtn) {
       puzzleRemoveBtn.hidden = libraryMode || !selectedMarker || !markerIsUserCreated(selectedMarker);
       puzzleRemoveBtn.disabled = !selectedMarker || !markerIsUserCreated(selectedMarker);
@@ -13035,7 +13357,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (puzzleSetStartBtn) {
       puzzleSetStartBtn.hidden = testing || libraryMode;
       puzzleSetStartBtn.disabled = !instance;
-      puzzleSetStartBtn.textContent = linkMode === 'copy' ? 'Set Start State' : 'Set Start State + Apply Template';
+      puzzleSetStartBtn.textContent = 'Set Start State';
     }
     const hasCart = !!cartObjectForInstance(instance);
     const hasCartPathLogic = !!(instance && puzzleLogicRecord(instance.marker,'cart-path'));
@@ -13062,10 +13384,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
     }
     if (puzzleSaveUniqueBtn) {
-      puzzleSaveUniqueBtn.hidden = testing || libraryMode || !instance || linkMode === 'copy';
+      puzzleSaveUniqueBtn.hidden = testing || libraryMode || !instance || puzzleMarkerRelationship(selectedMarker)==='standalone';
       puzzleSaveUniqueBtn.disabled = !instance || !markerIsUserCreated(selectedMarker);
-      puzzleSaveUniqueBtn.title = markerIsUserCreated(selectedMarker) ? '' : 'Spawn a Library instance first';
-      puzzleSaveUniqueBtn.textContent = 'Make Unique';
+      puzzleSaveUniqueBtn.title = markerIsUserCreated(selectedMarker) ? '' : 'Only a scene-owned Template Instance can be made Standalone';
+      puzzleSaveUniqueBtn.textContent = 'Make Standalone';
     }
     if (puzzleTestBtn) { puzzleTestBtn.hidden = testing || libraryMode; puzzleTestBtn.disabled = !selectedMarker; }
     if (puzzleResetBtn) { puzzleResetBtn.hidden = libraryMode; puzzleResetBtn.disabled = !instance; }
@@ -13078,11 +13400,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (puzzleSourceSwitch) puzzleSourceSwitch.hidden = true;
       if (puzzleClearStageBtn) puzzleClearStageBtn.hidden = true;
       if (puzzleRestoreStageBtn) puzzleRestoreStageBtn.hidden = true;
-      if (puzzleSpawnBtn) puzzleSpawnBtn.hidden = true;
-      if (puzzleCreateBtn) puzzleCreateBtn.hidden = true;
-      if (puzzleRemoveBtn) puzzleRemoveBtn.hidden = true;
-      if (puzzleDeleteTemplateBtn) puzzleDeleteTemplateBtn.hidden = true;
-      if (puzzleModeEl && !testing) puzzleModeEl.textContent = 'LAB SETUP';
+          if (puzzleRemoveBtn) puzzleRemoveBtn.hidden = true;
+        if (puzzleModeEl && !testing) puzzleModeEl.textContent = 'LAB SETUP';
       if (puzzleStateEl && !testing && selectedMarker) {
         const b = instance ? currentPuzzleBoundsRelative(instance.marker) : codeBoundsForMarker(selectedMarker);
         puzzleStateEl.textContent = `Puzzle Lab isolated instance · marker x ${Number(selectedMarker.x).toFixed(1)} · bounds ${(b.maxX-b.minX).toFixed(1)}m.`;
@@ -13104,79 +13423,96 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return { source:'authored', savedAt:Date.now(), bounds:{...setup.bounds}, objects:deepCopy(setup.objects), zones:deepCopy(setup.zones || []), logic:deepCopy(setup.logic || []), logicSchemaVersion:2, cartPath:deepCopy(setup.cartPath), worldModifiers:deepCopy(setup.worldModifiers || []) };
   }
 
-  function savePuzzleTemplateFromCurrent() {
+  function savePuzzleTemplateFromCurrent({confirmImpact=true,silentHint=false,commitKind='start'}={}) {
     const instance = authoringPuzzle();
-    if (!instance || puzzleTestMode) return;
+    if (!instance || puzzleTestMode) return false;
     const marker = instance.marker;
-    if(markerLinkMode(marker)!=='copy'&&!window.confirm('Apply this scene setup to the reusable Puzzle Template and update every linked scene instance? This is intentionally broader than Save.'))return;
     settleGameplayCrates();
     const snapshot = authoredSnapshotFromInstance(instance);
-    if (markerLinkMode(marker) === 'copy') {
+
+    if (puzzleMarkerRelationship(marker) === 'standalone') {
       puzzleStartState[marker.id] = snapshot;
       savePuzzleStarts(true);
       puzzleStartDirty.delete(marker.id);
       delete puzzleExclusionState[marker.id];
       persistLegacyPuzzleExclusionState();
       applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
-      hintEl.textContent = 'Start State updated for this unique scene copy';
-    } else {
-      userPuzzleLibrary.templates ||= {};
-      userPuzzleLibrary.templates[marker.group] = snapshot;
-      savePuzzleLibrary(true);
-      for (const otherMarker of allPuzzleMarkers()) {
-        if (otherMarker.group !== marker.group || markerLinkMode(otherMarker) !== 'instance') continue;
-        delete puzzleStartState[otherMarker.id];
-        delete puzzleSavedState[otherMarker.id];
-        delete puzzleDraftBounds[otherMarker.id];
-        delete puzzleZonesDraft[otherMarker.id];
-        delete puzzleLogicDraft[otherMarker.id];
-        delete puzzleCartPathDraft[otherMarker.id];
-        delete puzzleExclusionState[otherMarker.id];
-        puzzleStartDirty.delete(otherMarker.id);
-        const active = activePuzzleInstances.get(otherMarker.id);
-        if (active) applyPuzzleSnapshot(active, snapshot, { persistRuntime:true, clearDirty:true });
-      }
-      savePuzzleStarts(true);
       savePuzzleState(true);
-      persistLegacyPuzzleExclusionState();
-      hintEl.textContent = 'Start State + Puzzle Template applied · all linked scene instances now use this setup';
+      if(puzzleEditSession?.markerId===marker.id)checkpointPuzzleEditSession();
+      if(!silentHint){hintEl.textContent = 'Start State updated for this Standalone puzzle';hintEl.classList.remove('hidden');}
+      updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+      return true;
     }
-    savePuzzleState(true);
+
+    const template=puzzleTemplateForMarker(marker);
+    if(!template){
+      hintEl.textContent='Template source is missing · Make Standalone before saving this puzzle';hintEl.classList.remove('hidden');
+      return false;
+    }
+    const linkedMarkers=allPuzzleMarkers().filter(other=>other.templateId===template.id&&puzzleMarkerRelationship(other)==='template-instance');
+    if(confirmImpact){
+      const action=commitKind==='save'
+        ? `Save these Puzzle changes to Template “${template.label}” and update ${linkedMarkers.length} linked scene instance${linkedMarkers.length===1?'':'s'}?`
+        : `Set the Start State on Template “${template.label}” and update ${linkedMarkers.length} linked scene instance${linkedMarkers.length===1?'':'s'}?`;
+      if(!window.confirm(`This is a Template Instance.\n\n${action}\n\nCancel keeps the editor open. Use Make Standalone first if this puzzle should diverge.`))return false;
+    }
+
+    userPuzzleLibrary.templates[template.groupId]=deepCopy(snapshot);
+    savePuzzleLibrary(true);
+    for (const otherMarker of linkedMarkers) {
+      delete puzzleStartState[otherMarker.id];
+      delete puzzleSavedState[otherMarker.id];
+      delete puzzleDraftBounds[otherMarker.id];
+      delete puzzleZonesDraft[otherMarker.id];
+      delete puzzleLogicDraft[otherMarker.id];
+      delete puzzleCartPathDraft[otherMarker.id];
+      delete puzzleExclusionState[otherMarker.id];
+      puzzleStartDirty.delete(otherMarker.id);
+      const active = activePuzzleInstances.get(otherMarker.id);
+      if (active) applyPuzzleSnapshot(active, snapshot, { persistRuntime:true, clearDirty:true });
+    }
+    savePuzzleStarts(true);savePuzzleState(true);persistLegacyPuzzleExclusionState();
     if(puzzleEditSession?.markerId===marker.id)checkpointPuzzleEditSession();
-    hintEl.classList.remove('hidden');
-    updatePuzzlePanel();
-    renderPuzzleWorkspaceV2({force:true});
+    if(!silentHint){hintEl.textContent = `Updated ${template.label} · all linked Template Instances now use this Start State`;hintEl.classList.remove('hidden');}
+    updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+    return true;
   }
 
   function savePuzzleUniqueFromCurrent() {
     const instance = authoringPuzzle();
-    if (!instance || puzzleTestMode) return;
+    if (!instance || puzzleTestMode) return false;
     const marker = instance.marker;
-    if (!markerIsUserCreated(marker)) {
-      hintEl.textContent = 'Spawn a Library instance first, then Save Unique to detach it';
-      hintEl.classList.remove('hidden');
-      return;
-    }
-    if(markerLinkMode(marker)!=='copy'&&!window.confirm('Make this scene puzzle Unique? It will keep the current setup but stop receiving future changes from the reusable Puzzle Template.'))return;
+    if (puzzleMarkerRelationship(marker) === 'standalone') return true;
+    const template=puzzleTemplateForMarker(marker);
+    if(!window.confirm(`Make this puzzle Standalone?\n\nIt will keep its current setup but stop receiving changes from “${template?.label||'the template'}”.`))return false;
     settleGameplayCrates();
     const snapshot = authoredSnapshotFromInstance(instance);
-    marker.linkMode = 'copy';
+    const currentDef=deepCopy(markerDefinition(marker)||{});
+    const standaloneGroupId=uniqueStandalonePuzzleGroupId(currentDef.label||template?.label||'Puzzle');
+    userPuzzleLibrary.groups[standaloneGroupId]=currentDef;
+    marker.group=standaloneGroupId;
+    marker.relationship='standalone';
+    marker.templateId=null;
+    marker.linkMode='copy';
+    const stored=(userPuzzleLibrary.markers||[]).find(item=>item.id===marker.id);
+    if(stored)Object.assign(stored,{group:standaloneGroupId,relationship:'standalone',templateId:null,linkMode:'copy'});
+    instance.def=markerDefinition(marker)||instance.def;
     puzzleStartState[marker.id] = snapshot;
     puzzleStartDirty.delete(marker.id);
     delete puzzleExclusionState[marker.id];
     persistLegacyPuzzleExclusionState();
-    savePuzzleStarts(true);
-    savePuzzleLibrary(true);
+    savePuzzleStarts(true);savePuzzleLibrary(true);
     applyPuzzleSnapshot(instance, snapshot, { persistRuntime:true, clearDirty:true });
     delete savedPuzzleFor(marker.id).authoringOverride;
     savePuzzleState(true);
-    populatePuzzleSelector();
+    populatePuzzleSelector({force:true});renderScenePuzzleList({force:true});
     if(puzzleEditSession?.markerId===marker.id)checkpointPuzzleEditSession();
-    hintEl.textContent = 'Saved as a unique scene copy · future template changes will not affect it';
+    hintEl.textContent = 'Puzzle is now Standalone · future Template changes will not affect it';
     hintEl.classList.remove('hidden');
-    updatePuzzlePanel();
-    renderPuzzleWorkspaceV2({force:true});
+    updatePuzzlePanel();renderPuzzleWorkspaceV2({force:true});
+    return true;
   }
+
 
   function resetPuzzleReward(instance) {
     if (!instance) return;
@@ -13343,7 +13679,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     if (on && carriedObject) dropCarriedImmediate();
     if(!on&&!puzzleTestMode)puzzleWorkspaceActive=false;
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; puzzleTemplatePlaceMode=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -13707,6 +14043,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (editorAssetsEl) editorAssetsEl.hidden = false;
       if(closingPickerMode==='zone'&&puzzleZoneAddBtn){puzzleZoneAddBtn.setAttribute('aria-expanded','false');puzzleZoneAddBtn.classList.remove('active');}
       if(closingPickerMode==='logic'&&puzzleLogicAddBtn){puzzleLogicAddBtn.setAttribute('aria-expanded','false');puzzleLogicAddBtn.classList.remove('active');}
+      if(closingPickerMode==='puzzle-template'&&puzzlePlaceTemplateBtn){puzzlePlaceTemplateBtn.setAttribute('aria-expanded','false');puzzlePlaceTemplateBtn.classList.remove('active');}
+      if(closingPickerMode==='group-template'&&worldGroupPlaceTemplateBtn){worldGroupPlaceTemplateBtn.setAttribute('aria-expanded','false');worldGroupPlaceTemplateBtn.classList.remove('active');}
       return;
     }
     if (!keepSetup) showAssetBrowser();
@@ -17741,6 +18079,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(puzzleEditBtn, editSelectedScenePuzzle);
   bindEditorPress(puzzleFocusBtn, focusSelectedPuzzle);
   bindEditorPress(puzzleManageResetBtn, resetSelectedPuzzleFromManagement);
+  bindEditorPress(puzzleNewStandaloneBtn,()=>{puzzleTemplatePlaceMode=false;createPuzzleHere();});
+  bindEditorPress(puzzlePlaceTemplateBtn,()=>{if(puzzleTemplatePlaceMode)puzzleTemplatePlaceMode=false;openPuzzleTemplatePlacementPicker();});
+  bindEditorPress(puzzleCreateTemplateBtn,createPuzzleTemplateFromSelected);
+  bindEditorPress(puzzleMakeStandaloneBtn,savePuzzleUniqueFromCurrent);
   const commitMarkerXInput = () => {
     if (!puzzleMarkerXInput || puzzleBrowserMode !== 'scene') return;
     const marker = selectedPuzzleMarker();
@@ -17769,13 +18111,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   puzzleMarkerXInput?.addEventListener('keydown', event => {
     if (event.key === 'Enter') { event.preventDefault(); commitMarkerXInput(); puzzleMarkerXInput.blur(); }
   });
-  bindEditorPress(puzzleSpawnBtn, spawnSelectedPuzzleHere);
-  bindEditorPress(puzzleCreateBtn, createPuzzleHere);
   bindEditorPress(puzzleClearStageBtn, clearPuzzleStage);
   bindEditorPress(puzzleRestoreStageBtn, restoreNormalPuzzleStage);
   bindEditorPress(puzzleExportBtn, exportSelectedPuzzle);
   bindEditorPress(puzzleRemoveBtn, removeSelectedLocalPuzzle);
-  bindEditorPress(puzzleDeleteTemplateBtn, deleteSelectedPuzzleTemplate);
   function toggleAssetBrowserForCurrentScope() {
     if (!editMode || !editorPalette) return;
     const opening = editorPalette.hidden;
@@ -17817,6 +18156,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(worldGroupDuplicateBtn,duplicateSelectedWorldGroup);
   bindEditorPress(worldGroupDissolveBtn,dissolveSelectedWorldGroup);
   bindEditorPress(worldGroupDeleteBtn,deleteSelectedWorldGroup);
+  bindEditorPress(worldGroupPlaceTemplateBtn,()=>{if(worldGroupTemplatePlaceMode)worldGroupTemplatePlaceMode=false;openWorldGroupTemplatePlacementPicker();});
+  bindEditorPress(worldGroupCreateTemplateBtn,saveSelectedWorldGroupAsTemplate);
+  bindEditorPress(worldGroupMakeStandaloneBtn,makeSelectedWorldGroupStandalone);
 
   bindEditorPress(worldGroupTabContentsBtn,()=>setWorldGroupEditorTab('contents'));
   bindEditorPress(worldGroupTabExclusionsBtn,()=>setWorldGroupEditorTab('exclusions'));
@@ -18667,6 +19009,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         }
       }
 
+      if (puzzleTemplatePlaceMode && editorScope === 'puzzle' && puzzleTemplateById(selectedPuzzleTemplateId)) {
+        editorGesture.kind = 'puzzle-template-place';
+        return;
+      }
+
       if (worldGroupTemplatePlaceMode && editorScope === 'environment' && worldGroupTemplateById(selectedWorldTemplateId)) {
         editorGesture.kind = 'world-group-template-place';
         return;
@@ -19087,12 +19434,22 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           selectObject(null);
           hintEl.textContent=`${gesture.group.label} selected · locked · drag ONLY the yellow dot to move · Edit Group to edit members`;
           hintEl.classList.remove('hidden');
+        } else if (!gesture.moved && gesture.kind==='puzzle-template-place') {
+          const template=puzzleTemplateById(selectedPuzzleTemplateId);
+          const point=groundPointFromClient(e.clientX,e.clientY)||gesture.startGround;
+          const marker=template&&point?spawnPuzzleTemplateAtX(template,point.x):null;
+          if(marker){
+            hintEl.textContent=`Placed ${template.label||'Puzzle Template'} · linked Template Instance`;
+            hintEl.classList.remove('hidden');
+          }
+          puzzleTemplatePlaceMode=false;
+          updatePuzzlePanel();
         } else if (!gesture.moved && gesture.kind==='world-group-template-place') {
           const template=worldGroupTemplateById(selectedWorldTemplateId);
           const point=groundPointFromClient(e.clientX,e.clientY)||gesture.startGround;
           const group=template&&point?spawnWorldGroupTemplateAt(template,point):null;
           if(group){
-            hintEl.textContent=`Placed ${group.label} · ground-bound assets re-grounded individually`;
+            hintEl.textContent=`Placed ${group.label} · linked Template Instance`;
             hintEl.classList.remove('hidden');
           }
           worldGroupTemplatePlaceMode=false;

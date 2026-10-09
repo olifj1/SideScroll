@@ -1,50 +1,41 @@
-# SideScroll patch 1.0.134e
+# SideScroll patch 1.0.135
 
-**Cumulative changed-files-only patch over v1.0.134.** This roll-up includes v1.0.134a/b/c/d plus the shared Add-picker consistency pass below. Apply this ZIP directly over v1.0.134; the earlier lettered patches are not required separately.
+**Changed-files-only patch over v1.0.134e or later.** This drop includes the documentation foundation from v1.0.134f and replaces the old inferred Linked/Unique template workflow with an explicit scene-first Standalone / Template Instance model for both Puzzles and World Groups.
 
-## v1.0.134e — shared Add picker workflow
+## v1.0.135 — explicit Standalone / Template Instance architecture
 
-- Standardises Puzzle collection authoring on the same interaction pattern as Add Asset: the left drawer shows the authoritative applied list plus one Add button; the available choices open in the existing separate right-hand editor palette.
-- `+ Add Zone` no longer nests a second menu inside the Puzzle drawer. It opens the right-side palette with `Procedural Exclusion` and `Respawn Trigger` choices.
-- `+ Add Logic` now mirrors the same workflow. The permanent Logic type selector has been removed; the picker contains only compatible Logic systems that are not already applied.
-- Choosing a Zone or Logic type creates it, closes the right-side picker automatically, and selects the newly-created record in the main drawer.
-- Re-tapping the active Add button, pressing the palette `×`, switching away from that Puzzle tab, or leaving Puzzle Edit dismisses the picker without creating anything.
-- The ordinary Add Puzzle Piece / Add Environment Asset buttons no longer appear active merely because the shared palette is being used as a Zone/Logic picker.
-- Records the shared UX rule in `SIDESCROLL_TASKS.md`: **authoritative applied list + one Add button + shared right-side picker** for comparable collection editors.
+- Existing placed Puzzles and World Groups migrate once to **Standalone**. The current project has no intentionally repeated live instances, so old inferred `instance/copy` relationships are not treated as intentional reuse.
+- `New Puzzle` and `New Group` create Standalone scene content. A normal scene creation is no longer implicitly a Template.
+- Standalone Puzzles/Groups expose **Create Template**. Creating a Template explicitly asks whether the current scene object should become a linked Template Instance or remain Standalone.
+- Puzzle Templates are created from the Standalone puzzle's **saved Start State**, never incidental live gameplay. Use **Set Start State** first if the current setup should become the reusable source. Group Templates capture the current authored group composition.
+- Template Instances expose **Make Standalone**, preserving the current setup/composition while severing the source relationship.
+- Management lists clearly label objects as `STANDALONE` or `TEMPLATE INSTANCE · <source>`.
+- Puzzle Templates and Group Templates are placed intentionally through separate shared right-side picker categories. Choosing a Template and tapping the scene creates a linked Template Instance.
+- Puzzle and Group Template Instances now share the same save rule: internal edits are worked on in the normal bounded edit session; Save warns before updating the source Template and linked instances. Cancelling keeps the session open so the author can choose Make Standalone instead.
+- World position remains instance-owned. Template propagation updates reusable internal content without moving every placed instance to one source position.
+- `Set Start State` keeps one consistent name. Standalone updates only that puzzle; a Template Instance warns before updating its Template Start State and linked instances.
+- Puzzle Template deletion now preserves placed instances by detaching them to Standalone rather than deleting scene content. Group Template deletion likewise detaches linked placed groups.
+- `SIDESCROLL_ENGINE_UX_BIBLE.md` now contains the authoritative Standalone / Template / Template Instance rules and shared Puzzle/Group relationship grammar.
 
-## Included from v1.0.134d
+## Important migration behaviour
 
-- Zones lists are authoritative: only genuinely attached zone records appear.
-- False disabled Respawn Triggers originating from pre-Zones default scaffolding are filtered out, while genuinely enabled legacy respawn data and explicitly-created modern disabled respawns remain valid.
-- Zone numbering is per type (`Procedural Exclusion 1`, `Respawn Trigger 1`).
-
-## Included from v1.0.134c/b/a
-
-- Adds quick Puzzle Management `Reset Puzzle`, clearer Set/Reset Start State wording and visible Test `Reset` / `Back to Setup` controls.
-- Protects migrated Zones / Logic / Cart Path data when old Start snapshots do not contain modern schema fields, while keeping explicit modern empty fields authoritative.
-- Makes Setup Reset a real one-step Undo transaction and gives explicit Revert to Template the correct authoritative migration semantics.
-- Clears stale Cart Path drafts when authoritative puzzle/template data is replaced or removed.
-- Makes reward cleanup provenance-safe rather than deleting an unrelated same-type collectible.
-
-## Known open Logic work
-
-Broken Bridge can still be described incorrectly by the current legacy Logic inference (for example Socket Completion / Forest Key). This remains intentionally open for the planned reusable `Event -> Conditions -> Actions` Logic-foundation pass, including Asset Lab state transitions and reusable Animation Path triggering.
+On the first v1.0.135 load, existing placed built-in puzzles are adopted into scene-owned Standalone records (including their definitions and current Start State) and existing World Groups are marked Standalone. No explicit reusable Templates are created from historical inferred links. Reuse starts only when you choose **Create Template** under the new workflow.
 
 ## Changed files
 
 - `sidescroll.js`
 - `play.html`
+- `SIDESCROLL_ENGINE_UX_BIBLE.md`
 - `SIDESCROLL_TASKS.md`
 - `README.md`
 
 ## Suggested iPhone checks
 
-1. Fallen Tree → Zones → `+ Add Zone`: picker appears separately on the right, not nested in the left drawer; selecting a type closes it and selects the new zone.
-2. Tap `+ Add Zone` again while its picker is open: it should dismiss without mutation. Repeat using the palette `×`.
-3. Fallen Tree / disposable puzzle → Logic → `+ Add Logic`: same right-side picker pattern, showing only compatible systems that are not already applied.
-4. Choose a Logic system: picker closes, the new system appears selected in the authoritative Logic list, and Undo removes it in one step.
-5. Switch from Zones/Logic to another Puzzle tab while the picker is open: the picker should close.
-6. Confirm Add Puzzle Piece / Add Environment Asset still use their normal right-side asset browser and are not highlighted while a Zone/Logic picker is open.
-7. Continue the v1.0.134d migration checks: puzzles that never used respawn show no ghost Respawn Trigger; Broken Bridge keeps its genuine respawn.
+1. Reload the current project and confirm Fallen Tree, Stone Wall and Broken Bridge each show **STANDALONE**, with no duplicate scene entries and no loss of Zones/Logic/Start State.
+2. Create a disposable Standalone Puzzle, set a recognisable Start State, choose **Create Template**, choose to keep the current puzzle Standalone, then use **Place Puzzle Template**. The placed copy should show `TEMPLATE INSTANCE · <source>` and begin from that saved Start State rather than any incidental live gameplay state.
+3. Edit that Template Instance and Save. Confirm the impact warning appears; cancel it and verify the editor stays open. Then Save/confirm and verify another linked instance updates without moving its marker position.
+4. Use **Make Standalone** on one Puzzle Template Instance and verify later Template edits no longer affect it.
+5. Repeat Create Template -> Place Group Template -> edit/save propagation -> Make Standalone for a World Group.
+6. On a Standalone puzzle, `Set Start State` should affect only that scene puzzle. On a Template Instance it should retain the same button name but show an explicit propagation warning.
 
-This patch has been statically validated but has **not** been tested on-device by ChatGPT.
+The patch is statically validated but has **not** been tested on-device by ChatGPT.

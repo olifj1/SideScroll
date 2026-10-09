@@ -1,5 +1,46 @@
 # SideScroll Development Tasks
 
+## October 9, 2026 — v1.0.135 explicit Standalone / Template Instance architecture
+
+**Current status:** template ownership is being made explicit and scene-first. All previously placed Puzzles and World Groups migrate to **Standalone** because there are currently no intentionally duplicated live instances. Reuse begins only when the author explicitly creates or places a Template. Puzzle and Group workflows now share the same relationship grammar rather than exposing the older inferred Linked/Unique model.
+
+- [x] Make new scene Puzzles **Standalone** by default; creating a scene Puzzle no longer implicitly creates/uses a Template.
+- [x] Make new World Groups **Standalone** by default.
+- [x] One-time migrate all currently placed Puzzles and Groups to Standalone; do not infer reuse from old `instance/copy` metadata.
+- [x] Add explicit `Create Template` for Standalone Puzzles and Groups, with a clear choice to link the current object to the new Template or keep it Standalone.
+- [x] Make Puzzle `Create Template` deterministic: capture the saved authored **Start State**, never incidental runtime/solved gameplay; use Set Start State first when a different setup should become the reusable source.
+- [x] Add explicit `Make Standalone` for Template Instances; preserve the current authored setup/composition while severing the source link.
+- [x] Label management rows and selected-object status as `STANDALONE` or `TEMPLATE INSTANCE · <source>`.
+- [x] Keep world placement instance-owned: Template updates change reusable internal Puzzle/Group content without moving every placed instance to one source position.
+- [x] Keep `Set Start State` as one consistent action name. Standalone affects only that puzzle; a Template Instance prompts before updating the Template and linked instances.
+- [x] Prevent silent local internal overrides on Template Instances: Save warns before propagating; cancelling leaves the edit session open so the author can choose Make Standalone.
+- [x] Add explicit **Puzzle Templates** placement through the shared right-side picker; placement always creates a linked Template Instance.
+- [x] Add explicit **Group Templates** placement through the same shared right-side picker grammar.
+- [x] Bring World Group Template Instances up to Puzzle parity: editing and saving a linked Group updates its source Template and linked Group instances after confirmation.
+- [x] Update `SIDESCROLL_ENGINE_UX_BIBLE.md` with the authoritative Standalone / Template / Template Instance rules and the shared Puzzle/Group relationship grammar.
+- [ ] iPhone regression: existing Fallen Tree, Stone Wall and Broken Bridge appear as Standalone after first v1.0.135 load and keep their current authored Start/Zones/Logic data.
+- [ ] iPhone regression: create a Puzzle Template from a Standalone puzzle with a recognisable saved Start State, choose **keep Standalone**, then place the Template and verify the new placement is clearly a Template Instance and uses that saved Start State rather than current runtime progress.
+- [ ] iPhone regression: repeat Create Template while choosing **link current**, edit/save the Template Instance, confirm propagation warning, and verify linked instances update without changing their world marker positions.
+- [ ] iPhone regression: Make Standalone on a Puzzle Template Instance and confirm later Template changes no longer affect it.
+- [ ] iPhone regression: repeat the same Create / Place / Save-propagate / Make Standalone workflow for World Groups.
+- [ ] iPhone regression: `Set Start State` on Standalone stays local; on a Puzzle Template Instance it warns and updates linked instances.
+
+**Superseded terminology:** older task entries that refer to `Linked Template`, `Unique Copy`, `Make Unique`, or `Set Start State + Apply Template` describe historical implementations. The Engine/UX Bible and this v1.0.135 section now define the current relationship model.
+
+## October 9, 2026 — Engine / UX Bible established
+
+**Current status:** SideScroll now has an evergreen `SIDESCROLL_ENGINE_UX_BIBLE.md` to separate durable engineering/editor rules from the historical/active task backlog. The Bible consolidates the Management -> Edit model, authoritative collection UX, shared Add-picker grammar, state/ownership boundaries, Undo/Save/Reset/Test/template semantics, migration rules, touch/performance discipline, reusable Logic direction and release validation.
+
+- [x] Create `SIDESCROLL_ENGINE_UX_BIBLE.md` as the authoritative living reference for engine/editor architecture and UX rules.
+- [x] Add a documentation map clarifying the roles of Design Lab, Art Bible/pipeline, Concept Lab, Asset Lab, World Lab, Engine/UX Bible, task list and release README.
+- [x] Add a required new-feature checklist covering ownership, reusable systems, editor workflow, transactions, Reset/Test, Templates, migration, touch UX, performance and validation.
+- [x] Record the shared collection UX rule: authoritative applied list + one Add button + shared right-side picker.
+- [x] Record current reusable Logic direction: Event -> Conditions -> Actions, Asset State transitions and reusable Animation Path separation.
+- [x] Record migration rule that missing legacy fields are not equivalent to explicit modern empty fields, and audit all snapshot/template pathways when schemas evolve.
+- [x] Record release discipline: inspect current code first, bounded patches, static validation, documentation updates and no claims of on-device testing without user testing.
+- [ ] Keep the Bible current whenever a durable architecture/UX rule changes; do not leave new permanent rules only in historical task entries.
+- [ ] When permanent regression coverage outgrows release/task checklists, create `SIDESCROLL_TEST_MATRIX.md` for evergreen QA expectations.
+
 ## October 9, 2026 — v1.0.134e shared Add picker workflow
 
 **Current status:** follow-up phone review showed the first v1.0.134d `+ Add Zone` picker was functionally correct but nested awkwardly inside the left Puzzle drawer, while Logic still used the older permanent type-select + Add button pattern. Zones, Logic and asset placement now use one consistent authoring grammar: the main drawer contains only the authoritative applied list plus one Add button; Add opens the existing separate right-hand editor palette; choosing an item creates it, closes the palette and selects the new record.

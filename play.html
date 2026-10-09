@@ -264,11 +264,11 @@
 
             <section class="sidescroll-puzzle-library-view" id="sidescroll-puzzle-library-view" hidden>
               <div class="sidescroll-panel-section-head">
-                <strong>Puzzle Library</strong>
+                <strong>Puzzle Templates</strong>
                 <small>Reusable puzzle templates</small>
               </div>
               <div class="sidescroll-puzzle-picker" id="sidescroll-puzzle-picker">
-                <select id="sidescroll-puzzle-select" aria-label="Puzzle library template"></select>
+                <select id="sidescroll-puzzle-select" aria-label="Puzzle Template"></select>
               </div>
             </section>
 
@@ -276,6 +276,10 @@
               <div class="sidescroll-panel-section-head">
                 <strong>Scene Puzzles</strong>
                 <small>Placed markers in this scene</small>
+              </div>
+              <div class="sidescroll-puzzle-manage" id="sidescroll-puzzle-scene-actions">
+                <button id="sidescroll-puzzle-new-standalone" type="button">New Puzzle</button>
+                <button id="sidescroll-puzzle-place-template" type="button">Place Puzzle Template</button>
               </div>
               <div class="sidescroll-scene-puzzle-list" id="sidescroll-scene-puzzle-list" role="listbox" aria-label="Scene puzzles"></div>
               <p class="sidescroll-scene-empty" id="sidescroll-scene-puzzle-empty" hidden>No puzzles are currently placed in this scene.</p>
@@ -301,13 +305,12 @@
               </div>
 
               <div class="sidescroll-puzzle-manage" id="sidescroll-puzzle-manage" hidden>
-                <button id="sidescroll-puzzle-spawn" type="button">Spawn Here</button>
-                <button id="sidescroll-puzzle-create" type="button">New Puzzle</button>
                 <button id="sidescroll-puzzle-edit" class="primary" type="button">Edit Puzzle</button>
                 <button id="sidescroll-puzzle-focus" type="button">Focus</button>
                 <button id="sidescroll-puzzle-manage-reset" type="button">Reset Puzzle</button>
+                <button id="sidescroll-puzzle-create-template" type="button">Create Template</button>
+                <button id="sidescroll-puzzle-make-standalone" type="button" hidden>Make Standalone</button>
                 <button id="sidescroll-puzzle-export" type="button">Export</button>
-                <button id="sidescroll-puzzle-delete-template" class="danger" type="button" hidden>Delete Template</button>
                 <button id="sidescroll-puzzle-remove" class="danger" type="button" hidden>Remove from Scene</button>
               </div>
 
@@ -316,7 +319,7 @@
                 <div class="sidescroll-puzzle-actions" id="sidescroll-puzzle-actions">
                   <button id="sidescroll-puzzle-set-start" type="button">Set Start</button>
                   <button id="sidescroll-puzzle-cart-path-edit" type="button">Cart Path</button>
-                  <button id="sidescroll-puzzle-save-unique" type="button">Save Unique</button>
+                  <button id="sidescroll-puzzle-save-unique" type="button">Make Standalone</button>
                   <button id="sidescroll-puzzle-test" class="primary" type="button">Test</button>
                   <button id="sidescroll-puzzle-reset" type="button">Reset</button>
                   <button id="sidescroll-puzzle-back-setup" type="button">Back to Setup</button>
@@ -482,12 +485,12 @@
                 </div>
               </div>
               <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-setup" hidden>
-                <div class="sidescroll-panel-section-head compact"><strong>Relationship</strong><small id="sidescroll-puzzle-workspace-source">Linked</small></div>
-                <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-info">Editing the current puzzle setup.</p>
-                <div class="sidescroll-puzzle-relationship-status"><span>Scene setup</span><b id="sidescroll-puzzle-workspace-override-status">Matches template</b></div>
+                <div class="sidescroll-panel-section-head compact"><strong>Relationship</strong><small id="sidescroll-puzzle-workspace-source">Standalone</small></div>
+                <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-info">This puzzle belongs only to this scene.</p>
+                <div class="sidescroll-puzzle-relationship-status"><span>Source</span><b id="sidescroll-puzzle-workspace-override-status">Standalone</b></div>
                 <div class="sidescroll-puzzle-workspace-actions">
-                  <button id="sidescroll-puzzle-workspace-revert-template" type="button">Revert Scene to Template</button>
-                  <button data-puzzle-legacy="sidescroll-puzzle-save-unique" type="button">Make Unique</button>
+                  <button id="sidescroll-puzzle-workspace-revert-template" type="button" hidden>Reload from Template</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-save-unique" type="button" hidden>Make Standalone</button>
                 </div>
                 <div class="sidescroll-panel-section-head compact"><strong>Test / scene working state</strong></div>
                 <div class="sidescroll-puzzle-workspace-actions">
@@ -497,9 +500,9 @@
                 <div class="sidescroll-panel-section-head compact"><strong>Set Start State</strong></div>
                 <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-start-help">Records the current setup as the state used by Reset and Test.</p>
                 <div class="sidescroll-puzzle-workspace-actions">
-                  <button data-puzzle-legacy="sidescroll-puzzle-set-start" type="button">Set Start State + Apply Template</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-set-start" type="button">Set Start State</button>
                 </div>
-                <p class="sidescroll-puzzle-workspace-warning" id="sidescroll-puzzle-workspace-template-warning">Save at the bottom commits only this scene instance. Applying as Template + Start is deliberately separate because it changes the reusable template and every linked instance. Make Unique detaches this scene copy first.</p>
+                <p class="sidescroll-puzzle-workspace-warning" id="sidescroll-puzzle-workspace-template-warning">Standalone puzzles affect only this scene. Template instances explicitly update their source template when committed.</p>
               </div>
             </section>
 
@@ -512,9 +515,12 @@
               </div>
               <div class="sidescroll-puzzle-manage sidescroll-world-group-instance-actions" id="sidescroll-world-group-actions">
                 <button id="sidescroll-world-group-new" type="button">New Group</button>
+                <button id="sidescroll-world-group-place-template" type="button">Place Group Template</button>
                 <button id="sidescroll-world-group-edit" class="primary" type="button">Edit Group</button>
                 <button id="sidescroll-world-group-move" type="button">Move Group</button>
                 <button id="sidescroll-world-group-rename" type="button">Rename</button>
+                <button id="sidescroll-world-group-create-template" type="button">Create Template</button>
+                <button id="sidescroll-world-group-make-standalone" type="button" hidden>Make Standalone</button>
                 <button id="sidescroll-world-group-duplicate" type="button">Duplicate Group</button>
                 <button id="sidescroll-world-group-dissolve" class="danger" type="button">Dissolve</button>
                 <button id="sidescroll-world-group-delete" class="danger" type="button">Delete Group</button>
@@ -523,6 +529,7 @@
               <div class="sidescroll-environment-scene-list" id="sidescroll-world-group-list" role="listbox" aria-label="World groups"></div>
               <p class="sidescroll-scene-empty" id="sidescroll-world-group-empty">No world groups yet.</p>
 
+              <div hidden aria-hidden="true">
               <div class="sidescroll-panel-section-head compact">
                 <strong>Group Templates</strong>
                 <small id="sidescroll-world-template-count">0 templates</small>
@@ -535,6 +542,7 @@
               <p class="sidescroll-puzzle-help" id="sidescroll-world-template-status">Save a finished group as a reusable template, then tap the scene to place a complete copy.</p>
               <div class="sidescroll-environment-scene-list" id="sidescroll-world-template-list" role="listbox" aria-label="World group templates"></div>
               <p class="sidescroll-scene-empty" id="sidescroll-world-template-empty">No group templates yet.</p>
+              </div>
 
               <div class="sidescroll-puzzle-panel-head">
                 <span class="sidescroll-puzzle-mode">ENV</span>
@@ -760,6 +768,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.134e"></script>
+  <script src="sidescroll.js?v=1.0.135"></script>
 </body>
 </html>
