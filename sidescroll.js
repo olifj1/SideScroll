@@ -641,8 +641,11 @@
   const puzzleMarkerXInput = document.getElementById('sidescroll-puzzle-marker-x');
   const puzzleSetStartBtn = document.getElementById('sidescroll-puzzle-set-start');
   const puzzleZoneCountEl = document.getElementById('sidescroll-puzzle-zone-count');
-  const puzzleZoneAddTypeEl = document.getElementById('sidescroll-puzzle-zone-add-type');
   const puzzleZoneAddBtn = document.getElementById('sidescroll-puzzle-zone-add');
+  const puzzleZoneAddMenuEl = document.getElementById('sidescroll-puzzle-zone-add-menu');
+  const puzzleZoneAddExclusionBtn = document.getElementById('sidescroll-puzzle-zone-add-exclusion');
+  const puzzleZoneAddRespawnBtn = document.getElementById('sidescroll-puzzle-zone-add-respawn');
+  const puzzleZoneAddCancelBtn = document.getElementById('sidescroll-puzzle-zone-add-cancel');
   const puzzleZoneListEl = document.getElementById('sidescroll-puzzle-zone-list');
   const puzzleZoneEmptyEl = document.getElementById('sidescroll-puzzle-zone-empty');
   const puzzleZoneInspectorEl = document.getElementById('sidescroll-puzzle-zone-inspector');
@@ -5418,10 +5421,23 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   function meaningfulLegacyRespawn(marker, raw) {
     if (!raw || typeof raw !== 'object') return false;
-    if (raw.enabled === true) return true;
-    const clean=normalisePuzzleRespawn(marker,raw), fallback=normalisePuzzleRespawn(marker,null);
-    return ['spawnX','spawnZ','zoneCenterX','zoneCenterZ','width','depth','triggerOffsetY']
-      .some(key=>Math.abs(Number(clean[key])-Number(fallback[key]))>0.0001);
+    // Before stable Puzzle Zones existed, every puzzle lazily acquired a complete
+    // disabled respawn configuration even when the author had never created or
+    // used a respawn. Only an enabled legacy respawn is evidence of authored
+    // behaviour worth migrating into a real zone. Modern zones are explicit and
+    // may of course remain in the list while disabled.
+    return raw.enabled === true;
+  }
+
+  function syntheticLegacyRespawnZone(raw) {
+    if(!raw||raw.type!=='respawn-trigger'||raw.enabled===true)return false;
+    const id=typeof raw.id==='string'?raw.id.trim():'';
+    // v1.0.132 migration assigned simple sequential ids to records created from
+    // the old always-present respawn draft. New zones use timestamp/random ids,
+    // so this safely removes previously migrated disabled scaffolding without
+    // deleting a modern Respawn Trigger that an author explicitly added then
+    // switched OFF.
+    return /^zone-respawn-\d+(?:-\d+)*$/.test(id);
   }
 
   function normalisePuzzleZones(marker, rawZones, { legacyExclusion=null, legacyRespawn=null }={}) {
@@ -5436,6 +5452,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     if (Array.isArray(rawZones)) {
       rawZones.forEach((raw,index)=>{
         if(raw?.type!=='procedural-exclusion'&&raw?.type!=='respawn-trigger')return;
+        if(syntheticLegacyRespawnZone(raw))return;
         add(raw,raw.type,index);
       });
       return result;
@@ -9801,7 +9818,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleNodeInspectorOpen=false;
       if(selectedObject?.puzzleInstanceId===editorPuzzleMarkerId)selectObject(null);
     }
-    if(tab!=='zones'){puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;}
+    if(tab!=='zones'){puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;setPuzzleZoneAddMenuOpen(false);}
     if(tab!=='logic')puzzleEntryExitMoveHandle=null;
     if(tab!=='logic'&&puzzleCartPathEditMode)puzzleCartPathEditBtn?.click();
     puzzleWorkspaceTab=tab;
@@ -9825,6 +9842,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return true;
   }
 
+  function setPuzzleZoneAddMenuOpen(open){
+    const next=!!open;
+    if(puzzleZoneAddMenuEl)puzzleZoneAddMenuEl.hidden=!next;
+    if(puzzleZoneAddBtn){
+      puzzleZoneAddBtn.setAttribute('aria-expanded',String(next));
+      puzzleZoneAddBtn.classList.toggle('active',next);
+    }
+    return next;
+  }
+
   function focusPuzzleZone(marker,zone){
     if(!marker||!zone)return false;
     const worldX=Number(marker.x)+Number(zone.centerX||0);
@@ -9836,6 +9863,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function selectPuzzleZoneById(id,{focus=false}={}){
     const marker=selectedPuzzleMarker();if(!marker)return false;
     const zones=currentPuzzleZones(marker),zone=zones.find(item=>item.id===id);if(!zone)return false;
+    setPuzzleZoneAddMenuOpen(false);
     selectedPuzzleZoneId=zone.id;puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;
     if(focus)focusPuzzleZone(marker,zone);
     renderPuzzleWorkspaceV2({force:true});
@@ -9857,7 +9885,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         zones.forEach((item,index)=>{
           const row=document.createElement('button');row.type='button';row.className='sidescroll-world-group-list-row';row.classList.toggle('active',item.id===selectedPuzzleZoneId);row.setAttribute('aria-selected',String(item.id===selectedPuzzleZoneId));
           const text=document.createElement('span');const strong=document.createElement('strong');const small=document.createElement('small');
-          strong.textContent=`${puzzleZoneTypeLabel(item.type)} ${index+1}`;
+          const typeIndex=zones.slice(0,index+1).filter(zone=>zone.type===item.type).length;
+          strong.textContent=`${puzzleZoneTypeLabel(item.type)} ${typeIndex}`;
           small.textContent=`${item.enabled?'ON':'OFF'} · ${Number(item.width).toFixed(1)} × ${Number(item.depth).toFixed(1)} m`;
           text.append(strong,small);const state=document.createElement('b');state.textContent=item.enabled?'ON':'OFF';row.append(text,state);
           bindEditorPress(row,()=>{
@@ -9872,7 +9901,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(puzzleZoneInspectorEl)puzzleZoneInspectorEl.hidden=!zone;
     if(!zone)return;
     const index=zones.findIndex(item=>item.id===zone.id);
-    if(puzzleZoneNameEl)puzzleZoneNameEl.textContent=`${puzzleZoneTypeLabel(zone.type)} ${index+1}`;
+    const typeIndex=zones.slice(0,index+1).filter(item=>item.type===zone.type).length;
+    if(puzzleZoneNameEl)puzzleZoneNameEl.textContent=`${puzzleZoneTypeLabel(zone.type)} ${typeIndex}`;
     if(puzzleZoneTypeEl)puzzleZoneTypeEl.textContent=zone.type==='respawn-trigger'?'Player recovery volume':'Procedural dressing suppression';
     if(puzzleExclusionWidthInput){puzzleExclusionWidthInput.disabled=false;if(document.activeElement!==puzzleExclusionWidthInput)puzzleExclusionWidthInput.value=String(zone.width);}
     if(puzzleExclusionWidthValue)puzzleExclusionWidthValue.textContent=`${Number(zone.width).toFixed(1)} m`;
@@ -13781,7 +13811,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         if(spawn){ctx.beginPath();ctx.arc(spawn.x,spawn.y,puzzleZoneSpawnMoveMode?11:9,0,Math.PI*2);ctx.fillStyle=puzzleZoneSpawnMoveMode?'#f7e6a6':'#c9f4ca';ctx.fill();ctx.strokeStyle=puzzleZoneSpawnMoveMode?'#6a5422':'#335b3c';ctx.lineWidth=puzzleZoneSpawnMoveMode?3:2;ctx.stroke();ctx.font='900 9px -apple-system,BlinkMacSystemFont,sans-serif';const spawnLabel=puzzleZoneSpawnMoveMode?'SPAWN · MOVE':'SPAWN';const sw=ctx.measureText(spawnLabel).width+14;ctx.fillStyle='rgba(20,38,28,.92)';ctx.fillRect(spawn.x-sw*.5,spawn.y-30,sw,17);ctx.fillStyle=puzzleZoneSpawnMoveMode?'#fff2b9':'#dbf8df';ctx.fillText(spawnLabel,spawn.x-sw*.5+7,spawn.y-18);}
       }
       if(selected&&centre){
-        const label=`${puzzleZoneTypeLabel(zone.type).toUpperCase()} ${index+1} · ${world.width.toFixed(1)} × ${world.depth.toFixed(1)}m${respawn?` · Y ${Number(zone.triggerOffsetY).toFixed(2)}`:''}`;
+        const typeIndex=zones.slice(0,index+1).filter(item=>item.type===zone.type).length;
+        const label=`${puzzleZoneTypeLabel(zone.type).toUpperCase()} ${typeIndex} · ${world.width.toFixed(1)} × ${world.depth.toFixed(1)}m${respawn?` · Y ${Number(zone.triggerOffsetY).toFixed(2)}`:''}`;
         ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';const tw=ctx.measureText(label).width+14;const lx=Math.max(5,Math.min(ctx.canvas.clientWidth-tw-5,centre.x-tw*.5));const ly=Math.max(48,centre.y-34);ctx.fillStyle='rgba(23,32,38,.88)';ctx.fillRect(lx,ly,tw,20);ctx.fillStyle=respawn?'#ffd6df':'#d9f7fb';ctx.fillText(label,lx+7,ly+14);
       }
     });
@@ -18123,14 +18154,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     zones.push(zone);selectedPuzzleZoneId=zone.id;puzzleZoneMoveMode=false;puzzleZoneSpawnMoveMode=false;savePuzzleZonesDraft(marker);return zone;
   }
 
-  bindEditorPress(puzzleZoneAddBtn,()=>{
-    const type=puzzleZoneAddTypeEl?.value==='respawn-trigger'?'respawn-trigger':'procedural-exclusion';
+  const addPuzzleZoneFromPicker=type=>{
+    setPuzzleZoneAddMenuOpen(false);
     const zone=runEditorTransaction(`Add ${puzzleZoneTypeLabel(type)}`,()=>addPuzzleZone(type));
     if(!zone)return;
     renderPuzzleWorkspaceV2({force:true});
     hintEl.textContent=`Added ${puzzleZoneTypeLabel(type)} · select Move, then drag anywhere to position it`;
     hintEl.classList.remove('hidden');
+  };
+  bindEditorPress(puzzleZoneAddBtn,()=>{
+    if(!puzzleEditSession||puzzleTestMode)return;
+    setPuzzleZoneAddMenuOpen(puzzleZoneAddMenuEl?.hidden!==false);
   });
+  bindEditorPress(puzzleZoneAddExclusionBtn,()=>addPuzzleZoneFromPicker('procedural-exclusion'));
+  bindEditorPress(puzzleZoneAddRespawnBtn,()=>addPuzzleZoneFromPicker('respawn-trigger'));
+  bindEditorPress(puzzleZoneAddCancelBtn,()=>setPuzzleZoneAddMenuOpen(false));
   bindEditorPress(puzzleZoneToggleBtn,()=>{
     const instance=selectedPuzzleInstance(),zone=currentPuzzleZone(instance?.marker);if(!instance||!zone||!puzzleEditSession)return;
     runEditorTransaction(`Toggle ${puzzleZoneTypeLabel(zone.type)}`,()=>{zone.enabled=!zone.enabled;savePuzzleZonesDraft(instance.marker);});

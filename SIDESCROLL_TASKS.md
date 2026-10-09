@@ -1,5 +1,20 @@
 # SideScroll Development Tasks
 
+## October 9, 2026 — v1.0.134d authoritative Puzzle Zones list / Add Zone picker
+
+**Current status:** phone testing showed the Zones screen still mixed available zone types with applied zones, and some puzzles could display a disabled Respawn Trigger that had never genuinely been authored. The cause was legacy pre-Zones respawn scaffolding: v1.0.131 lazily generated a complete disabled respawn configuration for every puzzle, and earlier migration could mistake a stale calculated default for authored data.
+
+- [x] Make the Zones list authoritative: only zone records genuinely attached to the puzzle appear in the list.
+- [x] Remove the permanently visible zone-type select beside `+ Add Zone`.
+- [x] Make `+ Add Zone` open a dedicated choice menu listing `Procedural Exclusion` and `Respawn Trigger`; choosing a type creates/selects that zone, and Cancel closes the menu without mutation.
+- [x] Migrate legacy respawn data only when the old respawn was actually enabled. A disabled old default is not evidence of an authored zone.
+- [x] Filter already-migrated disabled synthetic respawn records that use the old sequential `zone-respawn-N` migration IDs. Modern explicitly-added respawn zones use unique IDs and remain real even if later disabled.
+- [x] Number zone labels per type (`Procedural Exclusion 1`, `Respawn Trigger 1`) rather than by their mixed-list position.
+- [ ] iPhone regression: a puzzle that never used respawn shows no Respawn Trigger at all after reload.
+- [ ] iPhone regression: Broken Bridge keeps its genuinely authored/enabled Respawn Trigger through migration/reset/reload.
+- [ ] iPhone regression: add a new Respawn Trigger, switch it OFF, save/reload and confirm it remains in the list as an explicitly-authored disabled zone.
+- [ ] iPhone usability: `+ Add Zone` opens/closes cleanly and choosing each type creates exactly one selectable zone with no placeholder/type-selector row.
+
 ## October 8, 2026 — v1.0.134c cumulative workflow / migration audit
 
 **Current status:** cumulative roll-up of v1.0.134a + v1.0.134b plus a follow-up audit of the recently added Puzzle workflow actions. The audit distinguishes two different legacy-snapshot semantics: ordinary Reset preserves newer migrated authoring fields that an old Start snapshot could not express, while an explicit Revert to Template upgrades and applies the template itself authoritatively.

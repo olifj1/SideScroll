@@ -1,6 +1,6 @@
-# SideScroll patch 1.0.134c
+# SideScroll patch 1.0.134d
 
-**Cumulative changed-files-only patch over v1.0.134.** This roll-up includes all v1.0.134a and v1.0.134b changes plus the follow-up workflow/migration audit fixes below. You do not need to apply 134a or 134b separately if you apply this ZIP to v1.0.134.
+**Cumulative changed-files-only patch over v1.0.134.** This roll-up includes v1.0.134a, b and c plus the authoritative Puzzle Zones cleanup below. You can apply this ZIP directly over v1.0.134; the earlier lettered patches are not required separately.
 
 ## Included from v1.0.134a
 
@@ -26,6 +26,15 @@ The recent Puzzle workflow buttons were traced through their snapshot, migration
 - Puzzle reward cleanup no longer blindly deletes an unrelated same-type legacy inventory item when there is no evidence that the item came from the puzzle being reset. Modern source/provenance data remains authoritative; legacy fallback is used only when that puzzle still has collected-reward metadata.
 - Test Reset restores the captured pre-test inventory and only removes a reward explicitly provenance-tagged to the tested puzzle; it no longer uses an ambiguous same-item legacy fallback.
 
+
+## v1.0.134d Puzzle Zones cleanup
+
+- The Zones tab now lists only zones genuinely attached to the selected puzzle.
+- `+ Add Zone` is now the sole creation entry point. Tapping it opens a dedicated list of available zone types (`Procedural Exclusion`, `Respawn Trigger`) plus Cancel; the old always-visible type select has been removed.
+- Fixes false disabled Respawn Trigger zones on puzzles that never had respawn behaviour. Before stable Zones existed, v1.0.131 generated a disabled default respawn configuration for every puzzle. Legacy migration now treats only an **enabled** old respawn as authored behaviour.
+- Already-migrated disabled synthetic respawns with the old sequential `zone-respawn-N` IDs are filtered out. Modern Respawn Triggers explicitly created with `+ Add Zone` use unique IDs, so they remain genuine records even if the author later disables them.
+- Zone numbering is now per type rather than mixed-list position. One exclusion plus one respawn displays as `Procedural Exclusion 1` and `Respawn Trigger 1`.
+
 ## Audit result
 
 No equivalent schema-loss issue was found in Test / Back to Setup, Save / Discard, Zone add/remove or Logic add/remove. Those paths operate on current-schema editor snapshots/drafts, and explicit empty `zones[]` / `logic[]` remain meaningful rather than being repopulated by migration.
@@ -46,5 +55,7 @@ The separate known Logic-model problem remains intentionally open: Broken Bridge
 3. Puzzle Test: `Reset` restarts the captured test setup and `Back to Setup` returns to the same editable setup/session.
 4. A legacy linked puzzle: `Revert to Template` actually follows the shared template rather than retaining scene-only Zones/Logic/Cart Path data.
 5. A linked puzzle with an authored Cart Path: use `Set Start State + Apply Template`, then revisit/reload another linked instance and confirm the current template path is used rather than an older cached path.
+6. Fallen Tree / another puzzle that never used respawn: Zones should contain no Respawn Trigger. `+ Add Zone` should open a type list rather than showing a permanent type selector.
+7. Broken Bridge: its real legacy Respawn Trigger should still be present. As a separate disposable test, explicitly add a new Respawn Trigger, turn it OFF, save/reload and confirm it remains because it is a genuine modern zone.
 
 This patch has been statically validated but has **not** been tested on-device by ChatGPT.

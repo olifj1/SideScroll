@@ -368,11 +368,15 @@
               <div class="sidescroll-puzzle-workspace-panel" id="sidescroll-puzzle-workspace-panel-zones" hidden>
                 <div class="sidescroll-panel-section-head compact"><strong>Zones</strong><small id="sidescroll-puzzle-zone-count">0 zones</small></div>
                 <div class="sidescroll-puzzle-zone-add-row">
-                  <select id="sidescroll-puzzle-zone-add-type" aria-label="Zone type">
-                    <option value="procedural-exclusion">Procedural Exclusion</option>
-                    <option value="respawn-trigger">Respawn Trigger</option>
-                  </select>
-                  <button id="sidescroll-puzzle-zone-add" type="button">＋ Add Zone</button>
+                  <button id="sidescroll-puzzle-zone-add" type="button" aria-expanded="false" aria-controls="sidescroll-puzzle-zone-add-menu">＋ Add Zone</button>
+                </div>
+                <div class="sidescroll-world-group-exclusion-inspector" id="sidescroll-puzzle-zone-add-menu" hidden>
+                  <div class="sidescroll-panel-section-head compact"><strong>Add Zone</strong><small>Choose a zone type</small></div>
+                  <div class="sidescroll-world-group-child-actions">
+                    <button id="sidescroll-puzzle-zone-add-exclusion" type="button">Procedural Exclusion</button>
+                    <button id="sidescroll-puzzle-zone-add-respawn" type="button">Respawn Trigger</button>
+                    <button id="sidescroll-puzzle-zone-add-cancel" type="button">Cancel</button>
+                  </div>
                 </div>
                 <div class="sidescroll-world-group-exclusion-list" id="sidescroll-puzzle-zone-list" role="listbox" aria-label="Puzzle zones"></div>
                 <p class="sidescroll-scene-empty" id="sidescroll-puzzle-zone-empty">No zones are applied to this puzzle.</p>
@@ -765,6 +769,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.134c"></script>
+  <script src="sidescroll.js?v=1.0.134d"></script>
 </body>
 </html>
