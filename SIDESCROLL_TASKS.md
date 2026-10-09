@@ -1,6 +1,62 @@
 # SideScroll Development Tasks
 
+## October 8, 2026 — v1.0.134c cumulative workflow / migration audit
+
+**Current status:** cumulative roll-up of v1.0.134a + v1.0.134b plus a follow-up audit of the recently added Puzzle workflow actions. The audit distinguishes two different legacy-snapshot semantics: ordinary Reset preserves newer migrated authoring fields that an old Start snapshot could not express, while an explicit Revert to Template upgrades and applies the template itself authoritatively.
+
+- [x] Package v1.0.134a + v1.0.134b as one patch over v1.0.134.
+- [x] Trace Management Reset, Setup Reset, Set Start / Apply Template, Test, Test Reset, Back to Setup, Save, Discard, Revert to Template, Zone add/remove, Logic add/remove and Cart Path authoring through snapshot/migration/persistence paths.
+- [x] Make `Reset to Start State` a real one-step Undo transaction inside Puzzle Edit.
+- [x] Give `Revert to Template` an explicit current-schema materialisation path so a legacy template cannot accidentally preserve scene-only migrated Zones/Logic/Cart Path data.
+- [x] Clear stale in-memory Cart Path drafts when linked templates replace instance data and when puzzle instances/templates are removed.
+- [x] Make reward reset provenance-safe: do not delete an unrelated same-type legacy inventory item when puzzle ownership cannot be established.
+- [x] Keep Test Reset inventory restoration provenance-safe; ambiguous legacy same-item inventory is preserved rather than guessed away.
+- [x] Confirm Save/Discard, Test/Back, Zone add/remove and Logic add/remove already operate on current-schema snapshots/drafts and do not show the same missing-field migration failure.
+- [ ] iPhone regression: Reset to Start -> Undo restores the exact pre-reset authored setup.
+- [ ] iPhone regression: Management Reset and Test Reset do not remove unrelated inventory items of the same collectible type.
+- [ ] iPhone regression: Revert to Template on a legacy/migrated linked puzzle removes scene-only overrides and uses the actual shared template.
+- [ ] iPhone regression: Set Start State + Apply Template followed by reload/revisit uses the newly applied Cart Path on every linked instance.
+
+## October 8, 2026 — v1.0.134b Reset / legacy Start-State safety
+
+**Current status:** phone testing showed `Reset to Start State` could remove a migrated Procedural Exclusion and immediately allow procedural grass to render again. The cause was a schema gap: historical Start snapshots pre-dated `zones[]`, while the migrated zone lived only in the newer working/runtime draft. Reset interpreted the missing field as no zones. v1.0.134b treats absence of newer fields as legacy/unknown rather than explicit deletion.
+
+- [x] Preserve the last saved/checkpointed Puzzle Zones when Reset reads a legacy Start snapshot with no `zones` field.
+- [x] Keep explicit modern `zones: []` authoritative so intentionally deleting all zones remains valid.
+- [x] Apply the same compatibility rule to Applied Logic when a legacy Start snapshot has no `logic[]` field.
+- [x] Tighten legacy Cart Path Reset fallback to the edit checkpoint / saved runtime path rather than an arbitrary current in-memory path.
+- [x] Keep modern Start snapshots fully authoritative once `Set Start State` has saved the newer schema.
+- [ ] iPhone regression: Reset a legacy/migrated puzzle and confirm Procedural Exclusion remains present and dressing remains suppressed.
+- [ ] iPhone regression: Reset legacy Logic/Cart Path puzzles and confirm systems remain intact; then explicitly Set Start and confirm subsequent Reset restores that exact modern snapshot.
+
 Persistent working backlog for the SideScroll / Aureli project. Keep this file in future builds and update it as tasks are completed, split, reprioritised or discovered.
+
+## October 8, 2026 — v1.0.134a Puzzle workflow polish
+
+**Current status:** focused on-device workflow testing of v1.0.134 exposed three small authoring issues. v1.0.134a adds a quick Reset action to Puzzle Management, makes the Set Start State semantics explicit in Setup, and restores visible Reset / Back to Setup controls during Puzzle Test.
+
+- [x] Add `Reset Puzzle` to the selected-puzzle Management actions so a scene puzzle can be returned to its saved Start State without entering Edit Puzzle.
+- [x] Rename Setup wording so `Reset to Start State` clearly means restore, while `Set Start State` clearly means record the current setup as the Reset/Test start.
+- [x] Keep linked-template consequences explicit: `Set Start State + Apply Template` updates the reusable Template and linked instances; a Unique copy can use `Set Start State` locally.
+- [x] Restore the compact Puzzle Test HUD actions so `Reset` and `Back to Setup` are always available while testing.
+- [ ] iPhone regression: Management Reset returns the selected puzzle to Start without unexpectedly leaving Puzzle Management.
+- [ ] iPhone regression: Test Current shows both Reset and Back to Setup; Back returns to the same editable session setup.
+
+## Next architecture target — reusable Puzzle Logic foundation
+
+The current puzzles now expose enough repeated behaviour to justify a small reusable runtime logic vocabulary. Build this **incrementally underneath the existing Logic tab** before attempting a visual/node editor. The future editor should present real reusable data/components rather than becoming another bespoke runtime.
+
+- [ ] Define a small `Event -> Conditions -> Actions` representation with stable IDs and explicit references to puzzle objects, inventory items, Asset Lab states, paths and puzzle lifecycle state.
+- [ ] Add reusable event sources for the behaviours already proven by current puzzles: Entry crossed, Exit crossed, sockets complete, item/object interaction, item combination, Animation Path start/complete, and puzzle complete.
+- [ ] Add reusable conditions such as asset state equals, inventory contains item, source/target object identity, puzzle started/completed state, and other conditions only as current behaviour requires them.
+- [ ] Add reusable actions such as Set Asset State, consume/remove item, create/replace combined item, start Animation Path, mark puzzle started, complete puzzle and spawn/enable a reward.
+- [ ] Formalise **Asset State Transition** as Logic which changes an object's Asset Lab-authored state rather than redefining appearance/collision/pushability in Puzzle Logic. Broken Handcart should be able to express Broken -> Repaired -> Landed/Bridge using its existing Asset Lab states.
+- [ ] Formalise the Broken Bridge axle + wheel combination and use-on-cart/attachment requirement as reusable pieces rather than hard-coded bridge steps.
+- [ ] Make the existing Cart Path / future Environment Animation Path participate through explicit activation and completion events so path playback can be triggered by reusable Logic and can trigger later actions/state transitions.
+- [ ] Re-express **Fallen Tree**, **Stone Wall** and **Broken Bridge** using the same underlying primitives while preserving their current gameplay exactly.
+- [ ] Correct the current Broken Bridge Logic migration: it must not claim `Socket Completion` or a `Forest Key` completion reward when those are not its actual completion semantics.
+- [ ] Keep the visible Logic UI human-readable: it may group several primitive records into a meaningful rule such as `Repair Handcart` rather than forcing authors to manage every low-level action separately.
+- [ ] Do **not** build the visual Logic editor yet. Once several real puzzles are faithfully represented by the reusable data/runtime, design an editor on top of that proven model.
 
 ## October 8, 2026 — v1.0.134 Puzzle Entry / Exit Logic
 
@@ -39,7 +95,7 @@ Persistent working backlog for the SideScroll / Aureli project. Keep this file i
 - [x] v1.0.133 preserved the older Fallen Tree `cross-x` rule temporarily; this was superseded in v1.0.134 by reusable Puzzle Entry / Exit Logic.
 - [x] Do not introduce a generic visual-scripting/node-graph system.
 - [ ] Focused iPhone regression: Stone Wall should list Socket Completion + Completion Reward, complete from its existing sockets, and still spawn/collect its reward.
-- [ ] Focused iPhone regression: Broken Bridge should list Cart Path only when attached; Edit Path, ghost preview, reset/test and the repaired-cart takeover should behave exactly as before.
+- [ ] Focused iPhone regression: Broken Bridge Cart Path editing, ghost preview, reset/test and repaired-cart takeover should behave exactly as before. **Known Logic-list issue:** current migration can also infer Socket Completion / Completion Reward incorrectly; fix this through the reusable Logic foundation above rather than treating those labels as correct.
 - [ ] Regression-test `+ Add Logic`, Remove Logic, Undo/Redo, Save/Discard, Reset to Start, linked Template apply/revert and Make Unique on at least one disposable/user puzzle.
 
 ### Future — reusable Environment Animation Path system

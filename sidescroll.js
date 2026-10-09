@@ -591,6 +591,7 @@
   const puzzleWorkspaceOverrideStatusEl = document.getElementById('sidescroll-puzzle-workspace-override-status');
   const puzzleWorkspaceRevertTemplateBtn = document.getElementById('sidescroll-puzzle-workspace-revert-template');
   const puzzleWorkspaceTemplateWarningEl = document.getElementById('sidescroll-puzzle-workspace-template-warning');
+  const puzzleWorkspaceStartHelpEl = document.getElementById('sidescroll-puzzle-workspace-start-help');
   const puzzleChildInspectorEl = document.getElementById('sidescroll-puzzle-child-inspector');
   const puzzleChildNameEl = document.getElementById('sidescroll-puzzle-child-name');
   const puzzleChildTypeEl = document.getElementById('sidescroll-puzzle-child-type');
@@ -617,6 +618,7 @@
   const puzzleSelect = document.getElementById('sidescroll-puzzle-select');
   const puzzleEditBtn = document.getElementById('sidescroll-puzzle-edit');
   const puzzleFocusBtn = document.getElementById('sidescroll-puzzle-focus');
+  const puzzleManageResetBtn = document.getElementById('sidescroll-puzzle-manage-reset');
   const puzzleManageEl = document.getElementById('sidescroll-puzzle-manage');
   const puzzleSpawnBtn = document.getElementById('sidescroll-puzzle-spawn');
   const puzzleCreateBtn = document.getElementById('sidescroll-puzzle-create');
@@ -626,6 +628,7 @@
   const puzzleExportBtn = document.getElementById('sidescroll-puzzle-export');
   const puzzleRemoveBtn = document.getElementById('sidescroll-puzzle-remove');
   const puzzleDeleteTemplateBtn = document.getElementById('sidescroll-puzzle-delete-template');
+  const puzzleLegacyBridgeEl = document.querySelector('.sidescroll-legacy-puzzle-bridge');
   const puzzleActionsEl = document.getElementById('sidescroll-puzzle-actions');
   const puzzleObjectsEl = document.getElementById('sidescroll-puzzle-objects');
   const puzzleObjectCountEl = document.getElementById('sidescroll-puzzle-object-count');
@@ -5600,7 +5603,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return false;
   }
 
-  function legacyPuzzleLogic(marker) {
+  function legacyPuzzleLogic(marker,{startOverride=null,cartPathOverride=undefined,allowRuntimeCartPath=true}={}) {
     if(!marker)return [];
     const result=[];
     const def=markerDefinition(marker)||{};
@@ -5626,8 +5629,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       result.push(cleanPuzzleLogicRecord(marker,null,'completion-reward',result.length));
     }
 
-    const start=puzzleStartFor(marker);
-    const authoredPath=puzzleSavedState?.[marker.id]?.cartPathDraft || start?.cartPath || null;
+    const start=startOverride&&typeof startOverride==='object'?startOverride:puzzleStartFor(marker);
+    const authoredPath=cartPathOverride!==undefined
+      ? cartPathOverride
+      : ((allowRuntimeCartPath?puzzleSavedState?.[marker.id]?.cartPathDraft:null) || start?.cartPath || null);
     const targetObjectId=puzzleCartTargetObjectId(marker);
     if(targetObjectId&&puzzleCartPathHasAuthoredSignal(marker,authoredPath)){
       result.push(cleanPuzzleLogicRecord(marker,{targetObjectId},'cart-path',result.length));
@@ -5635,9 +5640,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return result.filter(Boolean);
   }
 
-  function normalisePuzzleLogic(marker,rawLogic,{schemaVersion=0}={}) {
+  function normalisePuzzleLogic(marker,rawLogic,{schemaVersion=0,legacyOptions=null}={}) {
     if(!marker)return [];
-    const source=Array.isArray(rawLogic)?rawLogic.map(item=>deepCopy(item)):legacyPuzzleLogic(marker);
+    const source=Array.isArray(rawLogic)?rawLogic.map(item=>deepCopy(item)):legacyPuzzleLogic(marker,legacyOptions||{});
     // v1.0.134 migration: v1.0.133 could persist an explicit logic[] before
     // Entry / Exit existed, so an empty array must not erase an older cross-x
     // completion rule. Once schema v2 is saved, explicit logic[] is fully
@@ -6594,22 +6599,91 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return snapshot;
   }
 
+  function materialiseExplicitPuzzleSnapshot(marker, snapshot) {
+    const result=deepCopy(snapshot||{});
+    const def=markerDefinition(marker)||{};
+
+    // Explicit operations such as Revert to Template must not inherit scene-only
+    // migrated drafts just because an older template predates a newer schema
+    // field. Upgrade the template itself into the current representation first.
+    if(!Array.isArray(result.zones)){
+      result.zones=normalisePuzzleZones(marker,null,{
+        legacyExclusion:def.exclusion?defaultPuzzleExclusion(marker):null,
+        legacyRespawn:result.respawn||def.respawn||null
+      });
+    }
+    if(!result.cartPath||typeof result.cartPath!=='object')result.cartPath=normalisePuzzleCartPath(marker,null);
+    if(!Array.isArray(result.logic)){
+      result.logic=normalisePuzzleLogic(marker,null,{
+        schemaVersion:0,
+        legacyOptions:{startOverride:result,cartPathOverride:result.cartPath,allowRuntimeCartPath:false}
+      });
+    }
+    result.logicSchemaVersion=2;
+    return result;
+  }
+
+  function legacySnapshotZonesFallback(instance) {
+    const id=instance?.id;if(!id)return null;
+    // A pre-v1.0.132 Start State cannot express zones at all. During an active
+    // edit session, the checkpoint is the last saved working setup and is the
+    // safest compatibility source; outside Edit, use the persisted runtime
+    // draft. Only fall back to the current in-memory draft as a last resort.
+    const checkpoint=puzzleEditSession?.markerId===id?puzzleEditSession.checkpoint?.setup:null;
+    if(Array.isArray(checkpoint?.zones))return deepCopy(checkpoint.zones);
+    const runtime=puzzleSavedState?.[id]?.zonesDraft;
+    if(Array.isArray(runtime))return deepCopy(runtime);
+    if(Array.isArray(puzzleZonesDraft[id]))return deepCopy(puzzleZonesDraft[id]);
+    return null;
+  }
+
+  function legacySnapshotLogicFallback(instance) {
+    const id=instance?.id;if(!id)return {logic:null,schemaVersion:0};
+    const checkpoint=puzzleEditSession?.markerId===id?puzzleEditSession.checkpoint?.setup:null;
+    if(Array.isArray(checkpoint?.logic))return {logic:deepCopy(checkpoint.logic),schemaVersion:Number(checkpoint.logicSchemaVersion||0)};
+    const runtime=puzzleSavedState?.[id];
+    if(Array.isArray(runtime?.logicDraft))return {logic:deepCopy(runtime.logicDraft),schemaVersion:Number(runtime.logicSchemaVersion||0)};
+    if(Array.isArray(puzzleLogicDraft[id]))return {logic:deepCopy(puzzleLogicDraft[id]),schemaVersion:2};
+    return {logic:null,schemaVersion:0};
+  }
+
+  function legacySnapshotCartPathFallback(instance) {
+    const id=instance?.id;if(!id)return null;
+    const checkpoint=puzzleEditSession?.markerId===id?puzzleEditSession.checkpoint?.setup:null;
+    if(checkpoint?.cartPath&&typeof checkpoint.cartPath==='object')return deepCopy(checkpoint.cartPath);
+    const runtime=puzzleSavedState?.[id]?.cartPathDraft;
+    if(runtime&&typeof runtime==='object')return deepCopy(runtime);
+    const current=puzzleCartPathDraft[id];
+    return current&&typeof current==='object'?deepCopy(current):null;
+  }
+
   function applyPuzzleSnapshot(instance, snapshot, { persistRuntime = true, clearDirty = false } = {}) {
     if (!instance || !snapshot) return;
     if (snapshot.bounds) puzzleDraftBounds[instance.id] = { ...snapshot.bounds };
     else puzzleDraftBounds[instance.id] = { ...codeBoundsForMarker(instance.marker) };
+
+    // Start snapshots created before stable Puzzle Zones / Applied Logic existed
+    // do not contain those fields. Absence is therefore a legacy-schema gap,
+    // not an instruction to delete already-migrated authored data. Explicit
+    // arrays (including []) remain authoritative for all newer snapshots.
+    const snapshotHasZones=Array.isArray(snapshot.zones);
+    const compatibilityZones=snapshotHasZones?null:legacySnapshotZonesFallback(instance);
     initialisePuzzleZones(instance.marker, {
-      sourceZones:Array.isArray(snapshot.zones)?snapshot.zones:undefined,
-      legacyExclusion:Array.isArray(snapshot.zones)?null:(Object.prototype.hasOwnProperty.call(puzzleExclusionState,instance.id)?puzzleExclusionState[instance.id]:(markerDefinition(instance.marker)?.exclusion?defaultPuzzleExclusion(instance.marker):null)),
-      legacyRespawn:Array.isArray(snapshot.zones)?null:(snapshot.respawn || markerDefinition(instance.marker)?.respawn || null),
+      sourceZones:snapshotHasZones?snapshot.zones:(Array.isArray(compatibilityZones)?compatibilityZones:undefined),
+      legacyExclusion:(snapshotHasZones||Array.isArray(compatibilityZones))?null:(Object.prototype.hasOwnProperty.call(puzzleExclusionState,instance.id)?puzzleExclusionState[instance.id]:(markerDefinition(instance.marker)?.exclusion?defaultPuzzleExclusion(instance.marker):null)),
+      legacyRespawn:(snapshotHasZones||Array.isArray(compatibilityZones))?null:(snapshot.respawn || markerDefinition(instance.marker)?.respawn || null),
       force:true
     });
-    // Legacy v1.0.41–1.0.46 authored snapshots accidentally omitted cartPath.
-    // Preserve the already-authored draft in that case instead of rebuilding a
-    // fresh default rail during Reset, which made the guide jump to the right.
-    const existingCartPath = puzzleCartPathDraft[instance.id] || puzzleSavedState?.[instance.id]?.cartPathDraft || null;
-    puzzleCartPathDraft[instance.id] = normalisePuzzleCartPath(instance.marker, snapshot.cartPath || existingCartPath || null);
-    puzzleLogicDraft[instance.id] = normalisePuzzleLogic(instance.marker, Array.isArray(snapshot.logic) ? snapshot.logic : null, {schemaVersion:Number(snapshot.logicSchemaVersion||0)});
+
+    // Legacy Start States can also pre-date cartPath / logic[]. Prefer the last
+    // saved editor checkpoint/runtime draft in that case so Reset cannot erase
+    // systems merely because the old snapshot had no schema field for them.
+    const cartPathSource=(snapshot.cartPath&&typeof snapshot.cartPath==='object')?snapshot.cartPath:legacySnapshotCartPathFallback(instance);
+    puzzleCartPathDraft[instance.id] = normalisePuzzleCartPath(instance.marker, cartPathSource || null);
+    const compatibilityLogic=Array.isArray(snapshot.logic)?null:legacySnapshotLogicFallback(instance);
+    const logicSource=Array.isArray(snapshot.logic)?snapshot.logic:compatibilityLogic.logic;
+    const logicSchemaVersion=Array.isArray(snapshot.logic)?Number(snapshot.logicSchemaVersion||0):Number(compatibilityLogic.schemaVersion||0);
+    puzzleLogicDraft[instance.id] = normalisePuzzleLogic(instance.marker, logicSource, {schemaVersion:logicSchemaVersion});
     if (carriedObject?.puzzleInstanceId === instance.id) carriedObject = null;
     if (interactionState?.object?.puzzleInstanceId === instance.id) interactionState = null;
     if (pushingObject?.puzzleInstanceId === instance.id) { pushingObject = null; pushingSide = 0; pushingFloorOffset = 0; }
@@ -9417,7 +9491,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     closePuzzleEditShell();
     puzzleEditSession=null;clearEditorHistory();
     updatePuzzlePanel();updateEditorDrawerUi();updateEditorButtons();
-    hintEl.textContent=`Saved ${markerDefinition(marker)?.label||marker?.group||'Puzzle'} edits · Set Start still controls the reset/start state`;
+    hintEl.textContent=`Saved ${markerDefinition(marker)?.label||marker?.group||'Puzzle'} edits · Set Start State still controls the Reset/Test starting state`;
     hintEl.classList.remove('hidden');
     return true;
   }
@@ -9694,11 +9768,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const instance=selectedPuzzleInstance();
     const marker=instance?.marker;
     if(!instance||!marker||puzzleTestMode||markerLinkMode(marker)==='copy')return false;
-    const template=deepCopy(templateStartForGroup(marker.group));
-    if(!template)return false;
-    // Explicit Revert should not inherit a scene-only cart-path draft merely
-    // because an older/default template predates the cartPath field.
-    if(!template.cartPath)template.cartPath=deepCopy(normalisePuzzleCartPath(marker,null));
+    const rawTemplate=deepCopy(templateStartForGroup(marker.group));
+    if(!rawTemplate)return false;
+    const template=materialiseExplicitPuzzleSnapshot(marker,rawTemplate);
     runEditorTransaction('Revert scene to template',()=>{
       applyPuzzleSnapshot(instance,template,{persistRuntime:false,clearDirty:true});
       const runtime=savedPuzzleFor(marker.id);
@@ -10054,11 +10126,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleWorkspaceRevertTemplateBtn.disabled=!instance||isCopy||!hasSceneOverride;
     }
     if(puzzleWorkspaceInfoEl)puzzleWorkspaceInfoEl.textContent=isCopy
-      ? 'This scene puzzle is independent. Save commits local working changes; Set Start updates only this copy’s Reset/Test start.'
-      : 'This scene puzzle remains linked to its reusable Template. Save keeps local scene overrides; Revert removes them; Apply as Template + Start deliberately updates every linked instance.';
+      ? 'This scene puzzle is independent. Save commits local working changes; Set Start State records the setup used by Reset and Test.'
+      : 'This scene puzzle remains linked to its reusable Template. Save keeps local scene overrides; Revert removes them; setting the Start State also updates the shared Template and its linked instances.';
+    if(puzzleWorkspaceStartHelpEl)puzzleWorkspaceStartHelpEl.textContent=isCopy
+      ? 'Records the current setup as this unique puzzle’s Reset/Test starting state.'
+      : 'Records the current setup as the reusable Template Start State and updates every linked instance.';
     if(puzzleWorkspaceTemplateWarningEl)puzzleWorkspaceTemplateWarningEl.textContent=isCopy
-      ? 'Save commits this independent scene copy. Set Start changes only this copy’s Reset/Test start. It will not update the reusable Template.'
-      : 'Save commits only this scene instance. Apply as Template + Start changes the reusable Template and every linked instance. Make Unique detaches this scene copy first.';
+      ? 'Save commits this independent scene copy. Set Start State changes only this copy’s Reset/Test start.'
+      : 'Save commits only this scene instance. Set Start State + Apply Template is broader: it changes the reusable Template and every linked instance. Make Unique first if this puzzle needs its own Start State.';
     renderPuzzleZonesWorkspace(instance?.marker||null,{force});
     renderPuzzleLogicWorkspace(instance,{force});
     const cart=instance?cartObjectForInstance(instance):null;
@@ -10073,8 +10148,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-cart-path-edit')button.textContent=puzzleCartPathEditMode?'Finish Path':'Edit Path';
       if(button.dataset.puzzleLegacy==='sidescroll-open-assets')button.textContent=puzzleEnvironmentPlacementMode?'＋ Add Dressing':'＋ Add Puzzle Piece';
       if(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique')button.textContent='Make Unique';
-      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-set-start')button.textContent=isCopy?'Set Start for Unique':'Apply as Template + Start';
-      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-reset')button.textContent='Reset to Start';
+      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-set-start')button.textContent=isCopy?'Set Start State':'Set Start State + Apply Template';
+      if(button.dataset.puzzleLegacy==='sidescroll-puzzle-reset')button.textContent='Reset to Start State';
       const extraCart=['sidescroll-puzzle-cart-path-toggle','sidescroll-puzzle-cart-path-start-cart','sidescroll-puzzle-cart-path-duration-down','sidescroll-puzzle-cart-path-duration-up','sidescroll-puzzle-cart-path-preview'];
       button.hidden=(extraCart.includes(button.dataset.puzzleLegacy)&&!puzzleCartPathEditMode)
         ||(button.dataset.puzzleLegacy==='sidescroll-puzzle-save-unique'&&isCopy);
@@ -11655,6 +11730,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       delete puzzleDraftBounds[id];
       delete puzzleZonesDraft[id];
       delete puzzleLogicDraft[id];
+      delete puzzleCartPathDraft[id];
       delete puzzleExclusionState[id];
     }
     userPuzzleLibrary.markers = [];
@@ -11704,6 +11780,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     delete puzzleDraftBounds[marker.id];
     delete puzzleZonesDraft[marker.id];
     delete puzzleLogicDraft[marker.id];
+    delete puzzleCartPathDraft[marker.id];
     delete puzzleExclusionState[marker.id];
     savePuzzleLibrary(); savePuzzleStarts(); savePuzzleState(); persistLegacyPuzzleExclusionState();
     if (puzzleWorkshopState.markerId === marker.id) savePuzzleWorkshopState(null);
@@ -11730,6 +11807,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       delete puzzleDraftBounds[marker.id];
     delete puzzleZonesDraft[marker.id];
     delete puzzleLogicDraft[marker.id];
+    delete puzzleCartPathDraft[marker.id];
     delete puzzleExclusionState[marker.id];
     }
     userPuzzleLibrary.markers = (userPuzzleLibrary.markers || []).filter(marker => marker.group !== groupId);
@@ -12770,6 +12848,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!visible) return;
 
     const testing = puzzleTestMode;
+    // The legacy source-action bridge stays hidden during authoring because the
+    // v2 workspace proxies those controls. Test mode intentionally exposes only
+    // its Reset + Back to Setup source buttons as the compact runtime HUD.
+    if (puzzleLegacyBridgeEl) {
+      puzzleLegacyBridgeEl.hidden = !testing;
+      puzzleLegacyBridgeEl.setAttribute('aria-hidden', String(!testing));
+    }
     const puzzleEditing = testing || editorScope === 'puzzle';
     const libraryMode = !testing && puzzleEditing && puzzleBrowserMode === 'library';
     const sceneMode = !testing && puzzleEditing && puzzleBrowserMode === 'scene';
@@ -12857,6 +12942,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (puzzleCreateBtn) puzzleCreateBtn.hidden = !libraryMode;
     if (puzzleEditBtn) { puzzleEditBtn.hidden = libraryMode || testing; puzzleEditBtn.disabled = !selectedMarker; }
     if (puzzleFocusBtn) { puzzleFocusBtn.hidden = libraryMode; puzzleFocusBtn.disabled = !selectedMarker; }
+    if (puzzleManageResetBtn) { puzzleManageResetBtn.hidden = libraryMode || testing; puzzleManageResetBtn.disabled = !selectedMarker; }
     if (puzzleExportBtn) { puzzleExportBtn.hidden = false; puzzleExportBtn.disabled = !selectionAvailable; }
     if (puzzleDeleteTemplateBtn) {
       puzzleDeleteTemplateBtn.hidden = !libraryMode || !groupIsUserCreated(selectedGroupId);
@@ -12874,7 +12960,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (puzzleSetStartBtn) {
       puzzleSetStartBtn.hidden = testing || libraryMode;
       puzzleSetStartBtn.disabled = !instance;
-      puzzleSetStartBtn.textContent = linkMode === 'copy' ? 'Set Start for Unique' : 'Apply as Template + Start';
+      puzzleSetStartBtn.textContent = linkMode === 'copy' ? 'Set Start State' : 'Set Start State + Apply Template';
     }
     const hasCart = !!cartObjectForInstance(instance);
     const hasCartPathLogic = !!(instance && puzzleLogicRecord(instance.marker,'cart-path'));
@@ -12969,6 +13055,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         delete puzzleDraftBounds[otherMarker.id];
         delete puzzleZonesDraft[otherMarker.id];
         delete puzzleLogicDraft[otherMarker.id];
+        delete puzzleCartPathDraft[otherMarker.id];
         delete puzzleExclusionState[otherMarker.id];
         puzzleStartDirty.delete(otherMarker.id);
         const active = activePuzzleInstances.get(otherMarker.id);
@@ -12977,7 +13064,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       savePuzzleStarts(true);
       savePuzzleState(true);
       persistLegacyPuzzleExclusionState();
-      hintEl.textContent = 'Puzzle Template + Start applied · all linked scene instances now use this setup';
+      hintEl.textContent = 'Start State + Puzzle Template applied · all linked scene instances now use this setup';
     }
     savePuzzleState(true);
     if(puzzleEditSession?.markerId===marker.id)checkpointPuzzleEditSession();
@@ -13022,12 +13109,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const reward = state.reward ? { ...state.reward } : null;
     const hadCollectedReward = !!reward?.collected;
 
-    if (!removePuzzleRewardFromInventory(instance, { allowLegacyFallback: hadCollectedReward })) {
-      // If an old saved puzzle lost its reward metadata but the matching
-      // pre-provenance item is still in inventory, an explicit puzzle reset
-      // should still clean up that one legacy reward.
-      removePuzzleRewardFromInventory(instance, { allowLegacyFallback: true });
-    }
+    // Prefer provenance. A legacy count-only reward is removed only when this
+    // puzzle still has positive collected-reward metadata; otherwise deleting a
+    // same-type item could steal an unrelated collectible from another puzzle.
+    removePuzzleRewardFromInventory(instance, { allowLegacyFallback: hadCollectedReward });
 
     removePuzzleRewardObject(instance);
     delete state.reward;
@@ -13043,11 +13128,32 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const [itemId, count] of owned) removeInventoryItem(itemId, count, instance.id);
   }
 
+  function resetSelectedPuzzleFromManagement() {
+    if (puzzleTestMode || puzzleEditSession) return;
+    const marker = selectedPuzzleMarker();
+    if (!marker) return;
+    instantiatePuzzleGroup(marker);
+    const instance = activePuzzleInstances.get(marker.id) || authoringPuzzle();
+    if (!instance) return;
+    resetPuzzleReward(instance);
+    removePuzzleOwnedInventoryItems(instance);
+    applyPuzzleStart(instance, { persistRuntime:true });
+    setInventoryOpen(false);
+    shownPuzzleThoughts.clear(); thoughtTriggerInside.clear();
+    wheelCombinePrimed.clear();
+    hintEl.classList.remove('puzzle-thought');
+    hintEl.textContent = 'Puzzle reset to its saved Start State';
+    hintEl.classList.remove('hidden');
+    updatePuzzlePanel();
+  }
+
   function resetCurrentPuzzle() {
     const instance = authoringPuzzle();
     if (!instance) return;
     if(puzzleEditSession&&!puzzleTestMode){
-      applyPuzzleStart(instance,{persistRuntime:true});
+      const resetToStart=()=>applyPuzzleStart(instance,{persistRuntime:true});
+      if(editorTransaction)resetToStart();
+      else runEditorTransaction('Reset puzzle to Start State',resetToStart);
       hintEl.classList.remove('puzzle-thought');
       hintEl.textContent='Puzzle setup reset to its saved Start State · Undo can restore the previous edit-session setup';
       hintEl.classList.remove('hidden');
@@ -13058,9 +13164,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       resetPuzzleReward(instance);
       applyPuzzleSnapshot(instance, puzzleTestSnapshot, { persistRuntime:false, clearDirty:false });
       if (puzzleTestInventorySnapshot) restoreInventory(puzzleTestInventorySnapshot);
-      // Reset means this puzzle's reward is unavailable again, even if an
-      // older test snapshot already contained a legacy copy of the same item.
-      removePuzzleRewardFromInventory(instance, { allowLegacyFallback:true });
+      // Keep the pre-test inventory exact except for a reward explicitly
+      // provenance-tagged to this puzzle. Never delete an ambiguous legacy
+      // same-type item here; it may belong to another puzzle.
+      removePuzzleRewardFromInventory(instance, { allowLegacyFallback:false });
       setInventoryOpen(false);
       positionPlayerAtPuzzleEntry(instance);
       shownPuzzleThoughts.clear(); thoughtTriggerInside.clear();
@@ -17553,6 +17660,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   });
   bindEditorPress(puzzleEditBtn, editSelectedScenePuzzle);
   bindEditorPress(puzzleFocusBtn, focusSelectedPuzzle);
+  bindEditorPress(puzzleManageResetBtn, resetSelectedPuzzleFromManagement);
   const commitMarkerXInput = () => {
     if (!puzzleMarkerXInput || puzzleBrowserMode !== 'scene') return;
     const marker = selectedPuzzleMarker();

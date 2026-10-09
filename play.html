@@ -305,6 +305,7 @@
                 <button id="sidescroll-puzzle-create" type="button">New Puzzle</button>
                 <button id="sidescroll-puzzle-edit" class="primary" type="button">Edit Puzzle</button>
                 <button id="sidescroll-puzzle-focus" type="button">Focus</button>
+                <button id="sidescroll-puzzle-manage-reset" type="button">Reset Puzzle</button>
                 <button id="sidescroll-puzzle-export" type="button">Export</button>
                 <button id="sidescroll-puzzle-delete-template" class="danger" type="button" hidden>Delete Template</button>
                 <button id="sidescroll-puzzle-remove" class="danger" type="button" hidden>Remove from Scene</button>
@@ -496,11 +497,12 @@
                 <div class="sidescroll-panel-section-head compact"><strong>Test / scene working state</strong></div>
                 <div class="sidescroll-puzzle-workspace-actions">
                   <button data-puzzle-legacy="sidescroll-puzzle-test" type="button">Test Current</button>
-                  <button data-puzzle-legacy="sidescroll-puzzle-reset" type="button">Reset to Start</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-reset" type="button">Reset to Start State</button>
                 </div>
-                <div class="sidescroll-panel-section-head compact"><strong>Start / reusable template</strong></div>
+                <div class="sidescroll-panel-section-head compact"><strong>Set Start State</strong></div>
+                <p class="sidescroll-puzzle-help" id="sidescroll-puzzle-workspace-start-help">Records the current setup as the state used by Reset and Test.</p>
                 <div class="sidescroll-puzzle-workspace-actions">
-                  <button data-puzzle-legacy="sidescroll-puzzle-set-start" type="button">Apply as Template + Start</button>
+                  <button data-puzzle-legacy="sidescroll-puzzle-set-start" type="button">Set Start State + Apply Template</button>
                 </div>
                 <p class="sidescroll-puzzle-workspace-warning" id="sidescroll-puzzle-workspace-template-warning">Save at the bottom commits only this scene instance. Applying as Template + Start is deliberately separate because it changes the reusable template and every linked instance. Make Unique detaches this scene copy first.</p>
               </div>
@@ -763,6 +765,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.134"></script>
+  <script src="sidescroll.js?v=1.0.134c"></script>
 </body>
 </html>
