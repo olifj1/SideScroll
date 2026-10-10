@@ -1,5 +1,66 @@
 # SideScroll Development Tasks
 
+## October 9, 2026 — v1.0.136 Terrain Edit foundation and staged terrain-authoring plan
+
+**Feature direction:** Terrain is a first-class authoring context rather than a standalone settings/debug popup. The existing fixed 10 m Sections remain the base structural ground units, but Terrain Edit becomes the in-world authoring workspace for them. The normal fast workflow is **Follow Player**: the character remains centred as usual, walking stays available, and the active Section automatically follows the Section the character occupies. Manual previous/next selection remains available and temporarily locks the active Section until Follow Player is re-enabled.
+
+### Durable ownership split
+
+- **Base Terrain Sections** own physical ground shape and section-local structural properties: path height, depth-strip height/mode, collision, visibility and existing legacy section type/settings while those still exist.
+- **Depth detail falloff** is the current smoothing behaviour across the near/mid/far depth strips. It reduces smaller vertical changes at greater depth; it is **not** smoothing between neighbouring Sections. A later pass will expose this so it can be minimised rather than remaining a hidden rendering decision.
+- **Terrain Surface Regions** will own ground texture/material choice and A -> B blending in continuous world space. They are not bound to 10 m Section edges. Their authoring grammar should parallel Biome Regions/Transitions: broad start/end/blend placement in World Lab, with the same underlying transition handles visible and adjustable in Terrain Edit.
+- **Terrain Features** are local terrain modifications such as rivers. They may be standalone world features or owner-relative features attached to another authored object such as a Puzzle. Do not make fixed world Sections travel with a Puzzle. The current Broken Bridge river already follows this direction through its puzzle-owned `worldModifier`; the later feature stage should generalise that proven mechanism.
+- **World Lab remains the macro view.** It owns broad region/transition planning. Terrain Edit is the in-world fine-authoring view. Where both expose the same Surface Region/transition, they edit the same record rather than maintaining duplicate systems.
+- Terrain Sections are world structure, not Templates/Template Instances. Reusable terrain shapes can become presets later if useful, without making a numbered world Section itself a reusable instance.
+
+### Stage 1 — Terrain Edit foundation — IMPLEMENTED IN v1.0.136
+
+- [x] Move Terrain/Sections into the shared editor drawer as a dedicated **Terrain** scope/context; the Tools -> Terrain shortcut enters that context rather than opening an unrelated floating panel.
+- [x] Preserve the proven terrain generation/height/layer algorithms in this structural pass; do not combine the editor migration with a terrain rewrite.
+- [x] Make **Follow Player** the default Section navigation mode. Walking through the world automatically changes the active Section to the one occupied by the character.
+- [x] Keep manual previous/next Section navigation. Using it disables Follow Player until the author explicitly returns to Player/Follow mode.
+- [x] Keep horizontal character movement available during Terrain Edit while normal world objects remain non-pickable/protected from unrelated editing.
+- [x] Put authored Terrain changes inside a bounded Terrain edit session with shared **Undo / Redo / Save / Discard** semantics. Save checkpoints the current terrain and stays in Terrain Edit; Done Editing exits once the session is clean.
+- [x] Treat one slider/height/type/collision/visibility interaction as one shared-history transaction.
+- [x] Prevent specialist-tool switches or procedural scene rebuilds from silently abandoning dirty Terrain edits.
+- [ ] iPhone regression: Tools -> Terrain enters the new Terrain drawer, keeps the character controls available and does not expose the old standalone Sections popup.
+- [ ] iPhone regression: with Follow Player ON, walk across several 10 m boundaries and confirm the highlighted/active Section follows the character without manual selection.
+- [ ] iPhone regression: use previous/next, confirm Follow Player turns OFF and the chosen Section remains active while walking; press Player/Follow and confirm automatic selection resumes.
+- [ ] iPhone regression: edit path height and each depth strip, verify Undo/Redo is one step per interaction, Discard restores the entry/save checkpoint, and Save establishes a new checkpoint without leaving Terrain Edit.
+- [ ] iPhone regression: verify Terrain Edit cannot accidentally select/move environment objects, Puzzles or Groups, and Done/Camera/tool switching refuses to abandon unsaved Terrain changes.
+- [ ] iPhone regression: verify existing River/Test Hill/visibility/collision controls still produce the same underlying terrain behaviour as v1.0.135.
+
+### Stage 2 — depth-shape controls
+
+- [ ] Expose the existing **depth detail falloff/smoothing strength** so the far strips can retain more of the authored path profile when desired. `0` should mean minimal/no detail reduction; preserve current behaviour as a known/default migrated value until visually retuned.
+- [ ] Start with one clear master strength if possible; only split Near / Mid / Far controls if real use shows one slider is too blunt.
+- [ ] Add **Flatten Depth Toward Path** as a reversible operation, allowing near/far strip heights to move toward the path height in useful increments (for example 25 / 50 / 75 / 100%).
+- [ ] Make falloff and flatten operations shared-history transactions and preserve terrain-bound object support offsets correctly.
+
+### Stage 3 — Terrain Surface Regions and texture blending
+
+- [ ] Introduce Terrain Surface definitions/choices independently of numbered Sections.
+- [ ] Generalise/reuse the Biome Region/Transition range grammar rather than implementing another unrelated transition editor.
+- [ ] Add a **Terrain Surface Regions** track to World Lab for macro placement and resizing of texture regions/blend ranges.
+- [ ] Support continuous A -> B texture blending between explicit world-space start/end handles; do not snap transition boundaries to Section edges.
+- [ ] Show the same Surface Region/blend handles in Terrain Edit so the author can stand in the world and fine-tune start/end positions while viewing the result.
+- [ ] Keep the runtime bounded to the minimum useful active surface set (normally the two surfaces participating in the current blend).
+
+### Stage 4 — reusable Terrain Features
+
+- [ ] Formalise the existing puzzle `worldModifier` mechanism into a reusable **Terrain Feature** abstraction without breaking current Broken Bridge river behaviour.
+- [ ] Support standalone world Terrain Features and owner-relative Terrain Features that move with their Puzzle/owner.
+- [ ] Migrate/generalise the legacy manual River Section path only where this improves ownership; do not regress existing authored river data.
+- [ ] Keep base Section identity fixed in world space. A moved Puzzle/Feature should affect the Sections now beneath it rather than dragging numbered Sections through the world.
+- [ ] Give Terrain Edit appropriate Feature visibility/selection without turning every Feature into a Section property.
+
+### Stage 5 — terrain authoring consolidation / QA
+
+- [ ] Review legacy Test Hill/River section modes after Terrain Features exist and retire or migrate only the parts genuinely superseded.
+- [ ] Validate Save/Discard/Undo across height, depth, Surface Regions and Terrain Features, including reload persistence and schema migration.
+- [ ] Check touch ergonomics/performance on iPhone with guides, Surface blend handles and terrain geometry updates active.
+- [ ] Keep World Lab macro editing and Terrain Edit fine editing as two views over shared data, with no duplicate source of truth.
+
 ## October 9, 2026 — v1.0.135 explicit Standalone / Template Instance architecture
 
 **Current status:** template ownership is being made explicit and scene-first. All previously placed Puzzles and World Groups migrate to **Standalone** because there are currently no intentionally duplicated live instances. Reuse begins only when the author explicitly creates or places a Template. Puzzle and Group workflows now share the same relationship grammar rather than exposing the older inferred Linked/Unique model.
@@ -1122,7 +1183,9 @@ Tasks:
 - [x] Preserve fast current-state Test workflow in the Puzzle drawer. *(v1.0.123; edit-session checkpoint still pending.)*
 - [x] Reuse central Undo/Redo and Save/Discard. *(v1.0.125 onward)*
 
-### 5. Terrain / Sections — HIGH/MEDIUM priority
+### 5. Terrain / Sections — SUPERSEDED BY v1.0.136 TERRAIN EDIT PLAN ABOVE
+
+**Historical note:** the newer staged Terrain Edit feature at the top of this file is authoritative.
 
 Terrain Sections currently live as a standalone panel reachable beside other game/debug settings. Conceptually this is a specialist authoring mode, closer to Unreal Landscape Mode than to a generic settings popup.
 

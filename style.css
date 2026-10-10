@@ -13945,3 +13945,27 @@ body[data-game-id="game-16"] .sidescroll-puzzle-logic-field select{
 body[data-game-id="game-16"] #sidescroll-puzzle-logic-cart[hidden],
 body[data-game-id="game-16"] #sidescroll-puzzle-logic-sockets[hidden],
 body[data-game-id="game-16"] #sidescroll-puzzle-logic-reward[hidden]{display:none!important;}
+
+/* SideScroll v1.0.136 — Terrain Edit Stage 1: first-class editor context. */
+body[data-game-id="game-16"] .sidescroll-editor-scope-switch{grid-template-columns:repeat(3,minmax(0,1fr));}
+body[data-game-id="game-16"] .sidescroll-terrain-workspace{display:grid;gap:7px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-terrain-workspace[hidden]{display:none!important;}
+body[data-game-id="game-16"] .sidescroll-terrain-workspace .sidescroll-section-current,
+body[data-game-id="game-16"] .sidescroll-terrain-workspace .sidescroll-section-selected{margin-bottom:0;}
+body[data-game-id="game-16"] .sidescroll-terrain-workspace .sidescroll-section-wide{margin-top:0;}
+body[data-game-id="game-16"] .sidescroll-terrain-workspace .sidescroll-section-type-row,
+body[data-game-id="game-16"] .sidescroll-terrain-workspace .sidescroll-section-slider-row,
+body[data-game-id="game-16"] .sidescroll-terrain-workspace .sidescroll-section-persist-row{margin-top:0;}
+body[data-game-id="game-16"] .sidescroll-terrain-workspace p{margin:2px 1px 0;font-size:8px;line-height:1.4;color:#aebfbc;}
+body[data-game-id="game-16"] .sidescroll-terrain-follow-row{display:grid;grid-template-columns:minmax(118px,.8fr) minmax(0,1.2fr);align-items:center;gap:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(255,255,255,.045);}
+body[data-game-id="game-16"] .sidescroll-terrain-follow-row button{min-height:32px;border:1px solid rgba(237,244,244,.15);border-radius:9px;background:rgba(255,255,255,.06);color:#edf5f2;font-size:8px;font-weight:900;letter-spacing:.04em;}
+body[data-game-id="game-16"] .sidescroll-terrain-follow-row button.active{background:#dbe7e2;color:#385a55;border-color:#aec7c0;}
+body[data-game-id="game-16"] .sidescroll-terrain-follow-row small{font-size:7px;line-height:1.35;color:#aebfbc;}
+body[data-game-id="game-16"].sidescroll-terrain-editing #sidescroll-play-controls{display:grid!important;}
+body[data-game-id="game-16"].sidescroll-terrain-editing #sidescroll-secondary-controls{display:none!important;}
+body[data-game-id="game-16"].sidescroll-terrain-editing .sidescroll-editor-controls{display:none!important;}
+@media(max-height:420px){
+  body[data-game-id="game-16"] .sidescroll-terrain-workspace{gap:5px;}
+  body[data-game-id="game-16"] .sidescroll-terrain-follow-row{padding:5px 6px;}
+  body[data-game-id="game-16"] .sidescroll-terrain-follow-row button{min-height:28px;}
+}

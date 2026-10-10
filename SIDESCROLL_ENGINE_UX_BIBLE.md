@@ -706,6 +706,48 @@ Avoid hidden special-case spatial data living separately from the collection mer
 
 ---
 
+### 17.3 Terrain is a first-class authoring context
+
+Terrain authoring belongs inside the shared Edit workspace, not in an unrelated settings/debug popup. It should reuse the editor drawer, bounded authoring session, shared Undo/Redo and explicit Save/Discard grammar.
+
+The Terrain context is allowed one deliberate exception to the normal edit-mode input lockdown: **horizontal character locomotion remains available** because the character is the most useful terrain-authoring cursor. Outside-context scene objects remain protected and non-pickable while Terrain Edit is active.
+
+### 17.4 Follow Player is the default Terrain Section selection model
+
+SideScroll's camera keeps the character centred during normal traversal, so the efficient terrain workflow is to edit while walking. With **Follow Player** enabled, the active fixed 10 m Section is derived from the character's world position and updates as the character crosses Section boundaries.
+
+Manual Section navigation remains available for targeted work. Manually choosing previous/next locks the selected Section by disabling Follow Player until the author explicitly returns to Player/Follow mode. Selection/navigation preferences are editor state; they are not authored terrain dirtiness.
+
+### 17.5 Base Sections own shape, not every terrain concept
+
+Fixed Terrain Sections are world-space structural units. They own base physical terrain properties such as path height, depth-strip heights/modes, collision/visibility and other truly section-local shape data.
+
+Do not make numbered Sections into Templates, and do not move a numbered Section with a Puzzle. Reusable terrain presets may be added later without changing Section identity.
+
+The existing depth "smoothing" behaviour is specifically **depth detail falloff across the near/mid/far strips**: farther strips receive progressively less small-scale vertical variation. It is not interpolation/smoothing between neighbouring Sections. This effect must be explicit and author-controllable rather than treated as an invisible aesthetic rule.
+
+### 17.6 Terrain Surface Regions are continuous world-space data
+
+Ground texture/material transitions must not be constrained to 10 m Section boundaries. Terrain Surface Regions should use the same broad spatial grammar as Biome Regions/Transitions: explicit world-space ranges with an authored blend span between surface A and surface B.
+
+World Lab is the macro placement/overview for these regions. Terrain Edit may expose the same start/end/blend handles in-world for visual fine-tuning. Both tools must edit the **same underlying Surface Region records**, never duplicate transition data.
+
+Prefer a shared/general region-transition foundation with Biomes where practical rather than copying two independent implementations. Runtime blending should keep the active surface set bounded; normally only the two surfaces participating in the current blend are needed.
+
+### 17.7 Terrain Features are local modifiers with explicit ownership
+
+Rivers and future local terrain variations that need to move with authored content are **Terrain Features / modifiers**, not travelling Terrain Sections. A Terrain Feature can be standalone in the world or owner-relative to another authored object such as a Puzzle.
+
+The current Broken Bridge river already demonstrates the correct ownership direction through a puzzle-owned `worldModifier`: its position is relative to the Puzzle marker and therefore follows the Puzzle. Generalise that proven mechanism rather than replacing it with puzzle-specific section mutation.
+
+Moving/removing an owner-relative Terrain Feature should reveal the unaffected base terrain underneath. Ownership and precedence between base terrain and modifiers must remain explicit and deterministic.
+
+### 17.8 World Lab and Terrain Edit are two scales over shared truth
+
+World Lab answers **where broad world structures and transitions live**. Terrain Edit answers **how the ground looks/behaves here while standing in it**. Low-level terrain editing should not be duplicated independently in World Lab, and macro region planning should not be reimplemented as separate Terrain-only data.
+
+When both tools expose a concept such as a Surface Region transition, they are alternate views/controllers for one shared authored record.
+
 ## 18. Performance rules
 
 Phone performance and stability must shape implementation.

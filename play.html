@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.134">
+  <link rel="stylesheet" href="style.css?v=1.0.136">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -40,7 +40,7 @@
             <div class="sidescroll-tools-grid">
               <button id="sidescroll-editor-camera" class="sidescroll-tools-item sidescroll-camera-button" type="button" aria-expanded="false">Camera</button>
               <button id="sidescroll-depth" class="sidescroll-tools-item" type="button" aria-pressed="false">Depth</button>
-              <button id="sidescroll-sections" class="sidescroll-tools-item" type="button" aria-expanded="false">Sections</button>
+              <button id="sidescroll-sections" class="sidescroll-tools-item" type="button" aria-expanded="false">Terrain</button>
               <button id="sidescroll-fog" class="sidescroll-tools-item" type="button" aria-expanded="false">Fog</button>
               <button id="sidescroll-post" class="sidescroll-tools-item" type="button" aria-expanded="false">Post</button>
               <button id="sidescroll-collision-view" class="sidescroll-tools-item" type="button" aria-pressed="false">Collision</button>
@@ -82,59 +82,6 @@
             <label><span>TINT MIX <b id="sidescroll-post-tint-amount-value">0.00</b></span><input id="sidescroll-post-tint-amount" type="range" min="0" max="0.60" step="0.01" value="0"></label>
             <div class="sidescroll-post-future">Bloom reserved for a later pass.</div>
             <button id="sidescroll-post-reset" type="button">RESET</button>
-          </aside>
-
-
-          <aside class="sidescroll-section-panel" id="sidescroll-section-panel" hidden aria-label="Terrain section editor">
-            <div class="sidescroll-section-head"><strong>SECTIONS</strong><button id="sidescroll-section-close" type="button" aria-label="Close section editor">×</button></div>
-            <div class="sidescroll-section-current">
-              <span>PLAYER IS IN</span>
-              <strong id="sidescroll-section-current">Section 0</strong>
-              <small id="sidescroll-section-current-bounds">−5.0 m to 5.0 m</small>
-            </div>
-            <button id="sidescroll-section-guides" class="sidescroll-section-wide" type="button" aria-pressed="false">Show section guides</button>
-            <label class="sidescroll-section-persist-row"><span>KEEP GUIDES VISIBLE WHEN CLOSED</span><input id="sidescroll-section-guides-persist" type="checkbox"></label>
-            <div class="sidescroll-section-selected">
-              <span>SELECTED</span>
-              <strong id="sidescroll-section-selected">Section 0</strong>
-              <small id="sidescroll-section-selected-bounds">−5.0 m to 5.0 m · Normal</small>
-            </div>
-            <div class="sidescroll-section-nav">
-              <button id="sidescroll-section-prev" type="button" aria-label="Previous terrain section">←</button>
-              <button id="sidescroll-section-player" type="button">Player</button>
-              <button id="sidescroll-section-next" type="button" aria-label="Next terrain section">→</button>
-            </div>
-            <label class="sidescroll-section-slider-row" id="sidescroll-section-height-row">
-              <span>PATH HEIGHT <b id="sidescroll-section-height-value">+0.0 m</b></span>
-              <input id="sidescroll-section-height" type="range" min="-20" max="40" step="0.1" value="0">
-            </label>
-            <div class="sidescroll-section-height-fine">
-              <button id="sidescroll-section-height-down" type="button">−0.25</button>
-              <input id="sidescroll-section-height-number" type="number" min="-50" max="80" step="0.1" value="0" aria-label="Selected section path height in metres">
-              <button id="sidescroll-section-height-up" type="button">+0.25</button>
-            </div>
-            <label class="sidescroll-section-persist-row"><span>LINK SUBSEQUENT SECTIONS</span><input id="sidescroll-section-height-link" type="checkbox" checked></label>
-            <details class="sidescroll-section-depth-layers">
-              <summary>DEPTH LAYERS</summary>
-              <p>Linked uses an offset from Path. Explicit holds its own world height from this section onward until linked again.</p>
-              <div class="sidescroll-section-depth-row" data-layer="near"><strong>NEAR STRIP</strong><select id="sidescroll-section-layer-near-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-near-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Near strip offset or explicit height"><small id="sidescroll-section-layer-near-summary">Linked · offset +0.0 m</small></div>
-              <div class="sidescroll-section-depth-row" data-layer="farA"><strong>FAR STRIP A</strong><select id="sidescroll-section-layer-far-a-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-a-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Far strip A offset or explicit height"><small id="sidescroll-section-layer-far-a-summary">Linked · offset +0.0 m</small></div>
-              <div class="sidescroll-section-depth-row" data-layer="farB"><strong>FAR STRIP B</strong><select id="sidescroll-section-layer-far-b-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-b-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Far strip B offset or explicit height"><small id="sidescroll-section-layer-far-b-summary">Linked · offset +0.0 m</small></div>
-            </details>
-            <label class="sidescroll-section-type-row" for="sidescroll-section-type"><span>SECTION TYPE</span><select id="sidescroll-section-type"><option value="normal">Normal</option><option value="testHill">Test Hill</option><option value="river">River</option></select></label>
-            <button id="sidescroll-section-collision" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain collision ON</button>
-            <label class="sidescroll-section-slider-row" id="sidescroll-section-river-width-row" hidden>
-              <span>RIVER WIDTH <b id="sidescroll-section-river-width-value">4.8 m</b></span>
-              <input id="sidescroll-section-river-width" type="range" min="3.4" max="8.8" step="0.1" value="4.8">
-            </label>
-            <button id="sidescroll-section-bank-dress" class="sidescroll-section-wide" type="button" hidden>Auto dress river banks</button>
-            <button id="sidescroll-section-bank-clear" class="sidescroll-section-wide subtle" type="button" hidden>Clear auto bank dressing</button>
-            <button id="sidescroll-section-visible" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain visible</button>
-            <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
-            <button id="sidescroll-section-reset-procedural" class="sidescroll-section-wide subtle" type="button">Reset procedural changes · this section</button>
-            <button id="sidescroll-section-reset-procedural-all" class="sidescroll-section-wide danger" type="button">Reset procedural changes · ALL</button>
-            <p>Procedural reset restores the deterministic biome placement only. Manually placed assets, World Groups, puzzles and terrain settings are untouched.</p>
-            <p>Path height is authored at each 10 m section centre and interpolated between centres. Link Subsequent raises/lowers the rest of the world by the same delta; turn it off for a local fine-tune.</p>
           </aside>
 
           <aside class="sidescroll-quick-nav-panel" id="sidescroll-quick-nav-panel" hidden aria-label="Quick scene navigation">
@@ -255,8 +202,67 @@
             </div>
             <div class="sidescroll-editor-scope-switch" id="sidescroll-editor-scope-switch">
               <button id="sidescroll-scope-environment" class="active" type="button">Environment</button>
+              <button id="sidescroll-scope-terrain" type="button">Terrain</button>
               <button id="sidescroll-scope-puzzle" type="button">Puzzle</button>
             </div>
+
+            <section class="sidescroll-terrain-workspace" id="sidescroll-section-panel" hidden aria-label="Terrain editor">
+              <div class="sidescroll-world-group-edit-summary">
+                <span class="sidescroll-puzzle-mode">TERRAIN</span>
+                <div><strong>Terrain Edit</strong><small>Walk the character through the world and edit the active 10 m section.</small></div>
+              </div>
+              <div class="sidescroll-terrain-follow-row">
+                <button id="sidescroll-section-follow-player" class="active" type="button" aria-pressed="true">Follow Player ON</button>
+                <small>When on, the section under the character becomes the selected section automatically.</small>
+              </div>
+              <div class="sidescroll-section-current">
+                <span>PLAYER IS IN</span>
+                <strong id="sidescroll-section-current">Section 0</strong>
+                <small id="sidescroll-section-current-bounds">−5.0 m to 5.0 m</small>
+              </div>
+              <button id="sidescroll-section-guides" class="sidescroll-section-wide" type="button" aria-pressed="false">Show section guides</button>
+              <label class="sidescroll-section-persist-row"><span>KEEP GUIDES VISIBLE WHEN CLOSED</span><input id="sidescroll-section-guides-persist" type="checkbox"></label>
+              <div class="sidescroll-section-selected">
+                <span>EDITING</span>
+                <strong id="sidescroll-section-selected">Section 0</strong>
+                <small id="sidescroll-section-selected-bounds">−5.0 m to 5.0 m · Normal</small>
+              </div>
+              <div class="sidescroll-section-nav">
+                <button id="sidescroll-section-prev" type="button" aria-label="Previous terrain section">←</button>
+                <button id="sidescroll-section-player" type="button">Player</button>
+                <button id="sidescroll-section-next" type="button" aria-label="Next terrain section">→</button>
+              </div>
+              <label class="sidescroll-section-slider-row" id="sidescroll-section-height-row">
+                <span>PATH HEIGHT <b id="sidescroll-section-height-value">+0.0 m</b></span>
+                <input id="sidescroll-section-height" type="range" min="-20" max="40" step="0.1" value="0">
+              </label>
+              <div class="sidescroll-section-height-fine">
+                <button id="sidescroll-section-height-down" type="button">−0.25</button>
+                <input id="sidescroll-section-height-number" type="number" min="-50" max="80" step="0.1" value="0" aria-label="Selected section path height in metres">
+                <button id="sidescroll-section-height-up" type="button">+0.25</button>
+              </div>
+              <label class="sidescroll-section-persist-row"><span>LINK SUBSEQUENT SECTIONS</span><input id="sidescroll-section-height-link" type="checkbox" checked></label>
+              <details class="sidescroll-section-depth-layers">
+                <summary>DEPTH LAYERS</summary>
+                <p>Linked uses an offset from Path. Explicit holds its own world height from this section onward until linked again.</p>
+                <div class="sidescroll-section-depth-row" data-layer="near"><strong>NEAR STRIP</strong><select id="sidescroll-section-layer-near-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-near-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Near strip offset or explicit height"><small id="sidescroll-section-layer-near-summary">Linked · offset +0.0 m</small></div>
+                <div class="sidescroll-section-depth-row" data-layer="farA"><strong>FAR STRIP A</strong><select id="sidescroll-section-layer-far-a-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-a-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Far strip A offset or explicit height"><small id="sidescroll-section-layer-far-a-summary">Linked · offset +0.0 m</small></div>
+                <div class="sidescroll-section-depth-row" data-layer="farB"><strong>FAR STRIP B</strong><select id="sidescroll-section-layer-far-b-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-b-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Far strip B offset or explicit height"><small id="sidescroll-section-layer-far-b-summary">Linked · offset +0.0 m</small></div>
+              </details>
+              <label class="sidescroll-section-type-row" for="sidescroll-section-type"><span>SECTION TYPE</span><select id="sidescroll-section-type"><option value="normal">Normal</option><option value="testHill">Test Hill</option><option value="river">River</option></select></label>
+              <button id="sidescroll-section-collision" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain collision ON</button>
+              <label class="sidescroll-section-slider-row" id="sidescroll-section-river-width-row" hidden>
+                <span>RIVER WIDTH <b id="sidescroll-section-river-width-value">4.8 m</b></span>
+                <input id="sidescroll-section-river-width" type="range" min="3.4" max="8.8" step="0.1" value="4.8">
+              </label>
+              <button id="sidescroll-section-bank-dress" class="sidescroll-section-wide" type="button" hidden>Auto dress river banks</button>
+              <button id="sidescroll-section-bank-clear" class="sidescroll-section-wide subtle" type="button" hidden>Clear auto bank dressing</button>
+              <button id="sidescroll-section-visible" class="sidescroll-section-wide" type="button" aria-pressed="true">Terrain visible</button>
+              <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
+              <button id="sidescroll-section-reset-procedural" class="sidescroll-section-wide subtle" type="button">Reset procedural changes · this section</button>
+              <button id="sidescroll-section-reset-procedural-all" class="sidescroll-section-wide danger" type="button">Reset procedural changes · ALL</button>
+              <p class="sidescroll-puzzle-help">Stage 1 keeps the proven terrain algorithms intact. Depth-detail smoothing, flattening and Surface Regions arrive in later stages of the Terrain Edit feature.</p>
+            </section>
             <div class="sidescroll-puzzle-source-switch" id="sidescroll-puzzle-source-switch" hidden>
               <button id="sidescroll-puzzle-source-library" type="button">Library</button>
               <button id="sidescroll-puzzle-source-scene" class="active" type="button">Scene</button>
@@ -768,6 +774,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.135"></script>
+  <script src="sidescroll.js?v=1.0.136"></script>
 </body>
 </html>

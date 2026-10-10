@@ -366,6 +366,7 @@
   const sectionBtn = document.getElementById('sidescroll-sections');
   const sectionPanel = document.getElementById('sidescroll-section-panel');
   const sectionCloseBtn = document.getElementById('sidescroll-section-close');
+  const sectionFollowPlayerBtn = document.getElementById('sidescroll-section-follow-player');
   const sectionGuidesBtn = document.getElementById('sidescroll-section-guides');
   const sectionGuidesPersistInput = document.getElementById('sidescroll-section-guides-persist');
   const sectionCurrentEl = document.getElementById('sidescroll-section-current');
@@ -497,6 +498,7 @@
   const placementDoneBtn = document.getElementById('sidescroll-placement-done');
   const editorScopeSwitch = document.getElementById('sidescroll-editor-scope-switch');
   const environmentScopeBtn = document.getElementById('sidescroll-scope-environment');
+  const terrainScopeBtn = document.getElementById('sidescroll-scope-terrain');
   const puzzleScopeBtn = document.getElementById('sidescroll-scope-puzzle');
   const puzzleSourceSwitch = document.getElementById('sidescroll-puzzle-source-switch');
   const puzzleSourceLibraryBtn = document.getElementById('sidescroll-puzzle-source-library');
@@ -2521,6 +2523,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let terrainDepthLayerSettings = {};
   let terrainResolvedHeightCache = new Map();
   let terrainHeightLinkSubsequent = true;
+  let terrainFollowPlayer = true;
+  var terrainEditSession = null; // declared early: terrain migrations can persist before editor state initialises
   let terrainLastUiCurrentIndex = null;
 
   // v1.0.75 terrain elevation spine. The path is the authored master profile.
@@ -2992,6 +2996,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       terrainSectionHeights = new Map();
       terrainDepthLayerSettings = normaliseTerrainDepthLayerSettings(saved.layers);
       terrainHeightLinkSubsequent = saved.linkSubsequent !== false;
+      terrainFollowPlayer = saved.followPlayer !== false;
       if (saved.heights && typeof saved.heights === 'object') {
         for (const [key, value] of Object.entries(saved.heights)) {
           const i = Number(key);
@@ -3021,7 +3026,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     } catch (_) {}
   }
 
-  function saveTerrainSectionState() {
+  function saveTerrainSectionState({ force = false } = {}) {
+    if (terrainEditSession && !force) return;
     try {
       localStorage.setItem(TERRAIN_SECTION_STORAGE_KEY, JSON.stringify({
         guides:!!terrainSectionGuidesVisible,
@@ -3031,6 +3037,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         collisionDisabled:[...terrainCollisionDisabledSections].sort((a,b)=>a-b),
         collisionModelVersion:3,
         linkSubsequent:!!terrainHeightLinkSubsequent,
+        followPlayer:!!terrainFollowPlayer,
         heights:Object.fromEntries([...terrainSectionHeights.entries()].sort((a,b)=>a[0]-b[0]).map(([i,h])=>[String(i),Number(h.toFixed(3))])),
         layers:normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings),
         types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
@@ -9557,10 +9564,124 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return true;
   }
 
-  function activeEditorSession(){return worldGroupEditSession||puzzleEditSession||null;}
-  function captureActiveEditorSnapshot(){return worldGroupEditSession?captureWorldGroupEditorSnapshot():(puzzleEditSession?capturePuzzleEditorSnapshot(puzzleEditSession.markerId):null);}
-  function activeEditorSnapshotsEqual(a,b){return worldGroupEditSession?authoredSnapshotsEqual(a,b):(puzzleEditSession?puzzleEditorSnapshotsEqual(a,b):true);}
-  function applyActiveEditorSnapshot(snapshot){return worldGroupEditSession?applyWorldGroupEditorSnapshot(snapshot):(puzzleEditSession?applyPuzzleEditorSnapshot(snapshot):false);}
+  function captureTerrainEditorSnapshot(){
+    return {
+      hidden:[...terrainHiddenSections].sort((a,b)=>a-b),
+      collisionDisabled:[...terrainCollisionDisabledSections].sort((a,b)=>a-b),
+      heights:Object.fromEntries([...terrainSectionHeights.entries()].sort((a,b)=>a[0]-b[0]).map(([i,h])=>[String(i),Number(h.toFixed(3))])),
+      layers:deepCopy(normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings)),
+      types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
+      settings:deepCopy(Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0])))
+    };
+  }
+
+  function terrainEditorSnapshotsEqual(a,b){
+    try{return JSON.stringify(a||null)===JSON.stringify(b||null);}catch(_){return false;}
+  }
+
+  function applyTerrainEditorSnapshot(snapshot){
+    if(!snapshot)return false;
+    const anchors=terrainHeightBoundObjectAnchors();
+    const characterOffset=(typeof character!=='undefined'&&character&&Number.isFinite(character.y))
+      ? character.y-playSurfaceYAt(character.x)
+      : 0;
+    terrainHiddenSections=new Set((snapshot.hidden||[]).map(Number).filter(Number.isFinite).map(Math.trunc));
+    terrainCollisionDisabledSections=new Set((snapshot.collisionDisabled||[]).map(Number).filter(Number.isFinite).map(Math.trunc));
+    terrainSectionHeights=new Map();
+    for(const [key,value] of Object.entries(snapshot.heights||{})){
+      const i=Number(key),h=Number(value);
+      if(Number.isFinite(i)&&Number.isFinite(h))terrainSectionHeights.set(Math.trunc(i),Rig.clamp(h,-50,80));
+    }
+    terrainDepthLayerSettings=normaliseTerrainDepthLayerSettings(deepCopy(snapshot.layers||{}));
+    terrainSectionTypes=new Map();
+    for(const [key,value] of Object.entries(snapshot.types||{})){
+      const i=Number(key);
+      if(Number.isFinite(i)&&TERRAIN_SECTION_TYPES[value]&&value!=='normal')terrainSectionTypes.set(Math.trunc(i),value);
+    }
+    terrainSectionSettings=new Map();
+    for(const [key,value] of Object.entries(snapshot.settings||{})){
+      const i=Number(key);
+      if(!Number.isFinite(i)||!value||typeof value!=='object')continue;
+      terrainSectionSettings.set(Math.trunc(i),{width:Rig.clamp(Number(value.width)||DEFAULT_RIVER_SECTION.width,RIVER_SECTION_MIN_WIDTH,RIVER_SECTION_MAX_WIDTH)});
+    }
+    invalidateTerrainHeightCache();
+    invalidateTerrainElevationMeshes();
+    restoreTerrainHeightBoundObjectAnchors(anchors);
+    if(typeof character!=='undefined'&&character&&Number.isFinite(character.x)){
+      character.y=playSurfaceYAt(character.x)+characterOffset;
+    }
+    updateTerrainSectionUi(true);
+    return true;
+  }
+
+  function beginTerrainEditSession(){
+    if(worldGroupEditSession||puzzleEditSession)return false;
+    if(terrainEditSession){updateEditorDrawerUi();return true;}
+    const checkpoint=captureTerrainEditorSnapshot();
+    clearEditorHistory();
+    terrainEditSession={checkpoint:deepCopy(checkpoint),lastSnapshot:deepCopy(checkpoint),dirty:false};
+    if(terrainFollowPlayer)terrainSelectedSectionIndex=terrainSectionIndexAt(character?.x??camera.x);
+    terrainSectionGuidesVisible=true;
+    document.body.classList.add('sidescroll-terrain-editing');
+    updateTerrainSectionUi(true);
+    updateEditorDrawerUi();
+    updateEditorButtons();
+    return true;
+  }
+
+  function saveTerrainEditSession(){
+    if(!terrainEditSession)return false;
+    if(editorTransaction)commitEditorTransaction();
+    const current=captureTerrainEditorSnapshot();
+    terrainEditSession.checkpoint=deepCopy(current);
+    terrainEditSession.lastSnapshot=deepCopy(current);
+    terrainEditSession.dirty=false;
+    clearEditorHistory();
+    saveTerrainSectionState({force:true});
+    updateEditorDrawerUi();
+    updateTerrainSectionUi(true);
+    hintEl.textContent='Terrain changes saved';
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
+  function discardTerrainEditSession({silent=false}={}){
+    if(!terrainEditSession)return false;
+    if(!silent&&terrainEditSession.dirty&&!window.confirm('Discard all unsaved Terrain changes from this edit session?'))return false;
+    editorTransaction=null;
+    applyTerrainEditorSnapshot(deepCopy(terrainEditSession.checkpoint));
+    terrainEditSession.lastSnapshot=deepCopy(terrainEditSession.checkpoint);
+    terrainEditSession.dirty=false;
+    clearEditorHistory();
+    saveTerrainSectionState({force:true});
+    updateEditorDrawerUi();
+    if(!silent){hintEl.textContent='Discarded unsaved Terrain changes';hintEl.classList.remove('hidden');}
+    return true;
+  }
+
+  function requestLeaveTerrainEdit(){
+    if(!terrainEditSession)return true;
+    if(terrainEditSession.dirty){
+      hintEl.textContent='Terrain has unsaved changes · use Save or Discard before leaving Terrain Edit';
+      hintEl.classList.remove('hidden');
+      setEditorDrawerCollapsed(false);
+      return false;
+    }
+    terrainEditSession=null;
+    clearEditorHistory();
+    document.body.classList.remove('sidescroll-terrain-editing');
+    if(!terrainSectionGuidesPersist)terrainSectionGuidesVisible=false;
+    saveTerrainSectionState({force:true});
+    updateTerrainSectionUi(true);
+    updateEditorDrawerUi();
+    updateEditorButtons();
+    return true;
+  }
+
+  function activeEditorSession(){return worldGroupEditSession||puzzleEditSession||terrainEditSession||null;}
+  function captureActiveEditorSnapshot(){return worldGroupEditSession?captureWorldGroupEditorSnapshot():(puzzleEditSession?capturePuzzleEditorSnapshot(puzzleEditSession.markerId):(terrainEditSession?captureTerrainEditorSnapshot():null));}
+  function activeEditorSnapshotsEqual(a,b){return worldGroupEditSession?authoredSnapshotsEqual(a,b):(puzzleEditSession?puzzleEditorSnapshotsEqual(a,b):(terrainEditSession?terrainEditorSnapshotsEqual(a,b):true));}
+  function applyActiveEditorSnapshot(snapshot){return worldGroupEditSession?applyWorldGroupEditorSnapshot(snapshot):(puzzleEditSession?applyPuzzleEditorSnapshot(snapshot):(terrainEditSession?applyTerrainEditorSnapshot(snapshot):false));}
 
   function updateActiveEditorSessionDirty(){
     const session=activeEditorSession();if(!session)return false;
@@ -9727,6 +9848,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(puzzleEditSession)syncPuzzleEditRecovery();
     if(worldGroupEditSession)renderWorldGroupEditor({force:true});
     else if(puzzleEditSession)renderPuzzleWorkspaceV2({force:true});
+    else if(terrainEditSession)updateTerrainSectionUi(true);
     return true;
   }
 
@@ -9864,15 +9986,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function updateEditorDrawerUi(){
     const groupSession=!!worldGroupEditSession;
     const puzzleSession=!!puzzleEditSession;
+    const terrainSession=!!terrainEditSession;
     const group=groupSession?worldGroupById(worldGroupEditSession.groupId):null;
     const sessionPuzzleMarker=puzzleSession?markerForId(puzzleEditSession.markerId):null;
-    editorContext=groupSession?{type:'world-group',id:group?.id||null}:(puzzleSession?{type:'puzzle',id:sessionPuzzleMarker?.id||null}:{type:editorScope==='puzzle'?'puzzle':'environment',id:null});
+    const terrainWorkspaceShown=!!(editMode&&!puzzleTestMode&&editorScope==='terrain');
+    editorContext=groupSession?{type:'world-group',id:group?.id||null}
+      :(puzzleSession?{type:'puzzle',id:sessionPuzzleMarker?.id||null}
+      :(terrainWorkspaceShown?{type:'terrain',id:terrainSelectedSectionIndex}:{type:editorScope==='puzzle'?'puzzle':'environment',id:null}));
     document.body.classList.toggle('sidescroll-world-group-editing',groupSession);
+    document.body.classList.toggle('sidescroll-terrain-editing',terrainWorkspaceShown);
     const puzzleWorkspaceShown=!!(puzzleWorkspaceActive&&editMode&&!puzzleTestMode&&editorScope==='puzzle'&&puzzleBrowserMode==='scene'&&selectedPuzzleMarker());
     document.body.classList.toggle('sidescroll-puzzle-workspace-active',puzzleWorkspaceShown);
-    if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':(puzzleWorkspaceShown?'PUZZLE EDIT':'EDIT');
-    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(editorScope==='puzzle'?'Puzzle':'Environment'));
-    const session=groupSession?worldGroupEditSession:(puzzleSession?puzzleEditSession:null);
+    if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':(puzzleWorkspaceShown?'PUZZLE EDIT':(terrainWorkspaceShown?'TERRAIN EDIT':'EDIT'));
+    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(terrainWorkspaceShown?'Terrain':(editorScope==='puzzle'?'Puzzle':'Environment')));
+    const session=groupSession?worldGroupEditSession:(puzzleSession?puzzleEditSession:(terrainSession?terrainEditSession:null));
     const dirty=!!session?.dirty;
     if(editorDrawerDirtyEl)editorDrawerDirtyEl.hidden=!dirty;
     if(editorDrawerRailDirtyEl)editorDrawerRailDirtyEl.hidden=!dirty;
@@ -9881,10 +10008,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(editorRedoBtn){editorRedoBtn.disabled=!session||!editorRedoStack.length;editorRedoBtn.textContent=editorRedoStack.length?`Redo ${editorRedoStack.length}`:'Redo';}
     if(editorDiscardBtn)editorDiscardBtn.hidden=!session;
     if(editorSaveBtn){editorSaveBtn.hidden=!session;editorSaveBtn.disabled=!dirty;}
-    if(editorDoneBtn)editorDoneBtn.hidden=!!session;
+    if(editorDoneBtn)editorDoneBtn.hidden=!!session&&!terrainSession;
     if(editorScopeSwitch)editorScopeSwitch.hidden=groupSession||puzzleWorkspaceShown;
     if(worldGroupEditorEl)worldGroupEditorEl.hidden=!groupSession;
     if(puzzleWorkspaceEl)puzzleWorkspaceEl.hidden=!puzzleWorkspaceShown;
+    if(sectionPanel)sectionPanel.hidden=!terrainWorkspaceShown;
+    if(sectionBtn)sectionBtn.setAttribute('aria-expanded',String(terrainWorkspaceShown));
     setEditorDrawerCollapsed(editorDrawerCollapsed);
   }
 
@@ -11636,6 +11765,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function editorObjectIsEditable(obj) {
     if (!obj || obj.deleted) return false;
+    if (editorScope === 'terrain') return false;
     if (editorScope === 'puzzle') {
       if (!(puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId && obj.puzzleInstanceId === editorPuzzleMarkerId)) return false;
       // Management never exposes child authoring. Puzzle objects become
@@ -12584,16 +12714,25 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function setEditorScope(scope) {
-    if (scope !== 'environment' && scope !== 'puzzle') return;
+    if (scope !== 'environment' && scope !== 'terrain' && scope !== 'puzzle') return false;
     if(worldGroupEditSession&&scope!=='environment'){
       hintEl.textContent='Finish the current World Group edit with Save or Discard first';
       hintEl.classList.remove('hidden');
       setEditorDrawerCollapsed(false);
       return false;
     }
+    if(puzzleEditSession&&scope!=='puzzle'){
+      hintEl.textContent='Finish the current Puzzle edit with Save or Discard first';
+      hintEl.classList.remove('hidden');
+      setEditorDrawerCollapsed(false);
+      return false;
+    }
+    if(terrainEditSession&&scope!=='terrain'&&!requestLeaveTerrainEdit())return false;
+
     if(scope!=='puzzle')puzzleWorkspaceActive=false;
     // Environment/Puzzle is only an editor filter. It must not change whether
-    // the workshop stage is isolated or clear.
+    // the workshop stage is isolated or clear. Terrain is a first-class authoring
+    // context whose normal navigation is walking the character through the world.
     editorScope = scope;
     if (scope !== 'environment') { worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; }
     if (scope !== 'puzzle') puzzleTemplatePlaceMode=false;
@@ -12604,6 +12743,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     selectionTapCycle = null;
     addAssetType = null;
     updatePlacementModeUi();
+
     if (scope === 'puzzle') {
       // Scene-first authoring: Puzzle Templates are placed explicitly from the
       // shared right-side picker. The main Puzzle screen always represents the
@@ -12611,11 +12751,23 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleBrowserMode='scene';
       if (editorPuzzleMarkerId && !scenePuzzleMarkers().some(marker => marker.id === editorPuzzleMarkerId)) editorPuzzleMarkerId=null;
       populatePuzzleSelector();
+    } else if(scope==='terrain') {
+      if(!beginTerrainEditSession())return false;
+      setAssetPaletteOpen(false);
+      setQuickNavOpen(false);
+      terrainSectionGuidesVisible=true;
+      if(terrainFollowPlayer)terrainSelectedSectionIndex=terrainSectionIndexAt(character?.x??camera.x);
+      hintEl.textContent='TERRAIN EDIT · walk to move between sections · Follow Player selects the section under the character';
+      hintEl.classList.remove('hidden');
     }
+
+    if(playControls)playControls.hidden=!!(editMode&&scope!=='terrain');
+    if(secondaryControls)secondaryControls.hidden=!!editMode;
     buildAssetPalette();
     updatePuzzlePanel();
     updateEditorButtons();
     updateEditorDrawerUi();
+    updateTerrainSectionUi(true);
     return true;
   }
 
@@ -13128,7 +13280,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const placing = placementModeActive();
     const groupMemberSelected=!!(worldGroupEditSession&&worldGroupEditorTab==='contents'&&selectedWorldGroupMember());
     const groupNodeSelected=!!(groupMemberSelected&&(selectedIsThoughtTrigger()||selectedIsCameraTrigger()));
-    if (editorControls) editorControls.hidden = !editMode || placing || (!!worldGroupEditSession&&!groupMemberSelected);
+    if (editorControls) editorControls.hidden = !editMode || editorScope==='terrain' || placing || (!!worldGroupEditSession&&!groupMemberSelected);
     if (openAssetsBtn) {
       const puzzleInstanceReady = editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId;
       openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || !puzzleInstanceReady;
@@ -13259,6 +13411,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       puzzleLegacyBridgeEl.hidden = !testing;
       puzzleLegacyBridgeEl.setAttribute('aria-hidden', String(!testing));
     }
+    const terrainEditing = !testing && editorScope === 'terrain';
     const puzzleEditing = testing || editorScope === 'puzzle';
     const libraryMode = !testing && puzzleEditing && puzzleBrowserMode === 'library';
     const sceneMode = !testing && puzzleEditing && puzzleBrowserMode === 'scene';
@@ -13272,12 +13425,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
     if (editorScopeSwitch) editorScopeSwitch.hidden = testing;
     environmentScopeBtn?.classList.toggle('active', !testing && editorScope === 'environment');
+    terrainScopeBtn?.classList.toggle('active', terrainEditing);
     puzzleScopeBtn?.classList.toggle('active', testing || editorScope === 'puzzle');
     if (puzzleSourceSwitch) puzzleSourceSwitch.hidden = true;
     puzzleSourceLibraryBtn?.classList.toggle('active', !testing && libraryMode);
     puzzleSourceSceneBtn?.classList.toggle('active', !testing && sceneMode);
 
     if (environmentSelectionEl) environmentSelectionEl.hidden = testing || editorScope !== 'environment';
+    if (sectionPanel) sectionPanel.hidden = !terrainEditing;
+    if (terrainEditing) updateTerrainSectionUi(true);
     if (!testing && editorScope === 'environment') renderEnvironmentSelectionTools();
     if (puzzleLibraryView) puzzleLibraryView.hidden = true;
     if (puzzleSceneView) puzzleSceneView.hidden = testing || editorScope!=='puzzle';
@@ -13669,6 +13825,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       requestLeavePuzzleEdit();
     }
+    if(!on&&terrainEditSession){
+      if(!requestLeaveTerrainEdit())return false;
+    }
     if (on) setInventoryOpen(false);
     if (on && !editorPuzzlePackPinned) { ensurePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = true; }
     if (!on && editorPuzzlePackPinned) { releasePuzzleAssetPack('woodland-puzzle-atlas-v1'); editorPuzzlePackPinned = false; }
@@ -13679,7 +13838,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     if (on && carriedObject) dropCarriedImmediate();
     if(!on&&!puzzleTestMode)puzzleWorkspaceActive=false;
-    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; puzzleTemplatePlaceMode=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; setQuickNavOpen(false); }
+    if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; puzzleTemplatePlaceMode=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; document.body.classList.remove('sidescroll-terrain-editing'); setQuickNavOpen(false); }
     editMode = !!on;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
@@ -13688,7 +13847,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       editBtn.setAttribute('aria-pressed', String(editMode));
       editBtn.textContent = puzzleTestMode ? 'Setup' : 'Edit';
     }
-    if (playControls) playControls.hidden = editMode;
+    if (playControls) playControls.hidden = !!(editMode&&editorScope!=='terrain');
     if (secondaryControls) secondaryControls.hidden = editMode;
     if (editorControls) editorControls.hidden = true;
     if (!editMode) {
@@ -14906,7 +15065,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (collisionDebugView) drawCollisionDebugOverlay(ctx);
     drawPlayerInteractionHints(ctx);
     drawTerrainSectionOverlay(ctx);
-    if (!editMode) return;
+    if (!editMode || editorScope==='terrain') return;
     drawWorldGroupGuides(ctx);
     drawPuzzleEditorGuides(ctx);
     drawAuthoredSockets(ctx);
@@ -17451,7 +17610,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
-    const rawAxis = (introLocked || editMode || inventoryOpen || interactionState || autoDropStep || climbState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
+    const terrainWalkEdit=!!(editMode&&editorScope==='terrain'&&terrainEditSession);
+    const rawAxis = (introLocked || (editMode&&!terrainWalkEdit) || inventoryOpen || interactionState || autoDropStep || climbState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
     const axisMag = Math.abs(rawAxis);
     const moveDir = axisMag > DRIVE_DEADZONE ? Math.sign(rawAxis) : 0;
 
@@ -17784,6 +17944,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   function updateTerrainSectionUi(force = false) {
     const currentIndex = terrainSectionIndexAt(character?.x ?? camera.x);
+    const followActive=!!(terrainFollowPlayer&&editMode&&editorScope==='terrain'&&terrainEditSession);
+    if(followActive&&terrainSelectedSectionIndex!==currentIndex)terrainSelectedSectionIndex=currentIndex;
     if (!force && terrainLastUiCurrentIndex === currentIndex && sectionPanel?.hidden) return;
     terrainLastUiCurrentIndex = currentIndex;
     if (sectionCurrentEl) sectionCurrentEl.textContent = terrainSectionLabel(currentIndex);
@@ -17843,31 +18005,39 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       sectionGuidesBtn.setAttribute('aria-pressed', String(terrainSectionGuidesVisible));
     }
     if (sectionGuidesPersistInput) sectionGuidesPersistInput.checked = terrainSectionGuidesPersist;
+    if(sectionFollowPlayerBtn){
+      sectionFollowPlayerBtn.classList.toggle('active',!!terrainFollowPlayer);
+      sectionFollowPlayerBtn.setAttribute('aria-pressed',String(!!terrainFollowPlayer));
+      sectionFollowPlayerBtn.textContent=terrainFollowPlayer?'Follow Player ON':'Follow Player OFF';
+    }
   }
-  function selectTerrainSection(index) {
+  function selectTerrainSection(index,{manual=false}={}) {
+    if(manual)terrainFollowPlayer=false;
     terrainSelectedSectionIndex = Math.trunc(Number(index) || 0);
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
   }
   function setTerrainSectionPanelOpen(open) {
-    if (!sectionPanel || !sectionBtn) return;
+    if (!sectionPanel || !sectionBtn) return false;
     const next = !!open;
-    sectionPanel.hidden = !next;
-    sectionBtn.setAttribute('aria-expanded', String(next));
-    if (next) {
+    if(next){
       setStageMenuOpen(false);
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);
       setSoundPanelOpen?.(false);
       setInventoryOpen?.(false);
-      if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
-      if (!terrainSectionGuidesVisible) terrainSectionGuidesVisible = true;
-      selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x));
-    } else if (!terrainSectionGuidesPersist) {
-      terrainSectionGuidesVisible = false;
+      if(cameraEditMode){cameraEditMode=false;updateCameraEditorUi();}
+      if(!editMode&&!setEditMode(true))return false;
+      if(!setEditorScope('terrain'))return false;
+      terrainSectionGuidesVisible=true;
+      updateTerrainSectionUi(true);
+      return true;
     }
-    saveTerrainSectionState();
-    updateTerrainSectionUi(true);
+    if(editMode&&editorScope==='terrain'){
+      if(!setEditorScope('environment'))return false;
+    }
+    sectionBtn.setAttribute('aria-expanded','false');
+    return true;
   }
 
   function setStageMenuOpen(open) {
@@ -17878,7 +18048,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     stageMenuBtn.classList.toggle('active', next);
     if (next) {
       if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
-      if (sectionPanel && !sectionPanel.hidden) setTerrainSectionPanelOpen(false);
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);
       setSoundPanelOpen?.(false);
@@ -18066,6 +18235,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     setEditMode(false);
   });
   bindEditorPress(environmentScopeBtn, () => setEditorScope('environment'));
+  bindEditorPress(terrainScopeBtn, () => setEditorScope('terrain'));
   bindEditorPress(puzzleScopeBtn, () => setEditorScope('puzzle'));
   bindEditorPress(puzzleSourceLibraryBtn, () => setPuzzleBrowserMode('library'));
   bindEditorPress(puzzleSourceSceneBtn, () => setPuzzleBrowserMode('scene'));
@@ -18394,8 +18564,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorDrawerSwipeSurface(editorDrawerRailBtn,{collapsedSurface:true});
   bindEditorPress(editorUndoBtn,undoEditorTransaction);
   bindEditorPress(editorRedoBtn,redoEditorTransaction);
-  bindEditorPress(editorDiscardBtn,()=>worldGroupEditSession?discardWorldGroupEditSession():(puzzleEditSession?discardPuzzleEditSession():false));
-  bindEditorPress(editorSaveBtn,()=>worldGroupEditSession?saveWorldGroupEditSession():(puzzleEditSession?savePuzzleEditSession():false));
+  bindEditorPress(editorDiscardBtn,()=>worldGroupEditSession?discardWorldGroupEditSession():(puzzleEditSession?discardPuzzleEditSession():(terrainEditSession?discardTerrainEditSession():false)));
+  bindEditorPress(editorSaveBtn,()=>worldGroupEditSession?saveWorldGroupEditSession():(puzzleEditSession?savePuzzleEditSession():(terrainEditSession?saveTerrainEditSession():false)));
   window.addEventListener('pagehide',()=>{if(puzzleEditSession)writePuzzleEditRecovery();},{capture:false});
 
   if(worldGroupNameInput){
@@ -18761,9 +18931,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
   });
-  bindEditorPress(sectionPrevBtn, () => selectTerrainSection(terrainSelectedSectionIndex - 1));
-  bindEditorPress(sectionNextBtn, () => selectTerrainSection(terrainSelectedSectionIndex + 1));
-  bindEditorPress(sectionPlayerBtn, () => selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x)));
+  bindEditorPress(sectionFollowPlayerBtn, () => {
+    terrainFollowPlayer = !terrainFollowPlayer;
+    if (terrainFollowPlayer) selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x));
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  });
+  bindEditorPress(sectionPrevBtn, () => selectTerrainSection(terrainSelectedSectionIndex - 1, { manual:true }));
+  bindEditorPress(sectionNextBtn, () => selectTerrainSection(terrainSelectedSectionIndex + 1, { manual:true }));
+  bindEditorPress(sectionPlayerBtn, () => {
+    terrainFollowPlayer = true;
+    selectTerrainSection(terrainSectionIndexAt(character?.x ?? camera.x));
+    saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+  });
   sectionHeightLinkInput?.addEventListener('change', () => {
     terrainHeightLinkSubsequent = !!sectionHeightLinkInput.checked;
     saveTerrainSectionState();
@@ -18771,37 +18952,46 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   });
   for (const layerId of TERRAIN_DEPTH_LAYER_IDS) {
     const control = sectionLayerControls[layerId];
-    const applyLayerSliderValue = (save = false) => {
+    const applyLayerSliderValue = () => {
       if (!control?.value) return;
       const anchors = terrainHeightBoundObjectAnchors();
       const info = terrainLayerModeInfo(terrainSelectedSectionIndex, layerId);
       if (info.mode === 'explicit') setTerrainLayerExplicitHeight(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
       else setTerrainLayerOffset(terrainSelectedSectionIndex, layerId, Number(control.value.value), { save:false });
       restoreTerrainHeightBoundObjectAnchors(anchors);
-      if (save) saveTerrainSectionState();
       updateTerrainSectionUi(true);
     };
     control?.mode?.addEventListener('change', () => {
-      const anchors = terrainHeightBoundObjectAnchors();
-      setTerrainLayerMode(terrainSelectedSectionIndex, layerId, control.mode.value, { save:false });
-      restoreTerrainHeightBoundObjectAnchors(anchors);
-      saveTerrainSectionState();
-      updateTerrainSectionUi(true);
+      runEditorTransaction(`Change ${layerId} strip mode`, () => {
+        const anchors = terrainHeightBoundObjectAnchors();
+        setTerrainLayerMode(terrainSelectedSectionIndex, layerId, control.mode.value, { save:false });
+        restoreTerrainHeightBoundObjectAnchors(anchors);
+        updateTerrainSectionUi(true);
+      });
     });
-    control?.value?.addEventListener('input', () => applyLayerSliderValue(false));
+    control?.value?.addEventListener('pointerdown', () => beginEditorTransaction(`Adjust ${layerId} strip`));
+    control?.value?.addEventListener('input', () => {
+      if (terrainEditSession && !editorTransaction) beginEditorTransaction(`Adjust ${layerId} strip`);
+      applyLayerSliderValue();
+    });
     control?.value?.addEventListener('change', () => {
-      applyLayerSliderValue(false);
-      saveTerrainSectionState();
+      applyLayerSliderValue();
+      if (editorTransaction) commitEditorTransaction();
+      else recordImplicitEditorMutation(`Adjust ${layerId} strip`);
       updateTerrainSectionUi(true);
     });
+    control?.value?.addEventListener('pointerup', () => { if (editorTransaction) commitEditorTransaction(); });
+    control?.value?.addEventListener('pointercancel', () => { if (editorTransaction) commitEditorTransaction(); });
   }
   const commitSelectedSectionHeight = value => {
-    const changed = setTerrainSectionPathHeight(terrainSelectedSectionIndex, Number(value), { linkSubsequent:terrainHeightLinkSubsequent });
-    if (changed) {
-      const h = terrainSectionPathHeight(terrainSelectedSectionIndex);
-      hintEl.textContent = `Section ${terrainSelectedSectionIndex} path height ${h >= 0 ? '+' : ''}${h.toFixed(1)} m${terrainHeightLinkSubsequent ? ' · later sections shifted' : ''}`;
-      hintEl.classList.remove('hidden');
-    }
+    runEditorTransaction('Adjust path height', () => {
+      const changed = setTerrainSectionPathHeight(terrainSelectedSectionIndex, Number(value), { linkSubsequent:terrainHeightLinkSubsequent });
+      if (changed) {
+        const h = terrainSectionPathHeight(terrainSelectedSectionIndex);
+        hintEl.textContent = `Section ${terrainSelectedSectionIndex} path height ${h >= 0 ? '+' : ''}${h.toFixed(1)} m${terrainHeightLinkSubsequent ? ' · later sections shifted' : ''}`;
+        hintEl.classList.remove('hidden');
+      }
+    });
   };
   function isResettableProceduralObject(obj){
     return !!(obj && !obj.userAdded && !obj.puzzleInstanceId && obj.category==='dressing' && obj.biomeProceduralOwner);
@@ -18836,6 +19026,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function confirmAndResetProceduralSection(){
+    if(terrainEditSession?.dirty){
+      hintEl.textContent='Save or Discard Terrain changes before rebuilding procedural placement';
+      hintEl.classList.remove('hidden');
+      setEditorDrawerCollapsed(false);
+      return;
+    }
     const i=terrainSelectedSectionIndex;
     if(!window.confirm(`Reset all procedural placement changes in Section ${i}? Moved/deleted biome trees, grass and rocks in this section will return to their deterministic positions. Manual assets, groups, puzzles and terrain are not changed.`))return;
     const count=resetProceduralPlacementChanges({sectionIndex:i});
@@ -18851,6 +19047,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function confirmAndResetAllProcedural(){
+    if(terrainEditSession?.dirty){
+      hintEl.textContent='Save or Discard Terrain changes before rebuilding procedural placement';
+      hintEl.classList.remove('hidden');
+      setEditorDrawerCollapsed(false);
+      return;
+    }
     if(!window.confirm('Reset procedural placement changes in ALL sections? This restores moved/deleted biome trees, grass and rocks everywhere. Manual assets, World Groups, puzzles and terrain settings are not changed.'))return;
     const count=resetProceduralPlacementChanges({sectionIndex:null});
     if(!count){
@@ -18869,13 +19071,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(sectionHeightDownBtn, () => commitSelectedSectionHeight(terrainSectionPathHeight(terrainSelectedSectionIndex) - 0.25));
   bindEditorPress(sectionHeightUpBtn, () => commitSelectedSectionHeight(terrainSectionPathHeight(terrainSelectedSectionIndex) + 0.25));
   sectionTypeSelect?.addEventListener('change', () => {
-    setTerrainSectionType(terrainSelectedSectionIndex, sectionTypeSelect.value);
+    runEditorTransaction('Change terrain section type', () => setTerrainSectionType(terrainSelectedSectionIndex, sectionTypeSelect.value));
     hintEl.textContent = `Section ${terrainSelectedSectionIndex} → ${terrainSectionTypeLabel(terrainSelectedSectionIndex)}`;
     hintEl.classList.remove('hidden');
   });
   bindEditorPress(sectionCollisionBtn, () => {
     const next = !terrainSectionCollisionEnabled(terrainSelectedSectionIndex);
-    setTerrainSectionCollisionEnabled(terrainSelectedSectionIndex, next);
+    runEditorTransaction('Toggle terrain collision', () => setTerrainSectionCollisionEnabled(terrainSelectedSectionIndex, next));
     hintEl.textContent = next
       ? `Section ${terrainSelectedSectionIndex} terrain collision enabled`
       : `Section ${terrainSelectedSectionIndex} terrain collision disabled · support objects now define the walk surface`;
@@ -18885,20 +19087,24 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (sectionRiverWidthValue) sectionRiverWidthValue.textContent = `${Number(sectionRiverWidthInput.value).toFixed(1)} m`;
   });
   sectionRiverWidthInput?.addEventListener('change', () => {
-    setTerrainSectionRiverWidth(terrainSelectedSectionIndex, Number(sectionRiverWidthInput.value));
+    runEditorTransaction('Adjust legacy river width', () => setTerrainSectionRiverWidth(terrainSelectedSectionIndex, Number(sectionRiverWidthInput.value)));
     hintEl.textContent = `River width · ${riverSectionSettings(terrainSelectedSectionIndex).width.toFixed(1)} m`;
     hintEl.classList.remove('hidden');
   });
   bindEditorPress(sectionVisibleBtn, () => {
     const i = terrainSelectedSectionIndex;
-    if (terrainHiddenSections.has(i)) terrainHiddenSections.delete(i); else terrainHiddenSections.add(i);
-    saveTerrainSectionState();
-    updateTerrainSectionUi(true);
+    runEditorTransaction('Toggle terrain section visibility', () => {
+      if (terrainHiddenSections.has(i)) terrainHiddenSections.delete(i); else terrainHiddenSections.add(i);
+      saveTerrainSectionState();
+      updateTerrainSectionUi(true);
+    });
   });
   bindEditorPress(sectionResetBtn, () => {
-    terrainHiddenSections.clear();
-    saveTerrainSectionState();
-    updateTerrainSectionUi(true);
+    runEditorTransaction('Show all terrain sections', () => {
+      terrainHiddenSections.clear();
+      saveTerrainSectionState();
+      updateTerrainSectionUi(true);
+    });
   });
   bindEditorPress(sectionResetProceduralBtn, confirmAndResetProceduralSection);
   bindEditorPress(sectionResetProceduralAllBtn, confirmAndResetAllProcedural);
@@ -18924,7 +19130,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   });
   updateTerrainSectionUi(true);
   bindEditorPress(cameraEditorBtn, () => {
-    cameraEditMode = !cameraEditMode;
+    const nextCameraEditMode = !cameraEditMode;
+    if (nextCameraEditMode && editorScope === 'terrain' && !setEditorScope('environment')) return;
+    cameraEditMode = nextCameraEditMode;
     if (cameraEditMode) {
       setStageMenuOpen(false);
       setTerrainSectionPanelOpen(false);
