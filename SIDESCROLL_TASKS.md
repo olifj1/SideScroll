@@ -1,5 +1,20 @@
 # SideScroll Development Tasks
 
+## October 10, 2026 — v1.0.137 Terrain Edit Stage 2 depth-shape controls
+
+**Stage 2 status:** the hidden far-depth simplification is now an explicit authored master control and the selected Section can progressively flatten all depth strips toward its Path height. Existing v1.0.136 terrain data migrates visually unchanged because missing `depthDetailFalloff` defaults to `100%`, which reproduces the previous Far A/Far B behaviour exactly.
+
+- [x] Add one master **Depth Detail Falloff** control. `100%` reproduces the old Far A/Far B averaging/follow values; `0%` makes Linked depth strips retain the authored Path profile before their normal offsets.
+- [x] Persist/migrate the falloff setting and include it in Terrain Save/Discard/Undo/Redo snapshots.
+- [x] Add selected-Section **Flatten Depth Toward Path** actions at 25 / 50 / 75 / 100%. Each action moves Near/Far A/Far B from their current resolved heights toward Path while preserving whether each strip is Linked or Explicit.
+- [x] Keep flattening compatible with the existing sparse/inherited depth-layer data model: a new key is authored at the selected Section using the strip's current mode.
+- [x] Preserve terrain-bound object floor offsets while falloff or flattening changes the supporting terrain.
+- [x] Make one falloff drag or one flatten press a single shared-history transaction.
+- [ ] iPhone regression: compare Depth Detail Falloff at 100% against v1.0.136 and confirm the terrain silhouette is unchanged.
+- [ ] iPhone regression: reduce falloff toward 0% and confirm Far A/Far B increasingly retain the Path profile rather than losing smaller rises/falls.
+- [ ] iPhone regression: exercise 25/50/75/100 flattening on Linked and Explicit depth strips and verify the selected Section moves toward Path without changing strip mode.
+- [ ] iPhone regression: verify Undo/Redo, Save/Discard and reload persistence for falloff and flattening, including terrain-bound dressing/support offsets.
+
 ## October 9, 2026 — v1.0.136 Terrain Edit foundation and staged terrain-authoring plan
 
 **Feature direction:** Terrain is a first-class authoring context rather than a standalone settings/debug popup. The existing fixed 10 m Sections remain the base structural ground units, but Terrain Edit becomes the in-world authoring workspace for them. The normal fast workflow is **Follow Player**: the character remains centred as usual, walking stays available, and the active Section automatically follows the Section the character occupies. Manual previous/next selection remains available and temporarily locks the active Section until Follow Player is re-enabled.
@@ -30,12 +45,12 @@
 - [ ] iPhone regression: verify Terrain Edit cannot accidentally select/move environment objects, Puzzles or Groups, and Done/Camera/tool switching refuses to abandon unsaved Terrain changes.
 - [ ] iPhone regression: verify existing River/Test Hill/visibility/collision controls still produce the same underlying terrain behaviour as v1.0.135.
 
-### Stage 2 — depth-shape controls
+### Stage 2 — depth-shape controls — IMPLEMENTED IN v1.0.137
 
-- [ ] Expose the existing **depth detail falloff/smoothing strength** so the far strips can retain more of the authored path profile when desired. `0` should mean minimal/no detail reduction; preserve current behaviour as a known/default migrated value until visually retuned.
-- [ ] Start with one clear master strength if possible; only split Near / Mid / Far controls if real use shows one slider is too blunt.
-- [ ] Add **Flatten Depth Toward Path** as a reversible operation, allowing near/far strip heights to move toward the path height in useful increments (for example 25 / 50 / 75 / 100%).
-- [ ] Make falloff and flatten operations shared-history transactions and preserve terrain-bound object support offsets correctly.
+- [x] Expose the existing **depth detail falloff/smoothing strength** so the far strips can retain more of the authored path profile when desired. `0` means no legacy detail reduction; `100%` preserves the pre-v1.0.137 behaviour exactly.
+- [x] Start with one clear master strength; only split Near / Mid / Far controls if real use shows one slider is too blunt.
+- [x] Add **Flatten Depth Toward Path** as a reversible selected-Section operation at 25 / 50 / 75 / 100%.
+- [x] Make falloff and flatten operations shared-history transactions and preserve terrain-bound object support offsets correctly.
 
 ### Stage 3 — Terrain Surface Regions and texture blending
 

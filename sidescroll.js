@@ -388,6 +388,9 @@
     farA:{ mode:document.getElementById('sidescroll-section-layer-far-a-mode'), value:document.getElementById('sidescroll-section-layer-far-a-value'), summary:document.getElementById('sidescroll-section-layer-far-a-summary') },
     farB:{ mode:document.getElementById('sidescroll-section-layer-far-b-mode'), value:document.getElementById('sidescroll-section-layer-far-b-value'), summary:document.getElementById('sidescroll-section-layer-far-b-summary') }
   };
+  const sectionDepthFalloffInput = document.getElementById('sidescroll-section-depth-falloff');
+  const sectionDepthFalloffValue = document.getElementById('sidescroll-section-depth-falloff-value');
+  const sectionFlattenDepthBtns = [...document.querySelectorAll('[data-terrain-flatten-depth]')];
   const sectionVisibleBtn = document.getElementById('sidescroll-section-visible');
   const sectionTypeSelect = document.getElementById('sidescroll-section-type');
   const sectionRiverWidthRow = document.getElementById('sidescroll-section-river-width-row');
@@ -2521,6 +2524,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let terrainSectionSettings = new Map();
   let terrainSectionHeights = new Map();
   let terrainDepthLayerSettings = {};
+  // Stage 2 master control for the legacy depth-detail reduction. 1.0 exactly
+  // preserves the pre-v1.0.137 Far A/Far B behaviour; 0.0 keeps linked depth
+  // layers on the authored Path profile (before their authored offsets).
+  let terrainDepthDetailFalloff = 1;
   let terrainResolvedHeightCache = new Map();
   let terrainHeightLinkSubsequent = true;
   let terrainFollowPlayer = true;
@@ -2593,9 +2600,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     return terrainSparseNumberAt(terrainDepthLayerSettings?.[layerId]?.offsets, index, 0, -40, 40);
   }
 
-  function terrainLayerDerivedSectionHeight(index, layerId) {
+  function terrainLayerDerivedBaseHeight(index, layerId) {
     const layer = TERRAIN_DEPTH_LAYERS[layerId] || TERRAIN_DEPTH_LAYERS.path;
-    if (layer.id === 'path') return terrainSectionPathHeight(index);
+    const pathHeight = terrainSectionPathHeight(index);
+    if (layer.id === 'path') return pathHeight;
     let weighted = 0;
     let weightTotal = 0;
     const radius = Math.max(0, Math.trunc(layer.radius || 0));
@@ -2604,8 +2612,60 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       weighted += terrainSectionPathHeight(index + d) * weight;
       weightTotal += weight;
     }
-    const base = (weightTotal ? weighted / weightTotal : terrainSectionPathHeight(index)) * (Number(layer.follow) || 1);
-    return base + terrainLayerOffsetAt(index, layerId);
+    // Legacy behaviour progressively averages and attenuates the authored Path
+    // profile with depth. The master falloff blends between the untouched Path
+    // profile (0) and that exact legacy result (1), so existing projects retain
+    // their current look until the author deliberately changes the control.
+    const legacyBase = (weightTotal ? weighted / weightTotal : pathHeight) * (Number(layer.follow) || 1);
+    return Rig.lerp(pathHeight, legacyBase, Rig.clamp(Number(terrainDepthDetailFalloff) || 0, 0, 1));
+  }
+
+  function terrainLayerDerivedSectionHeight(index, layerId) {
+    return terrainLayerDerivedBaseHeight(index, layerId) + terrainLayerOffsetAt(index, layerId);
+  }
+
+  function setTerrainDepthDetailFalloff(value, { save = true, anchors = null } = {}) {
+    const next = Rig.clamp(Number(value) || 0, 0, 1);
+    if (Math.abs(next - terrainDepthDetailFalloff) < 0.0001) { updateTerrainSectionUi(true); return false; }
+    const supportAnchors = anchors || terrainHeightBoundObjectAnchors();
+    terrainDepthDetailFalloff = next;
+    invalidateTerrainHeightCache();
+    invalidateTerrainElevationMeshes();
+    restoreTerrainHeightBoundObjectAnchors(supportAnchors);
+    if (save) saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+    return true;
+  }
+
+  function flattenTerrainDepthLayersTowardPath(index, amount, { save = true } = {}) {
+    const i = Math.trunc(Number(index) || 0);
+    const fraction = Rig.clamp(Number(amount) || 0, 0, 1);
+    if (fraction <= 0) return false;
+    terrainDepthLayerSettings = normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings);
+    const pathHeight = terrainSectionPathHeight(i);
+    const anchors = terrainHeightBoundObjectAnchors();
+    let changed = false;
+    for (const layerId of TERRAIN_DEPTH_LAYER_IDS) {
+      const layer = terrainDepthLayerSettings[layerId];
+      const info = terrainLayerModeInfo(i, layerId);
+      const current = terrainLayerSectionHeight(i, layerId);
+      const target = Rig.lerp(current, pathHeight, fraction);
+      if (Math.abs(target - current) < 0.0001) continue;
+      if (info.mode === 'explicit') {
+        layer.heights[String(i)] = Number(Rig.clamp(target, -80, 100).toFixed(3));
+      } else {
+        const base = terrainLayerDerivedBaseHeight(i, layerId);
+        layer.offsets[String(i)] = Number(Rig.clamp(target - base, -40, 40).toFixed(3));
+      }
+      changed = true;
+    }
+    if (!changed) { restoreTerrainHeightBoundObjectAnchors(anchors); updateTerrainSectionUi(true); return false; }
+    invalidateTerrainHeightCache();
+    invalidateTerrainElevationMeshes();
+    restoreTerrainHeightBoundObjectAnchors(anchors);
+    if (save) saveTerrainSectionState();
+    updateTerrainSectionUi(true);
+    return true;
   }
 
   function terrainLayerExplicitSectionHeight(index, layerId, modeStart) {
@@ -2995,6 +3055,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       terrainSectionSettings = new Map();
       terrainSectionHeights = new Map();
       terrainDepthLayerSettings = normaliseTerrainDepthLayerSettings(saved.layers);
+      terrainDepthDetailFalloff = Number.isFinite(Number(saved.depthDetailFalloff))
+        ? Rig.clamp(Number(saved.depthDetailFalloff), 0, 1)
+        : 1; // migration: missing means preserve the legacy pre-v1.0.137 look
       terrainHeightLinkSubsequent = saved.linkSubsequent !== false;
       terrainFollowPlayer = saved.followPlayer !== false;
       if (saved.heights && typeof saved.heights === 'object') {
@@ -3040,6 +3103,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
         followPlayer:!!terrainFollowPlayer,
         heights:Object.fromEntries([...terrainSectionHeights.entries()].sort((a,b)=>a[0]-b[0]).map(([i,h])=>[String(i),Number(h.toFixed(3))])),
         layers:normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings),
+        depthDetailFalloff:Number(terrainDepthDetailFalloff.toFixed(3)),
         types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
         settings:Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0]))
       }));
@@ -9570,6 +9634,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       collisionDisabled:[...terrainCollisionDisabledSections].sort((a,b)=>a-b),
       heights:Object.fromEntries([...terrainSectionHeights.entries()].sort((a,b)=>a[0]-b[0]).map(([i,h])=>[String(i),Number(h.toFixed(3))])),
       layers:deepCopy(normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings)),
+      depthDetailFalloff:Number(terrainDepthDetailFalloff.toFixed(3)),
       types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
       settings:deepCopy(Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0])))
     };
@@ -9593,6 +9658,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       if(Number.isFinite(i)&&Number.isFinite(h))terrainSectionHeights.set(Math.trunc(i),Rig.clamp(h,-50,80));
     }
     terrainDepthLayerSettings=normaliseTerrainDepthLayerSettings(deepCopy(snapshot.layers||{}));
+    terrainDepthDetailFalloff=Number.isFinite(Number(snapshot.depthDetailFalloff))
+      ? Rig.clamp(Number(snapshot.depthDetailFalloff),0,1)
+      : 1;
     terrainSectionTypes=new Map();
     for(const [key,value] of Object.entries(snapshot.types||{})){
       const i=Number(key);
@@ -17982,6 +18050,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         ? `Explicit · height ${resolved >= 0 ? '+' : ''}${resolved.toFixed(1)} m`
         : `Linked · offset ${offset >= 0 ? '+' : ''}${offset.toFixed(1)} m · resolved ${resolved >= 0 ? '+' : ''}${resolved.toFixed(1)} m`;
     }
+    const falloffPercent = Math.round(Rig.clamp(Number(terrainDepthDetailFalloff) || 0, 0, 1) * 100);
+    if (sectionDepthFalloffInput && document.activeElement !== sectionDepthFalloffInput) sectionDepthFalloffInput.value = String(falloffPercent);
+    if (sectionDepthFalloffValue) sectionDepthFalloffValue.textContent = `${falloffPercent}%`;
     if (sectionTypeSelect) sectionTypeSelect.value = selectedType;
     if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
@@ -18950,6 +19021,45 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
   });
+  let terrainDepthFalloffGestureAnchors = null;
+  const applyDepthDetailFalloff = () => {
+    if (!sectionDepthFalloffInput) return;
+    setTerrainDepthDetailFalloff((Number(sectionDepthFalloffInput.value) || 0) / 100, { save:false, anchors:terrainDepthFalloffGestureAnchors });
+  };
+  sectionDepthFalloffInput?.addEventListener('pointerdown', () => {
+    terrainDepthFalloffGestureAnchors = terrainHeightBoundObjectAnchors();
+    beginEditorTransaction('Adjust depth detail falloff');
+  });
+  sectionDepthFalloffInput?.addEventListener('input', () => {
+    if (terrainEditSession && !editorTransaction) beginEditorTransaction('Adjust depth detail falloff');
+    applyDepthDetailFalloff();
+  });
+  const finishDepthDetailFalloffGesture = () => {
+    if (editorTransaction) commitEditorTransaction();
+    terrainDepthFalloffGestureAnchors = null;
+  };
+  sectionDepthFalloffInput?.addEventListener('change', () => {
+    applyDepthDetailFalloff();
+    if (editorTransaction) commitEditorTransaction();
+    else recordImplicitEditorMutation('Adjust depth detail falloff');
+    terrainDepthFalloffGestureAnchors = null;
+    updateTerrainSectionUi(true);
+  });
+  sectionDepthFalloffInput?.addEventListener('pointerup', finishDepthDetailFalloffGesture);
+  sectionDepthFalloffInput?.addEventListener('pointercancel', finishDepthDetailFalloffGesture);
+  for (const button of sectionFlattenDepthBtns) {
+    bindEditorPress(button, () => {
+      const fraction = Rig.clamp(Number(button.dataset.terrainFlattenDepth) || 0, 0, 1);
+      if (!fraction) return;
+      const label = fraction >= 0.999 ? 'Flatten depth strips to path' : `Flatten depth strips ${Math.round(fraction * 100)}% toward path`;
+      const changed = runEditorTransaction(label, () => flattenTerrainDepthLayersTowardPath(terrainSelectedSectionIndex, fraction, { save:false }));
+      const amountLabel = fraction >= 0.999 ? 'flat to Path' : `${Math.round(fraction * 100)}% toward Path`;
+      hintEl.textContent = changed
+        ? `Section ${terrainSelectedSectionIndex} depth strips · ${amountLabel}`
+        : `Section ${terrainSelectedSectionIndex} depth strips already at Path height`;
+      hintEl.classList.remove('hidden');
+    });
+  }
   for (const layerId of TERRAIN_DEPTH_LAYER_IDS) {
     const control = sectionLayerControls[layerId];
     const applyLayerSliderValue = () => {

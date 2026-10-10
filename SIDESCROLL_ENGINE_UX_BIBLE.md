@@ -726,6 +726,10 @@ Do not make numbered Sections into Templates, and do not move a numbered Section
 
 The existing depth "smoothing" behaviour is specifically **depth detail falloff across the near/mid/far strips**: farther strips receive progressively less small-scale vertical variation. It is not interpolation/smoothing between neighbouring Sections. This effect must be explicit and author-controllable rather than treated as an invisible aesthetic rule.
 
+The Stage 2 control is one global **Depth Detail Falloff** master. `100%` reproduces the historical Far A/Far B averaging and follow attenuation exactly; `0%` keeps Linked depth layers on the authored Path profile before their authored offsets. Missing legacy data migrates to `100%` so loading an older scene cannot silently change its terrain silhouette. Split per-layer controls should only be added if real authoring proves the master control insufficient.
+
+**Flatten Depth Toward Path** is a Section-local authoring operation, not another smoothing algorithm. It moves the selected Section's Near/Far A/Far B resolved heights part-way toward the Path height while retaining each strip's existing Linked/Explicit mode. It must be reversible through shared history and must preserve the support offsets of terrain-bound authored objects.
+
 ### 17.6 Terrain Surface Regions are continuous world-space data
 
 Ground texture/material transitions must not be constrained to 10 m Section boundaries. Terrain Surface Regions should use the same broad spatial grammar as Biome Regions/Transitions: explicit world-space ranges with an authored blend span between surface A and surface B.

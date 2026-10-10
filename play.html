@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.136">
+  <link rel="stylesheet" href="style.css?v=1.0.137">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -245,6 +245,15 @@
               <details class="sidescroll-section-depth-layers">
                 <summary>DEPTH LAYERS</summary>
                 <p>Linked uses an offset from Path. Explicit holds its own world height from this section onward until linked again.</p>
+                <div class="sidescroll-terrain-depth-falloff">
+                  <label for="sidescroll-section-depth-falloff"><span>DEPTH DETAIL FALLOFF <b id="sidescroll-section-depth-falloff-value">100%</b></span><input id="sidescroll-section-depth-falloff" type="range" min="0" max="100" step="5" value="100"></label>
+                  <small>Global. 100% preserves the previous Far A/Far B smoothing; 0% keeps linked depth strips on the authored Path profile.</small>
+                </div>
+                <div class="sidescroll-terrain-flatten-depth">
+                  <strong>FLATTEN DEPTH TOWARD PATH</strong>
+                  <div><button type="button" data-terrain-flatten-depth="0.25">25%</button><button type="button" data-terrain-flatten-depth="0.5">50%</button><button type="button" data-terrain-flatten-depth="0.75">75%</button><button type="button" data-terrain-flatten-depth="1">100%</button></div>
+                  <small>Moves all three depth strips in the selected Section toward its Path height while keeping each strip's Linked/Explicit mode.</small>
+                </div>
                 <div class="sidescroll-section-depth-row" data-layer="near"><strong>NEAR STRIP</strong><select id="sidescroll-section-layer-near-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-near-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Near strip offset or explicit height"><small id="sidescroll-section-layer-near-summary">Linked · offset +0.0 m</small></div>
                 <div class="sidescroll-section-depth-row" data-layer="farA"><strong>FAR STRIP A</strong><select id="sidescroll-section-layer-far-a-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-a-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Far strip A offset or explicit height"><small id="sidescroll-section-layer-far-a-summary">Linked · offset +0.0 m</small></div>
                 <div class="sidescroll-section-depth-row" data-layer="farB"><strong>FAR STRIP B</strong><select id="sidescroll-section-layer-far-b-mode"><option value="derived">Linked</option><option value="explicit">Explicit</option></select><input id="sidescroll-section-layer-far-b-value" type="range" step="0.05" min="-6" max="6" value="0" aria-label="Far strip B offset or explicit height"><small id="sidescroll-section-layer-far-b-summary">Linked · offset +0.0 m</small></div>
@@ -261,7 +270,7 @@
               <button id="sidescroll-section-reset" class="sidescroll-section-wide subtle" type="button">Show all terrain</button>
               <button id="sidescroll-section-reset-procedural" class="sidescroll-section-wide subtle" type="button">Reset procedural changes · this section</button>
               <button id="sidescroll-section-reset-procedural-all" class="sidescroll-section-wide danger" type="button">Reset procedural changes · ALL</button>
-              <p class="sidescroll-puzzle-help">Stage 1 keeps the proven terrain algorithms intact. Depth-detail smoothing, flattening and Surface Regions arrive in later stages of the Terrain Edit feature.</p>
+              <p class="sidescroll-puzzle-help">Stage 2 exposes the existing depth-detail falloff and adds reversible depth flattening. Terrain Surface Regions and general Terrain Features remain later stages.</p>
             </section>
             <div class="sidescroll-puzzle-source-switch" id="sidescroll-puzzle-source-switch" hidden>
               <button id="sidescroll-puzzle-source-library" type="button">Library</button>
@@ -774,6 +783,6 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="sidescroll.js?v=1.0.136"></script>
+  <script src="sidescroll.js?v=1.0.137"></script>
 </body>
 </html>
