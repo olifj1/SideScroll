@@ -1,5 +1,25 @@
 # SideScroll Development Tasks
 
+## October 10, 2026 — v1.0.138 Terrain Edit Stage 3 continuous Surface Regions
+
+**Stage 3 status:** ground appearance is now authored independently of fixed 10 m Sections. World Lab owns a continuous Terrain Surface track using the same broad A -> B transition grammar as Biomes, while Terrain Edit exposes the same transition records as in-world start/end handles for visual fine-tuning. Runtime rendering uses one surface outside a blend and only the two participating surfaces inside it.
+
+- [x] Add persistent **Terrain Surface** definitions and a default surface independently of numbered Terrain Sections.
+- [x] Add four starter surfaces for immediate system testing: Woodland Dirt (the existing terrain texture), Rocky Ground, Pale Gravel and Snow Ground. The transition data stores surface IDs so these prototype visuals can later be replaced/expanded without changing region placement.
+- [x] Add a **Terrain Surface** track to World Lab with solid surface spans plus explicit A -> B blend blocks.
+- [x] Use continuous world-space blend start/end keys rather than snapping appearance changes to Section boundaries. Surface transitions are sorted and chained deterministically so each transition starts from the surface established by the previous transition.
+- [x] Allow World Lab surface blend keys to be dragged/resized and edited numerically; include Surface Regions in World Lab Undo and complete project export/import.
+- [x] Render the selected terrain surface across Path/Near/Far terrain geometry and smoothly mix A/B inside the authored blend range. Keep the runtime active set bounded to one surface normally and two inside a blend.
+- [x] Expose the same Surface Blend records in Terrain Edit: show the surface under the character, select a blend, edit its numeric start/end positions, and drag cyan START / coral END handles directly in the world.
+- [x] Include Terrain Surface state in Terrain Edit Undo/Redo/Save/Discard snapshots. One in-world handle drag is one shared-history transaction.
+- [x] Avoid per-frame rebuilding of the Surface Blend selector; continuous player/blend readout updates without reconstructing stable editor DOM.
+- [ ] iPhone regression: in World Lab, set a default surface, add two non-overlapping Surface Blends out of chronological creation order, and confirm they sort into world order and form the expected chained surfaces.
+- [ ] iPhone regression: drag World Lab START/END keys and verify the visual blocks resize continuously without snapping to 10 m Section boundaries; Undo should restore the previous range.
+- [ ] iPhone regression: enter Terrain Edit near a blend and verify the same range appears with cyan START / coral END handles, can be dragged in-world, and the World Lab range reflects the edited values after reopening it.
+- [ ] iPhone regression: walk through Woodland Dirt -> Rocky Ground (or another pair) and confirm the terrain visually blends smoothly across the exact authored range on Path, Near and Far strips.
+- [ ] iPhone regression: verify Terrain Undo/Redo, Save/Discard and reload persistence for Surface Blend handle edits, including moving a handle through Section boundaries.
+- [ ] iPhone regression: verify Stage 1/2 terrain height, depth falloff, flattening, river/type, collision and Follow Player behaviour remain unchanged.
+
 ## October 10, 2026 — v1.0.137 Terrain Edit Stage 2 depth-shape controls
 
 **Stage 2 status:** the hidden far-depth simplification is now an explicit authored master control and the selected Section can progressively flatten all depth strips toward its Path height. Existing v1.0.136 terrain data migrates visually unchanged because missing `depthDetailFalloff` defaults to `100%`, which reproduces the previous Far A/Far B behaviour exactly.
@@ -52,14 +72,14 @@
 - [x] Add **Flatten Depth Toward Path** as a reversible selected-Section operation at 25 / 50 / 75 / 100%.
 - [x] Make falloff and flatten operations shared-history transactions and preserve terrain-bound object support offsets correctly.
 
-### Stage 3 — Terrain Surface Regions and texture blending
+### Stage 3 — Terrain Surface Regions and texture blending — IMPLEMENTED IN v1.0.138
 
-- [ ] Introduce Terrain Surface definitions/choices independently of numbered Sections.
-- [ ] Generalise/reuse the Biome Region/Transition range grammar rather than implementing another unrelated transition editor.
-- [ ] Add a **Terrain Surface Regions** track to World Lab for macro placement and resizing of texture regions/blend ranges.
-- [ ] Support continuous A -> B texture blending between explicit world-space start/end handles; do not snap transition boundaries to Section edges.
-- [ ] Show the same Surface Region/blend handles in Terrain Edit so the author can stand in the world and fine-tune start/end positions while viewing the result.
-- [ ] Keep the runtime bounded to the minimum useful active surface set (normally the two surfaces participating in the current blend).
+- [x] Introduce Terrain Surface definitions/choices independently of numbered Sections.
+- [x] Reuse the Biome Region/Transition spatial grammar: a default state followed by ordered continuous A -> B blend ranges, while keeping Surface data separate from Biome ownership.
+- [x] Add a **Terrain Surface** track to World Lab for macro placement and resizing of texture regions/blend ranges.
+- [x] Support continuous A -> B texture blending between explicit world-space start/end handles; do not snap transition boundaries to Section edges.
+- [x] Show the same Surface Region/blend handles in Terrain Edit so the author can stand in the world and fine-tune start/end positions while viewing the result.
+- [x] Keep the runtime bounded to the minimum useful active surface set: one surface outside transitions and the two participating surfaces inside a blend.
 
 ### Stage 4 — reusable Terrain Features
 

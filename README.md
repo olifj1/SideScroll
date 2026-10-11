@@ -1,37 +1,56 @@
-# SideScroll patch 1.0.137
+# SideScroll patch 1.0.138
 
-**Changed-files-only patch over v1.0.136.** This is Stage 2 of Terrain Edit: depth-detail control and progressive flattening. It does not begin the Surface Region/texture system or the general Terrain Feature work.
+**Changed-files-only patch over v1.0.137.** This is Stage 3 of Terrain Edit: continuous Terrain Surface Regions and texture blending. It keeps the fixed 10 m Section system for physical terrain shape; surface appearance is authored independently in world space.
 
-## v1.0.137 — Terrain Edit Stage 2
+## v1.0.138 — Terrain Surface Regions
 
-- Added one master **Depth Detail Falloff** slider inside Terrain -> Depth Layers.
-- `100%` is deliberately the migration/default value and reproduces the exact pre-v1.0.137 Far A/Far B behaviour: Far A uses the existing one-section neighbourhood with 88% follow and Far B uses the wider two-section neighbourhood with 62% follow.
-- Reducing the slider progressively blends those derived far-layer profiles back toward the authored Path profile. At `0%`, Linked depth strips retain the Path's rises/falls before their normal authored offsets. Near remains effectively unchanged because it already follows Path directly.
-- Added **Flatten Depth Toward Path** for the currently selected Section with 25%, 50%, 75% and 100% actions. Each press moves Near, Far A and Far B from their current resolved heights toward the selected Section's Path height.
-- Flattening preserves each strip's current **Linked / Explicit** mode. Linked strips receive a new offset key at the selected Section; Explicit strips receive a new explicit-height key there, matching the existing inherited depth-layer authoring model.
-- Falloff and flattening preserve terrain-bound object floor offsets while the underlying terrain updates.
-- One falloff slider gesture and one flatten press are each one shared **Undo / Redo** transaction and both participate in Terrain **Save / Discard**.
-- `depthDetailFalloff` is persisted with terrain state and included in Terrain edit snapshots. Existing saves without the field migrate to `100%`, so the old look is retained until deliberately changed.
+- Added persistent **Terrain Surface** data with a default surface followed by ordered A → B blend ranges.
+- Added four starter surfaces so the system can be tested immediately:
+  - Woodland Dirt — the existing terrain dirt texture.
+  - Rocky Ground — prototype generated surface.
+  - Pale Gravel — prototype generated surface.
+  - Snow Ground — prototype generated surface.
+- Surface records use stable IDs, so these prototype visuals can later be replaced or expanded without changing authored blend positions.
+- Added a dedicated **Terrain Surface** track to World Lab beneath the Biome track.
+- World Lab shows solid surface spans plus gradient blend blocks with draggable start/end keys. Blend positions are world-space metres and are not tied to 10 m Section boundaries.
+- Surface transitions are normalised into world order and chained deterministically. Adding a transition earlier in the journey correctly rebuilds the later `from` surfaces rather than depending on creation order.
+- World Lab supports default-surface choice, creation/deletion, target-surface choice, numeric blend range editing, draggable range keys, Undo, and complete project export/import.
+- The game renderer now applies Surface Regions to Path, Near, Far A and Far B terrain. Outside a blend it samples one surface; inside a blend it samples only the two surfaces involved and mixes them across the authored world-space range.
+- Legacy/manual river banks and puzzle-owned river banks also consume the active Surface Region blend where their geometry intersects one.
+- Terrain Edit now includes a **Terrain Surface** panel showing the surface under the character and the active blend percentage/range.
+- The same World Lab Surface Blend can be selected in Terrain Edit and fine-tuned numerically or by dragging the in-world **cyan START** and **coral END** handles.
+- Terrain-side Surface edits participate in the existing Terrain **Undo / Redo / Save / Discard** session. One handle drag is one history transaction.
+- The Surface selector avoids per-frame DOM reconstruction while the character moves; only the changing readout/values update continuously.
 
 ## Changed files
 
 - `sidescroll.js`
 - `play.html`
 - `style.css`
+- `world-lab.js`
+- `world-lab.html`
+- `world-lab.css`
 - `SIDESCROLL_ENGINE_UX_BIBLE.md`
 - `SIDESCROLL_TASKS.md`
 - `README.md`
 
 ## Suggested iPhone checks
 
-1. Open Terrain -> Depth Layers and first leave **Depth Detail Falloff at 100%**. Compare a section with noticeable Path height variation against v1.0.136; the far terrain should look unchanged.
-2. Drag Falloff from 100% toward 0%. Confirm Far A/Far B increasingly retain the Path rises/falls instead of becoming progressively simplified with depth. Undo once and confirm the whole slider gesture reverses as one action; Redo should restore it.
-3. On a section where the depth strips differ from Path, press **25%** and confirm all three strips move part-way toward Path. Undo it. Repeat 50%, 75% and 100%; 100% should make the selected Section's three resolved strip heights equal Path.
-4. Repeat flattening with a mixture of **Linked** and **Explicit** strips. Confirm their mode labels do not change after flattening.
-5. Place/inspect terrain-bound dressing on affected ground and verify it remains seated rather than floating or sinking when Falloff/Flatten updates terrain.
-6. Change Falloff and/or flatten a section, then test Undo/Redo, Discard, Save, reload and re-enter Terrain Edit. Confirm the saved values survive and Discard returns to the last Terrain checkpoint.
-7. Regression-check Stage 1 Follow Player/manual lock, Path Height, river/type, collision and visibility controls.
+1. Open **World Lab**. Confirm the new Terrain Surface track appears directly below Biome and the default surface is Woodland Dirt.
+2. Add a blend such as **Woodland Dirt → Rocky Ground** from e.g. 50 m to 70 m. Confirm the track shows Woodland Dirt before 50 m, a gradient block from 50–70 m, then Rocky Ground afterward.
+3. Add a second transition further along, then add another transition earlier than both. Confirm World Lab orders them by world position and the A → B chain remains logical rather than following creation order.
+4. Drag the World Lab START/END keys. Confirm they move in metre increments, cannot cross/overlap neighbouring transitions, and are not snapped to Section boundaries. Test World Lab Undo.
+5. Enter the game and walk through a blend. Confirm Path and depth strips visibly cross-fade between the two surfaces over the exact authored range without a hard Section-boundary switch.
+6. Enter **Edit → Terrain** near the blend. Confirm Terrain Surface reports the current A → B blend and percentage, with cyan START and coral END handles visible in the world.
+7. Drag either in-world handle across a Section boundary. Confirm the blend updates live. Undo/Redo should treat the whole drag as one step; Discard should restore the Terrain checkpoint; Save + reload should retain it.
+8. Re-open World Lab and confirm the handle position changed in Terrain Edit is reflected on the Terrain Surface track. This verifies both tools are editing the same stored record.
+9. If a surface blend crosses the Broken Bridge river or a manual River Section, confirm its bank terrain follows the ground surface blend while the water remains unchanged.
+10. Regression-check Stage 1/2: Follow Player/manual lock, Path Height, Depth Detail Falloff, Flatten Depth Toward Path, terrain type/river, collision and visibility.
+
+## Notes
+
+The three new non-dirt surfaces are intentionally lightweight prototype textures generated in code for system validation. This drop establishes the authoring, persistence and rendering architecture; final production surface art can be introduced later without changing the Surface Region data model.
 
 ## Not device-tested here
 
-The patch has static/syntax validation only. The iPhone/Safari/PWA interaction and visual checks above still need real-device verification.
+Static/syntax, wiring, migration/snapshot and package-integrity checks are performed here. This environment blocks local browser-page loading, so the iPhone/Safari/PWA interaction, WebGL visual blend quality and touch dragging still need real-device verification.

@@ -13995,3 +13995,40 @@ body[data-game-id="game-16"] .sidescroll-terrain-flatten-depth button{
   body[data-game-id="game-16"] .sidescroll-terrain-flatten-depth{padding:6px;gap:4px;}
   body[data-game-id="game-16"] .sidescroll-terrain-flatten-depth button{min-height:28px;}
 }
+
+/* Terrain Edit Stage 3 — continuous surface regions */
+body[data-game-id="game-16"] .sidescroll-section-surface-regions{
+  margin-top:8px;
+  border:1px solid rgba(148,189,184,.2);
+  border-radius:8px;
+  background:rgba(14,25,27,.42);
+  overflow:hidden;
+}
+body[data-game-id="game-16"] .sidescroll-section-surface-regions>summary{
+  padding:8px 9px;
+  cursor:pointer;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.08em;
+  color:#cfe0dd;
+  list-style-position:inside;
+}
+body[data-game-id="game-16"] .sidescroll-section-surface-regions[open]>summary{border-bottom:1px solid rgba(148,189,184,.14);}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-current{display:grid;gap:2px;padding:9px 9px 6px;}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-current>span,
+body[data-game-id="game-16"] .sidescroll-terrain-surface-transition-row>span,
+body[data-game-id="game-16"] .sidescroll-terrain-surface-range span{
+  font-size:7px;font-weight:800;letter-spacing:.06em;color:#8fa8a4;
+}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-current strong{font-size:10px;color:#eef7f5;}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-current small,
+body[data-game-id="game-16"] .sidescroll-terrain-surface-help{font-size:7px;line-height:1.45;color:#91a5a2;}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-transition-row{display:grid;gap:4px;padding:5px 9px;}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-transition-row select,
+body[data-game-id="game-16"] .sidescroll-terrain-surface-range input{
+  box-sizing:border-box;width:100%;min-width:0;border:1px solid rgba(148,189,184,.24);border-radius:6px;background:#172326;color:#eaf3f1;font:inherit;padding:6px 7px;
+}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-range{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px 9px;}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-range label{display:grid;gap:4px;min-width:0;}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-range input:disabled{opacity:.45;}
+body[data-game-id="game-16"] .sidescroll-terrain-surface-help{display:block;padding:3px 9px 9px;}

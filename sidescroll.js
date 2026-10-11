@@ -391,6 +391,11 @@
   const sectionDepthFalloffInput = document.getElementById('sidescroll-section-depth-falloff');
   const sectionDepthFalloffValue = document.getElementById('sidescroll-section-depth-falloff-value');
   const sectionFlattenDepthBtns = [...document.querySelectorAll('[data-terrain-flatten-depth]')];
+  const sectionSurfaceCurrentEl = document.getElementById('sidescroll-terrain-surface-current');
+  const sectionSurfaceDetailEl = document.getElementById('sidescroll-terrain-surface-detail');
+  const sectionSurfaceTransitionSelect = document.getElementById('sidescroll-terrain-surface-transition');
+  const sectionSurfaceStartInput = document.getElementById('sidescroll-terrain-surface-start');
+  const sectionSurfaceEndInput = document.getElementById('sidescroll-terrain-surface-end');
   const sectionVisibleBtn = document.getElementById('sidescroll-section-visible');
   const sectionTypeSelect = document.getElementById('sidescroll-section-type');
   const sectionRiverWidthRow = document.getElementById('sidescroll-section-river-width-row');
@@ -864,9 +869,12 @@
     uniform vec2 uUvOffset;
     varying vec2 vUV;
     varying float vDepth;
+    varying float vWorldX;
     void main() {
-      vec4 viewPos = uView * uModel * vec4(aPosition, 1.0);
+      vec4 worldPos = uModel * vec4(aPosition, 1.0);
+      vec4 viewPos = uView * worldPos;
       vUV = aUV * uUvScale + uUvOffset;
+      vWorldX = worldPos.x;
       vDepth = max(0.0, -viewPos.z);
       gl_Position = uProjection * viewPos;
     }
@@ -875,6 +883,10 @@
   const FRAG = `
     precision mediump float;
     uniform sampler2D uTexture;
+    uniform sampler2D uTexture2;
+    uniform float uSurfaceBlendEnabled;
+    uniform float uSurfaceBlendStart;
+    uniform float uSurfaceBlendEnd;
     uniform vec3 uTint;
     uniform vec3 uFogColor;
     uniform float uFogNear;
@@ -886,8 +898,14 @@
     uniform vec3 uHighlightColor;
     varying vec2 vUV;
     varying float vDepth;
+    varying float vWorldX;
     void main() {
       vec4 tex = texture2D(uTexture, vUV);
+      if (uSurfaceBlendEnabled > 0.5) {
+        float span = max(0.001, uSurfaceBlendEnd - uSurfaceBlendStart);
+        float surfaceT = smoothstep(0.0, 1.0, clamp((vWorldX - uSurfaceBlendStart) / span, 0.0, 1.0));
+        tex = mix(tex, texture2D(uTexture2, vUV), surfaceT);
+      }
       float alpha = tex.a * uOpacity;
       if (alpha < 0.045) discard;
       float fogT = smoothstep(uFogNear, uFogFar, vDepth);
@@ -967,6 +985,10 @@
     view: gl.getUniformLocation(program, 'uView'),
     projection: gl.getUniformLocation(program, 'uProjection'),
     texture: gl.getUniformLocation(program, 'uTexture'),
+    texture2: gl.getUniformLocation(program, 'uTexture2'),
+    surfaceBlendEnabled: gl.getUniformLocation(program, 'uSurfaceBlendEnabled'),
+    surfaceBlendStart: gl.getUniformLocation(program, 'uSurfaceBlendStart'),
+    surfaceBlendEnd: gl.getUniformLocation(program, 'uSurfaceBlendEnd'),
     tint: gl.getUniformLocation(program, 'uTint'),
     fogColor: gl.getUniformLocation(program, 'uFogColor'),
     fogNear: gl.getUniformLocation(program, 'uFogNear'),
@@ -1682,6 +1704,8 @@
   gl.enableVertexAttribArray(loc.pos);
   gl.enableVertexAttribArray(loc.uv);
   gl.uniform1i(loc.texture, 0);
+  gl.uniform1i(loc.texture2, 1);
+  gl.uniform1f(loc.surfaceBlendEnabled, 0);
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
   gl.enable(gl.BLEND);
@@ -2025,6 +2049,50 @@
     placeholderDraw: drawFallbackTerrainTexture,
     potSize: 1024
   });
+
+
+  const terrainSurfaceTextureCache = new Map([['woodland-dirt',textures.pathDirt]]);
+  function createPrototypeTerrainSurfaceTexture(id){
+    const palette={
+      'rocky-ground':{base:'#77756f',dark:'#585a58',light:'#96938a',specks:92},
+      'pale-gravel':{base:'#9a907f',dark:'#786f62',light:'#b8ad98',specks:116},
+      'snow-ground':{base:'#c5cdcb',dark:'#aeb8b7',light:'#e2e6e2',specks:58}
+    }[id]||{base:'#807566',dark:'#62594e',light:'#a49480',specks:80};
+    return createTexture((ctx,w,h)=>{
+      ctx.fillStyle=palette.base;ctx.fillRect(0,0,w,h);
+      let seed=Array.from(String(id)).reduce((a,c)=>(a*33+c.charCodeAt(0))>>>0,5381);
+      const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+      for(let i=0;i<palette.specks;i++){
+        const x=random()*w,y=random()*h,r=1+random()*5.5;
+        ctx.fillStyle=random()>.55?palette.light:palette.dark;ctx.globalAlpha=.045+random()*.10;
+        ctx.beginPath();ctx.ellipse(x,y,r*(1.2+random()*1.6),r*(.5+random()*.8),random()*Math.PI,0,Math.PI*2);ctx.fill();
+      }
+      ctx.globalAlpha=1;
+      for(let i=0;i<7;i++){
+        const y=random()*h;ctx.strokeStyle=palette.light;ctx.globalAlpha=.025+random()*.035;ctx.lineWidth=6+random()*15;ctx.beginPath();ctx.moveTo(-20,y);ctx.bezierCurveTo(w*.3,y+random()*20-10,w*.7,y+random()*20-10,w+20,y+random()*12-6);ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    },512,512,true);
+  }
+  function terrainSurfaceTexture(id){
+    const key=terrainSurfaceDef(id)?id:'woodland-dirt';
+    if(!terrainSurfaceTextureCache.has(key))terrainSurfaceTextureCache.set(key,createPrototypeTerrainSurfaceTexture(key));
+    return terrainSurfaceTextureCache.get(key)||textures.pathDirt;
+  }
+  function terrainSurfaceDrawStyle(segment){
+    const from=segment?.from||'woodland-dirt',to=segment?.to||from,transition=segment?.transition||null;
+    return{
+      texture:terrainSurfaceTexture(from),
+      surfaceBlend:transition&&to!==from?{texture2:terrainSurfaceTexture(to),startX:transition.startX,endX:transition.endX}:null
+    };
+  }
+  function terrainSurfaceDrawStyleForRange(minX,maxX){
+    const a=Math.min(minX,maxX),b=Math.max(minX,maxX);
+    const transition=(terrainSurfaceState?.transitions||[]).find(item=>item.endX>=a&&item.startX<=b)||null;
+    if(transition)return terrainSurfaceDrawStyle({from:transition.from,to:transition.to,transition});
+    const mid=(a+b)*.5,blend=terrainSurfaceBlendAt(mid);
+    return terrainSurfaceDrawStyle({from:blend.from,to:blend.to,transition:blend.transition});
+  }
 
   // Broad, deliberately low-frequency water. The mesh supplies the river shape;
   // this texture is intentionally close to uniform so a repeating square is not
@@ -2503,6 +2571,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const TERRAIN_SECTION_RENDER_RADIUS = 9;
   const TERRAIN_SECTION_PATH_PHASE_COUNT = 62; // 62 × 10 m = 620 m = 5 × old 124 m terrain periods.
   const TERRAIN_SECTION_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.terrain-sections.v1' : 'sidescroll.terrain-sections.v1';
+  const TERRAIN_SURFACE_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.terrain-surfaces.v1' : 'sidescroll.terrain-surfaces.v1';
   const TERRAIN_SECTION_TYPES = {
     normal:{ id:'normal', label:'Normal' },
     testHill:{ id:'testHill', label:'Test Hill' },
@@ -2528,6 +2597,15 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // preserves the pre-v1.0.137 Far A/Far B behaviour; 0.0 keeps linked depth
   // layers on the authored Path profile (before their authored offsets).
   let terrainDepthDetailFalloff = 1;
+  const TERRAIN_SURFACE_DEFS = Object.freeze({
+    'woodland-dirt':Object.freeze({id:'woodland-dirt',label:'Woodland Dirt',colour:'#7f6b54'}),
+    'rocky-ground':Object.freeze({id:'rocky-ground',label:'Rocky Ground',colour:'#77756f'}),
+    'pale-gravel':Object.freeze({id:'pale-gravel',label:'Pale Gravel',colour:'#9b9180'}),
+    'snow-ground':Object.freeze({id:'snow-ground',label:'Snow Ground',colour:'#c8d0cf'})
+  });
+  let terrainSurfaceState = null;
+  let terrainSelectedSurfaceTransitionId = null;
+  let terrainSurfaceUiListSignature = '';
   let terrainResolvedHeightCache = new Map();
   let terrainHeightLinkSubsequent = true;
   let terrainFollowPlayer = true;
@@ -2554,6 +2632,94 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   const TERRAIN_LONGITUDINAL_SEGMENTS = 32;
   const TERRAIN_DEPTH_LAYER_IDS = Object.freeze(['near','farA','farB']);
   const TERRAIN_FAR_A_BACK_Z = -13.0;
+
+  function defaultTerrainSurfaceState(){
+    return {version:1,defs:deepCopy(TERRAIN_SURFACE_DEFS),defaultSurface:'woodland-dirt',transitions:[]};
+  }
+
+  function normaliseTerrainSurfaceState(raw){
+    const src=raw&&typeof raw==='object'?deepCopy(raw):{};
+    const defs=deepCopy(TERRAIN_SURFACE_DEFS);
+    const rawDefs=src.defs&&typeof src.defs==='object'?src.defs:{};
+    for(const [id,def] of Object.entries(rawDefs)){
+      if(defs[id]||!def||typeof def!=='object')continue;
+      defs[id]={id,label:String(def.label||id).slice(0,60),colour:String(def.colour||'#7d8587')};
+    }
+    const ids=Object.keys(defs),defaultSurface=defs[src.defaultSurface]?src.defaultSurface:'woodland-dirt';
+    const out={version:1,defs,defaultSurface,transitions:[]};
+    const list=(Array.isArray(src.transitions)?src.transitions:[]).map((item,index)=>{let start=Number(item?.startX);if(!Number.isFinite(start))start=100+index*80;return{item,index,start};}).sort((a,b)=>a.start-b.start);
+    let previousEnd=-Infinity,current=defaultSurface;
+    for(let orderIndex=0;orderIndex<list.length;orderIndex++){
+      const source=list[orderIndex],index=source.index,rawItem=source.item||{};
+      let start=source.start;
+      let end=Number(rawItem.endX);if(!Number.isFinite(end))end=start+20;
+      start=Math.round(start*1000)/1000;end=Math.max(start+0.25,Math.round(end*1000)/1000);
+      if(start<previousEnd+0.25)start=previousEnd+0.25;
+      if(end<start+0.25)end=start+1;
+      let to=defs[rawItem.to]?rawItem.to:(ids.find(id=>id!==current)||current);
+      if(to===current)to=ids.find(id=>id!==current)||current;
+      const item={id:String(rawItem.id||`surface-${index}-${Math.round(start*10)}`),from:current,to,startX:start,endX:end};
+      out.transitions.push(item);current=to;previousEnd=end;
+    }
+    return out;
+  }
+
+  function terrainSurfaceDef(id){return terrainSurfaceState?.defs?.[id]||TERRAIN_SURFACE_DEFS[id]||null;}
+  function terrainSurfaceLabel(id){return terrainSurfaceDef(id)?.label||id||'Surface';}
+  function terrainSurfaceTransitionById(id){return terrainSurfaceState?.transitions?.find(item=>item.id===id)||null;}
+  function terrainSurfaceTransitionAt(x){return (terrainSurfaceState?.transitions||[]).find(item=>x>=item.startX&&x<=item.endX)||null;}
+  function terrainSurfaceIdBefore(x){
+    let current=terrainSurfaceState?.defaultSurface||'woodland-dirt';
+    for(const item of terrainSurfaceState?.transitions||[]){
+      if(x<item.startX)break;
+      if(x<=item.endX)return item.from;
+      current=item.to;
+    }
+    return current;
+  }
+  function terrainSurfaceBlendAt(x){
+    const transition=terrainSurfaceTransitionAt(x);
+    if(!transition){const id=terrainSurfaceIdBefore(x);return{from:id,to:id,t:0,transition:null};}
+    const t=Rig.clamp((x-transition.startX)/Math.max(.001,transition.endX-transition.startX),0,1);
+    return{from:transition.from,to:transition.to,t:smooth01(t),transition};
+  }
+  function terrainSurfaceSegmentsForRange(minX,maxX){
+    const cuts=[minX,maxX];
+    for(const item of terrainSurfaceState?.transitions||[]){
+      if(item.endX<=minX||item.startX>=maxX)continue;
+      cuts.push(Rig.clamp(item.startX,minX,maxX),Rig.clamp(item.endX,minX,maxX));
+    }
+    cuts.sort((a,b)=>a-b);
+    const unique=cuts.filter((x,i)=>!i||Math.abs(x-cuts[i-1])>.0001),segments=[];
+    for(let i=0;i<unique.length-1;i++){
+      const a=unique[i],b=unique[i+1];if(b-a<.001)continue;
+      const mid=(a+b)*.5,blend=terrainSurfaceBlendAt(mid);
+      segments.push({minX:a,maxX:b,from:blend.from,to:blend.to,transition:blend.transition});
+    }
+    return segments.length?segments:[{minX,maxX,from:terrainSurfaceState?.defaultSurface||'woodland-dirt',to:terrainSurfaceState?.defaultSurface||'woodland-dirt',transition:null}];
+  }
+  function loadTerrainSurfaceState(){
+    try{terrainSurfaceState=normaliseTerrainSurfaceState(JSON.parse(localStorage.getItem(TERRAIN_SURFACE_STORAGE_KEY)||'null'));}
+    catch(_){terrainSurfaceState=defaultTerrainSurfaceState();}
+  }
+  function saveTerrainSurfaceState({force=false}={}){
+    if(terrainEditSession&&!force)return;
+    try{localStorage.setItem(TERRAIN_SURFACE_STORAGE_KEY,JSON.stringify(normaliseTerrainSurfaceState(terrainSurfaceState)));}catch(_){}
+  }
+  function setTerrainSurfaceTransitionEdge(id,side,value,{save=false}={}){
+    const item=terrainSurfaceTransitionById(id);if(!item)return false;
+    const list=terrainSurfaceState.transitions,index=list.indexOf(item),prev=list[index-1]||null,next=list[index+1]||null;
+    let nextValue=Number(value);if(!Number.isFinite(nextValue))return false;
+    if(side==='start')nextValue=Rig.clamp(nextValue,prev?prev.endX+.25:-99999,item.endX-.25);
+    else nextValue=Rig.clamp(nextValue,item.startX+.25,next?next.startX-.25:99999);
+    nextValue=Math.round(nextValue*100)/100;
+    if(Math.abs(item[side==='start'?'startX':'endX']-nextValue)<.0001)return false;
+    item[side==='start'?'startX':'endX']=nextValue;
+    terrainSurfaceState=normaliseTerrainSurfaceState(terrainSurfaceState);
+    if(save)saveTerrainSurfaceState();
+    updateTerrainSectionUi(true);
+    return true;
+  }
 
   function normaliseTerrainDepthLayerSettings(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
@@ -3111,6 +3277,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   loadTerrainSectionState();
+  loadTerrainSurfaceState();
 
   const WORLD = { nearZ: 10.5, farZ: -42 };
   // v0.2.65: a slightly bluer fog with a gentler near-field contribution.
@@ -9635,6 +9802,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
       heights:Object.fromEntries([...terrainSectionHeights.entries()].sort((a,b)=>a[0]-b[0]).map(([i,h])=>[String(i),Number(h.toFixed(3))])),
       layers:deepCopy(normaliseTerrainDepthLayerSettings(terrainDepthLayerSettings)),
       depthDetailFalloff:Number(terrainDepthDetailFalloff.toFixed(3)),
+      surfaces:deepCopy(normaliseTerrainSurfaceState(terrainSurfaceState)),
       types:Object.fromEntries([...terrainSectionTypes.entries()].sort((a,b)=>a[0]-b[0])),
       settings:deepCopy(Object.fromEntries([...terrainSectionSettings.entries()].sort((a,b)=>a[0]-b[0])))
     };
@@ -9661,6 +9829,9 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     terrainDepthDetailFalloff=Number.isFinite(Number(snapshot.depthDetailFalloff))
       ? Rig.clamp(Number(snapshot.depthDetailFalloff),0,1)
       : 1;
+    terrainSurfaceState=normaliseTerrainSurfaceState(snapshot.surfaces||terrainSurfaceState||defaultTerrainSurfaceState());
+    terrainSurfaceUiListSignature='';
+    if(terrainSelectedSurfaceTransitionId&&!terrainSurfaceTransitionById(terrainSelectedSurfaceTransitionId))terrainSelectedSurfaceTransitionId=null;
     terrainSectionTypes=new Map();
     for(const [key,value] of Object.entries(snapshot.types||{})){
       const i=Number(key);
@@ -9706,6 +9877,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     terrainEditSession.dirty=false;
     clearEditorHistory();
     saveTerrainSectionState({force:true});
+    saveTerrainSurfaceState({force:true});
     updateEditorDrawerUi();
     updateTerrainSectionUi(true);
     hintEl.textContent='Terrain changes saved';
@@ -9722,6 +9894,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     terrainEditSession.dirty=false;
     clearEditorHistory();
     saveTerrainSectionState({force:true});
+    saveTerrainSurfaceState({force:true});
     updateEditorDrawerUi();
     if(!silent){hintEl.textContent='Discarded unsaved Terrain changes';hintEl.classList.remove('hidden');}
     return true;
@@ -9740,6 +9913,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     document.body.classList.remove('sidescroll-terrain-editing');
     if(!terrainSectionGuidesPersist)terrainSectionGuidesVisible=false;
     saveTerrainSectionState({force:true});
+    saveTerrainSurfaceState({force:true});
     updateTerrainSectionUi(true);
     updateEditorDrawerUi();
     updateEditorButtons();
@@ -15056,6 +15230,56 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     ctx.restore();
   }
 
+  function terrainSurfaceHandleScreenPoint(item,side){
+    const x=side==='start'?item.startX:item.endX;
+    return projectWorldPoint(x,playSurfaceYAt(x)+.11,pathZ+.18);
+  }
+
+  function terrainSurfaceHandleAt(clientX,clientY){
+    if(!editMode||editorScope!=='terrain'||!terrainEditSession)return null;
+    const rect=canvas.getBoundingClientRect(),lx=clientX-rect.left,ly=clientY-rect.top;
+    let best=null,bestD=Infinity;
+    for(const item of terrainSurfaceState?.transitions||[]){
+      for(const side of ['start','end']){
+        const p=terrainSurfaceHandleScreenPoint(item,side);if(!p)continue;
+        const d=Math.hypot(p.x-lx,p.y-ly);if(d<24&&d<bestD){best={item,side,point:p};bestD=d;}
+      }
+    }
+    return best;
+  }
+
+  function drawTerrainSurfaceOverlay(ctx){
+    if(!editMode||editorScope!=='terrain'||!terrainEditSession)return;
+    const cameraIndex=terrainSectionIndexAt(camera.x),visibleMin=terrainSectionBounds(cameraIndex-5).minX,visibleMax=terrainSectionBounds(cameraIndex+5).maxX;
+    ctx.save();ctx.font='800 9px -apple-system,BlinkMacSystemFont,sans-serif';ctx.textBaseline='middle';
+    for(const item of terrainSurfaceState?.transitions||[]){
+      if(item.endX<visibleMin||item.startX>visibleMax)continue;
+      const selected=item.id===terrainSelectedSurfaceTransitionId;
+      for(const side of ['start','end']){
+        const x=side==='start'?item.startX:item.endX;
+        const near=projectWorldPoint(x,terrainGroundYAt(x,GROUND_NEAR_Z)+.07,GROUND_NEAR_Z);
+        const far=projectWorldPoint(x,terrainGroundYAt(x,-18)+.07,-18);
+        const handle=terrainSurfaceHandleScreenPoint(item,side);
+        if(near&&far){
+          ctx.strokeStyle=side==='start'?(selected?'rgba(105,239,225,.98)':'rgba(105,239,225,.54)'):(selected?'rgba(255,170,145,.98)':'rgba(255,170,145,.54)');
+          ctx.lineWidth=selected?2.5:1.45;ctx.setLineDash(selected?[]:[5,4]);ctx.beginPath();ctx.moveTo(near.x,near.y);ctx.lineTo(far.x,far.y);ctx.stroke();ctx.setLineDash([]);
+        }
+        if(handle){
+          ctx.beginPath();ctx.arc(handle.x,handle.y,selected?9:7,0,Math.PI*2);ctx.fillStyle=side==='start'?'#74e7d8':'#f0a089';ctx.fill();ctx.strokeStyle='#18383a';ctx.lineWidth=1.6;ctx.stroke();
+          if(selected){
+            const label=`${side.toUpperCase()} ${x.toFixed(1)}m`;
+            const tw=ctx.measureText(label).width+10;ctx.fillStyle='rgba(14,31,34,.88)';ctx.fillRect(handle.x-tw*.5,handle.y-29,tw,17);ctx.fillStyle='#eefafa';ctx.fillText(label,handle.x-tw*.5+5,handle.y-20);
+          }
+        }
+      }
+      if(selected){
+        const mid=(item.startX+item.endX)*.5,p=projectWorldPoint(mid,playSurfaceYAt(mid)+.13,pathZ+.25);
+        if(p){const label=`${terrainSurfaceLabel(item.from)} → ${terrainSurfaceLabel(item.to)}`,tw=ctx.measureText(label).width+12;ctx.fillStyle='rgba(15,37,40,.9)';ctx.fillRect(p.x-tw*.5,p.y+12,tw,18);ctx.fillStyle='#e7f7f5';ctx.fillText(label,p.x-tw*.5+6,p.y+21);}
+      }
+    }
+    ctx.restore();
+  }
+
   function worldGroupExclusionHandlePositions(group){
     // v1.0.124: exclusion movement is mouse-style relative input and sizing lives in UI sliders.
     return [];
@@ -15133,6 +15357,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (collisionDebugView) drawCollisionDebugOverlay(ctx);
     drawPlayerInteractionHints(ctx);
     drawTerrainSectionOverlay(ctx);
+    drawTerrainSurfaceOverlay(ctx);
     if (!editMode || editorScope==='terrain') return;
     drawWorldGroupGuides(ctx);
     drawPuzzleEditorGuides(ctx);
@@ -16293,6 +16518,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!obj?.shadow) return;
     const shadow = obj.shadow === true ? {} : obj.shadow;
     bindMesh(billboardMesh);
+    gl.uniform1f(loc.surfaceBlendEnabled, 0);
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, textures.softShadow);
     gl.uniformMatrix4fv(loc.model, false, mat4Model(
       drawX + (shadow.xOffset ?? 0),
@@ -16330,7 +16557,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!extra?.force) drawObjectShadow(obj, view, drawX);
     const drawMesh = extra?.mesh || obj.mesh;
     bindMesh(drawMesh);
-    gl.bindTexture(gl.TEXTURE_2D, extra?.texture || obj.texture);
+    const primaryTexture=extra?.texture || obj.texture;
+    const surfaceBlend=extra?.surfaceBlend||null;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,primaryTexture);
+    if(surfaceBlend?.texture2){
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,surfaceBlend.texture2);gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1f(loc.surfaceBlendEnabled,1);
+      gl.uniform1f(loc.surfaceBlendStart,Number(surfaceBlend.startX)||0);
+      gl.uniform1f(loc.surfaceBlendEnd,Number(surfaceBlend.endX)||((Number(surfaceBlend.startX)||0)+.001));
+    }else gl.uniform1f(loc.surfaceBlendEnabled,0);
     const mechanismRotation = isCounterweightPlank(obj) ? counterweightAngleFor(obj) : (Number(obj.counterweightVisualAngle) || 0);
     const followSurfaceRotation = !extra?.force && !objectUsesFreePlacement(obj) && assetBehaviours(obj.assetName,obj.assetState).followSurfaceNormal
       ? (objectUsesAuthoredPlacementSurface(obj)
@@ -16376,6 +16612,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     gl.uniform2f(loc.uvScale, extra?.uvScale?.[0] ?? obj.uvScale?.[0] ?? 1, extra?.uvScale?.[1] ?? obj.uvScale?.[1] ?? 1);
     gl.uniform2f(loc.uvOffset, extra?.uvOffset?.[0] ?? obj.uvOffset?.[0] ?? 0, extra?.uvOffset?.[1] ?? obj.uvOffset?.[1] ?? 0);
     gl.drawElements(gl.TRIANGLES, drawMesh.count, gl.UNSIGNED_SHORT, 0);
+    if(surfaceBlend?.texture2)gl.uniform1f(loc.surfaceBlendEnabled,0);
+    gl.activeTexture(gl.TEXTURE0);
 
     if (!extra?.force && (obj.assetName === 'handcart' || obj.assetName === 'handcart-broken')) drawHandcartWheels(obj, view, drawX, drawY, visualRotation, visualFlip);
   }
@@ -17578,26 +17816,27 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // and Far B. They derive from the same section-centre height spine, while the
     // more distant layers soften/fall away from steep path elevation changes.
     function drawGroundBandsForRange(sectionIndex, typeId, minX, maxX) {
-      const width = maxX - minX;
-      if (width <= 0.01) return;
-      const centre = (minX + maxX) * 0.5;
-      const u0 = terrainSectionWorldU(minX);
-      const uScale = (width / TILE_WIDTH) * 24.0;
       const pathBandEdge = Math.max(PATH_BERM_HALF + 0.02, PATH_OUTER_HALF - TERRAIN_PATH_BAND_OVERLAP);
       const bands = [
         { frontZ:GROUND_NEAR_Z, backZ:pathBandEdge, frontLayer:'near', backLayer:'path' },
         { frontZ:-pathBandEdge, backZ:TERRAIN_FAR_A_BACK_Z, frontLayer:'path', backLayer:'farA' },
         { frontZ:TERRAIN_FAR_A_BACK_Z, backZ:WORLD.farZ, frontLayer:'farA', backLayer:'farB' }
       ];
-      for (const band of bands) {
-        const depth = band.frontZ - band.backZ;
-        if (depth <= 0.001) continue;
-        drawObject(ground, view, {
-          x:centre, y:groundY + TERRAIN_GROUND_BAND_Y_OFFSET, z:band.frontZ, sx:width, sy:1, sz:depth,
-          mesh:terrainBandMesh(sectionIndex,typeId,band.frontLayer,band.backLayer,minX,maxX),
-          uvScale:[uScale, Math.max(0.1, depth / Math.max(0.001, GROUND_NEAR_Z - WORLD.farZ) * (ground.uvScale?.[1] ?? 11))],
-          uvOffset:[u0,0]
-        });
+      for(const surfaceSegment of terrainSurfaceSegmentsForRange(minX,maxX)){
+        const segMin=surfaceSegment.minX,segMax=surfaceSegment.maxX,width=segMax-segMin;
+        if(width<=.01)continue;
+        const centre=(segMin+segMax)*.5,u0=terrainSectionWorldU(segMin),uScale=(width/TILE_WIDTH)*24.0,surfaceStyle=terrainSurfaceDrawStyle(surfaceSegment);
+        for (const band of bands) {
+          const depth = band.frontZ - band.backZ;
+          if (depth <= 0.001) continue;
+          drawObject(ground, view, {
+            ...surfaceStyle,
+            x:centre, y:groundY + TERRAIN_GROUND_BAND_Y_OFFSET, z:band.frontZ, sx:width, sy:1, sz:depth,
+            mesh:terrainBandMesh(sectionIndex,typeId,band.frontLayer,band.backLayer,segMin,segMax),
+            uvScale:[uScale, Math.max(0.1, depth / Math.max(0.001, GROUND_NEAR_Z - WORLD.farZ) * (ground.uvScale?.[1] ?? 11))],
+            uvOffset:[u0,0]
+          });
+        }
       }
     }
 
@@ -17610,20 +17849,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
 
     for (const i of indices) {
-      const b = terrainSectionBounds(i);
       const typeId = terrainSectionType(i);
       if (typeId === 'river') continue;
       const intervals = terrainBaseIntervalsForSection(i);
-      const uncut = intervals.length === 1 && Math.abs(intervals[0].minX-b.minX)<0.001 && Math.abs(intervals[0].maxX-b.maxX)<0.001;
-      if (uncut) {
-        drawObject(pathStrip, view, { x:b.center, sx:TERRAIN_SECTION_LENGTH, mesh:terrainSectionPathMesh(i,typeId), uvScale:[1,1], uvOffset:[0,0] });
-        continue;
-      }
       for (const interval of intervals) {
-        const width = interval.maxX - interval.minX;
-        if (width <= 0.01) continue;
-        const centre = (interval.minX + interval.maxX) * 0.5;
-        drawObject(pathStrip, view, { x:centre, sx:width, mesh:terrainIntervalPathMesh(i,typeId,interval.minX,interval.maxX), uvScale:[1,1], uvOffset:[0,0] });
+        for(const surfaceSegment of terrainSurfaceSegmentsForRange(interval.minX,interval.maxX)){
+          const width=surfaceSegment.maxX-surfaceSegment.minX;if(width<=.01)continue;
+          const centre=(surfaceSegment.minX+surfaceSegment.maxX)*.5,surfaceStyle=terrainSurfaceDrawStyle(surfaceSegment);
+          drawObject(pathStrip, view, { ...surfaceStyle,x:centre,sx:width,mesh:terrainIntervalPathMesh(i,typeId,surfaceSegment.minX,surfaceSegment.maxX),uvScale:[1,1],uvOffset:[0,0] });
+        }
       }
     }
 
@@ -17631,8 +17865,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const i of indices) {
       if (terrainSectionType(i) !== 'river') continue;
       const b = terrainSectionBounds(i);
-      drawObject(riverBankSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'left') });
-      drawObject(riverBankSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'right') });
+      const riverSurfaceStyle=terrainSurfaceDrawStyleForRange(b.minX,b.maxX);
+      drawObject(riverBankSurface, view, { ...riverSurfaceStyle,force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'left') });
+      drawObject(riverBankSurface, view, { ...riverSurfaceStyle,force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverBankMesh(i, 'right') });
       const flow = (performance.now() * 0.000010) % 1;
       drawObject(riverWaterSurface, view, { force:true, x:b.center, y:0, z:0, sx:1, sy:1, sz:1, mesh:terrainRiverWaterMesh(i), uvOffset:[0, flow] });
     }
@@ -17646,8 +17881,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const extent = puzzleRiverExtent(mod);
       if (extent.maxX < visibleMinX || extent.minX > visibleMaxX) continue;
       const baseX = Number(mod.worldCenterX) || 0;
-      drawObject(riverBankSurface, view, { force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverBankMesh(mod,'left') });
-      drawObject(riverBankSurface, view, { force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverBankMesh(mod,'right') });
+      const featureSurfaceStyle=terrainSurfaceDrawStyleForRange(extent.minX,extent.maxX);
+      drawObject(riverBankSurface, view, { ...featureSurfaceStyle,force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverBankMesh(mod,'left') });
+      drawObject(riverBankSurface, view, { ...featureSurfaceStyle,force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverBankMesh(mod,'right') });
       const flow = (performance.now() * 0.000010) % 1;
       drawObject(riverWaterSurface, view, { force:true, x:baseX, y:0, z:0, sx:1, sy:1, sz:1, mesh:puzzleRiverWaterMesh(mod), uvOffset:[0,flow] });
     }
@@ -18053,6 +18289,35 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const falloffPercent = Math.round(Rig.clamp(Number(terrainDepthDetailFalloff) || 0, 0, 1) * 100);
     if (sectionDepthFalloffInput && document.activeElement !== sectionDepthFalloffInput) sectionDepthFalloffInput.value = String(falloffPercent);
     if (sectionDepthFalloffValue) sectionDepthFalloffValue.textContent = `${falloffPercent}%`;
+    const surfaceX=Number(character?.x ?? selectedBounds.center);
+    const surfaceBlend=terrainSurfaceBlendAt(surfaceX);
+    if(sectionSurfaceCurrentEl)sectionSurfaceCurrentEl.textContent=surfaceBlend.transition
+      ? `${terrainSurfaceLabel(surfaceBlend.from)} → ${terrainSurfaceLabel(surfaceBlend.to)}`
+      : terrainSurfaceLabel(surfaceBlend.from);
+    if(sectionSurfaceDetailEl)sectionSurfaceDetailEl.textContent=surfaceBlend.transition
+      ? `${Math.round(surfaceBlend.t*100)}% through blend · ${surfaceBlend.transition.startX.toFixed(1)} to ${surfaceBlend.transition.endX.toFixed(1)} m`
+      : `Surface at ${surfaceX.toFixed(1)} m · transition blocks are authored in World Lab`;
+    const surfaceTransitions=terrainSurfaceState?.transitions||[];
+    if(terrainSelectedSurfaceTransitionId&&!terrainSurfaceTransitionById(terrainSelectedSurfaceTransitionId))terrainSelectedSurfaceTransitionId=null;
+    if(!terrainSelectedSurfaceTransitionId){
+      const nearby=surfaceBlend.transition||surfaceTransitions.find(item=>item.endX>=selectedBounds.minX&&item.startX<=selectedBounds.maxX)||null;
+      if(nearby)terrainSelectedSurfaceTransitionId=nearby.id;
+    }
+    if(sectionSurfaceTransitionSelect){
+      const listSignature=surfaceTransitions.map(item=>`${item.id}:${item.from}>${item.to}`).join('|');
+      const previous=terrainSelectedSurfaceTransitionId||'';
+      if(listSignature!==terrainSurfaceUiListSignature){
+        sectionSurfaceTransitionSelect.innerHTML=surfaceTransitions.length
+          ? surfaceTransitions.map(item=>`<option value="${item.id}">${terrainSurfaceLabel(item.from)} → ${terrainSurfaceLabel(item.to)}</option>`).join('')
+          : '<option value="">No surface blends yet</option>';
+        terrainSurfaceUiListSignature=listSignature;
+      }
+      sectionSurfaceTransitionSelect.value=surfaceTransitions.some(item=>item.id===previous)?previous:(surfaceTransitions[0]?.id||'');
+      terrainSelectedSurfaceTransitionId=sectionSurfaceTransitionSelect.value||null;
+    }
+    const selectedSurfaceTransition=terrainSurfaceTransitionById(terrainSelectedSurfaceTransitionId);
+    if(sectionSurfaceStartInput){sectionSurfaceStartInput.disabled=!selectedSurfaceTransition;if(document.activeElement!==sectionSurfaceStartInput)sectionSurfaceStartInput.value=selectedSurfaceTransition?selectedSurfaceTransition.startX.toFixed(1):'';}
+    if(sectionSurfaceEndInput){sectionSurfaceEndInput.disabled=!selectedSurfaceTransition;if(document.activeElement!==sectionSurfaceEndInput)sectionSurfaceEndInput.value=selectedSurfaceTransition?selectedSurfaceTransition.endX.toFixed(1):'';}
     if (sectionTypeSelect) sectionTypeSelect.value = selectedType;
     if (sectionRiverWidthRow) sectionRiverWidthRow.hidden = selectedType !== 'river';
     if (sectionRiverWidthInput) sectionRiverWidthInput.value = selectedRiver.width.toFixed(1);
@@ -19021,6 +19286,19 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     saveTerrainSectionState();
     updateTerrainSectionUi(true);
   });
+  sectionSurfaceTransitionSelect?.addEventListener('change',()=>{
+    terrainSelectedSurfaceTransitionId=sectionSurfaceTransitionSelect.value||null;
+    updateTerrainSectionUi(true);
+  });
+  const commitSurfaceEdge=(side,input)=>{
+    const id=terrainSelectedSurfaceTransitionId,item=terrainSurfaceTransitionById(id);if(!item||!input)return;
+    const value=Number(input.value);if(!Number.isFinite(value)){updateTerrainSectionUi(true);return;}
+    const changed=runEditorTransaction(`Move surface blend ${side}`,()=>setTerrainSurfaceTransitionEdge(id,side,value,{save:false}));
+    if(changed){const current=terrainSurfaceTransitionById(id);hintEl.textContent=`${terrainSurfaceLabel(current.from)} → ${terrainSurfaceLabel(current.to)} · ${side} ${(side==='start'?current.startX:current.endX).toFixed(1)} m`;hintEl.classList.remove('hidden');}
+    updateTerrainSectionUi(true);
+  };
+  sectionSurfaceStartInput?.addEventListener('change',()=>commitSurfaceEdge('start',sectionSurfaceStartInput));
+  sectionSurfaceEndInput?.addEventListener('change',()=>commitSurfaceEdge('end',sectionSurfaceEndInput));
   let terrainDepthFalloffGestureAnchors = null;
   const applyDepthDetailFalloff = () => {
     if (!sectionDepthFalloffInput) return;
@@ -19308,6 +19586,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           : null
       };
 
+      const terrainSurfaceHandle=terrainSurfaceHandleAt(e.clientX,e.clientY);
+      if(terrainSurfaceHandle){
+        terrainSelectedSurfaceTransitionId=terrainSurfaceHandle.item.id;
+        editorGesture.kind='terrain-surface-edge';
+        editorGesture.surfaceTransitionId=terrainSurfaceHandle.item.id;
+        editorGesture.surfaceSide=terrainSurfaceHandle.side;
+        editorGesture.surfaceStartX=terrainSurfaceHandle.side==='start'?terrainSurfaceHandle.item.startX:terrainSurfaceHandle.item.endX;
+        editorGesture.surfaceStartScreen=terrainSurfaceHandle.point;
+        beginEditorTransaction(`Move surface blend ${terrainSurfaceHandle.side}`);
+        updateTerrainSectionUi(true);
+        hintEl.textContent=`Drag ${terrainSurfaceHandle.side.toUpperCase()} handle · ${terrainSurfaceLabel(terrainSurfaceHandle.item.from)} → ${terrainSurfaceLabel(terrainSurfaceHandle.item.to)}`;
+        hintEl.classList.remove('hidden');
+        return;
+      }
+
       if(worldGroupExclusionEditMode&&editorScope==='environment'&&worldGroupEditSession){
         const group=worldGroupById(selectedWorldGroupId),start=group?currentWorldGroupExclusion(group):null;
         if(group&&start){
@@ -19544,7 +19837,18 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (travel < 7 && !editorGesture.moved) return;
       editorGesture.moved = true;
 
-      if(editorGesture.kind==='world-group-direct'&&editorGesture.group){
+      if(editorGesture.kind==='terrain-surface-edge'&&editorGesture.surfaceTransitionId){
+        const startScreen=editorGesture.surfaceStartScreen;
+        if(startScreen){
+          const solved=solveEditorScreenDragXZ({
+            startX:editorGesture.surfaceStartX,startZ:pathZ,
+            startScreenX:startScreen.x,startScreenY:startScreen.y,
+            targetScreenX:startScreen.x+dx,targetScreenY:startScreen.y+dy,
+            yAt:(x)=>playSurfaceYAt(x)+.11,lockZ:true
+          });
+          setTerrainSurfaceTransitionEdge(editorGesture.surfaceTransitionId,editorGesture.surfaceSide,solved.x,{save:false});
+        }
+      } else if(editorGesture.kind==='world-group-direct'&&editorGesture.group){
         const startScreen=editorGesture.groupStartScreen;
         const moveState=editorGesture.groupMoveState;
         if(startScreen&&moveState){
@@ -19711,7 +20015,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const gesture=editorGesture;
       if (gesture) {
         if (gesture.moved) {
-          if(gesture.kind==='world-group-direct'&&gesture.group){
+          if(gesture.kind==='terrain-surface-edge'&&gesture.surfaceTransitionId){
+            const item=terrainSurfaceTransitionById(gesture.surfaceTransitionId);
+            if(item){hintEl.textContent=`Surface blend ${gesture.surfaceSide} → ${(gesture.surfaceSide==='start'?item.startX:item.endX).toFixed(1)} m`;hintEl.classList.remove('hidden');updateTerrainSectionUi(true);}
+          }
+          else if(gesture.kind==='world-group-direct'&&gesture.group){
             persistWorldGroupMove(gesture.group);
             hintEl.textContent=`Moved ${gesture.group.label} · group remains locked`;
             hintEl.classList.remove('hidden');

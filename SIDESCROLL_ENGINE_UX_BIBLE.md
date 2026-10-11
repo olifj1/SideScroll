@@ -732,11 +732,15 @@ The Stage 2 control is one global **Depth Detail Falloff** master. `100%` reprod
 
 ### 17.6 Terrain Surface Regions are continuous world-space data
 
-Ground texture/material transitions must not be constrained to 10 m Section boundaries. Terrain Surface Regions should use the same broad spatial grammar as Biome Regions/Transitions: explicit world-space ranges with an authored blend span between surface A and surface B.
+Ground texture/material transitions are not constrained to 10 m Section boundaries. Terrain Surface Regions use the same broad spatial grammar as Biome Regions/Transitions: a default surface followed by ordered world-space A -> B blend ranges with explicit start/end keys. Surface data remains its own authored collection rather than becoming a property of Biome or Section records.
 
-World Lab is the macro placement/overview for these regions. Terrain Edit may expose the same start/end/blend handles in-world for visual fine-tuning. Both tools must edit the **same underlying Surface Region records**, never duplicate transition data.
+World Lab is the macro placement/overview for these regions. Terrain Edit exposes the **same stored transition records** as in-world start/end handles for visual fine-tuning. Both tools edit one source of truth; never copy a World Lab surface transition into separate Terrain-only data.
 
-Prefer a shared/general region-transition foundation with Biomes where practical rather than copying two independent implementations. Runtime blending should keep the active surface set bounded; normally only the two surfaces participating in the current blend are needed.
+The transition chain is deterministic: records are ordered by world X, the `from` surface of each transition is derived from the surface established before it, and blend ranges may not overlap. This allows a sequence such as Dirt -> Rock -> Snow while leaving arbitrary solid spans between blends.
+
+Runtime rendering must keep the active surface set bounded: use one surface outside a transition and only the two participating surfaces while blending. Surface definitions are referenced by stable IDs so their visual texture implementation can be replaced or expanded without rewriting authored range data.
+
+World Lab owns creation/deletion and broad arrangement of Surface Blends. Terrain Edit is the in-world fine-tuning view: it may move the same start/end keys and must include those edits in the normal Terrain Undo/Redo/Save/Discard transaction model.
 
 ### 17.7 Terrain Features are local modifiers with explicit ownership
 

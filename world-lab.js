@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.112: explicit Biome/Profile library + user-created biomes.
+  // SideScroll v1.0.138: Terrain Surface Regions + explicit Biome/Profile library.
 
   const STORAGE = {
     elements:'sidescroll.world-elements.v1',
@@ -34,7 +34,8 @@
     designLab:'sidescroll-design-doc-working-v1',
     animClips:'gamehub.walklab.anim.v6',
     animWalk:'gamehub.walklab.anim.v4',
-    biomes:'sidescroll.biomes.v1'
+    biomes:'sidescroll.biomes.v1',
+    terrainSurfaces:'sidescroll.terrain-surfaces.v1'
   };
 
   const SECTION_LENGTH = 10;
@@ -94,6 +95,13 @@
   const DEFAULT_BIOME_CURVE = {y1:1/3,y2:2/3};
   const DEFAULT_STREAM_PADDING = {preload:12,unload:12};
 
+  const TERRAIN_SURFACE_DEFS = {
+    'woodland-dirt':{id:'woodland-dirt',label:'Woodland Dirt',colour:'#7f6b54'},
+    'rocky-ground':{id:'rocky-ground',label:'Rocky Ground',colour:'#77756f'},
+    'pale-gravel':{id:'pale-gravel',label:'Pale Gravel',colour:'#9b9180'},
+    'snow-ground':{id:'snow-ground',label:'Snow Ground',colour:'#c8d0cf'}
+  };
+
   const state = {
     minX:-20,
     maxX:300,
@@ -103,6 +111,7 @@
     playheadX:null,
     elements:loadElements(),
     biomes:loadBiomeState(),
+    terrainSurfaces:loadTerrainSurfaceState(),
     pending:loadJson(STORAGE.pending,{}),
     groupMoves:loadJson(STORAGE.groupMoves,{}),
     userLibrary:null,
@@ -124,6 +133,7 @@
     sectionGrid:$('wl-section-grid'),
     ruler:$('wl-ruler'),
     trackBiome:$('wl-track-biome'),
+    trackSurface:$('wl-track-surface'),
     trackSection:$('wl-track-section'),
     trackTerrainNear:$('wl-track-terrain-near'),
     trackTerrainFarA:$('wl-track-terrain-far-a'),
@@ -172,6 +182,13 @@
     biomeEnd:$('wl-biome-end'),
     biomeAdd:$('wl-add-biome-transition'),
     biomeSummary:$('wl-biome-summary'),
+    surfaceDefault:$('wl-surface-default'),
+    surfaceFrom:$('wl-surface-from'),
+    surfaceTo:$('wl-surface-to'),
+    surfaceStart:$('wl-surface-start'),
+    surfaceEnd:$('wl-surface-end'),
+    surfaceAdd:$('wl-add-surface-transition'),
+    surfaceSummary:$('wl-surface-summary'),
     toast:$('wl-toast')
   };
 
@@ -243,8 +260,18 @@
       select('biome-profile',biomeProfileKey(id,'default'));
     });
     els.biomeAdd?.addEventListener('click',addBiomeTransition);
+    els.surfaceDefault?.addEventListener('change',()=>{
+      pushHistory('Change default terrain surface');
+      state.terrainSurfaces.defaultSurface=els.surfaceDefault.value;
+      state.terrainSurfaces=normaliseTerrainSurfaceState(state.terrainSurfaces);
+      saveTerrainSurfaceState();render();toast(`Default surface → ${surfaceLabel(state.terrainSurfaces.defaultSurface)}.`);
+    });
+    els.surfaceStart?.addEventListener('input',syncSurfaceAddPreview);
+    els.surfaceTo?.addEventListener('change',syncSurfaceAddPreview);
+    els.surfaceAdd?.addEventListener('click',addTerrainSurfaceTransition);
     refreshBiomeLibraryUi();
     syncBiomeAddPreview();
+    refreshTerrainSurfaceUi();
   }
 
   function openDataMenu(){
@@ -262,6 +289,7 @@
   function refreshGameData(){
     state.elements = loadElements();
     state.biomes = loadBiomeState();
+    state.terrainSurfaces = loadTerrainSurfaceState();
     state.userLibrary = normaliseLibrary(loadJson(STORAGE.puzzleLibrary, baked?.puzzles?.localLibrary || {groups:{},templates:{},markers:[]}));
     state.puzzleState = loadJson(STORAGE.puzzleState,{});
     state.puzzleStarts = loadJson(STORAGE.puzzleStarts,baked?.puzzles?.savedStarts || {});
@@ -283,9 +311,11 @@
     const groupCount=state.worldGroups.length;
     const groupMoveCount=Object.keys(state.groupMoves||{}).length;
     const transitionCount=state.biomes?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}${pendingCount||groupMoveCount?` · ${pendingCount+groupMoveCount} queued move${pendingCount+groupMoveCount===1?'':'s'}`:''}`;
+    const surfaceTransitionCount=state.terrainSurfaces?.transitions?.length||0;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${surfaceTransitionCount} surface blend${surfaceTransitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}${pendingCount||groupMoveCount?` · ${pendingCount+groupMoveCount} queued move${pendingCount+groupMoveCount===1?'':'s'}`:''}`;
     refreshBiomeLibraryUi();
     syncBiomeAddPreview();
+    refreshTerrainSurfaceUi();
     syncUndoUi();
   }
 
@@ -466,12 +496,40 @@
   function saveBiomeState(){
     state.biomes=normaliseBiomeState(state.biomes);
     saveJson(STORAGE.biomes,state.biomes);
-    const assetCount=sceneDressingEntries().length,transitionCount=state.biomes?.transitions?.length||0;
-    if(els.status)els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
+    const assetCount=sceneDressingEntries().length,transitionCount=state.biomes?.transitions?.length||0,surfaceTransitionCount=state.terrainSurfaces?.transitions?.length||0;
+    if(els.status)els.status.textContent=`${state.puzzles.length} puzzles · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${surfaceTransitionCount} surface blend${surfaceTransitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} placed world asset${assetCount===1?'':'s'}`:''}`;
     refreshBiomeLibraryUi();
     syncBiomeAddPreview();
     syncUndoUi();
   }
+
+  function defaultTerrainSurfaceState(){
+    return {version:1,defs:clone(TERRAIN_SURFACE_DEFS),defaultSurface:'woodland-dirt',transitions:[]};
+  }
+  function normaliseTerrainSurfaceState(raw){
+    const defaults=defaultTerrainSurfaceState(),src=raw&&typeof raw==='object'?clone(raw):{},defs=clone(TERRAIN_SURFACE_DEFS);
+    const rawDefs=src.defs&&typeof src.defs==='object'?src.defs:{};
+    for(const [id,def] of Object.entries(rawDefs))if(!defs[id]&&def&&typeof def==='object')defs[id]={id,label:String(def.label||id).slice(0,60),colour:String(def.colour||'#7d8587')};
+    const ids=Object.keys(defs),out={version:1,defs,defaultSurface:defs[src.defaultSurface]?src.defaultSurface:defaults.defaultSurface,transitions:[]};
+    const rawTransitions=(Array.isArray(src.transitions)?src.transitions:[]).map((item,index)=>({item,index,start:snapTo(number(item?.startX,100+index*80),RANGE_SNAP)})).sort((a,b)=>a.start-b.start);
+    let previousEnd=-Infinity,current=out.defaultSurface;
+    for(let orderIndex=0;orderIndex<rawTransitions.length;orderIndex++){
+      const source=rawTransitions[orderIndex],index=source.index,rawItem=source.item||{};let start=source.start;let end=Math.max(start+RANGE_SNAP,snapTo(number(rawItem.endX,start+30),RANGE_SNAP));
+      if(start<previousEnd+RANGE_SNAP)start=previousEnd+RANGE_SNAP;if(end<start+RANGE_SNAP)end=start+Math.max(10,RANGE_SNAP);
+      let to=defs[rawItem.to]?rawItem.to:ids.find(id=>id!==current)||current;if(to===current)to=ids.find(id=>id!==current)||current;
+      const item={id:String(rawItem.id||uniqueId('surface')),from:current,to,startX:start,endX:end};out.transitions.push(item);current=to;previousEnd=end;
+    }
+    return out;
+  }
+  function loadTerrainSurfaceState(){return normaliseTerrainSurfaceState(loadJson(STORAGE.terrainSurfaces,null));}
+  function saveTerrainSurfaceState(){state.terrainSurfaces=normaliseTerrainSurfaceState(state.terrainSurfaces);saveJson(STORAGE.terrainSurfaces,state.terrainSurfaces);refreshTerrainSurfaceUi();syncSurfaceAddPreview();syncUndoUi();}
+  function surfaceDefs(){return state.terrainSurfaces?.defs||TERRAIN_SURFACE_DEFS;} function surfaceIds(){return Object.keys(surfaceDefs());} function surfaceDef(id){return surfaceDefs()[id]||null;} function surfaceLabel(id){return surfaceDef(id)?.label||id||'Surface';} function surfaceColour(id){return surfaceDef(id)?.colour||'#7d8587';}
+  function findSurfaceTransition(id){return state.terrainSurfaces?.transitions?.find(item=>item.id===id)||null;} function surfaceTransitionAt(x){return (state.terrainSurfaces?.transitions||[]).find(item=>x>=item.startX&&x<=item.endX)||null;}
+  function surfaceStateBefore(x){let current=state.terrainSurfaces?.defaultSurface||'woodland-dirt';for(const item of state.terrainSurfaces?.transitions||[]){if(x<item.startX)break;if(x<=item.endX)return item.from;current=item.to;}return current;}
+  function surfaceStateAt(x){const transition=surfaceTransitionAt(x);if(transition){const t=RigClamp((x-transition.startX)/Math.max(.001,transition.endX-transition.startX),0,1);return{from:transition.from,to:transition.to,t,transition};}const id=surfaceStateBefore(x);return{from:id,to:id,t:0,transition:null};}
+  function refreshTerrainSurfaceUi(){if(!state.terrainSurfaces)return;const ids=surfaceIds();if(els.surfaceDefault){els.surfaceDefault.innerHTML=ids.map(id=>`<option value="${escapeAttr(id)}">${escapeHtml(surfaceLabel(id))}</option>`).join('');els.surfaceDefault.value=surfaceDef(state.terrainSurfaces.defaultSurface)?state.terrainSurfaces.defaultSurface:ids[0];}if(els.surfaceTo){const previous=els.surfaceTo.value;els.surfaceTo.innerHTML=ids.map(id=>`<option value="${escapeAttr(id)}">${escapeHtml(surfaceLabel(id))}</option>`).join('');els.surfaceTo.value=surfaceDef(previous)?previous:(ids.find(id=>id!==state.terrainSurfaces.defaultSurface)||ids[0]);}}
+  function syncSurfaceAddPreview(){if(!els.surfaceSummary)return;const x=number(els.surfaceStart?.value,100),inside=surfaceTransitionAt(x),from=surfaceStateBefore(x),to=els.surfaceTo?.value||from;els.surfaceSummary.textContent=inside?`That start point is already inside ${surfaceLabel(inside.from)} → ${surfaceLabel(inside.to)}. Move it outside the existing blend.`:`${surfaceLabel(from)} is active at ${round(x,1)} m · target: ${surfaceLabel(to)}.`;if(els.surfaceFrom)els.surfaceFrom.value=surfaceLabel(from);}
+  function addTerrainSurfaceTransition(){const start=snapTo(number(els.surfaceStart?.value,100),RANGE_SNAP),end=Math.max(start+RANGE_SNAP,snapTo(number(els.surfaceEnd?.value,start+20),RANGE_SNAP)),list=state.terrainSurfaces.transitions||[];if(surfaceTransitionAt(start)||surfaceTransitionAt(end-.001)||list.some(t=>start<t.endX&&end>t.startX)){toast('Terrain surface blends cannot overlap.');return;}const from=surfaceStateBefore(start),to=els.surfaceTo?.value;if(!surfaceDef(to)){toast('Choose a valid target surface.');return;}if(to===from){toast('Choose a different target surface.');return;}pushHistory('Add terrain surface transition');const item={id:uniqueId('surface'),from,to,startX:start,endX:end};state.terrainSurfaces.transitions.push(item);state.terrainSurfaces=normaliseTerrainSurfaceState(state.terrainSurfaces);saveTerrainSurfaceState();state.selected={kind:'surface-transition',id:item.id};render();toast(`${surfaceLabel(from)} → ${surfaceLabel(to)} surface blend added.`);}
 
   function biomeDefs(){return state.biomes?.defs||BIOME_DEFS;}
   function biomeIds(){return Object.keys(biomeDefs());}
@@ -1007,6 +1065,7 @@
     els.world.style.width=`${width}px`;
     renderGrid();
     renderBiomeTrack();
+    renderTerrainSurfaceTrack();
     renderElements();
     renderSections();
     renderPuzzles();
@@ -1108,6 +1167,13 @@
     const bottom=document.createElement('span');bottom.className='wl-biome-axis-label bottom';bottom.textContent='0%';host.append(top,bottom);
   }
 
+
+  function renderTerrainSurfaceTrack(){
+    const host=els.trackSurface;if(!host)return;host.innerHTML='';const list=state.terrainSurfaces?.transitions||[];let cursor=state.minX,current=state.terrainSurfaces?.defaultSurface||'woodland-dirt';
+    const addBand=(from,to,id)=>{const a=Math.max(state.minX,from),b=Math.min(state.maxX,to);if(!(b>a))return;const node=document.createElement('button');node.type='button';node.className='wl-surface-band';node.style.left=`${xToPx(a)}px`;node.style.width=`${Math.max(1,(b-a)*state.scale)}px`;node.style.background=`${surfaceColour(id)}33`;node.innerHTML=`<span>${escapeHtml(surfaceLabel(id))}</span>`;node.title=`${surfaceLabel(id)} · ${round(a,1)} → ${round(b,1)} m`;host.appendChild(node);};
+    for(const item of list){addBand(cursor,item.startX,current);const a=Math.max(state.minX,item.startX),b=Math.min(state.maxX,item.endX);if(b>a){const band=document.createElement('button');band.type='button';band.className=`wl-surface-transition-band${isSelected('surface-transition',item.id)?' selected':''}`;band.style.left=`${xToPx(a)}px`;band.style.width=`${Math.max(2,(b-a)*state.scale)}px`;band.style.background=`linear-gradient(90deg,${surfaceColour(item.from)}55,${surfaceColour(item.to)}55)`;band.innerHTML=`<span>${escapeHtml(surfaceLabel(item.from))} → ${escapeHtml(surfaceLabel(item.to))}</span>`;band.addEventListener('click',event=>{event.stopPropagation();select('surface-transition',item.id);});host.appendChild(band);const startKey=document.createElement('button');startKey.type='button';startKey.className='wl-surface-key start';startKey.style.left=`${xToPx(item.startX)}px`;const endKey=document.createElement('button');endKey.type='button';endKey.className='wl-surface-key end';endKey.style.left=`${xToPx(item.endX)}px`;bindSurfaceKeyDrag(startKey,item,'start');bindSurfaceKeyDrag(endKey,item,'end');startKey.addEventListener('click',event=>{event.stopPropagation();select('surface-transition',item.id);});endKey.addEventListener('click',event=>{event.stopPropagation();select('surface-transition',item.id);});host.append(startKey,endKey);}current=item.to;cursor=item.endX;}addBand(cursor,state.maxX,current);
+  }
+  function bindSurfaceKeyDrag(handle,item,side){handle.addEventListener('pointerdown',event=>{if(event.button!==undefined&&event.button!==0)return;event.preventDefault();event.stopPropagation();handle.setPointerCapture?.(event.pointerId);pushHistory(`Move surface ${side} key`);select('surface-transition',item.id,false);const startClient=event.clientX,origStart=item.startX,origEnd=item.endX,list=state.terrainSurfaces.transitions,index=list.indexOf(item),prev=list[index-1]||null,next=list[index+1]||null;let moved=false;const move=e=>{const delta=(e.clientX-startClient)/state.scale;if(Math.abs(e.clientX-startClient)>2)moved=true;if(side==='start')item.startX=RigClamp(snapTo(origStart+delta,RANGE_SNAP),prev?prev.endX+RANGE_SNAP:-99999,item.endX-RANGE_SNAP);else item.endX=RigClamp(snapTo(origEnd+delta,RANGE_SNAP),item.startX+RANGE_SNAP,next?next.startX-RANGE_SNAP:99999);handle.style.left=`${xToPx(side==='start'?item.startX:item.endX)}px`;};const end=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',end);handle.removeEventListener('pointercancel',end);if(moved){state.terrainSurfaces=normaliseTerrainSurfaceState(state.terrainSurfaces);saveTerrainSurfaceState();toast(`Surface ${side} moved to ${round(side==='start'?item.startX:item.endX,1)} m.`);}render();};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);});}
 
   function bindBiomeKeyDrag(handle,item,side){
     handle.addEventListener('pointerdown',event=>{
@@ -1505,6 +1571,7 @@
       return renderBiomeTransitionSelection(item);
     }
     if(state.selected.kind==='biome-profile')return renderBiomeProfileSelection(state.selected.id);
+    if(state.selected.kind==='surface-transition'){const item=findSurfaceTransition(state.selected.id);if(!item){state.selected=null;return renderSelection();}return renderSurfaceTransitionSelection(item);}
     if(state.selected.kind==='puzzle'){
       const p=findPuzzle(state.selected.id);
       if(!p){state.selected=null;return renderSelection();}
@@ -1605,6 +1672,12 @@
     });
   }
 
+
+  function renderSurfaceTransitionSelection(item){
+    const ids=surfaceIds();els.selection.innerHTML=`<h2>${escapeHtml(surfaceLabel(item.from))} → ${escapeHtml(surfaceLabel(item.to))}</h2><p class="muted">Continuous Terrain Surface blend. It is independent of 10 m Section boundaries and is the same record exposed in Terrain Edit.</p><div class="wl-biome-status-pills"><span class="wl-pill">Blend ${round(item.startX,1)} → ${round(item.endX,1)} m</span><span class="wl-pill">Two active surfaces</span></div><div class="wl-selection-form"><label>From<input value="${escapeAttr(surfaceLabel(item.from))}" readonly></label><label>To surface<select id="wl-surface-edit-to">${ids.map(id=>`<option value="${escapeAttr(id)}"${id===item.to?' selected':''}>${escapeHtml(surfaceLabel(id))}</option>`).join('')}</select></label><label>Blend start / X<input id="wl-surface-edit-start" type="number" step="1" value="${round(item.startX,2)}"></label><label>Blend end / X<input id="wl-surface-edit-end" type="number" step="1" value="${round(item.endX,2)}"></label></div><div class="wl-actions"><button class="primary" id="wl-save-surface-transition">Save Surface Blend</button><button id="wl-surface-playhead">Move playhead to start</button><button class="danger" id="wl-delete-surface-transition">Delete</button></div>`;
+    $('wl-save-surface-transition').addEventListener('click',()=>{pushHistory('Edit terrain surface transition');const start=snapTo(number($('wl-surface-edit-start').value,item.startX),RANGE_SNAP),end=snapTo(number($('wl-surface-edit-end').value,item.endX),RANGE_SNAP),list=state.terrainSurfaces.transitions,index=list.indexOf(item),prev=list[index-1],next=list[index+1];if(end<=start||(prev&&start<=prev.endX)||(next&&end>=next.startX)){toast('Surface blend must stay between its neighbours and have a positive length.');return;}const to=$('wl-surface-edit-to').value;if(!surfaceDef(to)||to===item.from){toast('Choose a target surface different from the source.');return;}item.startX=start;item.endX=end;item.to=to;state.terrainSurfaces=normaliseTerrainSurfaceState(state.terrainSurfaces);saveTerrainSurfaceState();render();toast('Terrain surface blend saved.');});
+    $('wl-surface-playhead').addEventListener('click',()=>{state.playheadX=item.startX;select('playhead','player');});$('wl-delete-surface-transition').addEventListener('click',()=>{if(!confirm(`Delete ${surfaceLabel(item.from)} → ${surfaceLabel(item.to)} surface blend?`))return;pushHistory('Delete terrain surface transition');state.terrainSurfaces.transitions=state.terrainSurfaces.transitions.filter(t=>t.id!==item.id);state.terrainSurfaces=normaliseTerrainSurfaceState(state.terrainSurfaces);state.selected=null;saveTerrainSurfaceState();render();toast('Terrain surface blend deleted.');});
+  }
 
   function profileIsUsed(biomeId,profileId){
     if(state.biomes.defaultBiome===biomeId&&state.biomes.defaultProfile===profileId)return true;
@@ -1953,8 +2026,8 @@
 
   function saveElements(){
     saveJson(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:state.elements});
-    const assetCount=sceneDressingEntries().length,groupCount=state.worldGroups.length,transitionCount=state.biomes?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}`;
+    const assetCount=sceneDressingEntries().length,groupCount=state.worldGroups.length,transitionCount=state.biomes?.transitions?.length||0,surfaceTransitionCount=state.terrainSurfaces?.transitions?.length||0;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${surfaceTransitionCount} surface blend${surfaceTransitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}`;
     syncUndoUi();
   }
 
@@ -1973,13 +2046,14 @@
     return {
       format:'SideScrollGameDesign',
       formatVersion:2,
-      appVersion:'1.0.112',
+      appVersion:'1.0.138',
       exportedAt:new Date().toISOString(),
       purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
       world:{
         ...bakedWorld,
         elements:clone(state.elements),
         biomes:clone(state.biomes),
+        terrainSurfaces:clone(state.terrainSurfaces),
         terrain:clone(state.terrain),
         pendingPuzzleMoves:clone(state.pending),
         pendingWorldGroupMoves:clone(state.groupMoves),
@@ -2076,6 +2150,7 @@
         const worldElements=Array.isArray(parsed?.world?.elements)?parsed.world.elements:null;
         if(worldElements)writeImportedStore(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:worldElements});
         if(parsed?.world?.biomes!==undefined)writeImportedStore(STORAGE.biomes,parsed.world.biomes);
+        if(parsed?.world?.terrainSurfaces!==undefined)writeImportedStore(STORAGE.terrainSurfaces,parsed.world.terrainSurfaces);
         if(parsed?.world?.terrain!==undefined)writeImportedStore(STORAGE.terrain,parsed.world.terrain);
         if(parsed?.world?.pendingPuzzleMoves!==undefined)writeImportedStore(STORAGE.pending,parsed.world.pendingPuzzleMoves);
         if(parsed?.world?.pendingWorldGroupMoves!==undefined)writeImportedStore(STORAGE.groupMoves,parsed.world.pendingWorldGroupMoves);
@@ -2136,7 +2211,7 @@
   }
 
   function historySnapshot(label='World Lab change'){
-    return {label,elements:clone(state.elements),biomes:clone(state.biomes),pending:clone(state.pending),groupMoves:clone(state.groupMoves),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
+    return {label,elements:clone(state.elements),biomes:clone(state.biomes),terrainSurfaces:clone(state.terrainSurfaces),pending:clone(state.pending),groupMoves:clone(state.groupMoves),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
   }
   function pushHistory(label){
     state.history.push(historySnapshot(label));
@@ -2155,6 +2230,7 @@
     if(!snap)return;
     state.elements=clone(snap.elements)||[];
     state.biomes=normaliseBiomeState(snap.biomes||defaultBiomeState());
+    state.terrainSurfaces=normaliseTerrainSurfaceState(snap.terrainSurfaces||defaultTerrainSurfaceState());
     state.pending=clone(snap.pending)||{};
     state.groupMoves=clone(snap.groupMoves)||{};
     state.terrain=normaliseTerrainState(snap.terrain||{});
@@ -2162,6 +2238,7 @@
     state.selected=clone(snap.selected);
     saveElements();
     saveBiomeState();
+    saveTerrainSurfaceState();
     saveJson(STORAGE.pending,state.pending);
     saveJson(STORAGE.groupMoves,state.groupMoves);
     saveJson(STORAGE.terrain,state.terrain);
