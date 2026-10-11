@@ -95,15 +95,19 @@ body.wl-terrain-expanded .wl-terrain-track.detail{display:block}
 .wl-item.world-group.pending{box-shadow:0 0 0 2px rgba(255,214,145,.68),0 7px 18px rgba(0,0,0,.28)}
 
 
-/* v1.0.139 continuous Terrain Surface authoring + material previews */
+/* v1.0.140 continuous Terrain Surface authoring + true material blend previews */
 .wl-surface-rail,.wl-surface-track{height:72px}
 .wl-surface-rail{align-items:flex-start;padding-top:12px;line-height:1.2}
 .wl-surface-track{background:linear-gradient(to bottom,rgba(255,255,255,.014),rgba(255,255,255,.004))}
 .wl-surface-track .wl-track-content{overflow:hidden}
 .wl-surface-band,.wl-surface-transition-band{position:absolute;top:0;bottom:0;border:0;border-left:1px solid rgba(255,255,255,.08);border-right:1px solid rgba(255,255,255,.08);padding:0;color:var(--text);text-align:left;overflow:hidden}
 .wl-surface-band>span,.wl-surface-transition-band>span{position:absolute;left:8px;top:8px;padding:3px 6px;border-radius:999px;background:rgba(10,15,18,.64);border:1px solid rgba(255,255,255,.12);font-size:8px;font-weight:800;white-space:nowrap}
-.wl-surface-transition-band{z-index:2;border-left-color:rgba(255,255,255,.28);border-right-color:rgba(255,255,255,.28)}
-.wl-surface-transition-band>span{left:50%;transform:translateX(-50%)}
+.wl-surface-transition-band{z-index:2;border-left-color:rgba(255,255,255,.28);border-right-color:rgba(255,255,255,.28);background:#273034}
+.wl-surface-transition-layer,.wl-surface-transition-shade{position:absolute;inset:0;pointer-events:none}
+.wl-surface-transition-layer{z-index:0;background-position:center;background-repeat:repeat;background-size:88px 88px}
+.wl-surface-transition-layer.to{z-index:1}
+.wl-surface-transition-shade{z-index:2;background:rgba(9,14,17,.16)}
+.wl-surface-transition-band>span{left:50%;transform:translateX(-50%);z-index:3}
 .wl-surface-transition-band.selected{outline:2px solid rgba(255,255,255,.9);outline-offset:-2px}
 .wl-surface-key{position:absolute;top:36px;width:20px;height:20px;margin:-10px 0 0 -10px;padding:0!important;border:2px solid #e8f7f7!important;border-radius:50%!important;background:#527078!important;z-index:7;box-shadow:0 3px 9px rgba(0,0,0,.5);touch-action:none}
 .wl-surface-key.end{background:#886f69!important}

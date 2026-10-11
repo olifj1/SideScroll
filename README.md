@@ -1,27 +1,32 @@
-# SideScroll patch 1.0.139
+# SideScroll patch 1.0.140
 
-**Changed-files-only patch over v1.0.138.** This is a focused Terrain Surface art/library pass. It does not begin the Terrain Feature/river Stage 4 work.
+**Changed-files-only patch over v1.0.139.** This is a focused polish/fix drop: true World Lab Terrain Surface blend previews plus corrected Free-member vertical placement for World Group Templates and whole-group moves.
 
-## v1.0.139 — Terrain Surface texture pack + previews
+## v1.0.140 — Surface blend preview + Group Template roof-height fix
 
-- Adds seven Art-Bible-aligned tileable terrain surface images: **Woodland Soil**, **Village Cobble**, **Rocky Gravel**, **Mountain Trail**, **Wetland Mud**, **Pale Gravel** and **Snow Ground**.
-- Keeps the existing **Woodland Dirt** texture as the default/current surface so installing the patch does not silently restyle already-authored terrain.
-- Existing Stage 3 IDs for Rocky Ground, Pale Gravel and Snow Ground are preserved. Their prototype procedural visuals are replaced in-place by the new image textures, so existing blends using those IDs automatically gain the real art without moving or rewriting ranges.
-- World Lab Terrain Surfaces now includes a tappable **Surface Library** with tiled material thumbnails and short descriptions. Tapping a card chooses it as the target for the next blend.
-- Default and target surfaces have larger material previews; editing an existing Surface Blend shows its From/To previews as well.
-- Solid spans on the World Lab Terrain Surface timeline display the actual active texture rather than only a flat representative colour.
-- Runtime remains bounded to one active surface outside a blend and the two participating surface textures inside a blend.
+### World Lab Terrain Surface blend preview
 
-## Included surfaces
+- Solid Terrain Surface spans continue to show their real material textures.
+- Each A -> B blend block now shows the **actual visual crossfade**: the From material is the base and the To material fades from 0% at Blend Start to 100% at Blend End.
+- The preview uses the existing authored start/end range only; it does not create a second blend system or new data.
+- Selection outline, label and START/END drag handles remain above the material preview.
 
-1. Woodland Dirt — existing SideScroll dirt; unchanged default.
-2. Woodland Soil — new painterly woodland alternative.
-3. Village Cobble — worn irregular settlement paving.
-4. Rocky Gravel — dense stony/gravel trail surface.
-5. Mountain Trail — warmer dry ochre upland path.
-6. Wetland Mud — dark soft marsh/wetland ground.
-7. Pale Gravel — sparse pale barren/moonlike ground.
-8. Snow Ground — muted trampled snow with exposed grit.
+### World Group Template Free-member height correction
+
+The older Group Template code stored Free members such as manually raised roofs relative to the **Group anchor's** terrain height. On terrain whose height changes across a wide group, Ground buildings re-sampled their own local terrain while the roof followed the centre of the group, which could create a vertical gap.
+
+v1.0.140 changes the reusable rule:
+
+- Ground members keep their existing local terrain + authored floor-offset behaviour.
+- Free members now preserve their authored floor offset relative to the terrain beneath **that member's own X/Z position**.
+- Whole-World-Group movement uses the same rule, so moving a correct building group does not reintroduce the roof drift.
+- New/updated Group Templates save `freeLocalFloorOffset`. The previous `freeGroupFloorOffset` remains only as a legacy fallback.
+
+### Existing v1.0.139 templates
+
+A conservative migration is included. If an old Template has no local Free-member offset and there is a linked source Group that clearly existed **before the Template was created**, the patch recovers the correct local offsets from that source and rebuilds the other linked instances with the corrected rule. It deliberately does not guess when no unambiguous pre-template source exists.
+
+For the current `VillageGroup02` export, the original linked group predates the Template and therefore qualifies for this repair path; the later `VillageGroup02 2` instance should be rebuilt using the original roof offsets after the first v1.0.140 load.
 
 ## Changed files
 
@@ -33,21 +38,16 @@
 - `SIDESCROLL_ENGINE_UX_BIBLE.md`
 - `SIDESCROLL_TASKS.md`
 - `README.md`
-- `terrain-surface-woodland-soil.png`
-- `terrain-surface-village-cobble.png`
-- `terrain-surface-rocky-gravel.png`
-- `terrain-surface-mountain-trail.png`
-- `terrain-surface-wetland-mud.png`
-- `terrain-surface-pale-gravel.png`
-- `terrain-surface-snow-ground.png`
+
+No terrain texture PNGs are repeated in this patch; v1.0.140 uses the surface art already installed by v1.0.139.
 
 ## Suggested iPhone checks
 
-1. Open World Lab -> Terrain Surfaces and confirm all eight materials appear with thumbnails and no panel overflow.
-2. Tap several Surface Library cards. Confirm the Blend Target preview, `To surface` selector and summary update together.
-3. Change the Default Surface temporarily and confirm its larger preview updates; Undo/reload behaviour should remain as before.
-4. Add a short Woodland Dirt -> Village Cobble blend and a second Cobble -> Rocky Gravel blend. Confirm the solid timeline spans show the real textures and the blend handles still drag normally.
-5. Enter Play/Terrain Edit and walk through each new surface. Check texture scale/repetition, brightness/contrast against existing art, and smooth A -> B blending.
-6. Reload once after the textures have been viewed and verify they remain available/offline through the existing on-demand asset cache.
+1. Reload Play once after installing v1.0.140. Inspect the original `VillageGroup02` and `VillageGroup02 2`. The original should remain visually unchanged and the second linked instance should no longer have the raised/floating roof gap.
+2. Place a new `VillageGroup02` Template Instance in another settlement position. Confirm the roofs remain aligned with their buildings even where terrain height changes across the width of the group.
+3. Move a placed building group using its yellow whole-group handle. Confirm Free roof pieces remain aligned throughout the move.
+4. In World Lab, inspect the current Woodland Dirt -> Village Cobble Terrain Surface transition. The blend block should visibly crossfade from dirt to cobble from its START handle to END handle.
+5. Drag either Surface Blend handle and confirm the visual crossfade stretches/compresses with the same authored range and Undo remains functional.
+6. Reload and verify both the Group repair and Surface Blend positions persist.
 
-These textures are intentionally a **first reviewable production pack**, not locked final art. Use the in-game result to decide which need another ImageGen pass for scale, tiling, value or biome character.
+If a different legacy Group Template has no identifiable linked source that predates the Template, v1.0.140 intentionally leaves its old height fallback intact. Re-saving that Template from a correctly aligned instance under v1.0.140 captures the new local offsets permanently.

@@ -499,6 +499,8 @@ A Template owns reusable internal authored content: relative composition, object
 
 Each placed Template Instance owns scene placement such as its world anchor/marker position. Updating the Template must not move all instances to the source object's world position.
 
+For reusable **World Group** composition, member height semantics are part of the reusable authored setup. Ground members re-sample terrain at their own placed X/Z while preserving their authored floor offset. Free members likewise preserve their authored **local terrain-relative floor offset at that member's own X/Z**; do not reference Free-member height only to the Group anchor's ground height. A wide building group may span changing terrain, and group-anchor height would make roofs/platform-like dressing drift away from the member beneath them. This remains a placement rule, not a persistent child/parent support relationship. Legacy group-anchor offsets may be read only as a compatibility fallback when no local offset exists.
+
 Only properties deliberately designed as per-instance overrides may diverge while the object remains linked. Do not allow arbitrary silent local overrides to accumulate under a Template Instance relationship.
 
 ### 12.6 Editing a Template Instance
@@ -741,6 +743,8 @@ The transition chain is deterministic: records are ordered by world X, the `from
 Runtime rendering must keep the active surface set bounded: use one surface outside a transition and only the two participating surfaces while blending. Surface definitions are referenced by stable IDs so their visual texture implementation can be replaced or expanded without rewriting authored range data.
 
 Surface definitions should own author-facing visual metadata as well as the runtime asset reference: a stable ID, label, representative colour, preview/runtime texture and short description where useful. **Do not encode texture filenames into Surface Region records.** World Lab should provide visual material previews when the library contains multiple similar surfaces; names alone are not sufficient for fast phone authoring. Preview UI is a view over the Surface definition library and does not create separate authored material state.
+
+The World Lab Surface timeline should visualise the **actual blend** inside an A -> B transition, not only label it or substitute representative colours. Display the `from` texture as the base and progressively reveal the `to` texture from 0% at Blend Start to 100% at Blend End, while keeping handles/selection affordances readable above it. This is presentation only; the authored transition remains the same start/end record used by Terrain Edit and runtime rendering.
 
 Changing/replacing the art behind an existing stable Surface ID is allowed when the semantic material remains the same (for example upgrading a placeholder `rocky-ground` implementation to production Rocky Gravel art). Add a new Surface ID when the material is meaningfully different or when replacing it would silently restyle existing authored terrain in an undesirable way.
 

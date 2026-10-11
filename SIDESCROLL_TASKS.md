@@ -1,5 +1,21 @@
 # SideScroll Development Tasks
 
+## October 11, 2026 — v1.0.140 Surface blend preview + Group Template Free-height fix
+
+**Current status:** the World Lab Terrain Surface timeline now previews the real A -> B material mix inside each authored blend range, and World Group reusable composition now preserves Free members against the terrain beneath each member rather than the terrain beneath the group anchor. This fixes roof/building separation when a wide Group Template is placed or moved across terrain whose height varies across the group's footprint.
+
+- [x] Render the World Lab **Surface Blend** band from the real `from` texture with the real `to` texture crossfading from 0 -> 100% across the authored blend start/end range. Keep the selected outline, labels and start/end drag handles above the preview.
+- [x] Keep Surface Regions as one source of truth: this is only a World Lab visualisation of the existing runtime blend, not new authored blend data.
+- [x] Capture `freeLocalFloorOffset` for Free World Group members relative to the terrain beneath that member's own X/Z. Retain legacy `freeGroupFloorOffset` only as a backward-compatibility fallback.
+- [x] Place Group Template Free members using `local terrain height + freeLocalFloorOffset`; Ground members retain their existing local terrain/floor-offset behaviour.
+- [x] Make whole-World-Group moves use the same local terrain-relative Free-member height rule, so moving a composed building does not reintroduce the roof drift after a correct Template placement.
+- [x] Add a conservative legacy migration: only when a linked source Group clearly predates an old Template, recover missing Free-member local offsets from that source and rebuild the other linked instances with the corrected placement rule. Templates without an identifiable pre-template linked source keep the old fallback until explicitly re-saved under the new build.
+- [ ] iPhone regression: confirm the World Lab Woodland Dirt -> Village Cobble range visibly crossfades across the complete blend block while handles remain easy to grab.
+- [ ] iPhone regression: reload the current VillageGroup02 scene and verify the older correctly aligned linked source remains unchanged while the second linked instance repairs its roof alignment.
+- [ ] iPhone regression: place another VillageGroup02 Template Instance on terrain with a different local slope and verify each roof preserves the same building-relative visual height as the source composition.
+- [ ] iPhone regression: move a placed World Group with Free roof members using the yellow group handle and verify roofs remain aligned rather than following only the group-anchor ground height.
+- [ ] Regression: create a new Group Template containing both Ground and Free members, Save/propagate it, reload, and confirm the new `freeLocalFloorOffset` path remains deterministic.
+
 ## October 11, 2026 — v1.0.139 Terrain Surface art pack + World Lab previews
 
 **Surface-library status:** Stage 3's placeholder surface visuals are now backed by a first reviewable Art-Bible-aligned terrain pack. Existing authored Surface Region IDs/ranges remain valid; `rocky-ground`, `pale-gravel` and `snow-ground` are upgraded in-place from prototype procedural colours to image textures, while the original Woodland Dirt remains the default to avoid silently restyling existing terrain.

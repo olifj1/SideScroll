@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.140: World Group Free members preserve their own local terrain-relative floor offset through template placement and whole-group moves; legacy linked source instances can repair old template height data.
   // SideScroll v1.0.129: support grounding is preserved through Edit frames and resolved before player reveal; manual placement still shares Support Surfaces while procedural placement stays terrain-only.
   // SideScroll v1.0.122: restore selected-object Quick Tools in Group Edit + explicit relative Move mode.
   // SideScroll v1.0.116: duplicate World Groups + stable relative screen-space depth dragging + persistent task backlog.
@@ -11461,11 +11462,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // rule. Ground-bound members re-sample terrain at their new location while
   // preserving their authored floor offset; Follow Surface Normal remains an
   // asset behaviour and therefore rotates only assets that opt in. Free members
-  // keep their vertical offset relative to the group's local ground height.
+  // preserve the authored floor offset from the terrain beneath their own X/Z.
+  // This keeps roofs/platform-like dressing aligned when a wide group is moved
+  // across uneven terrain without introducing a persistent parent relationship.
   function captureWorldGroupMoveState(group){
     if(!group)return null;
     const groupX=Number(group.x)||0,groupZ=Number(group.z)||pathZ;
-    const groupGround=worldGroupAnchorGroundY(groupX,groupZ);
     return{
       group,groupX,groupZ,
       members:worldGroupMembers(group.id).map(obj=>({
@@ -11473,8 +11475,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         localX:(Number(obj.x)||0)-groupX,
         localZ:(Number(obj.z)||0)-groupZ,
         free:objectUsesFreePlacement(obj),
-        floorOffset:objectFloorOffsetFromTerrain(obj),
-        freeGroupOffset:objectFloorWorldY(obj)-groupGround
+        floorOffset:objectFloorOffsetFromTerrain(obj)
       }))
     };
   }
@@ -11485,8 +11486,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     nextX=Number(nextX);
     nextZ=Rig.clamp(Number(nextZ),WORLD.farZ+.8,WORLD.nearZ-.6);
     if(!Number.isFinite(nextX)||!Number.isFinite(nextZ))return false;
-    const newGroupGround=worldGroupAnchorGroundY(nextX,nextZ);
-
     for(const member of state.members){
       const obj=member.obj;
       if(!obj||obj.deleted)continue;
@@ -11494,8 +11493,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       obj.z=obj.category==='gameplay'&&obj.gameplayLayerLocked
         ? pathZ
         : Rig.clamp(nextZ+member.localZ,WORLD.farZ+.8,WORLD.nearZ-.6);
-      if(member.free)setObjectFloorWorldY(obj,newGroupGround+member.freeGroupOffset);
-      else setObjectFloorOffset(obj,member.floorOffset);
+      setObjectFloorOffset(obj,member.floorOffset);
       moveObjectToCorrectCollection(obj);
       if(persist)recordObjectEdit(obj);
     }
@@ -11586,6 +11584,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       gameplayLayerLocked:!!obj.gameplayLayerLocked,
       freePlacement:free,
       floorOffset:free?null:objectFloorOffsetFromTerrain(obj),
+      freeLocalFloorOffset:free?objectFloorOffsetFromTerrain(obj):null,
+      // Retain the old group-anchor value only as a downgrade/legacy fallback.
       freeGroupFloorOffset:free?(objectFloorWorldY(obj)-groupGround):null,
       collision:obj.collision?cloneCollision(obj.collision):null,
       collisionOverride:!!obj.collisionOverride,
@@ -11723,10 +11723,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const sy=Math.max(.02,Number(member.sy)||1);
     const groundLine=Rig.clamp(Number.isFinite(Number(member.groundLine))?Number(member.groundLine):assetGroundLineDefault(member.assetName,member.assetState),0,1);
     const free=!!member.freePlacement;
+    const localBaseY=terrainAnchorBaseY(x,z,member.category||'dressing',locked,member.assetName);
+    const freeLocalFloorOffset=Number(member.freeLocalFloorOffset);
     const groupGround=worldGroupAnchorGroundY(anchor.x,anchor.z);
     const floorY=free
-      ? groupGround+(Number(member.freeGroupFloorOffset)||0)
-      : terrainAnchorBaseY(x,z,member.category||'dressing',locked,member.assetName)+(Number(member.floorOffset)||0);
+      ? (Number.isFinite(freeLocalFloorOffset)
+          ? localBaseY+freeLocalFloorOffset
+          : groupGround+(Number(member.freeGroupFloorOffset)||0))
+      : localBaseY+(Number(member.floorOffset)||0);
     const id=`user-${Date.now().toString(36)}-${++userSceneCounter}`;
     const category=member.category||'dressing';
     const collection=category==='gameplay'?frontOccluders:targetCollectionForZ(z);
@@ -11752,6 +11756,59 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     recordObjectEdit(obj);
     return obj;
   }
+
+  // v1.0.140 migration: old Group Templates stored Free members relative to
+  // the group anchor's ground height. On uneven terrain that can separate a roof
+  // from the building beneath it when a Template Instance is placed elsewhere.
+  // If a linked source group clearly predates the Template, recover each legacy
+  // Free member's own terrain-relative floor offset from that source. Other linked
+  // instances can then be rebuilt using the corrected reusable composition.
+  function migrateLegacyWorldGroupTemplateFreeOffsets(){
+    let changed=false;
+    for(const template of worldGroupTemplates()){
+      if(!template||!Array.isArray(template.members))continue;
+      const legacy=template.members.filter(member=>member?.freePlacement&&!Number.isFinite(Number(member.freeLocalFloorOffset)));
+      if(!legacy.length)continue;
+      const templateCreated=Number(template.createdAt)||0;
+      const candidates=worldGroups()
+        .filter(group=>group?.templateId===template.id&&worldGroupRelationship(group)==='template-instance'&&Number(group.createdAt)>0&&Number(group.createdAt)<=templateCreated+1000)
+        .sort((a,b)=>Number(b.createdAt)-Number(a.createdAt));
+      const source=candidates[0];
+      if(!source)continue;
+      const pool=worldGroupMembers(source.id).filter(obj=>obj&&!obj.deleted);
+      const used=new Set();
+      let templateChanged=false;
+      for(const member of legacy){
+        let best=null,bestScore=Infinity;
+        for(const obj of pool){
+          if(used.has(obj.id)||obj.assetName!==member.assetName||objectUsesFreePlacement(obj)!==true)continue;
+          const localX=(Number(obj.x)||0)-(Number(source.x)||0);
+          const localZ=(Number(obj.z)||0)-(Number(source.z)||pathZ);
+          const score=Math.abs(localX-(Number(member.dx)||0))+Math.abs(localZ-(Number(member.dz)||0))
+            +Math.abs((Number(obj.sx)||1)-(Number(member.sx)||1))*.05
+            +Math.abs((Number(obj.sy)||1)-(Number(member.sy)||1))*.05;
+          if(score<bestScore){best=obj;bestScore=score;}
+        }
+        if(!best)continue;
+        used.add(best.id);
+        member.freeLocalFloorOffset=objectFloorOffsetFromTerrain(best);
+        templateChanged=true;
+      }
+      if(!templateChanged)continue;
+      template.freePlacementHeightModel='local-terrain-v1';
+      template.updatedAt=Date.now();
+      const linked=worldGroups().filter(group=>group.id!==source.id&&group.templateId===template.id&&worldGroupRelationship(group)==='template-instance');
+      for(const group of linked)applyWorldGroupTemplateToGroup(group,template);
+      changed=true;
+    }
+    if(changed){
+      saveSceneData();
+      worldGroupTemplateListSignature='';worldGroupListSignature='';sceneEnvironmentListSignature='';
+    }
+    return changed;
+  }
+
+  migrateLegacyWorldGroupTemplateFreeOffsets();
 
   function spawnWorldGroupTemplateAt(template,point){
     if(!template||!point||!Array.isArray(template.members)||!template.members.length)return null;
