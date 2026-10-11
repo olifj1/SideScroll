@@ -740,6 +740,10 @@ The transition chain is deterministic: records are ordered by world X, the `from
 
 Runtime rendering must keep the active surface set bounded: use one surface outside a transition and only the two participating surfaces while blending. Surface definitions are referenced by stable IDs so their visual texture implementation can be replaced or expanded without rewriting authored range data.
 
+Surface definitions should own author-facing visual metadata as well as the runtime asset reference: a stable ID, label, representative colour, preview/runtime texture and short description where useful. **Do not encode texture filenames into Surface Region records.** World Lab should provide visual material previews when the library contains multiple similar surfaces; names alone are not sufficient for fast phone authoring. Preview UI is a view over the Surface definition library and does not create separate authored material state.
+
+Changing/replacing the art behind an existing stable Surface ID is allowed when the semantic material remains the same (for example upgrading a placeholder `rocky-ground` implementation to production Rocky Gravel art). Add a new Surface ID when the material is meaningfully different or when replacing it would silently restyle existing authored terrain in an undesirable way.
+
 World Lab owns creation/deletion and broad arrangement of Surface Blends. Terrain Edit is the in-world fine-tuning view: it may move the same start/end keys and must include those edits in the normal Terrain Undo/Redo/Save/Discard transaction model.
 
 ### 17.7 Terrain Features are local modifiers with explicit ownership

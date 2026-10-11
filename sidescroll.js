@@ -2076,7 +2076,15 @@
   }
   function terrainSurfaceTexture(id){
     const key=terrainSurfaceDef(id)?id:'woodland-dirt';
-    if(!terrainSurfaceTextureCache.has(key))terrainSurfaceTextureCache.set(key,createPrototypeTerrainSurfaceTexture(key));
+    if(!terrainSurfaceTextureCache.has(key)){
+      const def=terrainSurfaceDef(key);
+      if(def?.asset){
+        terrainSurfaceTextureCache.set(key,createRepeatingImageTexture(def.asset,`${def.label||key} terrain surface`,{
+          placeholderColor:def.colour||'#807566',
+          potSize:1024
+        }));
+      }else terrainSurfaceTextureCache.set(key,createPrototypeTerrainSurfaceTexture(key));
+    }
     return terrainSurfaceTextureCache.get(key)||textures.pathDirt;
   }
   function terrainSurfaceDrawStyle(segment){
@@ -2598,10 +2606,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   // layers on the authored Path profile (before their authored offsets).
   let terrainDepthDetailFalloff = 1;
   const TERRAIN_SURFACE_DEFS = Object.freeze({
-    'woodland-dirt':Object.freeze({id:'woodland-dirt',label:'Woodland Dirt',colour:'#7f6b54'}),
-    'rocky-ground':Object.freeze({id:'rocky-ground',label:'Rocky Ground',colour:'#77756f'}),
-    'pale-gravel':Object.freeze({id:'pale-gravel',label:'Pale Gravel',colour:'#9b9180'}),
-    'snow-ground':Object.freeze({id:'snow-ground',label:'Snow Ground',colour:'#c8d0cf'})
+    'woodland-dirt':Object.freeze({id:'woodland-dirt',label:'Woodland Dirt',colour:'#7f6b54',asset:null}),
+    'woodland-soil':Object.freeze({id:'woodland-soil',label:'Woodland Soil',colour:'#8b7355',asset:'terrain-surface-woodland-soil.png?v=1.0.139'}),
+    'village-cobble':Object.freeze({id:'village-cobble',label:'Village Cobble',colour:'#827967',asset:'terrain-surface-village-cobble.png?v=1.0.139'}),
+    'rocky-ground':Object.freeze({id:'rocky-ground',label:'Rocky Gravel',colour:'#807662',asset:'terrain-surface-rocky-gravel.png?v=1.0.139'}),
+    'mountain-trail':Object.freeze({id:'mountain-trail',label:'Mountain Trail',colour:'#9b7a4d',asset:'terrain-surface-mountain-trail.png?v=1.0.139'}),
+    'wetland-mud':Object.freeze({id:'wetland-mud',label:'Wetland Mud',colour:'#5f513a',asset:'terrain-surface-wetland-mud.png?v=1.0.139'}),
+    'pale-gravel':Object.freeze({id:'pale-gravel',label:'Pale Gravel',colour:'#aaa18f',asset:'terrain-surface-pale-gravel.png?v=1.0.139'}),
+    'snow-ground':Object.freeze({id:'snow-ground',label:'Snow Ground',colour:'#c3ccd0',asset:'terrain-surface-snow-ground.png?v=1.0.139'})
   });
   let terrainSurfaceState = null;
   let terrainSelectedSurfaceTransitionId = null;

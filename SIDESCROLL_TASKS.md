@@ -1,5 +1,23 @@
 # SideScroll Development Tasks
 
+## October 11, 2026 — v1.0.139 Terrain Surface art pack + World Lab previews
+
+**Surface-library status:** Stage 3's placeholder surface visuals are now backed by a first reviewable Art-Bible-aligned terrain pack. Existing authored Surface Region IDs/ranges remain valid; `rocky-ground`, `pale-gravel` and `snow-ground` are upgraded in-place from prototype procedural colours to image textures, while the original Woodland Dirt remains the default to avoid silently restyling existing terrain.
+
+- [x] Add generated tileable surface assets for **Woodland Soil**, **Village Cobble**, **Rocky Gravel**, **Mountain Trail**, **Wetland Mud**, **Pale Gravel** and **Snow Ground**.
+- [x] Keep existing **Woodland Dirt** as the unchanged default/current dirt surface; add generated Woodland Soil as an explicit alternative rather than changing existing authored terrain on load.
+- [x] Replace Stage 3 prototype visuals for `rocky-ground`, `pale-gravel` and `snow-ground` with the approved review textures while retaining their stable IDs so existing Surface Blends immediately pick up the real art.
+- [x] Add all new surfaces to the World Lab Terrain Surface selectors and persist them through the existing stable-ID Surface Region data model.
+- [x] Add a tappable **Surface Library** in World Lab with tiled thumbnails and short descriptions; tapping a card chooses the target for the next Surface Blend.
+- [x] Add larger Default/Target material previews and preview From/To surfaces when editing an existing Surface Blend.
+- [x] Show real texture previews in solid spans of the World Lab Terrain Surface timeline; keep transition blocks/handles readable over the visual material data.
+- [x] Runtime continues to load one surface outside a blend and only the two participating textures inside a blend. New texture files are cached on demand by the existing service-worker asset path.
+- [ ] iPhone regression: open World Lab and verify all eight choices are visible: current Woodland Dirt plus the seven generated surfaces, with no clipped cards or horizontal overflow.
+- [ ] iPhone regression: tap each Surface Library card and verify the target selector, larger preview and Add Blend summary all follow the chosen surface.
+- [ ] iPhone regression: confirm solid Surface timeline spans show the actual texture and remain readable at normal phone zoom.
+- [ ] iPhone regression: use every new surface at least once in-game and confirm image loading, repeat scale, A -> B blending and offline reload behaviour are stable.
+- [ ] Art review: after in-game use, identify any texture whose brightness, contrast, scale, tiling or biome character needs another ImageGen pass before treating the pack as final.
+
 ## October 10, 2026 — v1.0.138 Terrain Edit Stage 3 continuous Surface Regions
 
 **Stage 3 status:** ground appearance is now authored independently of fixed 10 m Sections. World Lab owns a continuous Terrain Surface track using the same broad A -> B transition grammar as Biomes, while Terrain Edit exposes the same transition records as in-world start/end handles for visual fine-tuning. Runtime rendering uses one surface outside a blend and only the two participating surfaces inside it.

@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#11191d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="world-lab.css?v=1.0.138">
+  <link rel="stylesheet" href="world-lab.css?v=1.0.139">
   <title>World Lab · SideScroll</title>
 </head>
 <body>
@@ -123,6 +123,13 @@
           <div class="wl-form-grid">
             <label>Default surface <select id="wl-surface-default"></select></label>
           </div>
+          <div class="wl-surface-preview-row">
+            <div class="wl-surface-preview-card"><span>DEFAULT</span><div class="wl-surface-preview-tile" id="wl-surface-default-preview"></div><strong id="wl-surface-default-preview-label">Woodland Dirt</strong></div>
+            <div class="wl-surface-preview-card"><span>BLEND TARGET</span><div class="wl-surface-preview-tile" id="wl-surface-target-preview"></div><strong id="wl-surface-target-preview-label">Surface</strong></div>
+          </div>
+          <h3>Surface library</h3>
+          <p class="muted">Tap a material to make it the target for the next blend. The timeline also previews the active texture in solid Surface regions.</p>
+          <div class="wl-surface-library" id="wl-surface-library"></div>
           <h3>Add surface blend</h3>
           <div class="wl-form-grid">
             <label>From <input id="wl-surface-from" type="text" value="Woodland Dirt" readonly></label>
@@ -175,6 +182,6 @@
   </div>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="puzzle-groups.js?v=1.0.62"></script>
-  <script src="world-lab.js?v=1.0.138"></script>
+  <script src="world-lab.js?v=1.0.139"></script>
 </body>
 </html>
