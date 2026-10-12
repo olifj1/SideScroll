@@ -1031,8 +1031,8 @@ Rules:
 - the Control Board exposes named anatomical controls supplied by the active rig family; large tap targets are the primary selection path, so precise viewport bone picking is not required on phone;
 - one precision-pad drag is one bounded edit transaction: pointer-down captures the original value, pointer-move previews only, pointer-up commits one Undo step, and pointer-cancel restores the original snapshot;
 - Move / Rotate, Fine and X/Y axis constraints change how the selected control is edited but do not create independent persisted state;
-- Setup owns per-character editor scale/reference data and rig-family collider setup. Scale is not a gameplay-runtime migration until the later runtime-integration stage explicitly adopts it;
-- Hero 1 ghost, ruler/ground, Bones, Art, Planes and Collider are view/reference overlays only and must never dirty authored data;
+- Setup owns per-character scale/reference data and rig-family collider setup. Character scale is gameplay-facing character-definition data: explicit Setup Save must persist it for the selected character and Play must apply it without changing animation channels;
+- Hero 1 ghost, ruler/ground, Bones, Art, Planes and Collider are view/reference overlays only and must never dirty authored data; Anim Lab should use the same dark panel/button/range/viewport visual grammar as Asset Lab so specialist tools feel like one editor family;
 - Setup values use the same Save/Discard/Undo transaction model as animation edits. Collider persistence may use the existing family-owned collider key only on explicit Save;
 - Stage 2 does not introduce sparse key poses, tweening, mirroring, IK or curve editing. Those belong to later stages and must not be smuggled into the Control Board implementation.
 

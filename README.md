@@ -1,70 +1,59 @@
-# SideScroll patch 1.0.145
+# SideScroll patch 1.0.146
 
-**Changed-files-only Anim Lab Stage 3 patch over the agreed v1.0.144 baseline.**
+**Changed-files-only corrective patch over v1.0.145.**
 
-Apply this ZIP directly over a working **v1.0.144** tree. It is one cumulative drop for everything added since that agreed baseline; there is no intermediate patch to apply.
+This is not Stage 4. It fixes two issues found during the first on-device Anim Lab Stage 2/3 review: character scale was editor-only and Anim Lab had not actually adopted the agreed Asset Lab visual grammar closely enough.
 
-## Stage 3 — sparse key-pose timeline and mirror/tween workflow
+## Character scale correction
 
-- Adds a stable 16-slot **Key Pose Timeline** above the Stage 2 Control Board.
-- Existing Human and Fox 16-sample clips import losslessly into the Stage 3 working representation; opening Anim Lab does not write or convert stored animation data.
-- Named key markers can be selected by tapping the timeline and renamed in-place.
-- Adds **Add Tween**, Duplicate, Move Left/Right, Delete, Copy/Paste and Rename operations.
-- Editing a tweened frame through the existing Stage 2 Control Board automatically promotes that frame to a key; the complete precision drag remains one Undo step.
-- Adds rig-owned **Mirror Key** and **Mirror Clip** operations:
-  - Human swaps the established A/B hand/foot channels and planted-foot label.
-  - Fox swaps near/far front and rear limb channels while retaining the Fox rig.
-- Adds cyclic **Phase -1 / +1 / Half Cycle** operations without changing world movement or clip duration architecture.
-- Adds a non-destructive **Preview 8 Keys** conversion. Preview can be scrubbed and played, reports the measured deviation from the current 16 samples, and cannot be edited or persisted until **Adopt Preview** is pressed.
-- On Save, sparse keys compile back to exactly **16 sampled poses**, preserving the existing gameplay animation contract.
-- Before the first Stage 3 Save for a family/clip, Anim Lab stores a sampled backup under `sidescroll.animlab.legacy.samples.backup.v1`.
-- Human Save continues to write the established human sampled runtime bank. Fox Save continues to write only the isolated Anim Lab Fox bank; Fox gameplay runtime integration remains deferred.
+- Anim Lab Setup scale range is now **0.55–2.25** instead of 0.55–1.55.
+- Scale remains **per character** (`Hero 1`, `Hero 2`, `Fox`).
+- Scale-only edits make the edit session dirty and enable **Save**.
+- Setup Save persists the scale under the existing `sidescroll.animlab.setup.v1` character setup record.
+- Play now reads that saved multiplier and applies it to the established `2.31` base game character scale.
+- Character swaps and returning to an already-open Play page refresh the saved scale.
+- Collider dimensions continue to use the final character scale, so the physical shape grows/shrinks with the character.
+- Animation channel values are not rescaled or rewritten.
 
-## Deliberately not included
+## Asset Lab visual alignment
 
-Stage 4 FK/IK planted-foot/paw targets, contact tracks, bend-direction controls, curve editing and Fox runtime integration are **not** part of this patch.
+Anim Lab now deliberately uses the Asset Lab editor language rather than its previous pale standalone treatment:
 
-## Files in this patch
+- dark `#11191e` / `#182229` shell and panels;
+- Asset-Lab-style top header with Home, SIDESCROLL / Anim Lab, current context and Saved/Unsaved state;
+- matching restrained button borders, dark button fills and teal active states;
+- matching teal range controls;
+- dark gradient viewport with the Asset Lab grid treatment;
+- cyan dashed ground datum and metre ruler styling;
+- dark Details/key/setup cards and dark unsaved/guard treatment.
+
+The Anim Lab layout remains its purpose-built two-column editor (controls + large character viewport); this patch aligns the **visual grammar**, not Asset Lab's three-column asset-library workflow.
+
+## Files changed
 
 - `walk-lab.html`
 - `walk-lab.js`
-- `anim-lab-stage3.js` **(new)**
+- `anim-lab-stage2.js`
+- `sidescroll.js`
 - `style.css`
+- `play.html`
+- `home.js`
 - `sw.js`
 - `SIDESCROLL_ENGINE_UX_BIBLE.md`
 - `SIDESCROLL_TASKS.md`
 - `README.md`
 
-These are the only files intended to differ from the agreed v1.0.144 baseline.
-
-## Validation performed here
-
-- JavaScript syntax validation on every JS file in the resulting full project tree.
-- Core Stage 3 regression harness using the real Human/Fox rig modules and the real Anim Lab core:
-  - exact 16/16 legacy sampled import for Human;
-  - exact 16/16 legacy sampled import for Fox;
-  - sparse reduction still compiles exactly 16 valid samples;
-  - editing a tween frame promotes it to a key;
-  - conversion preview leaves the authored sparse clip untouched until adoption;
-  - Save persists sparse data and creates the legacy sampled backup.
-- Static validation of timeline DOM IDs, Stage 2 -> Stage 3 script order, service-worker shell inclusion, key-operation wiring and Stage 3 storage ownership.
-- Patch replay over a clean v1.0.144 tree before packaging.
-
-A real Safari/A2HS interaction pass is still required for touch feel, scrolling and visual layout.
-
 ## Practical iPhone checks
 
-1. Apply this ZIP over **v1.0.144**, launch once online, then open Anim Lab in landscape.
-2. Hero 1 / Walk should initially show all 16 samples as keys. Tap several timeline cells; the character should scrub to those frames without making the session dirty.
-3. Use **Preview 8 Keys**. Scrub and Play it. Save/Discard should remain unchanged because preview itself is view-only. Tap **Exit Preview** and confirm the 16-key authored track returns.
-4. Preview 8 Keys again and choose **Adopt Preview**. The track should now show 8 keys and the session should become unsaved. Use **Discard** first and confirm the original 16-key track returns.
-5. Adopt 8 Keys again. Tap an empty/tween frame and move a hand/foot through the Stage 2 precision pad. That frame should become a new key. One Undo should remove the whole drag/key promotion.
-6. Test Rename, Duplicate, Move Left/Right, Delete, Copy and Paste on a key. Undo/Redo each operation at least once.
-7. On Human, test **Mirror Key** on a Contact/Down/Passing/Up-type pose, then **Mirror Clip**. Check the opposite hand/foot pair becomes the corresponding pose rather than the character flipping geometry.
-8. On Fox, adopt the 8-key preview and test Mirror Key/Clip. Near/Far front and rear legs should swap while body/head/tail remain coherent and the four-leg gait stays recognisable.
-9. Test **Phase -1**, **Phase +1** and **Half Cycle**, then Play several loops. Key count should stay constant and Walk/Run should not visibly pop at the loop seam.
-10. Save one Human sparse clip, reload Anim Lab and confirm the sparse key layout returns. Return to Play and confirm Human movement still behaves normally.
-11. Save one Fox sparse clip, reload Anim Lab and confirm it returns in the editor. Return to Play and verify Fox gameplay is still using the existing approved runtime clip rather than the editor-only Stage 3 data.
-12. After the online launch, reopen the A2HS copy offline and confirm Anim Lab loads with the Stage 3 timeline.
+1. Apply this ZIP over **v1.0.145** and launch once online so the refreshed offline shell is cached.
+2. Open Anim Lab → Fox → Setup. Move **Scale only**. Confirm the top status becomes `Unsaved` and Save enables without touching the collider or animation.
+3. Push Fox beyond the old 1.55 limit; the new maximum is 2.25. Pick the size you want and Save.
+4. Return Home → Play. Confirm Fox uses the saved size in gameplay. Reload Play and confirm it survives.
+5. Switch to Hero 1 and Hero 2 in Anim Lab, give them visibly different scale values, Save each, then confirm Play applies the correct value when switching character.
+6. In Anim Lab Setup, change scale and press **Discard**. Confirm the previous saved size returns. Test Undo/Redo on one scale gesture.
+7. Confirm the collider overlay remains aligned with the character as scale changes and gameplay collision still feels coherent at the chosen Fox size.
+8. Compare Asset Lab and Anim Lab: header, dark panels, button states, sliders and viewport background/grid should now clearly belong to the same editor family.
+9. Check Animate mode still preserves the Stage 3 key timeline, precision controls, Save/Discard and 16-sample compilation behaviour.
+10. Reopen the A2HS copy offline and confirm both Play and Anim Lab load with the corrected scale and new visual treatment.
 
-Stop after the Stage 3 review. Stage 4 should begin only after the key-pose/tween/mirror workflow feels sound on the phone.
+Stage 4 FK/IK/contact work should remain paused until this corrective pass is confirmed on-device.

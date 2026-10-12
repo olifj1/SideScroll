@@ -12,6 +12,7 @@
   const ctx = canvas.getContext('2d');
   const $ = id => document.getElementById(id);
   const contextEl = $('animlab-context');
+  const saveStateEl = $('animlab-save-state');
   const readout = $('animlab-readout');
   const hint = $('animlab-hint');
   const dirtyBadge = $('animlab-dirty');
@@ -46,6 +47,8 @@
   const SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
   const LEGACY_BACKUP_KEY = 'sidescroll.animlab.legacy.samples.backup.v1';
   const SPARSE_SCHEMA = 'animlab.sparse.v1';
+  const SETUP_SCALE_MIN = 0.55;
+  const SETUP_SCALE_MAX = 2.25;
 
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
@@ -154,7 +157,7 @@
     const adapter = adapters[character.family];
     const saved = setupMap[characterId] || {};
     return {
-      scale: clamp(Number(saved.scale) || 1, .55, 1.55),
+      scale: clamp(Number(saved.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX),
       // Collider ownership remains with the existing rig family storage. This
       // prevents Hero 1/Hero 2 from showing stale per-character copies while
       // the runtime still shares one human collider.
@@ -379,7 +382,7 @@
 
   function setScopeValue(scope, value, frameIndex = selection.frame) {
     if (scope === 'setup') {
-      setupDraft = { scale:clamp(Number(value.scale)||1,.55,1.55), collider:currentAdapter().normaliseCollider(value.collider) };
+      setupDraft = { scale:clamp(Number(value.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX), collider:currentAdapter().normaliseCollider(value.collider) };
       return;
     }
     if (scope === 'sparseClip' || scope === 'clip') {
@@ -699,11 +702,13 @@
   function drawGroundAndRuler(sv) {
     if (!overlays.ground) return;
     ctx.save();
-    ctx.strokeStyle='rgba(64,76,80,.42)';ctx.lineWidth=Math.max(1,canvas.width*.0017);ctx.beginPath();ctx.moveTo(0,sv.groundY);ctx.lineTo(canvas.width,sv.groundY);ctx.stroke();
+    ctx.strokeStyle='rgba(114,230,208,.92)';ctx.lineWidth=Math.max(1.5,canvas.width*.0017);ctx.setLineDash([8,5]);ctx.beginPath();ctx.moveTo(0,sv.groundY);ctx.lineTo(canvas.width,sv.groundY);ctx.stroke();ctx.setLineDash([]);
     const step=.25*sv.scale;
-    ctx.fillStyle='rgba(51,63,67,.55)';ctx.font=`${Math.max(9,canvas.height*.024)}px system-ui,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
-    for(let i=0;i<=4;i++){
-      const y=sv.groundY-i*step;ctx.beginPath();ctx.moveTo(8,y);ctx.lineTo(20,y);ctx.stroke();ctx.fillText(`${(i*.25).toFixed(2)}`,24,y);
+    ctx.fillStyle='rgba(186,251,240,.78)';ctx.font=`700 ${Math.max(9,canvas.height*.024)}px system-ui,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText('GROUND · Y = 0.00 m',12,sv.groundY-10);
+    ctx.strokeStyle='rgba(186,251,240,.40)';
+    for(let i=1;i<=4;i++){
+      const y=sv.groundY-i*step;ctx.beginPath();ctx.moveTo(8,y);ctx.lineTo(20,y);ctx.stroke();ctx.fillText(`${(i*.25).toFixed(2)} m`,24,y);
     }
     ctx.restore();
   }
@@ -731,9 +736,13 @@
     const phase=playing?playPhase:selection.frame/16;
     const pose=playing?adapter.rig.sampleFrames(frames,playPhase):currentPose();
     const sv=previewView(phase);
-    ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#f2ede7';ctx.fillRect(0,0,canvas.width,canvas.height);
-    const pad=canvas.width*.035;ctx.strokeStyle='rgba(67,76,80,.17)';ctx.lineWidth=Math.max(1,canvas.width*.002);ctx.strokeRect(pad,canvas.height*.05,canvas.width-pad*2,canvas.height*.88);
-    drawGroundAndRuler(baseView(1));
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const bg=ctx.createLinearGradient(0,0,0,canvas.height);bg.addColorStop(0,'#26333a');bg.addColorStop(1,'#11191e');ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
+    const gridView=baseView(1),step=Math.max(28,gridView.scale*.25);
+    ctx.save();ctx.strokeStyle='rgba(219,233,228,.055)';ctx.lineWidth=1;
+    const x0=((gridView.cx%step)+step)%step;for(let x=x0;x<canvas.width;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}for(let x=x0-step;x>0;x-=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+    const y0=((gridView.groundY%step)+step)%step;for(let y=y0;y<canvas.height;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}for(let y=y0-step;y>0;y-=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}ctx.restore();
+    drawGroundAndRuler(gridView);
     drawReference();
     if(overlays.art) drawRigArt(character,adapter,pose,sv,.99);
     if(overlays.planes) drawPlanes(adapter,pose,sv);
@@ -751,6 +760,7 @@
       ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
       : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
     dirtyBadge.hidden=!dirty;
+    if (saveStateEl) { saveStateEl.textContent = dirty ? 'Unsaved' : 'Saved'; saveStateEl.classList.toggle('dirty', dirty); }
     undoBtn.disabled=!history.length;redoBtn.disabled=!future.length;discardBtn.disabled=!dirty;saveBtn.disabled=!dirty;
     scrub.value=String(selection.frame);scrub.disabled=selection.mode==='setup';prevBtn.disabled=selection.mode==='setup';nextBtn.disabled=selection.mode==='setup';playBtn.disabled=selection.mode==='setup';
     playBtn.textContent=playing?'Pause':'Play';
@@ -759,7 +769,7 @@
     modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
     viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
     scopeEl.textContent=selection.mode==='setup'
-      ? `${character.label} setup · scale is editor-owned; collider Save writes the current ${adapter.label} collider.`
+      ? `${character.label} setup · scale is saved per character for gameplay; collider Save writes the current ${adapter.label} collider.`
       : previewApplies()
         ? `${conversionPreview.label || 'Conversion'} preview · view only until Adopt or Exit Preview.`
         : `${adapter.scope} Sparse keys compile back to the existing 16-sample contract on Save.`;

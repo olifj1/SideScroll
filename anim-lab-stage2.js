@@ -95,7 +95,7 @@
     <section class="animlab-section animlab-setup-section" id="animlab-setup-section" hidden aria-labelledby="animlab-setup-title">
       <div class="animlab-section-title" id="animlab-setup-title">Character Setup</div>
       <div class="animlab-setup-note" id="animlab-setup-note"></div>
-      <label class="animlab-slider"><span>Scale</span><input type="range" data-setup="scale" min="0.55" max="1.55" step="0.01"><output></output></label>
+      <label class="animlab-slider"><span>Scale</span><input type="range" data-setup="scale" min="0.55" max="2.25" step="0.01"><output></output></label>
       <label class="animlab-slider"><span>Collider X</span><input type="range" data-collider="offsetX" min="-0.18" max="0.18" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Radius</span><input type="range" data-collider="radius" min="0.07" max="0.32" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Height</span><input type="range" data-collider="height" min="0.25" max="1.15" step="0.005"><output></output></label>
@@ -168,8 +168,8 @@
 
   function renderSetup(state) {
     setupNote.textContent = state.family === 'human'
-      ? `${state.character.label} scale is per-character. Saving the human collider still affects both Hero 1 and Hero 2 at runtime.`
-      : 'Fox scale is per-character. The fox collider has its own runtime storage.';
+      ? `${state.character.label} scale is per-character and now drives gameplay size after Save. Saving the human collider still affects both Hero 1 and Hero 2 at runtime.`
+      : 'Fox scale is per-character and now drives gameplay size after Save. The fox collider keeps its own runtime storage and scales with the character.';
     for (const input of sliders) {
       let value;
       if (input.dataset.setup === 'scale') value=state.setup.scale;
@@ -289,7 +289,7 @@
     input.addEventListener('pointerdown',()=>beginSlider(input));
     input.addEventListener('input',()=>previewSlider(input));
     input.addEventListener('change',()=>finishSlider(input,false));
-    input.addEventListener('pointerup',()=>finishSlider(input,false));
+    input.addEventListener('blur',()=>finishSlider(input,false));
     input.addEventListener('pointercancel',()=>finishSlider(input,true));
   });
 

@@ -2515,23 +2515,76 @@
   }
 
 
-const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
+const allCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
 const RIG_TEXTURE_VERSION = '1.0.62';
+const CHARACTER_SETUP_STORAGE_KEY = 'sidescroll.animlab.setup.v1';
+const BASE_CHARACTER_SCALE = 2.31;
+const CHARACTER_SCALE_MIN = 0.55;
+const CHARACTER_SCALE_MAX = 2.25;
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
 let characterCollider = null;
 let characterColliderReady = false;
+let characterScaleReady = false;
+const missingRigDiagnostics = new Set();
 
 function characterVariantInfo(id = currentCharacterVariant) {
   return Rig.characterVariantInfo ? Rig.characterVariantInfo(id) : null;
 }
 
-function activeCharacterRig(id = currentCharacterVariant) {
+function characterScaleMultiplier(id = currentCharacterVariant) {
+  try {
+    const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
+    const raw = Number(setup?.[id]?.scale);
+    const value = Number.isFinite(raw) ? raw : 1;
+    return Math.max(CHARACTER_SCALE_MIN, Math.min(CHARACTER_SCALE_MAX, value));
+  } catch (_) {
+    return 1;
+  }
+}
+
+function refreshCharacterScale() {
+  if (!characterScaleReady) return;
+  character.scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(currentCharacterVariant);
+}
+
+function characterRigForVariant(id = currentCharacterVariant) {
   const info = characterVariantInfo(id);
-  return info?.rigType === 'fox' && FoxRig ? FoxRig : Rig;
+  if (!info || info.rigType === 'human') return Rig;
+  if (info.rigType === 'fox') return FoxRig;
+  return null;
+}
+
+function reportMissingCharacterRig(id) {
+  const info = characterVariantInfo(id);
+  const family = info?.rigType || 'unknown';
+  const label = info?.label || id;
+  const message = `Character rig unavailable: ${label} requires the ${family} rig. Reload SideScroll after updating the game files.`;
+  if (!missingRigDiagnostics.has(`${id}:${family}`)) {
+    missingRigDiagnostics.add(`${id}:${family}`);
+    console.error(message, { characterId:id, rigType:family });
+  }
+  if (errorBox) {
+    errorBox.hidden = false;
+    errorBox.textContent = message;
+  }
+}
+
+function characterRigAvailable(id) {
+  return !!characterRigForVariant(id);
+}
+
+const availableCharacterVariants = allCharacterVariants.filter(characterRigAvailable);
+
+function activeCharacterRig(id = currentCharacterVariant) {
+  const rig = characterRigForVariant(id);
+  if (!rig) reportMissingCharacterRig(id);
+  return rig;
 }
 
 function activeCharacterRigType(id = currentCharacterVariant) {
-  return activeCharacterRig(id) === FoxRig ? 'fox' : 'human';
+  const rig = activeCharacterRig(id);
+  if (!rig) return null;
+  return rig === FoxRig ? 'fox' : 'human';
 }
 
 function rigVariantTextureKey(id) {
@@ -2554,15 +2607,27 @@ function updateCharacterSwapButton() {
 }
 
 function applyCharacterVariant(id, announce = false) {
-  const desired = Rig.saveCharacterVariant ? Rig.saveCharacterVariant(id) : id;
-  currentCharacterVariant = Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(desired) : desired;
+  const requested = Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(id) : id;
+  if (!characterRigAvailable(requested)) {
+    reportMissingCharacterRig(requested);
+    const fallback = availableCharacterVariants.includes(Rig.DEFAULT_CHARACTER_VARIANT || 'original')
+      ? (Rig.DEFAULT_CHARACTER_VARIANT || 'original')
+      : availableCharacterVariants[0];
+    if (!fallback) return false;
+    currentCharacterVariant = fallback;
+  } else {
+    const desired = Rig.saveCharacterVariant ? Rig.saveCharacterVariant(requested) : requested;
+    currentCharacterVariant = Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(desired) : desired;
+  }
   textures.rigAtlas = textures[rigVariantTextureKey(currentCharacterVariant)] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
   updateCharacterSwapButton();
   if (characterColliderReady) refreshCharacterCollider();
+  if (characterScaleReady) refreshCharacterScale();
   if (announce && hintEl) {
     const info = characterVariantInfo();
     hintEl.textContent = `Character swapped to ${info?.label || currentCharacterVariant}`;
   }
+  return true;
 }
 
 function toggleCharacterVariant() {
@@ -8348,13 +8413,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     x: 0,
     y: playSurfaceYAt(0),
     z: pathZ,
-    scale: 2.31,
+    scale: BASE_CHARACTER_SCALE * characterScaleMultiplier(currentCharacterVariant),
     tint: [1.0, 1.0, 1.0],
     opacity: 0.99,
     screenOffsetX: -0.18,
     distanceTravelled: 0,
     lastFacing: 1
   };
+  characterScaleReady = true;
 
   function characterSoleArtLocalOffset() {
     const info = characterVariantInfo();
@@ -20316,6 +20382,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshAssetLabAuthoringFromStorage();
     refreshCharacterCollider();
+    refreshCharacterScale();
     keyLeft = false;
     keyRight = false;
     keyRun = false;

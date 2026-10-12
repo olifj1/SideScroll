@@ -1,5 +1,17 @@
 # SideScroll Development Tasks
 
+## October 12, 2026 — v1.0.146 Anim Lab Stage 2 corrective pass
+
+**Current status:** on-device review exposed two Stage 2 regressions rather than a new feature need: per-character scale was capped too narrowly and saved only as editor metadata, so Play never consumed it; Anim Lab also drifted from the agreed Asset Lab visual grammar. v1.0.146 corrects those foundations before Stage 4.
+
+- [x] Raise Anim Lab character Setup scale range from 0.55–1.55 to 0.55–2.25.
+- [x] Keep scale as per-character Setup data under `sidescroll.animlab.setup.v1`, but make explicit Setup Save gameplay-facing: SideScroll now applies the saved multiplier to the established 2.31 base character scale for Hero 1, Hero 2 and Fox.
+- [x] Refresh saved character scale on character swap and visibility return; collider world dimensions continue to scale coherently with character size.
+- [x] Make Setup range gestures reliably dirty the current edit session and remain one Undo transaction on iOS (`input` previews, `change`/blur commits; pointer-cancel restores).
+- [x] Restyle Anim Lab onto Asset Lab's dark editor palette, top header, button states, range styling and dark gradient/grid viewport with cyan ground datum.
+- [ ] iPhone regression: change Fox scale only, confirm Save enables, Save, return to Play and confirm the Fox gameplay size changes; reload and repeat with Hero 1/Hero 2 independently.
+- [ ] iPhone visual review: compare Anim Lab and Asset Lab side-by-side for header/panel/button/slider/viewport consistency and report any remaining layout differences that are functional rather than stylistic.
+
 ## October 12, 2026 — v1.0.145 Anim Lab Stage 3 sparse key-pose timeline
 
 **Current status:** Stage 2 was reported working well enough on-device to continue. Stage 3 now makes sparse key poses the Anim Lab authoring workflow while deliberately compiling back to the existing 16-sample clip format on Save. No FK/IK, curve editor or Fox gameplay-runtime integration is included.

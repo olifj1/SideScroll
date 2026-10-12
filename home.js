@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = '1.0.93';
+  const VERSION = '1.0.146';
   const ASSET_VERSION = '1.0.62';
   const PRELOAD_CACHE = 'sidescroll-runtime-v3';
   const play = document.getElementById('ss-splash-play');
@@ -181,6 +181,7 @@
     // site-config/core/audio are already alive from the splash page. Load only
     // the game-specific modules, in the same order as play.html.
     await loadPlayerScript('walk-rig.js');
+    await loadPlayerScript('fox-rig.js');
     await loadPlayerScript('puzzle-groups.js');
     await loadPlayerScript('baked-game-design.js');
     await loadPlayerScript('sidescroll.js');
