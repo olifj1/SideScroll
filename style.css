@@ -14357,3 +14357,8 @@ body[data-game-id="game-17"] .animlab-topbar{
   .assetlab-library{padding-left:calc(8px + env(safe-area-inset-left));}
   .assetlab-controls{padding-right:calc(8px + env(safe-area-inset-right));}
 }
+
+/* SideScroll v1.0.149 — Anim Lab hidden-state hardening.
+   Author display rules on .animlab-section must never override the semantic
+   hidden attribute used by the active Animate/Setup editing context. */
+body[data-game-id="game-17"] [hidden]{display:none!important;}

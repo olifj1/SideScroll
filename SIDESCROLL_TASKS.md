@@ -1937,3 +1937,7 @@ The full Test/runtime-state separation, Problems UI and richer recovery workflow
 - [ ] Process approved stalls through the normal SideScroll asset/background/alpha workflow.
 - [ ] Add the finished market stalls to the settlement asset library for in-game placement/testing.
 - [ ] If the original sources cannot be recovered or are not production-ready, explicitly schedule regeneration/refinement rather than silently dropping the set.
+
+### v1.0.149 Anim Lab corrective pass
+- [x] Harden Anim Lab `[hidden]` handling so Setup controls cannot remain visible in Animate mode.
+- [x] Confirm Scale is edited only inside the Setup transaction/checkpoint context and therefore enables Save when changed.

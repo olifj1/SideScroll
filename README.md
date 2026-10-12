@@ -34,3 +34,9 @@ The existing iPhone safe-area correction from v1.0.147 remains unchanged.
 5. Open Play and confirm the Fox uses the saved scale.
 
 If step 3 still fails on-device, do not continue into Stage 4; capture exactly whether the numeric Scale readout changes while dragging and whether it remains changed after lifting your finger.
+
+## v1.0.149 — Anim Lab mode visibility correction
+- Fixes Character Setup controls remaining visible while Anim Lab is in Animate mode.
+- Restores the intended single active editing context: animation controls in Animate, character Scale/Collider controls in Setup.
+- This also fixes the apparent Scale/Save failure: Scale changes made in Setup now participate in the Setup dirty checkpoint and enable Save.
+- No animation, rig, collider, or saved-data format changes.
