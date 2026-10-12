@@ -43,6 +43,9 @@
   const HUMAN_CLIPS_KEY = 'gamehub.walklab.anim.v6';
   const HUMAN_WALK_KEY = 'gamehub.walklab.anim.v4';
   const HUMAN_PREVIOUS_KEY = 'gamehub.walklab.anim.v5';
+  const SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
+  const LEGACY_BACKUP_KEY = 'sidescroll.animlab.legacy.samples.backup.v1';
+  const SPARSE_SCHEMA = 'animlab.sparse.v1';
 
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
@@ -160,6 +163,118 @@
   }
 
   const banks = { human:loadHumanBank(), fox:loadFoxBank() };
+  const legacySamplesAtOpen = clone(banks);
+
+  function normaliseSparseClip(raw, family, clipName, fallbackFrames = banks[family][clipName]) {
+    const adapter = adapters[family];
+    const keys = [];
+    const seen = new Set();
+    if (Array.isArray(raw?.keys)) {
+      for (const item of raw.keys) {
+        const frame = clamp(Math.round(Number(item?.frame)), 0, 15);
+        if (!Number.isFinite(frame) || seen.has(frame) || !item?.pose || typeof item.pose !== 'object') continue;
+        seen.add(frame);
+        keys.push({
+          frame,
+          name:String(item.name || item.pose?.name || `Key ${frame + 1}`).slice(0,48),
+          pose:adapter.normalise(item.pose, frame)
+        });
+      }
+    }
+    if (keys.length < 2) {
+      keys.length = 0;
+      seen.clear();
+      (fallbackFrames || []).forEach((pose, frame) => {
+        keys.push({frame, name:String(pose?.name || `Frame ${frame + 1}`).slice(0,48), pose:adapter.normalise(pose,frame)});
+      });
+    }
+    keys.sort((a,b) => a.frame - b.frame);
+    return {
+      schema:SPARSE_SCHEMA,
+      family,
+      clip:clipName,
+      sampleCount:16,
+      loop:true,
+      source:String(raw?.source || 'legacy-sampled'),
+      keys
+    };
+  }
+
+  function importSparseClip(frames, family, clipName) {
+    return normaliseSparseClip({source:'legacy-sampled', keys:(frames || []).map((pose,frame) => ({frame,name:pose?.name || `Frame ${frame+1}`,pose}))}, family, clipName, frames);
+  }
+
+  function loadSparseBanks() {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(SPARSE_CLIPS_KEY) || 'null'); } catch (err) { console.warn('[Anim Lab] Sparse clip read failed; importing sampled clips.', err); }
+    const out = {human:{},fox:{}};
+    for (const family of ['human','fox']) {
+      for (const clipName of ['walk','run','jump']) {
+        const raw = stored?.schema === SPARSE_SCHEMA ? stored?.families?.[family]?.[clipName] : null;
+        out[family][clipName] = raw
+          ? normaliseSparseClip(raw,family,clipName,banks[family][clipName])
+          : importSparseClip(banks[family][clipName],family,clipName);
+      }
+    }
+    return out;
+  }
+
+  let sparseBanks = loadSparseBanks();
+  let conversionPreview = null;
+
+  function evaluateSparsePose(clipData, frame, family) {
+    const adapter = adapters[family];
+    const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
+    if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
+    const f = ((Number(frame) % 16) + 16) % 16;
+    const exact = keys.find(k => k.frame === f);
+    if (exact) { const pose = adapter.normalise(exact.pose, f); pose.name = exact.name; return pose; }
+    let before = null, after = null, beforeFrame = -Infinity, afterFrame = Infinity;
+    for (const key of keys) {
+      if (key.frame < f && key.frame > beforeFrame) { before = key; beforeFrame = key.frame; }
+      if (key.frame > f && key.frame < afterFrame) { after = key; afterFrame = key.frame; }
+    }
+    let wraps = false;
+    if (!before) { before = keys[keys.length - 1]; beforeFrame = before.frame - 16; }
+    if (!after) { after = keys[0]; afterFrame = after.frame + 16; wraps = true; }
+    const span = Math.max(.0001, afterFrame - beforeFrame);
+    const t = clamp((f - beforeFrame) / span, 0, 1);
+    const a = adapter.normalise(before.pose, before.frame);
+    const b = adapter.normalise(after.pose, after.frame);
+    const crossesSeam = wraps || beforeFrame < 0 || afterFrame >= 16;
+    const travelB = crossesSeam ? (Number(b.travel) || 0) + 1 : Number(b.travel);
+    const name = `${before.name} → ${after.name}`;
+    const pose = adapter.rig.interpolatePose(a,b,t,name,travelB);
+    return adapter.normalise(pose,f);
+  }
+
+  function compileSparseClip(clipData, family) {
+    return Array.from({length:16},(_,frame)=>evaluateSparsePose(clipData,frame,family));
+  }
+
+  function syncCompiledClip(family, clipName) {
+    banks[family][clipName] = compileSparseClip(sparseBanks[family][clipName], family);
+  }
+  for (const family of ['human','fox']) for (const clipName of ['walk','run','jump']) syncCompiledClip(family,clipName);
+
+  function saveSparseBanks() {
+    localStorage.setItem(SPARSE_CLIPS_KEY, JSON.stringify({schema:SPARSE_SCHEMA, sampleCount:16, families:sparseBanks}));
+  }
+
+  function ensureLegacyBackup(family, clipName) {
+    try {
+      const backup = JSON.parse(localStorage.getItem(LEGACY_BACKUP_KEY) || 'null') || {schema:'animlab.legacy-sampled-backup.v1',families:{human:{},fox:{}}};
+      backup.families ||= {human:{},fox:{}};
+      backup.families[family] ||= {};
+      if (!Array.isArray(backup.families[family][clipName])) {
+        backup.families[family][clipName] = clone(legacySamplesAtOpen[family][clipName]);
+        localStorage.setItem(LEGACY_BACKUP_KEY, JSON.stringify(backup));
+      }
+    } catch (err) {
+      console.warn('[Anim Lab] Could not write legacy sampled backup.', err);
+    }
+  }
+
   const atlases = new Map();
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
@@ -196,7 +311,32 @@
   function currentAdapter() { return adapters[currentCharacter().family]; }
   function currentBank() { return banks[currentCharacter().family]; }
   function currentFrames() { return currentBank()[selection.clip]; }
-  function currentPose() { return currentFrames()[selection.frame]; }
+  function currentSparseClip() { return sparseBanks[currentCharacter().family][selection.clip]; }
+  function previewApplies() { return !!conversionPreview && conversionPreview.family === currentCharacter().family && conversionPreview.clip === selection.clip; }
+  function displayFrames() { return previewApplies() ? conversionPreview.frames : currentFrames(); }
+  function currentPose() { return displayFrames()[selection.frame]; }
+
+  function setCurrentSparseClip(value) {
+    const family = currentCharacter().family;
+    sparseBanks[family][selection.clip] = normaliseSparseClip(value,family,selection.clip,currentFrames());
+    syncCompiledClip(family,selection.clip);
+  }
+
+  function upsertCurrentKey(frame, pose, preferredName = null) {
+    const clipData = clone(currentSparseClip());
+    const index = clipData.keys.findIndex(k => k.frame === frame);
+    const existing = index >= 0 ? clipData.keys[index] : null;
+    const key = {
+      frame,
+      name:String(preferredName || existing?.name || `Key ${frame + 1}`).slice(0,48),
+      pose:currentAdapter().normalise(pose,frame)
+    };
+    if (index >= 0) clipData.keys[index] = key;
+    else clipData.keys.push(key);
+    clipData.keys.sort((a,b)=>a.frame-b.frame);
+    clipData.source = 'sparse-authored';
+    setCurrentSparseClip(clipData);
+  }
 
   function snapshotContext() {
     return {
@@ -204,6 +344,7 @@
       family:currentCharacter().family,
       clip:selection.clip,
       mode:selection.mode,
+      sparseClip:clone(currentSparseClip()),
       clipFrames:clone(currentFrames()),
       setup:clone(setupDraft)
     };
@@ -217,13 +358,15 @@
   }
 
   function currentRelevantValue(scope = selection.mode === 'setup' ? 'setup' : 'clip') {
-    return scope === 'setup' ? clone(setupDraft) : clone(currentFrames());
+    if (scope === 'setup') return clone(setupDraft);
+    if (scope === 'sparseClip' || scope === 'clip') return clone(currentSparseClip());
+    return clone(currentPose());
   }
 
   function isDirty() {
     if (!checkpoint) return false;
     if (selection.mode === 'setup') return !same(setupDraft, checkpoint.setup);
-    return !same(currentFrames(), checkpoint.clipFrames);
+    return !same(currentSparseClip(), checkpoint.sparseClip);
   }
 
   function saveEditorSelection() {
@@ -235,11 +378,16 @@
   }
 
   function setScopeValue(scope, value, frameIndex = selection.frame) {
-    if (scope === 'setup') setupDraft = { scale:clamp(Number(value.scale)||1,.55,1.55), collider:currentAdapter().normaliseCollider(value.collider) };
-    else {
-      const index = clamp(Number(frameIndex) || 0, 0, 15);
-      currentFrames()[index] = currentAdapter().normalise(value, index);
+    if (scope === 'setup') {
+      setupDraft = { scale:clamp(Number(value.scale)||1,.55,1.55), collider:currentAdapter().normaliseCollider(value.collider) };
+      return;
     }
+    if (scope === 'sparseClip' || scope === 'clip') {
+      setCurrentSparseClip(value);
+      return;
+    }
+    const index = clamp(Math.round(Number(frameIndex) || 0), 0, 15);
+    upsertCurrentKey(index, value);
   }
 
   function pushHistory(scope, before, after, label, frameIndex = selection.frame) {
@@ -252,53 +400,100 @@
 
   function beginTransaction(scope, label) {
     const resolved = scope === 'setup' ? 'setup' : 'pose';
-    const before = resolved === 'setup' ? clone(setupDraft) : clone(currentPose());
-    return {scope:resolved, label:label || 'Edit', before, frame:selection.frame};
+    if (resolved === 'pose' && previewApplies()) {
+      hint.textContent = 'Exit or adopt the conversion preview before editing a pose.';
+      return null;
+    }
+    if (resolved === 'setup') return {scope:'setup', label:label || 'Edit', before:clone(setupDraft), frame:selection.frame};
+    const existing = currentSparseClip().keys.find(k=>k.frame===selection.frame);
+    return {
+      scope:'pose',
+      label:label || 'Edit',
+      before:clone(evaluateSparsePose(currentSparseClip(),selection.frame,currentCharacter().family)),
+      beforeClip:clone(currentSparseClip()),
+      keyName:existing?.name || `Key ${selection.frame + 1}`,
+      frame:selection.frame
+    };
   }
 
   function previewTransaction(tx, updater) {
     if (!tx) return;
-    const next = clone(tx.before);
-    if (typeof updater === 'function') updater(next);
-    else if (updater) Object.assign(next, clone(updater));
-    setScopeValue(tx.scope, next, tx.frame);
+    if (tx.scope === 'setup') {
+      const next = clone(tx.before);
+      if (typeof updater === 'function') updater(next);
+      else if (updater) Object.assign(next, clone(updater));
+      setScopeValue('setup',next,tx.frame);
+    } else {
+      setCurrentSparseClip(clone(tx.beforeClip));
+      const next = clone(tx.before);
+      if (typeof updater === 'function') updater(next);
+      else if (updater) Object.assign(next, clone(updater));
+      upsertCurrentKey(tx.frame,next,tx.keyName);
+    }
     draw(); updateUi(); notify();
   }
 
   function commitTransaction(tx) {
     if (!tx) return;
-    const after = tx.scope === 'setup' ? clone(setupDraft) : clone(currentFrames()[tx.frame]);
-    pushHistory(tx.scope, tx.before, after, tx.label, tx.frame);
+    if (tx.scope === 'setup') {
+      pushHistory('setup',tx.before,clone(setupDraft),tx.label,tx.frame);
+    } else {
+      pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),tx.label,tx.frame);
+    }
     draw(); notify();
   }
 
   function cancelTransaction(tx) {
     if (!tx) return;
-    setScopeValue(tx.scope, tx.before, tx.frame);
+    if (tx.scope === 'setup') setScopeValue('setup',tx.before,tx.frame);
+    else setCurrentSparseClip(clone(tx.beforeClip));
     draw(); updateUi(); notify();
   }
 
   function edit(scope, label, updater) {
     const tx = beginTransaction(scope,label);
+    if (!tx) return false;
     previewTransaction(tx, updater);
     commitTransaction(tx);
+    return true;
+  }
+
+  function editSparseClip(label, updater) {
+    if (previewApplies()) {
+      hint.textContent = 'Exit or adopt the conversion preview before editing the key track.';
+      return false;
+    }
+    const before = clone(currentSparseClip());
+    const next = clone(before);
+    if (typeof updater === 'function') updater(next);
+    else if (updater) Object.assign(next,clone(updater));
+    setCurrentSparseClip(next);
+    const after = clone(currentSparseClip());
+    pushHistory('sparseClip',before,after,label || 'Edit key track',selection.frame);
+    playing = false;
+    draw(); updateUi(); notify();
+    return !same(before,after);
   }
 
   function undo() {
     const entry = history.pop();
     if (!entry) return;
-    const current = entry.scope === 'setup' ? clone(setupDraft) : clone(currentFrames()[entry.frame]);
+    conversionPreview = null;
+    const current = entry.scope === 'setup' ? clone(setupDraft) : clone(currentSparseClip());
     setScopeValue(entry.scope, entry.before, entry.frame);
     future.push({...entry, after:current});
+    playing = false;
     draw(); updateUi(); notify();
   }
 
   function redo() {
     const entry = future.pop();
     if (!entry) return;
-    const current = entry.scope === 'setup' ? clone(setupDraft) : clone(currentFrames()[entry.frame]);
+    conversionPreview = null;
+    const current = entry.scope === 'setup' ? clone(setupDraft) : clone(currentSparseClip());
     setScopeValue(entry.scope, entry.after, entry.frame);
     history.push({...entry, before:current});
+    playing = false;
     draw(); updateUi(); notify();
   }
 
@@ -311,6 +506,10 @@
         setupMap[character.id] = clone(setupDraft);
         localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
       } else {
+        conversionPreview = null;
+        ensureLegacyBackup(currentCharacter().family, selection.clip);
+        syncCompiledClip(currentCharacter().family, selection.clip);
+        saveSparseBanks();
         currentAdapter().saveBank(currentBank());
       }
       resetCheckpoint();
@@ -326,8 +525,9 @@
 
   function discardCurrent() {
     if (!checkpoint) return;
+    conversionPreview = null;
     if (selection.mode === 'setup') setupDraft = clone(checkpoint.setup);
-    else currentBank()[selection.clip] = clone(checkpoint.clipFrames);
+    else setCurrentSparseClip(clone(checkpoint.sparseClip));
     history = []; future = [];
     playing = false;
     hint.textContent = 'Discarded · checkpoint restored';
@@ -368,6 +568,7 @@
   function switchCharacter(id) {
     if (id === selection.characterId || !CHARACTERS.some(c => c.id === id)) return;
     guardNavigation(() => {
+      conversionPreview = null;
       selection.characterId = id;
       setupDraft = defaultSetupFor(id);
       selection.frame = 0; playPhase = 0; playing = false;
@@ -378,6 +579,7 @@
   function switchClip(name) {
     if (name === selection.clip || !['walk','run','jump'].includes(name)) return;
     guardNavigation(() => {
+      conversionPreview = null;
       selection.clip = name; selection.frame = 0; playPhase = 0; playing = false;
       saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
@@ -386,6 +588,7 @@
   function switchMode(mode) {
     if (mode === selection.mode || !['animate','setup'].includes(mode)) return;
     guardNavigation(() => {
+      conversionPreview = null;
       selection.mode = mode; playing = false;
       saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
@@ -524,7 +727,7 @@
 
   function draw() {
     resize();
-    const character=currentCharacter(),adapter=currentAdapter(),frames=currentFrames();
+    const character=currentCharacter(),adapter=currentAdapter(),frames=displayFrames();
     const phase=playing?playPhase:selection.frame/16;
     const pose=playing?adapter.rig.sampleFrames(frames,playPhase):currentPose();
     const sv=previewView(phase);
@@ -543,10 +746,10 @@
 
   function updateUi(displayPose = currentPose()) {
     const character=currentCharacter(),adapter=currentAdapter(),dirty=isDirty();
-    contextEl.textContent=`${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${selection.mode==='setup'?'Setup':'Animate'}`;
+    contextEl.textContent=`${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${selection.mode==='setup'?'Setup':'Animate'}${previewApplies()?' · Preview':''}`;
     readout.textContent=playing
-      ? `${character.label} · Playing ${selection.clip.toUpperCase()} · ${Math.round(view.zoom*100)}%`
-      : `${character.label} · ${selection.clip.toUpperCase()} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
+      ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
+      : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
     dirtyBadge.hidden=!dirty;
     undoBtn.disabled=!history.length;redoBtn.disabled=!future.length;discardBtn.disabled=!dirty;saveBtn.disabled=!dirty;
     scrub.value=String(selection.frame);scrub.disabled=selection.mode==='setup';prevBtn.disabled=selection.mode==='setup';nextBtn.disabled=selection.mode==='setup';playBtn.disabled=selection.mode==='setup';
@@ -557,7 +760,9 @@
     viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
     scopeEl.textContent=selection.mode==='setup'
       ? `${character.label} setup · scale is editor-owned; collider Save writes the current ${adapter.label} collider.`
-      : adapter.scope;
+      : previewApplies()
+        ? `${conversionPreview.label || 'Conversion'} preview · view only until Adopt or Exit Preview.`
+        : `${adapter.scope} Sparse keys compile back to the existing 16-sample contract on Save.`;
   }
 
   function notify() {
@@ -616,20 +821,65 @@
     requestAnimationFrame(animate);
   }
 
+
+  function setConversionPreview(clipData, label = 'Conversion') {
+    if (selection.mode !== 'animate') return false;
+    const family = currentCharacter().family;
+    const candidate = normaliseSparseClip(clipData,family,selection.clip,currentFrames());
+    conversionPreview = {family,clip:selection.clip,label:String(label||'Conversion'),candidate,frames:compileSparseClip(candidate,family)};
+    playing = false;
+    hint.textContent = `${conversionPreview.label} preview · no authored data changed`;
+    draw(); updateUi(); notify();
+    return true;
+  }
+
+  function clearConversionPreview() {
+    if (!previewApplies()) return false;
+    conversionPreview = null;
+    playing = false;
+    hint.textContent = 'Conversion preview closed · authored keys unchanged';
+    draw(); updateUi(); notify();
+    return true;
+  }
+
+  function adoptConversionPreview(label = 'Adopt conversion preview') {
+    if (!previewApplies()) return false;
+    const candidate = clone(conversionPreview.candidate);
+    conversionPreview = null;
+    const changed = editSparseClip(label, clip => {
+      clip.source = 'sparse-authored';
+      clip.keys = clone(candidate.keys);
+    });
+    hint.textContent = changed ? 'Conversion adopted into the working copy' : 'Conversion matches the current key track';
+    return changed;
+  }
+
   const api = {
-    version:'1.0.143',
+    version:'1.0.145',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, playing, dirty:isDirty(),
       pose:clone(currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
+      sparseClip:clone(currentSparseClip()), preview:previewApplies()?{label:conversionPreview.label,candidate:clone(conversionPreview.candidate)}:null,
       rig:currentAdapter().rig, adapterId:currentAdapter().id
     }),
     getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
     edit,
+    editSparseClip,
     beginTransaction,
     previewTransaction,
     commitTransaction,
     cancelTransaction,
+    getSparseClip:()=>clone(currentSparseClip()),
+    getCompiledFrames:()=>clone(currentFrames()),
+    getLegacySamples:()=>clone(legacySamplesAtOpen[currentCharacter().family][selection.clip]),
+    compileSparseClip:clipData=>compileSparseClip(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),currentCharacter().family),
+    evaluateSparsePose:(clipData,frame)=>evaluateSparsePose(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),frame,currentCharacter().family),
+    setConversionPreview,
+    clearConversionPreview,
+    adoptConversionPreview,
+    setFrame,
+    setHint:text=>{hint.textContent=String(text||'');},
     subscribe:fn=>{if(typeof fn==='function'){listeners.add(fn);return()=>listeners.delete(fn);}return()=>{};},
     redraw:()=>{draw();notify();},
     setOverlay:(name,value)=>{if(name in overlays){overlays[name]=!!value;draw();updateUi();notify();}},

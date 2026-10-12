@@ -1035,3 +1035,19 @@ Rules:
 - Hero 1 ghost, ruler/ground, Bones, Art, Planes and Collider are view/reference overlays only and must never dirty authored data;
 - Setup values use the same Save/Discard/Undo transaction model as animation edits. Collider persistence may use the existing family-owned collider key only on explicit Save;
 - Stage 2 does not introduce sparse key poses, tweening, mirroring, IK or curve editing. Those belong to later stages and must not be smuggled into the Control Board implementation.
+
+### Anim Lab sparse key-pose timeline rules
+
+Stage 3 makes sparse authored key poses the Anim Lab editing source while preserving the existing sampled runtime contract.
+
+Rules:
+
+- existing 16-sample human/Fox clips import losslessly into an in-memory sparse-key representation; merely opening or previewing that import must not write storage;
+- a pose edit on a tweened sample explicitly promotes that sample into a key pose, and the complete gesture remains one Undo transaction;
+- key markers own an integer sample position (0–15), a short editable name and a full rig-family pose; the editor may tween between fewer keys, but Save still compiles exactly 16 samples for the current runtime architecture;
+- add/duplicate/move/delete/copy/paste/mirror/phase operations edit the bounded working copy only and participate in the same Save/Discard/Undo/Redo rules as Control Board edits;
+- mirror behaviour is rig-family-owned: human mirror swaps the paired A/B hand/foot channels and planted label, while Fox mirror swaps near/far limb channels without substituting another rig family;
+- phase offset/cycle operations move key positions around the 16-sample loop without changing world movement architecture;
+- conversion/reduction previews are view-only: they may be scrubbed and played but cannot be edited or persisted until explicitly Adopted; exiting preview restores the authored key track untouched;
+- before the first Stage 3 Save of a family/clip, retain a sampled backup so legacy data can be recovered;
+- Stage 3 does not introduce FK/IK planted targets, contact-track solvers, graph curves or runtime Fox integration. Those remain later stages.

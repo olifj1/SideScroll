@@ -30,6 +30,7 @@ const CORE_SHELL = [
   "./audio.js",
   "./walk-lab.js",
   "./anim-lab-stage2.js",
+  "./anim-lab-stage3.js",
   "./asset-lab.js",
   "./icon-192.png",
   "./icon-512.png",

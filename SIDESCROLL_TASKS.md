@@ -1,5 +1,26 @@
 # SideScroll Development Tasks
 
+## October 12, 2026 — v1.0.145 Anim Lab Stage 3 sparse key-pose timeline
+
+**Current status:** Stage 2 was reported working well enough on-device to continue. Stage 3 now makes sparse key poses the Anim Lab authoring workflow while deliberately compiling back to the existing 16-sample clip format on Save. No FK/IK, curve editor or Fox gameplay-runtime integration is included.
+
+- [x] Import the current 16-sample human and Fox clips losslessly into a sparse-key working representation without writing storage on open.
+- [x] Add a stable 16-slot key track with named markers and tap-to-scrub selection.
+- [x] Add explicit Add Tween, Duplicate, Move Left/Right, Delete, Copy/Paste and Rename operations.
+- [x] Make a Control Board edit on a tweened frame promote that frame to a key automatically, with one gesture remaining one Undo step.
+- [x] Add per-rig mirror rules plus whole-clip mirror and cyclic phase offset / half-cycle operations.
+- [x] Add non-destructive 8-key conversion preview with measured channel error, plus explicit Adopt / Exit Preview.
+- [x] Compile sparse clips back to exactly 16 sampled poses on Save; keep Human on its established runtime bank and Fox on its isolated Anim Lab bank.
+- [x] Preserve a sampled pre-Stage-3 backup before the first sparse Save for each family/clip.
+- [x] Keep conversion preview, scrubbing, playback and marker inspection view-only; no persistence until Save.
+- [ ] iPhone regression: scrub/tap all 16 slots, add a tween key, rename it, move it and Undo/Redo each operation.
+- [ ] iPhone regression: edit a non-key human pose through the Control Board and confirm it becomes a key without a second Undo step.
+- [ ] iPhone regression: Mirror Key / Mirror Clip on human and Fox; verify human hand/foot pairs and Fox near/far leg pairs swap predictably.
+- [ ] iPhone regression: Phase −1 / +1 / Half Cycle should rotate the key layout without changing key count or creating seam pops.
+- [ ] iPhone regression: Preview 8 Keys, scrub/play it, Exit Preview and confirm nothing became dirty; repeat and Adopt, then Discard and confirm the original key track returns.
+- [ ] iPhone regression: Save an 8-key human walk, reload Anim Lab and confirm Contact/Down/Passing/Up-style markers and motion survive; repeat with Fox and confirm four-leg phasing remains distinct.
+- [ ] iPhone regression: after Save, return to Play and confirm human runtime motion still uses the compiled 16-sample contract and Fox gameplay remains on its existing approved v1.0.141 clips.
+
 ## October 12, 2026 — v1.0.144 Anim Lab Stage 2 controls + setup
 
 **Current status:** Stage 1's multi-rig shell is retained and Stage 2 adds the phone-first authoring surface: an anatomical Control Board, relative precision pad, control Details, common scale reference/ruler and protected character Setup. This remains sampled-pose editing; sparse key authoring belongs to Stage 3.
