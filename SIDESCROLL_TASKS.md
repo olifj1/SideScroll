@@ -1,3 +1,7 @@
+## October 12, 2026 — v1.0.147 Anim Lab slider + editor safe-area corrective pass
+
+**Current status:** on-device testing showed Safari could finish a native Setup range gesture with `pointercancel`. Stage 2 treated that as a custom-gesture cancellation, restoring the old setup value while the native thumb could remain visually moved. v1.0.147 commits native slider pointer-cancel/end values instead. Anim Lab and Asset Lab edge columns now also reserve the iPhone landscape safe-area insets, including track-width compensation so controls remain usable.
+
 # SideScroll Development Tasks
 
 ## October 12, 2026 — v1.0.146 Anim Lab Stage 2 corrective pass

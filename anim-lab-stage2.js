@@ -288,9 +288,14 @@
   sliders.forEach(input=>{
     input.addEventListener('pointerdown',()=>beginSlider(input));
     input.addEventListener('input',()=>previewSlider(input));
+    // Native iOS range controls may finish a drag with pointercancel even when
+    // the thumb/value change is intentional. Treat every native slider end as
+    // a commit; true cancel/restore semantics remain reserved for the custom
+    // precision pad where we own the entire gesture.
+    input.addEventListener('pointerup',()=>finishSlider(input,false));
     input.addEventListener('change',()=>finishSlider(input,false));
     input.addEventListener('blur',()=>finishSlider(input,false));
-    input.addEventListener('pointercancel',()=>finishSlider(input,true));
+    input.addEventListener('pointercancel',()=>finishSlider(input,false));
   });
 
   core.setPluginRenderer(({ctx,pose,adapter,view,project})=>{

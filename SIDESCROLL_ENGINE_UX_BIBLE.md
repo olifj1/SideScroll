@@ -1051,3 +1051,7 @@ Rules:
 - conversion/reduction previews are view-only: they may be scrubbed and played but cannot be edited or persisted until explicitly Adopted; exiting preview restores the authored key track untouched;
 - before the first Stage 3 Save of a family/clip, retain a sampled backup so legacy data can be recovered;
 - Stage 3 does not introduce FK/IK planted targets, contact-track solvers, graph curves or runtime Fox integration. Those remain later stages.
+
+### Native range controls on iPhone
+- With `viewport-fit=cover`, edge editor columns must reserve `env(safe-area-inset-left/right)` in the column/panel layout, not only in the top bar. Preserve the normal visual gutter in addition to the hardware inset.
+- Do not apply custom drag-cancel semantics to native `<input type="range">` controls. Mobile Safari may report `pointercancel` as part of an otherwise intentional native range interaction; the native value is authoritative and should be committed. Custom precision surfaces may retain cancel/restore behaviour because the app owns those gestures.

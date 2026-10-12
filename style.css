@@ -14309,3 +14309,51 @@ body[data-game-id="game-17"] .game-info-close{color:#eef3f1;background:rgba(255,
   body[data-game-id="game-17"] .animlab-section{padding-bottom:8px;gap:4px;}
   body[data-game-id="game-17"] .animlab-slider{margin-bottom:3px;}
 }
+
+
+/* SideScroll v1.0.147 — landscape safe-area correction for editor sidebars.
+   viewport-fit=cover lets iPhone use the full panel; the edge columns must then
+   explicitly reserve the dynamic hardware inset. Add the inset to the track
+   width as well as the inner padding so usable control width is not lost. */
+body[data-game-id="game-17"] .animlab-page{
+  grid-template-columns:minmax(calc(220px + env(safe-area-inset-left)),calc(29vw + env(safe-area-inset-left))) minmax(0,1fr);
+}
+body[data-game-id="game-17"] .animlab-drawer{
+  padding-left:calc(10px + env(safe-area-inset-left));
+}
+body[data-game-id="game-17"] .animlab-viewport{
+  margin-right:env(safe-area-inset-right);
+}
+body[data-game-id="game-17"] .animlab-topbar{
+  padding-left:calc(12px + env(safe-area-inset-left));
+  padding-right:calc(12px + env(safe-area-inset-right));
+}
+
+.assetlab-shell{
+  grid-template-columns:minmax(calc(180px + env(safe-area-inset-left)),calc(19vw + env(safe-area-inset-left))) minmax(0,1fr) minmax(calc(260px + env(safe-area-inset-right)),calc(28vw + env(safe-area-inset-right)));
+}
+.assetlab-library{padding-left:calc(10px + env(safe-area-inset-left));}
+.assetlab-controls{padding-right:calc(12px + env(safe-area-inset-right));}
+.assetlab-topbar{
+  padding-left:calc(12px + env(safe-area-inset-left));
+  padding-right:calc(12px + env(safe-area-inset-right));
+}
+
+@media(max-height:390px){
+  .assetlab-shell{
+    grid-template-columns:minmax(calc(158px + env(safe-area-inset-left)),calc(18vw + env(safe-area-inset-left))) minmax(0,1fr) minmax(calc(235px + env(safe-area-inset-right)),calc(28vw + env(safe-area-inset-right)));
+  }
+}
+@media(max-width:760px) and (orientation:landscape){
+  body[data-game-id="game-17"] .animlab-page{
+    grid-template-columns:calc(220px + env(safe-area-inset-left)) minmax(0,1fr);
+  }
+  body[data-game-id="game-17"] .animlab-drawer{
+    padding-left:calc(8px + env(safe-area-inset-left));
+  }
+  .assetlab-shell{
+    grid-template-columns:calc(150px + env(safe-area-inset-left)) minmax(0,1fr) calc(220px + env(safe-area-inset-right));
+  }
+  .assetlab-library{padding-left:calc(8px + env(safe-area-inset-left));}
+  .assetlab-controls{padding-right:calc(8px + env(safe-area-inset-right));}
+}
