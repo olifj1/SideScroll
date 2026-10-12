@@ -283,7 +283,9 @@
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
   const listeners = new Set();
+  const sessionParticipants = new Map();
   let selectedMarkers = [];
+  let underlayDraw = null;
   let pluginDraw = null;
   let gesture = null;
   let pendingNavigation = null;
@@ -367,9 +369,16 @@
   }
 
   function isDirty() {
-    if (!checkpoint) return false;
-    if (selection.mode === 'setup') return !same(setupDraft, checkpoint.setup);
-    return !same(currentSparseClip(), checkpoint.sparseClip);
+    let ownDirty = false;
+    if (checkpoint) ownDirty = selection.mode === 'setup'
+      ? !same(setupDraft, checkpoint.setup)
+      : !same(currentSparseClip(), checkpoint.sparseClip);
+    if (ownDirty) return true;
+    for (const participant of sessionParticipants.values()) {
+      try { if (participant?.isDirty?.()) return true; }
+      catch (err) { console.error('[Anim Lab] Session participant dirty check failed.', err); }
+    }
+    return false;
   }
 
   function saveEditorSelection() {
@@ -515,6 +524,11 @@
         saveSparseBanks();
         currentAdapter().saveBank(currentBank());
       }
+      for (const participant of sessionParticipants.values()) {
+        if (!participant?.save) continue;
+        const result = participant.save();
+        if (result === false) throw new Error('An Anim Lab extension could not save its working data.');
+      }
       resetCheckpoint();
       hint.textContent = 'Saved · working copy checkpoint updated';
       draw(); notify();
@@ -531,6 +545,10 @@
     conversionPreview = null;
     if (selection.mode === 'setup') setupDraft = clone(checkpoint.setup);
     else setCurrentSparseClip(clone(checkpoint.sparseClip));
+    for (const participant of sessionParticipants.values()) {
+      try { participant?.discard?.(); }
+      catch (err) { console.error('[Anim Lab] Session participant discard failed.', err); }
+    }
     history = []; future = [];
     playing = false;
     hint.textContent = 'Discarded · checkpoint restored';
@@ -742,6 +760,7 @@
     ctx.save();ctx.strokeStyle='rgba(219,233,228,.055)';ctx.lineWidth=1;
     const x0=((gridView.cx%step)+step)%step;for(let x=x0;x<canvas.width;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}for(let x=x0-step;x>0;x-=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
     const y0=((gridView.groundY%step)+step)%step;for(let y=y0;y<canvas.height;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}for(let y=y0-step;y>0;y-=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}ctx.restore();
+    if (typeof underlayDraw === 'function') underlayDraw({ctx,canvas,pose,adapter,character,view:sv,gridView,project,phase});
     drawGroundAndRuler(gridView);
     drawReference();
     if(overlays.art) drawRigArt(character,adapter,pose,sv,.99);
@@ -749,7 +768,7 @@
     if(overlays.collider) drawCollider(sv);
     if(overlays.bones) drawBones(adapter,pose,sv,1);
     drawSelectedMarkers(sv);
-    if (typeof pluginDraw === 'function') pluginDraw({ctx,canvas,pose,adapter,character,view:sv,project});
+    if (typeof pluginDraw === 'function') pluginDraw({ctx,canvas,pose,adapter,character,view:sv,project,phase});
     updateUi(pose);
   }
 
@@ -823,6 +842,40 @@
   window.addEventListener('resize',draw,{passive:true});
   window.addEventListener('beforeunload',e=>{if(!isDirty())return;e.preventDefault();e.returnValue='';});
 
+  function setPlaying(value) {
+    if (selection.mode !== 'animate') return false;
+    const next = !!value;
+    if (next === playing) return true;
+    playing = next;
+    if (playing) playPhase = selection.frame / 16;
+    lastAnimTime = performance.now();
+    draw(); updateUi(); notify();
+    return true;
+  }
+
+  function setPhase(value, stopPlayback = true) {
+    const raw = Number(value);
+    if (!Number.isFinite(raw)) return false;
+    const phase = ((raw % 1) + 1) % 1;
+    playPhase = phase;
+    selection.frame = Math.floor(phase * 16) % 16;
+    if (stopPlayback) playing = false;
+    saveEditorSelection();
+    draw(); updateUi(); notify();
+    return true;
+  }
+
+  function registerSessionParticipant(id, participant) {
+    const key = String(id || '').trim();
+    if (!key || !participant || typeof participant !== 'object') return () => {};
+    sessionParticipants.set(key, participant);
+    updateUi();
+    return () => {
+      if (sessionParticipants.get(key) === participant) sessionParticipants.delete(key);
+      updateUi();
+    };
+  }
+
   function animate(now) {
     const dt=Math.min(50,Math.max(0,now-lastAnimTime));lastAnimTime=now;
     if(playing&&selection.mode==='animate'){
@@ -865,10 +918,10 @@
   }
 
   const api = {
-    version:'1.0.145',
+    version:'1.0.150',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
-      clip:selection.clip, mode:selection.mode, frame:selection.frame, playing, dirty:isDirty(),
+      clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
       pose:clone(currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
       sparseClip:clone(currentSparseClip()), preview:previewApplies()?{label:conversionPreview.label,candidate:clone(conversionPreview.candidate)}:null,
       rig:currentAdapter().rig, adapterId:currentAdapter().id
@@ -889,12 +942,17 @@
     clearConversionPreview,
     adoptConversionPreview,
     setFrame,
+    setPhase,
+    setPlaying,
     setHint:text=>{hint.textContent=String(text||'');},
     subscribe:fn=>{if(typeof fn==='function'){listeners.add(fn);return()=>listeners.delete(fn);}return()=>{};},
+    registerSessionParticipant,
     redraw:()=>{draw();notify();},
+    redrawOnly:()=>draw(),
     setOverlay:(name,value)=>{if(name in overlays){overlays[name]=!!value;draw();updateUi();notify();}},
     getOverlay:name=>!!overlays[name],
     setSelectedMarkers:markers=>{selectedMarkers=Array.isArray(markers)?markers.filter(p=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)).map(clone):[];draw();},
+    setUnderlayRenderer:fn=>{underlayDraw=typeof fn==='function'?fn:null;draw();},
     setPluginRenderer:fn=>{pluginDraw=typeof fn==='function'?fn:null;draw();},
     geometry:pose=>currentAdapter().rig.geometry(pose||currentPose()),
     normalisePose:pose=>normaliseCurrentFrame(pose),

@@ -31,6 +31,8 @@ const CORE_SHELL = [
   "./walk-lab.js",
   "./anim-lab-stage2.js",
   "./anim-lab-stage3.js",
+  "./anim-lab-reference.js",
+  "./anim-reference-packs.json",
   "./asset-lab.js",
   "./icon-192.png",
   "./icon-512.png",

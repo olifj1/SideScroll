@@ -1059,3 +1059,22 @@ Rules:
 
 ### Anim Lab active-context visibility (v1.0.149)
 Anim Lab must have one visible editing context at a time. Elements marked `hidden` by the Animate/Setup state machine must remain `display:none` regardless of generic section layout rules. Do not allow author CSS such as `.animlab-section { display:flex; }` to override the semantic `hidden` attribute; the active mode owns both visibility and dirty-state scope.
+
+### Anim Lab motion-reference packs (v1.0.150)
+
+Motion Reference is an editor-only Anim Lab facility, not character artwork and not runtime rendering data.
+
+Rules:
+
+- reference packs are data-driven and declare which rig families they support; the first pack supplies quadruped Walk and Run/Gallop, while future biped packs must plug into the same interface rather than creating a second reference system;
+- source images in one sequence keep one fixed crop/alignment. Do not individually recrop or rescale poses to make them appear to line up;
+- linked comparison is driven by normalised cycle phase `[0,1)`, never by key number or source-image count;
+- selected reference poses retain their source phases/holds and must not be redistributed to equal timing merely because there are fewer selected images;
+- phase zero may be arbitrary. A saved Phase Offset aligns a useful source event to the authored character cycle without rewriting either sequence;
+- the reference is rendered in a dedicated underlay layer behind character art/bones and uses the world/grid view transform, so viewport zoom/pan remain coherent and character Setup scale does not silently rescale the source reference;
+- opacity, reference scale, X/Y placement, gait/source selection, link state, lock state and phase offset are editor working data saved per character + clip through Anim Lab's explicit Save/Discard guard;
+- reference playback position itself is transient preview state and does not dirty or persist;
+- reference settings live in their own storage namespace and must never be read by gameplay rendering;
+- large reference PNGs are cache-on-demand assets, not service-worker install-shell assets. Code/manifest remain available offline; individual gait imagery becomes offline-capable after it has been fetched once;
+- the old Hero 1 ghost is a **Scale Reference**, not a motion reference. Keep these concepts visually and architecturally distinct;
+- changes to a reference overlay and changes to authored animation should remain separately reviewable. Adding or tuning a reference pack must not modify character clips implicitly.

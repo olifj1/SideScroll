@@ -52,10 +52,10 @@
 
   host.innerHTML = `
     <section class="animlab-section animlab-stage2-view" aria-labelledby="animlab-stage2-view-title">
-      <div class="animlab-section-title" id="animlab-stage2-view-title">Reference</div>
+      <div class="animlab-section-title" id="animlab-stage2-view-title">Viewport</div>
       <div class="animlab-view-grid animlab-stage2-view-grid">
         <button type="button" id="animlab-ground">Ground / Ruler</button>
-        <button type="button" id="animlab-reference">Hero 1 Ref</button>
+        <button type="button" id="animlab-reference">Hero 1 Scale Ref</button>
       </div>
     </section>
 
@@ -325,6 +325,9 @@
 
   core.subscribe(state=>render(state,false));
   core.setOverlay('ground',true);
-  core.setOverlay('reference',true);
+  // Keep the Hero 1 scale ghost off during normal animation comparison. It is
+  // enabled automatically when entering Setup, where it remains useful as a
+  // physical scale reference. Motion references use their own underlay layer.
+  core.setOverlay('reference',core.getState().mode==='setup');
   render(core.getState(),true);
 })();

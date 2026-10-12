@@ -1941,3 +1941,15 @@ The full Test/runtime-state separation, Problems UI and richer recovery workflow
 ### v1.0.149 Anim Lab corrective pass
 - [x] Harden Anim Lab `[hidden]` handling so Setup controls cannot remain visible in Animate mode.
 - [x] Confirm Scale is edited only inside the Setup transaction/checkpoint context and therefore enables Save when changed.
+
+### v1.0.150 Anim Lab Motion Reference — inserted before Stage 4
+- [x] Add a reusable editor-only Motion Reference underlay to Anim Lab.
+- [x] Install a lean quadruped starter pack with Walk (35 frames / 10 selected poses) and Run/Gallop (15 frames / 8 selected poses) only.
+- [x] Reuse the same full-cycle PNGs for selected-pose mode; do not ship duplicate key-pose images/atlases/sheets.
+- [x] Link reference playback by normalised cycle phase and support saved phase offset.
+- [x] Add Show, source mode, opacity, scale, X/Y, lock, play/pause, previous/next and cycle scrub controls.
+- [x] Save reference/alignment settings per character + clip without changing gameplay rendering or authored Fox clips.
+- [x] Keep large reference PNGs out of install-time service-worker CORE_SHELL; cache them on demand.
+- [x] Make reference packs rig-family-aware so a future biped Walk/Run pack can use the same system.
+- [ ] On-device: align Fox Walk to the reference and review leg phasing / body rise-fall before beginning Stage 4 paw-contact IK.
+- [ ] Later: build a small biped reference pack (initially Walk + Run) and register it for the human rig family.

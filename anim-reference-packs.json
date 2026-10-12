@@ -1,0 +1,466 @@
+{
+  "schema": "animlab.reference-packs.v1",
+  "version": 1,
+  "packs": [
+    {
+      "id": "animal-gaits-v1",
+      "label": "Animal Gaits",
+      "rigFamilies": [
+        "fox"
+      ],
+      "source": {
+        "title": "Animal Gaits for Animators",
+        "creator": "Stephen Cunnane",
+        "note": "Editor reference only; supplied from the user\u2019s captured reference pack."
+      },
+      "imageSize": {
+        "width": 600,
+        "height": 330
+      },
+      "groundY": 306,
+      "baseWorldWidth": 1.8,
+      "gaits": [
+        {
+          "id": "walk",
+          "sourceGait": "walk",
+          "label": "Walk",
+          "suggestedClips": [
+            "walk"
+          ],
+          "durationSeconds": 1.1666666666666667,
+          "frameCount": 35,
+          "selectedCount": 10,
+          "phaseZeroNote": "The first frame of the previously extracted loop; not a standardised contact event.",
+          "frames": [
+            {
+              "file": "animref-animal-walk-001.png",
+              "phase": 0.0,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 478
+            },
+            {
+              "file": "animref-animal-walk-002.png",
+              "phase": 0.02857142857142857,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 479
+            },
+            {
+              "file": "animref-animal-walk-003.png",
+              "phase": 0.05714285714285714,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 480
+            },
+            {
+              "file": "animref-animal-walk-004.png",
+              "phase": 0.08571428571428572,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 481
+            },
+            {
+              "file": "animref-animal-walk-005.png",
+              "phase": 0.11428571428571428,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 482
+            },
+            {
+              "file": "animref-animal-walk-006.png",
+              "phase": 0.14285714285714285,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 483
+            },
+            {
+              "file": "animref-animal-walk-007.png",
+              "phase": 0.17142857142857143,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 484
+            },
+            {
+              "file": "animref-animal-walk-008.png",
+              "phase": 0.2,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 485
+            },
+            {
+              "file": "animref-animal-walk-009.png",
+              "phase": 0.22857142857142856,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 486
+            },
+            {
+              "file": "animref-animal-walk-010.png",
+              "phase": 0.2571428571428571,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 487
+            },
+            {
+              "file": "animref-animal-walk-011.png",
+              "phase": 0.2857142857142857,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 488
+            },
+            {
+              "file": "animref-animal-walk-012.png",
+              "phase": 0.3142857142857143,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 489
+            },
+            {
+              "file": "animref-animal-walk-013.png",
+              "phase": 0.34285714285714286,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 490
+            },
+            {
+              "file": "animref-animal-walk-014.png",
+              "phase": 0.37142857142857144,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 491
+            },
+            {
+              "file": "animref-animal-walk-015.png",
+              "phase": 0.4,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 492
+            },
+            {
+              "file": "animref-animal-walk-016.png",
+              "phase": 0.42857142857142855,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 493
+            },
+            {
+              "file": "animref-animal-walk-017.png",
+              "phase": 0.45714285714285713,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 494
+            },
+            {
+              "file": "animref-animal-walk-018.png",
+              "phase": 0.4857142857142857,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 495
+            },
+            {
+              "file": "animref-animal-walk-019.png",
+              "phase": 0.5142857142857142,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 496
+            },
+            {
+              "file": "animref-animal-walk-020.png",
+              "phase": 0.5428571428571428,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 497
+            },
+            {
+              "file": "animref-animal-walk-021.png",
+              "phase": 0.5714285714285714,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 498
+            },
+            {
+              "file": "animref-animal-walk-022.png",
+              "phase": 0.6,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 499
+            },
+            {
+              "file": "animref-animal-walk-023.png",
+              "phase": 0.6285714285714286,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 500
+            },
+            {
+              "file": "animref-animal-walk-024.png",
+              "phase": 0.6571428571428571,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 501
+            },
+            {
+              "file": "animref-animal-walk-025.png",
+              "phase": 0.6857142857142857,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 502
+            },
+            {
+              "file": "animref-animal-walk-026.png",
+              "phase": 0.7142857142857143,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 503
+            },
+            {
+              "file": "animref-animal-walk-027.png",
+              "phase": 0.7428571428571429,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 504
+            },
+            {
+              "file": "animref-animal-walk-028.png",
+              "phase": 0.7714285714285715,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 505
+            },
+            {
+              "file": "animref-animal-walk-029.png",
+              "phase": 0.8,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 506
+            },
+            {
+              "file": "animref-animal-walk-030.png",
+              "phase": 0.8285714285714286,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 507
+            },
+            {
+              "file": "animref-animal-walk-031.png",
+              "phase": 0.8571428571428571,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 508
+            },
+            {
+              "file": "animref-animal-walk-032.png",
+              "phase": 0.8857142857142857,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 509
+            },
+            {
+              "file": "animref-animal-walk-033.png",
+              "phase": 0.9142857142857143,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 510
+            },
+            {
+              "file": "animref-animal-walk-034.png",
+              "phase": 0.9428571428571428,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 511
+            },
+            {
+              "file": "animref-animal-walk-035.png",
+              "phase": 0.9714285714285714,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 512
+            }
+          ],
+          "selected": [
+            {
+              "frameIndex": 0,
+              "phase": 0.0,
+              "holdSeconds": 0.1,
+              "sourceFrame": 478
+            },
+            {
+              "frameIndex": 3,
+              "phase": 0.08571428571428572,
+              "holdSeconds": 0.1,
+              "sourceFrame": 481
+            },
+            {
+              "frameIndex": 6,
+              "phase": 0.17142857142857143,
+              "holdSeconds": 0.1,
+              "sourceFrame": 484
+            },
+            {
+              "frameIndex": 9,
+              "phase": 0.2571428571428571,
+              "holdSeconds": 0.13333333333333333,
+              "sourceFrame": 487
+            },
+            {
+              "frameIndex": 13,
+              "phase": 0.37142857142857144,
+              "holdSeconds": 0.13333333333333333,
+              "sourceFrame": 491
+            },
+            {
+              "frameIndex": 17,
+              "phase": 0.4857142857142857,
+              "holdSeconds": 0.1,
+              "sourceFrame": 495
+            },
+            {
+              "frameIndex": 20,
+              "phase": 0.5714285714285714,
+              "holdSeconds": 0.1,
+              "sourceFrame": 498
+            },
+            {
+              "frameIndex": 23,
+              "phase": 0.6571428571428571,
+              "holdSeconds": 0.13333333333333333,
+              "sourceFrame": 501
+            },
+            {
+              "frameIndex": 27,
+              "phase": 0.7714285714285715,
+              "holdSeconds": 0.13333333333333333,
+              "sourceFrame": 505
+            },
+            {
+              "frameIndex": 31,
+              "phase": 0.8857142857142857,
+              "holdSeconds": 0.13333333333333333,
+              "sourceFrame": 509
+            }
+          ]
+        },
+        {
+          "id": "run",
+          "sourceGait": "gallop-run",
+          "label": "Run / Gallop",
+          "suggestedClips": [
+            "run"
+          ],
+          "durationSeconds": 0.5,
+          "frameCount": 15,
+          "selectedCount": 8,
+          "phaseZeroNote": "The first frame of the previously extracted loop; not a standardised contact event.",
+          "frames": [
+            {
+              "file": "animref-animal-run-001.png",
+              "phase": 0.0,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2462
+            },
+            {
+              "file": "animref-animal-run-002.png",
+              "phase": 0.06666666666666667,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2463
+            },
+            {
+              "file": "animref-animal-run-003.png",
+              "phase": 0.13333333333333333,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2464
+            },
+            {
+              "file": "animref-animal-run-004.png",
+              "phase": 0.2,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2465
+            },
+            {
+              "file": "animref-animal-run-005.png",
+              "phase": 0.26666666666666666,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2466
+            },
+            {
+              "file": "animref-animal-run-006.png",
+              "phase": 0.3333333333333333,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2467
+            },
+            {
+              "file": "animref-animal-run-007.png",
+              "phase": 0.4,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2468
+            },
+            {
+              "file": "animref-animal-run-008.png",
+              "phase": 0.4666666666666667,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2469
+            },
+            {
+              "file": "animref-animal-run-009.png",
+              "phase": 0.5333333333333333,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2470
+            },
+            {
+              "file": "animref-animal-run-010.png",
+              "phase": 0.6,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2471
+            },
+            {
+              "file": "animref-animal-run-011.png",
+              "phase": 0.6666666666666666,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2472
+            },
+            {
+              "file": "animref-animal-run-012.png",
+              "phase": 0.7333333333333333,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2473
+            },
+            {
+              "file": "animref-animal-run-013.png",
+              "phase": 0.8,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2474
+            },
+            {
+              "file": "animref-animal-run-014.png",
+              "phase": 0.8666666666666667,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2475
+            },
+            {
+              "file": "animref-animal-run-015.png",
+              "phase": 0.9333333333333333,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2476
+            }
+          ],
+          "selected": [
+            {
+              "frameIndex": 0,
+              "phase": 0.0,
+              "holdSeconds": 0.06666666666666667,
+              "sourceFrame": 2462
+            },
+            {
+              "frameIndex": 2,
+              "phase": 0.13333333333333333,
+              "holdSeconds": 0.06666666666666667,
+              "sourceFrame": 2464
+            },
+            {
+              "frameIndex": 4,
+              "phase": 0.26666666666666666,
+              "holdSeconds": 0.06666666666666667,
+              "sourceFrame": 2466
+            },
+            {
+              "frameIndex": 6,
+              "phase": 0.4,
+              "holdSeconds": 0.06666666666666667,
+              "sourceFrame": 2468
+            },
+            {
+              "frameIndex": 8,
+              "phase": 0.5333333333333333,
+              "holdSeconds": 0.06666666666666667,
+              "sourceFrame": 2470
+            },
+            {
+              "frameIndex": 10,
+              "phase": 0.6666666666666666,
+              "holdSeconds": 0.06666666666666667,
+              "sourceFrame": 2472
+            },
+            {
+              "frameIndex": 12,
+              "phase": 0.8,
+              "holdSeconds": 0.06666666666666667,
+              "sourceFrame": 2474
+            },
+            {
+              "frameIndex": 14,
+              "phase": 0.9333333333333333,
+              "holdSeconds": 0.03333333333333333,
+              "sourceFrame": 2476
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
