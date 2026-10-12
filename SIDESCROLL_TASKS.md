@@ -1,3 +1,14 @@
+
+## October 12, 2026 — v1.0.148 Anim Lab native Scale final-value correction
+
+**Current status:** the v1.0.147 pointer-cancel fix was incomplete. On the reported iPhone path the native range thumb could move without delivering the intermediate `input` callback, so there was still no authored Setup change to commit. v1.0.148 makes the end event itself authoritative.
+
+- [x] On `pointerup`, `change`, `blur` and `pointercancel`, explicitly read the range control's final DOM value into the Setup working copy before committing the transaction.
+- [x] Preserve one slider gesture as one bounded Undo transaction when normal `input` events are present.
+- [x] Add a regression harness for the exact `change`-without-`input` path; Scale 1.00 -> 1.73 becomes dirty and commit-ready.
+- [ ] iPhone regression: change Fox Scale only and confirm Saved -> Unsaved / Save enabled on finger release, then Save and verify the size in Play.
+- [ ] Do not start Stage 4 until this on-device check passes.
+
 ## October 12, 2026 — v1.0.147 Anim Lab slider + editor safe-area corrective pass
 
 **Current status:** on-device testing showed Safari could finish a native Setup range gesture with `pointercancel`. Stage 2 treated that as a custom-gesture cancellation, restoring the old setup value while the native thumb could remain visually moved. v1.0.147 commits native slider pointer-cancel/end values instead. Anim Lab and Asset Lab edge columns now also reserve the iPhone landscape safe-area insets, including track-width compensation so controls remain usable.

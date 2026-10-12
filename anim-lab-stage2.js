@@ -270,32 +270,49 @@
   referenceBtn.addEventListener('click',()=>core.setOverlay('reference',!core.getOverlay('reference')));
 
   function sliderScope(input){return input.dataset.setup==='scale'?'scale':input.dataset.collider;}
+  function stateSliderValue(input,state=core.getState()){
+    return Number(input.dataset.setup==='scale' ? state.setup.scale : state.setup.collider[input.dataset.collider]);
+  }
   function beginSlider(input){
     if(sliderTx.has(input))return sliderTx.get(input);
     const tx=core.beginTransaction('setup',`Adjust ${sliderScope(input)}`);sliderTx.set(input,tx);return tx;
   }
-  function previewSlider(input){
-    const tx=beginSlider(input),value=Number(input.value);
+  function applySliderDomValue(input,tx=beginSlider(input)){
+    const value=Number(input.value);
+    if(!tx || !Number.isFinite(value))return tx;
     core.previewTransaction(tx,setup=>{
       if(input.dataset.setup==='scale')setup.scale=value;
       else setup.collider[input.dataset.collider]=value;
     });
+    return tx;
   }
-  function finishSlider(input,cancel=false){
-    const tx=sliderTx.get(input);if(!tx)return;
-    if(cancel)core.cancelTransaction(tx);else core.commitTransaction(tx);sliderTx.delete(input);
+  function previewSlider(input){
+    applySliderDomValue(input);
+  }
+  function finishSlider(input,{syncFinal=true}={}){
+    let tx=sliderTx.get(input);
+    if(syncFinal){
+      const domValue=Number(input.value);
+      const stateValue=stateSliderValue(input);
+      // Safari can visibly move a native range thumb yet omit the intermediate
+      // input event. If that happens, the end event itself must import the DOM
+      // value into the working Setup copy before the transaction is committed.
+      if(!tx && Number.isFinite(domValue) && Number.isFinite(stateValue) && Math.abs(domValue-stateValue)<1e-9)return;
+      tx=applySliderDomValue(input,tx||beginSlider(input));
+    }
+    if(!tx)return;
+    core.commitTransaction(tx);
+    sliderTx.delete(input);
   }
   sliders.forEach(input=>{
     input.addEventListener('pointerdown',()=>beginSlider(input));
     input.addEventListener('input',()=>previewSlider(input));
-    // Native iOS range controls may finish a drag with pointercancel even when
-    // the thumb/value change is intentional. Treat every native slider end as
-    // a commit; true cancel/restore semantics remain reserved for the custom
-    // precision pad where we own the entire gesture.
-    input.addEventListener('pointerup',()=>finishSlider(input,false));
-    input.addEventListener('change',()=>finishSlider(input,false));
-    input.addEventListener('blur',()=>finishSlider(input,false));
-    input.addEventListener('pointercancel',()=>finishSlider(input,false));
+    // Do not depend on Safari's native range event order. Every normal end path
+    // explicitly syncs the slider's current DOM value before commit.
+    input.addEventListener('pointerup',()=>finishSlider(input));
+    input.addEventListener('change',()=>finishSlider(input));
+    input.addEventListener('blur',()=>finishSlider(input));
+    input.addEventListener('pointercancel',()=>finishSlider(input));
   });
 
   core.setPluginRenderer(({ctx,pose,adapter,view,project})=>{

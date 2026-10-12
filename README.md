@@ -1,26 +1,36 @@
-# SideScroll patch 1.0.147
+# SideScroll patch 1.0.148
 
-Corrective patch over v1.0.146. No Stage 4/IK work is included.
+Corrective changed-files-only patch over **v1.0.147**. No Stage 4 / IK work is included.
 
-## Fixes
-- iPhone native range controls in Anim Lab now commit an intentional value when Safari ends the gesture with `pointercancel`; scale-only edits therefore become Unsaved and enable Save instead of visually moving while silently reverting.
-- Adds `pointerup` commit handling for Setup sliders as an explicit native-slider end path.
-- Anim Lab landscape edge columns now reserve `env(safe-area-inset-left/right)` plus the normal UI gutter, so controls do not sit under the iPhone sensor/earpiece area.
-- Asset Lab receives the same left/right safe-area treatment, including wider edge grid tracks so the safe inset does not steal usable panel width.
-- Cache-busts the affected Anim Lab script/CSS and Asset Lab CSS reference.
+## Fix
 
-## iPhone checks
-1. Open Anim Lab in landscape with the hardware cutout/earpiece on the left. `Scale` and the full left drawer should be visible with a small gutter.
-2. Rotate 180 degrees. Right-edge UI/viewport should remain clear of the hardware inset.
-3. Fox > Setup: move only Scale. Confirm Saved changes to Unsaved and Save enables before touching any other setting.
-4. Tap Save, return to Play, select Fox and confirm the saved size is used.
-5. Reload Anim Lab and confirm the saved Fox scale reloads.
-6. Open Asset Lab in both landscape orientations and confirm the library/control columns remain fully readable.
+Anim Lab Setup sliders no longer depend on Mobile Safari delivering an intermediate `input` event. On every normal native range end path (`pointerup`, `change`, `blur`, or `pointercancel`), Anim Lab now explicitly reads the range control's final DOM value into the Setup working copy **before** committing the edit transaction.
 
-## Validation performed here
-- JavaScript syntax checks for the complete project.
-- Static event-wiring check confirms Setup sliders commit on pointerup, change, blur and pointercancel.
-- CSS/HTML wiring checks for `viewport-fit=cover`, safe-area environment variables and updated cache-busting URLs.
-- Patch replay over a clean v1.0.146 tree.
+This specifically fixes the observed iPhone case where **Scale visibly moved but Anim Lab stayed Saved and the Save button remained disabled**.
 
-Physical iPhone safe-area geometry and Safari's native range event sequence still require the on-device checks above.
+The existing iPhone safe-area correction from v1.0.147 remains unchanged.
+
+## Files
+
+- `anim-lab-stage2.js` — authoritative final-value sync for Setup range controls.
+- `walk-lab.html` — cache-busts the corrected Stage 2 controller.
+- `SIDESCROLL_ENGINE_UX_BIBLE.md` — records the native-range final-value rule.
+- `SIDESCROLL_TASKS.md` — records the corrective release.
+- `README.md` — this file.
+
+## Validation performed
+
+- `anim-lab-stage2.js` passes `node --check`.
+- All JavaScript files in the reconstructed v1.0.148 project pass syntax validation.
+- An isolated interaction harness deliberately changed Scale and fired **only `change`** (no `input` event). The working Setup scale changed from `1.00` to `1.73` and the transaction became dirty, validating the exact missing-event path reported on iPhone.
+- Patch replay over a clean reconstructed v1.0.147 tree is checked against the validated v1.0.148 tree.
+
+## iPhone check
+
+1. Open Anim Lab -> Fox -> Setup.
+2. Move **Scale only**.
+3. The header should immediately become **Unsaved** and **Save** should enable by the end of the slider gesture.
+4. Tap Save.
+5. Open Play and confirm the Fox uses the saved scale.
+
+If step 3 still fails on-device, do not continue into Stage 4; capture exactly whether the numeric Scale readout changes while dragging and whether it remains changed after lifting your finger.
