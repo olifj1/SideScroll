@@ -1,5 +1,36 @@
 # SideScroll Development Tasks
 
+## October 12, 2026 — v1.0.144 Anim Lab Stage 2 controls + setup
+
+**Current status:** Stage 1's multi-rig shell is retained and Stage 2 adds the phone-first authoring surface: an anatomical Control Board, relative precision pad, control Details, common scale reference/ruler and protected character Setup. This remains sampled-pose editing; sparse key authoring belongs to Stage 3.
+
+- [x] Add rig-family anatomical Control Boards with only channels the current rigs actually expose.
+- [x] Add large selected-control Details plus Move/Rotate precision modes, Fine sensitivity and X/Y axis lock.
+- [x] Group a whole precision drag as one Undo action; pointer cancel restores the transaction.
+- [x] Add explicit near/far paired-control navigation where the rig has a counterpart.
+- [x] Add Ground/Ruler and translucent Hero 1 reference overlays without dirtying authored data.
+- [x] Add per-character editor scale plus collider sliders in Setup; human collider Save remains explicitly family-shared while fox collider storage stays separate.
+- [x] Keep Fox sampled clips in their own editor storage until formal runtime integration; do not redirect gameplay to unapproved editor data yet.
+- [ ] iPhone regression: select and adjust one human foot/hand and fox body/head/leg/tail control without touching the character artwork.
+- [ ] iPhone regression: verify one continuous precision drag produces one Undo step, Fine is noticeably finer, and X/Y locks constrain movement.
+- [ ] iPhone regression: compare Fox/Hero 2 against Hero 1 reference, change scale, Save, reload Anim Lab and confirm scale returns; Discard must restore the prior setup.
+- [ ] iPhone regression: edit collider values with Ground/Ruler visible, Save/Discard, and verify the collider remains grounded/coherent.
+
+## October 12, 2026 — v1.0.143 Anim Lab Stage 1 multi-rig shell
+
+**Current status:** the old human-only Walk Lab route is now the first safe **Anim Lab** shell. Hero 1, Hero 2 and Fox preview through their own rig families; editor character selection is session-only and does not write the gameplay character preference. Existing sampled human clips remain in their current storage; fox editor clips use a separate Anim Lab key.
+
+- [x] Relabel the existing `walk-lab.html` route as Anim Lab without breaking bookmarks/offline shell routing.
+- [x] Load both human and fox rig families explicitly and fail visibly if either required family is missing.
+- [x] Add explicit Character -> Clip -> Animate/Setup hierarchy for Hero 1, Hero 2 and Fox.
+- [x] Keep Hero 1/Hero 2 on the shared human clip bank and keep fox editor clips isolated from the human persistence keys.
+- [x] Add bounded working-copy semantics: checkpoint, Undo, Redo, Save, Discard and Save/Discard/Cancel guard when switching dirty contexts.
+- [x] Ensure drawing, scrubbing, character inspection, view toggles and playback do not persist data.
+- [x] Preserve pan/pinch/fit and use stable DOM/touch surfaces.
+- [ ] iPhone regression: switch Hero 1 -> Hero 2 -> Fox in Anim Lab and confirm the correct art/rig/rest pose every time without changing the Play character selection.
+- [ ] iPhone regression: scrub/play Walk, Run and Jump for all three characters; confirm viewing alone leaves Save/Discard disabled.
+- [ ] iPhone regression: switch Character / Clip / Mode repeatedly and confirm no view-only action marks the context dirty; Stage 2 authoring gestures then exercise the Save / Discard / Cancel path.
+
 ## October 11, 2026 — v1.0.141 Fox first playable quadruped pass
 
 **Current status:** the shortlisted B2 / Ember Reed fox is now available as a first-pass playable character using a dedicated quadruped rig family. The purpose of this drop is to get the approved source art moving at real gameplay scale before spending time on a final puppet-art refinement pass. Existing Hero 1 / Hero 2 rigs and Walk Lab data are not converted or overwritten.

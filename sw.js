@@ -29,6 +29,7 @@ const CORE_SHELL = [
   "./puzzle-groups.js",
   "./audio.js",
   "./walk-lab.js",
+  "./anim-lab-stage2.js",
   "./asset-lab.js",
   "./icon-192.png",
   "./icon-512.png",

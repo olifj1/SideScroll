@@ -1004,6 +1004,34 @@ Rules:
 - each rig family owns its own atlas part map, geometry, clips and default collider;
 - gameplay movement remains shared unless a character explicitly needs different mechanics;
 - humanoid-only pose helpers such as hand carry/push posing must not be applied to quadrupeds;
-- a specialist editor such as Walk Lab may intentionally support only the rig families it can actually author, and should filter unsupported variants rather than loading them incorrectly;
+- a specialist editor may intentionally support only the rig families it can actually author, and should filter unsupported variants rather than loading them incorrectly;
 - first-pass cutout art should retain an authoring source/joint map so pivots and cut seams can be revised without re-deriving the rig from scratch.
 
+### Anim Lab ownership and edit-session rules
+
+`walk-lab.html` remains the stable route for bookmark/offline compatibility, but the tool is now **Anim Lab** and may host more than one rig family.
+
+Rules:
+
+- editor character selection is editor/session state and must not silently change the character selected in Play;
+- rig-family adapters own atlas drawing, geometry, default poses, clip storage and collider ownership; the editor must never mix one family's geometry with another family's atlas;
+- Hero 1 and Hero 2 retain the established shared human animation bank unless a later migration is explicitly designed; Fox editor clips live in their own namespace until runtime integration is deliberately enabled;
+- opening, scrubbing, playing, fitting, panning, pinching, switching view overlays or inspecting a control must not persist authored data;
+- every Character -> Clip -> Mode context has a bounded working copy with an explicit checkpoint; Undo/Redo operate on that working copy and Save/Discard are the only intentional commit/restore actions;
+- leaving a dirty context, including leaving Anim Lab for Home, must offer Save / Discard / Cancel rather than relying on accidental navigation;
+- editor touch surfaces and control DOM remain stable while a gesture is active; no control panel should be rebuilt per animation frame.
+
+
+### Anim Lab Control Board and precision-edit rules
+
+Stage 2 adds rig-provided anatomical controls without changing the edit-session ownership above.
+
+Rules:
+
+- the Control Board exposes named anatomical controls supplied by the active rig family; large tap targets are the primary selection path, so precise viewport bone picking is not required on phone;
+- one precision-pad drag is one bounded edit transaction: pointer-down captures the original value, pointer-move previews only, pointer-up commits one Undo step, and pointer-cancel restores the original snapshot;
+- Move / Rotate, Fine and X/Y axis constraints change how the selected control is edited but do not create independent persisted state;
+- Setup owns per-character editor scale/reference data and rig-family collider setup. Scale is not a gameplay-runtime migration until the later runtime-integration stage explicitly adopts it;
+- Hero 1 ghost, ruler/ground, Bones, Art, Planes and Collider are view/reference overlays only and must never dirty authored data;
+- Setup values use the same Save/Discard/Undo transaction model as animation edits. Collider persistence may use the existing family-owned collider key only on explicit Save;
+- Stage 2 does not introduce sparse key poses, tweening, mirroring, IK or curve editing. Those belong to later stages and must not be smuggled into the Control Board implementation.

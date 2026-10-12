@@ -1,545 +1,650 @@
 (() => {
   'use strict';
 
-  const Rig = window.GameHubWalkRig;
-  if (!Rig) return;
+  const HumanRig = window.GameHubWalkRig || null;
+  const FoxRig = window.GameHubFoxRig || null;
+  const canvas = document.getElementById('animlab-canvas');
+  if (!HumanRig || !FoxRig || !canvas) {
+    console.error('[Anim Lab] Required rig family or canvas is missing.', { human: !!HumanRig, fox: !!FoxRig, canvas: !!canvas });
+    return;
+  }
 
-  const canvas = document.getElementById('walklab-canvas');
   const ctx = canvas.getContext('2d');
-  const readout = document.getElementById('walklab-readout');
-  const editHint = document.getElementById('walklab-edit-hint');
-  const scrub = document.getElementById('walklab-scrub');
-  const prev = document.getElementById('walklab-prev');
-  const next = document.getElementById('walklab-next');
-  const playBtn = document.getElementById('walklab-play');
-  const onionBtn = document.getElementById('walklab-onion');
-  const keysBtn = document.getElementById('walklab-keys');
-  const midsBtn = document.getElementById('walklab-mids');
-  const resetBtn = document.getElementById('walklab-reset');
-  const copyBtn = document.getElementById('walklab-copy');
-  const pasteBtn = document.getElementById('walklab-paste');
-  const saveBtn = document.getElementById('walklab-save');
-  const loadBtn = document.getElementById('walklab-load');
-  const artBtn = document.getElementById('walklab-rigart');
-  const stickBtn = document.getElementById('walklab-stick');
-  const planesBtn = document.getElementById('walklab-planes');
-  const colliderBtn = document.getElementById('walklab-collider');
-  const colliderResetBtn = document.getElementById('walklab-collider-reset');
-  const characterBtn = document.getElementById('walklab-character');
-  const fitBtn = document.getElementById('walklab-fit');
-  const fileInput = document.getElementById('walklab-file');
-  const clipButtons = [...document.querySelectorAll('.walklab-clip[data-clip]')];
+  const $ = id => document.getElementById(id);
+  const contextEl = $('animlab-context');
+  const readout = $('animlab-readout');
+  const hint = $('animlab-hint');
+  const dirtyBadge = $('animlab-dirty');
+  const scopeEl = $('animlab-scope');
+  const scrub = $('animlab-scrub');
+  const prevBtn = $('animlab-prev');
+  const nextBtn = $('animlab-next');
+  const playBtn = $('animlab-play');
+  const fitBtn = $('animlab-fit');
+  const undoBtn = $('animlab-undo');
+  const redoBtn = $('animlab-redo');
+  const discardBtn = $('animlab-discard');
+  const saveBtn = $('animlab-save');
+  const guard = $('animlab-guard');
+  const guardSave = $('animlab-guard-save');
+  const guardDiscard = $('animlab-guard-discard');
+  const guardCancel = $('animlab-guard-cancel');
+  const characterButtons = [...document.querySelectorAll('[data-character]')];
+  const clipButtons = [...document.querySelectorAll('[data-clip]')];
+  const modeButtons = [...document.querySelectorAll('[data-mode]')];
+  const viewButtons = [...document.querySelectorAll('[data-view]')];
 
-  const clips = {
-    walk: Rig.DEFAULT_FRAMES.map(Rig.clone),
-    run: Rig.RUN_FRAMES.map(Rig.clone),
-    jump: Rig.JUMP_FRAMES.map(Rig.clone)
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const FOX_CLIPS_KEY = 'sidescroll.animlab.fox.clips.v1';
+  const SETUP_KEY = 'sidescroll.animlab.setup.v1';
+  const EDITOR_SELECTION_KEY = 'sidescroll.animlab.editor.selection.v1';
+  const HUMAN_CLIPS_KEY = 'gamehub.walklab.anim.v6';
+  const HUMAN_WALK_KEY = 'gamehub.walklab.anim.v4';
+  const HUMAN_PREVIOUS_KEY = 'gamehub.walklab.anim.v5';
+
+  const CHARACTERS = [
+    { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
+    { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
+    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v1.png?v=1.0.141' }
+  ];
+  const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
+
+  function defaultBank(rig) {
+    return {
+      walk: rig.DEFAULT_FRAMES.map(rig.clone),
+      run: rig.RUN_FRAMES.map(rig.clone),
+      jump: rig.JUMP_FRAMES.map(rig.clone)
+    };
+  }
+
+  function loadHumanBank() {
+    const bank = defaultBank(HumanRig);
+    try {
+      const saved = JSON.parse(localStorage.getItem(HUMAN_CLIPS_KEY) || 'null');
+      if (saved) {
+        for (const name of ['walk','run','jump']) {
+          if (Array.isArray(saved[name]) && saved[name].length === 16) bank[name] = saved[name].map((p,i) => HumanRig.normalizedPose(p,i));
+        }
+      } else {
+        const previous = JSON.parse(localStorage.getItem(HUMAN_PREVIOUS_KEY) || 'null');
+        if (Array.isArray(previous?.walk) && previous.walk.length === 16) bank.walk = previous.walk.map((p,i) => HumanRig.normalizedPose(p,i));
+        else {
+          const old = JSON.parse(localStorage.getItem(HUMAN_WALK_KEY) || 'null');
+          if (Array.isArray(old?.frames) && old.frames.length === 16) bank.walk = old.frames.map((p,i) => HumanRig.normalizedPose(p,i));
+        }
+      }
+    } catch (err) {
+      console.warn('[Anim Lab] Human clip read failed; using current rig defaults.', err);
+    }
+    return bank;
+  }
+
+  function saveHumanBank(bank) {
+    const safe = {};
+    for (const name of ['walk','run','jump']) safe[name] = bank[name].map((p,i) => HumanRig.normalizedPose(p,i));
+    localStorage.setItem(HUMAN_CLIPS_KEY, JSON.stringify({version:14, ...safe}));
+    localStorage.setItem(HUMAN_WALK_KEY, JSON.stringify({version:12, frames:safe.walk}));
+  }
+
+  function loadFoxBank() {
+    const bank = defaultBank(FoxRig);
+    try {
+      const saved = JSON.parse(localStorage.getItem(FOX_CLIPS_KEY) || 'null');
+      if (saved?.clips) {
+        for (const name of ['walk','run','jump']) {
+          if (Array.isArray(saved.clips[name]) && saved.clips[name].length === 16) bank[name] = saved.clips[name].map((p,i) => FoxRig.normalizedPose(p,i));
+        }
+      }
+    } catch (err) {
+      console.warn('[Anim Lab] Fox editor clip read failed; using approved v1.0.141 defaults.', err);
+    }
+    return bank;
+  }
+
+  function saveFoxBank(bank) {
+    const clips = {};
+    for (const name of ['walk','run','jump']) clips[name] = bank[name].map((p,i) => FoxRig.normalizedPose(p,i));
+    localStorage.setItem(FOX_CLIPS_KEY, JSON.stringify({schema:'animlab.legacy-sampled.v1', family:'fox', sampleCount:16, clips}));
+  }
+
+  const adapters = {
+    human: {
+      id:'human', label:'Humanoid', rig:HumanRig,
+      clipMs:{walk:1050,run:650,jump:935},
+      loadBank:loadHumanBank, saveBank:saveHumanBank,
+      normalise:(pose, index) => HumanRig.normalizedPose(pose,index),
+      defaultPose:(clip,index) => {
+        const source = clip === 'run' ? HumanRig.RUN_FRAMES : clip === 'jump' ? HumanRig.JUMP_FRAMES : HumanRig.DEFAULT_FRAMES;
+        return HumanRig.normalizedPose(source[index], index);
+      },
+      collider:() => HumanRig.loadCollider(),
+      normaliseCollider:value => HumanRig.normalizedCollider(value),
+      saveCollider:value => HumanRig.saveCollider(value),
+      scope:'Hero 1 and Hero 2 share the current human animation bank and runtime collider.'
+    },
+    fox: {
+      id:'fox', label:'Fox', rig:FoxRig,
+      clipMs:{walk:1050,run:650,jump:935},
+      loadBank:loadFoxBank, saveBank:saveFoxBank,
+      normalise:(pose,index) => FoxRig.normalizedPose(pose,index),
+      defaultPose:(clip,index) => {
+        const source = clip === 'run' ? FoxRig.RUN_FRAMES : clip === 'jump' ? FoxRig.JUMP_FRAMES : FoxRig.DEFAULT_FRAMES;
+        return FoxRig.normalizedPose(source[index], index);
+      },
+      collider:() => FoxRig.loadCollider(),
+      normaliseCollider:value => FoxRig.normalizedCollider(value),
+      saveCollider:value => FoxRig.saveCollider(value),
+      scope:'Fox clips are stored separately in Anim Lab; gameplay clip integration is deliberately deferred.'
+    }
   };
-  const clipCycleMs = { walk:1050, run:650, jump:935 };
-  let activeClip = 'walk';
-  let frames = clips[activeClip];
-  let frame = 0;
-  let playing = false;
-  let onion = false;
-  let keysOnly = false;
-  let playPhase = 0;
-  let copiedPose = null;
-  let lastAnimTime = performance.now();
 
-  let showArt = true;
-  let showStick = true;
-  let showPlanes = false;
-  let showCollider = false;
-  let collider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider();
-  let activeColliderHandle = null;
-  let rigAtlas = null;
-  const availableCharacterVariants = Rig.CHARACTER_VARIANTS
-    ? Object.keys(Rig.CHARACTER_VARIANTS).filter(id => Rig.characterVariantInfo?.(id)?.visibleInWalkLab !== false)
-    : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
-  let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
-  if (!availableCharacterVariants.includes(currentCharacterVariant)) currentCharacterVariant = Rig.DEFAULT_CHARACTER_VARIANT || availableCharacterVariants[0] || 'original';
+  function loadSetupMap() {
+    try { return JSON.parse(localStorage.getItem(SETUP_KEY) || '{}') || {}; }
+    catch (_) { return {}; }
+  }
+  let setupMap = loadSetupMap();
 
-  const SHARED_ANIM_KEY = 'gamehub.walklab.anim.v4';
-  const SHARED_CLIPS_KEY = 'gamehub.walklab.anim.v6';
-  const PREVIOUS_CLIPS_KEY = 'gamehub.walklab.anim.v5';
-  function persistSharedAnimation(){
-    try{
-      localStorage.setItem(SHARED_CLIPS_KEY, JSON.stringify({version:14,walk:clips.walk,run:clips.run,jump:clips.jump}));
-      // Keep v4 walk compatibility for the previous SideScroll build.
-      localStorage.setItem(SHARED_ANIM_KEY, JSON.stringify({version:12,frames:clips.walk}));
-    }catch(_){}
+  function defaultSetupFor(characterId) {
+    const character = characterById(characterId);
+    const adapter = adapters[character.family];
+    const saved = setupMap[characterId] || {};
+    return {
+      scale: clamp(Number(saved.scale) || 1, .55, 1.55),
+      // Collider ownership remains with the existing rig family storage. This
+      // prevents Hero 1/Hero 2 from showing stale per-character copies while
+      // the runtime still shares one human collider.
+      collider: adapter.normaliseCollider(adapter.collider())
+    };
   }
 
-
-  function persistSharedCollider(){
-    collider = Rig.saveCollider ? Rig.saveCollider(collider) : Rig.normalizedCollider(collider);
-  }
-
-  // Editor camera: normalised pan keeps the view stable across DPR/resizes.
-  const view = { zoom: 1.0, panX: 0, panY: 0 };
+  const banks = { human:loadHumanBank(), fox:loadFoxBank() };
+  const atlases = new Map();
+  const view = { zoom:1, panX:0, panY:0 };
+  const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
+  const listeners = new Set();
+  let selectedMarkers = [];
+  let pluginDraw = null;
   let gesture = null;
-  let activeJoint = null;
+  let pendingNavigation = null;
+  let playing = false;
+  let playPhase = 0;
+  let lastAnimTime = performance.now();
+  let history = [];
+  let future = [];
 
-  function updateCharacterButton() {
-    if (!characterBtn) return;
-    const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant) : null;
-    characterBtn.textContent = info?.label || 'Character';
-    characterBtn.setAttribute('aria-pressed', currentCharacterVariant !== (Rig.DEFAULT_CHARACTER_VARIANT || 'original') ? 'true' : 'false');
+  function loadEditorSelection() {
+    let saved = null;
+    try { saved = JSON.parse(sessionStorage.getItem(EDITOR_SELECTION_KEY) || 'null'); } catch (_) {}
+    const gameplay = HumanRig.loadCharacterVariant ? HumanRig.loadCharacterVariant() : 'original';
+    const charId = CHARACTERS.some(c => c.id === saved?.characterId) ? saved.characterId : (CHARACTERS.some(c => c.id === gameplay) ? gameplay : 'original');
+    return {
+      characterId:charId,
+      clip:['walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
+      mode:saved?.mode === 'setup' ? 'setup' : 'animate',
+      frame:Number.isInteger(saved?.frame) ? clamp(saved.frame,0,15) : 0
+    };
   }
 
-  function loadRigAtlas() {
+  const selection = loadEditorSelection();
+  let setupDraft = defaultSetupFor(selection.characterId);
+  let checkpoint = null;
+
+  function currentCharacter() { return characterById(selection.characterId); }
+  function currentAdapter() { return adapters[currentCharacter().family]; }
+  function currentBank() { return banks[currentCharacter().family]; }
+  function currentFrames() { return currentBank()[selection.clip]; }
+  function currentPose() { return currentFrames()[selection.frame]; }
+
+  function snapshotContext() {
+    return {
+      characterId:selection.characterId,
+      family:currentCharacter().family,
+      clip:selection.clip,
+      mode:selection.mode,
+      clipFrames:clone(currentFrames()),
+      setup:clone(setupDraft)
+    };
+  }
+
+  function resetCheckpoint() {
+    checkpoint = snapshotContext();
+    history = [];
+    future = [];
+    updateUi();
+  }
+
+  function currentRelevantValue(scope = selection.mode === 'setup' ? 'setup' : 'clip') {
+    return scope === 'setup' ? clone(setupDraft) : clone(currentFrames());
+  }
+
+  function isDirty() {
+    if (!checkpoint) return false;
+    if (selection.mode === 'setup') return !same(setupDraft, checkpoint.setup);
+    return !same(currentFrames(), checkpoint.clipFrames);
+  }
+
+  function saveEditorSelection() {
+    try { sessionStorage.setItem(EDITOR_SELECTION_KEY, JSON.stringify(selection)); } catch (_) {}
+  }
+
+  function normaliseCurrentFrame(pose) {
+    return currentAdapter().normalise(pose, selection.frame);
+  }
+
+  function setScopeValue(scope, value, frameIndex = selection.frame) {
+    if (scope === 'setup') setupDraft = { scale:clamp(Number(value.scale)||1,.55,1.55), collider:currentAdapter().normaliseCollider(value.collider) };
+    else {
+      const index = clamp(Number(frameIndex) || 0, 0, 15);
+      currentFrames()[index] = currentAdapter().normalise(value, index);
+    }
+  }
+
+  function pushHistory(scope, before, after, label, frameIndex = selection.frame) {
+    if (same(before, after)) return;
+    history.push({scope, before:clone(before), after:clone(after), label:label || 'Edit', frame:frameIndex});
+    if (history.length > 80) history.shift();
+    future = [];
+    updateUi();
+  }
+
+  function beginTransaction(scope, label) {
+    const resolved = scope === 'setup' ? 'setup' : 'pose';
+    const before = resolved === 'setup' ? clone(setupDraft) : clone(currentPose());
+    return {scope:resolved, label:label || 'Edit', before, frame:selection.frame};
+  }
+
+  function previewTransaction(tx, updater) {
+    if (!tx) return;
+    const next = clone(tx.before);
+    if (typeof updater === 'function') updater(next);
+    else if (updater) Object.assign(next, clone(updater));
+    setScopeValue(tx.scope, next, tx.frame);
+    draw(); updateUi(); notify();
+  }
+
+  function commitTransaction(tx) {
+    if (!tx) return;
+    const after = tx.scope === 'setup' ? clone(setupDraft) : clone(currentFrames()[tx.frame]);
+    pushHistory(tx.scope, tx.before, after, tx.label, tx.frame);
+    draw(); notify();
+  }
+
+  function cancelTransaction(tx) {
+    if (!tx) return;
+    setScopeValue(tx.scope, tx.before, tx.frame);
+    draw(); updateUi(); notify();
+  }
+
+  function edit(scope, label, updater) {
+    const tx = beginTransaction(scope,label);
+    previewTransaction(tx, updater);
+    commitTransaction(tx);
+  }
+
+  function undo() {
+    const entry = history.pop();
+    if (!entry) return;
+    const current = entry.scope === 'setup' ? clone(setupDraft) : clone(currentFrames()[entry.frame]);
+    setScopeValue(entry.scope, entry.before, entry.frame);
+    future.push({...entry, after:current});
+    draw(); updateUi(); notify();
+  }
+
+  function redo() {
+    const entry = future.pop();
+    if (!entry) return;
+    const current = entry.scope === 'setup' ? clone(setupDraft) : clone(currentFrames()[entry.frame]);
+    setScopeValue(entry.scope, entry.after, entry.frame);
+    history.push({...entry, before:current});
+    draw(); updateUi(); notify();
+  }
+
+  function saveCurrent() {
+    try {
+      if (selection.mode === 'setup') {
+        const character = currentCharacter();
+        const adapter = currentAdapter();
+        setupDraft.collider = adapter.saveCollider(setupDraft.collider);
+        setupMap[character.id] = clone(setupDraft);
+        localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
+      } else {
+        currentAdapter().saveBank(currentBank());
+      }
+      resetCheckpoint();
+      hint.textContent = 'Saved · working copy checkpoint updated';
+      draw(); notify();
+      return true;
+    } catch (err) {
+      console.error('[Anim Lab] Save failed.', err);
+      alert(`Anim Lab could not save: ${err.message}`);
+      return false;
+    }
+  }
+
+  function discardCurrent() {
+    if (!checkpoint) return;
+    if (selection.mode === 'setup') setupDraft = clone(checkpoint.setup);
+    else currentBank()[selection.clip] = clone(checkpoint.clipFrames);
+    history = []; future = [];
+    playing = false;
+    hint.textContent = 'Discarded · checkpoint restored';
+    draw(); updateUi(); notify();
+  }
+
+  function guardNavigation(action) {
+    if (!isDirty()) { action(); return; }
+    pendingNavigation = action;
+    guard.hidden = false;
+  }
+
+  function finishGuard(kind) {
+    const action = pendingNavigation;
+    pendingNavigation = null;
+    guard.hidden = true;
+    if (!action || kind === 'cancel') return;
+    if (kind === 'save' && !saveCurrent()) return;
+    if (kind === 'discard') discardCurrent();
+    action();
+  }
+
+  function loadAtlas(characterId) {
+    const character = characterById(characterId);
+    if (atlases.has(characterId)) return;
     const img = new Image();
-    img.onload = () => { rigAtlas = img; draw(); };
-    img.onerror = () => { rigAtlas = null; readout.textContent = 'Rig art failed to load'; draw(); };
-    const src = Rig.atlasImageUrl ? Rig.atlasImageUrl(currentCharacterVariant) : (Rig.ATLAS.url.startsWith('data:') ? Rig.ATLAS.url : Rig.ATLAS.url);
-    img.src = src.includes('?') ? src : `${src}?v=0.2.95`;
+    img.onload = () => { atlases.set(characterId,img); draw(); notify(); };
+    img.onerror = () => {
+      atlases.set(characterId,null);
+      console.error(`[Anim Lab] Atlas failed to load for ${character.label}: ${character.atlas}`);
+      hint.textContent = `${character.label} art failed to load`;
+      draw();
+    };
+    img.src = character.atlas;
+  }
+  CHARACTERS.forEach(c => loadAtlas(c.id));
+
+  function switchCharacter(id) {
+    if (id === selection.characterId || !CHARACTERS.some(c => c.id === id)) return;
+    guardNavigation(() => {
+      selection.characterId = id;
+      setupDraft = defaultSetupFor(id);
+      selection.frame = 0; playPhase = 0; playing = false;
+      fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
+    });
   }
 
-  function toggleCharacterVariant() {
-    if (!availableCharacterVariants.length) return;
-    const idx = Math.max(0, availableCharacterVariants.indexOf(currentCharacterVariant));
-    const next = availableCharacterVariants[(idx + 1) % availableCharacterVariants.length];
-    currentCharacterVariant = Rig.saveCharacterVariant ? Rig.saveCharacterVariant(next) : next;
-    updateCharacterButton();
-    if (characterBtn) characterBtn.addEventListener('click', toggleCharacterVariant);
-  updateCharacterButton();
-  loadRigAtlas();
-    editHint.textContent = `Character set: ${Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant).label : currentCharacterVariant}`;
+  function switchClip(name) {
+    if (name === selection.clip || !['walk','run','jump'].includes(name)) return;
+    guardNavigation(() => {
+      selection.clip = name; selection.frame = 0; playPhase = 0; playing = false;
+      saveEditorSelection(); resetCheckpoint(); draw(); notify();
+    });
+  }
+
+  function switchMode(mode) {
+    if (mode === selection.mode || !['animate','setup'].includes(mode)) return;
+    guardNavigation(() => {
+      selection.mode = mode; playing = false;
+      saveEditorSelection(); resetCheckpoint(); draw(); notify();
+    });
+  }
+
+  function setFrame(index) {
+    selection.frame = ((index % 16) + 16) % 16;
+    playPhase = selection.frame / 16;
+    playing = false;
+    saveEditorSelection(); draw(); updateUi(); notify();
+  }
+
+  function toggleOverlay(name) {
+    if (!(name in overlays)) return;
+    overlays[name] = !overlays[name];
+    draw(); updateUi(); notify();
   }
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
     const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w; canvas.height = h;
-    }
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
   }
 
-  function screenView(W = canvas.width, H = canvas.height) {
-    const baseScale = Math.min(W * 0.39, H * 0.61);
+  function baseView(scaleMultiplier = 1) {
+    const W = canvas.width, H = canvas.height;
+    const base = Math.min(W * .34, H * .68);
     return {
-      scale: baseScale * view.zoom,
-      cx: W * (0.50 + view.panX),
-      groundY: H * (0.84 + view.panY),
-      flipX: 1
+      scale:base * view.zoom * scaleMultiplier,
+      cx:W * (.5 + view.panX),
+      groundY:H * (.86 + view.panY),
+      flipX:1
     };
   }
 
-  function toScreen(pt, sv = screenView()) { return Rig.projectPoint(pt, sv); }
-  function toLocal(pos, sv = screenView()) {
-    return { x:(pos.x-sv.cx)/sv.scale, y:(sv.groundY-pos.y)/sv.scale };
+  function previewView(phase, scaleMultiplier = setupDraft.scale) {
+    const sv = baseView(scaleMultiplier);
+    if (selection.mode !== 'animate' || selection.clip !== 'jump') return sv;
+    const lift = Math.sin(clamp(phase,0,1) * Math.PI) * .40;
+    return {...sv, groundY:sv.groundY - lift * sv.scale};
   }
 
-  function clipView(phase, sv = screenView()) {
-    if (activeClip !== 'jump') return sv;
-    const lift = Math.sin(Rig.clamp(phase,0,1) * Math.PI) * .43;
-    return {...sv, groundY: sv.groundY - lift * sv.scale};
+  function project(pt, sv) { return {x:sv.cx + pt.x * sv.scale, y:sv.groundY - pt.y * sv.scale}; }
+  function unproject(pos, sv) { return {x:(pos.x-sv.cx)/sv.scale, y:(sv.groundY-pos.y)/sv.scale}; }
+
+  function drawPart(rig, atlas, part, sv, alpha = 1) {
+    const r = rig.atlasRect(part.name); if (!r || !atlas) return;
+    const A = project(part.a,sv), B = project(part.b,sv);
+    const p0 = {x:r.a0[0]*r.w,y:r.a0[1]*r.h}, p1 = {x:r.a1[0]*r.w,y:r.a1[1]*r.h};
+    const svx = p1.x-p0.x, svy = p1.y-p0.y, dvx = B.x-A.x, dvy = B.y-A.y;
+    const sl = Math.hypot(svx,svy)||1, dl = Math.hypot(dvx,dvy)||1;
+    const sc = dl/sl, rot = Math.atan2(dvy,dvx)-Math.atan2(svy,svx);
+    ctx.save(); ctx.globalAlpha *= (part.alpha ?? 1) * alpha; ctx.translate(A.x,A.y); ctx.rotate(rot); ctx.scale(sc,sc);
+    ctx.drawImage(atlas,r.x,r.y,r.w,r.h,-p0.x,-p0.y,r.w,r.h); ctx.restore();
   }
 
-  function screenGeometry(pose, sv = screenView()) {
-    const g = Rig.geometry(pose);
-    const o = {...g};
-    for (const [k,v] of Object.entries(g)) {
-      if (v && typeof v === 'object' && Number.isFinite(v.x) && Number.isFinite(v.y)) o[k] = toScreen(v, sv);
+  function drawRigArt(character, adapter, pose, sv, alpha = 1) {
+    const atlas = atlases.get(character.id);
+    if (!atlas) return;
+    if (adapter.id === 'human' && typeof HumanRig.drawCanvas === 'function') HumanRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
+    else adapter.rig.partsForPose(pose).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
+  }
+
+  function drawBones(adapter, pose, sv, alpha = 1) {
+    const parts = adapter.rig.partsForPose(pose);
+    ctx.save();
+    ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(2,sv.scale*.012); ctx.strokeStyle=`rgba(47,61,66,${.78*alpha})`;
+    for (const part of parts) {
+      const A=project(part.a,sv), B=project(part.b,sv);
+      ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+      ctx.fillStyle=`rgba(245,241,236,${.94*alpha})`; ctx.strokeStyle=`rgba(47,61,66,${.85*alpha})`;
+      ctx.beginPath(); ctx.arc(A.x,A.y,Math.max(2.5,sv.scale*.011),0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle=`rgba(47,61,66,${.78*alpha})`;
     }
-    o.scale = sv.scale; o.cx = sv.cx; o.groundY = sv.groundY; o.local = g;
-    return o;
+    ctx.restore();
   }
 
-  function line(c,a,b,w,color,alpha=1) {
-    c.save(); c.globalAlpha=alpha; c.strokeStyle=color; c.lineWidth=w; c.lineCap='round'; c.lineJoin='round';
-    c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(b.x,b.y); c.stroke(); c.restore();
+  function transformedPlane(rig, part, sv) {
+    const r=rig.atlasRect(part.name); if(!r)return null;
+    const A=project(part.a,sv),B=project(part.b,sv);
+    const p0={x:r.a0[0]*r.w,y:r.a0[1]*r.h},p1={x:r.a1[0]*r.w,y:r.a1[1]*r.h};
+    const svx=p1.x-p0.x,svy=p1.y-p0.y,dvx=B.x-A.x,dvy=B.y-A.y;
+    const sl=Math.hypot(svx,svy)||1,dl=Math.hypot(dvx,dvy)||1,sc=dl/sl,rot=Math.atan2(dvy,dvx)-Math.atan2(svy,svx),co=Math.cos(rot),si=Math.sin(rot);
+    const tr=(x,y)=>{const lx=(x-p0.x)*sc,ly=(y-p0.y)*sc;return{x:A.x+lx*co-ly*si,y:A.y+lx*si+ly*co};};
+    return [tr(0,0),tr(r.w,0),tr(r.w,r.h),tr(0,r.h)];
   }
-  function circle(c,p,r,fill,stroke,alpha=1) {
-    c.save(); c.globalAlpha=alpha; c.beginPath(); c.arc(p.x,p.y,r,0,Rig.TAU); c.fillStyle=fill; c.fill();
-    if(stroke){c.strokeStyle=stroke;c.lineWidth=Math.max(1,r*.18);c.stroke();} c.restore();
-  }
 
-  function drawStick(c,pose,g,opts={}) {
-    const ghost=!!opts.ghost, alpha=opts.alpha??1, handles=!!opts.handles, s=g.scale;
-    const back=ghost?'#a9b1b2':'#314047', front=ghost?'#bcc3c3':'#aeb8b9', core=ghost?'#a5adae':'#243238';
-    const lw=Math.max(3,s*.020);
-
-    // Far leg, now explicitly hip -> knee -> ankle -> toe. The heel is a
-    // contact marker, not the ankle itself.
-    line(c,g.pelvis,g.bK,lw,back,alpha); line(c,g.bK,g.bAnkle,lw,back,alpha); line(c,g.bAnkle,g.bToe,lw*.78,back,alpha);
-    line(c,g.bAnkle,g.bHeel,lw*.60,back,alpha*.9);
-    // Far arm.
-    line(c,g.shoulder,g.bE,lw*.78,back,alpha); line(c,g.bE,g.bW,lw*.78,back,alpha);
-    // Core.
-    line(c,g.pelvis,g.chest,lw*1.06,core,alpha); line(c,g.chest,g.neck,lw*.7,core,alpha);
-    circle(c,g.head,Rig.BODY.headR*s,ghost?'#c4c8c7':'#f0ebe5',core,alpha);
-
-    // Near leg / foot.
-    line(c,g.pelvis,g.aK,lw,front,alpha); line(c,g.aK,g.aAnkle,lw,front,alpha); line(c,g.aAnkle,g.aToe,lw*.78,front,alpha);
-    line(c,g.aAnkle,g.aHeel,lw*.60,front,alpha*.9);
-    // Near arm.
-    line(c,g.shoulder,g.aE,lw*.82,front,alpha); line(c,g.aE,g.aW,lw*.82,front,alpha);
-
-    // Automatic hinges.
-    for(const q of [g.aK,g.bK,g.aAnkle,g.bAnkle,g.aE,g.bE]) circle(c,q,Math.max(2.4,s*.012),ghost?'#acb2b2':'#dad6d1',core,alpha*.95);
-    circle(c,g.shoulder,Math.max(3,s*.019),ghost?'#acb2b2':'#f0ebe5',core,alpha);
-
-    // Heel contact marks make the difference between heel, ankle and toe clear.
-    const footMark=(heel,toe,planted)=>{
-      if(!planted)return;
-      line(c,{x:heel.x-s*.018,y:heel.y+s*.014},{x:toe.x+s*.018,y:toe.y+s*.014},Math.max(2,s*.007),'#6f8f89',alpha*.9);
-    };
-    footMark(g.aHeel,g.aToe,pose.planted==='A'); footMark(g.bHeel,g.bToe,pose.planted==='B');
-
-    if(handles&&!ghost){
-      const hs=[['pelvis',g.pelvis],['chest',g.chest],['aHeel',g.aHeel],['bHeel',g.bHeel],['aW',g.aW],['bW',g.bW]];
-      for(const [name,q] of hs){
-        const selected=name===activeJoint;
-        circle(c,q,(selected?.030:.024)*s,selected?'#6f8f89':'#fffdfa','#344047',1);
-      }
+  function drawPlanes(adapter, pose, sv) {
+    ctx.save(); ctx.strokeStyle='rgba(102,139,133,.56)';ctx.lineWidth=Math.max(1,canvas.width*.0015);ctx.setLineDash([6,4]);
+    for (const part of adapter.rig.partsForPose(pose)) {
+      const q=transformedPlane(adapter.rig,part,sv); if(!q)continue;
+      ctx.beginPath();ctx.moveTo(q[0].x,q[0].y);for(let i=1;i<q.length;i++)ctx.lineTo(q[i].x,q[i].y);ctx.closePath();ctx.stroke();
     }
+    ctx.restore();
   }
 
-  function drawPlaneDebug(c, pose, sv) {
-    const parts = Rig.partsForPose(pose);
-    c.save(); c.globalAlpha=.42; c.strokeStyle='#6f8f89'; c.lineWidth=Math.max(1,canvas.width*.002); c.setLineDash([5,4]);
-    for(const part of parts){
-      const r=Rig.atlasRect(part.name); if(!r)continue;
-      const A=Rig.projectPoint(part.a,sv),B=Rig.projectPoint(part.b,sv);
-      const p0={x:r.a0[0]*r.w,y:r.a0[1]*r.h},p1={x:r.a1[0]*r.w,y:r.a1[1]*r.h};
-      const svx=p1.x-p0.x,svy=p1.y-p0.y,dvx=B.x-A.x,dvy=B.y-A.y;
-      const sl=Math.hypot(svx,svy)||1,dl=Math.hypot(dvx,dvy)||1,sc=dl/sl,rot=Math.atan2(dvy,dvx)-Math.atan2(svy,svx);
-      const tr=(x,y)=>{
-        const lx=(x-p0.x)*sc,ly=(y-p0.y)*sc,co=Math.cos(rot),si=Math.sin(rot);
-        return {x:A.x+lx*co-ly*si,y:A.y+lx*si+ly*co};
-      };
-      const q=[tr(0,0),tr(r.w,0),tr(r.w,r.h),tr(0,r.h)];
-      c.beginPath();c.moveTo(q[0].x,q[0].y);q.slice(1).forEach(v=>c.lineTo(v.x,v.y));c.closePath();c.stroke();
+  function drawCollider(sv) {
+    if (!overlays.collider) return;
+    const c = setupDraft.collider;
+    const r=c.radius*sv.scale, bottom=sv.groundY-c.bottom*sv.scale, top=sv.groundY-(c.bottom+c.height)*sv.scale, cx=sv.cx+c.offsetX*sv.scale;
+    const rr=Math.min(r,Math.max(4,(bottom-top)*.48));
+    ctx.save();ctx.fillStyle='rgba(91,142,135,.13)';ctx.strokeStyle='rgba(82,126,121,.92)';ctx.lineWidth=Math.max(2,canvas.width*.0022);ctx.setLineDash([7,4]);
+    ctx.beginPath();ctx.moveTo(cx-rr,top+rr);ctx.arc(cx,top+rr,rr,Math.PI,0);ctx.lineTo(cx+rr,bottom-rr);ctx.arc(cx,bottom-rr,rr,0,Math.PI);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.setLineDash([]);ctx.strokeStyle='rgba(200,139,74,.88)';ctx.beginPath();ctx.moveTo(cx-c.footProbe*sv.scale,bottom+5);ctx.lineTo(cx+c.footProbe*sv.scale,bottom+5);ctx.stroke();ctx.restore();
+  }
 
-      // Orientation audit: show the authoritative A→B axis used by each plane.
-      c.save(); c.setLineDash([]); c.globalAlpha=.8; c.strokeStyle='#9a554d'; c.fillStyle='#9a554d';
-      c.beginPath(); c.moveTo(A.x,A.y); c.lineTo(B.x,B.y); c.stroke();
-      const ang=Math.atan2(B.y-A.y,B.x-A.x),ah=Math.max(5,canvas.width*.009);
-      c.beginPath();
-      c.moveTo(B.x,B.y);
-      c.lineTo(B.x-Math.cos(ang-.55)*ah,B.y-Math.sin(ang-.55)*ah);
-      c.lineTo(B.x-Math.cos(ang+.55)*ah,B.y-Math.sin(ang+.55)*ah);
-      c.closePath(); c.fill(); c.restore();
+  function drawGroundAndRuler(sv) {
+    if (!overlays.ground) return;
+    ctx.save();
+    ctx.strokeStyle='rgba(64,76,80,.42)';ctx.lineWidth=Math.max(1,canvas.width*.0017);ctx.beginPath();ctx.moveTo(0,sv.groundY);ctx.lineTo(canvas.width,sv.groundY);ctx.stroke();
+    const step=.25*sv.scale;
+    ctx.fillStyle='rgba(51,63,67,.55)';ctx.font=`${Math.max(9,canvas.height*.024)}px system-ui,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+    for(let i=0;i<=4;i++){
+      const y=sv.groundY-i*step;ctx.beginPath();ctx.moveTo(8,y);ctx.lineTo(20,y);ctx.stroke();ctx.fillText(`${(i*.25).toFixed(2)}`,24,y);
     }
-    c.restore();
+    ctx.restore();
   }
 
-  function colliderScreenMetrics(sv = screenView()) {
-    const r = collider.radius * sv.scale;
-    const bottomY = sv.groundY - collider.bottom * sv.scale;
-    const topY = sv.groundY - (collider.bottom + collider.height) * sv.scale;
-    const centreY = (topY + bottomY) * 0.5;
-    const probe = collider.footProbe * sv.scale;
-    return { r, bottomY, topY, centreY, probe, cx: sv.cx + collider.offsetX * sv.scale };
+  function drawReference() {
+    if (!overlays.reference) return;
+    const refChar = characterById('original'), atlas=atlases.get('original'); if(!atlas)return;
+    const sv=baseView(1); sv.cx = canvas.width * .76;
+    const pose=HumanRig.normalizedPose(HumanRig.DEFAULT_FRAMES[0],0);
+    ctx.save();ctx.globalAlpha=.24;HumanRig.drawCanvas(ctx,atlas,pose,sv,{alpha:.72});drawBones(adapters.human,pose,sv,.35);ctx.restore();
   }
 
-  function drawCollider(c, sv) {
-    if (!showCollider) return;
-    const m = colliderScreenMetrics(sv);
-    const r = Math.min(m.r, Math.max(4, (m.bottomY - m.topY) * 0.48));
-    c.save();
-    c.fillStyle = 'rgba(91,142,135,.13)';
-    c.strokeStyle = 'rgba(82,126,121,.92)';
-    c.lineWidth = Math.max(2, canvas.width * .0025);
-    c.setLineDash([7,4]);
-    c.beginPath();
-    c.moveTo(m.cx-r,m.topY+r);
-    c.arc(m.cx,m.topY+r,r,Math.PI,0);
-    c.lineTo(m.cx+r,m.bottomY-r);
-    c.arc(m.cx,m.bottomY-r,r,0,Math.PI);
-    c.closePath();
-    c.fill(); c.stroke();
-    c.setLineDash([]);
-
-    // Foot probe used by SideScroll when sampling walkable terrain ahead.
-    c.strokeStyle='rgba(200,139,74,.88)';
-    c.lineWidth=Math.max(2,canvas.width*.0023);
-    c.beginPath(); c.moveTo(m.cx-m.probe,m.bottomY+6); c.lineTo(m.cx+m.probe,m.bottomY+6); c.stroke();
-
-    const handles = colliderHandles(sv);
-    for (const handle of handles) {
-      const active = activeColliderHandle === handle.name;
-      c.beginPath();
-      c.fillStyle = active ? '#d96e6e' : '#f1c784';
-      c.strokeStyle = '#465457';
-      c.lineWidth = Math.max(1.5, canvas.width * .0015);
-      c.arc(handle.x,handle.y,Math.max(6,canvas.width*.009),0,Rig.TAU);
-      c.fill(); c.stroke();
+  function drawSelectedMarkers(sv) {
+    if (!selectedMarkers.length) return;
+    ctx.save();
+    for (const marker of selectedMarkers) {
+      const p=project(marker,sv);ctx.beginPath();ctx.arc(p.x,p.y,Math.max(8,sv.scale*.028),0,Math.PI*2);ctx.fillStyle='rgba(111,143,137,.28)';ctx.fill();ctx.strokeStyle='#5f817b';ctx.lineWidth=Math.max(2,sv.scale*.006);ctx.stroke();
     }
-    c.restore();
-  }
-
-  function colliderHandles(sv = screenView()) {
-    const m = colliderScreenMetrics(sv);
-    return [
-      {name:'move',x:m.cx,y:m.centreY},
-      {name:'top',x:m.cx,y:m.topY},
-      {name:'bottom',x:m.cx,y:m.bottomY},
-      {name:'radius',x:m.cx+m.r,y:m.centreY},
-      {name:'probe',x:m.cx+m.probe,y:m.bottomY+6}
-    ];
-  }
-
-  function findColliderHandle(pos) {
-    if (!showCollider) return null;
-    const radius = Math.max(16, canvas.width * .028);
-    let best=null,bestD=Infinity;
-    for (const handle of colliderHandles(clipView(frame/16))) {
-      const d=Math.hypot(pos.x-handle.x,pos.y-handle.y);
-      if(d<radius&&d<bestD){best=handle.name;bestD=d;}
-    }
-    return best;
-  }
-
-  function editColliderHandle(name,pos) {
-    const sv=clipView(frame/16),local=toLocal(pos,sv);
-    if(name==='move') {
-      collider.offsetX=Rig.clamp(local.x,-.18,.18);
-      collider.bottom=Rig.clamp(local.y-collider.height*.5,-.08,.18);
-    } else if(name==='top') {
-      collider.height=Rig.clamp(local.y-collider.bottom,collider.radius*2+.055,1.15);
-    } else if(name==='bottom') {
-      const top=collider.bottom+collider.height;
-      collider.bottom=Rig.clamp(local.y,-.08,.18);
-      collider.height=Rig.clamp(top-collider.bottom,collider.radius*2+.055,1.15);
-    } else if(name==='radius') {
-      collider.radius=Rig.clamp(Math.abs(local.x),.08,Math.min(.32,collider.height*.48));
-    } else if(name==='probe') {
-      collider.footProbe=Rig.clamp(Math.abs(local.x),.04,.30);
-    }
-    collider=Rig.normalizedCollider(collider);
-    persistSharedCollider();
-    draw();
+    ctx.restore();
   }
 
   function draw() {
     resize();
-    const W=canvas.width,H=canvas.height,sv=screenView(W,H);
-    const phase=playing?playPhase:frame/16;
-    const pose=playing?Rig.sampleFrames(frames,playPhase):frames[frame];
-    const charView=clipView(phase,sv);
-    const g=screenGeometry(pose,charView);
-    ctx.clearRect(0,0,W,H); ctx.fillStyle='#f3ede7';ctx.fillRect(0,0,W,H);
-
-    const pad=W*.055;
-    ctx.strokeStyle='rgba(76,82,86,.20)';ctx.lineWidth=Math.max(1,W*.003);ctx.strokeRect(pad,H*.07,W-pad*2,H*.81);
-    ctx.strokeStyle='rgba(60,68,70,.40)';ctx.beginPath();ctx.moveTo(pad,sv.groundY);ctx.lineTo(W-pad,sv.groundY);ctx.stroke();
-
-    // Travelling ground marks for foot-slide checking.
-    const spacing=sv.scale*.25,travelPx=(pose.travel||0)*sv.scale,offset=-((travelPx%spacing)+spacing)%spacing;
-    ctx.strokeStyle='rgba(88,100,99,.15)';ctx.lineWidth=Math.max(1,W*.002);
-    for(let x=offset-spacing;x<W+spacing;x+=spacing){ctx.beginPath();ctx.moveTo(x,g.groundY+sv.scale*.025);ctx.lineTo(x+spacing*.35,g.groundY+sv.scale*.025);ctx.stroke();}
-
-    if(showArt&&rigAtlas) Rig.drawCanvas(ctx,rigAtlas,pose,charView,{alpha:.98});
-    if(showPlanes) drawPlaneDebug(ctx,pose,charView);
-    drawCollider(ctx,charView);
-
-    if(onion&&showStick){
-      const pp=frames[(frame+15)%16],pn=frames[(frame+1)%16];
-      drawStick(ctx,pp,screenGeometry(pp,charView),{ghost:true,alpha:.16});
-      drawStick(ctx,pn,screenGeometry(pn,charView),{ghost:true,alpha:.16});
-    }
-    if(showStick) drawStick(ctx,pose,g,{handles:true});
-
-    const plant=pose.planted==='A'?'LEFT PLANT':pose.planted==='B'?'RIGHT PLANT':'AIRBORNE';
-    const clipLabel=activeClip.toUpperCase();
-    readout.textContent=playing
-      ? `Playing ${clipLabel} · ${plant} · ${Math.round(view.zoom*100)}%`
-      : `${clipLabel} · Frame ${frame+1} / 16 · ${pose.name} · ${pose.key?'KEY':'IN-BETWEEN'} · ${plant} · ${Math.round(view.zoom*100)}%`;
-    editHint.textContent=activeColliderHandle
-      ? `Editing collider ${activeColliderHandle}`
-      : (activeJoint
-        ? `Editing ${activeJoint}`
-        : (showCollider
-          ? `Collider · radius ${collider.radius.toFixed(3)} · height ${collider.height.toFixed(3)} · drag gold handles`
-          : 'Drag joints · drag empty space to pan · pinch to zoom'));
-    if(!playing) scrub.value=String(frame);
+    const character=currentCharacter(),adapter=currentAdapter(),frames=currentFrames();
+    const phase=playing?playPhase:selection.frame/16;
+    const pose=playing?adapter.rig.sampleFrames(frames,playPhase):currentPose();
+    const sv=previewView(phase);
+    ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#f2ede7';ctx.fillRect(0,0,canvas.width,canvas.height);
+    const pad=canvas.width*.035;ctx.strokeStyle='rgba(67,76,80,.17)';ctx.lineWidth=Math.max(1,canvas.width*.002);ctx.strokeRect(pad,canvas.height*.05,canvas.width-pad*2,canvas.height*.88);
+    drawGroundAndRuler(baseView(1));
+    drawReference();
+    if(overlays.art) drawRigArt(character,adapter,pose,sv,.99);
+    if(overlays.planes) drawPlanes(adapter,pose,sv);
+    if(overlays.collider) drawCollider(sv);
+    if(overlays.bones) drawBones(adapter,pose,sv,1);
+    drawSelectedMarkers(sv);
+    if (typeof pluginDraw === 'function') pluginDraw({ctx,canvas,pose,adapter,character,view:sv,project});
+    updateUi(pose);
   }
 
+  function updateUi(displayPose = currentPose()) {
+    const character=currentCharacter(),adapter=currentAdapter(),dirty=isDirty();
+    contextEl.textContent=`${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${selection.mode==='setup'?'Setup':'Animate'}`;
+    readout.textContent=playing
+      ? `${character.label} · Playing ${selection.clip.toUpperCase()} · ${Math.round(view.zoom*100)}%`
+      : `${character.label} · ${selection.clip.toUpperCase()} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
+    dirtyBadge.hidden=!dirty;
+    undoBtn.disabled=!history.length;redoBtn.disabled=!future.length;discardBtn.disabled=!dirty;saveBtn.disabled=!dirty;
+    scrub.value=String(selection.frame);scrub.disabled=selection.mode==='setup';prevBtn.disabled=selection.mode==='setup';nextBtn.disabled=selection.mode==='setup';playBtn.disabled=selection.mode==='setup';
+    playBtn.textContent=playing?'Pause':'Play';
+    characterButtons.forEach(btn=>{const active=btn.dataset.character===selection.characterId;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
+    clipButtons.forEach(btn=>{const active=btn.dataset.clip===selection.clip;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='setup';});
+    modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
+    viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
+    scopeEl.textContent=selection.mode==='setup'
+      ? `${character.label} setup · scale is editor-owned; collider Save writes the current ${adapter.label} collider.`
+      : adapter.scope;
+  }
+
+  function notify() {
+    const snap = api.getState();
+    for (const fn of listeners) { try { fn(snap); } catch (err) { console.error('[Anim Lab] Extension listener failed.',err); } }
+  }
+
+  function fitView(redraw=true) { view.zoom=1;view.panX=0;view.panY=0;if(redraw){draw();notify();} }
   function pointerPos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};}
 
-  function findJoint(pos){
-    const g=screenGeometry(frames[frame],clipView(frame/16)),s=g.scale;
-    const list=[['pelvis',g.pelvis],['chest',g.chest],['aHeel',g.aHeel],['bHeel',g.bHeel],['aW',g.aW],['bW',g.bW]];
-    const radius=.080*s; let best=null,bestD=Infinity;
-    for(const [name,q] of list){const d=Math.hypot(pos.x-q.x,pos.y-q.y);if(d<radius&&d<bestD){best=name;bestD=d;}}
-    return best;
-  }
-
-  function editJoint(name,pos){
-    const p=frames[frame],sv=clipView(frame/16),local=toLocal(pos,sv),lg=Rig.geometry(p);
-    if(name==='pelvis') p.pelvisY=Rig.clamp(local.y,.445,.545);
-    else if(name==='chest') p.lean=Rig.clamp(Math.atan2(local.x-lg.pelvis.x,local.y-lg.pelvis.y),-18*Rig.DEG,20*Rig.DEG);
-    else if(name==='aHeel'||name==='bHeel'){
-      const prefix=name==='aHeel'?'a':'b';
-      const planted=(prefix==='a'&&p.planted==='A')||(prefix==='b'&&p.planted==='B');
-      p[`${prefix}FootX`]=Rig.clamp(local.x,-.40,.40);
-      p[`${prefix}FootLift`]=planted?0:Rig.clamp(local.y,0,.24);
-    } else if(name==='aW'||name==='bW'){
-      const prefix=name==='aW'?'a':'b';
-      p[`${prefix}HandX`]=Rig.clamp(local.x-lg.shoulder.x,-.28,.28);
-      p[`${prefix}HandY`]=Rig.clamp(lg.shoulder.y-local.y,.27,.47);
-    }
-    persistSharedAnimation();
-    draw();
-  }
-
-  function beginGesture(){
-    if(pointers.size===2){
-      const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y;
-      gesture={type:'pinch',dist:Math.hypot(dx,dy)||1,mid:{x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2},zoom:view.zoom,panX:view.panX,panY:view.panY};
-      activeJoint=null; activeColliderHandle=null;
-    }
-  }
-
   canvas.addEventListener('pointerdown',e=>{
-    const pos=pointerPos(e); pointers.set(e.pointerId,pos); canvas.setPointerCapture?.(e.pointerId);
-    playing=false;playBtn.textContent='Play';playBtn.classList.remove('active');
-    if(pointers.size===1){
-      activeColliderHandle=findColliderHandle(pos);
-      if(activeColliderHandle){ activeJoint=null; gesture={type:'collider'}; }
-      else {
-        activeJoint=findJoint(pos);
-        if(activeJoint) gesture={type:'joint'};
-        else gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};
-      }
-    } else beginGesture();
-    draw();
+    const pos=pointerPos(e);pointers.set(e.pointerId,pos);canvas.setPointerCapture?.(e.pointerId);playing=false;
+    if(pointers.size===1) gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};
+    else if(pointers.size===2){const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y;gesture={type:'pinch',dist:Math.hypot(dx,dy)||1,zoom:view.zoom,panX:view.panX,panY:view.panY,mid:{x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2}};}
+    updateUi();
   });
-
   canvas.addEventListener('pointermove',e=>{
-    if(!pointers.has(e.pointerId))return;
-    const pos=pointerPos(e);pointers.set(e.pointerId,pos);
+    if(!pointers.has(e.pointerId))return;const pos=pointerPos(e);pointers.set(e.pointerId,pos);
     if(pointers.size===2){
-      if(!gesture||gesture.type!=='pinch') beginGesture();
-      const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y,dist=Math.hypot(dx,dy)||1;
-      const mid={x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2};
-      const oldSv={scale:Math.min(canvas.width*.39,canvas.height*.61)*gesture.zoom,cx:canvas.width*(.5+gesture.panX),groundY:canvas.height*(.84+gesture.panY)};
-      const localMid={x:(gesture.mid.x-oldSv.cx)/oldSv.scale,y:(oldSv.groundY-gesture.mid.y)/oldSv.scale};
-      view.zoom=Rig.clamp(gesture.zoom*(dist/gesture.dist),.55,3.2);
-      const newScale=Math.min(canvas.width*.39,canvas.height*.61)*view.zoom;
-      view.panX=(mid.x-localMid.x*newScale)/canvas.width-.5;
-      view.panY=(mid.y+localMid.y*newScale)/canvas.height-.84;
-      draw(); return;
+      if(!gesture||gesture.type!=='pinch'){const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y;gesture={type:'pinch',dist:Math.hypot(dx,dy)||1,zoom:view.zoom,panX:view.panX,panY:view.panY,mid:{x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2}};}
+      const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y,dist=Math.hypot(dx,dy)||1,mid={x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2};
+      const old=baseView(setupDraft.scale);old.scale/=Math.max(.0001,view.zoom);old.scale*=gesture.zoom;old.cx=canvas.width*(.5+gesture.panX);old.groundY=canvas.height*(.86+gesture.panY);
+      const local=unproject(gesture.mid,old);view.zoom=clamp(gesture.zoom*(dist/gesture.dist),.55,3.2);const next=baseView(setupDraft.scale);view.panX=(mid.x-local.x*next.scale)/canvas.width-.5;view.panY=(mid.y+local.y*next.scale)/canvas.height-.86;draw();return;
     }
-    if(activeColliderHandle){ editColliderHandle(activeColliderHandle,pos); return; }
-    if(activeJoint){ editJoint(activeJoint,pos); return; }
-    if(gesture?.type==='pan'){
-      view.panX=gesture.panX+(pos.x-gesture.start.x)/canvas.width;
-      view.panY=gesture.panY+(pos.y-gesture.start.y)/canvas.height;
-      draw();
-    }
+    if(gesture?.type==='pan'){view.panX=gesture.panX+(pos.x-gesture.start.x)/canvas.width;view.panY=gesture.panY+(pos.y-gesture.start.y)/canvas.height;draw();}
   });
-
-  function endPointer(e){
-    pointers.delete(e.pointerId); activeJoint=null; activeColliderHandle=null;
-    if(pointers.size===1){const [id,pos]=[...pointers.entries()][0];gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};}
-    else gesture=null;
-    draw();
-  }
+  function endPointer(e){pointers.delete(e.pointerId);if(pointers.size===1){const [,pos]=[...pointers.entries()][0];gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};}else gesture=null;draw();}
   canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
 
-  function step(dir){
-    if(keysOnly){frame=(frame+dir*2+16)%16;if(frame%2)frame=(frame+1)%16;}else frame=(frame+dir+16)%16;
-    playPhase=frame/16;draw();
-  }
-  function animate(now){
-    const dt=Math.min(50,Math.max(0,now-lastAnimTime));
-    lastAnimTime=now;
-    if(playing){
-      playPhase=(playPhase+dt/(clipCycleMs[activeClip]||1050))%1;
-      frame=Math.floor(playPhase*16)%16;
-      draw();
+  characterButtons.forEach(btn=>btn.addEventListener('click',()=>switchCharacter(btn.dataset.character)));
+  clipButtons.forEach(btn=>btn.addEventListener('click',()=>switchClip(btn.dataset.clip)));
+  modeButtons.forEach(btn=>btn.addEventListener('click',()=>switchMode(btn.dataset.mode)));
+  viewButtons.forEach(btn=>btn.addEventListener('click',()=>toggleOverlay(btn.dataset.view)));
+  scrub.addEventListener('input',()=>setFrame(Number(scrub.value)));
+  prevBtn.addEventListener('click',()=>setFrame(selection.frame-1));
+  nextBtn.addEventListener('click',()=>setFrame(selection.frame+1));
+  playBtn.addEventListener('click',()=>{if(selection.mode==='setup')return;playing=!playing;if(playing)playPhase=selection.frame/16;lastAnimTime=performance.now();draw();notify();});
+  fitBtn.addEventListener('click',()=>fitView());
+  undoBtn.addEventListener('click',undo);redoBtn.addEventListener('click',redo);discardBtn.addEventListener('click',discardCurrent);saveBtn.addEventListener('click',saveCurrent);
+  guardSave.addEventListener('click',()=>finishGuard('save'));guardDiscard.addEventListener('click',()=>finishGuard('discard'));guardCancel.addEventListener('click',()=>finishGuard('cancel'));
+  const homeLink=document.querySelector('.game-home-button');
+  homeLink?.addEventListener('click',e=>{
+    if(!isDirty())return;
+    e.preventDefault();
+    const href=homeLink.href;
+    guardNavigation(()=>{window.location.href=href;});
+  });
+  window.addEventListener('resize',draw,{passive:true});
+  window.addEventListener('beforeunload',e=>{if(!isDirty())return;e.preventDefault();e.returnValue='';});
+
+  function animate(now) {
+    const dt=Math.min(50,Math.max(0,now-lastAnimTime));lastAnimTime=now;
+    if(playing&&selection.mode==='animate'){
+      const ms=currentAdapter().clipMs[selection.clip]||1050;playPhase=(playPhase+dt/ms)%1;const nextFrame=Math.floor(playPhase*16)%16;const changed=nextFrame!==selection.frame;selection.frame=nextFrame;draw();if(changed)notify();
     }
     requestAnimationFrame(animate);
   }
 
-  function rebuildMids(){
-    for(let i=0;i<8;i++){
-      const a=Rig.normalizedPose(frames[i*2],i*2),ni=(i+1)%8,b=Rig.normalizedPose(frames[ni*2],ni*2),travelB=ni===0?1:b.travel;
-      frames[i*2+1]=Rig.interpolatePose(a,b,.5,`${a.name} → ${b.name}`,travelB);
-    }
-    persistSharedAnimation();
-    draw();
-  }
-  function resetCycle(){
-    const defaults=activeClip==='run'?Rig.RUN_FRAMES:(activeClip==='jump'?Rig.JUMP_FRAMES:Rig.DEFAULT_FRAMES);
-    clips[activeClip]=defaults.map(Rig.clone);frames=clips[activeClip];
-    frame=0;playPhase=0;playing=false;copiedPose=null;pasteBtn.disabled=true;persistSharedAnimation();fitView();draw();
-  }
-  function fitView(){view.zoom=1;view.panX=0;view.panY=0;draw();}
+  const api = {
+    version:'1.0.143',
+    getState:() => ({
+      character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
+      clip:selection.clip, mode:selection.mode, frame:selection.frame, playing, dirty:isDirty(),
+      pose:clone(currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
+      rig:currentAdapter().rig, adapterId:currentAdapter().id
+    }),
+    getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
+    edit,
+    beginTransaction,
+    previewTransaction,
+    commitTransaction,
+    cancelTransaction,
+    subscribe:fn=>{if(typeof fn==='function'){listeners.add(fn);return()=>listeners.delete(fn);}return()=>{};},
+    redraw:()=>{draw();notify();},
+    setOverlay:(name,value)=>{if(name in overlays){overlays[name]=!!value;draw();updateUi();notify();}},
+    getOverlay:name=>!!overlays[name],
+    setSelectedMarkers:markers=>{selectedMarkers=Array.isArray(markers)?markers.filter(p=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)).map(clone):[];draw();},
+    setPluginRenderer:fn=>{pluginDraw=typeof fn==='function'?fn:null;draw();},
+    geometry:pose=>currentAdapter().rig.geometry(pose||currentPose()),
+    normalisePose:pose=>normaliseCurrentFrame(pose),
+    clamp,
+    fitView,
+    save:saveCurrent,
+    discard:discardCurrent
+  };
+  window.AnimLabCore = Object.freeze(api);
 
-  function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  function saveJSON(){
-    const data={type:'GameHubWalkLab',version:15,body:Rig.BODY,collider,activeClip,clips:{walk:clips.walk,run:clips.run,jump:clips.jump}};
-    downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'walk-lab-locomotion-v4.json');
-  }
-  async function loadJSON(file){
-    try{
-      const data=JSON.parse(await file.text());
-      if(data?.clips){
-        for(const name of ['walk','run','jump']) if(Array.isArray(data.clips[name])&&data.clips[name].length===16) clips[name]=data.clips[name].map((p,i)=>Rig.normalizedPose(p,i));
-        activeClip=['walk','run','jump'].includes(data.activeClip)?data.activeClip:'walk';
-      } else if(Array.isArray(data?.frames)&&data.frames.length===16){
-        clips[activeClip]=data.frames.map((p,i)=>Rig.normalizedPose(p,i));
-      } else throw new Error('Expected Walk Lab locomotion clips or a 16-frame animation.');
-      if(data?.collider) { collider=Rig.normalizedCollider(data.collider); persistSharedCollider(); }
-      frames=clips[activeClip];frame=0;playPhase=0;playing=false;updateClipButtons();persistSharedAnimation();fitView();draw();
-    }catch(err){alert(`Could not load animation: ${err.message}`);}
-  }
-
-  function updateClipButtons(){
-    clipButtons.forEach(btn=>{
-      const active=btn.dataset.clip===activeClip;
-      btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
-    });
-  }
-  function switchClip(name){
-    if(!clips[name])return;
-    activeClip=name;frames=clips[name];frame=0;playPhase=0;copiedPose=null;pasteBtn.disabled=true;
-    updateClipButtons();persistSharedAnimation();draw();
-  }
-  clipButtons.forEach(btn=>btn.addEventListener('click',()=>switchClip(btn.dataset.clip)));
-
-  scrub.addEventListener('input',()=>{frame=Number(scrub.value);playPhase=frame/16;playing=false;playBtn.textContent='Play';playBtn.classList.remove('active');draw();});
-  prev.addEventListener('click',()=>{playing=false;playBtn.textContent='Play';playBtn.classList.remove('active');step(-1);});
-  next.addEventListener('click',()=>{playing=false;playBtn.textContent='Play';playBtn.classList.remove('active');step(1);});
-  playBtn.addEventListener('click',()=>{playing=!playing;playBtn.textContent=playing?'Pause':'Play';playBtn.classList.toggle('active',playing);if(playing)playPhase=frame/16;lastAnimTime=performance.now();draw();});
-  onionBtn.addEventListener('click',()=>{onion=!onion;onionBtn.classList.toggle('active',onion);onionBtn.setAttribute('aria-pressed',String(onion));draw();});
-  keysBtn.addEventListener('click',()=>{keysOnly=!keysOnly;keysBtn.classList.toggle('active',keysOnly);keysBtn.setAttribute('aria-pressed',String(keysOnly));if(keysOnly&&frame%2)frame=(frame+1)%16;draw();});
-  midsBtn.addEventListener('click',rebuildMids);resetBtn.addEventListener('click',resetCycle);fitBtn.addEventListener('click',fitView);
-  copyBtn.addEventListener('click',()=>{copiedPose=Rig.clone(frames[frame]);pasteBtn.disabled=false;});
-  pasteBtn.addEventListener('click',()=>{if(!copiedPose)return;const old=frames[frame];frames[frame]={...Rig.clone(copiedPose),name:old.name,key:old.key,travel:old.travel,planted:old.planted};persistSharedAnimation();draw();});
-  saveBtn.addEventListener('click',saveJSON);loadBtn.addEventListener('click',()=>fileInput.click());
-  fileInput.addEventListener('change',()=>{const f=fileInput.files?.[0];if(f)loadJSON(f);fileInput.value='';});
-  artBtn.addEventListener('click',()=>{showArt=!showArt;artBtn.classList.toggle('active',showArt);artBtn.setAttribute('aria-pressed',String(showArt));draw();});
-  stickBtn.addEventListener('click',()=>{showStick=!showStick;stickBtn.classList.toggle('active',showStick);stickBtn.setAttribute('aria-pressed',String(showStick));draw();});
-  planesBtn.addEventListener('click',()=>{showPlanes=!showPlanes;planesBtn.classList.toggle('active',showPlanes);planesBtn.setAttribute('aria-pressed',String(showPlanes));draw();});
-  colliderBtn?.addEventListener('click',()=>{showCollider=!showCollider;colliderBtn.classList.toggle('active',showCollider);colliderBtn.setAttribute('aria-pressed',String(showCollider));activeColliderHandle=null;draw();});
-  colliderResetBtn?.addEventListener('click',()=>{collider=Rig.normalizedCollider(Rig.DEFAULT_COLLIDER);persistSharedCollider();showCollider=true;colliderBtn?.classList.add('active');colliderBtn?.setAttribute('aria-pressed','true');draw();});
-  window.addEventListener('resize',draw,{passive:true});
-
-  playBtn.textContent='Play';playBtn.classList.remove('active');onionBtn.classList.remove('active');
-  try{
-    const savedClips=JSON.parse(localStorage.getItem(SHARED_CLIPS_KEY)||'null');
-    if(savedClips){
-      if(savedClips.walk?.length===16) clips.walk=savedClips.walk.map((p,i)=>Rig.normalizedPose(p,i));
-      if(savedClips.run?.length===16) clips.run=savedClips.run.map((p,i)=>Rig.normalizedPose(p,i));
-      if(savedClips.jump?.length===16) clips.jump=savedClips.jump.map((p,i)=>Rig.normalizedPose(p,i));
-    } else {
-      // Preserve a hand-tuned walk from v1.8.74 if present, but deliberately
-      // start run/jump from the new defaults in this refinement pass.
-      const previous=JSON.parse(localStorage.getItem(PREVIOUS_CLIPS_KEY)||'null');
-      if(previous?.walk?.length===16) clips.walk=previous.walk.map((p,i)=>Rig.normalizedPose(p,i));
-      else {
-        const saved=JSON.parse(localStorage.getItem(SHARED_ANIM_KEY)||'null');
-        if(saved?.frames?.length===16) clips.walk=saved.frames.map((p,i)=>Rig.normalizedPose(p,i));
-      }
-    }
-  }catch(_){}
-  frames=clips[activeClip];updateClipButtons();persistSharedAnimation();persistSharedCollider();
-  loadRigAtlas();draw();requestAnimationFrame(animate);
+  resetCheckpoint();
+  draw(); notify(); requestAnimationFrame(animate);
 })();
