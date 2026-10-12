@@ -53,8 +53,11 @@
   let collider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider();
   let activeColliderHandle = null;
   let rigAtlas = null;
-  const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
+  const availableCharacterVariants = Rig.CHARACTER_VARIANTS
+    ? Object.keys(Rig.CHARACTER_VARIANTS).filter(id => Rig.characterVariantInfo?.(id)?.visibleInWalkLab !== false)
+    : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
   let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
+  if (!availableCharacterVariants.includes(currentCharacterVariant)) currentCharacterVariant = Rig.DEFAULT_CHARACTER_VARIANT || availableCharacterVariants[0] || 'original';
 
   const SHARED_ANIM_KEY = 'gamehub.walklab.anim.v4';
   const SHARED_CLIPS_KEY = 'gamehub.walklab.anim.v6';

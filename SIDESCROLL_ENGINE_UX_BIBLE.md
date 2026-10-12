@@ -994,3 +994,16 @@ When real development proves a rule wrong:
 4. remove or supersede stale conflicting guidance.
 
 Do not keep obsolete rules for historical interest. History belongs in releases/tasks; this Bible should describe the **current way SideScroll is built**.
+### Multiple playable rig families
+
+Playable character variants may use different skeleton/rig families. A variant declares its rig type; SideScroll selects the matching geometry, atlas, locomotion clips and collider rather than assuming every playable character is a texture swap on the humanoid skeleton.
+
+Rules:
+
+- shared character selection/persistence may list variants from multiple rig families;
+- each rig family owns its own atlas part map, geometry, clips and default collider;
+- gameplay movement remains shared unless a character explicitly needs different mechanics;
+- humanoid-only pose helpers such as hand carry/push posing must not be applied to quadrupeds;
+- a specialist editor such as Walk Lab may intentionally support only the rig families it can actually author, and should filter unsupported variants rather than loading them incorrectly;
+- first-pass cutout art should retain an authoring source/joint map so pivots and cut seams can be revised without re-deriving the rig from scratch.
+

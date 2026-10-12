@@ -1,5 +1,26 @@
 # SideScroll Development Tasks
 
+## October 11, 2026 — v1.0.141 Fox first playable quadruped pass
+
+**Current status:** the shortlisted B2 / Ember Reed fox is now available as a first-pass playable character using a dedicated quadruped rig family. The purpose of this drop is to get the approved source art moving at real gameplay scale before spending time on a final puppet-art refinement pass. Existing Hero 1 / Hero 2 rigs and Walk Lab data are not converted or overwritten.
+
+- [x] Preserve the approved side-on alpha fox source as a local project asset and keep an authored rig guide/map beside the production atlas.
+- [x] Build a dedicated 13-plane quadruped cutout: torso, head/neck, three tail segments and upper/lower segments for all four legs.
+- [x] Partition the source artwork into independent atlas pieces with joint overlap so the neutral pose reconstructs the approved fox rather than substituting newly drawn parts.
+- [x] Add a separate `GameHubFoxRig` family with its own atlas mapping, geometry, locomotion clips, stride lengths and collider.
+- [x] Add first-pass **Idle / Walk / Run / Jump** motion with quadruped leg phasing plus restrained body/head/tail secondary motion.
+- [x] Add Fox to the normal Play `Change character` cycle and persist the selected fox through the existing character-variant setting.
+- [x] Keep the fox intentionally much smaller than the current humanoids; the shared world character scale renders the fox at roughly the requested half-height target without shrinking world movement speed.
+- [x] Prevent the humanoid Walk Lab from trying to edit the quadruped by filtering rig families that are not supported by that specialist editor.
+- [x] Keep humanoid-only carry/push pose deformation off the fox. Generic interaction can still function, but fox-specific prop interaction is not treated as final in this pass.
+- [x] Use the fox Run cycle as a temporary climb/scramble visual while retaining the existing climb mechanics; author a true fox climb only if device testing shows it is necessary.
+- [ ] iPhone regression: cycle Hero 1 -> Hero 2 -> Fox -> Hero 1 from the Play menu; confirm textures/colliders switch without a reload or black frame.
+- [ ] iPhone regression: reload while Fox is selected and confirm the fox returns selected with the correct atlas and smaller collider.
+- [ ] iPhone visual review: compare fox height against both humanoids and decide whether the current ~half-height target needs a small scale adjustment.
+- [ ] iPhone animation review: walk slowly, run in both directions and jump; inspect shoulder, hip, knee/hock and tail-root seams at normal gameplay scale.
+- [ ] iPhone terrain review: walk/run over slopes, section height changes and climbable surfaces; verify the smaller collider does not float, sink, snag or step through obstacles.
+- [ ] Decide after gameplay review whether the exact cut atlas is good enough or should be passed back through ImageGen as a clean purpose-built puppet atlas while preserving the proven joints and silhouette.
+
 ## October 11, 2026 — v1.0.140 Surface blend preview + Group Template Free-height fix
 
 **Current status:** the World Lab Terrain Surface timeline now previews the real A -> B material mix inside each authored blend range, and World Group reusable composition now preserves Free members against the terrain beneath each member rather than the terrain beneath the group anchor. This fixes roof/building separation when a wide Group Template is placed or moved across terrain whose height varies across the group's footprint.
@@ -1809,14 +1830,18 @@ The full Test/runtime-state separation, Problems UI and richer recovery workflow
 
 ### Fox companion playable character pipeline — HIGH priority
 
-- [ ] Generate an approved **side-on fox reference image** in the established SideScroll character style.
-- [ ] Build a dedicated fox rig matched to the approved image and suitable for readable side-on gameplay.
-- [ ] Cut the reference artwork into rig parts and apply the pieces to the rig planes/meshes.
-- [ ] Assemble a first-pass fox atlas from the cut parts.
-- [ ] Pass that atlas back through image generation to produce a clean/refined atlas while preserving the approved design and part layout.
-- [ ] Re-import and validate atlas alignment, pivots, scale and deformation.
-- [ ] Create/tune fox **walk, run and jump** animations, including convincing tail/body secondary motion.
-- [ ] Add the fox as a **playable swappable character** alongside the existing playable characters and validate the normal character-swap flow.
+**v1.0.141 first playable pass:** B2 / Ember Reed is now implemented as a separate quadruped rig family rather than being forced through the humanoid Walk Lab skeleton. It is intentionally an in-game test character first; proportions, cut boundaries and clips should be judged at gameplay scale before a final art/atlas refinement pass.
+
+- [x] Generate a usable **side-on fox reference image** from the shortlisted B2 direction, with native alpha and the tail held above foot level.
+- [x] Build a dedicated fox rig matched to that image: torso + head/neck + three-piece tail + two-bone chains for all four legs.
+- [x] Cut the exact reference artwork into rig parts and apply the pieces to independent planes/meshes.
+- [x] Assemble a first-pass fox atlas from those source-image cuts, with an authored joint guide/map retained for later tuning.
+- [ ] After gameplay review, decide whether to pass the cut atlas back through image generation for a cleaner purpose-built puppet atlas. Do not refine blindly before seeing the current cutout at game scale.
+- [ ] Complete on-device pivot/seam/scale validation and tune any joints that visibly separate or distort in motion.
+- [x] Create first-pass fox **walk, run and jump** clips with independent leg cycles plus body/head/tail secondary motion. Further animation tuning remains expected after phone testing.
+- [x] Add Fox to the normal playable character swap cycle with its own smaller collider and approximately half-height visual target. Validate the complete swap/reload flow on-device.
+- [ ] Add a dedicated fox climbing clip only if the current first-pass run/scramble treatment looks inadequate during real climb gameplay.
+- [ ] Decide companion-specific interaction rules later (for example whether the fox should be allowed to carry/push human-scale puzzle props when used as a playable test character).
 
 ### Woodland artefact concept exploration — HIGH priority
 

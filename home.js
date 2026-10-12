@@ -1,7 +1,7 @@
 (() => {
   const VERSION = '1.0.93';
   const ASSET_VERSION = '1.0.62';
-  const PRELOAD_CACHE = 'sidescroll-runtime-v2';
+  const PRELOAD_CACHE = 'sidescroll-runtime-v3';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');
@@ -15,6 +15,7 @@
     'site-config.js',
     'core.js',
     'walk-rig.js',
+    'fox-rig.js',
     'puzzle-groups.js',
     'baked-game-design.js',
     'audio.js',
@@ -45,6 +46,8 @@
     'walklab-rig-v4.png',
     'walklab-rig-v4-alt-hero2.png',
     'walklab-character-source.png',
+    'fox-rig-atlas-v1.png',
+    'fox-character-source-v1.png',
     'puzzle-log-a.png',
     'puzzle-log-b.png',
     'puzzle-log-c.png',
@@ -76,9 +79,11 @@
     'mountain-grass-01.png',
     'mountain-grass-02.png',
     'mountain-grass-03.png'
-  ].map(path => withVersion(path, path.startsWith('mountain-')
-    ? VERSION
-    : (/\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i.test(path) ? ASSET_VERSION : VERSION)));
+  ].map(path => withVersion(path, path.startsWith('fox-')
+    ? '1.0.141'
+    : (path.startsWith('mountain-')
+      ? VERSION
+      : (/\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i.test(path) ? ASSET_VERSION : VERSION))));
 
   const setProgress = (done, total, failed = 0) => {
     const value = total ? Math.round((done / total) * 100) : 100;

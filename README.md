@@ -1,53 +1,72 @@
-# SideScroll patch 1.0.140
+# SideScroll patch 1.0.141
 
-**Changed-files-only patch over v1.0.139.** This is a focused polish/fix drop: true World Lab Terrain Surface blend previews plus corrected Free-member vertical placement for World Group Templates and whole-group moves.
+**Changed-files-only patch over v1.0.140.** This is the first playable production pass for the shortlisted B2 / Ember Reed fox. It deliberately gets the approved fox source art into the real game with a separate quadruped rig before committing to a final art/animation polish pass.
 
-## v1.0.140 — Surface blend preview + Group Template roof-height fix
+## v1.0.141 — Fox playable character, dedicated quadruped rig
 
-### World Lab Terrain Surface blend preview
+### New playable Fox
 
-- Solid Terrain Surface spans continue to show their real material textures.
-- Each A -> B blend block now shows the **actual visual crossfade**: the From material is the base and the To material fades from 0% at Blend Start to 100% at Blend End.
-- The preview uses the existing authored start/end range only; it does not create a second blend system or new data.
-- Selection outline, label and START/END drag handles remain above the material preview.
+- `Fox` is added to the normal Play **Change character** cycle after Hero 1 and Hero 2.
+- The selected Fox uses the existing character-variant persistence, so reloading while Fox is selected should restore it.
+- Hero 1 and Hero 2 remain on the existing humanoid rig. Their atlas, saved Walk Lab clips and collider data are not migrated or replaced.
+- The fox is intentionally much smaller than the existing characters. The first-pass target is roughly **half human visual height**, as requested; final scale should be judged on-device in the actual world.
 
-### World Group Template Free-member height correction
+### Dedicated fox rig
 
-The older Group Template code stored Free members such as manually raised roofs relative to the **Group anchor's** terrain height. On terrain whose height changes across a wide group, Ground buildings re-sampled their own local terrain while the roof followed the centre of the group, which could create a vertical gap.
+The approved side-on alpha source has been cut into a separate 13-plane quadruped puppet rather than being forced through the humanoid skeleton:
 
-v1.0.140 changes the reusable rule:
+- torso;
+- head / neck;
+- tail base / mid / tip;
+- near rear upper / lower leg;
+- far rear upper / lower leg;
+- near front upper / lower leg;
+- far front upper / lower leg.
 
-- Ground members keep their existing local terrain + authored floor-offset behaviour.
-- Free members now preserve their authored floor offset relative to the terrain beneath **that member's own X/Z position**.
-- Whole-World-Group movement uses the same rule, so moving a correct building group does not reintroduce the roof drift.
-- New/updated Group Templates save `freeLocalFloorOffset`. The previous `freeGroupFloorOffset` remains only as a legacy fallback.
+The atlas is built from the supplied source artwork itself. A rig guide and JSON joint/atlas map are included so pivots and cuts can be tuned later without rediscovering the anatomy.
 
-### Existing v1.0.139 templates
+### First-pass animation
 
-A conservative migration is included. If an old Template has no local Free-member offset and there is a linked source Group that clearly existed **before the Template was created**, the patch recovers the correct local offsets from that source and rebuilds the other linked instances with the corrected rule. It deliberately does not guess when no unambiguous pre-template source exists.
+- Fox Idle preserves the approved neutral silhouette.
+- Walk and Run use independent quadruped leg phasing with restrained torso/head/tail secondary motion.
+- Jump has its own compact launch/tuck/open/land cycle.
+- Fox stride lengths are shorter than the humanoid animation strides, while actual world movement speed remains controlled by the existing gameplay system.
+- Climbing currently uses the fox Run cycle as a temporary **scramble** visual. The climb path/mechanics are unchanged; a dedicated fox climb clip is deferred until the in-game proportions are proven.
 
-For the current `VillageGroup02` export, the original linked group predates the Template and therefore qualifies for this repair path; the later `VillageGroup02 2` instance should be rebuilt using the original roof offsets after the first v1.0.140 load.
+### Collider and interactions
 
-## Changed files
+- Fox has its own smaller collider rather than inheriting the human capsule.
+- Humanoid-specific carry/push arm posing is not applied to the fox.
+- Generic prop interaction remains available as a first-pass test, but fox-specific rules for human-scale carrying/pushing are intentionally not considered final yet.
+- Walk Lab remains the humanoid animation editor for now and filters out the fox rig family rather than attempting to open a quadruped in a human skeleton UI.
+
+## New / changed files
 
 - `sidescroll.js`
 - `play.html`
-- `world-lab.js`
-- `world-lab.html`
-- `world-lab.css`
+- `walk-rig.js`
+- `walk-lab.js`
+- `fox-rig.js` — dedicated quadruped rig/animation/collider definition
+- `home.js`
+- `sw.js`
+- `fox-character-source-v1.png` — cleaned approved alpha source
+- `fox-rig-atlas-v1.png` — 13-part production cutout atlas
+- `fox-rig-guide-v1.png` — source/joint authoring guide
+- `fox-rig-map-v1.json` — source boxes, atlas locations and part anchors
 - `SIDESCROLL_ENGINE_UX_BIBLE.md`
 - `SIDESCROLL_TASKS.md`
 - `README.md`
 
-No terrain texture PNGs are repeated in this patch; v1.0.140 uses the surface art already installed by v1.0.139.
-
 ## Suggested iPhone checks
 
-1. Reload Play once after installing v1.0.140. Inspect the original `VillageGroup02` and `VillageGroup02 2`. The original should remain visually unchanged and the second linked instance should no longer have the raised/floating roof gap.
-2. Place a new `VillageGroup02` Template Instance in another settlement position. Confirm the roofs remain aligned with their buildings even where terrain height changes across the width of the group.
-3. Move a placed building group using its yellow whole-group handle. Confirm Free roof pieces remain aligned throughout the move.
-4. In World Lab, inspect the current Woodland Dirt -> Village Cobble Terrain Surface transition. The blend block should visibly crossfade from dirt to cobble from its START handle to END handle.
-5. Drag either Surface Blend handle and confirm the visual crossfade stretches/compresses with the same authored range and Undo remains functional.
-6. Reload and verify both the Group repair and Surface Blend positions persist.
+1. Install over **v1.0.140**, open Play and use Menu -> **Change character** until Fox appears. Cycle all the way through Hero 1 -> Hero 2 -> Fox -> Hero 1 once.
+2. With Fox selected, walk slowly in both directions. Check that the neutral/slow gait stays connected at the shoulders, hips, knees/hocks and tail root and that flipping left/right remains clean.
+3. Push the speed toward Run. Check foot rhythm, body bob and tail motion; note any joint where the source cut becomes obvious at normal gameplay scale.
+4. Jump several times while stationary and moving. Check launch, airborne tuck/open and landing rather than only the single apex frame.
+5. Compare the fox directly with Hero 1/2 beside the same scenery. The fox should read at around half their height; report if it feels too large or too small in-world.
+6. Walk across slopes and edited terrain sections, onto walkable rocks and against walls. Watch for floating/sinking feet or a collider that feels too wide/tall.
+7. Try one climbable surface. The fox currently uses a Run/scramble animation during climb; judge whether that is acceptable for the prototype or needs a true climb clip.
+8. Reload the page while Fox is selected. Confirm Fox remains selected and renders immediately with the correct atlas/collider.
+9. Optionally try a push/carry interaction, but treat visual prop handling as diagnostic only in this release; no final fox-specific interaction design has been chosen yet.
 
-If a different legacy Group Template has no identifiable linked source that predates the Template, v1.0.140 intentionally leaves its old height fallback intact. Re-saving that Template from a correctly aligned instance under v1.0.140 captures the new local offsets permanently.
+The next pass should be driven by these gameplay observations. In particular, do not redraw/refine the atlas until the scale, pivot placement and motion have been proven in the real scene.

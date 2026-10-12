@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  // SideScroll v1.0.141: first playable fox pass adds a dedicated quadruped rig family, cutout atlas, fox collider and walk/run/jump clips while preserving the humanoid rigs unchanged.
   // SideScroll v1.0.140: World Group Free members preserve their own local terrain-relative floor offset through template placement and whole-group moves; legacy linked source instances can repair old template height data.
   // SideScroll v1.0.129: support grounding is preserved through Edit frames and resolved before player reveal; manual placement still shares Support Surfaces while procedural placement stays terrain-only.
   // SideScroll v1.0.122: restore selected-object Quick Tools in Group Edit + explicit relative Move mode.
@@ -306,6 +307,7 @@
   const PUSH_SPEED = 0.90;
 
   const Rig = window.GameHubWalkRig;
+  const FoxRig = window.GameHubFoxRig || null;
   if (!Rig) return;
 
   const canvas = document.getElementById('sidescroll-canvas');
@@ -1667,19 +1669,17 @@
     return puzzleRiverWaterMeshCache.get(key);
   }
 
-  function createRigPartMesh(name) {
-    const r = Rig.atlasRect(name);
+  function createRigPartMesh(rig, name) {
+    const r = rig?.atlasRect?.(name);
     if (!r) return null;
     const p0x = r.a0[0] * r.w, p0y = r.a0[1] * r.h;
     const left = -p0x, right = r.w - p0x;
     const top = p0y, bottom = p0y - r.h;
-    const u0 = r.x / Rig.ATLAS.width, u1 = (r.x + r.w) / Rig.ATLAS.width;
+    const u0 = r.x / rig.ATLAS.width, u1 = (r.x + r.w) / rig.ATLAS.width;
     // Image uploads use UNPACK_FLIP_Y_WEBGL so atlas row coordinates (which are
     // measured from the image top) must be converted into bottom-origin WebGL V.
-    // The old mapping sampled the opposite atlas rows, which is why boots/head/
-    // torso pieces appeared attached to the correct bones but showed the wrong art.
-    const vTop = 1 - (r.y / Rig.ATLAS.height);
-    const vBottom = 1 - ((r.y + r.h) / Rig.ATLAS.height);
+    const vTop = 1 - (r.y / rig.ATLAS.height);
+    const vBottom = 1 - ((r.y + r.h) / rig.ATLAS.height);
     return createMesh(
       new Float32Array([
         left, bottom, 0, u0, vBottom,
@@ -1691,8 +1691,12 @@
     );
   }
 
-  const rigPartMeshes = {};
-  Object.keys(Rig.ATLAS.parts).forEach(name => { rigPartMeshes[name] = createRigPartMesh(name); });
+  const rigPartMeshesByType = { human:{} };
+  Object.keys(Rig.ATLAS.parts).forEach(name => { rigPartMeshesByType.human[name] = createRigPartMesh(Rig, name); });
+  if (FoxRig) {
+    rigPartMeshesByType.fox = {};
+    Object.keys(FoxRig.ATLAS.parts).forEach(name => { rigPartMeshesByType.fox[name] = createRigPartMesh(FoxRig, name); });
+  }
 
   function bindMesh(mesh) {
     gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
@@ -2514,6 +2518,21 @@
 const availableCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
 const RIG_TEXTURE_VERSION = '1.0.62';
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
+let characterCollider = null;
+let characterColliderReady = false;
+
+function characterVariantInfo(id = currentCharacterVariant) {
+  return Rig.characterVariantInfo ? Rig.characterVariantInfo(id) : null;
+}
+
+function activeCharacterRig(id = currentCharacterVariant) {
+  const info = characterVariantInfo(id);
+  return info?.rigType === 'fox' && FoxRig ? FoxRig : Rig;
+}
+
+function activeCharacterRigType(id = currentCharacterVariant) {
+  return activeCharacterRig(id) === FoxRig ? 'fox' : 'human';
+}
 
 function rigVariantTextureKey(id) {
   return `rigAtlas_${id}`;
@@ -2526,7 +2545,7 @@ function rigVariantUrl(id) {
 
 function updateCharacterSwapButton() {
   if (!characterSwapBtn) return;
-  const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant) : null;
+  const info = characterVariantInfo();
   // The player menu is deliberately tiny: this is an action, not an editor
   // status readout. Keep the current hero in the accessible label instead.
   characterSwapBtn.textContent = PLAYER_MODE ? 'Change character' : (info?.label || 'Character');
@@ -2539,8 +2558,9 @@ function applyCharacterVariant(id, announce = false) {
   currentCharacterVariant = Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(desired) : desired;
   textures.rigAtlas = textures[rigVariantTextureKey(currentCharacterVariant)] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
   updateCharacterSwapButton();
+  if (characterColliderReady) refreshCharacterCollider();
   if (announce && hintEl) {
-    const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(currentCharacterVariant) : null;
+    const info = characterVariantInfo();
     hintEl.textContent = `Character swapped to ${info?.label || currentCharacterVariant}`;
   }
 }
@@ -8336,8 +8356,13 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     lastFacing: 1
   };
 
+  function characterSoleArtLocalOffset() {
+    const info = characterVariantInfo();
+    return Number.isFinite(Number(info?.soleArtOffset)) ? Number(info.soleArtOffset) : CHARACTER_SOLE_ART_LOCAL_OFFSET;
+  }
+
   function characterRenderY() {
-    return character.y + CHARACTER_SOLE_ART_LOCAL_OFFSET * character.scale;
+    return character.y + characterSoleArtLocalOffset() * character.scale;
   }
 
   const SHARED_ANIM_KEY = 'gamehub.walklab.anim.v4';
@@ -8367,9 +8392,14 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   refreshCharacterFrames();
 
-  let characterCollider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider();
+  characterCollider = (() => {
+    const rig = activeCharacterRig();
+    return rig.loadCollider ? rig.loadCollider() : rig.normalizedCollider();
+  })();
+  characterColliderReady = true;
   function refreshCharacterCollider() {
-    characterCollider = Rig.loadCollider ? Rig.loadCollider() : Rig.normalizedCollider(characterCollider);
+    const rig = activeCharacterRig();
+    characterCollider = rig.loadCollider ? rig.loadCollider() : rig.normalizedCollider(characterCollider);
   }
   function colliderWorld() {
     return {
@@ -16107,7 +16137,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Match the non-pose carry transform closely enough for gameplay collision;
     // animation bob is intentionally ignored so the collision stays stable.
     const centreX = rootX + facing * CARRY_FORWARD;
-    const bottomY = floorY + CHARACTER_SOLE_ART_LOCAL_OFFSET * character.scale + CARRY_BOTTOM;
+    const bottomY = floorY + characterSoleArtLocalOffset() * character.scale + CARRY_BOTTOM;
     return {
       minX: centreX - halfWidth,
       maxX: centreX + halfWidth,
@@ -16922,7 +16952,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // to a fixed world height.  That means the box inherits the same pelvis /
     // shoulder rise and fall as the walk cycle instead of appearing to hover
     // while the character bobs behind it.
-    if (pose) {
+    if (pose && activeCharacterRig() === Rig) {
       const g = Rig.geometry(pose);
       const handX = ((g.aW.x + g.bW.x) * 0.5) * character.scale;
       const handY = ((g.aW.y + g.bW.y) * 0.5) * character.scale;
@@ -16986,9 +17016,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     drawObject(temp, view, { force: true });
   }
 
-  function drawRigPartWebGL(part, view, facing) {
-    const mesh = rigPartMeshes[part.name];
-    const r = Rig.atlasRect(part.name);
+  function drawRigPartWebGL(part, view, facing, charRig) {
+    const rigType = charRig === FoxRig ? 'fox' : 'human';
+    const mesh = rigPartMeshesByType[rigType]?.[part.name];
+    const r = charRig.atlasRect(part.name);
     if (!mesh || !r) return;
 
     const ax = character.x + part.a.x * character.scale * facing;
@@ -17029,46 +17060,59 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function drawRigCharacter(view, isWalking) {
     const phase = currentCharacterPhase(isWalking);
+    const charRig = activeCharacterRig();
+    const isFox = charRig === FoxRig;
     let pose;
-    if (climbState) {
+
+    if (climbState && !isFox) {
       pose = poseForClimbing(climbState);
+    } else if (climbState && isFox) {
+      // First-pass fox climbing uses the run/scramble cycle. The movement and
+      // climb-path mechanics remain unchanged; a dedicated climb clip can be
+      // authored later once the quadruped proportions are proven in-game.
+      pose = charRig.sampleFrames(charRig.RUN_FRAMES, (climbState.time * 1.35) % 1);
     } else if (jumping) {
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
-      pose = Rig.sampleFrames(jumpFrames, jumpPhase);
+      pose = charRig.sampleFrames(isFox ? charRig.JUMP_FRAMES : jumpFrames, jumpPhase);
     } else if (isWalking) {
-      const walkPose = Rig.sampleFrames(characterFrames, phase);
-      const runPose = Rig.sampleFrames(runFrames, phase);
-      pose = blendPose(walkPose, runPose, runBlend);
+      const walkPose = charRig.sampleFrames(isFox ? charRig.DEFAULT_FRAMES : characterFrames, phase);
+      const runPose = charRig.sampleFrames(isFox ? charRig.RUN_FRAMES : runFrames, phase);
+      pose = isFox ? charRig.blendPose(walkPose, runPose, runBlend) : blendPose(walkPose, runPose, runBlend);
     } else {
-      pose = Rig.sampleFrames(characterFrames, 0.02);
+      pose = isFox && charRig.IDLE_POSE ? charRig.clone(charRig.IDLE_POSE) : charRig.sampleFrames(characterFrames, 0.02);
     }
 
-    if (pushingObject) pose = poseForPushing(pose, 1);
-    if (carriedObject) pose = poseForCarrying(pose, 1, 0);
-    if (interactionState) {
-      const q = Rig.clamp(interactionState.time / interactionState.duration, 0, 1);
-      if (interactionState.type === 'pickup') {
-        const reach = Math.sin(Math.min(1, q) * Math.PI);
-        const carry = smooth01(Rig.clamp((q - 0.52) / 0.48, 0, 1));
-        pose = poseForCarrying(pose, carry, reach * (1 - carry * 0.65));
-      } else {
-        const reach = Math.sin(Math.min(1, q) * Math.PI);
-        const carry = 1 - smooth01(Rig.clamp((q - 0.58) / 0.42, 0, 1));
-        pose = poseForCarrying(pose, carry, reach * 0.95);
+    // Carry/push poses are humanoid-specific. Gameplay interaction remains
+    // available to the fox test character, but its locomotion rig is not bent
+    // into impossible arm poses.
+    if (!isFox) {
+      if (pushingObject) pose = poseForPushing(pose, 1);
+      if (carriedObject) pose = poseForCarrying(pose, 1, 0);
+      if (interactionState) {
+        const q = Rig.clamp(interactionState.time / interactionState.duration, 0, 1);
+        if (interactionState.type === 'pickup') {
+          const reach = Math.sin(Math.min(1, q) * Math.PI);
+          const carry = smooth01(Rig.clamp((q - 0.52) / 0.48, 0, 1));
+          pose = poseForCarrying(pose, carry, reach * (1 - carry * 0.65));
+        } else {
+          const reach = Math.sin(Math.min(1, q) * Math.PI);
+          const carry = 1 - smooth01(Rig.clamp((q - 0.58) / 0.42, 0, 1));
+          pose = poseForCarrying(pose, carry, reach * 0.95);
+        }
       }
     }
 
     const facing = character.lastFacing >= 0 ? 1 : -1;
-    const parts = Rig.partsForPose(pose);
+    const parts = charRig.partsForPose(pose);
     let crateDrawn = false;
     for (const part of parts) {
-      if (!crateDrawn && (carriedObject || interactionState) && part.name === 'near_upper_arm') {
+      if (!isFox && !crateDrawn && (carriedObject || interactionState) && part.name === 'near_upper_arm') {
         drawCarriedCrate(view, facing, pose);
         crateDrawn = true;
       }
-      drawRigPartWebGL(part, view, facing);
+      drawRigPartWebGL(part, view, facing, charRig);
     }
-    if (!crateDrawn && (carriedObject || interactionState)) drawCarriedCrate(view, facing, pose);
+    if (!crateDrawn && (carriedObject || interactionState)) drawCarriedCrate(view, facing, isFox ? null : pose);
   }
 
   function nearestActionPushable() {
@@ -18148,7 +18192,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (moveDir) character.lastFacing = pushingObject ? pushingSide : moveDir;
     if (isWalking) {
       const travel = Math.abs(cameraDelta);
-      const stride = Rig.lerp(WALK_STRIDE, RUN_STRIDE, smoothRun);
+      const charRig = activeCharacterRig();
+      const walkStride = Number(charRig?.WALK_STRIDE_WORLD) || WALK_STRIDE;
+      const runStride = Number(charRig?.RUN_STRIDE_WORLD) || RUN_STRIDE;
+      const stride = Rig.lerp(walkStride, runStride, smoothRun);
       locomotionPhase = (locomotionPhase + travel / Math.max(0.001, stride)) % 1;
       character.distanceTravelled += travel;
     }
