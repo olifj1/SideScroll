@@ -18,6 +18,7 @@
   const dirtyBadge = $('animlab-dirty');
   const scopeEl = $('animlab-scope');
   const scrub = $('animlab-scrub');
+  const timelineDock = $('animlab-timeline-dock');
   const prevBtn = $('animlab-prev');
   const nextBtn = $('animlab-next');
   const playBtn = $('animlab-play');
@@ -49,6 +50,64 @@
   const SPARSE_SCHEMA = 'animlab.sparse.v1';
   const SETUP_SCALE_MIN = 0.55;
   const SETUP_SCALE_MAX = 2.25;
+  const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
+
+  function loadCollapseState() {
+    try { return JSON.parse(localStorage.getItem(COLLAPSE_STATE_KEY) || '{}') || {}; }
+    catch (_) { return {}; }
+  }
+  const collapseState = loadCollapseState();
+
+  function collapseKeyFor(section, title) {
+    return section.dataset.collapseKey || section.id || section.getAttribute('aria-labelledby') || title.id || String(title.textContent || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
+  }
+
+  function persistCollapseState() {
+    try { localStorage.setItem(COLLAPSE_STATE_KEY, JSON.stringify(collapseState)); }
+    catch (_) {}
+  }
+
+  function decorateCollapsibleSection(section) {
+    if (!section || section.dataset.collapsibleReady === 'true') return;
+    const title = [...section.children].find(child => child.classList?.contains('animlab-section-title'));
+    if (!title) return;
+    const key = collapseKeyFor(section,title);
+    if (!key) return;
+    section.dataset.collapsibleReady = 'true';
+    section.dataset.collapseKey = key;
+    title.classList.add('animlab-collapse-toggle');
+    title.setAttribute('role','button');
+    title.setAttribute('tabindex','0');
+    const apply = collapsed => {
+      section.classList.toggle('animlab-section-collapsed',!!collapsed);
+      title.setAttribute('aria-expanded',String(!collapsed));
+      title.setAttribute('aria-label',`${collapsed ? 'Expand' : 'Collapse'} ${String(title.textContent || 'section').trim()}`);
+    };
+    apply(!!collapseState[key]);
+    const toggle = () => {
+      const collapsed = !section.classList.contains('animlab-section-collapsed');
+      collapseState[key] = collapsed;
+      persistCollapseState();
+      apply(collapsed);
+    };
+    title.addEventListener('click',toggle);
+    title.addEventListener('keydown',event=>{
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggle();
+    });
+  }
+
+  function decorateCollapsibleSections(root = document) {
+    if (root.matches?.('.animlab-section')) decorateCollapsibleSection(root);
+    root.querySelectorAll?.('.animlab-drawer .animlab-section').forEach(decorateCollapsibleSection);
+  }
+
+  decorateCollapsibleSections(document);
+  const collapseObserver = new MutationObserver(records => {
+    for (const record of records) for (const node of record.addedNodes) if (node.nodeType === 1) decorateCollapsibleSections(node);
+  });
+  collapseObserver.observe(document.querySelector('.animlab-drawer'), {childList:true,subtree:true});
 
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
@@ -145,7 +204,7 @@
       loadRestRig:() => FoxRig.loadRestRig(),
       normaliseRestRig:value => FoxRig.normalizedRestRig(value),
       saveRestRig:value => FoxRig.saveRestRig(value),
-      scope:'Fox clips are stored separately in Anim Lab; gameplay clip integration is deliberately deferred.'
+      scope:'Fox clips save to the Fox runtime bank; Play uses the last explicitly saved Walk/Run/Jump clips with built-in clips as fallback.'
     }
   };
 
@@ -806,6 +865,7 @@
     dirtyBadge.hidden=!dirty;
     if (saveStateEl) { saveStateEl.textContent = dirty ? 'Unsaved' : 'Saved'; saveStateEl.classList.toggle('dirty', dirty); }
     undoBtn.disabled=!history.length;redoBtn.disabled=!future.length;discardBtn.disabled=!dirty;saveBtn.disabled=!dirty;
+    if (timelineDock) timelineDock.hidden=selection.mode==='setup';
     scrub.value=String(selection.frame);scrub.disabled=selection.mode==='setup';prevBtn.disabled=selection.mode==='setup';nextBtn.disabled=selection.mode==='setup';playBtn.disabled=selection.mode==='setup';
     playBtn.textContent=playing?'Pause':'Play';
     characterButtons.forEach(btn=>{const active=btn.dataset.character===selection.characterId;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});

@@ -30,12 +30,11 @@
   let lastClip = null;
 
   const section = document.createElement('section');
-  section.className = 'animlab-section animlab-timeline-section';
-  section.setAttribute('aria-labelledby','animlab-timeline-title');
+  section.className = 'animlab-section animlab-key-tools-section';
+  section.setAttribute('aria-labelledby','animlab-key-tools-title');
   section.innerHTML = `
-    <div class="animlab-section-title" id="animlab-timeline-title">Key Pose Timeline</div>
-    <div class="animlab-timeline-summary" id="animlab-timeline-summary">16 sampled poses imported losslessly as editable keys.</div>
-    <div class="animlab-key-track" id="animlab-key-track" aria-label="16 sample animation timeline"></div>
+    <div class="animlab-section-title" id="animlab-key-tools-title">Key Pose Tools</div>
+    <div class="animlab-timeline-summary" id="animlab-timeline-summary">The key-pose lane below the viewport is locked to the main 16-sample timeline.</div>
 
     <div class="animlab-key-detail">
       <div class="animlab-key-status" id="animlab-key-status">Frame 1</div>
@@ -77,6 +76,16 @@
   const controlSection = host.querySelector('.animlab-control-section');
   if (controlSection) host.insertBefore(section,controlSection);
   else host.appendChild(section);
+
+  const trackHost = document.getElementById('animlab-key-track-host');
+  if (!trackHost) {
+    console.error('[Anim Lab Stage 3] Timeline dock host is missing.');
+    return;
+  }
+  trackHost.innerHTML = `
+    <div class="animlab-dock-label">Key Poses</div>
+    <div class="animlab-key-track" id="animlab-key-track" aria-label="16 sample key-pose timeline"></div>
+  `;
 
   const $ = id => document.getElementById(id);
   const track = $('animlab-key-track');
@@ -362,6 +371,7 @@
   function render(st=state()) {
     const animate=st.mode==='animate';
     section.hidden=!animate;
+    trackHost.hidden=!animate;
     if(!animate)return;
 
     if(st.family!==lastFamily || st.clip!==lastClip){

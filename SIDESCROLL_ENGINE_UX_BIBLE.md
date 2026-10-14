@@ -341,6 +341,19 @@ Reserve `×` for transient overlays/pickers/dialogs where closing dismisses only
 
 Equivalent actions should remain in predictable places across systems. If two tools have the same workflow responsibility, prefer the same UI element and location.
 
+### 8.6 Collapsible inspector sections
+
+Long editor drawers and inspectors should use one reusable collapsible-section pattern so phone users do not have to scroll past controls that are irrelevant to the current task.
+
+Rules:
+
+- the section heading is the stable expand/collapse target and exposes `aria-expanded`;
+- collapsing a section is editor-only view state: it must not exit the authoring context, alter selection, dirty authored data, clear Undo/Redo or trigger Save/Discard;
+- the control DOM inside a collapsed section remains owned by that context and should not be destructively rebuilt merely because the section is hidden;
+- collapse state may be remembered as editor preference, but authored game data must never depend on whether a section was open;
+- use the same visual affordance and interaction grammar across Anim Lab, Asset Lab, Puzzle/Group inspectors, Terrain and later migrated editor panels rather than inventing feature-specific accordions;
+- do not collapse the primary continuous work surface itself (for example an active viewport or authoritative animation timeline) merely to satisfy this rule. The pattern is for inspector/categories around that work surface.
+
 ---
 
 ## 9. Touch and viewport interaction
@@ -1015,7 +1028,7 @@ Rules:
 
 - editor character selection is editor/session state and must not silently change the character selected in Play;
 - rig-family adapters own atlas drawing, geometry, default poses, clip storage and collider ownership; the editor must never mix one family's geometry with another family's atlas;
-- Hero 1 and Hero 2 retain the established shared human animation bank unless a later migration is explicitly designed; Fox editor clips live in their own namespace until runtime integration is deliberately enabled;
+- Hero 1 and Hero 2 retain the established shared human animation bank unless a later migration is explicitly designed; Fox clips retain their own rig-family namespace; from v1.0.152, an explicit Anim Lab Save compiles the Fox Walk/Run/Jump working copy into that runtime-readable bank, while Play falls back to built-in Fox clips if the bank is absent or invalid;
 - opening, scrubbing, playing, fitting, panning, pinching, switching view overlays or inspecting a control must not persist authored data;
 - every Character -> Clip -> Mode context has a bounded working copy with an explicit checkpoint; Undo/Redo operate on that working copy and Save/Discard are the only intentional commit/restore actions;
 - leaving a dirty context, including leaving Anim Lab for Home, must offer Save / Discard / Cancel rather than relying on accidental navigation;
@@ -1025,6 +1038,8 @@ Rules:
 ### Anim Lab Control Board and precision-edit rules
 
 Stage 2 adds rig-provided anatomical controls without changing the edit-session ownership above.
+
+For phone ergonomics, selection and manipulation may deliberately occupy opposite thumbs: the labelled Control Board remains in the left drawer while the large relative precision drag surface may sit as a stable bottom-right viewport overlay. Moving that pad does not change gesture ownership: one pad drag is still one edit transaction and viewport pan/pinch must not steal an active pad gesture.
 
 Rules:
 
@@ -1040,6 +1055,13 @@ Rules:
 
 Stage 3 makes sparse authored key poses the Anim Lab editing source while preserving the existing sampled runtime contract.
 
+The Anim Lab timeline presentation follows one authoritative transport model:
+
+- the main 16-sample animation scrub/play transport lives directly below the viewport and is the authoritative character timeline;
+- the Key Pose lane sits immediately below that transport, uses the same 0-15 sample positions and selection, and is a marker/editing lane rather than a second playback clock;
+- Motion Reference has its own cycle transport only while explicitly **Unlinked**, because independent source scrubbing is required for alignment. When Linked, the separate reference transport is hidden and the reference follows the main normalised cycle phase;
+- timeline controls should remain visible while the drawer scrolls so playback/scrubbing does not require leaving the viewport work area.
+
 Rules:
 
 - existing 16-sample human/Fox clips import losslessly into an in-memory sparse-key representation; merely opening or previewing that import must not write storage;
@@ -1050,7 +1072,7 @@ Rules:
 - phase offset/cycle operations move key positions around the 16-sample loop without changing world movement architecture;
 - conversion/reduction previews are view-only: they may be scrubbed and played but cannot be edited or persisted until explicitly Adopted; exiting preview restores the authored key track untouched;
 - before the first Stage 3 Save of a family/clip, retain a sampled backup so legacy data can be recovered;
-- Stage 3 does not introduce FK/IK planted targets, contact-track solvers, graph curves or runtime Fox integration. Those remain later stages.
+- Stage 3 does not introduce FK/IK planted targets, contact-track solvers or graph curves. Fox runtime clip consumption was enabled later in v1.0.152 without changing the sparse-key authoring contract.
 
 ### Native range controls on iPhone
 - With `viewport-fit=cover`, edge editor columns must reserve `env(safe-area-inset-left/right)` in the column/panel layout, not only in the top bar. Preserve the normal visual gutter in addition to the hardware inset.
@@ -1100,3 +1122,16 @@ Rules:
 - art is a skin over the authored rig, not the source of structural truth. Existing cutout art may temporarily stretch/rotate over revised bones, but final art attachment/splitting should be performed after the rest rig is approved;
 - do not fake a mid-spine visual bend by duplicating or distorting an unsuitable single torso sprite. If the approved rig requires articulated torso bending, refit/split the artwork deliberately in the later art pass;
 - Stage 4 planted-paw FK/IK/contact solving remains separate from Rig Designer. Do not add hidden solver behaviour while structural proportions are still being established.
+
+### Anim Lab Fox runtime clip integration (v1.0.152)
+
+The editor/runtime boundary for the Fox is now deliberately enabled.
+
+Rules:
+
+- Save in Fox Animate mode remains the only authoring commit boundary; merely previewing/scrubbing does not change gameplay;
+- Save compiles the sparse Fox clip back to the existing 16-sample format and writes the Fox family clip bank;
+- Play loads saved Fox Walk, Run and Jump independently and validates each as a 16-sample clip before use;
+- any missing/invalid saved Fox clip falls back independently to the built-in `FoxRig` default for that clip, so installing the feature or clearing editor data cannot break gameplay;
+- runtime continues to use the saved Fox rest rig separately from clip poses, preserving the rest-rig/animation ownership split;
+- this integration does not imply Stage 4 IK/contact solving. The runtime still consumes ordinary compiled poses until those tools are deliberately added.

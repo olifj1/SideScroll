@@ -8437,6 +8437,25 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let characterFrames = Rig.DEFAULT_FRAMES.map(Rig.clone);
   let runFrames = Rig.RUN_FRAMES.map(Rig.clone);
   let jumpFrames = Rig.JUMP_FRAMES.map(Rig.clone);
+  const FOX_RUNTIME_CLIPS_KEY = 'sidescroll.animlab.fox.clips.v1';
+  let foxWalkFrames = FoxRig ? FoxRig.DEFAULT_FRAMES.map(FoxRig.clone) : [];
+  let foxRunFrames = FoxRig ? FoxRig.RUN_FRAMES.map(FoxRig.clone) : [];
+  let foxJumpFrames = FoxRig ? FoxRig.JUMP_FRAMES.map(FoxRig.clone) : [];
+  function refreshFoxFrames() {
+    if (!FoxRig) return;
+    foxWalkFrames = FoxRig.DEFAULT_FRAMES.map(FoxRig.clone);
+    foxRunFrames = FoxRig.RUN_FRAMES.map(FoxRig.clone);
+    foxJumpFrames = FoxRig.JUMP_FRAMES.map(FoxRig.clone);
+    try {
+      const saved = JSON.parse(localStorage.getItem(FOX_RUNTIME_CLIPS_KEY) || 'null');
+      const clips = saved?.clips;
+      if (Array.isArray(clips?.walk) && clips.walk.length === 16) foxWalkFrames = clips.walk.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+      if (Array.isArray(clips?.run) && clips.run.length === 16) foxRunFrames = clips.run.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+      if (Array.isArray(clips?.jump) && clips.jump.length === 16) foxJumpFrames = clips.jump.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+    } catch (err) {
+      console.warn('[SideScroll] Saved Fox Anim Lab clips could not be loaded; using built-in Fox clips.', err);
+    }
+  }
   function refreshCharacterFrames() {
     try {
       const clips = JSON.parse(localStorage.getItem(SHARED_CLIPS_KEY) || 'null');
@@ -8457,6 +8476,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     } catch (_) {}
   }
   refreshCharacterFrames();
+  refreshFoxFrames();
 
   characterCollider = (() => {
     const rig = activeCharacterRig();
@@ -17136,13 +17156,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       // First-pass fox climbing uses the run/scramble cycle. The movement and
       // climb-path mechanics remain unchanged; a dedicated climb clip can be
       // authored later once the quadruped proportions are proven in-game.
-      pose = charRig.sampleFrames(charRig.RUN_FRAMES, (climbState.time * 1.35) % 1);
+      pose = charRig.sampleFrames(foxRunFrames, (climbState.time * 1.35) % 1);
     } else if (jumping) {
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
-      pose = charRig.sampleFrames(isFox ? charRig.JUMP_FRAMES : jumpFrames, jumpPhase);
+      pose = charRig.sampleFrames(isFox ? foxJumpFrames : jumpFrames, jumpPhase);
     } else if (isWalking) {
-      const walkPose = charRig.sampleFrames(isFox ? charRig.DEFAULT_FRAMES : characterFrames, phase);
-      const runPose = charRig.sampleFrames(isFox ? charRig.RUN_FRAMES : runFrames, phase);
+      const walkPose = charRig.sampleFrames(isFox ? foxWalkFrames : characterFrames, phase);
+      const runPose = charRig.sampleFrames(isFox ? foxRunFrames : runFrames, phase);
       pose = isFox ? charRig.blendPose(walkPose, runPose, runBlend) : blendPose(walkPose, runPose, runBlend);
     } else {
       pose = isFox && charRig.IDLE_POSE ? charRig.clone(charRig.IDLE_POSE) : charRig.sampleFrames(characterFrames, 0.02);

@@ -1954,6 +1954,7 @@ The full Test/runtime-state separation, Problems UI and richer recovery workflow
 - [ ] On-device: align Fox Walk to the reference and review leg phasing / body rise-fall before beginning Stage 4 paw-contact IK.
 - [ ] Later: build a small biped reference pack (initially Walk + Run) and register it for the human rig family.
 
+
 ## v1.0.151 — Anim Lab Rig Designer v1
 
 Implemented before Stage 4 after Motion Reference exposed structural Fox issues.
@@ -1991,3 +1992,22 @@ Next after approval:
 - [ ] Refit/split Fox artwork over the approved rest rig where the body requires true spine articulation.
 - [ ] Then proceed to Stage 4 planted-paw/contact FK/IK tooling against the approved structure.
 - [ ] Later add a biped Rig Designer descriptor/reference pack through the same shared systems rather than creating a parallel editor.
+
+## v1.0.152 — Anim Lab workflow/UI consolidation + Fox runtime clips
+
+Follow-up to Rig Designer v1. This pass improves the phone animation workflow before Stage 4 rather than adding IK.
+
+- [x] Move the authoritative 16-sample character playback/scrub timeline directly below the viewport.
+- [x] Move the Key Pose lane beneath the main timeline and keep frame/key selection locked to the same 0-15 sample positions.
+- [x] Clarify Motion Reference transport ownership: linked reference follows the main timeline; independent Reference Cycle/Play is shown only while Unlinked (or in Rig mode where animation link is unavailable).
+- [x] Move the large relative precision `Drag anywhere` surface to the bottom-right of the viewport for left-thumb selection / right-thumb posing.
+- [x] Add reusable collapsible Anim Lab inspector sections with remembered editor-only collapse state.
+- [x] Add the collapsible-section interaction rule to the Engine/UX Bible for progressive adoption by other editor panels.
+- [x] Enable deliberate Fox Anim Lab clip runtime integration: Play loads the last explicitly saved 16-sample Fox Walk/Run/Jump bank.
+- [x] Keep safe per-clip fallback to built-in Fox defaults when no valid saved Anim Lab clip exists.
+- [ ] iPhone: confirm timeline + key lane remain comfortable at landscape height and no important viewport space is lost.
+- [ ] iPhone: select bones/control rows with left thumb and manipulate the viewport pad with right thumb without accidental pan/pinch.
+- [ ] iPhone: collapse/reopen every Anim Lab section; confirm scroll burden is reduced and no state/Undo/dirty data changes.
+- [ ] iPhone: save a deliberately obvious temporary Fox Walk edit, launch Play, confirm the saved clip is visible in-game, then restore/Save the desired animation.
+- [ ] After the above workflow pass is approved, proceed to Stage 4 planted-paw/contact FK/IK tools.
+

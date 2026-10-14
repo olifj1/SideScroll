@@ -67,15 +67,16 @@
       <label class="animlab-slider animlab-reference-slider animlab-reference-align"><span>Horizontal</span><input id="animlab-reference-x" type="range" min="-1.50" max="1.50" step="0.01"><output></output></label>
       <label class="animlab-slider animlab-reference-slider animlab-reference-align"><span>Vertical</span><input id="animlab-reference-y" type="range" min="-0.75" max="1.00" step="0.01"><output></output></label>
 
-      <div class="animlab-reference-playback">
+      <div class="animlab-reference-linked-note" id="animlab-reference-linked-note" hidden>Linked to the main timeline below the viewport.</div>
+      <div class="animlab-reference-playback" id="animlab-reference-playback">
         <div class="animlab-frame-row animlab-reference-transport">
           <button id="animlab-reference-prev" type="button" aria-label="Previous reference image">←</button>
-          <button id="animlab-reference-play" type="button">Play</button>
+          <button id="animlab-reference-play" type="button">Play Reference</button>
           <button id="animlab-reference-next" type="button" aria-label="Next reference image">→</button>
         </div>
-        <label class="animlab-slider animlab-reference-scrub"><span>Cycle</span><input id="animlab-reference-scrub" type="range" min="0" max="0.999" step="0.001"><output></output></label>
-        <label class="animlab-slider animlab-reference-slider animlab-reference-align"><span>Phase Offset</span><input id="animlab-reference-phase" type="range" min="-0.50" max="0.50" step="0.005"><output></output></label>
+        <label class="animlab-slider animlab-reference-scrub"><span>Reference Cycle</span><input id="animlab-reference-scrub" type="range" min="0" max="0.999" step="0.001"><output></output></label>
       </div>
+      <label class="animlab-slider animlab-reference-slider animlab-reference-align"><span>Phase Offset</span><input id="animlab-reference-phase" type="range" min="-0.50" max="0.50" step="0.005"><output></output></label>
 
       <div class="animlab-reference-status" id="animlab-reference-status">Reference hidden.</div>
       <div class="animlab-reference-credit" id="animlab-reference-credit"></div>
@@ -101,6 +102,8 @@
   const xInput = $('animlab-reference-x');
   const yInput = $('animlab-reference-y');
   const phaseInput = $('animlab-reference-phase');
+  const playback = $('animlab-reference-playback');
+  const linkedNote = $('animlab-reference-linked-note');
   const scrubInput = $('animlab-reference-scrub');
   const prevBtn = $('animlab-reference-prev');
   const playBtn = $('animlab-reference-play');
@@ -437,11 +440,14 @@
     if (document.activeElement !== phaseInput) phaseInput.value = String(draft.phaseOffset);
     phaseInput.parentElement.querySelector('output').textContent = formatOffset(draft.phaseOffset);
 
+    const linked = linkActive(state);
     const p = effectivePhase(state);
     if (document.activeElement !== scrubInput) scrubInput.value = String(p);
     scrubInput.parentElement.querySelector('output').textContent = formatPercent(p);
     alignmentInputs.forEach(input => { input.disabled = draft.locked; });
-    playBtn.textContent = linkActive(state) ? (state.playing ? 'Pause' : 'Play') : (refPlaying ? 'Pause' : 'Play');
+    playback.hidden = linked;
+    linkedNote.hidden = !linked;
+    playBtn.textContent = refPlaying ? 'Pause Reference' : 'Play Reference';
     renderStatus(state);
   }
 

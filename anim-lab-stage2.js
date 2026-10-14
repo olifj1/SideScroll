@@ -87,10 +87,6 @@
             <button type="button" id="animlab-reset-control">Reset</button>
           </div>
         </div>
-        <div class="animlab-precision-pad" id="animlab-precision-pad" role="application" aria-label="Precision drag surface">
-          <i class="animlab-pad-x"></i><i class="animlab-pad-y"></i>
-          <span>Drag anywhere</span>
-        </div>
       </div>
     </section>
 
@@ -118,7 +114,14 @@
   const rotateBtn = $('animlab-precision-rotate');
   const fineBtn = $('animlab-fine');
   const resetBtn = $('animlab-reset-control');
-  const pad = $('animlab-precision-pad');
+  const viewportPadHost = document.getElementById('animlab-viewport-pad-host');
+  const pad = document.createElement('div');
+  pad.className = 'animlab-precision-pad animlab-viewport-precision-pad';
+  pad.id = 'animlab-precision-pad';
+  pad.setAttribute('role','application');
+  pad.setAttribute('aria-label','Precision drag surface');
+  pad.innerHTML = '<i class="animlab-pad-x"></i><i class="animlab-pad-y"></i><span>Drag anywhere</span>';
+  if (viewportPadHost) viewportPadHost.appendChild(pad);
   const groundBtn = $('animlab-ground');
   const referenceBtn = $('animlab-reference');
   const setupNote = $('animlab-setup-note');
@@ -197,6 +200,8 @@
       selectedLabel.textContent=control?.label || 'Select a control';
       channelReadout.textContent=formatChannels(control,state.pose);
       precision.hidden=!control;
+      if (viewportPadHost) viewportPadHost.hidden=!control;
+      pad.hidden=!control;
       moveBtn.disabled=!control?.move;rotateBtn.disabled=!control?.rotate;
       moveBtn.classList.toggle('active',precisionMode==='move');rotateBtn.classList.toggle('active',precisionMode==='rotate');
       fineBtn.classList.toggle('active',fine);fineBtn.setAttribute('aria-pressed',String(fine));
@@ -205,6 +210,9 @@
         const pair=controlsFor(state).find(c=>c.id===control.pair);pairBtn.hidden=!pair;pairBtn.textContent=pair?`Pair: ${pair.label}`:'Pair';pairBtn.dataset.pair=pair?.id||'';
       } else pairBtn.hidden=true;
     } else {
+      precision.hidden=true;
+      if (viewportPadHost) viewportPadHost.hidden=true;
+      pad.hidden=true;
       renderSetup(state);
     }
 

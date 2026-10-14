@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#e7dbd2">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.151">
+  <link rel="stylesheet" href="style.css?v=1.0.152">
   <title>Anim Lab · SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-17">
@@ -60,19 +60,6 @@
             </div>
           </section>
 
-          <section class="animlab-section animlab-transport" aria-labelledby="animlab-frame-label">
-            <div class="animlab-section-title" id="animlab-frame-label">Preview</div>
-            <div class="animlab-frame-row">
-              <button id="animlab-prev" type="button" aria-label="Previous frame">←</button>
-              <input id="animlab-scrub" type="range" min="0" max="15" step="1" value="0" aria-label="Animation frame">
-              <button id="animlab-next" type="button" aria-label="Next frame">→</button>
-            </div>
-            <div class="animlab-segmented animlab-two">
-              <button id="animlab-play" type="button">Play</button>
-              <button id="animlab-fit" type="button">Fit View</button>
-            </div>
-          </section>
-
           <section class="animlab-section" aria-labelledby="animlab-view-label">
             <div class="animlab-section-title" id="animlab-view-label">View</div>
             <div class="animlab-view-grid">
@@ -97,12 +84,29 @@
           </section>
         </aside>
 
-        <section class="animlab-viewport" aria-label="Character animation viewport">
-          <canvas id="animlab-canvas" aria-label="Anim Lab character preview"></canvas>
-          <div class="animlab-readout" id="animlab-readout">Hero 1 · Walk · Frame 1 / 16</div>
-          <div class="animlab-hint" id="animlab-hint">Drag empty space to pan · pinch to zoom</div>
-          <div class="animlab-dirty" id="animlab-dirty" hidden>UNSAVED</div>
-        </section>
+        <div class="animlab-main">
+          <section class="animlab-viewport" aria-label="Character animation viewport">
+            <canvas id="animlab-canvas" aria-label="Anim Lab character preview"></canvas>
+            <div class="animlab-readout" id="animlab-readout">Hero 1 · Walk · Frame 1 / 16</div>
+            <div class="animlab-hint" id="animlab-hint">Drag empty space to pan · pinch to zoom</div>
+            <div class="animlab-dirty" id="animlab-dirty" hidden>UNSAVED</div>
+            <div class="animlab-viewport-pad-host" id="animlab-viewport-pad-host" hidden></div>
+          </section>
+
+          <section class="animlab-timeline-dock" id="animlab-timeline-dock" aria-label="Animation timeline">
+            <div class="animlab-main-timeline">
+              <div class="animlab-dock-label">Timeline</div>
+              <div class="animlab-frame-row animlab-main-transport">
+                <button id="animlab-prev" type="button" aria-label="Previous frame">←</button>
+                <input id="animlab-scrub" type="range" min="0" max="15" step="1" value="0" aria-label="Animation frame">
+                <button id="animlab-next" type="button" aria-label="Next frame">→</button>
+              </div>
+              <button id="animlab-play" class="animlab-dock-action" type="button">Play</button>
+              <button id="animlab-fit" class="animlab-dock-action" type="button">Fit</button>
+            </div>
+            <div class="animlab-key-track-host" id="animlab-key-track-host"></div>
+          </section>
+        </div>
       </div>
     </section>
   </main>
@@ -124,10 +128,10 @@
   <script src="core.js?v=1.0.62"></script>
   <script src="walk-rig.js?v=1.0.144"></script>
   <script src="fox-rig.js?v=1.0.151"></script>
-  <script src="walk-lab.js?v=1.0.151"></script>
-  <script src="anim-lab-stage2.js?v=1.0.151"></script>
-  <script src="anim-lab-stage3.js?v=1.0.151"></script>
-  <script src="anim-lab-reference.js?v=1.0.151"></script>
+  <script src="walk-lab.js?v=1.0.152"></script>
+  <script src="anim-lab-stage2.js?v=1.0.152"></script>
+  <script src="anim-lab-stage3.js?v=1.0.152"></script>
+  <script src="anim-lab-reference.js?v=1.0.152"></script>
   <script src="anim-lab-rig.js?v=1.0.151"></script>
 </body>
 </html>
