@@ -152,7 +152,12 @@
       Object.freeze(['rearNearKnee','rearFarKnee']),
       Object.freeze(['rearNearPaw','rearFarPaw'])
     ]),
-    groundContacts:Object.freeze(['frontNearPaw','frontFarPaw','rearNearPaw','rearFarPaw'])
+    groundContacts:Object.freeze(['frontNearPaw','frontFarPaw','rearNearPaw','rearFarPaw']),
+    // Stable two-bone IK bend branch per limb. Front knees solve on the + side
+    // of the socket→paw line; rear hocks solve on the - side. Keeping this in
+    // the rig-family descriptor prevents frame-by-frame branch selection from
+    // making knees/hocks snap backwards and forwards near ambiguous targets.
+    ikBendSides:Object.freeze({frontNear:1,frontFar:1,rearNear:-1,rearFar:-1})
   });
 
   function normalizedRestRig(value = null) {
@@ -389,84 +394,372 @@
     }
     return out;
   }
-  const WALK_EXAMPLE_ID = 'fox-walk-example-v1';
+  const WALK_EXAMPLE_ID = 'fox-walk-example-v2';
   // Eight deliberately readable walk keys: stance paws are IK-planted; swing
   // paws are FK-authored. Body/head/tail channels are intentionally present so
   // the clip is a working Anim Lab teaching example rather than a leg-only test.
   const WALK_EXAMPLE_KEYS = Object.freeze([
-    Object.freeze({frame:0,name:"Rear near contact",pose:Object.freeze({
-      name:"Rear near contact",travel:0,key:true,bodyBob:0.002,frontBodyLift:0.003,rearBodyLift:-0.003,
-      bodyPitch:0.008726646,headPitch:-0.015707963,tailBase:-0.034906585,tailMid:-0.017453293,tailTip:0.034906585,rnUpper:0.304103626,
-      rnLower:1.531647303,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
-      rfUpper:0.247141241,rfLower:-0.692069083,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
-      rfPlanted:true,fnUpper:0.507722407,fnLower:-0.935636117,fnIkX:0.172684416,fnIkY:0,fnIkWeight:0,
-      fnPlantPhase:0.25,fnPlanted:false,ffUpper:-0.753957223,ffLower:0.308598597,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
-    })}),
-    Object.freeze({frame:2,name:"Rear far lift",pose:Object.freeze({
-      name:"Rear far lift",travel:0.125,key:true,bodyBob:-0.004,frontBodyLift:0.006,rearBodyLift:0.001,
-      bodyPitch:-0.003490659,headPitch:0.006981317,tailBase:-0.06981317,tailMid:-0.06981317,tailTip:-0.017453293,rnUpper:0.095183391,
-      rnLower:1.472567341,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
-      rfUpper:0.028503584,rfLower:-0.756261679,rfIkX:0.047684416,rfIkY:0,rfIkWeight:0,rfPlantPhase:0.5,
-      rfPlanted:false,fnUpper:1.011042411,fnLower:-0.440234779,fnIkX:0.172684416,fnIkY:0,fnIkWeight:0,
-      fnPlantPhase:0.25,fnPlanted:false,ffUpper:0.278746002,ffLower:-0.855426978,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
-    })}),
-    Object.freeze({frame:4,name:"Front near contact",pose:Object.freeze({
-      name:"Front near contact",travel:0.25,key:true,bodyBob:0.003,frontBodyLift:0.001,rearBodyLift:0.007,
-      bodyPitch:-0.015707963,headPitch:0.026179939,tailBase:-0.052359878,tailMid:-0.104719755,tailTip:-0.087266463,rnUpper:-0.010814606,
-      rnLower:1.280277425,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
-      rfUpper:0.523951865,rfLower:-0.855064966,rfIkX:0.047684416,rfIkY:0,rfIkWeight:0,rfPlantPhase:0.5,
-      rfPlanted:false,fnUpper:-0.093031919,fnLower:0.796164733,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
-      fnPlantPhase:0.25,fnPlanted:true,ffUpper:0.094316382,ffLower:-0.965329192,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
-    })}),
-    Object.freeze({frame:6,name:"Front far lift",pose:Object.freeze({
-      name:"Front far lift",travel:0.375,key:true,bodyBob:-0.003,frontBodyLift:-0.006,rearBodyLift:0.004,
-      bodyPitch:-0.005235988,headPitch:0.012217305,tailBase:0,tailMid:-0.052359878,tailTip:-0.122173048,rnUpper:-0.244396976,
-      rnLower:1.17264484,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
-      rfUpper:-0.524867633,rfLower:1.00032351,rfIkX:0.047684416,rfIkY:0,rfIkWeight:0,rfPlantPhase:0.5,
-      rfPlanted:false,fnUpper:0.744255307,fnLower:-0.217559294,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
-      fnPlantPhase:0.25,fnPlanted:true,ffUpper:-0.069182645,ffLower:-1.156474661,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:0,ffPlantPhase:0.75,ffPlanted:false
-    })}),
-    Object.freeze({frame:8,name:"Rear far contact",pose:Object.freeze({
-      name:"Rear far contact",travel:0.5,key:true,bodyBob:0.002,frontBodyLift:-0.003,rearBodyLift:-0.002,
-      bodyPitch:0.010471976,headPitch:-0.017453293,tailBase:0.052359878,tailMid:0.017453293,tailTip:-0.034906585,rnUpper:-0.407520538,
-      rnLower:0.983089041,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
-      rfUpper:0.033749366,rfLower:0.718038175,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
-      rfPlanted:true,fnUpper:0.538186485,fnLower:-0.384359594,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
-      fnPlantPhase:0.25,fnPlanted:true,ffUpper:0.4084842,ffLower:-1.26767947,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:0,ffPlantPhase:0.75,ffPlanted:false
-    })}),
-    Object.freeze({frame:10,name:"Rear near lift",pose:Object.freeze({
-      name:"Rear near lift",travel:0.625,key:true,bodyBob:-0.004,frontBodyLift:0.001,rearBodyLift:-0.007,
-      bodyPitch:0.015707963,headPitch:-0.026179939,tailBase:0.087266463,tailMid:0.104719755,tailTip:0.087266463,rnUpper:-0.588435917,
-      rnLower:0.814963078,rnIkX:0.022684416,rnIkY:0,rnIkWeight:0,rnPlantPhase:0,rnPlanted:false,
-      rfUpper:-0.328522299,rfLower:0.796629955,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
-      rfPlanted:true,fnUpper:0.392088495,fnLower:-0.570832583,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
-      fnPlantPhase:0.25,fnPlanted:true,ffUpper:-0.923141548,ffLower:0.746099761,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:0,ffPlantPhase:0.75,ffPlanted:false
-    })}),
-    Object.freeze({frame:12,name:"Front far contact",pose:Object.freeze({
-      name:"Front far contact",travel:0.75,key:true,bodyBob:0.003,frontBodyLift:0.007,rearBodyLift:-0.001,
-      bodyPitch:0.003490659,headPitch:-0.006981317,tailBase:0.052359878,tailMid:0.122173048,tailTip:0.174532925,rnUpper:-0.623543634,
-      rnLower:1.19664144,rnIkX:0.022684416,rnIkY:0,rnIkWeight:0,rnPlantPhase:0,rnPlanted:false,
-      rfUpper:-0.427796111,rfLower:0.582489566,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
-      rfPlanted:true,fnUpper:0.109826579,fnLower:-0.577549083,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
-      fnPlantPhase:0.25,fnPlanted:true,ffUpper:-0.237344625,ffLower:0.405930506,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
-    })}),
-    Object.freeze({frame:14,name:"Front near lift",pose:Object.freeze({
-      name:"Front near lift",travel:0.875,key:true,bodyBob:-0.003,frontBodyLift:0.004,rearBodyLift:0.005,
-      bodyPitch:-0.010471976,headPitch:0.017453293,tailBase:0,tailMid:0.052359878,tailTip:0.122173048,rnUpper:-0.110721403,
-      rnLower:1.671016239,rnIkX:0.022684416,rnIkY:0,rnIkWeight:0,rnPlantPhase:0,rnPlanted:false,
-      rfUpper:0.434431177,rfLower:-0.515272821,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
-      rfPlanted:true,fnUpper:-0.026359906,fnLower:-0.727182047,fnIkX:0.172684416,fnIkY:0,fnIkWeight:0,
-      fnPlantPhase:0.25,fnPlanted:false,ffUpper:-0.57085574,ffLower:0.486195699,ffIkX:0.201284416,ffIkY:0,
-      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
-    })}),
-  ]);
+  {
+    "frame": 0,
+    "name": "Rear near contact",
+    "pose": {
+      "name": "Rear near contact",
+      "travel": 0,
+      "key": true,
+      "bodyBob": 0.002,
+      "frontBodyLift": 0.003,
+      "rearBodyLift": -0.003,
+      "bodyPitch": 0.008726646,
+      "headPitch": -0.015707963,
+      "tailBase": -0.034906585,
+      "tailMid": -0.017453293,
+      "tailTip": 0.034906585,
+      "rnUpper": 0.304103626392975,
+      "rnLower": 1.5316473031227613,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 1,
+      "rnPlantPhase": 0,
+      "rnPlanted": true,
+      "rfUpper": -0.7535349433661931,
+      "rfLower": 0.2552125637361981,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 1,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": true,
+      "fnUpper": 0.507722407289354,
+      "fnLower": -0.9356361164914186,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 0,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": false,
+      "ffUpper": 0.3776756539030905,
+      "ffLower": -0.6725278058498085,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 1,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": true
+    }
+  },
+  {
+    "frame": 2,
+    "name": "Rear far lift",
+    "pose": {
+      "name": "Rear far lift",
+      "travel": 0.125,
+      "key": true,
+      "bodyBob": -0.004,
+      "frontBodyLift": 0.006,
+      "rearBodyLift": 0.001,
+      "bodyPitch": -0.003490659,
+      "headPitch": 0.006981317,
+      "tailBase": -0.06981317,
+      "tailMid": -0.06981317,
+      "tailTip": -0.017453293,
+      "rnUpper": 0.09518339195023306,
+      "rnLower": 1.4725673416585312,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 1,
+      "rnPlantPhase": 0,
+      "rnPlanted": true,
+      "rfUpper": -0.812929603682428,
+      "rfLower": 0.041372843550264375,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 0,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": false,
+      "fnUpper": 1.0110424121141788,
+      "fnLower": -0.44023477867500016,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 0,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": false,
+      "ffUpper": 0.2787460029538916,
+      "ffLower": -0.8554269775543341,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 1,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": true
+    }
+  },
+  {
+    "frame": 4,
+    "name": "Front near contact",
+    "pose": {
+      "name": "Front near contact",
+      "travel": 0.25,
+      "key": true,
+      "bodyBob": 0.003,
+      "frontBodyLift": 0.001,
+      "rearBodyLift": 0.007,
+      "bodyPitch": -0.015707963,
+      "headPitch": 0.026179939,
+      "tailBase": -0.052359878,
+      "tailMid": -0.104719755,
+      "tailTip": -0.087266463,
+      "rnUpper": -0.010814606081797622,
+      "rnLower": 1.2802774251782045,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 1,
+      "rnPlantPhase": 0,
+      "rnPlanted": true,
+      "rfUpper": -0.9328927919667084,
+      "rfLower": 0.5156612224747169,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 0,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": false,
+      "fnUpper": 0.6581697033519246,
+      "fnLower": 0.11838338021346873,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 1,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": true,
+      "ffUpper": 0.09431638142751997,
+      "ffLower": -0.9653291922045871,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 1,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": true
+    }
+  },
+  {
+    "frame": 6,
+    "name": "Front far lift",
+    "pose": {
+      "name": "Front far lift",
+      "travel": 0.375,
+      "key": true,
+      "bodyBob": -0.003,
+      "frontBodyLift": -0.006,
+      "rearBodyLift": 0.004,
+      "bodyPitch": -0.005235988,
+      "headPitch": 0.012217305,
+      "tailBase": 0,
+      "tailMid": -0.052359878,
+      "tailTip": -0.122173048,
+      "rnUpper": -0.2443969751549461,
+      "rnLower": 1.1726448401382008,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 1,
+      "rnPlantPhase": 0,
+      "rnPlanted": true,
+      "rfUpper": -0.5248676324998788,
+      "rfLower": 1.00032350973706,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 0,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": false,
+      "fnUpper": 0.7442553070273249,
+      "fnLower": -0.21755929428200985,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 1,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": true,
+      "ffUpper": -0.06918264483890649,
+      "ffLower": -1.1564746609401633,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 0,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": false
+    }
+  },
+  {
+    "frame": 8,
+    "name": "Rear far contact",
+    "pose": {
+      "name": "Rear far contact",
+      "travel": 0.5,
+      "key": true,
+      "bodyBob": 0.002,
+      "frontBodyLift": -0.003,
+      "rearBodyLift": -0.002,
+      "bodyPitch": 0.010471976,
+      "headPitch": -0.017453293,
+      "tailBase": 0.052359878,
+      "tailMid": 0.017453293,
+      "tailTip": -0.034906585,
+      "rnUpper": -0.4075205388436382,
+      "rnLower": 0.9830890405545434,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 1,
+      "rnPlantPhase": 0,
+      "rnPlanted": true,
+      "rfUpper": 0.033749365185490814,
+      "rfLower": 0.7180381747271483,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 1,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": true,
+      "fnUpper": 0.5381864836563964,
+      "fnLower": -0.38435959379720835,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 1,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": true,
+      "ffUpper": 0.408484198803947,
+      "ffLower": -1.2676794701350544,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 0,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": false
+    }
+  },
+  {
+    "frame": 10,
+    "name": "Rear near lift",
+    "pose": {
+      "name": "Rear near lift",
+      "travel": 0.625,
+      "key": true,
+      "bodyBob": -0.004,
+      "frontBodyLift": 0.001,
+      "rearBodyLift": -0.007,
+      "bodyPitch": 0.015707963,
+      "headPitch": -0.026179939,
+      "tailBase": 0.087266463,
+      "tailMid": 0.104719755,
+      "tailTip": 0.087266463,
+      "rnUpper": -0.5884359165194305,
+      "rnLower": 0.8149630781058933,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 0,
+      "rnPlantPhase": 0,
+      "rnPlanted": false,
+      "rfUpper": -0.32852229909216024,
+      "rfLower": 0.7966299547206344,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 1,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": true,
+      "fnUpper": 0.3920884957767231,
+      "fnLower": -0.5708325831401769,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 1,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": true,
+      "ffUpper": 0.8812111042948209,
+      "ffLower": -0.7756778442439839,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 0,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": false
+    }
+  },
+  {
+    "frame": 12,
+    "name": "Front far contact",
+    "pose": {
+      "name": "Front far contact",
+      "travel": 0.75,
+      "key": true,
+      "bodyBob": 0.003,
+      "frontBodyLift": 0.007,
+      "rearBodyLift": -0.001,
+      "bodyPitch": 0.003490659,
+      "headPitch": -0.006981317,
+      "tailBase": 0.052359878,
+      "tailMid": 0.122173048,
+      "tailTip": 0.174532925,
+      "rnUpper": -0.6235436348187852,
+      "rnLower": 1.1966414393734885,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 0,
+      "rnPlantPhase": 0,
+      "rnPlanted": false,
+      "rfUpper": -0.42779611204784806,
+      "rfLower": 0.5824895659904039,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 1,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": true,
+      "fnUpper": 0.10982657783218486,
+      "fnLower": -0.5775490831896001,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 1,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": true,
+      "ffUpper": 0.44230020906534195,
+      "ffLower": -0.1886225593883536,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 1,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": true
+    }
+  },
+  {
+    "frame": 14,
+    "name": "Front near lift",
+    "pose": {
+      "name": "Front near lift",
+      "travel": 0.875,
+      "key": true,
+      "bodyBob": -0.003,
+      "frontBodyLift": 0.004,
+      "rearBodyLift": 0.005,
+      "bodyPitch": -0.010471976,
+      "headPitch": 0.017453293,
+      "tailBase": 0,
+      "tailMid": 0.052359878,
+      "tailTip": 0.122173048,
+      "rnUpper": -0.11072140251434065,
+      "rnLower": 1.6710162392295829,
+      "rnIkX": 0.0226844155844156,
+      "rnIkY": 0,
+      "rnIkWeight": 0,
+      "rnPlantPhase": 0,
+      "rnPlanted": false,
+      "rfUpper": -0.5770782911191281,
+      "rfLower": 0.4421628894776936,
+      "rfIkX": 0.0476844155844156,
+      "rfIkY": 0,
+      "rfIkWeight": 1,
+      "rfPlantPhase": 0.5,
+      "rfPlanted": true,
+      "fnUpper": -0.02635990516712044,
+      "fnLower": -0.7271820469353885,
+      "fnIkX": 0.1726844155844156,
+      "fnIkY": 0,
+      "fnIkWeight": 0,
+      "fnPlantPhase": 0.25,
+      "fnPlanted": false,
+      "ffUpper": 0.5547981614048317,
+      "ffLower": -0.48990091687185006,
+      "ffIkX": 0.20128441558441562,
+      "ffIkY": 0,
+      "ffIkWeight": 1,
+      "ffPlantPhase": 0.75,
+      "ffPlanted": true
+    }
+  }
+].map(entry=>Object.freeze({frame:entry.frame,name:entry.name,pose:Object.freeze(entry.pose)})));
 
   function circularPhaseDelta(phase,start){ return ((phase-start)%1+1)%1; }
   function runtimeFramesFromWalkKeys(keys,strideLocal=WALK_STRIDE_WORLD/2.31){
@@ -537,17 +830,20 @@
     const headBase=shifted(bodyPoint('head'),p.frontBodyLift);
     const head=rotPoint(headBase,neck,p.headPitch);
 
-    function solveJointNearest(root,target,l1,l2,referenceJoint){
+    function solveJointStable(root,target,l1,l2,bendSide=1){
       let dx=target.x-root.x,dy=target.y-root.y,d=Math.hypot(dx,dy)||1e-5;
       const minD=Math.abs(l1-l2)+.0005,maxD=l1+l2-.0005,cd=clamp(d,minD,maxD);
       dx*=cd/d;dy*=cd/d;d=cd;
       const resolvedTarget={x:root.x+dx,y:root.y+dy};
       const a=(l1*l1-l2*l2+d*d)/(2*d),h=Math.sqrt(Math.max(0,l1*l1-a*a));
       const ux=dx/d,uy=dy/d,bx=root.x+ux*a,by=root.y+uy*a,px=-uy,py=ux;
+      // c1 and c2 are the two valid two-bone solutions. Their signed side
+      // relative to root→target is stable (+ for c1, - for c2), so choose the
+      // anatomical branch explicitly instead of whichever happens to be nearest
+      // to the current FK knee. The old nearest-knee rule could alternate from
+      // sample to sample and was the source of visible knee/hock flicking.
       const c1={x:bx+px*h,y:by+py*h},c2={x:bx-px*h,y:by-py*h};
-      const d1=Math.hypot(c1.x-referenceJoint.x,c1.y-referenceJoint.y);
-      const d2=Math.hypot(c2.x-referenceJoint.x,c2.y-referenceJoint.y);
-      return{joint:d1<=d2?c1:c2,target:resolvedTarget};
+      return{joint:bendSide<0?c2:c1,target:resolvedTarget};
     }
 
     function limbGeom(prefix,channelPrefix,upperDelta,lowerDelta,lift){
@@ -565,7 +861,8 @@
         return{root,knee:fkKnee,paw:fkPaw,fkKnee,fkPaw,ikTarget:fkPaw,ikWeight:0};
       }
       const blendedTarget={x:lerp(fkPaw.x,target.x,weight),y:lerp(fkPaw.y,target.y,weight)};
-      const solved=solveJointNearest(root,blendedTarget,upperLength,lowerLength,fkKnee);
+      const bendSide=Number(RIG_DESIGNER.ikBendSides?.[prefix])||1;
+      const solved=solveJointStable(root,blendedTarget,upperLength,lowerLength,bendSide);
       return{root,knee:solved.joint,paw:solved.target,fkKnee,fkPaw,ikTarget:target,ikWeight:weight};
     }
     const rn=limbGeom('rearNear','rn',p.rnUpper,p.rnLower,p.rearBodyLift);
@@ -679,7 +976,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.154',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.155',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES

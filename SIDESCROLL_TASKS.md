@@ -2081,3 +2081,16 @@ After the example is understood/approved:
 - [ ] Refit/split torso/limb artwork only where the approved rig motion exposes real overlap/cut limitations.
 - [ ] Apply the same contact workflow to Run/Gallop after Walk is convincing.
 - [ ] Continue with head/ears/tail polish and any dedicated climbing animation only where gameplay review demonstrates a need.
+
+
+## v1.0.155 — Anim Lab IK bend-branch stability correction
+
+v1.0.154 on-device testing found that Front Near, Front Far and Rear Far could snap between the two mathematically valid two-bone IK solutions. Rear Near happened to remain stable and therefore looked sensible.
+
+- [x] Replace per-sample “nearest FK knee” IK branch choice with an explicit rig-family bend branch.
+- [x] Store Fox quadruped bend ownership in the Rig Designer descriptor (front knees one branch; rear hocks the opposite branch).
+- [x] Regenerate the example Walk so unstable v1.0.154 branch choices are not retained in FK swing keys.
+- [x] Bump the example foundation marker so v1.0.154 saved teaching Walk data cannot silently override the correction.
+- [x] Verify all four limbs retain one bend side across all 16 example Walk samples.
+- [ ] On-device: confirm all four knees/hocks now solve smoothly during Walk playback and scrubbing.
+- [ ] On-device: confirm corrected Walk in Play after Save.

@@ -1,4 +1,39 @@
-# SideScroll patch 1.0.154 — Fox example Walk / IK teaching pass
+# SideScroll patch 1.0.155 — Fox IK bend-branch stability fix
+
+Cumulative changed-files-only patch over the approved v1.0.150 baseline. v1.0.151–1.0.154 remain unapproved test steps.
+
+## What v1.0.155 fixes
+
+The v1.0.154 teaching Walk exposed a two-bone IK ambiguity on three Fox legs. The solver was choosing whichever of the two valid knee/hock solutions happened to be nearest to the current FK joint on each sample. Near straight/ambiguous poses that choice could alternate from frame to frame, producing violent backwards/forwards knee flicking.
+
+v1.0.155 makes bend ownership explicit in the quadruped rig-family descriptor:
+
+- Front Near / Front Far use one stable front-knee branch.
+- Rear Near / Rear Far use one stable rear-hock branch.
+- IK no longer re-decides the branch independently on every sample.
+- The worked example Walk has been regenerated using the stable solver so bad branch choices are not left baked into its FK swing poses.
+- The example foundation marker is bumped to `fox-walk-example-v2`, so a saved v1.0.154 example Walk is ignored automatically until the corrected Walk is edited/saved. Run and Jump are unaffected.
+
+## Focused iPhone test
+
+1. Install over your current v1.0.154 test copy (or cumulatively over v1.0.150).
+2. Fully relaunch the PWA so the new service-worker shell/cache is active.
+3. Open Anim Lab → Fox → Walk → Animate and press `Reload Example Walk` if needed.
+4. Play and scrub all 16 samples. Front knees should keep the same bend direction throughout; rear hocks should keep the same rear bend direction throughout. There should be no frame-to-frame backwards/forwards snapping.
+5. Turn on Ground Motion and confirm planted paws remain stable while the knees/hocks solve smoothly above them.
+6. Save, enter Play, and confirm the corrected Walk is used in gameplay.
+
+## Programmatic validation
+
+- All Fox Walk samples retain one bend branch per limb across all 16 runtime samples.
+- Front Near: + branch for 16/16 samples.
+- Front Far: + branch for 16/16 samples.
+- Rear Near: - branch for 16/16 samples.
+- Rear Far: - branch for 16/16 samples.
+- Segment lengths remain fixed by the authored rest rig.
+- Existing Run/Jump data paths are unchanged.
+
+## v1.0.154 foundation — Fox example Walk / IK teaching pass
 
 Changed-files-only cumulative patch over the agreed **v1.0.150** baseline. v1.0.150 remains the approved baseline until the later Anim Lab patches are tested and accepted. This patch therefore includes v1.0.151 Rig Designer, v1.0.152 workflow/runtime integration and v1.0.153 paw-contact FK/IK, plus the new authored Fox Walk example.
 
