@@ -1,4 +1,4 @@
-const CACHE = "sidescroll-runtime-v7";
+const CACHE = "sidescroll-runtime-v8";
 const CORE_SHELL = [
   "./",
   "./index.html",

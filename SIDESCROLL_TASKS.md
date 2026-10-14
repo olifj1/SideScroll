@@ -2050,3 +2050,34 @@ After Stage 4 review:
 - [ ] Refine Run/Gallop with the reference pack and the same contact tools.
 - [ ] Build the later biped Motion Reference / Rig Designer descriptor through the shared systems rather than a parallel editor.
 - [ ] Add a dedicated fox climbing clip only if real gameplay review shows the current run/scramble treatment is inadequate.
+
+## v1.0.154 — Fox example Walk / Stage 4 teaching pass
+
+This pass deliberately replaces the previous experimental Fox Walk with a complete readable example so the Stage 4 workflow can be learned by inspection rather than from empty controls. Run/Jump are not reset.
+
+- [x] Author an eight-key Fox Walk example on frames 1/3/5/7/9/11/13/15.
+- [x] Use a four-beat Rear Near -> Front Near -> Rear Far -> Front Far walking order.
+- [x] Use planted IK for stance and FK-led swing poses, with the existing tween compiler blending into contact.
+- [x] Keep planted contacts stride-compensated so a planted paw remains fixed against the ×1 Ground Motion datum.
+- [x] Add visible Mid Root bob, independent Front/Rear Body lift, subtle Whole Body Tilt, Head/Neck counter-motion and three-part tail follow-through.
+- [x] Regenerate the example against the currently saved Fox rest rig and Fox Scale rather than assuming only the legacy proportions.
+- [x] Add **Reload Example Walk** as one normal Undoable Anim Lab transaction inside Save/Discard ownership.
+- [x] Intentionally ignore pre-v1.0.154 saved Fox Walk banks that lack the new walk-foundation marker; preserve saved Run/Jump independently.
+- [x] Make Play use the regenerated example as the built-in Walk fallback until a v1.0.154-derived Walk is explicitly saved.
+- [x] Keep the runtime contract at 16 compiled samples; no new gameplay animation format.
+
+On-device review:
+
+- [ ] Watch the complete example in Anim Lab with Art + Bones + Ground Motion and judge overall gait readability at iPhone landscape size.
+- [ ] Confirm planted paws visually stay on one moving-ground mark through stance while swing paws clear the ground naturally.
+- [ ] Scrub all eight key poses and verify the intended IK/FK status is understandable from the Paw Contact panel.
+- [ ] Judge whether body rise/fall, chest/pelvis transfer, head counter-motion and tail lag are too subtle, too strong or about right.
+- [ ] Enter Play as Fox and confirm the example remains readable at real gameplay scale and locomotion speed.
+- [ ] After changing/approving Fox Rig proportions, use Reload Example Walk and confirm the regenerated leg poses remain sensible before doing final polish.
+
+After the example is understood/approved:
+
+- [ ] Tune the Walk against the Motion Reference rather than adding more Anim Lab systems.
+- [ ] Refit/split torso/limb artwork only where the approved rig motion exposes real overlap/cut limitations.
+- [ ] Apply the same contact workflow to Run/Gallop after Walk is convincing.
+- [ ] Continue with head/ears/tail polish and any dedicated climbing animation only where gameplay review demonstrates a need.

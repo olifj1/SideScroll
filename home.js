@@ -1,7 +1,7 @@
 (() => {
-  const VERSION = '1.0.153';
+  const VERSION = '1.0.154';
   const ASSET_VERSION = '1.0.62';
-  const PRELOAD_CACHE = 'sidescroll-runtime-v6';
+  const PRELOAD_CACHE = 'sidescroll-runtime-v8';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');

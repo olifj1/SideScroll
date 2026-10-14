@@ -153,17 +153,36 @@
     localStorage.setItem(HUMAN_WALK_KEY, JSON.stringify({version:12, frames:safe.walk}));
   }
 
+  function foxExampleStrideLocal() {
+    const scale = clamp(Number(setupMap?.fox?.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX);
+    return (Number(FoxRig.WALK_STRIDE_WORLD) || 0) / Math.max(.001, 2.31 * scale);
+  }
+
+  function foxExampleFrames() {
+    if (typeof FoxRig.buildExampleWalkFrames === 'function') {
+      return FoxRig.buildExampleWalkFrames(FoxRig.loadRestRig?.(), foxExampleStrideLocal()).map((p,i)=>FoxRig.normalizedPose(p,i));
+    }
+    return FoxRig.DEFAULT_FRAMES.map((p,i)=>FoxRig.normalizedPose(p,i));
+  }
+
   function loadFoxBank() {
     const bank = defaultBank(FoxRig);
+    bank.walk = foxExampleFrames();
     try {
       const saved = JSON.parse(localStorage.getItem(FOX_CLIPS_KEY) || 'null');
       if (saved?.clips) {
-        for (const name of ['walk','run','jump']) {
+        // v1.0.154 intentionally replaces pre-example Fox Walk experiments.
+        // Run/Jump remain independent and continue to honour their saved banks.
+        if (saved.walkFoundationVersion === FoxRig.WALK_EXAMPLE_ID
+          && Array.isArray(saved.clips.walk) && saved.clips.walk.length === 16) {
+          bank.walk = saved.clips.walk.map((p,i) => FoxRig.normalizedPose(p,i));
+        }
+        for (const name of ['run','jump']) {
           if (Array.isArray(saved.clips[name]) && saved.clips[name].length === 16) bank[name] = saved.clips[name].map((p,i) => FoxRig.normalizedPose(p,i));
         }
       }
     } catch (err) {
-      console.warn('[Anim Lab] Fox editor clip read failed; using approved v1.0.141 defaults.', err);
+      console.warn('[Anim Lab] Fox editor clip read failed; using the current Fox example/default clips.', err);
     }
     return bank;
   }
@@ -171,7 +190,13 @@
   function saveFoxBank(bank) {
     const clips = {};
     for (const name of ['walk','run','jump']) clips[name] = bank[name].map((p,i) => FoxRig.normalizedPose(p,i));
-    localStorage.setItem(FOX_CLIPS_KEY, JSON.stringify({schema:'animlab.legacy-sampled.v1', family:'fox', sampleCount:16, clips}));
+    localStorage.setItem(FOX_CLIPS_KEY, JSON.stringify({
+      schema:'animlab.legacy-sampled.v1',
+      family:'fox',
+      sampleCount:16,
+      walkFoundationVersion:FoxRig.WALK_EXAMPLE_ID || null,
+      clips
+    }));
   }
 
   const adapters = {
@@ -266,6 +291,7 @@
       sampleCount:16,
       loop:true,
       source:String(raw?.source || 'legacy-sampled'),
+      foundationVersion:String(raw?.foundationVersion || ''),
       keys
     };
   }
@@ -280,7 +306,18 @@
     const out = {human:{},fox:{}};
     for (const family of ['human','fox']) {
       for (const clipName of ['walk','run','jump']) {
-        const raw = stored?.schema === SPARSE_SCHEMA ? stored?.families?.[family]?.[clipName] : null;
+        let raw = stored?.schema === SPARSE_SCHEMA ? stored?.families?.[family]?.[clipName] : null;
+        if (family === 'fox' && clipName === 'walk' && FoxRig.WALK_EXAMPLE_ID
+          && raw?.foundationVersion !== FoxRig.WALK_EXAMPLE_ID) {
+          const keys = typeof FoxRig.buildExampleWalkKeys === 'function'
+            ? FoxRig.buildExampleWalkKeys(FoxRig.loadRestRig?.(), foxExampleStrideLocal())
+            : FoxRig.WALK_EXAMPLE_KEYS;
+          raw = {
+            source:'fox-example-walk',
+            foundationVersion:FoxRig.WALK_EXAMPLE_ID,
+            keys
+          };
+        }
         out[family][clipName] = raw
           ? normaliseSparseClip(raw,family,clipName,banks[family][clipName])
           : importSparseClip(banks[family][clipName],family,clipName);
@@ -1051,7 +1088,7 @@
   }
 
   const api = {
-    version:'1.0.153',
+    version:'1.0.154',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),

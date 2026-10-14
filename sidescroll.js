@@ -8441,15 +8441,29 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let foxWalkFrames = FoxRig ? FoxRig.DEFAULT_FRAMES.map(FoxRig.clone) : [];
   let foxRunFrames = FoxRig ? FoxRig.RUN_FRAMES.map(FoxRig.clone) : [];
   let foxJumpFrames = FoxRig ? FoxRig.JUMP_FRAMES.map(FoxRig.clone) : [];
+  function builtInFoxWalkFrames() {
+    if (!FoxRig) return [];
+    if (typeof FoxRig.buildExampleWalkFrames === 'function') {
+      const foxScale = Math.max(.001, BASE_CHARACTER_SCALE * characterScaleMultiplier('fox'));
+      const strideLocal = (Number(FoxRig.WALK_STRIDE_WORLD) || 0) / foxScale;
+      return FoxRig.buildExampleWalkFrames(FoxRig.loadRestRig?.(), strideLocal).map((pose,index)=>FoxRig.normalizedPose(pose,index));
+    }
+    return FoxRig.DEFAULT_FRAMES.map(FoxRig.clone);
+  }
   function refreshFoxFrames() {
     if (!FoxRig) return;
-    foxWalkFrames = FoxRig.DEFAULT_FRAMES.map(FoxRig.clone);
+    foxWalkFrames = builtInFoxWalkFrames();
     foxRunFrames = FoxRig.RUN_FRAMES.map(FoxRig.clone);
     foxJumpFrames = FoxRig.JUMP_FRAMES.map(FoxRig.clone);
     try {
       const saved = JSON.parse(localStorage.getItem(FOX_RUNTIME_CLIPS_KEY) || 'null');
       const clips = saved?.clips;
-      if (Array.isArray(clips?.walk) && clips.walk.length === 16) foxWalkFrames = clips.walk.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+      // v1.0.154 intentionally retires older experimental Fox Walk banks. A
+      // post-example Save carries the foundation marker and becomes authoritative.
+      if (saved?.walkFoundationVersion === FoxRig.WALK_EXAMPLE_ID
+        && Array.isArray(clips?.walk) && clips.walk.length === 16) {
+        foxWalkFrames = clips.walk.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+      }
       if (Array.isArray(clips?.run) && clips.run.length === 16) foxRunFrames = clips.run.map((pose,index)=>FoxRig.normalizedPose(pose,index));
       if (Array.isArray(clips?.jump) && clips.jump.length === 16) foxJumpFrames = clips.jump.map((pose,index)=>FoxRig.normalizedPose(pose,index));
     } catch (err) {

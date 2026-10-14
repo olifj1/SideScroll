@@ -3,6 +3,7 @@
 
   const core = window.AnimLabCore;
   const controls = window.AnimLabControlSurface;
+  const FoxRig = window.GameHubFoxRig || null;
   const host = document.getElementById('animlab-extension');
   if (!core || !host) {
     console.error('[Anim Lab Stage 4] AnimLabCore or extension host is missing.');
@@ -47,6 +48,7 @@
       <button id="animlab-contact-ground" type="button">Target to Ground</button>
       <button id="animlab-contact-plant" type="button">Plant from Here</button>
       <button id="animlab-contact-release" type="button">Release Here</button>
+      <button id="animlab-contact-example" class="animlab-contact-example" type="button">Reload Example Walk</button>
     </div>
   `;
 
@@ -81,6 +83,7 @@
   const groundBtn=$('animlab-contact-ground');
   const plantBtn=$('animlab-contact-plant');
   const releaseBtn=$('animlab-contact-release');
+  const exampleBtn=$('animlab-contact-example');
   const groundShow=$('animlab-ground-motion-show');
   const groundReset=$('animlab-ground-motion-reset');
   const groundSpeed=$('animlab-ground-motion-speed');
@@ -170,6 +173,24 @@
     });
   }
 
+  function reloadExampleWalk(){
+    const st=state();
+    if(st.family!=='fox'||st.mode!=='animate'||st.clip!=='walk'||st.preview||!FoxRig)return;
+    const keys=typeof FoxRig.buildExampleWalkKeys==='function'
+      ? FoxRig.buildExampleWalkKeys(st.setup?.rig,strideLocal(st))
+      : clone(FoxRig.WALK_EXAMPLE_KEYS||[]);
+    if(!Array.isArray(keys)||keys.length<2)return;
+    const changed=core.editSparseClip?.('Reload Fox example walk',clip=>{
+      clip.source='fox-example-walk';
+      clip.foundationVersion=FoxRig.WALK_EXAMPLE_ID||'fox-walk-example-v1';
+      clip.keys=clone(keys);
+    });
+    if(changed!==false){
+      core.setFrame?.(0);
+      core.setHint?.('Example Walk loaded · stance uses planted IK, swing uses FK · Save to make it the authored gameplay Walk.');
+    }
+  }
+
   function beginWeight(){
     if(weightTx)return weightTx;
     const st=state();if(st.family!=='fox'||st.mode!=='animate'||st.preview)return null;
@@ -191,6 +212,7 @@
   groundBtn.addEventListener('click',targetToGround);
   plantBtn.addEventListener('click',plantFromHere);
   releaseBtn.addEventListener('click',releaseHere);
+  exampleBtn.addEventListener('click',reloadExampleWalk);
   weight.addEventListener('pointerdown',beginWeight);
   weight.addEventListener('input',previewWeight);
   weight.addEventListener('pointerup',()=>finishWeight(false));
@@ -262,6 +284,8 @@
     status.textContent=`${selected().label} · ${keyText} · ${planted?'PLANTED':w>.001?'IK':'FK'}${planted?' · anchor '+(Number(author?.[`${prefix}PlantPhase`])||0).toFixed(3):''}`;
     plantBtn.classList.toggle('active',planted);releaseBtn.disabled=!planted&&w<=.001;
     captureBtn.disabled=!!st.preview;groundBtn.disabled=!!st.preview;plantBtn.disabled=!!st.preview;weight.disabled=!!st.preview;
+    exampleBtn.hidden=st.clip!=='walk';
+    exampleBtn.disabled=!!st.preview||st.clip!=='walk';
 
     groundShow.classList.toggle('active',prefs.showGround);groundShow.setAttribute('aria-pressed',String(prefs.showGround));
     groundSpeed.value=String(prefs.speed);groundSpeedOut.textContent=`×${prefs.speed.toFixed(2)}`;

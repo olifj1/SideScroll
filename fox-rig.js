@@ -389,7 +389,113 @@
     }
     return out;
   }
-  const DEFAULT_FRAMES=Array.from({length:16},(_,i)=>({...locomotionPose(i/16,'walk'),key:i%2===0}));
+  const WALK_EXAMPLE_ID = 'fox-walk-example-v1';
+  // Eight deliberately readable walk keys: stance paws are IK-planted; swing
+  // paws are FK-authored. Body/head/tail channels are intentionally present so
+  // the clip is a working Anim Lab teaching example rather than a leg-only test.
+  const WALK_EXAMPLE_KEYS = Object.freeze([
+    Object.freeze({frame:0,name:"Rear near contact",pose:Object.freeze({
+      name:"Rear near contact",travel:0,key:true,bodyBob:0.002,frontBodyLift:0.003,rearBodyLift:-0.003,
+      bodyPitch:0.008726646,headPitch:-0.015707963,tailBase:-0.034906585,tailMid:-0.017453293,tailTip:0.034906585,rnUpper:0.304103626,
+      rnLower:1.531647303,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
+      rfUpper:0.247141241,rfLower:-0.692069083,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
+      rfPlanted:true,fnUpper:0.507722407,fnLower:-0.935636117,fnIkX:0.172684416,fnIkY:0,fnIkWeight:0,
+      fnPlantPhase:0.25,fnPlanted:false,ffUpper:-0.753957223,ffLower:0.308598597,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
+    })}),
+    Object.freeze({frame:2,name:"Rear far lift",pose:Object.freeze({
+      name:"Rear far lift",travel:0.125,key:true,bodyBob:-0.004,frontBodyLift:0.006,rearBodyLift:0.001,
+      bodyPitch:-0.003490659,headPitch:0.006981317,tailBase:-0.06981317,tailMid:-0.06981317,tailTip:-0.017453293,rnUpper:0.095183391,
+      rnLower:1.472567341,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
+      rfUpper:0.028503584,rfLower:-0.756261679,rfIkX:0.047684416,rfIkY:0,rfIkWeight:0,rfPlantPhase:0.5,
+      rfPlanted:false,fnUpper:1.011042411,fnLower:-0.440234779,fnIkX:0.172684416,fnIkY:0,fnIkWeight:0,
+      fnPlantPhase:0.25,fnPlanted:false,ffUpper:0.278746002,ffLower:-0.855426978,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
+    })}),
+    Object.freeze({frame:4,name:"Front near contact",pose:Object.freeze({
+      name:"Front near contact",travel:0.25,key:true,bodyBob:0.003,frontBodyLift:0.001,rearBodyLift:0.007,
+      bodyPitch:-0.015707963,headPitch:0.026179939,tailBase:-0.052359878,tailMid:-0.104719755,tailTip:-0.087266463,rnUpper:-0.010814606,
+      rnLower:1.280277425,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
+      rfUpper:0.523951865,rfLower:-0.855064966,rfIkX:0.047684416,rfIkY:0,rfIkWeight:0,rfPlantPhase:0.5,
+      rfPlanted:false,fnUpper:-0.093031919,fnLower:0.796164733,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
+      fnPlantPhase:0.25,fnPlanted:true,ffUpper:0.094316382,ffLower:-0.965329192,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
+    })}),
+    Object.freeze({frame:6,name:"Front far lift",pose:Object.freeze({
+      name:"Front far lift",travel:0.375,key:true,bodyBob:-0.003,frontBodyLift:-0.006,rearBodyLift:0.004,
+      bodyPitch:-0.005235988,headPitch:0.012217305,tailBase:0,tailMid:-0.052359878,tailTip:-0.122173048,rnUpper:-0.244396976,
+      rnLower:1.17264484,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
+      rfUpper:-0.524867633,rfLower:1.00032351,rfIkX:0.047684416,rfIkY:0,rfIkWeight:0,rfPlantPhase:0.5,
+      rfPlanted:false,fnUpper:0.744255307,fnLower:-0.217559294,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
+      fnPlantPhase:0.25,fnPlanted:true,ffUpper:-0.069182645,ffLower:-1.156474661,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:0,ffPlantPhase:0.75,ffPlanted:false
+    })}),
+    Object.freeze({frame:8,name:"Rear far contact",pose:Object.freeze({
+      name:"Rear far contact",travel:0.5,key:true,bodyBob:0.002,frontBodyLift:-0.003,rearBodyLift:-0.002,
+      bodyPitch:0.010471976,headPitch:-0.017453293,tailBase:0.052359878,tailMid:0.017453293,tailTip:-0.034906585,rnUpper:-0.407520538,
+      rnLower:0.983089041,rnIkX:0.022684416,rnIkY:0,rnIkWeight:1,rnPlantPhase:0,rnPlanted:true,
+      rfUpper:0.033749366,rfLower:0.718038175,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
+      rfPlanted:true,fnUpper:0.538186485,fnLower:-0.384359594,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
+      fnPlantPhase:0.25,fnPlanted:true,ffUpper:0.4084842,ffLower:-1.26767947,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:0,ffPlantPhase:0.75,ffPlanted:false
+    })}),
+    Object.freeze({frame:10,name:"Rear near lift",pose:Object.freeze({
+      name:"Rear near lift",travel:0.625,key:true,bodyBob:-0.004,frontBodyLift:0.001,rearBodyLift:-0.007,
+      bodyPitch:0.015707963,headPitch:-0.026179939,tailBase:0.087266463,tailMid:0.104719755,tailTip:0.087266463,rnUpper:-0.588435917,
+      rnLower:0.814963078,rnIkX:0.022684416,rnIkY:0,rnIkWeight:0,rnPlantPhase:0,rnPlanted:false,
+      rfUpper:-0.328522299,rfLower:0.796629955,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
+      rfPlanted:true,fnUpper:0.392088495,fnLower:-0.570832583,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
+      fnPlantPhase:0.25,fnPlanted:true,ffUpper:-0.923141548,ffLower:0.746099761,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:0,ffPlantPhase:0.75,ffPlanted:false
+    })}),
+    Object.freeze({frame:12,name:"Front far contact",pose:Object.freeze({
+      name:"Front far contact",travel:0.75,key:true,bodyBob:0.003,frontBodyLift:0.007,rearBodyLift:-0.001,
+      bodyPitch:0.003490659,headPitch:-0.006981317,tailBase:0.052359878,tailMid:0.122173048,tailTip:0.174532925,rnUpper:-0.623543634,
+      rnLower:1.19664144,rnIkX:0.022684416,rnIkY:0,rnIkWeight:0,rnPlantPhase:0,rnPlanted:false,
+      rfUpper:-0.427796111,rfLower:0.582489566,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
+      rfPlanted:true,fnUpper:0.109826579,fnLower:-0.577549083,fnIkX:0.172684416,fnIkY:0,fnIkWeight:1,
+      fnPlantPhase:0.25,fnPlanted:true,ffUpper:-0.237344625,ffLower:0.405930506,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
+    })}),
+    Object.freeze({frame:14,name:"Front near lift",pose:Object.freeze({
+      name:"Front near lift",travel:0.875,key:true,bodyBob:-0.003,frontBodyLift:0.004,rearBodyLift:0.005,
+      bodyPitch:-0.010471976,headPitch:0.017453293,tailBase:0,tailMid:0.052359878,tailTip:0.122173048,rnUpper:-0.110721403,
+      rnLower:1.671016239,rnIkX:0.022684416,rnIkY:0,rnIkWeight:0,rnPlantPhase:0,rnPlanted:false,
+      rfUpper:0.434431177,rfLower:-0.515272821,rfIkX:0.047684416,rfIkY:0,rfIkWeight:1,rfPlantPhase:0.5,
+      rfPlanted:true,fnUpper:-0.026359906,fnLower:-0.727182047,fnIkX:0.172684416,fnIkY:0,fnIkWeight:0,
+      fnPlantPhase:0.25,fnPlanted:false,ffUpper:-0.57085574,ffLower:0.486195699,ffIkX:0.201284416,ffIkY:0,
+      ffIkWeight:1,ffPlantPhase:0.75,ffPlanted:true
+    })}),
+  ]);
+
+  function circularPhaseDelta(phase,start){ return ((phase-start)%1+1)%1; }
+  function runtimeFramesFromWalkKeys(keys,strideLocal=WALK_STRIDE_WORLD/2.31){
+    const sorted=[...(keys||[])].sort((a,b)=>a.frame-b.frame),out=[];
+    for(let frame=0;frame<16;frame++){
+      const exact=sorted.find(key=>key.frame===frame);
+      let pose;
+      if(exact) pose=clone(exact.pose);
+      else {
+        let before=null,after=null,bf=-Infinity,af=Infinity,wraps=false;
+        for(const key of sorted){if(key.frame<frame&&key.frame>bf){before=key;bf=key.frame;}if(key.frame>frame&&key.frame<af){after=key;af=key.frame;}}
+        if(!before){before=sorted[sorted.length-1];bf=before.frame-16;}
+        if(!after){after=sorted[0];af=after.frame+16;wraps=true;}
+        const t=clamp((frame-bf)/Math.max(.0001,af-bf),0,1);
+        const travelB=(wraps||bf<0||af>=16)?(Number(after.pose.travel)||0)+1:Number(after.pose.travel)||0;
+        pose=interpolatePose(before.pose,after.pose,t,`${before.name} → ${after.name}`,travelB);
+      }
+      const phase=frame/16;
+      for(const prefix of IK_PREFIXES){
+        if(pose[`${prefix}Planted`]&&(Number(pose[`${prefix}IkWeight`])||0)>.0001){
+          pose[`${prefix}IkX`]=(Number(pose[`${prefix}IkX`])||0)-circularPhaseDelta(phase,Number(pose[`${prefix}PlantPhase`])||0)*strideLocal;
+        }
+        pose[`${prefix}Planted`]=false;
+      }
+      pose.key=frame%2===0;out.push(pose);
+    }
+    return out;
+  }
+  const DEFAULT_FRAMES=runtimeFramesFromWalkKeys(WALK_EXAMPLE_KEYS);
   const RUN_FRAMES=Array.from({length:16},(_,i)=>({...locomotionPose(i/16,'run'),key:i%2===0}));
   const JUMP_FRAMES=buildFramesFromKeys(Array.from({length:8},(_,i)=>jumpKey(i)));
 
@@ -485,6 +591,69 @@
       frontFarRoot:ff.root,frontFarSocket:ff.root,frontFarKnee:ff.knee,frontFarFoot:ff.paw,frontFarPaw:ff.paw,frontFarIkTarget:ff.ikTarget,frontFarFkPaw:ff.fkPaw};
   }
 
+
+  const WALK_EXAMPLE_LIMBS = Object.freeze({
+    rn:Object.freeze({full:'rearNear',start:0.00,lift:.050}),
+    fn:Object.freeze({full:'frontNear',start:0.25,lift:.055}),
+    rf:Object.freeze({full:'rearFar',start:0.50,lift:.046}),
+    ff:Object.freeze({full:'frontFar',start:0.75,lift:.052})
+  });
+  const WALK_EXAMPLE_STANCE = .625;
+  function wrapAngle(value){
+    let a=Number(value)||0;
+    while(a>Math.PI)a-=TAU;
+    while(a<-Math.PI)a+=TAU;
+    return a;
+  }
+  function buildExampleWalkKeys(restRig=activeRestRig,strideLocal=WALK_STRIDE_WORLD/2.31){
+    const rest=normalizedRestRig(restRig);
+    const stride=Math.max(.001,Number(strideLocal)||WALK_STRIDE_WORLD/2.31);
+    const swing=1-WALK_EXAMPLE_STANCE;
+    return WALK_EXAMPLE_KEYS.map(template=>{
+      const phase=template.frame/16;
+      const pose=clone(template.pose);
+      for(const [prefix,spec] of Object.entries(WALK_EXAMPLE_LIMBS)){
+        const socketId=`${spec.full}Socket`,kneeId=`${spec.full}Knee`,pawId=`${spec.full}Paw`;
+        const socket=rest.joints[socketId];
+        const sweep=WALK_EXAMPLE_STANCE*stride;
+        const anchorX=socket.x+sweep*.54;
+        const endX=anchorX-sweep;
+        const stanceDelta=circularPhaseDelta(phase,spec.start);
+        const planted=stanceDelta<WALK_EXAMPLE_STANCE-1e-8;
+        let target;
+        if(planted){
+          target={x:anchorX-stanceDelta*stride,y:0};
+        } else {
+          const release=(spec.start+WALK_EXAMPLE_STANCE)%1;
+          const t=clamp(circularPhaseDelta(phase,release)/swing,0,1);
+          const eased=t*t*(3-2*t);
+          target={x:lerp(endX,anchorX,eased),y:Math.sin(Math.PI*t)*spec.lift};
+        }
+
+        // Solve once through the real runtime geometry, then convert the solved
+        // joint angles back into FK deltas. This makes Reload Example Walk fit
+        // the currently saved rest rig rather than assuming legacy proportions.
+        const probe=clone(pose);
+        probe[`${prefix}IkX`]=target.x;probe[`${prefix}IkY`]=target.y;
+        probe[`${prefix}IkWeight`]=1;probe[`${prefix}Planted`]=false;
+        const solved=geometry(probe,rest);
+        const root=solved[`${spec.full}Root`],joint=solved[`${spec.full}Knee`];
+        const baseUpper=angle(rest.joints[socketId],rest.joints[kneeId]);
+        const baseLower=angle(rest.joints[kneeId],rest.joints[pawId]);
+        pose[`${prefix}Upper`]=wrapAngle(angle(root,joint)-baseUpper-pose.bodyPitch);
+        pose[`${prefix}Lower`]=wrapAngle(angle(joint,solved[`${spec.full}Paw`])-baseLower-pose.bodyPitch);
+        pose[`${prefix}IkX`]=anchorX;pose[`${prefix}IkY`]=0;
+        pose[`${prefix}IkWeight`]=planted?1:0;
+        pose[`${prefix}PlantPhase`]=spec.start;
+        pose[`${prefix}Planted`]=planted;
+      }
+      return {frame:template.frame,name:template.name,pose};
+    });
+  }
+  function buildExampleWalkFrames(restRig=activeRestRig,strideLocal=WALK_STRIDE_WORLD/2.31){
+    return runtimeFramesFromWalkKeys(buildExampleWalkKeys(restRig,strideLocal),strideLocal);
+  }
+
   function restGeometry(restRig = activeRestRig) {
     const rest=normalizedRestRig(restRig);
     const out={};
@@ -510,7 +679,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.153',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.154',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES

@@ -14496,7 +14496,7 @@ body[data-game-id="game-17"] .animlab-reference-playback[hidden]{display:none!im
   body[data-game-id="game-17"] .animlab-viewport-pad-host{width:120px;height:82px;right:8px;bottom:8px;}
 }
 
-/* SideScroll v1.0.153 — Anim Lab Stage 4 paw contact / IK diagnostics. */
+/* SideScroll v1.0.154 — Anim Lab example walk + Stage 4 paw contact / IK diagnostics. */
 body[data-game-id="game-17"] .animlab-four{grid-template-columns:repeat(4,minmax(0,1fr));}
 body[data-game-id="game-17"] .animlab-contact-note{
   margin:0;font-size:7px;line-height:1.4;color:rgba(238,243,241,.58);
@@ -14512,6 +14512,7 @@ body[data-game-id="game-17"] .animlab-contact-actions button{
   min-width:0;min-height:29px;padding:4px 6px;border:1px solid rgba(238,243,241,.14);border-radius:8px;
   background:rgba(255,255,255,.04);color:#dce7e3;font:850 6.8px/1.1 system-ui,-apple-system,sans-serif;
 }
+body[data-game-id="game-17"] .animlab-contact-actions .animlab-contact-example{grid-column:1/-1;}
 body[data-game-id="game-17"] .animlab-contact-actions button.active,
 body[data-game-id="game-17"] .animlab-ground-motion-section button.active{
   border-color:rgba(126,216,199,.55);background:rgba(118,158,149,.24);color:#d8f3eb;
