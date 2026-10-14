@@ -142,6 +142,9 @@
       collider:() => FoxRig.loadCollider(),
       normaliseCollider:value => FoxRig.normalizedCollider(value),
       saveCollider:value => FoxRig.saveCollider(value),
+      loadRestRig:() => FoxRig.loadRestRig(),
+      normaliseRestRig:value => FoxRig.normalizedRestRig(value),
+      saveRestRig:value => FoxRig.saveRestRig(value),
       scope:'Fox clips are stored separately in Anim Lab; gameplay clip integration is deliberately deferred.'
     }
   };
@@ -156,13 +159,18 @@
     const character = characterById(characterId);
     const adapter = adapters[character.family];
     const saved = setupMap[characterId] || {};
-    return {
+    const setup = {
       scale: clamp(Number(saved.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX),
       // Collider ownership remains with the existing rig family storage. This
       // prevents Hero 1/Hero 2 from showing stale per-character copies while
       // the runtime still shares one human collider.
       collider: adapter.normaliseCollider(adapter.collider())
     };
+    // Structural rest-rig data is character-definition data, not clip data and
+    // not a duplicate field in the generic Setup storage. The editor receives a
+    // working copy here; only explicit Save writes the rig family's own key.
+    if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(adapter.loadRestRig());
+    return setup;
   }
 
   const banks = { human:loadHumanBank(), fox:loadFoxBank() };
@@ -287,9 +295,11 @@
   let selectedMarkers = [];
   let underlayDraw = null;
   let pluginDraw = null;
+  const pluginRenderers = new Map();
   let gesture = null;
   let pendingNavigation = null;
   let playing = false;
+  let artOpacity = 1;
   let playPhase = 0;
   let lastAnimTime = performance.now();
   let history = [];
@@ -391,7 +401,9 @@
 
   function setScopeValue(scope, value, frameIndex = selection.frame) {
     if (scope === 'setup') {
-      setupDraft = { scale:clamp(Number(value.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX), collider:currentAdapter().normaliseCollider(value.collider) };
+      const adapter = currentAdapter();
+      setupDraft = { scale:clamp(Number(value.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX), collider:adapter.normaliseCollider(value.collider) };
+      if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       return;
     }
     if (scope === 'sparseClip' || scope === 'clip') {
@@ -515,7 +527,10 @@
         const character = currentCharacter();
         const adapter = currentAdapter();
         setupDraft.collider = adapter.saveCollider(setupDraft.collider);
-        setupMap[character.id] = clone(setupDraft);
+        if (adapter.saveRestRig && setupDraft.rig) setupDraft.rig = adapter.saveRestRig(setupDraft.rig);
+        // Keep canonical rig/collider ownership with the rig-family storage; the
+        // generic Setup map only needs the per-character visual scale.
+        setupMap[character.id] = {scale:setupDraft.scale};
         localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
       } else {
         conversionPreview = null;
@@ -667,15 +682,19 @@
     ctx.drawImage(atlas,r.x,r.y,r.w,r.h,-p0.x,-p0.y,r.w,r.h); ctx.restore();
   }
 
+  function displayRestRig(adapter = currentAdapter()) {
+    return adapter.id === 'fox' && selection.mode === 'setup' ? setupDraft.rig : undefined;
+  }
+
   function drawRigArt(character, adapter, pose, sv, alpha = 1) {
     const atlas = atlases.get(character.id);
     if (!atlas) return;
     if (adapter.id === 'human' && typeof HumanRig.drawCanvas === 'function') HumanRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
-    else adapter.rig.partsForPose(pose).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
+    else adapter.rig.partsForPose(pose,displayRestRig(adapter)).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
 
   function drawBones(adapter, pose, sv, alpha = 1) {
-    const parts = adapter.rig.partsForPose(pose);
+    const parts = adapter.rig.partsForPose(pose,displayRestRig(adapter));
     ctx.save();
     ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(2,sv.scale*.012); ctx.strokeStyle=`rgba(47,61,66,${.78*alpha})`;
     for (const part of parts) {
@@ -700,7 +719,7 @@
 
   function drawPlanes(adapter, pose, sv) {
     ctx.save(); ctx.strokeStyle='rgba(102,139,133,.56)';ctx.lineWidth=Math.max(1,canvas.width*.0015);ctx.setLineDash([6,4]);
-    for (const part of adapter.rig.partsForPose(pose)) {
+    for (const part of adapter.rig.partsForPose(pose,displayRestRig(adapter))) {
       const q=transformedPlane(adapter.rig,part,sv); if(!q)continue;
       ctx.beginPath();ctx.moveTo(q[0].x,q[0].y);for(let i=1;i<q.length;i++)ctx.lineTo(q[i].x,q[i].y);ctx.closePath();ctx.stroke();
     }
@@ -752,7 +771,9 @@
     resize();
     const character=currentCharacter(),adapter=currentAdapter(),frames=displayFrames();
     const phase=playing?playPhase:selection.frame/16;
-    const pose=playing?adapter.rig.sampleFrames(frames,playPhase):currentPose();
+    const pose=selection.mode==='setup' && adapter.id==='fox' && adapter.rig.IDLE_POSE
+      ? adapter.rig.clone(adapter.rig.IDLE_POSE)
+      : (playing?adapter.rig.sampleFrames(frames,playPhase):currentPose());
     const sv=previewView(phase);
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const bg=ctx.createLinearGradient(0,0,0,canvas.height);bg.addColorStop(0,'#26333a');bg.addColorStop(1,'#11191e');ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -763,18 +784,22 @@
     if (typeof underlayDraw === 'function') underlayDraw({ctx,canvas,pose,adapter,character,view:sv,gridView,project,phase});
     drawGroundAndRuler(gridView);
     drawReference();
-    if(overlays.art) drawRigArt(character,adapter,pose,sv,.99);
+    if(overlays.art) drawRigArt(character,adapter,pose,sv,.99*artOpacity);
     if(overlays.planes) drawPlanes(adapter,pose,sv);
     if(overlays.collider) drawCollider(sv);
     if(overlays.bones) drawBones(adapter,pose,sv,1);
     drawSelectedMarkers(sv);
-    if (typeof pluginDraw === 'function') pluginDraw({ctx,canvas,pose,adapter,character,view:sv,project,phase});
+    const renderArgs={ctx,canvas,pose,adapter,character,view:sv,project,phase,restRig:displayRestRig(adapter)};
+    if (typeof pluginDraw === 'function') pluginDraw(renderArgs);
+    for (const renderer of pluginRenderers.values()) {
+      try { renderer(renderArgs); } catch (err) { console.error('[Anim Lab] Plugin renderer failed.',err); }
+    }
     updateUi(pose);
   }
 
   function updateUi(displayPose = currentPose()) {
     const character=currentCharacter(),adapter=currentAdapter(),dirty=isDirty();
-    contextEl.textContent=`${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${selection.mode==='setup'?'Setup':'Animate'}${previewApplies()?' · Preview':''}`;
+    contextEl.textContent=`${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${selection.mode==='setup'?'Rig':'Animate'}${previewApplies()?' · Preview':''}`;
     readout.textContent=playing
       ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
       : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
@@ -788,7 +813,9 @@
     modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
     viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
     scopeEl.textContent=selection.mode==='setup'
-      ? `${character.label} setup · scale is saved per character for gameplay; collider Save writes the current ${adapter.label} collider.`
+      ? (adapter.id==='fox'
+        ? `${character.label} rig · scale, collider and structural rest rig remain a working copy until Save.`
+        : `${character.label} setup · scale is saved per character for gameplay; collider Save writes the current ${adapter.label} collider.`)
       : previewApplies()
         ? `${conversionPreview.label || 'Conversion'} preview · view only until Adopt or Exit Preview.`
         : `${adapter.scope} Sparse keys compile back to the existing 16-sample contract on Save.`;
@@ -918,7 +945,7 @@
   }
 
   const api = {
-    version:'1.0.150',
+    version:'1.0.151',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
@@ -951,10 +978,18 @@
     redrawOnly:()=>draw(),
     setOverlay:(name,value)=>{if(name in overlays){overlays[name]=!!value;draw();updateUi();notify();}},
     getOverlay:name=>!!overlays[name],
+    setArtOpacity:value=>{artOpacity=clamp(Number(value)||0,0,1);draw();},
+    getArtOpacity:()=>artOpacity,
     setSelectedMarkers:markers=>{selectedMarkers=Array.isArray(markers)?markers.filter(p=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)).map(clone):[];draw();},
     setUnderlayRenderer:fn=>{underlayDraw=typeof fn==='function'?fn:null;draw();},
     setPluginRenderer:fn=>{pluginDraw=typeof fn==='function'?fn:null;draw();},
-    geometry:pose=>currentAdapter().rig.geometry(pose||currentPose()),
+    registerPluginRenderer:(id,fn)=>{
+      const key=String(id||'').trim();
+      if(!key||typeof fn!=='function')return()=>{};
+      pluginRenderers.set(key,fn);draw();
+      return()=>{if(pluginRenderers.get(key)===fn)pluginRenderers.delete(key);draw();};
+    },
+    geometry:pose=>currentAdapter().rig.geometry(pose||currentPose(),displayRestRig()),
     normalisePose:pose=>normaliseCurrentFrame(pose),
     clamp,
     fitView,

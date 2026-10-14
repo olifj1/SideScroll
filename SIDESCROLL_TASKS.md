@@ -1953,3 +1953,41 @@ The full Test/runtime-state separation, Problems UI and richer recovery workflow
 - [x] Make reference packs rig-family-aware so a future biped Walk/Run pack can use the same system.
 - [ ] On-device: align Fox Walk to the reference and review leg phasing / body rise-fall before beginning Stage 4 paw-contact IK.
 - [ ] Later: build a small biped reference pack (initially Walk + Run) and register it for the human rig family.
+
+## v1.0.151 — Anim Lab Rig Designer v1
+
+Implemented before Stage 4 after Motion Reference exposed structural Fox issues.
+
+- [x] Promote Fox rest proportions from baked constants into persisted rig-family character-definition data.
+- [x] Preserve v1.0.150 Fox geometry exactly at the new default rig so installation alone does not reshape the character.
+- [x] Add Rear Body -> Mid Root -> Front Body -> Neck -> Head structural spine.
+- [x] Add explicit Front/Rear Near/Far Socket -> Knee/Hock -> Paw rest joints.
+- [x] Preserve and expose the tail rest chain.
+- [x] Add descriptor-driven Rig Designer UI with large joint controls and direct viewport joint dragging.
+- [x] Add live joint coordinates / connected bone-length readouts.
+- [x] Add Free/X/Y, Fine, per-joint reset, paired copy, Near/Far symmetry, Paws to Ground and Reset Rig.
+- [x] Keep all rig manipulation inside Anim Lab Undo/Redo/Save/Discard transactions.
+- [x] Keep unsaved rest-rig preview inside Anim Lab; Play reads only the last saved rig.
+- [x] Keep Motion Reference usable in Rig mode with independent reference playback.
+- [x] Add independent Front Body and Rear Body lift channels to the Fox Animate control board while retaining Mid Root and whole-body pitch.
+- [x] Route direct Play and seamless Home -> Play through the v1.0.151 Fox rig code.
+- [x] Add new rig editor script to the service-worker core shell and bump shell cache revision.
+- [x] Keep current Fox clips, reference images and production artwork unchanged.
+
+On-device acceptance still required:
+
+- [ ] Joint viewport hit areas and precision pad feel comfortable on iPhone landscape.
+- [ ] One joint drag = one Undo step; pointer-cancel restores cleanly.
+- [ ] Rig-only edit immediately enables Save and persists after reopen.
+- [ ] Discard restores the previous saved rig exactly.
+- [ ] Saved sockets/limb lengths visibly affect Fox in direct Play and seamless Home -> Play.
+- [ ] Motion Reference remains useful while constructing the rest rig.
+- [ ] Existing one-piece torso limitation is understood/acceptable until the art-refit pass.
+- [ ] A2HS/offline relaunch receives `anim-lab-rig.js` after service-worker upgrade.
+
+Next after approval:
+
+- [ ] Use Walk reference to establish/approve Fox rest proportions with Rig Designer.
+- [ ] Refit/split Fox artwork over the approved rest rig where the body requires true spine articulation.
+- [ ] Then proceed to Stage 4 planted-paw/contact FK/IK tooling against the approved structure.
+- [ ] Later add a biped Rig Designer descriptor/reference pack through the same shared systems rather than creating a parallel editor.

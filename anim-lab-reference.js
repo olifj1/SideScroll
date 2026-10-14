@@ -9,7 +9,7 @@
   }
 
   const SETTINGS_KEY = 'sidescroll.animlab.reference.settings.v1';
-  const MANIFEST_URL = 'anim-reference-packs.json?v=1.0.150';
+  const MANIFEST_URL = 'anim-reference-packs.json?v=1.0.151';
   const ASSET_VERSION = '1.0.150';
   const clone = value => JSON.parse(JSON.stringify(value));
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -233,15 +233,17 @@
     return match;
   }
 
+  function linkActive(state = lastState) { return state.mode === 'animate' && !!draft?.linked; }
+
   function effectivePhase(state = lastState) {
     if (!draft) return 0;
-    return draft.linked ? wrap01((state.phase || 0) + draft.phaseOffset) : wrap01(refPhase);
+    return linkActive(state) ? wrap01((state.phase || 0) + draft.phaseOffset) : wrap01(refPhase);
   }
 
   function setReferencePhase(phase) {
     const p = wrap01(phase);
     refPlaying = false;
-    if (draft?.linked) core.setPhase(wrap01(p - draft.phaseOffset), true);
+    if (linkActive(lastState)) core.setPhase(wrap01(p - draft.phaseOffset), true);
     else {
       refPhase = p;
       render(lastState, false);
@@ -297,7 +299,7 @@
     const pack = currentPack();
     const gait = currentGait();
     if (!pack || !gait) return;
-    const p = draft.linked ? wrap01(phase + draft.phaseOffset) : wrap01(refPhase);
+    const p = linkActive(lastState) ? wrap01(phase + draft.phaseOffset) : wrap01(refPhase);
     const entry = entryForPhase(p, gait);
     const img = imageForFile(entry?.file);
     if (!img?.complete || !img.naturalWidth) {
@@ -378,7 +380,8 @@
 
   function render(state = core.getState(), rebuild = false) {
     lastState = state;
-    section.hidden = state.mode !== 'animate';
+    const rigMode = state.mode === 'setup' && !!state.rig?.RIG_DESIGNER;
+    section.hidden = state.mode !== 'animate' && !rigMode;
     if (section.hidden) return;
 
     if (registryError) {
@@ -401,7 +404,9 @@
       return;
     }
 
-    note.textContent = 'Editor-only overlay · reference settings save per character and clip and never affect gameplay rendering.';
+    note.textContent = state.mode === 'setup'
+      ? 'Editor-only proportion reference · playback is independent in Rig mode; settings still save per character and clip.'
+      : 'Editor-only overlay · reference settings save per character and clip and never affect gameplay rendering.';
     controls.hidden = false;
     const pack = currentPack(state);
     const gait = currentGait(state);
@@ -421,7 +426,8 @@
     });
 
     setButtonState(showBtn, draft.visible, 'Shown', 'Show');
-    setButtonState(linkBtn, draft.linked, 'Linked', 'Unlinked');
+    setButtonState(linkBtn, linkActive(state), 'Linked', state.mode === 'setup' ? 'Animate Link' : 'Unlinked');
+    linkBtn.disabled = state.mode === 'setup';
     setButtonState(lockBtn, draft.locked, 'Locked', 'Unlocked');
 
     setSlider(opacityInput, draft.opacity, 2);
@@ -435,12 +441,13 @@
     if (document.activeElement !== scrubInput) scrubInput.value = String(p);
     scrubInput.parentElement.querySelector('output').textContent = formatPercent(p);
     alignmentInputs.forEach(input => { input.disabled = draft.locked; });
-    playBtn.textContent = draft.linked ? (state.playing ? 'Pause' : 'Play') : (refPlaying ? 'Pause' : 'Play');
+    playBtn.textContent = linkActive(state) ? (state.playing ? 'Pause' : 'Play') : (refPlaying ? 'Pause' : 'Play');
     renderStatus(state);
   }
 
   showBtn.addEventListener('click', () => markChanged(settings => { settings.visible = !settings.visible; }, true));
   linkBtn.addEventListener('click', () => {
+    if (lastState.mode === 'setup') return;
     markChanged(settings => { settings.linked = !settings.linked; });
     refPlaying = false;
     if (!draft.linked) refPhase = wrap01((lastState.phase || 0) + draft.phaseOffset);
@@ -487,7 +494,7 @@
     setReferencePhase(target.phase);
   });
   playBtn.addEventListener('click', () => {
-    if (draft?.linked) core.setPlaying(!lastState.playing);
+    if (linkActive(lastState)) core.setPlaying(!lastState.playing);
     else {
       refPlaying = !refPlaying;
       refLastTime = performance.now();
@@ -497,6 +504,11 @@
 
   core.subscribe(state => {
     const nextKey = keyFor(state);
+    const enteringRig = lastState?.mode !== 'setup' && state.mode === 'setup' && !!state.rig?.RIG_DESIGNER;
+    if (enteringRig && draft) {
+      refPhase = wrap01((lastState?.phase || state.phase || 0) + draft.phaseOffset);
+      refPlaying = false;
+    }
     lastState = state;
     if (nextKey !== contextKey) loadContext(state);
     else render(state, false);
@@ -521,7 +533,7 @@
   function animateReference(now) {
     const dt = Math.min(80, Math.max(0, now - refLastTime));
     refLastTime = now;
-    if (refPlaying && draft?.visible && !draft.linked) {
+    if (refPlaying && draft?.visible && !linkActive(lastState)) {
       const gait = currentGait();
       const durationMs = Math.max(100, Number(gait?.durationSeconds || 1) * 1000);
       refPhase = wrap01(refPhase + dt / durationMs);

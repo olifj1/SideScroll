@@ -22,8 +22,10 @@
       {id:'hairTip',label:'Hair Bend',group:'Secondary',point:'hairTip',rotate:{key:'hairBend',min:-65*DEG,max:65*DEG}}
     ],
     fox: [
-      {id:'body',label:'Body / Root',group:'Core',point:'hip',move:{y:{key:'bodyBob',min:-.055,max:.070,sign:1}}},
-      {id:'bodyTilt',label:'Body Tilt',group:'Core',point:'shoulder',rotate:{key:'bodyPitch',min:-28*DEG,max:28*DEG}},
+      {id:'midRoot',label:'Mid Root',group:'Core',point:'midRoot',move:{y:{key:'bodyBob',min:-.055,max:.070,sign:1}}},
+      {id:'frontBody',label:'Front Body',group:'Core',point:'frontBody',move:{y:{key:'frontBodyLift',min:-.100,max:.120,sign:1}}},
+      {id:'rearBody',label:'Rear Body',group:'Core',point:'rearBody',move:{y:{key:'rearBodyLift',min:-.100,max:.120,sign:1}}},
+      {id:'bodyTilt',label:'Whole Body Tilt',group:'Core',point:'frontBody',rotate:{key:'bodyPitch',min:-28*DEG,max:28*DEG}},
       {id:'head',label:'Head / Neck',group:'Core',point:'head',rotate:{key:'headPitch',min:-35*DEG,max:35*DEG}},
       {id:'fnUpper',label:'Front Near Upper',group:'Front Near',point:'frontNearRoot',pair:'ffUpper',rotate:{key:'fnUpper',min:-80*DEG,max:80*DEG}},
       {id:'fnLower',label:'Front Near Lower',group:'Front Near',point:'frontNearKnee',pair:'ffLower',rotate:{key:'fnLower',min:-80*DEG,max:80*DEG}},
@@ -93,7 +95,7 @@
     </section>
 
     <section class="animlab-section animlab-setup-section" id="animlab-setup-section" hidden aria-labelledby="animlab-setup-title">
-      <div class="animlab-section-title" id="animlab-setup-title">Character Setup</div>
+      <div class="animlab-section-title" id="animlab-setup-title">Character Rig / Setup</div>
       <div class="animlab-setup-note" id="animlab-setup-note"></div>
       <label class="animlab-slider"><span>Scale</span><input type="range" data-setup="scale" min="0.55" max="2.25" step="0.01"><output></output></label>
       <label class="animlab-slider"><span>Collider X</span><input type="range" data-collider="offsetX" min="-0.18" max="0.18" step="0.005"><output></output></label>
@@ -169,7 +171,7 @@
   function renderSetup(state) {
     setupNote.textContent = state.family === 'human'
       ? `${state.character.label} scale is per-character and now drives gameplay size after Save. Saving the human collider still affects both Hero 1 and Hero 2 at runtime.`
-      : 'Fox scale is per-character and now drives gameplay size after Save. The fox collider keeps its own runtime storage and scales with the character.';
+      : 'Fox scale, collider and structural rest rig remain a working copy until Save. Use Rig Designer below for anatomy/proportions.';
     for (const input of sliders) {
       let value;
       if (input.dataset.setup === 'scale') value=state.setup.scale;
@@ -211,7 +213,11 @@
       if (state.mode==='setup') {
         if (!core.getOverlay('collider')) core.setOverlay('collider',true);
         if (!core.getOverlay('ground')) core.setOverlay('ground',true);
-        if (!core.getOverlay('reference')) core.setOverlay('reference',true);
+        // The legacy Hero 1 ghost is a scale-reference overlay, not Motion
+        // Reference. Keep it available for humanoid Rig work but do not force
+        // a human silhouette behind the Fox structural designer.
+        if (state.family === 'human' && !core.getOverlay('reference')) core.setOverlay('reference',true);
+        if (state.family === 'fox' && core.getOverlay('reference')) core.setOverlay('reference',false);
       }
     }
     // Character-family switches can force a different valid control. The core

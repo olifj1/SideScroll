@@ -14385,3 +14385,41 @@ body[data-game-id="game-17"] .animlab-reference-section .animlab-slider{margin-b
   body[data-game-id="game-17"] .animlab-reference-status,
   body[data-game-id="game-17"] .animlab-reference-credit{font-size:6.5px;}
 }
+
+/* SideScroll v1.0.151 — descriptor-driven Anim Lab Rig Designer.
+   Rig mode edits structural rest data; Animate continues to own clip poses. */
+body[data-game-id="game-17"] .animlab-rig-controls{gap:7px;}
+body[data-game-id="game-17"] .animlab-rig-note{margin:0;font-size:7px;line-height:1.4;color:rgba(238,243,241,.58);}
+body[data-game-id="game-17"] .animlab-rig-board{display:flex;flex-direction:column;gap:6px;}
+body[data-game-id="game-17"] .animlab-rig-group{display:flex;flex-direction:column;gap:3px;}
+body[data-game-id="game-17"] .animlab-rig-group-title{font-size:7px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8fcfc5;}
+body[data-game-id="game-17"] .animlab-rig-joints{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;}
+body[data-game-id="game-17"] .animlab-rig-joints button,
+body[data-game-id="game-17"] .animlab-rig-axis button,
+body[data-game-id="game-17"] .animlab-rig-actions button{
+  min-width:0;min-height:30px;padding:5px 6px;border:1px solid rgba(238,243,241,.14);border-radius:9px;
+  background:rgba(255,255,255,.04);color:#dce7e3;font:850 7px/1.15 system-ui,-apple-system,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-rig-joints button.is-active,
+body[data-game-id="game-17"] .animlab-rig-axis button.is-active,
+body[data-game-id="game-17"] .animlab-rig-actions button.is-active{
+  background:rgba(118,158,149,.24);border-color:rgba(172,211,200,.42);color:#c8f4e9;
+}
+body[data-game-id="game-17"] .animlab-rig-selected{display:flex;flex-direction:column;gap:3px;padding:7px;border:1px solid rgba(238,243,241,.10);border-radius:9px;background:rgba(255,255,255,.035);}
+body[data-game-id="game-17"] .animlab-rig-selected-title{font-size:9px;font-weight:900;color:#eef3f1;}
+body[data-game-id="game-17"] .animlab-rig-selected-pos,
+body[data-game-id="game-17"] .animlab-rig-lengths{font-size:7px;line-height:1.35;color:rgba(238,243,241,.58);font-variant-numeric:tabular-nums;}
+body[data-game-id="game-17"] .animlab-rig-precision{display:flex;flex-direction:column;gap:4px;}
+body[data-game-id="game-17"] .animlab-rig-axis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+body[data-game-id="game-17"] .animlab-rig-pad{min-height:94px;touch-action:none;}
+body[data-game-id="game-17"] .animlab-rig-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
+body[data-game-id="game-17"] .animlab-rig-actions .animlab-rig-ghost{grid-column:1/-1;}
+@media(max-height:390px){
+  body[data-game-id="game-17"] .animlab-rig-controls{gap:5px;}
+  body[data-game-id="game-17"] .animlab-rig-board{gap:4px;}
+  body[data-game-id="game-17"] .animlab-rig-joints{gap:3px;}
+  body[data-game-id="game-17"] .animlab-rig-joints button,
+  body[data-game-id="game-17"] .animlab-rig-axis button,
+  body[data-game-id="game-17"] .animlab-rig-actions button{min-height:27px;padding:4px 5px;}
+  body[data-game-id="game-17"] .animlab-rig-pad{min-height:82px;}
+}

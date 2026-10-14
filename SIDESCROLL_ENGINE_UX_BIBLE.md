@@ -1031,9 +1031,9 @@ Rules:
 - the Control Board exposes named anatomical controls supplied by the active rig family; large tap targets are the primary selection path, so precise viewport bone picking is not required on phone;
 - one precision-pad drag is one bounded edit transaction: pointer-down captures the original value, pointer-move previews only, pointer-up commits one Undo step, and pointer-cancel restores the original snapshot;
 - Move / Rotate, Fine and X/Y axis constraints change how the selected control is edited but do not create independent persisted state;
-- Setup owns per-character scale/reference data and rig-family collider setup. Character scale is gameplay-facing character-definition data: explicit Setup Save must persist it for the selected character and Play must apply it without changing animation channels;
+- Rig owns per-character scale/reference data, rig-family collider setup and (where supported) structural rest-rig data. The legacy internal mode key may still be `setup`. Character scale is gameplay-facing character-definition data: explicit Rig Save must persist it for the selected character and Play must apply it without changing animation channels;
 - Hero 1 ghost, ruler/ground, Bones, Art, Planes and Collider are view/reference overlays only and must never dirty authored data; Anim Lab should use the same dark panel/button/range/viewport visual grammar as Asset Lab so specialist tools feel like one editor family;
-- Setup values use the same Save/Discard/Undo transaction model as animation edits. Collider persistence may use the existing family-owned collider key only on explicit Save;
+- Rig values use the same Save/Discard/Undo transaction model as animation edits. Collider and structural-rig persistence may use family-owned keys only on explicit Save;
 - Stage 2 does not introduce sparse key poses, tweening, mirroring, IK or curve editing. Those belong to later stages and must not be smuggled into the Control Board implementation.
 
 ### Anim Lab sparse key-pose timeline rules
@@ -1071,10 +1071,32 @@ Rules:
 - linked comparison is driven by normalised cycle phase `[0,1)`, never by key number or source-image count;
 - selected reference poses retain their source phases/holds and must not be redistributed to equal timing merely because there are fewer selected images;
 - phase zero may be arbitrary. A saved Phase Offset aligns a useful source event to the authored character cycle without rewriting either sequence;
-- the reference is rendered in a dedicated underlay layer behind character art/bones and uses the world/grid view transform, so viewport zoom/pan remain coherent and character Setup scale does not silently rescale the source reference;
+- the reference is rendered in a dedicated underlay layer behind character art/bones and uses the world/grid view transform, so viewport zoom/pan remain coherent and character Rig scale does not silently rescale the source reference;
 - opacity, reference scale, X/Y placement, gait/source selection, link state, lock state and phase offset are editor working data saved per character + clip through Anim Lab's explicit Save/Discard guard;
 - reference playback position itself is transient preview state and does not dirty or persist;
 - reference settings live in their own storage namespace and must never be read by gameplay rendering;
 - large reference PNGs are cache-on-demand assets, not service-worker install-shell assets. Code/manifest remain available offline; individual gait imagery becomes offline-capable after it has been fetched once;
 - the old Hero 1 ghost is a **Scale Reference**, not a motion reference. Keep these concepts visually and architecturally distinct;
 - changes to a reference overlay and changes to authored animation should remain separately reviewable. Adding or tuning a reference pack must not modify character clips implicitly.
+
+### Anim Lab structural Rig Designer (v1.0.151)
+
+Anim Lab now distinguishes **character construction** from **animation posing**. The visible editor mode is `Rig`; the legacy internal mode key may remain `setup` for storage/compatibility, but UI and ownership should describe it as Rig.
+
+Rules:
+
+- a rest rig is gameplay-facing character-definition data. Joint/socket positions and derived bone lengths belong to the rig family and change the character globally only after explicit Rig Save;
+- animation keys never own rest-joint positions or bone lengths. Animate transforms the saved rest rig; Rig edits the structure that every clip is evaluated against;
+- the first quadruped topology is Rear Body -> Mid Root -> Front Body -> Neck -> Head, with explicit four limb sockets, knee/hock joints, paws and tail-chain points. Mid Root is a structural spine/root point, not merely an artwork pivot;
+- front and rear torso sections must remain separately poseable in Animate so chest/pelvis motion can be authored independently before IK/contact solving is added;
+- installing a structural-rig migration must preserve the previous visible/runtime geometry by default. New capability must not silently reshape an existing character before the user authors and Saves a new rest rig;
+- Rig Designer edits participate in the normal bounded working copy: pointer-down captures the pre-edit rig, move previews, pointer-up commits one Undo step, pointer-cancel restores, and Save/Discard are the only persistence boundary;
+- direct viewport joint dragging is allowed in Rig Designer, but joint hit targets stay large in screen space and the labelled Control Board remains the authoritative selection route on phone;
+- precision movement supports Free/X/Y and Fine modes. Measurement/readout values are inspection only and do not persist separately from joint positions;
+- symmetry, pair-copy, ground-contact and reset operations are explicit authored transactions and must be Undoable;
+- Motion Reference may be visible in Rig mode to help establish proportions. Its playback is independent there; linked animation playback is an Animate concept and must not rewrite or drive rig construction;
+- persisted rig preview must be editor-safe: an unsaved working rig may be shown inside Anim Lab, but Play reads the last explicitly saved rig definition;
+- Rig Designer is descriptor-driven. Each future rig family (including a biped rig) should provide joint groups, geometry point names, measured links, symmetry pairs, ground-contact points and editing bounds to the shared designer rather than forking a new tool;
+- art is a skin over the authored rig, not the source of structural truth. Existing cutout art may temporarily stretch/rotate over revised bones, but final art attachment/splitting should be performed after the rest rig is approved;
+- do not fake a mid-spine visual bend by duplicating or distorting an unsuitable single torso sprite. If the approved rig requires articulated torso bending, refit/split the artwork deliberately in the later art pass;
+- Stage 4 planted-paw FK/IK/contact solving remains separate from Rig Designer. Do not add hidden solver behaviour while structural proportions are still being established.

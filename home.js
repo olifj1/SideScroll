@@ -1,7 +1,7 @@
 (() => {
-  const VERSION = '1.0.146';
+  const VERSION = '1.0.151';
   const ASSET_VERSION = '1.0.62';
-  const PRELOAD_CACHE = 'sidescroll-runtime-v3';
+  const PRELOAD_CACHE = 'sidescroll-runtime-v5';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');
@@ -79,7 +79,7 @@
     'mountain-grass-01.png',
     'mountain-grass-02.png',
     'mountain-grass-03.png'
-  ].map(path => withVersion(path, path.startsWith('fox-')
+  ].map(path => withVersion(path, path.startsWith('fox-') && /\.(?:png|jpe?g|webp)$/i.test(path)
     ? '1.0.141'
     : (path.startsWith('mountain-')
       ? VERSION

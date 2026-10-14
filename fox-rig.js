@@ -6,10 +6,14 @@
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const lerp = (a, b, t) => a + (b - a) * t;
   const clone = obj => JSON.parse(JSON.stringify(obj));
+  const point = (x, y) => ({x:Number(x) || 0, y:Number(y) || 0});
+  const distance = (a,b) => Math.hypot(b.x-a.x,b.y-a.y);
+  const angle = (a,b) => Math.atan2(b.y-a.y,b.x-a.x);
 
-  // First-pass quadruped rig authored directly over the approved B2 fox source.
-  // Local units are intentionally much smaller than the humanoid rig so the
-  // existing SideScroll character scale renders the fox at about half-height.
+  // v1.0.150 source constants retained as the migration authority. The new
+  // rest-rig default is derived from the geometry that these constants actually
+  // generated, including the authored upper/lower segment lengths. That is
+  // intentionally different from merely copying the approximate guide points.
   const BODY = Object.freeze({
     bodyCenterX: -0.0018,
     bodyCenterY: 0.2268,
@@ -56,6 +60,130 @@
     headLength: Math.hypot(0.1607 - 0.0964, 0.3679 - 0.3071)
   });
 
+  const LEGACY_LIMBS = Object.freeze({
+    rearNear:{root:[BODY.rearNearRootX,BODY.rearNearRootY],knee:[-0.1250,0.1107],foot:[-0.1893,0.0036],upper:BODY.rearNearUpper,lower:BODY.rearNearLower},
+    rearFar:{root:[BODY.rearFarRootX,BODY.rearFarRootY],knee:[-0.0393,0.1036],foot:[-0.0393,0.0036],upper:BODY.rearFarUpper,lower:BODY.rearFarLower},
+    frontNear:{root:[BODY.frontNearRootX,BODY.frontNearRootY],knee:[0.0964,0.1071],foot:[0.0929,0.0000],upper:BODY.frontNearUpper,lower:BODY.frontNearLower},
+    frontFar:{root:[BODY.frontFarRootX,BODY.frontFarRootY],knee:[0.1393,0.1107],foot:[0.1714,0.0000],upper:BODY.frontFarUpper,lower:BODY.frontFarLower}
+  });
+
+  function legacyLimbPoints(def) {
+    const root = point(def.root[0],def.root[1]);
+    const guideKnee = point(def.knee[0],def.knee[1]);
+    const guideFoot = point(def.foot[0],def.foot[1]);
+    const upperAngle = angle(root,guideKnee);
+    const lowerAngle = angle(guideKnee,guideFoot);
+    const knee = point(root.x + Math.cos(upperAngle)*def.upper, root.y + Math.sin(upperAngle)*def.upper);
+    const paw = point(knee.x + Math.cos(lowerAngle)*def.lower, knee.y + Math.sin(lowerAngle)*def.lower);
+    return {root,knee,paw};
+  }
+
+  function buildLegacyRestRig() {
+    const rn=legacyLimbPoints(LEGACY_LIMBS.rearNear), rf=legacyLimbPoints(LEGACY_LIMBS.rearFar);
+    const fn=legacyLimbPoints(LEGACY_LIMBS.frontNear), ff=legacyLimbPoints(LEGACY_LIMBS.frontFar);
+    const tailRoot=point(BODY.tail0X,BODY.tail0Y);
+    const tail1=point(tailRoot.x+Math.cos(REST.tailAngle1)*BODY.tail1,tailRoot.y+Math.sin(REST.tailAngle1)*BODY.tail1);
+    const tail2=point(tail1.x+Math.cos(REST.tailAngle2)*BODY.tail2,tail1.y+Math.sin(REST.tailAngle2)*BODY.tail2);
+    const tailTip=point(tail2.x+Math.cos(REST.tailAngle3)*BODY.tail3,tail2.y+Math.sin(REST.tailAngle3)*BODY.tail3);
+    return {
+      schema:'sidescroll.fox.rest-rig.v2',
+      family:'quadruped',
+      joints:{
+        rearBody:point(BODY.hipX,BODY.hipY),
+        midRoot:point(BODY.bodyCenterX,BODY.bodyCenterY),
+        frontBody:point(BODY.shoulderX,BODY.shoulderY),
+        neck:point(BODY.neckX,BODY.neckY),
+        head:point(BODY.headX,BODY.headY),
+        frontNearSocket:fn.root, frontNearKnee:fn.knee, frontNearPaw:fn.paw,
+        frontFarSocket:ff.root, frontFarKnee:ff.knee, frontFarPaw:ff.paw,
+        rearNearSocket:rn.root, rearNearKnee:rn.knee, rearNearPaw:rn.paw,
+        rearFarSocket:rf.root, rearFarKnee:rf.knee, rearFarPaw:rf.paw,
+        tailRoot, tail1, tail2, tailTip
+      }
+    };
+  }
+
+  const REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v2';
+  const DEFAULT_REST_RIG = Object.freeze(buildLegacyRestRig());
+  const RIG_JOINT_IDS = Object.freeze(Object.keys(DEFAULT_REST_RIG.joints));
+
+  const RIG_DESIGNER = Object.freeze({
+    schema:'animlab.rig-designer.v1',
+    family:'quadruped',
+    bounds:Object.freeze({minX:-0.62,maxX:0.62,minY:-0.18,maxY:0.72}),
+    jointGroups:Object.freeze([
+      Object.freeze({id:'body',label:'Body / Spine',joints:Object.freeze(['rearBody','midRoot','frontBody','neck','head'])}),
+      Object.freeze({id:'frontNear',label:'Front Near',joints:Object.freeze(['frontNearSocket','frontNearKnee','frontNearPaw'])}),
+      Object.freeze({id:'frontFar',label:'Front Far',joints:Object.freeze(['frontFarSocket','frontFarKnee','frontFarPaw'])}),
+      Object.freeze({id:'rearNear',label:'Rear Near',joints:Object.freeze(['rearNearSocket','rearNearKnee','rearNearPaw'])}),
+      Object.freeze({id:'rearFar',label:'Rear Far',joints:Object.freeze(['rearFarSocket','rearFarKnee','rearFarPaw'])}),
+      Object.freeze({id:'tail',label:'Tail',joints:Object.freeze(['tailRoot','tail1','tail2','tailTip'])})
+    ]),
+    labels:Object.freeze({
+      rearBody:'Rear Body',midRoot:'Mid Root',frontBody:'Front Body',neck:'Neck',head:'Head',
+      frontNearSocket:'Socket',frontNearKnee:'Knee',frontNearPaw:'Paw',
+      frontFarSocket:'Socket',frontFarKnee:'Knee',frontFarPaw:'Paw',
+      rearNearSocket:'Socket',rearNearKnee:'Hock / Knee',rearNearPaw:'Paw',
+      rearFarSocket:'Socket',rearFarKnee:'Hock / Knee',rearFarPaw:'Paw',
+      tailRoot:'Root',tail1:'Tail 1',tail2:'Tail 2',tailTip:'Tip'
+    }),
+    boneLinks:Object.freeze([
+      Object.freeze({a:'rearBody',b:'midRoot',label:'Rear → Mid'}),
+      Object.freeze({a:'midRoot',b:'frontBody',label:'Mid → Front'}),
+      Object.freeze({a:'frontBody',b:'neck',label:'Front → Neck'}),
+      Object.freeze({a:'neck',b:'head',label:'Neck → Head'}),
+      Object.freeze({a:'frontNearSocket',b:'frontNearKnee',label:'Front Near Upper'}),
+      Object.freeze({a:'frontNearKnee',b:'frontNearPaw',label:'Front Near Lower'}),
+      Object.freeze({a:'frontFarSocket',b:'frontFarKnee',label:'Front Far Upper'}),
+      Object.freeze({a:'frontFarKnee',b:'frontFarPaw',label:'Front Far Lower'}),
+      Object.freeze({a:'rearNearSocket',b:'rearNearKnee',label:'Rear Near Upper'}),
+      Object.freeze({a:'rearNearKnee',b:'rearNearPaw',label:'Rear Near Lower'}),
+      Object.freeze({a:'rearFarSocket',b:'rearFarKnee',label:'Rear Far Upper'}),
+      Object.freeze({a:'rearFarKnee',b:'rearFarPaw',label:'Rear Far Lower'}),
+      Object.freeze({a:'tailRoot',b:'tail1',label:'Tail Base'}),
+      Object.freeze({a:'tail1',b:'tail2',label:'Tail Mid'}),
+      Object.freeze({a:'tail2',b:'tailTip',label:'Tail Tip'})
+    ]),
+    symmetryPairs:Object.freeze([
+      Object.freeze(['frontNearSocket','frontFarSocket']),
+      Object.freeze(['frontNearKnee','frontFarKnee']),
+      Object.freeze(['frontNearPaw','frontFarPaw']),
+      Object.freeze(['rearNearSocket','rearFarSocket']),
+      Object.freeze(['rearNearKnee','rearFarKnee']),
+      Object.freeze(['rearNearPaw','rearFarPaw'])
+    ]),
+    groundContacts:Object.freeze(['frontNearPaw','frontFarPaw','rearNearPaw','rearFarPaw'])
+  });
+
+  function normalizedRestRig(value = null) {
+    const raw = value?.joints && typeof value.joints === 'object' ? value.joints : {};
+    const joints = {};
+    for (const id of RIG_JOINT_IDS) {
+      const fallback = DEFAULT_REST_RIG.joints[id];
+      const candidate = raw[id];
+      const x = Number(candidate?.x), y = Number(candidate?.y);
+      joints[id] = point(Number.isFinite(x)?x:fallback.x,Number.isFinite(y)?y:fallback.y);
+    }
+    return {schema:'sidescroll.fox.rest-rig.v2',family:'quadruped',joints};
+  }
+
+  function readRestRig() {
+    try {
+      if (typeof localStorage === 'undefined') return normalizedRestRig(DEFAULT_REST_RIG);
+      return normalizedRestRig(JSON.parse(localStorage.getItem(REST_RIG_STORAGE_KEY) || 'null'));
+    } catch (_) { return normalizedRestRig(DEFAULT_REST_RIG); }
+  }
+
+  let activeRestRig = readRestRig();
+  function loadRestRig() { return clone(activeRestRig); }
+  function saveRestRig(value) {
+    const rig = normalizedRestRig(value);
+    activeRestRig = rig;
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem(REST_RIG_STORAGE_KEY,JSON.stringify(rig)); } catch (_) {}
+    return clone(rig);
+  }
+  function resetRestRig() { return normalizedRestRig(DEFAULT_REST_RIG); }
+
   const COLLIDER_STORAGE_KEY = 'sidescroll.fox.collider.v1';
   const DEFAULT_COLLIDER = Object.freeze({
     offsetX: 0.010,
@@ -84,12 +212,14 @@
   }
 
   function loadCollider() {
-    try { return normalizedCollider(JSON.parse(localStorage.getItem(COLLIDER_STORAGE_KEY) || 'null')); }
-    catch (_) { return normalizedCollider(); }
+    try {
+      if (typeof localStorage === 'undefined') return normalizedCollider();
+      return normalizedCollider(JSON.parse(localStorage.getItem(COLLIDER_STORAGE_KEY) || 'null'));
+    } catch (_) { return normalizedCollider(); }
   }
   function saveCollider(value) {
     const collider = normalizedCollider(value);
-    try { localStorage.setItem(COLLIDER_STORAGE_KEY, JSON.stringify(collider)); } catch (_) {}
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem(COLLIDER_STORAGE_KEY, JSON.stringify(collider)); } catch (_) {}
     return collider;
   }
 
@@ -120,9 +250,9 @@
     return p ? {...p} : null;
   }
 
-  function rotPoint(pt, center, angle, dx = 0, dy = 0) {
+  function rotPoint(pt, center, angleValue, dx = 0, dy = 0) {
     const x = pt.x - center.x, y = pt.y - center.y;
-    const c = Math.cos(angle), s = Math.sin(angle);
+    const c = Math.cos(angleValue), s = Math.sin(angleValue);
     return {x:center.x + x*c - y*s + dx, y:center.y + x*s + y*c + dy};
   }
 
@@ -138,12 +268,9 @@
     return {joint,target:t};
   }
 
-  const LIMBS = Object.freeze({
-    rearNear:{root:[BODY.rearNearRootX,BODY.rearNearRootY],knee:[-0.1250,0.1107],foot:[-0.1893,0.0036],upper:BODY.rearNearUpper,lower:BODY.rearNearLower},
-    rearFar:{root:[BODY.rearFarRootX,BODY.rearFarRootY],knee:[-0.0393,0.1036],foot:[-0.0393,0.0036],upper:BODY.rearFarUpper,lower:BODY.rearFarLower},
-    frontNear:{root:[BODY.frontNearRootX,BODY.frontNearRootY],knee:[0.0964,0.1071],foot:[0.0929,0.0000],upper:BODY.frontNearUpper,lower:BODY.frontNearLower},
-    frontFar:{root:[BODY.frontFarRootX,BODY.frontFarRootY],knee:[0.1393,0.1107],foot:[0.1714,0.0000],upper:BODY.frontFarUpper,lower:BODY.frontFarLower}
-  });
+  // Compatibility view of the legacy limb descriptor. Runtime geometry now uses
+  // the saved rest-rig points directly, but external code may still inspect it.
+  const LIMBS = Object.freeze(clone(LEGACY_LIMBS));
   for (const limb of Object.values(LIMBS)) {
     limb.upperAngle = Math.atan2(limb.knee[1]-limb.root[1], limb.knee[0]-limb.root[0]);
     limb.lowerAngle = Math.atan2(limb.foot[1]-limb.knee[1], limb.foot[0]-limb.knee[0]);
@@ -171,6 +298,7 @@
     return {
       name:run?'Run':'Walk',travel:phase,key:false,
       bodyBob:(run?.008:.0035)*Math.sin(phase*TAU*(run?2:4)),
+      frontBodyLift:0,rearBodyLift:0,
       bodyPitch:(run?2.5:1.2)*DEG*beat,
       headPitch:(run?-1.6:-.7)*DEG*beat,
       tailBase:(run?4.0:2.0)*DEG*Math.sin(phase*TAU+.45),
@@ -182,7 +310,7 @@
   }
 
   const IDLE_POSE = Object.freeze({
-    name:'Idle',travel:0,key:true,bodyBob:0,bodyPitch:0,headPitch:0,tailBase:0,tailMid:0,tailTip:0,
+    name:'Idle',travel:0,key:true,bodyBob:0,frontBodyLift:0,rearBodyLift:0,bodyPitch:0,headPitch:0,tailBase:0,tailMid:0,tailTip:0,
     rnUpper:0,rnLower:0,rfUpper:0,rfLower:0,fnUpper:0,fnLower:0,ffUpper:0,ffLower:0
   });
 
@@ -191,7 +319,7 @@
     const launch=[0,.55,1,.6,0,-.35,-.65,0][i];
     return {
       name:['Compress','Takeoff','Trail','Tuck','Apex','Open','Extend','Land'][i],travel:i/8,key:true,
-      bodyBob:[-.010,-.003,.008,.015,.018,.010,.000,-.010][i],
+      bodyBob:[-.010,-.003,.008,.015,.018,.010,.000,-.010][i],frontBodyLift:0,rearBodyLift:0,
       bodyPitch:[-4,3,8,5,1,-2,-4,-5][i]*DEG,
       headPitch:[2,0,-2,-3,-2,0,2,3][i]*DEG,
       tailBase:[-3,-6,-9,-5,0,5,7,2][i]*DEG,
@@ -208,7 +336,7 @@
     };
   }
 
-  const NUMERIC_KEYS=['bodyBob','bodyPitch','headPitch','tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','travel'];
+  const NUMERIC_KEYS=['bodyBob','frontBodyLift','rearBodyLift','bodyPitch','headPitch','tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','travel'];
   function blendPose(a,b,t){
     if(t<=.001)return clone(a); if(t>=.999)return clone(b);
     const out={...clone(a),name:t<.5?a.name:b.name,key:false};
@@ -243,48 +371,73 @@
     return interpolatePose(a,b,t,a.name,travelB);
   }
 
-  function geometry(pose){
+  function geometry(pose, restRig = activeRestRig){
     const p=normalizedPose(pose);
-    const c={x:BODY.bodyCenterX,y:BODY.bodyCenterY};
-    const bodyPoint=(x,y)=>rotPoint({x,y},c,p.bodyPitch,0,p.bodyBob);
-    const hip=bodyPoint(BODY.hipX,BODY.hipY),shoulder=bodyPoint(BODY.shoulderX,BODY.shoulderY);
-    const neck=bodyPoint(BODY.neckX,BODY.neckY);
-    const headAngle=REST.headAngle+p.bodyPitch+p.headPitch;
-    const head={x:neck.x+Math.cos(headAngle)*REST.headLength,y:neck.y+Math.sin(headAngle)*REST.headLength};
+    const rest=normalizedRestRig(restRig);
+    const j=rest.joints;
+    const center=j.midRoot;
+    const bodyPoint=id=>rotPoint(j[id],center,p.bodyPitch,0,p.bodyBob);
+    const shifted=(pt,dy)=>({x:pt.x,y:pt.y+dy});
 
-    function limbGeom(id,upperDelta,lowerDelta){
-      const l=LIMBS[id],root=bodyPoint(l.root[0],l.root[1]);
-      const ua=l.upperAngle+p.bodyPitch+upperDelta,la=l.lowerAngle+p.bodyPitch+lowerDelta;
-      const knee={x:root.x+Math.cos(ua)*l.upper,y:root.y+Math.sin(ua)*l.upper};
-      const foot={x:knee.x+Math.cos(la)*l.lower,y:knee.y+Math.sin(la)*l.lower};
-      return{root,knee,foot};
+    const midRoot=bodyPoint('midRoot');
+    const rearBody=shifted(bodyPoint('rearBody'),p.rearBodyLift);
+    const frontBody=shifted(bodyPoint('frontBody'),p.frontBodyLift);
+    const neck=shifted(bodyPoint('neck'),p.frontBodyLift);
+    const headBase=shifted(bodyPoint('head'),p.frontBodyLift);
+    const head=rotPoint(headBase,neck,p.headPitch);
+
+    function limbGeom(prefix,upperDelta,lowerDelta,lift){
+      const socketId=`${prefix}Socket`,kneeId=`${prefix}Knee`,pawId=`${prefix}Paw`;
+      const root=shifted(bodyPoint(socketId),lift);
+      const upperLength=distance(j[socketId],j[kneeId]);
+      const lowerLength=distance(j[kneeId],j[pawId]);
+      const upperAngle=angle(j[socketId],j[kneeId])+p.bodyPitch+upperDelta;
+      const lowerAngle=angle(j[kneeId],j[pawId])+p.bodyPitch+lowerDelta;
+      const knee={x:root.x+Math.cos(upperAngle)*upperLength,y:root.y+Math.sin(upperAngle)*upperLength};
+      const paw={x:knee.x+Math.cos(lowerAngle)*lowerLength,y:knee.y+Math.sin(lowerAngle)*lowerLength};
+      return{root,knee,paw};
     }
-    const rn=limbGeom('rearNear',p.rnUpper,p.rnLower),rf=limbGeom('rearFar',p.rfUpper,p.rfLower);
-    const fn=limbGeom('frontNear',p.fnUpper,p.fnLower),ff=limbGeom('frontFar',p.ffUpper,p.ffLower);
+    const rn=limbGeom('rearNear',p.rnUpper,p.rnLower,p.rearBodyLift);
+    const rf=limbGeom('rearFar',p.rfUpper,p.rfLower,p.rearBodyLift);
+    const fn=limbGeom('frontNear',p.fnUpper,p.fnLower,p.frontBodyLift);
+    const ff=limbGeom('frontFar',p.ffUpper,p.ffLower,p.frontBodyLift);
 
-    const tail0=bodyPoint(BODY.tail0X,BODY.tail0Y);
-    const a1=REST.tailAngle1+p.bodyPitch+p.tailBase;
-    const tail1={x:tail0.x+Math.cos(a1)*BODY.tail1,y:tail0.y+Math.sin(a1)*BODY.tail1};
-    const a2=REST.tailAngle2+p.bodyPitch+p.tailBase*.25+p.tailMid;
-    const tail2={x:tail1.x+Math.cos(a2)*BODY.tail2,y:tail1.y+Math.sin(a2)*BODY.tail2};
-    const a3=REST.tailAngle3+p.bodyPitch+p.tailMid*.20+p.tailTip;
-    const tail3={x:tail2.x+Math.cos(a3)*BODY.tail3,y:tail2.y+Math.sin(a3)*BODY.tail3};
+    const tail0=shifted(bodyPoint('tailRoot'),p.rearBodyLift);
+    const t1Len=distance(j.tailRoot,j.tail1),t2Len=distance(j.tail1,j.tail2),t3Len=distance(j.tail2,j.tailTip);
+    const a1=angle(j.tailRoot,j.tail1)+p.bodyPitch+p.tailBase;
+    const tail1={x:tail0.x+Math.cos(a1)*t1Len,y:tail0.y+Math.sin(a1)*t1Len};
+    const a2=angle(j.tail1,j.tail2)+p.bodyPitch+p.tailBase*.25+p.tailMid;
+    const tail2={x:tail1.x+Math.cos(a2)*t2Len,y:tail1.y+Math.sin(a2)*t2Len};
+    const a3=angle(j.tail2,j.tailTip)+p.bodyPitch+p.tailMid*.20+p.tailTip;
+    const tail3={x:tail2.x+Math.cos(a3)*t3Len,y:tail2.y+Math.sin(a3)*t3Len};
 
-    return {pose:p,hip,shoulder,neck,head,tail0,tail1,tail2,tail3,
-      rearNearRoot:rn.root,rearNearKnee:rn.knee,rearNearFoot:rn.foot,
-      rearFarRoot:rf.root,rearFarKnee:rf.knee,rearFarFoot:rf.foot,
-      frontNearRoot:fn.root,frontNearKnee:fn.knee,frontNearFoot:fn.foot,
-      frontFarRoot:ff.root,frontFarKnee:ff.knee,frontFarFoot:ff.foot};
+    return {pose:p,
+      rearBody,midRoot,frontBody,hip:rearBody,shoulder:frontBody,neck,head,tail0,tail1,tail2,tail3,
+      tailRoot:tail0,tailTip:tail3,
+      rearNearRoot:rn.root,rearNearSocket:rn.root,rearNearKnee:rn.knee,rearNearFoot:rn.paw,rearNearPaw:rn.paw,
+      rearFarRoot:rf.root,rearFarSocket:rf.root,rearFarKnee:rf.knee,rearFarFoot:rf.paw,rearFarPaw:rf.paw,
+      frontNearRoot:fn.root,frontNearSocket:fn.root,frontNearKnee:fn.knee,frontNearFoot:fn.paw,frontNearPaw:fn.paw,
+      frontFarRoot:ff.root,frontFarSocket:ff.root,frontFarKnee:ff.knee,frontFarFoot:ff.paw,frontFarPaw:ff.paw};
+  }
+
+  function restGeometry(restRig = activeRestRig) {
+    const rest=normalizedRestRig(restRig);
+    const out={};
+    for (const id of RIG_JOINT_IDS) out[id]=clone(rest.joints[id]);
+    return out;
   }
 
   function seg(name,a,b,layer,alpha=1){return{name,a,b,layer,alpha,kind:'segment'};}
-  function partsForPose(pose){
-    const g=geometry(pose);
+  function partsForPose(pose, restRig = activeRestRig){
+    const g=geometry(pose,restRig);
     return [
       seg('tail_tip',g.tail2,g.tail3,0,.98),seg('tail_mid',g.tail1,g.tail2,1,.99),seg('tail_base',g.tail0,g.tail1,2,1),
       seg('far_rear_upper',g.rearFarRoot,g.rearFarKnee,3,.94),seg('far_rear_lower',g.rearFarKnee,g.rearFarFoot,4,.94),
       seg('far_front_upper',g.frontFarRoot,g.frontFarKnee,5,.94),seg('far_front_lower',g.frontFarKnee,g.frontFarFoot,6,.94),
-      seg('torso',g.hip,g.shoulder,7,1),
+      // Skeleton-only spine links have no atlas rectangles and are therefore
+      // ignored by art/gameplay rendering while remaining visible in Bones.
+      seg('__rear_mid',g.rearBody,g.midRoot,6.2,1),seg('__mid_front',g.midRoot,g.frontBody,6.3,1),seg('__front_neck',g.frontBody,g.neck,6.4,1),
+      seg('torso',g.rearBody,g.frontBody,7,1),
       seg('near_rear_upper',g.rearNearRoot,g.rearNearKnee,8,1),seg('near_rear_lower',g.rearNearKnee,g.rearNearFoot,9,1),
       seg('near_front_upper',g.frontNearRoot,g.frontNearKnee,10,1),seg('near_front_lower',g.frontNearKnee,g.frontNearFoot,11,1),
       seg('head_neck',g.neck,g.head,12,1)
@@ -292,8 +445,9 @@
   }
 
   window.GameHubFoxRig={
-    DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.151',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
+    REST_RIG_STORAGE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint
   };
 })();

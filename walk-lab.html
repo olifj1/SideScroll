@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#e7dbd2">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.150">
+  <link rel="stylesheet" href="style.css?v=1.0.151">
   <title>Anim Lab · SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-17">
@@ -18,7 +18,7 @@
       <button class="game-info-close" type="button" aria-label="Close instructions">×</button>
       <p class="kicker">ANIMATION TOOL</p>
       <h2 id="game-17-info-title">Anim Lab</h2>
-      <p>Preview Hero 1, Hero 2 and Fox through their own rig families. Character selection here is editor-only. Changes live in a working copy until Save; Discard restores the current checkpoint. Stage 3 adds sparse key poses. Motion Reference can overlay editor-only gait footage by normalised cycle phase; reference settings save per character/clip and never affect gameplay rendering.</p>
+      <p>Preview Hero 1, Hero 2 and Fox through their own rig families. Character selection here is editor-only. Changes live in a working copy until Save; Discard restores the current checkpoint. Rig mode owns character scale, collider and structural rest rig; Animate owns clip poses. Motion Reference can overlay editor-only gait footage by normalised cycle phase and is also available while designing a rig.</p>
     </div>
   </div>
 
@@ -56,7 +56,7 @@
             <div class="animlab-section-title" id="animlab-mode-label">Mode</div>
             <div class="animlab-segmented animlab-two" id="animlab-mode-row">
               <button type="button" data-mode="animate">Animate</button>
-              <button type="button" data-mode="setup">Setup</button>
+              <button type="button" data-mode="setup">Rig</button>
             </div>
           </section>
 
@@ -123,10 +123,11 @@
   <script src="site-config.js?v=1.0.62"></script>
   <script src="core.js?v=1.0.62"></script>
   <script src="walk-rig.js?v=1.0.144"></script>
-  <script src="fox-rig.js?v=1.0.144"></script>
-  <script src="walk-lab.js?v=1.0.150"></script>
-  <script src="anim-lab-stage2.js?v=1.0.150"></script>
-  <script src="anim-lab-stage3.js?v=1.0.145"></script>
-  <script src="anim-lab-reference.js?v=1.0.150"></script>
+  <script src="fox-rig.js?v=1.0.151"></script>
+  <script src="walk-lab.js?v=1.0.151"></script>
+  <script src="anim-lab-stage2.js?v=1.0.151"></script>
+  <script src="anim-lab-stage3.js?v=1.0.151"></script>
+  <script src="anim-lab-reference.js?v=1.0.151"></script>
+  <script src="anim-lab-rig.js?v=1.0.151"></script>
 </body>
 </html>

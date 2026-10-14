@@ -18,7 +18,7 @@
       discrete:['planted']
     },
     fox: {
-      linear:['bodyBob','travel'],
+      linear:['bodyBob','frontBodyLift','rearBodyLift','travel'],
       angular:['bodyPitch','headPitch','tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower'],
       discrete:[]
     }
