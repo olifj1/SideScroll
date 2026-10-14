@@ -13,16 +13,14 @@
   const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
   const clone = value => JSON.parse(JSON.stringify(value));
   const BASE_GAMEPLAY_SCALE = 2.31;
-  const PREF_KEY = 'sidescroll.animlab.contact-view.v1';
+  const PREF_KEY = 'sidescroll.animlab.ik-view.v2';
   const LIMBS = Object.freeze({
-    fn:{label:'Front Near',control:'fnIk',paw:'frontNearPaw',fk:'frontNearFkPaw',target:'frontNearIkTarget',pair:'ff'},
-    ff:{label:'Front Far',control:'ffIk',paw:'frontFarPaw',fk:'frontFarFkPaw',target:'frontFarIkTarget',pair:'fn'},
-    rn:{label:'Rear Near',control:'rnIk',paw:'rearNearPaw',fk:'rearNearFkPaw',target:'rearNearIkTarget',pair:'rf'},
-    rf:{label:'Rear Far',control:'rfIk',paw:'rearFarPaw',fk:'rearFarFkPaw',target:'rearFarIkTarget',pair:'rn'}
+    fn:{label:'Front Near',paw:'frontNearPaw',fk:'frontNearFkPaw',target:'frontNearIkTarget',side:'near'},
+    ff:{label:'Front Far',paw:'frontFarPaw',fk:'frontFarFkPaw',target:'frontFarIkTarget',side:'far'},
+    rn:{label:'Rear Near',paw:'rearNearPaw',fk:'rearNearFkPaw',target:'rearNearIkTarget',side:'near'},
+    rf:{label:'Rear Far',paw:'rearFarPaw',fk:'rearFarFkPaw',target:'rearFarIkTarget',side:'far'}
   });
 
-  let selectedPrefix = 'fn';
-  let weightTx = null;
   let prefs = {showGround:true,speed:1};
   try {
     const saved=JSON.parse(localStorage.getItem(PREF_KEY)||'null');
@@ -33,21 +31,12 @@
   ikSection.className='animlab-section animlab-contact-section';
   ikSection.setAttribute('aria-labelledby','animlab-contact-title');
   ikSection.innerHTML=`
-    <div class="animlab-section-title" id="animlab-contact-title">Paw Contact / IK</div>
-    <p class="animlab-contact-note">Select a paw target, pose it with the viewport drag pad, then Plant it across stance keys. FK remains underneath and IK can be blended per key.</p>
-    <div class="animlab-segmented animlab-four animlab-contact-limbs" id="animlab-contact-limbs">
-      <button type="button" data-contact-limb="fn">Front N</button>
-      <button type="button" data-contact-limb="ff">Front F</button>
-      <button type="button" data-contact-limb="rn">Rear N</button>
-      <button type="button" data-contact-limb="rf">Rear F</button>
-    </div>
-    <div class="animlab-contact-status" id="animlab-contact-status">Front Near · FK</div>
-    <label class="animlab-slider animlab-contact-weight"><span>FK / IK blend</span><input id="animlab-contact-weight" type="range" min="0" max="1" step="0.05" value="0"><output>0%</output></label>
-    <div class="animlab-contact-actions">
-      <button id="animlab-contact-capture" type="button">Capture FK → IK</button>
+    <div class="animlab-section-title" id="animlab-contact-title">Paw IK</div>
+    <p class="animlab-contact-note">Fox legs use persistent paw targets. Select a Paw Target in the Control Board, then move it with the viewport drag pad. Body motion does not carry the target with it, and there is no Plant / Release switch to key.</p>
+    <div class="animlab-contact-status" id="animlab-contact-status">Select a Paw Target in the Control Board.</div>
+    <div class="animlab-contact-actions animlab-contact-actions-simple">
+      <button id="animlab-contact-capture" type="button">Capture Current Paw</button>
       <button id="animlab-contact-ground" type="button">Target to Ground</button>
-      <button id="animlab-contact-plant" type="button">Plant from Here</button>
-      <button id="animlab-contact-release" type="button">Release Here</button>
       <button id="animlab-contact-example" class="animlab-contact-example" type="button">Reload Example Walk</button>
     </div>
   `;
@@ -57,7 +46,7 @@
   groundSection.setAttribute('aria-labelledby','animlab-ground-motion-title');
   groundSection.innerHTML=`
     <div class="animlab-section-title" id="animlab-ground-motion-title">Ground Motion</div>
-    <p class="animlab-contact-note">Editor-only moving datum for spotting paw slip. At ×1 it represents the current Fox gameplay stride; scrub or Play the main timeline to move it.</p>
+    <p class="animlab-contact-note">Editor-only moving datum for spotting paw slip. At ×1 it represents the current Fox gameplay stride. During stance, animate the paw target backwards with the ground; during swing, move it forwards and up.</p>
     <div class="animlab-segmented animlab-two">
       <button id="animlab-ground-motion-show" type="button">Moving Ground</button>
       <button id="animlab-ground-motion-reset" type="button">Speed ×1</button>
@@ -75,14 +64,9 @@
   }
 
   const $=id=>document.getElementById(id);
-  const limbButtons=[...ikSection.querySelectorAll('[data-contact-limb]')];
   const status=$('animlab-contact-status');
-  const weight=$('animlab-contact-weight');
-  const weightOut=weight.parentElement.querySelector('output');
   const captureBtn=$('animlab-contact-capture');
   const groundBtn=$('animlab-contact-ground');
-  const plantBtn=$('animlab-contact-plant');
-  const releaseBtn=$('animlab-contact-release');
   const exampleBtn=$('animlab-contact-example');
   const groundShow=$('animlab-ground-motion-show');
   const groundReset=$('animlab-ground-motion-reset');
@@ -91,9 +75,11 @@
   const groundStatus=$('animlab-ground-motion-status');
 
   function state(){ return core.getState(); }
-  function selected(){ return LIMBS[selectedPrefix]; }
-  function currentKey(st=state()){ return st.sparseClip?.keys?.find(key=>key.frame===st.frame)||null; }
   function currentAuthoringPose(){ return core.getAuthoringPose ? core.getAuthoringPose() : state().pose; }
+  function selectedPrefix(){
+    const control=controls?.getSelectedControl?.();
+    return control?.ikPrefix && LIMBS[control.ikPrefix] ? control.ikPrefix : null;
+  }
   function persistPrefs(){
     try { localStorage.setItem(PREF_KEY,JSON.stringify(prefs)); } catch (_) {}
   }
@@ -105,71 +91,32 @@
   function geometryFor(pose,st=state()){
     return st.rig?.geometry?.(pose,st.setup?.rig);
   }
-  function limbPoint(pose,property,st=state()){
-    return geometryFor(pose,st)?.[selected()?.[property]]||null;
-  }
-  function previousKey(st=state()){
-    const keys=[...(st.sparseClip?.keys||[])].sort((a,b)=>a.frame-b.frame);
-    if(!keys.length)return null;
-    const before=keys.filter(key=>key.frame<st.frame);
-    return before.length?before[before.length-1]:keys[keys.length-1];
-  }
 
-  function selectLimb(prefix){
-    if(!LIMBS[prefix])return;
-    selectedPrefix=prefix;
-    controls?.selectControl?.(LIMBS[prefix].control);
-    render(state());
-    core.redrawOnly?.();
-  }
-
-  function captureFk(){
-    const st=state();if(st.family!=='fox'||st.mode!=='animate'||st.preview)return;
-    const prefix=selectedPrefix;
-    core.edit('pose',`Capture ${selected().label} FK to IK`,pose=>{
-      const fkPose=clone(pose);fkPose[`${prefix}IkWeight`]=0;fkPose[`${prefix}Planted`]=false;
-      const g=geometryFor(fkPose,st),point=g?.[selected().paw];if(!point)return;
-      pose[`${prefix}IkX`]=point.x;pose[`${prefix}IkY`]=point.y;pose[`${prefix}IkWeight`]=1;pose[`${prefix}Planted`]=false;pose[`${prefix}PlantPhase`]=st.frame/16;
+  function captureCurrentPaw(){
+    const st=state(),prefix=selectedPrefix();
+    if(st.family!=='fox'||st.mode!=='animate'||st.preview||!prefix)return;
+    const limb=LIMBS[prefix];
+    core.edit('pose',`Capture ${limb.label} paw target`,pose=>{
+      // Force a clean FK read if this is an older pose that has never used IK.
+      const probe=clone(pose);probe[`${prefix}IkWeight`]=0;
+      const point=geometryFor(probe,st)?.[limb.paw];if(!point)return;
+      pose[`${prefix}IkX`]=point.x;pose[`${prefix}IkY`]=point.y;
+      pose[`${prefix}IkWeight`]=1;pose[`${prefix}Planted`]=false;pose[`${prefix}PlantPhase`]=0;
     });
   }
 
   function targetToGround(){
-    const st=state();if(st.family!=='fox'||st.mode!=='animate'||st.preview)return;
-    const prefix=selectedPrefix;
-    core.edit('pose',`${selected().label} IK to ground`,pose=>{
+    const st=state(),prefix=selectedPrefix();
+    if(st.family!=='fox'||st.mode!=='animate'||st.preview||!prefix)return;
+    const limb=LIMBS[prefix];
+    core.edit('pose',`${limb.label} paw target to ground`,pose=>{
       if((Number(pose[`${prefix}IkWeight`])||0)<=.0001){
-        const fkPose=clone(pose);fkPose[`${prefix}IkWeight`]=0;fkPose[`${prefix}Planted`]=false;
-        const point=geometryFor(fkPose,st)?.[selected().paw];if(point)pose[`${prefix}IkX`]=point.x;
-        pose[`${prefix}IkWeight`]=1;
+        const probe=clone(pose);probe[`${prefix}IkWeight`]=0;
+        const point=geometryFor(probe,st)?.[limb.paw];
+        if(point) pose[`${prefix}IkX`]=point.x;
       }
-      pose[`${prefix}IkY`]=0;pose[`${prefix}Planted`]=false;pose[`${prefix}PlantPhase`]=st.frame/16;
-    });
-  }
-
-  function plantFromHere(){
-    const st=state();if(st.family!=='fox'||st.mode!=='animate'||st.preview)return;
-    const prefix=selectedPrefix,prev=previousKey(st);
-    core.edit('pose',`Plant ${selected().label}`,pose=>{
-      if(prev?.pose?.[`${prefix}Planted`]){
-        pose[`${prefix}IkX`]=Number(prev.pose[`${prefix}IkX`])||0;
-        pose[`${prefix}IkY`]=Number(prev.pose[`${prefix}IkY`])||0;
-        pose[`${prefix}PlantPhase`]=Number(prev.pose[`${prefix}PlantPhase`])||0;
-      } else {
-        const display=st.pose;
-        const point=geometryFor(display,st)?.[selected().paw] || limbPoint(pose,'paw',st);
-        if(point){pose[`${prefix}IkX`]=point.x;pose[`${prefix}IkY`]=point.y;}
-        pose[`${prefix}PlantPhase`]=st.frame/16;
-      }
-      pose[`${prefix}IkWeight`]=Math.max(.001,Number(pose[`${prefix}IkWeight`])||1);
-      pose[`${prefix}Planted`]=true;
-    });
-  }
-
-  function releaseHere(){
-    const st=state();if(st.family!=='fox'||st.mode!=='animate'||st.preview)return;
-    const prefix=selectedPrefix;
-    core.edit('pose',`Release ${selected().label}`,pose=>{
-      pose[`${prefix}Planted`]=false;pose[`${prefix}IkWeight`]=0;pose[`${prefix}PlantPhase`]=st.frame/16;
+      pose[`${prefix}IkY`]=0;pose[`${prefix}IkWeight`]=1;
+      pose[`${prefix}Planted`]=false;pose[`${prefix}PlantPhase`]=0;
     });
   }
 
@@ -182,44 +129,18 @@
     if(!Array.isArray(keys)||keys.length<2)return;
     const changed=core.editSparseClip?.('Reload Fox example walk',clip=>{
       clip.source='fox-example-walk';
-      clip.foundationVersion=FoxRig.WALK_EXAMPLE_ID||'fox-walk-example-v1';
+      clip.foundationVersion=FoxRig.WALK_EXAMPLE_ID||'fox-walk-example-v3';
       clip.keys=clone(keys);
     });
     if(changed!==false){
       core.setFrame?.(0);
-      core.setHint?.('Example Walk loaded · stance uses planted IK, swing uses FK · Save to make it the authored gameplay Walk.');
+      core.setHint?.('Example Walk loaded · all four legs use persistent IK paw targets · Save to make it the authored gameplay Walk.');
     }
   }
 
-  function beginWeight(){
-    if(weightTx)return weightTx;
-    const st=state();if(st.family!=='fox'||st.mode!=='animate'||st.preview)return null;
-    weightTx=core.beginTransaction('pose',`Adjust ${selected().label} IK blend`);return weightTx;
-  }
-  function previewWeight(){
-    const tx=beginWeight();if(!tx)return;
-    const prefix=selectedPrefix,value=clamp(Number(weight.value)||0,0,1);
-    core.previewTransaction(tx,pose=>{pose[`${prefix}IkWeight`]=value;});
-  }
-  function finishWeight(cancel=false){
-    if(!weightTx)return;
-    if(cancel)core.cancelTransaction(weightTx);else{previewWeight();core.commitTransaction(weightTx);}
-    weightTx=null;
-  }
-
-  limbButtons.forEach(button=>button.addEventListener('click',()=>selectLimb(button.dataset.contactLimb)));
-  captureBtn.addEventListener('click',captureFk);
+  captureBtn.addEventListener('click',captureCurrentPaw);
   groundBtn.addEventListener('click',targetToGround);
-  plantBtn.addEventListener('click',plantFromHere);
-  releaseBtn.addEventListener('click',releaseHere);
   exampleBtn.addEventListener('click',reloadExampleWalk);
-  weight.addEventListener('pointerdown',beginWeight);
-  weight.addEventListener('input',previewWeight);
-  weight.addEventListener('pointerup',()=>finishWeight(false));
-  weight.addEventListener('change',()=>finishWeight(false));
-  weight.addEventListener('blur',()=>finishWeight(false));
-  weight.addEventListener('pointercancel',()=>finishWeight(true));
-
   groundShow.addEventListener('click',()=>{prefs.showGround=!prefs.showGround;persistPrefs();render(state());core.redrawOnly?.();});
   groundReset.addEventListener('click',()=>{prefs.speed=1;groundSpeed.value='1';persistPrefs();render(state());core.redrawOnly?.();});
   groundSpeed.addEventListener('input',()=>{prefs.speed=clamp(Number(groundSpeed.value)||1,.5,1.5);persistPrefs();render(state());core.redrawOnly?.();});
@@ -249,48 +170,47 @@
 
   function drawIkTargets({ctx,pose,adapter,view,project,restRig}){
     if(adapter.id!=='fox'||state().mode!=='animate')return;
-    const g=adapter.rig.geometry(pose,restRig);
+    const g=adapter.rig.geometry(pose,restRig),activePrefix=selectedPrefix();
     ctx.save();
     for(const [prefix,limb] of Object.entries(LIMBS)){
       const w=clamp(Number(pose[`${prefix}IkWeight`])||0,0,1);if(w<=.001)continue;
-      const target=g?.[limb.target],paw=g?.[limb.paw];if(!target||!paw)continue;
-      const t=project(target,view),p=project(paw,view),active=prefix===selectedPrefix;
-      ctx.strokeStyle=active?'rgba(126,216,199,.95)':'rgba(143,207,197,.52)';ctx.lineWidth=active?2.4:1.5;
-      ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.setLineDash([]);
+      const target=g?.[limb.target];if(!target)continue;
+      const t=project(target,view),active=prefix===activePrefix;
+      const far=limb.side==='far';
+      ctx.strokeStyle=active
+        ? (far?'rgba(218,224,225,.98)':'rgba(126,216,199,.98)')
+        : (far?'rgba(190,199,201,.62)':'rgba(126,216,199,.52)');
+      ctx.lineWidth=active?2.4:1.5;
       ctx.beginPath();ctx.arc(t.x,t.y,active?8:6,0,Math.PI*2);ctx.stroke();
-      if(currentAuthoringPose()?.[`${prefix}Planted`]){
-        ctx.fillStyle='rgba(126,216,199,.85)';ctx.fillRect(t.x-3,t.y-12,6,5);
-      }
+      ctx.beginPath();ctx.moveTo(t.x-4,t.y);ctx.lineTo(t.x+4,t.y);ctx.moveTo(t.x,t.y-4);ctx.lineTo(t.x,t.y+4);ctx.stroke();
     }
     ctx.restore();
   }
 
   core.registerUnderlayRenderer?.('fox-ground-motion',drawMovingGround);
-  core.registerPluginRenderer?.('fox-paw-contact',drawIkTargets);
+  core.registerPluginRenderer?.('fox-paw-ik',drawIkTargets);
 
   function render(st=state()){
     const visible=st.family==='fox'&&st.mode==='animate';
     ikSection.hidden=!visible;groundSection.hidden=!visible;
     if(!visible)return;
 
-    const selectedControl=controls?.getSelectedControl?.();
-    if(selectedControl?.ikPrefix&&LIMBS[selectedControl.ikPrefix]) selectedPrefix=selectedControl.ikPrefix;
-    const author=currentAuthoringPose(),prefix=selectedPrefix,key=currentKey(st);
-    const w=clamp(Number(author?.[`${prefix}IkWeight`])||0,0,1),planted=!!author?.[`${prefix}Planted`];
-    limbButtons.forEach(button=>{const active=button.dataset.contactLimb===prefix;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});
-    if(document.activeElement!==weight)weight.value=String(w);
-    weightOut.textContent=`${Math.round(w*100)}%`;
-    const keyText=key?'KEY':'TWEEN';
-    status.textContent=`${selected().label} · ${keyText} · ${planted?'PLANTED':w>.001?'IK':'FK'}${planted?' · anchor '+(Number(author?.[`${prefix}PlantPhase`])||0).toFixed(3):''}`;
-    plantBtn.classList.toggle('active',planted);releaseBtn.disabled=!planted&&w<=.001;
-    captureBtn.disabled=!!st.preview;groundBtn.disabled=!!st.preview;plantBtn.disabled=!!st.preview;weight.disabled=!!st.preview;
-    exampleBtn.hidden=st.clip!=='walk';
-    exampleBtn.disabled=!!st.preview||st.clip!=='walk';
+    const prefix=selectedPrefix(),key=st.sparseClip?.keys?.find(item=>item.frame===st.frame)||null;
+    if(prefix){
+      const author=currentAuthoringPose(),active=(Number(author?.[`${prefix}IkWeight`])||0)>.001;
+      status.textContent=`${LIMBS[prefix].label} Paw Target · ${key?'KEY':'TWEEN'} · ${active?'IK active':'move/capture to activate'}`;
+    } else {
+      status.textContent='Select a Paw Target in the Control Board. The same right-thumb drag pad moves it.';
+    }
+    captureBtn.disabled=!!st.preview||!prefix;groundBtn.disabled=!!st.preview||!prefix;
+    exampleBtn.hidden=st.clip!=='walk';exampleBtn.disabled=!!st.preview||st.clip!=='walk';
 
     groundShow.classList.toggle('active',prefs.showGround);groundShow.setAttribute('aria-pressed',String(prefs.showGround));
     groundSpeed.value=String(prefs.speed);groundSpeedOut.textContent=`×${prefs.speed.toFixed(2)}`;
     const stride=strideLocal(st);
-    groundStatus.textContent=st.clip==='jump'?'Jump has no locomotion ground stride; the datum remains static.':`${st.clip==='run'?'Run':'Walk'} · ${stride.toFixed(3)} rig units/cycle at Scale ${Number(st.setup?.scale||1).toFixed(2)} · display ×${prefs.speed.toFixed(2)}`;
+    groundStatus.textContent=st.clip==='jump'
+      ? 'Jump has no locomotion ground stride; the datum remains static.'
+      : `${st.clip==='run'?'Run':'Walk'} · ${stride.toFixed(3)} rig units/cycle at Scale ${Number(st.setup?.scale||1).toFixed(2)} · display ×${prefs.speed.toFixed(2)}`;
   }
 
   core.subscribe(st=>render(st));

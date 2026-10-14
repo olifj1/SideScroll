@@ -343,7 +343,7 @@
 
   const IK_PREFIXES=Object.freeze(['fn','ff','rn','rf']);
   const IK_NUMERIC_KEYS=IK_PREFIXES.flatMap(prefix=>[
-    `${prefix}IkX`,`${prefix}IkY`,`${prefix}IkWeight`,`${prefix}PlantPhase`
+    `${prefix}IkX`,`${prefix}IkY`,`${prefix}IkWeight`
   ]);
   const NUMERIC_KEYS=[
     'bodyBob','frontBodyLift','rearBodyLift','bodyPitch','headPitch','tailBase','tailMid','tailTip',
@@ -365,21 +365,9 @@
     if(t<=.001)return clone(a); if(t>=.999)return clone(b);
     const out={...clone(a),name:t<.5?a.name:b.name,key:false};
     for(const k of NUMERIC_KEYS) out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
-    for(const prefix of IK_PREFIXES){
-      const plantKey=`${prefix}Planted`;
-      const aPlant=!!a?.[plantKey];
-      out[plantKey]=aPlant;
-      if(aPlant){
-        out[`${prefix}IkX`]=Number(a?.[`${prefix}IkX`])||0;
-        out[`${prefix}IkY`]=Number(a?.[`${prefix}IkY`])||0;
-        out[`${prefix}PlantPhase`]=Number(a?.[`${prefix}PlantPhase`])||0;
-        // A Release key owns the instant contact ends. Do not fade the IK
-        // weight early merely because the following key is released. Authors
-        // can still make a deliberate soft stance by adding another planted
-        // key with a lower blend before Release.
-        if(!b?.[plantKey]) out[`${prefix}IkWeight`]=Number(a?.[`${prefix}IkWeight`])||0;
-      }
-    }
+    // v1.0.156: Plant/Release is no longer an authoring state. Paw targets are
+    // ordinary persistent IK channels that interpolate just like body motion.
+    for(const prefix of IK_PREFIXES){out[`${prefix}Planted`]=false;out[`${prefix}PlantPhase`]=0;}
     return out;
   }
   function interpolatePose(a,b,t,name,travelB=b.travel){
@@ -394,10 +382,9 @@
     }
     return out;
   }
-  const WALK_EXAMPLE_ID = 'fox-walk-example-v2';
-  // Eight deliberately readable walk keys: stance paws are IK-planted; swing
-  // paws are FK-authored. Body/head/tail channels are intentionally present so
-  // the clip is a working Anim Lab teaching example rather than a leg-only test.
+  const WALK_EXAMPLE_ID = 'fox-walk-example-v3';
+  // Eight readable body/head/tail templates. v1.0.156 rebuilds every leg as a
+  // continuously active paw IK target; there is no stance/swing mode switch.
   const WALK_EXAMPLE_KEYS = Object.freeze([
   {
     "frame": 0,
@@ -777,34 +764,34 @@
         const travelB=(wraps||bf<0||af>=16)?(Number(after.pose.travel)||0)+1:Number(after.pose.travel)||0;
         pose=interpolatePose(before.pose,after.pose,t,`${before.name} → ${after.name}`,travelB);
       }
-      const phase=frame/16;
-      for(const prefix of IK_PREFIXES){
-        if(pose[`${prefix}Planted`]&&(Number(pose[`${prefix}IkWeight`])||0)>.0001){
-          pose[`${prefix}IkX`]=(Number(pose[`${prefix}IkX`])||0)-circularPhaseDelta(phase,Number(pose[`${prefix}PlantPhase`])||0)*strideLocal;
-        }
-        pose[`${prefix}Planted`]=false;
-      }
+      for(const prefix of IK_PREFIXES){pose[`${prefix}Planted`]=false;pose[`${prefix}PlantPhase`]=0;}
       pose.key=frame%2===0;out.push(pose);
     }
     return out;
   }
-  const DEFAULT_FRAMES=runtimeFramesFromWalkKeys(WALK_EXAMPLE_KEYS);
+  const WALK_EXAMPLE_DEFAULT_KEYS=buildExampleWalkKeys(DEFAULT_REST_RIG,WALK_STRIDE_WORLD/2.31);
+  const DEFAULT_FRAMES=runtimeFramesFromWalkKeys(WALK_EXAMPLE_DEFAULT_KEYS);
   const RUN_FRAMES=Array.from({length:16},(_,i)=>({...locomotionPose(i/16,'run'),key:i%2===0}));
   const JUMP_FRAMES=buildFramesFromKeys(Array.from({length:8},(_,i)=>jumpKey(i)));
 
   function normalizedPose(p,i=0){
     const d=DEFAULT_FRAMES[i%16];
     const out={...clone(d),...clone(p||{}),key:i%2===0};
+    const supplied=(p&&typeof p==='object')?p:null;
     for(const prefix of IK_PREFIXES){
       const point=defaultIkPoint(prefix);
-      const xKey=`${prefix}IkX`,yKey=`${prefix}IkY`,wKey=`${prefix}IkWeight`,phaseKey=`${prefix}PlantPhase`;
+      const xKey=`${prefix}IkX`,yKey=`${prefix}IkY`,wKey=`${prefix}IkWeight`;
+      // Do not let legacy Run/Jump poses inherit the Walk's active targets just
+      // because DEFAULT_FRAMES is the normalisation template.
+      if(supplied && !Object.prototype.hasOwnProperty.call(supplied,xKey)) out[xKey]=point.x;
+      if(supplied && !Object.prototype.hasOwnProperty.call(supplied,yKey)) out[yKey]=point.y;
+      if(supplied && !Object.prototype.hasOwnProperty.call(supplied,wKey)) out[wKey]=0;
       if(!Number.isFinite(Number(out[xKey]))) out[xKey]=point.x;
       if(!Number.isFinite(Number(out[yKey]))) out[yKey]=point.y;
       if(!Number.isFinite(Number(out[wKey]))) out[wKey]=0;
-      if(!Number.isFinite(Number(out[phaseKey]))) out[phaseKey]=0;
       out[wKey]=clamp(Number(out[wKey])||0,0,1);
-      out[phaseKey]=((Number(out[phaseKey])%1)+1)%1;
-      out[`${prefix}Planted`]=!!out[`${prefix}Planted`];
+      out[`${prefix}PlantPhase`]=0;
+      out[`${prefix}Planted`]=false;
     }
     for(const k of NUMERIC_KEYS) if(!Number.isFinite(Number(out[k]))) out[k]=Number(d[k])||0;
     return out;
@@ -889,60 +876,42 @@
   }
 
 
-  const WALK_EXAMPLE_LIMBS = Object.freeze({
-    rn:Object.freeze({full:'rearNear',start:0.00,lift:.050}),
-    fn:Object.freeze({full:'frontNear',start:0.25,lift:.055}),
-    rf:Object.freeze({full:'rearFar',start:0.50,lift:.046}),
-    ff:Object.freeze({full:'frontFar',start:0.75,lift:.052})
-  });
-  const WALK_EXAMPLE_STANCE = .625;
-  function wrapAngle(value){
-    let a=Number(value)||0;
-    while(a>Math.PI)a-=TAU;
-    while(a<-Math.PI)a+=TAU;
-    return a;
-  }
   function buildExampleWalkKeys(restRig=activeRestRig,strideLocal=WALK_STRIDE_WORLD/2.31){
     const rest=normalizedRestRig(restRig);
     const stride=Math.max(.001,Number(strideLocal)||WALK_STRIDE_WORLD/2.31);
-    const swing=1-WALK_EXAMPLE_STANCE;
+    const stance=.625,swing=1-stance;
+    const limbs={
+      rn:{full:'rearNear',start:0.00,lift:.050},
+      fn:{full:'frontNear',start:0.25,lift:.055},
+      rf:{full:'rearFar',start:0.50,lift:.046},
+      ff:{full:'frontFar',start:0.75,lift:.052}
+    };
     return WALK_EXAMPLE_KEYS.map(template=>{
       const phase=template.frame/16;
       const pose=clone(template.pose);
-      for(const [prefix,spec] of Object.entries(WALK_EXAMPLE_LIMBS)){
-        const socketId=`${spec.full}Socket`,kneeId=`${spec.full}Knee`,pawId=`${spec.full}Paw`;
-        const socket=rest.joints[socketId];
-        const sweep=WALK_EXAMPLE_STANCE*stride;
-        const anchorX=socket.x+sweep*.54;
-        const endX=anchorX-sweep;
-        const stanceDelta=circularPhaseDelta(phase,spec.start);
-        const planted=stanceDelta<WALK_EXAMPLE_STANCE-1e-8;
+      for(const [prefix,spec] of Object.entries(limbs)){
+        const socket=rest.joints[`${spec.full}Socket`];
+        const sweep=stance*stride;
+        const contactX=socket.x+sweep*.54;
+        const releaseX=contactX-sweep;
+        const delta=circularPhaseDelta(phase,spec.start);
         let target;
-        if(planted){
-          target={x:anchorX-stanceDelta*stride,y:0};
+        if(delta<stance-1e-8){
+          // Stance is simply an authored target travelling backwards with the
+          // ground. Because the target is independent from the torso, body
+          // bob/lift can be edited later without dragging the paw with it.
+          target={x:contactX-delta*stride,y:0};
         } else {
-          const release=(spec.start+WALK_EXAMPLE_STANCE)%1;
+          const release=(spec.start+stance)%1;
           const t=clamp(circularPhaseDelta(phase,release)/swing,0,1);
           const eased=t*t*(3-2*t);
-          target={x:lerp(endX,anchorX,eased),y:Math.sin(Math.PI*t)*spec.lift};
+          target={x:lerp(releaseX,contactX,eased),y:Math.sin(Math.PI*t)*spec.lift};
         }
-
-        // Solve once through the real runtime geometry, then convert the solved
-        // joint angles back into FK deltas. This makes Reload Example Walk fit
-        // the currently saved rest rig rather than assuming legacy proportions.
-        const probe=clone(pose);
-        probe[`${prefix}IkX`]=target.x;probe[`${prefix}IkY`]=target.y;
-        probe[`${prefix}IkWeight`]=1;probe[`${prefix}Planted`]=false;
-        const solved=geometry(probe,rest);
-        const root=solved[`${spec.full}Root`],joint=solved[`${spec.full}Knee`];
-        const baseUpper=angle(rest.joints[socketId],rest.joints[kneeId]);
-        const baseLower=angle(rest.joints[kneeId],rest.joints[pawId]);
-        pose[`${prefix}Upper`]=wrapAngle(angle(root,joint)-baseUpper-pose.bodyPitch);
-        pose[`${prefix}Lower`]=wrapAngle(angle(joint,solved[`${spec.full}Paw`])-baseLower-pose.bodyPitch);
-        pose[`${prefix}IkX`]=anchorX;pose[`${prefix}IkY`]=0;
-        pose[`${prefix}IkWeight`]=planted?1:0;
-        pose[`${prefix}PlantPhase`]=spec.start;
-        pose[`${prefix}Planted`]=planted;
+        pose[`${prefix}IkX`]=target.x;
+        pose[`${prefix}IkY`]=target.y;
+        pose[`${prefix}IkWeight`]=1;
+        pose[`${prefix}PlantPhase`]=0;
+        pose[`${prefix}Planted`]=false;
       }
       return {frame:template.frame,name:template.name,pose};
     });
@@ -976,7 +945,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.155',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.156',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES

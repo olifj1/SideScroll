@@ -1137,24 +1137,22 @@ Rules:
 - v1.0.153 adds the bounded Stage 4 paw-contact layer described below; the v1.0.152 fallback/Save boundary remains unchanged.
 
 
-### Anim Lab Stage 4 paw-contact FK/IK (v1.0.153)
+### Anim Lab paw IK authoring (v1.0.156 current rule)
 
-Stage 4 adds a bounded quadruped contact-authoring layer on top of the existing sparse key poses and rest rig. It is not a general constraint graph, physics solver or curve editor.
+The first Stage 4 contact pass introduced FK/IK blend plus Plant/Release ownership. On-device use showed that this added too much state for the actual production goal: match a paw trajectory to reference, then animate the body independently without dragging the paw with it. v1.0.156 therefore supersedes the Plant/Release authoring model with persistent paw IK.
 
 Rules:
 
-- FK remains the underlying authored limb pose. Each paw has an IK target plus a 0–1 blend weight; a weight of zero must reproduce the pre-Stage-4 FK result exactly.
-- Existing/saved clips that predate Stage 4 acquire no contact behaviour implicitly. New IK channels normalise to zero weight and therefore cannot reshape a character merely by loading the new code.
-- **Capture FK → IK** must initialise a target from the current FK endpoint so enabling full IK can begin without a visible pop.
-- Two-bone IK must preserve the rest-rig upper/lower segment lengths. When both mathematical bend solutions are valid, prefer the solution nearest the current FK knee/hock so ordinary target drags do not flip the limb unexpectedly.
-- Plant ownership is authored on sparse key poses. A planted key owns its ground anchor forward until the next authored key changes/releases that contact; intermediate runtime samples may not invent new anchor ownership.
-- A release key owns the exact contact boundary: a planted interval must not begin fading merely because the following key is released. Moving a key that owns the start of a plant moves that start phase with it; continuation keys retain the original anchor phase.
-- Keep the authored **ground anchor** separate from the phase-resolved local IK target. Ground/stride compensation is a derived evaluation step and must never overwrite the saved anchor just because the user scrubs, plays or creates a tweened preview.
-- At the current v1 boundary, planted locomotion compensates the expected gameplay stride in rig-local X while retaining the authored contact Y. This is an animation-authoring/contact system, not terrain-aware runtime foot placement.
-- Anim Lab may compile the sparse contact state into the existing 16-sample Fox runtime bank by storing phase-resolved IK target/weight samples. Play remains compatible with the same clip-bank contract; missing/invalid saved clips still fall back to built-in Fox clips.
-- Fox runtime geometry may solve those sampled IK targets continuously between samples, but it must not mutate clip storage or rest-rig data during gameplay.
-- Fox near/far mirror and cycle-phase operations must carry contact metadata with the matching limb. Any conversion/reduction tool that cannot preserve plant ownership exactly must disable itself rather than silently flatten the contacts.
-- The **Ground Motion** plane is editor-only diagnostic UI. At ×1 it should represent the current Walk/Run gameplay stride relative to the saved Fox scale; visibility and temporary speed multiplier are preferences only and may never dirty authored data or enter Undo history.
-- Changing Fox character scale changes the rig-local distance required to counter a fixed world stride. Editor previews should refresh immediately; gameplay contact samples are rewritten only on the next explicit Animate Save, preserving the Save boundary.
-- Paw target manipulation reuses the Control Board + viewport precision-pad transaction rules: one continuous drag is one Undo action; pointer-cancel restores the original key/pose state.
-- Stage 4 v1 deliberately stops at four paw targets, FK/IK blend, Plant/Release, ground anchoring and the motion-plane diagnostic. Do not add graph curves, generalized constraints, automatic terrain adaptation or full-body IK without a demonstrated production need.
+- for Fox locomotion authoring, the normal leg control is a **persistent Paw Target**; authors do not key an FK/IK mode switch, Plant flag, Release flag or blend value during ordinary posing;
+- moving a Paw Target automatically enables IK for that pose. If an older pose is still FK-only, the first Paw Target drag captures the current FK endpoint before movement so the limb does not pop;
+- the Paw Target lives independently from Front Body / Mid Root / Rear Body motion. Moving the torso should solve the limb back to the same target while it remains reachable; if the target exceeds the two-bone reach, the solver clamps only to the nearest reachable point rather than stretching bone lengths;
+- stance is authored by moving the Paw Target backwards along the ground at the same apparent rate as the ×1 Ground Motion datum; swing is authored by moving that same target forwards and upward. This is one continuous target trajectory, not a contact-state machine;
+- **Ground Motion** remains editor-only diagnostic UI. At ×1 it represents the current Walk/Run gameplay stride relative to saved Fox scale; its visibility and temporary speed multiplier never dirty animation data, enter Undo history or affect gameplay;
+- two-bone IK preserves saved rest-rig upper/lower bone lengths and uses an explicit rig-family bend branch for each limb so front knees and rear hocks do not switch between the two mathematical solutions from sample to sample;
+- the old upper/lower FK channels remain in saved/runtime data for compatibility, but the normal Fox Control Board no longer presents them as the primary locomotion workflow. The visible limb-authoring control is the Paw Target;
+- sparse keys interpolate Paw Target X/Y like ordinary animation channels and compile into the existing 16-sample Fox runtime bank. Play consumes the same saved bank/fallback contract as before;
+- near/far readability is part of the rig-family visual language: near-side limb controls/bones use the stronger accent, far-side limbs use a lighter neutral grey, and selection highlight sits on top of that distinction;
+- Rig mode uses the same phone interaction grammar as Animate: select a labelled joint in the left drawer and manipulate it immediately with the bottom-right viewport drag pad. Do not place the primary precision pad below a long scrolling inspector;
+- one continuous Paw Target or Rig-joint drag is one Undo action; pointer-cancel restores the pre-drag value and Save/Discard remain the persistence boundary;
+- v1.0.156 deliberately stops at four paw targets plus the moving-ground diagnostic. Do not reintroduce Plant/Release, graph curves, generalized constraints, terrain-aware automatic foot placement or full-body IK unless a concrete production problem demonstrates the need.
+

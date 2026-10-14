@@ -2033,12 +2033,12 @@ Bounded Stage 4 implementation. This adds useful quadruped contact authoring wit
 On-device acceptance required:
 
 - [ ] Select each Paw IK Target with the left thumb and move it using the viewport pad with the right thumb; confirm the limb does not flip unexpectedly near normal reachable poses.
-- [ ] Capture FK → IK at 100% on all four paws and confirm there is no visible pop at the capture frame.
-- [ ] Author a simple Walk stance: Plant one paw on a key, keep/continue it planted through the next stance key, then Release. Play/scrub and confirm the paw stays visually fixed against the ×1 moving-ground marks while the body passes over it.
-- [ ] Repeat with body bob / Front Body / Rear Body edits while a paw is planted; confirm the leg solves to the fixed contact rather than the paw following the torso.
-- [ ] Test FK/IK blend at 0 / 50 / 100%, Undo/Redo, Discard and Save/reload.
+- [x] **Superseded by v1.0.156:** first Paw Target drag/capture activates persistent IK automatically; no author-facing blend switch remains.
+- [x] **Superseded by v1.0.156:** stance is now one continuous Paw Target trajectory against Ground Motion; there is no Plant/Release state to author.
+- [ ] v1.0.156 on-device: move Front Body / Rear Body / Mid Root while a reachable Paw Target is held; confirm the paw stays at the target and the limb solves underneath it.
+- [x] **Superseded by v1.0.156:** ordinary Fox locomotion no longer exposes a per-key FK/IK blend. Test Paw Target Undo/Redo, Discard and Save/reload instead.
 - [ ] Save a deliberately obvious IK/contact Walk, enter Play as Fox and confirm the same planted-contact behaviour is visible in gameplay.
-- [ ] Verify near/far Mirror Key / Mirror Clip and phase-shift tools remain predictable on a clip containing contacts.
+- [ ] v1.0.156 on-device: verify near/far Mirror Key / Mirror Clip and phase-shift tools remain predictable with persistent Paw Target trajectories.
 - [ ] Confirm Ground Motion speed/visibility changes never enable Save or alter Undo history.
 - [ ] A2HS/offline relaunch receives `anim-lab-stage4.js` after the service-worker upgrade.
 
@@ -2057,8 +2057,8 @@ This pass deliberately replaces the previous experimental Fox Walk with a comple
 
 - [x] Author an eight-key Fox Walk example on frames 1/3/5/7/9/11/13/15.
 - [x] Use a four-beat Rear Near -> Front Near -> Rear Far -> Front Far walking order.
-- [x] Use planted IK for stance and FK-led swing poses, with the existing tween compiler blending into contact.
-- [x] Keep planted contacts stride-compensated so a planted paw remains fixed against the ×1 Ground Motion datum.
+- [x] Historical v1.0.154 teaching model; **superseded in v1.0.156** by persistent Paw Targets for both stance and swing.
+- [x] Historical v1.0.154 contact model; **superseded in v1.0.156** by directly authored backwards Paw Target motion against Ground Motion.
 - [x] Add visible Mid Root bob, independent Front/Rear Body lift, subtle Whole Body Tilt, Head/Neck counter-motion and three-part tail follow-through.
 - [x] Regenerate the example against the currently saved Fox rest rig and Fox Scale rather than assuming only the legacy proportions.
 - [x] Add **Reload Example Walk** as one normal Undoable Anim Lab transaction inside Save/Discard ownership.
@@ -2069,8 +2069,8 @@ This pass deliberately replaces the previous experimental Fox Walk with a comple
 On-device review:
 
 - [ ] Watch the complete example in Anim Lab with Art + Bones + Ground Motion and judge overall gait readability at iPhone landscape size.
-- [ ] Confirm planted paws visually stay on one moving-ground mark through stance while swing paws clear the ground naturally.
-- [ ] Scrub all eight key poses and verify the intended IK/FK status is understandable from the Paw Contact panel.
+- [ ] Confirm stance Paw Targets track the ×1 moving-ground marks cleanly while swing targets move forwards/up without any IK mode switch.
+- [x] **Superseded by v1.0.156:** the example no longer alternates IK/FK status; all four legs are persistent IK targets throughout the cycle.
 - [ ] Judge whether body rise/fall, chest/pelvis transfer, head counter-motion and tail lag are too subtle, too strong or about right.
 - [ ] Enter Play as Fox and confirm the example remains readable at real gameplay scale and locomotion speed.
 - [ ] After changing/approving Fox Rig proportions, use Reload Example Walk and confirm the regenerated leg poses remain sensible before doing final polish.
@@ -2094,3 +2094,30 @@ v1.0.154 on-device testing found that Front Near, Front Far and Rear Far could s
 - [x] Verify all four limbs retain one bend side across all 16 example Walk samples.
 - [ ] On-device: confirm all four knees/hocks now solve smoothly during Walk playback and scrubbing.
 - [ ] On-device: confirm corrected Walk in Play after Save.
+
+## v1.0.156 — Anim Lab persistent Paw IK + Rig two-thumb UI simplification
+
+On-device use of Stage 4 showed that the Plant/Release + FK/IK blend model added friction when the actual goal is straightforward reference matching: animate a paw trajectory, then move the body without taking that paw with it. This pass simplifies the authoring model rather than adding another system.
+
+- [x] Remove Plant/Release and author-facing FK/IK blend from the normal Fox workflow.
+- [x] Make **Paw Target** the primary visible control for each Fox leg; retain legacy upper/lower FK channels internally for compatibility rather than presenting them as the everyday locomotion controls.
+- [x] Make moving a Paw Target automatically activate IK. When an older FK-only pose is first manipulated, capture its current endpoint before movement so activation does not pop.
+- [x] Interpolate Paw Target X/Y directly through sparse keys; remove stride/contact ownership compensation from authoring and compiled-sample evaluation.
+- [x] Rebuild the example Walk so all four legs use persistent IK through both stance and swing; stance travels backwards along the ground and swing travels forwards/up.
+- [x] Bump the Walk foundation marker so the old mixed FK/IK teaching cycle cannot override the simplified example.
+- [x] Keep the explicit stable bend branch introduced in v1.0.155.
+- [x] Move the Rig Designer precision pad into the viewport bottom-right so Rig matches Animate: left-thumb selection, right-thumb manipulation.
+- [x] Differentiate near/far limbs consistently in Anim Lab: near-side controls/bones use the stronger accent; far-side controls/bones/IK targets use lighter neutral grey.
+- [x] Keep Ground Motion as the slip diagnostic; it remains preference-only and does not enter animation data/history.
+- [x] Update Engine/UX Bible so persistent Paw IK and the shared two-thumb layout are the current rules, superseding the earlier Plant/Release model.
+
+On-device acceptance:
+
+- [ ] Fox → Walk: select each Paw Target from the left drawer and move it immediately with the bottom-right viewport pad; confirm no scrolling is needed between selection and manipulation.
+- [ ] Rig mode: select sockets/knees/paws from the left drawer and use the same bottom-right viewport pad; confirm this feels equivalent to Animate.
+- [ ] Confirm near and far limbs remain immediately distinguishable when bones overlap: near = stronger accent, far = lighter grey, active selection still obvious.
+- [ ] With a Paw Target in a normal reachable position, alter Mid Root / Front Body / Rear Body and confirm the paw does not follow the torso.
+- [ ] Scrub/play the rebuilt example Walk with Ground Motion ×1 and judge foot slip by matching the target/paw movement directly to the ground marks.
+- [ ] Save the Walk, enter Play as Fox and confirm the same persistent-IK cycle is used in gameplay.
+- [ ] Confirm Undo/Redo/Discard/Save work for Paw Target and Rig-joint drags, with one continuous drag producing one history step.
+

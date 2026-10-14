@@ -339,20 +339,6 @@
       : 0;
     return strideWorld / Math.max(.001, GAMEPLAY_BASE_CHARACTER_SCALE * foxSavedSetupScale());
   }
-  function resolveFoxContactTargets(pose, frame, clipName) {
-    if (!pose || !FoxRig?.IK_PREFIXES) return pose;
-    const out = clone(pose);
-    const strideLocal = foxLocalStride(clipName);
-    const phase = (((Number(frame) || 0) / 16) % 1 + 1) % 1;
-    for (const prefix of FoxRig.IK_PREFIXES) {
-      if (!out[`${prefix}Planted`] || (Number(out[`${prefix}IkWeight`]) || 0) <= .0001) continue;
-      const anchorPhase = ((Number(out[`${prefix}PlantPhase`]) % 1) + 1) % 1;
-      const delta = ((phase - anchorPhase) % 1 + 1) % 1;
-      out[`${prefix}IkX`] = (Number(out[`${prefix}IkX`]) || 0) - delta * strideLocal;
-    }
-    return out;
-  }
-
   function evaluateSparsePose(clipData, frame, family, options = {}) {
     const adapter = adapters[family];
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
@@ -362,7 +348,6 @@
     if (exact) {
       let pose = adapter.normalise(exact.pose, f);
       pose.name = exact.name;
-      if (family === 'fox' && options.resolveContacts !== false) pose = resolveFoxContactTargets(pose,f,clipData?.clip || 'walk');
       return adapter.normalise(pose,f);
     }
     let before = null, after = null, beforeFrame = -Infinity, afterFrame = Infinity;
@@ -381,19 +366,11 @@
     const travelB = crossesSeam ? (Number(b.travel) || 0) + 1 : Number(b.travel);
     const name = `${before.name} → ${after.name}`;
     let pose = adapter.rig.interpolatePose(a,b,t,name,travelB);
-    if (family === 'fox' && options.resolveContacts !== false) pose = resolveFoxContactTargets(pose,f,clipData?.clip || 'walk');
     return adapter.normalise(pose,f);
   }
 
   function compileSparseClip(clipData, family) {
-    const frames = Array.from({length:16},(_,frame)=>evaluateSparsePose(clipData,frame,family));
-    if (family === 'fox' && FoxRig?.IK_PREFIXES) {
-      // Runtime samples already contain phase-resolved local IK targets. Strip
-      // authoring-only Plant ownership so sub-frame interpolation can smoothly
-      // interpolate those resolved targets instead of re-holding a sparse key.
-      for (const pose of frames) for (const prefix of FoxRig.IK_PREFIXES) pose[`${prefix}Planted`] = false;
-    }
-    return frames;
+    return Array.from({length:16},(_,frame)=>evaluateSparsePose(clipData,frame,family));
   }
 
   function syncCompiledClip(family, clipName) {
@@ -834,13 +811,18 @@
   function drawBones(adapter, pose, sv, alpha = 1) {
     const parts = adapter.rig.partsForPose(pose,displayRestRig(adapter));
     ctx.save();
-    ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(2,sv.scale*.012); ctx.strokeStyle=`rgba(47,61,66,${.78*alpha})`;
+    ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(2,sv.scale*.012);
     for (const part of parts) {
+      const name=String(part.name||'');
+      const near=adapter.id==='fox' && name.startsWith('near_');
+      const far=adapter.id==='fox' && name.startsWith('far_');
+      const bone=near?`rgba(126,216,199,${.92*alpha})`:far?`rgba(188,197,199,${.72*alpha})`:`rgba(220,228,225,${.76*alpha})`;
+      const jointFill=near?`rgba(31,49,50,${.96*alpha})`:far?`rgba(91,101,104,${.92*alpha})`:`rgba(245,241,236,${.94*alpha})`;
+      const jointStroke=near?`rgba(126,216,199,${.98*alpha})`:far?`rgba(206,214,216,${.92*alpha})`:`rgba(47,61,66,${.85*alpha})`;
       const A=project(part.a,sv), B=project(part.b,sv);
-      ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
-      ctx.fillStyle=`rgba(245,241,236,${.94*alpha})`; ctx.strokeStyle=`rgba(47,61,66,${.85*alpha})`;
+      ctx.strokeStyle=bone;ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+      ctx.fillStyle=jointFill;ctx.strokeStyle=jointStroke;
       ctx.beginPath(); ctx.arc(A.x,A.y,Math.max(2.5,sv.scale*.011),0,Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle=`rgba(47,61,66,${.78*alpha})`;
     }
     ctx.restore();
   }

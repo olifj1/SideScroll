@@ -27,9 +27,7 @@
         <button type="button" data-axis="y">Y only</button>
         <button type="button" data-fine="1">Fine</button>
       </div>
-      <div class="animlab-precision-pad animlab-rig-pad" role="application" aria-label="Precision rig joint drag">
-        <span>Drag selected joint</span>
-      </div>
+      <p class="animlab-rig-note">Select a joint here with the left thumb, then move it with the same bottom-right viewport pad used in Animate.</p>
     </div>
     <div class="animlab-rig-actions">
       <button type="button" data-action="copy-pair">Copy to Pair</button>
@@ -47,8 +45,15 @@
   const selectedTitle = section.querySelector('.animlab-rig-selected-title');
   const selectedPos = section.querySelector('.animlab-rig-selected-pos');
   const lengthsEl = section.querySelector('.animlab-rig-lengths');
-  const pad = section.querySelector('.animlab-rig-pad');
   const ghostButton = section.querySelector('[data-action="ghost"]');
+  const viewportPadHost = document.getElementById('animlab-viewport-pad-host');
+  const pad = document.createElement('div');
+  pad.className = 'animlab-precision-pad animlab-viewport-precision-pad animlab-rig-pad';
+  pad.setAttribute('role','application');
+  pad.setAttribute('aria-label','Precision rig joint drag');
+  pad.innerHTML = '<i class="animlab-pad-x"></i><i class="animlab-pad-y"></i><span>Drag selected joint</span>';
+  if (viewportPadHost) viewportPadHost.appendChild(pad);
+  pad.hidden = true;
 
   let selectedJoint = null;
   let axis = 'free';
@@ -132,6 +137,8 @@
     for (const group of desc?.jointGroups || []) {
       const wrap = document.createElement('div');
       wrap.className = 'animlab-rig-group';
+      if(String(group.id||'').includes('Near')) wrap.classList.add('animlab-side-near');
+      if(String(group.id||'').includes('Far')) wrap.classList.add('animlab-side-far');
       const title = document.createElement('div');
       title.className = 'animlab-rig-group-title';
       title.textContent = group.label || group.id || 'Joints';
@@ -142,6 +149,8 @@
         button.type = 'button';
         button.dataset.joint = id;
         button.textContent = labelFor(desc,id);
+        if(String(group.id||'').includes('Near')) button.classList.add('animlab-side-near');
+        if(String(group.id||'').includes('Far')) button.classList.add('animlab-side-far');
         button.addEventListener('click', () => { selectedJoint = id; renderUI(); });
         joints.appendChild(button);
       }
@@ -159,7 +168,9 @@
       lastActive = active;
       if (typeof core.setArtOpacity === 'function') core.setArtOpacity(active && ghost ? 0.28 : 1);
     }
-    if (!active) return;
+    if (!active) { pad.hidden=true; return; }
+    if (viewportPadHost) viewportPadHost.hidden=false;
+    pad.hidden=false;
 
     const desc = descriptorFor(s);
     const draft = rigDraftFor(s);
@@ -423,22 +434,24 @@
     ctx.setLineDash([]);
 
     ctx.globalAlpha=.95;
-    ctx.strokeStyle='rgba(220,228,236,.92)';
     ctx.lineWidth=Math.max(2,canvas.width/380);
+    const sideOf=id=>String(id||'').includes('Near')?'near':String(id||'').includes('Far')?'far':'';
     for (const link of desc.boneLinks || []) {
       const a=Array.isArray(link)?link[0]:link.a;
       const b=Array.isArray(link)?link[1]:link.b;
       const p0=screenPoints[a],p1=screenPoints[b];
       if (!p0||!p1) continue;
+      const side=sideOf(a)||sideOf(b);
+      ctx.strokeStyle=side==='near'?'rgba(126,216,199,.95)':side==='far'?'rgba(188,197,199,.76)':'rgba(220,228,236,.88)';
       ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
     }
 
     const r=Math.max(7,canvas.width/150);
     for (const [id,p] of Object.entries(screenPoints)) {
-      const active=id===selectedJoint;
+      const active=id===selectedJoint,side=sideOf(id);
       ctx.globalAlpha=1;
-      ctx.fillStyle=active?'rgba(255,196,92,1)':'rgba(44,54,64,.96)';
-      ctx.strokeStyle=active?'rgba(255,239,195,1)':'rgba(238,244,249,.95)';
+      ctx.fillStyle=active?'rgba(255,196,92,1)':side==='near'?'rgba(31,49,50,.98)':side==='far'?'rgba(91,101,104,.96)':'rgba(44,54,64,.96)';
+      ctx.strokeStyle=active?'rgba(255,239,195,1)':side==='near'?'rgba(126,216,199,.98)':side==='far'?'rgba(210,218,220,.96)':'rgba(238,244,249,.95)';
       ctx.lineWidth=Math.max(2,canvas.width/520);
       ctx.beginPath();ctx.arc(p.x,p.y,active?r*1.25:r,0,Math.PI*2);ctx.fill();ctx.stroke();
       if (active) {

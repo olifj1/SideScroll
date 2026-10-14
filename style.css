@@ -14523,3 +14523,32 @@ body[data-game-id="game-17"] .animlab-contact-limbs button{font-size:6.2px!impor
   body[data-game-id="game-17"] .animlab-contact-note,body[data-game-id="game-17"] .animlab-contact-status{font-size:6.4px;}
   body[data-game-id="game-17"] .animlab-contact-actions button{min-height:27px;font-size:6.2px;}
 }
+
+/* SideScroll v1.0.156 — simplified persistent Fox IK, matching Rig/Animate
+   two-thumb workflow, and near/far limb readability. */
+body[data-game-id="game-17"] .animlab-side-near>.animlab-control-group-title,
+body[data-game-id="game-17"] .animlab-rig-group.animlab-side-near>.animlab-rig-group-title{
+  color:#7ed8c7;
+}
+body[data-game-id="game-17"] .animlab-side-far>.animlab-control-group-title,
+body[data-game-id="game-17"] .animlab-rig-group.animlab-side-far>.animlab-rig-group-title{
+  color:#c2cacc;
+}
+body[data-game-id="game-17"] .animlab-control-cells button.animlab-side-near,
+body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-near{
+  border-color:rgba(126,216,199,.30);color:#c9f0e7;background:rgba(126,216,199,.055);
+}
+body[data-game-id="game-17"] .animlab-control-cells button.animlab-side-far,
+body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-far{
+  border-color:rgba(194,202,204,.24);color:#d6dcdd;background:rgba(194,202,204,.045);
+}
+body[data-game-id="game-17"] .animlab-control-cells button.animlab-side-near.active,
+body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-near.is-active{
+  border-color:rgba(126,216,199,.68);background:rgba(126,216,199,.18);color:#e1fff8;
+}
+body[data-game-id="game-17"] .animlab-control-cells button.animlab-side-far.active,
+body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-far.is-active{
+  border-color:rgba(218,224,225,.62);background:rgba(194,202,204,.14);color:#f1f4f4;
+}
+body[data-game-id="game-17"] .animlab-contact-actions-simple{grid-template-columns:repeat(2,minmax(0,1fr));}
+body[data-game-id="game-17"] .animlab-contact-actions-simple .animlab-contact-example{grid-column:1/-1;}
