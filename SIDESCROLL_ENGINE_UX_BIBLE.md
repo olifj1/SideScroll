@@ -1134,4 +1134,27 @@ Rules:
 - Play loads saved Fox Walk, Run and Jump independently and validates each as a 16-sample clip before use;
 - any missing/invalid saved Fox clip falls back independently to the built-in `FoxRig` default for that clip, so installing the feature or clearing editor data cannot break gameplay;
 - runtime continues to use the saved Fox rest rig separately from clip poses, preserving the rest-rig/animation ownership split;
-- this integration does not imply Stage 4 IK/contact solving. The runtime still consumes ordinary compiled poses until those tools are deliberately added.
+- v1.0.153 adds the bounded Stage 4 paw-contact layer described below; the v1.0.152 fallback/Save boundary remains unchanged.
+
+
+### Anim Lab Stage 4 paw-contact FK/IK (v1.0.153)
+
+Stage 4 adds a bounded quadruped contact-authoring layer on top of the existing sparse key poses and rest rig. It is not a general constraint graph, physics solver or curve editor.
+
+Rules:
+
+- FK remains the underlying authored limb pose. Each paw has an IK target plus a 0–1 blend weight; a weight of zero must reproduce the pre-Stage-4 FK result exactly.
+- Existing/saved clips that predate Stage 4 acquire no contact behaviour implicitly. New IK channels normalise to zero weight and therefore cannot reshape a character merely by loading the new code.
+- **Capture FK → IK** must initialise a target from the current FK endpoint so enabling full IK can begin without a visible pop.
+- Two-bone IK must preserve the rest-rig upper/lower segment lengths. When both mathematical bend solutions are valid, prefer the solution nearest the current FK knee/hock so ordinary target drags do not flip the limb unexpectedly.
+- Plant ownership is authored on sparse key poses. A planted key owns its ground anchor forward until the next authored key changes/releases that contact; intermediate runtime samples may not invent new anchor ownership.
+- A release key owns the exact contact boundary: a planted interval must not begin fading merely because the following key is released. Moving a key that owns the start of a plant moves that start phase with it; continuation keys retain the original anchor phase.
+- Keep the authored **ground anchor** separate from the phase-resolved local IK target. Ground/stride compensation is a derived evaluation step and must never overwrite the saved anchor just because the user scrubs, plays or creates a tweened preview.
+- At the current v1 boundary, planted locomotion compensates the expected gameplay stride in rig-local X while retaining the authored contact Y. This is an animation-authoring/contact system, not terrain-aware runtime foot placement.
+- Anim Lab may compile the sparse contact state into the existing 16-sample Fox runtime bank by storing phase-resolved IK target/weight samples. Play remains compatible with the same clip-bank contract; missing/invalid saved clips still fall back to built-in Fox clips.
+- Fox runtime geometry may solve those sampled IK targets continuously between samples, but it must not mutate clip storage or rest-rig data during gameplay.
+- Fox near/far mirror and cycle-phase operations must carry contact metadata with the matching limb. Any conversion/reduction tool that cannot preserve plant ownership exactly must disable itself rather than silently flatten the contacts.
+- The **Ground Motion** plane is editor-only diagnostic UI. At ×1 it should represent the current Walk/Run gameplay stride relative to the saved Fox scale; visibility and temporary speed multiplier are preferences only and may never dirty authored data or enter Undo history.
+- Changing Fox character scale changes the rig-local distance required to counter a fixed world stride. Editor previews should refresh immediately; gameplay contact samples are rewritten only on the next explicit Animate Save, preserving the Save boundary.
+- Paw target manipulation reuses the Control Board + viewport precision-pad transaction rules: one continuous drag is one Undo action; pointer-cancel restores the original key/pose state.
+- Stage 4 v1 deliberately stops at four paw targets, FK/IK blend, Plant/Release, ground anchoring and the motion-plane diagnostic. Do not add graph curves, generalized constraints, automatic terrain adaptation or full-body IK without a demonstrated production need.

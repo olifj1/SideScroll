@@ -18,9 +18,13 @@
       discrete:['planted']
     },
     fox: {
-      linear:['bodyBob','frontBodyLift','rearBodyLift','travel'],
+      linear:[
+        'bodyBob','frontBodyLift','rearBodyLift','travel',
+        'fnIkX','fnIkY','fnIkWeight','ffIkX','ffIkY','ffIkWeight',
+        'rnIkX','rnIkY','rnIkWeight','rfIkX','rfIkY','rfIkWeight'
+      ],
       angular:['bodyPitch','headPitch','tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower'],
-      discrete:[]
+      discrete:['fnPlanted','ffPlanted','rnPlanted','rfPlanted']
     }
   };
 
@@ -170,7 +174,9 @@
     } else {
       for (const [a,b] of [
         ['fnUpper','ffUpper'],['fnLower','ffLower'],
-        ['rnUpper','rfUpper'],['rnLower','rfLower']
+        ['rnUpper','rfUpper'],['rnLower','rfLower'],
+        ['fnIkX','ffIkX'],['fnIkY','ffIkY'],['fnIkWeight','ffIkWeight'],['fnPlanted','ffPlanted'],['fnPlantPhase','ffPlantPhase'],
+        ['rnIkX','rfIkX'],['rnIkY','rfIkY'],['rnIkWeight','rfIkWeight'],['rnPlanted','rfPlanted'],['rnPlantPhase','rfPlantPhase']
       ]) swapValues(out,a,b);
     }
     return out;
@@ -193,7 +199,7 @@
   function addTweenKey() {
     const st=state();
     if (keyAt(st.frame,st) || st.preview) return;
-    const pose=clone(st.pose);
+    const pose=clone(core.getAuthoringPose ? core.getAuthoringPose() : st.pose);
     core.editSparseClip('Add tween key',clip=>{
       clip.keys.push({frame:st.frame,name:`Tween ${st.frame+1}`,pose});
       markAuthored(clip);
@@ -255,11 +261,25 @@
   function moveKey(delta) {
     const st=state(), key=keyAt(st.frame,st);
     if (!key || st.preview) return;
-    const destination=(st.frame+delta+16)%16;
+    const sourceFrame=st.frame;
+    const destination=(sourceFrame+delta+16)%16;
     if (keyAt(destination,st)) { core.setHint(`Frame ${destination+1} already has a key.`); return; }
     core.editSparseClip('Move key pose',clip=>{
-      const target=clip.keys.find(k=>k.frame===st.frame);
-      if(target)target.frame=destination;
+      const target=clip.keys.find(k=>k.frame===sourceFrame);
+      if(target){
+        if(st.family==='fox') {
+          const sourcePhase=sourceFrame/16;
+          const destinationPhase=destination/16;
+          for(const prefix of ['fn','ff','rn','rf']){
+            const phaseKey=`${prefix}PlantPhase`;
+            const authored=Number(target.pose?.[phaseKey]);
+            if(target.pose?.[`${prefix}Planted`] && Number.isFinite(authored) && Math.abs(authored-sourcePhase)<1e-6){
+              target.pose[phaseKey]=destinationPhase;
+            }
+          }
+        }
+        target.frame=destination;
+      }
       markAuthored(clip);
     });
     core.setFrame(destination);
@@ -291,11 +311,29 @@
     });
   }
 
+  function shiftFoxPlantPhases(pose, deltaFrames) {
+    if (!pose || state().family !== 'fox') return;
+    const delta=deltaFrames/16;
+    for (const prefix of ['fn','ff','rn','rf']) {
+      const key=`${prefix}PlantPhase`;
+      if (!Number.isFinite(Number(pose[key]))) continue;
+      pose[key]=((Number(pose[key])+delta)%1+1)%1;
+    }
+  }
+
+  function foxClipHasContact(st=state()) {
+    if (st.family !== 'fox') return false;
+    return keysFor(st).some(key=>['fn','ff','rn','rf'].some(prefix=>(Number(key.pose?.[`${prefix}IkWeight`])||0)>.0001 || !!key.pose?.[`${prefix}Planted`]));
+  }
+
   function phaseShift(delta,label) {
     const st=state();
     if (st.preview) return;
     core.editSparseClip(label,clip=>{
-      for(const key of clip.keys) key.frame=(key.frame+delta+16)%16;
+      for(const key of clip.keys) {
+        key.frame=(key.frame+delta+16)%16;
+        if (st.family==='fox') shiftFoxPlantPhases(key.pose,delta);
+      }
       markAuthored(clip);
     });
     core.setFrame((st.frame+delta+16)%16);
@@ -419,9 +457,14 @@
     phaseHalfBtn.disabled=preview;
     mirrorClipBtn.disabled=preview;
 
+    const hasContact=foxClipHasContact(st);
     convertCount.textContent=`${keys.length} keys`;
-    convertCopy.textContent=lastPreviewReport || (preview ? 'Preview is view-only. Scrub or Play it, then Adopt or Exit.' : 'Preview an 8-key reduction before adopting it. Preview never changes authored data.');
-    previewBtn.disabled=preview;
+    convertCopy.textContent=lastPreviewReport || (preview
+      ? 'Preview is view-only. Scrub or Play it, then Adopt or Exit.'
+      : hasContact
+        ? 'Sparse conversion is disabled while this Fox clip contains authored IK/contact data so plant ranges are not flattened accidentally.'
+        : 'Preview an 8-key reduction before adopting it. Preview never changes authored data.');
+    previewBtn.disabled=preview||hasContact;
     adoptBtn.disabled=!preview;
     exitBtn.disabled=!preview;
   }

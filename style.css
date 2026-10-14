@@ -14495,3 +14495,30 @@ body[data-game-id="game-17"] .animlab-reference-playback[hidden]{display:none!im
   body[data-game-id="game-17"] .animlab-key-track-host .animlab-key-cell{height:22px;}
   body[data-game-id="game-17"] .animlab-viewport-pad-host{width:120px;height:82px;right:8px;bottom:8px;}
 }
+
+/* SideScroll v1.0.153 — Anim Lab Stage 4 paw contact / IK diagnostics. */
+body[data-game-id="game-17"] .animlab-four{grid-template-columns:repeat(4,minmax(0,1fr));}
+body[data-game-id="game-17"] .animlab-contact-note{
+  margin:0;font-size:7px;line-height:1.4;color:rgba(238,243,241,.58);
+}
+body[data-game-id="game-17"] .animlab-contact-status{
+  min-height:18px;padding:5px 6px;border:1px solid rgba(238,243,241,.09);border-radius:8px;
+  background:rgba(255,255,255,.025);color:rgba(238,243,241,.66);font-size:7px;line-height:1.3;font-variant-numeric:tabular-nums;
+}
+body[data-game-id="game-17"] .animlab-contact-actions{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;
+}
+body[data-game-id="game-17"] .animlab-contact-actions button{
+  min-width:0;min-height:29px;padding:4px 6px;border:1px solid rgba(238,243,241,.14);border-radius:8px;
+  background:rgba(255,255,255,.04);color:#dce7e3;font:850 6.8px/1.1 system-ui,-apple-system,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-contact-actions button.active,
+body[data-game-id="game-17"] .animlab-ground-motion-section button.active{
+  border-color:rgba(126,216,199,.55);background:rgba(118,158,149,.24);color:#d8f3eb;
+}
+body[data-game-id="game-17"] .animlab-contact-weight{margin-top:1px;}
+body[data-game-id="game-17"] .animlab-contact-limbs button{font-size:6.2px!important;padding-left:2px!important;padding-right:2px!important;}
+@media(max-height:390px){
+  body[data-game-id="game-17"] .animlab-contact-note,body[data-game-id="game-17"] .animlab-contact-status{font-size:6.4px;}
+  body[data-game-id="game-17"] .animlab-contact-actions button{min-height:27px;font-size:6.2px;}
+}

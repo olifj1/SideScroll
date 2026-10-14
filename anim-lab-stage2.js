@@ -29,12 +29,16 @@
       {id:'head',label:'Head / Neck',group:'Core',point:'head',rotate:{key:'headPitch',min:-35*DEG,max:35*DEG}},
       {id:'fnUpper',label:'Front Near Upper',group:'Front Near',point:'frontNearRoot',pair:'ffUpper',rotate:{key:'fnUpper',min:-80*DEG,max:80*DEG}},
       {id:'fnLower',label:'Front Near Lower',group:'Front Near',point:'frontNearKnee',pair:'ffLower',rotate:{key:'fnLower',min:-80*DEG,max:80*DEG}},
+      {id:'fnIk',label:'Paw IK Target',group:'Front Near',point:'frontNearIkTarget',pair:'ffIk',ikPrefix:'fn',move:{x:{key:'fnIkX',min:-.60,max:.60,sign:1},y:{key:'fnIkY',min:-.16,max:.62,sign:1}}},
       {id:'ffUpper',label:'Front Far Upper',group:'Front Far',point:'frontFarRoot',pair:'fnUpper',rotate:{key:'ffUpper',min:-80*DEG,max:80*DEG}},
       {id:'ffLower',label:'Front Far Lower',group:'Front Far',point:'frontFarKnee',pair:'fnLower',rotate:{key:'ffLower',min:-80*DEG,max:80*DEG}},
+      {id:'ffIk',label:'Paw IK Target',group:'Front Far',point:'frontFarIkTarget',pair:'fnIk',ikPrefix:'ff',move:{x:{key:'ffIkX',min:-.60,max:.60,sign:1},y:{key:'ffIkY',min:-.16,max:.62,sign:1}}},
       {id:'rnUpper',label:'Rear Near Upper',group:'Rear Near',point:'rearNearRoot',pair:'rfUpper',rotate:{key:'rnUpper',min:-80*DEG,max:80*DEG}},
       {id:'rnLower',label:'Rear Near Lower',group:'Rear Near',point:'rearNearKnee',pair:'rfLower',rotate:{key:'rnLower',min:-80*DEG,max:80*DEG}},
+      {id:'rnIk',label:'Paw IK Target',group:'Rear Near',point:'rearNearIkTarget',pair:'rfIk',ikPrefix:'rn',move:{x:{key:'rnIkX',min:-.60,max:.60,sign:1},y:{key:'rnIkY',min:-.16,max:.62,sign:1}}},
       {id:'rfUpper',label:'Rear Far Upper',group:'Rear Far',point:'rearFarRoot',pair:'rnUpper',rotate:{key:'rfUpper',min:-80*DEG,max:80*DEG}},
       {id:'rfLower',label:'Rear Far Lower',group:'Rear Far',point:'rearFarKnee',pair:'rnLower',rotate:{key:'rfLower',min:-80*DEG,max:80*DEG}},
+      {id:'rfIk',label:'Paw IK Target',group:'Rear Far',point:'rearFarIkTarget',pair:'rnIk',ikPrefix:'rf',move:{x:{key:'rfIkX',min:-.60,max:.60,sign:1},y:{key:'rfIkY',min:-.16,max:.62,sign:1}}},
       {id:'tailBase',label:'Tail Base',group:'Tail',point:'tail0',rotate:{key:'tailBase',min:-70*DEG,max:70*DEG}},
       {id:'tailMid',label:'Tail Mid',group:'Tail',point:'tail1',rotate:{key:'tailMid',min:-70*DEG,max:70*DEG}},
       {id:'tailTip',label:'Tail Tip',group:'Tail',point:'tail2',rotate:{key:'tailTip',min:-70*DEG,max:70*DEG}}
@@ -142,6 +146,16 @@
     if (control.move?.x && !control.move?.y && axis === 'y') axis = 'x';
   }
 
+  function selectControl(id, redraw = true) {
+    const state=core.getState();
+    if (!(CONTROL_SETS[state.family]||[]).some(control=>control.id===id)) return false;
+    selectedId=id;
+    ensureSelection(state);
+    render(state,false);
+    if (redraw) core.redraw();
+    return true;
+  }
+
   function buildBoard(state) {
     ensureSelection(state);
     const controls = controlsFor(state);
@@ -155,7 +169,7 @@
       for (const control of controls.filter(c=>c.group===group)) {
         const button=document.createElement('button');button.type='button';button.dataset.control=control.id;button.textContent=control.label;
         button.classList.toggle('active',control.id===selectedId);button.setAttribute('aria-pressed',String(control.id===selectedId));
-        button.addEventListener('click',()=>{selectedId=control.id;ensureSelection(core.getState());render(core.getState(),false);core.redraw();});
+        button.addEventListener('click',()=>selectControl(control.id,true));
         cells.appendChild(button);
       }
       wrap.appendChild(cells);board.appendChild(wrap);
@@ -168,6 +182,11 @@
     if (control.move?.x) bits.push(`X ${Number(pose[control.move.x.key]||0).toFixed(3)}`);
     if (control.move?.y) bits.push(`Y ${Number(pose[control.move.y.key]||0).toFixed(3)}`);
     if (control.rotate) bits.push(`Angle ${(Number(pose[control.rotate.key]||0)/DEG).toFixed(1)}°`);
+    if (control.ikPrefix) {
+      const prefix=control.ikPrefix;
+      bits.push(`IK ${Math.round((Number(pose[`${prefix}IkWeight`])||0)*100)}%`);
+      if (pose[`${prefix}Planted`]) bits.push('PLANTED');
+    }
     return bits.join(' · ') || 'No editable channel.';
   }
 
@@ -270,7 +289,7 @@
   rotateBtn.addEventListener('click',()=>{if(selectedControl()?.rotate){precisionMode='rotate';render(core.getState(),false);}});
   fineBtn.addEventListener('click',()=>{fine=!fine;render(core.getState(),false);});
   axisButtons.forEach(btn=>btn.addEventListener('click',()=>{axis=btn.dataset.axis;render(core.getState(),false);}));
-  pairBtn.addEventListener('click',()=>{if(pairBtn.dataset.pair){selectedId=pairBtn.dataset.pair;ensureSelection(core.getState());render(core.getState(),false);core.redraw();}});
+  pairBtn.addEventListener('click',()=>{if(pairBtn.dataset.pair)selectControl(pairBtn.dataset.pair,true);});
   resetBtn.addEventListener('click',()=>{
     const state=core.getState(),control=selectedControl(state),defaults=core.getDefaultPose();if(!control)return;
     core.edit('pose',`Reset ${control.label}`,pose=>{
@@ -335,6 +354,13 @@
     if(!control || currentMode!=='animate')return;
     const point=adapter.rig.geometry(pose)?.[control.point];if(!point)return;
     const p=project(point,view);ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,Math.max(8,view.scale*.028),0,Math.PI*2);ctx.fillStyle='rgba(111,143,137,.25)';ctx.fill();ctx.strokeStyle='#5f817b';ctx.lineWidth=Math.max(2,view.scale*.006);ctx.stroke();ctx.restore();
+  });
+
+  window.AnimLabControlSurface = Object.freeze({
+    version:'1.0.153',
+    getSelectedId:()=>selectedId,
+    getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
+    selectControl:id=>selectControl(id,true)
   });
 
   core.subscribe(state=>render(state,false));

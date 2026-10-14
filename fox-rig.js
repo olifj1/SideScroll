@@ -336,11 +336,45 @@
     };
   }
 
-  const NUMERIC_KEYS=['bodyBob','frontBodyLift','rearBodyLift','bodyPitch','headPitch','tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','travel'];
+  const IK_PREFIXES=Object.freeze(['fn','ff','rn','rf']);
+  const IK_NUMERIC_KEYS=IK_PREFIXES.flatMap(prefix=>[
+    `${prefix}IkX`,`${prefix}IkY`,`${prefix}IkWeight`,`${prefix}PlantPhase`
+  ]);
+  const NUMERIC_KEYS=[
+    'bodyBob','frontBodyLift','rearBodyLift','bodyPitch','headPitch','tailBase','tailMid','tailTip',
+    'rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','travel',
+    ...IK_NUMERIC_KEYS
+  ];
+
+  function defaultIkPoint(prefix){
+    const map={
+      fn:DEFAULT_REST_RIG.joints.frontNearPaw,
+      ff:DEFAULT_REST_RIG.joints.frontFarPaw,
+      rn:DEFAULT_REST_RIG.joints.rearNearPaw,
+      rf:DEFAULT_REST_RIG.joints.rearFarPaw
+    };
+    return map[prefix] || {x:0,y:0};
+  }
+
   function blendPose(a,b,t){
     if(t<=.001)return clone(a); if(t>=.999)return clone(b);
     const out={...clone(a),name:t<.5?a.name:b.name,key:false};
     for(const k of NUMERIC_KEYS) out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
+    for(const prefix of IK_PREFIXES){
+      const plantKey=`${prefix}Planted`;
+      const aPlant=!!a?.[plantKey];
+      out[plantKey]=aPlant;
+      if(aPlant){
+        out[`${prefix}IkX`]=Number(a?.[`${prefix}IkX`])||0;
+        out[`${prefix}IkY`]=Number(a?.[`${prefix}IkY`])||0;
+        out[`${prefix}PlantPhase`]=Number(a?.[`${prefix}PlantPhase`])||0;
+        // A Release key owns the instant contact ends. Do not fade the IK
+        // weight early merely because the following key is released. Authors
+        // can still make a deliberate soft stance by adding another planted
+        // key with a lower blend before Release.
+        if(!b?.[plantKey]) out[`${prefix}IkWeight`]=Number(a?.[`${prefix}IkWeight`])||0;
+      }
+    }
     return out;
   }
   function interpolatePose(a,b,t,name,travelB=b.travel){
@@ -362,6 +396,17 @@
   function normalizedPose(p,i=0){
     const d=DEFAULT_FRAMES[i%16];
     const out={...clone(d),...clone(p||{}),key:i%2===0};
+    for(const prefix of IK_PREFIXES){
+      const point=defaultIkPoint(prefix);
+      const xKey=`${prefix}IkX`,yKey=`${prefix}IkY`,wKey=`${prefix}IkWeight`,phaseKey=`${prefix}PlantPhase`;
+      if(!Number.isFinite(Number(out[xKey]))) out[xKey]=point.x;
+      if(!Number.isFinite(Number(out[yKey]))) out[yKey]=point.y;
+      if(!Number.isFinite(Number(out[wKey]))) out[wKey]=0;
+      if(!Number.isFinite(Number(out[phaseKey]))) out[phaseKey]=0;
+      out[wKey]=clamp(Number(out[wKey])||0,0,1);
+      out[phaseKey]=((Number(out[phaseKey])%1)+1)%1;
+      out[`${prefix}Planted`]=!!out[`${prefix}Planted`];
+    }
     for(const k of NUMERIC_KEYS) if(!Number.isFinite(Number(out[k]))) out[k]=Number(d[k])||0;
     return out;
   }
@@ -386,21 +431,41 @@
     const headBase=shifted(bodyPoint('head'),p.frontBodyLift);
     const head=rotPoint(headBase,neck,p.headPitch);
 
-    function limbGeom(prefix,upperDelta,lowerDelta,lift){
+    function solveJointNearest(root,target,l1,l2,referenceJoint){
+      let dx=target.x-root.x,dy=target.y-root.y,d=Math.hypot(dx,dy)||1e-5;
+      const minD=Math.abs(l1-l2)+.0005,maxD=l1+l2-.0005,cd=clamp(d,minD,maxD);
+      dx*=cd/d;dy*=cd/d;d=cd;
+      const resolvedTarget={x:root.x+dx,y:root.y+dy};
+      const a=(l1*l1-l2*l2+d*d)/(2*d),h=Math.sqrt(Math.max(0,l1*l1-a*a));
+      const ux=dx/d,uy=dy/d,bx=root.x+ux*a,by=root.y+uy*a,px=-uy,py=ux;
+      const c1={x:bx+px*h,y:by+py*h},c2={x:bx-px*h,y:by-py*h};
+      const d1=Math.hypot(c1.x-referenceJoint.x,c1.y-referenceJoint.y);
+      const d2=Math.hypot(c2.x-referenceJoint.x,c2.y-referenceJoint.y);
+      return{joint:d1<=d2?c1:c2,target:resolvedTarget};
+    }
+
+    function limbGeom(prefix,channelPrefix,upperDelta,lowerDelta,lift){
       const socketId=`${prefix}Socket`,kneeId=`${prefix}Knee`,pawId=`${prefix}Paw`;
       const root=shifted(bodyPoint(socketId),lift);
       const upperLength=distance(j[socketId],j[kneeId]);
       const lowerLength=distance(j[kneeId],j[pawId]);
       const upperAngle=angle(j[socketId],j[kneeId])+p.bodyPitch+upperDelta;
       const lowerAngle=angle(j[kneeId],j[pawId])+p.bodyPitch+lowerDelta;
-      const knee={x:root.x+Math.cos(upperAngle)*upperLength,y:root.y+Math.sin(upperAngle)*upperLength};
-      const paw={x:knee.x+Math.cos(lowerAngle)*lowerLength,y:knee.y+Math.sin(lowerAngle)*lowerLength};
-      return{root,knee,paw};
+      const fkKnee={x:root.x+Math.cos(upperAngle)*upperLength,y:root.y+Math.sin(upperAngle)*upperLength};
+      const fkPaw={x:fkKnee.x+Math.cos(lowerAngle)*lowerLength,y:fkKnee.y+Math.sin(lowerAngle)*lowerLength};
+      const target={x:Number(p[`${channelPrefix}IkX`]),y:Number(p[`${channelPrefix}IkY`])};
+      const weight=clamp(Number(p[`${channelPrefix}IkWeight`])||0,0,1);
+      if(weight<=.0001 || !Number.isFinite(target.x) || !Number.isFinite(target.y)){
+        return{root,knee:fkKnee,paw:fkPaw,fkKnee,fkPaw,ikTarget:fkPaw,ikWeight:0};
+      }
+      const blendedTarget={x:lerp(fkPaw.x,target.x,weight),y:lerp(fkPaw.y,target.y,weight)};
+      const solved=solveJointNearest(root,blendedTarget,upperLength,lowerLength,fkKnee);
+      return{root,knee:solved.joint,paw:solved.target,fkKnee,fkPaw,ikTarget:target,ikWeight:weight};
     }
-    const rn=limbGeom('rearNear',p.rnUpper,p.rnLower,p.rearBodyLift);
-    const rf=limbGeom('rearFar',p.rfUpper,p.rfLower,p.rearBodyLift);
-    const fn=limbGeom('frontNear',p.fnUpper,p.fnLower,p.frontBodyLift);
-    const ff=limbGeom('frontFar',p.ffUpper,p.ffLower,p.frontBodyLift);
+    const rn=limbGeom('rearNear','rn',p.rnUpper,p.rnLower,p.rearBodyLift);
+    const rf=limbGeom('rearFar','rf',p.rfUpper,p.rfLower,p.rearBodyLift);
+    const fn=limbGeom('frontNear','fn',p.fnUpper,p.fnLower,p.frontBodyLift);
+    const ff=limbGeom('frontFar','ff',p.ffUpper,p.ffLower,p.frontBodyLift);
 
     const tail0=shifted(bodyPoint('tailRoot'),p.rearBodyLift);
     const t1Len=distance(j.tailRoot,j.tail1),t2Len=distance(j.tail1,j.tail2),t3Len=distance(j.tail2,j.tailTip);
@@ -414,10 +479,10 @@
     return {pose:p,
       rearBody,midRoot,frontBody,hip:rearBody,shoulder:frontBody,neck,head,tail0,tail1,tail2,tail3,
       tailRoot:tail0,tailTip:tail3,
-      rearNearRoot:rn.root,rearNearSocket:rn.root,rearNearKnee:rn.knee,rearNearFoot:rn.paw,rearNearPaw:rn.paw,
-      rearFarRoot:rf.root,rearFarSocket:rf.root,rearFarKnee:rf.knee,rearFarFoot:rf.paw,rearFarPaw:rf.paw,
-      frontNearRoot:fn.root,frontNearSocket:fn.root,frontNearKnee:fn.knee,frontNearFoot:fn.paw,frontNearPaw:fn.paw,
-      frontFarRoot:ff.root,frontFarSocket:ff.root,frontFarKnee:ff.knee,frontFarFoot:ff.paw,frontFarPaw:ff.paw};
+      rearNearRoot:rn.root,rearNearSocket:rn.root,rearNearKnee:rn.knee,rearNearFoot:rn.paw,rearNearPaw:rn.paw,rearNearIkTarget:rn.ikTarget,rearNearFkPaw:rn.fkPaw,
+      rearFarRoot:rf.root,rearFarSocket:rf.root,rearFarKnee:rf.knee,rearFarFoot:rf.paw,rearFarPaw:rf.paw,rearFarIkTarget:rf.ikTarget,rearFarFkPaw:rf.fkPaw,
+      frontNearRoot:fn.root,frontNearSocket:fn.root,frontNearKnee:fn.knee,frontNearFoot:fn.paw,frontNearPaw:fn.paw,frontNearIkTarget:fn.ikTarget,frontNearFkPaw:fn.fkPaw,
+      frontFarRoot:ff.root,frontFarSocket:ff.root,frontFarKnee:ff.knee,frontFarFoot:ff.paw,frontFarPaw:ff.paw,frontFarIkTarget:ff.ikTarget,frontFarFkPaw:ff.fkPaw};
   }
 
   function restGeometry(restRig = activeRestRig) {
@@ -445,9 +510,9 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.151',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.153',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
-    clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint
+    clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES
   };
 })();

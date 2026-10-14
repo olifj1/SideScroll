@@ -1491,10 +1491,10 @@ Walk Lab is a specialist animation authoring tool and should remain separate. It
 
 Tasks:
 
-- [ ] Add frame/joint Undo/Redo.
-- [ ] Group viewport overlays separately from editing operations.
-- [ ] Keep Clip selection (Walk/Run/Jump) as the primary context and selected joint/frame as the local selection.
-- [ ] Consider Save/Discard only for larger rig/collider sessions if accidental global edits become a real problem.
+- [x] Add frame/joint Undo/Redo. *(superseded/completed by Anim Lab bounded history)*
+- [x] Group viewport overlays separately from editing operations. *(superseded/completed by Anim Lab View / Motion Reference / Ground Motion separation)*
+- [x] Keep Clip selection (Walk/Run/Jump) as the primary context and selected joint/frame as the local selection. *(Anim Lab Character → Clip → Mode hierarchy)*
+- [x] Consider Save/Discard only for larger rig/collider sessions if accidental global edits become a real problem. *(Anim Lab now uses Save/Discard across bounded Rig and Animate contexts)*
 
 ---
 
@@ -2011,3 +2011,42 @@ Follow-up to Rig Designer v1. This pass improves the phone animation workflow be
 - [ ] iPhone: save a deliberately obvious temporary Fox Walk edit, launch Play, confirm the saved clip is visible in-game, then restore/Save the desired animation.
 - [ ] After the above workflow pass is approved, proceed to Stage 4 planted-paw/contact FK/IK tools.
 
+
+
+## v1.0.153 — Anim Lab Stage 4 paw-contact FK/IK v1
+
+Bounded Stage 4 implementation. This adds useful quadruped contact authoring without turning Anim Lab into a general-purpose constraint/curve package.
+
+- [x] Add four Fox paw IK target channels with **zero default weight**, so installation or loading old clips cannot alter existing motion.
+- [x] Add Front Near / Front Far / Rear Near / Rear Far **Paw IK Target** controls to the existing Control Board and reuse the viewport right-thumb precision pad.
+- [x] Add a two-bone quadruped solver that keeps authored upper/lower bone lengths and chooses the knee/hock solution nearest the FK pose to avoid unexpected limb flips.
+- [x] Add **Capture FK → IK** so switching a paw to 100% IK can begin with no visual pop.
+- [x] Add per-key **FK / IK blend**, **Plant from Here**, **Release Here** and **Target to Ground** authoring tools.
+- [x] Keep the sparse-key authored ground anchor separate from the phase-resolved local IK target so creating/editing a key during stance cannot double-apply root/ground motion.
+- [x] While a planted sparse key owns the interval, counter the expected gameplay stride so the paw target moves backwards in rig-local space as the body advances through the cycle.
+- [x] Compile the resolved IK targets back into the existing 16-sample Fox runtime bank; Play continues to consume one normal Fox clip bank and the runtime solver interpolates those resolved targets continuously.
+- [x] Extend Fox near/far mirror and clip phase tools to carry IK/contact metadata safely; disable 8-key reduction while contact data exists rather than flattening plant ownership accidentally.
+- [x] Add an editor-only **Ground Motion** datum with repeated marks, normalised timeline motion, current gameplay stride at ×1, and a temporary 0.5–1.5× display-speed diagnostic.
+- [x] Keep Ground Motion visibility/speed as editor preference only; it must not dirty animation data or affect gameplay.
+- [x] Add Stage 4 script to the offline shell and bump the service-worker cache.
+
+On-device acceptance required:
+
+- [ ] Select each Paw IK Target with the left thumb and move it using the viewport pad with the right thumb; confirm the limb does not flip unexpectedly near normal reachable poses.
+- [ ] Capture FK → IK at 100% on all four paws and confirm there is no visible pop at the capture frame.
+- [ ] Author a simple Walk stance: Plant one paw on a key, keep/continue it planted through the next stance key, then Release. Play/scrub and confirm the paw stays visually fixed against the ×1 moving-ground marks while the body passes over it.
+- [ ] Repeat with body bob / Front Body / Rear Body edits while a paw is planted; confirm the leg solves to the fixed contact rather than the paw following the torso.
+- [ ] Test FK/IK blend at 0 / 50 / 100%, Undo/Redo, Discard and Save/reload.
+- [ ] Save a deliberately obvious IK/contact Walk, enter Play as Fox and confirm the same planted-contact behaviour is visible in gameplay.
+- [ ] Verify near/far Mirror Key / Mirror Clip and phase-shift tools remain predictable on a clip containing contacts.
+- [ ] Confirm Ground Motion speed/visibility changes never enable Save or alter Undo history.
+- [ ] A2HS/offline relaunch receives `anim-lab-stage4.js` after the service-worker upgrade.
+
+After Stage 4 review:
+
+- [ ] Finish/approve Fox rest proportions against Motion Reference before treating contact tuning as final.
+- [ ] Refit/split torso/limb artwork where the approved articulated rig exposes real cut/overlap limits.
+- [ ] Use the contact system to refine body rise/fall and weight transfer, then head/ears/tail secondary motion.
+- [ ] Refine Run/Gallop with the reference pack and the same contact tools.
+- [ ] Build the later biped Motion Reference / Rig Designer descriptor through the shared systems rather than a parallel editor.
+- [ ] Add a dedicated fox climbing clip only if real gameplay review shows the current run/scramble treatment is inadequate.

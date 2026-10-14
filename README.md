@@ -1,60 +1,83 @@
-# SideScroll patch 1.0.152 — Anim Lab workflow consolidation
+# SideScroll patch 1.0.153 — Anim Lab Stage 4 paw-contact IK
 
-Changed-files-only cumulative patch over the agreed **v1.0.150** baseline. v1.0.150 remains the approved baseline until this patch is tested and accepted. This patch includes all v1.0.151 Rig Designer work plus the v1.0.152 workflow/runtime changes below.
+Changed-files-only cumulative patch over the agreed **v1.0.150** baseline. v1.0.150 remains the approved baseline until the later Anim Lab patches are tested and accepted. This patch therefore includes the v1.0.151 Rig Designer and v1.0.152 Anim Lab workflow/Fox-runtime work as well as the new v1.0.153 Stage 4 changes.
 
-## What changes in v1.0.152
+## What changes in v1.0.153
 
-Anim Lab now uses one clear animation timeline directly below the viewport. The main scrub/play row is the authoritative 16-sample character timeline. The Key Pose lane sits immediately beneath it and uses the same frame selection, so key markers are no longer presented as a second independent timeline.
+Anim Lab now has a bounded first quadruped FK/IK contact workflow for the Fox.
 
-Motion Reference keeps its own cycle transport only when it is intentionally **Unlinked** (or while in Rig mode, where animation linking is unavailable). When linked, it explicitly follows the main animation timeline and its duplicate transport is hidden.
+- Each of the four paws has a **Paw IK Target** in the normal Control Board.
+- Paw targets use the existing bottom-right viewport precision pad, preserving the left-thumb select / right-thumb pose workflow.
+- Each paw has a per-key **FK / IK blend** from 0–100%.
+- **Capture FK → IK** captures the current FK endpoint and enables full IK without a visual jump.
+- **Plant from Here** creates/continues a sparse-key ground anchor.
+- **Release Here** ends the planted contact at that key; the prior planted interval stays held until the release boundary.
+- **Target to Ground** is a quick flat-ground positioning helper.
+- Moving a key that owns a plant start moves that plant phase with the key; continuation anchors retain their original contact phase.
+- The two-bone solver preserves the saved rest-rig upper/lower limb lengths and chooses the knee/hock solution closest to the current FK pose.
 
-The large relative **Drag anywhere** precision surface now lives in the bottom-right of the viewport. The intended phone workflow is left-thumb selection from the Control Board and right-thumb posing on the viewport pad without repeatedly scrolling between the two.
+All new IK weights default to zero. Existing v1.0.152 Fox clips therefore reproduce exactly until IK/contact is explicitly authored.
 
-All Anim Lab drawer sections now use a shared collapsible category pattern. Collapse state is editor-only preference data and does not alter selection, authored data, Undo/Redo, dirty state or Save/Discard. The Engine/UX Bible now defines this as the general pattern to migrate progressively into other long editor inspectors.
+## Planted-paw behaviour
 
-## Fox animation now runs in Play
+The sparse authored plant anchor is kept separate from the moving local target used to solve the leg. During a planted Walk/Run interval, Anim Lab counters the expected gameplay stride in rig-local X while retaining the authored contact height. This lets the body move/bob over a planted paw rather than dragging the paw with the torso.
 
-Fox Anim Lab clips are no longer editor-only after Save.
+On Save, Anim Lab still compiles to the existing **16-sample Fox runtime bank**. The compiled samples contain the phase-resolved IK target and blend values, and the Fox runtime geometry solves them continuously between samples. There is no second gameplay animation format.
 
-- Fox Animate Save still compiles sparse keys to the existing 16-sample runtime format.
-- Play now reads the saved Fox Walk / Run / Jump bank from `sidescroll.animlab.fox.clips.v1`.
-- Each clip is validated independently.
-- Missing or invalid saved clips fall back independently to the built-in `FoxRig` defaults.
-- Previewing, scrubbing or editing without Save cannot change gameplay.
-- Saved rest-rig proportions remain a separate character-definition layer and continue to be read through `FoxRig`.
+Changing Fox Scale changes the local distance required to counter the fixed world stride. Anim Lab refreshes its preview after a Rig Scale Save; explicitly Save the affected animation again before judging the updated contact in Play.
 
-This does **not** add planted-paw FK/IK/contact solving. Stage 4 remains the next animation-system milestone after this workflow pass is approved.
+## Ground Motion diagnostic
 
-## v1.0.151 Rig Designer remains included
+A new editor-only **Ground Motion** plane appears for Fox Animate mode.
 
-The cumulative patch still includes the descriptor-driven Fox Rig Designer from v1.0.151: 21 structural joints, Rear Body → Mid Root → Front Body spine, four explicit socket/knee/paw limb chains, tail chain, direct joint dragging, precision controls, measurements, symmetry/pair tools, ground reset, legacy reset, Undo/Redo/Save/Discard and safe persisted rest-rig playback.
+- At **×1.00**, the moving datum represents the current Walk/Run gameplay stride at the saved Fox scale.
+- Repeated ground marks make paw sliding easy to see while scrubbing or playing.
+- A temporary **0.5–1.5×** display multiplier is available for diagnosis/comparison.
+- Ground Motion visibility and speed are editor preferences only. They do not dirty animation data, enter Undo history or affect gameplay.
+- Jump has no locomotion stride, so the datum remains static there.
 
-The default rest rig still reproduces the v1.0.150 Fox geometry to floating-point equivalence and installing the patch alone does not reshape the Fox.
+## Existing Anim Lab features retained
+
+The cumulative patch still contains:
+
+- v1.0.151 descriptor-driven Fox Rig Designer and safe persisted rest rig;
+- v1.0.152 unified viewport timeline + Key Pose lane;
+- viewport right-thumb precision pad;
+- collapsible Anim Lab sections;
+- Motion Reference with linked/unlinked timing;
+- sparse key poses, tweening, mirror/phase tools and 16-sample compilation;
+- saved Fox Walk/Run/Jump playback in the real game with independent built-in fallback.
+
+The 8-key reduction preview is intentionally disabled on a Fox clip once authored IK/contact data exists. That safeguard avoids silently flattening plant ownership.
 
 ## Practical iPhone test
 
-1. Open **Anim Lab → Fox → Animate**. Confirm the main Timeline sits directly below the viewport and the Key Poses lane sits directly under it.
-2. Scrub the main timeline. Confirm both the character and highlighted key-pose sample stay synchronised.
-3. Play/pause from the timeline below the viewport. Confirm no second character playback control is needed in the drawer.
-4. Open **Motion Reference** with Link on. Confirm it says it is linked to the main timeline and does not show a second reference transport.
-5. Turn Link off. Confirm Reference Cycle / Play Reference appears and can be scrubbed independently for alignment.
-6. Select a Fox control from the left Control Board with your left thumb, then manipulate **Drag anywhere** in the viewport bottom-right with your right thumb. Confirm viewport pan/pinch does not steal the pad gesture.
-7. Collapse and reopen Character, Clip, Mode, View, Key Pose Tools, Control Board, Motion Reference, Rig/Setup and Edit Session sections. Confirm collapse does not change dirty state, selection or Undo history.
-8. Make an obvious temporary Fox Walk edit and **Save** it. Enter Play as Fox and confirm the saved walk is visible in gameplay.
-9. Repeat with Run or Jump if useful. Confirm unsaved Anim Lab changes never affect Play.
-10. Restore/author the desired Fox clip and Save it before continuing production work.
-11. Re-check Rig mode: saved proportions still drive Play and Rig Designer behaviour remains unchanged.
-12. Close/relaunch the A2HS PWA and confirm the updated shell and UI are present offline after the service-worker upgrade.
+1. Apply this cumulative patch over the v1.0.150 baseline and refresh/relaunch the PWA.
+2. Open **Anim Lab → Fox → Walk → Animate**.
+3. In the Control Board choose **Front Near → Paw IK Target**. Confirm you can select with the left thumb and move the target using the bottom-right viewport pad with the right thumb.
+4. At any key pose, press **Capture FK → IK**. Confirm the FK/IK blend becomes 100% with no visible paw jump.
+5. Drag the IK target. Confirm the upper/lower leg follows without changing the authored bone lengths or unexpectedly flipping the knee/hock in normal reachable positions.
+6. Set the target where wanted and press **Plant from Here**. On the next stance key, Plant again to continue the same contact; later press **Release Here**.
+7. Play/scrub the cycle with **Ground Motion** at ×1.00. A well-planted paw should remain visually fixed against the moving ground marks while the body passes over it.
+8. While that paw is planted, adjust **Mid Root / Front Body / Rear Body** on a stance key. Confirm the torso can move while the paw remains constrained.
+9. Test FK/IK blend at roughly 0%, 50% and 100%.
+10. Test Undo/Redo, then Discard. Confirm the plant/target/blend state restores correctly.
+11. Re-author a simple contact, **Save**, reload Anim Lab and confirm it returns.
+12. Enter **Play** as Fox. Confirm the saved contact/IK animation is visible in the real game.
+13. Test Mirror Key / Mirror Clip and phase-shift on a Fox clip containing contacts.
+14. Change Ground Motion visibility/speed and confirm Save does not become enabled from those view changes alone.
+15. Close/relaunch the A2HS PWA and confirm `anim-lab-stage4.js` is available offline after the service-worker update.
 
 ## Validation performed off-device
 
-- All modified JavaScript parses with `node --check`.
-- Modified HTML has no duplicate IDs.
-- Main timeline retains the existing `animlab-prev`, `animlab-scrub`, `animlab-next`, `animlab-play` and `animlab-fit` ownership; only its layout moved.
-- The Key Pose lane still uses `core.setFrame(frame)` and therefore remains synchronised to the same 0–15 sample selection.
-- Motion Reference still derives linked playback from normalised Anim Lab phase; its independent transport is only hidden while linked, not removed.
-- Precision pad keeps the same bounded pointer transaction code; only its DOM location moves into the viewport overlay host.
-- Fox runtime loading validates 16-sample saved clips and resets to built-in defaults before applying saved data, providing safe fallback.
-- Stage 4 FK/IK/contact solving has not been started.
+- All project JavaScript parses with `node --check`.
+- With IK weights at zero, the new Fox rig reproduces every geometry point of all 48 v1.0.152 Walk/Run/Jump samples exactly.
+- Capturing the current FK paw as a 100% IK target produces zero endpoint displacement.
+- Moving an IK target preserves both upper and lower rest-bone lengths to floating-point precision.
+- New IK/contact channels normalise to safe zero-weight defaults for legacy/built-in poses.
+- Runtime clips remain 16 samples and retain independent built-in fallback.
+- Authoring plant anchors and resolved local targets are stored/evaluated separately.
+- Ground Motion is editor preference state only.
+- Stage 4 does **not** add terrain-aware foot placement, full-body IK, graph curves or generalized constraints.
 
-Physical iPhone testing is still required for ergonomics, touch ownership, compact landscape layout, Safari native-range behaviour and A2HS/service-worker refresh behaviour.
+Physical iPhone testing is still required for touch feel, limb-flip edge cases, contact quality against the moving datum, Safari range gestures and final in-game visual judgement.

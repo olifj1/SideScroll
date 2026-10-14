@@ -292,13 +292,42 @@
   let sparseBanks = loadSparseBanks();
   let conversionPreview = null;
 
-  function evaluateSparsePose(clipData, frame, family) {
+  const GAMEPLAY_BASE_CHARACTER_SCALE = 2.31;
+  function foxSavedSetupScale() {
+    return clamp(Number(setupMap?.fox?.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX);
+  }
+  function foxLocalStride(clipName) {
+    const strideWorld = clipName === 'run' ? Number(FoxRig.RUN_STRIDE_WORLD) || 0
+      : clipName === 'walk' ? Number(FoxRig.WALK_STRIDE_WORLD) || 0
+      : 0;
+    return strideWorld / Math.max(.001, GAMEPLAY_BASE_CHARACTER_SCALE * foxSavedSetupScale());
+  }
+  function resolveFoxContactTargets(pose, frame, clipName) {
+    if (!pose || !FoxRig?.IK_PREFIXES) return pose;
+    const out = clone(pose);
+    const strideLocal = foxLocalStride(clipName);
+    const phase = (((Number(frame) || 0) / 16) % 1 + 1) % 1;
+    for (const prefix of FoxRig.IK_PREFIXES) {
+      if (!out[`${prefix}Planted`] || (Number(out[`${prefix}IkWeight`]) || 0) <= .0001) continue;
+      const anchorPhase = ((Number(out[`${prefix}PlantPhase`]) % 1) + 1) % 1;
+      const delta = ((phase - anchorPhase) % 1 + 1) % 1;
+      out[`${prefix}IkX`] = (Number(out[`${prefix}IkX`]) || 0) - delta * strideLocal;
+    }
+    return out;
+  }
+
+  function evaluateSparsePose(clipData, frame, family, options = {}) {
     const adapter = adapters[family];
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
     if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
     const f = ((Number(frame) % 16) + 16) % 16;
     const exact = keys.find(k => k.frame === f);
-    if (exact) { const pose = adapter.normalise(exact.pose, f); pose.name = exact.name; return pose; }
+    if (exact) {
+      let pose = adapter.normalise(exact.pose, f);
+      pose.name = exact.name;
+      if (family === 'fox' && options.resolveContacts !== false) pose = resolveFoxContactTargets(pose,f,clipData?.clip || 'walk');
+      return adapter.normalise(pose,f);
+    }
     let before = null, after = null, beforeFrame = -Infinity, afterFrame = Infinity;
     for (const key of keys) {
       if (key.frame < f && key.frame > beforeFrame) { before = key; beforeFrame = key.frame; }
@@ -314,12 +343,20 @@
     const crossesSeam = wraps || beforeFrame < 0 || afterFrame >= 16;
     const travelB = crossesSeam ? (Number(b.travel) || 0) + 1 : Number(b.travel);
     const name = `${before.name} → ${after.name}`;
-    const pose = adapter.rig.interpolatePose(a,b,t,name,travelB);
+    let pose = adapter.rig.interpolatePose(a,b,t,name,travelB);
+    if (family === 'fox' && options.resolveContacts !== false) pose = resolveFoxContactTargets(pose,f,clipData?.clip || 'walk');
     return adapter.normalise(pose,f);
   }
 
   function compileSparseClip(clipData, family) {
-    return Array.from({length:16},(_,frame)=>evaluateSparsePose(clipData,frame,family));
+    const frames = Array.from({length:16},(_,frame)=>evaluateSparsePose(clipData,frame,family));
+    if (family === 'fox' && FoxRig?.IK_PREFIXES) {
+      // Runtime samples already contain phase-resolved local IK targets. Strip
+      // authoring-only Plant ownership so sub-frame interpolation can smoothly
+      // interpolate those resolved targets instead of re-holding a sparse key.
+      for (const pose of frames) for (const prefix of FoxRig.IK_PREFIXES) pose[`${prefix}Planted`] = false;
+    }
+    return frames;
   }
 
   function syncCompiledClip(family, clipName) {
@@ -353,6 +390,7 @@
   const sessionParticipants = new Map();
   let selectedMarkers = [];
   let underlayDraw = null;
+  const underlayRenderers = new Map();
   let pluginDraw = null;
   const pluginRenderers = new Map();
   let gesture = null;
@@ -492,7 +530,7 @@
     return {
       scope:'pose',
       label:label || 'Edit',
-      before:clone(evaluateSparsePose(currentSparseClip(),selection.frame,currentCharacter().family)),
+      before:clone(evaluateSparsePose(currentSparseClip(),selection.frame,currentCharacter().family,{resolveContacts:false})),
       beforeClip:clone(currentSparseClip()),
       keyName:existing?.name || `Key ${selection.frame + 1}`,
       frame:selection.frame
@@ -591,6 +629,10 @@
         // generic Setup map only needs the per-character visual scale.
         setupMap[character.id] = {scale:setupDraft.scale};
         localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
+        // Fox planted-contact targets are compiled in rig-local units from the
+        // gameplay stride. Refresh editor previews when scale changes, but do
+        // not rewrite runtime clips until Animate is explicitly Saved.
+        if (character.family === 'fox') for (const clipName of ['walk','run','jump']) syncCompiledClip('fox',clipName);
       } else {
         conversionPreview = null;
         ensureLegacyBackup(currentCharacter().family, selection.clip);
@@ -840,7 +882,11 @@
     ctx.save();ctx.strokeStyle='rgba(219,233,228,.055)';ctx.lineWidth=1;
     const x0=((gridView.cx%step)+step)%step;for(let x=x0;x<canvas.width;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}for(let x=x0-step;x>0;x-=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
     const y0=((gridView.groundY%step)+step)%step;for(let y=y0;y<canvas.height;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}for(let y=y0-step;y>0;y-=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}ctx.restore();
-    if (typeof underlayDraw === 'function') underlayDraw({ctx,canvas,pose,adapter,character,view:sv,gridView,project,phase});
+    const underlayArgs={ctx,canvas,pose,adapter,character,view:sv,gridView,project,phase};
+    for (const renderer of underlayRenderers.values()) {
+      try { renderer(underlayArgs); } catch (err) { console.error('[Anim Lab] Underlay renderer failed.',err); }
+    }
+    if (typeof underlayDraw === 'function') underlayDraw(underlayArgs);
     drawGroundAndRuler(gridView);
     drawReference();
     if(overlays.art) drawRigArt(character,adapter,pose,sv,.99*artOpacity);
@@ -1005,7 +1051,7 @@
   }
 
   const api = {
-    version:'1.0.151',
+    version:'1.0.153',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
@@ -1025,6 +1071,7 @@
     getLegacySamples:()=>clone(legacySamplesAtOpen[currentCharacter().family][selection.clip]),
     compileSparseClip:clipData=>compileSparseClip(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),currentCharacter().family),
     evaluateSparsePose:(clipData,frame)=>evaluateSparsePose(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),frame,currentCharacter().family),
+    getAuthoringPose:()=>clone(evaluateSparsePose(currentSparseClip(),selection.frame,currentCharacter().family,{resolveContacts:false})),
     setConversionPreview,
     clearConversionPreview,
     adoptConversionPreview,
@@ -1042,6 +1089,12 @@
     getArtOpacity:()=>artOpacity,
     setSelectedMarkers:markers=>{selectedMarkers=Array.isArray(markers)?markers.filter(p=>Number.isFinite(p?.x)&&Number.isFinite(p?.y)).map(clone):[];draw();},
     setUnderlayRenderer:fn=>{underlayDraw=typeof fn==='function'?fn:null;draw();},
+    registerUnderlayRenderer:(id,fn)=>{
+      const key=String(id||'').trim();
+      if(!key||typeof fn!=='function')return()=>{};
+      underlayRenderers.set(key,fn);draw();
+      return()=>{if(underlayRenderers.get(key)===fn)underlayRenderers.delete(key);draw();};
+    },
     setPluginRenderer:fn=>{pluginDraw=typeof fn==='function'?fn:null;draw();},
     registerPluginRenderer:(id,fn)=>{
       const key=String(id||'').trim();
