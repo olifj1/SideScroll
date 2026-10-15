@@ -1,54 +1,32 @@
-# SideScroll patch 1.0.156 — Anim Lab persistent Paw IK simplification
+# SS-PATCH-1.0.157
 
-Cumulative changed-files-only patch against the approved v1.0.150 baseline. v1.0.156 remains a test patch until approved on iPhone.
+Cumulative changed-files patch against the approved v1.0.150 baseline. v1.0.157 remains a test patch until approved on iPhone.
 
-## Why this pass exists
+## Anim Lab changes
 
-The first Stage 4 contact workflow made each leg swap between FK and IK and added per-key blend, Plant and Release ownership. On-device reference matching showed that this created more friction than value.
-
-v1.0.156 simplifies the Fox workflow to the intended animation model:
-
-- each leg is normally animated by one persistent **Paw Target**;
-- move the Paw Target to create stance/swing motion;
-- animate Mid Root / Front Body / Rear Body independently without dragging the Paw Target with them while the target remains reachable;
-- no Plant / Release buttons and no author-facing FK/IK blend are required for normal Fox locomotion;
-- old FK upper/lower channels remain internally for compatibility, but they are no longer the primary Control Board workflow.
-
-## UI changes
-
-- Fox Control Board now exposes one **Paw Target** per leg rather than Upper / Lower / IK controls.
-- First drag of an older FK-only pose captures the current paw endpoint and enables IK automatically, avoiding a pop.
-- Rig Designer now uses the same phone layout as Animate: select a joint in the left drawer and manipulate it with the bottom-right viewport drag pad.
-- Near-side limb controls/bones use the stronger teal accent; far-side limbs use lighter grey. The distinction is applied in Animate, Rig Designer and Paw Target overlays.
-- Ground Motion remains the editor-only stride/slip diagnostic.
-
-## Example Walk
-
-The teaching Walk foundation is bumped to `fox-walk-example-v3` and is rebuilt as persistent IK throughout all four legs. Stance Paw Targets travel backwards along the ground; swing Paw Targets move forwards and upward. Body/head/tail motion from the teaching example remains.
-
-The old mixed FK/IK teaching Walk is intentionally not retained.
-
-## Static/programmatic validation
-
-- all project JavaScript parses;
-- modified HTML local dependencies resolve;
-- example Walk contains eight sparse keys and compiles to 16 runtime samples;
-- all four example Paw Targets are IK-active on every key;
-- all four knees/hocks remain on their explicit anatomical bend branch through all 16 samples;
-- solved paw endpoints match their IK targets to floating-point precision for the example cycle;
-- modest Front Body movement leaves a reachable Paw Target fixed while the leg re-solves underneath it;
-- Plant/Release/contact compensation is no longer used by sparse evaluation;
-- service-worker/runtime cache is bumped for the changed editor/runtime files.
+- Separate Fox Neck and Head animation controls so the whole neck can bend down independently of the head.
+- Add the missing distal leg joint: front limbs are Socket → Elbow → Wrist → Paw; rear limbs are Socket → Knee → Hock → Paw.
+- Paw Target remains the main IK control. Each leg gains only one optional shape control: Wrist Angle or Hock Angle.
+- Existing lower-leg artwork is split non-destructively inside a new `fox-rig-atlas-v2.png`; no replacement production art is invented.
+- Saved v2 Fox rest rigs migrate to v3 with the new joint inserted on the old authored lower segment, so existing socket/knee/paw positions are preserved.
+- Fox Anim Lab playback cadence now matches gameplay locomotion distance/speed: Walk ~539 ms/cycle, Run ~323 ms/cycle at full gameplay speeds.
+- Anim Lab playback renders continuously between the 16 runtime samples instead of appearing as a 16 fps step preview.
+- Key Pose Tools adds clip-wide `Smooth` / `Linear` tweening. Fox clips default to Smooth; no graph editor is added.
 
 ## iPhone test
 
-1. Install the patch over v1.0.150 and fully reload/A2HS relaunch if needed.
-2. Open Anim Lab → Fox → Walk → Animate. Press **Reload Example Walk** once if the new example is not already shown.
-3. Confirm each leg now has a single **Paw Target** in the left Control Board. Select one with the left thumb and move it immediately with the bottom-right viewport pad using the right thumb.
-4. Confirm near limbs are the stronger accent and far limbs are lighter grey in both the list and skeleton.
-5. Hold a Paw Target in a normal reachable position, then move Mid Root / Front Body / Rear Body. The paw should remain at its target while the knee/hock solves underneath it. Very large body moves can legitimately hit the limb reach limit.
-6. Turn on Ground Motion at ×1. During stance, compare the backwards Paw Target movement with the ground marks; during swing, move the same target forwards/up. There is no Plant/Release step.
-7. Switch to Rig. Select a socket/knee/paw in the left joint list and confirm the same bottom-right viewport drag pad is immediately usable without scrolling down the drawer.
-8. Test Undo/Redo, Discard, Save/reload, then Save Walk and confirm Play uses it for the Fox.
+1. Open Anim Lab → Fox → Walk. Select **Neck**, Rotate, and drag left/right on the bottom-right pad. Confirm the whole neck/head chain can lower; then select **Head** and counter-rotate it independently.
+2. Turn on Bones and inspect each limb. Front legs should show Elbow + Wrist; rear legs should show Knee + Hock. In Rig mode each joint should be selectable on the left and movable with the same viewport pad.
+3. In Animate, select a Paw Target and move it, then select the matching Wrist/Hock Angle and rotate the final short segment. Confirm this gives useful extra leg shape without any IK mode switching.
+4. Play Fox → Run in Anim Lab, then launch Play and run at full speed. Compare cadence rather than pose detail; the cycle rate should now be substantially closer/matched.
+5. On Walk, toggle Key Pose Tools → Tween between **Smooth** and **Linear**. Smooth should remove obvious key-to-key velocity corners while authored keys remain exact.
+6. Check the split lower-leg art at wrist/hock bends for visible seams/gaps. Report any specific limb/pose where the split is objectionable.
+7. Save an edited Walk and verify Play uses it. Undo/Redo/Discard/Save should remain normal.
 
-Do not begin additional IK/constraint features until this simpler workflow has been judged on-device.
+## Static validation
+
+- JavaScript syntax checks pass for modified scripts.
+- v2→v3 rest-rig migration preserves existing authored socket/knee/paw points and derives only the new distal joint.
+- Three-segment IK preserves all three authored segment lengths in numerical tests.
+- New atlas is 2048×2048 and contains masked proximal/distal copies of the existing four lower-leg sprites.
+- Final patch should be replayed over a clean v1.0.150 tree before release.

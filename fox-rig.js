@@ -9,6 +9,7 @@
   const point = (x, y) => ({x:Number(x) || 0, y:Number(y) || 0});
   const distance = (a,b) => Math.hypot(b.x-a.x,b.y-a.y);
   const angle = (a,b) => Math.atan2(b.y-a.y,b.x-a.x);
+  const DISTAL_SPLIT = 0.58;
 
   // v1.0.150 source constants retained as the migration authority. The new
   // rest-rig default is derived from the geometry that these constants actually
@@ -81,12 +82,14 @@
   function buildLegacyRestRig() {
     const rn=legacyLimbPoints(LEGACY_LIMBS.rearNear), rf=legacyLimbPoints(LEGACY_LIMBS.rearFar);
     const fn=legacyLimbPoints(LEGACY_LIMBS.frontNear), ff=legacyLimbPoints(LEGACY_LIMBS.frontFar);
+    const splitLower=(limb)=>point(lerp(limb.knee.x,limb.paw.x,DISTAL_SPLIT),lerp(limb.knee.y,limb.paw.y,DISTAL_SPLIT));
+    const rnHock=splitLower(rn), rfHock=splitLower(rf), fnWrist=splitLower(fn), ffWrist=splitLower(ff);
     const tailRoot=point(BODY.tail0X,BODY.tail0Y);
     const tail1=point(tailRoot.x+Math.cos(REST.tailAngle1)*BODY.tail1,tailRoot.y+Math.sin(REST.tailAngle1)*BODY.tail1);
     const tail2=point(tail1.x+Math.cos(REST.tailAngle2)*BODY.tail2,tail1.y+Math.sin(REST.tailAngle2)*BODY.tail2);
     const tailTip=point(tail2.x+Math.cos(REST.tailAngle3)*BODY.tail3,tail2.y+Math.sin(REST.tailAngle3)*BODY.tail3);
     return {
-      schema:'sidescroll.fox.rest-rig.v2',
+      schema:'sidescroll.fox.rest-rig.v3',
       family:'quadruped',
       joints:{
         rearBody:point(BODY.hipX,BODY.hipY),
@@ -94,16 +97,17 @@
         frontBody:point(BODY.shoulderX,BODY.shoulderY),
         neck:point(BODY.neckX,BODY.neckY),
         head:point(BODY.headX,BODY.headY),
-        frontNearSocket:fn.root, frontNearKnee:fn.knee, frontNearPaw:fn.paw,
-        frontFarSocket:ff.root, frontFarKnee:ff.knee, frontFarPaw:ff.paw,
-        rearNearSocket:rn.root, rearNearKnee:rn.knee, rearNearPaw:rn.paw,
-        rearFarSocket:rf.root, rearFarKnee:rf.knee, rearFarPaw:rf.paw,
+        frontNearSocket:fn.root, frontNearKnee:fn.knee, frontNearWrist:fnWrist, frontNearPaw:fn.paw,
+        frontFarSocket:ff.root, frontFarKnee:ff.knee, frontFarWrist:ffWrist, frontFarPaw:ff.paw,
+        rearNearSocket:rn.root, rearNearKnee:rn.knee, rearNearHock:rnHock, rearNearPaw:rn.paw,
+        rearFarSocket:rf.root, rearFarKnee:rf.knee, rearFarHock:rfHock, rearFarPaw:rf.paw,
         tailRoot, tail1, tail2, tailTip
       }
     };
   }
 
-  const REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v2';
+  const REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v3';
+  const PREVIOUS_REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v2';
   const DEFAULT_REST_RIG = Object.freeze(buildLegacyRestRig());
   const RIG_JOINT_IDS = Object.freeze(Object.keys(DEFAULT_REST_RIG.joints));
 
@@ -113,18 +117,18 @@
     bounds:Object.freeze({minX:-0.62,maxX:0.62,minY:-0.18,maxY:0.72}),
     jointGroups:Object.freeze([
       Object.freeze({id:'body',label:'Body / Spine',joints:Object.freeze(['rearBody','midRoot','frontBody','neck','head'])}),
-      Object.freeze({id:'frontNear',label:'Front Near',joints:Object.freeze(['frontNearSocket','frontNearKnee','frontNearPaw'])}),
-      Object.freeze({id:'frontFar',label:'Front Far',joints:Object.freeze(['frontFarSocket','frontFarKnee','frontFarPaw'])}),
-      Object.freeze({id:'rearNear',label:'Rear Near',joints:Object.freeze(['rearNearSocket','rearNearKnee','rearNearPaw'])}),
-      Object.freeze({id:'rearFar',label:'Rear Far',joints:Object.freeze(['rearFarSocket','rearFarKnee','rearFarPaw'])}),
+      Object.freeze({id:'frontNear',label:'Front Near',joints:Object.freeze(['frontNearSocket','frontNearKnee','frontNearWrist','frontNearPaw'])}),
+      Object.freeze({id:'frontFar',label:'Front Far',joints:Object.freeze(['frontFarSocket','frontFarKnee','frontFarWrist','frontFarPaw'])}),
+      Object.freeze({id:'rearNear',label:'Rear Near',joints:Object.freeze(['rearNearSocket','rearNearKnee','rearNearHock','rearNearPaw'])}),
+      Object.freeze({id:'rearFar',label:'Rear Far',joints:Object.freeze(['rearFarSocket','rearFarKnee','rearFarHock','rearFarPaw'])}),
       Object.freeze({id:'tail',label:'Tail',joints:Object.freeze(['tailRoot','tail1','tail2','tailTip'])})
     ]),
     labels:Object.freeze({
       rearBody:'Rear Body',midRoot:'Mid Root',frontBody:'Front Body',neck:'Neck',head:'Head',
-      frontNearSocket:'Socket',frontNearKnee:'Knee',frontNearPaw:'Paw',
-      frontFarSocket:'Socket',frontFarKnee:'Knee',frontFarPaw:'Paw',
-      rearNearSocket:'Socket',rearNearKnee:'Hock / Knee',rearNearPaw:'Paw',
-      rearFarSocket:'Socket',rearFarKnee:'Hock / Knee',rearFarPaw:'Paw',
+      frontNearSocket:'Socket',frontNearKnee:'Elbow',frontNearWrist:'Wrist',frontNearPaw:'Paw',
+      frontFarSocket:'Socket',frontFarKnee:'Elbow',frontFarWrist:'Wrist',frontFarPaw:'Paw',
+      rearNearSocket:'Socket',rearNearKnee:'Knee',rearNearHock:'Hock',rearNearPaw:'Paw',
+      rearFarSocket:'Socket',rearFarKnee:'Knee',rearFarHock:'Hock',rearFarPaw:'Paw',
       tailRoot:'Root',tail1:'Tail 1',tail2:'Tail 2',tailTip:'Tip'
     }),
     boneLinks:Object.freeze([
@@ -133,13 +137,17 @@
       Object.freeze({a:'frontBody',b:'neck',label:'Front → Neck'}),
       Object.freeze({a:'neck',b:'head',label:'Neck → Head'}),
       Object.freeze({a:'frontNearSocket',b:'frontNearKnee',label:'Front Near Upper'}),
-      Object.freeze({a:'frontNearKnee',b:'frontNearPaw',label:'Front Near Lower'}),
+      Object.freeze({a:'frontNearKnee',b:'frontNearWrist',label:'Front Near Forearm'}),
+      Object.freeze({a:'frontNearWrist',b:'frontNearPaw',label:'Front Near Paw'}),
       Object.freeze({a:'frontFarSocket',b:'frontFarKnee',label:'Front Far Upper'}),
-      Object.freeze({a:'frontFarKnee',b:'frontFarPaw',label:'Front Far Lower'}),
-      Object.freeze({a:'rearNearSocket',b:'rearNearKnee',label:'Rear Near Upper'}),
-      Object.freeze({a:'rearNearKnee',b:'rearNearPaw',label:'Rear Near Lower'}),
-      Object.freeze({a:'rearFarSocket',b:'rearFarKnee',label:'Rear Far Upper'}),
-      Object.freeze({a:'rearFarKnee',b:'rearFarPaw',label:'Rear Far Lower'}),
+      Object.freeze({a:'frontFarKnee',b:'frontFarWrist',label:'Front Far Forearm'}),
+      Object.freeze({a:'frontFarWrist',b:'frontFarPaw',label:'Front Far Paw'}),
+      Object.freeze({a:'rearNearSocket',b:'rearNearKnee',label:'Rear Near Thigh'}),
+      Object.freeze({a:'rearNearKnee',b:'rearNearHock',label:'Rear Near Shin'}),
+      Object.freeze({a:'rearNearHock',b:'rearNearPaw',label:'Rear Near Paw'}),
+      Object.freeze({a:'rearFarSocket',b:'rearFarKnee',label:'Rear Far Thigh'}),
+      Object.freeze({a:'rearFarKnee',b:'rearFarHock',label:'Rear Far Shin'}),
+      Object.freeze({a:'rearFarHock',b:'rearFarPaw',label:'Rear Far Paw'}),
       Object.freeze({a:'tailRoot',b:'tail1',label:'Tail Base'}),
       Object.freeze({a:'tail1',b:'tail2',label:'Tail Mid'}),
       Object.freeze({a:'tail2',b:'tailTip',label:'Tail Tip'})
@@ -147,9 +155,11 @@
     symmetryPairs:Object.freeze([
       Object.freeze(['frontNearSocket','frontFarSocket']),
       Object.freeze(['frontNearKnee','frontFarKnee']),
+      Object.freeze(['frontNearWrist','frontFarWrist']),
       Object.freeze(['frontNearPaw','frontFarPaw']),
       Object.freeze(['rearNearSocket','rearFarSocket']),
       Object.freeze(['rearNearKnee','rearFarKnee']),
+      Object.freeze(['rearNearHock','rearFarHock']),
       Object.freeze(['rearNearPaw','rearFarPaw'])
     ]),
     groundContacts:Object.freeze(['frontNearPaw','frontFarPaw','rearNearPaw','rearFarPaw']),
@@ -169,13 +179,23 @@
       const x = Number(candidate?.x), y = Number(candidate?.y);
       joints[id] = point(Number.isFinite(x)?x:fallback.x,Number.isFinite(y)?y:fallback.y);
     }
-    return {schema:'sidescroll.fox.rest-rig.v2',family:'quadruped',joints};
+    for (const [id,a,b] of [
+      ['frontNearWrist','frontNearKnee','frontNearPaw'],['frontFarWrist','frontFarKnee','frontFarPaw'],
+      ['rearNearHock','rearNearKnee','rearNearPaw'],['rearFarHock','rearFarKnee','rearFarPaw']
+    ]) {
+      if (raw[id] && Number.isFinite(Number(raw[id].x)) && Number.isFinite(Number(raw[id].y))) continue;
+      joints[id] = point(lerp(joints[a].x,joints[b].x,DISTAL_SPLIT),lerp(joints[a].y,joints[b].y,DISTAL_SPLIT));
+    }
+    return {schema:'sidescroll.fox.rest-rig.v3',family:'quadruped',joints};
   }
 
   function readRestRig() {
     try {
       if (typeof localStorage === 'undefined') return normalizedRestRig(DEFAULT_REST_RIG);
-      return normalizedRestRig(JSON.parse(localStorage.getItem(REST_RIG_STORAGE_KEY) || 'null'));
+      const current = JSON.parse(localStorage.getItem(REST_RIG_STORAGE_KEY) || 'null');
+      if (current) return normalizedRestRig(current);
+      const previous = JSON.parse(localStorage.getItem(PREVIOUS_REST_RIG_STORAGE_KEY) || 'null');
+      return normalizedRestRig(previous || DEFAULT_REST_RIG);
     } catch (_) { return normalizedRestRig(DEFAULT_REST_RIG); }
   }
 
@@ -230,8 +250,8 @@
 
   const ATLAS = Object.freeze({
     width: 2048,
-    height: 1024,
-    fileUrl: 'fox-rig-atlas-v1.png?v=1.0.141',
+    height: 2048,
+    fileUrl: 'fox-rig-atlas-v2.png?v=1.0.157',
     sourceUrl: 'fox-character-source-v1.png?v=1.0.141',
     parts: Object.freeze({
       tail_tip:{x:12,y:12,w:243,h:289,a0:[0.8724279835,0.3910034602],a1:[0.2962962963,0.5986159170]},
@@ -246,6 +266,14 @@
       near_rear_lower:{x:643,y:415,w:150,h:240,a0:[0.7933333333,0.1250000000],a1:[0.1933333333,0.7500000000]},
       near_front_upper:{x:805,y:415,w:121,h:203,a0:[0.4958677686,0.1576354680],a1:[0.6611570248,0.8472906404]},
       near_front_lower:{x:938,y:415,w:92,h:242,a0:[0.3260869565,0.1198347107],a1:[0.2717391304,0.7396694215]},
+      far_rear_lower_prox:{x:24,y:1060,w:149,h:222,a0:[0.5167785235,0.1261261261],a1:[0.5167785235,0.491891891906]},
+      far_rear_lower_dist:{x:197,y:1060,w:149,h:222,a0:[0.5167785235,0.491891891906],a1:[0.5167785235,0.7567567568]},
+      far_front_lower_prox:{x:388,y:1060,w:149,h:246,a0:[0.2013422819,0.1138211382],a1:[0.376510067124,0.479268292664]},
+      far_front_lower_dist:{x:561,y:1060,w:149,h:246,a0:[0.376510067124,0.479268292664],a1:[0.5033557047,0.743902439]},
+      near_rear_lower_prox:{x:752,y:1060,w:150,h:240,a0:[0.7933333333,0.125],a1:[0.4453333333,0.4875]},
+      near_rear_lower_dist:{x:926,y:1060,w:150,h:240,a0:[0.4453333333,0.4875],a1:[0.1933333333,0.75]},
+      near_front_lower_prox:{x:1118,y:1060,w:92,h:242,a0:[0.3260869565,0.1198347107],a1:[0.294565217362,0.479338842964]},
+      near_front_lower_dist:{x:1234,y:1060,w:92,h:242,a0:[0.294565217362,0.479338842964],a1:[0.2717391304,0.7396694215]},
       head_neck:{x:1042,y:415,w:394,h:478,a0:[0.4314720812,0.5376569038],a1:[0.6598984772,0.3598326360]}
     })
   });
@@ -346,8 +374,8 @@
     `${prefix}IkX`,`${prefix}IkY`,`${prefix}IkWeight`
   ]);
   const NUMERIC_KEYS=[
-    'bodyBob','frontBodyLift','rearBodyLift','bodyPitch','headPitch','tailBase','tailMid','tailTip',
-    'rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','travel',
+    'bodyBob','frontBodyLift','rearBodyLift','bodyPitch','neckPitch','headPitch','tailBase','tailMid','tailTip',
+    'rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','rnDistal','rfDistal','fnDistal','ffDistal','travel',
     ...IK_NUMERIC_KEYS
   ];
 
@@ -813,8 +841,10 @@
     const midRoot=bodyPoint('midRoot');
     const rearBody=shifted(bodyPoint('rearBody'),p.rearBodyLift);
     const frontBody=shifted(bodyPoint('frontBody'),p.frontBodyLift);
-    const neck=shifted(bodyPoint('neck'),p.frontBodyLift);
-    const headBase=shifted(bodyPoint('head'),p.frontBodyLift);
+    const neckRest=shifted(bodyPoint('neck'),p.frontBodyLift);
+    const headRest=shifted(bodyPoint('head'),p.frontBodyLift);
+    const neck=rotPoint(neckRest,frontBody,p.neckPitch);
+    const headBase=rotPoint(headRest,frontBody,p.neckPitch);
     const head=rotPoint(headBase,neck,p.headPitch);
 
     function solveJointStable(root,target,l1,l2,bendSide=1){
@@ -835,22 +865,29 @@
 
     function limbGeom(prefix,channelPrefix,upperDelta,lowerDelta,lift){
       const socketId=`${prefix}Socket`,kneeId=`${prefix}Knee`,pawId=`${prefix}Paw`;
+      const distalId=prefix.startsWith('front')?`${prefix}Wrist`:`${prefix}Hock`;
       const root=shifted(bodyPoint(socketId),lift);
       const upperLength=distance(j[socketId],j[kneeId]);
-      const lowerLength=distance(j[kneeId],j[pawId]);
+      const middleLength=distance(j[kneeId],j[distalId]);
+      const distalLength=distance(j[distalId],j[pawId]);
       const upperAngle=angle(j[socketId],j[kneeId])+p.bodyPitch+upperDelta;
-      const lowerAngle=angle(j[kneeId],j[pawId])+p.bodyPitch+lowerDelta;
+      const middleAngle=angle(j[kneeId],j[distalId])+p.bodyPitch+lowerDelta;
+      const distalAngle=angle(j[distalId],j[pawId])+(Number(p[`${channelPrefix}Distal`])||0);
       const fkKnee={x:root.x+Math.cos(upperAngle)*upperLength,y:root.y+Math.sin(upperAngle)*upperLength};
-      const fkPaw={x:fkKnee.x+Math.cos(lowerAngle)*lowerLength,y:fkKnee.y+Math.sin(lowerAngle)*lowerLength};
+      const fkDistal={x:fkKnee.x+Math.cos(middleAngle)*middleLength,y:fkKnee.y+Math.sin(middleAngle)*middleLength};
+      const fkPaw={x:fkDistal.x+Math.cos(distalAngle)*distalLength,y:fkDistal.y+Math.sin(distalAngle)*distalLength};
       const target={x:Number(p[`${channelPrefix}IkX`]),y:Number(p[`${channelPrefix}IkY`])};
       const weight=clamp(Number(p[`${channelPrefix}IkWeight`])||0,0,1);
       if(weight<=.0001 || !Number.isFinite(target.x) || !Number.isFinite(target.y)){
-        return{root,knee:fkKnee,paw:fkPaw,fkKnee,fkPaw,ikTarget:fkPaw,ikWeight:0};
+        return{root,knee:fkKnee,distal:fkDistal,paw:fkPaw,fkKnee,fkDistal,fkPaw,ikTarget:fkPaw,ikWeight:0};
       }
       const blendedTarget={x:lerp(fkPaw.x,target.x,weight),y:lerp(fkPaw.y,target.y,weight)};
+      const distalVector={x:Math.cos(distalAngle)*distalLength,y:Math.sin(distalAngle)*distalLength};
+      const distalTarget={x:blendedTarget.x-distalVector.x,y:blendedTarget.y-distalVector.y};
       const bendSide=Number(RIG_DESIGNER.ikBendSides?.[prefix])||1;
-      const solved=solveJointStable(root,blendedTarget,upperLength,lowerLength,bendSide);
-      return{root,knee:solved.joint,paw:solved.target,fkKnee,fkPaw,ikTarget:target,ikWeight:weight};
+      const solved=solveJointStable(root,distalTarget,upperLength,middleLength,bendSide);
+      const paw={x:solved.target.x+distalVector.x,y:solved.target.y+distalVector.y};
+      return{root,knee:solved.joint,distal:solved.target,paw,fkKnee,fkDistal,fkPaw,ikTarget:target,ikWeight:weight};
     }
     const rn=limbGeom('rearNear','rn',p.rnUpper,p.rnLower,p.rearBodyLift);
     const rf=limbGeom('rearFar','rf',p.rfUpper,p.rfLower,p.rearBodyLift);
@@ -869,10 +906,10 @@
     return {pose:p,
       rearBody,midRoot,frontBody,hip:rearBody,shoulder:frontBody,neck,head,tail0,tail1,tail2,tail3,
       tailRoot:tail0,tailTip:tail3,
-      rearNearRoot:rn.root,rearNearSocket:rn.root,rearNearKnee:rn.knee,rearNearFoot:rn.paw,rearNearPaw:rn.paw,rearNearIkTarget:rn.ikTarget,rearNearFkPaw:rn.fkPaw,
-      rearFarRoot:rf.root,rearFarSocket:rf.root,rearFarKnee:rf.knee,rearFarFoot:rf.paw,rearFarPaw:rf.paw,rearFarIkTarget:rf.ikTarget,rearFarFkPaw:rf.fkPaw,
-      frontNearRoot:fn.root,frontNearSocket:fn.root,frontNearKnee:fn.knee,frontNearFoot:fn.paw,frontNearPaw:fn.paw,frontNearIkTarget:fn.ikTarget,frontNearFkPaw:fn.fkPaw,
-      frontFarRoot:ff.root,frontFarSocket:ff.root,frontFarKnee:ff.knee,frontFarFoot:ff.paw,frontFarPaw:ff.paw,frontFarIkTarget:ff.ikTarget,frontFarFkPaw:ff.fkPaw};
+      rearNearRoot:rn.root,rearNearSocket:rn.root,rearNearKnee:rn.knee,rearNearHock:rn.distal,rearNearFoot:rn.paw,rearNearPaw:rn.paw,rearNearIkTarget:rn.ikTarget,rearNearFkPaw:rn.fkPaw,
+      rearFarRoot:rf.root,rearFarSocket:rf.root,rearFarKnee:rf.knee,rearFarHock:rf.distal,rearFarFoot:rf.paw,rearFarPaw:rf.paw,rearFarIkTarget:rf.ikTarget,rearFarFkPaw:rf.fkPaw,
+      frontNearRoot:fn.root,frontNearSocket:fn.root,frontNearKnee:fn.knee,frontNearWrist:fn.distal,frontNearFoot:fn.paw,frontNearPaw:fn.paw,frontNearIkTarget:fn.ikTarget,frontNearFkPaw:fn.fkPaw,
+      frontFarRoot:ff.root,frontFarSocket:ff.root,frontFarKnee:ff.knee,frontFarWrist:ff.distal,frontFarFoot:ff.paw,frontFarPaw:ff.paw,frontFarIkTarget:ff.ikTarget,frontFarFkPaw:ff.fkPaw};
   }
 
 
@@ -932,20 +969,20 @@
     const g=geometry(pose,restRig);
     return [
       seg('tail_tip',g.tail2,g.tail3,0,.98),seg('tail_mid',g.tail1,g.tail2,1,.99),seg('tail_base',g.tail0,g.tail1,2,1),
-      seg('far_rear_upper',g.rearFarRoot,g.rearFarKnee,3,.94),seg('far_rear_lower',g.rearFarKnee,g.rearFarFoot,4,.94),
-      seg('far_front_upper',g.frontFarRoot,g.frontFarKnee,5,.94),seg('far_front_lower',g.frontFarKnee,g.frontFarFoot,6,.94),
+      seg('far_rear_upper',g.rearFarRoot,g.rearFarKnee,3,.94),seg('far_rear_lower_prox',g.rearFarKnee,g.rearFarHock,4,.94),seg('far_rear_lower_dist',g.rearFarHock,g.rearFarFoot,4.2,.94),
+      seg('far_front_upper',g.frontFarRoot,g.frontFarKnee,5,.94),seg('far_front_lower_prox',g.frontFarKnee,g.frontFarWrist,6,.94),seg('far_front_lower_dist',g.frontFarWrist,g.frontFarFoot,6.2,.94),
       // Skeleton-only spine links have no atlas rectangles and are therefore
       // ignored by art/gameplay rendering while remaining visible in Bones.
       seg('__rear_mid',g.rearBody,g.midRoot,6.2,1),seg('__mid_front',g.midRoot,g.frontBody,6.3,1),seg('__front_neck',g.frontBody,g.neck,6.4,1),
       seg('torso',g.rearBody,g.frontBody,7,1),
-      seg('near_rear_upper',g.rearNearRoot,g.rearNearKnee,8,1),seg('near_rear_lower',g.rearNearKnee,g.rearNearFoot,9,1),
-      seg('near_front_upper',g.frontNearRoot,g.frontNearKnee,10,1),seg('near_front_lower',g.frontNearKnee,g.frontNearFoot,11,1),
+      seg('near_rear_upper',g.rearNearRoot,g.rearNearKnee,8,1),seg('near_rear_lower_prox',g.rearNearKnee,g.rearNearHock,9,1),seg('near_rear_lower_dist',g.rearNearHock,g.rearNearFoot,9.2,1),
+      seg('near_front_upper',g.frontNearRoot,g.frontNearKnee,10,1),seg('near_front_lower_prox',g.frontNearKnee,g.frontNearWrist,11,1),seg('near_front_lower_dist',g.frontNearWrist,g.frontNearFoot,11.2,1),
       seg('head_neck',g.neck,g.head,12,1)
     ];
   }
 
   window.GameHubFoxRig={
-    version:'1.0.156',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.157',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES

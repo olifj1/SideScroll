@@ -112,7 +112,7 @@
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
     { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v1.png?v=1.0.141' }
+    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v2.png?v=1.0.157' }
   ];
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 
@@ -216,7 +216,8 @@
     },
     fox: {
       id:'fox', label:'Fox', rig:FoxRig,
-      clipMs:{walk:1050,run:650,jump:935},
+      // Match the actual distance-driven gameplay cadence: cycle time = stride / speed.
+      clipMs:{walk:Math.round((Number(FoxRig.WALK_STRIDE_WORLD)||.62)/1.15*1000),run:Math.round((Number(FoxRig.RUN_STRIDE_WORLD)||.92)/2.85*1000),jump:935},
       loadBank:loadFoxBank, saveBank:saveFoxBank,
       normalise:(pose,index) => FoxRig.normalizedPose(pose,index),
       defaultPose:(clip,index) => {
@@ -292,6 +293,7 @@
       loop:true,
       source:String(raw?.source || 'legacy-sampled'),
       foundationVersion:String(raw?.foundationVersion || ''),
+      interpolation:raw?.interpolation === 'linear' ? 'linear' : (family === 'fox' ? 'smooth' : 'linear'),
       keys
     };
   }
@@ -339,6 +341,35 @@
       : 0;
     return strideWorld / Math.max(.001, GAMEPLAY_BASE_CHARACTER_SCALE * foxSavedSetupScale());
   }
+  function hermiteValue(v0,v1,v2,v3,x0,x1,x2,x3,t){
+    const span=Math.max(.0001,x2-x1);
+    const m1=(v2-v0)/Math.max(.0001,x2-x0);
+    const m2=(v3-v1)/Math.max(.0001,x3-x1);
+    const t2=t*t,t3=t2*t;
+    return (2*t3-3*t2+1)*v1 + (t3-2*t2+t)*span*m1 + (-2*t3+3*t2)*v2 + (t3-t2)*span*m2;
+  }
+
+  function smoothSparsePose(adapter, keys, before, after, beforeFrame, afterFrame, t, frame){
+    const n=keys.length, bi=keys.indexOf(before), ai=keys.indexOf(after);
+    if(n<3 || bi<0 || ai<0) return null;
+    const prev=keys[(bi-1+n)%n], next=keys[(ai+1)%n];
+    const back=((before.frame-prev.frame)%16+16)%16 || 16;
+    const forward=((next.frame-after.frame)%16+16)%16 || 16;
+    const prevFrame=beforeFrame-back, nextFrame=afterFrame+forward;
+    const p0=adapter.normalise(prev.pose,prev.frame),p1=adapter.normalise(before.pose,before.frame),p2=adapter.normalise(after.pose,after.frame),p3=adapter.normalise(next.pose,next.frame);
+    const linear=adapter.rig.interpolatePose(p1,p2,t,`${before.name} → ${after.name}`,Number(p2.travel)||0);
+    const out={...linear};
+    for(const key of Object.keys(p1)){
+      if(key==='travel' || key.endsWith('IkWeight')) continue;
+      const rawVals=[p0[key],p1[key],p2[key],p3[key]];
+      if(!rawVals.every(value=>typeof value==='number' && Number.isFinite(value))) continue;
+      const vals=rawVals;
+      out[key]=hermiteValue(vals[0],vals[1],vals[2],vals[3],prevFrame,beforeFrame,afterFrame,nextFrame,t);
+      if(key.endsWith('IkY')) out[key]=Math.max(-.0001,out[key]);
+    }
+    return adapter.normalise(out,frame);
+  }
+
   function evaluateSparsePose(clipData, frame, family, options = {}) {
     const adapter = adapters[family];
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
@@ -365,7 +396,14 @@
     const crossesSeam = wraps || beforeFrame < 0 || afterFrame >= 16;
     const travelB = crossesSeam ? (Number(b.travel) || 0) + 1 : Number(b.travel);
     const name = `${before.name} → ${after.name}`;
-    let pose = adapter.rig.interpolatePose(a,b,t,name,travelB);
+    let pose = clipData?.interpolation === 'smooth'
+      ? smoothSparsePose(adapter,keys,before,after,beforeFrame,afterFrame,t,f)
+      : null;
+    if(!pose) pose = adapter.rig.interpolatePose(a,b,t,name,travelB);
+    // Travel is phase bookkeeping and must remain monotonic even when visual
+    // channels use smooth cubic tangents.
+    pose.travel = a.travel + (travelB-a.travel)*t;
+    pose.name = name;
     return adapter.normalise(pose,f);
   }
 
@@ -440,7 +478,10 @@
   function currentSparseClip() { return sparseBanks[currentCharacter().family][selection.clip]; }
   function previewApplies() { return !!conversionPreview && conversionPreview.family === currentCharacter().family && conversionPreview.clip === selection.clip; }
   function displayFrames() { return previewApplies() ? conversionPreview.frames : currentFrames(); }
-  function currentPose() { return displayFrames()[selection.frame]; }
+  function currentPose() {
+    if(playing && selection.mode==='animate') return currentAdapter().rig.sampleFrames(displayFrames(),playPhase);
+    return displayFrames()[selection.frame];
+  }
 
   function setCurrentSparseClip(value) {
     const family = currentCharacter().family;
@@ -1070,7 +1111,7 @@
   }
 
   const api = {
-    version:'1.0.155',
+    version:'1.0.157',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),

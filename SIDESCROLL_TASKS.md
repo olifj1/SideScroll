@@ -2121,3 +2121,21 @@ On-device acceptance:
 - [ ] Save the Walk, enter Play as Fox and confirm the same persistent-IK cycle is used in gameplay.
 - [ ] Confirm Undo/Redo/Discard/Save work for Paw Target and Rig-joint drags, with one continuous drag producing one history step.
 
+
+## v1.0.157 — Anim Lab anatomy, cadence + smooth playback correction
+
+On-device reference matching in v1.0.156 exposed four remaining structural/editor issues: the neck only had a head-local pivot, the Fox limb chain was one joint short for quadruped anatomy, Fox preview cadence did not match distance-driven gameplay, and Anim Lab playback displayed only stepped 16-sample frames.
+
+- [x] Split Fox neck animation into **Neck** and **Head** channels. Neck rotates the whole frontBody → neck → head chain; Head remains a local head pivot.
+- [x] Extend each Fox leg from two to three articulated segments while preserving existing socket/knee/paw positions during rig migration.
+- [x] Front legs now expose Socket → Elbow → Wrist → Paw; rear legs expose Socket → Knee → Hock → Paw in Rig Designer.
+- [x] Keep Paw Target as the primary persistent IK position control. Add only one optional direct shape channel per limb: Wrist Angle on front legs / Hock Angle on rear legs.
+- [x] Split the existing lower-leg atlas art non-destructively into proximal/distal masked pieces so the new wrist/hock joint can visibly bend without inventing replacement art.
+- [x] Migrate saved v2 Fox rest rigs to v3 by deriving the new Wrist/Hock on the authored old lower-leg segment; do not move existing authored joints merely because the patch is installed.
+- [x] Match Fox Anim Lab Walk/Run preview cadence to gameplay's distance-driven cycle: Walk ≈ 539 ms at 1.15 m/s over 0.62 m stride; Run ≈ 323 ms at 2.85 m/s over 0.92 m stride.
+- [x] During Play in Anim Lab, render the continuous interpolated phase rather than visibly stepping only when the selected 1–16 sample changes.
+- [x] Add a lightweight clip-wide **Smooth / Linear** tween choice. Fox clips default to Smooth; the runtime bank remains 16 samples and no graph editor is introduced.
+- [ ] iPhone: confirm Neck can lower the whole head/neck silhouette to match the gait reference while Head can counter-rotate independently.
+- [ ] iPhone: inspect all four new wrist/hock joints in Bones + Art and verify the split lower-leg artwork bends cleanly enough for this production pass.
+- [ ] iPhone: compare Anim Lab Run directly with full-speed Fox Run in Play and confirm the cycle cadence now matches perceptually.
+- [ ] iPhone: compare Smooth vs Linear on the same sparse Walk and verify Smooth removes the obvious key-to-key velocity corners without unwanted paw-ground overshoot.

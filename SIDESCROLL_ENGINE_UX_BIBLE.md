@@ -1156,3 +1156,12 @@ Rules:
 - one continuous Paw Target or Rig-joint drag is one Undo action; pointer-cancel restores the pre-drag value and Save/Discard remain the persistence boundary;
 - v1.0.156 deliberately stops at four paw targets plus the moving-ground diagnostic. Do not reintroduce Plant/Release, graph curves, generalized constraints, terrain-aware automatic foot placement or full-body IK unless a concrete production problem demonstrates the need.
 
+
+### Anim Lab locomotion authoring — anatomy, timing and interpolation (v1.0.157)
+
+- **Reference-first anatomy:** if a reference clearly requires an articulated joint, represent that joint in the rest rig instead of hiding the discrepancy inside pose offsets. Quadruped front limbs use Socket → Elbow → Wrist → Paw; rear limbs use Socket → Knee → Hock → Paw.
+- **Simple IK ownership:** Paw Target remains the everyday locomotion endpoint control. Additional anatomy should add the minimum direct shape control required for believable matching (currently Wrist/Hock Angle), not mode switches or plant-state bookkeeping.
+- **Hierarchical neck:** Neck motion owns the frontBody → neck → head chain; Head motion is local on top. Do not collapse both actions into one head pivot.
+- **Gameplay cadence in preview:** locomotion preview speed must be derived from the same stride-distance/speed relationship used by Play wherever practical. A lab preview that is visibly slower/faster than gameplay is not an acceptable animation-review surface.
+- **Continuous playback:** the authored/runtime bank may remain a compact fixed sample count, but editor playback should evaluate between samples continuously at display refresh rather than visibly stepping sample-to-sample.
+- **Curves without a DCC graph editor:** prefer a small, predictable interpolation choice such as Smooth/Linear over introducing a general curve graph. Smooth interpolation must preserve authored key poses and must not allow paw targets to dip materially below the ground datum through overshoot.

@@ -23,7 +23,7 @@
         'fnIkX','fnIkY','fnIkWeight','ffIkX','ffIkY','ffIkWeight',
         'rnIkX','rnIkY','rnIkWeight','rfIkX','rfIkY','rfIkWeight'
       ],
-      angular:['bodyPitch','headPitch','tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower'],
+      angular:['bodyPitch','neckPitch','headPitch','tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','rnDistal','rfDistal','fnDistal','ffDistal'],
       discrete:[]
     }
   };
@@ -64,6 +64,12 @@
       <button id="animlab-phase-right" type="button">Phase +1</button>
       <button id="animlab-phase-half" type="button">Half Cycle</button>
       <button id="animlab-mirror-clip" type="button">Mirror Clip</button>
+    </div>
+
+    <div class="animlab-convert-head"><strong>Tween</strong><span>clip-wide</span></div>
+    <div class="animlab-segmented animlab-two" id="animlab-tween-mode">
+      <button type="button" data-tween="smooth">Smooth</button>
+      <button type="button" data-tween="linear">Linear</button>
     </div>
 
     <div class="animlab-convert-box">
@@ -109,6 +115,7 @@
   const phaseRightBtn = $('animlab-phase-right');
   const phaseHalfBtn = $('animlab-phase-half');
   const mirrorClipBtn = $('animlab-mirror-clip');
+  const tweenButtons = [...document.querySelectorAll('#animlab-tween-mode [data-tween]')];
   const convertCount = $('animlab-convert-count');
   const convertCopy = $('animlab-convert-copy');
   const previewBtn = $('animlab-convert-preview');
@@ -176,7 +183,8 @@
         ['fnUpper','ffUpper'],['fnLower','ffLower'],
         ['rnUpper','rfUpper'],['rnLower','rfLower'],
         ['fnIkX','ffIkX'],['fnIkY','ffIkY'],['fnIkWeight','ffIkWeight'],
-        ['rnIkX','rfIkX'],['rnIkY','rfIkY'],['rnIkWeight','rfIkWeight']
+        ['rnIkX','rfIkX'],['rnIkY','rfIkY'],['rnIkWeight','rfIkWeight'],
+        ['fnDistal','ffDistal'],['rnDistal','rfDistal']
       ]) swapValues(out,a,b);
     }
     return out;
@@ -427,6 +435,7 @@
     phaseRightBtn.disabled=preview;
     phaseHalfBtn.disabled=preview;
     mirrorClipBtn.disabled=preview;
+    tweenButtons.forEach(button=>button.classList.toggle('active',(st.sparseClip?.interpolation||'linear')===button.dataset.tween));
 
     convertCount.textContent=`${keys.length} keys`;
     convertCopy.textContent=lastPreviewReport || (preview
@@ -455,6 +464,11 @@
   adoptBtn.addEventListener('click',adoptPreview);
   exitBtn.addEventListener('click',exitPreview);
 
+
+  tweenButtons.forEach(button=>button.addEventListener('click',()=>{
+    const mode=button.dataset.tween==='linear'?'linear':'smooth';
+    core.editSparseClip(`Set ${mode} tween`,clip=>{clip.interpolation=mode;markAuthored(clip);});
+  }));
   core.subscribe(st=>render(st));
   render(state());
 })();

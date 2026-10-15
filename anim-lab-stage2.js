@@ -26,11 +26,16 @@
       {id:'frontBody',label:'Front Body',group:'Core',point:'frontBody',move:{y:{key:'frontBodyLift',min:-.100,max:.120,sign:1}}},
       {id:'rearBody',label:'Rear Body',group:'Core',point:'rearBody',move:{y:{key:'rearBodyLift',min:-.100,max:.120,sign:1}}},
       {id:'bodyTilt',label:'Whole Body Tilt',group:'Core',point:'frontBody',rotate:{key:'bodyPitch',min:-28*DEG,max:28*DEG}},
-      {id:'head',label:'Head / Neck',group:'Core',point:'head',rotate:{key:'headPitch',min:-35*DEG,max:35*DEG}},
+      {id:'neck',label:'Neck',group:'Core',point:'neck',rotate:{key:'neckPitch',min:-70*DEG,max:55*DEG}},
+      {id:'head',label:'Head',group:'Core',point:'head',rotate:{key:'headPitch',min:-55*DEG,max:55*DEG}},
       {id:'fnIk',label:'Paw Target',group:'Front Near',side:'near',point:'frontNearIkTarget',capturePoint:'frontNearPaw',pair:'ffIk',ikPrefix:'fn',move:{x:{key:'fnIkX',min:-.60,max:.60,sign:1},y:{key:'fnIkY',min:-.16,max:.62,sign:1}}},
+      {id:'fnDistal',label:'Wrist Angle',group:'Front Near',side:'near',point:'frontNearWrist',pair:'ffDistal',rotate:{key:'fnDistal',min:-80*DEG,max:80*DEG}},
       {id:'ffIk',label:'Paw Target',group:'Front Far',side:'far',point:'frontFarIkTarget',capturePoint:'frontFarPaw',pair:'fnIk',ikPrefix:'ff',move:{x:{key:'ffIkX',min:-.60,max:.60,sign:1},y:{key:'ffIkY',min:-.16,max:.62,sign:1}}},
+      {id:'ffDistal',label:'Wrist Angle',group:'Front Far',side:'far',point:'frontFarWrist',pair:'fnDistal',rotate:{key:'ffDistal',min:-80*DEG,max:80*DEG}},
       {id:'rnIk',label:'Paw Target',group:'Rear Near',side:'near',point:'rearNearIkTarget',capturePoint:'rearNearPaw',pair:'rfIk',ikPrefix:'rn',move:{x:{key:'rnIkX',min:-.60,max:.60,sign:1},y:{key:'rnIkY',min:-.16,max:.62,sign:1}}},
+      {id:'rnDistal',label:'Hock Angle',group:'Rear Near',side:'near',point:'rearNearHock',pair:'rfDistal',rotate:{key:'rnDistal',min:-95*DEG,max:95*DEG}},
       {id:'rfIk',label:'Paw Target',group:'Rear Far',side:'far',point:'rearFarIkTarget',capturePoint:'rearFarPaw',pair:'rnIk',ikPrefix:'rf',move:{x:{key:'rfIkX',min:-.60,max:.60,sign:1},y:{key:'rfIkY',min:-.16,max:.62,sign:1}}},
+      {id:'rfDistal',label:'Hock Angle',group:'Rear Far',side:'far',point:'rearFarHock',pair:'rnDistal',rotate:{key:'rfDistal',min:-95*DEG,max:95*DEG}},
       {id:'tailBase',label:'Tail Base',group:'Tail',point:'tail0',rotate:{key:'tailBase',min:-70*DEG,max:70*DEG}},
       {id:'tailMid',label:'Tail Mid',group:'Tail',point:'tail1',rotate:{key:'tailMid',min:-70*DEG,max:70*DEG}},
       {id:'tailTip',label:'Tail Tip',group:'Tail',point:'tail2',rotate:{key:'tailTip',min:-70*DEG,max:70*DEG}}
@@ -374,7 +379,7 @@
   });
 
   window.AnimLabControlSurface = Object.freeze({
-    version:'1.0.156',
+    version:'1.0.157',
     getSelectedId:()=>selectedId,
     getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
     selectControl:id=>selectControl(id,true)
