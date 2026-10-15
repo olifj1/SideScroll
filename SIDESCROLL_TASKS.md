@@ -2147,7 +2147,69 @@ On-device reference matching in v1.0.156 exposed four remaining structural/edito
 - [x] Add editor-only opacity / scale / X / Y alignment for the static reference; this must never dirty rig or animation data.
 - [x] Default the Fox static-reference context to Fox Shape while preserving separate reference preferences per rig family.
 - [x] Add a one-file Fox handoff export containing current scale/collider/rest rig plus sparse and compiled Walk/Run/Jump data.
-- [ ] On device: proportion the Fox rest rig to the new Fox Shape reference and Save it.
+- [x] On device: proportion the Fox rest rig to the new Fox Shape reference and Save it.
 - [ ] On device: retune Walk/Run as needed against the new proportions and verify Play.
-- [ ] Export the resulting Fox handoff JSON and use that exact rig/animation state as the input to the later mesh-deformation art pass.
+- [x] Export the resulting Fox handoff JSON; v1.0.159 promotes that exact rig/animation state into the built-in baseline before the later mesh-deformation art pass.
 - [ ] After the rig is approved, prototype the proposed hybrid 2D deform setup: deformable body/head mesh, deformable shoulder/leg meshes, and separate deformable tail, before replacing current plane art.
+
+## v1.0.159 — Fox Authoring Baseline stage marker
+
+Purpose: stop extending Anim Lab long enough to promote the Fox the user has actually authored into a self-contained game/editor baseline that can be judged visually in motion.
+
+- [x] Promote `SS-FOX-RIG-ANIM-1.0.158.json` as the built-in Fox authoring source rather than relying on one browser's localStorage.
+- [x] Preserve the supplied scale 1.71, collider and v3 quadruped rest rig as the new default Fox setup.
+- [x] Preserve the supplied sparse Walk / Run / Jump keys and compiled 16-sample banks without retuning them during promotion.
+- [x] Add **Idle** as a first-class fourth Fox clip in Anim Lab/runtime architecture.
+- [x] Keep first Idle deliberately static/rest-pose only; secondary breathing/head/ear/tail motion is later polish.
+- [x] Add a baseline marker for Fox setup/rig/collider/clip storage so older test experiments cannot silently override the promoted v1.0.159 authoring state.
+- [x] Replace the animated orange Fox skin with temporary charcoal cutout evaluation art built from the approved right-facing Fox Shape reference.
+- [x] Reuse the visible near-side leg artwork for temporary far-side planes where necessary; this is evaluation art, not a final asset decomposition.
+- [x] Keep the newly authored v3 rig authoritative; do not reshape the skeleton merely to make rigid cutout seams easier.
+- [x] Make Fox Handoff share/export one JSON file only and include Idle / Walk / Run / Jump sparse + runtime data.
+- [x] Bump service-worker/cache references for the new baseline script and charcoal atlas.
+- [x] Document the end of the initial Fox Rig/Animation Authoring architecture stage.
+
+On-device acceptance before approving this stage:
+
+- [ ] Fox Rig opens at the promoted authored proportions and scale 1.71 after update/relaunch.
+- [ ] Fox clip row shows Idle / Walk / Run / Jump; human characters remain Walk / Run / Jump.
+- [ ] Idle stands correctly and does not disturb the saved rest rig.
+- [ ] Walk / Run / Jump match the user's exported v1.0.158 authored motion.
+- [ ] New charcoal cutout is usable enough to judge silhouette/proportions/motion in Anim Lab.
+- [ ] New charcoal cutout is visible in Play and saved Fox clips match Anim Lab.
+- [ ] Wrist/hock articulation still works with the new temporary art; record only genuinely blocking seam/attachment failures for this rigid-plane stage.
+- [ ] Fox Handoff produces only `SS-FOX-RIG-ANIM-1.0.159.json` on iOS share/export.
+- [ ] A2HS/offline relaunch receives the new baseline script and atlas after cache upgrade.
+
+### v1.0.160 — Anim Lab Quick Play (next coherent drop)
+
+Goal: shorten the authoring loop without expanding into a full gameplay/editor redesign.
+
+- [ ] Add a third Anim Lab context: **Animate | Rig | Play**.
+- [ ] Play remains inside the Anim Lab viewport; do not navigate out to the game page.
+- [ ] Hide authoring manipulation UI while Play is active and replace the bottom-right manipulation pad with normal movement controls.
+- [ ] Provide Jump/action only as needed to exercise the current Fox locomotion set.
+- [ ] Drive Idle / Walk / Run / Jump through the same runtime selection/blending rules used by gameplay.
+- [ ] Prefer testing the **current working copy**, including unsaved clip edits, so the loop is edit → Play → tweak → Play rather than Save → leave lab → reload game.
+- [ ] Returning from Play must restore the previous Animate/Rig context immediately without losing working-copy history.
+- [ ] Keep Play test state disposable; it must not Save animation, rig or game-state data by itself.
+- [ ] Validate phone landscape controls and ensure entering/exiting Play does not introduce vertical-scroll dependency.
+
+### Following art stage — hybrid deformable Fox prototype
+
+Only after the v1.0.159 proportions/animations have been judged in motion and Quick Play is stable:
+
+- [ ] Prototype a silhouette-fitted skinned 2D mesh around the approved v3 rig; do not redesign the skeleton to serve the mesh.
+- [ ] First candidate regions: continuous body/head mesh, deformable shoulder/leg regions, separate tail mesh.
+- [ ] Investigate subdivision density, bone weights, neck/shoulder/hip deformation, texture stretch, paw/lower-limb islands and iPhone Safari/PWA runtime cost.
+- [ ] Preserve the painterly charcoal texture and avoid solving mesh problems by adding unnecessary animation controls.
+- [ ] Decide whether rigid paws/distal limbs remain separate only after seeing the weighted prototype.
+
+Later animation polish after these stage markers:
+
+- [ ] Refine Walk against Motion Reference.
+- [ ] Refine Run/Gallop against Motion Reference.
+- [ ] Tune Jump timing/shape.
+- [ ] Add subtle Idle breathing/head/ear/tail life.
+- [ ] Reassess neck/head and wrist/hock shaping against the charcoal silhouette.
+- [ ] Reassess Smooth interpolation only where real motion exposes a problem; do not add a graph editor pre-emptively.

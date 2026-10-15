@@ -10,6 +10,10 @@
   const distance = (a,b) => Math.hypot(b.x-a.x,b.y-a.y);
   const angle = (a,b) => Math.atan2(b.y-a.y,b.x-a.x);
   const DISTAL_SPLIT = 0.58;
+  const AUTHORING_BASELINE_BUNDLE = window.SideScrollFoxAuthoringBaseline || null;
+  const AUTHORING_BASELINE = AUTHORING_BASELINE_BUNDLE?.fox || null;
+  const AUTHORING_BASELINE_ID = String(AUTHORING_BASELINE_BUNDLE?.baselineId || 'fox-authoring-baseline-1.0.159');
+  const DEFAULT_SCALE = Number(AUTHORING_BASELINE?.setup?.scale) || 1.71;
 
   // v1.0.150 source constants retained as the migration authority. The new
   // rest-rig default is derived from the geometry that these constants actually
@@ -107,8 +111,10 @@
   }
 
   const REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v3';
+  const REST_RIG_BASELINE_KEY = 'sidescroll.fox.rig.baseline-id';
   const PREVIOUS_REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v2';
-  const DEFAULT_REST_RIG = Object.freeze(buildLegacyRestRig());
+  const LEGACY_DEFAULT_REST_RIG = Object.freeze(buildLegacyRestRig());
+  const DEFAULT_REST_RIG = Object.freeze(clone(AUTHORING_BASELINE?.setup?.restRig || LEGACY_DEFAULT_REST_RIG));
   const RIG_JOINT_IDS = Object.freeze(Object.keys(DEFAULT_REST_RIG.joints));
 
   const RIG_DESIGNER = Object.freeze({
@@ -192,10 +198,16 @@
   function readRestRig() {
     try {
       if (typeof localStorage === 'undefined') return normalizedRestRig(DEFAULT_REST_RIG);
+      const baselineId = localStorage.getItem(REST_RIG_BASELINE_KEY);
+      if (baselineId !== AUTHORING_BASELINE_ID) {
+        const promoted = normalizedRestRig(DEFAULT_REST_RIG);
+        localStorage.setItem(REST_RIG_STORAGE_KEY,JSON.stringify(promoted));
+        localStorage.setItem(REST_RIG_BASELINE_KEY,AUTHORING_BASELINE_ID);
+        return promoted;
+      }
       const current = JSON.parse(localStorage.getItem(REST_RIG_STORAGE_KEY) || 'null');
       if (current) return normalizedRestRig(current);
-      const previous = JSON.parse(localStorage.getItem(PREVIOUS_REST_RIG_STORAGE_KEY) || 'null');
-      return normalizedRestRig(previous || DEFAULT_REST_RIG);
+      return normalizedRestRig(DEFAULT_REST_RIG);
     } catch (_) { return normalizedRestRig(DEFAULT_REST_RIG); }
   }
 
@@ -204,18 +216,24 @@
   function saveRestRig(value) {
     const rig = normalizedRestRig(value);
     activeRestRig = rig;
-    try { if (typeof localStorage !== 'undefined') localStorage.setItem(REST_RIG_STORAGE_KEY,JSON.stringify(rig)); } catch (_) {}
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(REST_RIG_STORAGE_KEY,JSON.stringify(rig));
+        localStorage.setItem(REST_RIG_BASELINE_KEY,AUTHORING_BASELINE_ID);
+      }
+    } catch (_) {}
     return clone(rig);
   }
   function resetRestRig() { return normalizedRestRig(DEFAULT_REST_RIG); }
 
   const COLLIDER_STORAGE_KEY = 'sidescroll.fox.collider.v1';
+  const COLLIDER_BASELINE_KEY = 'sidescroll.fox.collider.baseline-id';
   const DEFAULT_COLLIDER = Object.freeze({
-    offsetX: 0.010,
-    radius: 0.125,
-    height: 0.445,
-    bottom: 0.010,
-    footProbe: 0.085,
+    offsetX: 0.020,
+    radius: 0.220,
+    height: 0.485,
+    bottom: -0.040,
+    footProbe: 0.180,
     stepUp: 0.105,
     stepDown: 0.085
   });
@@ -239,42 +257,49 @@
   function loadCollider() {
     try {
       if (typeof localStorage === 'undefined') return normalizedCollider();
+      if (localStorage.getItem(COLLIDER_BASELINE_KEY) !== AUTHORING_BASELINE_ID) {
+        const promoted = normalizedCollider(DEFAULT_COLLIDER);
+        localStorage.setItem(COLLIDER_STORAGE_KEY,JSON.stringify(promoted));
+        localStorage.setItem(COLLIDER_BASELINE_KEY,AUTHORING_BASELINE_ID);
+        return promoted;
+      }
       return normalizedCollider(JSON.parse(localStorage.getItem(COLLIDER_STORAGE_KEY) || 'null'));
     } catch (_) { return normalizedCollider(); }
   }
   function saveCollider(value) {
     const collider = normalizedCollider(value);
-    try { if (typeof localStorage !== 'undefined') localStorage.setItem(COLLIDER_STORAGE_KEY, JSON.stringify(collider)); } catch (_) {}
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(COLLIDER_STORAGE_KEY, JSON.stringify(collider));
+        localStorage.setItem(COLLIDER_BASELINE_KEY,AUTHORING_BASELINE_ID);
+      }
+    } catch (_) {}
     return collider;
   }
 
   const ATLAS = Object.freeze({
     width: 2048,
     height: 2048,
-    fileUrl: 'fox-rig-atlas-v2.png?v=1.0.157',
-    sourceUrl: 'fox-character-source-v1.png?v=1.0.141',
+    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.159',
+    sourceUrl: 'fox-reference-charcoal.png?v=1.0.159',
     parts: Object.freeze({
-      tail_tip:{x:12,y:12,w:243,h:289,a0:[0.8724279835,0.3910034602],a1:[0.2962962963,0.5986159170]},
-      tail_mid:{x:267,y:12,w:416,h:391,a0:[0.7548076923,0.3248081841],a1:[0.3581730769,0.5038363171]},
-      tail_base:{x:695,y:12,w:310,h:280,a0:[0.6516129032,0.3428571429],a1:[0.1032258065,0.5571428571]},
-      far_rear_upper:{x:1017,y:12,w:150,h:227,a0:[0.4533333333,0.1321585903],a1:[0.4866666667,0.7709251101]},
-      far_rear_lower:{x:1179,y:12,w:149,h:222,a0:[0.5167785235,0.1261261261],a1:[0.5167785235,0.7567567568]},
-      far_front_upper:{x:1340,y:12,w:155,h:224,a0:[0.2064516129,0.2500000000],a1:[0.4645161290,0.8526785714]},
-      far_front_lower:{x:1507,y:12,w:149,h:246,a0:[0.2013422819,0.1138211382],a1:[0.5033557047,0.7439024390]},
-      torso:{x:12,y:415,w:404,h:280,a0:[0.2500000000,0.5785714286],a1:[0.7326732673,0.5250000000]},
-      near_rear_upper:{x:428,y:415,w:203,h:240,a0:[0.8374384236,0.1333333333],a1:[0.4433497537,0.6958333333]},
-      near_rear_lower:{x:643,y:415,w:150,h:240,a0:[0.7933333333,0.1250000000],a1:[0.1933333333,0.7500000000]},
-      near_front_upper:{x:805,y:415,w:121,h:203,a0:[0.4958677686,0.1576354680],a1:[0.6611570248,0.8472906404]},
-      near_front_lower:{x:938,y:415,w:92,h:242,a0:[0.3260869565,0.1198347107],a1:[0.2717391304,0.7396694215]},
-      far_rear_lower_prox:{x:24,y:1060,w:149,h:222,a0:[0.5167785235,0.1261261261],a1:[0.5167785235,0.491891891906]},
-      far_rear_lower_dist:{x:197,y:1060,w:149,h:222,a0:[0.5167785235,0.491891891906],a1:[0.5167785235,0.7567567568]},
-      far_front_lower_prox:{x:388,y:1060,w:149,h:246,a0:[0.2013422819,0.1138211382],a1:[0.376510067124,0.479268292664]},
-      far_front_lower_dist:{x:561,y:1060,w:149,h:246,a0:[0.376510067124,0.479268292664],a1:[0.5033557047,0.743902439]},
-      near_rear_lower_prox:{x:752,y:1060,w:150,h:240,a0:[0.7933333333,0.125],a1:[0.4453333333,0.4875]},
-      near_rear_lower_dist:{x:926,y:1060,w:150,h:240,a0:[0.4453333333,0.4875],a1:[0.1933333333,0.75]},
-      near_front_lower_prox:{x:1118,y:1060,w:92,h:242,a0:[0.3260869565,0.1198347107],a1:[0.294565217362,0.479338842964]},
-      near_front_lower_dist:{x:1234,y:1060,w:92,h:242,a0:[0.294565217362,0.479338842964],a1:[0.2717391304,0.7396694215]},
-      head_neck:{x:1042,y:415,w:394,h:478,a0:[0.4314720812,0.5376569038],a1:[0.6598984772,0.3598326360]}
+      head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
+      tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
+      tail_tip:{x:832,y:18,w:265,h:304,a0:[0.7169811321,0.5625000000],a1:[0.1320754717,0.2171052632]},
+      torso:{x:1115,y:18,w:694,h:296,a0:[0.2074927954,0.6554054054],a1:[0.7694524496,0.6385135135]},
+      tail_mid:{x:18,y:396,w:354,h:269,a0:[0.7316384181,0.4423791822],a1:[0.2231638418,0.4981412639]},
+      near_front_upper:{x:390,y:396,w:144,h:204,a0:[0.4791666667,0.3137254902],a1:[0.3402777778,0.7549019608]},
+      far_front_upper:{x:552,y:396,w:144,h:204,a0:[0.4791666667,0.3137254902],a1:[0.3402777778,0.7549019608]},
+      near_rear_upper:{x:714,y:396,w:179,h:194,a0:[0.6648044693,0.2783505155],a1:[0.3854748603,0.7164948454]},
+      far_rear_upper:{x:911,y:396,w:179,h:194,a0:[0.6648044693,0.2783505155],a1:[0.3854748603,0.7164948454]},
+      near_front_lower_prox:{x:1108,y:396,w:125,h:169,a0:[0.3520000000,0.2899408284],a1:[0.4720000000,0.7928994083]},
+      far_front_lower_prox:{x:1251,y:396,w:125,h:169,a0:[0.3520000000,0.2899408284],a1:[0.4720000000,0.7928994083]},
+      near_rear_lower_prox:{x:1394,y:396,w:109,h:159,a0:[0.5871559633,0.2767295597],a1:[0.3119266055,0.7484276730]},
+      far_rear_lower_prox:{x:1521,y:396,w:109,h:159,a0:[0.5871559633,0.2767295597],a1:[0.3119266055,0.7484276730]},
+      near_rear_lower_dist:{x:1648,y:396,w:102,h:130,a0:[0.3725490196,0.3384615385],a1:[0.5686274510,0.8769230769]},
+      far_rear_lower_dist:{x:1768,y:396,w:102,h:130,a0:[0.3725490196,0.3384615385],a1:[0.5686274510,0.8769230769]},
+      near_front_lower_dist:{x:18,y:683,w:164,h:126,a0:[0.3170731707,0.3809523810],a1:[0.5304878049,0.8571428571]},
+      far_front_lower_dist:{x:200,y:683,w:164,h:126,a0:[0.3170731707,0.3809523810],a1:[0.5304878049,0.8571428571]}
     })
   });
 
@@ -798,9 +823,20 @@
     return out;
   }
   const WALK_EXAMPLE_DEFAULT_KEYS=buildExampleWalkKeys(DEFAULT_REST_RIG,WALK_STRIDE_WORLD/2.31);
-  const DEFAULT_FRAMES=runtimeFramesFromWalkKeys(WALK_EXAMPLE_DEFAULT_KEYS);
-  const RUN_FRAMES=Array.from({length:16},(_,i)=>({...locomotionPose(i/16,'run'),key:i%2===0}));
-  const JUMP_FRAMES=buildFramesFromKeys(Array.from({length:8},(_,i)=>jumpKey(i)));
+  const BASELINE_RUNTIME = AUTHORING_BASELINE?.runtimeSamples || {};
+  const DEFAULT_FRAMES=Array.isArray(BASELINE_RUNTIME.walk)&&BASELINE_RUNTIME.walk.length===16
+    ? BASELINE_RUNTIME.walk.map(clone)
+    : runtimeFramesFromWalkKeys(WALK_EXAMPLE_DEFAULT_KEYS);
+  const RUN_FRAMES=Array.isArray(BASELINE_RUNTIME.run)&&BASELINE_RUNTIME.run.length===16
+    ? BASELINE_RUNTIME.run.map(clone)
+    : Array.from({length:16},(_,i)=>({...locomotionPose(i/16,'run'),key:i%2===0}));
+  const JUMP_FRAMES=Array.isArray(BASELINE_RUNTIME.jump)&&BASELINE_RUNTIME.jump.length===16
+    ? BASELINE_RUNTIME.jump.map(clone)
+    : buildFramesFromKeys(Array.from({length:8},(_,i)=>jumpKey(i)));
+  const IDLE_FRAMES=Array.isArray(BASELINE_RUNTIME.idle)&&BASELINE_RUNTIME.idle.length===16
+    ? BASELINE_RUNTIME.idle.map(clone)
+    : Array.from({length:16},(_,i)=>({...clone(IDLE_POSE),travel:i/16,key:i===0||i===8}));
+  const AUTHORED_SPARSE_CLIPS=clone(AUTHORING_BASELINE?.sparseClips || {});
 
   function normalizedPose(p,i=0){
     const d=DEFAULT_FRAMES[i%16];
@@ -982,9 +1018,9 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.157',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,IDLE_POSE,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
-    COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
-    REST_RIG_STORAGE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
+    version:'1.0.159',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
+    REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES
   };
 })();

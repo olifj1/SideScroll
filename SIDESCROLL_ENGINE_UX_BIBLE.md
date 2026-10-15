@@ -1174,3 +1174,21 @@ Anim Lab may expose **static art references** separately from Motion Reference. 
 When character authoring must be handed between devices/sessions or returned for art processing, prefer a **versioned JSON handoff bundle** over screenshots or manual transcription. The Fox handoff bundle owns the current rest rig, setup scale/collider and sparse authored clips, and may include compiled runtime samples as a convenience. Sparse keys + rest rig remain the authoritative editable source. Exporting must not implicitly Save or mutate the working copy.
 
 Future mesh-deformation artwork must consume an approved rig/handoff rather than forcing the rig to fit newly processed artwork after the fact. For the Fox, the intended experiment is a hybrid 2D deformation model: body/head mesh, leg/shoulder mesh regions and tail mesh authored separately, each skinned to the established rig.
+
+## Fox promoted authoring baseline + Idle contract (v1.0.159)
+
+v1.0.159 closes the first Fox rig/animation-authoring stage by promoting an explicit exported handoff into the code baseline. A browser's historic localStorage is no longer allowed to define what a fresh copy of the Fox is.
+
+Rules:
+
+- the promoted versioned Fox handoff is the default character-definition source for scale, collider, v3 rest rig, sparse authored clips and compiled runtime samples;
+- promotion must preserve authored Walk / Run / Jump data rather than regenerating or aesthetically retuning it during integration;
+- **Idle is a first-class Fox clip** beside Walk / Run / Jump. A static rest-pose Idle is a valid first implementation and keeps the architecture ready for later secondary life without requiring it now;
+- gameplay and Anim Lab share the same four Fox clip bank names and independent fallback behaviour;
+- pre-baseline Fox test storage may be migrated once onto the promoted baseline. After that boundary, explicit Anim Lab Save is authoritative again. Persist a baseline/version marker rather than guessing whether an unmarked historic value is current;
+- character Setup scale is part of the promoted Fox definition. Do not let an unmarked old per-character scale silently undo a newly approved proportion baseline;
+- the temporary charcoal rigid atlas is an **evaluation skin** over the approved rig. Source-art limitations (including one visible side of the legs) may be handled by duplicated/reused temporary planes where needed. Do not distort the approved skeleton merely to hide temporary cutout seams;
+- the later deformable/skinned 2D experiment consumes this approved rig/handoff. It does not become a reason to reopen topology unless the rig itself proves structurally wrong in motion;
+- Fox Handoff is one versioned JSON artifact. Sharing must not attach decorative title/metadata as a second text file. The JSON contains Setup/rest rig plus Idle / Walk / Run / Jump sparse clips and may include compiled runtime samples;
+- export remains read-only with respect to authoring state: exporting the working copy must not silently Save it;
+- the next interaction stage is Quick Play inside Anim Lab. Do not mix that feature into the baseline promotion drop once the four-clip authoring/runtime contract is stable.

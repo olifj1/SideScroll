@@ -53,6 +53,9 @@
   const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
   const STATIC_REFERENCE_KEY = 'sidescroll.animlab.static-reference.v1';
   const FOX_HANDOFF_SCHEMA = 'sidescroll.animlab.fox-handoff.v1';
+  const HUMAN_CLIP_NAMES = Object.freeze(['walk','run','jump']);
+  const FOX_CLIP_NAMES = Object.freeze(['idle','walk','run','jump']);
+  const clipNamesForFamily = family => family === 'fox' ? FOX_CLIP_NAMES : HUMAN_CLIP_NAMES;
 
   function loadCollapseState() {
     try { return JSON.parse(localStorage.getItem(COLLAPSE_STATE_KEY) || '{}') || {}; }
@@ -114,20 +117,22 @@
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
     { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v2.png?v=1.0.157' }
+    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.159' }
   ];
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 
-  function defaultBank(rig) {
-    return {
+  function defaultBank(rig, family='human') {
+    const bank = {
       walk: rig.DEFAULT_FRAMES.map(rig.clone),
       run: rig.RUN_FRAMES.map(rig.clone),
       jump: rig.JUMP_FRAMES.map(rig.clone)
     };
+    if (family === 'fox') bank.idle = (rig.IDLE_FRAMES || Array.from({length:16},()=>rig.IDLE_POSE)).map(rig.clone);
+    return bank;
   }
 
   function loadHumanBank() {
-    const bank = defaultBank(HumanRig);
+    const bank = defaultBank(HumanRig,'human');
     try {
       const saved = JSON.parse(localStorage.getItem(HUMAN_CLIPS_KEY) || 'null');
       if (saved) {
@@ -156,7 +161,9 @@
   }
 
   function foxExampleStrideLocal() {
-    const scale = clamp(Number(setupMap?.fox?.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX);
+    const saved = setupMap?.fox || {};
+    const raw = saved.baselineId === FoxRig.AUTHORING_BASELINE_ID ? Number(saved.scale) : NaN;
+    const scale = clamp(Number.isFinite(raw) ? raw : (Number(FoxRig.DEFAULT_SCALE) || 1.71), SETUP_SCALE_MIN, SETUP_SCALE_MAX);
     return (Number(FoxRig.WALK_STRIDE_WORLD) || 0) / Math.max(.001, 2.31 * scale);
   }
 
@@ -168,38 +175,36 @@
   }
 
   function loadFoxBank() {
-    const bank = defaultBank(FoxRig);
-    bank.walk = foxExampleFrames();
+    const bank = defaultBank(FoxRig,'fox');
     try {
       const saved = JSON.parse(localStorage.getItem(FOX_CLIPS_KEY) || 'null');
-      if (saved?.clips) {
-        // v1.0.154 intentionally replaces pre-example Fox Walk experiments.
-        // Run/Jump remain independent and continue to honour their saved banks.
-        if (saved.walkFoundationVersion === FoxRig.WALK_EXAMPLE_ID
-          && Array.isArray(saved.clips.walk) && saved.clips.walk.length === 16) {
-          bank.walk = saved.clips.walk.map((p,i) => FoxRig.normalizedPose(p,i));
-        }
-        for (const name of ['run','jump']) {
+      // v1.0.159 promotes the exported authoring handoff into the built-in Fox
+      // baseline. Pre-baseline local clip banks are intentionally ignored so an
+      // older experiment cannot silently replace the newly approved rig/clip set.
+      if (saved?.baselineId === FoxRig.AUTHORING_BASELINE_ID && saved?.clips) {
+        for (const name of FOX_CLIP_NAMES) {
           if (Array.isArray(saved.clips[name]) && saved.clips[name].length === 16) bank[name] = saved.clips[name].map((p,i) => FoxRig.normalizedPose(p,i));
         }
       }
     } catch (err) {
-      console.warn('[Anim Lab] Fox editor clip read failed; using the current Fox example/default clips.', err);
+      console.warn('[Anim Lab] Fox editor clip read failed; using the promoted v1.0.159 Fox authoring baseline.', err);
     }
     return bank;
   }
 
   function saveFoxBank(bank) {
     const clips = {};
-    for (const name of ['walk','run','jump']) clips[name] = bank[name].map((p,i) => FoxRig.normalizedPose(p,i));
+    for (const name of FOX_CLIP_NAMES) clips[name] = bank[name].map((p,i) => FoxRig.normalizedPose(p,i));
     localStorage.setItem(FOX_CLIPS_KEY, JSON.stringify({
       schema:'animlab.legacy-sampled.v1',
       family:'fox',
       sampleCount:16,
+      baselineId:FoxRig.AUTHORING_BASELINE_ID || null,
       walkFoundationVersion:FoxRig.WALK_EXAMPLE_ID || null,
       clips
     }));
   }
+
 
   const adapters = {
     human: {
@@ -219,11 +224,11 @@
     fox: {
       id:'fox', label:'Fox', rig:FoxRig,
       // Match the actual distance-driven gameplay cadence: cycle time = stride / speed.
-      clipMs:{walk:Math.round((Number(FoxRig.WALK_STRIDE_WORLD)||.62)/1.15*1000),run:Math.round((Number(FoxRig.RUN_STRIDE_WORLD)||.92)/2.85*1000),jump:935},
+      clipMs:{idle:1400,walk:Math.round((Number(FoxRig.WALK_STRIDE_WORLD)||.62)/1.15*1000),run:Math.round((Number(FoxRig.RUN_STRIDE_WORLD)||.92)/2.85*1000),jump:935},
       loadBank:loadFoxBank, saveBank:saveFoxBank,
       normalise:(pose,index) => FoxRig.normalizedPose(pose,index),
       defaultPose:(clip,index) => {
-        const source = clip === 'run' ? FoxRig.RUN_FRAMES : clip === 'jump' ? FoxRig.JUMP_FRAMES : FoxRig.DEFAULT_FRAMES;
+        const source = clip === 'idle' ? FoxRig.IDLE_FRAMES : clip === 'run' ? FoxRig.RUN_FRAMES : clip === 'jump' ? FoxRig.JUMP_FRAMES : FoxRig.DEFAULT_FRAMES;
         return FoxRig.normalizedPose(source[index], index);
       },
       collider:() => FoxRig.loadCollider(),
@@ -232,7 +237,7 @@
       loadRestRig:() => FoxRig.loadRestRig(),
       normaliseRestRig:value => FoxRig.normalizedRestRig(value),
       saveRestRig:value => FoxRig.saveRestRig(value),
-      scope:'Fox clips save to the Fox runtime bank; Play uses the last explicitly saved Walk/Run/Jump clips with built-in clips as fallback.'
+      scope:'Fox clips save to the Fox runtime bank; Play uses the last explicitly saved Idle/Walk/Run/Jump clips with the promoted authoring baseline as fallback.'
     }
   };
 
@@ -246,8 +251,9 @@
     const character = characterById(characterId);
     const adapter = adapters[character.family];
     const saved = setupMap[characterId] || {};
+    const savedScale = adapter.id === 'fox' && saved.baselineId !== FoxRig.AUTHORING_BASELINE_ID ? NaN : Number(saved.scale);
     const setup = {
-      scale: clamp(Number(saved.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX),
+      scale: clamp(Number.isFinite(savedScale) ? savedScale : (adapter.id === 'fox' ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1), SETUP_SCALE_MIN, SETUP_SCALE_MAX),
       // Collider ownership remains with the existing rig family storage. This
       // prevents Hero 1/Hero 2 from showing stale per-character copies while
       // the runtime still shares one human collider.
@@ -308,9 +314,12 @@
     let stored = null;
     try { stored = JSON.parse(localStorage.getItem(SPARSE_CLIPS_KEY) || 'null'); } catch (err) { console.warn('[Anim Lab] Sparse clip read failed; importing sampled clips.', err); }
     const out = {human:{},fox:{}};
+    const foxStoredIsCurrent = stored?.foxBaselineId === FoxRig.AUTHORING_BASELINE_ID;
     for (const family of ['human','fox']) {
-      for (const clipName of ['walk','run','jump']) {
+      for (const clipName of clipNamesForFamily(family)) {
         let raw = stored?.schema === SPARSE_SCHEMA ? stored?.families?.[family]?.[clipName] : null;
+        if (family === 'fox' && !foxStoredIsCurrent) raw = null;
+        if (!raw && family === 'fox' && FoxRig.AUTHORED_SPARSE_CLIPS?.[clipName]) raw = clone(FoxRig.AUTHORED_SPARSE_CLIPS[clipName]);
         if (family === 'fox' && clipName === 'walk' && FoxRig.WALK_EXAMPLE_ID
           && raw?.foundationVersion !== FoxRig.WALK_EXAMPLE_ID) {
           const keys = typeof FoxRig.buildExampleWalkKeys === 'function'
@@ -329,6 +338,7 @@
     }
     return out;
   }
+
 
   let sparseBanks = loadSparseBanks();
   let conversionPreview = null;
@@ -416,10 +426,10 @@
   function syncCompiledClip(family, clipName) {
     banks[family][clipName] = compileSparseClip(sparseBanks[family][clipName], family);
   }
-  for (const family of ['human','fox']) for (const clipName of ['walk','run','jump']) syncCompiledClip(family,clipName);
+  for (const family of ['human','fox']) for (const clipName of clipNamesForFamily(family)) syncCompiledClip(family,clipName);
 
   function saveSparseBanks() {
-    localStorage.setItem(SPARSE_CLIPS_KEY, JSON.stringify({schema:SPARSE_SCHEMA, sampleCount:16, families:sparseBanks}));
+    localStorage.setItem(SPARSE_CLIPS_KEY, JSON.stringify({schema:SPARSE_SCHEMA, sampleCount:16, foxBaselineId:FoxRig.AUTHORING_BASELINE_ID || null, families:sparseBanks}));
   }
 
   function ensureLegacyBackup(family, clipName) {
@@ -440,7 +450,7 @@
   const foxShapeReference = new Image();
   foxShapeReference.onload = () => draw();
   foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
-  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.158';
+  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.159';
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -467,13 +477,14 @@
     const charId = CHARACTERS.some(c => c.id === saved?.characterId) ? saved.characterId : (CHARACTERS.some(c => c.id === gameplay) ? gameplay : 'original');
     return {
       characterId:charId,
-      clip:['walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
+      clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
       mode:saved?.mode === 'setup' ? 'setup' : 'animate',
       frame:Number.isInteger(saved?.frame) ? clamp(saved.frame,0,15) : 0
     };
   }
 
   const selection = loadEditorSelection();
+  if (!clipNamesForFamily(characterById(selection.characterId).family).includes(selection.clip)) selection.clip = 'walk';
   let setupDraft = defaultSetupFor(selection.characterId);
   let checkpoint = null;
 
@@ -733,12 +744,12 @@
         if (adapter.saveRestRig && setupDraft.rig) setupDraft.rig = adapter.saveRestRig(setupDraft.rig);
         // Keep canonical rig/collider ownership with the rig-family storage; the
         // generic Setup map only needs the per-character visual scale.
-        setupMap[character.id] = {scale:setupDraft.scale};
+        setupMap[character.id] = character.family === 'fox' ? {scale:setupDraft.scale,baselineId:FoxRig.AUTHORING_BASELINE_ID || null} : {scale:setupDraft.scale};
         localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
         // Fox planted-contact targets are compiled in rig-local units from the
         // gameplay stride. Refresh editor previews when scale changes, but do
         // not rewrite runtime clips until Animate is explicitly Saved.
-        if (character.family === 'fox') for (const clipName of ['walk','run','jump']) syncCompiledClip('fox',clipName);
+        if (character.family === 'fox') for (const clipName of FOX_CLIP_NAMES) syncCompiledClip('fox',clipName);
       } else {
         conversionPreview = null;
         ensureLegacyBackup(currentCharacter().family, selection.clip);
@@ -813,6 +824,7 @@
     guardNavigation(() => {
       conversionPreview = null;
       selection.characterId = id;
+      if (!clipNamesForFamily(characterById(id).family).includes(selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
       selection.frame = 0; playPhase = 0; playing = false;
       fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
@@ -820,7 +832,7 @@
   }
 
   function switchClip(name) {
-    if (name === selection.clip || !['walk','run','jump'].includes(name)) return;
+    if (name === selection.clip || !clipNamesForFamily(currentCharacter().family).includes(name)) return;
     guardNavigation(() => {
       conversionPreview = null;
       selection.clip = name; selection.frame = 0; playPhase = 0; playing = false;
@@ -1057,7 +1069,7 @@
     scrub.value=String(selection.frame);scrub.disabled=selection.mode==='setup';prevBtn.disabled=selection.mode==='setup';nextBtn.disabled=selection.mode==='setup';playBtn.disabled=selection.mode==='setup';
     playBtn.textContent=playing?'Pause':'Play';
     characterButtons.forEach(btn=>{const active=btn.dataset.character===selection.characterId;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
-    clipButtons.forEach(btn=>{const active=btn.dataset.clip===selection.clip;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='setup';});
+    clipButtons.forEach(btn=>{const allowed=clipNamesForFamily(character.family).includes(btn.dataset.clip);const active=allowed&&btn.dataset.clip===selection.clip;btn.hidden=!allowed;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='setup'||!allowed;});
     modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
     viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
     scopeEl.textContent=selection.mode==='setup'
@@ -1194,24 +1206,26 @@
 
   function buildFoxHandoffBundle() {
     const liveFox = currentCharacter().family === 'fox';
+    const savedFoxSetup = setupMap?.fox || {};
+    const savedFoxScale = savedFoxSetup.baselineId === FoxRig.AUTHORING_BASELINE_ID ? Number(savedFoxSetup.scale) : NaN;
     const setup = liveFox
       ? clone(setupDraft)
       : {
-          scale:clamp(Number(setupMap?.fox?.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+          scale:clamp(Number.isFinite(savedFoxScale) ? savedFoxScale : (Number(FoxRig.DEFAULT_SCALE) || 1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
           collider:FoxRig.normalizedCollider(FoxRig.loadCollider()),
           rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig())
         };
     const sparseClips = clone(sparseBanks.fox);
     const runtimeSamples = {};
-    for (const clipName of ['walk','run','jump']) runtimeSamples[clipName] = compileSparseClip(sparseClips[clipName],'fox');
+    for (const clipName of FOX_CLIP_NAMES) runtimeSamples[clipName] = compileSparseClip(sparseClips[clipName],'fox');
     return {
       schema:FOX_HANDOFF_SCHEMA,
       app:'SideScroll',
-      animLabVersion:'1.0.158',
+      animLabVersion:'1.0.159',
       exportedAt:new Date().toISOString(),
       fox:{
         setup:{
-          scale:clamp(Number(setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+          scale:clamp(Number(setup.scale)||(Number(FoxRig.DEFAULT_SCALE)||1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
           collider:FoxRig.normalizedCollider(setup.collider),
           restRig:FoxRig.normalizedRestRig(setup.rig)
         },
@@ -1224,11 +1238,11 @@
   async function exportFoxHandoffBundle() {
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.158.json';
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.159.json';
       const blob = new Blob([payload],{type:'application/json'});
       const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
       if (file && navigator.share && navigator.canShare?.({files:[file]})) {
-        await navigator.share({files:[file],title:'SideScroll Fox Rig + Animations'});
+        await navigator.share({files:[file]});
         hint.textContent = 'Fox rig + animation bundle shared.';
       } else {
         const url=URL.createObjectURL(blob);
@@ -1247,7 +1261,7 @@
   }
 
   const api = {
-    version:'1.0.158',
+    version:'1.0.159',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
