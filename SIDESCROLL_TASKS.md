@@ -2181,23 +2181,48 @@ On-device acceptance before approving this stage:
 - [ ] Fox Handoff produces only `SS-FOX-RIG-ANIM-1.0.159.json` on iOS share/export.
 - [ ] A2HS/offline relaunch receives the new baseline script and atlas after cache upgrade.
 
-### v1.0.160 — Anim Lab Quick Play (next coherent drop)
+### v1.0.160 — Anim Lab Quick Play + Motion Fidelity
 
-Goal: shorten the authoring loop without expanding into a full gameplay/editor redesign.
+Goal: shorten the authoring loop and remove the two motion-review problems exposed by the v1.0.159 charcoal Fox: coarse-looking Smooth playback and ground speed that cannot be balanced independently from gait cadence.
 
-- [ ] Add a third Anim Lab context: **Animate | Rig | Play**.
-- [ ] Play remains inside the Anim Lab viewport; do not navigate out to the game page.
-- [ ] Hide authoring manipulation UI while Play is active and replace the bottom-right manipulation pad with normal movement controls.
-- [ ] Provide Jump/action only as needed to exercise the current Fox locomotion set.
-- [ ] Drive Idle / Walk / Run / Jump through the same runtime selection/blending rules used by gameplay.
-- [ ] Prefer testing the **current working copy**, including unsaved clip edits, so the loop is edit → Play → tweak → Play rather than Save → leave lab → reload game.
-- [ ] Returning from Play must restore the previous Animate/Rig context immediately without losing working-copy history.
-- [ ] Keep Play test state disposable; it must not Save animation, rig or game-state data by itself.
-- [ ] Validate phone landscape controls and ensure entering/exiting Play does not introduce vertical-scroll dependency.
+Implemented in code:
+
+- [x] Add a third Fox Anim Lab context: **Animate | Rig | Play**.
+- [x] Keep Play inside the Anim Lab viewport; do not navigate out to the game page.
+- [x] Hide authoring manipulation UI while Play is active and replace the bottom-right precision pad with a horizontal movement control plus Jump.
+- [x] Test the **current working copy**, including unsaved sparse clip edits and unsaved Rig changes where applicable.
+- [x] Return from Play without resetting the prior Animate/Rig working-copy checkpoint or Undo/Redo history.
+- [x] Keep Play test state disposable; entering/exiting it performs no implicit persistence write.
+- [x] Add Fox **Walk Speed** and **Run Speed** as independently authored character Setup properties.
+- [x] Save those speeds through the existing explicit Save boundary and consume the same saved values in gameplay.
+- [x] Decouple Fox locomotion cadence from ground speed at full Walk/Run so animation timing can be judged independently from metres/second.
+- [x] Preserve partial-thumb cadence scaling so easing the movement control in from centre does not look like full-cadence foot skating.
+- [x] Add scrolling metre markers plus speed / ms-per-cycle / metres-per-cycle diagnostic readout to Quick Play.
+- [x] Replace 16-sample Smooth playback quantisation with direct fractional sparse-key evaluation for Fox clips.
+- [x] Route Anim Lab and gameplay Fox playback through the same sparse evaluator; retain 16-sample banks only as compatibility/fallback/export data.
+- [x] Preserve exact authored key poses while evaluating fractional poses between keys.
+- [x] Keep the 16-frame timeline as the simple authoring/key layout rather than introducing a graph editor.
+- [x] Correct Quick Play left-facing cutout mirroring.
+- [x] Extend Fox handoff Setup with Walk/Run speed and bump the one-file handoff to v1.0.160.
+
+On-device acceptance before approving this stage:
+
+- [ ] iPhone: compare Smooth and Linear on the same sparse Walk and confirm Smooth now reads as visibly continuous rather than coarse key-to-key linear motion.
+- [ ] iPhone: scrub authored keys and confirm v1.0.160 has not altered the user's key poses.
+- [ ] iPhone: make an unsaved pose tweak → Play → walk/run/jump → Animate and confirm the working-copy tweak survives without Save.
+- [ ] iPhone: repeat the edit → Play loop several times and verify Undo/Redo ownership remains predictable.
+- [ ] iPhone: tune Walk Speed and confirm ground travel changes without changing full-walk cycle timing.
+- [ ] iPhone: tune Run Speed until the current fast run cadence can cover a visually appropriate amount of ground.
+- [ ] iPhone: confirm partial movement input still eases cadence naturally rather than foot-skating at full cycle speed.
+- [ ] iPhone: confirm left/right Quick Play direction mirrors the Fox correctly.
+- [ ] iPhone: Save speed values, launch normal Play and confirm gameplay matches Anim Lab Quick Play closely.
+- [ ] iPhone: Discard restores speed/clip working data to the checkpoint.
+- [ ] iPhone: Fox Handoff produces one `SS-FOX-RIG-ANIM-1.0.160.json` containing Walk/Run speed plus all four Fox clips.
+- [ ] iPhone/A2HS: relaunch receives cache v14 and retains saved motion settings.
 
 ### Following art stage — hybrid deformable Fox prototype
 
-Only after the v1.0.159 proportions/animations have been judged in motion and Quick Play is stable:
+Only after the v1.0.159 proportions/animations have been judged through the v1.0.160 Quick Play/motion-fidelity loop:
 
 - [ ] Prototype a silhouette-fitted skinned 2D mesh around the approved v3 rig; do not redesign the skeleton to serve the mesh.
 - [ ] First candidate regions: continuous body/head mesh, deformable shoulder/leg regions, separate tail mesh.
@@ -2212,4 +2237,4 @@ Later animation polish after these stage markers:
 - [ ] Tune Jump timing/shape.
 - [ ] Add subtle Idle breathing/head/ear/tail life.
 - [ ] Reassess neck/head and wrist/hock shaping against the charcoal silhouette.
-- [ ] Reassess Smooth interpolation only where real motion exposes a problem; do not add a graph editor pre-emptively.
+- [ ] Refine key spacing/poses against the v1.0.160 direct Smooth evaluator; add no graph editor unless this simpler curve model proves insufficient in real use.

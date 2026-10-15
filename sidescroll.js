@@ -2549,6 +2549,24 @@ function refreshCharacterScale() {
   character.scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(currentCharacterVariant);
 }
 
+function characterMotionSettings(id = currentCharacterVariant) {
+  const defaults = {
+    walk: id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15) : 1.15,
+    run: id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85) : 2.85
+  };
+  if (id !== 'fox' || !FoxRig) return defaults;
+  try {
+    const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
+    if (setup?.fox?.baselineId !== FoxRig.AUTHORING_BASELINE_ID) return defaults;
+    const walkRaw = Number(setup.fox.walkSpeed), runRaw = Number(setup.fox.runSpeed);
+    const walk = Rig.clamp(Number.isFinite(walkRaw) ? walkRaw : defaults.walk, .45, 3.25);
+    const run = Rig.clamp(Math.max(Number.isFinite(runRaw) ? runRaw : defaults.run, walk + .20), 1.0, 5.75);
+    return {walk,run};
+  } catch (_) {
+    return defaults;
+  }
+}
+
 function characterRigForVariant(id = currentCharacterVariant) {
   const info = characterVariantInfo(id);
   if (!info || info.rigType === 'human') return Rig;
@@ -2596,7 +2614,7 @@ function rigVariantTextureKey(id) {
 function rigVariantUrl(id) {
   const familyRig = characterRigForVariant(id);
   const src = familyRig === FoxRig
-    ? (FoxRig?.ATLAS?.fileUrl || 'fox-rig-atlas-v3.png?v=1.0.159')
+    ? (FoxRig?.ATLAS?.fileUrl || 'fox-rig-atlas-v3.png?v=1.0.160')
     : (Rig.atlasImageUrl ? Rig.atlasImageUrl(id) : (Rig.ATLAS.fileUrl || Rig.ATLAS.url));
   return src.includes('?') ? src : `${src}?v=${RIG_TEXTURE_VERSION}`;
 }
@@ -8443,6 +8461,8 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   let runFrames = Rig.RUN_FRAMES.map(Rig.clone);
   let jumpFrames = Rig.JUMP_FRAMES.map(Rig.clone);
   const FOX_RUNTIME_CLIPS_KEY = 'sidescroll.animlab.fox.clips.v1';
+  const FOX_SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
+  let foxSparseClips = FoxRig ? FoxRig.clone(FoxRig.AUTHORED_SPARSE_CLIPS || {}) : {};
   let foxIdleFrames = FoxRig ? (FoxRig.IDLE_FRAMES || Array.from({length:16},()=>FoxRig.IDLE_POSE)).map(FoxRig.clone) : [];
   let foxWalkFrames = FoxRig ? FoxRig.DEFAULT_FRAMES.map(FoxRig.clone) : [];
   let foxRunFrames = FoxRig ? FoxRig.RUN_FRAMES.map(FoxRig.clone) : [];
@@ -8459,26 +8479,41 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
   function refreshFoxFrames() {
     if (!FoxRig) return;
+    foxSparseClips = FoxRig.clone(FoxRig.AUTHORED_SPARSE_CLIPS || {});
     foxIdleFrames = (FoxRig.IDLE_FRAMES || Array.from({length:16},()=>FoxRig.IDLE_POSE)).map(FoxRig.clone);
     foxWalkFrames = builtInFoxWalkFrames();
     foxRunFrames = FoxRig.RUN_FRAMES.map(FoxRig.clone);
     foxJumpFrames = FoxRig.JUMP_FRAMES.map(FoxRig.clone);
     try {
+      const sparseSaved = JSON.parse(localStorage.getItem(FOX_SPARSE_CLIPS_KEY) || 'null');
+      if (sparseSaved?.schema === 'animlab.sparse.v1' && sparseSaved?.foxBaselineId === FoxRig.AUTHORING_BASELINE_ID) {
+        for (const name of ['idle','walk','run','jump']) {
+          const clip = sparseSaved?.families?.fox?.[name];
+          if (clip?.keys?.length >= 2) foxSparseClips[name] = FoxRig.clone(clip);
+        }
+      }
       const saved = JSON.parse(localStorage.getItem(FOX_RUNTIME_CLIPS_KEY) || 'null');
       const clips = saved?.clips;
-      // v1.0.159 promotes the exported Fox handoff into the built-in baseline.
-      // Only post-baseline Saves may override it, preventing stale experiments
-      // from silently replacing the newly approved authored rig/clip set.
+      // Keep the legacy 16-sample bank as a compatibility fallback, but v1.0.160
+      // renders saved sparse Fox clips directly so Smooth is not quantised back
+      // down to sixteen linearly interpolated poses.
       if (saved?.baselineId === FoxRig.AUTHORING_BASELINE_ID) {
-        if (Array.isArray(clips?.idle) && clips.idle.length === 16) foxIdleFrames = clips.idle.map((pose,index)=>FoxRig.normalizedPose(pose,index));
-        if (Array.isArray(clips?.walk) && clips.walk.length === 16) foxWalkFrames = clips.walk.map((pose,index)=>FoxRig.normalizedPose(pose,index));
-        if (Array.isArray(clips?.run) && clips.run.length === 16) foxRunFrames = clips.run.map((pose,index)=>FoxRig.normalizedPose(pose,index));
-        if (Array.isArray(clips?.jump) && clips.jump.length === 16) foxJumpFrames = clips.jump.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+        if (Array.isArray(clips?.idle) && clips.idle.length >= 16) foxIdleFrames = clips.idle.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+        if (Array.isArray(clips?.walk) && clips.walk.length >= 16) foxWalkFrames = clips.walk.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+        if (Array.isArray(clips?.run) && clips.run.length >= 16) foxRunFrames = clips.run.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+        if (Array.isArray(clips?.jump) && clips.jump.length >= 16) foxJumpFrames = clips.jump.map((pose,index)=>FoxRig.normalizedPose(pose,index));
       }
     } catch (err) {
-      console.warn('[SideScroll] Saved Fox Anim Lab clips could not be loaded; using the promoted v1.0.159 Fox baseline.', err);
+      console.warn('[SideScroll] Saved Fox Anim Lab data could not be loaded; using the promoted Fox authoring baseline.', err);
     }
   }
+
+  function foxPoseForClip(name, phase, fallbackFrames) {
+    const clip = foxSparseClips?.[name];
+    if (clip && typeof FoxRig?.sampleSparseClip === 'function') return FoxRig.sampleSparseClip(clip,phase);
+    return FoxRig.sampleFrames(fallbackFrames,phase);
+  }
+
   function refreshCharacterFrames() {
     try {
       const clips = JSON.parse(localStorage.getItem(SHARED_CLIPS_KEY) || 'null');
@@ -17179,17 +17214,17 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       // First-pass fox climbing uses the run/scramble cycle. The movement and
       // climb-path mechanics remain unchanged; a dedicated climb clip can be
       // authored later once the quadruped proportions are proven in-game.
-      pose = charRig.sampleFrames(foxRunFrames, (climbState.time * 1.35) % 1);
+      pose = foxPoseForClip('run',(climbState.time * 1.35) % 1,foxRunFrames);
     } else if (jumping) {
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
-      pose = charRig.sampleFrames(isFox ? foxJumpFrames : jumpFrames, jumpPhase);
+      pose = isFox ? foxPoseForClip('jump',jumpPhase,foxJumpFrames) : charRig.sampleFrames(jumpFrames,jumpPhase);
     } else if (isWalking) {
-      const walkPose = charRig.sampleFrames(isFox ? foxWalkFrames : characterFrames, phase);
-      const runPose = charRig.sampleFrames(isFox ? foxRunFrames : runFrames, phase);
+      const walkPose = isFox ? foxPoseForClip('walk',phase,foxWalkFrames) : charRig.sampleFrames(characterFrames,phase);
+      const runPose = isFox ? foxPoseForClip('run',phase,foxRunFrames) : charRig.sampleFrames(runFrames,phase);
       pose = isFox ? charRig.blendPose(walkPose, runPose, runBlend) : blendPose(walkPose, runPose, runBlend);
     } else {
       const idlePhase = ((performance.now ? performance.now() : Date.now()) % 1400) / 1400;
-      pose = isFox && foxIdleFrames.length === 16 ? charRig.sampleFrames(foxIdleFrames, idlePhase) : charRig.sampleFrames(characterFrames, 0.02);
+      pose = isFox ? foxPoseForClip('idle',idlePhase,foxIdleFrames) : charRig.sampleFrames(characterFrames, 0.02);
     }
 
     // Carry/push poses are humanoid-specific. Gameplay interaction remains
@@ -18145,20 +18180,25 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Map the spring slider directly to motion: halfway from centre is a full
     // walk, the outer half progressively opens into the run.  This keeps one
     // continuous thumb gesture for direction and speed.
+    const motionSettings = characterMotionSettings();
+    const activeWalkSpeed = motionSettings.walk;
+    const activeRunSpeed = motionSettings.run;
     let analogSpeed = 0;
     let targetRun = 0;
+    let walkEffort = 0;
     if (moveDir) {
       if (axisMag <= WALK_POINT) {
-        const walkAmount = Rig.clamp((axisMag - DRIVE_DEADZONE) / Math.max(0.001, WALK_POINT - DRIVE_DEADZONE), 0, 1);
-        analogSpeed = WALK_SPEED * walkAmount;
+        walkEffort = Rig.clamp((axisMag - DRIVE_DEADZONE) / Math.max(0.001, WALK_POINT - DRIVE_DEADZONE), 0, 1);
+        analogSpeed = activeWalkSpeed * walkEffort;
       } else {
         targetRun = Rig.clamp((axisMag - WALK_POINT) / Math.max(0.001, 1 - WALK_POINT), 0, 1);
-        analogSpeed = Rig.lerp(WALK_SPEED, RUN_SPEED, targetRun);
+        walkEffort = 1;
+        analogSpeed = Rig.lerp(activeWalkSpeed, activeRunSpeed, targetRun);
       }
     }
     if (carriedObject) {
       targetRun = 0;
-      analogSpeed = Math.min(analogSpeed, WALK_SPEED * 0.92);
+      analogSpeed = Math.min(analogSpeed, activeWalkSpeed * 0.92);
     }
     if (pushingObject) {
       targetRun = 0;
@@ -18303,10 +18343,24 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (isWalking) {
       const travel = Math.abs(cameraDelta);
       const charRig = activeCharacterRig();
-      const walkStride = Number(charRig?.WALK_STRIDE_WORLD) || WALK_STRIDE;
-      const runStride = Number(charRig?.RUN_STRIDE_WORLD) || RUN_STRIDE;
-      const stride = Rig.lerp(walkStride, runStride, smoothRun);
-      locomotionPhase = (locomotionPhase + travel / Math.max(0.001, stride)) % 1;
+      if (charRig === FoxRig) {
+        // Fox cadence is authored independently from ground speed. At full walk
+        // or run the animation cycle keeps its approved timing while the saved
+        // Walk/Run speed controls how much ground is covered per cycle. Partial
+        // stick input proportionally slows cadence, preserving a natural walk-in.
+        const walkHz = 1000 / Math.max(1, Number(FoxRig.WALK_CYCLE_MS) || 539);
+        const runHz = 1000 / Math.max(1, Number(FoxRig.RUN_CYCLE_MS) || 323);
+        const referenceSpeed = Rig.lerp(activeWalkSpeed, activeRunSpeed, smoothRun);
+        const cadenceScale = axisMag <= WALK_POINT
+          ? walkEffort
+          : Rig.clamp(analogSpeed / Math.max(0.001, referenceSpeed), 0, 1.25);
+        locomotionPhase = (locomotionPhase + dt * Rig.lerp(walkHz, runHz, smoothRun) * cadenceScale) % 1;
+      } else {
+        const walkStride = Number(charRig?.WALK_STRIDE_WORLD) || WALK_STRIDE;
+        const runStride = Number(charRig?.RUN_STRIDE_WORLD) || RUN_STRIDE;
+        const stride = Rig.lerp(walkStride, runStride, smoothRun);
+        locomotionPhase = (locomotionPhase + travel / Math.max(0.001, stride)) % 1;
+      }
       character.distanceTravelled += travel;
     }
     previousCameraX = camera.x;

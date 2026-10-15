@@ -14557,3 +14557,49 @@ body[data-game-id="game-17"] .animlab-contact-actions-simple .animlab-contact-ex
 body[data-game-id="game-17"] .animlab-static-reference #animlab-static-reference-sources button{font-size:7px;}
 body[data-game-id="game-17"] .animlab-fox-handoff .animlab-view-grid{grid-template-columns:minmax(0,1fr);}
 body[data-game-id="game-17"] .animlab-fox-handoff #animlab-export-fox{width:100%;}
+
+/* SideScroll v1.0.160 — Anim Lab Quick Play + Fox motion-speed tuning. */
+body[data-game-id="game-17"] .animlab-quickplay-section[hidden],
+body[data-game-id="game-17"] .animlab-quickplay-pad[hidden]{display:none!important;}
+body[data-game-id="game-17"] .animlab-quickplay-status{
+  min-height:22px;padding:6px 7px;border:1px solid rgba(238,243,241,.10);border-radius:8px;
+  background:rgba(255,255,255,.025);color:rgba(238,243,241,.72);font-size:7px;line-height:1.3;font-variant-numeric:tabular-nums;
+}
+body[data-game-id="game-17"] .animlab-motion-slider output{min-width:54px;text-align:right;font-variant-numeric:tabular-nums;}
+body[data-game-id="game-17"] .animlab-quickplay-actions{display:grid;grid-template-columns:1fr;gap:4px;}
+body[data-game-id="game-17"] .animlab-quickplay-actions button{
+  min-height:29px;padding:5px 7px;border:1px solid rgba(238,243,241,.14);border-radius:8px;
+  background:rgba(255,255,255,.04);color:#dce7e3;font:850 7px/1 system-ui,-apple-system,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-quickplay-pad{
+  width:100%;height:100%;display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:6px;align-items:stretch;
+}
+body[data-game-id="game-17"] .animlab-quickplay-move{
+  position:relative;min-width:0;height:100%;overflow:hidden;border:1px solid rgba(238,243,241,.19);border-radius:12px;
+  background:rgba(12,20,24,.76);box-shadow:0 7px 22px rgba(0,0,0,.22);touch-action:none;user-select:none;-webkit-user-select:none;
+}
+body[data-game-id="game-17"] .animlab-quickplay-move::before{
+  content:'';position:absolute;left:25%;right:25%;top:12%;bottom:12%;border-left:1px dashed rgba(238,243,241,.11);border-right:1px dashed rgba(238,243,241,.11);pointer-events:none;
+}
+body[data-game-id="game-17"] .animlab-quickplay-centre{
+  position:absolute;left:50%;top:10%;bottom:10%;width:1px;background:rgba(143,207,197,.42);pointer-events:none;
+}
+body[data-game-id="game-17"] .animlab-quickplay-thumb{
+  position:absolute;left:50%;top:50%;width:18px;height:32px;border:1px solid rgba(126,216,199,.74);border-radius:8px;
+  background:rgba(96,151,143,.30);transform:translate(-50%,-50%);pointer-events:none;transition:background .08s,border-color .08s;
+}
+body[data-game-id="game-17"] .animlab-quickplay-move.is-running .animlab-quickplay-thumb{
+  border-color:rgba(180,223,216,.92);background:rgba(126,216,199,.42);
+}
+body[data-game-id="game-17"] .animlab-quickplay-move span{
+  position:absolute;left:6px;right:6px;bottom:5px;text-align:center;color:rgba(238,243,241,.58);font:750 6px/1.1 system-ui,-apple-system,sans-serif;pointer-events:none;
+}
+body[data-game-id="game-17"] .animlab-quickplay-jump{
+  min-width:0;height:100%;padding:0 3px;border:1px solid rgba(238,243,241,.19);border-radius:12px;
+  background:rgba(118,158,149,.16);color:#e6efec;font:900 7px/1 system-ui,-apple-system,sans-serif;text-transform:uppercase;
+}
+body[data-game-id="game-17"] .animlab-quickplay-jump:active{background:rgba(126,216,199,.28);}
+@media(max-height:390px){
+  body[data-game-id="game-17"] .animlab-quickplay-pad{grid-template-columns:minmax(0,1fr) 40px;gap:5px;}
+  body[data-game-id="game-17"] .animlab-quickplay-thumb{height:28px;width:16px;}
+}

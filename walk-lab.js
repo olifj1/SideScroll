@@ -50,6 +50,10 @@
   const SPARSE_SCHEMA = 'animlab.sparse.v1';
   const SETUP_SCALE_MIN = 0.55;
   const SETUP_SCALE_MAX = 2.25;
+  const FOX_WALK_SPEED_MIN = 0.45;
+  const FOX_WALK_SPEED_MAX = 3.25;
+  const FOX_RUN_SPEED_MIN = 1.00;
+  const FOX_RUN_SPEED_MAX = 5.75;
   const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
   const STATIC_REFERENCE_KEY = 'sidescroll.animlab.static-reference.v1';
   const FOX_HANDOFF_SCHEMA = 'sidescroll.animlab.fox-handoff.v1';
@@ -117,7 +121,7 @@
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
     { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.159' }
+    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.160' }
   ];
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 
@@ -224,7 +228,7 @@
     fox: {
       id:'fox', label:'Fox', rig:FoxRig,
       // Match the actual distance-driven gameplay cadence: cycle time = stride / speed.
-      clipMs:{idle:1400,walk:Math.round((Number(FoxRig.WALK_STRIDE_WORLD)||.62)/1.15*1000),run:Math.round((Number(FoxRig.RUN_STRIDE_WORLD)||.92)/2.85*1000),jump:935},
+      clipMs:{idle:1400,walk:Number(FoxRig.WALK_CYCLE_MS)||539,run:Number(FoxRig.RUN_CYCLE_MS)||323,jump:Number(FoxRig.JUMP_CYCLE_MS)||1139},
       loadBank:loadFoxBank, saveBank:saveFoxBank,
       normalise:(pose,index) => FoxRig.normalizedPose(pose,index),
       defaultPose:(clip,index) => {
@@ -251,7 +255,8 @@
     const character = characterById(characterId);
     const adapter = adapters[character.family];
     const saved = setupMap[characterId] || {};
-    const savedScale = adapter.id === 'fox' && saved.baselineId !== FoxRig.AUTHORING_BASELINE_ID ? NaN : Number(saved.scale);
+    const foxSetupCurrent = adapter.id !== 'fox' || saved.baselineId === FoxRig.AUTHORING_BASELINE_ID;
+    const savedScale = foxSetupCurrent ? Number(saved.scale) : NaN;
     const setup = {
       scale: clamp(Number.isFinite(savedScale) ? savedScale : (adapter.id === 'fox' ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1), SETUP_SCALE_MIN, SETUP_SCALE_MAX),
       // Collider ownership remains with the existing rig family storage. This
@@ -259,6 +264,14 @@
       // the runtime still shares one human collider.
       collider: adapter.normaliseCollider(adapter.collider())
     };
+    if (adapter.id === 'fox') {
+      const defaultWalk = Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15;
+      const defaultRun = Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85;
+      const savedWalk = foxSetupCurrent ? Number(saved.walkSpeed) : NaN;
+      const savedRun = foxSetupCurrent ? Number(saved.runSpeed) : NaN;
+      setup.walkSpeed = clamp(Number.isFinite(savedWalk) ? savedWalk : defaultWalk, FOX_WALK_SPEED_MIN, FOX_WALK_SPEED_MAX);
+      setup.runSpeed = clamp(Number.isFinite(savedRun) ? savedRun : defaultRun, FOX_RUN_SPEED_MIN, FOX_RUN_SPEED_MAX);
+    }
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
@@ -383,6 +396,7 @@
   }
 
   function evaluateSparsePose(clipData, frame, family, options = {}) {
+    if (family === 'fox' && typeof FoxRig.evaluateSparsePose === 'function') return FoxRig.evaluateSparsePose(clipData,frame);
     const adapter = adapters[family];
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
     if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
@@ -450,7 +464,7 @@
   const foxShapeReference = new Image();
   foxShapeReference.onload = () => draw();
   foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
-  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.159';
+  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.160';
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -469,6 +483,10 @@
   let lastAnimTime = performance.now();
   let history = [];
   let future = [];
+  let playReturnMode = 'animate';
+  let playOverlaySnapshot = null;
+  let playFrameProvider = null;
+  let lastPlayFrame = null;
 
   function loadEditorSelection() {
     let saved = null;
@@ -478,13 +496,14 @@
     return {
       characterId:charId,
       clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
-      mode:saved?.mode === 'setup' ? 'setup' : 'animate',
+      mode:saved?.mode === 'setup' ? 'setup' : saved?.mode === 'play' ? 'play' : 'animate',
       frame:Number.isInteger(saved?.frame) ? clamp(saved.frame,0,15) : 0
     };
   }
 
   const selection = loadEditorSelection();
   if (!clipNamesForFamily(characterById(selection.characterId).family).includes(selection.clip)) selection.clip = 'walk';
+  if (selection.mode === 'play' && characterById(selection.characterId).family !== 'fox') selection.mode = 'animate';
   let setupDraft = defaultSetupFor(selection.characterId);
   let checkpoint = null;
 
@@ -540,8 +559,9 @@
   function currentSparseClip() { return sparseBanks[currentCharacter().family][selection.clip]; }
   function previewApplies() { return !!conversionPreview && conversionPreview.family === currentCharacter().family && conversionPreview.clip === selection.clip; }
   function displayFrames() { return previewApplies() ? conversionPreview.frames : currentFrames(); }
+  function displaySparseClip() { return previewApplies() ? conversionPreview.candidate : currentSparseClip(); }
   function currentPose() {
-    if(playing && selection.mode==='animate') return currentAdapter().rig.sampleFrames(displayFrames(),playPhase);
+    if(playing && selection.mode==='animate') return evaluateSparsePose(displaySparseClip(),playPhase*16,currentCharacter().family);
     return displayFrames()[selection.frame];
   }
 
@@ -596,7 +616,9 @@
     let ownDirty = false;
     if (checkpoint) ownDirty = selection.mode === 'setup'
       ? !same(setupDraft, checkpoint.setup)
-      : !same(currentSparseClip(), checkpoint.sparseClip);
+      : selection.mode === 'play'
+        ? (!same(setupDraft, checkpoint.setup) || !same(currentSparseClip(), checkpoint.sparseClip))
+        : !same(currentSparseClip(), checkpoint.sparseClip);
     if (ownDirty) return true;
     for (const participant of sessionParticipants.values()) {
       try { if (participant?.isDirty?.()) return true; }
@@ -617,6 +639,10 @@
     if (scope === 'setup') {
       const adapter = currentAdapter();
       setupDraft = { scale:clamp(Number(value.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX), collider:adapter.normaliseCollider(value.collider) };
+      if (adapter.id === 'fox') {
+        setupDraft.walkSpeed = clamp(Number(value.walkSpeed) || Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15, FOX_WALK_SPEED_MIN, FOX_WALK_SPEED_MAX);
+        setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85, setupDraft.walkSpeed + .20), FOX_RUN_SPEED_MIN, FOX_RUN_SPEED_MAX);
+      }
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       return;
     }
@@ -737,25 +763,30 @@
 
   function saveCurrent() {
     try {
-      if (selection.mode === 'setup') {
-        const character = currentCharacter();
-        const adapter = currentAdapter();
+      const character = currentCharacter();
+      const adapter = currentAdapter();
+      const saveSetup = selection.mode === 'setup' || selection.mode === 'play';
+      const saveClip = selection.mode === 'animate' || selection.mode === 'play';
+      if (saveSetup) {
         setupDraft.collider = adapter.saveCollider(setupDraft.collider);
         if (adapter.saveRestRig && setupDraft.rig) setupDraft.rig = adapter.saveRestRig(setupDraft.rig);
-        // Keep canonical rig/collider ownership with the rig-family storage; the
-        // generic Setup map only needs the per-character visual scale.
-        setupMap[character.id] = character.family === 'fox' ? {scale:setupDraft.scale,baselineId:FoxRig.AUTHORING_BASELINE_ID || null} : {scale:setupDraft.scale};
+        setupMap[character.id] = character.family === 'fox'
+          ? {
+              scale:setupDraft.scale,
+              walkSpeed:clamp(Number(setupDraft.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
+              runSpeed:clamp(Math.max(Number(setupDraft.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,(Number(setupDraft.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15)+.20),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
+              baselineId:FoxRig.AUTHORING_BASELINE_ID || null
+            }
+          : {scale:setupDraft.scale};
         localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
-        // Fox planted-contact targets are compiled in rig-local units from the
-        // gameplay stride. Refresh editor previews when scale changes, but do
-        // not rewrite runtime clips until Animate is explicitly Saved.
         if (character.family === 'fox') for (const clipName of FOX_CLIP_NAMES) syncCompiledClip('fox',clipName);
-      } else {
+      }
+      if (saveClip) {
         conversionPreview = null;
-        ensureLegacyBackup(currentCharacter().family, selection.clip);
-        syncCompiledClip(currentCharacter().family, selection.clip);
+        ensureLegacyBackup(character.family, selection.clip);
+        syncCompiledClip(character.family, selection.clip);
         saveSparseBanks();
-        currentAdapter().saveBank(currentBank());
+        adapter.saveBank(currentBank());
       }
       for (const participant of sessionParticipants.values()) {
         if (!participant?.save) continue;
@@ -777,6 +808,7 @@
     if (!checkpoint) return;
     conversionPreview = null;
     if (selection.mode === 'setup') setupDraft = clone(checkpoint.setup);
+    else if (selection.mode === 'play') { setupDraft = clone(checkpoint.setup); setCurrentSparseClip(clone(checkpoint.sparseClip)); }
     else setCurrentSparseClip(clone(checkpoint.sparseClip));
     for (const participant of sessionParticipants.values()) {
       try { participant?.discard?.(); }
@@ -841,7 +873,29 @@
   }
 
   function switchMode(mode) {
-    if (mode === selection.mode || !['animate','setup'].includes(mode)) return;
+    if (mode === selection.mode || !['animate','setup','play'].includes(mode)) return;
+    if (mode === 'play' && currentCharacter().family !== 'fox') {
+      hint.textContent = 'Quick Play is currently enabled for the Fox authoring workflow.';
+      return;
+    }
+    // Quick Play is deliberately a non-destructive view of the current working
+    // copy. Entering or leaving it must not force Save/Discard or reset history.
+    if (mode === 'play') {
+      conversionPreview = null;
+      playReturnMode = selection.mode === 'setup' ? 'setup' : 'animate';
+      playOverlaySnapshot = clone(overlays);
+      overlays.art = true; overlays.bones = false; overlays.planes = false; overlays.collider = false; overlays.reference = false; overlays.ground = true;
+      selection.mode = 'play'; playing = false; lastPlayFrame = null;
+      saveEditorSelection(); draw(); updateUi(); notify();
+      return;
+    }
+    if (selection.mode === 'play') {
+      selection.mode = mode || playReturnMode; playing = false; lastPlayFrame = null;
+      if (playOverlaySnapshot) Object.assign(overlays,playOverlaySnapshot);
+      playOverlaySnapshot = null;
+      saveEditorSelection(); draw(); updateUi(); notify();
+      return;
+    }
     guardNavigation(() => {
       conversionPreview = null;
       selection.mode = mode; playing = false;
@@ -880,29 +934,43 @@
     };
   }
 
-  function previewView(phase, scaleMultiplier = setupDraft.scale) {
+  function previewView(phase, scaleMultiplier = setupDraft.scale, playFrame = null) {
     const sv = baseView(scaleMultiplier);
+    if (selection.mode === 'play') {
+      const localLift = Number(playFrame?.localLift) || 0;
+      return {...sv,groundY:sv.groundY-localLift*sv.scale,flipX:(Number(playFrame?.facing)||1)<0?-1:1};
+    }
     if (selection.mode !== 'animate' || selection.clip !== 'jump') return sv;
     const lift = Math.sin(clamp(phase,0,1) * Math.PI) * .40;
     return {...sv, groundY:sv.groundY - lift * sv.scale};
   }
 
-  function project(pt, sv) { return {x:sv.cx + pt.x * sv.scale, y:sv.groundY - pt.y * sv.scale}; }
+  function project(pt, sv) { return {x:sv.cx + pt.x * sv.scale * (sv.flipX || 1), y:sv.groundY - pt.y * sv.scale}; }
   function unproject(pos, sv) { return {x:(pos.x-sv.cx)/sv.scale, y:(sv.groundY-pos.y)/sv.scale}; }
+
+  function partTransform(r, part, sv) {
+    const A=project(part.a,sv),B=project(part.b,sv);
+    const p0={x:r.a0[0]*r.w,y:r.a0[1]*r.h},p1={x:r.a1[0]*r.w,y:r.a1[1]*r.h};
+    const sx=p1.x-p0.x,sy=p1.y-p0.y,dx=B.x-A.x,dy=B.y-A.y;
+    const sl=Math.hypot(sx,sy)||1,dl=Math.hypot(dx,dy)||1,sc=dl/sl;
+    const usx=sx/sl,usy=sy/sl,vsx=-usy,vsy=usx;
+    const udx=dx/dl,udy=dy/dl,flip=(sv.flipX||1)<0?-1:1;
+    const vdx=-udy*flip,vdy=udx*flip;
+    const a=sc*(udx*usx+vdx*vsx),c=sc*(udx*usy+vdx*vsy);
+    const b=sc*(udy*usx+vdy*vsx),d=sc*(udy*usy+vdy*vsy);
+    return {a,b,c,d,e:A.x-a*p0.x-c*p0.y,f:A.y-b*p0.x-d*p0.y};
+  }
 
   function drawPart(rig, atlas, part, sv, alpha = 1) {
     const r = rig.atlasRect(part.name); if (!r || !atlas) return;
-    const A = project(part.a,sv), B = project(part.b,sv);
-    const p0 = {x:r.a0[0]*r.w,y:r.a0[1]*r.h}, p1 = {x:r.a1[0]*r.w,y:r.a1[1]*r.h};
-    const svx = p1.x-p0.x, svy = p1.y-p0.y, dvx = B.x-A.x, dvy = B.y-A.y;
-    const sl = Math.hypot(svx,svy)||1, dl = Math.hypot(dvx,dvy)||1;
-    const sc = dl/sl, rot = Math.atan2(dvy,dvx)-Math.atan2(svy,svx);
-    ctx.save(); ctx.globalAlpha *= (part.alpha ?? 1) * alpha; ctx.translate(A.x,A.y); ctx.rotate(rot); ctx.scale(sc,sc);
-    ctx.drawImage(atlas,r.x,r.y,r.w,r.h,-p0.x,-p0.y,r.w,r.h); ctx.restore();
+    const tr=partTransform(r,part,sv);
+    ctx.save(); ctx.globalAlpha *= (part.alpha ?? 1) * alpha;
+    ctx.transform(tr.a,tr.b,tr.c,tr.d,tr.e,tr.f);
+    ctx.drawImage(atlas,r.x,r.y,r.w,r.h,0,0,r.w,r.h); ctx.restore();
   }
 
   function displayRestRig(adapter = currentAdapter()) {
-    return adapter.id === 'fox' && selection.mode === 'setup' ? setupDraft.rig : undefined;
+    return adapter.id === 'fox' && (selection.mode === 'setup' || selection.mode === 'play') ? setupDraft.rig : undefined;
   }
 
   function drawRigArt(character, adapter, pose, sv, alpha = 1) {
@@ -933,11 +1001,8 @@
 
   function transformedPlane(rig, part, sv) {
     const r=rig.atlasRect(part.name); if(!r)return null;
-    const A=project(part.a,sv),B=project(part.b,sv);
-    const p0={x:r.a0[0]*r.w,y:r.a0[1]*r.h},p1={x:r.a1[0]*r.w,y:r.a1[1]*r.h};
-    const svx=p1.x-p0.x,svy=p1.y-p0.y,dvx=B.x-A.x,dvy=B.y-A.y;
-    const sl=Math.hypot(svx,svy)||1,dl=Math.hypot(dvx,dvy)||1,sc=dl/sl,rot=Math.atan2(dvy,dvx)-Math.atan2(svy,svx),co=Math.cos(rot),si=Math.sin(rot);
-    const tr=(x,y)=>{const lx=(x-p0.x)*sc,ly=(y-p0.y)*sc;return{x:A.x+lx*co-ly*si,y:A.y+lx*si+ly*co};};
+    const m=partTransform(r,part,sv);
+    const tr=(x,y)=>({x:m.a*x+m.c*y+m.e,y:m.b*x+m.d*y+m.f});
     return [tr(0,0),tr(r.w,0),tr(r.w,r.h),tr(0,r.h)];
   }
 
@@ -1026,10 +1091,18 @@
     resize();
     const character=currentCharacter(),adapter=currentAdapter(),frames=displayFrames();
     const phase=playing?playPhase:selection.frame/16;
-    const pose=selection.mode==='setup' && adapter.id==='fox' && adapter.rig.IDLE_POSE
-      ? adapter.rig.clone(adapter.rig.IDLE_POSE)
-      : (playing?adapter.rig.sampleFrames(frames,playPhase):currentPose());
-    const sv=previewView(phase);
+    let playFrame=null;
+    if(selection.mode==='play'&&typeof playFrameProvider==='function'){
+      try{playFrame=playFrameProvider({now:performance.now(),character:clone(character),setup:clone(setupDraft),rig:adapter.rig})||null;}
+      catch(err){console.error('[Anim Lab] Quick Play frame provider failed.',err);playFrame=null;}
+    }
+    lastPlayFrame=playFrame;
+    const pose=selection.mode==='play'&&playFrame?.pose
+      ? adapter.normalise(playFrame.pose,selection.frame)
+      : selection.mode==='setup' && adapter.id==='fox' && adapter.rig.IDLE_POSE
+        ? adapter.rig.clone(adapter.rig.IDLE_POSE)
+        : (playing?evaluateSparsePose(displaySparseClip(),playPhase*16,currentCharacter().family):currentPose());
+    const sv=previewView(phase,setupDraft.scale,playFrame);
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const bg=ctx.createLinearGradient(0,0,0,canvas.height);bg.addColorStop(0,'#26333a');bg.addColorStop(1,'#11191e');ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
     const gridView=baseView(1),step=Math.max(28,gridView.scale*.25);
@@ -1058,27 +1131,34 @@
 
   function updateUi(displayPose = currentPose()) {
     const character=currentCharacter(),adapter=currentAdapter(),dirty=isDirty();
-    contextEl.textContent=`${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${selection.mode==='setup'?'Rig':'Animate'}${previewApplies()?' · Preview':''}`;
-    readout.textContent=playing
-      ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
-      : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
+    const modeLabel=selection.mode==='setup'?'Rig':selection.mode==='play'?'Play':'Animate';
+    contextEl.textContent=selection.mode==='play'
+      ? `${character.label} · Quick Play`
+      : `${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${modeLabel}${previewApplies()?' · Preview':''}`;
+    readout.textContent=selection.mode==='play'
+      ? `${character.label} · QUICK PLAY · current working clips · ${Math.round(view.zoom*100)}%`
+      : playing
+        ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
+        : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
     dirtyBadge.hidden=!dirty;
     if (saveStateEl) { saveStateEl.textContent = dirty ? 'Unsaved' : 'Saved'; saveStateEl.classList.toggle('dirty', dirty); }
     undoBtn.disabled=!history.length;redoBtn.disabled=!future.length;discardBtn.disabled=!dirty;saveBtn.disabled=!dirty;
-    if (timelineDock) timelineDock.hidden=selection.mode==='setup';
-    scrub.value=String(selection.frame);scrub.disabled=selection.mode==='setup';prevBtn.disabled=selection.mode==='setup';nextBtn.disabled=selection.mode==='setup';playBtn.disabled=selection.mode==='setup';
+    if (timelineDock) timelineDock.hidden=selection.mode==='setup'||selection.mode==='play';
+    scrub.value=String(selection.frame);scrub.disabled=selection.mode!=='animate';prevBtn.disabled=selection.mode!=='animate';nextBtn.disabled=selection.mode!=='animate';playBtn.disabled=selection.mode!=='animate';
     playBtn.textContent=playing?'Pause':'Play';
-    characterButtons.forEach(btn=>{const active=btn.dataset.character===selection.characterId;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
-    clipButtons.forEach(btn=>{const allowed=clipNamesForFamily(character.family).includes(btn.dataset.clip);const active=allowed&&btn.dataset.clip===selection.clip;btn.hidden=!allowed;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='setup'||!allowed;});
-    modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
-    viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
+    characterButtons.forEach(btn=>{const active=btn.dataset.character===selection.characterId;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='play';});
+    clipButtons.forEach(btn=>{const allowed=clipNamesForFamily(character.family).includes(btn.dataset.clip);const active=allowed&&btn.dataset.clip===selection.clip;btn.hidden=!allowed;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode!=='animate'||!allowed;});
+    modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=btn.dataset.mode==='play'&&character.family!=='fox';});
+    viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='play';});
     scopeEl.textContent=selection.mode==='setup'
       ? (adapter.id==='fox'
         ? `${character.label} rig · scale, collider and structural rest rig remain a working copy until Save.`
         : `${character.label} setup · scale is saved per character for gameplay; collider Save writes the current ${adapter.label} collider.`)
-      : previewApplies()
-        ? `${conversionPreview.label || 'Conversion'} preview · view only until Adopt or Exit Preview.`
-        : `${adapter.scope} Sparse keys compile back to the existing 16-sample contract on Save.`;
+      : selection.mode==='play'
+        ? 'Quick Play tests the current working Fox clips. Walk/Run movement speed is authored here and remains a working copy until Save.'
+        : previewApplies()
+          ? `${conversionPreview.label || 'Conversion'} preview · view only until Adopt or Exit Preview.`
+          : `${adapter.scope} Smooth clips are evaluated continuously; the 16-frame timeline remains the authoring/key layout.`;
   }
 
   function notify() {
@@ -1167,6 +1247,8 @@
     const dt=Math.min(50,Math.max(0,now-lastAnimTime));lastAnimTime=now;
     if(playing&&selection.mode==='animate'){
       const ms=currentAdapter().clipMs[selection.clip]||1050;playPhase=(playPhase+dt/ms)%1;const nextFrame=Math.floor(playPhase*16)%16;const changed=nextFrame!==selection.frame;selection.frame=nextFrame;draw();if(changed)notify();
+    } else if(selection.mode==='play') {
+      draw();
     }
     requestAnimationFrame(animate);
   }
@@ -1207,11 +1289,16 @@
   function buildFoxHandoffBundle() {
     const liveFox = currentCharacter().family === 'fox';
     const savedFoxSetup = setupMap?.fox || {};
-    const savedFoxScale = savedFoxSetup.baselineId === FoxRig.AUTHORING_BASELINE_ID ? Number(savedFoxSetup.scale) : NaN;
+    const savedFoxCurrent = savedFoxSetup.baselineId === FoxRig.AUTHORING_BASELINE_ID;
+    const savedFoxScale = savedFoxCurrent ? Number(savedFoxSetup.scale) : NaN;
+    const savedFoxWalk = savedFoxCurrent ? Number(savedFoxSetup.walkSpeed) : NaN;
+    const savedFoxRun = savedFoxCurrent ? Number(savedFoxSetup.runSpeed) : NaN;
     const setup = liveFox
       ? clone(setupDraft)
       : {
           scale:clamp(Number.isFinite(savedFoxScale) ? savedFoxScale : (Number(FoxRig.DEFAULT_SCALE) || 1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+          walkSpeed:clamp(Number.isFinite(savedFoxWalk) ? savedFoxWalk : (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15),FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
+          runSpeed:clamp(Number.isFinite(savedFoxRun) ? savedFoxRun : (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(FoxRig.loadCollider()),
           rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig())
         };
@@ -1221,11 +1308,13 @@
     return {
       schema:FOX_HANDOFF_SCHEMA,
       app:'SideScroll',
-      animLabVersion:'1.0.159',
+      animLabVersion:'1.0.160',
       exportedAt:new Date().toISOString(),
       fox:{
         setup:{
           scale:clamp(Number(setup.scale)||(Number(FoxRig.DEFAULT_SCALE)||1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+          walkSpeed:clamp(Number(setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
+          runSpeed:clamp(Number(setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(setup.collider),
           restRig:FoxRig.normalizedRestRig(setup.rig)
         },
@@ -1238,7 +1327,7 @@
   async function exportFoxHandoffBundle() {
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.159.json';
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.160.json';
       const blob = new Blob([payload],{type:'application/json'});
       const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
       if (file && navigator.share && navigator.canShare?.({files:[file]})) {
@@ -1261,11 +1350,11 @@
   }
 
   const api = {
-    version:'1.0.159',
+    version:'1.0.160',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
-      pose:clone(currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
+      pose:clone(selection.mode==='play'&&lastPlayFrame?.pose?lastPlayFrame.pose:currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
       sparseClip:clone(currentSparseClip()), preview:previewApplies()?{label:conversionPreview.label,candidate:clone(conversionPreview.candidate)}:null,
       rig:currentAdapter().rig, adapterId:currentAdapter().id
     }),
@@ -1277,6 +1366,15 @@
     commitTransaction,
     cancelTransaction,
     getSparseClip:()=>clone(currentSparseClip()),
+    getSparseClipFor:(clipName,family=currentCharacter().family)=>{
+      const name=String(clipName||'');
+      return clone(sparseBanks?.[family]?.[name] || null);
+    },
+    evaluateClip:(clipName,phase,family=currentCharacter().family)=>{
+      const clip=sparseBanks?.[family]?.[String(clipName||'')];
+      if(!clip)return null;
+      return clone(evaluateSparsePose(clip,(((Number(phase)||0)%1)+1)%1*16,family));
+    },
     getCompiledFrames:()=>clone(currentFrames()),
     getLegacySamples:()=>clone(legacySamplesAtOpen[currentCharacter().family][selection.clip]),
     compileSparseClip:clipData=>compileSparseClip(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),currentCharacter().family),
@@ -1291,6 +1389,7 @@
     setHint:text=>{hint.textContent=String(text||'');},
     subscribe:fn=>{if(typeof fn==='function'){listeners.add(fn);return()=>listeners.delete(fn);}return()=>{};},
     registerSessionParticipant,
+    setPlayFrameProvider:fn=>{playFrameProvider=typeof fn==='function'?fn:null;lastPlayFrame=null;draw();},
     redraw:()=>{draw();notify();},
     redrawOnly:()=>draw(),
     setOverlay:(name,value)=>{if(name in overlays){overlays[name]=!!value;draw();updateUi();notify();}},

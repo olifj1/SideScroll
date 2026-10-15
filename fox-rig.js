@@ -280,8 +280,8 @@
   const ATLAS = Object.freeze({
     width: 2048,
     height: 2048,
-    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.159',
-    sourceUrl: 'fox-reference-charcoal.png?v=1.0.159',
+    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.160',
+    sourceUrl: 'fox-reference-charcoal.png?v=1.0.160',
     parts: Object.freeze({
       head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
       tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
@@ -336,6 +336,14 @@
 
   const WALK_STRIDE_WORLD = 0.62;
   const RUN_STRIDE_WORLD = 0.92;
+  // v1.0.160: movement speed is authored independently from animation cadence.
+  // These preserve the previously approved Fox timing while Quick Play lets the
+  // author tune how much ground the character covers during each cycle.
+  const DEFAULT_WALK_SPEED = 1.15;
+  const DEFAULT_RUN_SPEED = 2.85;
+  const WALK_CYCLE_MS = Math.round(WALK_STRIDE_WORLD / DEFAULT_WALK_SPEED * 1000);
+  const RUN_CYCLE_MS = Math.round(RUN_STRIDE_WORLD / DEFAULT_RUN_SPEED * 1000);
+  const JUMP_CYCLE_MS = Math.round((5.24 * 2 / 9.20) * 1000);
   const WALK_OFFSETS = Object.freeze({rearNear:0.00,frontNear:0.25,rearFar:0.50,frontFar:0.75});
   const RUN_OFFSETS = Object.freeze({rearNear:0.00,frontFar:0.00,rearFar:0.50,frontNear:0.50});
 
@@ -839,8 +847,9 @@
   const AUTHORED_SPARSE_CLIPS=clone(AUTHORING_BASELINE?.sparseClips || {});
 
   function normalizedPose(p,i=0){
-    const d=DEFAULT_FRAMES[i%16];
-    const out={...clone(d),...clone(p||{}),key:i%2===0};
+    const index=((Math.floor(Number(i)||0)%16)+16)%16;
+    const d=DEFAULT_FRAMES[index];
+    const out={...clone(d),...clone(p||{}),key:index%2===0};
     const supplied=(p&&typeof p==='object')?p:null;
     for(const prefix of IK_PREFIXES){
       const point=defaultIkPoint(prefix);
@@ -861,9 +870,69 @@
     return out;
   }
   function sampleFrames(frames,phase){
-    const p=((phase%1)+1)%1*16,i=Math.floor(p)%16,t=p-Math.floor(p),j=(i+1)%16;
-    const a=normalizedPose(frames[i],i),b=normalizedPose(frames[j],j),travelB=j===0?1:b.travel;
+    const count=Math.max(1,Array.isArray(frames)?frames.length:0);
+    if(!count)return normalizedPose(null,0);
+    const p=((phase%1)+1)%1*count,i=Math.floor(p)%count,t=p-Math.floor(p),j=(i+1)%count;
+    const ai=Math.round(i*16/count)%16,bj=Math.round(j*16/count)%16;
+    const a=normalizedPose(frames[i],ai),b=normalizedPose(frames[j],bj),travelB=j===0?1:b.travel;
     return interpolatePose(a,b,t,a.name,travelB);
+  }
+
+  function hermiteSparseValue(v0,v1,v2,v3,x0,x1,x2,x3,t){
+    const span=Math.max(.0001,x2-x1);
+    const m1=(v2-v0)/Math.max(.0001,x2-x0);
+    const m2=(v3-v1)/Math.max(.0001,x3-x1);
+    const t2=t*t,t3=t2*t;
+    return (2*t3-3*t2+1)*v1 + (t3-2*t2+t)*span*m1 + (-2*t3+3*t2)*v2 + (t3-t2)*span*m2;
+  }
+
+  // Evaluate sparse authored Fox animation directly at a fractional timeline
+  // position. v1.0.159 baked the curve to 16 samples and then linearly sampled
+  // those frames, which made Smooth look almost linear at gameplay cadence.
+  // v1.0.160 keeps the 16-frame authoring timeline but evaluates the cubic curve
+  // continuously for preview and runtime so Anim Lab and Play see the same pose.
+  function evaluateSparsePose(clipData,frame){
+    const keys=[...(clipData?.keys||[])].filter(k=>Number.isFinite(Number(k?.frame))&&k?.pose).sort((a,b)=>a.frame-b.frame);
+    if(!keys.length)return normalizedPose(null,Math.round(Number(frame)||0));
+    const f=((Number(frame)||0)%16+16)%16;
+    const exact=keys.find(k=>Math.abs(Number(k.frame)-f)<1e-9);
+    if(exact){const pose=normalizedPose(exact.pose,exact.frame);pose.name=exact.name||pose.name;return pose;}
+    let before=null,after=null,beforeFrame=-Infinity,afterFrame=Infinity;
+    for(const key of keys){
+      if(key.frame<f&&key.frame>beforeFrame){before=key;beforeFrame=key.frame;}
+      if(key.frame>f&&key.frame<afterFrame){after=key;afterFrame=key.frame;}
+    }
+    let wraps=false;
+    if(!before){before=keys[keys.length-1];beforeFrame=before.frame-16;}
+    if(!after){after=keys[0];afterFrame=after.frame+16;wraps=true;}
+    const span=Math.max(.0001,afterFrame-beforeFrame),t=clamp((f-beforeFrame)/span,0,1);
+    const a=normalizedPose(before.pose,before.frame),b=normalizedPose(after.pose,after.frame);
+    const crossesSeam=wraps||beforeFrame<0||afterFrame>=16;
+    const travelB=crossesSeam?(Number(b.travel)||0)+1:Number(b.travel);
+    const name=`${before.name||'Key'} → ${after.name||'Key'}`;
+    let out=interpolatePose(a,b,t,name,travelB);
+    if(clipData?.interpolation==='smooth'&&keys.length>=3){
+      const n=keys.length,bi=keys.indexOf(before),ai=keys.indexOf(after);
+      const prev=keys[(bi-1+n)%n],next=keys[(ai+1)%n];
+      const back=((before.frame-prev.frame)%16+16)%16||16;
+      const forward=((next.frame-after.frame)%16+16)%16||16;
+      const prevFrame=beforeFrame-back,nextFrame=afterFrame+forward;
+      const p0=normalizedPose(prev.pose,prev.frame),p1=a,p2=b,p3=normalizedPose(next.pose,next.frame);
+      for(const key of Object.keys(p1)){
+        if(key==='travel'||key.endsWith('IkWeight'))continue;
+        const vals=[p0[key],p1[key],p2[key],p3[key]];
+        if(!vals.every(v=>typeof v==='number'&&Number.isFinite(v)))continue;
+        out[key]=hermiteSparseValue(vals[0],vals[1],vals[2],vals[3],prevFrame,beforeFrame,afterFrame,nextFrame,t);
+        if(key.endsWith('IkY'))out[key]=Math.max(-.0001,out[key]);
+      }
+    }
+    out.travel=(Number(a.travel)||0)+(travelB-(Number(a.travel)||0))*t;
+    out.name=name;
+    return normalizedPose(out,f);
+  }
+
+  function sampleSparseClip(clipData,phase){
+    return evaluateSparsePose(clipData,((Number(phase)||0)%1+1)%1*16);
   }
 
   function geometry(pose, restRig = activeRestRig){
@@ -1018,9 +1087,9 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.159',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.160',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
-    clone,clamp,lerp,normalizedPose,sampleFrames,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES
+    clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES
   };
 })();

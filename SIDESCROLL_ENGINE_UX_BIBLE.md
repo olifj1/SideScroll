@@ -1192,3 +1192,25 @@ Rules:
 - Fox Handoff is one versioned JSON artifact. Sharing must not attach decorative title/metadata as a second text file. The JSON contains Setup/rest rig plus Idle / Walk / Run / Jump sparse clips and may include compiled runtime samples;
 - export remains read-only with respect to authoring state: exporting the working copy must not silently Save it;
 - the next interaction stage is Quick Play inside Anim Lab. Do not mix that feature into the baseline promotion drop once the four-clip authoring/runtime contract is stable.
+
+## Anim Lab Quick Play + Fox motion fidelity (v1.0.160)
+
+v1.0.160 supersedes the earlier assumption that a 16-sample Fox runtime bank is also an adequate Smooth playback surface. The 16-position timeline remains useful as a compact authoring/key layout, but it must not quantise a sparse cubic clip back into visibly coarse movement.
+
+Rules:
+
+- Fox **Smooth** playback is evaluated directly from the sparse authored keys at the current fractional phase. Exact key values are preserved; interpolation changes only the path between those keys.
+- Anim Lab and gameplay must use the same Fox sparse evaluator wherever a valid saved sparse clip exists. Compiled 16-sample banks remain useful for compatibility, fallback and interchange, not as a second visual truth.
+- Linear remains a deliberate diagnostic/authoring choice. Do not silently smooth a clip marked Linear.
+- The 16-frame timeline is an authoring coordinate system, not a playback framerate or output-sample limit.
+- **Quick Play** is a non-destructive view of the current working copy. Entering or leaving it must not implicitly Save, Discard, reset the checkpoint, clear Undo/Redo history or require a navigation guard.
+- Quick Play should use unsaved current clip/Rig data where possible so the intended loop is edit → Play → tweak → Play. Persist only through the existing explicit Save action.
+- Quick Play is part of the Anim Lab viewport and follows the established phone-first two-thumb grammar. Replace authoring precision controls with the minimum gameplay-style movement controls needed to judge locomotion; do not create a second miniature game/editor.
+- Fox **Walk Speed** and **Run Speed** are character Setup properties, not temporary preview multipliers. They are independently tuneable, versioned through the Fox handoff, and consumed by normal gameplay after Save.
+- For the Fox, full-speed locomotion cadence and ground speed are intentionally separable. Walk/Run cycle timing expresses the authored gait; Walk/Run speed expresses metres travelled per second. Tuning one must not secretly rewrite the other.
+- Partial analog input may scale cadence down as movement eases in so low-speed input does not produce full-cadence foot skating. At full walk and full run, however, the authored cycle timing remains stable while speed tuning alters ground travel.
+- Quick Play should provide a simple spatial diagnostic (currently scrolling metre marks plus speed/cycle readout) so an animator can judge travel per cycle without leaving the tool. Diagnostic UI does not become animation data.
+- Left/right preview must mirror the character art correctly. A facing change is a reflection of the rigged result, not a 180-degree rotation of individual sprite planes.
+- Do not respond to motion-fidelity problems by adding a general graph editor pre-emptively. First judge direct sparse Smooth evaluation, sensible key spacing and the Quick Play speed/cadence loop on device.
+- Temporary charcoal cutout seams remain art-stage debt. Motion tooling must not reshape the approved rig merely to hide those rigid-plane limitations.
+

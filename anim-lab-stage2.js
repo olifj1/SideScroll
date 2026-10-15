@@ -120,7 +120,7 @@
 
     <section class="animlab-section animlab-fox-handoff" id="animlab-fox-handoff" hidden aria-labelledby="animlab-fox-handoff-title">
       <div class="animlab-section-title" id="animlab-fox-handoff-title">Fox Handoff</div>
-      <div class="animlab-setup-note">Exports the current Fox rest rig, scale/collider, sparse Walk/Run/Jump keys and compiled 16-sample runtime clips as one JSON file.</div>
+      <div class="animlab-setup-note">Exports the current Fox rest rig, scale/collider, Walk/Run movement speeds, sparse Idle/Walk/Run/Jump keys and compiled runtime samples as one JSON file.</div>
       <div class="animlab-view-grid">
         <button type="button" id="animlab-export-fox">Export / Share Rig + Animations</button>
       </div>
@@ -264,7 +264,7 @@
     const control=selectedControl(state);
     controlSection.hidden=state.mode!=='animate';
     setupSection.hidden=state.mode!=='setup';
-    foxHandoffSection.hidden=state.family!=='fox';
+    foxHandoffSection.hidden=state.family!=='fox'||state.mode==='play';
     groundBtn.classList.toggle('active',core.getOverlay('ground'));groundBtn.setAttribute('aria-pressed',String(core.getOverlay('ground')));
     renderStaticReference();
     if (state.mode === 'animate') {
@@ -280,11 +280,16 @@
       if (control?.pair) {
         const pair=controlsFor(state).find(c=>c.id===control.pair);pairBtn.hidden=!pair;pairBtn.textContent=pair?`Pair: ${pair.label}`:'Pair';pairBtn.dataset.pair=pair?.id||'';
       } else pairBtn.hidden=true;
-    } else {
+    } else if (state.mode === 'setup') {
       precision.hidden=true;
       if (viewportPadHost) viewportPadHost.hidden=true;
       pad.hidden=true;
       renderSetup(state);
+    } else {
+      // Quick Play owns the viewport pad and intentionally hides authoring UI.
+      precision.hidden=true;
+      if (viewportPadHost) viewportPadHost.hidden=true;
+      pad.hidden=true;
     }
 
     if (lastMode !== state.mode) {
@@ -449,7 +454,7 @@
   });
 
   window.AnimLabControlSurface = Object.freeze({
-    version:'1.0.158',
+    version:'1.0.160',
     getSelectedId:()=>selectedId,
     getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
     selectControl:id=>selectControl(id,true)

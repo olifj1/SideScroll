@@ -1,54 +1,57 @@
-# SS-PATCH-1.0.159
+# SS-PATCH-1.0.160
 
-Cumulative changed-files patch against the approved v1.0.150 baseline. v1.0.159 is the **Fox Authoring Baseline** stage marker and remains a test patch until reviewed on iPhone.
+Cumulative changed-files patch intended to apply over the approved v1.0.150 baseline. v1.0.160 is the **Anim Lab Quick Play + Motion Fidelity** development stage and remains a test patch until reviewed on iPhone. It was built forward from the supplied cumulative v1.0.159 patch.
 
-## What this stage locks in
+## What changed
 
-- Promotes the user's `SS-FOX-RIG-ANIM-1.0.158.json` handoff into the built-in Fox authoring baseline.
-- Fresh installs now start from the authored Fox scale **1.71**, authored collider and authored v3 quadruped rest rig rather than the older default proportions.
-- The user's exported sparse **Walk / Run / Jump** clips and their compiled 16-sample runtime banks are preserved exactly in `fox-authoring-baseline.js`.
-- Adds **Idle** as a proper fourth Fox clip in Anim Lab and gameplay. The first Idle is intentionally just the standing/rest pose; later breathing/head/ear/tail life is deferred.
-- Replaces the animated orange Fox skin with temporary charcoal cutout evaluation art in `fox-rig-atlas-v3.png`.
-- The charcoal atlas is deliberately a rigid-plane test skin. Because the source reference contains only the near-side legs, the temporary far-side limbs reuse that source leg art behind the torso.
-- Keeps the approved v3 skeleton as the structural authority. The temporary atlas fits the rig; the rig is not redesigned around the artwork.
-- Fox Handoff now exports/shares **one JSON file only**: `SS-FOX-RIG-ANIM-1.0.159.json`. The iOS share title payload that could appear as a companion text attachment has been removed.
-- The handoff now contains **Idle / Walk / Run / Jump** sparse clips plus compiled runtime samples.
-- Pre-v1.0.159 Fox rig/collider/scale/clip experiment storage is migrated onto this promoted baseline once. Future explicit Anim Lab Saves become authoritative through the new baseline marker.
+- Adds a third Fox Anim Lab context: **Animate | Rig | Play**.
+- Quick Play stays inside the Anim Lab viewport and tests the **current working copy** of Idle / Walk / Run / Jump; you do not have to Save, leave Anim Lab and reload Play simply to judge a tweak.
+- Quick Play replaces the precision manipulation pad with a phone-first horizontal movement control plus Jump. Drag to walk; drag into the outer range to blend into run.
+- Adds authored **Walk Speed** and **Run Speed** controls for the Fox. These are character Setup properties, remain a working copy until Save, and are then used by gameplay.
+- Animation cadence and ground travel are now deliberately separate for the Fox. At full Walk/Run the authored cycle timing remains fixed while Walk/Run Speed controls metres travelled per second. This allows foot cadence and character travel to be balanced visually instead of forcing one to determine the other.
+- Quick Play draws scrolling half/metre ground marks and reports current speed, cycle time and approximate metres per cycle to make tuning readable without leaving Anim Lab.
+- Fox **Smooth** clips are now evaluated directly from the sparse authored keys at fractional timeline positions. The old path baked Smooth to 16 poses and then linearly interpolated those poses, which could make a cubic clip still look almost linear.
+- Gameplay now uses the same direct sparse Fox evaluator as Anim Lab for Idle / Walk / Run / Jump when a valid sparse clip is available. The 16-sample runtime bank remains as compatibility/fallback data and in handoff exports, not as the primary Smooth playback path.
+- The 16-frame timeline remains the simple key-layout/editing surface; it is no longer the playback resolution limit.
+- Quick Play preserves working-copy Undo/Redo/Save/Discard ownership. Entering and leaving Play does not implicitly Save, discard or reset history.
+- Fox handoff is now versioned `SS-FOX-RIG-ANIM-1.0.160.json` and includes Walk/Run movement speeds alongside scale/collider/rest rig and Idle/Walk/Run/Jump data.
+- The temporary charcoal rigid cutout is intentionally unchanged apart from correct left/right mirroring in Quick Play. Deformable/skinned art remains a later stage.
 
-## Explicitly NOT in this drop
+## Deliberately not in this drop
 
-- Anim Lab Quick Play (`Animate | Rig | Play`) is not included; it is the next planned coherent stage.
-- No deformable/skinned 2D mesh implementation is included.
-- No attempt has been made to perfect rigid cutout seams that are expected to disappear/change in the later deformable-art experiment.
-- Walk / Run / Jump remain the user's current WIP authored clips; this release preserves them rather than creatively retuning them.
+- No deformable/skinned Fox mesh.
+- No creative retune of the user's Walk / Run / Jump poses. This stage improves evaluation and gives the user a better test/tuning loop; animation polish comes after on-device judgement.
+- No full animation graph/curve editor. Smooth and Linear remain the bounded interpolation choices.
+- No attempt to make the temporary rigid charcoal cutout production-final.
 
 ## iPhone test
 
-1. Install/update the patch, fully close SideScroll, then reopen it so the new service worker/cache revision activates.
-2. Open **Anim Lab → Fox → Rig**. Confirm the rig opens at the newly authored proportions (Fox scale 1.71) rather than the earlier long-leg/default Fox.
-3. Turn **Static Reference → Fox Shape** on/off and compare the saved skeleton against the charcoal reference. The promoted rig should remain the same when the reference is hidden.
-4. Switch to **Animate** and confirm the clip row is **Idle / Walk / Run / Jump** for Fox. Hero 1 / Hero 2 should still show only Walk / Run / Jump.
-5. Play **Idle**. It should be a stable standing pose with no deliberate secondary motion yet.
-6. Play the authored **Walk**, **Run** and **Jump**. Confirm the user's current animations survived the stage promotion and still use the v3 wrist/hock rig.
-7. Toggle Art/Bones and inspect the new charcoal cutout while scrubbing all four clips. Judge silhouette/proportion/motion first; note any especially objectionable seam or overlap, but do not treat ordinary rigid-plane seams as a blocker for the later mesh prototype.
-8. Launch **Play** as Fox. Confirm the charcoal Fox appears in gameplay and uses the same Idle / Walk / Run / Jump banks as Anim Lab after Save.
-9. In Anim Lab, make one obvious temporary edit to a clip, **Save**, launch Play and confirm that saved clip is used. Return and use Undo/Discard as normal.
-10. Use **Fox Handoff → Export / Share Rig + Animations**. Confirm iOS offers a single `SS-FOX-RIG-ANIM-1.0.159.json` file and does not create a companion text file.
-11. Relaunch from A2HS/offline after the new cache has warmed and confirm Anim Lab and Play still load the Fox baseline and charcoal atlas.
+1. Apply the patch, fully close SideScroll, then reopen it so the new service-worker/cache revision can activate.
+2. Open **Anim Lab → Fox → Animate → Walk** and play the clip. Compare **Smooth** and **Linear** on the same authored keys. Smooth should now read as continuous motion between sparse keys rather than obvious straight key-to-key stepping.
+3. Scrub directly onto several authored keys and confirm the exact poses have not changed. The motion fidelity change must alter only the path *between* keys.
+4. Make one obvious temporary unsaved pose edit, then press **Play** in the Mode row. Confirm Quick Play immediately reflects that working-copy edit without requiring Save.
+5. Use the bottom-right movement control. Inner travel should walk; farther travel should blend toward run; Jump should exercise the current Jump clip.
+6. Move left and right. Confirm the Fox faces both directions correctly rather than rotating/flipping individual cutout pieces incorrectly.
+7. In Quick Play, adjust **Walk Speed** until the walk cadence and ground travel look believable. Adjust **Run Speed** separately until the run no longer looks like frantic legs moving at jogging pace.
+8. Watch the scrolling metre marks/readout while tuning. Speed should change ground travel without changing the full-speed authored Walk/Run cycle duration.
+9. Return to **Animate**. Confirm the unsaved animation edit and Undo history are still present. Re-enter Play and verify the edit can be iterated repeatedly.
+10. Press **Discard** and verify the temporary animation/speed edits return to the checkpoint. Repeat with a small change and **Save**; leave Anim Lab and launch normal **Play** as Fox. Confirm gameplay uses the saved Walk/Run speeds and the same Smooth motion.
+11. Export **Fox Handoff** and confirm it remains one JSON file named `SS-FOX-RIG-ANIM-1.0.160.json`.
+12. Relaunch the A2HS/offline app and confirm the saved Fox speed settings and clips survive.
 
-## Static validation performed for this package
+## Validation performed in this build environment
 
-- JavaScript syntax checks pass for all modified/new scripts.
-- The promoted setup/rest rig and Walk/Run/Jump sparse/runtime data compare exactly as parsed data with the supplied v1.0.158 Fox handoff; only Idle and v1.0.159 baseline metadata are added.
-- Rest-rig and collider one-time baseline migration was exercised with stale localStorage values and resolved to the authored v1.0.159 values.
-- Fox runtime exports four 16-sample banks: Idle / Walk / Run / Jump.
-- `fox-rig-atlas-v3.png` is 2048×2048 RGBA and contains all 17 runtime atlas part names required by the v3 Fox renderer.
-- Gameplay texture resolution now uses `FoxRig.ATLAS` for the Fox, avoiding the stale legacy Fox atlas URL still present in the generic human variant metadata.
-- HTML script/dependency checks confirm `fox-authoring-baseline.js` loads before `fox-rig.js` in Anim Lab and Play.
-- Duplicate HTML ID scan passes on the modified HTML pages.
-- Service worker cache revision is bumped and the new authoring baseline script is part of the core shell.
-- This package is assembled as a cumulative patch by starting from `SS-PATCH-1.0.158` (itself documented as cumulative over v1.0.150), then applying the v1.0.159 changed files. No on-device/browser validation is claimed here.
+- JavaScript syntax checks for all modified scripts.
+- CSS parse check.
+- HTML parse, duplicate-ID and patch-owned dependency/version checks; unchanged baseline dependencies are intentionally not duplicated into this changed-files patch.
+- Service-worker shell/cache reference checks.
+- Fox sparse evaluator tests across fractional phases, including exact-key preservation and finite 64-sample motion.
+- Setup baseline checks for Walk/Run speed defaults.
+- Static checks that Anim Lab and gameplay both route Fox Smooth playback through the same sparse evaluator.
+- Static Quick Play state/Save/Discard wiring checks.
 
-## Next stage
+A real Safari/A2HS touch test has **not** been performed here. On-device acceptance is required before treating v1.0.160 as approved.
 
-**v1.0.160 — Anim Lab Quick Play** is documented in `SIDESCROLL_TASKS.md`: remain inside Anim Lab, switch into Play context, drive the current Fox with gameplay-style movement/jump controls, then return directly to Animate/Rig. The later hybrid deformable Fox remains a separate following art stage.
+## Release boundary
+
+If Quick Play, Smooth motion and speed balancing are solid on device, the next useful work is to refine the actual Walk/Run/Jump using this shorter iteration loop, then prototype the hybrid deformable charcoal Fox around the approved rig rather than spending more time hiding seams in the temporary rigid cutout.
