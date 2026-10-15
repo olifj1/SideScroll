@@ -1,6 +1,6 @@
-# SS-PATCH-1.0.157
+# SS-PATCH-1.0.158
 
-Cumulative changed-files patch against the approved v1.0.150 baseline. v1.0.157 remains a test patch until approved on iPhone.
+Cumulative changed-files patch against the approved v1.0.150 baseline. v1.0.158 remains a test patch until approved on iPhone.
 
 ## Anim Lab changes
 
@@ -29,4 +29,13 @@ Cumulative changed-files patch against the approved v1.0.150 baseline. v1.0.157 
 - v2→v3 rest-rig migration preserves existing authored socket/knee/paw points and derives only the new distal joint.
 - Three-segment IK preserves all three authored segment lengths in numerical tests.
 - New atlas is 2048×2048 and contains masked proximal/distal copies of the existing four lower-leg sprites.
-- Final patch should be replayed over a clean v1.0.150 tree before release.
+- The cumulative patch is replay-validated against the prior cumulative v1.0.157 patch set; v1.0.150 remains the approved baseline.
+
+
+## v1.0.158 — Fox proportion reference + handoff export
+
+- Adds `fox-reference-charcoal.png`: the approved single-image charcoal fox reference, mirrored to face right and trimmed to its alpha bounds. It remains editor-reference art only; it does not replace gameplay art.
+- Anim Lab now has a **Static Reference** section with Hero 1, Hero 2 / Hair and Fox Shape choices plus Show, Opacity, Scale, Horizontal and Vertical controls. These are editor preferences only and never dirty rig/clip data.
+- Fox Rig mode defaults to the Fox Shape static reference on first use so the structural rig can be proportioned directly over the new silhouette.
+- Adds **Fox Handoff → Export / Share Rig + Animations**. The JSON export contains the current Fox scale/collider/rest rig, all sparse Walk/Run/Jump authoring clips and compiled 16-sample runtime clips. The export includes the current working Fox data, so it can be handed back for processing without creating a new code patch first.
+- No mesh-deformation/runtime artwork work is included yet. The intended next step is to author and approve the new rest rig and animation against this single-image reference, then use the exported handoff as the source for the later mesh/skin processing pass.

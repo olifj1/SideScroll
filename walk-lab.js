@@ -51,6 +51,8 @@
   const SETUP_SCALE_MIN = 0.55;
   const SETUP_SCALE_MAX = 2.25;
   const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
+  const STATIC_REFERENCE_KEY = 'sidescroll.animlab.static-reference.v1';
+  const FOX_HANDOFF_SCHEMA = 'sidescroll.animlab.fox-handoff.v1';
 
   function loadCollapseState() {
     try { return JSON.parse(localStorage.getItem(COLLAPSE_STATE_KEY) || '{}') || {}; }
@@ -435,6 +437,10 @@
   }
 
   const atlases = new Map();
+  const foxShapeReference = new Image();
+  foxShapeReference.onload = () => draw();
+  foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
+  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.158';
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -473,6 +479,51 @@
 
   function currentCharacter() { return characterById(selection.characterId); }
   function currentAdapter() { return adapters[currentCharacter().family]; }
+
+  function defaultStaticReference(family = currentCharacter().family) {
+    return {
+      source: family === 'fox' ? 'foxShape' : 'original',
+      opacity: family === 'fox' ? 0.38 : 0.24,
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0
+    };
+  }
+
+  function loadStaticReferenceMap() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STATIC_REFERENCE_KEY) || 'null');
+      return parsed?.contexts && typeof parsed.contexts === 'object' ? parsed.contexts : {};
+    } catch (_) { return {}; }
+  }
+  let staticReferenceMap = loadStaticReferenceMap();
+
+  function normaliseStaticReference(value, family = currentCharacter().family) {
+    const base = defaultStaticReference(family);
+    const raw = value && typeof value === 'object' ? value : {};
+    const allowed = ['original','alternate','foxShape'];
+    return {
+      source: allowed.includes(raw.source) ? raw.source : base.source,
+      opacity: clamp(Number(raw.opacity) || base.opacity, 0.05, 1),
+      scale: clamp(Number(raw.scale) || base.scale, 0.35, 2.5),
+      offsetX: clamp(Number(raw.offsetX) || 0, -1.5, 1.5),
+      offsetY: clamp(Number(raw.offsetY) || 0, -0.75, 1)
+    };
+  }
+
+  function currentStaticReference() {
+    const family = currentCharacter().family;
+    return normaliseStaticReference(staticReferenceMap[family], family);
+  }
+
+  function setStaticReference(patch = {}) {
+    const family = currentCharacter().family;
+    const next = normaliseStaticReference({...currentStaticReference(), ...patch}, family);
+    staticReferenceMap[family] = next;
+    try { localStorage.setItem(STATIC_REFERENCE_KEY, JSON.stringify({schema:'animlab.static-reference.v1',contexts:staticReferenceMap})); } catch (_) {}
+    draw(); updateUi(); notify();
+    return clone(next);
+  }
   function currentBank() { return banks[currentCharacter().family]; }
   function currentFrames() { return currentBank()[selection.clip]; }
   function currentSparseClip() { return sparseBanks[currentCharacter().family][selection.clip]; }
@@ -911,12 +962,43 @@
     ctx.restore();
   }
 
-  function drawReference() {
+  function drawReference(sv) {
     if (!overlays.reference) return;
-    const refChar = characterById('original'), atlas=atlases.get('original'); if(!atlas)return;
-    const sv=baseView(1); sv.cx = canvas.width * .76;
-    const pose=HumanRig.normalizedPose(HumanRig.DEFAULT_FRAMES[0],0);
-    ctx.save();ctx.globalAlpha=.24;HumanRig.drawCanvas(ctx,atlas,pose,sv,{alpha:.72});drawBones(adapters.human,pose,sv,.35);ctx.restore();
+    const settings = currentStaticReference();
+    const refScale = settings.scale;
+    const refView = {
+      ...sv,
+      scale:sv.scale * refScale,
+      cx:sv.cx + settings.offsetX * sv.scale,
+      groundY:sv.groundY - settings.offsetY * sv.scale
+    };
+
+    ctx.save();
+    ctx.globalAlpha = settings.opacity;
+    ctx.imageSmoothingEnabled = true;
+
+    if (settings.source === 'foxShape') {
+      if (foxShapeReference.complete && foxShapeReference.naturalWidth) {
+        // The trimmed source is a neutral side-profile reference. Its default
+        // width is mapped to the legacy Fox head-to-tail local span, then the
+        // author can align it non-destructively with Scale / X / Y.
+        const baseLocalWidth = 0.72;
+        const width = baseLocalWidth * refView.scale;
+        const height = width * (foxShapeReference.naturalHeight / foxShapeReference.naturalWidth);
+        const x = refView.cx - width * 0.5;
+        const y = refView.groundY - height;
+        ctx.drawImage(foxShapeReference,x,y,width,height);
+      }
+    } else {
+      const id = settings.source === 'alternate' ? 'alternate' : 'original';
+      const atlas = atlases.get(id);
+      if (atlas) {
+        const pose=HumanRig.normalizedPose(HumanRig.DEFAULT_FRAMES[0],0);
+        HumanRig.drawCanvas(ctx,atlas,pose,refView,{alpha:1});
+        drawBones(adapters.human,pose,refView,.22);
+      }
+    }
+    ctx.restore();
   }
 
   function drawSelectedMarkers(sv) {
@@ -948,7 +1030,7 @@
     }
     if (typeof underlayDraw === 'function') underlayDraw(underlayArgs);
     drawGroundAndRuler(gridView);
-    drawReference();
+    drawReference(sv);
     if(overlays.art) drawRigArt(character,adapter,pose,sv,.99*artOpacity);
     if(overlays.planes) drawPlanes(adapter,pose,sv);
     if(overlays.collider) drawCollider(sv);
@@ -1110,8 +1192,62 @@
     return changed;
   }
 
+  function buildFoxHandoffBundle() {
+    const liveFox = currentCharacter().family === 'fox';
+    const setup = liveFox
+      ? clone(setupDraft)
+      : {
+          scale:clamp(Number(setupMap?.fox?.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+          collider:FoxRig.normalizedCollider(FoxRig.loadCollider()),
+          rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig())
+        };
+    const sparseClips = clone(sparseBanks.fox);
+    const runtimeSamples = {};
+    for (const clipName of ['walk','run','jump']) runtimeSamples[clipName] = compileSparseClip(sparseClips[clipName],'fox');
+    return {
+      schema:FOX_HANDOFF_SCHEMA,
+      app:'SideScroll',
+      animLabVersion:'1.0.158',
+      exportedAt:new Date().toISOString(),
+      fox:{
+        setup:{
+          scale:clamp(Number(setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+          collider:FoxRig.normalizedCollider(setup.collider),
+          restRig:FoxRig.normalizedRestRig(setup.rig)
+        },
+        sparseClips,
+        runtimeSamples
+      }
+    };
+  }
+
+  async function exportFoxHandoffBundle() {
+    try {
+      const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.158.json';
+      const blob = new Blob([payload],{type:'application/json'});
+      const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
+      if (file && navigator.share && navigator.canShare?.({files:[file]})) {
+        await navigator.share({files:[file],title:'SideScroll Fox Rig + Animations'});
+        hint.textContent = 'Fox rig + animation bundle shared.';
+      } else {
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement('a');
+        link.href=url;link.download=fileName;document.body.appendChild(link);link.click();link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),0);
+        hint.textContent = 'Fox rig + animation bundle exported.';
+      }
+      return true;
+    } catch (err) {
+      if (err?.name === 'AbortError') return false;
+      console.error('[Anim Lab] Fox handoff export failed.',err);
+      alert(`Fox export failed: ${err.message || err}`);
+      return false;
+    }
+  }
+
   const api = {
-    version:'1.0.157',
+    version:'1.0.158',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
@@ -1164,6 +1300,10 @@
     },
     geometry:pose=>currentAdapter().rig.geometry(pose||currentPose(),displayRestRig()),
     normalisePose:pose=>normaliseCurrentFrame(pose),
+    getStaticReference:()=>clone(currentStaticReference()),
+    setStaticReference,
+    buildFoxHandoffBundle:()=>clone(buildFoxHandoffBundle()),
+    exportFoxHandoffBundle,
     clamp,
     fitView,
     save:saveCurrent,

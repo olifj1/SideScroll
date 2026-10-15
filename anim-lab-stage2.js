@@ -58,8 +58,24 @@
       <div class="animlab-section-title" id="animlab-stage2-view-title">Viewport</div>
       <div class="animlab-view-grid animlab-stage2-view-grid">
         <button type="button" id="animlab-ground">Ground / Ruler</button>
-        <button type="button" id="animlab-reference">Hero 1 Scale Ref</button>
       </div>
+    </section>
+
+    <section class="animlab-section animlab-static-reference" id="animlab-static-reference-section" aria-labelledby="animlab-static-reference-title">
+      <div class="animlab-section-title" id="animlab-static-reference-title">Static Reference</div>
+      <div class="animlab-reference-note">Single-image proportion reference · editor-only and never dirties the rig or animation.</div>
+      <div class="animlab-segmented animlab-three" id="animlab-static-reference-sources">
+        <button type="button" data-static-reference="original">Hero 1</button>
+        <button type="button" data-static-reference="alternate">Hero 2 / Hair</button>
+        <button type="button" data-static-reference="foxShape">Fox Shape</button>
+      </div>
+      <div class="animlab-view-grid animlab-stage2-view-grid">
+        <button type="button" id="animlab-reference">Show Reference</button>
+      </div>
+      <label class="animlab-slider animlab-static-reference-slider"><span>Opacity</span><input id="animlab-static-reference-opacity" type="range" min="0.05" max="1" step="0.01"><output></output></label>
+      <label class="animlab-slider animlab-static-reference-slider"><span>Scale</span><input id="animlab-static-reference-scale" type="range" min="0.35" max="2.50" step="0.01"><output></output></label>
+      <label class="animlab-slider animlab-static-reference-slider"><span>Horizontal</span><input id="animlab-static-reference-x" type="range" min="-1.50" max="1.50" step="0.01"><output></output></label>
+      <label class="animlab-slider animlab-static-reference-slider"><span>Vertical</span><input id="animlab-static-reference-y" type="range" min="-0.75" max="1.00" step="0.01"><output></output></label>
     </section>
 
     <section class="animlab-section animlab-control-section" id="animlab-control-section" aria-labelledby="animlab-control-title">
@@ -101,6 +117,14 @@
       <label class="animlab-slider"><span>Bottom</span><input type="range" data-collider="bottom" min="-0.08" max="0.18" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Foot Probe</span><input type="range" data-collider="footProbe" min="0.035" max="0.30" step="0.005"><output></output></label>
     </section>
+
+    <section class="animlab-section animlab-fox-handoff" id="animlab-fox-handoff" hidden aria-labelledby="animlab-fox-handoff-title">
+      <div class="animlab-section-title" id="animlab-fox-handoff-title">Fox Handoff</div>
+      <div class="animlab-setup-note">Exports the current Fox rest rig, scale/collider, sparse Walk/Run/Jump keys and compiled 16-sample runtime clips as one JSON file.</div>
+      <div class="animlab-view-grid">
+        <button type="button" id="animlab-export-fox">Export / Share Rig + Animations</button>
+      </div>
+    </section>
   `;
 
   const $ = id => document.getElementById(id);
@@ -126,8 +150,16 @@
   const groundBtn = $('animlab-ground');
   const referenceBtn = $('animlab-reference');
   const setupNote = $('animlab-setup-note');
+  const foxHandoffSection = $('animlab-fox-handoff');
+  const exportFoxBtn = $('animlab-export-fox');
+  const staticReferenceButtons = [...host.querySelectorAll('[data-static-reference]')];
+  const staticRefOpacity = $('animlab-static-reference-opacity');
+  const staticRefScale = $('animlab-static-reference-scale');
+  const staticRefX = $('animlab-static-reference-x');
+  const staticRefY = $('animlab-static-reference-y');
+  const staticRefInputs = [staticRefOpacity,staticRefScale,staticRefX,staticRefY];
   const axisButtons = [...host.querySelectorAll('[data-axis]')];
-  const sliders = [...host.querySelectorAll('.animlab-slider input')];
+  const sliders = [...setupSection.querySelectorAll('.animlab-slider input')];
 
   function controlsFor(state = core.getState()) { return CONTROL_SETS[state.family] || []; }
   function selectedControl(state = core.getState()) { return controlsFor(state).find(c => c.id === selectedId) || null; }
@@ -199,6 +231,29 @@
     }
   }
 
+  function setStaticRefSlider(input,value,digits=2,suffix='') {
+    if (document.activeElement !== input) input.value=String(value);
+    const output=input.parentElement.querySelector('output');
+    if(output) output.textContent=`${Number(value).toFixed(digits)}${suffix}`;
+  }
+
+  function renderStaticReference() {
+    const settings=core.getStaticReference?.() || {source:'original',opacity:.24,scale:1,offsetX:0,offsetY:0};
+    staticReferenceButtons.forEach(button=>{
+      const active=button.dataset.staticReference===settings.source;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-pressed',String(active));
+    });
+    const shown=core.getOverlay('reference');
+    referenceBtn.classList.toggle('active',shown);
+    referenceBtn.setAttribute('aria-pressed',String(shown));
+    referenceBtn.textContent=shown?'Reference Shown':'Show Reference';
+    setStaticRefSlider(staticRefOpacity,settings.opacity,2);
+    setStaticRefSlider(staticRefScale,settings.scale,2);
+    setStaticRefSlider(staticRefX,settings.offsetX,2,' m');
+    setStaticRefSlider(staticRefY,settings.offsetY,2,' m');
+  }
+
   function render(state = core.getState(), rebuild = false) {
     const selectedBefore = selectedId;
     ensureSelection(state);
@@ -209,8 +264,9 @@
     const control=selectedControl(state);
     controlSection.hidden=state.mode!=='animate';
     setupSection.hidden=state.mode!=='setup';
+    foxHandoffSection.hidden=state.family!=='fox';
     groundBtn.classList.toggle('active',core.getOverlay('ground'));groundBtn.setAttribute('aria-pressed',String(core.getOverlay('ground')));
-    referenceBtn.classList.toggle('active',core.getOverlay('reference'));referenceBtn.setAttribute('aria-pressed',String(core.getOverlay('reference')));
+    renderStaticReference();
     if (state.mode === 'animate') {
       selectedLabel.textContent=control?.label || 'Select a control';
       channelReadout.textContent=formatChannels(control,state.pose);
@@ -236,11 +292,10 @@
       if (state.mode==='setup') {
         if (!core.getOverlay('collider')) core.setOverlay('collider',true);
         if (!core.getOverlay('ground')) core.setOverlay('ground',true);
-        // The legacy Hero 1 ghost is a scale-reference overlay, not Motion
-        // Reference. Keep it available for humanoid Rig work but do not force
-        // a human silhouette behind the Fox structural designer.
-        if (state.family === 'human' && !core.getOverlay('reference')) core.setOverlay('reference',true);
-        if (state.family === 'fox' && core.getOverlay('reference')) core.setOverlay('reference',false);
+        // Static Reference is an editor-only proportion guide. Each rig family
+        // remembers its own source/alignment; entering Rig makes it visible so
+        // the author can immediately match anatomy without affecting data.
+        if (!core.getOverlay('reference')) core.setOverlay('reference',true);
       }
     }
     // Character-family switches can force a different valid control. The core
@@ -321,6 +376,21 @@
 
   groundBtn.addEventListener('click',()=>core.setOverlay('ground',!core.getOverlay('ground')));
   referenceBtn.addEventListener('click',()=>core.setOverlay('reference',!core.getOverlay('reference')));
+  staticReferenceButtons.forEach(button=>button.addEventListener('click',()=>{
+    core.setStaticReference?.({source:button.dataset.staticReference});
+  }));
+  const staticRefBindings = [
+    [staticRefOpacity,'opacity'],[staticRefScale,'scale'],[staticRefX,'offsetX'],[staticRefY,'offsetY']
+  ];
+  staticRefBindings.forEach(([input,key])=>input.addEventListener('input',()=>{
+    const value=Number(input.value);if(!Number.isFinite(value))return;
+    core.setStaticReference?.({[key]:value});
+  }));
+  exportFoxBtn.addEventListener('click',async()=>{
+    exportFoxBtn.disabled=true;
+    try { await core.exportFoxHandoffBundle?.(); }
+    finally { exportFoxBtn.disabled=false; }
+  });
 
   function sliderScope(input){return input.dataset.setup==='scale'?'scale':input.dataset.collider;}
   function stateSliderValue(input,state=core.getState()){
@@ -379,7 +449,7 @@
   });
 
   window.AnimLabControlSurface = Object.freeze({
-    version:'1.0.157',
+    version:'1.0.158',
     getSelectedId:()=>selectedId,
     getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
     selectControl:id=>selectControl(id,true)

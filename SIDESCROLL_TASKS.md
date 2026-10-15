@@ -2139,3 +2139,15 @@ On-device reference matching in v1.0.156 exposed four remaining structural/edito
 - [ ] iPhone: inspect all four new wrist/hock joints in Bones + Art and verify the split lower-leg artwork bends cleanly enough for this production pass.
 - [ ] iPhone: compare Anim Lab Run directly with full-speed Fox Run in Play and confirm the cycle cadence now matches perceptually.
 - [ ] iPhone: compare Smooth vs Linear on the same sparse Walk and verify Smooth removes the obvious key-to-key velocity corners without unwanted paw-ground overshoot.
+
+
+### v1.0.158 Fox proportion reference / authoring handoff
+- [x] Process the selected charcoal fox reference as a right-facing, alpha-trimmed single-image Rig reference without replacing production Fox art.
+- [x] Add a Static Reference selector to Anim Lab for Hero 1, Hero 2 / Hair and the new Fox Shape image.
+- [x] Add editor-only opacity / scale / X / Y alignment for the static reference; this must never dirty rig or animation data.
+- [x] Default the Fox static-reference context to Fox Shape while preserving separate reference preferences per rig family.
+- [x] Add a one-file Fox handoff export containing current scale/collider/rest rig plus sparse and compiled Walk/Run/Jump data.
+- [ ] On device: proportion the Fox rest rig to the new Fox Shape reference and Save it.
+- [ ] On device: retune Walk/Run as needed against the new proportions and verify Play.
+- [ ] Export the resulting Fox handoff JSON and use that exact rig/animation state as the input to the later mesh-deformation art pass.
+- [ ] After the rig is approved, prototype the proposed hybrid 2D deform setup: deformable body/head mesh, deformable shoulder/leg meshes, and separate deformable tail, before replacing current plane art.

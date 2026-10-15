@@ -14552,3 +14552,8 @@ body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-far.is-acti
 }
 body[data-game-id="game-17"] .animlab-contact-actions-simple{grid-template-columns:repeat(2,minmax(0,1fr));}
 body[data-game-id="game-17"] .animlab-contact-actions-simple .animlab-contact-example{grid-column:1/-1;}
+
+/* SideScroll v1.0.158 — static Rig reference + Fox handoff */
+body[data-game-id="game-17"] .animlab-static-reference #animlab-static-reference-sources button{font-size:7px;}
+body[data-game-id="game-17"] .animlab-fox-handoff .animlab-view-grid{grid-template-columns:minmax(0,1fr);}
+body[data-game-id="game-17"] .animlab-fox-handoff #animlab-export-fox{width:100%;}

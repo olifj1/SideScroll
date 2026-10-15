@@ -1165,3 +1165,12 @@ Rules:
 - **Gameplay cadence in preview:** locomotion preview speed must be derived from the same stride-distance/speed relationship used by Play wherever practical. A lab preview that is visibly slower/faster than gameplay is not an acceptable animation-review surface.
 - **Continuous playback:** the authored/runtime bank may remain a compact fixed sample count, but editor playback should evaluate between samples continuously at display refresh rather than visibly stepping sample-to-sample.
 - **Curves without a DCC graph editor:** prefer a small, predictable interpolation choice such as Smooth/Linear over introducing a general curve graph. Smooth interpolation must preserve authored key poses and must not allow paw targets to dip materially below the ground datum through overshoot.
+
+
+## Static art references and authoring handoff (v1.0.158)
+
+Anim Lab may expose **static art references** separately from Motion Reference. Static references are editor-only images used to establish silhouette, scale, proportions or palette. Their source, visibility, opacity, scale and alignment are editor preferences: changing them must not dirty character Setup/Rig, clip data, Undo history or gameplay state. A static image reference may be shown in either Rig or Animate where useful, while Motion Reference remains the time-based gait/reference system.
+
+When character authoring must be handed between devices/sessions or returned for art processing, prefer a **versioned JSON handoff bundle** over screenshots or manual transcription. The Fox handoff bundle owns the current rest rig, setup scale/collider and sparse authored clips, and may include compiled runtime samples as a convenience. Sparse keys + rest rig remain the authoritative editable source. Exporting must not implicitly Save or mutate the working copy.
+
+Future mesh-deformation artwork must consume an approved rig/handoff rather than forcing the rig to fit newly processed artwork after the fact. For the Fox, the intended experiment is a hybrid 2D deformation model: body/head mesh, leg/shoulder mesh regions and tail mesh authored separately, each skinned to the established rig.
