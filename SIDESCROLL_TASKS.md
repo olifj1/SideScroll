@@ -2261,3 +2261,28 @@ On-device acceptance:
 - [ ] iPhone: verify Wrist/Hock Angle still provides useful shaping away from full extension.
 - [ ] iPhone: inspect existing Walk/Run/Jump keys for any pose that needs a small animator retune now that the distal joint participates honestly in reach.
 - [ ] iPhone: Quick Play and normal gameplay still use the current saved animation/speed data with no reset after update/relaunch.
+
+### v1.0.162 — Fox joint constraints + phase-aware gait transition
+
+Goal: stop extreme full-chain IK from switching to the mirror lower-chain solution and remove the permanent same-phase Walk/Run hybrid that produced a suspended paw during acceleration/deceleration.
+
+Implemented in code:
+
+- [x] Keep the existing explicit primary knee/elbow branch deterministic.
+- [x] Lock the released Wrist/Hock circle-intersection solution to the anatomical side established by the active rest rig so the lower chain cannot swap mirror branches at extreme Paw Target positions.
+- [x] Preserve full-chain reach and the existing Wrist/Hock preferred-angle behaviour away from the constrained branch boundary.
+- [x] Replace Fox's permanent same-phase Walk/Run pose blend with a discrete Walk or Run gait plus a short transition state.
+- [x] Select the destination gait phase by comparing current Paw Target/contact configuration against the target gait rather than assuming phase X in Walk corresponds to phase X in Run.
+- [x] Advance source and destination cycles at their own authored cadence during the hand-off.
+- [x] Make the short hand-off contact-aware so source-planted paws do not sit at a half-airborne height for the entire transition.
+- [x] Keep ground speed analogue/continuous and separate from gait selection.
+- [x] Use the same transition logic in Anim Lab Quick Play and normal gameplay.
+- [x] Promote the user's supplied v1.0.161 Fox handoff into fresh-install built-in data without changing the persistent v1.0.159 authoring-baseline ID or overwriting existing saved work.
+
+On-device acceptance:
+
+- [ ] iPhone: accelerate slowly through Walk → Run and confirm the formerly floating leg no longer hangs in a permanent hybrid pose.
+- [ ] iPhone: decelerate Run → Walk and confirm the reverse hand-off is similarly short and coherent.
+- [ ] iPhone: compare Quick Play and normal Play transition timing/phase behaviour.
+- [ ] iPhone: sweep all four Paw Targets through the v1.0.161 extreme-extension problem area and confirm no knee/elbow or released wrist/hock mirror-branch pop.
+- [ ] iPhone: confirm current saved Walk/Run/Jump/Idle and movement speeds survive patch/relaunch unchanged.

@@ -1229,3 +1229,18 @@ Rules:
 - moving the Paw Target inward should restore the preferred lower-chain bend continuously, without a mode switch or Plant/Release-style state;
 - solver upgrades must not rewrite authored animation keys or bump the Fox authoring-baseline marker merely because geometry evaluation changed;
 - keep this analytic/simple enough for deterministic iPhone editor/runtime use. Do not introduce a general full-body IK package unless later production requirements genuinely need it.
+
+## Phase-aware quadruped gait transitions + joint-side constraints (v1.0.162)
+
+Walk and Run are authored as distinct gait structures. They are not required to share equivalent foot contacts at the same normalized phase, so a quadruped must not be held indefinitely at `blend(Walk[phase], Run[phase], speedMix)`. That produces physically ambiguous half-contact poses when one gait says a paw is planted and the other says it is airborne.
+
+Rules:
+
+- ground speed may remain continuously analogue between the character's authored Walk Speed and Run Speed, but gait identity is discrete: the character is in Walk, Run, or a short transition between them;
+- when changing gait, choose a destination phase from the target cycle by comparing the current paw-target/contact configuration with candidate target phases. Do not assume equal normalized phase means equivalent footfall;
+- during the short transition, source and destination gait phases continue to advance at their own authored cadences. The transition is a hand-off, not a frozen source pose morph;
+- contact-aware blending may hold a source-planted paw toward the source gait until release and may commit an incoming landing paw toward the target gait earlier. Its purpose is to avoid a visible paw lingering at an arbitrary half-height;
+- once the hand-off ends, render the target gait directly. Do not retain a permanent 30/50/70% Walk+Run pose simply because ground speed lies numerically between the two speed settings;
+- Anim Lab Quick Play and normal gameplay must use the same gait-transition rules so animation review remains representative of runtime.
+
+For quadruped IK, a deterministic branch is part of the rig contract, not merely a numerical solver preference. The primary knee/elbow branch remains fixed. When the three-section reach solver releases Wrist/Hock Angle near an extreme target and obtains two valid lower-chain circle intersections, choose the intersection on the anatomical side established by the active rest rig. The lower chain may approach straight, but it must not jump onto the mirror solution because that branch becomes fractionally closer to a preferred angle.

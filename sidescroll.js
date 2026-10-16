@@ -2614,7 +2614,7 @@ function rigVariantTextureKey(id) {
 function rigVariantUrl(id) {
   const familyRig = characterRigForVariant(id);
   const src = familyRig === FoxRig
-    ? (FoxRig?.ATLAS?.fileUrl || 'fox-rig-atlas-v3.png?v=1.0.161')
+    ? (FoxRig?.ATLAS?.fileUrl || 'fox-rig-atlas-v3.png?v=1.0.162')
     : (Rig.atlasImageUrl ? Rig.atlasImageUrl(id) : (Rig.ATLAS.fileUrl || Rig.ATLAS.url));
   return src.includes('?') ? src : `${src}?v=${RIG_TEXTURE_VERSION}`;
 }
@@ -7320,7 +7320,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     jumpVelocity = 0;
     standingOnObject = null;
     runBlend = 0;
-    locomotionPhase = 0;
+    resetFoxGaitState();
     setDriveAxis(0);
   }
 
@@ -7655,7 +7655,7 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     jumpCameraBaseY = character.y;
     cameraFollowOffset = 0;
     runBlend = 0;
-    locomotionPhase = 0;
+    resetFoxGaitState();
     setDriveAxis(0);
     lastPuzzleRespawnAt = performance.now();
     if (playerHintsEnabled) { hintEl.textContent = 'Respawned at puzzle checkpoint'; hintEl.classList.remove('hidden'); }
@@ -8875,6 +8875,91 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   let runBlend = 0;
   let locomotionPhase = 0;
+  const FOX_GAIT_RUN_ENTER = 0.18;
+  const FOX_GAIT_RUN_EXIT = 0.08;
+  const FOX_GAIT_TRANSITION_SECONDS = 0.17;
+  let foxGaitMode = 'walk';
+  let foxGaitPhase = 0;
+  let foxGaitTransition = null;
+
+  function resetFoxGaitState(mode='walk',phase=0) {
+    foxGaitMode = mode === 'run' ? 'run' : 'walk';
+    foxGaitPhase = ((Number(phase)||0)%1+1)%1;
+    foxGaitTransition = null;
+    locomotionPhase = foxGaitPhase;
+  }
+  function foxGaitPose(mode,phase) {
+    return mode === 'run'
+      ? foxPoseForClip('run',phase,foxRunFrames)
+      : foxPoseForClip('walk',phase,foxWalkFrames);
+  }
+  function foxGaitHz(mode) {
+    const ms = mode === 'run' ? Number(FoxRig?.RUN_CYCLE_MS)||323 : Number(FoxRig?.WALK_CYCLE_MS)||539;
+    return 1000 / Math.max(1,ms);
+  }
+  function foxGaitCadenceScale(mode,analogSpeed,walkSpeed,runSpeed) {
+    const nominal = mode === 'run' ? runSpeed : walkSpeed;
+    return Rig.clamp(analogSpeed / Math.max(.001,nominal),0,1.25);
+  }
+  function beginFoxGaitTransition(toMode) {
+    if (!FoxRig || foxGaitTransition || toMode === foxGaitMode) return;
+    const fromPose = foxGaitPose(foxGaitMode,foxGaitPhase);
+    const preferred = foxGaitPhase;
+    const targetPhase = typeof FoxRig.findMatchingLocomotionPhase === 'function'
+      ? FoxRig.findMatchingLocomotionPhase(fromPose,phase=>foxGaitPose(toMode,phase),preferred,64)
+      : preferred;
+    foxGaitTransition = {
+      fromMode:foxGaitMode,toMode,
+      fromPhase:foxGaitPhase,toPhase:targetPhase,
+      elapsed:0,duration:FOX_GAIT_TRANSITION_SECONDS
+    };
+  }
+  function updateFoxGait(dt,analogSpeed,targetRun,isMoving,walkSpeed,runSpeed) {
+    if (!FoxRig) return;
+    if (!isMoving || analogSpeed <= .0001) {
+      // A fresh slow start should always begin as a walk, rather than briefly
+      // replaying the tail of a run after the player released the control.
+      if (targetRun <= FOX_GAIT_RUN_EXIT) resetFoxGaitState('walk',foxGaitPhase);
+      return;
+    }
+    if (!foxGaitTransition) {
+      if (foxGaitMode === 'walk' && targetRun >= FOX_GAIT_RUN_ENTER) beginFoxGaitTransition('run');
+      else if (foxGaitMode === 'run' && targetRun <= FOX_GAIT_RUN_EXIT) beginFoxGaitTransition('walk');
+    }
+    if (foxGaitTransition) {
+      const tr=foxGaitTransition;
+      tr.fromPhase=(tr.fromPhase+dt*foxGaitHz(tr.fromMode)*foxGaitCadenceScale(tr.fromMode,analogSpeed,walkSpeed,runSpeed))%1;
+      tr.toPhase=(tr.toPhase+dt*foxGaitHz(tr.toMode)*foxGaitCadenceScale(tr.toMode,analogSpeed,walkSpeed,runSpeed))%1;
+      tr.elapsed+=dt;
+      if (tr.elapsed >= tr.duration) {
+        foxGaitMode=tr.toMode;
+        foxGaitPhase=tr.toPhase;
+        foxGaitTransition=null;
+      }
+    } else {
+      foxGaitPhase=(foxGaitPhase+dt*foxGaitHz(foxGaitMode)*foxGaitCadenceScale(foxGaitMode,analogSpeed,walkSpeed,runSpeed))%1;
+    }
+    locomotionPhase = foxGaitTransition
+      ? (foxGaitTransition.elapsed < foxGaitTransition.duration*.5 ? foxGaitTransition.fromPhase : foxGaitTransition.toPhase)
+      : foxGaitPhase;
+  }
+  function currentFoxGaitPose() {
+    if (!FoxRig) return null;
+    const tr=foxGaitTransition;
+    if (!tr) return foxGaitPose(foxGaitMode,foxGaitPhase);
+    const a=foxGaitPose(tr.fromMode,tr.fromPhase),b=foxGaitPose(tr.toMode,tr.toPhase);
+    const t=Rig.clamp(tr.elapsed/Math.max(.001,tr.duration),0,1);
+    return typeof FoxRig.locomotionTransitionPose === 'function'
+      ? FoxRig.locomotionTransitionPose(a,b,t)
+      : FoxRig.blendPose(a,b,t);
+  }
+  function foxGaitIsRun() {
+    if (!foxGaitTransition) return foxGaitMode === 'run';
+    return foxGaitTransition.elapsed >= foxGaitTransition.duration*.5
+      ? foxGaitTransition.toMode === 'run'
+      : foxGaitTransition.fromMode === 'run';
+  }
+
   let jumping = false;
   let jumpTime = 0;
   let jumpOffset = 0;
@@ -17219,9 +17304,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
       pose = isFox ? foxPoseForClip('jump',jumpPhase,foxJumpFrames) : charRig.sampleFrames(jumpFrames,jumpPhase);
     } else if (isWalking) {
-      const walkPose = isFox ? foxPoseForClip('walk',phase,foxWalkFrames) : charRig.sampleFrames(characterFrames,phase);
-      const runPose = isFox ? foxPoseForClip('run',phase,foxRunFrames) : charRig.sampleFrames(runFrames,phase);
-      pose = isFox ? charRig.blendPose(walkPose, runPose, runBlend) : blendPose(walkPose, runPose, runBlend);
+      if (isFox) {
+        // v1.0.162: Walk and Run remain intact authored gaits.  Only the short
+        // phase-matched hand-off is blended, eliminating the permanent hybrid
+        // pose that could leave one diagonal pair suspended between contacts.
+        pose = currentFoxGaitPose();
+      } else {
+        const walkPose = charRig.sampleFrames(characterFrames,phase);
+        const runPose = charRig.sampleFrames(runFrames,phase);
+        pose = blendPose(walkPose, runPose, runBlend);
+      }
     } else {
       const idlePhase = ((performance.now ? performance.now() : Date.now()) % 1400) / 1400;
       pose = isFox ? foxPoseForClip('idle',idlePhase,foxIdleFrames) : charRig.sampleFrames(characterFrames, 0.02);
@@ -18344,17 +18436,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const travel = Math.abs(cameraDelta);
       const charRig = activeCharacterRig();
       if (charRig === FoxRig) {
-        // Fox cadence is authored independently from ground speed. At full walk
-        // or run the animation cycle keeps its approved timing while the saved
-        // Walk/Run speed controls how much ground is covered per cycle. Partial
-        // stick input proportionally slows cadence, preserving a natural walk-in.
-        const walkHz = 1000 / Math.max(1, Number(FoxRig.WALK_CYCLE_MS) || 539);
-        const runHz = 1000 / Math.max(1, Number(FoxRig.RUN_CYCLE_MS) || 323);
-        const referenceSpeed = Rig.lerp(activeWalkSpeed, activeRunSpeed, smoothRun);
-        const cadenceScale = axisMag <= WALK_POINT
-          ? walkEffort
-          : Rig.clamp(analogSpeed / Math.max(0.001, referenceSpeed), 0, 1.25);
-        locomotionPhase = (locomotionPhase + dt * Rig.lerp(walkHz, runHz, smoothRun) * cadenceScale) % 1;
+        // Fox ground speed remains analogue, but gait selection is discrete.
+        // Crossing the outer control range triggers a short phase-aware Walk↔Run
+        // hand-off instead of holding a permanent same-phase pose blend.
+        updateFoxGait(dt,analogSpeed,targetRun,true,activeWalkSpeed,activeRunSpeed);
       } else {
         const walkStride = Number(charRig?.WALK_STRIDE_WORLD) || WALK_STRIDE;
         const runStride = Number(charRig?.RUN_STRIDE_WORLD) || RUN_STRIDE;
@@ -18363,6 +18448,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       character.distanceTravelled += travel;
     }
+    if (!isWalking && activeCharacterRig() === FoxRig) updateFoxGait(dt,0,targetRun,false,activeWalkSpeed,activeRunSpeed);
     previousCameraX = camera.x;
 
     character.x = camera.x + character.screenOffsetX;
@@ -18416,7 +18502,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     presentSceneWithPost();
     drawEditorOverlay();
 
-    const baseMotionLabel = climbState ? 'CLIMB' : (jumping ? 'JUMP' : (runBlend > .55 && isWalking ? 'RUN' : (isWalking ? 'WALK' : 'IDLE')));
+    const foxRunLabel = activeCharacterRig() === FoxRig && foxGaitIsRun();
+    const baseMotionLabel = climbState ? 'CLIMB' : (jumping ? 'JUMP' : ((activeCharacterRig() === FoxRig ? foxRunLabel : runBlend > .55) && isWalking ? 'RUN' : (isWalking ? 'WALK' : 'IDLE')));
     const motionLabel = interactionState
       ? (interactionState.type === 'pickup' ? 'PICK UP' : 'PUT DOWN')
       : (pushingObject ? `PUSH ${isWalking ? 'WALK' : 'IDLE'}` : (carriedObject ? `CARRY ${isWalking ? 'WALK' : 'IDLE'}` : baseMotionLabel));
@@ -20504,7 +20591,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (interactionState?.type === 'pickup') interactionState.object.carried = false;
     if (interactionState?.type === 'drop') completeDrop();
     interactionState = null;
-    locomotionPhase = 0;
+    resetFoxGaitState();
     character.y = playSurfaceYAt(character.x) + jumpOffset;
     lastTime = performance.now();
     previousCameraX = camera.x;

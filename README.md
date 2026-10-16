@@ -1,46 +1,39 @@
-# SS-PATCH-1.0.161
+# SS-PATCH-1.0.162
 
-Cumulative changed-files patch intended to apply over the approved v1.0.150 baseline. v1.0.161 is a deliberately narrow **Full-chain Fox IK** correction built forward from the supplied cumulative v1.0.160 patch.
+Cumulative changed-files patch intended to apply over the approved v1.0.150 baseline. v1.0.162 is a focused **Fox joint constraint + phase-aware Walk/Run transition** pass built forward from v1.0.161.
 
 ## What changed
 
-- Fox Paw Target IK now solves the complete Socket → Knee/Elbow → Wrist/Hock → Paw chain.
-- The final Wrist/Hock → Paw section is no longer re-attached as a fixed pre-rotated vector after a two-bone solve.
-- Wrist/Hock Angle remains the preferred distal shaping/orientation control, but it now yields when that locked direction would prevent the Paw Target reaching farther.
-- As a Paw Target approaches maximum reach, the preferred Wrist/Hock bend progressively relaxes toward zero, allowing the whole leg to become effectively straight.
-- The existing explicit near/far anatomical knee branch is retained to avoid reintroducing knee/hock solution flipping.
-- Bone lengths, promoted v1.0.159 rest rig, current authored animation keys, Quick Play and Walk/Run speed settings are not migrated or rewritten by this patch.
-- Fox handoff remains one JSON file and is versioned `SS-FOX-RIG-ANIM-1.0.161.json`.
-- Service-worker cache is bumped to `sidescroll-runtime-v15`.
+- The v1.0.161 full-chain Paw IK keeps its existing primary knee/elbow branch lock, and the released Wrist/Hock solution now also keeps a deterministic anatomical side at extreme reach. The two valid release-circle solutions are no longer allowed to swap merely because the other one becomes fractionally closer to the preferred distal angle.
+- Walk and Run are no longer permanently blended at the same normalized phase for the Fox.
+- Crossing from Walk into Run now starts a short 170 ms gait hand-off. The target gait phase is selected by comparing the four current Paw Targets/contact heights against the target cycle, then both cycles advance at their own cadence during the hand-off.
+- The short hand-off is contact-aware: a planted paw leaving the ground is held toward the source gait for the early part of the transition, while a landing paw commits toward the target gait earlier. This avoids the long-lived "half-height" foot produced by the previous permanent blend.
+- Once the hand-off completes, the Fox plays the real authored Walk or real authored Run with no ongoing hybrid pose. Ground speed remains continuously analogue between the saved Walk/Run speeds.
+- Anim Lab Quick Play uses the same gait-selection, phase-match and transition rules as normal gameplay.
+- The supplied `SS-FOX-RIG-ANIM-1.0.161.json` has been promoted into the built-in fresh-install Fox data (including the user's current 1.71 rig, Walk/Run/Jump/Idle and 1.15 / 5.75 m/s movement settings), while the authoring baseline ID deliberately remains `fox-authoring-baseline-1.0.159` so an existing browser's newer saved work is not reset by installing this patch.
+- Fox Handoff remains one JSON file and is versioned `SS-FOX-RIG-ANIM-1.0.162.json`.
+- Service-worker/preload cache generation is now `sidescroll-runtime-v16`.
 
-## Important authoring behaviour
+## First iPhone test
 
-This is a solver change, so existing Fox animations may look slightly different wherever Paw Target IK is active. That is intentional: the distal joint now participates in reach instead of keeping its previous fixed orientation. Authored key/channel values themselves are not modified.
-
-The v1.0.159 authoring baseline ID is intentionally unchanged. Applying v1.0.161 must not reset or replace Fox animations already saved in the browser.
-
-## Suggested iPhone test
-
-1. Apply this cumulative patch over the normal SideScroll baseline/repository and reload/A2HS relaunch.
-2. Open **Anim Lab → Fox → Animate** and choose a Walk or Run pose with Paw Target IK active.
-3. Select **Front Near → Paw Target** and drag the target outward along the leg direction.
-4. Confirm Elbow and Wrist both open progressively and the complete front leg can become almost straight at full reach.
-5. Repeat with **Rear Near → Paw Target** and confirm Knee and Hock both open progressively.
-6. Repeat on far-side limbs and confirm no knee/hock suddenly flips to the opposite solution.
-7. Move a Paw Target back inward and confirm the preferred Wrist/Hock bend returns smoothly rather than snapping.
-8. Adjust **Wrist Angle / Hock Angle** and confirm it still shapes the lower limb when there is room, while a near-max-reach Paw Target can still straighten the chain.
-9. Enter **Play** and verify existing Walk/Run/Jump animations, Quick Play movement and saved Walk/Run speeds still work.
-10. Save an animation change, relaunch, and confirm the current authored Fox data has not been reset by the patch.
-11. Export **Fox Handoff** and confirm it remains a single `SS-FOX-RIG-ANIM-1.0.161.json` file.
+1. Apply this cumulative patch over the approved v1.0.150 baseline and launch once online so cache v16 is installed.
+2. Open **Anim Lab → Fox → Play**.
+3. Start at a normal walk, then drag progressively farther into the run range. Confirm the Fox changes gait in one short hand-off rather than living in a 30/50/70% Walk+Run hybrid.
+4. Pay particular attention to the leg that previously appeared to hang in the air. It may move through a brief transition pose, but it should not remain suspended while speed sits between Walk and Run.
+5. Ease back down into Walk and check the reverse transition is similarly brief and coherent.
+6. Repeat the same acceleration/deceleration in normal **Play** and compare it with Anim Lab Quick Play.
+7. In Animate, pull each Paw Target through the extreme positions that previously made the lower chain pop onto the mirror solution. Confirm the knee/elbow branch remains stable and the released wrist/hock does not suddenly swap sides.
+8. Confirm existing authored animation edits and the saved 5.75 m/s Run Speed are still present after update/relaunch.
+9. Export **Fox Handoff** and confirm a single `SS-FOX-RIG-ANIM-1.0.162.json` is produced.
 
 ## Validation performed here
 
-- JavaScript syntax checks on all modified runtime/editor JS.
-- Analytic IK extension test for all four Fox legs.
-- Full extension preserves all three rest-rig bone lengths and reaches essentially zero distal bend.
-- Reach sweep from 55% to 100% confirms progressive Wrist/Hock straightening.
-- Reach sweep confirms front and rear anatomical knee branches retain their configured side with no branch flip.
-- Existing Fox authoring baseline data file was not changed.
-- HTML dependency/cache-version and duplicate-ID checks are included in release validation.
+- JavaScript syntax checks on all changed JS.
+- Latest v1.0.161 handoff parsed and promoted without changing the persistent baseline ID.
+- Sparse Walk/Run phase matcher exercised across the authored cycle.
+- Contact-aware transition output checked at multiple blend positions with all locomotion IK weights held at 1 during the hand-off.
+- Primary knee/elbow signed bend branch swept across a broad Paw Target grid with no branch-sign violations.
+- HTML script/style dependency and duplicate-ID checks.
+- Service-worker/core-shell/cache-version consistency checks.
 
-A real iPhone Safari/A2HS touch test has **not** been performed here. On-device acceptance is required before treating v1.0.161 as approved.
+A real iPhone Safari/A2HS touch test has **not** been performed here. On-device acceptance is required before treating v1.0.162 as approved.

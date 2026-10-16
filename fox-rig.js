@@ -280,8 +280,8 @@
   const ATLAS = Object.freeze({
     width: 2048,
     height: 2048,
-    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.161',
-    sourceUrl: 'fox-reference-charcoal.png?v=1.0.161',
+    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.162',
+    sourceUrl: 'fox-reference-charcoal.png?v=1.0.162',
     parts: Object.freeze({
       head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
       tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
@@ -430,6 +430,63 @@
     // ordinary persistent IK channels that interpolate just like body motion.
     for(const prefix of IK_PREFIXES){out[`${prefix}Planted`]=false;out[`${prefix}PlantPhase`]=0;}
     return out;
+  }
+
+  // v1.0.162: Walk and Run are different gait structures, not two poses that
+  // should remain permanently cross-faded at a shared phase.  These helpers
+  // support a short, contact-aware hand-off between the two authored cycles.
+  const LOCOMOTION_CONTACT_Y = 0.024;
+  function smooth01(t){t=clamp(Number(t)||0,0,1);return t*t*(3-2*t);}
+  function locomotionTransitionPose(a,b,t){
+    const q=smooth01(t);
+    const out=blendPose(a,b,q);
+    for(const prefix of IK_PREFIXES){
+      const ay=Number(a?.[`${prefix}IkY`])||0,by=Number(b?.[`${prefix}IkY`])||0;
+      const aGround=ay<=LOCOMOTION_CONTACT_Y,bGround=by<=LOCOMOTION_CONTACT_Y;
+      let footT=q;
+      // A foot leaving the ground stays with the source gait for the first part
+      // of the hand-off; a landing foot commits to the target gait earlier.
+      // This avoids the conspicuous "half-height" paw produced by a permanent
+      // numerical Walk/Run blend when the two gaits disagree about contact.
+      if(aGround&&!bGround)footT=smooth01(clamp((q-.34)/.66,0,1));
+      else if(!aGround&&bGround)footT=smooth01(clamp(q/.66,0,1));
+      out[`${prefix}IkX`]=lerp(Number(a?.[`${prefix}IkX`])||0,Number(b?.[`${prefix}IkX`])||0,q);
+      out[`${prefix}IkY`]=lerp(ay,by,footT);
+      out[`${prefix}IkWeight`]=1;
+      out[`${prefix}Planted`]=false;
+      out[`${prefix}PlantPhase`]=0;
+    }
+    out.key=false;
+    return out;
+  }
+  function locomotionPoseCost(a,b){
+    if(!a||!b)return Infinity;
+    let score=0;
+    for(const prefix of IK_PREFIXES){
+      const ax=Number(a[`${prefix}IkX`])||0,ay=Number(a[`${prefix}IkY`])||0;
+      const bx=Number(b[`${prefix}IkX`])||0,by=Number(b[`${prefix}IkY`])||0;
+      const dx=(ax-bx)/.14,dy=(ay-by)/.07;
+      score+=dx*dx*.7+dy*dy*2.2;
+      if((ay<=LOCOMOTION_CONTACT_Y)!==(by<=LOCOMOTION_CONTACT_Y))score+=3;
+    }
+    const front=((Number(a.frontBodyLift)||0)-(Number(b.frontBodyLift)||0))/.04;
+    const rear=((Number(a.rearBodyLift)||0)-(Number(b.rearBodyLift)||0))/.04;
+    return score+(front*front+rear*rear)*.3;
+  }
+  function findMatchingLocomotionPhase(sourcePose,sampleTarget,preferredPhase=0,samples=64){
+    if(!sourcePose||typeof sampleTarget!=='function')return ((Number(preferredPhase)||0)%1+1)%1;
+    const preferred=((Number(preferredPhase)||0)%1+1)%1;
+    const count=Math.max(16,Math.min(128,Math.round(Number(samples)||64)));
+    let bestPhase=preferred,bestScore=Infinity;
+    for(let i=0;i<count;i++){
+      const phase=i/count;
+      const candidate=sampleTarget(phase);
+      let score=locomotionPoseCost(sourcePose,candidate);
+      const phaseDelta=Math.min(Math.abs(phase-preferred),1-Math.abs(phase-preferred));
+      score+=phaseDelta*phaseDelta*2;
+      if(score<bestScore){bestScore=score;bestPhase=phase;}
+    }
+    return bestPhase;
   }
   function interpolatePose(a,b,t,name,travelB=b.travel){
     const out=blendPose(a,b,t); out.name=name||out.name; out.travel=lerp(a.travel,travelB,t); return out;
@@ -1028,12 +1085,22 @@
         const off=Math.sqrt(Math.max(0,firstPairReach*firstPairReach-along*along));
         const bx=root.x+ux*along,by=root.y+uy*along,px=-uy,py=ux;
         const d1={x:bx+px*off,y:by+py*off},d2={x:bx-px*off,y:by-py*off};
+        const restDx=j[pawId].x-j[socketId].x,restDy=j[pawId].y-j[socketId].y;
+        const restDistalX=j[distalId].x-j[socketId].x,restDistalY=j[distalId].y-j[socketId].y;
+        const preferredDistalSide=Math.sign(restDx*restDistalY-restDy*restDistalX)||-1;
         const candidate=d=>{
           const solved=solveJointStable(root,d,upperLength,middleLength,bendSide,straightEps);
           const ex=endpoint.x-root.x,ey=endpoint.y-root.y,kx=solved.joint.x-root.x,ky=solved.joint.y-root.y;
-          const side=Math.sign(ex*ky-ey*kx);
-          const sidePenalty=(side&&side!==Math.sign(bendSide))?100:0;
-          return{d,solved,score:sidePenalty+Math.abs(wrapAngle(angle(d,endpoint)-distalAngle))};
+          const kneeSide=Math.sign(ex*ky-ey*kx);
+          const kneePenalty=(kneeSide&&kneeSide!==Math.sign(bendSide))?100:0;
+          const ddx=d.x-root.x,ddy=d.y-root.y;
+          const distalSide=Math.sign(ex*ddy-ey*ddx);
+          // The released wrist/hock has two mathematically valid circle
+          // intersections.  Lock it to the same side of the socket→paw line as
+          // the authored rest rig so the lower chain cannot jump through the
+          // straight pose onto the mirror branch at extreme targets.
+          const distalPenalty=(distalSide&&distalSide!==preferredDistalSide)?1000:0;
+          return{d,solved,score:distalPenalty+kneePenalty+Math.abs(wrapAngle(angle(d,endpoint)-distalAngle))};
         };
         const c1=candidate(d1),c2=candidate(d2),chosen=c1.score<=c2.score?c1:c2;
         const distalTarget=chosen.d,solved=chosen.solved;
@@ -1143,9 +1210,9 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.161',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.162',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
-    clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES
+    clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y
   };
 })();

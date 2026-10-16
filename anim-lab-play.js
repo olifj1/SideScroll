@@ -16,6 +16,9 @@
   const JUMP_VELOCITY = 5.24;
   const JUMP_GRAVITY = 9.20;
   const JUMP_DURATION = (JUMP_VELOCITY * 2) / JUMP_GRAVITY;
+  const GAIT_RUN_ENTER = 0.18;
+  const GAIT_RUN_EXIT = 0.08;
+  const GAIT_TRANSITION_SECONDS = 0.17;
 
   const section = document.createElement('section');
   section.className = 'animlab-section animlab-quickplay-section';
@@ -65,7 +68,9 @@
     axis:0,
     distance:0,
     locomotionPhase:0,
-    runBlend:0,
+    gaitMode:'walk',
+    gaitPhase:0,
+    gaitTransition:null,
     facing:1,
     jumpTime:0,
     jumpVelocity:0,
@@ -99,7 +104,9 @@
     sim.axis=0;
     sim.distance=0;
     sim.locomotionPhase=0;
-    sim.runBlend=0;
+    sim.gaitMode='walk';
+    sim.gaitPhase=0;
+    sim.gaitTransition=null;
     sim.facing=1;
     sim.jumpTime=0;
     sim.jumpVelocity=0;
@@ -217,9 +224,60 @@
     });
   });
 
-  function blendFoxPose(rig,walkPose,runPose,t){
-    if(typeof rig?.blendPose==='function')return rig.blendPose(walkPose,runPose,t);
-    return t<.5?walkPose:runPose;
+  function sampleGait(mode,phase){
+    return core.evaluateClip(mode==='run'?'run':'walk',phase,'fox');
+  }
+  function gaitHz(rig,mode){
+    const ms=mode==='run'?Number(rig?.RUN_CYCLE_MS)||323:Number(rig?.WALK_CYCLE_MS)||539;
+    return 1000/Math.max(1,ms);
+  }
+  function gaitCadenceScale(mode,analogSpeed,speeds){
+    const nominal=mode==='run'?speeds.run:speeds.walk;
+    return clamp(analogSpeed/Math.max(.001,nominal),0,1.25);
+  }
+  function beginGaitTransition(rig,toMode){
+    if(sim.gaitTransition||toMode===sim.gaitMode)return;
+    const fromPose=sampleGait(sim.gaitMode,sim.gaitPhase);
+    const targetPhase=typeof rig?.findMatchingLocomotionPhase==='function'
+      ? rig.findMatchingLocomotionPhase(fromPose,phase=>sampleGait(toMode,phase),sim.gaitPhase,64)
+      : sim.gaitPhase;
+    sim.gaitTransition={fromMode:sim.gaitMode,toMode,fromPhase:sim.gaitPhase,toPhase:targetPhase,elapsed:0,duration:GAIT_TRANSITION_SECONDS};
+  }
+  function updateGait(rig,dt,analogSpeed,targetRun,moving,speeds){
+    if(!moving||analogSpeed<=.0001){
+      if(targetRun<=GAIT_RUN_EXIT){sim.gaitMode='walk';sim.gaitTransition=null;}
+      sim.locomotionPhase=sim.gaitPhase;
+      return;
+    }
+    if(!sim.gaitTransition){
+      if(sim.gaitMode==='walk'&&targetRun>=GAIT_RUN_ENTER)beginGaitTransition(rig,'run');
+      else if(sim.gaitMode==='run'&&targetRun<=GAIT_RUN_EXIT)beginGaitTransition(rig,'walk');
+    }
+    if(sim.gaitTransition){
+      const tr=sim.gaitTransition;
+      tr.fromPhase=(tr.fromPhase+dt*gaitHz(rig,tr.fromMode)*gaitCadenceScale(tr.fromMode,analogSpeed,speeds))%1;
+      tr.toPhase=(tr.toPhase+dt*gaitHz(rig,tr.toMode)*gaitCadenceScale(tr.toMode,analogSpeed,speeds))%1;
+      tr.elapsed+=dt;
+      if(tr.elapsed>=tr.duration){sim.gaitMode=tr.toMode;sim.gaitPhase=tr.toPhase;sim.gaitTransition=null;}
+    }else{
+      sim.gaitPhase=(sim.gaitPhase+dt*gaitHz(rig,sim.gaitMode)*gaitCadenceScale(sim.gaitMode,analogSpeed,speeds))%1;
+    }
+    sim.locomotionPhase=sim.gaitTransition
+      ?(sim.gaitTransition.elapsed<sim.gaitTransition.duration*.5?sim.gaitTransition.fromPhase:sim.gaitTransition.toPhase)
+      :sim.gaitPhase;
+  }
+  function currentGaitPose(rig){
+    const tr=sim.gaitTransition;
+    if(!tr)return sampleGait(sim.gaitMode,sim.gaitPhase);
+    const a=sampleGait(tr.fromMode,tr.fromPhase),b=sampleGait(tr.toMode,tr.toPhase);
+    const t=clamp(tr.elapsed/Math.max(.001,tr.duration),0,1);
+    return typeof rig?.locomotionTransitionPose==='function'?rig.locomotionTransitionPose(a,b,t):(t<.5?a:b);
+  }
+  function gaitRunMix(){
+    const tr=sim.gaitTransition;
+    if(!tr)return sim.gaitMode==='run'?1:0;
+    const t=clamp(tr.elapsed/Math.max(.001,tr.duration),0,1);
+    return tr.fromMode==='run'?(1-t):t;
   }
 
   function frameProvider({now,setup,rig}){
@@ -244,18 +302,13 @@
         analogSpeed=lerp(speeds.walk,speeds.run,targetRun);
       }
     }
-    sim.runBlend+=(targetRun-sim.runBlend)*Math.min(1,dt*5.2);
-    const smoothRun=sim.runBlend*sim.runBlend*(3-2*sim.runBlend);
     if(moveDir&&analogSpeed>0){
       sim.distance+=moveDir*analogSpeed*dt;
       sim.facing=moveDir;
-      const walkHz=1000/Math.max(1,Number(rig?.WALK_CYCLE_MS)||539);
-      const runHz=1000/Math.max(1,Number(rig?.RUN_CYCLE_MS)||323);
-      const referenceSpeed=lerp(speeds.walk,speeds.run,smoothRun);
-      const cadenceScale=axisMag<=WALK_POINT?effort:clamp(analogSpeed/Math.max(.001,referenceSpeed),0,1.25);
-      sim.locomotionPhase=(sim.locomotionPhase+dt*lerp(walkHz,runHz,smoothRun)*cadenceScale)%1;
-      sim.modeLabel=smoothRun>.55?'Run':'Walk';
+      updateGait(rig,dt,analogSpeed,targetRun,true,speeds);
+      sim.modeLabel=gaitRunMix()>.5?'Run':'Walk';
     }else{
+      updateGait(rig,dt,0,targetRun,false,speeds);
       sim.modeLabel='Idle';
       sim.idlePhase=(sim.idlePhase+dt/1.4)%1;
     }
@@ -275,20 +328,19 @@
       pose=core.evaluateClip('jump',clamp(sim.jumpTime/JUMP_DURATION,0,.999),'fox');
       sim.modeLabel='Jump';
     }else if(moveDir&&analogSpeed>.001){
-      const walkPose=core.evaluateClip('walk',sim.locomotionPhase,'fox');
-      const runPose=core.evaluateClip('run',sim.locomotionPhase,'fox');
-      pose=blendFoxPose(rig,walkPose,runPose,smoothRun);
+      pose=currentGaitPose(rig);
     }else{
       pose=core.evaluateClip('idle',sim.idlePhase,'fox');
     }
     if(!pose)pose=rig?.IDLE_POSE||null;
 
     const localLift=sim.jumpY/Math.max(.001,BASE_CHARACTER_SCALE*(Number(setup?.scale)||1));
-    if(stamp-lastStatusStamp>80){lastStatusStamp=stamp;renderStatus(speeds,rig,smoothRun);}
-    return {pose,localLift,facing:sim.facing,distance:sim.distance,actualSpeed:analogSpeed,runBlend:smoothRun};
+    const runMix=gaitRunMix();
+    if(stamp-lastStatusStamp>80){lastStatusStamp=stamp;renderStatus(speeds,rig,runMix);}
+    return {pose,localLift,facing:sim.facing,distance:sim.distance,actualSpeed:analogSpeed,runBlend:runMix};
   }
 
-  function renderStatus(speeds,rig,runMix=sim.runBlend){
+  function renderStatus(speeds,rig,runMix=gaitRunMix()){
     const walkMs=Number(rig?.WALK_CYCLE_MS)||539;
     const runMs=Number(rig?.RUN_CYCLE_MS)||323;
     const cycleMs=lerp(walkMs,runMs,clamp(runMix,0,1));
@@ -311,7 +363,7 @@
       input.value=String(val);
       input.nextElementSibling.textContent=`${val.toFixed(2)} m/s`;
     });
-    if(active)renderStatus(setupSpeeds(s),s.rig,sim.runBlend);
+    if(active)renderStatus(setupSpeeds(s),s.rig,gaitRunMix());
   }
 
   core.setPlayFrameProvider(frameProvider);
