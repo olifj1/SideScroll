@@ -454,7 +454,7 @@
   });
 
   window.AnimLabControlSurface = Object.freeze({
-    version:'1.0.162',
+    version:'1.0.163',
     getSelectedId:()=>selectedId,
     getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
     selectControl:id=>selectControl(id,true)

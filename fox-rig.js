@@ -280,8 +280,8 @@
   const ATLAS = Object.freeze({
     width: 2048,
     height: 2048,
-    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.162',
-    sourceUrl: 'fox-reference-charcoal.png?v=1.0.162',
+    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.163',
+    sourceUrl: 'fox-reference-charcoal.png?v=1.0.163',
     parts: Object.freeze({
       head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
       tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
@@ -980,7 +980,10 @@
         const vals=[p0[key],p1[key],p2[key],p3[key]];
         if(!vals.every(v=>typeof v==='number'&&Number.isFinite(v)))continue;
         out[key]=hermiteSparseValue(vals[0],vals[1],vals[2],vals[3],prevFrame,beforeFrame,afterFrame,nextFrame,t);
-        if(key.endsWith('IkY'))out[key]=Math.max(-.0001,out[key]);
+        // Walk/Run use the local ground plane as a contact floor. Jump is an
+        // airborne pose clip: its paw targets must be free to pass below local
+        // Y=0 between keys, otherwise playback snaps/flicks them back to ground.
+        if(key.endsWith('IkY') && clipData?.clip!=='jump')out[key]=Math.max(-.0001,out[key]);
       }
     }
     out.travel=(Number(a.travel)||0)+(travelB-(Number(a.travel)||0))*t;
@@ -1210,7 +1213,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.162',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.163',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y

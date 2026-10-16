@@ -1244,3 +1244,17 @@ Rules:
 - Anim Lab Quick Play and normal gameplay must use the same gait-transition rules so animation review remains representative of runtime.
 
 For quadruped IK, a deterministic branch is part of the rig contract, not merely a numerical solver preference. The primary knee/elbow branch remains fixed. When the three-section reach solver releases Wrist/Hock Angle near an extreme target and obtains two valid lower-chain circle intersections, choose the intersection on the anatomical side established by the active rest rig. The lower chain may approach straight, but it must not jump onto the mirror solution because that branch becomes fractionally closer to a preferred angle.
+
+
+## Jump authoring coordinate contract (v1.0.163)
+
+Jump animation authoring and physical jump trajectory are separate concerns. Anim Lab Animate mode authors the **pose in a stable character-local coordinate system**; Quick Play/gameplay owns the character's world-space vertical trajectory.
+
+Rules:
+
+- the Animate/Jump viewport must not move its local origin or ground datum through a synthetic jump arc; local `Y = 0` stays fixed while scrubbing and editing;
+- Paw Targets in Jump are airborne animation controls and may move below local `Y = 0`. Do not apply the Walk/Run ground-floor clamp to their interpolated Y values;
+- the Ground Motion/slip diagnostic is a locomotion tool for Walk/Run and should not be presented as active Jump behaviour;
+- a fixed Ground / Ruler may remain as a spatial reference for take-off/landing poses, but it must not drive or constrain airborne IK;
+- Quick Play/gameplay may translate the whole rendered Fox vertically using jump physics while evaluating the Jump clip for body/limb shape;
+- do not bake physical jump height into the animation clip merely to preview trajectory. Animation owns pose; gameplay owns trajectory.

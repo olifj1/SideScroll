@@ -2286,3 +2286,26 @@ On-device acceptance:
 - [ ] iPhone: compare Quick Play and normal Play transition timing/phase behaviour.
 - [ ] iPhone: sweep all four Paw Targets through the v1.0.161 extreme-extension problem area and confirm no knee/elbow or released wrist/hock mirror-branch pop.
 - [ ] iPhone: confirm current saved Walk/Run/Jump/Idle and movement speeds survive patch/relaunch unchanged.
+
+
+### v1.0.163 — Jump authoring cleanup
+
+Goal: separate Jump pose authoring from physical jump trajectory so the animator works in a stable coordinate system and airborne Paw Targets are not forced back to the ground between keys.
+
+Implemented in code:
+
+- [x] Remove the synthetic sine-wave vertical lift from Animate/Jump viewport projection.
+- [x] Keep the real Ground / Ruler datum fixed at local `Y = 0` during Jump authoring.
+- [x] Hide the moving Ground Motion diagnostic for Jump; retain it for Walk/Run.
+- [x] Allow Smooth Jump interpolation to carry Paw Target Y below local `Y = 0` instead of clamping it to the ground plane.
+- [x] Keep physical vertical trajectory in Quick Play/gameplay, where the whole character moves through world space and the Jump clip contributes pose only.
+- [x] Preserve current Walk/Run transition, speed tuning, IK constraint and authored animation data.
+
+On-device acceptance:
+
+- [ ] iPhone: Jump authoring ground/ruler remains visually fixed while scrubbing and playback.
+- [ ] iPhone: Ground Motion controls are hidden for Jump and still available for Walk/Run.
+- [ ] iPhone: author neighbouring Jump keys with a paw below local ground and confirm interpolation no longer flicks/snaps the paw upward between them.
+- [ ] iPhone: body and paws can be posed independently without a moving editor origin compressing the limbs.
+- [ ] iPhone: Quick Play Jump still follows its physical arc and uses the current working-copy Jump pose.
+- [ ] iPhone: saved Walk/Run/Jump/Idle and speed data survive patch/relaunch unchanged.

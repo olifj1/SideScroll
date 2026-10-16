@@ -121,7 +121,7 @@
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
     { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.162' }
+    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.163' }
   ];
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 
@@ -464,7 +464,7 @@
   const foxShapeReference = new Image();
   foxShapeReference.onload = () => draw();
   foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
-  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.162';
+  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.163';
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -937,12 +937,13 @@
   function previewView(phase, scaleMultiplier = setupDraft.scale, playFrame = null) {
     const sv = baseView(scaleMultiplier);
     if (selection.mode === 'play') {
+      // Quick Play owns physical jump trajectory.  Authoring itself stays in a
+      // stable local coordinate system so paw targets and the ground datum do
+      // not move underneath the animator while posing Jump.
       const localLift = Number(playFrame?.localLift) || 0;
       return {...sv,groundY:sv.groundY-localLift*sv.scale,flipX:(Number(playFrame?.facing)||1)<0?-1:1};
     }
-    if (selection.mode !== 'animate' || selection.clip !== 'jump') return sv;
-    const lift = Math.sin(clamp(phase,0,1) * Math.PI) * .40;
-    return {...sv, groundY:sv.groundY - lift * sv.scale};
+    return sv;
   }
 
   function project(pt, sv) { return {x:sv.cx + pt.x * sv.scale * (sv.flipX || 1), y:sv.groundY - pt.y * sv.scale}; }
@@ -1308,7 +1309,7 @@
     return {
       schema:FOX_HANDOFF_SCHEMA,
       app:'SideScroll',
-      animLabVersion:'1.0.162',
+      animLabVersion:'1.0.163',
       exportedAt:new Date().toISOString(),
       fox:{
         setup:{
@@ -1327,7 +1328,7 @@
   async function exportFoxHandoffBundle() {
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.162.json';
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.163.json';
       const blob = new Blob([payload],{type:'application/json'});
       const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
       if (file && navigator.share && navigator.canShare?.({files:[file]})) {
@@ -1350,7 +1351,7 @@
   }
 
   const api = {
-    version:'1.0.162',
+    version:'1.0.163',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),

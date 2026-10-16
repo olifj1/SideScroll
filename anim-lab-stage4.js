@@ -147,7 +147,7 @@
 
   function drawMovingGround({ctx,canvas,adapter,view,project,phase}){
     const st=state();
-    if(!prefs.showGround||st.family!=='fox'||st.mode!=='animate'||adapter.id!=='fox')return;
+    if(!prefs.showGround||st.family!=='fox'||st.mode!=='animate'||st.clip==='jump'||adapter.id!=='fox')return;
     const stride=strideLocal(st)*prefs.speed;
     const base=project({x:0,y:0},view);
     const spacing=Math.max(.045,stride?stride/4:.07);
@@ -192,7 +192,9 @@
 
   function render(st=state()){
     const visible=st.family==='fox'&&st.mode==='animate';
-    ikSection.hidden=!visible;groundSection.hidden=!visible;
+    const locomotion=visible&&(st.clip==='walk'||st.clip==='run');
+    ikSection.hidden=!visible;
+    groundSection.hidden=!locomotion;
     if(!visible)return;
 
     const prefix=selectedPrefix(),key=st.sparseClip?.keys?.find(item=>item.frame===st.frame)||null;
@@ -208,9 +210,7 @@
     groundShow.classList.toggle('active',prefs.showGround);groundShow.setAttribute('aria-pressed',String(prefs.showGround));
     groundSpeed.value=String(prefs.speed);groundSpeedOut.textContent=`×${prefs.speed.toFixed(2)}`;
     const stride=strideLocal(st);
-    groundStatus.textContent=st.clip==='jump'
-      ? 'Jump has no locomotion ground stride; the datum remains static.'
-      : `${st.clip==='run'?'Run':'Walk'} · ${stride.toFixed(3)} rig units/cycle at Scale ${Number(st.setup?.scale||1).toFixed(2)} · display ×${prefs.speed.toFixed(2)}`;
+    groundStatus.textContent=`${st.clip==='run'?'Run':'Walk'} · ${stride.toFixed(3)} rig units/cycle at Scale ${Number(st.setup?.scale||1).toFixed(2)} · display ×${prefs.speed.toFixed(2)}`;
   }
 
   core.subscribe(st=>render(st));
