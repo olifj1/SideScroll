@@ -1214,3 +1214,18 @@ Rules:
 - Do not respond to motion-fidelity problems by adding a general graph editor pre-emptively. First judge direct sparse Smooth evaluation, sensible key spacing and the Quick Play speed/cadence loop on device.
 - Temporary charcoal cutout seams remain art-stage debt. Motion tooling must not reshape the approved rig merely to hide those rigid-plane limitations.
 
+
+## Full-chain quadruped Paw IK (v1.0.161)
+
+Paw Target is the endpoint owner for the complete quadruped limb. A three-section leg must not be implemented as a two-bone IK solve followed by re-attaching a distal segment at a fixed world rotation; that prevents natural extension and makes the final joint visually rigid.
+
+Rules:
+
+- active Fox IK solves Socket → Knee/Elbow → Wrist/Hock → Paw as one endpoint problem while preserving all authored rest-rig segment lengths;
+- the existing front/rear anatomical bend branch remains explicit and deterministic so extension cannot reintroduce frame-to-frame knee/hock solution flipping;
+- Wrist/Hock Angle defines the **preferred distal shaping direction** under IK, but that preference must yield when retaining it would block outward Paw Target reach;
+- once the preferred distal direction can no longer reach the requested endpoint, the distal joint yields progressively and converges toward a straight lower chain at physical maximum reach;
+- at maximum reach the complete leg may become effectively straight. Do not retain an artificial wrist/hock bend merely to preserve the rest-pose angle;
+- moving the Paw Target inward should restore the preferred lower-chain bend continuously, without a mode switch or Plant/Release-style state;
+- solver upgrades must not rewrite authored animation keys or bump the Fox authoring-baseline marker merely because geometry evaluation changed;
+- keep this analytic/simple enough for deterministic iPhone editor/runtime use. Do not introduce a general full-body IK package unless later production requirements genuinely need it.

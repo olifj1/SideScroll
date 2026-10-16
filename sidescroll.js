@@ -2614,7 +2614,7 @@ function rigVariantTextureKey(id) {
 function rigVariantUrl(id) {
   const familyRig = characterRigForVariant(id);
   const src = familyRig === FoxRig
-    ? (FoxRig?.ATLAS?.fileUrl || 'fox-rig-atlas-v3.png?v=1.0.160')
+    ? (FoxRig?.ATLAS?.fileUrl || 'fox-rig-atlas-v3.png?v=1.0.161')
     : (Rig.atlasImageUrl ? Rig.atlasImageUrl(id) : (Rig.ATLAS.fileUrl || Rig.ATLAS.url));
   return src.includes('?') ? src : `${src}?v=${RIG_TEXTURE_VERSION}`;
 }

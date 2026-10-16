@@ -280,8 +280,8 @@
   const ATLAS = Object.freeze({
     width: 2048,
     height: 2048,
-    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.160',
-    sourceUrl: 'fox-reference-charcoal.png?v=1.0.160',
+    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.161',
+    sourceUrl: 'fox-reference-charcoal.png?v=1.0.161',
     parts: Object.freeze({
       head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
       tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
@@ -952,9 +952,10 @@
     const headBase=rotPoint(headRest,frontBody,p.neckPitch);
     const head=rotPoint(headBase,neck,p.headPitch);
 
-    function solveJointStable(root,target,l1,l2,bendSide=1){
+    function solveJointStable(root,target,l1,l2,bendSide=1,edgeEpsilon=.0005){
       let dx=target.x-root.x,dy=target.y-root.y,d=Math.hypot(dx,dy)||1e-5;
-      const minD=Math.abs(l1-l2)+.0005,maxD=l1+l2-.0005,cd=clamp(d,minD,maxD);
+      const eps=Math.max(1e-7,Number(edgeEpsilon)||.0005);
+      const minD=Math.abs(l1-l2)+eps,maxD=l1+l2-eps,cd=clamp(d,minD,maxD);
       dx*=cd/d;dy*=cd/d;d=cd;
       const resolvedTarget={x:root.x+dx,y:root.y+dy};
       const a=(l1*l1-l2*l2+d*d)/(2*d),h=Math.sqrt(Math.max(0,l1*l1-a*a));
@@ -987,10 +988,65 @@
         return{root,knee:fkKnee,distal:fkDistal,paw:fkPaw,fkKnee,fkDistal,fkPaw,ikTarget:fkPaw,ikWeight:0};
       }
       const blendedTarget={x:lerp(fkPaw.x,target.x,weight),y:lerp(fkPaw.y,target.y,weight)};
-      const distalVector={x:Math.cos(distalAngle)*distalLength,y:Math.sin(distalAngle)*distalLength};
-      const distalTarget={x:blendedTarget.x-distalVector.x,y:blendedTarget.y-distalVector.y};
       const bendSide=Number(RIG_DESIGNER.ikBendSides?.[prefix])||1;
-      const solved=solveJointStable(root,distalTarget,upperLength,middleLength,bendSide);
+
+      // Full-chain extension while preserving existing authored poses.
+      // Keep the established 1.0.160 solve exactly while the preferred
+      // wrist/hock -> paw direction is physically reachable. Only when that
+      // fixed distal direction prevents the Paw Target from being reached do
+      // we release the final joint and solve the complete three-section chain.
+      const distalVector={x:Math.cos(distalAngle)*distalLength,y:Math.sin(distalAngle)*distalLength};
+      const preferredDistalTarget={x:blendedTarget.x-distalVector.x,y:blendedTarget.y-distalVector.y};
+      const preferredDistance=distance(root,preferredDistalTarget);
+      const oldMinReach=Math.abs(upperLength-middleLength)+.0005;
+      const oldMaxReach=upperLength+middleLength-.0005;
+      if(preferredDistance>=oldMinReach && preferredDistance<=oldMaxReach){
+        const solved=solveJointStable(root,preferredDistalTarget,upperLength,middleLength,bendSide);
+        const paw={x:solved.target.x+distalVector.x,y:solved.target.y+distalVector.y};
+        return{root,knee:solved.joint,distal:solved.target,paw,fkKnee,fkDistal,fkPaw,ikTarget:target,ikWeight:weight};
+      }
+
+      // Outward reach is the problem v1.0.161 fixes. Clamp an over-extended Paw
+      // Target to the physical three-bone reach, then find the wrist/hock point
+      // where the first two bones are at their reachable edge and the final
+      // segment still has its authored length. Of the two circle intersections,
+      // choose the one whose final-segment direction is closest to the authored
+      // Wrist/Hock Angle so release is continuous rather than a branch switch.
+      const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
+      const straightEps=Math.max(1e-6,(upperLength+middleLength)*1e-5);
+      const firstPairReach=upperLength+middleLength-straightEps;
+      const totalReach=firstPairReach+distalLength;
+      let pdx=blendedTarget.x-root.x,pdy=blendedTarget.y-root.y,pd=Math.hypot(pdx,pdy)||1e-8;
+      const endpointDistance=Math.min(pd,totalReach);
+      pdx*=endpointDistance/pd;pdy*=endpointDistance/pd;pd=endpointDistance;
+      const endpoint={x:root.x+pdx,y:root.y+pdy};
+
+      const circleMin=Math.abs(firstPairReach-distalLength);
+      if(pd>=circleMin-1e-8 && pd<=firstPairReach+distalLength+1e-8){
+        const ux=pdx/Math.max(pd,1e-8),uy=pdy/Math.max(pd,1e-8);
+        const along=(firstPairReach*firstPairReach-distalLength*distalLength+pd*pd)/(2*Math.max(pd,1e-8));
+        const off=Math.sqrt(Math.max(0,firstPairReach*firstPairReach-along*along));
+        const bx=root.x+ux*along,by=root.y+uy*along,px=-uy,py=ux;
+        const d1={x:bx+px*off,y:by+py*off},d2={x:bx-px*off,y:by-py*off};
+        const candidate=d=>{
+          const solved=solveJointStable(root,d,upperLength,middleLength,bendSide,straightEps);
+          const ex=endpoint.x-root.x,ey=endpoint.y-root.y,kx=solved.joint.x-root.x,ky=solved.joint.y-root.y;
+          const side=Math.sign(ex*ky-ey*kx);
+          const sidePenalty=(side&&side!==Math.sign(bendSide))?100:0;
+          return{d,solved,score:sidePenalty+Math.abs(wrapAngle(angle(d,endpoint)-distalAngle))};
+        };
+        const c1=candidate(d1),c2=candidate(d2),chosen=c1.score<=c2.score?c1:c2;
+        const distalTarget=chosen.d,solved=chosen.solved;
+        let vx=endpoint.x-distalTarget.x,vy=endpoint.y-distalTarget.y,vl=Math.hypot(vx,vy)||1;
+        vx*=distalLength/vl;vy*=distalLength/vl;
+        const paw={x:solved.target.x+vx,y:solved.target.y+vy};
+        return{root,knee:solved.joint,distal:solved.target,paw,fkKnee,fkDistal,fkPaw,ikTarget:target,ikWeight:weight};
+      }
+
+      // Very close/folded targets retain the historic clamped behaviour. The
+      // reported production issue is outward extension; do not destabilise the
+      // contracted branch merely to generalise a solver beyond current needs.
+      const solved=solveJointStable(root,preferredDistalTarget,upperLength,middleLength,bendSide);
       const paw={x:solved.target.x+distalVector.x,y:solved.target.y+distalVector.y};
       return{root,knee:solved.joint,distal:solved.target,paw,fkKnee,fkDistal,fkPaw,ikTarget:target,ikWeight:weight};
     }
@@ -1087,7 +1143,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.160',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.161',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES

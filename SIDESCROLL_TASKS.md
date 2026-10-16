@@ -2238,3 +2238,26 @@ Later animation polish after these stage markers:
 - [ ] Add subtle Idle breathing/head/ear/tail life.
 - [ ] Reassess neck/head and wrist/hock shaping against the charcoal silhouette.
 - [ ] Refine key spacing/poses against the v1.0.160 direct Smooth evaluator; add no graph editor unless this simpler curve model proves insufficient in real use.
+
+### v1.0.161 — Full-chain Fox Paw IK
+
+Goal: remove the distal-joint reach limitation exposed while authoring new Fox locomotion without reopening the wider Anim Lab architecture.
+
+Implemented in code:
+
+- [x] Replace the old socket → knee → wrist/hock two-bone solve + fixed distal vector with a complete Paw Target endpoint solve.
+- [x] Preserve Socket → Knee/Elbow → Wrist/Hock → Paw bone lengths from the active v3 rest rig.
+- [x] Allow Wrist/Hock Angle to remain the preferred distal shaping direction while letting that preference yield when it blocks outward Paw Target reach.
+- [x] Progressively relax the preferred Wrist/Hock bend as the target approaches full reach so all three limb sections can become effectively straight.
+- [x] Preserve explicit front/rear bend branches so the earlier knee/hock flip problem is not reintroduced.
+- [x] Keep the v1.0.159 authoring baseline marker unchanged so installing the solver correction does not reset current authored Fox clips/rig data.
+- [x] Leave Quick Play, direct Smooth evaluation, Walk/Run speed tuning and charcoal evaluation art otherwise unchanged.
+
+On-device acceptance:
+
+- [ ] iPhone: extend each front Paw Target and confirm Elbow + Wrist can open into an effectively straight leg.
+- [ ] iPhone: extend each rear Paw Target and confirm Knee + Hock can open into an effectively straight leg.
+- [ ] iPhone: sweep Paw Targets through bent → extended → bent poses and confirm there is no distal snap or knee/hock branch flip.
+- [ ] iPhone: verify Wrist/Hock Angle still provides useful shaping away from full extension.
+- [ ] iPhone: inspect existing Walk/Run/Jump keys for any pose that needs a small animator retune now that the distal joint participates honestly in reach.
+- [ ] iPhone: Quick Play and normal gameplay still use the current saved animation/speed data with no reset after update/relaunch.
