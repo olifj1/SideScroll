@@ -334,6 +334,14 @@
     } else if (precisionMode === 'rotate' && control.rotate) {
       const ch=control.rotate;pose[ch.key]=clamp(Number(pose[ch.key]||0)+dx*rotateSensitivity,ch.min,ch.max);
     }
+    if (control.ikPrefix) {
+      const st=core.getState();
+      if (st.family==='fox' && st.mode==='animate' && st.clip==='jump') {
+        const lift=Number(core.getJumpAuthoringLift?.(st.phase))||0;
+        const key=`${control.ikPrefix}IkY`;
+        pose[key]=Math.max(-lift,Number(pose[key])||0);
+      }
+    }
   }
 
   pad.addEventListener('pointerdown',e=>{
@@ -454,7 +462,7 @@
   });
 
   window.AnimLabControlSurface = Object.freeze({
-    version:'1.0.163',
+    version:'1.0.164',
     getSelectedId:()=>selectedId,
     getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
     selectControl:id=>selectControl(id,true)

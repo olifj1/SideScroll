@@ -115,7 +115,8 @@
         const point=geometryFor(probe,st)?.[limb.paw];
         if(point) pose[`${prefix}IkX`]=point.x;
       }
-      pose[`${prefix}IkY`]=0;pose[`${prefix}IkWeight`]=1;
+      const groundY=st.clip==='jump' ? -(Number(core.getJumpAuthoringLift?.(st.phase))||0) : 0;
+      pose[`${prefix}IkY`]=groundY;pose[`${prefix}IkWeight`]=1;
       pose[`${prefix}Planted`]=false;pose[`${prefix}PlantPhase`]=0;
     });
   }
@@ -147,9 +148,22 @@
 
   function drawMovingGround({ctx,canvas,adapter,view,project,phase}){
     const st=state();
-    if(!prefs.showGround||st.family!=='fox'||st.mode!=='animate'||st.clip==='jump'||adapter.id!=='fox')return;
-    const stride=strideLocal(st)*prefs.speed;
+    if(st.family!=='fox'||st.mode!=='animate'||adapter.id!=='fox')return;
     const base=project({x:0,y:0},view);
+    if(st.clip==='jump'){
+      if(!core.getOverlay?.('ground'))return;
+      // Jump keeps the moving local Y=0 datum as a quiet reference only. The
+      // bright fixed Ground / Ruler is the real floor and remains unchanged.
+      ctx.save();
+      ctx.strokeStyle='rgba(126,216,199,.18)';
+      ctx.lineWidth=Math.max(1,view.scale*.0012);
+      ctx.setLineDash([5,7]);
+      ctx.beginPath();ctx.moveTo(0,base.y);ctx.lineTo(canvas.width,base.y);ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if(!prefs.showGround)return;
+    const stride=strideLocal(st)*prefs.speed;
     const spacing=Math.max(.045,stride?stride/4:.07);
     const offset=(phase*stride)%spacing;
     ctx.save();

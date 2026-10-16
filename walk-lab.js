@@ -934,16 +934,30 @@
     };
   }
 
+  function jumpAuthoringLift(phase) {
+    return Math.sin(clamp(Number(phase) || 0, 0, 1) * Math.PI) * .40;
+  }
+
+  function clampJumpPoseToRealGround(pose, phase) {
+    if (!pose) return pose;
+    const out = clone(pose);
+    const minLocalY = -jumpAuthoringLift(phase);
+    for (const prefix of ['rn','rf','fn','ff']) {
+      const key = `${prefix}IkY`;
+      if (Number.isFinite(Number(out[key]))) out[key] = Math.max(minLocalY, Number(out[key]));
+    }
+    return out;
+  }
+
   function previewView(phase, scaleMultiplier = setupDraft.scale, playFrame = null) {
     const sv = baseView(scaleMultiplier);
     if (selection.mode === 'play') {
-      // Quick Play owns physical jump trajectory.  Authoring itself stays in a
-      // stable local coordinate system so paw targets and the ground datum do
-      // not move underneath the animator while posing Jump.
       const localLift = Number(playFrame?.localLift) || 0;
       return {...sv,groundY:sv.groundY-localLift*sv.scale,flipX:(Number(playFrame?.facing)||1)<0?-1:1};
     }
-    return sv;
+    if (selection.mode !== 'animate' || selection.clip !== 'jump') return sv;
+    const lift = jumpAuthoringLift(phase);
+    return {...sv, groundY:sv.groundY - lift * sv.scale};
   }
 
   function project(pt, sv) { return {x:sv.cx + pt.x * sv.scale * (sv.flipX || 1), y:sv.groundY - pt.y * sv.scale}; }
@@ -1098,11 +1112,14 @@
       catch(err){console.error('[Anim Lab] Quick Play frame provider failed.',err);playFrame=null;}
     }
     lastPlayFrame=playFrame;
-    const pose=selection.mode==='play'&&playFrame?.pose
+    let pose=selection.mode==='play'&&playFrame?.pose
       ? adapter.normalise(playFrame.pose,selection.frame)
       : selection.mode==='setup' && adapter.id==='fox' && adapter.rig.IDLE_POSE
         ? adapter.rig.clone(adapter.rig.IDLE_POSE)
         : (playing?evaluateSparsePose(displaySparseClip(),playPhase*16,currentCharacter().family):currentPose());
+    if (selection.mode==='animate' && adapter.id==='fox' && selection.clip==='jump') {
+      pose = clampJumpPoseToRealGround(pose,phase);
+    }
     const sv=previewView(phase,setupDraft.scale,playFrame);
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const bg=ctx.createLinearGradient(0,0,0,canvas.height);bg.addColorStop(0,'#26333a');bg.addColorStop(1,'#11191e');ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -1309,7 +1326,7 @@
     return {
       schema:FOX_HANDOFF_SCHEMA,
       app:'SideScroll',
-      animLabVersion:'1.0.163',
+      animLabVersion:'1.0.164',
       exportedAt:new Date().toISOString(),
       fox:{
         setup:{
@@ -1328,7 +1345,7 @@
   async function exportFoxHandoffBundle() {
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.163.json';
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.164.json';
       const blob = new Blob([payload],{type:'application/json'});
       const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
       if (file && navigator.share && navigator.canShare?.({files:[file]})) {
@@ -1351,7 +1368,7 @@
   }
 
   const api = {
-    version:'1.0.163',
+    version:'1.0.164',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
@@ -1381,6 +1398,7 @@
     compileSparseClip:clipData=>compileSparseClip(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),currentCharacter().family),
     evaluateSparsePose:(clipData,frame)=>evaluateSparsePose(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),frame,currentCharacter().family),
     getAuthoringPose:()=>clone(evaluateSparsePose(currentSparseClip(),selection.frame,currentCharacter().family,{resolveContacts:false})),
+    getJumpAuthoringLift:phase=>jumpAuthoringLift(phase),
     setConversionPreview,
     clearConversionPreview,
     adoptConversionPreview,
