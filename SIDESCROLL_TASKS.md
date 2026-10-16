@@ -2309,3 +2309,24 @@ On-device acceptance:
 - [ ] iPhone: body and paws can be posed independently without a moving editor origin compressing the limbs.
 - [ ] iPhone: Quick Play Jump still follows its physical arc and uses the current working-copy Jump pose.
 - [ ] iPhone: saved Walk/Run/Jump/Idle and speed data survive patch/relaunch unchanged.
+
+## v1.0.165 — Deformable mesh / skinning proof Stage M1
+
+Priority changed: prove the deformable skinning direction before the larger Anim Lab/Character Library generalisation.
+
+Completed in this drop:
+- Add a Fox-only, editor-only Rigid / Deform comparison in Anim Lab.
+- Recompose the existing rigid atlas at bind pose into six temporary deformable regions: Body+Head, Tail, four complete legs.
+- Generate low-poly triangle meshes and automatic two-influence weights from the approved Fox bones.
+- Evaluate current working rig/animation poses through the skinned renderer in Animate, Rig and Quick Play.
+- Add optional mesh wireframe.
+- Preserve all existing rig, clip and gameplay data; do not save prototype weights/topology yet.
+
+Acceptance questions before Stage M2:
+- Is joint bending materially better than the rigid cutout?
+- Do shoulder/hip transitions improve enough to justify final continuous artwork?
+- Is texture stretching acceptable across the current Walk/Run/Jump extremes?
+- Does Anim Lab remain responsive on iPhone with the low-poly triangle budget?
+- Are two influences per vertex sufficient for this art style?
+
+If accepted, Stage M2 adds persistent topology/weights and touch-friendly correction tools. If rejected, revisit region topology/rendering before generalising Character Lab around it.

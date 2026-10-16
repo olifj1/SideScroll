@@ -475,6 +475,7 @@
   const underlayRenderers = new Map();
   let pluginDraw = null;
   const pluginRenderers = new Map();
+  const artRenderers = new Map();
   let gesture = null;
   let pendingNavigation = null;
   let playing = false;
@@ -991,8 +992,16 @@
   function drawRigArt(character, adapter, pose, sv, alpha = 1) {
     const atlas = atlases.get(character.id);
     if (!atlas) return;
+    const restRig = adapter.id === 'fox' ? (setupDraft.rig || displayRestRig(adapter)) : displayRestRig(adapter);
+    if (artRenderers.size) {
+      const args={ctx,canvas,character,adapter,pose,view:sv,alpha,atlas,restRig,setup:setupDraft,project};
+      for (const renderer of artRenderers.values()) {
+        try { if (renderer(args) === true) return; }
+        catch (err) { console.error('[Anim Lab] Art renderer failed.',err); }
+      }
+    }
     if (adapter.id === 'human' && typeof HumanRig.drawCanvas === 'function') HumanRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
-    else adapter.rig.partsForPose(pose,displayRestRig(adapter)).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
+    else adapter.rig.partsForPose(pose,restRig).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
 
   function drawBones(adapter, pose, sv, alpha = 1) {
@@ -1368,7 +1377,7 @@
   }
 
   const api = {
-    version:'1.0.164',
+    version:'1.0.165',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
@@ -1429,6 +1438,12 @@
       if(!key||typeof fn!=='function')return()=>{};
       pluginRenderers.set(key,fn);draw();
       return()=>{if(pluginRenderers.get(key)===fn)pluginRenderers.delete(key);draw();};
+    },
+    registerArtRenderer:(id,fn)=>{
+      const key=String(id||'').trim();
+      if(!key||typeof fn!=='function')return()=>{};
+      artRenderers.set(key,fn);draw();
+      return()=>{if(artRenderers.get(key)===fn)artRenderers.delete(key);draw();};
     },
     geometry:pose=>currentAdapter().rig.geometry(pose||currentPose(),displayRestRig()),
     normalisePose:pose=>normaliseCurrentFrame(pose),

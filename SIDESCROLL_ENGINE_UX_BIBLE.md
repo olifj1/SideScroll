@@ -1258,3 +1258,15 @@ Rules:
 - a fixed Ground / Ruler may remain as a spatial reference for take-off/landing poses, but it must not drive or constrain airborne IK;
 - Quick Play/gameplay may translate the whole rendered Fox vertically using jump physics while evaluating the Jump clip for body/limb shape;
 - do not bake physical jump height into the animation clip merely to preview trajectory. Animation owns pose; gameplay owns trajectory.
+
+## Deformable 2D character skinning contract (v1.0.165)
+
+The deformable-character experiment is intentionally mesh-first before the broader Character Lab generalisation.
+
+- Skinning consumes the approved rest rig and animation pose; it must not rewrite animation keys or rest-rig topology as a side effect of rendering.
+- Prefer a small number of larger deformable regions over one rigid texture plane per bone. The quadruped starting model is Body+Head, separate Tail, and four complete leg/shoulder regions.
+- Tail may visually join the body but remains an independent mesh so large tail curvature cannot drag/stretch the body region.
+- Initial binding is automatic and low-complexity: low-poly triangles and at most two strongest bone influences per vertex. Build weight-editing UI only after the automatic proof demonstrates that the rendering model is worthwhile.
+- A mesh preview must be directly comparable against the rigid renderer and must have an optional wireframe/topology diagnostic.
+- Stage 1 is editor-only. Normal gameplay keeps the proven rigid fallback until the deform renderer has survived visual and performance testing on the target phone workflow.
+- Existing atlas seams in a prototype are source-art debt, not evidence that the approved skeleton should be reshaped. Final deformable art should be produced against the approved rig/binding after the deformation model is proven.
