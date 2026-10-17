@@ -182,3 +182,16 @@ Acceptance focus:
 - neck/body, shoulder/hip and tail-root joins should be judged during Walk/Run rather than from a static bind pose alone;
 - topology and source-art replacement should remain independent layers;
 - iPhone performance should remain comparable to M1.1 because topology/triangle count is unchanged.
+
+### Stage M1.3 — approved-source deform atlas (v1.0.169)
+
+The exploratory six-image art pass established that dedicated deform source art works, but the production direction is one coherent atlas derived from the approved character source rather than six independently prepared images.
+
+- `fox-reference-charcoal.png` is the visual authority for this Fox pass.
+- `fox-deform-atlas-v1.png` packs Body + Head, Tail, Front Near/Far and Rear Near/Far into one transparent 2048 × 1024 texture.
+- Near/far limbs derive from the same source; far variants may receive a restrained depth/value adjustment but must not drift into a different design.
+- Region rectangles are explicit metadata in the mesh renderer; topology/weights remain separate from texture packing.
+- Shoulder/hip source pieces deliberately overlap the torso enough to support smooth weighting. Visible attachment quality is solved primarily by skin weights, not by cutting a fake hard seam into the art.
+- The six loose M1.2 images are now legacy exploratory assets and are no longer the runtime deform source.
+
+The next pass should tune Fox-specific weights against this stable atlas before general weight-painting UI is designed.

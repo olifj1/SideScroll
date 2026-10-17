@@ -9,43 +9,43 @@
     return;
   }
 
-  // Stage M1.2: keep the clean topology/twist-safe binding from M1.1, but feed it
-  // dedicated continuous source art designed for deformation rather than rebuilding
-  // each region from the old rigid cutout atlas. The old atlas remains a fallback
-  // while the new source images are loading or unavailable.
+  // Stage M1.3: keep the clean topology/twist-safe binding from M1.1, but feed it
+  // one deliberately packed deform atlas cut from the approved charcoal Fox source.
+  // A single atlas keeps the source coherent and avoids region-by-region image drift.
+  // The old rigid atlas remains a fallback while the deform atlas is loading/unavailable.
   const REGION_DEFS = [
     {
-      id:'tail', label:'Tail', order:0, topology:'chain', artFile:'fox-deform-tail.png',
+      id:'tail', label:'Tail', order:0, topology:'chain', artRect:{x:16,y:536,w:630,h:404},
       parts:['tail_base','tail_mid','tail_tip'],
       subdivisions:3, scanHalfWidth:.115, maxCap:.070, widthPad:.0035,
       bones:[['tail0','tail1'],['tail1','tail2'],['tail2','tail3']]
     },
     {
-      id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain', artFile:'fox-deform-rear-far.png',
+      id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain', artRect:{x:1090,y:536,w:400,h:393},
       parts:['far_rear_upper','far_rear_lower_prox','far_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['rearFarRoot','rearFarKnee'],['rearFarKnee','rearFarHock'],['rearFarHock','rearFarFoot']]
     },
     {
-      id:'frontFar', label:'Front Far Leg', order:2, topology:'chain', artFile:'fox-deform-front-far.png',
+      id:'frontFar', label:'Front Far Leg', order:2, topology:'chain', artRect:{x:1385,y:16,w:362,h:458},
       parts:['far_front_upper','far_front_lower_prox','far_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['frontFarRoot','frontFarKnee'],['frontFarKnee','frontFarWrist'],['frontFarWrist','frontFarFoot']]
     },
     {
-      id:'bodyHead', label:'Body + Head', order:3, topology:'grid', artFile:'fox-deform-body.png',
+      id:'bodyHead', label:'Body + Head', order:3, topology:'grid', artRect:{x:16,y:16,w:947,h:491},
       parts:['torso','head_neck'],
       grid:[9,5],
       bones:[['rearBody','midRoot'],['midRoot','frontBody'],['frontBody','neck'],['neck','head']]
     },
     {
-      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', artFile:'fox-deform-rear-near.png',
+      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', artRect:{x:670,y:536,w:400,h:389},
       parts:['near_rear_upper','near_rear_lower_prox','near_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['rearNearRoot','rearNearKnee'],['rearNearKnee','rearNearHock'],['rearNearHock','rearNearFoot']]
     },
     {
-      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', artFile:'fox-deform-front-near.png',
+      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', artRect:{x:1000,y:16,w:362,h:449},
       parts:['near_front_upper','near_front_lower_prox','near_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['frontNearRoot','frontNearKnee'],['frontNearKnee','frontNearWrist'],['frontNearWrist','frontNearFoot']]
@@ -57,8 +57,9 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.168';
-  const artImages = new Map();
+  const ART_VERSION = '1.0.169';
+  const DEFORM_ATLAS_FILE = 'fox-deform-atlas-v1.png';
+  let deformAtlas = null;
   let artRevision = 0;
   let mode = 'mesh';
   let wireframe = false;
@@ -76,7 +77,7 @@
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
     <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin Prototype</div>
-    <div class="animlab-setup-note">Stage M1.2 · dedicated deformable Fox source art on the proven clean topology. Editor-only; rig and animation keys stay untouched.</div>
+    <div class="animlab-setup-note">Stage M1.3 · approved charcoal Fox deform atlas on the proven clean topology. Editor-only; rig and animation keys stay untouched.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
@@ -105,25 +106,22 @@
 
 
   function loadDedicatedArt(){
-    for(const def of REGION_DEFS){
-      if(!def.artFile||artImages.has(def.id))continue;
-      const img=new Image();
-      img.decoding='async';
-      img.onload=()=>{
-        artImages.set(def.id,img);
-        artRevision++;
-        caches.clear();
-        core.redrawOnly?.();
-      };
-      img.onerror=()=>console.warn(`[Anim Lab Mesh] Dedicated art failed to load: ${def.artFile}`);
-      img.src=`${def.artFile}?v=${ART_VERSION}`;
-      artImages.set(def.id,img);
-    }
+    if(deformAtlas)return;
+    const img=new Image();
+    img.decoding='async';
+    img.onload=()=>{
+      artRevision++;
+      caches.clear();
+      core.redrawOnly?.();
+    };
+    img.onerror=()=>console.warn(`[Anim Lab Mesh] Deform atlas failed to load: ${DEFORM_ATLAS_FILE}`);
+    img.src=`${DEFORM_ATLAS_FILE}?v=${ART_VERSION}`;
+    deformAtlas=img;
   }
 
   function dedicatedArtFor(def){
-    const img=artImages.get(def.id);
-    return img&&img.complete&&img.naturalWidth>0?img:null;
+    if(!deformAtlas||!deformAtlas.complete||deformAtlas.naturalWidth<=0||!def.artRect)return null;
+    return {image:deformAtlas,rect:def.artRect};
   }
 
   function neutralPose(){
@@ -468,10 +466,11 @@
     const rawView={scale,cx:PAD-bbox.minX*scale,groundY:PAD+bbox.maxY*scale,flipX:1};
     const dedicated=dedicatedArtFor(def);
     if(dedicated){
-      // Dedicated M1.2 pieces were authored as complete body/tail/limb regions.
-      // Fit each source to the already-approved bind-space region so artwork can
-      // improve independently without changing rig proportions or animation keys.
-      rctx.drawImage(dedicated,PAD,PAD,Math.max(1,raw.width-PAD*2),Math.max(1,raw.height-PAD*2));
+      // Stage M1.3 uses one source atlas cut from the approved charcoal Fox. Each
+      // region keeps a known clean rectangle, then fits into the already-approved
+      // bind-space region without changing rig proportions or animation keys.
+      const r=dedicated.rect;
+      rctx.drawImage(dedicated.image,r.x,r.y,r.w,r.h,PAD,PAD,Math.max(1,raw.width-PAD*2),Math.max(1,raw.height-PAD*2));
     }else{
       // Safe fallback while images are loading/offline: rebuild from the rigid atlas
       // exactly as M1.1 did, so Deform never disappears because one source failed.
@@ -603,10 +602,10 @@
     inspectBtn.disabled=mode!=='mesh'||!wireframe;
     inspectBtn.textContent=`Inspect: ${INSPECT[inspectIndex]?.label||'All'}`;
     if(setupNote){
-      const ready=REGION_DEFS.filter(def=>dedicatedArtFor(def)).length;
-      setupNote.textContent=ready===REGION_DEFS.length
-        ? 'Stage M1.2 · dedicated deformable Fox art loaded on the proven clean topology. Editor-only; rig and animation keys stay untouched.'
-        : `Stage M1.2 · loading dedicated deformable Fox art (${ready}/${REGION_DEFS.length}); rigid-atlas fallback remains active.`;
+      const ready=!!dedicatedArtFor(REGION_DEFS[0]);
+      setupNote.textContent=ready
+        ? 'Stage M1.3 · clean deform atlas built from the approved charcoal Fox is loaded. Editor-only; rig and animation keys stay untouched.'
+        : 'Stage M1.3 · loading approved charcoal Fox deform atlas; rigid-atlas fallback remains active.';
     }
   }
 

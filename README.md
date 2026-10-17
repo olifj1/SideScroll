@@ -1,47 +1,34 @@
-# SideScroll patch 1.0.168 — Dedicated deformable Fox art
+# SideScroll patch 1.0.169 — Approved charcoal Fox deform atlas
 
-Apply this patch **after 1.0.167**. This ZIP contains only files changed/new for 1.0.168.
+Apply this patch **after 1.0.168**. This ZIP contains only files changed for 1.0.169.
 
 ## Purpose
 
-Stage M1.2 keeps the clean M1.1 topology and replaces the temporary rigid-atlas reconstruction with source artwork made as complete deformable regions. This is the visual-art proof before the bespoke Fox weighting pass.
+1.0.168 proved the six-piece deform-art path, but the source pieces came from an exploratory intermediate sheet. This pass replaces that with one clean, deliberately packed atlas cut directly from the already-approved charcoal Fox reference.
 
 ## What changed
 
-- Added six new transparent deform source images:
-  - `fox-deform-body.png`
-  - `fox-deform-tail.png`
-  - `fox-deform-front-near.png`
-  - `fox-deform-front-far.png`
-  - `fox-deform-rear-near.png`
-  - `fox-deform-rear-far.png`
-- The new source pieces were derived from a continuous generated Fox art pass and brought back to the approved charcoal/cream direction. The tail remains dark rather than using a bright white tip.
-- Anim Lab Deform now loads these dedicated pieces and fits them to the existing approved bind-space regions.
-- The topology itself is unchanged from 1.0.166: alpha-aware Body + Head grid plus twist-safe Tail/leg chain strips.
-- The rigid atlas remains an automatic fallback while the dedicated art is loading or if an image fails.
-- New art is versioned/preloaded for the offline PWA.
-- No rig, animation keys, movement settings, topology or saved authoring data are rewritten.
+- Added **`fox-deform-atlas-v1.png`**: a 2048 × 1024 transparent deform atlas built directly from `fox-reference-charcoal.png`.
+- The atlas contains six clearly separated regions: Body + Head, Tail, Front Near, Front Far, Rear Near and Rear Far.
+- Front/rear far limbs are derived from the same approved source and slightly darkened for depth rather than being independently regenerated artwork.
+- Near-leg roots use a soft overlap into the shoulder/hip so the next weighting pass can blend them into the body without exposing a hard rectangular cap.
+- `anim-lab-mesh.js` now loads **one atlas** and uses explicit source rectangles for all six meshes instead of loading six unrelated PNGs.
+- The M1.1 topology, twist-safe chain binding, 1.0.167 gesture-performance work, rig and animation clips are unchanged.
+- The rigid Fox atlas remains the loading/failure fallback.
+- Splash preload/service-worker caching now warms the single deform atlas and the preload cache name matches the current runtime cache.
 
-## Why this stage is separate from weighting
+## Why this is the cleaner foundation
 
-This drop isolates the **source-art** variable. If the joins still need improvement after the continuous pieces are in place, v1.0.169 can tune the Fox's shoulder/hip/body weighting without us wondering whether a visual problem came from the texture split or the weights.
+The deform art now comes from one approved character source, so colour, fur treatment, scale and silhouette cannot drift independently between six generated images. The atlas is also the format we ultimately want for a reusable skinned-character asset: one texture plus region/mesh metadata.
 
-## iPhone test
+## Next
 
-1. Apply over 1.0.167 and reload the PWA.
-2. Anim Lab → Fox → Walk → Deform.
-3. Compare Rigid ↔ Deform with Bones/Wireframe off first; judge the actual silhouette and joins.
-4. Play Walk and Run and watch neck/body, shoulder, hip and tail root.
-5. Turn Wireframe on and isolate each region to confirm the clean 1.0.166 topology is unchanged.
-6. Pinch/pan while zoomed in and confirm the 1.0.167 camera optimisation still feels good.
-7. Note any shoulder/hip areas that still look detached; those are the targets for the bespoke weighting pass next.
+The planned next pass is the bespoke Fox weighting pass: front shoulder into Front Body/Neck as appropriate, rear hip into Rear Body/Mid Root, plus tail-root and neck/body tuning. That remains deliberately separate so art problems and weighting problems can be judged independently.
 
-## Validation performed here
+## iPhone check
 
-- JavaScript syntax checks on changed JS.
-- HTML duplicate-ID check.
-- New PNG alpha/size validation.
-- Service-worker/preload references checked.
-- ZIP integrity checked.
-
-No claim is made that the final visual result has been validated on iPhone Safari/A2HS; that remains the acceptance test.
+1. Anim Lab → Fox → Deform.
+2. Check Idle/Walk/Run with Bones and Wireframe off first.
+3. Compare the charcoal appearance with `fox-reference-charcoal.png` / the Rigid view.
+4. Turn Wireframe on and isolate each region; geometry should be unchanged from 1.0.166.
+5. Pay particular attention to the shoulder and hip joins. They are expected to improve further in the bespoke weighting pass, but there should be no stray source-sheet artefacts or unrelated artwork in any region.

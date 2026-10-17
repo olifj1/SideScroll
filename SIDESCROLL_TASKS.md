@@ -2374,3 +2374,26 @@ On-device acceptance:
 - [ ] iPhone: compare Rigid ↔ Deform around neck, shoulder, hip and tail root for seam reduction.
 - [ ] iPhone: confirm pan/pinch performance from 1.0.167 is unchanged.
 - [ ] Identify the exact shoulder/hip weight corrections for the planned v1.0.169 bespoke Fox weighting pass.
+
+## v1.0.169 — Approved charcoal Fox deform atlas (Stage M1.3)
+
+Goal: replace the exploratory six-image M1.2 input with one clean atlas derived directly from the approved charcoal Fox, while keeping topology, rig and animation data fixed.
+
+Implemented:
+- [x] Build a single transparent 2048 × 1024 deform atlas from `fox-reference-charcoal.png`.
+- [x] Pack Body + Head, Tail, Front Near/Far and Rear Near/Far with clear non-overlapping source rectangles.
+- [x] Reuse the approved near-leg source for far limbs with a restrained depth/value adjustment rather than generating a different character design.
+- [x] Give shoulder/hip roots intentional overlap/falloff for the later bespoke weighting pass.
+- [x] Change Anim Lab mesh loading from six independent images to one atlas + region rectangles.
+- [x] Keep M1.1 mesh topology and chain binding unchanged.
+- [x] Keep rigid atlas fallback.
+- [x] Preload/cache the single deform atlas and align preload/runtime cache names.
+- [x] Do not rewrite rig, sparse clips or saved authoring data.
+
+On-device acceptance:
+- [ ] Confirm the deform character now reads as the approved charcoal Fox rather than the exploratory M1.2 source sheet.
+- [ ] Check for source-art artefacts/foreign fragments around every isolated region.
+- [ ] Check shoulder/hip attachment during Walk/Run and record the exact areas to tune in the bespoke weighting pass.
+- [ ] Confirm 1.0.167 pinch/pan performance remains intact.
+
+Next: bespoke Fox shoulder/hip/tail/neck weighting pass, then use the lessons from that pass to specify the generic weight-authoring workflow.
