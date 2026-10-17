@@ -1278,3 +1278,13 @@ Character skin topology must describe the visible character, not the rectangular
 For long narrow articulated regions such as limbs and tails, default topology should follow the anatomical bone chain as a subdivided strip. Cross-sections must preserve a stable left/right ordering as the chain bends; generic proximity weighting must not be allowed to pair non-adjacent bones in a way that flips or twists the strip. Body/torso regions may use a compact alpha-aware grid or contour topology.
 
 Wireframe diagnostics must remain readable on-phone: draw unique edges once and allow the author to isolate a single mesh region when overlap makes the full character difficult to inspect.
+
+### Dedicated deformable source-art rule (v1.0.168)
+
+Once deformation has been proven, character skin regions should use artwork authored as continuous deformable pieces rather than permanently recompositing the old rigid per-bone atlas.
+
+- Source art, topology, rig and animation are separate layers. Replacing source art must not rewrite the rest rig, mesh topology or animation keys.
+- Quadruped default region ownership remains Body + Head, independent Tail, and four complete leg/shoulder regions unless motion testing proves another split is necessary.
+- Shoulder/hip source pieces should overlap the body sufficiently for weighting to create an attached soft transition; do not cut the texture exactly on the joint pivot.
+- Dedicated art should load independently and may fall back to proven rigid-source reconstruction if unavailable, but fallback is recovery behaviour rather than the desired final look.
+- Art generation/processing must preserve transparent backgrounds, clean alpha and enough overlap for skinning. Do not bake diagnostic wireframes, labels or rig controls into production textures.

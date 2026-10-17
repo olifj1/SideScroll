@@ -164,3 +164,21 @@ M1.1 therefore keeps the same six-region hybrid skin layout while changing how t
 - diagnostic wireframe may isolate one region at a time.
 
 This does **not** yet define the final authoring representation. Stage M2 should preserve the principle that topology follows visible art and anatomy, but it may convert chain binding into explicit editable weights/vertices where that gives artists useful control. Do not build the weight editor around transparent atlas rectangles or non-adjacent automatic influences.
+
+### Stage M1.2 — dedicated deformable source art (v1.0.168)
+
+M1.1 proved that the cleaner chain/grid topology is readable and that the deformable approach is visually promising. M1.2 therefore stops rebuilding the skin from the rigid cutout atlas and gives the six deform regions their own continuous source art.
+
+- Body + Head, Tail, Front Near/Far and Rear Near/Far are independent transparent source images.
+- The source pieces are authored from a continuous side-profile Fox rather than assembled from one plane per bone.
+- Far limbs remain visually distinguishable from near limbs, but both use the same deformation model.
+- Dedicated source art is fitted to the already-approved bind-space region. Art replacement must not silently change rest-rig proportions or animation keys.
+- The old rigid atlas remains a loading/failure fallback inside Anim Lab so the comparison tool cannot disappear because one new image failed to load.
+- This stage deliberately does **not** add general weight-painting UI. The next bespoke Fox pass should tune shoulder/hip/body influence first, then use that experience to design the generic weighting workflow.
+
+Acceptance focus:
+
+- continuous regions should remove most of the visible rigid-atlas seams;
+- neck/body, shoulder/hip and tail-root joins should be judged during Walk/Run rather than from a static bind pose alone;
+- topology and source-art replacement should remain independent layers;
+- iPhone performance should remain comparable to M1.1 because topology/triangle count is unchanged.

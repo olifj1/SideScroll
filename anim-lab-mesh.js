@@ -9,43 +9,43 @@
     return;
   }
 
-  // Stage M1.1: keep the Stage M1 visual proof, but replace broad rectangular
-  // topology with alpha-tight geometry. Long appendages use chain-aligned strip
-  // meshes so their cross-sections remain ordered through large bends instead of
-  // allowing generic linear-blend vertices to cross and visually twist.
+  // Stage M1.2: keep the clean topology/twist-safe binding from M1.1, but feed it
+  // dedicated continuous source art designed for deformation rather than rebuilding
+  // each region from the old rigid cutout atlas. The old atlas remains a fallback
+  // while the new source images are loading or unavailable.
   const REGION_DEFS = [
     {
-      id:'tail', label:'Tail', order:0, topology:'chain',
+      id:'tail', label:'Tail', order:0, topology:'chain', artFile:'fox-deform-tail.png',
       parts:['tail_base','tail_mid','tail_tip'],
       subdivisions:3, scanHalfWidth:.115, maxCap:.070, widthPad:.0035,
       bones:[['tail0','tail1'],['tail1','tail2'],['tail2','tail3']]
     },
     {
-      id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain',
+      id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain', artFile:'fox-deform-rear-far.png',
       parts:['far_rear_upper','far_rear_lower_prox','far_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['rearFarRoot','rearFarKnee'],['rearFarKnee','rearFarHock'],['rearFarHock','rearFarFoot']]
     },
     {
-      id:'frontFar', label:'Front Far Leg', order:2, topology:'chain',
+      id:'frontFar', label:'Front Far Leg', order:2, topology:'chain', artFile:'fox-deform-front-far.png',
       parts:['far_front_upper','far_front_lower_prox','far_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['frontFarRoot','frontFarKnee'],['frontFarKnee','frontFarWrist'],['frontFarWrist','frontFarFoot']]
     },
     {
-      id:'bodyHead', label:'Body + Head', order:3, topology:'grid',
+      id:'bodyHead', label:'Body + Head', order:3, topology:'grid', artFile:'fox-deform-body.png',
       parts:['torso','head_neck'],
       grid:[9,5],
       bones:[['rearBody','midRoot'],['midRoot','frontBody'],['frontBody','neck'],['neck','head']]
     },
     {
-      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain',
+      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', artFile:'fox-deform-rear-near.png',
       parts:['near_rear_upper','near_rear_lower_prox','near_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['rearNearRoot','rearNearKnee'],['rearNearKnee','rearNearHock'],['rearNearHock','rearNearFoot']]
     },
     {
-      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain',
+      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', artFile:'fox-deform-front-near.png',
       parts:['near_front_upper','near_front_lower_prox','near_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['frontNearRoot','frontNearKnee'],['frontNearKnee','frontNearWrist'],['frontNearWrist','frontNearFoot']]
@@ -57,6 +57,9 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
+  const ART_VERSION = '1.0.168';
+  const artImages = new Map();
+  let artRevision = 0;
   let mode = 'mesh';
   let wireframe = false;
   let inspectIndex = 0;
@@ -73,7 +76,7 @@
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
     <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin Prototype</div>
-    <div class="animlab-setup-note">Stage M1.1 · alpha-tight topology + twist-safe limb strips. Editor-only; rig and animation keys stay untouched.</div>
+    <div class="animlab-setup-note">Stage M1.2 · dedicated deformable Fox source art on the proven clean topology. Editor-only; rig and animation keys stay untouched.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
@@ -88,6 +91,7 @@
   const modeButtons = [...section.querySelectorAll('[data-mesh-mode]')];
   const wireBtn = section.querySelector('#animlab-mesh-wire');
   const inspectBtn = section.querySelector('#animlab-mesh-inspect');
+  const setupNote = section.querySelector('.animlab-setup-note');
 
   function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
   function clone(value){ return JSON.parse(JSON.stringify(value)); }
@@ -97,6 +101,29 @@
   function unit(a,b){
     const x=b.x-a.x,y=b.y-a.y,l=Math.hypot(x,y)||1;
     return {x:x/l,y:y/l};
+  }
+
+
+  function loadDedicatedArt(){
+    for(const def of REGION_DEFS){
+      if(!def.artFile||artImages.has(def.id))continue;
+      const img=new Image();
+      img.decoding='async';
+      img.onload=()=>{
+        artImages.set(def.id,img);
+        artRevision++;
+        caches.clear();
+        core.redrawOnly?.();
+      };
+      img.onerror=()=>console.warn(`[Anim Lab Mesh] Dedicated art failed to load: ${def.artFile}`);
+      img.src=`${def.artFile}?v=${ART_VERSION}`;
+      artImages.set(def.id,img);
+    }
+  }
+
+  function dedicatedArtFor(def){
+    const img=artImages.get(def.id);
+    return img&&img.complete&&img.naturalWidth>0?img:null;
   }
 
   function neutralPose(){
@@ -439,16 +466,23 @@
     const rctx=raw.getContext('2d');
     rctx.clearRect(0,0,raw.width,raw.height);rctx.imageSmoothingEnabled=true;
     const rawView={scale,cx:PAD-bbox.minX*scale,groundY:PAD+bbox.maxY*scale,flipX:1};
-    for(const part of parts)drawPartToTexture(rctx,atlas,part,rawView);
+    const dedicated=dedicatedArtFor(def);
+    if(dedicated){
+      // Dedicated M1.2 pieces were authored as complete body/tail/limb regions.
+      // Fit each source to the already-approved bind-space region so artwork can
+      // improve independently without changing rig proportions or animation keys.
+      rctx.drawImage(dedicated,PAD,PAD,Math.max(1,raw.width-PAD*2),Math.max(1,raw.height-PAD*2));
+    }else{
+      // Safe fallback while images are loading/offline: rebuild from the rigid atlas
+      // exactly as M1.1 did, so Deform never disappears because one source failed.
+      for(const part of parts)drawPartToTexture(rctx,atlas,part,rawView);
+    }
 
-    // The old M1 wireframe exposed the full atlas planes, including transparent
-    // margins. Crop that away before topology is generated so the mesh describes
-    // visible art rather than the source rectangles that happened to contain it.
     const cropped=cropToOpaque(raw,rawView);
     const region=def.topology==='chain'
       ? buildChainRegion(def,cropped.texture,cropped.view,cropped.alpha,bindGeom)
       : buildGridRegion(def,cropped.texture,cropped.view,cropped.alpha,bindGeom);
-    return region?{...region,textureView:cropped.view}:null;
+    return region?{...region,textureView:cropped.view,artSource:dedicated?'dedicated':'fallback'}:null;
   }
 
   function rigKey(restRig){
@@ -456,7 +490,7 @@
   }
 
   function regionsFor(atlas,restRig){
-    const key=rigKey(restRig);
+    const key=`${artRevision}:${rigKey(restRig)}`;
     const cached=caches.get(key);
     if(cached?.atlas===atlas)return cached.regions;
     const regions=REGION_DEFS.map(def=>buildRegion(def,atlas,restRig)).filter(Boolean).sort((a,b)=>a.order-b.order);
@@ -568,6 +602,12 @@
     wireBtn.classList.toggle('active',wireframe);wireBtn.setAttribute('aria-pressed',String(wireframe));wireBtn.disabled=mode!=='mesh';
     inspectBtn.disabled=mode!=='mesh'||!wireframe;
     inspectBtn.textContent=`Inspect: ${INSPECT[inspectIndex]?.label||'All'}`;
+    if(setupNote){
+      const ready=REGION_DEFS.filter(def=>dedicatedArtFor(def)).length;
+      setupNote.textContent=ready===REGION_DEFS.length
+        ? 'Stage M1.2 · dedicated deformable Fox art loaded on the proven clean topology. Editor-only; rig and animation keys stay untouched.'
+        : `Stage M1.2 · loading dedicated deformable Fox art (${ready}/${REGION_DEFS.length}); rigid-atlas fallback remains active.`;
+    }
   }
 
   modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
@@ -577,6 +617,7 @@
   wireBtn.addEventListener('click',()=>{wireframe=!wireframe;updateUi();core.redrawOnly?.();});
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redrawOnly?.();});
 
+  loadDedicatedArt();
   core.registerArtRenderer('fox-deform-mesh',render);
   core.subscribe(state=>updateUi(state));
   updateUi();

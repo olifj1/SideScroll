@@ -2352,3 +2352,25 @@ On-device acceptance:
 - [ ] iPhone: extreme Paw Target poses remain usable without strip collapse becoming worse than the original rigid cutout.
 - [ ] iPhone: Deform mode remains smooth enough for the phone-first authoring workflow.
 - [ ] Compare Rigid ↔ Deform with wireframe off and decide whether to proceed to persistent topology/weight editing (Stage M2).
+
+## v1.0.168 — Dedicated deformable Fox source-art pass (Stage M1.2)
+
+Goal: prove the current six-region skin with artwork made for deformation instead of reconstructed rigid cutout planes, without changing topology, rig or animation data.
+
+Implemented in code/art:
+- [x] Add dedicated transparent Body + Head source art.
+- [x] Add dedicated transparent Tail source art with no bright white tail-tip requirement.
+- [x] Add complete Front Near/Far and Rear Near/Far leg/shoulder source pieces.
+- [x] Preserve near/far visual differentiation.
+- [x] Load the dedicated region art inside the existing deform renderer and fit it to the approved bind-space region.
+- [x] Keep the M1.1 alpha-tight body grid and twist-safe chain strips unchanged.
+- [x] Keep the rigid atlas as a safe loading/failure fallback.
+- [x] Version/cache the new source images for the offline PWA.
+- [x] Do not rewrite current rig, animation clips, topology or saved authoring data.
+
+On-device acceptance:
+- [ ] iPhone: Walk / Run with Deform should retain the stable M1.1 motion while showing cleaner continuous artwork.
+- [ ] iPhone: inspect Body + Head / Tail / all four legs with Wireframe and confirm topology remains compact/readable.
+- [ ] iPhone: compare Rigid ↔ Deform around neck, shoulder, hip and tail root for seam reduction.
+- [ ] iPhone: confirm pan/pinch performance from 1.0.167 is unchanged.
+- [ ] Identify the exact shoulder/hip weight corrections for the planned v1.0.169 bespoke Fox weighting pass.
