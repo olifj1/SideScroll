@@ -195,3 +195,7 @@ The exploratory six-image art pass established that dedicated deform source art 
 - The six loose M1.2 images are now legacy exploratory assets and are no longer the runtime deform source.
 
 The next pass should tune Fox-specific weights against this stable atlas before general weight-painting UI is designed.
+
+
+Update 1.0.171
+- Deform Fox body/head fit reduced and lowered slightly to better match the approved Fox Shape reference in Rig mode.

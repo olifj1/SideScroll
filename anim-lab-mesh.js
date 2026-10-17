@@ -18,37 +18,43 @@
       id:'tail', label:'Tail', order:0, topology:'chain', artRect:{x:16,y:536,w:630,h:404},
       parts:['tail_base','tail_mid','tail_tip'],
       subdivisions:3, scanHalfWidth:.115, maxCap:.070, widthPad:.0035,
-      bones:[['tail0','tail1'],['tail1','tail2'],['tail2','tail3']]
+      bones:[['tail0','tail1'],['tail1','tail2'],['tail2','tail3']],
+      attachBone:['rearBody','midRoot'], attachBlendDistance:.11, attachStrength:.2
     },
     {
       id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain', artRect:{x:1090,y:536,w:400,h:393},
       parts:['far_rear_upper','far_rear_lower_prox','far_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
-      bones:[['rearFarRoot','rearFarKnee'],['rearFarKnee','rearFarHock'],['rearFarHock','rearFarFoot']]
+      bones:[['rearFarRoot','rearFarKnee'],['rearFarKnee','rearFarHock'],['rearFarHock','rearFarFoot']],
+      attachBone:['rearBody','midRoot'], attachBlendDistance:.115, attachStrength:.32
     },
     {
       id:'frontFar', label:'Front Far Leg', order:2, topology:'chain', artRect:{x:1385,y:16,w:362,h:458},
       parts:['far_front_upper','far_front_lower_prox','far_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
-      bones:[['frontFarRoot','frontFarKnee'],['frontFarKnee','frontFarWrist'],['frontFarWrist','frontFarFoot']]
+      bones:[['frontFarRoot','frontFarKnee'],['frontFarKnee','frontFarWrist'],['frontFarWrist','frontFarFoot']],
+      attachBone:['midRoot','frontBody'], attachBlendDistance:.12, attachStrength:.4
     },
     {
       id:'bodyHead', label:'Body + Head', order:3, topology:'grid', artRect:{x:16,y:16,w:947,h:491},
       parts:['torso','head_neck'],
       grid:[9,5],
+      fit:{scaleX:.91,scaleY:.90,offsetYPct:.055},
       bones:[['rearBody','midRoot'],['midRoot','frontBody'],['frontBody','neck'],['neck','head']]
     },
     {
       id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', artRect:{x:670,y:536,w:400,h:389},
       parts:['near_rear_upper','near_rear_lower_prox','near_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
-      bones:[['rearNearRoot','rearNearKnee'],['rearNearKnee','rearNearHock'],['rearNearHock','rearNearFoot']]
+      bones:[['rearNearRoot','rearNearKnee'],['rearNearKnee','rearNearHock'],['rearNearHock','rearNearFoot']],
+      attachBone:['rearBody','midRoot'], attachBlendDistance:.115, attachStrength:.35
     },
     {
       id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', artRect:{x:1000,y:16,w:362,h:449},
       parts:['near_front_upper','near_front_lower_prox','near_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
-      bones:[['frontNearRoot','frontNearKnee'],['frontNearKnee','frontNearWrist'],['frontNearWrist','frontNearFoot']]
+      bones:[['frontNearRoot','frontNearKnee'],['frontNearKnee','frontNearWrist'],['frontNearWrist','frontNearFoot']],
+      attachBone:['midRoot','frontBody'], attachBlendDistance:.12, attachStrength:.44
     }
   ];
 
@@ -57,7 +63,7 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.169';
+  const ART_VERSION = '1.0.171';
   const DEFORM_ATLAS_FILE = 'fox-deform-atlas-v1.png';
   let deformAtlas = null;
   let artRevision = 0;
@@ -243,8 +249,8 @@
     const ranked=bones.map((bone,index)=>{
       const a=bindGeom[bone[0]],b=bindGeom[bone[1]];
       const d=pointSegmentDistance(point,a,b);
-      return {index,score:1/(d*d+0.00055)};
-    }).sort((a,b)=>b.score-a.score).slice(0,2);
+      return {index,score:1/Math.pow(d+0.022,1.7)};
+    }).sort((a,b)=>b.score-a.score).slice(0,3);
     const total=ranked.reduce((s,x)=>s+x.score,0)||1;
     return ranked.map(x=>({index:x.index,weight:x.score/total}));
   }
@@ -470,7 +476,25 @@
       // region keeps a known clean rectangle, then fits into the already-approved
       // bind-space region without changing rig proportions or animation keys.
       const r=dedicated.rect;
-      rctx.drawImage(dedicated.image,r.x,r.y,r.w,r.h,PAD,PAD,Math.max(1,raw.width-PAD*2),Math.max(1,raw.height-PAD*2));
+      const fit=def.fit||{};
+      const innerW=Math.max(1,raw.width-PAD*2), innerH=Math.max(1,raw.height-PAD*2);
+      const scaleX=fit.scaleX ?? fit.scale ?? 1;
+      const scaleY=fit.scaleY ?? fit.scale ?? 1;
+      const drawW=Math.max(1,innerW*scaleX), drawH=Math.max(1,innerH*scaleY);
+      const alignX=fit.alignX ?? .5, alignY=fit.alignY ?? .5;
+      const dx=PAD + (innerW-drawW)*alignX + innerW*(fit.offsetXPct||0) + (fit.offsetX||0);
+      const dy=PAD + (innerH-drawH)*alignY + innerH*(fit.offsetYPct||0) + (fit.offsetY||0);
+      rctx.drawImage(dedicated.image,r.x,r.y,r.w,r.h,dx,dy,drawW,drawH);
+      if(def.topology==='chain'){
+        const image=rctx.getImageData(0,0,raw.width,raw.height);
+        const data=image.data;
+        for(let i=0;i<data.length;i+=4){
+          const a=data[i+3];
+          if(a<70){ data[i+3]=0; continue; }
+          if(a<220)data[i+3]=255;
+        }
+        rctx.putImageData(image,0,0);
+      }
     }else{
       // Safe fallback while images are loading/offline: rebuild from the rigid atlas
       // exactly as M1.1 did, so Deform never disappears because one source failed.
@@ -526,7 +550,21 @@
     const points=region.chainIds.map(id=>poseGeom[id]).filter(Boolean);
     if(points.length!==region.chainIds.length)return vertex.bind;
     const metrics=chainMetrics(points),frame=chainFrame(points,metrics,vertex.chainS);
-    return {x:frame.center.x+frame.normal.x*vertex.offset,y:frame.center.y+frame.normal.y*vertex.offset};
+    let out={x:frame.center.x+frame.normal.x*vertex.offset,y:frame.center.y+frame.normal.y*vertex.offset};
+    const attach=region.attachBone;
+    if(attach&&region.bindGeom&&typeof region.attachBlendDistance==='number'&&region.attachBlendDistance>0){
+      const bindA=region.bindGeom[attach[0]], bindB=region.bindGeom[attach[1]];
+      const poseA=poseGeom[attach[0]], poseB=poseGeom[attach[1]];
+      if(bindA&&bindB&&poseA&&poseB){
+        const attachPos=mapByBone(vertex.bind,bindA,bindB,poseA,poseB);
+        const s=Math.max(0,vertex.chainS||0);
+        const rootBlend=1-clamp(s/region.attachBlendDistance,0,1);
+        const offsetBlend=1-clamp(Math.abs(vertex.offset)/0.085,0,1)*0.35;
+        const t=clamp((region.attachStrength||0.3)*rootBlend*(0.65+offsetBlend),0,0.85);
+        out=lerpPoint(out,attachPos,t);
+      }
+    }
+    return out;
   }
 
   function affineFromTriangles(s0,s1,s2,d0,d1,d2){

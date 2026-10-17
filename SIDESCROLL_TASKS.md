@@ -2397,3 +2397,8 @@ On-device acceptance:
 - [ ] Confirm 1.0.167 pinch/pan performance remains intact.
 
 Next: bespoke Fox shoulder/hip/tail/neck weighting pass, then use the lessons from that pass to specify the generic weight-authoring workflow.
+
+
+Update 1.0.171
+- Applied a live deform-art scale/alignment correction so the fox body sits closer to the approved reference image in Rig mode.
+- Still to do: expose weight tuning controls, shoulder weighting refinement, and any final rig-side paw/contact polish.
