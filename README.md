@@ -1,37 +1,36 @@
-SideScroll / Aureli
-SS-PATCH-1.0.171
+# SideScroll patch 1.0.173 — clean Fox deform atlas rebuild
 
-Patch type
-- changed-files patch for this drop
-- this one also re-bundles the key 1.0.170 deform-fox files because the previous link/share was unclear
+Apply this patch after 1.0.172. This ZIP contains only files changed/new for 1.0.173.
 
-What changed in 1.0.171
-- kept the deform fox atlas from 1.0.170
-- reduced the live fox body/head draw fit in deform mode
-- lowered the body/head placement slightly so live art lines up better with the approved Fox Shape reference in Rig mode
-- bumped the mesh script cache/version query so Safari reloads the updated fit
+## What changed
 
-Files in this patch
+- Added a completely rebuilt `fox-deform-atlas-v2.png` made only from the approved modular charcoal Fox sheet already produced in this chat.
+- No pixels from the old rough deform atlas are reused in atlas v2.
+- Body + head now come from the clean modular source, preserving the fuller snout and natural fur silhouette.
+- Tail now comes from the clean standalone tail source only; the stray leg/stump contamination is gone.
+- Front Near and Front Far are identical copies of the selected front leg (leg 2).
+- Rear Near and Rear Far are identical copies of the selected rear leg (leg 3).
+- Near/far copies are not darkened yet; that remains an optional later depth pass.
+- Removed the temporary chain alpha-hardening step so the new source's natural feathered fur alpha is retained.
+- Updated Anim Lab atlas rectangles for the new layout and bumped asset/script cache versions.
+- Updated splash/service-worker preload references from atlas v1 to atlas v2.
+
+## Files
+
 - README.md
-- SIDESCROLL_CHARACTER_AUTHORING.md
-- SIDESCROLL_TASKS.md
-- fox-deform-atlas-v1.png
+- fox-deform-atlas-v2.png
 - anim-lab-mesh.js
 - walk-lab.html
+- home.js
+- index.html
+- sw.js
 
-Install
-1. Start from your current SideScroll build.
-2. Copy these files into the project root and replace the existing files.
-3. Hard refresh / close and reopen the PWA if Safari appears cached.
+## Suggested check
 
-Suggested iPhone checks
-1. Open Anim Lab.
-2. Character: Fox.
-3. Mode: Rig.
-4. Show Fox Shape static reference.
-5. Confirm the live fox art sits closer to the approved reference and no longer appears oversized relative to it.
-6. Toggle Deform / Rigid and confirm the updated deform fit is visible.
+1. Anim Lab → Fox → Deform.
+2. Check Rig mode against Fox Shape reference: body/head should now be the clean modular source with the fuller snout.
+3. Check the tail: it should be a clean standalone tail with no leg or hard old crop inside it.
+4. Check all four legs: front pair should match each other exactly; rear pair should match each other exactly.
+5. Run Walk and Run and judge registration/weights separately from art quality.
 
-Notes
-- This does not retune paw placement or authored rig proportions.
-- Smaller contact tweaks are still expected to be done in the rig/animation authoring pass.
+No rig keys or animation clips are changed by this patch.

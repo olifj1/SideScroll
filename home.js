@@ -49,7 +49,7 @@
     'walklab-character-source.png',
     'fox-rig-atlas-v3.png',
     'fox-reference-charcoal.png',
-    'fox-deform-atlas-v1.png',
+    'fox-deform-atlas-v2.png',
     'fox-character-source-v1.png',
     'puzzle-log-a.png',
     'puzzle-log-b.png',

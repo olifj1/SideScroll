@@ -15,42 +15,42 @@
   // The old rigid atlas remains a fallback while the deform atlas is loading/unavailable.
   const REGION_DEFS = [
     {
-      id:'tail', label:'Tail', order:0, topology:'chain', artRect:{x:16,y:536,w:630,h:404},
+      id:'tail', label:'Tail', order:0, topology:'chain', artRect:{x:16,y:590,w:655,h:366},
       parts:['tail_base','tail_mid','tail_tip'],
       subdivisions:3, scanHalfWidth:.115, maxCap:.070, widthPad:.0035,
       bones:[['tail0','tail1'],['tail1','tail2'],['tail2','tail3']],
       attachBone:['rearBody','midRoot'], attachBlendDistance:.11, attachStrength:.2
     },
     {
-      id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain', artRect:{x:1090,y:536,w:400,h:393},
+      id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain', artRect:{x:1280,y:470,w:278,h:394},
       parts:['far_rear_upper','far_rear_lower_prox','far_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['rearFarRoot','rearFarKnee'],['rearFarKnee','rearFarHock'],['rearFarHock','rearFarFoot']],
       attachBone:['rearBody','midRoot'], attachBlendDistance:.115, attachStrength:.32
     },
     {
-      id:'frontFar', label:'Front Far Leg', order:2, topology:'chain', artRect:{x:1385,y:16,w:362,h:458},
+      id:'frontFar', label:'Front Far Leg', order:2, topology:'chain', artRect:{x:1240,y:16,w:245,h:389},
       parts:['far_front_upper','far_front_lower_prox','far_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['frontFarRoot','frontFarKnee'],['frontFarKnee','frontFarWrist'],['frontFarWrist','frontFarFoot']],
       attachBone:['midRoot','frontBody'], attachBlendDistance:.12, attachStrength:.4
     },
     {
-      id:'bodyHead', label:'Body + Head', order:3, topology:'grid', artRect:{x:16,y:16,w:947,h:491},
+      id:'bodyHead', label:'Body + Head', order:3, topology:'grid', artRect:{x:16,y:16,w:904,h:555},
       parts:['torso','head_neck'],
       grid:[9,5],
       fit:{scaleX:.91,scaleY:.90,offsetYPct:.055},
       bones:[['rearBody','midRoot'],['midRoot','frontBody'],['frontBody','neck'],['neck','head']]
     },
     {
-      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', artRect:{x:670,y:536,w:400,h:389},
+      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', artRect:{x:960,y:470,w:278,h:394},
       parts:['near_rear_upper','near_rear_lower_prox','near_rear_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['rearNearRoot','rearNearKnee'],['rearNearKnee','rearNearHock'],['rearNearHock','rearNearFoot']],
       attachBone:['rearBody','midRoot'], attachBlendDistance:.115, attachStrength:.35
     },
     {
-      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', artRect:{x:1000,y:16,w:362,h:449},
+      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', artRect:{x:960,y:16,w:245,h:389},
       parts:['near_front_upper','near_front_lower_prox','near_front_lower_dist'],
       subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
       bones:[['frontNearRoot','frontNearKnee'],['frontNearKnee','frontNearWrist'],['frontNearWrist','frontNearFoot']],
@@ -63,8 +63,8 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.171';
-  const DEFORM_ATLAS_FILE = 'fox-deform-atlas-v1.png';
+  const ART_VERSION = '1.0.173';
+  const DEFORM_ATLAS_FILE = 'fox-deform-atlas-v2.png';
   let deformAtlas = null;
   let artRevision = 0;
   let mode = 'mesh';
@@ -83,7 +83,7 @@
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
     <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin Prototype</div>
-    <div class="animlab-setup-note">Stage M1.3 · approved charcoal Fox deform atlas on the proven clean topology. Editor-only; rig and animation keys stay untouched.</div>
+    <div class="animlab-setup-note">Stage M1.3 · fully rebuilt clean charcoal Fox deform atlas: new body + tail from the approved modular sheet, matched copied front/rear legs. Editor-only; rig and animation keys stay untouched.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
@@ -485,16 +485,6 @@
       const dx=PAD + (innerW-drawW)*alignX + innerW*(fit.offsetXPct||0) + (fit.offsetX||0);
       const dy=PAD + (innerH-drawH)*alignY + innerH*(fit.offsetYPct||0) + (fit.offsetY||0);
       rctx.drawImage(dedicated.image,r.x,r.y,r.w,r.h,dx,dy,drawW,drawH);
-      if(def.topology==='chain'){
-        const image=rctx.getImageData(0,0,raw.width,raw.height);
-        const data=image.data;
-        for(let i=0;i<data.length;i+=4){
-          const a=data[i+3];
-          if(a<70){ data[i+3]=0; continue; }
-          if(a<220)data[i+3]=255;
-        }
-        rctx.putImageData(image,0,0);
-      }
     }else{
       // Safe fallback while images are loading/offline: rebuild from the rigid atlas
       // exactly as M1.1 did, so Deform never disappears because one source failed.
@@ -642,8 +632,8 @@
     if(setupNote){
       const ready=!!dedicatedArtFor(REGION_DEFS[0]);
       setupNote.textContent=ready
-        ? 'Stage M1.3 · clean deform atlas built from the approved charcoal Fox is loaded. Editor-only; rig and animation keys stay untouched.'
-        : 'Stage M1.3 · loading approved charcoal Fox deform atlas; rigid-atlas fallback remains active.';
+        ? 'Stage M1.3 · clean deform atlas v2 rebuilt entirely from the approved modular charcoal source is loaded. Editor-only; rig and animation keys stay untouched.'
+        : 'Stage M1.3 · loading clean charcoal Fox deform atlas v2; rigid-atlas fallback remains active.';
     }
   }
 
