@@ -177,6 +177,38 @@
     ikBendSides:Object.freeze({frontNear:1,frontFar:1,rearNear:-1,rearFar:-1})
   });
 
+  // Generic bind-art layout descriptor consumed by Anim Lab's global Part Layout
+  // tool. Other rig families can opt into the same workflow by exposing the same
+  // ART_LAYOUT_DESIGNER contract; the editor itself does not special-case Fox.
+  const ART_LAYOUT_DESIGNER = (() => {
+    const source = REFERENCE_BIND?.source;
+    const planes = REFERENCE_BIND?.planes;
+    const joints = REFERENCE_BIND?.rig?.joints;
+    if (!source || !planes || !joints) return null;
+    const makePart = (id,label,plane,pivotJoint,order) => {
+      const meta=planes[plane],pivot=joints[pivotJoint];
+      if(!meta||!pivot)return null;
+      return Object.freeze({
+        id,label,plane,pivotJoint,order,
+        sourceRect:Object.freeze({x:Number(meta.sourceX)||0,y:Number(meta.sourceY)||0,width:Number(meta.width)||0,height:Number(meta.height)||0}),
+        pivot:Object.freeze({x:Number(pivot.x)||0,y:Number(pivot.y)||0})
+      });
+    };
+    const parts=[
+      makePart('tail','Tail','tail','tailRoot',0),
+      makePart('bodyHead','Body + Head','bodyHead','midRoot',1),
+      makePart('rearNear','Rear Near Leg','rearNear','rearNearSocket',2),
+      makePart('frontNear','Front Near Leg','frontNear','frontNearSocket',3)
+    ].filter(Boolean);
+    return Object.freeze({
+      schema:'animlab.art-layout-designer.v1',
+      family:'quadruped',
+      referenceSource:'foxShape',
+      source:Object.freeze({...source}),
+      parts:Object.freeze(parts)
+    });
+  })();
+
   function normalizedRestRig(value = null) {
     const raw = value?.joints && typeof value.joints === 'object' ? value.joints : {};
     const joints = {};
@@ -1214,7 +1246,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.174',DEG,TAU,BODY,REST,LIMBS,ATLAS,REFERENCE_BIND,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.175',DEG,TAU,BODY,REST,LIMBS,ATLAS,REFERENCE_BIND,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y

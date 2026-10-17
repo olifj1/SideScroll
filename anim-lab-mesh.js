@@ -49,11 +49,14 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.174';
+  const ART_VERSION = '1.0.175';
   const planeImages = new Map();
+  const referenceImage = new Image();
+  const bindProofCache = new Map();
   let artRevision = 0;
   let mode = 'mesh';
   let bindProof = true;
+  let difference = false;
   let wireframe = false;
   let inspectIndex = 0;
   let lastFamily = null;
@@ -68,14 +71,15 @@
   section.id = 'animlab-mesh-preview-section';
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
-    <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin Prototype</div>
-    <div class="animlab-setup-note">Stage M1.4 · reference-first bind proof. Visible planes are exact source pixels; no generated/redrawn art.</div>
+    <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin / Mesh</div>
+    <div class="animlab-setup-note">Reference-first bind skin. Bind Proof removes animation and shows the saved bind-art layout; Deform applies the same layout through the mesh.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
     </div>
     <div class="animlab-view-grid">
       <button type="button" id="animlab-bind-proof" aria-pressed="true">Bind Proof: On</button>
+      <button type="button" id="animlab-bind-difference" aria-pressed="false">Difference: Off</button>
       <button type="button" id="animlab-mesh-wire" aria-pressed="false">Mesh Wireframe</button>
       <button type="button" id="animlab-mesh-inspect">Inspect: All</button>
     </div>
@@ -84,6 +88,7 @@
 
   const modeButtons = [...section.querySelectorAll('[data-mesh-mode]')];
   const bindProofBtn = section.querySelector('#animlab-bind-proof');
+  const differenceBtn = section.querySelector('#animlab-bind-difference');
   const wireBtn = section.querySelector('#animlab-mesh-wire');
   const inspectBtn = section.querySelector('#animlab-mesh-inspect');
   const setupNote = section.querySelector('.animlab-setup-note');
@@ -106,10 +111,17 @@
       if(!meta?.file||planeImages.has(def.plane))continue;
       const img=new Image();
       img.decoding='async';
-      img.onload=()=>{artRevision++;caches.clear();core.redrawOnly?.();};
+      img.onload=()=>{artRevision++;caches.clear();bindProofCache.clear();core.redrawOnly?.();};
       img.onerror=()=>console.warn(`[Anim Lab Mesh] Reference plane failed to load: ${meta.file}`);
       img.src=`${meta.file}?v=${ART_VERSION}`;
       planeImages.set(def.plane,img);
+    }
+    const sourceFile=REFERENCE_BIND?.source?.file;
+    if(sourceFile&&!referenceImage.src){
+      referenceImage.decoding='async';
+      referenceImage.onload=()=>{artRevision++;bindProofCache.clear();core.redrawOnly?.();};
+      referenceImage.onerror=()=>console.warn(`[Anim Lab Mesh] Reference source failed to load: ${sourceFile}`);
+      referenceImage.src=`${sourceFile}?v=${ART_VERSION}`;
     }
   }
 
@@ -134,13 +146,33 @@
 
   const BIND_POSE = neutralPose();
 
+  function layoutTransformFor(artLayout,id){
+    const raw=artLayout?.parts?.[id]||{};
+    return {x:Number(raw.x)||0,y:Number(raw.y)||0,rotation:Number(raw.rotation)||0,scale:Number(raw.scale)||1};
+  }
+  function layoutPartDescriptor(id){return FoxRig.ART_LAYOUT_DESIGNER?.parts?.find(part=>part.id===id)||null;}
+  function applyLayoutPoint(point,id,artLayout){
+    const part=layoutPartDescriptor(id);if(!part)return point;
+    const tr=layoutTransformFor(artLayout,id),pivot=part.pivot||{x:0,y:0};
+    const dx=point.x-pivot.x,dy=point.y-pivot.y,c=Math.cos(tr.rotation),sn=Math.sin(tr.rotation),sc=tr.scale||1;
+    return {x:pivot.x+tr.x+(dx*c-dy*sn)*sc,y:pivot.y+tr.y+(dx*sn+dy*c)*sc};
+  }
+  function inverseLayoutPoint(point,id,artLayout){
+    const part=layoutPartDescriptor(id);if(!part)return point;
+    const tr=layoutTransformFor(artLayout,id),pivot=part.pivot||{x:0,y:0},sc=Math.max(.0001,tr.scale||1);
+    const dx=point.x-pivot.x-tr.x,dy=point.y-pivot.y-tr.y,c=Math.cos(-tr.rotation),sn=Math.sin(-tr.rotation);
+    return {x:pivot.x+(dx*c-dy*sn)/sc,y:pivot.y+(dx*sn+dy*c)/sc};
+  }
+
   function projectLocal(pt,sv){
-    return {x:sv.cx+pt.x*sv.scale*(sv.flipX||1), y:sv.groundY-pt.y*sv.scale};
+    const q=sv.layoutId?inverseLayoutPoint(pt,sv.layoutId,sv.artLayout):pt;
+    return {x:sv.cx+q.x*sv.scale*(sv.flipX||1), y:sv.groundY-q.y*sv.scale};
   }
 
   function unprojectTexture(pt,sv){
     const flip=sv.flipX||1;
-    return {x:(pt.x-sv.cx)/(sv.scale*flip),y:(sv.groundY-pt.y)/sv.scale};
+    const q={x:(pt.x-sv.cx)/(sv.scale*flip),y:(sv.groundY-pt.y)/sv.scale};
+    return sv.layoutId?applyLayoutPoint(q,sv.layoutId,sv.artLayout):q;
   }
 
   function partTransform(rect,part,sv){
@@ -449,14 +481,14 @@
     return {...def,texture,vertices,triangles,edges:makeEdges(triangles),bindGeom,binding:'weights'};
   }
 
-  function sourcePlaneView(meta){
+  function sourcePlaneView(meta,layoutId,artLayout){
     const source=REFERENCE_BIND?.source;
     if(!source||!meta)return null;
     return {
       scale:Number(source.pixelsPerLocal)||1,
       cx:(Number(source.originX)||0)-(Number(meta.sourceX)||0),
       groundY:(Number(source.groundY)||0)-(Number(meta.sourceY)||0),
-      flipX:1
+      flipX:1,layoutId,artLayout
     };
   }
 
@@ -470,12 +502,12 @@
     return canvas;
   }
 
-  function buildRegion(def,atlas,restRig){
+  function buildRegion(def,atlas,restRig,artLayout){
     const bindGeom=FoxRig.geometry(BIND_POSE,restRig);
     const dedicated=dedicatedArtFor(def);
     if(dedicated){
       const texture=textureFromPlane(dedicated.image);
-      const view=sourcePlaneView(dedicated.meta);
+      const view=sourcePlaneView(dedicated.meta,def.plane,artLayout);
       const alpha=readAlpha(texture);
       const region=def.topology==='chain'
         ? buildChainRegion(def,texture,view,alpha,bindGeom)
@@ -510,11 +542,12 @@
     try{return JSON.stringify(restRig?.joints||restRig||{});}catch(_){return'fox';}
   }
 
-  function regionsFor(atlas,restRig){
-    const key=`${artRevision}:${rigKey(restRig)}`;
+  function regionsFor(atlas,restRig,artLayout){
+    let layoutKey='';try{layoutKey=JSON.stringify(artLayout?.parts||{});}catch(_){}
+    const key=`${artRevision}:${rigKey(restRig)}:${layoutKey}`;
     const cached=caches.get(key);
     if(cached?.atlas===atlas)return cached.regions;
-    const regions=REGION_DEFS.map(def=>buildRegion(def,atlas,restRig)).filter(Boolean).sort((a,b)=>a.order-b.order);
+    const regions=REGION_DEFS.map(def=>buildRegion(def,atlas,restRig,artLayout)).filter(Boolean).sort((a,b)=>a.order-b.order);
     caches.clear();
     caches.set(key,{atlas,regions});
     return regions;
@@ -614,27 +647,59 @@
     renderWireframe(ctx,region,dst,args);
   }
 
+  function referenceReady(){return !!(referenceImage.complete&&referenceImage.naturalWidth>0);}
+
+  function drawPlaneNative(ctx,def,artLayout){
+    const art=dedicatedArtFor(def),source=REFERENCE_BIND?.source,part=layoutPartDescriptor(def.plane);
+    if(!art||!source)return;
+    const ppu=Number(source.pixelsPerLocal)||1,tr=layoutTransformFor(artLayout,def.plane);
+    const pivot=part?.pivot||{x:0,y:0};
+    const pivotX=(Number(source.originX)||0)+pivot.x*ppu;
+    const pivotY=(Number(source.groundY)||0)-pivot.y*ppu;
+    ctx.save();
+    ctx.translate(pivotX+tr.x*ppu,pivotY-tr.y*ppu);
+    ctx.rotate(-tr.rotation);
+    ctx.scale(tr.scale||1,tr.scale||1);
+    ctx.translate(-pivotX,-pivotY);
+    ctx.drawImage(art.image,Number(art.meta.sourceX)||0,Number(art.meta.sourceY)||0);
+    ctx.restore();
+  }
+
+  function bindCanvas(artLayout){
+    const source=REFERENCE_BIND?.source;if(!source)return null;
+    let layoutKey='';try{layoutKey=JSON.stringify(artLayout?.parts||{});}catch(_){}
+    const key=`${artRevision}:${difference?'diff':'proof'}:${layoutKey}`;
+    const cached=bindProofCache.get(key);if(cached)return cached;
+    const width=Math.max(1,Number(source.width)||1),height=Math.max(1,Number(source.height)||1);
+    const recon=document.createElement('canvas');recon.width=width;recon.height=height;
+    const rctx=recon.getContext('2d',{willReadFrequently:difference});rctx.clearRect(0,0,width,height);rctx.imageSmoothingEnabled=true;
+    for(const def of [...REGION_DEFS].sort((a,b)=>a.order-b.order))drawPlaneNative(rctx,def,artLayout);
+    if(!difference||!referenceReady()){
+      bindProofCache.clear();bindProofCache.set(key,recon);return recon;
+    }
+    const ref=document.createElement('canvas');ref.width=width;ref.height=height;
+    const refCtx=ref.getContext('2d',{willReadFrequently:true});refCtx.clearRect(0,0,width,height);refCtx.drawImage(referenceImage,0,0,width,height);
+    try{
+      const a=rctx.getImageData(0,0,width,height),b=refCtx.getImageData(0,0,width,height),out=rctx.createImageData(width,height);
+      for(let i=0;i<a.data.length;i+=4){
+        const aa=a.data[i+3]/255,ba=b.data[i+3]/255;
+        const dr=Math.abs(a.data[i]*aa-b.data[i]*ba),dg=Math.abs(a.data[i+1]*aa-b.data[i+1]*ba),db=Math.abs(a.data[i+2]*aa-b.data[i+2]*ba),da=Math.abs(a.data[i+3]-b.data[i+3]);
+        const d=Math.max(dr,dg,db,da);
+        out.data[i]=255;out.data[i+1]=255;out.data[i+2]=255;out.data[i+3]=clamp(Math.round(d*3),0,255);
+      }
+      rctx.clearRect(0,0,width,height);rctx.putImageData(out,0,0);
+    }catch(err){console.warn('[Anim Lab Mesh] Difference readback unavailable.',err);}
+    bindProofCache.clear();bindProofCache.set(key,recon);return recon;
+  }
+
   function drawExactBind(args){
     if(!REFERENCE_BIND?.source||!allReferencePlanesReady())return false;
-    const source=REFERENCE_BIND.source;
-    const ppu=Number(source.pixelsPerLocal)||1;
-    const flip=args.view.flipX||1;
-    const pixelScale=args.view.scale/ppu;
-    const ctx=args.ctx;
-    ctx.save();
-    ctx.imageSmoothingEnabled=true;
-    ctx.globalAlpha*=args.alpha??1;
-    for(const def of [...REGION_DEFS].sort((a,b)=>a.order-b.order)){
-      const art=dedicatedArtFor(def);if(!art)continue;
-      const meta=art.meta;
-      const baseX=args.view.cx+((Number(meta.sourceX)-Number(source.originX))/ppu)*args.view.scale*flip;
-      const baseY=args.view.groundY-((Number(source.groundY)-Number(meta.sourceY))/ppu)*args.view.scale;
-      ctx.save();
-      ctx.transform(pixelScale*flip,0,0,pixelScale,baseX,baseY);
-      ctx.drawImage(art.image,0,0);
-      ctx.restore();
-    }
-    ctx.restore();
+    const source=REFERENCE_BIND.source,proof=bindCanvas(args.setup?.artLayout);if(!proof)return false;
+    const ppu=Number(source.pixelsPerLocal)||1,flip=args.view.flipX||1,pixelScale=args.view.scale/ppu;
+    const x=args.view.cx+((0-(Number(source.originX)||0))/ppu)*args.view.scale*flip;
+    const y=args.view.groundY-(((Number(source.groundY)||0)-0)/ppu)*args.view.scale;
+    const ctx=args.ctx;ctx.save();ctx.imageSmoothingEnabled=true;ctx.globalAlpha*=args.alpha??1;
+    ctx.transform(pixelScale*flip,0,0,pixelScale,x,y);ctx.drawImage(proof,0,0);ctx.restore();
     return true;
   }
 
@@ -643,7 +708,7 @@
     if(bindProof&&drawExactBind(args))return true;
     const restRig=args.restRig||args.setup?.rig||FoxRig.loadRestRig?.()||FoxRig.DEFAULT_REST_RIG;
     const poseGeom=FoxRig.geometry(args.pose,restRig);
-    const regions=regionsFor(args.atlas,restRig);
+    const regions=regionsFor(args.atlas,restRig,args.setup?.artLayout);
     args.ctx.save();
     args.ctx.imageSmoothingEnabled=true;
     for(const region of regions)renderRegion(args,region,poseGeom);
@@ -662,6 +727,8 @@
     bindProofBtn.classList.toggle('active',bindProof);bindProofBtn.setAttribute('aria-pressed',String(bindProof));
     bindProofBtn.textContent=`Bind Proof: ${bindProof?'On':'Off'}`;
     bindProofBtn.disabled=mode!=='mesh';
+    differenceBtn.classList.toggle('active',difference);differenceBtn.setAttribute('aria-pressed',String(difference));
+    differenceBtn.textContent=`Difference: ${difference?'On':'Off'}`;differenceBtn.disabled=mode!=='mesh'||!bindProof||!referenceReady();
     wireBtn.classList.toggle('active',wireframe);wireBtn.setAttribute('aria-pressed',String(wireframe));wireBtn.disabled=mode!=='mesh'||bindProof;
     inspectBtn.disabled=mode!=='mesh'||bindProof||!wireframe;
     inspectBtn.textContent=`Inspect: ${INSPECT[inspectIndex]?.label||'All'}`;
@@ -669,21 +736,39 @@
       const ready=allReferencePlanesReady();
       const proof=REFERENCE_BIND?.proof;
       setupNote.textContent=ready
-        ? `Stage M1.4 · exact reference cut planes loaded. Bind reconstruction proof: ${proof?.changedVisiblePixels??0} changed visible pixels. Rig is fitted in reference-pixel space. Far limbs/hidden fill intentionally deferred.`
-        : 'Stage M1.4 · loading exact reference cut planes; rigid fallback remains available.';
+        ? `Reference bind planes loaded. Original identity layout proof: ${proof?.changedVisiblePixels??0} changed visible pixels. Part Layout can now reposition / rotate / uniformly scale bind art before mesh weighting. Far limbs and hidden fill remain deferred.`
+        : 'Loading reference bind planes; rigid fallback remains available.';
     }
+  }
+
+  function setBindProof(value){
+    bindProof=!!value;if(!bindProof)difference=false;bindProofCache.clear();updateUi();core.redraw?.();return bindProof;
+  }
+  function setDifference(value){
+    difference=!!value;if(difference){bindProof=true;if(core.getOverlay?.('reference'))core.setOverlay?.('reference',false);}
+    bindProofCache.clear();updateUi();core.redraw?.();return difference;
   }
 
   modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
     mode=btn.dataset.meshMode==='rigid'?'rigid':'mesh';
-    updateUi();core.redrawOnly?.();
+    if(mode!=='mesh'){bindProof=false;difference=false;}
+    updateUi();core.redraw?.();
   }));
-  bindProofBtn.addEventListener('click',()=>{bindProof=!bindProof;updateUi();core.redrawOnly?.();});
-  wireBtn.addEventListener('click',()=>{wireframe=!wireframe;updateUi();core.redrawOnly?.();});
-  inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redrawOnly?.();});
+  bindProofBtn.addEventListener('click',()=>setBindProof(!bindProof));
+  differenceBtn.addEventListener('click',()=>setDifference(!difference));
+  wireBtn.addEventListener('click',()=>{wireframe=!wireframe;updateUi();core.redraw?.();});
+  inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redraw?.();});
+
+  window.AnimLabSkinSurface=Object.freeze({
+    version:'1.0.175',
+    getBindProof:()=>bindProof,
+    setBindProof,
+    getDifference:()=>difference,
+    setDifference
+  });
 
   loadDedicatedArt();
-  core.registerArtRenderer('fox-deform-mesh',render);
+  core.registerArtRenderer('reference-bind-deform-mesh',render);
   core.subscribe(state=>updateUi(state));
   updateUi();
 })();

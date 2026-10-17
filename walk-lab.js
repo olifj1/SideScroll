@@ -48,6 +48,7 @@
   const SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
   const LEGACY_BACKUP_KEY = 'sidescroll.animlab.legacy.samples.backup.v1';
   const SPARSE_SCHEMA = 'animlab.sparse.v1';
+  const ART_LAYOUT_SCHEMA = 'animlab.art-layout.v1';
   const SETUP_SCALE_MIN = 0.55;
   const SETUP_SCALE_MAX = 2.25;
   const FOX_WALK_SPEED_MIN = 0.45;
@@ -245,6 +246,28 @@
     }
   };
 
+  function artLayoutDescriptor(adapter = currentAdapter?.()) {
+    return adapter?.rig?.ART_LAYOUT_DESIGNER || null;
+  }
+
+  function normaliseArtLayout(adapter, value = null) {
+    const desc=artLayoutDescriptor(adapter);
+    if(!desc?.parts?.length)return null;
+    const raw=value?.parts&&typeof value.parts==='object'?value.parts:{};
+    const parts={};
+    for(const part of desc.parts){
+      const candidate=raw[part.id]||{};
+      const x=Number(candidate.x),y=Number(candidate.y),rotation=Number(candidate.rotation),scale=Number(candidate.scale);
+      parts[part.id]={
+        x:clamp(Number.isFinite(x)?x:0,-1.5,1.5),
+        y:clamp(Number.isFinite(y)?y:0,-1.0,1.0),
+        rotation:clamp(Number.isFinite(rotation)?rotation:0,-Math.PI,Math.PI),
+        scale:clamp(Number.isFinite(scale)?scale:1,.25,3)
+      };
+    }
+    return {schema:ART_LAYOUT_SCHEMA,parts};
+  }
+
   function loadSetupMap() {
     try { return JSON.parse(localStorage.getItem(SETUP_KEY) || '{}') || {}; }
     catch (_) { return {}; }
@@ -276,6 +299,7 @@
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
     if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(adapter.loadRestRig());
+    if (artLayoutDescriptor(adapter)) setup.artLayout = normaliseArtLayout(adapter, foxSetupCurrent ? saved.artLayout : null);
     return setup;
   }
 
@@ -501,6 +525,7 @@
       characterId:charId,
       clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
       mode:saved?.mode === 'setup' ? 'setup' : saved?.mode === 'play' ? 'play' : 'animate',
+      setupTool:saved?.setupTool === 'art' ? 'art' : 'rig',
       frame:Number.isInteger(saved?.frame) ? clamp(saved.frame,0,15) : 0
     };
   }
@@ -508,6 +533,7 @@
   const selection = loadEditorSelection();
   if (!clipNamesForFamily(characterById(selection.characterId).family).includes(selection.clip)) selection.clip = 'walk';
   if (selection.mode === 'play' && characterById(selection.characterId).family !== 'fox') selection.mode = 'animate';
+  if (selection.setupTool === 'art' && !artLayoutDescriptor(adapters[characterById(selection.characterId).family])) selection.setupTool = 'rig';
   let setupDraft = defaultSetupFor(selection.characterId);
   let checkpoint = null;
 
@@ -648,6 +674,7 @@
         setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85, setupDraft.walkSpeed + .20), FOX_RUN_SPEED_MIN, FOX_RUN_SPEED_MAX);
       }
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
+      if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
       return;
     }
     if (scope === 'sparseClip' || scope === 'clip') {
@@ -774,14 +801,14 @@
       if (saveSetup) {
         setupDraft.collider = adapter.saveCollider(setupDraft.collider);
         if (adapter.saveRestRig && setupDraft.rig) setupDraft.rig = adapter.saveRestRig(setupDraft.rig);
-        setupMap[character.id] = character.family === 'fox'
-          ? {
-              scale:setupDraft.scale,
-              walkSpeed:clamp(Number(setupDraft.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
-              runSpeed:clamp(Math.max(Number(setupDraft.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,(Number(setupDraft.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15)+.20),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
-              baselineId:FoxRig.AUTHORING_BASELINE_ID || null
-            }
-          : {scale:setupDraft.scale};
+        const storedSetup={scale:setupDraft.scale};
+        if (character.family === 'fox') {
+          storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX);
+          storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,storedSetup.walkSpeed+.20),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX);
+          storedSetup.baselineId=FoxRig.AUTHORING_BASELINE_ID || null;
+        }
+        if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
+        setupMap[character.id]=storedSetup;
         localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
         if (character.family === 'fox') for (const clipName of FOX_CLIP_NAMES) syncCompiledClip('fox',clipName);
       }
@@ -862,6 +889,7 @@
       selection.characterId = id;
       if (!clipNamesForFamily(characterById(id).family).includes(selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
+      if (selection.setupTool === 'art' && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
       selection.frame = 0; playPhase = 0; playing = false;
       fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
@@ -1083,15 +1111,26 @@
 
     if (settings.source === 'foxShape') {
       if (foxShapeReference.complete && foxShapeReference.naturalWidth) {
-        // The trimmed source is a neutral side-profile reference. Its default
-        // width is mapped to the legacy Fox head-to-tail local span, then the
-        // author can align it non-destructively with Scale / X / Y.
-        const baseLocalWidth = 0.72;
-        const width = baseLocalWidth * refView.scale;
-        const height = width * (foxShapeReference.naturalHeight / foxShapeReference.naturalWidth);
-        const x = refView.cx - width * 0.5;
-        const y = refView.groundY - height;
-        ctx.drawImage(foxShapeReference,x,y,width,height);
+        // Reference-aware rigs can define an exact source-pixel bind mapping.
+        // This makes the static reference and bind-art reconstruction share the
+        // same origin / ground / pixels-per-local transform instead of relying
+        // on an approximate centred width. Future character rigs can expose the
+        // same descriptor without changing the editor.
+        const refAdapter=currentAdapter();
+        const source=refAdapter?.rig?.ART_LAYOUT_DESIGNER?.source || refAdapter?.rig?.REFERENCE_BIND?.source;
+        if(source?.pixelsPerLocal){
+          const ppu=Number(source.pixelsPerLocal)||1,flip=refView.flipX||1,pixelScale=refView.scale/ppu;
+          const x=refView.cx+((0-(Number(source.originX)||0))/ppu)*refView.scale*flip;
+          const y=refView.groundY-(((Number(source.groundY)||0)-0)/ppu)*refView.scale;
+          ctx.save();ctx.transform(pixelScale*flip,0,0,pixelScale,x,y);ctx.drawImage(foxShapeReference,0,0);ctx.restore();
+        }else{
+          const baseLocalWidth = 0.72;
+          const width = baseLocalWidth * refView.scale;
+          const height = width * (foxShapeReference.naturalHeight / foxShapeReference.naturalWidth);
+          const x = refView.cx - width * 0.5;
+          const y = refView.groundY - height;
+          ctx.drawImage(foxShapeReference,x,y,width,height);
+        }
       }
     } else {
       const id = settings.source === 'alternate' ? 'alternate' : 'original';
@@ -1182,9 +1221,7 @@
     modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=btn.dataset.mode==='play'&&character.family!=='fox';});
     viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='play';});
     scopeEl.textContent=selection.mode==='setup'
-      ? (adapter.id==='fox'
-        ? `${character.label} rig · scale, collider and structural rest rig remain a working copy until Save.`
-        : `${character.label} setup · scale is saved per character for gameplay; collider Save writes the current ${adapter.label} collider.`)
+      ? `${character.label} setup · scale and collider${adapter.loadRestRig?' + rest joints':''}${artLayoutDescriptor(adapter)?' + bind-art Part Layout':''} remain a working copy until Save.`
       : selection.mode==='play'
         ? 'Quick Play tests the current working Fox clips. Walk/Run movement speed is authored here and remains a working copy until Save.'
         : previewApplies()
@@ -1394,7 +1431,8 @@
           walkSpeed:clamp(Number.isFinite(savedFoxWalk) ? savedFoxWalk : (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15),FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
           runSpeed:clamp(Number.isFinite(savedFoxRun) ? savedFoxRun : (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(FoxRig.loadCollider()),
-          rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig())
+          rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig()),
+          artLayout:normaliseArtLayout(adapters.fox,savedFoxCurrent ? savedFoxSetup.artLayout : null)
         };
     const sparseClips = clone(sparseBanks.fox);
     const runtimeSamples = {};
@@ -1402,7 +1440,7 @@
     return {
       schema:FOX_HANDOFF_SCHEMA,
       app:'SideScroll',
-      animLabVersion:'1.0.164',
+      animLabVersion:'1.0.175',
       exportedAt:new Date().toISOString(),
       fox:{
         setup:{
@@ -1410,7 +1448,8 @@
           walkSpeed:clamp(Number(setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
           runSpeed:clamp(Number(setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(setup.collider),
-          restRig:FoxRig.normalizedRestRig(setup.rig)
+          restRig:FoxRig.normalizedRestRig(setup.rig),
+          artLayout:normaliseArtLayout(adapters.fox,setup.artLayout)
         },
         sparseClips,
         runtimeSamples
@@ -1421,7 +1460,7 @@
   async function exportFoxHandoffBundle() {
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.164.json';
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.175.json';
       const blob = new Blob([payload],{type:'application/json'});
       const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
       if (file && navigator.share && navigator.canShare?.({files:[file]})) {
@@ -1444,15 +1483,23 @@
   }
 
   const api = {
-    version:'1.0.166',
+    version:'1.0.175',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
-      clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
+      clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
       pose:clone(selection.mode==='play'&&lastPlayFrame?.pose?lastPlayFrame.pose:currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
       sparseClip:clone(currentSparseClip()), preview:previewApplies()?{label:conversionPreview.label,candidate:clone(conversionPreview.candidate)}:null,
       rig:currentAdapter().rig, adapterId:currentAdapter().id
     }),
     getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
+    setSetupTool:id=>{
+      const next=id==='art'?'art':'rig';
+      if(next==='art'&&!artLayoutDescriptor(currentAdapter()))return false;
+      if(selection.setupTool===next)return true;
+      selection.setupTool=next;saveEditorSelection();draw();updateUi();notify();return true;
+    },
+    getArtLayoutDescriptor:()=>clone(artLayoutDescriptor(currentAdapter())),
+    normaliseArtLayout:value=>clone(normaliseArtLayout(currentAdapter(),value)),
     edit,
     editSparseClip,
     beginTransaction,
