@@ -1,32 +1,28 @@
-# SideScroll patch 1.0.166 — Deformable mesh topology cleanup
+# SideScroll patch 1.0.167 — Anim Lab viewport performance pass
 
-Apply this patch **after 1.0.165**. This ZIP contains only files changed for 1.0.166.
+Apply this patch **after 1.0.166**. This ZIP contains only files changed for 1.0.167.
 
 ## Purpose
 
-Stage M1.1 keeps the encouraging deformable Fox result from 1.0.165 but replaces the prototype's broad source-plane topology with geometry that follows the visible artwork. It also addresses the leg twisting seen during locomotion before any weight-editing UI is built.
+The deformable Fox mesh from 1.0.166 is performing well during ordinary animation, but viewport pinch-zoom and pan in Anim Lab can feel heavy on iPhone because every pointer event was forcing a full mesh redraw immediately.
 
 ## What changed
 
-- Mesh source textures are now cropped to their actual opaque artwork before topology is generated. Transparent atlas margins no longer create huge invisible planes.
-- **Body + Head** uses a tighter low-poly grid and discards cells that contain no visible pixels.
-- **Tail and all four legs** now use narrow chain-aligned strip meshes following their existing bone chains rather than rectangular grids over the whole part bounds.
-- Limb/tail cross-sections are sampled from the actual composited texture, so the strip follows the artwork width instead of an arbitrary rectangle.
-- Long appendages use a twist-safe chain binding: each cross-section keeps a consistent left/right order while the bone chain bends. This removes the main source of the visible leg twisting in the Stage M1 generic two-weight grid.
-- Wireframe rendering draws unique mesh edges once rather than repeatedly outlining every triangle.
-- Added **Inspect: All / region** cycling beside Mesh Wireframe so a single body, tail or leg mesh can be isolated when checking deformation.
-- Rigid/Deform remains an editor-only comparison. No current rig, animation keys or gameplay rendering are changed.
+- Viewport pan/pinch interaction no longer triggers a complete redraw on every raw pointer event. Camera interaction is now throttled to **one visual update per animation frame**.
+- Added a lightweight **gesture snapshot** path for viewport camera moves. When you begin panning or pinching, Anim Lab captures the current canvas once and transforms that flattened snapshot during the gesture instead of re-rendering the full deformable Fox mesh every time your fingers move.
+- When the gesture ends, Anim Lab performs one normal high-quality redraw at the final camera position/zoom.
+- This optimisation only affects **viewport navigation**. Normal editing, scrubbing, pose changes, animation playback and deform rendering still use the full renderer.
+- No rig, animation, weighting or mesh topology data has been changed.
 
-## What this stage is testing
+## Why this is safe
 
-The question is now whether a small number of clean, purpose-shaped meshes are a better foundation than the original broad auto-weighted planes. If the result remains visually good and the limbs no longer twist, Stage M2 can build persistent topology and skin-weight editing on top of this cleaner representation.
+Pinch/pan changes only the camera, not the Fox pose. Re-using a flattened snapshot while fingers are moving is therefore a cheap approximation that should feel much smoother on the phone, while the final redraw preserves the real mesh result once the gesture ends.
 
 ## iPhone test
 
-1. Apply over 1.0.165 and reload the PWA.
-2. Anim Lab → Fox → Walk, switch to **Deform**.
-3. Enable **Mesh Wireframe**. The mesh should hug the Fox instead of exploding across the viewport.
-4. Tap **Inspect: ...** to cycle through Body + Head, Tail and each leg individually.
-5. Play Walk and Run and watch the legs around the shoulder/hip, knee/elbow and wrist/hock. The strip should bend without visibly twisting/flipping its texture.
-6. Try exaggerated Paw Target positions and Jump as a stress test.
-7. Compare Rigid ↔ Deform with wireframe off for the actual visual result and check iPhone responsiveness.
+1. Apply over 1.0.166 and reload the PWA.
+2. Anim Lab → Fox → Walk → Deform.
+3. Try pinch-zooming in and out repeatedly with Wireframe off, then on.
+4. Try panning around while zoomed in.
+5. The gesture should feel noticeably lighter/smoother, and the final settled image should still redraw cleanly at gesture end.
+6. Check that normal Play / scrubbing / Paw Target editing still looks unchanged.

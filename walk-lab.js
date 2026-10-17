@@ -488,6 +488,9 @@
   let playOverlaySnapshot = null;
   let playFrameProvider = null;
   let lastPlayFrame = null;
+  let lastRenderedView = null;
+  let interactionSnapshot = null;
+  let gestureRenderQueued = false;
 
   function loadEditorSelection() {
     let saved = null;
@@ -1130,6 +1133,7 @@
       pose = clampJumpPoseToRealGround(pose,phase);
     }
     const sv=previewView(phase,setupDraft.scale,playFrame);
+    lastRenderedView = {scale:sv.scale,cx:sv.cx,groundY:sv.groundY};
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const bg=ctx.createLinearGradient(0,0,0,canvas.height);bg.addColorStop(0,'#26333a');bg.addColorStop(1,'#11191e');ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
     const gridView=baseView(1),step=Math.max(28,gridView.scale*.25);
@@ -1193,8 +1197,57 @@
     for (const fn of listeners) { try { fn(snap); } catch (err) { console.error('[Anim Lab] Extension listener failed.',err); } }
   }
 
-  function fitView(redraw=true) { view.zoom=1;view.panX=0;view.panY=0;if(redraw){draw();notify();} }
+  function fitView(redraw=true) { view.zoom=1;view.panX=0;view.panY=0;if(redraw){clearInteractionSnapshot();draw();notify();} }
   function pointerPos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};}
+  function currentPreviewViewSnapshot(){
+    const phase=playing?playPhase:selection.frame/16;
+    return previewView(phase,setupDraft.scale,lastPlayFrame);
+  }
+  function captureInteractionSnapshot(){
+    resize();
+    if(!lastRenderedView){
+      draw();
+    }
+    const snap=document.createElement('canvas');
+    snap.width=canvas.width;
+    snap.height=canvas.height;
+    const snapCtx=snap.getContext('2d');
+    if(snapCtx)snapCtx.drawImage(canvas,0,0);
+    interactionSnapshot={
+      image:snap,
+      view:lastRenderedView?{scale:lastRenderedView.scale,cx:lastRenderedView.cx,groundY:lastRenderedView.groundY}:currentPreviewViewSnapshot()
+    };
+  }
+  function clearInteractionSnapshot(){
+    interactionSnapshot=null;
+    gestureRenderQueued=false;
+  }
+  function renderInteractionSnapshot(){
+    gestureRenderQueued=false;
+    if(!interactionSnapshot){
+      draw();
+      return;
+    }
+    resize();
+    const from=interactionSnapshot.view;
+    const to=currentPreviewViewSnapshot();
+    const k=to.scale/Math.max(0.0001,from.scale||1);
+    const tx=to.cx-k*from.cx;
+    const ty=to.groundY-k*from.groundY;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const bg=ctx.createLinearGradient(0,0,0,canvas.height);bg.addColorStop(0,'#26333a');bg.addColorStop(1,'#11191e');ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.save();
+    ctx.setTransform(k,0,0,k,tx,ty);
+    ctx.drawImage(interactionSnapshot.image,0,0);
+    ctx.restore();
+    updateUi();
+  }
+  function scheduleGestureRender(){
+    if(gestureRenderQueued)return;
+    gestureRenderQueued=true;
+    requestAnimationFrame(renderInteractionSnapshot);
+  }
 
   canvas.addEventListener('pointerdown',e=>{
     const pos=pointerPos(e);pointers.set(e.pointerId,pos);canvas.setPointerCapture?.(e.pointerId);playing=false;
@@ -1206,13 +1259,27 @@
     if(!pointers.has(e.pointerId))return;const pos=pointerPos(e);pointers.set(e.pointerId,pos);
     if(pointers.size===2){
       if(!gesture||gesture.type!=='pinch'){const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y;gesture={type:'pinch',dist:Math.hypot(dx,dy)||1,zoom:view.zoom,panX:view.panX,panY:view.panY,mid:{x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2}};}
+      if(!interactionSnapshot)captureInteractionSnapshot();
       const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y,dist=Math.hypot(dx,dy)||1,mid={x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2};
       const old=baseView(setupDraft.scale);old.scale/=Math.max(.0001,view.zoom);old.scale*=gesture.zoom;old.cx=canvas.width*(.5+gesture.panX);old.groundY=canvas.height*(.86+gesture.panY);
-      const local=unproject(gesture.mid,old);view.zoom=clamp(gesture.zoom*(dist/gesture.dist),.55,3.2);const next=baseView(setupDraft.scale);view.panX=(mid.x-local.x*next.scale)/canvas.width-.5;view.panY=(mid.y+local.y*next.scale)/canvas.height-.86;draw();return;
+      const local=unproject(gesture.mid,old);view.zoom=clamp(gesture.zoom*(dist/gesture.dist),.55,3.2);const next=baseView(setupDraft.scale);view.panX=(mid.x-local.x*next.scale)/canvas.width-.5;view.panY=(mid.y+local.y*next.scale)/canvas.height-.86;scheduleGestureRender();return;
     }
-    if(gesture?.type==='pan'){view.panX=gesture.panX+(pos.x-gesture.start.x)/canvas.width;view.panY=gesture.panY+(pos.y-gesture.start.y)/canvas.height;draw();}
+    if(gesture?.type==='pan'){
+      if(!interactionSnapshot)captureInteractionSnapshot();
+      view.panX=gesture.panX+(pos.x-gesture.start.x)/canvas.width;view.panY=gesture.panY+(pos.y-gesture.start.y)/canvas.height;scheduleGestureRender();
+    }
   });
-  function endPointer(e){pointers.delete(e.pointerId);if(pointers.size===1){const [,pos]=[...pointers.entries()][0];gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};}else gesture=null;draw();}
+  function endPointer(e){
+    pointers.delete(e.pointerId);
+    if(pointers.size===1){
+      const [,pos]=[...pointers.entries()][0];
+      gesture={type:'pan',start:pos,panX:view.panX,panY:view.panY};
+      return;
+    }
+    gesture=null;
+    clearInteractionSnapshot();
+    draw();
+  }
   canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
 
   characterButtons.forEach(btn=>btn.addEventListener('click',()=>switchCharacter(btn.dataset.character)));
