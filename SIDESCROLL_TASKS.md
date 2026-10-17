@@ -2330,3 +2330,25 @@ Acceptance questions before Stage M2:
 - Are two influences per vertex sufficient for this art style?
 
 If accepted, Stage M2 adds persistent topology/weights and touch-friendly correction tools. If rejected, revisit region topology/rendering before generalising Character Lab around it.
+
+## v1.0.166 — Deformable mesh topology cleanup Stage M1.1
+
+Goal: keep the promising Stage M1 deform result while replacing the unreadable transparent source-plane topology and removing the main cause of visible leg twisting before Stage M2 weight authoring.
+
+Implemented in code:
+- [x] Crop temporary mesh textures to their visible alpha before topology generation.
+- [x] Replace the Body + Head full rectangle with an alpha-culled compact grid.
+- [x] Replace Tail and four limb rectangular grids with bone-chain-aligned strip topology.
+- [x] Sample strip width from the actual composited artwork so mesh boundaries follow the visible region.
+- [x] Use stable chain cross-sections for limbs/tail so left/right strip vertices cannot swap because of non-adjacent proximity weights.
+- [x] De-duplicate wireframe edges.
+- [x] Add per-region wireframe inspection cycling.
+- [x] Preserve current rig, clips, setup and gameplay renderer unchanged.
+
+On-device acceptance:
+- [ ] iPhone: full Mesh Wireframe hugs the Fox and no longer fills the viewport with transparent source-plane triangles.
+- [ ] iPhone: isolate each of the six regions and confirm its topology is understandable.
+- [ ] iPhone: Walk and Run legs no longer visibly twist/flip through the stride.
+- [ ] iPhone: extreme Paw Target poses remain usable without strip collapse becoming worse than the original rigid cutout.
+- [ ] iPhone: Deform mode remains smooth enough for the phone-first authoring workflow.
+- [ ] Compare Rigid ↔ Deform with wireframe off and decide whether to proceed to persistent topology/weight editing (Stage M2).

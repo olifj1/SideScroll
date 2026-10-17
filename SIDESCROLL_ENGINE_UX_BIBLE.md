@@ -1270,3 +1270,11 @@ The deformable-character experiment is intentionally mesh-first before the broad
 - A mesh preview must be directly comparable against the rigid renderer and must have an optional wireframe/topology diagnostic.
 - Stage 1 is editor-only. Normal gameplay keeps the proven rigid fallback until the deform renderer has survived visual and performance testing on the target phone workflow.
 - Existing atlas seams in a prototype are source-art debt, not evidence that the approved skeleton should be reshaped. Final deformable art should be produced against the approved rig/binding after the deformation model is proven.
+
+### Deformable mesh topology readability rule (v1.0.166)
+
+Character skin topology must describe the visible character, not the rectangular texture containers used to store artwork. Transparent atlas margins must be cropped/cancelled before topology generation and fully transparent mesh cells should not survive merely because they lie inside a source rectangle.
+
+For long narrow articulated regions such as limbs and tails, default topology should follow the anatomical bone chain as a subdivided strip. Cross-sections must preserve a stable left/right ordering as the chain bends; generic proximity weighting must not be allowed to pair non-adjacent bones in a way that flips or twists the strip. Body/torso regions may use a compact alpha-aware grid or contour topology.
+
+Wireframe diagnostics must remain readable on-phone: draw unique edges once and allow the author to isolate a single mesh region when overlap makes the full character difficult to inspect.

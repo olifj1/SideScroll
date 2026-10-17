@@ -150,3 +150,17 @@ After mesh direction is known:
 ## Architectural rule
 
 Rig/animation/mesh/art ownership must remain separate enough that replacing one layer does not silently rewrite the others. In particular, final art should fit the approved rig/mesh binding workflow; image processing must not force a structurally sound rig to be redesigned merely to hide texture problems.
+
+### Stage M1.1 — topology cleanup / twist check (v1.0.166)
+
+The first M1 render proved deformation itself was promising, but its diagnostic topology exposed the transparent rectangular planes used to composite the old cut atlas and the generic distance-weighted limb grids could visibly twist during locomotion.
+
+M1.1 therefore keeps the same six-region hybrid skin layout while changing how those regions are represented:
+
+- crop temporary region textures to visible alpha before building geometry;
+- Body + Head uses an alpha-culled grid rather than a full source rectangle;
+- Tail and complete limbs use chain-aligned strips sampled against the visible texture width;
+- strip cross-sections preserve a consistent side ordering through the posed bone chain to avoid the left/right crossing that produced leg twists;
+- diagnostic wireframe may isolate one region at a time.
+
+This does **not** yet define the final authoring representation. Stage M2 should preserve the principle that topology follows visible art and anatomy, but it may convert chain binding into explicit editable weights/vertices where that gives artists useful control. Do not build the weight editor around transparent atlas rectangles or non-adjacent automatic influences.

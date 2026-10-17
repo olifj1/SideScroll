@@ -1377,7 +1377,7 @@
   }
 
   const api = {
-    version:'1.0.165',
+    version:'1.0.166',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
