@@ -1,36 +1,39 @@
-# SideScroll patch 1.0.173 — clean Fox deform atlas rebuild
+# SideScroll patch 1.0.174 — Fox reference bind foundation
 
-Apply this patch after 1.0.172. This ZIP contains only files changed/new for 1.0.173.
+Apply this patch after 1.0.173. This ZIP contains only files changed/new for 1.0.174.
 
-## What changed
+## What this stage does
 
-- Added a completely rebuilt `fox-deform-atlas-v2.png` made only from the approved modular charcoal Fox sheet already produced in this chat.
-- No pixels from the old rough deform atlas are reused in atlas v2.
-- Body + head now come from the clean modular source, preserving the fuller snout and natural fur silhouette.
-- Tail now comes from the clean standalone tail source only; the stray leg/stump contamination is gone.
-- Front Near and Front Far are identical copies of the selected front leg (leg 2).
-- Rear Near and Rear Far are identical copies of the selected rear leg (leg 3).
-- Near/far copies are not darkened yet; that remains an optional later depth pass.
-- Removed the temporary chain alpha-hardening step so the new source's natural feathered fur alpha is retained.
-- Updated Anim Lab atlas rectangles for the new layout and bumped asset/script cache versions.
-- Updated splash/service-worker preload references from atlas v1 to atlas v2.
+This deliberately resets the Fox skin workflow around the authoritative `fox-reference-charcoal.png` rather than trying to repair the generated deform atlas.
 
-## Files
+- Adds a reference-pixel bind definition (`fox-reference-bind-v1.js`).
+- Fits the Anim Lab Fox rest rig directly to the reference image.
+- Mechanically cuts the *existing reference pixels* into four visible planes:
+  - body + head
+  - tail
+  - rear near leg
+  - front near leg
+- No image generation or repainting is used in these planes.
+- The four planes retain their original reference-image coordinates.
+- Their neutral reconstruction has **0 changed visible pixels** versus the source reference.
+- Anim Lab Skin Prototype now starts with **Bind Proof: On**. In this mode the cut planes are reassembled in source-pixel space, so the viewport shows the exact reference silhouette while the fitted rig can be inspected over it.
+- Turning Bind Proof off enters the current deform-mesh experiment using these exact source planes instead of the old redrawn/fitted deform atlas.
+- The old `fit:{scaleX,scaleY,...}` deform-atlas resizing path is no longer used for the reference planes.
 
-- README.md
-- fox-deform-atlas-v2.png
-- anim-lab-mesh.js
-- walk-lab.html
-- home.js
-- index.html
-- sw.js
+## Intentionally not done yet
 
-## Suggested check
+This is the exact-reference foundation only.
 
-1. Anim Lab → Fox → Deform.
-2. Check Rig mode against Fox Shape reference: body/head should now be the clean modular source with the fuller snout.
-3. Check the tail: it should be a clean standalone tail with no leg or hard old crop inside it.
-4. Check all four legs: front pair should match each other exactly; rear pair should match each other exactly.
-5. Run Walk and Run and judge registration/weights separately from art quality.
+- Hidden pixels behind the leg/tail cuts have not been painted yet.
+- Far-leg art has not been generated/duplicated into the deform skin yet.
+- Existing Walk / Run / Jump animation keys have not yet been retargeted to the new bind rig.
+- The gameplay Fox is not switched to this bind yet; the change is isolated to Anim Lab so the current game build is not destabilised while the new skin is proven.
+- No production atlas has been made yet. That comes *after* the bind reconstruction is accepted.
 
-No rig keys or animation clips are changed by this patch.
+## Next intended stage
+
+1. Approve/tweak plane boundaries and fitted joints against Bind Proof.
+2. Pack these exact pieces into the final atlas layout without resizing them.
+3. Mark protected source pixels vs missing/repair pixels.
+4. Use Image Gen only to fill missing hidden material / produce the far-leg variants, then composite generated pixels only into the allowed repair areas.
+5. Re-run the reference reconstruction check before mesh weighting and animation retargeting.

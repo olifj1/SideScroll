@@ -12,7 +12,8 @@
   const DISTAL_SPLIT = 0.58;
   const AUTHORING_BASELINE_BUNDLE = window.SideScrollFoxAuthoringBaseline || null;
   const AUTHORING_BASELINE = AUTHORING_BASELINE_BUNDLE?.fox || null;
-  const AUTHORING_BASELINE_ID = String(AUTHORING_BASELINE_BUNDLE?.baselineId || 'fox-authoring-baseline-1.0.159');
+  const REFERENCE_BIND = window.SideScrollFoxReferenceBind || null;
+  const AUTHORING_BASELINE_ID = String(REFERENCE_BIND?.version ? `fox-reference-bind-${REFERENCE_BIND.version}` : (AUTHORING_BASELINE_BUNDLE?.baselineId || 'fox-authoring-baseline-1.0.159'));
   const DEFAULT_SCALE = Number(AUTHORING_BASELINE?.setup?.scale) || 1.71;
 
   // v1.0.150 source constants retained as the migration authority. The new
@@ -114,7 +115,7 @@
   const REST_RIG_BASELINE_KEY = 'sidescroll.fox.rig.baseline-id';
   const PREVIOUS_REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v2';
   const LEGACY_DEFAULT_REST_RIG = Object.freeze(buildLegacyRestRig());
-  const DEFAULT_REST_RIG = Object.freeze(clone(AUTHORING_BASELINE?.setup?.restRig || LEGACY_DEFAULT_REST_RIG));
+  const DEFAULT_REST_RIG = Object.freeze(clone(REFERENCE_BIND?.rig || AUTHORING_BASELINE?.setup?.restRig || LEGACY_DEFAULT_REST_RIG));
   const RIG_JOINT_IDS = Object.freeze(Object.keys(DEFAULT_REST_RIG.joints));
 
   const RIG_DESIGNER = Object.freeze({
@@ -1213,7 +1214,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.163',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.174',DEG,TAU,BODY,REST,LIMBS,ATLAS,REFERENCE_BIND,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y

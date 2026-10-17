@@ -9,52 +9,38 @@
     return;
   }
 
-  // Stage M1.3: keep the clean topology/twist-safe binding from M1.1, but feed it
-  // one deliberately packed deform atlas cut from the approved charcoal Fox source.
-  // A single atlas keeps the source coherent and avoids region-by-region image drift.
-  // The old rigid atlas remains a fallback while the deform atlas is loading/unavailable.
+  // Stage M1.4: reference-first bind proof. The deform source is no longer a
+  // redrawn/fitted atlas. These four visible planes are mechanically cut from the
+  // authoritative fox-reference-charcoal.png and retain their original source-pixel
+  // coordinates. At bind pose they reassemble to the source with zero changed visible
+  // pixels. Missing/hidden art and far limbs are deliberately deferred to the next stage.
+  const REFERENCE_BIND = FoxRig.REFERENCE_BIND || window.SideScrollFoxReferenceBind || null;
   const REGION_DEFS = [
     {
-      id:'tail', label:'Tail', order:0, topology:'chain', artRect:{x:16,y:590,w:655,h:366},
+      id:'tail', label:'Tail', order:0, topology:'chain', plane:'tail',
       parts:['tail_base','tail_mid','tail_tip'],
-      subdivisions:3, scanHalfWidth:.115, maxCap:.070, widthPad:.0035,
+      subdivisions:4, scanHalfWidth:.165, maxCap:.085, widthPad:.0025,
       bones:[['tail0','tail1'],['tail1','tail2'],['tail2','tail3']],
-      attachBone:['rearBody','midRoot'], attachBlendDistance:.11, attachStrength:.2
+      attachBone:['rearBody','midRoot'], attachBlendDistance:.105, attachStrength:.18
     },
     {
-      id:'rearFar', label:'Rear Far Leg', order:1, topology:'chain', artRect:{x:1280,y:470,w:278,h:394},
-      parts:['far_rear_upper','far_rear_lower_prox','far_rear_lower_dist'],
-      subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
-      bones:[['rearFarRoot','rearFarKnee'],['rearFarKnee','rearFarHock'],['rearFarHock','rearFarFoot']],
-      attachBone:['rearBody','midRoot'], attachBlendDistance:.115, attachStrength:.32
-    },
-    {
-      id:'frontFar', label:'Front Far Leg', order:2, topology:'chain', artRect:{x:1240,y:16,w:245,h:389},
-      parts:['far_front_upper','far_front_lower_prox','far_front_lower_dist'],
-      subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
-      bones:[['frontFarRoot','frontFarKnee'],['frontFarKnee','frontFarWrist'],['frontFarWrist','frontFarFoot']],
-      attachBone:['midRoot','frontBody'], attachBlendDistance:.12, attachStrength:.4
-    },
-    {
-      id:'bodyHead', label:'Body + Head', order:3, topology:'grid', artRect:{x:16,y:16,w:904,h:555},
-      parts:['torso','head_neck'],
-      grid:[9,5],
-      fit:{scaleX:.91,scaleY:.90,offsetYPct:.055},
+      id:'bodyHead', label:'Body + Head', order:1, topology:'grid', plane:'bodyHead',
+      parts:['torso','head_neck'], grid:[12,6],
       bones:[['rearBody','midRoot'],['midRoot','frontBody'],['frontBody','neck'],['neck','head']]
     },
     {
-      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', artRect:{x:960,y:470,w:278,h:394},
+      id:'rearNear', label:'Rear Near Leg', order:2, topology:'chain', plane:'rearNear',
       parts:['near_rear_upper','near_rear_lower_prox','near_rear_lower_dist'],
-      subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
+      subdivisions:4, scanHalfWidth:.075, maxCap:.045, widthPad:.002,
       bones:[['rearNearRoot','rearNearKnee'],['rearNearKnee','rearNearHock'],['rearNearHock','rearNearFoot']],
-      attachBone:['rearBody','midRoot'], attachBlendDistance:.115, attachStrength:.35
+      attachBone:['rearBody','midRoot'], attachBlendDistance:.10, attachStrength:.30
     },
     {
-      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', artRect:{x:960,y:16,w:245,h:389},
+      id:'frontNear', label:'Front Near Leg', order:3, topology:'chain', plane:'frontNear',
       parts:['near_front_upper','near_front_lower_prox','near_front_lower_dist'],
-      subdivisions:3, scanHalfWidth:.075, maxCap:.052, widthPad:.003,
+      subdivisions:4, scanHalfWidth:.075, maxCap:.045, widthPad:.002,
       bones:[['frontNearRoot','frontNearKnee'],['frontNearKnee','frontNearWrist'],['frontNearWrist','frontNearFoot']],
-      attachBone:['midRoot','frontBody'], attachBlendDistance:.12, attachStrength:.44
+      attachBone:['midRoot','frontBody'], attachBlendDistance:.10, attachStrength:.34
     }
   ];
 
@@ -63,11 +49,11 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.173';
-  const DEFORM_ATLAS_FILE = 'fox-deform-atlas-v2.png';
-  let deformAtlas = null;
+  const ART_VERSION = '1.0.174';
+  const planeImages = new Map();
   let artRevision = 0;
   let mode = 'mesh';
+  let bindProof = true;
   let wireframe = false;
   let inspectIndex = 0;
   let lastFamily = null;
@@ -83,12 +69,13 @@
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
     <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin Prototype</div>
-    <div class="animlab-setup-note">Stage M1.3 · fully rebuilt clean charcoal Fox deform atlas: new body + tail from the approved modular sheet, matched copied front/rear legs. Editor-only; rig and animation keys stay untouched.</div>
+    <div class="animlab-setup-note">Stage M1.4 · reference-first bind proof. Visible planes are exact source pixels; no generated/redrawn art.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
     </div>
     <div class="animlab-view-grid">
+      <button type="button" id="animlab-bind-proof" aria-pressed="true">Bind Proof: On</button>
       <button type="button" id="animlab-mesh-wire" aria-pressed="false">Mesh Wireframe</button>
       <button type="button" id="animlab-mesh-inspect">Inspect: All</button>
     </div>
@@ -96,6 +83,7 @@
   host.appendChild(section);
 
   const modeButtons = [...section.querySelectorAll('[data-mesh-mode]')];
+  const bindProofBtn = section.querySelector('#animlab-bind-proof');
   const wireBtn = section.querySelector('#animlab-mesh-wire');
   const inspectBtn = section.querySelector('#animlab-mesh-inspect');
   const setupNote = section.querySelector('.animlab-setup-note');
@@ -112,22 +100,28 @@
 
 
   function loadDedicatedArt(){
-    if(deformAtlas)return;
-    const img=new Image();
-    img.decoding='async';
-    img.onload=()=>{
-      artRevision++;
-      caches.clear();
-      core.redrawOnly?.();
-    };
-    img.onerror=()=>console.warn(`[Anim Lab Mesh] Deform atlas failed to load: ${DEFORM_ATLAS_FILE}`);
-    img.src=`${DEFORM_ATLAS_FILE}?v=${ART_VERSION}`;
-    deformAtlas=img;
+    if(!REFERENCE_BIND?.planes)return;
+    for(const def of REGION_DEFS){
+      const meta=REFERENCE_BIND.planes[def.plane];
+      if(!meta?.file||planeImages.has(def.plane))continue;
+      const img=new Image();
+      img.decoding='async';
+      img.onload=()=>{artRevision++;caches.clear();core.redrawOnly?.();};
+      img.onerror=()=>console.warn(`[Anim Lab Mesh] Reference plane failed to load: ${meta.file}`);
+      img.src=`${meta.file}?v=${ART_VERSION}`;
+      planeImages.set(def.plane,img);
+    }
   }
 
   function dedicatedArtFor(def){
-    if(!deformAtlas||!deformAtlas.complete||deformAtlas.naturalWidth<=0||!def.artRect)return null;
-    return {image:deformAtlas,rect:def.artRect};
+    const meta=REFERENCE_BIND?.planes?.[def.plane];
+    const image=planeImages.get(def.plane);
+    if(!meta||!image||!image.complete||image.naturalWidth<=0)return null;
+    return {image,meta};
+  }
+
+  function allReferencePlanesReady(){
+    return REGION_DEFS.every(def=>!!dedicatedArtFor(def));
   }
 
   function neutralPose(){
@@ -455,8 +449,42 @@
     return {...def,texture,vertices,triangles,edges:makeEdges(triangles),bindGeom,binding:'weights'};
   }
 
+  function sourcePlaneView(meta){
+    const source=REFERENCE_BIND?.source;
+    if(!source||!meta)return null;
+    return {
+      scale:Number(source.pixelsPerLocal)||1,
+      cx:(Number(source.originX)||0)-(Number(meta.sourceX)||0),
+      groundY:(Number(source.groundY)||0)-(Number(meta.sourceY)||0),
+      flipX:1
+    };
+  }
+
+  function textureFromPlane(image){
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,image.naturalWidth||image.width||1);
+    canvas.height=Math.max(1,image.naturalHeight||image.height||1);
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(image,0,0);
+    return canvas;
+  }
+
   function buildRegion(def,atlas,restRig){
     const bindGeom=FoxRig.geometry(BIND_POSE,restRig);
+    const dedicated=dedicatedArtFor(def);
+    if(dedicated){
+      const texture=textureFromPlane(dedicated.image);
+      const view=sourcePlaneView(dedicated.meta);
+      const alpha=readAlpha(texture);
+      const region=def.topology==='chain'
+        ? buildChainRegion(def,texture,view,alpha,bindGeom)
+        : buildGridRegion(def,texture,view,alpha,bindGeom);
+      return region?{...region,textureView:view,artSource:'reference-plane'}:null;
+    }
+
+    // Loading/offline fallback only. This is intentionally not used once the
+    // reference planes are ready; it exists so the editor does not blank out.
     const allParts=FoxRig.partsForPose(BIND_POSE,restRig);
     const wanted=new Set(def.parts);
     const parts=allParts.filter(p=>wanted.has(p.name));
@@ -470,32 +498,12 @@
     const rctx=raw.getContext('2d');
     rctx.clearRect(0,0,raw.width,raw.height);rctx.imageSmoothingEnabled=true;
     const rawView={scale,cx:PAD-bbox.minX*scale,groundY:PAD+bbox.maxY*scale,flipX:1};
-    const dedicated=dedicatedArtFor(def);
-    if(dedicated){
-      // Stage M1.3 uses one source atlas cut from the approved charcoal Fox. Each
-      // region keeps a known clean rectangle, then fits into the already-approved
-      // bind-space region without changing rig proportions or animation keys.
-      const r=dedicated.rect;
-      const fit=def.fit||{};
-      const innerW=Math.max(1,raw.width-PAD*2), innerH=Math.max(1,raw.height-PAD*2);
-      const scaleX=fit.scaleX ?? fit.scale ?? 1;
-      const scaleY=fit.scaleY ?? fit.scale ?? 1;
-      const drawW=Math.max(1,innerW*scaleX), drawH=Math.max(1,innerH*scaleY);
-      const alignX=fit.alignX ?? .5, alignY=fit.alignY ?? .5;
-      const dx=PAD + (innerW-drawW)*alignX + innerW*(fit.offsetXPct||0) + (fit.offsetX||0);
-      const dy=PAD + (innerH-drawH)*alignY + innerH*(fit.offsetYPct||0) + (fit.offsetY||0);
-      rctx.drawImage(dedicated.image,r.x,r.y,r.w,r.h,dx,dy,drawW,drawH);
-    }else{
-      // Safe fallback while images are loading/offline: rebuild from the rigid atlas
-      // exactly as M1.1 did, so Deform never disappears because one source failed.
-      for(const part of parts)drawPartToTexture(rctx,atlas,part,rawView);
-    }
-
+    for(const part of parts)drawPartToTexture(rctx,atlas,part,rawView);
     const cropped=cropToOpaque(raw,rawView);
     const region=def.topology==='chain'
       ? buildChainRegion(def,cropped.texture,cropped.view,cropped.alpha,bindGeom)
       : buildGridRegion(def,cropped.texture,cropped.view,cropped.alpha,bindGeom);
-    return region?{...region,textureView:cropped.view,artSource:dedicated?'dedicated':'fallback'}:null;
+    return region?{...region,textureView:cropped.view,artSource:'fallback'}:null;
   }
 
   function rigKey(restRig){
@@ -606,8 +614,33 @@
     renderWireframe(ctx,region,dst,args);
   }
 
+  function drawExactBind(args){
+    if(!REFERENCE_BIND?.source||!allReferencePlanesReady())return false;
+    const source=REFERENCE_BIND.source;
+    const ppu=Number(source.pixelsPerLocal)||1;
+    const flip=args.view.flipX||1;
+    const pixelScale=args.view.scale/ppu;
+    const ctx=args.ctx;
+    ctx.save();
+    ctx.imageSmoothingEnabled=true;
+    ctx.globalAlpha*=args.alpha??1;
+    for(const def of [...REGION_DEFS].sort((a,b)=>a.order-b.order)){
+      const art=dedicatedArtFor(def);if(!art)continue;
+      const meta=art.meta;
+      const baseX=args.view.cx+((Number(meta.sourceX)-Number(source.originX))/ppu)*args.view.scale*flip;
+      const baseY=args.view.groundY-((Number(source.groundY)-Number(meta.sourceY))/ppu)*args.view.scale;
+      ctx.save();
+      ctx.transform(pixelScale*flip,0,0,pixelScale,baseX,baseY);
+      ctx.drawImage(art.image,0,0);
+      ctx.restore();
+    }
+    ctx.restore();
+    return true;
+  }
+
   function render(args){
     if(mode!=='mesh'||args.adapter?.id!=='fox'||!args.atlas)return false;
+    if(bindProof&&drawExactBind(args))return true;
     const restRig=args.restRig||args.setup?.rig||FoxRig.loadRestRig?.()||FoxRig.DEFAULT_REST_RIG;
     const poseGeom=FoxRig.geometry(args.pose,restRig);
     const regions=regionsFor(args.atlas,restRig);
@@ -626,14 +659,18 @@
       const active=btn.dataset.meshMode===mode;
       btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
     });
-    wireBtn.classList.toggle('active',wireframe);wireBtn.setAttribute('aria-pressed',String(wireframe));wireBtn.disabled=mode!=='mesh';
-    inspectBtn.disabled=mode!=='mesh'||!wireframe;
+    bindProofBtn.classList.toggle('active',bindProof);bindProofBtn.setAttribute('aria-pressed',String(bindProof));
+    bindProofBtn.textContent=`Bind Proof: ${bindProof?'On':'Off'}`;
+    bindProofBtn.disabled=mode!=='mesh';
+    wireBtn.classList.toggle('active',wireframe);wireBtn.setAttribute('aria-pressed',String(wireframe));wireBtn.disabled=mode!=='mesh'||bindProof;
+    inspectBtn.disabled=mode!=='mesh'||bindProof||!wireframe;
     inspectBtn.textContent=`Inspect: ${INSPECT[inspectIndex]?.label||'All'}`;
     if(setupNote){
-      const ready=!!dedicatedArtFor(REGION_DEFS[0]);
+      const ready=allReferencePlanesReady();
+      const proof=REFERENCE_BIND?.proof;
       setupNote.textContent=ready
-        ? 'Stage M1.3 · clean deform atlas v2 rebuilt entirely from the approved modular charcoal source is loaded. Editor-only; rig and animation keys stay untouched.'
-        : 'Stage M1.3 · loading clean charcoal Fox deform atlas v2; rigid-atlas fallback remains active.';
+        ? `Stage M1.4 · exact reference cut planes loaded. Bind reconstruction proof: ${proof?.changedVisiblePixels??0} changed visible pixels. Rig is fitted in reference-pixel space. Far limbs/hidden fill intentionally deferred.`
+        : 'Stage M1.4 · loading exact reference cut planes; rigid fallback remains available.';
     }
   }
 
@@ -641,6 +678,7 @@
     mode=btn.dataset.meshMode==='rigid'?'rigid':'mesh';
     updateUi();core.redrawOnly?.();
   }));
+  bindProofBtn.addEventListener('click',()=>{bindProof=!bindProof;updateUi();core.redrawOnly?.();});
   wireBtn.addEventListener('click',()=>{wireframe=!wireframe;updateUi();core.redrawOnly?.();});
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redrawOnly?.();});
 
