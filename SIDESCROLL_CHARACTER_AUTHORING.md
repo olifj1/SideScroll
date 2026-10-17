@@ -1,6 +1,6 @@
 # SideScroll Character Authoring & Animation System
 
-Status: design direction, mesh-first staging begun in v1.0.165; global bind-art Part Layout added in v1.0.175.
+Status: design direction, mesh-first staging begun in v1.0.165; global bind-art Part Layout added in v1.0.175 and interaction cleanup in v1.0.176.
 
 ## Goal
 
@@ -30,6 +30,9 @@ Bind artwork placement is a first-class character-authoring layer between source
 - Part Layout edits do not rewrite rest joints, animation keys or source pixels.
 - Rest joints can be edited independently in the Joints tool, so artwork and anatomy can be aligned deliberately rather than forcing one layer to compensate for another.
 - Bind Proof removes animation and renders the saved bind-art layout in the reference coordinate system.
+- Part selection is explicit UI state; touching bind artwork in the viewport does **not** select or move a part. This keeps normal viewport pan/pinch/zoom available at all times.
+- Part transforms are authored from the shared bottom-right precision pad. Move supports Free/X/Y and Fine; Rotate and Scale remain pad-driven.
+- No part is selected by default when entering Part Layout. Reference/difference/reset tools live behind a secondary collapsed section so normal placement work stays uncluttered.
 - Difference view compares the assembled bind art against the authoritative reference; an untouched identity layout should produce no visible difference where the reference-derived planes cover the source.
 - Static reference alignment should use the same source origin / ground / pixels-per-local mapping as bind art when that metadata is available.
 - The final production atlas is a packing/storage step. Atlas packing must not change the approved bind-space part proportions or placement.

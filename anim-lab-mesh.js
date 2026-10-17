@@ -49,13 +49,13 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.175';
+  const ART_VERSION = '1.0.176';
   const planeImages = new Map();
   const referenceImage = new Image();
   const bindProofCache = new Map();
   let artRevision = 0;
   let mode = 'mesh';
-  let bindProof = true;
+  let bindProof = false;
   let difference = false;
   let wireframe = false;
   let inspectIndex = 0;
@@ -78,7 +78,7 @@
       <button type="button" data-mesh-mode="mesh">Deform</button>
     </div>
     <div class="animlab-view-grid">
-      <button type="button" id="animlab-bind-proof" aria-pressed="true">Bind Proof: On</button>
+      <button type="button" id="animlab-bind-proof" aria-pressed="false">Bind Proof: Off</button>
       <button type="button" id="animlab-bind-difference" aria-pressed="false">Difference: Off</button>
       <button type="button" id="animlab-mesh-wire" aria-pressed="false">Mesh Wireframe</button>
       <button type="button" id="animlab-mesh-inspect">Inspect: All</button>
@@ -760,7 +760,7 @@
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redraw?.();});
 
   window.AnimLabSkinSurface=Object.freeze({
-    version:'1.0.175',
+    version:'1.0.176',
     getBindProof:()=>bindProof,
     setBindProof,
     getDifference:()=>difference,

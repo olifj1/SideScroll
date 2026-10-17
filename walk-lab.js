@@ -1440,7 +1440,7 @@
     return {
       schema:FOX_HANDOFF_SCHEMA,
       app:'SideScroll',
-      animLabVersion:'1.0.175',
+      animLabVersion:'1.0.176',
       exportedAt:new Date().toISOString(),
       fox:{
         setup:{
@@ -1460,7 +1460,7 @@
   async function exportFoxHandoffBundle() {
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.175.json';
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.176.json';
       const blob = new Blob([payload],{type:'application/json'});
       const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
       if (file && navigator.share && navigator.canShare?.({files:[file]})) {
@@ -1483,7 +1483,7 @@
   }
 
   const api = {
-    version:'1.0.175',
+    version:'1.0.176',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),

@@ -11,45 +11,56 @@
   section.hidden=true;
   section.innerHTML=`
     <div class="animlab-section-title">Part Layout</div>
-    <p class="animlab-art-layout-note">Place the character's bind artwork independently from its joints. These are rest-layout transforms only; animation keys are not changed.</p>
-    <div class="animlab-art-part-board" aria-label="Bind art parts"></div>
-    <div class="animlab-rig-selected animlab-art-selected">
-      <div class="animlab-rig-selected-title">No part selected</div>
-      <div class="animlab-rig-selected-pos"></div>
+    <p class="animlab-art-layout-note">Select a bind-art part here, then edit it with the bottom-right pad. The viewport is always left free for pan and zoom.</p>
+    <div class="animlab-art-part-nav" aria-label="Bind art part selection">
+      <button type="button" data-art-nav="prev" aria-label="Previous part">←</button>
+      <select data-art-part-select aria-label="Selected bind art part">
+        <option value="">No part selected</option>
+      </select>
+      <button type="button" data-art-nav="next" aria-label="Next part">→</button>
+    </div>
+    <div class="animlab-art-selection-summary">
+      <div>
+        <div class="animlab-rig-selected-title">No part selected</div>
+        <div class="animlab-rig-selected-pos">Choose a part above.</div>
+      </div>
+      <button type="button" data-art-action="reset-part" disabled>Reset</button>
     </div>
     <div class="animlab-segmented animlab-three animlab-art-transform-row">
-      <button type="button" data-art-transform="move">Move</button>
+      <button type="button" data-art-transform="move" class="active">Move</button>
       <button type="button" data-art-transform="rotate">Rotate</button>
       <button type="button" data-art-transform="scale">Scale</button>
     </div>
     <div class="animlab-precision animlab-rig-precision">
       <div class="animlab-precision-row animlab-rig-axis animlab-art-axis">
-        <button type="button" data-art-axis="free">Free</button>
+        <button type="button" data-art-axis="free" class="is-active">Free</button>
         <button type="button" data-art-axis="x">X only</button>
         <button type="button" data-art-axis="y">Y only</button>
         <button type="button" data-art-fine="1">Fine</button>
       </div>
-      <p class="animlab-art-layout-note">Drag a selected part directly in the viewport to move it, or use the bottom-right pad for Move / Rotate / uniform Scale.</p>
     </div>
-    <div class="animlab-art-reference-tools">
-      <div class="animlab-view-grid animlab-art-reference-buttons">
-        <button type="button" data-art-action="reference">Show Reference</button>
-        <button type="button" data-art-action="difference">Difference: Off</button>
+    <details class="animlab-art-reference-tools">
+      <summary>Reference / layout tools</summary>
+      <div class="animlab-art-reference-tools-inner">
+        <div class="animlab-view-grid animlab-art-reference-buttons">
+          <button type="button" data-art-action="reference">Show Reference</button>
+          <button type="button" data-art-action="difference">Difference: Off</button>
+        </div>
+        <label class="animlab-slider"><span>Reference opacity</span><input type="range" data-art-reference-opacity min="0.05" max="1" step="0.01"><output></output></label>
+        <div class="animlab-rig-actions animlab-art-actions">
+          <button type="button" data-art-action="align-reference">Align Reference</button>
+          <button type="button" data-art-action="reset-layout">Reset Layout</button>
+        </div>
       </div>
-      <label class="animlab-slider"><span>Reference opacity</span><input type="range" data-art-reference-opacity min="0.05" max="1" step="0.01"><output></output></label>
-    </div>
-    <div class="animlab-rig-actions animlab-art-actions">
-      <button type="button" data-art-action="reset-part">Reset Part</button>
-      <button type="button" data-art-action="reset-layout">Reset Layout</button>
-      <button type="button" data-art-action="align-reference">Align Reference</button>
-    </div>
+    </details>
   `;
   const rigSection=document.querySelector('.animlab-rig-controls');
   (rigSection||setupSection).insertAdjacentElement('afterend',section);
 
-  const board=section.querySelector('.animlab-art-part-board');
+  const partSelect=section.querySelector('[data-art-part-select]');
   const selectedTitle=section.querySelector('.animlab-rig-selected-title');
   const selectedPos=section.querySelector('.animlab-rig-selected-pos');
+  const resetPartButton=section.querySelector('[data-art-action="reset-part"]');
   const transformButtons=[...section.querySelectorAll('[data-art-transform]')];
   const axisButtons=[...section.querySelectorAll('[data-art-axis]')];
   const fineButton=section.querySelector('[data-art-fine]');
@@ -61,7 +72,7 @@
   pad.className='animlab-precision-pad animlab-viewport-precision-pad animlab-art-layout-pad';
   pad.setAttribute('role','application');
   pad.setAttribute('aria-label','Precision bind art transform');
-  pad.innerHTML='<i class="animlab-pad-x"></i><i class="animlab-pad-y"></i><span>Move selected part</span>';
+  pad.innerHTML='<i class="animlab-pad-x"></i><i class="animlab-pad-y"></i><span>Select a part</span>';
   if(viewportPadHost)viewportPadHost.appendChild(pad);
   pad.hidden=true;
 
@@ -71,7 +82,7 @@
   let fine=false;
   let lastDescriptor=null;
   let lastRender=null;
-  let viewportDrag=null;
+  let lastActive=false;
   let precisionDrag=null;
 
   const clone=v=>JSON.parse(JSON.stringify(v));
@@ -88,21 +99,29 @@
     return {x:Number(raw.x)||0,y:Number(raw.y)||0,rotation:Number(raw.rotation)||0,scale:Number(raw.scale)||1};
   }
 
-  function ensureSelection(s,desc){
+  function ensureSelection(desc){
     if(selectedPart&&partById(desc,selectedPart))return;
-    selectedPart=desc?.parts?.[0]?.id||null;
+    selectedPart=null;
   }
 
-  function renderBoard(desc){
-    if(lastDescriptor===desc&&board.childElementCount)return;
+  function renderPartSelect(desc){
+    if(lastDescriptor===desc&&partSelect.options.length)return;
     lastDescriptor=desc;
-    board.textContent='';
+    partSelect.textContent='';
+    const none=document.createElement('option');none.value='';none.textContent='No part selected';partSelect.appendChild(none);
     for(const part of desc?.parts||[]){
-      const button=document.createElement('button');
-      button.type='button';button.dataset.artPart=part.id;button.textContent=part.label||part.id;
-      button.addEventListener('click',()=>{selectedPart=part.id;renderUI();core.redrawOnly?.();});
-      board.appendChild(button);
+      const option=document.createElement('option');
+      option.value=part.id;option.textContent=part.label||part.id;partSelect.appendChild(option);
     }
+  }
+
+  function cyclePart(desc,direction){
+    const parts=desc?.parts||[];
+    if(!parts.length){selectedPart=null;return;}
+    const index=parts.findIndex(part=>part.id===selectedPart);
+    if(index<0)selectedPart=direction>0?parts[0].id:parts[parts.length-1].id;
+    else selectedPart=parts[(index+direction+parts.length)%parts.length].id;
+    renderUI();core.redrawOnly?.();
   }
 
   function sourcePixelToLocal(desc,px,py){
@@ -130,18 +149,24 @@
   function renderUI(){
     const s=state(),desc=descriptorFor(s),active=isActive(s);
     section.hidden=!active;
-    if(!active){pad.hidden=true;lastRender=null;return;}
+    if(!active){pad.hidden=true;lastRender=null;lastActive=false;return;}
+    if(!lastActive){selectedPart=null;lastActive=true;}
     if(viewportPadHost)viewportPadHost.hidden=false;
     pad.hidden=false;
-    renderBoard(desc);ensureSelection(s,desc);
-    board.querySelectorAll('[data-art-part]').forEach(button=>button.classList.toggle('is-active',button.dataset.artPart===selectedPart));
+    renderPartSelect(desc);ensureSelection(desc);
+    if(document.activeElement!==partSelect)partSelect.value=selectedPart||'';
     transformButtons.forEach(button=>{const on=button.dataset.artTransform===transformMode;button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));});
     axisButtons.forEach(button=>{const on=button.dataset.artAxis===axis;button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));button.disabled=transformMode!=='move';});
     fineButton.classList.toggle('is-active',fine);fineButton.setAttribute('aria-pressed',String(fine));
-    const part=partById(desc,selectedPart),tr=transformFor(s,selectedPart);
+    const part=partById(desc,selectedPart),tr=selectedPart?transformFor(s,selectedPart):null;
     selectedTitle.textContent=part?.label||'No part selected';
-    selectedPos.textContent=part?`X ${tr.x.toFixed(4)}   Y ${tr.y.toFixed(4)}   Rot ${(tr.rotation/DEG).toFixed(1)}°   Scale ${tr.scale.toFixed(3)}`:'';
-    pad.querySelector('span').textContent=`${transformMode[0].toUpperCase()+transformMode.slice(1)} selected part`;
+    selectedPos.textContent=part?`X ${tr.x.toFixed(4)}   Y ${tr.y.toFixed(4)}   Rot ${(tr.rotation/DEG).toFixed(1)}°   Scale ${tr.scale.toFixed(3)}`:'Choose a part above. Viewport gestures remain navigation-only.';
+    resetPartButton.disabled=!part;
+    transformButtons.forEach(button=>button.disabled=!part);
+    axisButtons.forEach(button=>button.disabled=!part||transformMode!=='move');
+    fineButton.disabled=!part;
+    pad.hidden=!part;
+    pad.querySelector('span').textContent=part?`${transformMode[0].toUpperCase()+transformMode.slice(1)} ${part.label||'part'}`:'Select a part';
     const ref=core.getStaticReference?.()||{opacity:.38};
     if(document.activeElement!==referenceOpacity)referenceOpacity.value=String(ref.opacity);
     const output=referenceOpacity.parentElement.querySelector('output');if(output)output.textContent=Number(ref.opacity).toFixed(2);
@@ -202,6 +227,9 @@
     }
   }
 
+  partSelect.addEventListener('change',()=>{selectedPart=partSelect.value||null;renderUI();core.redrawOnly?.();});
+  section.querySelectorAll('[data-art-nav]').forEach(button=>button.addEventListener('click',()=>cyclePart(descriptorFor(state()),button.dataset.artNav==='next'?1:-1)));
+
   section.addEventListener('click',event=>{
     const t=event.target.closest('[data-art-transform]');if(t){transformMode=t.dataset.artTransform;renderUI();return;}
     const a=event.target.closest('[data-art-axis]');if(a){axis=a.dataset.artAxis;renderUI();return;}
@@ -211,61 +239,8 @@
 
   referenceOpacity.addEventListener('input',()=>{const value=Number(referenceOpacity.value);if(Number.isFinite(value))core.setStaticReference?.({opacity:value});});
 
-  function pointInPolygon(point,poly){
-    let inside=false;
-    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-      const a=poly[i],b=poly[j];
-      const hit=((a.y>point.y)!==(b.y>point.y))&&(point.x<(b.x-a.x)*(point.y-a.y)/((b.y-a.y)||1e-9)+a.x);
-      if(hit)inside=!inside;
-    }
-    return inside;
-  }
-
-  function canvasPoint(clientX,clientY){
-    const rect=canvas.getBoundingClientRect();
-    return{x:(clientX-rect.left)*(canvas.width/rect.width),y:(clientY-rect.top)*(canvas.height/rect.height)};
-  }
-
-  function unproject(render,clientX,clientY){
-    if(!render?.view)return null;const p=canvasPoint(clientX,clientY),v=render.view,flip=v.flipX||1;
-    return{x:(p.x-v.cx)/(v.scale*flip),y:(v.groundY-p.y)/v.scale};
-  }
-
-  function hitPart(render,clientX,clientY){
-    const p=canvasPoint(clientX,clientY);
-    if(selectedPart&&pointInPolygon(p,render.polygons[selectedPart]||[]))return selectedPart;
-    const ids=[...(render.order||[])].reverse();
-    return ids.find(id=>pointInPolygon(p,render.polygons[id]||[]))||null;
-  }
-
-  function viewportDown(event){
-    const s=state();if(!isActive(s)||!lastRender)return;
-    const id=hitPart(lastRender,event.clientX,event.clientY);if(!id)return;
-    event.preventDefault();event.stopImmediatePropagation();selectedPart=id;
-    const model=unproject(lastRender,event.clientX,event.clientY),start=transformFor(s,id);
-    viewportDrag={pointerId:event.pointerId,part:id,start,model,tx:core.beginTransaction('setup',`Move ${partById(descriptorFor(s),id)?.label||id}`)};
-    try{canvas.setPointerCapture(event.pointerId);}catch(_){}
-    renderUI();core.redrawOnly?.();
-  }
-
-  function viewportMove(event){
-    if(!viewportDrag||viewportDrag.pointerId!==event.pointerId)return;
-    event.preventDefault();event.stopImmediatePropagation();
-    const model=unproject(lastRender,event.clientX,event.clientY);if(!model||!viewportDrag.model)return;
-    setPartInTransaction(viewportDrag.tx,viewportDrag.part,{x:viewportDrag.start.x+(model.x-viewportDrag.model.x),y:viewportDrag.start.y+(model.y-viewportDrag.model.y)});
-  }
-
-  function finishViewport(event,cancel){
-    if(!viewportDrag||viewportDrag.pointerId!==event.pointerId)return;
-    event.preventDefault();event.stopImmediatePropagation();const drag=viewportDrag;viewportDrag=null;
-    if(cancel)core.cancelTransaction(drag.tx);else core.commitTransaction(drag.tx);
-    try{canvas.releasePointerCapture(event.pointerId);}catch(_){}renderUI();
-  }
-
-  canvas.addEventListener('pointerdown',viewportDown,true);
-  canvas.addEventListener('pointermove',viewportMove,true);
-  canvas.addEventListener('pointerup',event=>finishViewport(event,false),true);
-  canvas.addEventListener('pointercancel',event=>finishViewport(event,true),true);
+  // Part Layout never captures the viewport. Pan, pinch and zoom stay available;
+  // selection is explicit in the compact part navigator above and transforms use the pad.
 
   function precisionDown(event){
     const s=state();if(!isActive(s)||!selectedPart)return;
@@ -303,20 +278,17 @@
 
   function renderer(args){
     const s=state(),desc=descriptorFor(s);if(!desc||!layoutFor(s)){lastRender=null;return;}
-    const {ctx,view}=args,polygons={},pivots={};
-    for(const part of desc.parts||[]){
-      const tr=transformFor(s,part.id),corners=partCornersLocal(desc,part,tr),screen=corners.map(p=>project(p,view));
-      polygons[part.id]=screen;pivots[part.id]=project(applyTransform(part.pivot,part,tr),view);
-    }
-    lastRender={view,polygons,pivots,order:(desc.parts||[]).map(p=>p.id)};
-    ctx.save();ctx.lineJoin='round';ctx.lineWidth=Math.max(1.5,canvas.width/650);
-    for(const part of desc.parts||[]){
-      const poly=polygons[part.id];if(!poly?.length)continue;const active=part.id===selectedPart;
-      ctx.strokeStyle=active?'rgba(255,196,92,.98)':'rgba(126,216,199,.34)';ctx.setLineDash(active?[]:[7,6]);
-      ctx.beginPath();ctx.moveTo(poly[0].x,poly[0].y);for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i].x,poly[i].y);ctx.closePath();ctx.stroke();
-      if(active){const p=pivots[part.id],r=Math.max(6,canvas.width/180);ctx.setLineDash([]);ctx.fillStyle='rgba(255,196,92,.92)';ctx.strokeStyle='rgba(255,239,195,.98)';ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();}
-    }
-    ctx.restore();
+    const {ctx,view}=args;
+    lastRender={view};
+    const part=partById(desc,selectedPart);
+    if(!part)return;
+    const tr=transformFor(s,part.id),corners=partCornersLocal(desc,part,tr),poly=corners.map(p=>project(p,view));
+    const pivot=project(applyTransform(part.pivot,part,tr),view);
+    ctx.save();ctx.lineJoin='round';ctx.lineWidth=Math.max(1,canvas.width/900);
+    ctx.strokeStyle='rgba(255,196,92,.9)';ctx.setLineDash([7,6]);
+    ctx.beginPath();ctx.moveTo(poly[0].x,poly[0].y);for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i].x,poly[i].y);ctx.closePath();ctx.stroke();
+    const r=Math.max(4,canvas.width/280);ctx.setLineDash([]);ctx.fillStyle='rgba(255,196,92,.78)';ctx.strokeStyle='rgba(255,239,195,.92)';
+    ctx.beginPath();ctx.arc(pivot.x,pivot.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
   }
 
   core.registerPluginRenderer?.('art-layout-designer',renderer);

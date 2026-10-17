@@ -421,7 +421,7 @@
   setupToolButtons.forEach(button=>button.addEventListener('click',()=>{
     if(button.dataset.setupTool==='art'){
       window.AnimLabSkinSurface?.setDifference?.(false);
-      window.AnimLabSkinSurface?.setBindProof?.(true);
+      window.AnimLabSkinSurface?.setBindProof?.(false);
     }
     core.setSetupTool?.(button.dataset.setupTool);
   }));
@@ -483,7 +483,7 @@
   });
 
   window.AnimLabControlSurface = Object.freeze({
-    version:'1.0.175',
+    version:'1.0.176',
     getSelectedId:()=>selectedId,
     getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
     selectControl:id=>selectControl(id,true)
