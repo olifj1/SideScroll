@@ -316,7 +316,7 @@
     width: 2048,
     height: 2048,
     fileUrl: 'fox-rig-atlas-v5.png?v=1.0.178',
-    sourceUrl: 'fox-reference-charcoal.png?v=1.0.182',
+    sourceUrl: 'fox-bind-v3-preview.png?v=1.0.178',
     parts: Object.freeze({
       head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
       tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
