@@ -122,7 +122,7 @@
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
     { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.163' }
+    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v5.png?v=1.0.178' }
   ];
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 
@@ -488,7 +488,7 @@
   const foxShapeReference = new Image();
   foxShapeReference.onload = () => draw();
   foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
-  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.163';
+  foxShapeReference.src = `${FoxRig?.REFERENCE_BIND?.source?.file || 'fox-reference-charcoal.png'}?v=1.0.178`;
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -1440,7 +1440,7 @@
     return {
       schema:FOX_HANDOFF_SCHEMA,
       app:'SideScroll',
-      animLabVersion:'1.0.176',
+      animLabVersion:'1.0.178',
       exportedAt:new Date().toISOString(),
       fox:{
         setup:{
@@ -1460,7 +1460,7 @@
   async function exportFoxHandoffBundle() {
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.176.json';
+      const fileName = 'SS-FOX-RIG-ANIM-1.0.178.json';
       const blob = new Blob([payload],{type:'application/json'});
       const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
       if (file && navigator.share && navigator.canShare?.({files:[file]})) {
@@ -1483,7 +1483,7 @@
   }
 
   const api = {
-    version:'1.0.176',
+    version:'1.0.178',
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),

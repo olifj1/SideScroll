@@ -195,10 +195,12 @@
       });
     };
     const parts=[
-      makePart('tail','Tail','tail','tailRoot',0),
-      makePart('bodyHead','Body + Head','bodyHead','midRoot',1),
-      makePart('rearNear','Rear Near Leg','rearNear','rearNearSocket',2),
-      makePart('frontNear','Front Near Leg','frontNear','frontNearSocket',3)
+      makePart('rearFar','Rear Far Leg','rearFar','rearFarSocket',0),
+      makePart('frontFar','Front Far Leg','frontFar','frontFarSocket',1),
+      makePart('tail','Tail','tail','tailRoot',2),
+      makePart('bodyHead','Body + Head','bodyHead','midRoot',3),
+      makePart('rearNear','Rear Near Leg','rearNear','rearNearSocket',4),
+      makePart('frontNear','Front Near Leg','frontNear','frontNearSocket',5)
     ].filter(Boolean);
     return Object.freeze({
       schema:'animlab.art-layout-designer.v1',
@@ -313,8 +315,8 @@
   const ATLAS = Object.freeze({
     width: 2048,
     height: 2048,
-    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.163',
-    sourceUrl: 'fox-reference-charcoal.png?v=1.0.163',
+    fileUrl: 'fox-rig-atlas-v5.png?v=1.0.178',
+    sourceUrl: 'fox-bind-v3-preview.png?v=1.0.178',
     parts: Object.freeze({
       head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
       tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
@@ -1246,7 +1248,7 @@
   }
 
   window.GameHubFoxRig={
-    version:'1.0.176',DEG,TAU,BODY,REST,LIMBS,ATLAS,REFERENCE_BIND,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.178',DEG,TAU,BODY,REST,LIMBS,ATLAS,REFERENCE_BIND,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y

@@ -1,4 +1,4 @@
-const CACHE = "sidescroll-runtime-v27";
+const CACHE = "sidescroll-runtime-v29";
 const CORE_SHELL = [
   "./",
   "./index.html",
@@ -33,10 +33,13 @@ const CORE_SHELL = [
   "./walk-lab.js",
   "./anim-lab-stage2.js",
   "./anim-lab-mesh.js",
-  "./fox-bind-body-head-v1.png",
-  "./fox-bind-tail-v1.png",
-  "./fox-bind-rear-near-v1.png",
-  "./fox-bind-front-near-v1.png",
+  "./fox-bind-v3-preview.png",
+  "./fox-bind-bodyHead-v3.png",
+  "./fox-bind-tail-v3.png",
+  "./fox-bind-frontNear-v3.png",
+  "./fox-bind-frontFar-v3.png",
+  "./fox-bind-rearNear-v3.png",
+  "./fox-bind-rearFar-v3.png",
   "./anim-lab-stage3.js",
   "./anim-lab-stage4.js",
   "./anim-lab-reference.js",

@@ -10,35 +10,48 @@
   }
 
   // Stage M1.4: reference-first bind proof. The deform source is no longer a
-  // redrawn/fitted atlas. These four visible planes are mechanically cut from the
-  // authoritative fox-reference-charcoal.png and retain their original source-pixel
-  // coordinates. At bind pose they reassemble to the source with zero changed visible
-  // pixels. Missing/hidden art and far limbs are deliberately deferred to the next stage.
+  // redrawn/fitted atlas. These six planes come directly from the original transparent charcoal atlas; no alpha channel is re-derived from a screenshot.
+  // Their bind-space placement is editable through the global Part Layout tool, while
+  // the meshes follow the saved rest rig and animation data.
   const REFERENCE_BIND = FoxRig.REFERENCE_BIND || window.SideScrollFoxReferenceBind || null;
   const REGION_DEFS = [
     {
-      id:'tail', label:'Tail', order:0, topology:'chain', plane:'tail',
+      id:'rearFar', label:'Rear Far Leg', order:0, topology:'chain', plane:'rearFar',
+      parts:['far_rear_upper','far_rear_lower_prox','far_rear_lower_dist'],
+      subdivisions:4, scanHalfWidth:.075, maxCap:.050, widthPad:.002,
+      bones:[['rearFarRoot','rearFarKnee'],['rearFarKnee','rearFarHock'],['rearFarHock','rearFarFoot']],
+      attachBone:['rearBody','midRoot'], attachBlendDistance:.10, attachStrength:.30
+    },
+    {
+      id:'frontFar', label:'Front Far Leg', order:1, topology:'chain', plane:'frontFar',
+      parts:['far_front_upper','far_front_lower_prox','far_front_lower_dist'],
+      subdivisions:4, scanHalfWidth:.075, maxCap:.050, widthPad:.002,
+      bones:[['frontFarRoot','frontFarKnee'],['frontFarKnee','frontFarWrist'],['frontFarWrist','frontFarFoot']],
+      attachBone:['midRoot','frontBody'], attachBlendDistance:.10, attachStrength:.34
+    },
+    {
+      id:'tail', label:'Tail', order:2, topology:'chain', plane:'tail',
       parts:['tail_base','tail_mid','tail_tip'],
       subdivisions:4, scanHalfWidth:.165, maxCap:.085, widthPad:.0025,
       bones:[['tail0','tail1'],['tail1','tail2'],['tail2','tail3']],
       attachBone:['rearBody','midRoot'], attachBlendDistance:.105, attachStrength:.18
     },
     {
-      id:'bodyHead', label:'Body + Head', order:1, topology:'grid', plane:'bodyHead',
+      id:'bodyHead', label:'Body + Head', order:3, topology:'grid', plane:'bodyHead',
       parts:['torso','head_neck'], grid:[12,6],
       bones:[['rearBody','midRoot'],['midRoot','frontBody'],['frontBody','neck'],['neck','head']]
     },
     {
-      id:'rearNear', label:'Rear Near Leg', order:2, topology:'chain', plane:'rearNear',
+      id:'rearNear', label:'Rear Near Leg', order:4, topology:'chain', plane:'rearNear',
       parts:['near_rear_upper','near_rear_lower_prox','near_rear_lower_dist'],
-      subdivisions:4, scanHalfWidth:.075, maxCap:.045, widthPad:.002,
+      subdivisions:4, scanHalfWidth:.075, maxCap:.050, widthPad:.002,
       bones:[['rearNearRoot','rearNearKnee'],['rearNearKnee','rearNearHock'],['rearNearHock','rearNearFoot']],
       attachBone:['rearBody','midRoot'], attachBlendDistance:.10, attachStrength:.30
     },
     {
-      id:'frontNear', label:'Front Near Leg', order:3, topology:'chain', plane:'frontNear',
+      id:'frontNear', label:'Front Near Leg', order:5, topology:'chain', plane:'frontNear',
       parts:['near_front_upper','near_front_lower_prox','near_front_lower_dist'],
-      subdivisions:4, scanHalfWidth:.075, maxCap:.045, widthPad:.002,
+      subdivisions:4, scanHalfWidth:.075, maxCap:.050, widthPad:.002,
       bones:[['frontNearRoot','frontNearKnee'],['frontNearKnee','frontNearWrist'],['frontNearWrist','frontNearFoot']],
       attachBone:['midRoot','frontBody'], attachBlendDistance:.10, attachStrength:.34
     }
@@ -49,7 +62,7 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.176';
+  const ART_VERSION = '1.0.178';
   const planeImages = new Map();
   const referenceImage = new Image();
   const bindProofCache = new Map();
@@ -760,7 +773,7 @@
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redraw?.();});
 
   window.AnimLabSkinSurface=Object.freeze({
-    version:'1.0.176',
+    version:'1.0.178',
     getBindProof:()=>bindProof,
     setBindProof,
     getDifference:()=>difference,
