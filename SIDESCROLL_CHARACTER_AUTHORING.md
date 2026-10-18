@@ -1,6 +1,6 @@
 # SideScroll Character Authoring & Animation System
 
-Status: design direction, mesh-first staging begun in v1.0.165; global bind-art Part Layout added in v1.0.175 and interaction cleanup in v1.0.176.
+Status: design direction, mesh-first staging begun in v1.0.165.
 
 ## Goal
 
@@ -20,23 +20,6 @@ A character is an assembly of reusable data rather than one indivisible blob:
 6. Animation set — slots such as Idle/Walk/Run/Jump referencing templates or unique clips.
 7. Movement setup — scale, walk/run speed, jump behaviour and collider.
 8. Runtime capabilities — later character-specific gameplay actions where genuinely required.
-
-## Bind art / Part Layout
-
-Bind artwork placement is a first-class character-authoring layer between source art and mesh deformation. It is **not Fox-specific**. A rig family may opt in by exposing an `ART_LAYOUT_DESIGNER` descriptor; Anim Lab then provides the same Part Layout workflow for any compatible character.
-
-- Each bind-art part has a stable source rectangle, a bind pivot and a saved transform.
-- Saved transforms are translation, rotation and **uniform scale** by default. Non-uniform squash/stretch is intentionally excluded from the normal workflow so art proportions do not drift accidentally.
-- Part Layout edits do not rewrite rest joints, animation keys or source pixels.
-- Rest joints can be edited independently in the Joints tool, so artwork and anatomy can be aligned deliberately rather than forcing one layer to compensate for another.
-- Bind Proof removes animation and renders the saved bind-art layout in the reference coordinate system.
-- Part selection is explicit UI state; touching bind artwork in the viewport does **not** select or move a part. This keeps normal viewport pan/pinch/zoom available at all times.
-- Part transforms are authored from the shared bottom-right precision pad. Move supports Free/X/Y and Fine; Rotate and Scale remain pad-driven.
-- No part is selected by default when entering Part Layout. Reference/difference/reset tools live behind a secondary collapsed section so normal placement work stays uncluttered.
-- Difference view compares the assembled bind art against the authoritative reference; an untouched identity layout should produce no visible difference where the reference-derived planes cover the source.
-- Static reference alignment should use the same source origin / ground / pixels-per-local mapping as bind art when that metadata is available.
-- The final production atlas is a packing/storage step. Atlas packing must not change the approved bind-space part proportions or placement.
-- Generative image tools may later repair genuinely missing hidden pixels or produce approved derivatives, but protected reference pixels and the approved layout remain authoritative.
 
 ## Animation library direction
 
@@ -216,28 +199,3 @@ The next pass should tune Fox-specific weights against this stable atlas before 
 
 Update 1.0.171
 - Deform Fox body/head fit reduced and lowered slightly to better match the approved Fox Shape reference in Rig mode.
-### Stage M1.4 — reference-first bind reconstruction (v1.0.174)
-
-The previous deform-atlas iterations had drifted away from the approved character. M1.4 therefore resets the bind skin around the authoritative reference image rather than attempting to repair the generated atlas.
-
-- Visible Body + Head, Tail, Front Near and Rear Near planes are mechanically cut from the reference pixels.
-- Their source-image coordinates are preserved.
-- Identity reassembly is verified against the source before deformation.
-- The rest rig is fitted in the same reference coordinate system.
-- Hidden pixels, far limbs and final production-atlas repair are deliberately deferred.
-
-### Stage M1.5 — global Part Layout / bind verification (v1.0.175)
-
-M1.5 turns the reference-first proof into a reusable character-authoring feature rather than another Fox-only adjustment path.
-
-- Anim Lab Setup now has **Joints** and **Part Layout** tools.
-- Part Layout is descriptor-driven and reusable by any rig family that exposes bind-art metadata.
-- Parts can be selected, moved, rotated and uniformly scaled without altering rest joints or animation data.
-- Part Layout participates in the normal Setup working copy, Undo/Redo, Save and Discard flow.
-- Bind Proof now renders the saved Part Layout and remains intentionally unanimated.
-- Difference view compares the reconstructed bind artwork directly with the authoritative reference.
-- The Fox Shape static reference now uses the exact reference-bind origin/ground/scale mapping instead of the older approximate centred-width fit.
-- Mesh construction consumes the same saved Part Layout, so bind placement is no longer a display-only correction.
-
-The next art stage should use this approved bind layout to build the atlas mechanically, then restrict any image-generation repair to missing/allowed pixels only.
-

@@ -1,7 +1,7 @@
 (() => {
-  const VERSION = '1.0.184';
+  const VERSION = '1.0.169';
   const ASSET_VERSION = '1.0.62';
-  const PRELOAD_CACHE = 'sidescroll-runtime-v184';
+  const PRELOAD_CACHE = 'sidescroll-runtime-v23';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');
@@ -48,14 +48,6 @@
     'walklab-rig-v4-alt-hero2.png',
     'walklab-character-source.png',
     'fox-rig-atlas-v3.png',
-    'fox-bind-v3-preview.png',
-    'fox-deform-bind-atlas-v181.png',
-    'fox-bind-bodyHead-v3.png',
-    'fox-bind-tail-v3.png',
-    'fox-bind-frontNear-v3.png',
-    'fox-bind-frontFar-v3.png',
-    'fox-bind-rearNear-v3.png',
-    'fox-bind-rearFar-v3.png',
     'fox-reference-charcoal.png',
     'fox-deform-atlas-v2.png',
     'fox-character-source-v1.png',
@@ -91,7 +83,7 @@
     'mountain-grass-02.png',
     'mountain-grass-03.png'
   ].map(path => withVersion(path, path === 'fox-rig-atlas-v3.png' ? VERSION : (path === 'fox-reference-charcoal.png' ? VERSION : (path.startsWith('fox-deform-') ? VERSION : (path.startsWith('fox-') && /\.(?:png|jpe?g|webp)$/i.test(path)
-    ? VERSION
+    ? '1.0.141'
     : (path.startsWith('mountain-')
       ? VERSION
       : (/\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i.test(path) ? ASSET_VERSION : VERSION)))))));

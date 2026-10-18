@@ -1,0 +1,315 @@
+{
+  "title": "SideScroll rollback to user-supplied full build v1.0.173",
+  "baseline": "SideScroll-main(4).zip",
+  "patch": "SS-PATCH-1.0.186.zip",
+  "rollback_basis": "All user-supplied patch archives 174-185 (including 180, 181, 182, 183, 184, 185).",
+  "baseline_file_count": 210,
+  "restored_existing_files": [
+    "README.md",
+    "SIDESCROLL_CHARACTER_AUTHORING.md",
+    "anim-lab-mesh.js",
+    "anim-lab-rig.js",
+    "anim-lab-stage2.js",
+    "fox-rig.js",
+    "home.js",
+    "index.html",
+    "play.html",
+    "style.css",
+    "sw.js",
+    "walk-lab.html",
+    "walk-lab.js"
+  ],
+  "restored_file_count": 13,
+  "exceptions": {
+    "sw.js": "Byte-identical to full-build except CACHE value changed from sidescroll-runtime-v24 to sidescroll-runtime-fox-rollback-186 to force browser cache refresh."
+  },
+  "atlas_files_not_included": "These original full-build atlas assets are unchanged in every supplied patch: fox-reference-charcoal.png, fox-rig-atlas-v3.png, fox-deform-atlas-v2.png",
+  "newer_only_files_left_in_repo": [
+    "FOX_RESET_NOTE.md",
+    "README.txt",
+    "SS184-AUDIT.json",
+    "anim-lab-art-layout.js",
+    "fox-atlas-source-charcoal-v2.png",
+    "fox-atlas-user-v1-alpha.png",
+    "fox-bind-body-head-v1.png",
+    "fox-bind-bodyHead-v182.png",
+    "fox-bind-bodyHead-v2.png",
+    "fox-bind-bodyHead-v3.png",
+    "fox-bind-front-near-v1.png",
+    "fox-bind-frontFar-v182.png",
+    "fox-bind-frontFar-v2.png",
+    "fox-bind-frontFar-v3.png",
+    "fox-bind-frontNear-v182.png",
+    "fox-bind-frontNear-v2.png",
+    "fox-bind-frontNear-v3.png",
+    "fox-bind-rear-near-v1.png",
+    "fox-bind-rearFar-v182.png",
+    "fox-bind-rearFar-v2.png",
+    "fox-bind-rearFar-v3.png",
+    "fox-bind-rearNear-v182.png",
+    "fox-bind-rearNear-v2.png",
+    "fox-bind-rearNear-v3.png",
+    "fox-bind-tail-v1.png",
+    "fox-bind-tail-v182.png",
+    "fox-bind-tail-v2.png",
+    "fox-bind-tail-v3.png",
+    "fox-bind-v2-preview.png",
+    "fox-bind-v3-preview.png",
+    "fox-deform-bind-atlas-v181-map.json",
+    "fox-deform-bind-atlas-v181.png",
+    "fox-deform-bind-atlas-v182-map.json",
+    "fox-deform-bind-atlas-v182.png",
+    "fox-reference-bind-v1.js",
+    "fox-rig-atlas-v4.png",
+    "fox-rig-atlas-v5.png"
+  ],
+  "newer_only_file_count": 37,
+  "newer_only_files_referenced_by_original_code": {},
+  "per_patch_inventory": {
+    "SS-PATCH-1.0.174(1).zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "anim-lab-mesh.js",
+        "fox-rig.js",
+        "sw.js",
+        "walk-lab.html"
+      ],
+      "new_files": [
+        "fox-bind-body-head-v1.png",
+        "fox-bind-front-near-v1.png",
+        "fox-bind-rear-near-v1.png",
+        "fox-bind-tail-v1.png",
+        "fox-reference-bind-v1.js"
+      ]
+    },
+    "SS-PATCH-1.0.175(1).zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "SIDESCROLL_CHARACTER_AUTHORING.md",
+        "anim-lab-mesh.js",
+        "anim-lab-rig.js",
+        "anim-lab-stage2.js",
+        "fox-rig.js",
+        "style.css",
+        "sw.js",
+        "walk-lab.html",
+        "walk-lab.js"
+      ],
+      "new_files": [
+        "anim-lab-art-layout.js"
+      ]
+    },
+    "SS-PATCH-1.0.176(1).zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "SIDESCROLL_CHARACTER_AUTHORING.md",
+        "anim-lab-mesh.js",
+        "anim-lab-rig.js",
+        "anim-lab-stage2.js",
+        "fox-rig.js",
+        "style.css",
+        "sw.js",
+        "walk-lab.html",
+        "walk-lab.js"
+      ],
+      "new_files": [
+        "anim-lab-art-layout.js"
+      ]
+    },
+    "SS-PATCH-1.0.177(1).zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "anim-lab-mesh.js",
+        "fox-rig.js",
+        "home.js",
+        "play.html",
+        "sw.js",
+        "walk-lab.html",
+        "walk-lab.js"
+      ],
+      "new_files": [
+        "fox-atlas-user-v1-alpha.png",
+        "fox-bind-bodyHead-v2.png",
+        "fox-bind-frontFar-v2.png",
+        "fox-bind-frontNear-v2.png",
+        "fox-bind-rearFar-v2.png",
+        "fox-bind-rearNear-v2.png",
+        "fox-bind-tail-v2.png",
+        "fox-bind-v2-preview.png",
+        "fox-reference-bind-v1.js",
+        "fox-rig-atlas-v4.png"
+      ]
+    },
+    "SS-PATCH-1.0.178(1).zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "anim-lab-mesh.js",
+        "fox-rig.js",
+        "home.js",
+        "play.html",
+        "sw.js",
+        "walk-lab.html",
+        "walk-lab.js"
+      ],
+      "new_files": [
+        "fox-atlas-source-charcoal-v2.png",
+        "fox-bind-bodyHead-v3.png",
+        "fox-bind-frontFar-v3.png",
+        "fox-bind-frontNear-v3.png",
+        "fox-bind-rearFar-v3.png",
+        "fox-bind-rearNear-v3.png",
+        "fox-bind-tail-v3.png",
+        "fox-bind-v3-preview.png",
+        "fox-reference-bind-v1.js",
+        "fox-rig-atlas-v5.png"
+      ]
+    },
+    "SS-PATCH-1.0.179.zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "fox-rig.js",
+        "home.js",
+        "sw.js",
+        "walk-lab.js"
+      ],
+      "new_files": [
+        "fox-atlas-source-charcoal-v2.png",
+        "fox-bind-bodyHead-v2.png",
+        "fox-bind-frontFar-v2.png",
+        "fox-bind-frontNear-v2.png",
+        "fox-bind-rearFar-v2.png",
+        "fox-bind-rearNear-v2.png",
+        "fox-bind-tail-v2.png",
+        "fox-bind-v2-preview.png",
+        "fox-reference-bind-v1.js",
+        "fox-rig-atlas-v4.png"
+      ]
+    },
+    "SS180(1).zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "anim-lab-mesh.js",
+        "fox-rig.js",
+        "home.js",
+        "index.html",
+        "play.html",
+        "sw.js",
+        "walk-lab.html",
+        "walk-lab.js"
+      ],
+      "new_files": [
+        "fox-bind-v2-preview.png",
+        "fox-rig-atlas-v4.png"
+      ]
+    },
+    "SS-PATCH-1.0.181-FROM-178(1).zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "anim-lab-mesh.js",
+        "home.js",
+        "index.html",
+        "sw.js",
+        "walk-lab.html"
+      ],
+      "new_files": [
+        "fox-deform-bind-atlas-v181-map.json",
+        "fox-deform-bind-atlas-v181.png"
+      ]
+    },
+    "SS-PATCH-1.0.182.zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "anim-lab-mesh.js",
+        "fox-rig.js",
+        "home.js",
+        "index.html",
+        "play.html",
+        "sw.js",
+        "walk-lab.html"
+      ],
+      "new_files": [
+        "fox-bind-bodyHead-v182.png",
+        "fox-bind-frontFar-v182.png",
+        "fox-bind-frontNear-v182.png",
+        "fox-bind-rearFar-v182.png",
+        "fox-bind-rearNear-v182.png",
+        "fox-bind-tail-v182.png",
+        "fox-deform-bind-atlas-v182-map.json",
+        "fox-deform-bind-atlas-v182.png",
+        "fox-reference-bind-v1.js"
+      ]
+    },
+    "SS-PATCH-1.0.183.zip": {
+      "original_files_overwritten": [
+        "fox-rig.js"
+      ],
+      "new_files": [
+        "README.txt",
+        "fox-bind-bodyHead-v3.png",
+        "fox-bind-frontFar-v3.png",
+        "fox-bind-frontNear-v3.png",
+        "fox-bind-rearFar-v3.png",
+        "fox-bind-rearNear-v3.png",
+        "fox-bind-tail-v3.png",
+        "fox-bind-v3-preview.png",
+        "fox-deform-bind-atlas-v181-map.json",
+        "fox-deform-bind-atlas-v181.png",
+        "fox-reference-bind-v1.js"
+      ]
+    },
+    "SS-PATCH-1.0.184.zip": {
+      "original_files_overwritten": [
+        "README.md",
+        "SIDESCROLL_CHARACTER_AUTHORING.md",
+        "anim-lab-mesh.js",
+        "anim-lab-rig.js",
+        "anim-lab-stage2.js",
+        "fox-rig.js",
+        "home.js",
+        "index.html",
+        "play.html",
+        "style.css",
+        "sw.js",
+        "walk-lab.html",
+        "walk-lab.js"
+      ],
+      "new_files": [
+        "README.txt",
+        "SS184-AUDIT.json",
+        "anim-lab-art-layout.js",
+        "fox-atlas-source-charcoal-v2.png",
+        "fox-bind-bodyHead-v3.png",
+        "fox-bind-frontFar-v3.png",
+        "fox-bind-frontNear-v3.png",
+        "fox-bind-rearFar-v3.png",
+        "fox-bind-rearNear-v3.png",
+        "fox-bind-tail-v3.png",
+        "fox-bind-v3-preview.png",
+        "fox-deform-bind-atlas-v181-map.json",
+        "fox-deform-bind-atlas-v181.png",
+        "fox-reference-bind-v1.js"
+      ]
+    },
+    "SS-PATCH-1.0.185-FOX-RESET.zip": {
+      "original_files_overwritten": [],
+      "new_files": [
+        "FOX_RESET_NOTE.md"
+      ]
+    }
+  },
+  "baseline_sha256_for_restored_files": {
+    "README.md": "d4cb22398e3b9bf92f27aeb6ac8b9dd4aade995b29c951501a697a78039b1402",
+    "SIDESCROLL_CHARACTER_AUTHORING.md": "20aba1d4573029f8379c6ff01396b06c030a9893866365608fc0552f8aca64da",
+    "anim-lab-mesh.js": "fd2421cc967936b1fdcddc524ddd91b13723c902951938f9e5ef9f354232b25f",
+    "anim-lab-rig.js": "560d1a3cf0daaa42c31239b096bcfb19d5cbe797de10324e027f8cc78775de9f",
+    "anim-lab-stage2.js": "3a5e07cb90578008cd4acc0c26ecda830d78fb430580af1db92a98ff1d304ad4",
+    "fox-rig.js": "726a8b6e4edf3808e3fec9c2feefd9e99f198b9b4601702387aa8f68935a9325",
+    "home.js": "5731f33329ccb870e96b7694af29aa4385de05fd0d809bbb3198936eb9e7a174",
+    "index.html": "037370ba8828d1abf63708be06c3438f555a9a78ba24fdd44dd648d2ff7bf6b5",
+    "play.html": "14400f8b7deecdfcaac79d5b12346c58e484e53280741a0eea6d0302b42b1441",
+    "style.css": "6aaf782ff04feda01be5fd4dea19ba27b664cc70a15eb9618fdcae0bfc5c77c4",
+    "sw.js": "5f2e68755faeed80bc0ff7740e1900f0a804de35b50d989f1e7e6ac05408d38a",
+    "walk-lab.html": "9123756e9607e1c132880b462861977d41033184734acb1fef5f6e475bcd0f76",
+    "walk-lab.js": "9d2102b707ba78c837e56eb1d34a3d423ffca5c4a1c27758806dc4a3d2a90981"
+  }
+}

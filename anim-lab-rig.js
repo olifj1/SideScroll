@@ -66,7 +66,7 @@
   let precisionDrag = null;
 
   function state(){ return core.getState(); }
-  function descriptorFor(s){ return s && s.mode === 'setup' && s.setupTool !== 'art' && s.rig && s.rig.RIG_DESIGNER || null; }
+  function descriptorFor(s){ return s && s.mode === 'setup' && s.rig && s.rig.RIG_DESIGNER || null; }
   function rigDraftFor(s){ return s && s.setup && s.setup.rig && s.setup.rig.joints ? s.setup.rig : null; }
   function isActive(s){ return !!(descriptorFor(s) && rigDraftFor(s)); }
   function labelFor(desc,id){ return desc?.labels?.[id] || id || 'Joint'; }
@@ -264,7 +264,7 @@
       });
     } else if (name === 'reset-rig') {
       const defaults = defaultRig(s);
-      editRig('Reset rig to default proportions', rig => {
+      editRig('Reset rig to legacy proportions', rig => {
         const next = clone(defaults);
         rig.schema = next.schema;
         rig.family = next.family;
@@ -434,7 +434,7 @@
     ctx.setLineDash([]);
 
     ctx.globalAlpha=.95;
-    ctx.lineWidth=Math.max(1.15,canvas.width/820);
+    ctx.lineWidth=Math.max(2,canvas.width/380);
     const sideOf=id=>String(id||'').includes('Near')?'near':String(id||'').includes('Far')?'far':'';
     for (const link of desc.boneLinks || []) {
       const a=Array.isArray(link)?link[0]:link.a;
@@ -446,14 +446,14 @@
       ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
     }
 
-    const r=Math.max(4.5,canvas.width/245);
+    const r=Math.max(7,canvas.width/150);
     for (const [id,p] of Object.entries(screenPoints)) {
       const active=id===selectedJoint,side=sideOf(id);
       ctx.globalAlpha=1;
       ctx.fillStyle=active?'rgba(255,196,92,1)':side==='near'?'rgba(31,49,50,.98)':side==='far'?'rgba(91,101,104,.96)':'rgba(44,54,64,.96)';
       ctx.strokeStyle=active?'rgba(255,239,195,1)':side==='near'?'rgba(126,216,199,.98)':side==='far'?'rgba(210,218,220,.96)':'rgba(238,244,249,.95)';
-      ctx.lineWidth=Math.max(1.1,canvas.width/900);
-      ctx.beginPath();ctx.arc(p.x,p.y,active?r*1.18:r,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.lineWidth=Math.max(2,canvas.width/520);
+      ctx.beginPath();ctx.arc(p.x,p.y,active?r*1.25:r,0,Math.PI*2);ctx.fill();ctx.stroke();
       if (active) {
         ctx.font=`${Math.max(12,canvas.width/72)}px system-ui,-apple-system,sans-serif`;
         ctx.textAlign='center';ctx.textBaseline='bottom';
