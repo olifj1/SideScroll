@@ -10,7 +10,7 @@
   }
 
   // Stage M1.4: reference-first bind proof. The deform source is no longer a
-  // redrawn/fitted atlas. These six planes come from the user-selected charcoal atlas.
+  // redrawn/fitted atlas. The six regions are packed at their exact v1.0.174 reference positions; missing hidden root art uses approved later charcoal texture.
   // Their bind-space placement is editable through the global Part Layout tool, while
   // the meshes follow the saved rest rig and animation data.
   const REFERENCE_BIND = FoxRig.REFERENCE_BIND || window.SideScrollFoxReferenceBind || null;
@@ -62,13 +62,13 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.181';
+  const ART_VERSION = '1.0.182';
   // Six-part DEFORM atlas: not the 17-rectangle rigid/gameplay atlas.
   // Rectangles contain pixel-identical RGBA copies of the already approved
   // source planes. Source coordinates, rest rig, mesh topology and layout
   // transforms remain supplied by the existing REFERENCE_BIND descriptor.
-  const DEFORM_ATLAS_FILE = 'fox-deform-bind-atlas-v181.png';
-  const DEFORM_RECTS = Object.freeze({"bodyHead":{"x":16,"y":16,"w":1190,"h":600},"tail":{"x":16,"y":630,"w":527,"h":283},"frontNear":{"x":1240,"y":16,"w":152,"h":318},"frontFar":{"x":1420,"y":16,"w":151,"h":318},"rearNear":{"x":1240,"y":360,"w":160,"h":302},"rearFar":{"x":1420,"y":360,"w":157,"h":302}});
+  const DEFORM_ATLAS_FILE = 'fox-deform-bind-atlas-v182.png';
+  const DEFORM_RECTS = Object.freeze({"bodyHead":{"x":16,"y":16,"w":1192,"h":627},"tail":{"x":16,"y":663,"w":527,"h":302},"frontNear":{"x":1240,"y":16,"w":186,"h":322},"frontFar":{"x":1460,"y":16,"w":186,"h":322},"rearNear":{"x":1240,"y":366,"w":199,"h":302},"rearFar":{"x":1460,"y":366,"w":199,"h":302}});
   const deformAtlas = new Image();
   const referenceImage = new Image();
   const bindProofCache = new Map();
@@ -91,7 +91,7 @@
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
     <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin / Mesh</div>
-    <div class="animlab-setup-note">Six-part deforming mesh atlas. Rig / animation / Part Layout data are unchanged.</div>
+    <div class="animlab-setup-note">Original-proportion six-part deform atlas, with hidden joint-root fill; fitted rig and animations preserved.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
@@ -752,7 +752,7 @@
       const ready=allReferencePlanesReady();
       const proof=REFERENCE_BIND?.proof;
       setupNote.textContent=ready
-        ? `Six-part deform atlas loaded. Six independent mesh regions, unchanged rig and bind layout; no rigid sprite substitution.`
+        ? `Reference-proportion deform atlas loaded: six regions, original source coordinates and untouched animation data.`
         : 'Loading six-part deform atlas…';
     }
   }
@@ -776,7 +776,7 @@
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redraw?.();});
 
   window.AnimLabSkinSurface=Object.freeze({
-    version:'1.0.181',
+    version:'1.0.182',
     getBindProof:()=>bindProof,
     setBindProof,
     getDifference:()=>difference,

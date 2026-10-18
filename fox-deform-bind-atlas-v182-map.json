@@ -1,0 +1,51 @@
+{
+  "schema": "sidescroll.character-deform-atlas.v1",
+  "atlas": "fox-deform-bind-atlas-v182.png",
+  "size": {
+    "w": 2048,
+    "h": 1024
+  },
+  "parts": {
+    "bodyHead": {
+      "x": 16,
+      "y": 16,
+      "w": 1192,
+      "h": 627
+    },
+    "tail": {
+      "x": 16,
+      "y": 663,
+      "w": 527,
+      "h": 302
+    },
+    "frontNear": {
+      "x": 1240,
+      "y": 16,
+      "w": 186,
+      "h": 322
+    },
+    "frontFar": {
+      "x": 1460,
+      "y": 16,
+      "w": 186,
+      "h": 322
+    },
+    "rearNear": {
+      "x": 1240,
+      "y": 366,
+      "w": 199,
+      "h": 302
+    },
+    "rearFar": {
+      "x": 1460,
+      "y": 366,
+      "w": 199,
+      "h": 302
+    }
+  },
+  "source": "v1.0.174 reference-exact four-part source, with v1.0.178 donor pixels ONLY behind the original opaque shoulder and hip cuts; far legs clone original near texture",
+  "noResampling": true,
+  "originalSource": "fox-reference-charcoal.png",
+  "originalVisibleRGBAProtected": true,
+  "rootFillPixels": 40789
+}
