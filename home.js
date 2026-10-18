@@ -1,7 +1,7 @@
 (() => {
-  const VERSION = '1.0.178';
+  const VERSION = '1.0.181';
   const ASSET_VERSION = '1.0.62';
-  const PRELOAD_CACHE = 'sidescroll-runtime-v23';
+  const PRELOAD_CACHE = 'sidescroll-runtime-v31';
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');
@@ -49,6 +49,7 @@
     'walklab-character-source.png',
     'fox-rig-atlas-v5.png',
     'fox-bind-v3-preview.png',
+    'fox-deform-bind-atlas-v181.png',
     'fox-bind-bodyHead-v3.png',
     'fox-bind-tail-v3.png',
     'fox-bind-frontNear-v3.png',

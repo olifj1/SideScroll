@@ -1,0 +1,48 @@
+{
+  "schema": "sidescroll.character-deform-atlas.v1",
+  "source": "charcoal_fox_sprite_atlas.png (original RGBA, via existing v1.0.179 six bind planes)",
+  "pixelOperation": "lossless copy of RGBA pixels to packed offsets; no alpha synthesis, no resampling",
+  "atlas": "fox-deform-bind-atlas-v181.png",
+  "size": {
+    "w": 2048,
+    "h": 1024
+  },
+  "parts": {
+    "bodyHead": {
+      "x": 16,
+      "y": 16,
+      "w": 1190,
+      "h": 600
+    },
+    "tail": {
+      "x": 16,
+      "y": 630,
+      "w": 527,
+      "h": 283
+    },
+    "frontNear": {
+      "x": 1240,
+      "y": 16,
+      "w": 152,
+      "h": 318
+    },
+    "frontFar": {
+      "x": 1420,
+      "y": 16,
+      "w": 151,
+      "h": 318
+    },
+    "rearNear": {
+      "x": 1240,
+      "y": 360,
+      "w": 160,
+      "h": 302
+    },
+    "rearFar": {
+      "x": 1420,
+      "y": 360,
+      "w": 157,
+      "h": 302
+    }
+  }
+}

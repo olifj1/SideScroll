@@ -1,22 +1,17 @@
-# SideScroll v1.0.178 — original-alpha charcoal atlas correction
+# SS-PATCH-1.0.181 — direct from v1.0.178
 
-Apply over v1.0.177.
+This is a corrected **changed-files-only** patch that installs DIRECTLY OVER 1.0.178.
+**Do NOT install the rejected 1.0.179 or 1.0.180 patches.**
 
-Changed-files-only patch.
+Changes:
+- New six-part RGBA deform atlas for body/head, tail, four legs (pixel-for-pixel identical to the six 1.0.178 alpha source planes).
+- Anim Lab's Deform mesh now directly uses this six-part atlas rather than the old 17-piece rigid atlas.
+- 1.0.178 rig, joints, Part Layout positions, authoring descriptor, reference source, saved animations and runtime rigid-gameplay atlas are unchanged.
+- Updated `walk-lab.html`, cache and launcher URLs to make the new renderer and atlas load on iOS.
 
-## What changed
-- Rebuilds the current Fox bind art from the original transparent `charcoal_fox_sprite_atlas.png` generated in chat, not from the later white-background/copied screenshot.
-- No background-removal or synthetic alpha pass is used. The source transparency is retained through the six bind parts.
-- Replaces Body + Head, Tail, Front Near/Far and Rear Near/Far with v3 bind planes derived from that clean source.
-- Rebuilds the runtime segmented Fox atlas as `fox-rig-atlas-v5.png` from the same clean-alpha planes.
-- Keeps the existing reference coordinate system, Part Layout defaults, rest-rig positions and `fox-reference-bind-1.0.174` authoring baseline ID so saved rig/animation work is not intentionally reset.
-- Bumps cache/version references so devices do not keep the v1.0.177 screenshot-derived textures.
+This patch DOES NOT alter gameplay Fox art; it's an Anim Lab Deform texture fix. It also does not promise that the current bind/mesh proportions are visually perfect: test them in Anim Lab.
 
-## Expected result
-The character should sit in essentially the same initial layout as v1.0.177, but without the white fringe introduced when the copied image was converted back to transparency.
-
-## QA
-- Six bind planes extracted from the original RGBA atlas and resized in premultiplied-alpha space only; no alpha matting/background removal performed.
-- Runtime v5 atlas regenerated from those planes with the existing rig anchors/segment rectangles.
-- JavaScript syntax checked for changed JS files.
-- Existing authoring baseline ID preserved.
+Technical verification:
+- Compared all six atlas regions with 1.0.178 PNGs (RGBA pixel-for-pixel): exact match.
+- JavaScript syntax checks on updated JS files.
+- Not interactively tested in Safari.

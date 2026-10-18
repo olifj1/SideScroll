@@ -10,7 +10,7 @@
   }
 
   // Stage M1.4: reference-first bind proof. The deform source is no longer a
-  // redrawn/fitted atlas. These six planes come directly from the original transparent charcoal atlas; no alpha channel is re-derived from a screenshot.
+  // redrawn/fitted atlas. These six planes come from the user-selected charcoal atlas.
   // Their bind-space placement is editable through the global Part Layout tool, while
   // the meshes follow the saved rest rig and animation data.
   const REFERENCE_BIND = FoxRig.REFERENCE_BIND || window.SideScrollFoxReferenceBind || null;
@@ -62,8 +62,14 @@
   const TEXELS_PER_LOCAL = 900;
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
-  const ART_VERSION = '1.0.178';
-  const planeImages = new Map();
+  const ART_VERSION = '1.0.181';
+  // Six-part DEFORM atlas: not the 17-rectangle rigid/gameplay atlas.
+  // Rectangles contain pixel-identical RGBA copies of the already approved
+  // source planes. Source coordinates, rest rig, mesh topology and layout
+  // transforms remain supplied by the existing REFERENCE_BIND descriptor.
+  const DEFORM_ATLAS_FILE = 'fox-deform-bind-atlas-v181.png';
+  const DEFORM_RECTS = Object.freeze({"bodyHead":{"x":16,"y":16,"w":1190,"h":600},"tail":{"x":16,"y":630,"w":527,"h":283},"frontNear":{"x":1240,"y":16,"w":152,"h":318},"frontFar":{"x":1420,"y":16,"w":151,"h":318},"rearNear":{"x":1240,"y":360,"w":160,"h":302},"rearFar":{"x":1420,"y":360,"w":157,"h":302}});
+  const deformAtlas = new Image();
   const referenceImage = new Image();
   const bindProofCache = new Map();
   let artRevision = 0;
@@ -85,7 +91,7 @@
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
     <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin / Mesh</div>
-    <div class="animlab-setup-note">Reference-first bind skin. Bind Proof removes animation and shows the saved bind-art layout; Deform applies the same layout through the mesh.</div>
+    <div class="animlab-setup-note">Six-part deforming mesh atlas. Rig / animation / Part Layout data are unchanged.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
@@ -119,16 +125,10 @@
 
   function loadDedicatedArt(){
     if(!REFERENCE_BIND?.planes)return;
-    for(const def of REGION_DEFS){
-      const meta=REFERENCE_BIND.planes[def.plane];
-      if(!meta?.file||planeImages.has(def.plane))continue;
-      const img=new Image();
-      img.decoding='async';
-      img.onload=()=>{artRevision++;caches.clear();bindProofCache.clear();core.redrawOnly?.();};
-      img.onerror=()=>console.warn(`[Anim Lab Mesh] Reference plane failed to load: ${meta.file}`);
-      img.src=`${meta.file}?v=${ART_VERSION}`;
-      planeImages.set(def.plane,img);
-    }
+    deformAtlas.decoding='async';
+    deformAtlas.onload=()=>{artRevision++;caches.clear();bindProofCache.clear();core.redrawOnly?.();updateUi();};
+    deformAtlas.onerror=()=>{console.error('[Anim Lab Mesh] Missing six-piece deform atlas:',DEFORM_ATLAS_FILE);updateUi();};
+    deformAtlas.src=`${DEFORM_ATLAS_FILE}?v=${ART_VERSION}`;
     const sourceFile=REFERENCE_BIND?.source?.file;
     if(sourceFile&&!referenceImage.src){
       referenceImage.decoding='async';
@@ -140,9 +140,9 @@
 
   function dedicatedArtFor(def){
     const meta=REFERENCE_BIND?.planes?.[def.plane];
-    const image=planeImages.get(def.plane);
-    if(!meta||!image||!image.complete||image.naturalWidth<=0)return null;
-    return {image,meta};
+    const rect=DEFORM_RECTS[def.plane];
+    if(!meta||!rect||!deformAtlas.complete||deformAtlas.naturalWidth<=0)return null;
+    return {image:deformAtlas,meta,rect};
   }
 
   function allReferencePlanesReady(){
@@ -505,13 +505,15 @@
     };
   }
 
-  function textureFromPlane(image){
+  function textureFromPlane(image,rect){
     const canvas=document.createElement('canvas');
-    canvas.width=Math.max(1,image.naturalWidth||image.width||1);
-    canvas.height=Math.max(1,image.naturalHeight||image.height||1);
+    canvas.width=rect.w;
+    canvas.height=rect.h;
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(image,0,0);
+    // Copy the corresponding piece from the six-part deform atlas without
+    // scaling, matching the old standalone plane's exact texels and alpha.
+    ctx.drawImage(image,rect.x,rect.y,rect.w,rect.h,0,0,rect.w,rect.h);
     return canvas;
   }
 
@@ -519,7 +521,7 @@
     const bindGeom=FoxRig.geometry(BIND_POSE,restRig);
     const dedicated=dedicatedArtFor(def);
     if(dedicated){
-      const texture=textureFromPlane(dedicated.image);
+      const texture=textureFromPlane(dedicated.image,dedicated.rect);
       const view=sourcePlaneView(dedicated.meta,def.plane,artLayout);
       const alpha=readAlpha(texture);
       const region=def.topology==='chain'
@@ -674,7 +676,7 @@
     ctx.rotate(-tr.rotation);
     ctx.scale(tr.scale||1,tr.scale||1);
     ctx.translate(-pivotX,-pivotY);
-    ctx.drawImage(art.image,Number(art.meta.sourceX)||0,Number(art.meta.sourceY)||0);
+    ctx.drawImage(art.image,art.rect.x,art.rect.y,art.rect.w,art.rect.h,Number(art.meta.sourceX)||0,Number(art.meta.sourceY)||0,art.rect.w,art.rect.h);
     ctx.restore();
   }
 
@@ -718,6 +720,7 @@
 
   function render(args){
     if(mode!=='mesh'||args.adapter?.id!=='fox'||!args.atlas)return false;
+    if(!allReferencePlanesReady())return true; // never silently substitute rigid art in Deform mode
     if(bindProof&&drawExactBind(args))return true;
     const restRig=args.restRig||args.setup?.rig||FoxRig.loadRestRig?.()||FoxRig.DEFAULT_REST_RIG;
     const poseGeom=FoxRig.geometry(args.pose,restRig);
@@ -749,8 +752,8 @@
       const ready=allReferencePlanesReady();
       const proof=REFERENCE_BIND?.proof;
       setupNote.textContent=ready
-        ? `Reference bind planes loaded. Original identity layout proof: ${proof?.changedVisiblePixels??0} changed visible pixels. Part Layout can now reposition / rotate / uniformly scale bind art before mesh weighting. Far limbs and hidden fill remain deferred.`
-        : 'Loading reference bind planes; rigid fallback remains available.';
+        ? `Six-part deform atlas loaded. Six independent mesh regions, unchanged rig and bind layout; no rigid sprite substitution.`
+        : 'Loading six-part deform atlas…';
     }
   }
 
@@ -773,7 +776,7 @@
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redraw?.();});
 
   window.AnimLabSkinSurface=Object.freeze({
-    version:'1.0.178',
+    version:'1.0.181',
     getBindProof:()=>bindProof,
     setBindProof,
     getDifference:()=>difference,
