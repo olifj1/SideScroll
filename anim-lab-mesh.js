@@ -596,9 +596,25 @@
     ctx.restore();
   }
 
+  // Part Layout is a non-destructive, per-region post-skin art transform.
+  // It never changes joints, mesh topology, UV rectangles or source textures.
+  const PART_PIVOTS = Object.freeze({bodyHead:'midRoot',tail:'tail0',
+    frontNear:'frontNearRoot',frontFar:'frontFarRoot',rearNear:'rearNearRoot',rearFar:'rearFarRoot'});
+  function layoutVertex(point,regionId,poseGeom,artLayout){
+    const tr=artLayout?.parts?.[regionId];
+    if(!tr)return point;
+    const dx=Number(tr.x)||0,dy=Number(tr.y)||0;
+    const s=Math.max(.25,Math.min(3,Number(tr.scale)||1)),r=Number(tr.rotation)||0;
+    if(!dx&&!dy&&s===1&&!r)return point;
+    const pivot=poseGeom[PART_PIVOTS[regionId]]||{x:0,y:0};
+    const x=point.x-pivot.x,y=point.y-pivot.y,c=Math.cos(r),sn=Math.sin(r);
+    return {x:pivot.x+dx+(x*c-y*sn)*s,y:pivot.y+dy+(x*sn+y*c)*s};
+  }
   function renderRegion(args,region,poseGeom){
     const {ctx,view}=args;
-    const dst=region.vertices.map(v=>projectLocal(region.binding==='chain'?chainVertex(v,region,poseGeom):weightedVertex(v,region,poseGeom),view));
+    const dst=region.vertices.map(v=>projectLocal(layoutVertex(
+      region.binding==='chain'?chainVertex(v,region,poseGeom):weightedVertex(v,region,poseGeom),
+      region.id,poseGeom,args.setup?.artLayout),view));
     for(const tri of region.triangles){
       const v0=region.vertices[tri[0]],v1=region.vertices[tri[1]],v2=region.vertices[tri[2]];
       drawTriangle(ctx,region.texture,v0.uv,v1.uv,v2.uv,dst[tri[0]],dst[tri[1]],dst[tri[2]],args.alpha??1);

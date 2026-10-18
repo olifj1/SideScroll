@@ -66,7 +66,7 @@
   let precisionDrag = null;
 
   function state(){ return core.getState(); }
-  function descriptorFor(s){ return s && s.mode === 'setup' && s.rig && s.rig.RIG_DESIGNER || null; }
+  function descriptorFor(s){ return s && s.mode === 'setup' && s.setupTool !== 'art' && s.rig && s.rig.RIG_DESIGNER || null; }
   function rigDraftFor(s){ return s && s.setup && s.setup.rig && s.setup.rig.joints ? s.setup.rig : null; }
   function isActive(s){ return !!(descriptorFor(s) && rigDraftFor(s)); }
   function labelFor(desc,id){ return desc?.labels?.[id] || id || 'Joint'; }

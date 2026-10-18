@@ -1212,8 +1212,55 @@
     ];
   }
 
+
+  // Generic Part Layout descriptor for the EXISTING six-region deform atlas.
+  // This only exposes region names/visual bounds to the editor. It doesn't
+  // replace the authored rig, rest positions, atlas, animations or binding.
+  const ART_LAYOUT_DESIGNER = (() => {
+    const regions = [
+      ['tail','Tail',['tail_base','tail_mid','tail_tip'],'tailRoot'],
+      ['rearFar','Rear Far Leg',['far_rear_upper','far_rear_lower_prox','far_rear_lower_dist'],'rearFarSocket'],
+      ['frontFar','Front Far Leg',['far_front_upper','far_front_lower_prox','far_front_lower_dist'],'frontFarSocket'],
+      ['bodyHead','Body + Head',['torso','head_neck'],'midRoot'],
+      ['rearNear','Rear Near Leg',['near_rear_upper','near_rear_lower_prox','near_rear_lower_dist'],'rearNearSocket'],
+      ['frontNear','Front Near Leg',['near_front_upper','near_front_lower_prox','near_front_lower_dist'],'frontNearSocket']
+    ];
+    const source = Object.freeze({originX:1000,groundY:1000,pixelsPerLocal:1000});
+    const neutral=clone(IDLE_POSE);
+    for(const k of ['bodyBob','frontBodyLift','rearBodyLift','bodyPitch','neckPitch','headPitch',
+      'tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower',
+      'ffUpper','ffLower','rnDistal','rfDistal','fnDistal','ffDistal'])neutral[k]=0;
+    for(const k of ['rn','rf','fn','ff'])neutral[k+'IkWeight']=0;
+    const posed=partsForPose(normalizedPose(neutral,0),DEFAULT_REST_RIG);
+    function partCorners(part){
+      const r=atlasRect(part.name);if(!r)return [];
+      const [a0x,a0y]=r.a0,[a1x,a1y]=r.a1;
+      const sx=(a1x-a0x)*r.w,sy=(a1y-a0y)*r.h;
+      const dx=part.b.x-part.a.x,dy=part.b.y-part.a.y;
+      const sl=Math.hypot(sx,sy)||1,dl=Math.hypot(dx,dy)||1,sc=dl/sl;
+      const usx=sx/sl,usy=sy/sl,vsx=-usy,vsy=usx,udx=dx/dl,udy=dy/dl,vdx=-udy,vdy=udx;
+      const aa=sc*(udx*usx+vdx*vsx),cc=sc*(udx*usy+vdx*vsy);
+      const bb=sc*(udy*usx+vdy*vsx),dd=sc*(udy*usy+vdy*vsy);
+      const ee=part.a.x-aa*a0x*r.w-cc*a0y*r.h;
+      const ff=part.a.y-bb*a0x*r.w-dd*a0y*r.h;
+      return [[0,0],[r.w,0],[r.w,r.h],[0,r.h]].map(([x,y])=>({x:aa*x+cc*y+ee,y:bb*x+dd*y+ff}));
+    }
+    const parts=regions.map(([id,label,partNames,pivotJoint],order)=>{
+      const points=posed.filter(p=>partNames.includes(p.name)).flatMap(partCorners);
+      const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+      const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+      const pivot=DEFAULT_REST_RIG.joints[pivotJoint];
+      return Object.freeze({id,label,plane:id,pivotJoint,order,
+        sourceRect:Object.freeze({x:source.originX+minX*1000,y:source.groundY-maxY*1000,
+          width:(maxX-minX)*1000,height:(maxY-minY)*1000}),
+        pivot:Object.freeze({x:pivot.x,y:pivot.y})});
+    });
+    return Object.freeze({schema:'animlab.art-layout-designer.v1',family:'quadruped',
+      referenceSource:'foxShape',source,parts:Object.freeze(parts)});
+  })();
+
   window.GameHubFoxRig={
-    version:'1.0.163',DEG,TAU,BODY,REST,LIMBS,ATLAS,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.163',DEG,TAU,BODY,REST,LIMBS,ATLAS,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y

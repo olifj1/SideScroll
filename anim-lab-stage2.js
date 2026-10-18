@@ -108,8 +108,12 @@
     </section>
 
     <section class="animlab-section animlab-setup-section" id="animlab-setup-section" hidden aria-labelledby="animlab-setup-title">
-      <div class="animlab-section-title" id="animlab-setup-title">Character Rig / Setup</div>
+      <div class="animlab-section-title" id="animlab-setup-title">Character Setup</div>
       <div class="animlab-setup-note" id="animlab-setup-note"></div>
+      <div class="animlab-segmented animlab-two animlab-setup-tool-row" id="animlab-setup-tool-row">
+        <button type="button" data-setup-tool="rig">Joints</button>
+        <button type="button" data-setup-tool="art">Part Layout</button>
+      </div>
       <label class="animlab-slider"><span>Scale</span><input type="range" data-setup="scale" min="0.55" max="2.25" step="0.01"><output></output></label>
       <label class="animlab-slider"><span>Collider X</span><input type="range" data-collider="offsetX" min="-0.18" max="0.18" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Radius</span><input type="range" data-collider="radius" min="0.07" max="0.32" step="0.005"><output></output></label>
@@ -160,6 +164,7 @@
   const staticRefInputs = [staticRefOpacity,staticRefScale,staticRefX,staticRefY];
   const axisButtons = [...host.querySelectorAll('[data-axis]')];
   const sliders = [...setupSection.querySelectorAll('.animlab-slider input')];
+  const setupToolButtons = [...setupSection.querySelectorAll('[data-setup-tool]')];
 
   function controlsFor(state = core.getState()) { return CONTROL_SETS[state.family] || []; }
   function selectedControl(state = core.getState()) { return controlsFor(state).find(c => c.id === selectedId) || null; }
@@ -219,9 +224,17 @@
   }
 
   function renderSetup(state) {
-    setupNote.textContent = state.family === 'human'
-      ? `${state.character.label} scale is per-character and now drives gameplay size after Save. Saving the human collider still affects both Hero 1 and Hero 2 at runtime.`
-      : 'Fox scale, collider and structural rest rig remain a working copy until Save. Use Rig Designer below for anatomy/proportions.';
+    const hasArtLayout=!!state.rig?.ART_LAYOUT_DESIGNER;
+    setupNote.textContent = hasArtLayout
+      ? `${state.character.label} scale, collider, structural joints and bind-art Part Layout are one saved character setup. Joints and artwork can be aligned independently before mesh weighting or animation retargeting.`
+      : state.family === 'human'
+        ? `${state.character.label} scale is per-character and drives gameplay size after Save. Saving the human collider still affects both Hero 1 and Hero 2. This rig family has not exposed bind-art Part Layout yet.`
+        : `${state.character.label} uses the shared Character Setup workflow, but this rig family has not exposed bind-art Part Layout yet.`;
+    setupToolButtons.forEach(button=>{
+      const tool=button.dataset.setupTool,active=tool===state.setupTool;
+      button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+      button.disabled=tool==='art'&&!hasArtLayout;
+    });
     for (const input of sliders) {
       let value;
       if (input.dataset.setup === 'scale') value=state.setup.scale;
@@ -405,6 +418,14 @@
     finally { exportFoxBtn.disabled=false; }
   });
 
+  setupToolButtons.forEach(button=>button.addEventListener('click',()=>{
+    if(button.dataset.setupTool==='art'){
+      window.AnimLabSkinSurface?.setDifference?.(false);
+      window.AnimLabSkinSurface?.setBindProof?.(true);
+    }
+    core.setSetupTool?.(button.dataset.setupTool);
+  }));
+
   function sliderScope(input){return input.dataset.setup==='scale'?'scale':input.dataset.collider;}
   function stateSliderValue(input,state=core.getState()){
     return Number(input.dataset.setup==='scale' ? state.setup.scale : state.setup.collider[input.dataset.collider]);
@@ -462,7 +483,7 @@
   });
 
   window.AnimLabControlSurface = Object.freeze({
-    version:'1.0.164',
+    version:'1.0.175',
     getSelectedId:()=>selectedId,
     getSelectedControl:()=>{const control=selectedControl(core.getState());return control?{...control}:null;},
     selectControl:id=>selectControl(id,true)
