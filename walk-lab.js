@@ -122,7 +122,7 @@
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
     { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v5.png?v=1.0.178' }
+    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.184' }
   ];
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 

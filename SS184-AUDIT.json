@@ -1,0 +1,246 @@
+{
+  "release": "1.0.184",
+  "source_full": "SideScroll-main(4).zip (1.0.173)",
+  "authoring_overlays": [
+    "1.0.174",
+    "1.0.175",
+    "1.0.176",
+    "1.0.177",
+    "1.0.178"
+  ],
+  "deform_source": "1.0.181 (renderer + RGBA atlas)",
+  "rigid_source": "1.0.173 (original 17-segment atlas); 1.0.178 (rig implementation / same 17 rects)",
+  "part_dimensions_equal": true,
+  "deform_rgba_equal_to_178_parts": true,
+  "rect_proof": {
+    "bodyHead": {
+      "size": [
+        1190,
+        600
+      ],
+      "rgba_matches_178": true,
+      "pixels_checked": 714000
+    },
+    "tail": {
+      "size": [
+        527,
+        283
+      ],
+      "rgba_matches_178": true,
+      "pixels_checked": 149141
+    },
+    "frontNear": {
+      "size": [
+        152,
+        318
+      ],
+      "rgba_matches_178": true,
+      "pixels_checked": 48336
+    },
+    "frontFar": {
+      "size": [
+        151,
+        318
+      ],
+      "rgba_matches_178": true,
+      "pixels_checked": 48018
+    },
+    "rearNear": {
+      "size": [
+        160,
+        302
+      ],
+      "rgba_matches_178": true,
+      "pixels_checked": 48320
+    },
+    "rearFar": {
+      "size": [
+        157,
+        302
+      ],
+      "rgba_matches_178": true,
+      "pixels_checked": 47414
+    }
+  },
+  "rigid_rect_count": 17,
+  "rigid_rect_bounds_pass": true,
+  "rigid_rects": {
+    "head_neck": {
+      "x": 18,
+      "y": 18,
+      "w": 409,
+      "h": 360
+    },
+    "tail_base": {
+      "x": 445,
+      "y": 18,
+      "w": 369,
+      "h": 317
+    },
+    "tail_tip": {
+      "x": 832,
+      "y": 18,
+      "w": 265,
+      "h": 304
+    },
+    "torso": {
+      "x": 1115,
+      "y": 18,
+      "w": 694,
+      "h": 296
+    },
+    "tail_mid": {
+      "x": 18,
+      "y": 396,
+      "w": 354,
+      "h": 269
+    },
+    "near_front_upper": {
+      "x": 390,
+      "y": 396,
+      "w": 144,
+      "h": 204
+    },
+    "far_front_upper": {
+      "x": 552,
+      "y": 396,
+      "w": 144,
+      "h": 204
+    },
+    "near_rear_upper": {
+      "x": 714,
+      "y": 396,
+      "w": 179,
+      "h": 194
+    },
+    "far_rear_upper": {
+      "x": 911,
+      "y": 396,
+      "w": 179,
+      "h": 194
+    },
+    "near_front_lower_prox": {
+      "x": 1108,
+      "y": 396,
+      "w": 125,
+      "h": 169
+    },
+    "far_front_lower_prox": {
+      "x": 1251,
+      "y": 396,
+      "w": 125,
+      "h": 169
+    },
+    "near_rear_lower_prox": {
+      "x": 1394,
+      "y": 396,
+      "w": 109,
+      "h": 159
+    },
+    "far_rear_lower_prox": {
+      "x": 1521,
+      "y": 396,
+      "w": 109,
+      "h": 159
+    },
+    "near_rear_lower_dist": {
+      "x": 1648,
+      "y": 396,
+      "w": 102,
+      "h": 130
+    },
+    "far_rear_lower_dist": {
+      "x": 1768,
+      "y": 396,
+      "w": 102,
+      "h": 130
+    },
+    "near_front_lower_dist": {
+      "x": 18,
+      "y": 683,
+      "w": 164,
+      "h": 126
+    },
+    "far_front_lower_dist": {
+      "x": 200,
+      "y": 683,
+      "w": 164,
+      "h": 126
+    }
+  },
+  "authoring_baseline_id": "fox-reference-bind-1.0.174",
+  "rig_code_difference_from_178": "fileUrl and sourceUrl ONLY",
+  "mesh_code_difference_from_181": "version strings ONLY",
+  "release_files": [
+    "README.md",
+    "README.txt",
+    "SIDESCROLL_CHARACTER_AUTHORING.md",
+    "anim-lab-art-layout.js",
+    "anim-lab-mesh.js",
+    "anim-lab-rig.js",
+    "anim-lab-stage2.js",
+    "fox-atlas-source-charcoal-v2.png",
+    "fox-bind-bodyHead-v3.png",
+    "fox-bind-frontFar-v3.png",
+    "fox-bind-frontNear-v3.png",
+    "fox-bind-rearFar-v3.png",
+    "fox-bind-rearNear-v3.png",
+    "fox-bind-tail-v3.png",
+    "fox-bind-v3-preview.png",
+    "fox-deform-bind-atlas-v181-map.json",
+    "fox-deform-bind-atlas-v181.png",
+    "fox-reference-bind-v1.js",
+    "fox-reference-charcoal.png",
+    "fox-rig-atlas-v3.png",
+    "fox-rig.js",
+    "home.js",
+    "index.html",
+    "play.html",
+    "style.css",
+    "sw.js",
+    "walk-lab.html",
+    "walk-lab.js"
+  ],
+  "full_files": 237,
+  "sha256": {
+    "README.md": "f9e8c280be506e1348484dbf92602087fa597fa1f2b7df1ed7de6fad705347d4",
+    "README.txt": "86896ab0deb9e5d0dc6f34d1e6ec68f70cd2cbb393069cb52a6d913bc88ca3b2",
+    "SIDESCROLL_CHARACTER_AUTHORING.md": "34bae63840c50d5471feeb11fc895ac3a00d76bd68f9107fef9e540b72039d69",
+    "anim-lab-art-layout.js": "de5b52e8ca295b86ac61bc245984848c83a63f173fbab11aa4eeb919b999e7bc",
+    "anim-lab-mesh.js": "f7dcfbd29a8476c732c9d9570574db380ae3263409039ffe1570633af9ab5c56",
+    "anim-lab-rig.js": "4e63f020e673fdf831add7c7e38a7d01e63d0c1267a4643a22aa06685378171e",
+    "anim-lab-stage2.js": "0653d9cf09b9b8516029f9fff1fcf4e315e75269f2a904a0705f7622adc7a5a4",
+    "fox-atlas-source-charcoal-v2.png": "bfad031e4c2d996b08cb7aac556cd47df39c444e6a713fd15eb3fa099d574759",
+    "fox-bind-bodyHead-v3.png": "327e66b1bca7f46e9f09eafe0d77de6a1de7f0c01699c7f0156b0919a7989ec2",
+    "fox-bind-frontFar-v3.png": "d2d76dea97f67679dc014889421c42e520a2551aa4a58fdcef702dcf0f8237b8",
+    "fox-bind-frontNear-v3.png": "ff8ed0899b0e4e4e77ffb22c17729d5e5d87eb2160ce0ae9e2d1e521ef60b8fe",
+    "fox-bind-rearFar-v3.png": "a2596d35ccd301f54b310a75e4237f237e6dec89d344383e71da36833add22ba",
+    "fox-bind-rearNear-v3.png": "8d662b2ec06c7a99dc34d64909dfe2003eee5415b4c8d43c7bc52b005a545699",
+    "fox-bind-tail-v3.png": "854d3973667a1928c4bba525f94eea8592e84a95955ea95e545be0b9db79a0ea",
+    "fox-bind-v3-preview.png": "a6b680f23d9a3de916b853b06ed326d9daaf9568e19d9338527bc2f909d67495",
+    "fox-deform-bind-atlas-v181-map.json": "b0bf9418494f7495ba32aa11fea5a861f1aa06c7ea76c450b18f6490f4051b08",
+    "fox-deform-bind-atlas-v181.png": "e6b89bb914dca6c2c1909ff6a0be1e2505418f5b751b163dce0998b77e105be9",
+    "fox-reference-bind-v1.js": "91dd39e39988c75e393e3c049aa7913d59c6fa3e0f5d8be7152ae795b5945ddd",
+    "fox-reference-charcoal.png": "1c4f96b640228884e8f95513baa30ba53b2277c87180a2f64a592568ce28195b",
+    "fox-rig-atlas-v3.png": "ca573cb498c5cab79831fc4db0201d0e015014f254f3b2b2b06c78311c5cfd22",
+    "fox-rig.js": "109b93f3d6cc62edecb80808eb3898eb6fe9fc449028f29701ba9391d3562e5c",
+    "home.js": "45573cae80162f538f097bec95fb31209d168c11b06237bac97c5d0ea6c88c5e",
+    "index.html": "568ba49f5eb826f119cd62955d9e3e63f632c5c423141b5a98ff1eefd40fadc1",
+    "play.html": "45a6f9cef2cfe617596da33069d6b3f553244762bd7327b36f0d27d40a122b25",
+    "style.css": "4b39be5665f9489de0012ea98c3245c42adf74760efe34353eb3c7b8df87a248",
+    "sw.js": "aa6c446e0fd4a7c331214ba973a8d1258fbe0e85a9f88fb567729095cad61444",
+    "walk-lab.html": "051e60c53f846a561281d30b91be9c865149e0415b8b26093f1a532696aeb3b8",
+    "walk-lab.js": "016069d89c6031e3edb9cf2e19c69d809d36745abe104926cf1d18df591b98d2"
+  },
+  "testing": "static/pixel/syntax plus isolated headless Chromium canvas renders of rigid and deform using the uploaded 1.0.164 rig export; NOT full app/Safari interactive device QA",
+  "orphan_rejected_files_that_patch_does_not_delete": [
+    "fox-bind-bodyHead-v182.png",
+    "fox-bind-frontNear-v182.png",
+    "fox-bind-frontFar-v182.png",
+    "fox-bind-rearNear-v182.png",
+    "fox-bind-rearFar-v182.png",
+    "fox-bind-tail-v182.png",
+    "fox-deform-bind-atlas-v182.png",
+    "fox-deform-bind-atlas-v182-map.json"
+  ]
+}
