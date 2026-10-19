@@ -110,9 +110,10 @@
     <section class="animlab-section animlab-setup-section" id="animlab-setup-section" hidden aria-labelledby="animlab-setup-title">
       <div class="animlab-section-title" id="animlab-setup-title">Character Setup</div>
       <div class="animlab-setup-note" id="animlab-setup-note"></div>
-      <div class="animlab-segmented animlab-two animlab-setup-tool-row" id="animlab-setup-tool-row">
-        <button type="button" data-setup-tool="rig">Joints</button>
-        <button type="button" data-setup-tool="art">Part Layout</button>
+      <div class="animlab-segmented animlab-three animlab-setup-tool-row" id="animlab-setup-tool-row">
+        <button type="button" data-setup-tool="rig">Rig</button>
+        <button type="button" data-setup-tool="art">Parts</button>
+        <button type="button" data-setup-tool="skin">Skin</button>
       </div>
       <label class="animlab-slider"><span>Scale</span><input type="range" data-setup="scale" min="0.55" max="2.25" step="0.01"><output></output></label>
       <label class="animlab-slider"><span>Collider X</span><input type="range" data-collider="offsetX" min="-0.18" max="0.18" step="0.005"><output></output></label>
@@ -226,14 +227,14 @@
   function renderSetup(state) {
     const hasArtLayout=!!state.rig?.ART_LAYOUT_DESIGNER;
     setupNote.textContent = hasArtLayout
-      ? `${state.character.label} scale, collider, structural joints and bind-art Part Layout are one saved character setup. Joints and artwork can be aligned independently before mesh weighting or animation retargeting.`
+      ? `${state.character.label} scale, collider, structural joints and bind-art Part Layout are one saved character setup. Use Parts for art, Rig for joints, Skin for deformation weights. These are independent edit stages.`
       : state.family === 'human'
         ? `${state.character.label} scale is per-character and drives gameplay size after Save. Saving the human collider still affects both Hero 1 and Hero 2. This rig family has not exposed bind-art Part Layout yet.`
         : `${state.character.label} uses the shared Character Setup workflow, but this rig family has not exposed bind-art Part Layout yet.`;
     setupToolButtons.forEach(button=>{
       const tool=button.dataset.setupTool,active=tool===state.setupTool;
       button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
-      button.disabled=tool==='art'&&!hasArtLayout;
+      button.disabled=tool!=='rig'&&!hasArtLayout;
     });
     for (const input of sliders) {
       let value;

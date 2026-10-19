@@ -2466,3 +2466,19 @@ Update 1.0.171
 - [ ] **User iPhone acceptance for v1.0.192 + v1.0.193**: near/far front and rear joints, tail, neck/body, Parts transforms/ordering, pixel-stable neutral and cross-mode transitions, animation continuity, Save/reload/Undo/Discard and app navigation.
 - [ ] **P2b**: dedicated Skin/Bind mode and per-vertex weighting/mesh controls; preview deformed art before committing topology changes; runtime uses the same stored skin bind data.
 - [ ] **P3/P4**: reusable rig/part descriptor pipeline, new-character creation, character/art library, custom and template animation clips, and actual dynamic in-game character selection.
+
+### 2026-10-19 · P2b Skin/Weight authoring test v1.0.194 (device acceptance pending)
+
+User accepted v1.0.193's rig-art independence on iPhone and requested the next stage. v1.0.194 is a changed-files-only patch directly over v1.0.193.
+
+- [x] Character Setup navigation now Rig / Parts / Skin with no change to existing Fox reference textures/clip data.
+- [x] Add per-character `skinTuning` normalisation/Setup Undo/Redo/Discard/Save and include in Fox handoff JSON; absent legacy values preserve approved defaults.
+- [x] In Skin show all six regions. Near/far legs and tail: editable body-root influence and blending distance; Copy to Pair and Reset Region.
+- [x] Body + Head grid: choose bone and vertex, selectively edit that one vertex's weights (re-normalise), explicitly arm canvas Pick Vertex, Auto Vertex / Reset Region. Wireframe + coloured weight dots.
+- [x] Non-saving Rest/Walk/Run phase comparisons; leave source pixels/UVs/topology/animation keys unchanged. Neutral art pixel-stable with or without skin tuning.
+- [x] On Skin entry temporarily disable default skeleton overlay (return previous setting on exit). Pan/pinch remains default until Pick Vertex is armed.
+- [x] Automated Chromium DOM/real-atlas/mocked-storage tests: slider effect on Walk renderer, Rest unchanged; Save/Undo/Redo, copy/restore, no JS page exceptions. Node syntax checks.
+- [ ] **User iPhone review**: Skin tab visible; Body vertex selection, weight change, auto restoration, near/far copying, Save/reload/Discard; inspect shoulder/root leg deformation at multiple Walk/Run phases, normal pan/pinch, small-device safe areas, performance.
+- [ ] **Topology/rig-family follow-up**: contour/vertex editor and optional bone influence authoring for *all* region topologies; deterministic IDs/schema migration when topology changes; typed cross-family descriptor source, not Fox-only REGION_DEFS.
+- [ ] **Runtime integration**: skin tuning + inverse bind must be consumed by in-game renderer and Quick Play; compare rendered frames to Anim Lab and performance-test on iPhone before enabling globally.
+- [ ] **Later agreed goal**: new Character wizard (name/family/art/rig/skin), template and unique clip libraries, export/import and save to Character Library, dynamic in-game character chooser. Maintain this as the primary project goal—Skin is only one milestone.

@@ -71,6 +71,19 @@
   let wireframe = false;
   let inspectIndex = 0;
   let lastFamily = null;
+  // Skin mode owns display-only choices. Authored tuning is in Setup's Undoable
+  // working copy; it never mutates procedural topology or the source atlas.
+  let selectedSkinRegion = 'bodyHead';
+  let selectedSkinBone = 0;
+  let selectedSkinVertex = 22;
+  let skinPreview = 'walk';
+  let skinPhase = .25;
+  let skinPickArmed = false;
+  let skinBonesRestore = null;
+  let skinLastViewport = null;
+  let sliderTx = null;
+  let sliderField = null;
+
 
   const INSPECT = [
     {id:'all',label:'All'},
@@ -94,6 +107,53 @@
     </div>
   `;
   host.appendChild(section);
+
+  const skinSection=document.createElement('section');
+  skinSection.id='animlab-skin-editor';
+  skinSection.className='animlab-section animlab-skin-editor';
+  skinSection.hidden=true;
+  skinSection.innerHTML=`
+    <div class="animlab-section-title">Skin / Weight Editor</div>
+    <p class="animlab-skin-note">Select a part, preview a pose, and adjust deformation without changing artwork or rig. Save commits changes; Discard and Undo are supported.</p>
+    <div class="animlab-skin-region-board" aria-label="Skin regions"></div>
+    <div class="animlab-view-grid animlab-skin-preview-controls">
+      <button type="button" data-skin-preview="neutral">Rest</button>
+      <button type="button" data-skin-preview="walk">Walk</button>
+      <button type="button" data-skin-preview="run">Run</button>
+      <button type="button" data-skin-phase>Phase: ¼</button>
+    </div>
+    <div class="animlab-skin-chain-controls" hidden>
+      <label class="animlab-slider"><span>Body / Root Influence</span><input data-skin-field="attachStrength" type="range" min="0" max="0.85" step="0.01"><output></output></label>
+      <label class="animlab-slider"><span>Blend Along Part</span><input data-skin-field="attachBlendDistance" type="range" min="0.025" max="0.35" step="0.005"><output></output></label>
+      <p class="animlab-skin-note">Increase body influence to carry the top of a leg or tail with the torso. Blend distance controls how far along the part it fades.</p>
+    </div>
+    <div class="animlab-skin-grid-controls" hidden>
+      <div class="animlab-view-grid animlab-skin-grid-tools">
+        <button type="button" data-skin-action="previous">◀ Vertex</button>
+        <button type="button" data-skin-action="next">Vertex ▶</button>
+        <button type="button" data-skin-action="pick">Pick Vertex</button>
+        <button type="button" data-skin-action="auto-vertex">Auto Vertex</button>
+      </div>
+      <div class="animlab-skin-vertex-status" role="status"></div>
+      <div class="animlab-skin-bones" aria-label="Bones affecting selected region"></div>
+      <label class="animlab-slider"><span>Selected Bone Weight</span><input data-skin-field="vertexBoneWeight" type="range" min="0" max="1" step="0.01"><output></output></label>
+      <p class="animlab-skin-note">Only the selected vertex is changed. Other influences are normalised to keep their total at 100%. Coloured dots show selected-bone weight.</p>
+    </div>
+    <div class="animlab-skin-actions">
+      <button type="button" data-skin-action="copy-pair">Copy To Matching Side</button>
+      <button type="button" data-skin-action="reset-region">Reset Region</button>
+    </div>
+    <p class="animlab-skin-note">Editor-only in this stage: gameplay still uses its existing Fox mesh. A later integration stage will connect saved skin tuning to the runtime.</p>
+  `;
+  section.insertAdjacentElement('afterend',skinSection);
+  const skinRegionBoard=skinSection.querySelector('.animlab-skin-region-board');
+  const skinBoneBoard=skinSection.querySelector('.animlab-skin-bones');
+  const skinChainControls=skinSection.querySelector('.animlab-skin-chain-controls');
+  const skinGridControls=skinSection.querySelector('.animlab-skin-grid-controls');
+  const skinVertexStatus=skinSection.querySelector('.animlab-skin-vertex-status');
+  const skinPhaseButton=skinSection.querySelector('[data-skin-phase]');
+  const skinCanvas=document.getElementById('animlab-canvas');
+
 
   const modeButtons = [...section.querySelectorAll('[data-mesh-mode]')];
   const wireBtn = section.querySelector('#animlab-mesh-wire');
@@ -523,9 +583,20 @@
     return {x:poseA.x+pux*longitudinal+pvx*across,y:poseA.y+puy*longitudinal+pvy*across};
   }
 
-  function weightedVertex(vertex,region,poseGeom,bindGeom){
+  function activeVertexWeights(vertex,region,vertexIndex,tuning){
+    const original=vertex.weights||[];
+    const edited=tuning?.vertexWeights?.[vertexIndex];
+    if(!Array.isArray(edited))return original;
+    // Full influence array indexed by the region's actual bone descriptor.
+    // Never silently rebuild topology or introduce external joint IDs.
+    const clean=region.bones.map((_,index)=>Math.max(0,Number(edited[index])||0));
+    const total=clean.reduce((a,b)=>a+b,0);
+    return total>1e-8?clean.map((weight,index)=>({index,weight:weight/total})).filter(x=>x.weight>1e-8):original;
+  }
+
+  function weightedVertex(vertex,region,poseGeom,bindGeom,vertexIndex,tuning){
     let x=0,y=0,total=0;
-    for(const influence of vertex.weights||[]){
+    for(const influence of activeVertexWeights(vertex,region,vertexIndex,tuning)){
       const bone=region.bones[influence.index];
       const bindA=bindGeom[bone[0]],bindB=bindGeom[bone[1]];
       const poseA=poseGeom[bone[0]],poseB=poseGeom[bone[1]];
@@ -536,7 +607,7 @@
     return total>1e-6?{x:x/total,y:y/total}:vertex.bind;
   }
 
-  function chainVertex(vertex,region,poseGeom,bindGeom){
+  function chainVertex(vertex,region,poseGeom,bindGeom,tuning){
     const posed=region.chainIds.map(id=>poseGeom[id]);
     const rested=region.chainIds.map(id=>bindGeom[id]);
     if(posed.some(p=>!p)||rested.some(p=>!p))return vertex.bind;
@@ -556,15 +627,17 @@
     let out={x:poseFrame.center.x+poseFrame.tangent.x*along+poseFrame.normal.x*across,
              y:poseFrame.center.y+poseFrame.tangent.y*along+poseFrame.normal.y*across};
     const attach=region.attachBone;
-    if(attach&&typeof region.attachBlendDistance==='number'&&region.attachBlendDistance>0){
+    const blendDistance=clamp(Number(tuning?.attachBlendDistance ?? region.attachBlendDistance),.025,.35);
+    const strength=clamp(Number(tuning?.attachStrength ?? region.attachStrength),0,.85);
+    if(attach&&blendDistance>0){
       const bindA=bindGeom[attach[0]], bindB=bindGeom[attach[1]];
       const poseA=poseGeom[attach[0]], poseB=poseGeom[attach[1]];
       if(bindA&&bindB&&poseA&&poseB){
         const attachPos=mapByBone(vertex.bind,bindA,bindB,poseA,poseB);
         const s=Math.max(0,vertex.chainS||0);
-        const rootBlend=1-clamp(s/region.attachBlendDistance,0,1);
+        const rootBlend=1-clamp(s/blendDistance,0,1);
         const offsetBlend=1-clamp(Math.abs(vertex.offset)/0.085,0,1)*0.35;
-        const t=clamp((region.attachStrength||0.3)*rootBlend*(0.65+offsetBlend),0,0.85);
+        const t=clamp(strength*rootBlend*(0.65+offsetBlend),0,0.85);
         out=lerpPoint(out,attachPos,t);
       }
     }
@@ -596,7 +669,8 @@
 
   function renderWireframe(ctx,region,dst,args){
     const inspect=INSPECT[inspectIndex]?.id||'all';
-    if(!wireframe||(inspect!=='all'&&inspect!==region.id))return;
+    const skinEditing=core.getState().mode==='setup'&&core.getState().setupTool==='skin';
+    if(!(wireframe||(skinEditing&&selectedSkinRegion===region.id))||(!skinEditing&&inspect!=='all'&&inspect!==region.id))return;
     ctx.save();
     ctx.strokeStyle='rgba(145,232,214,.58)';
     ctx.lineWidth=Math.max(1,args.canvas.width*.00105);
@@ -629,14 +703,15 @@
     const x=point.x-pivot.x,y=point.y-pivot.y,c=Math.cos(r),sn=Math.sin(r);
     return {x:pivot.x+dx+x*sx*c-y*sy*sn,y:pivot.y+dy+x*sx*sn+y*sy*c};
   }
-  function renderRegion(args,region,poseGeom,bindGeom,neutralMode){
+  function renderRegion(args,region,poseGeom,bindGeom,neutralMode,skinEditing){
     const {ctx,view}=args;
-    const dst=region.vertices.map(v=>{
+    const tuning=args.setup?.skinTuning?.regions?.[region.id]||{};
+    const dst=region.vertices.map((v,index)=>{
       const point=layoutVertex(v.bind,region.id,args.setup?.artLayout);
       const adjusted={...v,bind:point};
       const drawn=neutralMode?point:(region.binding==='chain'
-        ? chainVertex(adjusted,region,poseGeom,bindGeom)
-        : weightedVertex(adjusted,region,poseGeom,bindGeom));
+        ? chainVertex(adjusted,region,poseGeom,bindGeom,tuning)
+        : weightedVertex(adjusted,region,poseGeom,bindGeom,index,tuning));
       return projectLocal(drawn,view);
     });
     for(const tri of region.triangles){
@@ -644,6 +719,23 @@
       drawTriangle(ctx,region.texture,v0.uv,v1.uv,v2.uv,dst[tri[0]],dst[tri[1]],dst[tri[2]],args.alpha??1);
     }
     renderWireframe(ctx,region,dst,args);
+    if(skinEditing&&selectedSkinRegion===region.id){
+      ctx.save();
+      const radius=Math.max(3,args.canvas.width*.003);
+      for(let i=0;i<dst.length;i++){
+        const pt=dst[i];if(!pt)continue;
+        const boneWeight=region.binding==='weights'
+          ?(activeVertexWeights(region.vertices[i],region,i,tuning).find(w=>w.index===selectedSkinBone)?.weight||0)
+          :0;
+        const red=Math.round(65+185*boneWeight),green=Math.round(213-135*boneWeight);
+        ctx.beginPath();ctx.arc(pt.x,pt.y,i===selectedSkinVertex?radius*1.95:radius,0,Math.PI*2);
+        ctx.fillStyle=region.binding==='weights'?`rgb(${red},${green},167)`:'#96dfd1';
+        ctx.fill();ctx.strokeStyle=i===selectedSkinVertex?'#fff9d7':'#21373b';ctx.lineWidth=i===selectedSkinVertex?2.5:1;ctx.stroke();
+      }
+      ctx.restore();
+      // Hit-test uses the same projected posed vertices as the rendering.
+      skinLastViewport={regionId:region.id,points:dst,view};
+    }
   }
 
   function render(args){
@@ -652,14 +744,18 @@
     const setupMode=editor.mode==='setup';
     const partsMode=setupMode&&editor.setupTool==='art';
     const rigMode=setupMode&&editor.setupTool==='rig';
+    const skinEditing=setupMode&&editor.setupTool==='skin';
     if(mode!=='mesh'&&!setupMode)return false;
     const restRig=args.restRig||args.setup?.rig||FoxRig.loadRestRig?.()||FoxRig.DEFAULT_REST_RIG;
     const artRig=args.setup?.artRestRig||restRig;
+    skinLastAtlas=args.atlas;
     const regions=regionsFor(args.atlas,artRig);
     const preview=rigMode?window.AnimLabRigBindPreview?.getMode?.()||'off':'off';
-    const neutralMode=setupMode&&(partsMode||preview==='off');
+    const neutralMode=setupMode&&(partsMode||(rigMode&&preview==='off')||(skinEditing&&skinPreview==='neutral'));
     const pose=rigMode&&preview!=='off'
-      ?(core.evaluateClip?.('walk',.25,'fox')||args.pose):args.pose;
+      ?(core.evaluateClip?.('walk',.25,'fox')||args.pose)
+      :skinEditing&&skinPreview!=='neutral'
+        ?(core.evaluateClip?.(skinPreview,skinPhase,'fox')||args.pose):args.pose;
     const poseGeom=neutralMode?null:FoxRig.geometry(pose,restRig);
     const bindRig=rigMode&&preview==='candidate'?restRig:(args.setup?.skinBindRig||restRig);
     const bindGeom=neutralMode?null:FoxRig.geometry(BIND_POSE,bindRig);
@@ -672,16 +768,182 @@
     for(const id of order){
       const region=byId.get(id);
       if(!region||display?.isHidden?.(id)||(solo&&id!==solo))continue;
-      renderRegion(args,region,poseGeom,bindGeom,neutralMode);
+      renderRegion(skinEditing&&id!==selectedSkinRegion?{...args,alpha:(args.alpha??1)*.20}:args,region,poseGeom,bindGeom,neutralMode,skinEditing);
     }
     args.ctx.restore();
     return true;
   }
 
-  function updateUi(state=core.getState()){
+
+  function skinRegionInfo(state=core.getState()){
+    const rest=state.setup?.artRestRig||state.setup?.rig||FoxRig.DEFAULT_REST_RIG;
+    const atlas=core.getState().family==='fox'?skinLastAtlas:null;
+    return atlas?regionsFor(atlas,rest).find(region=>region.id===selectedSkinRegion):null;
+  }
+  let skinLastAtlas=null;
+  function selectedSkinDef(){return REGION_DEFS.find(def=>def.id===selectedSkinRegion)||REGION_DEFS[0];}
+  function skinDraft(){return core.getState().setup?.skinTuning?.regions?.[selectedSkinRegion]||{};}
+  function skinEditingNow(){const s=core.getState();return s.family==='fox'&&s.mode==='setup'&&s.setupTool==='skin';}
+  function skinEdit(label,change){
+    if(!skinEditingNow())return;
+    core.edit('setup',label,setup=>{
+      if(!setup.skinTuning)setup.skinTuning={schema:'animlab.skin-tuning.v1',regions:{}};
+      if(!setup.skinTuning.regions)setup.skinTuning.regions={};
+      const current=setup.skinTuning.regions[selectedSkinRegion]||{};
+      change(current,setup.skinTuning.regions);
+      if(Object.keys(current).length)setup.skinTuning.regions[selectedSkinRegion]=current;
+      else delete setup.skinTuning.regions[selectedSkinRegion];
+    });
+  }
+  function withSliderTransaction(input,modify){
+    const field=input.dataset.skinField;
+    if(sliderTx&&sliderField!==field){core.commitTransaction(sliderTx);sliderTx=null;}
+    if(!sliderTx){sliderTx=core.beginTransaction('setup',`Skin ${selectedSkinRegion}: ${field}`);sliderField=field;}
+    if(!sliderTx)return;
+    const regionId=selectedSkinRegion,vertexIndex=selectedSkinVertex,boneIndex=selectedSkinBone;
+    const value=Number(input.value);
+    core.previewTransaction(sliderTx,setup=>{
+      setup.skinTuning ||= {schema:'animlab.skin-tuning.v1',regions:{}};
+      setup.skinTuning.regions ||= {};
+      const entry=setup.skinTuning.regions[regionId] ||= {};
+      modify(entry,value,regionId,vertexIndex,boneIndex);
+    });
+  }
+  function commitSkinSlider(){
+    if(sliderTx){core.commitTransaction(sliderTx);sliderTx=null;sliderField=null;}
+  }
+  function skinRegionChanged(){commitSkinSlider();skinPickArmed=false;skinLastViewport=null;selectedSkinVertex=0;selectedSkinBone=0;refreshSkinUI();core.redrawOnly?.();}
+  function refreshSkinUI(state=core.getState()){
+    const active=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
+    skinSection.hidden=!active;
+    if(!active)return;
+    for(const btn of skinRegionBoard.querySelectorAll('button'))btn.classList.toggle('active',btn.dataset.region===selectedSkinRegion);
+    const region=skinRegionInfo(state),def=selectedSkinDef();
+    const chain=def.topology==='chain';
+    skinChainControls.hidden=!chain;skinGridControls.hidden=chain;
+    const settings=skinDraft();
+    for(const btn of skinSection.querySelectorAll('[data-skin-preview]'))btn.classList.toggle('active',btn.dataset.skinPreview===skinPreview);
+    skinPhaseButton.textContent=`Phase: ${Math.round(skinPhase*100)}%`;
+    const pairBtn=skinSection.querySelector('[data-skin-action="copy-pair"]');
+    pairBtn.disabled=!/(Near|Far)$/.test(selectedSkinRegion);
+    if(chain){
+      for(const input of skinChainControls.querySelectorAll('input')){
+        const key=input.dataset.skinField;
+        const value=settings[key]??def[key];
+        if(document.activeElement!==input)input.value=String(value);
+        input.parentElement.querySelector('output').textContent=Number(value).toFixed(3);
+      }
+    }else{
+      const count=region?.vertices?.length||60;
+      selectedSkinVertex=clamp(selectedSkinVertex,0,count-1);
+      selectedSkinBone=clamp(selectedSkinBone,0,def.bones.length-1);
+      const vertex=region?.vertices?.[selectedSkinVertex];
+      const weights=vertex?activeVertexWeights(vertex,region,selectedSkinVertex,settings):[];
+      const influence=weights.find(x=>x.index===selectedSkinBone)?.weight||0;
+      skinVertexStatus.textContent=`Vertex ${selectedSkinVertex+1} / ${count} · ${settings.vertexWeights?.[selectedSkinVertex]?'Manual':'Automatic'} weights`;
+      skinBoneBoard.replaceChildren();
+      def.bones.forEach(([a,b],index)=>{
+        const btn=document.createElement('button');btn.type='button';btn.textContent=`${a} → ${b}`;
+        btn.classList.toggle('active',index===selectedSkinBone);
+        btn.addEventListener('click',()=>{commitSkinSlider();selectedSkinBone=index;refreshSkinUI();core.redrawOnly?.();});
+        skinBoneBoard.appendChild(btn);
+      });
+      const input=skinGridControls.querySelector('[data-skin-field="vertexBoneWeight"]');
+      if(document.activeElement!==input)input.value=String(influence);
+      input.parentElement.querySelector('output').textContent=`${Math.round(influence*100)}%`;
+    }
+    const pick=skinSection.querySelector('[data-skin-action="pick"]');
+    pick.textContent=skinPickArmed?'Tap a Vertex…':'Pick Vertex';pick.classList.toggle('active',skinPickArmed);
+  }
+
+  // The region descriptor is the only region-specific input. No Fox-specific
+  // part IDs are embedded in the controls, so subsequent rig families can
+  // expose equivalent descriptors without cloning the editor design.
+  REGION_DEFS.forEach(def=>{
+    const btn=document.createElement('button');btn.type='button';btn.dataset.region=def.id;btn.textContent=def.label;
+    btn.addEventListener('click',()=>{selectedSkinRegion=def.id;skinRegionChanged();});
+    skinRegionBoard.appendChild(btn);
+  });
+  skinSection.querySelectorAll('[data-skin-preview]').forEach(btn=>btn.addEventListener('click',()=>{
+    commitSkinSlider();skinPreview=btn.dataset.skinPreview;refreshSkinUI();core.redrawOnly?.();
+  }));
+  skinPhaseButton.addEventListener('click',()=>{
+    commitSkinSlider();skinPhase=skinPhase===.25?.5:skinPhase===.5?.75:skinPhase===.75?0:.25;
+    refreshSkinUI();core.redrawOnly?.();
+  });
+  skinSection.querySelectorAll('[data-skin-field]').forEach(input=>{
+    input.addEventListener('input',()=>{
+      if(!skinEditingNow())return;
+      if(input.dataset.skinField==='vertexBoneWeight'){
+        const region=skinRegionInfo(),vertex=region?.vertices?.[selectedSkinVertex];
+        if(!vertex)return;
+        withSliderTransaction(input,(entry,value,regionId,vertexIndex,boneIndex)=>{
+          const prev=activeVertexWeights(vertex,region,vertexIndex,entry);
+          const arr=region.bones.map((_,index)=>prev.find(w=>w.index===index)?.weight||0);
+          const remainder=Math.max(0,1-value),other=arr.reduce((sum,w,index)=>sum+(index===boneIndex?0:w),0);
+          arr.forEach((w,index)=>{arr[index]=index===boneIndex?value:other>1e-7?w*remainder/other:remainder/(arr.length-1||1);});
+          entry.vertexWeights ||= {};
+          entry.vertexWeights[vertexIndex]=arr;
+        });
+      }else{
+        withSliderTransaction(input,(entry,value)=>{entry[input.dataset.skinField]=value;});
+      }
+      input.parentElement.querySelector('output').textContent=input.dataset.skinField==='vertexBoneWeight'?`${Math.round(Number(input.value)*100)}%`:Number(input.value).toFixed(3);
+    });
+    input.addEventListener('change',commitSkinSlider);
+    input.addEventListener('pointerup',commitSkinSlider);
+    input.addEventListener('pointercancel',commitSkinSlider);
+  });
+  skinSection.querySelectorAll('[data-skin-action]').forEach(btn=>btn.addEventListener('click',()=>{
+    const name=btn.dataset.skinAction;
+    commitSkinSlider();
+    if(name==='previous'||name==='next'){
+      const count=skinRegionInfo()?.vertices?.length||1;
+      selectedSkinVertex=(selectedSkinVertex+(name==='next'?1:count-1))%count;
+    }else if(name==='pick')skinPickArmed=!skinPickArmed;
+    else if(name==='auto-vertex')skinEdit('Restore automatic vertex weights',entry=>{
+      if(entry.vertexWeights){delete entry.vertexWeights[selectedSkinVertex];if(!Object.keys(entry.vertexWeights).length)delete entry.vertexWeights;}
+    });
+    else if(name==='reset-region')skinEdit('Reset skin weights for region',(entry,regions)=>{delete regions[selectedSkinRegion];for(const key of Object.keys(entry))delete entry[key];});
+    else if(name==='copy-pair'){
+      const target=selectedSkinRegion.endsWith('Near')?selectedSkinRegion.replace('Near','Far'):selectedSkinRegion.replace('Far','Near');
+      const src=skinDraft();
+      skinEdit('Copy skin weights to matching side',(_,regions)=>{regions[target]=clone(src);});
+    }
+    refreshSkinUI();core.redrawOnly?.();
+  }));
+  skinCanvas?.addEventListener('pointerdown',event=>{
+    if(!skinEditingNow()||!skinPickArmed||!skinLastViewport||selectedSkinDef().topology!=='grid')return;
+    // Arm first; never hijack ordinary pan/zoom unless a Pick operation is active.
+    event.preventDefault();event.stopImmediatePropagation();
+    const rect=skinCanvas.getBoundingClientRect();
+    const x=(event.clientX-rect.left)*(skinCanvas.width/Math.max(1,rect.width));
+    const y=(event.clientY-rect.top)*(skinCanvas.height/Math.max(1,rect.height));
+    let best=-1,distance=Infinity;
+    skinLastViewport.points.forEach((point,index)=>{
+      const d=Math.hypot(point.x-x,point.y-y);
+      if(d<distance){distance=d;best=index;}
+    });
+    if(best>=0&&distance<=Math.max(24,skinCanvas.width*.035))selectedSkinVertex=best;
+    else core.setHint('No vertex close to that tap. Zoom in or try again.');
+    skinPickArmed=false;refreshSkinUI();core.redrawOnly?.();
+  },true);
+
+  function updateUi(state=core.getState()){ 
     const visible=state.family==='fox';
     section.hidden=!visible;
     if(lastFamily!==state.family){lastFamily=state.family;}
+    const skinActive=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
+    // Temporarily hide distracting global skeleton lines in Skin; restore the
+    // user's prior View choice on exit, without saving a new display setting.
+    if(skinActive&&skinBonesRestore===null){
+      skinBonesRestore=!!state.overlays.bones;
+      if(state.overlays.bones)core.setOverlay('bones',false);
+    }else if(!skinActive&&skinBonesRestore!==null){
+      const wasVisible=skinBonesRestore;skinBonesRestore=null;
+      if(!!state.overlays.bones!==wasVisible)core.setOverlay('bones',wasVisible);
+    }
+    refreshSkinUI(state);
     const setupMode=state.mode==='setup';
     modeButtons.forEach(btn=>{
       const active=btn.dataset.meshMode===(setupMode?'mesh':mode);

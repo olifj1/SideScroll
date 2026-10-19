@@ -1,28 +1,29 @@
-# SS-PATCH-1.0.193 — P2a Rig / Artwork Separation
+# SS-PATCH-1.0.194 — Skin/Weight Editor (P2b preview)
 
-**Install:** Overlay onto **v1.0.192**, not onto v1.0.191. This ZIP contains only the files changed in v1.0.193. Retain the confirmed working v1.0.191 rollback. v1.0.192 and v1.0.193 have **not yet been accepted in Safari on iPhone**. Do not clear Safari site data or localStorage.
+**Apply this ZIP directly over installed v1.0.193.** It contains only files changed for v1.0.194, plus this README and three updated canonical project documents. Do not apply rejected patches or clear Safari website data. User confirmed v1.0.193 currently works as expected; retain it as the rollback until this patch passes iPhone checks.
 
-## What changed
+## What is new
 
-- Fox uses two independent, internally authored rest snapshots in Setup: `artRestRig` anchors the six existing source artwork regions; `skinBindRig` anchors the current inverse-bind geometry. Both initially inherit **the user's current Fox rig**, never a hardcoded default, when opening an existing v191/v192 save. They persist only when Save is clicked.
-- Rig mode now displays fixed, *unskinned* neutral artwork while structural joints move. Parts mode remains fixed/unskinned; its transforms are now evaluated in source/bind space, *before* skinning. Animations are evaluated with the authored rest rig and the explicitly selected binding rest rig. At neutral rest, bind and pose yield identity; joint edits do not shift the neutral assembled pixels.
-- Rig Designer adds **Walk Preview: Off → Previous Binding → Proposed Rebind**. This compares the same walk pose using the last committed binding vs the candidate new rig, without saving anything. Turn it Off while arranging joints for the stationary neutral preview.
-- **Rebind to Rig** updates only the editable `skinBindRig` snapshot. This is a Setup undo step; Discard reverses it; Save commits it with the edited rig. If a Fox rig differs from its saved bind snapshot, Save is blocked with a clear message until Rebind is chosen. This avoids accidentally storing an inconsistent rig/bind pair.
-- Corrected an existing Rig overlay projection call: clicking/selecting joints in the viewport no longer triggers a missing-viewport error.
-- Atlas PNGs, six atlas crop rectangles, all animation clip keys, game runtime and full rig/mesh topology remain unmodified. No files outside this ZIP should be overwritten.
+In Anim Lab choose **Fox → Rig (top-level mode) → Skin (Setup tab)**. The three Setup tabs are now **Rig / Parts / Skin**.
 
-## Try on iPhone (landscape)
+Skin lets you select one of six existing Fox deform regions. For **Front/Rear Near/Far Leg** and **Tail**, adjust how much the top follows the torso (**Body / Root Influence**) and how far down the mesh that influence fades (**Blend Along Part**). Copy those adjustments to the corresponding near/far side or Reset Region. For **Body + Head**, select a mesh vertex with ◀/▶ or arm **Pick Vertex** and tap a dot in the viewport; choose one of its bones, adjust its weight and automatically normalise all the others. **Auto Vertex** restores automatic weighting for that vertex.
 
-1. Select **Fox → Rig → Joints**. With **Walk Preview: Off**, move a Front Near Socket, Rear Near Socket, Body joint, Neck and Tail Root. The *art pixels should stay put*, while skeleton lines/joints move. Use the bottom-right pad or joint selectors.
-2. Tap **Walk Preview** to compare **Previous Binding** against **Proposed Rebind**. The preview can move with the posed skeleton; that is deliberate, not a structural art move. Turn Preview Off.
-3. Press **Save** before rebinding: it should block with a useful message. Then choose **Rebind to Rig**. Undo/Redo it and inspect. Save, refresh, return to Rig and inspect again.
-4. Check **Parts** editing remains independent, then Animate Walk/Run/Jump and Quick Play. Verify foot/shoulder deformation and that the saved art does not jump between Parts/Rig and neutral. Check pinch/pan and iPhone safe-area touch controls.
-5. Test **Discard** to recover a trial edit. Preserve your v191 rollback and any Fox handoff export if unsure.
+Use **Rest / Walk / Run** and **Phase** to compare deformation. The selected mesh is highlighted; other regions are dimmed. Skeleton lines hide when entering Skin and the previous View preference restores when leaving. View settings and preview are never saved. Changes are part of normal **Undo, Redo, Save and Discard**. Skin tuning persists in Fox character Setup and is also included in the single Fox handoff JSON.
 
-## Validation
+**Scope:** This is an incremental **editor-only Skin tuning system** for the existing Fox six-region mesh. It does not yet edit mesh topology, create characters, or apply changes to the in-game/Quick Play renderer. Nothing replaces your existing Fox atlas, rig, motion clips or mesh topology. Entering the editor alone does not write data. Existing saved Setup without `skinTuning` uses its previous default skinning.
 
-Passed: Node syntax checks and a headless Chromium DOM+atlas smoke test (inlined assets because local web/file navigation was blocked). The test verified a joint edit leaves the entire neutral canvas pixel-identical with overlays disabled, that Pre-rebind Save is blocked, that Rebind remains undoable, that the neutral canvas remains identical after Rebind, and that explicit Save persists both snapshots. The reference-manifest fetch failed only in the synthetic inline test environment; this is not a game functionality claim. **Actual Safari/PWA, animation deformation, iPhone ergonomics and game-runtime integration remain unverified.**
+## Suggested iPhone test
 
-## Known constraints / further stages
+1. Open **Fox → Rig → Skin**. Tap **Front Near Leg**, Walk preview at 25%, and vary Body / Root Influence between 0 and ~0.7; observe how the upper leg follows the body while the lower paw keeps moving with the leg chain. Repeat in Run and Reset Region.
+2. Try **Copy To Matching Side**; choose Front Far Leg and check the same value is carried over. Undo/Redo; confirm both near and far values are restored as expected.
+3. Choose **Body + Head**. Use Next/Previous Vertex and choose a bone; change **Selected Bone Weight**. Inspect coloured vertex dots and the local deformation. Tap **Auto Vertex**. Arm **Pick Vertex** and choose a dot. Without arming Pick, canvas touch should still pan/zoom as before.
+4. Choose **Rest** then vary the weights: the neutral artwork should **not jump or change shape**. Switch back to Walk/Run. Save and refresh; verify tuning persisted, then try a new edit and Discard. Switch to Parts/Rig and ensure the prior skeleton, art and clips are intact.
+5. Check the iPhone landscape controls and frame rate. If any regression occurs, revert only the **files from v1.0.193** that this patch changed, or restore your known good working copy.
 
-This is the first P2 increment, **not** a final editable Skin mode. Rebind updates inverse rest geometry only. It does not regenerate weights or topology; extreme joint reshaping may need later weight editing. Six-region Fox assets are still the sole art/mesh implementation; current Hero rigs and the runtime character selection have not been changed. The broader generic character, rig families, clip template library and in-game selection workflow remains scheduled after this gate. In-game Fox deformation uses its existing runtime renderer; do not assume this new editor-specific bind snapshot is already consumed by the gameplay renderer.
+## Files and constraints
+
+Changed files: `README.md`, `SIDESCROLL_CHARACTER_AUTHORING.md`, `SIDESCROLL_ENGINE_UX_BIBLE.md`, `SIDESCROLL_TASKS.md`, `walk-lab.js`, `anim-lab-stage2.js`, `anim-lab-mesh.js`, `anim-lab-rig.js`, `walk-lab.html`, `style.css`, `sw.js` (11 total). No media/artwork/atlas changes; no cumulative prior patch payloads.
+
+Passed static JS checks and synthetic Chromium iPhone-layout/inlined-atlas interactions with mocked storage: Skin mode navigation, per-vertex/body bone control, root slider, near→far copy, Undo/Redo, Save, fixed Rest canvas pixels and different Walk canvas pixels at low vs high root weight, restoring Bones View on leaving. **Live Safari/device performance and real gameplay integration have not yet been tested**.
+
+Remaining work and stage boundaries are recorded in `SIDESCROLL_CHARACTER_AUTHORING.md`, `SIDESCROLL_ENGINE_UX_BIBLE.md` and `SIDESCROLL_TASKS.md`.

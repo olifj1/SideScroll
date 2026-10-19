@@ -284,6 +284,35 @@
     return {schema:ART_LAYOUT_SCHEMA,parts,order};
   }
 
+  // Generic SkinBinding tuning slot in the character setup. Descriptors are
+  // validated by their actual Skin editor: do not synthesize artwork or meshes.
+  function normaliseSkinTuning(value) {
+    const raw=value && typeof value==='object' ? value : {};
+    const regions={};
+    if(raw.regions && typeof raw.regions==='object'){
+      for(const [id,entry] of Object.entries(raw.regions)){
+        if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,55}$/.test(id)||!entry||typeof entry!=='object')continue;
+        const safe={};
+        if(Number.isFinite(+entry.attachStrength) && entry.attachStrength!==null)
+          safe.attachStrength=clamp(+entry.attachStrength,0,.85);
+        if(Number.isFinite(+entry.attachBlendDistance) && entry.attachBlendDistance!==null)
+          safe.attachBlendDistance=clamp(+entry.attachBlendDistance,.025,.35);
+        if(entry.vertexWeights && typeof entry.vertexWeights==='object'){
+          const vertices={};
+          for(const [vertex,weights] of Object.entries(entry.vertexWeights)){
+            if(!/^(0|[1-9]\d{0,3})$/.test(vertex)||!Array.isArray(weights))continue;
+            const limited=weights.slice(0,8).map(x=>Math.max(0,Number(x)||0));
+            const sum=limited.reduce((total,x)=>total+x,0);
+            if(sum>1e-8)vertices[vertex]=limited.map(x=>x/sum);
+          }
+          if(Object.keys(vertices).length)safe.vertexWeights=vertices;
+        }
+        if(Object.keys(safe).length)regions[id]=safe;
+      }
+    }
+    return {schema:'animlab.skin-tuning.v1',regions};
+  }
+
   function loadSetupMap() {
     try { return JSON.parse(localStorage.getItem(SETUP_KEY) || '{}') || {}; }
     catch (_) { return {}; }
@@ -316,6 +345,7 @@
     // working copy here; only explicit Save writes the rig family's own key.
     if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(adapter.loadRestRig());
     if (artLayoutDescriptor(adapter)) setup.artLayout = normaliseArtLayout(adapter, foxSetupCurrent ? saved.artLayout : null);
+    if (supportsRestBinding(adapter)) setup.skinTuning = normaliseSkinTuning(foxSetupCurrent ? saved.skinTuning : null);
     // P2: two independent rest snapshots. Art's source assembly is frozen to
     // the last accepted artwork coordinate system. Skin uses the last *explicit*
     // bind snapshot, not a moving Rig draft. Legacy saves are anchored to the
@@ -549,7 +579,7 @@
       characterId:charId,
       clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
       mode:saved?.mode === 'setup' ? 'setup' : saved?.mode === 'play' ? 'play' : 'animate',
-      setupTool:saved?.setupTool === 'art' ? 'art' : 'rig',
+      setupTool:['rig','art','skin'].includes(saved?.setupTool) ? saved.setupTool : 'rig',
       frame:Number.isInteger(saved?.frame) ? clamp(saved.frame,0,15) : 0
     };
   }
@@ -557,7 +587,7 @@
   const selection = loadEditorSelection();
   if (!clipNamesForFamily(characterById(selection.characterId).family).includes(selection.clip)) selection.clip = 'walk';
   if (selection.mode === 'play' && characterById(selection.characterId).family !== 'fox') selection.mode = 'animate';
-  if (selection.setupTool === 'art' && !artLayoutDescriptor(adapters[characterById(selection.characterId).family])) selection.setupTool = 'rig';
+  if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(selection.characterId).family])) selection.setupTool = 'rig';
   let setupDraft = defaultSetupFor(selection.characterId);
   let checkpoint = null;
 
@@ -699,6 +729,7 @@
       }
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
+      if (supportsRestBinding(adapter)) setupDraft.skinTuning = normaliseSkinTuning(value.skinTuning);
       if (supportsRestBinding(adapter) && setupDraft.rig) {
         setupDraft.artRestRig = adapter.normaliseRestRig(value.artRestRig || setupDraft.rig);
         setupDraft.skinBindRig = adapter.normaliseRestRig(value.skinBindRig || setupDraft.rig);
@@ -844,6 +875,7 @@
         }
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (supportsRestBinding(adapter)) {
+          storedSetup.skinTuning=normaliseSkinTuning(setupDraft.skinTuning);
           storedSetup.artRestRig=adapter.normaliseRestRig(setupDraft.artRestRig || setupDraft.rig);
           storedSetup.skinBindRig=adapter.normaliseRestRig(setupDraft.skinBindRig || setupDraft.rig);
         }
@@ -928,7 +960,7 @@
       selection.characterId = id;
       if (!clipNamesForFamily(characterById(id).family).includes(selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
-      if (selection.setupTool === 'art' && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
+      if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
       selection.frame = 0; playPhase = 0; playing = false;
       fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
@@ -1229,7 +1261,7 @@
 
   function updateUi(displayPose = currentPose()) {
     const character=currentCharacter(),adapter=currentAdapter(),dirty=isDirty();
-    const modeLabel=selection.mode==='setup'?'Rig':selection.mode==='play'?'Play':'Animate';
+    const modeLabel=selection.mode==='setup'?({rig:'Rig',art:'Parts',skin:'Skin'}[selection.setupTool]||'Setup'):selection.mode==='play'?'Play':'Animate';
     contextEl.textContent=selection.mode==='play'
       ? `${character.label} · Quick Play`
       : `${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${modeLabel}${previewApplies()?' · Preview':''}`;
@@ -1462,7 +1494,8 @@
           rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig()),
           artLayout:normaliseArtLayout(adapters.fox,savedFoxCurrent ? savedFoxSetup.artLayout : null),
           artRestRig:FoxRig.normalizedRestRig(savedFoxCurrent && savedFoxSetup.artRestRig || FoxRig.loadRestRig()),
-          skinBindRig:FoxRig.normalizedRestRig(savedFoxCurrent && savedFoxSetup.skinBindRig || FoxRig.loadRestRig())
+          skinBindRig:FoxRig.normalizedRestRig(savedFoxCurrent && savedFoxSetup.skinBindRig || FoxRig.loadRestRig()),
+          skinTuning:normaliseSkinTuning(savedFoxCurrent && savedFoxSetup.skinTuning)
         };
     const sparseClips = clone(sparseBanks.fox);
     const runtimeSamples = {};
@@ -1481,7 +1514,8 @@
           restRig:FoxRig.normalizedRestRig(setup.rig),
           artLayout:normaliseArtLayout(adapters.fox,setup.artLayout),
           artRestRig:FoxRig.normalizedRestRig(setup.artRestRig || setup.rig),
-          skinBindRig:FoxRig.normalizedRestRig(setup.skinBindRig || setup.rig)
+          skinBindRig:FoxRig.normalizedRestRig(setup.skinBindRig || setup.rig),
+          skinTuning:normaliseSkinTuning(setup.skinTuning)
         },
         sparseClips,
         runtimeSamples
@@ -1525,8 +1559,8 @@
     }),
     getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
     setSetupTool:id=>{
-      const next=id==='art'?'art':'rig';
-      if(next==='art'&&!artLayoutDescriptor(currentAdapter()))return false;
+      const next=['art','skin'].includes(id)?id:'rig';
+      if(next!=='rig'&&!supportsRestBinding(currentAdapter()))return false;
       if(selection.setupTool===next)return true;
       selection.setupTool=next;saveEditorSelection();draw();updateUi();notify();return true;
     },

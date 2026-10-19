@@ -14670,3 +14670,42 @@ body[data-game-id="game-17"] .animlab-setup-section.animlab-setup-art-active > .
 .animlab-rig-bind-status{font-size:12px;color:#a9c9c0;line-height:1.35}
 .animlab-rig-bind-status.needs-bind{color:#edcc84}
 .animlab-rig-bind-panel .animlab-rig-note{margin:5px 0 0;font-size:11px;line-height:1.4}
+
+/* v1.0.194 Skin stage: compact thumb-friendly region, bone and vertex controls. */
+body[data-game-id="game-17"] .animlab-skin-editor[hidden],
+body[data-game-id="game-17"] .animlab-skin-chain-controls[hidden],
+body[data-game-id="game-17"] .animlab-skin-grid-controls[hidden]{display:none!important}
+body[data-game-id="game-17"] .animlab-skin-region-board,
+body[data-game-id="game-17"] .animlab-skin-bones{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:8px 0;
+}
+body[data-game-id="game-17"] .animlab-skin-editor button{min-width:0;white-space:normal;min-height:34px}
+body[data-game-id="game-17"] .animlab-skin-region-board button,
+body[data-game-id="game-17"] .animlab-skin-bones button{font-size:12px;line-height:1.2;padding:7px 5px;}
+body[data-game-id="game-17"] .animlab-skin-region-board button.active,
+body[data-game-id="game-17"] .animlab-skin-bones button.active,
+body[data-game-id="game-17"] .animlab-skin-editor button.active{
+  border-color:#81d6c5;background:rgba(95,190,171,.3);
+}
+body[data-game-id="game-17"] .animlab-skin-note{
+  margin:7px 0;font-size:11px;line-height:1.4;color:#acbfb9;
+}
+body[data-game-id="game-17"] .animlab-skin-vertex-status{
+  padding:5px 0;font-size:12px;font-weight:600;
+}
+body[data-game-id="game-17"] .animlab-skin-actions{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:9px 0;
+}
+
+body[data-game-id="game-17"] .animlab-skin-editor button{
+  min-width:0;min-height:29px;padding:5px 6px;border:1px solid rgba(238,243,241,.15);
+  border-radius:8px;background:rgba(255,255,255,.045);color:#e1eeeb;
+  font:850 8px/1.2 system-ui,-apple-system,sans-serif;box-shadow:none;
+}
+body[data-game-id="game-17"] .animlab-skin-editor .animlab-skin-region-board button,
+body[data-game-id="game-17"] .animlab-skin-editor .animlab-skin-bones button{font-size:8px;min-height:29px;padding:5px}
+body[data-game-id="game-17"] .animlab-skin-editor .animlab-skin-note{
+  margin:5px 0;font-size:8px;line-height:1.4;color:rgba(238,243,241,.59);
+}
+body[data-game-id="game-17"] .animlab-skin-editor .animlab-skin-vertex-status{font-size:9px}
+body[data-game-id="game-17"] .animlab-skin-editor button:disabled{opacity:.3}
