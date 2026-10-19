@@ -1301,3 +1301,7 @@ Once deformation has been proven, character skin regions should use artwork auth
 - Shoulder/hip source pieces should overlap the body sufficiently for weighting to create an attached soft transition; do not cut the texture exactly on the joint pivot.
 - Dedicated art should load independently and may fall back to proven rigid-source reconstruction if unavailable, but fallback is recovery behaviour rather than the desired final look.
 - Art generation/processing must preserve transparent backgrounds, clean alpha and enough overlap for skinning. Do not bake diagnostic wireframes, labels or rig controls into production textures.
+
+### Anim Lab P2a rest-space invariant (implemented editor test v1.0.193; acceptance pending)
+
+In neutral **Parts** and **Rig** authoring, six-piece art is assembled independently of moving structural joints. Source art coordinates and the explicit inverse-bind rest rig are separate; editor-only walk previews may deliberately show deformation but never write state. Rebinding is a named Setup edit with normal Undo/Redo/Discard; saving structural rig changes with an out-of-date skin binding is blocked. Display previews and Art Ghost remain transient. Cross-mode game renderer integration and fully separate Skin authoring still await later work. Preserve the user's saved rig and atlases when upgrading a v1.0.191/192 workspace.

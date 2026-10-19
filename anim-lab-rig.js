@@ -38,6 +38,14 @@
       <button type="button" data-action="reset-rig">Reset Rig</button>
       <button type="button" data-action="ghost" class="animlab-rig-ghost is-active">Art Ghost</button>
     </div>
+    <div class="animlab-rig-bind-panel">
+      <div class="animlab-rig-bind-status" role="status">Artwork stays still while rig joints move.</div>
+      <div class="animlab-rig-bind-actions">
+        <button type="button" data-action="preview-bind">Walk Preview: Off</button>
+        <button type="button" data-action="rebind-rig">Rebind to Rig</button>
+      </div>
+      <p class="animlab-rig-note">Walk Preview cycles Off → Previous Binding → Proposed Rebind. Rebind is an Undoable setup edit; Save commits it. Artwork, mesh topology, and animation keys are never overwritten.</p>
+    </div>
   `;
   setupSection.insertAdjacentElement('afterend', section);
 
@@ -46,6 +54,9 @@
   const selectedPos = section.querySelector('.animlab-rig-selected-pos');
   const lengthsEl = section.querySelector('.animlab-rig-lengths');
   const ghostButton = section.querySelector('[data-action="ghost"]');
+  const bindStatus = section.querySelector('.animlab-rig-bind-status');
+  const bindPreviewBtn = section.querySelector('[data-action="preview-bind"]');
+  const rebindBtn = section.querySelector('[data-action="rebind-rig"]');
   const viewportPadHost = document.getElementById('animlab-viewport-pad-host');
   const pad = document.createElement('div');
   pad.className = 'animlab-precision-pad animlab-viewport-precision-pad animlab-rig-pad';
@@ -59,6 +70,7 @@
   let axis = 'free';
   let fine = false;
   let ghost = true;
+  let previewBind = 'off'; // purely view state, never stored
   let lastActive = false;
   let lastDescriptor = null;
   let lastRender = null;
@@ -168,7 +180,7 @@
       lastActive = active;
       if (typeof core.setArtOpacity === 'function') core.setArtOpacity(active && ghost ? 0.28 : 1);
     }
-    if (!active) { pad.hidden=true; return; }
+    if (!active) { pad.hidden=true; if(previewBind!=='off')previewBind='off'; return; }
     if (viewportPadHost) viewportPadHost.hidden=false;
     pad.hidden=false;
 
@@ -193,6 +205,14 @@
     const lens = p ? connectedLengths(desc,draft.joints,selectedJoint) : [];
     lengthsEl.textContent = lens.length ? `Bone lengths: ${lens.join(' · ')}` : '';
 
+    const bound = !!s.setup.skinBindRig;
+    const needsBind=bound && JSON.stringify(normalizedRig(s,draft))!==JSON.stringify(normalizedRig(s,s.setup.skinBindRig));
+    bindStatus.textContent=needsBind
+      ? 'Rig changed · Rebind before Save. Art remains stationary in Rig view.'
+      : 'Rig matches committed bind · Art stays fixed while editing joints.';
+    bindStatus.classList.toggle('needs-bind',needsBind);
+    bindPreviewBtn.textContent=`Walk Preview: ${previewBind==='off'?'Off':previewBind==='saved'?'Previous Binding':'Proposed Rebind'}`;
+    rebindBtn.disabled=!needsBind;
     const pair = selectedJoint && symmetryPair(desc,selectedJoint);
     const copyPair = section.querySelector('[data-action="copy-pair"]');
     if (copyPair) copyPair.disabled = !pair;
@@ -236,6 +256,20 @@
     const desc = descriptorFor(s);
     const draft = rigDraftFor(s);
     if (!desc || !draft) return;
+    if(name==='preview-bind'){
+      previewBind=previewBind==='off'?'saved':previewBind==='saved'?'candidate':'off';
+      renderUI();core.redrawOnly?.();
+      return;
+    }
+    if(name==='rebind-rig'){
+      core.edit('setup','Rebind skin to rest rig',setup=>{
+        if(setup.rig)setup.skinBindRig=normalizedRig(s,setup.rig);
+        return setup;
+      });
+      previewBind='off';
+      renderUI();
+      return;
+    }
     if (name === 'ghost') {
       ghost = !ghost;
       if (typeof core.setArtOpacity === 'function') core.setArtOpacity(ghost ? 0.28 : 1);
@@ -415,14 +449,14 @@
 
     const points = rig.joints;
     const screenPoints={};
-    for (const [id,p] of Object.entries(points)) screenPoints[id]=project(p);
+    for (const [id,p] of Object.entries(points)) screenPoints[id]=project(p,view);
     lastRender={view,screenPoints};
 
     ctx.save();
     ctx.lineCap='round';
     ctx.lineJoin='round';
 
-    const groundY=project({x:0,y:0}).y;
+    const groundY=project({x:0,y:0},view).y;
     ctx.globalAlpha=.55;
     ctx.strokeStyle='rgba(140,185,215,.9)';
     ctx.lineWidth=Math.max(1,canvas.width/700);
@@ -464,6 +498,9 @@
     ctx.restore();
   }
 
+  // Transient diagnostic controls are read by the deform renderer; no clip,
+  // rig, mesh or browser storage is touched while switching previews.
+  window.AnimLabRigBindPreview={getMode:()=>previewBind};
   if (typeof core.registerPluginRenderer === 'function') core.registerPluginRenderer('rig-designer',renderer);
   if (typeof core.subscribe === 'function') core.subscribe(renderUI);
   renderUI();

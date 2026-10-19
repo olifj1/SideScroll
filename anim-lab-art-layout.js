@@ -11,7 +11,7 @@
   section.hidden=true;
   section.innerHTML=`
     <div class="animlab-section-title">Part Layout</div>
-    <p class="animlab-art-layout-note">Arrange neutral artwork; joints and animation keys stay unchanged. Skin and rig rebind are a separate stage.</p>
+    <p class="animlab-art-layout-note">Arrange neutral artwork; joints and animation keys stay unchanged. Move joints in Rig without moving artwork; Rebind explicitly before saving a changed rig.</p>
     <div class="animlab-art-part-board" aria-label="Bind art parts"></div>
     <div class="animlab-rig-selected animlab-art-selected">
       <div class="animlab-rig-selected-title">No part selected</div>

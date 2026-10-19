@@ -314,3 +314,13 @@ The next pass should tune Fox-specific weights against this stable atlas before 
 
 Update 1.0.171
 - Deform Fox body/head fit reduced and lowered slightly to better match the approved Fox Shape reference in Rig mode.
+
+### Incremental P2a delivery — v1.0.193 (19 October 2026; developer test only)
+
+**Stage status: IMPLEMENTED FOR FOX EDITOR; ON-DEVICE ACCEPTANCE OPEN.** Installed working v1.0.191 remains the user's accepted rollback; v1.0.192 was the preceding P1 test and must be installed before this changed-files-only patch.
+
+P2a establishes independent `artRestRig` and `skinBindRig` snapshots inside the existing per-character Setup document, retaining all legacy storage keys and Fox mesh/art identifiers. On migration both snapshots derive from the **user's current rig**; merely loading or previewing does not write to localStorage. Parts/Rig are shown in stationary unskinned source-art coordinates. Art layout is now applied before deformation, around a rest-space pivot. In Animate, vertices deform relative to `skinBindRig`; the current rest rig drives the pose. Matching rest/bind gives identity at neutral. Chain vertices transfer offsets in the bind-chain tangent frame, and grid vertices use inverse rest bone mapping. No UV, topology, influence weights, atlas pixels or clip keys are regenerated.
+
+Rig Designer now exposes transient off/saved/candidate walk deformation previews and explicit Undoable `Rebind to Rig` (changing the bind rest snapshot only). Prevent Save if the draft rest rig differs from its explicit binding; prompt the author to Rebind. Rebind leaves the fixed original art geometry unchanged, including while returned to Rig view. Snapshot ownership is capability-driven via rig adapter + art descriptor, despite Fox being the only current adopter.
+
+**Unfinished:** device test on Safari; full before/after mesh difference and Skin weighting editor; runtime renderer reading stored binding; family-independent mesh definition and character creation; per-character animation libraries and in-game chooser. Current artwork may require weight tuning after extreme joint moves. Future stages must not label this first P2 editor increment a general character creation system. Do not silently regenerate approved Fox art or data.

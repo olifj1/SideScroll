@@ -2456,3 +2456,13 @@ Next: bespoke Fox shoulder/hip/tail/neck weighting pass, then use the lessons fr
 Update 1.0.171
 - Applied a live deform-art scale/alignment correction so the fox body sits closer to the approved reference image in Rig mode.
 - Still to do: expose weight tuning controls, shoulder weighting refinement, and any final rig-side paw/contact polish.
+
+### 2026-10-19 · P2a test patch v1.0.193 (acceptance pending)
+
+- [x] **Code implementation**: isolate the fixed source-art rig from the editable structural rig and committed inverse-bind rig in current Setup storage; preserve existing user rig when first anchoring legacy data.
+- [x] **Code implementation**: neutral unskinned Rig/Parts preview, pre-skin part transforms, identity-at-rest skin mapping for grid and chain regions, cached source-art mesh unaffected by Rig edits.
+- [x] **Code implementation**: non-saving preview of previous/candidate Walk binding; explicit Undo/Redo/Discard-able Rebind; block saving modified rest joints with stale bind rig; fix Rig viewport projection error.
+- [x] **Synthetic QA**: Node checks, Chromium DOM/atlas tests of rig manipulation, unchanged neutral canvas before/after socket edit, preview cycle, rebind undo, Save guard and persistence in mocked storage.
+- [ ] **User iPhone acceptance for v1.0.192 + v1.0.193**: near/far front and rear joints, tail, neck/body, Parts transforms/ordering, pixel-stable neutral and cross-mode transitions, animation continuity, Save/reload/Undo/Discard and app navigation.
+- [ ] **P2b**: dedicated Skin/Bind mode and per-vertex weighting/mesh controls; preview deformed art before committing topology changes; runtime uses the same stored skin bind data.
+- [ ] **P3/P4**: reusable rig/part descriptor pipeline, new-character creation, character/art library, custom and template animation clips, and actual dynamic in-game character selection.

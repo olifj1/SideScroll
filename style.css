@@ -14662,3 +14662,11 @@ body[data-game-id="game-17"] .animlab-art-numeric-grid input:focus{border-color:
 
 body[data-game-id="game-17"] .animlab-setup-section.animlab-setup-art-active > .animlab-slider,
 body[data-game-id="game-17"] .animlab-setup-section.animlab-setup-art-active > .animlab-setup-note{display:none;}
+
+/* v1.0.193 — bounded P2 Rig/Bind controls. */
+.animlab-rig-bind-panel{margin-top:8px;padding:10px;border:1px solid rgba(143,184,179,.30);border-radius:8px;background:rgba(17,30,35,.22)}
+.animlab-rig-bind-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}
+.animlab-rig-bind-actions button{min-height:38px;white-space:normal;font-size:12px}
+.animlab-rig-bind-status{font-size:12px;color:#a9c9c0;line-height:1.35}
+.animlab-rig-bind-status.needs-bind{color:#edcc84}
+.animlab-rig-bind-panel .animlab-rig-note{margin:5px 0 0;font-size:11px;line-height:1.4}

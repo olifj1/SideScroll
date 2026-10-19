@@ -523,11 +523,11 @@
     return {x:poseA.x+pux*longitudinal+pvx*across,y:poseA.y+puy*longitudinal+pvy*across};
   }
 
-  function weightedVertex(vertex,region,poseGeom){
+  function weightedVertex(vertex,region,poseGeom,bindGeom){
     let x=0,y=0,total=0;
     for(const influence of vertex.weights||[]){
       const bone=region.bones[influence.index];
-      const bindA=region.bindGeom[bone[0]],bindB=region.bindGeom[bone[1]];
+      const bindA=bindGeom[bone[0]],bindB=bindGeom[bone[1]];
       const poseA=poseGeom[bone[0]],poseB=poseGeom[bone[1]];
       if(!bindA||!bindB||!poseA||!poseB)continue;
       const q=mapByBone(vertex.bind,bindA,bindB,poseA,poseB);
@@ -536,14 +536,28 @@
     return total>1e-6?{x:x/total,y:y/total}:vertex.bind;
   }
 
-  function chainVertex(vertex,region,poseGeom){
-    const points=region.chainIds.map(id=>poseGeom[id]).filter(Boolean);
-    if(points.length!==region.chainIds.length)return vertex.bind;
-    const metrics=chainMetrics(points),frame=chainFrame(points,metrics,vertex.chainS);
-    let out={x:frame.center.x+frame.normal.x*vertex.offset,y:frame.center.y+frame.normal.y*vertex.offset};
+  function chainVertex(vertex,region,poseGeom,bindGeom){
+    const posed=region.chainIds.map(id=>poseGeom[id]);
+    const rested=region.chainIds.map(id=>bindGeom[id]);
+    if(posed.some(p=>!p)||rested.some(p=>!p))return vertex.bind;
+    const poseMetrics=chainMetrics(posed),restMetrics=chainMetrics(rested);
+    // Map each source station to a proportionate station on the explicit
+    // bind rig. Rotate/deform the local offset relative to that rest frame.
+    // At bind == pose this is mathematically the original vertex position,
+    // even when art geometry was originally built with a different rig.
+    const sourceLength=Math.max(1e-8,region.bindMetrics.total);
+    const fraction=vertex.chainS/sourceLength;
+    const restS=fraction*restMetrics.total,poseS=fraction*poseMetrics.total;
+    const restFrame=chainFrame(rested,restMetrics,restS);
+    const poseFrame=chainFrame(posed,poseMetrics,poseS);
+    const dx=vertex.bind.x-restFrame.center.x,dy=vertex.bind.y-restFrame.center.y;
+    const along=dx*restFrame.tangent.x+dy*restFrame.tangent.y;
+    const across=dx*restFrame.normal.x+dy*restFrame.normal.y;
+    let out={x:poseFrame.center.x+poseFrame.tangent.x*along+poseFrame.normal.x*across,
+             y:poseFrame.center.y+poseFrame.tangent.y*along+poseFrame.normal.y*across};
     const attach=region.attachBone;
-    if(attach&&region.bindGeom&&typeof region.attachBlendDistance==='number'&&region.attachBlendDistance>0){
-      const bindA=region.bindGeom[attach[0]], bindB=region.bindGeom[attach[1]];
+    if(attach&&typeof region.attachBlendDistance==='number'&&region.attachBlendDistance>0){
+      const bindA=bindGeom[attach[0]], bindB=bindGeom[attach[1]];
       const poseA=poseGeom[attach[0]], poseB=poseGeom[attach[1]];
       if(bindA&&bindB&&poseA&&poseB){
         const attachPos=mapByBone(vertex.bind,bindA,bindB,poseA,poseB);
@@ -596,12 +610,11 @@
     ctx.restore();
   }
 
-  // Part Layout transforms are authored against a neutral, unskinned bind-space
-  // view. Outside Parts the legacy v191 posed binding is intentionally retained
-  // until the separate P2 Rig/Rebind stage. No UV/texture/key changes.
-  const PART_PIVOTS = Object.freeze({bodyHead:'midRoot',tail:'tail0',
-    frontNear:'frontNearRoot',frontFar:'frontFarRoot',rearNear:'rearNearRoot',rearFar:'rearFarRoot'});
-  function layoutVertex(point,regionId,poseGeom,artLayout,partsMode){
+  // P2: fixed source-art space and explicit inverse-bind rest space.
+  // Layout happens BEFORE deformation, using stable character-space pivots.
+  // The inverse bind and current posed geometry coincide at neutral rest, so
+  // the assembled artwork is never displaced simply by moving a Rig joint.
+  function layoutVertex(point,regionId,artLayout){
     const tr=artLayout?.parts?.[regionId];
     if(!tr)return point;
     const dx=Number(tr.x)||0,dy=Number(tr.y)||0;
@@ -610,22 +623,22 @@
     const r=Number(tr.rotation)||0;
     if(!dx&&!dy&&sx===1&&sy===1&&!r)return point;
     const desc=FoxRig.ART_LAYOUT_DESIGNER?.parts?.find(p=>p.id===regionId);
-    // Parts use a fixed rest-space pivot. For Animate preserve v191's posed
-    // joint-based pivot for old saved layouts; new pivot edits are offsets
-    // from that original joint, pending true independent P2 skin rebind.
     const restPivot=desc?.pivot||{x:0,y:0};
-    const selected={x:Number.isFinite(Number(tr.pivotX))?Number(tr.pivotX):restPivot.x,
+    const pivot={x:Number.isFinite(Number(tr.pivotX))?Number(tr.pivotX):restPivot.x,
       y:Number.isFinite(Number(tr.pivotY))?Number(tr.pivotY):restPivot.y};
-    const posed=poseGeom[PART_PIVOTS[regionId]]||restPivot;
-    const pivot=partsMode?selected:{x:posed.x+selected.x-restPivot.x,y:posed.y+selected.y-restPivot.y};
     const x=point.x-pivot.x,y=point.y-pivot.y,c=Math.cos(r),sn=Math.sin(r);
     return {x:pivot.x+dx+x*sx*c-y*sy*sn,y:pivot.y+dy+x*sx*sn+y*sy*c};
   }
-  function renderRegion(args,region,poseGeom,partsMode){
+  function renderRegion(args,region,poseGeom,bindGeom,neutralMode){
     const {ctx,view}=args;
-    const dst=region.vertices.map(v=>projectLocal(layoutVertex(
-      partsMode?v.bind:(region.binding==='chain'?chainVertex(v,region,poseGeom):weightedVertex(v,region,poseGeom)),
-      region.id,poseGeom,args.setup?.artLayout,partsMode),view));
+    const dst=region.vertices.map(v=>{
+      const point=layoutVertex(v.bind,region.id,args.setup?.artLayout);
+      const adjusted={...v,bind:point};
+      const drawn=neutralMode?point:(region.binding==='chain'
+        ? chainVertex(adjusted,region,poseGeom,bindGeom)
+        : weightedVertex(adjusted,region,poseGeom,bindGeom));
+      return projectLocal(drawn,view);
+    });
     for(const tri of region.triangles){
       const v0=region.vertices[tri[0]],v1=region.vertices[tri[1]],v2=region.vertices[tri[2]];
       drawTriangle(ctx,region.texture,v0.uv,v1.uv,v2.uv,dst[tri[0]],dst[tri[1]],dst[tri[2]],args.alpha??1);
@@ -636,11 +649,20 @@
   function render(args){
     if(args.adapter?.id!=='fox'||!args.atlas)return false;
     const editor=core.getState();
-    const partsMode=editor.mode==='setup'&&editor.setupTool==='art';
-    if(mode!=='mesh'&&!partsMode)return false;
+    const setupMode=editor.mode==='setup';
+    const partsMode=setupMode&&editor.setupTool==='art';
+    const rigMode=setupMode&&editor.setupTool==='rig';
+    if(mode!=='mesh'&&!setupMode)return false;
     const restRig=args.restRig||args.setup?.rig||FoxRig.loadRestRig?.()||FoxRig.DEFAULT_REST_RIG;
-    const poseGeom=FoxRig.geometry(partsMode?BIND_POSE:args.pose,restRig);
-    const regions=regionsFor(args.atlas,restRig);
+    const artRig=args.setup?.artRestRig||restRig;
+    const regions=regionsFor(args.atlas,artRig);
+    const preview=rigMode?window.AnimLabRigBindPreview?.getMode?.()||'off':'off';
+    const neutralMode=setupMode&&(partsMode||preview==='off');
+    const pose=rigMode&&preview!=='off'
+      ?(core.evaluateClip?.('walk',.25,'fox')||args.pose):args.pose;
+    const poseGeom=neutralMode?null:FoxRig.geometry(pose,restRig);
+    const bindRig=rigMode&&preview==='candidate'?restRig:(args.setup?.skinBindRig||restRig);
+    const bindGeom=neutralMode?null:FoxRig.geometry(BIND_POSE,bindRig);
     const layout=args.setup?.artLayout,display=partsMode?window.AnimLabPartLayoutDisplay:null;
     const solo=display?.getSolo?.()||null;
     const order=Array.isArray(layout?.order)?layout.order:REGION_DEFS.map(r=>r.id);
@@ -650,7 +672,7 @@
     for(const id of order){
       const region=byId.get(id);
       if(!region||display?.isHidden?.(id)||(solo&&id!==solo))continue;
-      renderRegion(args,region,poseGeom,partsMode);
+      renderRegion(args,region,poseGeom,bindGeom,neutralMode);
     }
     args.ctx.restore();
     return true;
@@ -660,11 +682,11 @@
     const visible=state.family==='fox';
     section.hidden=!visible;
     if(lastFamily!==state.family){lastFamily=state.family;}
-    const partsMode=state.mode==='setup'&&state.setupTool==='art';
+    const setupMode=state.mode==='setup';
     modeButtons.forEach(btn=>{
-      const active=btn.dataset.meshMode===(partsMode?'mesh':mode);
+      const active=btn.dataset.meshMode===(setupMode?'mesh':mode);
       btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
-      btn.disabled=partsMode;
+      btn.disabled=setupMode;
     });
     wireBtn.classList.toggle('active',wireframe);wireBtn.setAttribute('aria-pressed',String(wireframe));wireBtn.disabled=mode!=='mesh';
     inspectBtn.disabled=mode!=='mesh'||!wireframe;
@@ -672,7 +694,7 @@
     if(setupNote){
       const ready=!!dedicatedArtFor(REGION_DEFS[0]);
       setupNote.textContent=ready
-        ? 'Stage M1.3 · clean deform atlas v2 rebuilt entirely from the approved modular charcoal source is loaded. Editor-only; rig and animation keys stay untouched.'
+        ? 'Deform atlas v2 loaded. Parts/Rig share a fixed neutral artwork assembly; binding rest is independent. No source art or animation keys overwritten.'
         : 'Stage M1.3 · loading clean charcoal Fox deform atlas v2; rigid-atlas fallback remains active.';
     }
   }

@@ -1,88 +1,28 @@
-# SideScroll — SS-PATCH-1.0.192 (18 October 2026)
+# SS-PATCH-1.0.193 — P2a Rig / Artwork Separation
 
-**Test patch for the first Parts editor stage.** Apply **directly over the installed working v1.0.191 source** by copying these files into the existing flat repository and replacing files of the same name. It is **NOT** a full game build. You do **not** need `SS-BASE-191-REVIEW.zip` or any rejected 174–190 patch as an installation prerequisite. This release has not yet passed iPhone/Safari approval; keep your current 191 files as a rollback.
-
-## What changed
-
-In Anim Lab select **Fox → Rig → Part Layout**. The six independent deform-art regions now have editable render order, a right-side Move/Rotate/Scale/Pivot pad with Free/X/Y and Fine choices, plus numeric transform entry. Width and height scale independently. Pivot adjustment compensates translation so it does not shift the part. You can Copy Part and Paste All/Position/Rotation/Scale/Pivot to another part, or Copy to the near/far pair. Each authored action is Undo/Redo/Save/Discard aware.
-
-Hide Part, Solo and Show All affect **only the temporary editor view** (no dirty indicator, Save or gameplay change). The Parts viewport displays neutral unskinned deform art while authoring, even if Rigid was selected before opening Parts. The skeleton, clip keys, source textures, UVs and current runtime game renderer are not changed. The left Setup panel hides unrelated Scale/Collider sliders when Part Layout is active so the named six-part list is accessible sooner.
-
-Existing `animlab.art-layout.v1` setup is backward compatible: old scalar `scale` initializes both `scaleX` and `scaleY`, and absent pivot/order fields use the existing defaults. Nothing is saved on launch, only when you deliberately press Save. **No image/atlas files are included.**
-
-## Known limit — next stage
-
-This is a bounded **P1 editor-tools test**, not the complete new-character creator or a full independent skin bind. The current deformed mesh is still tied to rest joints when entering Rig/Animate; changing structural Rig joints can still affect art appearance. Full separation, explicit rebind, global character creation, reusable clips and dynamic in-game character selection are subsequent stages. The new Part Layout ordering is an Anim Lab deform-preview feature, not yet applied in gameplay.
-
-## iPhone acceptance check (please test before further work)
-
-1. In Parts, select Tail / one Near and one Far leg. Move, Rotate, change **Width only** and **Height only**, change Pivot. Confirm artwork changes while the joint markers do not; Reset Part and Undo/Redo. Compare the default identity against your accepted 191 fox.
-2. Hide a leg, Solo another, Show All. Confirm the **Saved** indicator does not change. Change order using Bring Forward/Send Back; check overlap and Undo.
-3. Copy a leg, Paste Position then Scale onto its pair. Test a numeric edit. Save, reload the PWA and confirm the authored layout and draw order survive; edit again and Discard.
-4. Switch from Parts to Joints, Animate Walk/Run/Jump and Quick Play. Please report any neutral appearance jump, fringing, unexpected skin deformation, loss of rig/animation settings, or screen/pad/pinch usability issue. Do not reset existing browser data.
-
-**Validation here:** all JS passes Node syntax checks; headless Chromium DOM tests pass editor actions, pivot math, Undo/Redo, Save/Discard and same-session setup storage. **Actual six-piece atlas display and installed iPhone Safari have not been tested here.**
-
-## Files in this changed-files-only patch
-
-`README.md`, `walk-lab.js`, `anim-lab-art-layout.js`, `anim-lab-mesh.js`, `walk-lab.html`, `style.css`, `sw.js`, `SIDESCROLL_CHARACTER_AUTHORING.md`, `SIDESCROLL_ENGINE_UX_BIBLE.md`, `SIDESCROLL_TASKS.md`.
-
----
-
-## Previous frozen source README (historic, not 192 install instructions)
-
-# SideScroll — v1.0.191 source review baseline (18 October 2026)
-
-**Frozen review snapshot, not a new implementation release or iPhone-accepted build.** It is the single source of truth for the next development pass, replacing the need to apply a chain of historic patches. It can serve as a complete asset+code source archive; do not deploy it over a preferred installed version without checking browser-saved data and agreeing that this is the best starting state.
-
-## Exactly what was packaged
-
-- All 240 original files from the user-provided `SideScroll-main(5).zip` are retained; **all JS, HTML, CSS, JSON runtime configuration, images, and audio bytes are unchanged**.
-- The three canonical design documents are replaced by the 18-Oct versions from `SS-HANDOVER-CODE-191(1).zip`.
-- `CLEAN_CHAT_HANDOVER.md`, `BASELINE_STATUS.md`, and `BASELINE_FILE_MANIFEST.json` are included; this README is re-labelled to avoid treating the historic v1.0.173 patch note as current instructions.
-- Historic unused images/audit artifacts already present in the full build are retained solely to avoid unintended deletions. They have not been promoted to live sources; in particular, `fox-deform-atlas-v2.png` is the active six-region deform source and `fox-rig-atlas-v3.png` is the rigid fallback. No previous rollback/patch chain was applied.
-
-## Work to do next
-
-Audit details, current risks and checks are in `BASELINE_STATUS.md`. Follow `SIDESCROLL_CHARACTER_AUTHORING.md` as the design authority, `SIDESCROLL_ENGINE_UX_BIBLE.md` for cross-editor rules, and `SIDESCROLL_TASKS.md` for P0–P4 implementation gates. Next code change is P1 only, as a **changed-files-only** `SS-PATCH-<version>.zip` with a normal README and updated relevant docs. Browser localStorage is not included and must not be cleared or reset.
-
----
-
-## Archived original README (historic v1.0.173 patch note, not an install instruction for this snapshot)
-
-# SideScroll patch 1.0.173 — clean Fox deform atlas rebuild
-
-Apply this patch after 1.0.172. This ZIP contains only files changed/new for 1.0.173.
+**Install:** Overlay onto **v1.0.192**, not onto v1.0.191. This ZIP contains only the files changed in v1.0.193. Retain the confirmed working v1.0.191 rollback. v1.0.192 and v1.0.193 have **not yet been accepted in Safari on iPhone**. Do not clear Safari site data or localStorage.
 
 ## What changed
 
-- Added a completely rebuilt `fox-deform-atlas-v2.png` made only from the approved modular charcoal Fox sheet already produced in this chat.
-- No pixels from the old rough deform atlas are reused in atlas v2.
-- Body + head now come from the clean modular source, preserving the fuller snout and natural fur silhouette.
-- Tail now comes from the clean standalone tail source only; the stray leg/stump contamination is gone.
-- Front Near and Front Far are identical copies of the selected front leg (leg 2).
-- Rear Near and Rear Far are identical copies of the selected rear leg (leg 3).
-- Near/far copies are not darkened yet; that remains an optional later depth pass.
-- Removed the temporary chain alpha-hardening step so the new source's natural feathered fur alpha is retained.
-- Updated Anim Lab atlas rectangles for the new layout and bumped asset/script cache versions.
-- Updated splash/service-worker preload references from atlas v1 to atlas v2.
+- Fox uses two independent, internally authored rest snapshots in Setup: `artRestRig` anchors the six existing source artwork regions; `skinBindRig` anchors the current inverse-bind geometry. Both initially inherit **the user's current Fox rig**, never a hardcoded default, when opening an existing v191/v192 save. They persist only when Save is clicked.
+- Rig mode now displays fixed, *unskinned* neutral artwork while structural joints move. Parts mode remains fixed/unskinned; its transforms are now evaluated in source/bind space, *before* skinning. Animations are evaluated with the authored rest rig and the explicitly selected binding rest rig. At neutral rest, bind and pose yield identity; joint edits do not shift the neutral assembled pixels.
+- Rig Designer adds **Walk Preview: Off → Previous Binding → Proposed Rebind**. This compares the same walk pose using the last committed binding vs the candidate new rig, without saving anything. Turn it Off while arranging joints for the stationary neutral preview.
+- **Rebind to Rig** updates only the editable `skinBindRig` snapshot. This is a Setup undo step; Discard reverses it; Save commits it with the edited rig. If a Fox rig differs from its saved bind snapshot, Save is blocked with a clear message until Rebind is chosen. This avoids accidentally storing an inconsistent rig/bind pair.
+- Corrected an existing Rig overlay projection call: clicking/selecting joints in the viewport no longer triggers a missing-viewport error.
+- Atlas PNGs, six atlas crop rectangles, all animation clip keys, game runtime and full rig/mesh topology remain unmodified. No files outside this ZIP should be overwritten.
 
-## Files
+## Try on iPhone (landscape)
 
-- README.md
-- fox-deform-atlas-v2.png
-- anim-lab-mesh.js
-- walk-lab.html
-- home.js
-- index.html
-- sw.js
+1. Select **Fox → Rig → Joints**. With **Walk Preview: Off**, move a Front Near Socket, Rear Near Socket, Body joint, Neck and Tail Root. The *art pixels should stay put*, while skeleton lines/joints move. Use the bottom-right pad or joint selectors.
+2. Tap **Walk Preview** to compare **Previous Binding** against **Proposed Rebind**. The preview can move with the posed skeleton; that is deliberate, not a structural art move. Turn Preview Off.
+3. Press **Save** before rebinding: it should block with a useful message. Then choose **Rebind to Rig**. Undo/Redo it and inspect. Save, refresh, return to Rig and inspect again.
+4. Check **Parts** editing remains independent, then Animate Walk/Run/Jump and Quick Play. Verify foot/shoulder deformation and that the saved art does not jump between Parts/Rig and neutral. Check pinch/pan and iPhone safe-area touch controls.
+5. Test **Discard** to recover a trial edit. Preserve your v191 rollback and any Fox handoff export if unsure.
 
-## Suggested check
+## Validation
 
-1. Anim Lab → Fox → Deform.
-2. Check Rig mode against Fox Shape reference: body/head should now be the clean modular source with the fuller snout.
-3. Check the tail: it should be a clean standalone tail with no leg or hard old crop inside it.
-4. Check all four legs: front pair should match each other exactly; rear pair should match each other exactly.
-5. Run Walk and Run and judge registration/weights separately from art quality.
+Passed: Node syntax checks and a headless Chromium DOM+atlas smoke test (inlined assets because local web/file navigation was blocked). The test verified a joint edit leaves the entire neutral canvas pixel-identical with overlays disabled, that Pre-rebind Save is blocked, that Rebind remains undoable, that the neutral canvas remains identical after Rebind, and that explicit Save persists both snapshots. The reference-manifest fetch failed only in the synthetic inline test environment; this is not a game functionality claim. **Actual Safari/PWA, animation deformation, iPhone ergonomics and game-runtime integration remain unverified.**
 
-No rig keys or animation clips are changed by this patch.
+## Known constraints / further stages
+
+This is the first P2 increment, **not** a final editable Skin mode. Rebind updates inverse rest geometry only. It does not regenerate weights or topology; extreme joint reshaping may need later weight editing. Six-region Fox assets are still the sole art/mesh implementation; current Hero rigs and the runtime character selection have not been changed. The broader generic character, rig families, clip template library and in-game selection workflow remains scheduled after this gate. In-game Fox deformation uses its existing runtime renderer; do not assume this new editor-specific bind snapshot is already consumed by the gameplay renderer.

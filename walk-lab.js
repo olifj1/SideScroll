@@ -250,6 +250,11 @@
     return adapter?.rig?.ART_LAYOUT_DESIGNER || null;
   }
 
+  // Future rig families opt in through their rig adapter and art descriptor.
+  function supportsRestBinding(adapter){
+    return !!(adapter?.loadRestRig && adapter?.normaliseRestRig && artLayoutDescriptor(adapter));
+  }
+
   function normaliseArtLayout(adapter, value = null) {
     const desc=artLayoutDescriptor(adapter);
     if(!desc?.parts?.length)return null;
@@ -311,6 +316,14 @@
     // working copy here; only explicit Save writes the rig family's own key.
     if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(adapter.loadRestRig());
     if (artLayoutDescriptor(adapter)) setup.artLayout = normaliseArtLayout(adapter, foxSetupCurrent ? saved.artLayout : null);
+    // P2: two independent rest snapshots. Art's source assembly is frozen to
+    // the last accepted artwork coordinate system. Skin uses the last *explicit*
+    // bind snapshot, not a moving Rig draft. Legacy saves are anchored to the
+    // user's EXISTING Fox rig on first open, never to a guessed default.
+    if (supportsRestBinding(adapter) && setup.rig) {
+      setup.artRestRig = adapter.normaliseRestRig(foxSetupCurrent && saved.artRestRig || setup.rig);
+      setup.skinBindRig = adapter.normaliseRestRig(foxSetupCurrent && saved.skinBindRig || setup.rig);
+    }
     return setup;
   }
 
@@ -686,6 +699,10 @@
       }
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
+      if (supportsRestBinding(adapter) && setupDraft.rig) {
+        setupDraft.artRestRig = adapter.normaliseRestRig(value.artRestRig || setupDraft.rig);
+        setupDraft.skinBindRig = adapter.normaliseRestRig(value.skinBindRig || setupDraft.rig);
+      }
       return;
     }
     if (scope === 'sparseClip' || scope === 'clip') {
@@ -810,6 +827,13 @@
       const saveSetup = selection.mode === 'setup' || selection.mode === 'play';
       const saveClip = selection.mode === 'animate' || selection.mode === 'play';
       if (saveSetup) {
+        // Never persist a new structural rig together with stale inverse bind
+        // coordinates. The user must explicitly choose Rebind, which remains
+        // Undoable/Discardable before committing the full Setup session.
+        if (supportsRestBinding(adapter) && setupDraft.rig && setupDraft.skinBindRig &&
+            !same(adapter.normaliseRestRig(setupDraft.rig),adapter.normaliseRestRig(setupDraft.skinBindRig))) {
+          throw new Error('Rig joints have changed since the last bind. Open Rig Designer and select Rebind to Rig before Save.');
+        }
         setupDraft.collider = adapter.saveCollider(setupDraft.collider);
         if (adapter.saveRestRig && setupDraft.rig) setupDraft.rig = adapter.saveRestRig(setupDraft.rig);
         const storedSetup={scale:setupDraft.scale};
@@ -819,6 +843,10 @@
           storedSetup.baselineId=FoxRig.AUTHORING_BASELINE_ID || null;
         }
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
+        if (supportsRestBinding(adapter)) {
+          storedSetup.artRestRig=adapter.normaliseRestRig(setupDraft.artRestRig || setupDraft.rig);
+          storedSetup.skinBindRig=adapter.normaliseRestRig(setupDraft.skinBindRig || setupDraft.rig);
+        }
         setupMap[character.id]=storedSetup;
         localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
         if (character.family === 'fox') for (const clipName of FOX_CLIP_NAMES) syncCompiledClip('fox',clipName);
@@ -1221,7 +1249,7 @@
     modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=btn.dataset.mode==='play'&&character.family!=='fox';});
     viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='play';});
     scopeEl.textContent=selection.mode==='setup'
-      ? `${character.label} setup · scale and collider${adapter.loadRestRig?' + rest joints':''}${artLayoutDescriptor(adapter)?' + bind-art Part Layout':''} remain a working copy until Save.`
+      ? `${character.label} setup · Parts and Rig are independent. If you move rig joints, explicitly Rebind before Save; Undo/Discard remain available.`
       : selection.mode==='play'
         ? 'Quick Play tests the current working Fox clips. Walk/Run movement speed is authored here and remains a working copy until Save.'
         : previewApplies()
@@ -1432,7 +1460,9 @@
           runSpeed:clamp(Number.isFinite(savedFoxRun) ? savedFoxRun : (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(FoxRig.loadCollider()),
           rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig()),
-          artLayout:normaliseArtLayout(adapters.fox,savedFoxCurrent ? savedFoxSetup.artLayout : null)
+          artLayout:normaliseArtLayout(adapters.fox,savedFoxCurrent ? savedFoxSetup.artLayout : null),
+          artRestRig:FoxRig.normalizedRestRig(savedFoxCurrent && savedFoxSetup.artRestRig || FoxRig.loadRestRig()),
+          skinBindRig:FoxRig.normalizedRestRig(savedFoxCurrent && savedFoxSetup.skinBindRig || FoxRig.loadRestRig())
         };
     const sparseClips = clone(sparseBanks.fox);
     const runtimeSamples = {};
@@ -1449,7 +1479,9 @@
           runSpeed:clamp(Number(setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(setup.collider),
           restRig:FoxRig.normalizedRestRig(setup.rig),
-          artLayout:normaliseArtLayout(adapters.fox,setup.artLayout)
+          artLayout:normaliseArtLayout(adapters.fox,setup.artLayout),
+          artRestRig:FoxRig.normalizedRestRig(setup.artRestRig || setup.rig),
+          skinBindRig:FoxRig.normalizedRestRig(setup.skinBindRig || setup.rig)
         },
         sparseClips,
         runtimeSamples
