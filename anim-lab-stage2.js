@@ -474,9 +474,9 @@
     const control=(CONTROL_SETS[family]||[]).find(c=>c.id===selectedId);
     if(!control || currentMode!=='animate')return;
     const point=adapter.rig.geometry(pose)?.[control.point];if(!point)return;
-    const p=project(point,view),side=control.side||'';ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,Math.max(8,view.scale*.028),0,Math.PI*2);
+    const p=project(point,view),side=control.side||'';ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,Math.max(4,Math.min(7,view.scale*.012)),0,Math.PI*2);
     ctx.fillStyle=side==='far'?'rgba(188,197,199,.18)':side==='near'?'rgba(126,216,199,.22)':'rgba(111,143,137,.25)';ctx.fill();
-    ctx.strokeStyle=side==='far'?'rgba(202,210,212,.92)':side==='near'?'rgba(126,216,199,.98)':'#5f817b';ctx.lineWidth=Math.max(2,view.scale*.006);ctx.stroke();ctx.restore();
+    ctx.strokeStyle=side==='far'?'rgba(202,210,212,.92)':side==='near'?'rgba(126,216,199,.98)':'#5f817b';ctx.lineWidth=Math.max(.9,Math.min(1.5,view.scale*.003));ctx.stroke();ctx.restore();
   });
 
   window.AnimLabControlSurface = Object.freeze({

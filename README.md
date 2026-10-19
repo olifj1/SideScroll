@@ -1,27 +1,29 @@
-# SS-PATCH-1.0.195 — Anim Lab workspace & unified Display (P3a)
+# SS-PATCH-1.0.196 — Anim Lab P3b: Skin Workflow & Editor Responsiveness
 
-**Install directly over v1.0.194.** Contains only files changed in this release. v1.0.193 is the last build the user explicitly confirmed on-device; keep an installable backup. Do not reapply old experimental patches, replace atlases, or clear Safari site data.
+**Install directly over working v1.0.195.** ZIP contains changed files only; keep v1.0.195 as your approved rollback. Do not clear Safari storage or reapply unrelated experimental ZIPs.
 
-## What changed
+## Changed
 
-- One prominent **Workspace** selector: Parts, Rig, Skin, Animate, Play. It uses the existing edit guards: if there are unsaved changes when leaving an edit stage, Save / Discard / Cancel appears. The previously duplicated top-level Animate/Rig/Play and nested Rig/Parts/Skin rows are hidden, not removed from the underlying modules.
-- A single **Display** panel, collapsed by default on first use (user collapse choice retained): Artwork Show + opacity (0–100%), Static Reference Show + opacity, Motion Reference Show + opacity, Bones, Planes, Collider, Ground/Ruler, Part outlines, and context-specific Rig binding preview / Parts difference. Source choice, alignment, motion-reference timing and Fox mesh/wireframe/inspect controls remain in collapsible *subsections of Display*. Existing inputs/handlers are reparented, not replaced by disconnected duplicate sliders.
-- Selection tools appear first under each workspace: Parts Layout, Rig Designer, Skin Weight Editor, Animate controls; collider and character scale now appear below Rig rather than before its joint board. Clip chooser and frame timeline are hidden outside Animate. Viewport pad and pan/zoom remain unchanged.
-- Art opacity, show/hide layers and part-outline visibility are **editor-display preferences**, stored separately from character data. Switching to Rig no longer silently forces ghost opacity, collider, ground or Static Reference visibility. Motion Reference preferences are auto-saved per character+clip without marking character edits dirty; they do not enter Undo.
-- No source artwork, meshes, clip keys, rigs, gameplay renderer or library schema altered. This release is a UI framework improvement; it does not deliver new character creation/library functionality.
+1. **Skin main workflow**: choose one of the current six Fox mesh regions, then a bone within it. Edit Bone Influence (5–300%) and Influence Spread/Falloff (0.5–2.5×). One selected-bone heatmap uses blue → cyan → green → yellow → orange → red (0→100%), clipped to the region artwork's real alpha. The corresponding bone is highlighted and the *full rig matches the selected Rest/Walk/Run preview pose and phase*. For chain regions, explicit per-bone edits enable a weighted deformation blend; their unchanged binding retains the v195 chain behavior.
+2. **Fine editing**: per-vertex controls now live in an optional Advanced details panel and can target the current selected bone. The existing root-to-body attachment controls for legs/tail are retained. Reset Bone restores only the selected per-bone profile; Auto Vertex and Reset Region are independent undoable edits. Copy near/far includes tuned bone profiles. Save/Undo/Redo/Discard, Fox single-file export and normalised stored character Setup now preserve `skinTuning.regions[regionId].boneProfiles[index] = {gain,spread}`. Old saves without this field keep their original weights.
+3. **Parts responsiveness**: neutral artwork in Parts and non-preview Rig draws once per source region rather than repeatedly warping its texture over all triangles. Pad pointer samples coalesce to one per animation frame and the last drag sample is flushed before transaction commit. In a Chromium inline desktop smoke test, repeated neutral Parts draws averaged roughly 10.9 ms (v195) vs 3.8 ms (v196); this is not an iPhone benchmark.
+4. **Legible rig overlay**: thinner bone strokes and smaller joint circles in Rig, Animate and Skin previews; selected joints/bones remain highlighted.
+5. **Orientation**: canvas backing pixels are sized from actual rendered bounds. ResizeObserver and iOS visualViewport/orientation follow-up passes recover canvas size, recompute projection, preserve the centre-framed world position and clear transient gesture snapshots. Refit should no longer be necessary after portrait → landscape.
 
-## Suggested iPhone acceptance test
+## iPhone acceptance path
 
-1. Open Anim Lab and select **Fox**. Use top Workspace selector to visit Parts, Rig, Skin, Animate and Play. In each stage, confirm its inspector appears first and the irrelevant ones are hidden. Character and clip contents should remain intact.
-2. Expand **Display**. Change Artwork to 25% and back to 100%. Toggle Static Reference Show, choose Fox Shape in its advanced source section, vary opacity, then hide it. Change Bones, Ground, Part outlines and optional Mesh wireframe. These actions should not enable Save or affect Undo.
-3. In Parts move a part slightly with the right pad, then select Rig: the unsaved guard must appear. Cancel must preserve the change; Save and Discard should work. Repeat from Skin. With Rig open, artwork must stay in place when you move joints; previous confirmed 193 behaviour must remain.
-4. Try Rig bind preview and Parts difference from **Display**, which must both remain off until chosen. Check Motion Reference Show/opacity and source/timing in Display (when a reference pack exists). Motion controls must not dirty the rig/animation working copy.
-5. Reload; ensure Display preferences survive. Enter Quick Play and return; the prior Display settings must return. Verify portrait/landscape safe areas, left-thumb selection/right-thumb pad, pan and pinch zoom.
+- In **Parts**, drag a body/leg/tail part with the right pad: check lag, artwork continuity, and Undo / Save / Discard.
+- In **Rig**, verify fine bone/joint overlays are readable over the fox and artwork stays anchored while moving joints.
+- In **Skin**, select Body + Head, then different bones. Check alpha-clipped heatmap and visible selected bone. Move the Influence and Falloff sliders; try Walk/Run at different phases and confirm rig moves with skin. Select Near Front Leg, change its second bone, compare before/after, reset and Undo. Expand Advanced to try single-vertex editing.
+- Rotate portrait then landscape while zoomed/panned; verify the viewport doesn't squash or lose the character and pinch/pan still work.
+- Save changes, refresh Safari, verify selected region bone strength/falloff persists. If testing changes, use Undo/Discard to avoid altering a preferred Fox binding.
 
-## Checks done
+## Scope and limitations
 
-Node syntax verification and automated Chromium landscape/touch-mode tests on the actual Fox atlas and inlined application scripts passed: five-stage navigation, screen visibility, collapsible Display, independent art/reference opacity, no-dirty display updates, skin-weight edit + Save, unsaved guard + Cancel, Quick Play return, initial and stored display state, and Motion Reference settings with a compatible reference manifest. This is **not** a Safari/iPhone sign-off. P3b follow-up should use actual iPhone feedback to refine panel density/visual hierarchy and any remaining duplicate or mode-inappropriate controls.
+- Existing Fox artwork PNGs, UV/mesh topology, clip keys, rig data and game renderer **are not changed**. This is still an editor-only tuning stage; Quick Play and actual gameplay do **not** yet use new skin tuning.
+- Region selection currently represents the six existing Fox deform mesh regions (Body + Head, Tail, four complete legs), *not* arbitrary newly created art parts. Full descriptor-driven generic regions/weights, add/remove parts, and runtime skin consumption are future milestones.
+- Node syntax and headless Chromium tests passed: Fox Skin region/bone selection, heatmap, edit/Save, initial/rest vs run pose, before/after tuned render, portrait-to-landscape redraw and zero browser errors. Native iPhone Safari/persistent PWA cache remains unverified until user's QA.
 
 ## Files
 
-`README.md`, `SIDESCROLL_CHARACTER_AUTHORING.md`, `SIDESCROLL_ENGINE_UX_BIBLE.md`, `SIDESCROLL_TASKS.md`, `walk-lab.html`, `walk-lab.js`, `anim-lab-stage2.js`, `anim-lab-reference.js`, `anim-lab-rig.js`, `anim-lab-art-layout.js`, `anim-lab-ui.js` (new), `style.css`, `sw.js`.
+`README.md`, `walk-lab.js`, `anim-lab-art-layout.js`, `anim-lab-mesh.js`, `anim-lab-rig.js`, `anim-lab-stage2.js`, `walk-lab.html`, `style.css`, `sw.js`, `SIDESCROLL_CHARACTER_AUTHORING.md`, `SIDESCROLL_ENGINE_UX_BIBLE.md`, `SIDESCROLL_TASKS.md`.

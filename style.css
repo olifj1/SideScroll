@@ -14776,3 +14776,13 @@ body[data-game-id="game-17"] [data-action="ghost"] {display:none!important;}
  body[data-game-id="game-17"] .animlab-display-layer button {min-height:26px;font-size:6.5px;}
  body[data-game-id="game-17"] .animlab-display-main{gap:4px;}
 }
+
+/* 1.0.196 P3b: selected bone weights are the primary Skin workflow. */
+body[data-game-id="game-17"] .animlab-skin-bone-picker {display:flex;flex-direction:column;gap:5px;padding:6px 0;border-top:1px solid rgba(143,207,197,.2)}
+body[data-game-id="game-17"] .animlab-skin-bones {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+body[data-game-id="game-17"] .animlab-skin-advanced {padding:6px 0;border-top:1px solid rgba(143,207,197,.2)}
+body[data-game-id="game-17"] .animlab-skin-advanced summary {cursor:pointer;font-size:10px;font-weight:850;color:#bcd9d3;padding:8px 5px}
+body[data-game-id="game-17"] .animlab-skin-advanced .animlab-skin-grid-controls {display:flex;flex-direction:column;gap:5px}
+body[data-game-id="game-17"] .animlab-skin-legend {display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:center;font-size:8px;color:#bfd2d0}
+body[data-game-id="game-17"] .animlab-skin-legend i {display:block;height:7px;border-radius:6px;background:linear-gradient(90deg,#254ad4,#24b1e6,#38cb60,#f5e238,#ff8726,#eb2a31)}
+body[data-game-id="game-17"] .animlab-skin-heat-tools {grid-template-columns:repeat(2,minmax(0,1fr))}

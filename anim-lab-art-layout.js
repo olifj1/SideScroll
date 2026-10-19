@@ -107,6 +107,7 @@
   let lastRender=null;
   let viewportDrag=null;
   let precisionDrag=null;
+  let queuedDragPoint=null,queuedDragFrame=0;
   let soloPart=null; // display-only: never written into Setup or exported
   const hiddenParts=new Set(); // display-only: Hide/Show never dirty authored data
   let showOutlines = true;
@@ -417,9 +418,9 @@
     try{pad.setPointerCapture(event.pointerId);}catch(_){}
   }
 
-  function precisionMove(event){
-    if(!precisionDrag||precisionDrag.pointerId!==event.pointerId)return;
-    event.preventDefault();const dx=event.clientX-precisionDrag.startX,dy=event.clientY-precisionDrag.startY;
+  function applyPrecisionPoint(clientX,clientY){
+    if(!precisionDrag)return;
+    const dx=clientX-precisionDrag.startX,dy=clientY-precisionDrag.startY;
     const next={};
     const rect=canvas.getBoundingClientRect(),view=lastRender?.view;
     const pxScale=canvas.width/Math.max(1,rect.width);
@@ -445,10 +446,22 @@
     }
     setPartInTransaction(precisionDrag.tx,precisionDrag.part,next);
   }
+  function precisionMove(event){
+    if(!precisionDrag||precisionDrag.pointerId!==event.pointerId)return;
+    event.preventDefault();queuedDragPoint=[event.clientX,event.clientY];
+    if(queuedDragFrame)return;
+    queuedDragFrame=requestAnimationFrame(()=>{
+      queuedDragFrame=0;const pt=queuedDragPoint;queuedDragPoint=null;
+      if(precisionDrag&&pt)applyPrecisionPoint(pt[0],pt[1]);
+    });
+  }
 
   function finishPrecision(event,cancel){
     if(!precisionDrag||precisionDrag.pointerId!==event.pointerId)return;
-    event.preventDefault();const drag=precisionDrag;precisionDrag=null;
+    event.preventDefault();
+    if(queuedDragFrame){cancelAnimationFrame(queuedDragFrame);queuedDragFrame=0;}
+    if(!cancel){const pt=queuedDragPoint||[event.clientX,event.clientY];applyPrecisionPoint(pt[0],pt[1]);}
+    queuedDragPoint=null;const drag=precisionDrag;precisionDrag=null;
     if(cancel)core.cancelTransaction(drag.tx);else core.commitTransaction(drag.tx);
     try{pad.releasePointerCapture(event.pointerId);}catch(_){}renderUI();
   }

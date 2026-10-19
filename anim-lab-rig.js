@@ -461,7 +461,7 @@
     const groundY=project({x:0,y:0},view).y;
     ctx.globalAlpha=.55;
     ctx.strokeStyle='rgba(140,185,215,.9)';
-    ctx.lineWidth=Math.max(1,canvas.width/700);
+    ctx.lineWidth=Math.max(.75,Math.min(1.3,canvas.width/1300));
     ctx.setLineDash([10,8]);
     ctx.beginPath();
     ctx.moveTo(0,groundY);
@@ -470,7 +470,7 @@
     ctx.setLineDash([]);
 
     ctx.globalAlpha=.95;
-    ctx.lineWidth=Math.max(2,canvas.width/380);
+    ctx.lineWidth=Math.max(.9,Math.min(1.7,canvas.width/1150));
     const sideOf=id=>String(id||'').includes('Near')?'near':String(id||'').includes('Far')?'far':'';
     for (const link of desc.boneLinks || []) {
       const a=Array.isArray(link)?link[0]:link.a;
@@ -482,14 +482,14 @@
       ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
     }
 
-    const r=Math.max(7,canvas.width/150);
+    const r=Math.max(2.6,Math.min(4.6,canvas.width/360));
     for (const [id,p] of Object.entries(screenPoints)) {
       const active=id===selectedJoint,side=sideOf(id);
       ctx.globalAlpha=1;
       ctx.fillStyle=active?'rgba(255,196,92,1)':side==='near'?'rgba(31,49,50,.98)':side==='far'?'rgba(91,101,104,.96)':'rgba(44,54,64,.96)';
       ctx.strokeStyle=active?'rgba(255,239,195,1)':side==='near'?'rgba(126,216,199,.98)':side==='far'?'rgba(210,218,220,.96)':'rgba(238,244,249,.95)';
-      ctx.lineWidth=Math.max(2,canvas.width/520);
-      ctx.beginPath();ctx.arc(p.x,p.y,active?r*1.25:r,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.lineWidth=Math.max(.75,Math.min(1.35,canvas.width/1250));
+      ctx.beginPath();ctx.arc(p.x,p.y,active?r*1.23:r,0,Math.PI*2);ctx.fill();ctx.stroke();
       if (active) {
         ctx.font=`${Math.max(12,canvas.width/72)}px system-ui,-apple-system,sans-serif`;
         ctx.textAlign='center';ctx.textBaseline='bottom';

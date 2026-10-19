@@ -303,6 +303,18 @@
           safe.attachStrength=clamp(+entry.attachStrength,0,.85);
         if(Number.isFinite(+entry.attachBlendDistance) && entry.attachBlendDistance!==null)
           safe.attachBlendDistance=clamp(+entry.attachBlendDistance,.025,.35);
+        // P3b: per-bone profiles are authored independently of per-vertex overrides.
+        // Only indexed bones 0–7 are accepted; old saved tuning works unchanged.
+        if(entry.boneProfiles && typeof entry.boneProfiles==='object'){
+          const profiles={};
+          for(const [bone,profile] of Object.entries(entry.boneProfiles)){
+            if(!/^[0-7]$/.test(bone)||!profile||typeof profile!=='object')continue;
+            const gain=clamp(Number(profile.gain)||1,.05,3);
+            const spread=clamp(Number(profile.spread)||1,.5,2.5);
+            if(Math.abs(gain-1)>.0001||Math.abs(spread-1)>.0001)profiles[bone]={gain,spread};
+          }
+          if(Object.keys(profiles).length)safe.boneProfiles=profiles;
+        }
         if(entry.vertexWeights && typeof entry.vertexWeights==='object'){
           const vertices={};
           for(const [vertex,weights] of Object.entries(entry.vertexWeights)){
@@ -1048,11 +1060,25 @@
     draw(); updateUi(); notify();
   }
 
+  // Canvas internal aspect follows CSS after Safari rotation, including the
+  // second layout pass where the visual viewport/safe area finishes changing.
+  // Preserve the world point at the centre rather than the stale pan pixels.
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
-    const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const box=canvas.getBoundingClientRect();
+    const w = Math.max(1, Math.round((box.width||canvas.clientWidth) * dpr));
+    const h = Math.max(1, Math.round((box.height||canvas.clientHeight) * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      if(canvas.width>1&&canvas.height>1&&w>1&&h>1){
+        const prevBase=Math.min(canvas.width*.34,canvas.height*.68),nextBase=Math.min(w*.34,h*.68);
+        const worldX=-view.panX*canvas.width/Math.max(.001,prevBase*view.zoom*setupDraft.scale);
+        const worldY=(.36+view.panY)*canvas.height/Math.max(.001,prevBase*view.zoom*setupDraft.scale);
+        view.panX=clamp(-worldX*nextBase*view.zoom*setupDraft.scale/w,-.75,.75);
+        view.panY=clamp(worldY*nextBase*view.zoom*setupDraft.scale/h-.36,-.75,.75);
+      }
+      canvas.width = w; canvas.height = h;
+      clearInteractionSnapshot();
+    }
   }
 
   function baseView(scaleMultiplier = 1) {
@@ -1138,7 +1164,7 @@
   function drawBones(adapter, pose, sv, alpha = 1) {
     const parts = adapter.rig.partsForPose(pose,displayRestRig(adapter));
     ctx.save();
-    ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(2,sv.scale*.012);
+    ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(0.85,Math.min(1.9,canvas.width*.00135));
     for (const part of parts) {
       const name=String(part.name||'');
       const near=adapter.id==='fox' && name.startsWith('near_');
@@ -1149,7 +1175,7 @@
       const A=project(part.a,sv), B=project(part.b,sv);
       ctx.strokeStyle=bone;ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
       ctx.fillStyle=jointFill;ctx.strokeStyle=jointStroke;
-      ctx.beginPath(); ctx.arc(A.x,A.y,Math.max(2.5,sv.scale*.011),0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(A.x,A.y,Math.max(1.6,Math.min(3.2,canvas.width*.0025)),0,Math.PI*2); ctx.fill(); ctx.stroke();
     }
     ctx.restore();
   }
@@ -1426,7 +1452,22 @@
     const href=homeLink.href;
     guardNavigation(()=>{window.location.href=href;});
   });
-  window.addEventListener('resize',draw,{passive:true});
+  let resizeFrame=0;
+  function scheduleViewportResize(){
+    if(resizeFrame)cancelAnimationFrame(resizeFrame);
+    resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;draw();});
+  }
+  window.addEventListener('resize',scheduleViewportResize,{passive:true});
+  window.visualViewport?.addEventListener('resize',scheduleViewportResize,{passive:true});
+  if(typeof ResizeObserver!=='undefined'){
+    const viewportObserver=new ResizeObserver(scheduleViewportResize);
+    viewportObserver.observe(canvas.parentElement||canvas);
+  }
+  window.addEventListener('orientationchange',()=>{
+    // iOS Safari reports the old canvas box briefly after rotation.
+    scheduleViewportResize();setTimeout(scheduleViewportResize,120);
+    setTimeout(scheduleViewportResize,360);
+  },{passive:true});
   window.addEventListener('beforeunload',e=>{if(!isDirty())return;e.preventDefault();e.returnValue='';});
 
   function setPlaying(value) {
