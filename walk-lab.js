@@ -876,12 +876,18 @@
       const saveSetup = selection.mode === 'setup' || selection.mode === 'play';
       const saveClip = selection.mode === 'animate' || selection.mode === 'play';
       if (saveSetup) {
-        // Never persist a new structural rig together with stale inverse bind
-        // coordinates. The user must explicitly choose Rebind, which remains
-        // Undoable/Discardable before committing the full Setup session.
+        // A changed rig must never be saved with stale inverse bind joints.
+        // Manual Rebind remains available (with Undo), but Save can now offer
+        // an explicit, one-step Rebind + Save instead of failing with an error.
         if (supportsRestBinding(adapter) && setupDraft.rig && setupDraft.skinBindRig &&
             !same(adapter.normaliseRestRig(setupDraft.rig),adapter.normaliseRestRig(setupDraft.skinBindRig))) {
-          throw new Error('Rig joints have changed since the last bind. Open Rig Designer and select Rebind to Rig before Save.');
+          const accepted = typeof window.confirm === 'function' && window.confirm(
+            'The rig has changed since skin binding. Rebind the skin to this rig and Save?\n\nThis updates the skin rest reference, not the artwork or animation keys.\n\nCancel keeps your working changes unsaved.');
+          if (!accepted) { hint.textContent='Save cancelled · Rig edits still in working copy'; return false; }
+          edit('setup','Rebind rig on Save',setup=>{
+            setup.skinBindRig=adapter.normaliseRestRig(setup.rig);
+            return setup;
+          });
         }
         setupDraft.collider = adapter.saveCollider(setupDraft.collider);
         if (adapter.saveRestRig && setupDraft.rig) setupDraft.rig = adapter.saveRestRig(setupDraft.rig);

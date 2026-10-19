@@ -153,7 +153,10 @@
       <p class="animlab-skin-note">Fine edit: only the selected vertex is changed, other weights are normalised to 100%. Use Pick Vertex to tap a visible dot. Reset Bone and Auto Vertex are separate operations.</p>
     </div></details>
     <div class="animlab-skin-actions">
-      <button type="button" data-skin-action="copy-pair">Copy To Matching Side</button>
+      <button type="button" data-skin-action="copy-bone-pair">Copy Selected Bone → Pair</button>
+      <button type="button" data-skin-action="copy-pair">Copy Whole Part → Pair</button>
+      <button type="button" data-skin-action="copy-both-near-far">Both Legs Near → Far</button>
+      <button type="button" data-skin-action="copy-both-far-near">Both Legs Far → Near</button>
       <button type="button" data-skin-action="reset-region">Reset Region</button>
     </div>
     <p class="animlab-skin-note">Editor-only in this stage: gameplay still uses its existing Fox mesh. A later integration stage will connect saved skin tuning to the runtime.</p>
@@ -687,10 +690,11 @@
     }
     ctx.restore();
   }
-  function weightedVertex(vertex,region,poseGeom,bindGeom,vertexIndex,tuning){
+  function weightedWith(vertex,region,poseGeom,bindGeom,influences){
     let x=0,y=0,total=0;
-    for(const influence of editedVertexWeights(vertex,region,vertexIndex,tuning)){
+    for(const influence of influences){
       const bone=region.bones[influence.index];
+      if(!bone)continue;
       const bindA=bindGeom[bone[0]],bindB=bindGeom[bone[1]];
       const poseA=poseGeom[bone[0]],poseB=poseGeom[bone[1]];
       if(!bindA||!bindB||!poseA||!poseB)continue;
@@ -698,6 +702,29 @@
       x+=q.x*influence.weight;y+=q.y*influence.weight;total+=influence.weight;
     }
     return total>1e-6?{x:x/total,y:y/total}:vertex.bind;
+  }
+  function weightedVertex(vertex,region,poseGeom,bindGeom,vertexIndex,tuning){
+    return weightedWith(vertex,region,poseGeom,bindGeom,editedVertexWeights(vertex,region,vertexIndex,tuning));
+  }
+  function tunedChainVertex(vertex,region,poseGeom,bindGeom,vertexIndex,tuning){
+    const safe=chainVertex(vertex,region,poseGeom,bindGeom,tuning);
+    if(!boneProfilesActive(tuning)&&!tuning?.vertexWeights?.[vertexIndex])return safe;
+    // v196 abruptly replaced 85% of the established stable chain skin with an
+    // unrelated multi-bone LBS position as soon as ANY weight was edited.
+    // That causes sharp, sometimes inverted leg quads under wide IK poses.
+    // Treat weighting as a *delta from its own automatic baseline* instead:
+    // an untouched profile is exactly the proven chain bind. Per-bone edits
+    // smoothly adjust that bind without replacing its deformation algorithm.
+    const baseline=weightsForPoint(vertex.bind,region.bones,region.bindGeom);
+    const original=weightedWith(vertex,region,poseGeom,bindGeom,baseline);
+    const tuned=weightedVertex(vertex,region,poseGeom,bindGeom,vertexIndex,tuning);
+    let dx=(tuned.x-original.x)*.78,dy=(tuned.y-original.y)*.78;
+    // Bound pathological displacements from extreme gain / 0.5x spread. This
+    // cap is per-vertex in rig coordinates and scales down without direction
+    // changes, never altering the authored neutral pose.
+    const d=Math.hypot(dx,dy),cap=.024;
+    if(d>cap){dx*=cap/d;dy*=cap/d;}
+    return {x:safe.x+dx,y:safe.y+dy};
   }
 
   function chainVertex(vertex,region,poseGeom,bindGeom,tuning){
@@ -827,12 +854,7 @@
       const point=layoutVertex(v.bind,region.id,args.setup?.artLayout);
       const adjusted={...v,bind:point};
       const drawn=neutralMode?point:(region.binding==='chain'
-        ? (()=>{
-          const chain=chainVertex(adjusted,region,poseGeom,bindGeom,tuning);
-          if(!boneProfilesActive(tuning)&&!tuning?.vertexWeights?.[index])return chain;
-          const weighted=weightedVertex(adjusted,region,poseGeom,bindGeom,index,tuning);
-          return lerpPoint(chain,weighted,.85);
-        })()
+        ? tunedChainVertex(adjusted,region,poseGeom,bindGeom,index,tuning)
         : weightedVertex(adjusted,region,poseGeom,bindGeom,index,tuning));
       return projectLocal(drawn,view);
     });
@@ -948,6 +970,7 @@
     skinPhaseButton.textContent=`Phase: ${Math.round(skinPhase*100)}%`;
     const pairBtn=skinSection.querySelector('[data-skin-action="copy-pair"]');
     pairBtn.disabled=!/(Near|Far)$/.test(selectedSkinRegion);
+    skinSection.querySelector('[data-skin-action="copy-bone-pair"]').disabled=pairBtn.disabled;
     selectedSkinBone=clamp(selectedSkinBone,0,def.bones.length-1);
     const profiles=settings.boneProfiles||{},activeProfile=profiles[selectedSkinBone]||{};
     skinBoneBoard.replaceChildren();
@@ -1047,10 +1070,32 @@
       if(entry.vertexWeights){delete entry.vertexWeights[selectedSkinVertex];if(!Object.keys(entry.vertexWeights).length)delete entry.vertexWeights;}
     });
     else if(name==='reset-region')skinEdit('Reset skin weights for region',(entry,regions)=>{delete regions[selectedSkinRegion];for(const key of Object.keys(entry))delete entry[key];});
-    else if(name==='copy-pair'){
+    else if(name==='copy-bone-pair'&&/(Near|Far)$/.test(selectedSkinRegion)){
+      const target=selectedSkinRegion.endsWith('Near')?selectedSkinRegion.replace('Near','Far'):selectedSkinRegion.replace('Far','Near');
+      const sourceProfile=skinDraft().boneProfiles?.[selectedSkinBone];
+      skinEdit('Copy selected bone influence to matching side',(_,regions)=>{
+        const other=regions[target] ||= {};
+        other.boneProfiles ||= {};
+        if(sourceProfile)other.boneProfiles[selectedSkinBone]=clone(sourceProfile);
+        else delete other.boneProfiles[selectedSkinBone];
+        if(!Object.keys(other.boneProfiles).length)delete other.boneProfiles;
+      });
+    }
+    else if(name==='copy-pair'&&/(Near|Far)$/.test(selectedSkinRegion)){
       const target=selectedSkinRegion.endsWith('Near')?selectedSkinRegion.replace('Near','Far'):selectedSkinRegion.replace('Far','Near');
       const src=skinDraft();
-      skinEdit('Copy skin weights to matching side',(_,regions)=>{regions[target]=clone(src);});
+      skinEdit('Copy all skin weights to matching part',(_,regions)=>{regions[target]=clone(src);});
+    }
+    else if(name==='copy-both-near-far'||name==='copy-both-far-near'){
+      const nearToFar=name==='copy-both-near-far',side=nearToFar?'Near':'Far';
+      const sourceRegions=clone(core.getState().setup?.skinTuning?.regions||{});
+      skinEdit(`Copy both ${side.toLowerCase()} leg skin regions to opposite side`,(_,regions)=>{
+        for(const location of ['front','rear']){
+          const source=location+side,target=location+(nearToFar?'Far':'Near');
+          if(sourceRegions[source])regions[target]=clone(sourceRegions[source]);
+          else delete regions[target];
+        }
+      });
     }
     refreshSkinUI();core.redrawOnly?.();
   }));

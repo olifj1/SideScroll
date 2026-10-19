@@ -1,29 +1,31 @@
-# SS-PATCH-1.0.196 — Anim Lab P3b: Skin Workflow & Editor Responsiveness
+# SS-PATCH-1.0.197 — Symmetry Copy / Save-Rebind / Stable Skin Preview
 
-**Install directly over working v1.0.195.** ZIP contains changed files only; keep v1.0.195 as your approved rollback. Do not clear Safari storage or reapply unrelated experimental ZIPs.
+**Apply directly over v1.0.196** (which the user described as more controllable, but with three outstanding issues). Changed-files-only package. Keep v1.0.196 rollback; do not clear iPhone Safari storage. No artwork or animation data is replaced.
 
-## Changed
+## New workflow
 
-1. **Skin main workflow**: choose one of the current six Fox mesh regions, then a bone within it. Edit Bone Influence (5–300%) and Influence Spread/Falloff (0.5–2.5×). One selected-bone heatmap uses blue → cyan → green → yellow → orange → red (0→100%), clipped to the region artwork's real alpha. The corresponding bone is highlighted and the *full rig matches the selected Rest/Walk/Run preview pose and phase*. For chain regions, explicit per-bone edits enable a weighted deformation blend; their unchanged binding retains the v195 chain behavior.
-2. **Fine editing**: per-vertex controls now live in an optional Advanced details panel and can target the current selected bone. The existing root-to-body attachment controls for legs/tail are retained. Reset Bone restores only the selected per-bone profile; Auto Vertex and Reset Region are independent undoable edits. Copy near/far includes tuned bone profiles. Save/Undo/Redo/Discard, Fox single-file export and normalised stored character Setup now preserve `skinTuning.regions[regionId].boneProfiles[index] = {gain,spread}`. Old saves without this field keep their original weights.
-3. **Parts responsiveness**: neutral artwork in Parts and non-preview Rig draws once per source region rather than repeatedly warping its texture over all triangles. Pad pointer samples coalesce to one per animation frame and the last drag sample is flushed before transaction commit. In a Chromium inline desktop smoke test, repeated neutral Parts draws averaged roughly 10.9 ms (v195) vs 3.8 ms (v196); this is not an iPhone benchmark.
-4. **Legible rig overlay**: thinner bone strokes and smaller joint circles in Rig, Animate and Skin previews; selected joints/bones remain highlighted.
-5. **Orientation**: canvas backing pixels are sized from actual rendered bounds. ResizeObserver and iOS visualViewport/orientation follow-up passes recover canvas size, recompute projection, preserve the centre-framed world position and clear transient gesture snapshots. Refit should no longer be necessary after portrait → landscape.
+- **Parts**: Copy Selected Part → Pair; Both Legs Near → Far or Far → Near. Transfers transforms including pivots, never replaces art or changes layers.
+- **Rig**: Copy Joint → Pair; Copy Segment → Pair (two joints); Copy Limb → Pair (all four limb joints); Both Legs Near → Far or Far → Near. Copy direction follows the selected source side for the first three controls. Other rig components are not copied.
+- **Skin**: Copy Selected Bone → Pair (one gain/falloff profile); Copy Whole Part → Pair (entire skin region); Both Legs Near → Far or Far → Near (whole front/rear skin regions). Each copy is one Undoable/Discardable edit.
+- **Rebind:** After moving rig joints, Save now prompts to **Rebind and Save** in one action; Cancel leaves edits unsaved. Manual Rebind and Preview remain if needed for comparison.
+- **Leg twisting:** When Skin gains/spreads are changed, the skin renderer no longer abruptly replaces 85% of the proven limb-chain deformation with an incompatible multi-bone result. Weight changes now add a bounded difference relative to automatic weights, preserving the established rest and chain behavior. This is an initial deformation stability fix; some extreme IK poses may still need further authoring controls.
 
-## iPhone acceptance path
+## User-export diagnostic
 
-- In **Parts**, drag a body/leg/tail part with the right pad: check lag, artwork continuity, and Undo / Save / Discard.
-- In **Rig**, verify fine bone/joint overlays are readable over the fox and artwork stays anchored while moving joints.
-- In **Skin**, select Body + Head, then different bones. Check alpha-clipped heatmap and visible selected bone. Move the Influence and Falloff sliders; try Walk/Run at different phases and confirm rig moves with skin. Select Near Front Leg, change its second bone, compare before/after, reset and Undo. Expand Advanced to try single-vertex editing.
-- Rotate portrait then landscape while zoomed/panned; verify the viewport doesn't squash or lose the character and pinch/pan still work.
-- Save changes, refresh Safari, verify selected region bone strength/falloff persists. If testing changes, use Undo/Discard to avoid altering a preferred Fox binding.
+Reviewed `SS-FOX-RIG-ANIM-1.0.175.json` (exported 2026-10-19) without modifying it. The stored `restRig` equals `skinBindRig` (rebind is **not currently missing**). `artRestRig` differs intentionally because the static source artwork should not shift with rig edits. The leg profiles include near-front 2/2.95/2.4 gains and front-far distal 3.0 with spreads as low as .55, which amplified the v196 unstable blend. The handoff export writes a legacy `animLabVersion` tag; it does not imply that the v196 data export is old.
 
-## Scope and limitations
+## QA performed
 
-- Existing Fox artwork PNGs, UV/mesh topology, clip keys, rig data and game renderer **are not changed**. This is still an editor-only tuning stage; Quick Play and actual gameplay do **not** yet use new skin tuning.
-- Region selection currently represents the six existing Fox deform mesh regions (Body + Head, Tail, four complete legs), *not* arbitrary newly created art parts. Full descriptor-driven generic regions/weights, add/remove parts, and runtime skin consumption are future milestones.
-- Node syntax and headless Chromium tests passed: Fox Skin region/bone selection, heatmap, edit/Save, initial/rest vs run pose, before/after tuned render, portrait-to-landscape redraw and zero browser errors. Native iPhone Safari/persistent PWA cache remains unverified until user's QA.
+- Node `--check` passed for the four modified JavaScript modules.
+- Automated headless Chromium inline smoke **with user's exported rig, art layout, skin profiles and sparse animations**: Fox Skin selection, Run preview, bone copy, both-leg copy, Rig limb copy, segment copy, Save+Rebind confirmation and clean checkpoint. No page exceptions.
+- Both v196 and v197 preview frames rendered using user's export in headless Chromium, with no page exceptions; this does not establish visual acceptability on actual iPhone Safari.
+- Source PNG/rig/clip key files unchanged. Skin remains **editor-only**; gameplay renderer and Quick Play do not yet read skin tuning.
 
-## Files
+## Suggested iPhone test
 
-`README.md`, `walk-lab.js`, `anim-lab-art-layout.js`, `anim-lab-mesh.js`, `anim-lab-rig.js`, `anim-lab-stage2.js`, `walk-lab.html`, `style.css`, `sw.js`, `SIDESCROLL_CHARACTER_AUTHORING.md`, `SIDESCROLL_ENGINE_UX_BIBLE.md`, `SIDESCROLL_TASKS.md`.
+1. In Skin: inspect **Near Front** and **Far Front** during Walk and Run phase 25%, 50%, 75%; toggle Heatmap off temporarily, compare twisting versus v196.
+2. Copy Selected Bone → Pair, then Copy Whole Part → Pair and Both Legs Near → Far. Undo to confirm one-step reversal and Save/reload if satisfied.
+3. In Rig: select Near Front Knee; try Copy Segment → Pair and Copy Limb → Pair; check entire corresponding Far Front moves exactly. Try Both Legs Near → Far.
+4. Move a Rig joint, press Save, verify that **Cancel** leaves it unsaved and accepting **Rebind + Save** persists joint and binding together without moving Rest artwork.
+
+All three canonical documents have been updated. **v1.0.196 remains rollback until iPhone approval.**

@@ -11,7 +11,7 @@
   section.hidden=true;
   section.innerHTML=`
     <div class="animlab-section-title">Part Layout</div>
-    <p class="animlab-art-layout-note">Arrange neutral artwork; joints and animation keys stay unchanged. Move joints in Rig without moving artwork; Rebind explicitly before saving a changed rig.</p>
+    <p class="animlab-art-layout-note">Arrange neutral artwork; joints and animation keys stay unchanged. Move joints in Rig without moving artwork; Save offers Rebind when needed.</p>
     <div class="animlab-art-part-board" aria-label="Bind art parts"></div>
     <div class="animlab-rig-selected animlab-art-selected">
       <div class="animlab-rig-selected-title">No part selected</div>
@@ -62,7 +62,9 @@
         <button type="button" data-art-action="paste-rotation">Paste Rotation</button>
         <button type="button" data-art-action="paste-scale">Paste Scale</button>
         <button type="button" data-art-action="paste-pivot">Paste Pivot</button>
-        <button type="button" data-art-action="copy-pair">Copy to Pair</button>
+        <button type="button" data-art-action="copy-pair">Copy Selected Part → Pair</button>
+        <button type="button" data-art-action="copy-both-near-far">Both Legs Near → Far</button>
+        <button type="button" data-art-action="copy-both-far-near">Both Legs Far → Near</button>
       </div>
     </div>
     <div class="animlab-art-reference-tools">
@@ -295,13 +297,24 @@
         order.splice(at,1);order.splice(target,0,selectedPart);
       });return;
     }
+    // Part copy always copies *transforms* (including pivot), never the source
+    // image, draw order or hidden/solo editor state. Thus near/far artwork is
+    // still independent even when their placement is paired.
     if(name==='copy-pair'&&selectedPart&&pairFor(selectedPart)){
       const source=transformFor(s,selectedPart),pair=pairFor(selectedPart);
-      editLayout('Copy part transform to near/far pair',layout=>{
-        Object.assign(layout.parts[pair],{
-          x:source.x,y:source.y,rotation:source.rotation,
-          scaleX:source.scaleX,scaleY:source.scaleY
-        });
+      editLayout('Copy part transform to matching side',layout=>{
+        for(const key of ['x','y','rotation','scaleX','scaleY','pivotX','pivotY'])layout.parts[pair][key]=source[key];
+      });return;
+    }
+    if(name==='copy-both-near-far'||name==='copy-both-far-near'){
+      const nearToFar=name==='copy-both-near-far',side=nearToFar?'Near':'Far';
+      editLayout(`Copy both ${side.toLowerCase()} leg part transforms to opposite side`,layout=>{
+        for(const dst of ['front','rear']){
+          const from=dst+side,other=pairFor(from);
+          if(!layout.parts[from]||!layout.parts[other])continue;
+          const source=transformFor(s,from);
+          for(const key of ['x','y','rotation','scaleX','scaleY','pivotX','pivotY'])layout.parts[other][key]=source[key];
+        }
       });return;
     }
     if(name==='copy'&&selectedPart){

@@ -13,7 +13,7 @@
   section.hidden = true;
   section.innerHTML = `
     <div class="animlab-section-title">Rig Designer</div>
-    <p class="animlab-rig-note">Edit the saved character anatomy/rest structure. Animation poses remain separate and retarget onto the saved rig.</p>
+    <p class="animlab-rig-note">Edit the saved rest rig independently of the artwork. Use Joint, Segment, Limb or Both Legs to copy near/far; animation keys remain separate.</p>
     <div class="animlab-rig-board" aria-label="Rig joints"></div>
     <div class="animlab-rig-selected">
       <div class="animlab-rig-selected-title">No joint selected</div>
@@ -27,13 +27,15 @@
         <button type="button" data-axis="y">Y only</button>
         <button type="button" data-fine="1">Fine</button>
       </div>
-      <p class="animlab-rig-note">Select a joint here with the left thumb, then move it with the same bottom-right viewport pad used in Animate.</p>
+      <p class="animlab-rig-note">Select a joint and move it with the right pad. Copy Joint transfers one point; Copy Segment transfers that joint plus the next in the limb chain (Paw selects the final segment); Copy Limb transfers the entire selected chain. Both Legs copies front and rear together.</p>
     </div>
     <div class="animlab-rig-actions">
-      <button type="button" data-action="copy-pair">Copy to Pair</button>
+      <button type="button" data-action="copy-pair">Copy Joint → Pair</button>
+      <button type="button" data-action="copy-segment">Copy Segment → Pair</button>
+      <button type="button" data-action="copy-limb">Copy Limb → Pair</button>
       <button type="button" data-action="reset-joint">Reset Joint</button>
-      <button type="button" data-action="near-far">Near → Far</button>
-      <button type="button" data-action="far-near">Far → Near</button>
+      <button type="button" data-action="near-far">Both Legs Near → Far</button>
+      <button type="button" data-action="far-near">Both Legs Far → Near</button>
       <button type="button" data-action="ground">Paws to Ground</button>
       <button type="button" data-action="reset-rig">Reset Rig</button>
       <button type="button" data-action="ghost" class="animlab-rig-ghost is-active">Art Ghost</button>
@@ -44,7 +46,7 @@
         <button type="button" data-action="preview-bind">Walk Preview: Off</button>
         <button type="button" data-action="rebind-rig">Rebind to Rig</button>
       </div>
-      <p class="animlab-rig-note">Walk Preview cycles Off → Previous Binding → Proposed Rebind. Rebind is an Undoable setup edit; Save commits it. Artwork, mesh topology, and animation keys are never overwritten.</p>
+      <p class="animlab-rig-note">Rebinding updates the animation skin’s rest reference, not the artwork, clip keys or mesh. If the rig has changed, Save will offer to rebind automatically. Manual Rebind remains available for preview and Undo.</p>
     </div>
   `;
   setupSection.insertAdjacentElement('afterend', section);
@@ -210,7 +212,7 @@
     const bound = !!s.setup.skinBindRig;
     const needsBind=bound && JSON.stringify(normalizedRig(s,draft))!==JSON.stringify(normalizedRig(s,s.setup.skinBindRig));
     bindStatus.textContent=needsBind
-      ? 'Rig changed · Rebind before Save. Art remains stationary in Rig view.'
+      ? 'Rig changed · Save will offer Rebind + Save. Art remains stationary.'
       : 'Rig matches committed bind · Art stays fixed while editing joints.';
     bindStatus.classList.toggle('needs-bind',needsBind);
     bindPreviewBtn.textContent=`Walk Preview: ${previewBind==='off'?'Off':previewBind==='saved'?'Previous Binding':'Proposed Rebind'}`;
@@ -218,6 +220,10 @@
     const pair = selectedJoint && symmetryPair(desc,selectedJoint);
     const copyPair = section.querySelector('[data-action="copy-pair"]');
     if (copyPair) copyPair.disabled = !pair;
+    for (const name of ['copy-segment','copy-limb']) {
+      const control=section.querySelector(`[data-action="${name}"]`);
+      if(control) control.disabled=!limbGroup(desc,selectedJoint);
+    }
   }
 
   function editRig(label, mutator){
@@ -243,8 +249,32 @@
     });
   }
 
+  function limbGroup(desc,id){
+    // Rig-family metadata, not a hard-coded Fox list, owns limb membership.
+    return (desc?.jointGroups||[]).find(group =>
+      /(Near|Far)$/.test(group.id||'') && Array.isArray(group.joints) && group.joints.includes(id))||null;
+  }
+
+  function copyRigJoints(ids,label){
+    editRig(label,(rig,desc)=>{
+      for(const id of ids){
+        const pair=symmetryPair(desc,id);
+        if(pair&&rig.joints[id]&&rig.joints[pair.other])rig.joints[pair.other]=clone(rig.joints[id]);
+      }
+    });
+  }
+
+  function copySelectedRigLimb(segmentOnly){
+    const desc=descriptorFor(state()),group=limbGroup(desc,selectedJoint);
+    if(!group)return;
+    const joints=group.joints;
+    const at=joints.indexOf(selectedJoint);
+    const selected=segmentOnly?joints.slice(Math.min(at,joints.length-2),Math.min(at,joints.length-2)+2):joints;
+    copyRigJoints(selected,`Copy ${group.label} ${segmentOnly?'bone segment':'whole limb'} to matching side`);
+  }
+
   function pairCopy(direction){
-    editRig(direction === 'nearFar' ? 'Copy near rig to far' : 'Copy far rig to near', (rig,desc) => {
+    editRig(direction === 'nearFar' ? 'Copy both near limbs to far' : 'Copy both far limbs to near', (rig,desc) => {
       for (const pair of desc?.symmetryPairs || []) {
         const src = direction === 'nearFar' ? pair[0] : pair[1];
         const dst = direction === 'nearFar' ? pair[1] : pair[0];
@@ -284,6 +314,10 @@
       editRig(`Copy ${labelFor(desc,selectedJoint)} to pair`, rig => {
         rig.joints[pair.other] = clone(rig.joints[selectedJoint]);
       });
+    } else if (name === 'copy-segment') {
+      copySelectedRigLimb(true);
+    } else if (name === 'copy-limb') {
+      copySelectedRigLimb(false);
     } else if (name === 'reset-joint' && selectedJoint) {
       const defaults = defaultRig(s);
       if (!defaults?.joints?.[selectedJoint]) return;
