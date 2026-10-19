@@ -58,6 +58,40 @@
   const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
   const STATIC_REFERENCE_KEY = 'sidescroll.animlab.static-reference.v1';
   const FOX_HANDOFF_SCHEMA = 'sidescroll.animlab.fox-handoff.v1';
+  // v199: new library entries are private character documents, not aliases for
+  // built-in Fox/Hero gameplay storage. Never copy arbitrary atlas paths from
+  // localStorage into an image URL.
+  const CHARACTER_LIBRARY_KEY = 'sidescroll.animlab.character-library.v1';
+  const CHARACTER_LIBRARY_SCHEMA = 'animlab.character-library.v1';
+  const STARTERS = Object.freeze({
+    fox:{family:'fox',label:'Quadruped',atlas:'fox-rig-atlas-v3.png?v=1.0.163'},
+    original:{family:'human',label:'Biped',atlas:'walklab-rig-v4.png'}
+  });
+  const safeCharacterName = input => String(input||'').trim().replace(/[\u0000-\u001f\u007f<>]/g,'').slice(0,42);
+  function loadCharacterLibrary() {
+    try {
+      const raw=JSON.parse(localStorage.getItem(CHARACTER_LIBRARY_KEY)||'null');
+      if(raw?.schema!==CHARACTER_LIBRARY_SCHEMA || !Array.isArray(raw.entries))return [];
+      const seen=new Set();
+      return raw.entries.slice(0,24).filter(entry=>{
+        if(!entry || typeof entry!=='object' || !/^user-[a-z0-9-]{5,40}$/.test(entry.id)
+           || seen.has(entry.id) || !STARTERS[entry.starter] || !safeCharacterName(entry.name))return false;
+        seen.add(entry.id); return true;
+      }).map(entry=>({
+        id:entry.id,name:safeCharacterName(entry.name),starter:entry.starter,
+        family:STARTERS[entry.starter].family,setup:entry.setup&&typeof entry.setup==='object'?entry.setup:{},
+        sparseClips:entry.sparseClips&&typeof entry.sparseClips==='object'?entry.sparseClips:{},
+        createdAt:String(entry.createdAt||''),updatedAt:String(entry.updatedAt||'')
+      }));
+    }catch(err){console.warn('[Anim Lab] Character library read failed; existing data not overwritten.',err);return [];}
+  }
+  let libraryEntries=loadCharacterLibrary();
+  const libraryEntry = id => libraryEntries.find(entry=>entry.id===id) || null;
+  function storeLibrary(entries) {
+    localStorage.setItem(CHARACTER_LIBRARY_KEY,JSON.stringify({schema:CHARACTER_LIBRARY_SCHEMA,entries}));
+    libraryEntries=entries;
+  }
+
   const HUMAN_CLIP_NAMES = Object.freeze(['walk','run','jump']);
   const FOX_CLIP_NAMES = Object.freeze(['idle','walk','run','jump']);
   const clipNamesForFamily = family => family === 'fox' ? FOX_CLIP_NAMES : HUMAN_CLIP_NAMES;
@@ -130,6 +164,8 @@
     { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
     { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.163' }
   ];
+  for(const entry of libraryEntries) CHARACTERS.push({id:entry.id,label:entry.name,family:entry.family,
+    atlas:STARTERS[entry.starter].atlas,starter:entry.starter,library:true});
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 
   function defaultBank(rig, family='human') {
@@ -309,9 +345,16 @@
           const profiles={};
           for(const [bone,profile] of Object.entries(entry.boneProfiles)){
             if(!/^[0-7]$/.test(bone)||!profile||typeof profile!=='object')continue;
-            const gain=clamp(Number(profile.gain)||1,.05,3);
             const spread=clamp(Number(profile.spread)||1,.5,2.5);
-            if(Math.abs(gain-1)>.0001||Math.abs(spread-1)>.0001)profiles[bone]={gain,spread};
+            // v198 records absolute *peak vertex influence* in [0,1]. Legacy
+            // gain profiles are intentionally retained until edited; never
+            // reinterpret historical 2.95x as 295% or clamp its saved value.
+            if(profile.peakWeight!==null && profile.peakWeight!==undefined && Number.isFinite(Number(profile.peakWeight))){
+              profiles[bone]={peakWeight:clamp(Number(profile.peakWeight),0,1),spread};
+            }else{
+              const gain=clamp(Number(profile.gain)||1,.05,3);
+              if(Math.abs(gain-1)>.0001||Math.abs(spread-1)>.0001)profiles[bone]={gain,spread};
+            }
           }
           if(Object.keys(profiles).length)safe.boneProfiles=profiles;
         }
@@ -340,15 +383,16 @@
   function defaultSetupFor(characterId) {
     const character = characterById(characterId);
     const adapter = adapters[character.family];
-    const saved = setupMap[characterId] || {};
-    const foxSetupCurrent = adapter.id !== 'fox' || saved.baselineId === FoxRig.AUTHORING_BASELINE_ID;
+    const custom=libraryEntry(characterId);
+    const saved = custom ? custom.setup : (setupMap[characterId] || {});
+    const foxSetupCurrent = !!custom || adapter.id !== 'fox' || saved.baselineId === FoxRig.AUTHORING_BASELINE_ID;
     const savedScale = foxSetupCurrent ? Number(saved.scale) : NaN;
     const setup = {
       scale: clamp(Number.isFinite(savedScale) ? savedScale : (adapter.id === 'fox' ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1), SETUP_SCALE_MIN, SETUP_SCALE_MAX),
       // Collider ownership remains with the existing rig family storage. This
       // prevents Hero 1/Hero 2 from showing stale per-character copies while
       // the runtime still shares one human collider.
-      collider: adapter.normaliseCollider(adapter.collider())
+      collider: adapter.normaliseCollider(custom?.setup?.collider || adapter.collider())
     };
     if (adapter.id === 'fox') {
       const defaultWalk = Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15;
@@ -361,7 +405,7 @@
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
-    if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(adapter.loadRestRig());
+    if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(custom?.setup?.rig || adapter.loadRestRig());
     if (artLayoutDescriptor(adapter)) setup.artLayout = normaliseArtLayout(adapter, foxSetupCurrent ? saved.artLayout : null);
     if (supportsRestBinding(adapter)) setup.skinTuning = normaliseSkinTuning(foxSetupCurrent ? saved.skinTuning : null);
     // P2: two independent rest snapshots. Art's source assembly is frozen to
@@ -450,6 +494,21 @@
 
 
   let sparseBanks = loadSparseBanks();
+  // Per-character clip documents are independent of the legacy shared
+  // human/Fox animation banks. Existing characters retain their old keys.
+  const customSparseBanks={};
+  const customSampleBanks={};
+  function initialiseLibraryClips(entry) {
+    const bank={},samples={};
+    for(const clip of clipNamesForFamily(entry.family)){
+      const raw=entry.sparseClips?.[clip] || sparseBanks[entry.family][clip];
+      bank[clip]=normaliseSparseClip(raw,entry.family,clip,banks[entry.family][clip]);
+      samples[clip]=compileSparseClip(bank[clip],entry.family);
+    }
+    customSparseBanks[entry.id]=bank;
+    customSampleBanks[entry.id]=samples;
+  }
+  for(const entry of libraryEntries)initialiseLibraryClips(entry);
   let conversionPreview = null;
 
   const GAMEPLAY_BASE_CHARACTER_SCALE = 2.31;
@@ -656,9 +715,9 @@
     draw(); updateUi(); notify();
     return clone(next);
   }
-  function currentBank() { return banks[currentCharacter().family]; }
+  function currentBank() { return customSampleBanks[selection.characterId] || banks[currentCharacter().family]; }
   function currentFrames() { return currentBank()[selection.clip]; }
-  function currentSparseClip() { return sparseBanks[currentCharacter().family][selection.clip]; }
+  function currentSparseClip() { return customSparseBanks[selection.characterId]?.[selection.clip] || sparseBanks[currentCharacter().family][selection.clip]; }
   function previewApplies() { return !!conversionPreview && conversionPreview.family === currentCharacter().family && conversionPreview.clip === selection.clip; }
   function displayFrames() { return previewApplies() ? conversionPreview.frames : currentFrames(); }
   function displaySparseClip() { return previewApplies() ? conversionPreview.candidate : currentSparseClip(); }
@@ -669,8 +728,13 @@
 
   function setCurrentSparseClip(value) {
     const family = currentCharacter().family;
-    sparseBanks[family][selection.clip] = normaliseSparseClip(value,family,selection.clip,currentFrames());
-    syncCompiledClip(family,selection.clip);
+    if(customSparseBanks[selection.characterId]){
+      customSparseBanks[selection.characterId][selection.clip]=normaliseSparseClip(value,family,selection.clip,currentFrames());
+      customSampleBanks[selection.characterId][selection.clip]=compileSparseClip(customSparseBanks[selection.characterId][selection.clip],family);
+    }else{
+      sparseBanks[family][selection.clip] = normaliseSparseClip(value,family,selection.clip,currentFrames());
+      syncCompiledClip(family,selection.clip);
+    }
   }
 
   function upsertCurrentKey(frame, pose, preferredName = null) {
@@ -889,8 +953,12 @@
             return setup;
           });
         }
-        setupDraft.collider = adapter.saveCollider(setupDraft.collider);
-        if (adapter.saveRestRig && setupDraft.rig) setupDraft.rig = adapter.saveRestRig(setupDraft.rig);
+        const custom=libraryEntry(character.id);
+        // Library members must never overwrite the built-in game's collider
+        // or Fox rest rig. Validate their drafts using the same adapter only.
+        setupDraft.collider = custom ? adapter.normaliseCollider(setupDraft.collider) : adapter.saveCollider(setupDraft.collider);
+        if (adapter.saveRestRig && setupDraft.rig)
+          setupDraft.rig = custom ? adapter.normaliseRestRig(setupDraft.rig) : adapter.saveRestRig(setupDraft.rig);
         const storedSetup={scale:setupDraft.scale};
         if (character.family === 'fox') {
           storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX);
@@ -903,16 +971,32 @@
           storedSetup.artRestRig=adapter.normaliseRestRig(setupDraft.artRestRig || setupDraft.rig);
           storedSetup.skinBindRig=adapter.normaliseRestRig(setupDraft.skinBindRig || setupDraft.rig);
         }
-        setupMap[character.id]=storedSetup;
-        localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
-        if (character.family === 'fox') for (const clipName of FOX_CLIP_NAMES) syncCompiledClip('fox',clipName);
+        if(custom){
+          // Commit with the clip library in one document so no custom edit
+          // spills into the existing per-family runtime banks.
+          const updated=libraryEntries.map(item=>item.id===character.id
+            ? {...item,setup:clone({...storedSetup,collider:setupDraft.collider,rig:setupDraft.rig}),updatedAt:new Date().toISOString()}
+            : item);
+          storeLibrary(updated);
+        }else{
+          setupMap[character.id]=storedSetup;
+          localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
+          if (character.family === 'fox') for (const clipName of FOX_CLIP_NAMES) syncCompiledClip('fox',clipName);
+        }
       }
       if (saveClip) {
         conversionPreview = null;
-        ensureLegacyBackup(character.family, selection.clip);
-        syncCompiledClip(character.family, selection.clip);
-        saveSparseBanks();
-        adapter.saveBank(currentBank());
+        if(libraryEntry(character.id)){
+          const updated=libraryEntries.map(item=>item.id===character.id
+            ? {...item,sparseClips:clone(customSparseBanks[character.id]),updatedAt:new Date().toISOString()}
+            : item);
+          storeLibrary(updated);
+        }else{
+          ensureLegacyBackup(character.family, selection.clip);
+          syncCompiledClip(character.family, selection.clip);
+          saveSparseBanks();
+          adapter.saveBank(currentBank());
+        }
       }
       for (const participant of sessionParticipants.values()) {
         if (!participant?.save) continue;
@@ -1554,7 +1638,7 @@
   }
 
   function buildFoxHandoffBundle() {
-    const liveFox = currentCharacter().family === 'fox';
+    const liveFox = currentCharacter().id === 'fox';
     const savedFoxSetup = setupMap?.fox || {};
     const savedFoxCurrent = savedFoxSetup.baselineId === FoxRig.AUTHORING_BASELINE_ID;
     const savedFoxScale = savedFoxCurrent ? Number(savedFoxSetup.scale) : NaN;
@@ -1600,6 +1684,10 @@
   }
 
   async function exportFoxHandoffBundle() {
+    if(currentCharacter().library){
+      hint.textContent='Use Character Library > Export for this custom character; Fox Handoff exports only the built-in Fox.';
+      return false;
+    }
     try {
       const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
       const fileName = 'SS-FOX-RIG-ANIM-1.0.175.json';
@@ -1624,8 +1712,138 @@
     }
   }
 
+  // v199 Character Library: entry creation is based on a known rig-family
+  // starter; the art is visibly placeholder imagery until an asset importer
+  // is implemented. No game-runtime character selection is advertised yet.
+  function getLibraryCharacters(){return libraryEntries.map(entry=>({
+    id:entry.id,name:entry.name,family:entry.family,starter:entry.starter,
+    createdAt:entry.createdAt,updatedAt:entry.updatedAt
+  }));}
+  function createLibraryCharacter(name,starter='fox'){
+    const displayName=safeCharacterName(name);
+    if(!displayName || !STARTERS[starter] || libraryEntries.length>=24 || selection.mode==='play')return false;
+    if(isDirty()){hint.textContent='Save or discard current edits before creating a character.';return false;}
+    const family=STARTERS[starter].family;
+    const rig=adapters[family].rig;
+    const id='user-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+    const time=new Date().toISOString();
+    let setup;
+    if(family==='fox'){
+      // Fresh starter uses shipped baseline, not user-edited Fox setup.
+      const rest=rig.normalizedRestRig(rig.DEFAULT_REST_RIG);
+      setup={scale:Number(rig.DEFAULT_SCALE)||1.71,walkSpeed:Number(rig.DEFAULT_WALK_SPEED)||1.15,
+        runSpeed:Number(rig.DEFAULT_RUN_SPEED)||2.85,collider:rig.normalizedCollider(rig.DEFAULT_COLLIDER),
+        rig:rest,artRestRig:clone(rest),skinBindRig:clone(rest),
+        artLayout:normaliseArtLayout(adapters.fox,null),skinTuning:normaliseSkinTuning(null),
+        baselineId:rig.AUTHORING_BASELINE_ID};
+    }else{
+      setup={scale:1,collider:rig.normalizedCollider(rig.loadCollider())};
+    }
+    const sparseClips={};
+    const pristine=defaultBank(rig,family);
+    for(const clip of clipNamesForFamily(family)){
+      // Starter rig/clip pair must match: never graft the user's current Fox
+      // animation (which may have different leg lengths) onto a NEW rest rig.
+      // Each clip is an independent snapshot, not a linked template asset.
+      const shipped=family==='fox' && rig.AUTHORED_SPARSE_CLIPS?.[clip];
+      sparseClips[clip]=shipped
+        ? normaliseSparseClip(shipped,family,clip,pristine[clip])
+        : importSparseClip(pristine[clip],family,clip);
+    }
+    const entry={id,name:displayName,starter,family,setup,sparseClips,createdAt:time,updatedAt:time};
+    try{storeLibrary([...libraryEntries,entry]);}
+    catch(err){console.error('[Anim Lab] Cannot create character:',err);alert('Character could not be saved. Check available device storage.');return false;}
+    CHARACTERS.push({id,label:displayName,family,starter,library:true,atlas:STARTERS[starter].atlas});
+    initialiseLibraryClips(entry);loadAtlas(id);
+    selection.characterId=id;selection.frame=0;playing=false;playPhase=0;conversionPreview=null;
+    selection.mode='setup';selection.setupTool=family==='fox'?'art':'rig';
+    setupDraft=defaultSetupFor(id);
+    saveEditorSelection();fitView(false);resetCheckpoint();draw();notify();
+    hint.textContent=`${displayName} created with ${STARTERS[starter].label.toLowerCase()} starter artwork. Your built-in characters are unchanged.`;
+    return id;
+  }
+  function exportLibraryCharacterDocument(id) {
+    const entry=libraryEntry(id);
+    if(!entry)return null;
+    return {schema:'animlab.character-handoff.v1',app:'SideScroll',exportedAt:new Date().toISOString(),
+      character:clone(entry)};
+  }
+  function importLibraryCharacterDocument(raw) {
+    if(isDirty() || selection.mode==='play' || libraryEntries.length>=24)return false;
+    const document=raw && typeof raw==='object'?raw:null;
+    const entry=document?.character;
+    if(document?.schema!=='animlab.character-handoff.v1' || !entry || !STARTERS[entry.starter]
+       || !safeCharacterName(entry.name) || !entry.setup || typeof entry.setup!=='object'
+       || !entry.sparseClips || typeof entry.sparseClips!=='object')return false;
+    const family=STARTERS[entry.starter].family;
+    const adapter=adapters[family];
+    const clips={};
+    for(const clip of clipNamesForFamily(family)){
+      if(!entry.sparseClips[clip]?.keys || !Array.isArray(entry.sparseClips[clip]?.keys))return false;
+      clips[clip]=normaliseSparseClip(entry.sparseClips[clip],family,clip,banks[family][clip]);
+    }
+    let setup;
+    if(family==='fox'){
+      const rig=adapter.normaliseRestRig(entry.setup.rig);
+      setup={
+        scale:clamp(Number(entry.setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+        walkSpeed:clamp(Number(entry.setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
+        runSpeed:clamp(Number(entry.setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
+        collider:adapter.normaliseCollider(entry.setup.collider),rig,
+        artRestRig:adapter.normaliseRestRig(entry.setup.artRestRig||rig),
+        skinBindRig:adapter.normaliseRestRig(entry.setup.skinBindRig||rig),
+        artLayout:normaliseArtLayout(adapter,entry.setup.artLayout),
+        skinTuning:normaliseSkinTuning(entry.setup.skinTuning),baselineId:FoxRig.AUTHORING_BASELINE_ID
+      };
+    }else{
+      setup={scale:clamp(Number(entry.setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+        collider:adapter.normaliseCollider(entry.setup.collider)};
+    }
+    const id='user-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+    const time=new Date().toISOString();
+    const imported={id,name:safeCharacterName(entry.name),family,starter:entry.starter,
+      setup,sparseClips:clips,createdAt:time,updatedAt:time};
+    try{storeLibrary([...libraryEntries,imported]);}
+    catch(err){console.error('[Anim Lab] Import write failed.',err);return false;}
+    CHARACTERS.push({id,label:imported.name,family,starter:imported.starter,library:true,atlas:STARTERS[imported.starter].atlas});
+    initialiseLibraryClips(imported);loadAtlas(id);
+    selection.characterId=id;selection.frame=0;playing=false;playPhase=0;conversionPreview=null;
+    selection.mode='setup';selection.setupTool=family==='fox'?'art':'rig';
+    setupDraft=defaultSetupFor(id);
+    saveEditorSelection();fitView(false);resetCheckpoint();draw();notify();
+    return id;
+  }
+  function renameLibraryCharacter(id,name){
+    const entry=libraryEntry(id),displayName=safeCharacterName(name);
+    if(!entry||!displayName||isDirty()||selection.mode==='play')return false;
+    try{storeLibrary(libraryEntries.map(item=>item.id===id?{...item,name:displayName,updatedAt:new Date().toISOString()}:item));}
+    catch(err){console.error('[Anim Lab] Rename failed:',err);return false;}
+    const c=CHARACTERS.find(item=>item.id===id);if(c)c.label=displayName;
+    draw();notify();return true;
+  }
+  function deleteLibraryCharacter(id){
+    if(!libraryEntry(id)||isDirty()||selection.mode==='play')return false;
+    const next=libraryEntries.filter(item=>item.id!==id);
+    try{storeLibrary(next);}catch(err){console.error('[Anim Lab] Delete failed:',err);return false;}
+    const index=CHARACTERS.findIndex(c=>c.id===id);
+    if(index>=0)CHARACTERS.splice(index,1);
+    delete customSparseBanks[id];delete customSampleBanks[id];atlases.delete(id);
+    if(selection.characterId===id){
+      selection.characterId='fox';setupDraft=defaultSetupFor('fox');
+      selection.clip='walk';selection.mode='setup';selection.setupTool='rig';selection.frame=0;
+      playing=false;conversionPreview=null;saveEditorSelection();fitView(false);resetCheckpoint();
+    }
+    draw();notify();return true;
+  }
   const api = {
-    version:'1.0.175',
+    version:'1.0.199',
+    getLibraryCharacters,
+    exportLibraryCharacterDocument,
+    importLibraryCharacterDocument,
+    createLibraryCharacter,
+    renameLibraryCharacter,
+    deleteLibraryCharacter,
+    selectCharacter:id=>{if(!CHARACTERS.some(c=>c.id===id))return false;switchCharacter(id);return true;},
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
@@ -1652,10 +1870,11 @@
     getSparseClip:()=>clone(currentSparseClip()),
     getSparseClipFor:(clipName,family=currentCharacter().family)=>{
       const name=String(clipName||'');
-      return clone(sparseBanks?.[family]?.[name] || null);
+      return clone((family===currentCharacter().family&&customSparseBanks[selection.characterId]?.[name]) || sparseBanks?.[family]?.[name] || null);
     },
     evaluateClip:(clipName,phase,family=currentCharacter().family)=>{
-      const clip=sparseBanks?.[family]?.[String(clipName||'')];
+      const name=String(clipName||'');
+      const clip=(family===currentCharacter().family && customSparseBanks[selection.characterId]?.[name]) || sparseBanks?.[family]?.[name];
       if(!clip)return null;
       return clone(evaluateSparsePose(clip,(((Number(phase)||0)%1)+1)%1*16,family));
     },

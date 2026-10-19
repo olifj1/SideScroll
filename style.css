@@ -14786,3 +14786,64 @@ body[data-game-id="game-17"] .animlab-skin-advanced .animlab-skin-grid-controls 
 body[data-game-id="game-17"] .animlab-skin-legend {display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:center;font-size:8px;color:#bfd2d0}
 body[data-game-id="game-17"] .animlab-skin-legend i {display:block;height:7px;border-radius:6px;background:linear-gradient(90deg,#254ad4,#24b1e6,#38cb60,#f5e238,#ff8726,#eb2a31)}
 body[data-game-id="game-17"] .animlab-skin-heat-tools {grid-template-columns:repeat(2,minmax(0,1fr))}
+
+
+/* v1.0.198 — Skin percentage is a readable, real 0–100% peak weight. */
+body[data-game-id="game-17"] .animlab-skin-primary-slider {
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:5px 8px;padding:9px;border:1px solid rgba(118,224,199,.35);
+  border-radius:9px;background:rgba(24,55,56,.66);
+}
+body[data-game-id="game-17"] .animlab-skin-primary-slider span{font-size:12px;font-weight:800;letter-spacing:.02em;}
+body[data-game-id="game-17"] .animlab-skin-primary-slider small{font-size:9px;opacity:.75;}
+body[data-game-id="game-17"] .animlab-skin-primary-slider input{grid-column:1/-1;grid-row:2;width:100%;min-height:26px;touch-action:pan-x;}
+body[data-game-id="game-17"] .animlab-skin-primary-slider output{
+  grid-column:2;grid-row:1;font-size:19px;font-weight:900;min-width:55px;
+  text-align:right;color:#dcffec;font-variant-numeric:tabular-nums;
+}
+body[data-game-id="game-17"] .animlab-skin-weight-status{
+  color:#bbdbd0;font-size:10px;line-height:1.35;padding:3px 5px;
+  overflow-wrap:break-word;
+}
+
+/* v199 — independent character library, phone-first editor controls */
+body[data-game-id="game-17"] .animlab-character-library .animlab-library-body{
+  display:flex;flex-direction:column;gap:7px;padding:5px 2px 8px;min-width:0;
+}
+body[data-game-id="game-17"] .animlab-library-intro,
+body[data-game-id="game-17"] .animlab-library-footnote{
+  font-size:10px;line-height:1.35;color:#bad0ca;
+}
+body[data-game-id="game-17"] .animlab-library-field{
+  display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;color:#d8e7e2;
+}
+body[data-game-id="game-17"] .animlab-library-field input,
+body[data-game-id="game-17"] .animlab-library-field select{
+  width:100%;max-width:100%;box-sizing:border-box;min-height:31px;
+  border:1px solid #627b7b;border-radius:5px;background:#263a3d;color:#fff;
+  padding:4px 7px;font:inherit;font-size:12px;
+}
+body[data-game-id="game-17"] .animlab-library-create{
+  min-height:34px;font-size:12px;font-weight:750;border:1px solid #94d4bb;
+  border-radius:5px;background:#31564b;color:#fff;
+}
+body[data-game-id="game-17"] .animlab-library-create:disabled{opacity:.5}
+body[data-game-id="game-17"] .animlab-library-status,
+body[data-game-id="game-17"] .animlab-library-empty{font-size:10px;color:#c0d5cc;line-height:1.3}
+body[data-game-id="game-17"] .animlab-library-list{display:flex;flex-direction:column;gap:5px}
+body[data-game-id="game-17"] .animlab-library-entry{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px;
+  border:1px solid #496866;border-radius:6px;background:rgba(29,52,57,.6)
+}
+body[data-game-id="game-17"] .animlab-library-entry.is-selected{border-color:#a0dbb5}
+body[data-game-id="game-17"] .animlab-library-entry-name{font-weight:750;color:#fff;font-size:12px;min-width:72px;flex:1}
+body[data-game-id="game-17"] .animlab-library-entry-name small{display:block;font-size:9px;opacity:.68;font-weight:500}
+body[data-game-id="game-17"] .animlab-library-actions{display:flex;gap:4px}
+body[data-game-id="game-17"] .animlab-library-action{
+  min-height:27px;padding:4px 7px;border:1px solid #587578;border-radius:4px;
+  background:#30464a;color:#f1f8f4;font-size:10px;
+}
+body[data-game-id="game-17"] .animlab-library-action:disabled{opacity:.48}
+body[data-game-id="game-17"] .animlab-library-import{display:flex;flex-direction:column;gap:4px;
+  font-size:10px;font-weight:700;color:#c9ded5;}
+body[data-game-id="game-17"] .animlab-library-import input{width:100%;font-size:10px;}

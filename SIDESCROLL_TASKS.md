@@ -2517,3 +2517,27 @@ All copy operations run through Setup transactions and Undo/Redo/Save/Discard. T
 **C. Chain deformation correction:** v196 changed a tuned chain vertex to a **constant 85% blend into unrelated linear-blend skinning** whenever any bone profile changed; this can visibly shear/invert quads when IK makes large limb rotations. Preserve the established baseline chain deformation. Instead compute `tunedWeighted - automaticWeighted` as a *weight-edit delta* and apply a bounded 0.78× correction to chain output (maximum .024 character-local units per vertex). This is neutral-pose invariant, continuous at identity tuning, and bounds extreme gain/spread displacements. Existing weight values/heatmap, mesh topology, rig, atlas, poses and clip keys remain untouched. This is a mitigation, not a guarantee against all artifacts from extreme IK or nonrigid geometry; test walk/run multiple phases with the user's actual saved data. No silent reset of authored skin weights.
 
 **Integration boundary:** Gameplay and Quick Play still DO NOT consume Skin tuning. No new-character wizard, general rig descriptor authoring, arbitrary new part creation, or runtime selector implemented. The overarching goal remains Character → Parts → Rig → Skin → Animate → Save/Library → select in-game. Follow-up may require better bone-weight painting/IK limits once iPhone tests identify any remaining folds.
+
+
+### P3d / v1.0.198 — Normalised Skin influence UI (19 October 2026)
+
+- [x] Replace `Bone Influence` 5–300% *legacy relative gain* slider with **Peak Bone Weight 0–100%**, prominent numeric output, and explanatory automatic/actual peak readout.
+- [x] Implement per-bone normalised peak influence envelope across the whole part; Falloff shapes its taper, all vertex bone sums remain 100%, manual per-vertex overrides retain priority, and the heatmap shows actual influence.
+- [x] Keep legacy `{gain,spread}` untouched until user edits its selected bone. Explicit one-bone migration to `{peakWeight,spread}` is undoable and Save/export-compatible; copy operations carry both types without forced migration. Support exact 0%, do not confuse legacy 2.95× with true 295% bone weight.
+- [x] Update Setup normalisation for optional finite `peakWeight`, without changing `animlab.skin-tuning.v1` schema or saved user rig/animations/artwork.
+- [x] Node syntax + headless Chromium inlined real-atlas/browser state QA: 0/15/75/100% target, displayed actual, legacy 2.95×/3× preservation, one-bone conversion to 42%, Setup Save and no browser exceptions.
+- [ ] **iPhone acceptance for v198**: slider readability in landscape; inspect actual heatmap at 0/50/100%; confirm old Fox skin remains exactly as in v197 until one bone is edited; Undo and save/reopen; compare Walk/Run limbs in motion, root blends and any remaining twisting. V197 remains user working fallback.
+- [ ] **Generalised character-authoring next stage**: descriptor-based Create Character → Parts / Rig / Skin / Animate → persistent Character Library, template vs unique animation clips and in-game selection; runtime mesh + tuning parity still not implemented.
+
+### Character Library P5a / Stage C1a — v1.0.199 (19 Oct 2026)
+
+- [x] Add dedicated versioned character registry to Anim Lab (`sidescroll.animlab.character-library.v1`), independent of existing Fox/Hero runtime keys. Create named quadruped and biped starter records, and reopen on return to the editor.
+- [x] Supply independent per-entry working Setup and sparse clip banks; prevent Save/Discard from touching Fox/Hero global rest-rig/collider/clip storage when editing a library character.
+- [x] Character Library phone-facing UI: Create, Open, Rename, Delete-with-confirmation, JSON Export, JSON Import with new ID and schema validation. Keep built-in characters separate, starter-art disclaimer visible.
+- [x] Reuse Fox-family Parts/Rig/Skin/Animate/Quick Play with a library quadruped, with existing six-part artwork as a **placeholder**, no changes to pixels or rig-family topology.
+- [x] Biped creation with installed human Setup and isolated animation bank, accurately labelled **not yet supporting independent Parts/Skin**.
+- [x] Node syntax and Chromium inline-DOM with real bundled atlases and simulated storage smoke checked; source rollback remains v198. Do **not** mark iPhone acceptance yet.
+- [ ] **Device test** v199: create quadruped; edit/save Parts, Rig, Skin, one animation key; switch between original and new characters; relaunch; import/export; test Biped limitations; check responsive layout and Safari share/download flow.
+- [ ] **P5b**: Art Kit/replace-atlas/imported transparent parts, generic descriptor mesh topology (not just Fox), and true Biped independent Parts/Skin authoring.
+- [ ] **P6**: named, per-rig-family reusable animation asset library with linked-template vs unique ownership, duplicate/Make Unique, Save as Template and slot assignment.
+- [ ] **P7**: gameplay runtime registry and explicit game character selector; consume saved mesh/bind/skin/art/animations at runtime with safe defaults/fallback for existing Hero/Fox.

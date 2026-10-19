@@ -1,31 +1,30 @@
-# SS-PATCH-1.0.197 — Symmetry Copy / Save-Rebind / Stable Skin Preview
+# SS-PATCH-1.0.199 — Character Library foundation (Stage C1a)
 
-**Apply directly over v1.0.196** (which the user described as more controllable, but with three outstanding issues). Changed-files-only package. Keep v1.0.196 rollback; do not clear iPhone Safari storage. No artwork or animation data is replaced.
+**Install directly over v1.0.198**. This ZIP contains **only files changed in v199**. Keep the previous working source and a Fox JSON export. **Do not clear Safari website data**: the new library, like existing Anim Lab settings, is initially stored in the browser. This patch does not replace any PNG, character atlas, animation key, collider baseline, game renderer or existing user data.
 
-## New workflow
+## What's new
 
-- **Parts**: Copy Selected Part → Pair; Both Legs Near → Far or Far → Near. Transfers transforms including pivots, never replaces art or changes layers.
-- **Rig**: Copy Joint → Pair; Copy Segment → Pair (two joints); Copy Limb → Pair (all four limb joints); Both Legs Near → Far or Far → Near. Copy direction follows the selected source side for the first three controls. Other rig components are not copied.
-- **Skin**: Copy Selected Bone → Pair (one gain/falloff profile); Copy Whole Part → Pair (entire skin region); Both Legs Near → Far or Far → Near (whole front/rear skin regions). Each copy is one Undoable/Discardable edit.
-- **Rebind:** After moving rig joints, Save now prompts to **Rebind and Save** in one action; Cancel leaves edits unsaved. Manual Rebind and Preview remain if needed for comparison.
-- **Leg twisting:** When Skin gains/spreads are changed, the skin renderer no longer abruptly replaces 85% of the proven limb-chain deformation with an incompatible multi-bone result. Weight changes now add a bounded difference relative to automatic weights, preserving the established rest and chain behavior. This is an initial deformation stability fix; some extreme IK poses may still need further authoring controls.
+In Anim Lab's **Character Library**, enter a name, choose a **Quadruped** or **Biped** starter and tap **Create Character**. The new character is opened immediately, with a distinct ID, its own saved Setup, its own sparse Idle/Walk/Run/Jump (or Biped Walk/Run/Jump) clips, and built-in starter artwork as a visible **temporary placeholder**.
 
-## User-export diagnostic
+- **Quadruped** starts with the existing generic Fox rig-family authoring capabilities: Parts, Rig, Skin, Animate and local Quick Play. The six-region atlas is currently the bundled Fox artwork; art import/replace is *not* provided by this drop.
+- **Biped** starts with the existing Human rig-family animation/scale/collider tools; independent Parts/Skin controls are **not implemented** for this rig adapter yet. The bundled Hero image is a placeholder, not newly created artwork.
+- Each new character can be **opened, renamed, deleted, exported to JSON and imported** from a previously exported character JSON. Import creates a **new independent ID** rather than overwriting an existing entry. Delete requires confirmation.
+- Working-copy Save, Undo, Redo, Discard and leave-stage guards remain in effect. **Saving a custom character cannot write the legacy Fox rest-rig/collider, Hero collider, shared sampled clips or the game-selected character.** Existing built-in Fox/Hero authoring continues under its previous storage keys. Library entries have their own versioned key: `sidescroll.animlab.character-library.v1`.
+- JSON exports contain rig, transforms, binding/tuning, movement setup and authored sparse clips **but not artwork pixels**. The recipient must have the bundled SideScroll starter images.
 
-Reviewed `SS-FOX-RIG-ANIM-1.0.175.json` (exported 2026-10-19) without modifying it. The stored `restRig` equals `skinBindRig` (rebind is **not currently missing**). `artRestRig` differs intentionally because the static source artwork should not shift with rig edits. The leg profiles include near-front 2/2.95/2.4 gains and front-far distal 3.0 with spreads as low as .55, which amplified the v196 unstable blend. The handoff export writes a legacy `animLabVersion` tag; it does not imply that the v196 data export is old.
+## iPhone acceptance checks
 
-## QA performed
+1. Open Anim Lab. Confirm existing **Hero 1, Hero 2 and Fox** remain selectable and unchanged.
+2. In Character Library, create a named **Quadruped**. Edit a part's X/Y, Save, switch to Fox and back; check the custom layout is retained but Fox hasn't changed.
+3. Edit the new character's rig or Skin tuning, Save; switch back and forth. In Animate, change one Walk key, Save; open Fox again to confirm Fox's Walk was not overwritten.
+4. Leave the editor, reopen, select the custom character and confirm it still has its saved setup/clip. Try Rename and Export, then Import its JSON. The import should create a second independent character. Test deletion on a **test character only**.
+5. Create a Biped and verify its Setup/Animate tabs work; **Parts/Skin/Play are deliberately not promised for this family**.
+6. Existing Fox Handoff remains for the built-in Fox only. For custom entries use Character Library **Export**.
 
-- Node `--check` passed for the four modified JavaScript modules.
-- Automated headless Chromium inline smoke **with user's exported rig, art layout, skin profiles and sparse animations**: Fox Skin selection, Run preview, bone copy, both-leg copy, Rig limb copy, segment copy, Save+Rebind confirmation and clean checkpoint. No page exceptions.
-- Both v196 and v197 preview frames rendered using user's export in headless Chromium, with no page exceptions; this does not establish visual acceptability on actual iPhone Safari.
-- Source PNG/rig/clip key files unchanged. Skin remains **editor-only**; gameplay renderer and Quick Play do not yet read skin tuning.
+## Deliberate limitations / next stages
 
-## Suggested iPhone test
+This is the **first Character Library stage, not the completed end-to-end system**. There is not yet a user-art importer/atlas replacement workflow; library JSON and artwork are not bundled into a single portable art kit. Animation assets are independent copies from rig-family starter tracks, **not yet named linked templates**; use Make Unique/Save as Template is future work. Characters are **editor-only** and **cannot yet be selected in the normal game**. Runtime deformation/weight tuning parity also remains outstanding. Biped independent Parts/Skin/Play needs its own adapter. Library storage is local to the device/browser; use Export before clearing data or switching devices.
 
-1. In Skin: inspect **Near Front** and **Far Front** during Walk and Run phase 25%, 50%, 75%; toggle Heatmap off temporarily, compare twisting versus v196.
-2. Copy Selected Bone → Pair, then Copy Whole Part → Pair and Both Legs Near → Far. Undo to confirm one-step reversal and Save/reload if satisfied.
-3. In Rig: select Near Front Knee; try Copy Segment → Pair and Copy Limb → Pair; check entire corresponding Far Front moves exactly. Try Both Legs Near → Far.
-4. Move a Rig joint, press Save, verify that **Cancel** leaves it unsaved and accepting **Rebind + Save** persists joint and binding together without moving Rest artwork.
+## Verification performed
 
-All three canonical documents have been updated. **v1.0.196 remains rollback until iPhone approval.**
+Node `--check` passed on modified JS. Headless Chromium using the actual code, inline installed art and isolated simulated Safari storage verified: create Quadruped/Biped, save independent setup and sparse clips, re-open after a fresh page load, switch between original Fox and multiple custom characters, export/import round-trip and independent edits, and delete. Built-in Fox rig/collider/shared clip/setup storage remained byte-for-byte unchanged during custom editing. Image and runtime tests cannot fully simulate installed iPhone Safari. The reference-video manifest is blocked by the offline harness; its fetch warning is unrelated to the new library. The three canonical design documents are updated.
