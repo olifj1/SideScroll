@@ -51,6 +51,14 @@
 - [ ] Existing keyframes, Paw IK targets, collider and game character choice are unchanged unless separate explicit authoring action; warn about altered posed appearance.
 - [ ] Save/Discard/Undo round-trip, mode-switch, near/far legs, hip, shoulder, neck and tail-root tests on iPhone.
 
+### P3a — v1.0.195 UX framework (code completed; Safari acceptance pending)
+- [x] Five-stage Workspace navigation (Parts / Rig / Skin / Animate / Play) with existing guarded edit sessions and family support limits.
+- [x] One collapsible Display: independent Art opacity/show, Static Reference opacity/show, Motion Reference opacity/show; bones/planes/collider/ground, outlines, difference, bind preview, mesh/wireframe and advanced alignment/reference timing.
+- [x] Move original display sliders and toggles rather than duplicating state owners; editor-only display preference storage; motion reference display state auto-save, no character dirty/Undo coupling.
+- [x] Mode-specific inspector first, animation Clip/timeline only in Animate, Setup scale/collider in Rig, default-collapsed Display and subpanels, same precision pad.
+- [ ] iPhone landscape Safari sign-off for usability, touch, viewport, safe areas, reference loading, mesh controls, dirty prompts, loading/reloading and service-worker caching.
+- [ ] P3b polish as indicated by user feedback; reduce any remaining nested-edit density and mode-inappropriate items before launching the new-character wizard.
+
 ### P3 — unified authoring navigation and Display
 - [ ] Top-level **Character → Parts → Rig → Skin/Bind → Animate → Play** flow with mode-specific inspector. Do not duplicate competing ownership controls.
 - [ ] Single collapsible Display area: art visibility/opacity, static red/source reference + opacity, motion reference, bones, part outlines, mesh/weights, ground/ruler, optional bind proof/difference. Default Bind Proof **off**.

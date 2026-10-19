@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#e7dbd2">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.194">
+  <link rel="stylesheet" href="style.css?v=1.0.195">
   <title>Anim Lab · SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-17">
@@ -53,7 +53,7 @@
             </div>
           </section>
 
-          <section class="animlab-section" aria-labelledby="animlab-mode-label">
+          <section class="animlab-section" id="animlab-legacy-modes" hidden aria-labelledby="animlab-mode-label">
             <div class="animlab-section-title" id="animlab-mode-label">Mode</div>
             <div class="animlab-segmented animlab-three" id="animlab-mode-row">
               <button type="button" data-mode="animate">Animate</button>
@@ -62,13 +62,37 @@
             </div>
           </section>
 
-          <section class="animlab-section" aria-labelledby="animlab-view-label">
-            <div class="animlab-section-title" id="animlab-view-label">View</div>
-            <div class="animlab-view-grid">
-              <button type="button" data-view="art" aria-pressed="true">Art</button>
-              <button type="button" data-view="bones" aria-pressed="true">Bones</button>
-              <button type="button" data-view="planes" aria-pressed="false">Planes</button>
-              <button type="button" data-view="collider" aria-pressed="false">Collider</button>
+          <section class="animlab-section animlab-workflow" id="animlab-workflow" aria-labelledby="animlab-workflow-label">
+            <div class="animlab-section-title" id="animlab-workflow-label">Workspace</div>
+            <nav class="animlab-stage-nav" aria-label="Character authoring stages">
+              <button type="button" data-author-stage="parts">Parts</button>
+              <button type="button" data-author-stage="rig">Rig</button>
+              <button type="button" data-author-stage="skin">Skin</button>
+              <button type="button" data-author-stage="animate">Animate</button>
+              <button type="button" data-author-stage="play">Play</button>
+            </nav>
+            <div class="animlab-workflow-caption" id="animlab-workflow-caption">Select a stage to edit.</div>
+          </section>
+
+          <section class="animlab-section animlab-display-panel" id="animlab-display-panel" aria-labelledby="animlab-display-label" data-collapse-key="animlab-unified-display">
+            <div class="animlab-section-title" id="animlab-display-label">Display</div>
+            <div class="animlab-display-main" aria-label="Viewport display preferences">
+              <div class="animlab-display-layer">
+                <strong>Artwork</strong><button type="button" data-view="art" aria-pressed="true">Shown</button>
+                <label class="animlab-slider" title="Artwork opacity"><span>Opacity</span><input id="animlab-display-art-opacity" type="range" min="0" max="100" step="1" value="100" aria-label="Artwork opacity"><output>100%</output></label>
+              </div>
+              <div class="animlab-display-layer" id="animlab-display-static-row"><strong>Static Ref</strong><div id="animlab-display-static-toggle"></div><div id="animlab-display-static-opacity"></div></div>
+              <div class="animlab-display-layer" id="animlab-display-motion-row"><strong>Motion Ref</strong><div id="animlab-display-motion-toggle"></div><div id="animlab-display-motion-opacity"></div></div>
+              <div class="animlab-display-switches" aria-label="Viewport layers">
+                <button type="button" data-view="bones" aria-pressed="true">Bones</button>
+                <button type="button" data-view="planes" aria-pressed="false">Planes</button>
+                <button type="button" data-view="collider" aria-pressed="false">Collider</button>
+                <button type="button" id="animlab-display-ground-placeholder" hidden>Ground</button>
+                <button type="button" id="animlab-display-outlines" aria-pressed="true">Part outlines</button>
+                <button type="button" id="animlab-display-difference" hidden>Difference: Off</button>
+                <button type="button" id="animlab-display-bind-preview" hidden>Walk Preview: Off</button>
+              </div>
+              <div class="animlab-display-extras" id="animlab-display-extras"></div>
             </div>
           </section>
 
@@ -131,14 +155,15 @@
   <script src="walk-rig.js?v=1.0.144"></script>
   <script src="fox-authoring-baseline.js?v=1.0.163"></script>
   <script src="fox-rig.js?v=1.0.191"></script>
-  <script src="walk-lab.js?v=1.0.194"></script>
-  <script src="anim-lab-stage2.js?v=1.0.194"></script>
+  <script src="walk-lab.js?v=1.0.195"></script>
+  <script src="anim-lab-stage2.js?v=1.0.195"></script>
   <script src="anim-lab-mesh.js?v=1.0.194"></script>
   <script src="anim-lab-stage3.js?v=1.0.163"></script>
   <script src="anim-lab-stage4.js?v=1.0.164"></script>
-  <script src="anim-lab-reference.js?v=1.0.163"></script>
-  <script src="anim-lab-rig.js?v=1.0.194"></script>
-  <script src="anim-lab-art-layout.js?v=1.0.193"></script>
+  <script src="anim-lab-reference.js?v=1.0.195"></script>
+  <script src="anim-lab-rig.js?v=1.0.195"></script>
+  <script src="anim-lab-art-layout.js?v=1.0.195"></script>
   <script src="anim-lab-play.js?v=1.0.163"></script>
+  <script src="anim-lab-ui.js?v=1.0.195"></script>
 </body>
 </html>

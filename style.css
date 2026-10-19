@@ -14709,3 +14709,70 @@ body[data-game-id="game-17"] .animlab-skin-editor .animlab-skin-note{
 }
 body[data-game-id="game-17"] .animlab-skin-editor .animlab-skin-vertex-status{font-size:9px}
 body[data-game-id="game-17"] .animlab-skin-editor button:disabled{opacity:.3}
+
+/* SideScroll v1.0.195 — consolidated authoring workspace and Display drawer. */
+body[data-game-id="game-17"] .animlab-stage-nav {
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;
+}
+body[data-game-id="game-17"] .animlab-stage-nav button,
+body[data-game-id="game-17"] .animlab-display-switches button,
+body[data-game-id="game-17"] .animlab-display-layer button {
+  min-width:0;min-height:29px;padding:4px 2px;border:1px solid rgba(238,243,241,.15);
+  border-radius:8px;background:rgba(255,255,255,.04);color:#dce7e3;
+  font:850 7px/1.15 system-ui,-apple-system,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-stage-nav button.active,
+body[data-game-id="game-17"] .animlab-display-switches button.active,
+body[data-game-id="game-17"] .animlab-display-layer button.active {
+  border-color:rgba(172,211,200,.55);background:rgba(118,158,149,.24);color:#d9fff4;
+}
+body[data-game-id="game-17"] .animlab-workflow-caption {
+  font-size:7px;line-height:1.3;color:rgba(238,243,241,.66);min-height:9px;
+}
+body[data-game-id="game-17"] .animlab-display-main {
+  display:flex;flex-direction:column;gap:6px;min-width:0;
+}
+body[data-game-id="game-17"] .animlab-display-layer {
+  display:grid;grid-template-columns:50px 54px minmax(0,1fr);align-items:center;gap:5px;
+  min-width:0;
+}
+body[data-game-id="game-17"] .animlab-display-layer>strong {
+  font-size:7px;color:#dce7e3;letter-spacing:0;line-height:1.2;
+}
+body[data-game-id="game-17"] .animlab-display-layer>div {
+  min-width:0;display:flex;align-items:center;
+}
+body[data-game-id="game-17"] .animlab-display-layer>div>button {width:100%;}
+body[data-game-id="game-17"] .animlab-display-layer .animlab-slider {
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px;align-items:center;
+  min-width:0;width:100%;margin:0;
+}
+body[data-game-id="game-17"] .animlab-display-layer .animlab-slider>span {display:none;}
+body[data-game-id="game-17"] .animlab-display-layer .animlab-slider>input {
+  grid-column:1;grid-row:1;min-width:0;height:22px;
+}
+body[data-game-id="game-17"] .animlab-display-layer .animlab-slider>output {
+  grid-column:2;grid-row:1;min-width:22px;text-align:right;font-size:7px;color:#b8ccc6;
+}
+body[data-game-id="game-17"] .animlab-display-switches {
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:2px 0;
+}
+body[data-game-id="game-17"] .animlab-display-extras {
+  display:flex;flex-direction:column;gap:5px;min-width:0;
+}
+body[data-game-id="game-17"] .animlab-display-extras>.animlab-section {
+  padding:6px 0 7px;border-top:1px solid rgba(238,243,241,.1);border-bottom:0;
+}
+body[data-game-id="game-17"] .animlab-display-extras>.animlab-section>.animlab-section-title {
+  font-size:7px;color:rgba(180,225,215,.92);
+}
+body[data-game-id="game-17"] .animlab-layer-unavailable {opacity:.42;}
+body[data-game-id="game-17"] .animlab-setup-tool-row,
+body[data-game-id="game-17"] .animlab-art-reference-tools,
+body[data-game-id="game-17"] [data-action="ghost"] {display:none!important;}
+@media (max-height:390px) {
+ body[data-game-id="game-17"] .animlab-stage-nav button,
+ body[data-game-id="game-17"] .animlab-display-switches button,
+ body[data-game-id="game-17"] .animlab-display-layer button {min-height:26px;font-size:6.5px;}
+ body[data-game-id="game-17"] .animlab-display-main{gap:4px;}
+}

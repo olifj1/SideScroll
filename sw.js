@@ -1,4 +1,4 @@
-const CACHE = "sidescroll-runtime-v194";
+const CACHE = "sidescroll-runtime-v195";
 const CORE_SHELL = [
   "./",
   "./index.html",
@@ -39,6 +39,7 @@ const CORE_SHELL = [
   "./anim-lab-rig.js",
   "./anim-lab-art-layout.js",
   "./anim-lab-play.js",
+  "./anim-lab-ui.js",
   "./anim-reference-packs.json",
   "./asset-lab.js",
   "./icon-192.png",

@@ -109,6 +109,7 @@
   let precisionDrag=null;
   let soloPart=null; // display-only: never written into Setup or exported
   const hiddenParts=new Set(); // display-only: Hide/Show never dirty authored data
+  let showOutlines = true;
   let clipboard=null; // editor-only, available between part selections
 
   const clone=v=>JSON.parse(JSON.stringify(v));
@@ -469,6 +470,7 @@
     lastRender={view,polygons,pivots,order};
     ctx.save();ctx.lineJoin='round';ctx.lineWidth=Math.max(1.5,canvas.width/650);
     for(const part of desc.parts||[]){
+      if (!showOutlines) break;
       const poly=polygons[part.id];if(!poly?.length)continue;const active=part.id===selectedPart;
       const hidden=hiddenParts.has(part.id);
       ctx.strokeStyle=active?'rgba(255,196,92,.98)':hidden?'rgba(241,132,128,.28)':'rgba(126,216,199,.34)';ctx.setLineDash(active?[]:[7,6]);
@@ -481,7 +483,9 @@
   // Read-only display state consumed by compatible renderers. Solo is ephemeral.
   window.AnimLabPartLayoutDisplay=Object.freeze({
     getSolo:()=>isActive(state())?soloPart:null,
-    isHidden:id=>isActive(state())&&hiddenParts.has(id)
+    isHidden:id=>isActive(state())&&hiddenParts.has(id),
+    getOutlines:()=>showOutlines,
+    setOutlines:value=>{showOutlines=!!value;core.redrawOnly?.();}
   });
   core.registerPluginRenderer?.('art-layout-designer',renderer);
   core.subscribe?.(()=>renderUI());

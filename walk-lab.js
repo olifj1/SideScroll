@@ -67,6 +67,12 @@
     catch (_) { return {}; }
   }
   const collapseState = loadCollapseState();
+  // On first use, prioritise the working inspector. Display stays one tap away;
+  // advanced diagnostics open only when requested. Respect saved user choices.
+  for (const key of ['animlab-unified-display','animlab-static-reference-section',
+                     'animlab-motion-reference-title','animlab-mesh-preview-section']) {
+    if (!Object.prototype.hasOwnProperty.call(collapseState,key)) collapseState[key] = true;
+  }
 
   function collapseKeyFor(section, title) {
     return section.dataset.collapseKey || section.id || section.getAttribute('aria-labelledby') || title.id || String(title.textContent || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
@@ -1006,6 +1012,29 @@
     });
   }
 
+  function navigateAuthorStage(stage) {
+    if (stage === 'animate') { switchMode('animate'); return true; }
+    if (stage === 'play') { switchMode('play'); return currentCharacter().family === 'fox'; }
+    const tool = {parts:'art',rig:'rig',skin:'skin'}[stage];
+    if (!tool || (tool !== 'rig' && !supportsRestBinding(currentAdapter()))) return false;
+    const enter = () => {
+      const wasSetup = selection.mode === 'setup';
+      const wasPlay = selection.mode === 'play';
+      const previousTool = selection.setupTool;
+      selection.mode = 'setup'; selection.setupTool = tool;
+      playing = false; lastPlayFrame = null; conversionPreview = null;
+      if (wasPlay && playOverlaySnapshot) Object.assign(overlays,playOverlaySnapshot);
+      if (wasPlay) playOverlaySnapshot = null;
+      saveEditorSelection();
+      if ((!wasSetup && !wasPlay) || (wasSetup && previousTool !== tool)) resetCheckpoint();
+      draw(); updateUi(); notify();
+    };
+    if (selection.mode === 'setup' && selection.setupTool !== tool && isDirty()) guardNavigation(enter);
+    else if (selection.mode === 'setup' || selection.mode === 'play') enter();
+    else guardNavigation(enter);
+    return true;
+  }
+
   function setFrame(index) {
     selection.frame = ((index % 16) + 16) % 16;
     playPhase = selection.frame / 16;
@@ -1558,6 +1587,7 @@
       rig:currentAdapter().rig, adapterId:currentAdapter().id
     }),
     getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
+    navigateAuthorStage,
     setSetupTool:id=>{
       const next=['art','skin'].includes(id)?id:'rig';
       if(next!=='rig'&&!supportsRestBinding(currentAdapter()))return false;

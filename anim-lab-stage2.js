@@ -309,12 +309,8 @@
     if (lastMode !== state.mode) {
       lastMode=state.mode;
       if (state.mode==='setup') {
-        if (!core.getOverlay('collider')) core.setOverlay('collider',true);
-        if (!core.getOverlay('ground')) core.setOverlay('ground',true);
-        // Static Reference is an editor-only proportion guide. Each rig family
-        // remembers its own source/alignment; entering Rig makes it visible so
-        // the author can immediately match anatomy without affecting data.
-        if (!core.getOverlay('reference')) core.setOverlay('reference',true);
+        // Display owns overlay visibility. Switching editing stages must not
+        // unexpectedly change the author's reference, ground or collider choices.
       }
     }
     // Character-family switches can force a different valid control. The core

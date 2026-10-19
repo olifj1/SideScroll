@@ -54,6 +54,8 @@
   const selectedPos = section.querySelector('.animlab-rig-selected-pos');
   const lengthsEl = section.querySelector('.animlab-rig-lengths');
   const ghostButton = section.querySelector('[data-action="ghost"]');
+  // The unified Display opacity is authoritative; do not show a second ghost toggle.
+  ghostButton.hidden = true;
   const bindStatus = section.querySelector('.animlab-rig-bind-status');
   const bindPreviewBtn = section.querySelector('[data-action="preview-bind"]');
   const rebindBtn = section.querySelector('[data-action="rebind-rig"]');
@@ -69,7 +71,7 @@
   let selectedJoint = null;
   let axis = 'free';
   let fine = false;
-  let ghost = true;
+  let ghost = false;
   let previewBind = 'off'; // purely view state, never stored
   let lastActive = false;
   let lastDescriptor = null;
@@ -178,7 +180,7 @@
 
     if (active !== lastActive) {
       lastActive = active;
-      if (typeof core.setArtOpacity === 'function') core.setArtOpacity(active && ghost ? 0.28 : 1);
+      // Enter/leave Rig does not overwrite the Display artwork-opacity preference.
     }
     if (!active) { pad.hidden=true; if(previewBind!=='off')previewBind='off'; return; }
     if (viewportPadHost) viewportPadHost.hidden=false;

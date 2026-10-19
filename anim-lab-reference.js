@@ -192,6 +192,8 @@
     draft = normaliseSettings(draft, lastState);
     render(lastState, false);
     if (shouldPreload && draft.visible) preloadCurrent();
+    // Reference overlays are editor display preferences, not character edits.
+    saveSettings();
     core.redraw();
   }
 
@@ -213,9 +215,9 @@
   }
 
   core.registerSessionParticipant('motion-reference', {
-    isDirty: () => !!draft && !!checkpoint && !same(draft, checkpoint),
-    save: saveSettings,
-    discard: discardSettings
+    isDirty: () => false,
+    save: () => true,
+    discard: () => {}
   });
 
   function entriesFor(gait = currentGait()) {
@@ -529,10 +531,12 @@
       registry = data;
       registryError = null;
       loadContext(core.getState());
+      document.dispatchEvent(new Event('animlab:reference-ready'));
     } catch (err) {
       registryError = err;
       console.error('[Anim Lab Reference] Reference manifest failed to load.', err);
       render(core.getState(), true);
+      document.dispatchEvent(new Event('animlab:reference-ready'));
     }
   }
 
