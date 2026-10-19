@@ -14630,3 +14630,35 @@ body[data-game-id="game-17"] .animlab-art-layout-pad{min-height:94px;touch-actio
   body[data-game-id="game-17"] .animlab-art-part-board button{min-height:27px;padding:4px 5px;}
   body[data-game-id="game-17"] .animlab-art-layout-pad{min-height:82px;}
 }
+
+
+/* 1.0.192 — Parts rest-layout tools, phone-first. */
+body[data-game-id="game-17"] .animlab-art-transform-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;}
+body[data-game-id="game-17"] .animlab-art-transform-row button{min-width:0;padding:5px 2px;font-size:7px;}
+body[data-game-id="game-17"] .animlab-art-part-board button.is-hidden-part{opacity:.52;border-style:dashed;}
+body[data-game-id="game-17"] .animlab-art-part-board button.is-solo-part{border-color:#f1c16f;}
+body[data-game-id="game-17"] .animlab-art-layer-tools,
+body[data-game-id="game-17"] .animlab-art-clipboard-tools{display:flex;flex-direction:column;gap:4px;}
+body[data-game-id="game-17"] .animlab-art-visibility-buttons{grid-template-columns:repeat(3,minmax(0,1fr));}
+body[data-game-id="game-17"] .animlab-art-order-buttons{grid-template-columns:repeat(4,minmax(0,1fr));}
+body[data-game-id="game-17"] .animlab-art-clipboard-buttons{grid-template-columns:repeat(3,minmax(0,1fr));}
+body[data-game-id="game-17"] .animlab-art-layer-tools button,
+body[data-game-id="game-17"] .animlab-art-clipboard-tools button{
+  min-height:29px;min-width:0;padding:5px 3px;border:1px solid rgba(238,243,241,.14);
+  border-radius:7px;background:rgba(255,255,255,.04);color:#e3eeeb;font:800 7px/1.15 system-ui,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-art-layer-tools button:disabled,
+body[data-game-id="game-17"] .animlab-art-clipboard-tools button:disabled{opacity:.32;}
+body[data-game-id="game-17"] .animlab-art-layer-tools button.is-active{background:rgba(241,193,111,.22);}
+@media(max-height:390px){
+  body[data-game-id="game-17"] .animlab-art-layer-tools button,
+  body[data-game-id="game-17"] .animlab-art-clipboard-tools button{min-height:25px;padding:3px;}
+}
+
+body[data-game-id="game-17"] .animlab-art-numeric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+body[data-game-id="game-17"] .animlab-art-numeric-grid label{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:7px;color:rgba(238,243,241,.8);}
+body[data-game-id="game-17"] .animlab-art-numeric-grid input{box-sizing:border-box;width:100%;min-width:0;max-width:100%;border:1px solid rgba(238,243,241,.15);border-radius:5px;background:rgba(8,17,21,.78);color:#edf5f2;padding:4px 3px;font-size:10px;font-variant-numeric:tabular-nums;}
+body[data-game-id="game-17"] .animlab-art-numeric-grid input:focus{border-color:#7ed8c7;outline:1px solid #7ed8c7;}
+
+body[data-game-id="game-17"] .animlab-setup-section.animlab-setup-art-active > .animlab-slider,
+body[data-game-id="game-17"] .animlab-setup-section.animlab-setup-art-active > .animlab-setup-note{display:none;}

@@ -11,16 +11,26 @@
   section.hidden=true;
   section.innerHTML=`
     <div class="animlab-section-title">Part Layout</div>
-    <p class="animlab-art-layout-note">Place the character's bind artwork independently from its joints. These are rest-layout transforms only; animation keys are not changed.</p>
+    <p class="animlab-art-layout-note">Arrange neutral artwork; joints and animation keys stay unchanged. Skin and rig rebind are a separate stage.</p>
     <div class="animlab-art-part-board" aria-label="Bind art parts"></div>
     <div class="animlab-rig-selected animlab-art-selected">
       <div class="animlab-rig-selected-title">No part selected</div>
       <div class="animlab-rig-selected-pos"></div>
     </div>
-    <div class="animlab-segmented animlab-three animlab-art-transform-row">
+    <div class="animlab-art-numeric-grid" aria-label="Selected part transform values">
+      <label>X <input type="number" data-art-number="x" inputmode="decimal" step="0.01"></label>
+      <label>Y <input type="number" data-art-number="y" inputmode="decimal" step="0.01"></label>
+      <label>Rotation ° <input type="number" data-art-number="rotation" inputmode="decimal" step="0.5"></label>
+      <label>Width <input type="number" data-art-number="scaleX" inputmode="decimal" min="0.25" max="3" step="0.01"></label>
+      <label>Height <input type="number" data-art-number="scaleY" inputmode="decimal" min="0.25" max="3" step="0.01"></label>
+      <label>Pivot X <input type="number" data-art-number="pivotX" inputmode="decimal" step="0.01"></label>
+      <label>Pivot Y <input type="number" data-art-number="pivotY" inputmode="decimal" step="0.01"></label>
+    </div>
+    <div class="animlab-segmented animlab-art-transform-row">
       <button type="button" data-art-transform="move">Move</button>
       <button type="button" data-art-transform="rotate">Rotate</button>
       <button type="button" data-art-transform="scale">Scale</button>
+      <button type="button" data-art-transform="pivot">Pivot</button>
     </div>
     <div class="animlab-precision animlab-rig-precision">
       <div class="animlab-precision-row animlab-rig-axis animlab-art-axis">
@@ -29,7 +39,31 @@
         <button type="button" data-art-axis="y">Y only</button>
         <button type="button" data-art-fine="1">Fine</button>
       </div>
-      <p class="animlab-art-layout-note">Select a part on the left. Use the bottom-right pad for Move / Rotate / uniform Scale. The viewport is reserved for pan and zoom.</p>
+      <p class="animlab-art-layout-note">Select a part above, then drag the right pad. Scale: Free = X+Y, X only = width, Y only = height. Pivot moves without shifting the picture. The viewport only pans/zooms.</p>
+    </div>
+    <div class="animlab-art-layer-tools">
+      <div class="animlab-view-grid animlab-art-visibility-buttons">
+        <button type="button" data-art-action="toggle-visible">Hide Part</button>
+        <button type="button" data-art-action="solo">Solo: Off</button>
+        <button type="button" data-art-action="show-all">Show All</button>
+      </div>
+      <div class="animlab-view-grid animlab-art-order-buttons">
+        <button type="button" data-art-action="back">Send Back</button>
+        <button type="button" data-art-action="forward">Bring Forward</button>
+        <button type="button" data-art-action="bottom">To Back</button>
+        <button type="button" data-art-action="top">To Front</button>
+      </div>
+    </div>
+    <div class="animlab-art-clipboard-tools">
+      <div class="animlab-view-grid animlab-art-clipboard-buttons">
+        <button type="button" data-art-action="copy">Copy Part</button>
+        <button type="button" data-art-action="paste">Paste All</button>
+        <button type="button" data-art-action="paste-position">Paste Position</button>
+        <button type="button" data-art-action="paste-rotation">Paste Rotation</button>
+        <button type="button" data-art-action="paste-scale">Paste Scale</button>
+        <button type="button" data-art-action="paste-pivot">Paste Pivot</button>
+        <button type="button" data-art-action="copy-pair">Copy to Pair</button>
+      </div>
     </div>
     <div class="animlab-art-reference-tools">
       <div class="animlab-view-grid animlab-art-reference-buttons">
@@ -73,6 +107,9 @@
   let lastRender=null;
   let viewportDrag=null;
   let precisionDrag=null;
+  let soloPart=null; // display-only: never written into Setup or exported
+  const hiddenParts=new Set(); // display-only: Hide/Show never dirty authored data
+  let clipboard=null; // editor-only, available between part selections
 
   const clone=v=>JSON.parse(JSON.stringify(v));
   const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -85,7 +122,11 @@
   function partById(desc,id){return desc?.parts?.find(part=>part.id===id)||null;}
   function transformFor(s,id){
     const raw=layoutFor(s)?.parts?.[id]||{};
-    return {x:Number(raw.x)||0,y:Number(raw.y)||0,rotation:Number(raw.rotation)||0,scale:Number(raw.scale)||1};
+    const scale=Number(raw.scale)||1;
+    return {x:Number(raw.x)||0,y:Number(raw.y)||0,rotation:Number(raw.rotation)||0,
+      scaleX:Number(raw.scaleX)||scale,scaleY:Number(raw.scaleY)||scale,
+      pivotX:Number.isFinite(Number(raw.pivotX))?Number(raw.pivotX):0,
+      pivotY:Number.isFinite(Number(raw.pivotY))?Number(raw.pivotY):0};
   }
 
   function ensureSelection(s,desc){
@@ -111,12 +152,14 @@
   }
 
   function applyTransform(point,part,transform){
-    const pivot=part?.pivot||{x:0,y:0};
-    const dx=point.x-pivot.x,dy=point.y-pivot.y,s=Number(transform.scale)||1;
+    const pivot={x:Number.isFinite(transform.pivotX)?transform.pivotX:(part?.pivot?.x||0),
+      y:Number.isFinite(transform.pivotY)?transform.pivotY:(part?.pivot?.y||0)};
+    const dx=point.x-pivot.x,dy=point.y-pivot.y;
     const c=Math.cos(Number(transform.rotation)||0),sn=Math.sin(Number(transform.rotation)||0);
+    const sx=Number(transform.scaleX)||1,sy=Number(transform.scaleY)||1;
     return {
-      x:pivot.x+(Number(transform.x)||0)+(dx*c-dy*sn)*s,
-      y:pivot.y+(Number(transform.y)||0)+(dx*sn+dy*c)*s
+      x:pivot.x+(Number(transform.x)||0)+dx*sx*c-dy*sy*sn,
+      y:pivot.y+(Number(transform.y)||0)+dx*sx*sn+dy*sy*c
     };
   }
 
@@ -130,17 +173,42 @@
   function renderUI(){
     const s=state(),desc=descriptorFor(s),active=isActive(s);
     section.hidden=!active;
+    // Keep the Setup Joints / Part Layout switch visible, but put Part tools
+    // directly beneath it instead of forcing a scroll past collider sliders.
+    setupSection.classList.toggle('animlab-setup-art-active',active);
     if(!active){pad.hidden=true;lastRender=null;return;}
     if(viewportPadHost)viewportPadHost.hidden=false;
     pad.hidden=false;
     renderBoard(desc);ensureSelection(s,desc);
-    board.querySelectorAll('[data-art-part]').forEach(button=>button.classList.toggle('is-active',button.dataset.artPart===selectedPart));
+    const layout=layoutFor(s);
+    const order=layout?.order||desc.parts.map(p=>p.id);
+    board.querySelectorAll('[data-art-part]').forEach(button=>{
+      const id=button.dataset.artPart,part=partById(desc,id),shown=!hiddenParts.has(id);
+      button.classList.toggle('is-active',id===selectedPart);
+      button.classList.toggle('is-hidden-part',!shown);
+      button.classList.toggle('is-solo-part',soloPart===id);
+      button.textContent=`${order.indexOf(id)+1}. ${part?.label||id}${shown?'':' (hidden)'}${soloPart===id?' (solo)':''}`;
+    });
     transformButtons.forEach(button=>{const on=button.dataset.artTransform===transformMode;button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));});
-    axisButtons.forEach(button=>{const on=button.dataset.artAxis===axis;button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));button.disabled=transformMode!=='move';});
+    axisButtons.forEach(button=>{const on=button.dataset.artAxis===axis;button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));button.disabled=!(transformMode==='move'||transformMode==='scale'||transformMode==='pivot');});
     fineButton.classList.toggle('is-active',fine);fineButton.setAttribute('aria-pressed',String(fine));
     const part=partById(desc,selectedPart),tr=transformFor(s,selectedPart);
     selectedTitle.textContent=part?.label||'No part selected';
-    selectedPos.textContent=part?`X ${tr.x.toFixed(4)}   Y ${tr.y.toFixed(4)}   Rot ${(tr.rotation/DEG).toFixed(1)}°   Scale ${tr.scale.toFixed(3)}`:'';
+    selectedPos.textContent=part?`X ${tr.x.toFixed(3)} Y ${tr.y.toFixed(3)}  Rot ${(tr.rotation/DEG).toFixed(1)}°  Width ${tr.scaleX.toFixed(2)} Height ${tr.scaleY.toFixed(2)}  Pivot ${tr.pivotX.toFixed(3)}, ${tr.pivotY.toFixed(3)}`:'';
+    for(const input of section.querySelectorAll('[data-art-number]')){
+      const property=input.dataset.artNumber,display=property==='rotation'?tr.rotation/DEG:tr[property];
+      if(document.activeElement!==input)input.value=part?String(Number(display.toFixed(4))):'';
+      input.disabled=!part;
+    }
+    section.querySelector('[data-art-action="copy-pair"]').disabled=!pairFor(selectedPart);
+    const visibility=section.querySelector('[data-art-action="toggle-visible"]');
+    visibility.textContent=hiddenParts.has(selectedPart)?'Show Part':'Hide Part';
+    const soloBtn=section.querySelector('[data-art-action="solo"]');
+    soloBtn.textContent=soloPart===selectedPart?'Solo: On':'Solo: Off';soloBtn.classList.toggle('is-active',soloPart===selectedPart);
+    section.querySelectorAll('[data-art-action^="paste"]').forEach(btn=>btn.disabled=!clipboard);
+    const index=order.indexOf(selectedPart);
+    for(const name of ['back','bottom'])section.querySelector(`[data-art-action="${name}"]`).disabled=index<1;
+    for(const name of ['forward','top'])section.querySelector(`[data-art-action="${name}"]`).disabled=index<0||index===order.length-1;
     pad.querySelector('span').textContent=`${transformMode[0].toUpperCase()+transformMode.slice(1)} selected part`;
     const ref=core.getStaticReference?.()||{opacity:.38};
     if(document.activeElement!==referenceOpacity)referenceOpacity.value=String(ref.opacity);
@@ -176,6 +244,19 @@
 
   function defaults(){return core.normaliseArtLayout?.(null)||null;}
 
+  function pairFor(id){
+    return {rearNear:'rearFar',rearFar:'rearNear',frontNear:'frontFar',frontFar:'frontNear'}[id]||null;
+  }
+
+  // Preserve the exact mapped artwork when its transform origin changes.
+  function shiftPivotKeepingArt(start,newPivotX,newPivotY){
+    const vx=start.pivotX-newPivotX,vy=start.pivotY-newPivotY;
+    const c=Math.cos(start.rotation),sn=Math.sin(start.rotation);
+    return {pivotX:newPivotX,pivotY:newPivotY,
+      x:start.x+vx-(c*start.scaleX*vx-sn*start.scaleY*vy),
+      y:start.y+vy-(sn*start.scaleX*vx+c*start.scaleY*vy)};
+  }
+
   function action(name){
     const s=state(),desc=descriptorFor(s);if(!desc)return;
     if(name==='reference'){
@@ -190,6 +271,49 @@
       core.setStaticReference?.({source,scale:1,offsetX:0,offsetY:0});
       if(!core.getOverlay?.('reference'))core.setOverlay?.('reference',true);
       return;
+    }
+    if(name==='solo'){
+      if(soloPart!==selectedPart)hiddenParts.delete(selectedPart);
+      soloPart=soloPart===selectedPart?null:selectedPart;
+      renderUI();core.redrawOnly?.();return;
+    }
+    if(name==='show-all'){
+      soloPart=null;hiddenParts.clear();renderUI();core.redrawOnly?.();return;
+    }
+    if(name==='toggle-visible'&&selectedPart){
+      if(hiddenParts.has(selectedPart))hiddenParts.delete(selectedPart);
+      else hiddenParts.add(selectedPart);
+      renderUI();core.redrawOnly?.();return;
+    }
+    if(['back','forward','bottom','top'].includes(name)&&selectedPart){
+      editLayout(`Reorder ${partById(desc,selectedPart)?.label||selectedPart}`,layout=>{
+        const order=layout.order,at=order.indexOf(selectedPart);if(at<0)return;
+        const target=name==='bottom'?0:name==='top'?order.length-1:at+(name==='back'?-1:1);
+        if(target<0||target>=order.length)return;
+        order.splice(at,1);order.splice(target,0,selectedPart);
+      });return;
+    }
+    if(name==='copy-pair'&&selectedPart&&pairFor(selectedPart)){
+      const source=transformFor(s,selectedPart),pair=pairFor(selectedPart);
+      editLayout('Copy part transform to near/far pair',layout=>{
+        Object.assign(layout.parts[pair],{
+          x:source.x,y:source.y,rotation:source.rotation,
+          scaleX:source.scaleX,scaleY:source.scaleY
+        });
+      });return;
+    }
+    if(name==='copy'&&selectedPart){
+      clipboard=clone(transformFor(s,selectedPart));renderUI();return;
+    }
+    if(name.startsWith('paste')&&selectedPart&&clipboard){
+      const properties=name==='paste-position'?['x','y']:
+        name==='paste-rotation'?['rotation']:
+        name==='paste-scale'?['scaleX','scaleY']:
+        name==='paste-pivot'?['pivotX','pivotY']:
+        ['x','y','rotation','scaleX','scaleY','pivotX','pivotY'];
+      editLayout(`Paste ${name.slice(6)||'all'} transform`,layout=>{
+        for(const prop of properties)layout.parts[selectedPart][prop]=clipboard[prop];
+      });return;
     }
     if(name==='reset-part'&&selectedPart){
       const base=defaults()?.parts?.[selectedPart];if(!base)return;
@@ -207,6 +331,24 @@
     const a=event.target.closest('[data-art-axis]');if(a){axis=a.dataset.artAxis;renderUI();return;}
     if(event.target.closest('[data-art-fine]')){fine=!fine;renderUI();return;}
     const actionButton=event.target.closest('[data-art-action]');if(actionButton)action(actionButton.dataset.artAction);
+  });
+
+  section.querySelector('.animlab-art-numeric-grid').addEventListener('change',event=>{
+    const input=event.target.closest('[data-art-number]');if(!input||!selectedPart)return;
+    const property=input.dataset.artNumber,entered=Number(input.value);
+    if(!Number.isFinite(entered)||input.value.trim()===''){renderUI();return;}
+    const s=state(),current=transformFor(s,selectedPart);
+    let next={};
+    if(property==='rotation')next.rotation=clamp(entered*DEG,-Math.PI,Math.PI);
+    else if(property==='scaleX'||property==='scaleY')next[property]=clamp(entered,.25,3);
+    else if(property==='pivotX'||property==='pivotY'){
+      const px=property==='pivotX'?clamp(entered,-2,2):current.pivotX;
+      const py=property==='pivotY'?clamp(entered,-2,2):current.pivotY;
+      next=shiftPivotKeepingArt(current,px,py);
+    }else next[property]=clamp(entered,property==='x'?-1.5:-1,property==='x'?1.5:1);
+    editLayout(`Set ${property} for ${partById(descriptorFor(s),selectedPart)?.label||selectedPart}`,
+      layout=>Object.assign(layout.parts[selectedPart],next));
+    renderUI();
   });
 
   referenceOpacity.addEventListener('input',()=>{const value=Number(referenceOpacity.value);if(Number.isFinite(value))core.setStaticReference?.({opacity:value});});
@@ -278,14 +420,27 @@
     if(!precisionDrag||precisionDrag.pointerId!==event.pointerId)return;
     event.preventDefault();const dx=event.clientX-precisionDrag.startX,dy=event.clientY-precisionDrag.startY;
     const next={};
-    if(transformMode==='move'){
-      const rect=canvas.getBoundingClientRect(),view=lastRender?.view;const pxScale=canvas.width/Math.max(1,rect.width),sensitivity=(fine ? .25 : 1)*pxScale/Math.max(1,view?.scale||1);
-      let mx=dx*sensitivity,my=-dy*sensitivity;if(axis==='x')my=0;if(axis==='y')mx=0;
-      next.x=precisionDrag.start.x+mx;next.y=precisionDrag.start.y+my;
+    const rect=canvas.getBoundingClientRect(),view=lastRender?.view;
+    const pxScale=canvas.width/Math.max(1,rect.width);
+    const sensitivity=(fine ? .25 : 1)*pxScale/Math.max(1,view?.scale||1);
+    if(transformMode==='move'||transformMode==='pivot'){
+      let mx=dx*sensitivity,my=-dy*sensitivity;
+      if(axis==='x')my=0;if(axis==='y')mx=0;
+      if(transformMode==='move'){
+        next.x=precisionDrag.start.x+mx;next.y=precisionDrag.start.y+my;
+      }else{
+        // Rebase translation so moving a pivot cannot shift existing artwork.
+        const start=precisionDrag.start;
+        next.pivotX=clamp(start.pivotX+mx,-2,2);
+        next.pivotY=clamp(start.pivotY+my,-2,2);
+        Object.assign(next,shiftPivotKeepingArt(start,next.pivotX,next.pivotY));
+      }
     }else if(transformMode==='rotate'){
       next.rotation=precisionDrag.start.rotation+dx*(fine ? .10 : .35)*DEG;
     }else{
-      next.scale=clamp(precisionDrag.start.scale+dx*(fine ? .001 : .0035),.25,3);
+      const start=precisionDrag.start,amount=dx*(fine ? .001 : .0035);
+      if(axis!=='y')next.scaleX=clamp(start.scaleX+amount,.25,3);
+      if(axis!=='x')next.scaleY=clamp(start.scaleY+amount,.25,3);
     }
     setPartInTransaction(precisionDrag.tx,precisionDrag.part,next);
   }
@@ -305,21 +460,29 @@
   function renderer(args){
     const s=state(),desc=descriptorFor(s);if(!desc||!layoutFor(s)){lastRender=null;return;}
     const {ctx,view}=args,polygons={},pivots={};
+    const order=layoutFor(s)?.order||desc.parts.map(p=>p.id);
+    if(soloPart&&!partById(desc,soloPart))soloPart=null;
     for(const part of desc.parts||[]){
       const tr=transformFor(s,part.id),corners=partCornersLocal(desc,part,tr),screen=corners.map(p=>project(p,view));
       polygons[part.id]=screen;pivots[part.id]=project(applyTransform(part.pivot,part,tr),view);
     }
-    lastRender={view,polygons,pivots,order:(desc.parts||[]).map(p=>p.id)};
+    lastRender={view,polygons,pivots,order};
     ctx.save();ctx.lineJoin='round';ctx.lineWidth=Math.max(1.5,canvas.width/650);
     for(const part of desc.parts||[]){
       const poly=polygons[part.id];if(!poly?.length)continue;const active=part.id===selectedPart;
-      ctx.strokeStyle=active?'rgba(255,196,92,.98)':'rgba(126,216,199,.34)';ctx.setLineDash(active?[]:[7,6]);
+      const hidden=hiddenParts.has(part.id);
+      ctx.strokeStyle=active?'rgba(255,196,92,.98)':hidden?'rgba(241,132,128,.28)':'rgba(126,216,199,.34)';ctx.setLineDash(active?[]:[7,6]);
       ctx.beginPath();ctx.moveTo(poly[0].x,poly[0].y);for(let i=1;i<poly.length;i++)ctx.lineTo(poly[i].x,poly[i].y);ctx.closePath();ctx.stroke();
       if(active){const p=pivots[part.id],r=Math.max(6,canvas.width/180);ctx.setLineDash([]);ctx.fillStyle='rgba(255,196,92,.92)';ctx.strokeStyle='rgba(255,239,195,.98)';ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();}
     }
     ctx.restore();
   }
 
+  // Read-only display state consumed by compatible renderers. Solo is ephemeral.
+  window.AnimLabPartLayoutDisplay=Object.freeze({
+    getSolo:()=>isActive(state())?soloPart:null,
+    isHidden:id=>isActive(state())&&hiddenParts.has(id)
+  });
   core.registerPluginRenderer?.('art-layout-designer',renderer);
   core.subscribe?.(()=>renderUI());
   renderUI();

@@ -1035,6 +1035,19 @@ Rules:
 - editor touch surfaces and control DOM remain stable while a gesture is active; no control panel should be rebuilt per animation frame.
 
 
+
+### Authoring stages and unified Display — global UI rule (18 Oct 2026; design, not implementation)
+
+**Full canonical design:** `SIDESCROLL_CHARACTER_AUTHORING.md` → **Approved next design — coherent character-authoring workflow**. This Bible defines only the cross-editor invariant; do not duplicate part-by-part specifications here.
+
+- Every authoring surface distinguishes **editing target** (Character / Parts / Rig / Skin / Animate / Play) from **Display** (art/opacity, static red reference/opacity, motion ref, bones, mesh, ground, bind proof). Display controls share one consistent location and never dirty authored character data.
+- Different editing modes own distinct data. **Parts** may arrange/scalе/rotate artwork without joint changes; **Rig** moves rest joints while displayed artwork remains frozen; **Skin** edits mesh/weights without moving either; **Animate** evaluates completed binding but does not alter structural rest data. Leaving a stage can preview re-enabled skinning; publishing/rebinding a new rest state is an explicit reversible Save decision.
+- Named selectable list left; pad bottom-right; pan/pinch independent; touch selection must not unintentionally drag parts or joints. Stage inspector is context-sensitive; the animation timeline belongs with Animate rather than crowding layout work.
+- Draw order is character authoring data; editor-only Solo/Hide, opacity, comparison references and overlays are view state. One gesture is one Undo action; Save/Discard/Cancel applies at all editing stage boundaries.
+- Existing documented Asset Lab principles (shared dark grammar, collapsible sections, reusable property controls, template/bespoke ownership) should be applied as reusable UI/system primitives, not copied ad hoc into a Fox-only editor.
+- For any art/atlas change, **never change rig, mesh bind, part layout or animation as an implicit dependency**. Validate the source texture, destination rectangles/alpha and one-to-one intended file changes before packaging. No historical fallback atlas/renderer should become authoritative unless the user explicitly approves it.
+- **Implementation status:** v1.0.191 is the **user-confirmed working baseline**. v1.0.192 is a bounded P1 Parts tools test patch (not yet iPhone accepted). Its Hide/Solo remain temporary display state, order and transforms are authored Setup data, and Parts uses neutral unskinned mesh vertices. v1.0.192 does **not** yet freeze art while editing joints in Rig, rebind skin, implement Character creation, or provide a unified Display panel. See Character Authoring and Tasks for gates.
+
 ### Anim Lab Control Board and precision-edit rules
 
 Stage 2 adds rig-provided anatomical controls without changing the edit-session ownership above.

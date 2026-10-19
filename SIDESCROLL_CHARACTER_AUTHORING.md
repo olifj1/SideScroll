@@ -1,12 +1,127 @@
 # SideScroll Character Authoring & Animation System
 
-Status: design direction, mesh-first staging begun in v1.0.165.
+Status: original mesh proof recorded historically; **coherent authoring workflow approved 18 Oct 2026. v1.0.192 is the first P1 editor-tools test patch, not yet accepted on iPhone; P2/Character Library remain unimplemented**.
 
 ## Goal
 
 Character authoring should ultimately let a user create a playable character without adding character-specific game code: create/name a character, choose a rig family, start from placeholder art/mesh, tune the rig and collider, assign or create reusable animations, replace the art, test in Quick Play, save to a Character Library, then select that character from the normal game.
 
 The system should not be designed around Fox-specific ownership. Fox is the current quadruped proof character; Hero 1/Hero 2 are the current biped examples.
+
+
+## Approved next design — coherent character-authoring workflow (18 October 2026)
+
+**Status: APPROVED TARGET / PARTLY IMPLEMENTED.** v1.0.192 adds initial P1 controls; this table is still the *target* workflow, not an implemented feature list. v1.0.191 is the user-confirmed working source. Do not describe P2 separation or a new-character workflow as delivered. This section is the **single authoritative detailed specification** for new character authoring. The Engine UX Bible records only general invariants; Tasks records implementation and acceptance. Refer here instead of duplicating divergent versions of this design.
+
+### The problem this solves
+
+Fox artwork updates repeatedly entangled source pixels, atlas rectangles, rigid-vs-deform rendering, part transforms, rest joints and saved animations. The practical user goal is to arrange the artwork visually, place the rig to match the arranged artwork, then adjust skinning separately. Editing one layer must never silently reshape another. Work is phone-first (iPhone landscape Safari/PWA), with named left-side selection, stable right-side manipulation and explicit Save/Discard.
+
+This is a **global system**, descriptor-driven for quadruped, biped and future rig families. Fox is the first six-region acceptance character, not an ownership boundary. Hero 1/Hero 2 become adopters, not parallel implementations.
+
+### One visible end-to-end workflow
+
+**Character → Parts → Rig → Skin/Bind → Animate → Play** (the Character and Play stages may open as workspaces rather than a transient subtool). Persistent top-level stage selection replaces competing Mode, View and Setup tabs whose scope is unclear. A stage shows only the inspector, controls and timeline relevant to that stage; optional display overlays never change which data is being edited. Do not change the existing `walk-lab.html` route just to rename navigation.
+
+| Stage | Edits | Holds fixed / disabled while authoring | Leave-stage preview |
+| --- | --- | --- | --- |
+| **Character** | name/id, family, source art selection, movement/collider, animation slots/library links | all transform layers unless explicitly entering an editor | read-only summary / definition preview |
+| **Parts** | art part X/Y, rotation, independent width/height scale, pivot, draw order | rest joints, animation keys, skinning/IK/deformation | posed skin preview recomputed from the current rest layout, with no visible snap in neutral rest |
+| **Rig** | structural joints, bone lengths where applicable, hierarchy/semantic sockets | **artwork stays absolutely stationary in character space**; no skinning-driven part movement during joint drag | preview of newly matched skeleton + artwork with updated bind relationship |
+| **Skin / Bind** | mesh vertices/topology, UV placement where expressly intended, per-bone weights, bind controls | art layout and rest joint positions locked | compare rest/pose deformation and wireframe without changing anatomy |
+| **Animate** | key poses, paw/IK targets, interpolation, clip editing | authored part layout, rest rig and mesh bind locked | normal skinned/rigged evaluation |
+| **Play** | no structural authoring; use current working data for test | editing gestures and control overlays off | playable, return without erasing editor working copy |
+
+**Rig mode and Part mode are rest-configuration editing, not animation posing.** They must present a neutral, unskinned authoring display while adjustments occur. If a user drags a joint in Rig, joint overlays move and the picture stays pixel-still; if a user moves a part in Parts, the skeleton stays pixel-still. Only Skin/Bind and Animate enable active deformation as appropriate. A bind-test overlay may be deliberately enabled for diagnosis, but it cannot change the stored data or hijack drag ownership.
+
+### Parts — independent artwork assembly
+
+Minimum per-part operations (including the Fox's Body+Head, Tail, Front Near/Far, Rear Near/Far):
+
+- Select by an explicit named **part list** and optionally by a non-destructive viewport tap; do not start transforming artwork merely by touching it. The active drag pad operates only on the selected part.
+- Move X/Y (Free, X-only, Y-only, Fine), rotate, **scale X and Y independently** plus linked/uniform scale. Display editable numbers and allow Reset Part / Reset Layout.
+- **Draw order** is an explicit saved ordered list with Move Forward / Back (or accessible reorder controls), not an accidental result of mesh generation or part index. Provide a clear default far/back → near/front order, and show the stack in the list.
+- **Copy/Paste** selected part transform; independently **Paste Position**, **Paste Rotation**, **Paste Scale**. Support near↔far counterparts where compatible. Operations are Undoable; clipboard itself is editor session state, not a persisted character change.
+- Per-part **Show/Hide** and **Solo**, with Restore All; normal Hide/Solo is strictly an *editor visibility setting*, not saved character visibility or a removal from export/play. Selected part remains selectable in the list even when hidden. The reference image never becomes a part.
+- Edit pivot/anchor separately (draw crosshair + numerical control), without surprising artwork jumps; transform pivot movement compensates translation so the visual part does not move until a later intentional transform.
+- Preserve supplied transparent pixels, mesh region/UV coordinates and approved part identity during layout. Art import/replace is a separate explicitly confirmed operation; never regenerate atlases or paste old renderer files just to move a part.
+
+Identity transforms must recreate the pre-editor display exactly. Move/rotate/scale and z-order must remain separate from bone pose and mesh weight data. Per-part visibility is a viewport preference; per-part render order is authored data.
+
+### Rig — joints are independent of the artwork
+
+- Enter Rig from the current arranged **rest artwork**. Freeze art in absolute character-local space. Structural joint handles, numeric joint positions, connected bones and bone-length diagnostics move freely *without moving the texture*.
+- Use the same left named Control Board and bottom-right relative drag pad; preserve Free/X/Y/Fine, symmetric pair/copy aids and grounded-foot utilities where compatible with the rig descriptor.
+- Distinguish **rest-rig joint edits** from **animated pose edits**. A structural edit modifies only the rest joint definition. It never writes keys, paw targets, collider, artwork transforms, mesh UVs or runtime character choice.
+- On leaving Rig (or using **Preview Bound**) compute a *candidate* bind from the current art layout + current rest joints. Neutral rest must visually preserve the just-arranged artwork; preview should not snap pieces or change their sizes. Make the operation explicit/reversible with Undo/Discard rather than a hidden destructive rebake.
+- If new rest proportions change how existing clips look, **warn and offer before/after preview**; retain the original animation data by default. Retargeting is a separate requested action, not an automatic side effect of moving rest joints.
+
+### Skin/Bind — deliberate binding and diagnostics
+
+- Mesh/skin uses character-space rest artwork, rest-bone matrices and UV coordinates as separate inputs. On bind, recompute inverse rest transforms so a rest pose has no incidental displacement: `poseBone * inverseBindBone` is identity at rest. Define part-local versus character-local coordinates explicitly; never silently treat atlas pixel offsets as rig/world coordinates.
+- Editing a mesh vertex, changing weight influence or adjusting the bind pose happens only in Skin mode. Source art rectangle, art layout and rest joints are locked there, avoiding circular edits.
+- Expose **Bind Preview** and **Difference / Reference** as opt-in diagnostics, **off by default**. Wireframe, per-part isolation, selected-bone weight overlay and neutral/pose A/B preview all share a consistent Display panel.
+- On explicit Rebind, preserve region/part IDs and assigned source image rectangles; only update the intended bind-space relationships. If topology/weights must be regenerated, ask explicitly and retain a restorable snapshot. Never silently replace approved skin weights, animation keys or source imagery.
+- Rigid-vs-deform comparison is a rendering diagnostic: it must not substitute the rigid 13-piece atlas for the six-piece deform atlas, swap rig families or rewrite authored data.
+
+### Common interface grammar and display controls
+
+Separate **WHAT I EDIT** (stage + inspector) from **WHAT I SEE** (Display). Display is one consistent collapsible section/drawer available from every stage, with the same labels and state, rather than opacity toggles scattered through Character, Rig, Parts and Motion Reference:
+
+| Display channel | Required controls |
+| --- | --- |
+| Character artwork | Show/Hide; opacity 0–100% |
+| Static silhouette/reference (e.g. Fox Shape / red overlay) | Show/Hide; source selector; opacity; fit/alignment; optional difference diagnostic |
+| Motion reference | Show/Hide; opacity; linked/unlinked reference timing only while relevant |
+| Bones / joint handles | Show/Hide; rig-family near/far visual distinction |
+| Part boundaries / pivots | Show/Hide; selected part highlight; optional isolated part |
+| Mesh / wireframe | Show/Hide; part/region selector; weight overlay |
+| Ground / grid / ruler | Show/Hide; static ground separate from optional motion diagnostic |
+| Rest/bind comparison | Optional Bind Preview, before/after or difference; defaults off |
+
+Display settings should be editor preferences stored separately from character data, never add Undo entries or mark the character unsaved. Hide irrelevant controls rather than display disabled duplicate controls in multiple panels. Motion-reference transport remains subordinate to the authoritative animation timeline (the existing linked/unlinked contract still applies).
+
+General viewport interaction: **named selection on the left, precision pad bottom-right, swipe/pan empty space, pinch zoom**; no unintended part/joint dragging by grabbing the sprite. Keep hardware safe areas, collapsible sections, consistent buttons/sliders and a stable view/pad while editing. The animation timeline is shown only where needed (Animate and optional playback reference) rather than occupying Parts/Rig authoring space.
+
+### Transactions, preservation and migrations
+
+- Each stage uses its own bounded working-copy edit session, checkpoint and Undo/Redo; a continuous pad gesture is one step. Save and Discard are explicit. Leaving dirty Parts/Rig/Skin must offer Save / Discard / Cancel, not silently auto-save/rebind or discard.
+- Temporary stage preview may calculate derived bind/pose in memory, but only an explicit Save commits authoritative data. Switching view, Solo/Hide, scrubbing, Fit and difference overlays are view-only.
+- Define stable independent data ownership: `CharacterDefinition` (ids/family), `PartLayout` (part id, rest transform, pivot, drawOrder), `RestRig` (semantic joints), `SkinBinding` (topology/UVs/influences/inverse bind), `AnimationAssets` (clips/templates), and `EditorDisplayState` (visibility/opacity/selection). Schema names here are conceptual until code is audited; **do not change persisted keys on assumption**.
+- Legacy data must load non-destructively, with identity/default transforms and preserved atlas dimensions where appropriate. Any migration must be versioned, reversible or backed up; never write storage merely because the editor opened. Export should capture all authored layers and distinguish linked templates from bespoke assets.
+- Do not conflate a local browser save with shipped repository defaults. Test reload, switching mode/character and gameplay consumption separately.
+
+### Acceptance gates and implementation sequencing
+
+**P0 — freeze a trustworthy source snapshot**: name the single exact working code baseline; confirm current app code/atlas files and known rig export. No previous speculative patch chain or unreconciled file references in the next session. Record checksums. This is not an invitation to redesign or repack textures.
+
+**P1 — Parts editor finish**: draw order, copy/paste variants, solo/hide, independent X/Y scale and stable pivots; Move/Rotate/Scale per-part; no skeleton influence in Parts mode; identity = original rest preview; Undo/Save/Discard/reload all pass on iPhone. Use original six-piece atlas with no texture changes.
+
+**P2 — Rig independence + rebind correctness**: joint drags must leave visible art fixed; neutral pose remains fixed on mode exit/rebind; animation data unchanged; clear before/after warning for poses that will look different. Test all four legs, tail root, neck and body.
+
+**P3 — unified navigation/Display**: move scattered art/ref/red/transparency/mesh/ground controls into one panel and eliminate duplicate/conflicting toggles. Keep the expected thumb-pad and safe-area grammar.
+
+**P4 — Skin/weight controls (then general Character/Animation Library)**: controlled mesh/weights/rebind tests, followed by global descriptor-driven character creation and reusable animation assets. Do not skip P1/P2 and jump straight to automatic re-authoring.
+
+Minimum device regression on each stage: edit one near/far leg and tail; hide/solo and restore; copy position/scale; reorder front/far; adjust rig socket while art stays still; compare neutral before/after binding and Animate Walk/Run/Jump; Save/reload/Discard/Undo; switch to Play and back; pan/pinch at high zoom without accidental artwork changes; check iPhone landscape safe areas. **Only mark acceptance after user checks on device.**
+
+### v1.0.191 status / why the next session must not assume completion
+
+The supplied v1.0.191 ZIP was a **Part Layout restoration candidate**, aimed at the v1.0.173 code base. Its `PART_LAYOUT_README.md` explicitly lists six-region Move/Rotate/**uniform** Scale and Setup persistence; its experimental editor module has no completed draw-order, clipboard, solo/hide, independent XY scale or full independent-rest-rig/rebind workflow. User reports joint manipulation still drags the art and the display/transparency controls are fragmented. Thus P1–P4 above are **not implemented/accepted**; do not mistake code presence for workflow completion.
+
+## P1 progress — v1.0.192 changed-files-only test patch (18 October 2026)
+
+**Starting point:** user explicitly confirmed v1.0.191 was installed, working and ready for new features. `SS-BASE-191-REVIEW` is the frozen matching source and the sole parent of 192. The active six-piece `fox-deform-atlas-v2.png`, rigid atlas, clip banks, rig defaults and gameplay sources are unmodified.
+
+Implemented for the *Fox descriptor as first adopter*, using existing Anim Lab Setup working copies: named selection; bottom-right Move / Rotate / Scale / Pivot; independent X/Y scaling (Free scales both); Fine/axis modifiers; numeric X/Y/Rotation/Width/Height/Pivot X/Pivot Y; stable pivot editing that compensates translation; adjustable **saved draw order**; Copy All, Paste All, Paste Position, Rotation, Scale and Pivot; Copy to near/far counterpart (position/rotation/scale only); Undo/Redo/Save/Discard through existing Setup machinery. Source shapes and animation keys are not edited. Hide, Solo and Show All are **transient, display-only**, do not dirty or save character data, and hidden part names remain selectable. Viewport drag remains pan/zoom only.
+
+**Storage evolution:** Existing `animlab.art-layout.v1` under the Fox Setup key remains readable. Legacy `scale` values become defaults for new `scaleX`, `scaleY`; new optional `pivotX`, `pivotY` default to descriptor pivots; new `order` array defaults to the established six-region rendering sequence. Legacy data are normalised in memory; no localStorage write occurs simply by opening the editor. On explicit Save extended fields persist in Setup. The original scalar `scale` field is retained for backward compatibility, but the current mesh renderer uses scaleX/Y when present.
+
+**Preview:** In Parts, the deform renderer shows the *unskinned* neutral bind vertices with authored transforms, even if the editor previously selected Rigid. This prevents pose-driven part movement during Parts operations; the skeleton and animation controls are unchanged. On leaving Parts, the **existing v191 skinning relationship is still in use**; the artwork can still move when structural Rig joints change and the neutral may not yet stay exactly fixed at a mode boundary. Part art bound geometry is still built from the current rest rig. Proper decoupled part-source/bind storage, independent Rig mode, inverse-bind/rebind and game-runtime use of layer ordering/transforms are **P2/later**, not provided by 192. No assertion of pixel-stable cross-mode reference or of full P1 acceptance until tested on the actual saved Fox in Safari.
+
+**Validation:** JavaScript syntax and a headless Chromium DOM harness (scripts inlined because local host navigation is restricted) passed initial selection, view-only hide/solo, reordering Undo/Redo, transform paste variants, independently changed width, pivot no-jump math, numeric entry, pair copy and no mutation of rig/clip draft. Image loading on the actual PWA, drawing of the live deform atlas, iPhone touch/pinch and Save/reload in installed Safari **remain unverified**. Keep v1.0.191 safe for rollback. This test patch should be applied directly over 191, not over historical rejected patch experiments.
+
+**Next gate:** user tests v1.0.192 on iPhone; repair any regression, then P2 rest-source/art/bind separation. This is an incremental P1 test, not a launch of Character creation or a completed generalised library.
 
 ## Core asset layers
 

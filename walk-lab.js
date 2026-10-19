@@ -255,17 +255,28 @@
     if(!desc?.parts?.length)return null;
     const raw=value?.parts&&typeof value.parts==='object'?value.parts:{};
     const parts={};
+    const ids=desc.parts.map(p=>p.id);
+    // Legacy v1 scalar scale remains readable. Extended fields default to the
+    // exact same identity layout. No changes are written until explicit Save.
     for(const part of desc.parts){
       const candidate=raw[part.id]||{};
-      const x=Number(candidate.x),y=Number(candidate.y),rotation=Number(candidate.rotation),scale=Number(candidate.scale);
+      const finite=(value,fallback)=>Number.isFinite(Number(value))&&value!==null?Number(value):fallback;
+      const scale=clamp(finite(candidate.scale,1),.25,3);
       parts[part.id]={
-        x:clamp(Number.isFinite(x)?x:0,-1.5,1.5),
-        y:clamp(Number.isFinite(y)?y:0,-1.0,1.0),
-        rotation:clamp(Number.isFinite(rotation)?rotation:0,-Math.PI,Math.PI),
-        scale:clamp(Number.isFinite(scale)?scale:1,.25,3)
+        x:clamp(finite(candidate.x,0),-1.5,1.5),
+        y:clamp(finite(candidate.y,0),-1.0,1.0),
+        rotation:clamp(finite(candidate.rotation,0),-Math.PI,Math.PI),
+        scale,
+        scaleX:clamp(finite(candidate.scaleX,scale),.25,3),
+        scaleY:clamp(finite(candidate.scaleY,scale),.25,3),
+        pivotX:clamp(finite(candidate.pivotX,part.pivot?.x||0),-2,2),
+        pivotY:clamp(finite(candidate.pivotY,part.pivot?.y||0),-2,2)
       };
     }
-    return {schema:ART_LAYOUT_SCHEMA,parts};
+    const requested=Array.isArray(value?.order)?value.order:[];
+    const order=[...new Set(requested.filter(id=>ids.includes(id)))];
+    for(const id of ids)if(!order.includes(id))order.push(id);
+    return {schema:ART_LAYOUT_SCHEMA,parts,order};
   }
 
   function loadSetupMap() {

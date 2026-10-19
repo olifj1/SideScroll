@@ -15,6 +15,60 @@
 
 # SideScroll Development Tasks
 
+## October 18, 2026 — Approved Character Authoring workflow redesign (P1 TEST PATCH 1.0.192; unaccepted on iPhone)
+
+**Source of truth:** `SIDESCROLL_CHARACTER_AUTHORING.md` → **Approved next design — coherent character-authoring workflow**. **Cross-system rules:** `SIDESCROLL_ENGINE_UX_BIBLE.md` → **Authoring stages and unified Display**. This checklist tracks work/acceptance; do not reimplement it as a Fox-only tool. The user confirms v1.0.191 is installed and working; `SS-BASE-191-REVIEW` matches it and is frozen as the sole parent of test patch 1.0.192. Versions 174–190 are not an implicit approved chain; no new patch is approved merely because it has a higher number.
+
+### Gate 0 — clean source / safety before any feature work
+- [x] User confirms installed/working v1.0.191; source-hash comparison complete and `SS-BASE-191-REVIEW` frozen. **Safari local saved rig/layout/animations are not included in ZIP**; do not overwrite or clear them.
+- [x] Source checksums, atlas rects and v1.0.191 code/storage-schema documented in `BASELINE_STATUS.md`; browser-local saved Part Layout/export still need user testing. No rejected patch chain used.
+- [ ] Compare identity/neutral, Walk, Run and Jump renders to original reference on-device before changing rendering code. Separate visual target from baseline renderer.
+- [x] v1.0.192 ZIP includes `README.md`, canonical docs and only files actually changed from frozen 191 source.
+
+### v1.0.192 initial implementation (code and DOM checks passed; **NOT device accepted**)
+- [x] Named Fox six-part selector remains active; bottom-right pad moves, rotates, scales on Free/X/Y and adjusts pivot (with stable-image translation compensation). Direct viewport part dragging stays off.
+- [x] Numeric X/Y, angle, independent width/height and pivot fields. Older uniform `scale` layouts load with matching X/Y scale; no auto-save on open.
+- [x] Persistent six-part order (forward/back/top/bottom) and reordered deform rendering in Anim Lab; **not yet consumed by gameplay**.
+- [x] Copy part, Paste all/position/rotation/scale/pivot, and Copy to near/far pair, one Setup undoable action each.
+- [x] Hide/Solo/Show All implemented as transient display state only; **never dirty/persist**. Hidden parts remain in selection list.
+- [x] Parts renderer displays unskinned neutral vertices, leaving joint and animation data untouched by Parts edits.
+- [x] Syntax checked + inlined headless Chromium DOM interaction tests; actual image/PWA and iPhone tests not yet completed.
+- [ ] Accept visual consistency between legacy Setup, new neutral Parts and animated/Rig appearance on the device. P2 still required for true art-vs-rig independence on joint changes.
+- [ ] Test Safari PWA Save/Discard/reload, numeric keyboard, pad/touch/pan/pinch, wireframe, dynamic draw order, all six cutout art regions, and rollback behaviour.
+
+### P1 — Parts authoring is independently controllable (first implementation)
+- [ ] Left-side named part selection for Body+Head, Tail, four independent legs; pad Move/Rotate/Scale, with optional non-destructive viewport selection and no accidental part drag.
+- [ ] X/Y movement, linked/unlinked X/Y scale, rotation, numeric entry, pivot editor (no jump), individual reset and layout reset.
+- [ ] Editable persistent **draw order** / reorder controls, deterministic render order, near/far ordering check.
+- [ ] **Copy/Paste Transform** and position-only, rotation-only, scale-only paste; near/far counterpart operations; one undo per action.
+- [ ] **Hide / Solo / Restore All** as view-only controls; hidden parts stay selectable; no runtime/editor-save side effects.
+- [ ] During Part editing freeze skeleton/rest joints; allow artwork movement with no joint response. Identity view matches original unmodified neutral display.
+- [ ] iPhone regression: Move/rotate/scale each leg and tail, reset, reorder, clipboard, solo/hide, Save/Discard/Undo/Redo/reload and safe-area/pinch tests. Mark acceptance **only after user approval**.
+
+### P2 — independent structural Rig and trustworthy bind preview
+- [ ] Rig mode rest joint drags move only joints; **artwork stays pixel-still**, regardless of skin or IK overlay.
+- [ ] Rebind/preview uses explicitly recorded art layout + rest rig with inverse rest matrices; at neutral, art does not jump when leaving Rig.
+- [ ] Existing keyframes, Paw IK targets, collider and game character choice are unchanged unless separate explicit authoring action; warn about altered posed appearance.
+- [ ] Save/Discard/Undo round-trip, mode-switch, near/far legs, hip, shoulder, neck and tail-root tests on iPhone.
+
+### P3 — unified authoring navigation and Display
+- [ ] Top-level **Character → Parts → Rig → Skin/Bind → Animate → Play** flow with mode-specific inspector. Do not duplicate competing ownership controls.
+- [ ] Single collapsible Display area: art visibility/opacity, static red/source reference + opacity, motion reference, bones, part outlines, mesh/weights, ground/ruler, optional bind proof/difference. Default Bind Proof **off**.
+- [ ] Retain one linked animation transport + optional unlinked motion-reference transport only where needed; hide timeline for layout/rig unless diagnostic playback is deliberately selected.
+- [ ] Follow Asset Lab shared appearance, reusable inspector controls, safe areas, list-left/pad-right, collapse state, non-dirty display toggles.
+- [ ] Touch/gesture, Save/Discard, pan/zoom and accidental-move regression on actual iPhone.
+
+### P4 — Skin/Bind and global character authoring
+- [ ] Explicit per-region mesh/UV/weight editing with view-only diagnostics; keep source pixels, rest rig, Part Layout and animation independent.
+- [ ] Separate Preview Bound from explicit Rebind, back up edited weights and do not regenerate skin data silently.
+- [ ] Generalise through rig-family/character descriptors; adopt Hero 1/Hero 2 without Fox-specific shortcuts.
+- [ ] Continue the already-documented animation library / Character Library / template-vs-unique flow, then game selector and art replacement round-trip.
+- [ ] Device performance, save/export/import/migration and play-runtime acceptance tests.
+
+**Explicitly OUT of scope for the first next release:** texture repainting/repacking, new atlas crops, hidden rig/data migrations, new animations, unnecessary gameplay changes, full library system and a sweeping UI rewrite. Do P1 in bounded testable increments.
+
+
+
 ## October 12, 2026 — v1.0.146 Anim Lab Stage 2 corrective pass
 
 **Current status:** on-device review exposed two Stage 2 regressions rather than a new feature need: per-character scale was capped too narrowly and saved only as editor metadata, so Play never consumed it; Anim Lab also drifted from the agreed Asset Lab visual grammar. v1.0.146 corrects those foundations before Stage 4.

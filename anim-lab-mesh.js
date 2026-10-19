@@ -596,25 +596,36 @@
     ctx.restore();
   }
 
-  // Part Layout is a non-destructive, per-region post-skin art transform.
-  // It never changes joints, mesh topology, UV rectangles or source textures.
+  // Part Layout transforms are authored against a neutral, unskinned bind-space
+  // view. Outside Parts the legacy v191 posed binding is intentionally retained
+  // until the separate P2 Rig/Rebind stage. No UV/texture/key changes.
   const PART_PIVOTS = Object.freeze({bodyHead:'midRoot',tail:'tail0',
     frontNear:'frontNearRoot',frontFar:'frontFarRoot',rearNear:'rearNearRoot',rearFar:'rearFarRoot'});
-  function layoutVertex(point,regionId,poseGeom,artLayout){
+  function layoutVertex(point,regionId,poseGeom,artLayout,partsMode){
     const tr=artLayout?.parts?.[regionId];
     if(!tr)return point;
     const dx=Number(tr.x)||0,dy=Number(tr.y)||0;
-    const s=Math.max(.25,Math.min(3,Number(tr.scale)||1)),r=Number(tr.rotation)||0;
-    if(!dx&&!dy&&s===1&&!r)return point;
-    const pivot=poseGeom[PART_PIVOTS[regionId]]||{x:0,y:0};
+    const fallback=Number(tr.scale)||1;
+    const sx=clamp(Number(tr.scaleX)||fallback,.25,3),sy=clamp(Number(tr.scaleY)||fallback,.25,3);
+    const r=Number(tr.rotation)||0;
+    if(!dx&&!dy&&sx===1&&sy===1&&!r)return point;
+    const desc=FoxRig.ART_LAYOUT_DESIGNER?.parts?.find(p=>p.id===regionId);
+    // Parts use a fixed rest-space pivot. For Animate preserve v191's posed
+    // joint-based pivot for old saved layouts; new pivot edits are offsets
+    // from that original joint, pending true independent P2 skin rebind.
+    const restPivot=desc?.pivot||{x:0,y:0};
+    const selected={x:Number.isFinite(Number(tr.pivotX))?Number(tr.pivotX):restPivot.x,
+      y:Number.isFinite(Number(tr.pivotY))?Number(tr.pivotY):restPivot.y};
+    const posed=poseGeom[PART_PIVOTS[regionId]]||restPivot;
+    const pivot=partsMode?selected:{x:posed.x+selected.x-restPivot.x,y:posed.y+selected.y-restPivot.y};
     const x=point.x-pivot.x,y=point.y-pivot.y,c=Math.cos(r),sn=Math.sin(r);
-    return {x:pivot.x+dx+(x*c-y*sn)*s,y:pivot.y+dy+(x*sn+y*c)*s};
+    return {x:pivot.x+dx+x*sx*c-y*sy*sn,y:pivot.y+dy+x*sx*sn+y*sy*c};
   }
-  function renderRegion(args,region,poseGeom){
+  function renderRegion(args,region,poseGeom,partsMode){
     const {ctx,view}=args;
     const dst=region.vertices.map(v=>projectLocal(layoutVertex(
-      region.binding==='chain'?chainVertex(v,region,poseGeom):weightedVertex(v,region,poseGeom),
-      region.id,poseGeom,args.setup?.artLayout),view));
+      partsMode?v.bind:(region.binding==='chain'?chainVertex(v,region,poseGeom):weightedVertex(v,region,poseGeom)),
+      region.id,poseGeom,args.setup?.artLayout,partsMode),view));
     for(const tri of region.triangles){
       const v0=region.vertices[tri[0]],v1=region.vertices[tri[1]],v2=region.vertices[tri[2]];
       drawTriangle(ctx,region.texture,v0.uv,v1.uv,v2.uv,dst[tri[0]],dst[tri[1]],dst[tri[2]],args.alpha??1);
@@ -623,13 +634,24 @@
   }
 
   function render(args){
-    if(mode!=='mesh'||args.adapter?.id!=='fox'||!args.atlas)return false;
+    if(args.adapter?.id!=='fox'||!args.atlas)return false;
+    const editor=core.getState();
+    const partsMode=editor.mode==='setup'&&editor.setupTool==='art';
+    if(mode!=='mesh'&&!partsMode)return false;
     const restRig=args.restRig||args.setup?.rig||FoxRig.loadRestRig?.()||FoxRig.DEFAULT_REST_RIG;
-    const poseGeom=FoxRig.geometry(args.pose,restRig);
+    const poseGeom=FoxRig.geometry(partsMode?BIND_POSE:args.pose,restRig);
     const regions=regionsFor(args.atlas,restRig);
+    const layout=args.setup?.artLayout,display=partsMode?window.AnimLabPartLayoutDisplay:null;
+    const solo=display?.getSolo?.()||null;
+    const order=Array.isArray(layout?.order)?layout.order:REGION_DEFS.map(r=>r.id);
+    const byId=new Map(regions.map(region=>[region.id,region]));
     args.ctx.save();
     args.ctx.imageSmoothingEnabled=true;
-    for(const region of regions)renderRegion(args,region,poseGeom);
+    for(const id of order){
+      const region=byId.get(id);
+      if(!region||display?.isHidden?.(id)||(solo&&id!==solo))continue;
+      renderRegion(args,region,poseGeom,partsMode);
+    }
     args.ctx.restore();
     return true;
   }
@@ -638,9 +660,11 @@
     const visible=state.family==='fox';
     section.hidden=!visible;
     if(lastFamily!==state.family){lastFamily=state.family;}
+    const partsMode=state.mode==='setup'&&state.setupTool==='art';
     modeButtons.forEach(btn=>{
-      const active=btn.dataset.meshMode===mode;
+      const active=btn.dataset.meshMode===(partsMode?'mesh':mode);
       btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));
+      btn.disabled=partsMode;
     });
     wireBtn.classList.toggle('active',wireframe);wireBtn.setAttribute('aria-pressed',String(wireframe));wireBtn.disabled=mode!=='mesh';
     inspectBtn.disabled=mode!=='mesh'||!wireframe;
