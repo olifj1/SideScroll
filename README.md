@@ -1,31 +1,32 @@
-# SS-PATCH-1.0.203 — one-tap Project Export (iPhone UX correction)
+# SS-PATCH-1.0.204 — Lab Export Coverage (Stage A)
 
-**Install over v1.0.202.** Only seven changed files. Leave locally saved SideScroll/Safari data untouched.
+**Install directly over v1.0.203.** This patch contains only changed files. It **does not** reset or migrate existing SideScroll browser data or alter any PNGs, playable world code, characters or animation keys.
 
-## Where to find it
+## What's new
 
-**Home → Menu → Project Backup → Export Project.**
+- **Puzzle Lab → Lab Data:** Export Puzzle Data / Import Puzzle Data (reusable puzzle definitions, groups, puzzle sandbox state, player puzzle state and other saved puzzle keys).
+- **Asset Lab → Data (bottom of inspector):** Export Asset Data / Import Asset Data (all saved asset settings).
+- **Anim Lab → Character Library → Load → All Anim Lab data:** Export All Anim Lab Data / Import All Anim Lab Data (library and built-ins, clips, rigs, skin, editor settings). No extra buttons in the primary New / Load / Save toolbar. Bulk import is disabled while a character has unsaved edits or Play is active.
+- Each exported file is a **real `.json` attachment**, handled with the native iPhone Share → Save to Files flow like Project Backup. Download fallback if file sharing unavailable. Exports do not modify saved work.
+- **Import** validates matching Lab, supported keys, entry sizes and manifest, gives a preview of new/overwritten entries, requires confirmation, and attempts rollback on any write failure. Existing keys absent from an import are **not** deleted. Do **not** run imports during ordinary export testing; they can overwrite newer work.
+- **World Lab's Complete Game export format v3** includes independently saved Puzzle Lab sandbox keys, player puzzle state, and the live Design Lab v2 working document (also preserving v1 legacy data). World Lab still accepts older v1/v2 exports.
+- **Project Backup** now includes two older SideScroll/WalkLab-prefixed keys that the previous filter listed as excluded, *if* they are still stored on your phone.
+- New `SIDESCROLL_EXPORT_COVERAGE.md` tracks which Lab owns each dataset and remaining gaps; all three canonical docs updated.
 
-Save your work in the individual Labs first. When the Project Backup page opens, it prepares a real `.json` file containing the saved project data and enables **Export Project**. Tap once: on supported iPhone Safari/PWA setups, the native iOS share sheet opens just like the working World Lab, Anim Lab and Design Lab exports. Choose **Save to Files**, then attach the JSON to the chat. Do not use the iOS "copy text" action.
+## What to test
 
-If the native file-sharing API is unavailable, a normal JSON download is attempted and a **Download JSON** fallback link appears. If sharing fails, the fallback link appears without pretending that the export was saved. If the user cancels, nothing is saved and no fallback is forced.
+1. Keep your v203 Global Snapshot in iCloud Drive.
+2. Patch v204, then **save current work in your Labs**. Open Puzzle Lab, Asset Lab, Anim Lab (Load menu) and try each *Export* button. Each should produce one file: `SS-LAB-PUZZLES-...json`, `SS-LAB-ASSETS-...json`, `SS-LAB-CHARACTERS-...json`.
+3. Export World Lab → Complete Game. Export Project Backup once more if you want the additional older keys captured.
+4. For now **do not press Import** on your working iPhone unless intentionally restoring. Share the files if you want a cross-check of the resulting Lab formats.
 
-## Corrected behaviour
+## Scope/limits
 
-v202 created a blob with a programmatic click *after awaiting* a potentially long storage scan. It also separately offered a Share action with a text title; on some iPhone sharing routes, this can result in a `text(3).txt` containing only "SideScroll Project Snapshot" instead of the JSON attachment.
+This is **Stage A**, not yet Global Restore. The Global Snapshot remains audit/export-only. Lab data files capture **browser-stored values**, not source PNG pixels or files stored outside the browser; **unsaved edits are never included**. New character artwork uses bundled placeholder files. Independent Hero 1/Hero 2 handoffs, imported-art packaging, IndexedDB review, full global restore and GitHub build promotion are outstanding.
 
-v203 fixes the export handoff rather than changing underlying saved data:
-- The project snapshot is assembled as an actual JSON File while the page loads.
-- Tapping **Export Project** immediately calls `navigator.share({ files: [jsonFile] })` **inside the click handler**, with no title or text.
-- A single primary button; preview, secondary Share and automatic background downloads have been removed.
-- The exported JSON is validated for the expected schema and has a nonempty file body before sharing. Status displays captured-key count and size.
-- The previous v202 scope/manifest/raw storage contents, SHA-256 where supported, and original key filtering are preserved. This change makes **no** browser storage writes.
-- The service worker version is updated to `sidescroll-runtime-v203` to load the new export page/script offline.
+## Automated checks
 
-## Still an audit snapshot, not a verified restore
-
-This is a read-only snapshot of SideScroll-related localStorage/sessionStorage values and an audit manifest. No restore yet. Browser game files, externally referenced images, IndexedDB records and unsaved editor changes are not backed up. Keep individual Lab exports as well. Do **not** clear Safari website data.
-
-## Validation
-
-Node syntax check and desktop Chromium headless checks of the page, populated saved data and export behaviour. iOS share-sheet behaviour must be confirmed on the user's actual iPhone.
+- Node syntax checks for touched JavaScript.
+- Headless Chromium with the exact uploaded v203 Snapshot values: Puzzle (32 entries), Assets (7), Anim (18), all with byte-preserving export → import roundtrip and out-of-scope import rejection.
+- Headless Chromium running real World Lab JS: v3 JSON has 15 independent Puzzle Lab keys plus live v2/legacy v1 design documents; importing v3 restores sandbox and v2 Design Lab values.
+- **Still requires device approval:** actual iPhone PWA share sheet, import review UI, and preservation of local app state after reload.

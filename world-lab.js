@@ -31,7 +31,8 @@
     renderPost:'sidescroll.render.post.v1',
     audio:'sidescroll.audio.settings.v1',
     conceptLab:'ss-concept-lab-state-v1',
-    designLab:'sidescroll-design-doc-working-v1',
+    designLab:'sidescroll-design-doc-working-v2',
+    designLabLegacy:'sidescroll-design-doc-working-v1',
     animClips:'gamehub.walklab.anim.v6',
     animWalk:'gamehub.walklab.anim.v4',
     biomes:'sidescroll.biomes.v1',
@@ -2048,6 +2049,20 @@
     return loadJson(key,fallback);
   }
 
+  // v204: capture the puzzle sandbox's independent saved keys without
+  // parsing or dropping legacy fields. This supplements the structured world
+  // handoff, rather than changing the legacy v2 mappings.
+  function capturePuzzleLabStorage(){
+    const saved=[];
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(!/^sidescroll\.puzzle-lab\./i.test(key))continue;
+      const value=localStorage.getItem(key);
+      if(value!==null)saved.push({key,value});
+    }
+    return saved.sort((a,b)=>a.key.localeCompare(b.key));
+  }
+
   function completeGameDesignExportPayload(){
     refreshGameData();
     const bakedWorld=clone(baked?.world||{});
@@ -2058,8 +2073,8 @@
     }));
     return {
       format:'SideScrollGameDesign',
-      formatVersion:2,
-      appVersion:'1.0.140',
+      formatVersion:3,
+      appVersion:'1.0.204',
       exportedAt:new Date().toISOString(),
       purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
       world:{
@@ -2082,7 +2097,11 @@
         runtimeState:clone(state.puzzleState),
         savedStarts:clone(state.puzzleStarts),
         workshop:exportStore(STORAGE.puzzleWorkshop,{}),
-        exclusions:exportStore(STORAGE.puzzleExclusions,{})
+        exclusions:exportStore(STORAGE.puzzleExclusions,{}),
+        // Puzzle Lab's isolated edits and settings are not all part of its
+        // World Group library. Include them so World export is not lossy.
+        labStorage:capturePuzzleLabStorage(),
+        playerPuzzleState:exportStore('sidescroll.player.puzzle-state.v1',null)
       },
       assets:{
         behaviourOverrides:exportStore(STORAGE.assetBehaviours,{}),
@@ -2109,6 +2128,7 @@
       labs:{
         concept:exportStore(STORAGE.conceptLab,null),
         design:exportStore(STORAGE.designLab,null),
+        designLegacy:exportStore(STORAGE.designLabLegacy,null),
         animationClips:exportStore(STORAGE.animClips,null),
         animationWalk:exportStore(STORAGE.animWalk,null)
       },
@@ -2159,7 +2179,17 @@
         if(!confirm('This is an older World Elements-only export. Import its World Elements into the current project?'))return;
         writeImportedStore(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:list});
       }else if(parsed?.format==='SideScrollGameDesign'){
-        if(!confirm('Import this complete SideScroll game snapshot? Current local authored data will be replaced where the export contains data.'))return;
+        // Reject malformed supplemental keys BEFORE the first storage write.
+        if(parsed.formatVersion>=3 && parsed?.puzzles?.labStorage!==undefined){
+          if(!Array.isArray(parsed.puzzles.labStorage)||parsed.puzzles.labStorage.length>100)throw new Error('Invalid Puzzle Lab storage list.');
+          const ids=new Set();
+          for(const item of parsed.puzzles.labStorage){
+            if(!item||typeof item.key!=='string'||!/^sidescroll\.puzzle-lab\./i.test(item.key)
+                ||typeof item.value!=='string'||ids.has(item.key))throw new Error('Invalid Puzzle Lab storage entry.');
+            ids.add(item.key);
+          }
+        }
+        if(!confirm('Import this complete SideScroll game design? Current saved world, puzzle, asset and related Lab data may be overwritten. Back up your current project first. Continue?'))return;
         const worldElements=Array.isArray(parsed?.world?.elements)?parsed.world.elements:null;
         if(worldElements)writeImportedStore(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:worldElements});
         if(parsed?.world?.biomes!==undefined)writeImportedStore(STORAGE.biomes,parsed.world.biomes);
@@ -2173,6 +2203,18 @@
         if(parsed?.puzzles?.savedStarts!==undefined)writeImportedStore(STORAGE.puzzleStarts,parsed.puzzles.savedStarts);
         if(parsed?.puzzles?.workshop!==undefined)writeImportedStore(STORAGE.puzzleWorkshop,parsed.puzzles.workshop);
         if(parsed?.puzzles?.exclusions!==undefined)writeImportedStore(STORAGE.puzzleExclusions,parsed.puzzles.exclusions);
+        // Only restore known Puzzle Lab-owned keys. Do not interpret or
+        // accidentally overwrite unrelated origin-wide storage entries.
+        if(parsed.formatVersion>=3 && Array.isArray(parsed?.puzzles?.labStorage)){
+          const seen=new Set();
+          for(const entry of parsed.puzzles.labStorage){
+            if(!entry||typeof entry.key!=='string'||!/^sidescroll\.puzzle-lab\./i.test(entry.key)
+                ||typeof entry.value!=='string'||seen.has(entry.key))throw new Error('Invalid Puzzle Lab entries in import.');
+            seen.add(entry.key);
+          }
+          for(const entry of parsed.puzzles.labStorage)localStorage.setItem(entry.key,entry.value);
+        }
+        if(parsed?.puzzles?.playerPuzzleState!==undefined)writeImportedStore('sidescroll.player.puzzle-state.v1',parsed.puzzles.playerPuzzleState);
         if(parsed?.assets?.behaviourOverrides!==undefined)writeImportedStore(STORAGE.assetBehaviours,parsed.assets.behaviourOverrides);
         if(parsed?.assets?.collisionDefaults!==undefined)writeImportedStore(STORAGE.assetCollisions,parsed.assets.collisionDefaults);
         if(parsed?.assets?.climbPaths!==undefined)writeImportedStore(STORAGE.assetClimbPaths,parsed.assets.climbPaths);
@@ -2190,7 +2232,10 @@
         if(parsed?.render?.post!==undefined)writeImportedStore(STORAGE.renderPost,parsed.render.post);
         if(parsed?.audio!==undefined)writeImportedStore(STORAGE.audio,parsed.audio);
         if(parsed?.labs?.concept!==undefined)writeImportedStore(STORAGE.conceptLab,parsed.labs.concept);
-        if(parsed?.labs?.design!==undefined)writeImportedStore(STORAGE.designLab,parsed.labs.design);
+        // v1/v2 stored the old v1 Design Lab document under `design`.
+        // v3 uses the live working v2 document and preserves v1 separately.
+        if(parsed?.labs?.design!==undefined)writeImportedStore(parsed.formatVersion>=3?STORAGE.designLab:STORAGE.designLabLegacy,parsed.labs.design);
+        if(parsed?.labs?.designLegacy!==undefined)writeImportedStore(STORAGE.designLabLegacy,parsed.labs.designLegacy);
         if(parsed?.labs?.animationClips!==undefined)writeImportedStore(STORAGE.animClips,parsed.labs.animationClips);
         if(parsed?.labs?.animationWalk!==undefined)writeImportedStore(STORAGE.animWalk,parsed.labs.animationWalk);
         if(parsed?.player?.position!==undefined)writeImportedStore(STORAGE.player,parsed.player.position);

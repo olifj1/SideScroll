@@ -6,9 +6,11 @@
   'use strict';
 
   const SCHEMA = 'sidescroll.project-snapshot.v1';
-  const APP_VERSION = '1.0.203';
+  const APP_VERSION = '1.0.204';
   const RELATED_EXACT_KEYS = new Set([
     'gameHubProgress',
+    'gamehub.sidescroll.scene.v2',
+    'gamehub.walklab.character.v1',
     'ss-concept-lab-state-v1',
     'gamehub.walklab.anim.v4',
     'gamehub.walklab.anim.v5',

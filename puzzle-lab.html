@@ -101,11 +101,20 @@
       <span class="pl-kicker">LAB DATA</span>
       <h2>Disposable test state</h2>
       <p class="pl-copy">Set Start, puzzle runtime state and sandbox scene edits use Puzzle Lab-only storage. Asset defaults such as collision and the Climbable behaviour remain shared intentionally, because they define the reusable asset itself.</p>
+      <div data-ss-lab="puzzles" style="margin:12px 0;padding:12px;border:1px solid rgba(150,200,190,.28);border-radius:10px;display:grid;gap:8px">
+        <strong>Saved puzzle data</strong>
+        <p class="pl-copy">Export all saved puzzles, puzzle templates, group data and Puzzle Lab work. Import only after keeping a copy of your current data. Doesn't include scene placements; use World Lab for those.</p>
+        <button type="button" class="pl-secondary" data-ss-export>Export Puzzle Data</button>
+        <button type="button" class="pl-secondary" data-ss-import>Import Puzzle Data</button>
+        <input type="file" data-ss-import-file accept=".json,application/json" hidden>
+        <small data-ss-status role="status" aria-live="polite"></small>
+      </div>
       <button class="pl-danger" id="pl-reset-lab" type="button">Reset Puzzle Lab Test Data</button>
     </section>
   </main>
 
   <script src="puzzle-groups.js?v=1.0.68"></script>
   <script src="puzzle-lab.js?v=1.0.70"></script>
+  <script src="lab-data.js?v=1.0.204"></script>
 </body>
 </html>

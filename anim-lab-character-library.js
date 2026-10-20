@@ -51,6 +51,14 @@
         <input id="animlab-library-import" type="file" accept=".json,application/json" aria-label="Import character JSON">
       </label>
       <small class="animlab-library-footnote">Built-in characters remain part of the game. Your new characters save in this browser; export a JSON backup before clearing website data.</small>
+      <div data-ss-lab="characters" class="animlab-library-import" style="border-top:1px solid rgba(150,200,190,.3);padding-top:9px;margin-top:8px">
+        <strong>All Anim Lab data</strong>
+        <small>Backup all saved characters, built-in edits, animation clips, rigs and editor settings together. Image pixels are not included.</small>
+        <button type="button" data-ss-export class="animlab-library-action">Export All Anim Lab Data</button>
+        <button type="button" data-ss-import class="animlab-library-action">Import All Anim Lab Data</button>
+        <input type="file" data-ss-import-file accept=".json,application/json" hidden>
+        <small data-ss-status role="status" aria-live="polite"></small>
+      </div>
     </div>
     <div class="animlab-library-panel" id="animlab-library-save" hidden>
       <div class="animlab-library-panel-heading"><strong>Save character</strong><button type="button" data-library-close aria-label="Close Save character">×</button></div>
@@ -128,6 +136,8 @@
     lastCharacterId=state.characterId;
     create.disabled=dirty||state.mode==='play'||customCount>=24;
     importInput.disabled=dirty||state.mode==='play'||customCount>=24;
+    const importAll=section.querySelector('[data-ss-lab=characters] [data-ss-import]');
+    if(importAll)importAll.disabled=dirty||state.mode==='play';
     refreshSave(state);
     // The list is intentionally populated only when Load is opened, rather
     // than rebuilding buttons during animated viewport redraws.

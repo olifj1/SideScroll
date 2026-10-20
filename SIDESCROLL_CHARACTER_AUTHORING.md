@@ -427,3 +427,12 @@ Project Backup is a **read-only, snapshot/audit tool** accessible from Home → 
 ### Project export handoff UX correction — v1.0.203 (20 October 2026)
 
 The v202 Project Snapshot's captured data schema and scope are unchanged. In v203, `project-snapshot.js` prepares a real `.json` `File` **before** the user's export tap so `navigator.share({files:[file]})` is called synchronously from that tap, with no `title`/`text` field. This matches the working Lab export path and avoids the report of `text(3).txt` containing only the share title. The manual preview, redundant secondary Share action and automatic-click-on-prepared-file were removed in favour of one **Export Project** button, a status/count/size indication and a real JSON download fallback. No restoration, uncommitted data capture, asset embedding or character data mutation was added.
+
+
+## 20 Oct 2026 — v1.0.204 Lab Data Export / Import coverage (Stage A)
+
+- New `lab-data.js` offers scoped exact-string Lab exports for Puzzle Lab, Asset Lab and the **whole** Anim Lab (in Character Library → Load; top-level New / Load / Save unchanged). Payload `sidescroll.lab-data.v1`; all current and legacy saved keys in the selected Lab, manifest of count/UTF-8 bytes. Import validates scope, duplicate keys and sizes; explicit add/overwrite preview; rollback attempt if any localStorage write fails; unspecified keys preserved. Imports should only follow off-device exports and user intent.
+- World Lab **Game Design export v3** extends v2 with isolated Puzzle Lab saved keys and player puzzle runtime, plus the active v2 Design Lab working document and an explicit v1 legacy copy. v1/v2 import compatibility is maintained. The World's format is NOT identical to Global Snapshot or the new lab-scoped format.
+- Global Snapshot exporter v204 also recognises legacy `gamehub.sidescroll.scene.v2` and `gamehub.walklab.character.v1` (if present). Do not auto-migrate these raw values.
+- The saved-data exports **do not embed art PNGs, imported image pixels, bundled resources or IndexedDB**. Save current edits before export. Project Backup is still read-only, **not an approved full restore**. GitHub packaged baseline defaults will need a deliberate promotion/migration pipeline; local work must not be silently overwritten.
+- Machine-readable key/source mapping and exact test outcomes live in `SIDESCROLL_EXPORT_COVERAGE.md`. iPhone Safari approval pending. Next: verified global restore with preview/rollbacks, artwork packaging and per-character export parity.

@@ -203,6 +203,16 @@
         <div id="assetlab-behaviours" class="assetlab-behaviours"></div>
       </section>
 
+      <section data-ss-lab="assets" class="assetlab-control-section" style="display:grid;gap:8px">
+        <div class="assetlab-control-heading"><small>DATA</small><strong>Asset Lab backup</strong></div>
+        <p class="assetlab-note">All saved asset behaviours, collisions, paths, sockets, layouts and mechanisms. Bundled texture pixels are not included.</p>
+        <div class="assetlab-button-row">
+          <button type="button" data-ss-export>Export Asset Data</button>
+          <button type="button" data-ss-import>Import Asset Data</button>
+        </div>
+        <input type="file" data-ss-import-file accept=".json,application/json" hidden>
+        <small class="assetlab-note" data-ss-status role="status" aria-live="polite"></small>
+      </section>
       <div class="assetlab-bottom-actions">
         <button type="button" id="assetlab-reset" class="assetlab-danger">Reset Asset Defaults</button>
         <a href="play.html" class="assetlab-game-link">Open Build / Test →</a>
@@ -213,5 +223,6 @@
   <script src="site-config.js?v=1.0.62"></script>
   <script src="core.js?v=1.0.62"></script>
   <script src="asset-lab.js?v=1.0.100"></script>
+  <script src="lab-data.js?v=1.0.204"></script>
 </body>
 </html>
