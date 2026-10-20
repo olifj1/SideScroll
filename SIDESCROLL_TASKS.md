@@ -1,7 +1,25 @@
 ## October 19, 2026 — v1.0.200 unified Character Library and sidebar patch (iPhone acceptance pending)
 
+## v1.1.2 — Atlas Stage B: constructors, management and inspector ergonomics (20 October 2026)
+
+- [x] Remove short nested Source meshes scrollbar for <=14 meshes; retain scrolling via outer inspector and cap long lists when 15+ meshes.
+- [x] Separate Navigate (Pan/Fit/zoom), Create mesh (Rectangle, Outline spline, Spline strip), and Edit selected mesh (Vertices/Rename/Duplicate/Delete), avoiding a mixed toolbar.
+- [x] Explain Rectangle Across/Down as **columns/rows of grid cells**, not pixel size. Across 2 × Down 2 = 3 × 3 vertices / 8 triangles.
+- [x] Make selected and nonselected wireframe strokes finer, darker and semitransparent; add All / Selected / Off mode (browser-local preference, never dirties an authored character).
+- [x] Closed outline spline created from perimeter taps, interpolated curve, ear-clipping triangulation and optional interior triangle density; reject obvious self-intersections and oversized shapes.
+- [x] Centreline spline-strip with per-vertex generated UV positions, width/tip taper and along/across cell density.
+- [x] Rename, duplicate with fresh ID, delete confirmation for Atlas-authored meshes only; legacy Fox source meshes remain read-only; all operations use Atlas Undo/Redo/Save/Discard.
+- [x] Chromium headless mobile landscape harness (844×390) covered existing legacy read-only entries, two rectangle cell counts, outline and strip geometry index bounds, management undo/redo, Save, no browser exceptions; Node syntax parsed.
+- [ ] iPhone acceptance: outer scroll reveals entire six-region Fox list without an inner scroll; pan/pinch/zoom; tap outline path and finish; draw strip; edit vertices; verify Undo/Redo/Save/Discard and switching Parts/Rig without visual/data drift.
+- [ ] Strong next stage: existing spline shape control-node editing + parameter regeneration; safely promote authored atlas sources to Parts/Skin with per-family capabilities and explicit (undoable) bind; do not convert or overwrite legacy Fox meshes implicitly.
+- [ ] End-to-end art portability: iPhone PNG byte export/restore and GitHub-relative source selection; only then accept cross-device Custom Character roundtrip.
+
+**Export/storage status:** new constructor metadata and mesh actions use existing `sidescroll.animlab.atlas-docs.v1` localStorage schema `animlab.atlas-document.v1`; exported saved text includes it, but original image bytes still reside only in device IndexedDB. No new input image files, character/bind conversions, or gameplay changes. iPhone Safari validation pending.
+
+
 ## October 20, 2026 — v1.1.1 Atlas preview polish (iPhone review pending)
 
+- [x] Corrected v1.1.1 release packaging: refresh repository-root `README.md` (previously stuck at v1.0.205) and `README.txt` (previously 1.0.184), keep the versioned patch README, and formalise these requirements in the Engine UX Bible; no runtime/code changes for this documentation correction.
 - [x] Dark solid transparent-pixel preview is now the default; optional checkerboard via Atlas-specific preference `sidescroll.animlab.atlas-view.v1`, with no alpha/image or character-data mutations.
 - [x] Hide the shared assembled-character Display panel only while Atlas is active; restore its pre-existing control state on return to other stages.
 - [x] Thin selected mesh edges, colour selected gold instead of increasing stroke weight, do not fill/obscure the image, draw shared triangle edges only once, small handles only while using Vertices tool.

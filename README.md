@@ -1,3 +1,36 @@
+# SideScroll — Current release: v1.1.2 (Anim Lab Atlas Stage B)
+
+**Install chain:** existing working v1.0.205 → `SS-PATCH-1.1.0.zip` → `SS-PATCH-1.1.1.zip` → **`SS-PATCH-1.1.2.zip`**. All are flat changed-files-only ZIPs: upload their contents to your GitHub Pages repository root. Existing media files and browser storage must not be replaced or cleared. If installed on iPhone as a PWA, reopen/reload after GitHub Pages updates so the new service-worker cache (`sidescroll-runtime-v112`) takes effect.
+
+## Atlas workflow and controls
+
+The Anim Lab sequence is **Atlas → Parts → Rig → Skin → Animate → Play**. Atlas is a pixel-space mesh/texture editor: a mesh's source vertices determine UV mapping automatically; there is no second UV edit view. **Parts** remains the independent assembled-character editing workspace and has not been modified.
+
+- **v1.1.0:** isolated Atlas preview, view existing six Fox meshes read-only, create rectangular meshes with cell subdivisions, move vertices, Undo/Redo/Save/Discard, locally import an alpha PNG (IndexedDB).
+- **v1.1.1:** dark/optional checker background for transparent pixels, hide unrelated common Display controls only while in Atlas, smaller single-pass wireframe overlay.
+- **v1.1.2:** taller Source meshes list without a small nested scroll (up to 14 entries); grouped Navigate, Create mesh and Edit selected mesh controls; finer muted wireframes with All/Selected/Off preview; new Outline spline and Spline strip construction and mesh Rename/Duplicate/Delete for newly authored meshes. **Rectangle Across and Down count grid cells**, so `2 × 2` gives a 3 × 3 point grid (9 vertices, 8 triangles). Outline uses perimeter taps, then Close outline; Spline strip uses taps down its centre, then Create strip. You may edit the resulting vertices with Vertices mode.
+
+## Known limitations and data safety
+
+- All existing Fox source geometry is **read-only**; custom Atlas meshes can be saved, undone and duplicated, but they **do not yet flow into Parts, Skin, or gameplay**, and spline construction control points cannot yet be edited after finishing (the generated geometry vertices can).
+- Phone PNG imports survive ordinary reloads **only on that device** in IndexedDB; standard character/Anim Lab/project JSON exports do **not include image bytes**. Keep original PNGs securely; a backup JSON alone will not recover a lost imported image.
+- No GitHub-path image picker, portable PNG package or tested second-device recovery yet. Do not clear Safari website data or apply untested destructive project restores to your primary game device.
+- Browser/Node tests passed for v1.1.2, but **iPhone Safari landscape acceptance is pending**. Test Stage B on your current Fox/New01 copy and verify Parts art, Rig and animations behave exactly as before.
+
+## Next priorities
+
+Test the touch construction controls on an iPhone, then add spline control-point adjustment/shape regeneration and the explicit Atlas→Parts/Skin bridge. Finish portable imported-art exports and optional GitHub relative atlas references before relying on a full custom-character roundtrip.
+
+## Documentation map
+
+`README.md` — current release summary; `README.txt` — version pointer; `README-PATCH-1.1.2.md` — detailed patch notes; `SIDESCROLL_CHARACTER_AUTHORING.md` — authoring design; `SIDESCROLL_ENGINE_UX_BIBLE.md` — UX contracts; `SIDESCROLL_TASKS.md` — implementation and acceptance; `SIDESCROLL_EXPORT_COVERAGE.md` — persistence and recovery limitations.
+
+---
+
+## Previous release reference: v1.0.205 Project Restore
+
+The following notes are retained because its Project Backup workflow and limitations still apply. For Atlas-specific updates, use the current-release sections above.
+
 # SS-PATCH-1.0.205 — Global Project Restore
 
 **Install over v1.0.204.** Changed-files-only patch. No art, game runtime or authored data changed. It adds a read/validate/preview/import facility to Home → Menu → Project Backup. Existing one-tap Export Project is unchanged.

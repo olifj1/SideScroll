@@ -14980,3 +14980,45 @@ body[data-game-id="game-17"] .animlab-atlas-backdrop select{
   background:#20343a;color:#fff;border-radius:5px;
   font:10px system-ui,-apple-system,sans-serif;
 }
+
+/* v1.1.2 Atlas control groups + low-contrast topology over the source texture.
+   The inspector provides the *outer* scroll on a phone: do not trap the
+   ordinary six-part list inside another tiny independently scrolling pane. */
+body[data-game-id="game-17"] .animlab-atlas-control-group{
+  display:flex;flex-direction:column;gap:4px;padding:5px 6px;
+  border:1px solid rgba(158,199,193,.18);border-radius:6px;
+  background:rgba(9,28,34,.24);
+}
+body[data-game-id="game-17"] .animlab-atlas-group-label{
+  font:700 10px/1.2 system-ui,-apple-system,sans-serif;
+  color:#a8c7c4;letter-spacing:.02em;
+}
+body[data-game-id="game-17"] .animlab-atlas-tools.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+body[data-game-id="game-17"] .animlab-atlas-density{
+  display:flex;flex-wrap:wrap;gap:5px 10px;
+}
+body[data-game-id="game-17"] .animlab-atlas-density[hidden]{display:none!important}
+body[data-game-id="game-17"] .animlab-atlas-density label{
+  font-size:9px;flex:1 1 105px;justify-content:space-between;
+}
+body[data-game-id="game-17"] .animlab-atlas-hint{
+  color:#bbd1cb;margin:0;font:9px/1.35 system-ui,-apple-system,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-atlas-control-group [data-act="apply"],
+body[data-game-id="game-17"] .animlab-atlas-control-group [data-act="finish"]{
+  grid-column:span 2;
+}
+body[data-game-id="game-17"] .animlab-atlas-control-group button:disabled{
+  opacity:.4;cursor:default;
+}
+body[data-game-id="game-17"] .animlab-atlas-list{
+  max-height:none;overflow:visible;
+}
+body[data-game-id="game-17"] .animlab-atlas-list.many{
+  max-height:520px;overflow-y:auto;overscroll-behavior:contain;
+}
+@media(max-height:390px){
+  body[data-game-id="game-17"] .animlab-atlas-list:not(.many){
+    max-height:none;overflow:visible;
+  }
+}

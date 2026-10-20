@@ -1,5 +1,10 @@
 # SideScroll — Export and Recovery Coverage
 
+## v1.1.2 — Atlas Stage B: geometry persistence (20 October 2026)
+
+The same saved browser key `sidescroll.animlab.atlas-docs.v1` / schema `animlab.atlas-document.v1` now optionally contains `generator.type='outline-spline'` (`controls`, `curveDetail`, `fillDetail`) and `'spline-strip'` (`controls`, `width`, `taper`, `across`, `along`), in addition to rectangle generators. All save the actual pixel-space `vertices` and triangle index arrays; mesh names, duplicate IDs and deletions are explicitly saved and covered by the existing raw localStorage Lab/Global JSON export. Temporary spline drafts and source list selection/show/solo/lock are excluded. `sidescroll.animlab.atlas-wires.v1` stores the local All/Selected/Off preview preference, never authored mesh geometry. The new image file byte coverage is **still zero**: IndexedDB PNG blobs and imported image bytes are missing from all JSON backups; device-local only. No schema migration was required; no new archive/restore feature is claimed. GitHub relative path support remains pending.
+
+
 ## v1.1.1 Atlas preview setting and art source limits (20 October 2026)
 
 Atlas transparent-pixel background preference `sidescroll.animlab.atlas-view.v1` is a device-local **view setting** (`dark` default, `checker` optional) and never alters image bytes, saved meshes, UVs or rig/skin data. It may be copied as a localStorage string by broad-scoped backups but is not a portable art asset. **No change** to IndexedDB binary storage or export coverage in this release. Import from iPhone PNG continues to persist locally only; creating a PNG file in the GitHub repo does not automatically register it in the Atlas editor. GitHub-backed image selection and self-contained image/mesh export/import remain required work before reliable roundtrip and deployment of custom art.

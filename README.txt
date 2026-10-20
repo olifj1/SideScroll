@@ -1,4 +1,5 @@
-SIDESCROLL 1.0.184 RECOVERY RELEASE
+SIDESCROLL v1.1.2 — ANIM LAB ATLAS STAGE B
 
-This is the current release. Read README.md for full installation instructions.
-The previous 1.0.182 and 1.0.183 README files are superseded.
+Current release: v1.1.2 (install over 1.1.1 after 1.1.0 and v1.0.205).
+README.md contains current controls, known risks and install instructions.
+This release: README-PATCH-1.1.2.md.

@@ -1,5 +1,13 @@
 # SideScroll Engine & UX Bible
 
+## v1.1.2 Atlas UI + release maintenance checkpoint (20 October 2026)
+
+- Atlas-specific inspector groups are **Navigate**, **Create mesh**, **Edit selected mesh**, followed by Source meshes; the global Display panel remains suppressed only for Atlas and keeps its existing controls untouched elsewhere. The mesh list grows in the normal inspector flow for 1–14 entries, avoiding the separate 96/140px scroll trap; with 15+ entries it can scroll independently within a bounded 520px height. Mobile external inspector scrolling remains the responsibility of the existing layout.
+- Alpha backdrop and new All/Selected/Off wireframe visibility are **browser-local view preferences**; do not write the authored Atlas document, part layout, legacy geometry, rig or animation when toggling them. Selected mesh wireframes are muted/thinner, never texture-tinted.
+- Source geometry can be authored with rectangle cell subdivisions, smoothed closed-outline triangulation, or tapered centreline strip; topology stays `{vertices,triangles}` over source-image pixels and **there is no separate UV editor**. Selection is deliberately different from editing (tap name then choose Vertices). Rename/duplicate/delete are Atlas-only operations with Atlas Undo; legacy Fox meshes remain read-only.
+- **Required release workflow:** update repository-root `README.md`, `README.txt`, versioned `README-PATCH-<version>.md`, and all affected canonical docs in every changed-files-only ZIP. Bump the SW cache and HTML asset query for changed JS/CSS. Do not add unchanged files as padding.
+
+
 ## Atlas preview separation — v1.1.1 (20 October 2026)
 
 For Atlas mesh authoring, default transparent pixels to a **dark, solid preview background** and offer checkerboard as an optional view preference. **Never flatten or replace the underlying PNG alpha.** Keep thin wireframes and use distinct colour for selection, without opaque/semitransparent mesh faces hiding art; show edit handles only in vertex-edit mode. The character-assembly **Display** panel is not applicable in Atlas: hide it in Atlas and restore unchanged in other stages. Atlas view settings must remain independent of editable character data, Save, Undo and export.
@@ -910,12 +918,12 @@ Use short names such as:
 
 `SS-PATCH-<version>.zip`
 
-Include a short README describing:
+Release documentation is a **required changed-file deliverable**, not a separate optional handover:
 
-- scope;
-- changed files;
-- compatibility/migration notes;
-- focused iPhone checks.
+- **Always update the repository-root `README.md`** to name the current release, installation parent(s), safety/compatibility notes, current implemented scope and outstanding limitations.
+- Refresh the repository-root `README.txt` short version pointer when shipped so it does not claim an older release is current.
+- Include a **versioned** `README-PATCH-<version>.md` documenting the bounded changes and the actual changed-file list, migration/compatibility notes, and focused iPhone checks.
+- Include these updated readmes in that release's flat changed-files-only ZIP. Historical `PART_LAYOUT_README.md` and `ROLLBACK-README.md` are specialised records; update them only when their instructions actually change.
 
 ### 21.2 Validate before release
 
