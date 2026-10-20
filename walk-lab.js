@@ -1371,7 +1371,14 @@
     let pose=selection.mode==='play'&&playFrame?.pose
       ? adapter.normalise(playFrame.pose,selection.frame)
       : selection.mode==='setup' && adapter.id==='fox' && adapter.rig.IDLE_POSE
-        ? adapter.rig.clone(adapter.rig.IDLE_POSE)
+        ? (()=>{
+            const neutral=adapter.rig.clone(adapter.rig.IDLE_POSE);
+            for(const key of ['bodyBob','frontBodyLift','rearBodyLift','bodyPitch','neckPitch','headPitch',
+              'tailBase','tailMid','tailTip','rnUpper','rnLower','rfUpper','rfLower',
+              'fnUpper','fnLower','ffUpper','ffLower','rnDistal','rfDistal','fnDistal','ffDistal'])neutral[key]=0;
+            for(const prefix of ['rn','rf','fn','ff'])neutral[prefix+'IkWeight']=0;
+            return adapter.normalise(neutral,0);
+          })()
         : (playing?evaluateSparsePose(displaySparseClip(),playPhase*16,currentCharacter().family):currentPose());
     if (selection.mode==='animate' && adapter.id==='fox' && selection.clip==='jump') {
       pose = clampJumpPoseToRealGround(pose,phase);
@@ -1412,6 +1419,8 @@
       : `${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${modeLabel}${previewApplies()?' · Preview':''}`;
     readout.textContent=selection.mode==='play'
       ? `${character.label} · QUICK PLAY · current working clips · ${Math.round(view.zoom*100)}%`
+      : selection.mode==='setup'
+        ? `${character.label} · REST · ${modeLabel} · ${Math.round(view.zoom*100)}%`
       : playing
         ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
         : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
@@ -1728,13 +1737,26 @@
     const id='user-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     const time=new Date().toISOString();
     let setup;
+    // New quadrupeds start from the exported, working Fox character supplied
+    // 20 October 2026. A bundled, versioned snapshot is deliberately used
+    // rather than whatever edits happen to be in built-in Fox localStorage.
+    // Preserve rest, art, inverse-bind, layout, tuning and clips as one unit:
+    // mixing any two revisions is how limbs/skins become misregistered.
+    const adapterRestRig=value=>adapters.fox.normaliseRestRig(value);
+    const bundled=family==='fox'&&window.AnimLabFoxStarter?.schema==='sidescroll.animlab.character-starter.v1'
+      ?window.AnimLabFoxStarter:null;
     if(family==='fox'){
-      // Fresh starter uses shipped baseline, not user-edited Fox setup.
-      const rest=rig.normalizedRestRig(rig.DEFAULT_REST_RIG);
-      setup={scale:Number(rig.DEFAULT_SCALE)||1.71,walkSpeed:Number(rig.DEFAULT_WALK_SPEED)||1.15,
-        runSpeed:Number(rig.DEFAULT_RUN_SPEED)||2.85,collider:rig.normalizedCollider(rig.DEFAULT_COLLIDER),
-        rig:rest,artRestRig:clone(rest),skinBindRig:clone(rest),
-        artLayout:normaliseArtLayout(adapters.fox,null),skinTuning:normaliseSkinTuning(null),
+      const src=bundled?.setup;
+      const rest=adapterRestRig(src?.rig||rig.DEFAULT_REST_RIG);
+      setup={scale:clamp(Number(src?.scale)||Number(rig.DEFAULT_SCALE)||1.71,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+        walkSpeed:clamp(Number(src?.walkSpeed)||Number(rig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
+        runSpeed:clamp(Number(src?.runSpeed)||Number(rig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
+        collider:rig.normalizedCollider(src?.collider||rig.DEFAULT_COLLIDER),
+        rig:rest,
+        artRestRig:adapterRestRig(src?.artRestRig||rest),
+        skinBindRig:adapterRestRig(src?.skinBindRig||rest),
+        artLayout:normaliseArtLayout(adapters.fox,src?.artLayout||null),
+        skinTuning:normaliseSkinTuning(src?.skinTuning||null),
         baselineId:rig.AUTHORING_BASELINE_ID};
     }else{
       setup={scale:1,collider:rig.normalizedCollider(rig.loadCollider())};
@@ -1742,12 +1764,11 @@
     const sparseClips={};
     const pristine=defaultBank(rig,family);
     for(const clip of clipNamesForFamily(family)){
-      // Starter rig/clip pair must match: never graft the user's current Fox
-      // animation (which may have different leg lengths) onto a NEW rest rig.
-      // Each clip is an independent snapshot, not a linked template asset.
-      const shipped=family==='fox' && rig.AUTHORED_SPARSE_CLIPS?.[clip];
-      sparseClips[clip]=shipped
-        ? normaliseSparseClip(shipped,family,clip,pristine[clip])
+      const snapshot=family==='fox'?(bundled?.sparseClips?.[clip]||rig.AUTHORED_SPARSE_CLIPS?.[clip]):null;
+      // Each clip is deep-copied into the new character, never linked to the
+      // immutable starter bundle or to the built-in Fox's authored keys.
+      sparseClips[clip]=snapshot
+        ? normaliseSparseClip(clone(snapshot),family,clip,pristine[clip])
         : importSparseClip(pristine[clip],family,clip);
     }
     const entry={id,name:displayName,starter,family,setup,sparseClips,createdAt:time,updatedAt:time};
@@ -1759,7 +1780,7 @@
     selection.mode='setup';selection.setupTool=family==='fox'?'art':'rig';
     setupDraft=defaultSetupFor(id);
     saveEditorSelection();fitView(false);resetCheckpoint();draw();notify();
-    hint.textContent=`${displayName} created with ${STARTERS[starter].label.toLowerCase()} starter artwork. Your built-in characters are unchanged.`;
+    hint.textContent=`${displayName} created with ${family==='fox'?'20 Oct Fox setup, rig, skin and clips':'Biped'} starter data. Your built-in characters are unchanged.`;
     return id;
   }
   function exportLibraryCharacterDocument(id) {

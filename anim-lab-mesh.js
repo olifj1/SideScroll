@@ -69,6 +69,7 @@
   let artRevision = 0;
   let mode = 'mesh';
   let wireframe = false;
+  let deformPlanes = false; // display-only independent of legacy rigid Planes and full wireframe
   let inspectIndex = 0;
   let lastFamily = null;
   // Skin mode owns display-only choices. Authored tuning is in Setup's Undoable
@@ -76,11 +77,12 @@
   let selectedSkinRegion = 'bodyHead';
   let selectedSkinBone = 0;
   let selectedSkinVertex = 22;
-  let skinPreview = 'walk';
+  let skinPreview = 'neutral'; // Enter Skin in neutral rest, not an unexpected Walk pose
   let skinPhase = .25;
   let skinPickArmed = false;
   let skinHeatmap = true; // editor overlay, never written into character Setup
   let skinBonesRestore = null;
+  let wasSkinActive = false;
   let skinLastViewport = null;
   let sliderTx = null;
   let sliderField = null;
@@ -126,14 +128,15 @@
     <div class="animlab-skin-bone-picker">
       <div class="animlab-section-title">Selected bone / influence</div>
       <div class="animlab-skin-bones" aria-label="Bones affecting selected part"></div>
-      <label class="animlab-slider"><span>Bone Influence</span><input data-skin-field="boneGain" type="range" min="0.05" max="3" step="0.05" value="1"><output>100%</output></label>
+      <label class="animlab-slider animlab-skin-primary-slider"><span>Peak Bone Weight <small>(0–100%)</small></span><input data-skin-field="bonePeak" type="range" min="0" max="100" step="1" value="50" aria-label="Peak bone weight, 0 to 100 percent"><output>50%</output></label>
+      <div class="animlab-skin-weight-status" role="status" aria-live="off"></div>
       <label class="animlab-slider"><span>Influence Spread / Falloff</span><input data-skin-field="boneSpread" type="range" min="0.5" max="2.5" step="0.05" value="1"><output>1.00×</output></label>
       <div class="animlab-view-grid animlab-skin-heat-tools">
         <button type="button" data-skin-action="heatmap" class="active">Heatmap: On</button>
         <button type="button" data-skin-action="auto-bone">Reset Bone</button>
       </div>
       <div class="animlab-skin-legend" aria-label="Influence colours"><span>0% · Blue</span><i></i><span>Red · 100%</span></div>
-      <p class="animlab-skin-note">Pick a part, then a bone. Red is strongest influence, blue is weakest. Strength and falloff adjust that bone over the whole part; fine vertex editing is optional below.</p>
+      <p class="animlab-skin-note">Pick a part and bone. Peak Weight sets the selected bone’s strongest vertex weight, not a multiplier. Falloff shapes its spread; other bones share the remaining weight. The heatmap shows the <em>actual normalised</em> weights. Fine vertex editing remains optional.</p>
     </div>
     <div class="animlab-skin-chain-controls" hidden>
       <label class="animlab-slider"><span>Body / Root Influence</span><input data-skin-field="attachStrength" type="range" min="0" max="0.85" step="0.01"><output></output></label>
@@ -173,6 +176,22 @@
 
 
   const modeButtons = [...section.querySelectorAll('[data-mesh-mode]')];
+  // Deformable *planes* are the outlines of the actual authored mesh regions,
+  // not the rectangles of the old rigid atlas. Keep this toggle with Display.
+  const displaySwitches=document.querySelector('.animlab-display-switches');
+  const deformPlanesButton=document.createElement('button');
+  deformPlanesButton.type='button';
+  deformPlanesButton.id='animlab-display-deform-planes';
+  deformPlanesButton.textContent='Deform Planes';
+  deformPlanesButton.setAttribute('aria-label','Show deformable mesh region boundaries');
+  deformPlanesButton.setAttribute('aria-pressed','false');
+  displaySwitches?.appendChild(deformPlanesButton);
+  deformPlanesButton.addEventListener('click',()=>{
+    deformPlanes=!deformPlanes;
+    deformPlanesButton.classList.toggle('active',deformPlanes);
+    deformPlanesButton.setAttribute('aria-pressed',String(deformPlanes));
+    core.redrawOnly?.();
+  });
   const wireBtn = section.querySelector('#animlab-mesh-wire');
   const inspectBtn = section.querySelector('#animlab-mesh-inspect');
   const setupNote = section.querySelector('.animlab-setup-note');
@@ -611,24 +630,85 @@
     return total>1e-8?clean.map((weight,index)=>({index,weight:weight/total})).filter(x=>x.weight>1e-8):original;
   }
 
-  function boneProfilesActive(tuning){
-    return !!Object.values(tuning?.boneProfiles||{}).some(p=>p&&(Math.abs((Number(p.gain)||1)-1)>.0001||Math.abs((Number(p.spread)||1)-1)>.0001));
+  // v198: legacy gain/spread profiles are kept byte-for-byte compatible until
+  // a user actually moves the new 0–100% Peak Weight control. A peak is a real
+  // normalised per-vertex weight, not an arbitrary 3× multiplier.
+  function hasPeak(profile){
+    return profile?.peakWeight!==null && profile?.peakWeight!==undefined && Number.isFinite(Number(profile.peakWeight));
   }
-  function editedVertexWeights(vertex,region,vertexIndex,tuning){
-    const manual=tuning?.vertexWeights?.[vertexIndex];
-    if(Array.isArray(manual))return activeVertexWeights(vertex,region,vertexIndex,tuning);
-    const baseline=region.binding==='weights'?vertex.weights:weightsForPoint(vertex.bind,region.bones,region.bindGeom);
+  function boneProfilesActive(tuning){
+    return !!Object.values(tuning?.boneProfiles||{}).some(p=>p&&(hasPeak(p)||Math.abs((Number(p.gain)||1)-1)>.0001||Math.abs((Number(p.spread)||1)-1)>.0001));
+  }
+  const autoPeakCache=new WeakMap();
+  function baseWeights(vertex,region){
+    return region.binding==='weights'?vertex.weights:weightsForPoint(vertex.bind,region.bones,region.bindGeom);
+  }
+  function autoPeaks(region){
+    let peaks=autoPeakCache.get(region);
+    if(peaks)return peaks;
+    peaks=region.bones.map(()=>0);
+    for(const v of region.vertices)for(const w of baseWeights(v,region))peaks[w.index]=Math.max(peaks[w.index],w.weight);
+    autoPeakCache.set(region,peaks);
+    return peaks;
+  }
+  function legacyWeights(vertex,region,tuning){
+    const baseline=baseWeights(vertex,region);
     if(!boneProfilesActive(tuning))return baseline;
     const result=region.bones.map((bone,index)=>{
       const initial=baseline.find(w=>w.index===index)?.weight||.001;
       const profile=tuning.boneProfiles?.[index]||{};
-      const gain=clamp(Number(profile.gain)||1,.05,3),spread=clamp(Number(profile.spread)||1,.5,2.5);
+      // A new peak-weight profile replaces (rather than multiplies) legacy gain.
+      const gain=hasPeak(profile)?1:clamp(Number(profile.gain)||1,.05,3);
+      const spread=hasPeak(profile)?1:clamp(Number(profile.spread)||1,.5,2.5);
       const a=region.bindGeom[bone[0]],b=region.bindGeom[bone[1]];
       const distance=a&&b?pointSegmentDistance(vertex.bind,a,b):.1;
       return {index,weight:initial*gain*Math.pow(clamp((distance+.045)/.09,.2,8),1.7*(1-1/spread))};
     });
     const total=result.reduce((a,b)=>a+b.weight,0)||1;
     return result.map(w=>({...w,weight:w.weight/total}));
+  }
+  function editedVertexWeights(vertex,region,vertexIndex,tuning){
+    const manual=tuning?.vertexWeights?.[vertexIndex];
+    if(Array.isArray(manual))return activeVertexWeights(vertex,region,vertexIndex,tuning);
+    const original=legacyWeights(vertex,region,tuning);
+    const targets=region.bones.map((_,index)=>({index,profile:tuning?.boneProfiles?.[index]}))
+      .filter(({profile})=>hasPeak(profile));
+    if(!targets.length)return original;
+    const peaks=autoPeaks(region);
+    const assigned=new Map();
+    for(const {index,profile} of targets){
+      const baseline=baseWeights(vertex,region).find(w=>w.index===index)?.weight||0;
+      const distanceNorm=clamp(baseline/Math.max(peaks[index],.00001),0,1);
+      const spread=clamp(Number(profile.spread)||1,.5,2.5);
+      // At the bone's hottest vertex the envelope is exactly the authored peak;
+      // elsewhere it tapers according to the selected falloff.
+      const shape=Math.pow(distanceNorm,1/spread);
+      assigned.set(index,clamp(Number(profile.peakWeight),0,1)*shape);
+    }
+    const totalTarget=[...assigned.values()].reduce((a,b)=>a+b,0);
+    if(totalTarget>1)for(const [i,w] of assigned)assigned.set(i,w/totalTarget);
+    const freeMass=Math.max(0,1-Math.min(1,totalTarget));
+    const other=original.filter(w=>!assigned.has(w.index));
+    const otherMass=other.reduce((a,b)=>a+b.weight,0);
+    // A fully edited region still must sum to 100%; where every bone has a
+    // peak control there is no "other" bucket, so scale the declared targets.
+    if(!other.length){
+      if(totalTarget<1e-8)return original;
+      return region.bones.map((_,index)=>({index,weight:(assigned.get(index)||0)/totalTarget}));
+    }
+    const otherCount=other.length;
+    return region.bones.map((_,index)=>({index,weight:assigned.has(index)
+      ?assigned.get(index)
+      :freeMass*(otherMass>1e-8?(original.find(w=>w.index===index)?.weight||0)/otherMass:1/otherCount)}));
+  }
+  function peakWeightForBone(region,tuning,bone){
+    if(!region)return 0;
+    let max=0;
+    region.vertices.forEach((v,index)=>{
+      const w=editedVertexWeights(v,region,index,tuning).find(weight=>weight.index===bone);
+      if(w)max=Math.max(max,w.weight);
+    });
+    return max;
   }
   function vertexWeight(vertex,region,index,tuning){
     return editedVertexWeights(vertex,region,index,tuning).find(w=>w.index===selectedSkinBone)?.weight||0;
@@ -824,6 +904,38 @@
     const x=point.x-pivot.x,y=point.y-pivot.y,c=Math.cos(r),sn=Math.sin(r);
     return {x:pivot.x+dx+x*sx*c-y*sy*sn,y:pivot.y+dy+x*sx*sn+y*sy*c};
   }
+  // Count triangle edges once per mesh; edges used by two triangles are
+  // interior triangulation, edges used once define each deformable region's
+  // outer silhouette (including transparent holes in its topology).
+  function boundaryEdges(region){
+    if(region.boundaryEdges)return region.boundaryEdges;
+    const counts=new Map();
+    for(const tri of region.triangles){
+      for(const [a,b] of [[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]]){
+        const key=a<b?`${a}:${b}`:`${b}:${a}`;
+        const item=counts.get(key);
+        if(item)item.count++;
+        else counts.set(key,{a,b,count:1});
+      }
+    }
+    region.boundaryEdges=[...counts.values()].filter(edge=>edge.count===1);
+    return region.boundaryEdges;
+  }
+  function drawDeformPlanes(args,region,points){
+    if(!deformPlanes)return;
+    const {ctx,canvas}=args;
+    const edges=boundaryEdges(region);
+    ctx.save();
+    ctx.strokeStyle='rgba(255,184,104,.94)';
+    ctx.lineWidth=Math.max(1,Math.min(2,canvas.width*.00145));
+    ctx.setLineDash([5,3]);ctx.beginPath();
+    for(const edge of edges){
+      const a=points[edge.a],b=points[edge.b];
+      if(!a||!b)continue;
+      ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+    }
+    ctx.stroke();ctx.restore();
+  }
   // In Parts and unposed Rig, source pixels are rigid, not skinned: draw each
   // region texture with one affine canvas transform instead of ~100 triangles.
   // This fast path runs throughout pad dragging; the Skin heatmap still uses
@@ -844,7 +956,12 @@
     ctx.rotate(Number(tr.rotation)||0);ctx.scale(sx,sy);ctx.translate(-pivot.x,-pivot.y);
     ctx.transform(1/source.scale,0,0,-1/source.scale,-source.cx/source.scale,source.groundY/source.scale);
     ctx.drawImage(region.texture,0,0);
-    ctx.restore();return true;
+    ctx.restore();
+    if(deformPlanes){
+      const points=region.vertices.map(vertex=>projectLocal(layoutVertex(vertex.bind,region.id,args.setup?.artLayout),view));
+      drawDeformPlanes(args,region,points);
+    }
+    return true;
   }
   function renderRegion(args,region,poseGeom,bindGeom,neutralMode,skinEditing){
     const {ctx,view}=args;
@@ -864,6 +981,7 @@
       drawTriangle(ctx,texture,v0.uv,v1.uv,v2.uv,dst[tri[0]],dst[tri[1]],dst[tri[2]],args.alpha??1);
     }
     renderWireframe(ctx,region,dst,args);
+    drawDeformPlanes(args,region,dst);
     if(skinEditing&&selectedSkinRegion===region.id){
       ctx.save();
       if(skinAdvanced.open){
@@ -980,12 +1098,19 @@
       btn.addEventListener('click',()=>{commitSkinSlider();selectedSkinBone=index;refreshSkinUI();core.redrawOnly?.();});
       skinBoneBoard.appendChild(btn);
     });
-    for(const input of skinSection.querySelectorAll('[data-skin-field="boneGain"],[data-skin-field="boneSpread"]')){
-      const name=input.dataset.skinField,key=name==='boneGain'?'gain':'spread';
-      const value=Number(activeProfile[key])||1;
-      if(document.activeElement!==input)input.value=String(value);
-      input.parentElement.querySelector('output').textContent=name==='boneGain'?`${Math.round(value*100)}%`:`${value.toFixed(2)}×`;
-    }
+    const peakSlider=skinSection.querySelector('[data-skin-field="bonePeak"]');
+    const actualPeak=region?peakWeightForBone(region,settings,selectedSkinBone):0;
+    const autoPeak=region?autoPeaks(region)[selectedSkinBone]:0;
+    const displayedPeak=hasPeak(activeProfile)?clamp(Number(activeProfile.peakWeight),0,1):actualPeak;
+    if(document.activeElement!==peakSlider)peakSlider.value=String(Math.round(displayedPeak*100));
+    peakSlider.parentElement.querySelector('output').textContent=`${Math.round(displayedPeak*100)}%`;
+    const status=skinSection.querySelector('.animlab-skin-weight-status');
+    const legacy=activeProfile.gain!==undefined&&!hasPeak(activeProfile);
+    status.textContent=`Automatic peak: ${Math.round(autoPeak*100)}% · Actual peak: ${Math.round(actualPeak*100)}%${legacy?` · Legacy ${Math.round(activeProfile.gain*100)}% multiplier retained until this slider is moved`:''}`;
+    const spreadInput=skinSection.querySelector('[data-skin-field="boneSpread"]');
+    const spread=Number(activeProfile.spread)||1;
+    if(document.activeElement!==spreadInput)spreadInput.value=String(spread);
+    spreadInput.parentElement.querySelector('output').textContent=`${spread.toFixed(2)}×`;
     skinSection.querySelector('[data-skin-action="heatmap"]').textContent=`Heatmap: ${skinHeatmap?'On':'Off'}`;
     skinSection.querySelector('[data-skin-action="heatmap"]').classList.toggle('active',skinHeatmap);
     if(chain){
@@ -1038,12 +1163,17 @@
           entry.vertexWeights ||= {};
           entry.vertexWeights[vertexIndex]=arr;
         });
-      }else if(input.dataset.skinField==='boneGain'||input.dataset.skinField==='boneSpread'){
+      }else if(input.dataset.skinField==='bonePeak'||input.dataset.skinField==='boneSpread'){
         withSliderTransaction(input,(entry,value,_regionId,_vertexIndex,boneIndex)=>{
           entry.boneProfiles ||= {};
-          const profile=entry.boneProfiles[boneIndex]||{gain:1,spread:1};
-          profile[input.dataset.skinField==='boneGain'?'gain':'spread']=value;
-          if(Math.abs(profile.gain-1)<.001&&Math.abs(profile.spread-1)<.001)delete entry.boneProfiles[boneIndex];
+          const profile=entry.boneProfiles[boneIndex]||{spread:1};
+          if(input.dataset.skinField==='bonePeak'){
+            // Explicit conversion: do not silently migrate saved 300% gains.
+            delete profile.gain;
+            profile.peakWeight=clamp(value/100,0,1);
+          }else profile.spread=value;
+          const isDefault=!hasPeak(profile)&&(profile.gain===undefined||Math.abs(profile.gain-1)<.001)&&Math.abs((profile.spread??1)-1)<.001;
+          if(isDefault)delete entry.boneProfiles[boneIndex];
           else entry.boneProfiles[boneIndex]=profile;
           if(!Object.keys(entry.boneProfiles).length)delete entry.boneProfiles;
         });
@@ -1051,7 +1181,7 @@
         withSliderTransaction(input,(entry,value)=>{entry[input.dataset.skinField]=value;});
       }
       const field=input.dataset.skinField;
-      input.parentElement.querySelector('output').textContent=field==='vertexBoneWeight'||field==='boneGain'?`${Math.round(Number(input.value)*100)}%`:field==='boneSpread'?`${Number(input.value).toFixed(2)}×`:Number(input.value).toFixed(3);
+      input.parentElement.querySelector('output').textContent=field==='vertexBoneWeight'?`${Math.round(Number(input.value)*100)}%`:field==='bonePeak'?`${Math.round(Number(input.value))}%`:field==='boneSpread'?`${Number(input.value).toFixed(2)}×`:Number(input.value).toFixed(3);
     });
     input.addEventListener('change',commitSkinSlider);
     input.addEventListener('pointerup',commitSkinSlider);
@@ -1121,6 +1251,11 @@
     section.hidden=!visible;
     if(lastFamily!==state.family){lastFamily=state.family;}
     const skinActive=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
+    deformPlanesButton.hidden=!visible;
+    // Skin should begin in a stable neutral rest view. Walk/Run poses are
+    // opt-in diagnostic previews and must not look like lasting part movement.
+    if(skinActive&&!wasSkinActive){skinPreview='neutral';skinPhase=.25;}
+    wasSkinActive=skinActive;
     // Temporarily hide distracting global skeleton lines in Skin; restore the
     // user's prior View choice on exit, without saving a new display setting.
     if(skinActive&&skinBonesRestore===null){

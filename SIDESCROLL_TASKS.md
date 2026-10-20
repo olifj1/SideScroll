@@ -2552,3 +2552,13 @@ All copy operations run through Setup transactions and Undo/Redo/Save/Discard. T
 - [ ] **P5b**: Art Kit/replace-atlas/imported transparent parts, generic descriptor mesh topology (not just Fox), and true Biped independent Parts/Skin authoring.
 - [ ] **P6**: named, per-rig-family reusable animation asset library with linked-template vs unique ownership, duplicate/Make Unique, Save as Template and slot assignment.
 - [ ] **P7**: gameplay runtime registry and explicit game character selector; consume saved mesh/bind/skin/art/animations at runtime with safe defaults/fallback for existing Hero/Fox.
+
+
+
+### Anim Lab v1.0.201 patch checkpoint (20 October 2026)
+
+- [x] Bundle the current user-supplied Fox export as the source for **future** new quadrupeds only, preserving all Setup/rest-art-bind data plus four sparse clips and existing built-in/local documents. Versioned standalone JS module loaded before core, unchanged Fox art assets.
+- [x] Put unposed setup workspaces on one neutral Fox rest pose; Skin defaults to Rest on entry, explicit Walk/Run still work. No workspace transition allowed to edit the Part/Layout saved transforms. Automated Parts-return screenshot regression passed.
+- [x] Add separate Display buttons for legacy Rigid Planes and actual Deform Planes boundary edges (independent of wireframe).
+- [ ] iPhone Safari test: repeat Parts → Rig → Skin → Animate several times with existing New01 and new seeded quadruped. Validate art returns exactly after cycles, portrait rotation and both plane toggles. **Exact user-reported progressive drift has not yet been reproduced in desktop tests**; investigate with iPhone capture if still present.
+- [ ] Next authoring milestones remain custom art import, general biped Parts/Skin, template/unique clips, and game-time character selection/runtime skin parity.

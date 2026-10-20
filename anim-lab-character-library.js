@@ -37,12 +37,12 @@
       </label>
       <label class="animlab-library-field">Starter rig
         <select id="animlab-library-family" aria-label="Starter rig family">
-          <option value="fox">Quadruped — full editor</option>
+          <option value="fox">Quadruped — 20 Oct Fox starter</option>
           <option value="original">Biped — Setup / Animate</option>
         </select>
       </label>
       <button class="animlab-library-create" id="animlab-library-create" type="button">Create Character</button>
-      <small class="animlab-library-footnote">Starter art is temporary. New characters cannot yet be selected in-game.</small>
+      <small class="animlab-library-footnote">Quadrupeds begin with the current Fox setup, rig, artwork placement, skin and clips. Existing characters are not changed. Still editor-only.</small>
     </div>
     <div class="animlab-library-panel" id="animlab-library-load" hidden>
       <div class="animlab-library-panel-heading"><strong>Open character</strong><button type="button" data-library-close aria-label="Close Load character">×</button></div>

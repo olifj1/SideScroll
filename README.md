@@ -1,32 +1,21 @@
-# SS-PATCH-1.0.200 — Unified Character Library and fixed sidebar
+# SS-PATCH-1.0.201 — Current Fox starter & workspace stability
 
-**Apply directly over v1.0.199.** Eight changed files only, no textures or game runtime. Keep your current v199 copy as rollback until iPhone approval. Do **not** clear Safari website data (character library and old Fox/Hero work are stored there).
+**Install directly over v1.0.200.** Contains only files changed by this release. Keep your v200 files as a rollback. Do not clear Safari website data; that holds existing Fox and custom-character saves.
 
-## What is different
+## Updates
 
-- Anim Lab now has **one Character Library** for *Hero 1, Hero 2, Fox and every locally created character*. The separate permanent Hero 1/Hero 2/Fox buttons are hidden, not removed from the underlying compatibility code.
-- The opening library view has **New · Load · Save**, and always shows a clearly labelled **Loaded character: [name]** with Built-in/Local and Saved/Unsaved state. Only the chosen command expands its context.
-- **New:** choose name and Quadruped/Biped starter. Saved new characters automatically appear in Load alongside the built-ins, without requiring any export/build rebuild.
-- **Load:** Open from one list of built-in and local characters. Local-only secondary actions (Rename / Export JSON / Delete-with-confirmation) are behind `•••` so native characters cannot accidentally be deleted or renamed. Import JSON is also available. Unsaved switches still use Save / Discard / Cancel.
-- **Save:** Save changes for whichever character is loaded using the existing Undo/checkpoint and Rebind+Save safeguards. Custom characters retain independent local documents; the original Fox/Hero continue using their established built-in storage (no silent migration). Existing duplicate Edit Session Save button is hidden; Undo/Redo/Discard remain accessible. Export JSON appears for a saved custom character; built-in Fox exposes its existing Fox Handoff export.
-- Sidebar constrained to **vertical scrolling** with overflow/drift correction; menus closed by default. Does not intentionally alter native slider behaviour, rig/part/skin algorithms or animations.
+- **New quadrupeds now copy the user's current Fox export (20 Oct 2026, 06:47 UTC)** instead of the old shipped starter. The new file `anim-lab-fox-starter.js` stores that versioned authoring snapshot: rest rig, art rest rig, skin bind rig, artwork transforms/order, weights, scale/collider/speeds and the exact sparse Idle, Walk, Run and Jump clips. A newly created character has its own independent local saved copy. Built-in Fox, the previous `New01`, and all other existing local characters stay unchanged. Biped starter unchanged. The image textures remain the shipped Fox textures and are NOT part of the exported JSON.
+- **Mode consistency:** Parts/Rig/Skin Rest use the same zero-motion neutral pose rather than mixing the Fox Idle pose with the mesh bind pose. Skin enters in Rest instead of automatically showing Walk; Walk/Run remain available for pose tests. This removes a mode-dependent visual shift without altering any saved authoring data. The user's exact cumulative drift was not reproduced in the desktop harness, so on-iPhone confirmation is still needed.
+- **Two planes layers in Display:** the existing **Planes** button is renamed **Rigid Planes** and the new **Deform Planes** button outlines the actual deforming mesh regions. Both toggle independently and leave the detailed Mesh Wireframe available under advanced controls. These are view-only and don't dirty the character.
 
-## What is still NOT supported
+## iPhone test
 
-A new custom character is saved in **this browser immediately**, but it is **not yet selectable in the normal game**. Export the saved character JSON to back it up or to share for future packaging. JSON export **does not contain artwork image bytes**. The separate native built-in Hero animation data still use their existing legacy family-level storage; this patch does not migrate or rework their internals. New artwork import, general biped Parts/Skin, named animation templates and a live in-game character selector remain follow-up stages.
+1. Install on top of v200, open **New01**, toggle Parts/Rig/Skin/Animate repeatedly and return to Parts; artwork should return to exactly the same places. Skin opens at Rest; select Walk/Run to test deformation.
+2. Expand Display; enable **Deform Planes**. The orange dashed boundaries should follow the deformable part shapes; **Rigid Planes** is independent and can be switched off.
+3. Create **a new test quadruped**. Unlike the older `New01`, this should start with the current saved Fox's layout/rig/skin and animation clips. Load the built-in Fox and back. Verify neither is overwritten. Save/reopen the new test character.
 
-## iPhone checks
+## Verification & boundaries
 
-1. Landscape open: no sideways scrolling sidebar; Loaded character label and only three primary Library actions. Side menu still scrolls vertically.
-2. Load: see **Hero 1, Hero 2, Fox**. Select each and verify Loaded updates. No per-character buttons remain outside the Load list.
-3. New: create a test quadruped; it opens and appears alongside the three originals in Load. Switch to Fox and back, without losing the custom character.
-4. Edit custom setup; Save → Save changes; reopen and check persistence. Then edit the built-in Fox and Save to its original local data as before. Ensure unsaved switching shows the guard.
-5. Rotate portrait→landscape, scroll the drawer and adjust a slider. Check it doesn't wander horizontally. Export a custom JSON backup before clearing website data.
+Node syntax checks passed. Chromium with real Fox texture and current Fox export verified matching Setup and all 4 sparse clip keys in the newly created character, no dirty/rig/layout mutation, byte-identical Parts canvas screenshots after 3 full workspace cycles, and Deform Planes toggle and on-canvas boundaries. The exact iPhone issue may still require follow-up if it persists. No gameplay character chooser or runtime skin integration in this patch.
 
-## Verification
-
-Node syntax checking passed. Headless Chromium tests with actual v199 SideScroll code and a mocked persistent storage API exercised both phone-like landscape viewport sizes (844×390 and 667×375), first screen, full list, native/custom Open, New, Save, unsaved-switch guard, local data isolation, and the no-horizontal-overflow sidebar. No JavaScript exceptions. Actual iPhone Safari elastic scrolling still requires your acceptance.
-
-## Patch contents
-
-`README.md`, `anim-lab-character-library.js`, `walk-lab.html`, `style.css`, `sw.js` (v200 cache), and the three canonical design/task documents. No atlas, image, animation clips, rig or game runtime changed.
+**Changed files:** README.md, walk-lab.js, anim-lab-fox-starter.js (new), anim-lab-mesh.js, anim-lab-character-library.js, walk-lab.html, sw.js, and the three canonical documentation files. No PNG, atlas, existing game engine or clip asset modifications.
