@@ -7,6 +7,10 @@
 
 ---
 
+## Editor primary actions and scroll confinement (19 Oct 2026 / v200)
+
+Dense feature menus must open in response to deliberate actions, not occupy the first screen of the editor. Character Library presents New, Load and Save before opening their secondary forms/lists/management options. **All characters must be opened and saved through these same controls** (built-in Hero 1/2/Fox and locally authored), with a persistent visible loaded-character name/status. Do not maintain a separate permanent set of native-character buttons alongside a new custom-character picker. Underlying storage remains separate until an explicitly planned migration; do not rewrite native saved data merely to unify its menu. Keep one visible contextual panel at a time. Reuse existing session-saving, undo and dirty guards rather than creating parallel state. An editor's vertically scrolling inspector must be horizontally fixed; nested content should not create sideways panning or document-level movement on iPhone. Context changes must not silently alter saved authoring data. v200's phone gesture behaviour remains to be validated on-device.
+
 ## 1. Purpose
 
 This document defines **how SideScroll should be built**.
@@ -1353,6 +1357,6 @@ A UI labelled **percentage** must denote a real normalised value in the 0–100%
 
 ### Anim Lab Character Library — v1.0.199 UI contract (19 Oct 2026)
 
-Provide a visible Character Library at the start of the existing Anim Lab drawer, with Create (name + installed starter rig), saved named characters, Open/Rename/Delete/Export and Import JSON. Continue showing built-in Hero 1, Hero 2, Fox separately to avoid confusing their shared/gameplay state with locally authored library entries. Name fields and actions must work on iPhone Safari without requiring code or external tools; avoid rebuilding the library list every animation frame. Creation and destructive changes are disabled while another editor context is dirty (Save/Discard first). Delete requires a named confirmation; import is duplicate-safe and must not overwrite an existing character. Show explicit notices that starter art is temporary and custom character selection remains editor-only.
+Provide a visible Character Library at the start of the existing Anim Lab drawer, with Create (name + installed starter rig), saved named characters, Open/Rename/Delete/Export and Import JSON. **Historical v199-only requirement superseded by v200:** all built-in Hero 1, Hero 2 and Fox appear in the same Load list as locally authored characters. Distinguish them with Built-in/Local labels; legacy storage remains separate. Do not show a duplicate native-character button row. Name fields and actions must work on iPhone Safari without requiring code or external tools; avoid rebuilding the library list every animation frame. Creation and destructive changes are disabled while another editor context is dirty (Save/Discard first). Delete requires a named confirmation; import is duplicate-safe and must not overwrite an existing character. Show explicit notices that starter art is temporary and custom character selection remains editor-only.
 
 Quad starts with the existing Fox-family Parts/Rig/Skin/Animate/Play workspaces. Biped in v199 is a documented partial adapter (Setup/Animate) and must not show non-functional Parts/Skin as delivered. Export/import are *data* backups, not texture-pixel transfers. Preserve the single Display panel, stable left selection/right pad, saved stage state, and all existing built-in editor flows. The longer approved end-to-end workflow above remains unchanged.

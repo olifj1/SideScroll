@@ -14847,3 +14847,77 @@ body[data-game-id="game-17"] .animlab-library-action:disabled{opacity:.48}
 body[data-game-id="game-17"] .animlab-library-import{display:flex;flex-direction:column;gap:4px;
   font-size:10px;font-weight:700;color:#c9ded5;}
 body[data-game-id="game-17"] .animlab-library-import input{width:100%;font-size:10px;}
+
+/* v1.0.200 — lock Anim Lab to its viewport, and expose the Character Library
+   through three contextual actions instead of one permanently open form. */
+body[data-game-id="game-17"] .animlab-page,
+body[data-game-id="game-17"] .animlab-topbar,
+body[data-game-id="game-17"] .animlab-main {min-width:0;max-width:100%;overflow-x:clip;}
+body[data-game-id="game-17"] .animlab-drawer {
+  overflow-x:hidden!important;overscroll-behavior-x:none;
+  -webkit-overflow-scrolling:touch;
+}
+body[data-game-id="game-17"] .animlab-drawer .animlab-section,
+body[data-game-id="game-17"] .animlab-library-panel,
+body[data-game-id="game-17"] .animlab-library-entry {min-width:0;max-width:100%;box-sizing:border-box;}
+body[data-game-id="game-17"] .animlab-library-toolbar {
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;min-width:0;
+}
+body[data-game-id="game-17"] .animlab-library-toolbar button {
+  min-width:0;min-height:35px;border:1px solid rgba(172,211,200,.3);
+  border-radius:8px;background:rgba(255,255,255,.055);
+  color:#e8f5f0;font-size:11px;font-weight:850;
+}
+body[data-game-id="game-17"] .animlab-library-toolbar button.active {
+  background:rgba(118,158,149,.27);border-color:rgba(172,211,200,.65);
+}
+body[data-game-id="game-17"] .animlab-library-panel {
+  display:flex;flex-direction:column;gap:7px;padding:9px 7px;
+  background:#1e3035;border:1px solid rgba(143,207,197,.18);border-radius:9px;
+}
+body[data-game-id="game-17"] .animlab-library-panel-heading {
+  display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0;
+  font-size:11px;color:#e8f5f0;
+}
+body[data-game-id="game-17"] .animlab-library-panel-heading button {
+  border:1px solid rgba(238,243,241,.18);background:rgba(255,255,255,.06);
+  color:#e8f5f0;border-radius:6px;min-width:27px;min-height:27px;font-size:16px;
+}
+body[data-game-id="game-17"] .animlab-library-entry {flex-wrap:wrap;overflow:hidden;}
+body[data-game-id="game-17"] .animlab-library-entry-name {
+  min-width:0;overflow-wrap:anywhere;
+}
+body[data-game-id="game-17"] .animlab-library-actions {flex-shrink:0;}
+body[data-game-id="game-17"] .animlab-library-management {
+  display:flex;flex-wrap:wrap;gap:4px;width:100%;border-top:1px solid #496866;padding-top:5px;
+}
+body[data-game-id="game-17"] .animlab-library-status {
+  overflow-wrap:anywhere;padding:4px 5px;background:rgba(143,207,197,.08);border-radius:6px;
+}
+body[data-game-id="game-17"] .animlab-library-import,
+body[data-game-id="game-17"] .animlab-library-field {min-width:0;max-width:100%;}
+/* A small inward gutter avoids iOS/WebKit flex rounding adding an X scroll range. */
+body[data-game-id="game-17"] .animlab-drawer>.animlab-section {
+  width:calc(100% - 4px);max-width:calc(100% - 4px);
+}
+
+/* v1.0.200 C1b — consistent built-in / custom library entry and current name. */
+body[data-game-id="game-17"] .animlab-legacy-character-row[hidden],
+body[data-game-id="game-17"] #animlab-save[hidden]{display:none!important;}
+body[data-game-id="game-17"] .animlab-library-current {
+  display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding:7px 8px;
+  border:1px solid rgba(143,207,197,.28);border-radius:8px;background:rgba(143,207,197,.10);
+  min-width:0;overflow:hidden;
+}
+body[data-game-id="game-17"] .animlab-library-current span {
+  font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9bbdb4;
+}
+body[data-game-id="game-17"] .animlab-library-current strong {
+  font-size:13px;line-height:1.2;color:#f3faf7;overflow-wrap:anywhere;
+}
+body[data-game-id="game-17"] .animlab-library-current small {
+  font-size:9px;line-height:1.2;color:#b4cbc3;
+}
+body[data-game-id="game-17"] .animlab-library-entry.is-selected{
+  border-color:#9edec5;background:rgba(86,140,115,.25);
+}

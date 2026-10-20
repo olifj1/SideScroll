@@ -1,3 +1,14 @@
+## October 19, 2026 — v1.0.200 unified Character Library and sidebar patch (iPhone acceptance pending)
+
+- [x] Replace v199's always-expanded custom library and duplicate built-in buttons with **one** Character Library: persistent loaded-character name/status; New · Load · Save opens one contextual panel at a time.
+- [x] **Load lists built-in Hero 1, Hero 2, Fox and local user-created characters together**, and switches using existing unsaved-change guard. Current row marked Loaded. Never allow rename/delete of built-ins.
+- [x] **New** creates a local custom character, automatically appears alongside originals in the same Load list. **Save** uses existing session pipeline for any loaded character, retaining rig Rebind+Save confirmation; hide duplicate Edit Session Save button (Undo/Redo/Discard retained).
+- [x] For saved custom entries, opt-in manage → Rename / Export / Delete. Import JSON remains duplicate-safe. Saved built-in Fox supports its established Handoff export via contextual Save. No image pixel inclusion in custom export.
+- [x] Constrain Anim Lab sidebar horizontal overflow/drift; keep vertical scrolling. No effects on other editors.
+- [x] **Do not migrate legacy saved Hero/Fox data.** Built-ins keep legacy storage, newly authored characters keep private `sidescroll.animlab.character-library.v1`. Regular-game custom selection and runtime skin/art parity not yet implemented.
+- [x] JS syntax + Chromium real-code UI, Save, guarded-switch and small landscape width tests with simulated storage passed.
+- [ ] **On iPhone:** confirm screen stability, side-scroll lock with native sliders, loaded status, all characters in Load, custom persistence, built-in Save, and unsaved guard. Keep v199 rollback until approval.
+
 
 ## October 12, 2026 — v1.0.148 Anim Lab native Scale final-value correction
 

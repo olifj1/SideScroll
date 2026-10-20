@@ -1,30 +1,32 @@
-# SS-PATCH-1.0.199 — Character Library foundation (Stage C1a)
+# SS-PATCH-1.0.200 — Unified Character Library and fixed sidebar
 
-**Install directly over v1.0.198**. This ZIP contains **only files changed in v199**. Keep the previous working source and a Fox JSON export. **Do not clear Safari website data**: the new library, like existing Anim Lab settings, is initially stored in the browser. This patch does not replace any PNG, character atlas, animation key, collider baseline, game renderer or existing user data.
+**Apply directly over v1.0.199.** Eight changed files only, no textures or game runtime. Keep your current v199 copy as rollback until iPhone approval. Do **not** clear Safari website data (character library and old Fox/Hero work are stored there).
 
-## What's new
+## What is different
 
-In Anim Lab's **Character Library**, enter a name, choose a **Quadruped** or **Biped** starter and tap **Create Character**. The new character is opened immediately, with a distinct ID, its own saved Setup, its own sparse Idle/Walk/Run/Jump (or Biped Walk/Run/Jump) clips, and built-in starter artwork as a visible **temporary placeholder**.
+- Anim Lab now has **one Character Library** for *Hero 1, Hero 2, Fox and every locally created character*. The separate permanent Hero 1/Hero 2/Fox buttons are hidden, not removed from the underlying compatibility code.
+- The opening library view has **New · Load · Save**, and always shows a clearly labelled **Loaded character: [name]** with Built-in/Local and Saved/Unsaved state. Only the chosen command expands its context.
+- **New:** choose name and Quadruped/Biped starter. Saved new characters automatically appear in Load alongside the built-ins, without requiring any export/build rebuild.
+- **Load:** Open from one list of built-in and local characters. Local-only secondary actions (Rename / Export JSON / Delete-with-confirmation) are behind `•••` so native characters cannot accidentally be deleted or renamed. Import JSON is also available. Unsaved switches still use Save / Discard / Cancel.
+- **Save:** Save changes for whichever character is loaded using the existing Undo/checkpoint and Rebind+Save safeguards. Custom characters retain independent local documents; the original Fox/Hero continue using their established built-in storage (no silent migration). Existing duplicate Edit Session Save button is hidden; Undo/Redo/Discard remain accessible. Export JSON appears for a saved custom character; built-in Fox exposes its existing Fox Handoff export.
+- Sidebar constrained to **vertical scrolling** with overflow/drift correction; menus closed by default. Does not intentionally alter native slider behaviour, rig/part/skin algorithms or animations.
 
-- **Quadruped** starts with the existing generic Fox rig-family authoring capabilities: Parts, Rig, Skin, Animate and local Quick Play. The six-region atlas is currently the bundled Fox artwork; art import/replace is *not* provided by this drop.
-- **Biped** starts with the existing Human rig-family animation/scale/collider tools; independent Parts/Skin controls are **not implemented** for this rig adapter yet. The bundled Hero image is a placeholder, not newly created artwork.
-- Each new character can be **opened, renamed, deleted, exported to JSON and imported** from a previously exported character JSON. Import creates a **new independent ID** rather than overwriting an existing entry. Delete requires confirmation.
-- Working-copy Save, Undo, Redo, Discard and leave-stage guards remain in effect. **Saving a custom character cannot write the legacy Fox rest-rig/collider, Hero collider, shared sampled clips or the game-selected character.** Existing built-in Fox/Hero authoring continues under its previous storage keys. Library entries have their own versioned key: `sidescroll.animlab.character-library.v1`.
-- JSON exports contain rig, transforms, binding/tuning, movement setup and authored sparse clips **but not artwork pixels**. The recipient must have the bundled SideScroll starter images.
+## What is still NOT supported
 
-## iPhone acceptance checks
+A new custom character is saved in **this browser immediately**, but it is **not yet selectable in the normal game**. Export the saved character JSON to back it up or to share for future packaging. JSON export **does not contain artwork image bytes**. The separate native built-in Hero animation data still use their existing legacy family-level storage; this patch does not migrate or rework their internals. New artwork import, general biped Parts/Skin, named animation templates and a live in-game character selector remain follow-up stages.
 
-1. Open Anim Lab. Confirm existing **Hero 1, Hero 2 and Fox** remain selectable and unchanged.
-2. In Character Library, create a named **Quadruped**. Edit a part's X/Y, Save, switch to Fox and back; check the custom layout is retained but Fox hasn't changed.
-3. Edit the new character's rig or Skin tuning, Save; switch back and forth. In Animate, change one Walk key, Save; open Fox again to confirm Fox's Walk was not overwritten.
-4. Leave the editor, reopen, select the custom character and confirm it still has its saved setup/clip. Try Rename and Export, then Import its JSON. The import should create a second independent character. Test deletion on a **test character only**.
-5. Create a Biped and verify its Setup/Animate tabs work; **Parts/Skin/Play are deliberately not promised for this family**.
-6. Existing Fox Handoff remains for the built-in Fox only. For custom entries use Character Library **Export**.
+## iPhone checks
 
-## Deliberate limitations / next stages
+1. Landscape open: no sideways scrolling sidebar; Loaded character label and only three primary Library actions. Side menu still scrolls vertically.
+2. Load: see **Hero 1, Hero 2, Fox**. Select each and verify Loaded updates. No per-character buttons remain outside the Load list.
+3. New: create a test quadruped; it opens and appears alongside the three originals in Load. Switch to Fox and back, without losing the custom character.
+4. Edit custom setup; Save → Save changes; reopen and check persistence. Then edit the built-in Fox and Save to its original local data as before. Ensure unsaved switching shows the guard.
+5. Rotate portrait→landscape, scroll the drawer and adjust a slider. Check it doesn't wander horizontally. Export a custom JSON backup before clearing website data.
 
-This is the **first Character Library stage, not the completed end-to-end system**. There is not yet a user-art importer/atlas replacement workflow; library JSON and artwork are not bundled into a single portable art kit. Animation assets are independent copies from rig-family starter tracks, **not yet named linked templates**; use Make Unique/Save as Template is future work. Characters are **editor-only** and **cannot yet be selected in the normal game**. Runtime deformation/weight tuning parity also remains outstanding. Biped independent Parts/Skin/Play needs its own adapter. Library storage is local to the device/browser; use Export before clearing data or switching devices.
+## Verification
 
-## Verification performed
+Node syntax checking passed. Headless Chromium tests with actual v199 SideScroll code and a mocked persistent storage API exercised both phone-like landscape viewport sizes (844×390 and 667×375), first screen, full list, native/custom Open, New, Save, unsaved-switch guard, local data isolation, and the no-horizontal-overflow sidebar. No JavaScript exceptions. Actual iPhone Safari elastic scrolling still requires your acceptance.
 
-Node `--check` passed on modified JS. Headless Chromium using the actual code, inline installed art and isolated simulated Safari storage verified: create Quadruped/Biped, save independent setup and sparse clips, re-open after a fresh page load, switch between original Fox and multiple custom characters, export/import round-trip and independent edits, and delete. Built-in Fox rig/collider/shared clip/setup storage remained byte-for-byte unchanged during custom editing. Image and runtime tests cannot fully simulate installed iPhone Safari. The reference-video manifest is blocked by the offline harness; its fetch warning is unrelated to the new library. The three canonical design documents are updated.
+## Patch contents
+
+`README.md`, `anim-lab-character-library.js`, `walk-lab.html`, `style.css`, `sw.js` (v200 cache), and the three canonical design/task documents. No atlas, image, animation clips, rig or game runtime changed.
