@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## v1.1.1 Atlas preview setting and art source limits (20 October 2026)
+
+Atlas transparent-pixel background preference `sidescroll.animlab.atlas-view.v1` is a device-local **view setting** (`dark` default, `checker` optional) and never alters image bytes, saved meshes, UVs or rig/skin data. It may be copied as a localStorage string by broad-scoped backups but is not a portable art asset. **No change** to IndexedDB binary storage or export coverage in this release. Import from iPhone PNG continues to persist locally only; creating a PNG file in the GitHub repo does not automatically register it in the Atlas editor. GitHub-backed image selection and self-contained image/mesh export/import remain required work before reliable roundtrip and deployment of custom art.
+
 ## v1.1.0 Atlas Stage A — shipped storage, incomplete backup (20 October 2026)
 
 Atlas creation and Save add localStorage key **`sidescroll.animlab.atlas-docs.v1`** (`animlab.atlas-map.v1` by stable character ID; nested `animlab.atlas-document.v1` objects hold named rectangle meshes, pixel-space vertices, triangles, generator settings and imported-art references). Because the key begins `sidescroll.animlab.`, existing v205 Anim Lab / global JSON scanners **will include its text value**, but this is not a complete art backup. Imported PNG bytes are written to IndexedDB **`sidescroll-animlab-art-v1` / `atlas-images`** as blobs by generated `image-...` IDs; these are **not read or written by v205 Lab export, character export, project snapshot, or project restore**, and no portable image manifest exists yet. A restored Atlas JSON can therefore reference missing art: the editor warns instead of silently switching images. Built-in Fox files remain bundled and unchanged. Current raw JSON exports' `binaryAssetsIncluded:false` must remain truthful.

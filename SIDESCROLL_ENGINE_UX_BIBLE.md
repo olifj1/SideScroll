@@ -1,5 +1,9 @@
 # SideScroll Engine & UX Bible
 
+## Atlas preview separation — v1.1.1 (20 October 2026)
+
+For Atlas mesh authoring, default transparent pixels to a **dark, solid preview background** and offer checkerboard as an optional view preference. **Never flatten or replace the underlying PNG alpha.** Keep thin wireframes and use distinct colour for selection, without opaque/semitransparent mesh faces hiding art; show edit handles only in vertex-edit mode. The character-assembly **Display** panel is not applicable in Atlas: hide it in Atlas and restore unchanged in other stages. Atlas view settings must remain independent of editable character data, Save, Undo and export.
+
 ### v1.1.0 Atlas Stage A — implemented boundaries (20 October 2026)
 
 Atlas is now the leftmost stage, before untouched Parts. It renders on its own texture-space 2D canvas; assembled layout remains the existing Parts system. Inspecting image/legacy Fox meshes, hide/solo/lock and viewport pan/pinch should never change a character working copy. Only explicit Apply/vertex changes create an undoable Atlas document edit; core Save/Discard handles its independent session participant. The UI's legacy Fox mesh overlay is read-only and calculated from the existing deform renderer without writing back its bind/skin data. Source rectangles store only pixel positions and triangle indices and derive UVs from image dimensions; there is no second UV manipulation mode. This is test-only initial Atlas authoring, not general Parts/Skin integration. IndexedDB PNG bytes currently lack portable export/restore: users must retain original PNG files until this is completed.

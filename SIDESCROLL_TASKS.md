@@ -1,5 +1,13 @@
 ## October 19, 2026 — v1.0.200 unified Character Library and sidebar patch (iPhone acceptance pending)
 
+## October 20, 2026 — v1.1.1 Atlas preview polish (iPhone review pending)
+
+- [x] Dark solid transparent-pixel preview is now the default; optional checkerboard via Atlas-specific preference `sidescroll.animlab.atlas-view.v1`, with no alpha/image or character-data mutations.
+- [x] Hide the shared assembled-character Display panel only while Atlas is active; restore its pre-existing control state on return to other stages.
+- [x] Thin selected mesh edges, colour selected gold instead of increasing stroke weight, do not fill/obscure the image, draw shared triangle edges only once, small handles only while using Vertices tool.
+- [ ] On-device iPhone check: solid/checker background while switching Fox/New01; selection visibility/legibility; Display preserved after switching modes; no unsaved character change.
+- [ ] GitHub-source atlas path selection remains unimplemented. PNG import from Files is device-local IndexedDB; safe, portable binary art export and baked source promotion remain open.
+
 ## October 20, 2026 — v1.1.0 Atlas Stage A TEST PATCH (device acceptance pending)
 
 - [x] Atlas nav before Parts; separate 2D source-image canvas with pan, pinch and wheel zoom; existing Parts inspector and transforms untouched.

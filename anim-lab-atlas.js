@@ -14,6 +14,11 @@
     return;
   }
   const DOC_KEY = 'sidescroll.animlab.atlas-docs.v1';
+  const VIEW_KEY = 'sidescroll.animlab.atlas-view.v1'; // Editor preference; never alters character data.
+  function initialBackdrop() {
+    try {return localStorage.getItem(VIEW_KEY)==='checker'?'checker':'dark';}
+    catch (_) {return 'dark';}
+  }
   const DB_NAME = 'sidescroll-animlab-art-v1';
   const DB_STORE = 'atlas-images';
   const clone = o => JSON.parse(JSON.stringify(o));
@@ -74,6 +79,7 @@
   panel.innerHTML=`
     <div class="animlab-section-title">Atlas · source meshes (v1.1.0)</div>
     <label class="animlab-atlas-import">PNG atlas <input type="file" accept="image/png" data-atlas="file"></label>
+    <label class="animlab-atlas-backdrop">Transparent pixels <select data-atlas="backdrop" aria-label="Transparent-pixel background"><option value="dark">Dark background</option><option value="checker">Checkerboard</option></select></label>
     <div class="animlab-atlas-tools" role="group" aria-label="Atlas tools">
       <button type="button" data-tool="pan">Pan</button><button type="button" data-tool="rect">Rectangle</button><button type="button" data-tool="vertex">Vertices</button><button type="button" data-act="fit">Fit</button>
     </div>
@@ -95,7 +101,8 @@
   const ctx=canvas.getContext('2d');
   const state={charId:null,draft:null,saved:null,legacy:null,img:null,imageURL:null,
     imageStatus:'',tool:'pan',selected:null,hidden:new Set(),solo:null,locked:new Set(),
-    undo:[],redo:[],pending:null,gesture:null,zoom:1,tx:0,ty:0,loadSerial:0};
+    undo:[],redo:[],pending:null,gesture:null,zoom:1,tx:0,ty:0,loadSerial:0,backdrop:initialBackdrop()};
+  pick('data-atlas','backdrop').value=state.backdrop;
   const isActive=s=>s.mode==='setup' && s.setupTool==='atlas';
   const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   const dirty=()=>!!state.saved && !same(state.draft,state.saved);
@@ -187,23 +194,40 @@
       return;
     }
     ctx.save();ctx.translate(state.tx,state.ty);ctx.scale(state.zoom,state.zoom);
-    ctx.fillStyle='#9da9af';ctx.fillRect(0,0,d.w,d.h);
-    const check=Math.max(4,Math.min(d.w,d.h)/26);
-    for(let y=0;y<d.h;y+=check)for(let x=0;x<d.w;x+=check){if((Math.floor(x/check)+Math.floor(y/check))%2){ctx.fillStyle='#b6c0c4';ctx.fillRect(x,y,check,check);}}
+    // The image's actual alpha remains intact. Only the preview backdrop changes.
+    ctx.fillStyle=state.backdrop==='checker'?'#89979b':'#11232b';ctx.fillRect(0,0,d.w,d.h);
+    if(state.backdrop==='checker'){
+      const check=Math.max(4,Math.min(d.w,d.h)/26);
+      for(let y=0;y<d.h;y+=check)for(let x=0;x<d.w;x+=check)
+        if((Math.floor(x/check)+Math.floor(y/check))%2){ctx.fillStyle='#bac5c8';ctx.fillRect(x,y,check,check);}
+    }
     ctx.drawImage(img,0,0,d.w,d.h);
     ctx.lineWidth=2/state.zoom;ctx.strokeStyle='rgba(240,250,255,.65)';ctx.strokeRect(0,0,d.w,d.h);
     const meshes=allMeshes();
     for(const m of meshes) {
       if(!shown(m))continue;
       const chosen=m.id===state.selected;
-      ctx.strokeStyle=chosen?'#ffdf80':(m.readOnly?'#91c7e7':'#76e2b7');
-      ctx.fillStyle=chosen?'rgba(255,209,98,.10)':(m.readOnly?'rgba(67,149,225,.035)':'rgba(66,220,156,.06)');
-      ctx.lineWidth=(chosen?2.5:1.2)/state.zoom;
-      for(const tri of m.triangles) {
-        const [a,b,c]=tri.map(i=>m.vertices[i]);if(!a||!b||!c)continue;
-        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.closePath();ctx.fill();ctx.stroke();
+      // Single-pixel wireframes regardless of selection; colour, not thickness,
+      // distinguishes the selected mesh. De-duplicate triangle edges so each
+      // shared edge draws only once, and never tint the source texture.
+      ctx.strokeStyle=chosen?'#ffcf6b':(m.readOnly?'#8bc1dc':'#71deb2');
+      ctx.lineWidth=(chosen?1.1:0.85)/state.zoom;
+      const edges=new Set();ctx.beginPath();
+      for(const tri of m.triangles){
+        if(!tri || tri.length!==3)continue;
+        for(const [i,j] of [[tri[0],tri[1]],[tri[1],tri[2]],[tri[2],tri[0]]]){
+          const a=m.vertices[i],b=m.vertices[j];if(!a||!b)continue;
+          const edge=i<j?i+':'+j:j+':'+i;
+          if(edges.has(edge))continue;
+          edges.add(edge);ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+        }
       }
-      if(chosen)for(const v of m.vertices){ctx.beginPath();ctx.fillStyle=m.readOnly?'#98bdd8':'#ffe09b';ctx.arc(v.x,v.y,Math.min(13,4.8/state.zoom),0,Math.PI*2);ctx.fill();}
+      ctx.stroke();
+      // Handles are useful in Vertices mode, but obscure image detail elsewhere.
+      if(chosen && state.tool==='vertex')for(const v of m.vertices){
+        ctx.beginPath();ctx.fillStyle=m.readOnly?'#9dc9de':'#ffe09b';
+        ctx.arc(v.x,v.y,Math.min(50,2.5/state.zoom),0,Math.PI*2);ctx.fill();
+      }
     }
     if(state.pending){const p=state.pending;ctx.strokeStyle='#fff4a4';ctx.setLineDash([8/state.zoom,6/state.zoom]);ctx.lineWidth=2/state.zoom;ctx.strokeRect(p.x,p.y,p.w,p.h);ctx.setLineDash([]);}
     ctx.restore();
@@ -352,6 +376,11 @@
   },{passive:false});
   panel.querySelectorAll('[data-tool]').forEach(btn=>btn.addEventListener('click',()=>{state.tool=btn.dataset.tool;state.pending=null;refresh();}));
   pick('data-act','fit').addEventListener('click',()=>{fit();refresh();});
+  pick('data-atlas','backdrop').addEventListener('change',e=>{
+    state.backdrop=e.target.value==='checker'?'checker':'dark';
+    try {localStorage.setItem(VIEW_KEY,state.backdrop);} catch (_) {}
+    layout(); // No Save/Undo entry: this is a viewport-only preference.
+  });
   pick('data-act','apply').addEventListener('click',applyPending);
   pick('data-act','cancel').addEventListener('click',()=>{state.pending=null;refresh();});
   pick('data-atlas','file').addEventListener('change',async e=>{

@@ -138,6 +138,9 @@
     const stage = s.mode === 'setup'
       ? ({atlas:'atlas',art:'parts',rig:'rig',skin:'skin'}[s.setupTool] || 'rig')
       : s.mode === 'play' ? 'play' : 'animate';
+    // Atlas has its own image-space controls; the shared Character Display
+    // belongs only to Parts/Rig/Skin/Animate/Play. Restore it on exit.
+    panel.hidden = stage === 'atlas';
     const fox = s.family === 'fox';
     for (const btn of stageButtons) {
       const id = btn.dataset.authorStage;

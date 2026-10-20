@@ -14968,3 +14968,15 @@ body[data-game-id="game-17"] .animlab-atlas-item button:first-child{text-align:l
   body[data-game-id="game-17"] .animlab-atlas-panel{gap:4px}
   body[data-game-id="game-17"] .animlab-atlas-list{max-height:96px}
 }
+
+/* v1.1.1: Atlas-only transparent-preview backdrop selector. */
+body[data-game-id="game-17"] .animlab-atlas-backdrop{
+  display:flex;align-items:center;gap:6px;min-width:0;
+  font:700 10px system-ui,-apple-system,sans-serif;color:#cfe1dc;
+}
+body[data-game-id="game-17"] .animlab-atlas-backdrop select{
+  min-width:0;max-width:165px;flex:1;min-height:28px;
+  padding:3px 5px;border:1px solid rgba(185,231,215,.4);
+  background:#20343a;color:#fff;border-radius:5px;
+  font:10px system-ui,-apple-system,sans-serif;
+}

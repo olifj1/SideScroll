@@ -1,5 +1,11 @@
 # SideScroll Character Authoring & Animation System
 
+## v1.1.1 — Atlas display polish (20 October 2026; iPhone review pending)
+
+Atlas uses **Dark background** by default for transparent image pixels, with an optional **Checkerboard** preview. This only changes the canvas backdrop; PNG alpha/UV data are not modified. The Atlas-specific toggle persists per browser independently of Character Save/Undo. Selected meshes now draw a *thin, single-pass gold wireframe* without face tint, and their small edit handles appear only under **Vertices**. Atlas hides the shared Display panel, but exiting to Parts/Rig/Skin/Animate/Play restores the existing panel and prior state; Parts itself remains unmodified.
+
+**Art source limitation (still open):** phone PNG import is locally persistent in IndexedDB, not automatically exported as image bytes; no GitHub-relative texture-path picker exists. Upcoming image packaging / optional repo-asset selection must preserve a portable art source while avoiding silent overwrites of baked assets. A GitHub-uploaded PNG is not discoverable by Atlas solely because it is in the repository.
+
 ## v1.1.0 implementation note — Atlas Stage A (20 October 2026)
 
 **DELIVERED AS A TEST PATCH; iPHONE ACCEPTANCE PENDING.** v1.1.0 adds the sixth Atlas tab ahead of existing Parts. The Atlas view uses an isolated 2D canvas displaying the current character's bundled atlas (Fox uses the approved `fox-deform-atlas-v2.png`) or an explicitly imported transparent PNG. The six legacy Fox deform regions are projected from their procedural bind textures back to the *source atlas* for blue, read-only overlay/selection; their renderer geometry/weights are not converted, migrated, written, or changed by opening Atlas. Transient hide/solo/lock affect only the Atlas view.
