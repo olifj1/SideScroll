@@ -214,7 +214,9 @@
     img.onload=()=>{
       artRevision++;
       caches.clear();
-      core.redrawOnly?.();
+      // Notify the Atlas stage when the source image becomes available;
+      // this remains a view-only refresh, never a saved data change.
+      core.redraw?.();
     };
     img.onerror=()=>console.warn(`[Anim Lab Mesh] Deform atlas failed to load: ${DEFORM_ATLAS_FILE}`);
     img.src=`${DEFORM_ATLAS_FILE}?v=${ART_VERSION}`;
@@ -1289,6 +1291,46 @@
   }));
   wireBtn.addEventListener('click',()=>{wireframe=!wireframe;updateUi();core.redrawOnly?.();});
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redrawOnly?.();});
+
+  // Read-only source-image atlas projection for the v1.1.0 Atlas Editor.
+  // The active Fox renderer uses dynamic per-region cropped textures, NOT
+  // directly stored atlas UVs. Invert the exact dedicated-art draw transform
+  // to visualise its procedural vertices at their source pixels. No migration.
+  let atlasSnapshotCache = null, atlasSnapshotCacheKey = '';
+  function legacyAtlasSnapshot() {
+    if (!deformAtlas?.complete || !deformAtlas.naturalWidth || !skinLastAtlas) return null;
+    const state = core.getState();
+    if (state.family !== 'fox') return null;
+    const rest = state.setup?.artRestRig || state.setup?.rig || FoxRig.DEFAULT_REST_RIG;
+    const cacheKey = `${artRevision}:${rigKey(rest)}`;
+    if (atlasSnapshotCache && atlasSnapshotCacheKey === cacheKey && atlasSnapshotCache.image === deformAtlas) return atlasSnapshotCache;
+    const regions = regionsFor(skinLastAtlas, rest);
+    atlasSnapshotCacheKey = cacheKey;
+    atlasSnapshotCache = {image:deformAtlas, width:deformAtlas.naturalWidth, height:deformAtlas.naturalHeight,
+      meshes: regions.filter(region => region.artSource === 'dedicated').map(region => {
+        const def = REGION_DEFS.find(d => d.id === region.id);
+        const r = def.artRect, fit = def.fit || {};
+        const allParts = FoxRig.partsForPose(BIND_POSE,rest).filter(part => def.parts.includes(part.name));
+        const box = bboxForParts(allParts);
+        if (!box) return null;
+        const rawW = Math.max(32,Math.ceil((box.maxX-box.minX)*TEXELS_PER_LOCAL)+PAD*2);
+        const rawH = Math.max(32,Math.ceil((box.maxY-box.minY)*TEXELS_PER_LOCAL)+PAD*2);
+        const innerW = Math.max(1,rawW-PAD*2), innerH = Math.max(1,rawH-PAD*2);
+        const dw = Math.max(1,innerW*(fit.scaleX ?? fit.scale ?? 1));
+        const dh = Math.max(1,innerH*(fit.scaleY ?? fit.scale ?? 1));
+        const dx = PAD+(innerW-dw)*(fit.alignX ?? .5)+innerW*(fit.offsetXPct || 0)+(fit.offsetX || 0);
+        const dy = PAD+(innerH-dh)*(fit.alignY ?? .5)+innerH*(fit.offsetYPct || 0)+(fit.offsetY || 0);
+        const rawView = {scale:TEXELS_PER_LOCAL,cx:PAD-box.minX*TEXELS_PER_LOCAL,
+          groundY:PAD+box.maxY*TEXELS_PER_LOCAL,flipX:1};
+        return {id:def.id,name:def.label,readOnly:true,
+          vertices:region.vertices.map(v => {
+            const pt = projectLocal(v.bind,rawView);
+            return {x:r.x+(pt.x-dx)*r.w/dw,y:r.y+(pt.y-dy)*r.h/dh};
+          }), triangles:region.triangles.map(tri => [...tri])};
+      }).filter(Boolean)};
+    return atlasSnapshotCache;
+  }
+  window.AnimLabLegacyAtlas = Object.freeze({getSnapshot:legacyAtlasSnapshot});
 
   loadDedicatedArt();
   core.registerArtRenderer('fox-deform-mesh',render);

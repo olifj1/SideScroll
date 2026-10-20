@@ -1,5 +1,12 @@
 # SideScroll — Export and Recovery Coverage
 
+## v1.1.0 Atlas Stage A — shipped storage, incomplete backup (20 October 2026)
+
+Atlas creation and Save add localStorage key **`sidescroll.animlab.atlas-docs.v1`** (`animlab.atlas-map.v1` by stable character ID; nested `animlab.atlas-document.v1` objects hold named rectangle meshes, pixel-space vertices, triangles, generator settings and imported-art references). Because the key begins `sidescroll.animlab.`, existing v205 Anim Lab / global JSON scanners **will include its text value**, but this is not a complete art backup. Imported PNG bytes are written to IndexedDB **`sidescroll-animlab-art-v1` / `atlas-images`** as blobs by generated `image-...` IDs; these are **not read or written by v205 Lab export, character export, project snapshot, or project restore**, and no portable image manifest exists yet. A restored Atlas JSON can therefore reference missing art: the editor warns instead of silently switching images. Built-in Fox files remain bundled and unchanged. Current raw JSON exports' `binaryAssetsIncluded:false` must remain truthful.
+
+**NEXT mandatory work before portable character acceptance:** safely capture binary images with integrity/version, package them in per-character + whole-AnimLab + global backup, preview missing/stale art before import, restore images with rollback before committing Atlas JSON, and test cross-device/second-browser restoration. Existing localStorage backup compatibility and originals must be retained. No destructive project import on the primary iPhone until verified.
+
+
 **As of v1.0.205 (20 October 2026).** This is an operational source audit, not a promise of complete device recovery. The project's saved work lives in browser origin storage, and individual editors sometimes hold unsaved drafts. All exporters are non-mutating. Import operations may replace current saved work; preserve a newer export before importing older data.
 
 ## User-facing export choices
@@ -48,3 +55,11 @@ After file selection, the UI shows a **preview** (per-category checkboxes, Merge
 **Not included:** unpersisted editor drafts, external art/image bytes, bundled PNGs/audio, offline caches, IndexedDB records; local `sessionStorage` is optional because ephemeral editor state can be undesirable on a new device. Restored local values become visible after reloading the game or the Lab. Newer extra keys are kept, no implicit migration. Imported data is **not** a new GitHub baked project.
 
 **Verification:** Node WebCrypto validated all 76 checksums from the real Oct 20 v203 snapshot; invalid sizes/hashes/foreign keys/duplicates rejected; merge preserves the local Design Doc and unrelated origin keys; stale-storage check works. Chromium rendered 390×844 and 844×390 import UI, chose JSON via file input, toggled modes/categories and had no horizontal overflow. Real iPhone Share Sheet, true device restore and interruption/transaction durability remain to be tested.
+
+## v1.1.0 Atlas workspace — new storage/backup ownership (Stage A implemented; binary backup pending)
+
+Atlas-first authored characters will add actual imported **image bytes** and source atlas-space mesh definitions. Current v205 Global Project Snapshot is **not** a complete image backup: it does not collect IndexedDB, external originals or uploaded-image pixels, and current single character JSON exports do not embed all required PNG data. Do not represent an exported character as restorable until its source art is present.
+
+Requirements before acceptance: (1) durable on-device art storage with stable image ID/version/hash; (2) per-part atlas-coordinate vertices, derived UVs, topology, generator settings and stable IDs; (3) portable character + imported art package; (4) All Anim Lab scoped package includes binary art; (5) Global Project Backup/Restore includes art if stored outside localStorage; (6) integrity/size/version validation, missing-art warning, explicit import conflict behaviour; (7) test on spare browser/device. Keep v205 JSON schema support and never silently alter the user's existing storage to accommodate the new atlas.
+
+**Versioning:** next actual game code release is v1.1.0; v1.1.0 Stage A test patch adds Atlas editor data and device-local IDB bytes, not yet portable backups.

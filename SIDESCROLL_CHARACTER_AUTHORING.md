@@ -1,6 +1,17 @@
 # SideScroll Character Authoring & Animation System
 
-Status: **approved end-to-end workflow (18 Oct 2026), under staged development.** v1.0.191 is the user-confirmed clean stable baseline. Parts, independent rig/bind, skin and UX refinements have been delivered incrementally in v192–v198; user acceptance is per-drop. v1.0.199 adds the first editor-only Character Library/data isolation stage; v1.0.200 unifies built-in/custom character access under a compact toolbar and corrects sidebar drift, **pending iPhone acceptance**. Artwork import, shared animation templates and normal-game custom-character selection are not implemented.
+## v1.1.0 implementation note — Atlas Stage A (20 October 2026)
+
+**DELIVERED AS A TEST PATCH; iPHONE ACCEPTANCE PENDING.** v1.1.0 adds the sixth Atlas tab ahead of existing Parts. The Atlas view uses an isolated 2D canvas displaying the current character's bundled atlas (Fox uses the approved `fox-deform-atlas-v2.png`) or an explicitly imported transparent PNG. The six legacy Fox deform regions are projected from their procedural bind textures back to the *source atlas* for blue, read-only overlay/selection; their renderer geometry/weights are not converted, migrated, written, or changed by opening Atlas. Transient hide/solo/lock affect only the Atlas view.
+
+**First editable geometry:** drag a rectangle directly over image pixels, select X/Y subdivisions (1–24 cells per axis), Apply with a name, drag its vertices, and use existing Undo/Redo/Save/Discard. Vertices are stored as `{x,y}` **pixel-space positions**. UVs are derived on read as `(x / atlasWidth, y / atlasHeight)`; triangles reference vertex indices. `generator:{type:'rectangle',x,y,w,h,cols,rows,edited?}` retains constructor metadata. No independent UV channel/editor exists. Source rectangles are saved under `sidescroll.animlab.atlas-docs.v1` → `{schema:'animlab.atlas-map.v1',characters:{characterId:{schema:'animlab.atlas-document.v1',atlas,meshes}}}`. Each mesh has stable generated `id`, `name`, `kind`, `vertices`, `triangles` and `generator`. Only an explicit Save creates/writes the key. This Atlas-owned map does **not** replace the legacy Fox procedural mesh definition or the character-library setup document. Creating a rectangle does **not yet produce a Parts-region / Skin binding / animation-renderable mesh**: that handoff is a separate task.
+
+**Imported PNGs:** image bytes are stored in IndexedDB database `sidescroll-animlab-art-v1`, object store `atlas-images`, keyed by an immutable generated image ID. The Atlas JSON references `{kind:'indexeddb',id,name,width,height,bytes}`. A newly selected image is confirmed only through Save; existing Fox source PNG and runtime references are never overwritten. File validation currently requires PNG, <16 MB, dimensions 8–8192 and sampled alpha. Missing local binary bytes yield a visible error, not an invisible reassignment. Stored artwork persists locally across ordinary reload, but **does NOT accompany v205 single-character, Anim Lab, or global JSON backup/import**. Do not use this first version for sole-copy artwork or cross-device moves; portability and complete end-to-end editing are still acceptance gates. IndexedDB restore and iPhone device behaviour are not yet verified on-device.
+
+**Baseline protection / source audit:** `walk-lab.js` handles stages/working copy, `anim-lab-ui.js` stage selection, `anim-lab-mesh.js` computes the Fox six-region procedural geometry from `fox-deform-atlas-v2.png` and cropped per-region textures; `anim-lab-art-layout.js` owns the existing assembled part transforms. `anim-lab-character-library.js` persists named/custom character setup and clips; `lab-data.js`/project snapshot currently capture localStorage strings but not image bytes. Geometry mapping is Fox-specific and read-only in this first step. Atlas document schema and UI are family-neutral, yet bridging authored mesh geometry to existing family renderers is not delivered. Tests: Node syntax; local Chromium inline-script DOM harness using original v205 snapshot Fox and `New01`, bundled fox atlas pixels; visit/no-dirty; 6 projected regions; create/Undo/Redo/Save rectangle; existing setup/library/sparse clip keys unchanged. Chromium/iPhone binary-import save/reload and global restored binaries are **not verified**.
+
+
+Status: **character-authoring system under staged development.** v1.0.205 was the preceding delivered code milestone (Project Export/Restore Stage 1; second-device restore not yet accepted); v1.1.0 Stage A is a device-acceptance-pending test patch. v1.0.191 was the user-confirmed clean baseline; v1.0.192–201 delivered successive Parts/Rig/Skin/library refinements. **v1.1.0 Atlas Stage A is now a test patch (not iPhone accepted); further outline/strip, Parts/Skin parity and export portability remain planned.** User-imported character atlas/mesh authoring, animation template library and normal-game custom character selection remain outstanding.
 
 ## v1.0.200 — unified Character Library UI (19 Oct 2026, iPhone review pending)
 
@@ -15,6 +26,53 @@ Character authoring should ultimately let a user create a playable character wit
 The system should not be designed around Fox-specific ownership. Fox is the current quadruped proof character; Hero 1/Hero 2 are the current biped examples.
 
 
+## Approved next milestone — v1.1.0 Atlas-first 2D Mesh Authoring (20 October 2026)
+
+**Status: APPROVED DESIGN; Stage A partially implemented in v1.1.0, remaining stages not yet delivered.** This is the authoritative new Atlas workspace specification; the earlier October 18 Parts/Rig/Skin design remains authoritative for its existing functions. v1.0.205 is the last delivered runtime milestone (global export/restore, not yet separately device-restore tested). The game/code implementation begins with v1.1.0 Stage A. The former documentation-only handover did not itself implement Atlas; refer to the v1.1.0 delivery note above for what is actually present.
+
+### Purpose and visible workflow
+
+After an ImageGen or artist-made transparent character atlas is supplied, the user must be able to author the character entirely inside Anim Lab rather than requiring ChatGPT to hand-create mesh/UV data for every new character. Add **one** new workspace before the existing Parts workspace:
+
+**New / Load Character → Atlas → Parts → Rig → Skin → Animate → Play**.
+
+The **existing Parts editor already moves/scales/rotates/reorders positioned artwork without affecting atlas coordinates**. Preserve it as-is. Do **not** create a second Character Layout editor, copy its controls into Atlas, or introduce a separate UV editor. The existing New · Load · Save Character Library remains the entry point; during New, a character may choose/import an atlas (or use a placeholder and assign one later). Biped and quadruped are current rig examples, not hardcoded limits on part labels/count.
+
+### One unified 2D Atlas / mesh editor — no separate UV mode
+
+The atlas image is the workspace background. Meshes are authored directly on top of it, **in atlas/texture coordinates**. For each vertex, its location over the atlas determines the sampled UV automatically (`u = atlasX / atlasWidth`, `v = atlasY / atlasHeight`, adjusted only for actual renderer coordinate conventions). Moving an authored mesh vertex over the atlas changes its shape **and its texture sample together**, just like editing vertices in a 2D UV-unwrapped image plane. These are **not independently editable UVs**; there is no separate Unwrap/UV-adjustment tab, duplicate UV transform, or 3D-like geometry/UV split. Storage/renderer may retain derived UV values for compatibility, but the user authors only the single 2D vertex position.
+
+The atlas displays **all existing part meshes** in their real saved source-image/UV positions, including meshes of a loaded Fox/legacy character, not merely newly created parts. The part list allows named selection, Show/Hide, Solo, optional Lock, Rename, Duplicate and explicit Delete. Visibility/Solo/Lock are **editor display/control state**, not a hidden runtime change. Selecting or merely opening Atlas must never reconstruct, move, save or rebind meshes. Legacy meshes must initially be visualised without conversion; if some legacy topology cannot be edited safely, label that capability clearly and keep it read-only until an explicit, tested conversion is available.
+
+### Mesh creation tools (all work directly over the atlas)
+
+1. **Rectangle** — create a quad aligned to a drawn atlas rectangle; move corners/edges or change width/height, then select X and Y subdivision counts. New points and triangles remain mapped to the pixels beneath them. Suitable for simple rectangular/rigid cutouts.
+2. **Outline spline** — place/edit points to follow the silhouette of a head, body or other irregular shape (close the outline), then generate a filled non-self-intersecting triangular mesh inside that boundary. Offer controllable subdivisions/internal density and regenerate/preview. Avoid triangles outside the outline or degenerate/self-crossing geometry; invalid outlines get understandable feedback.
+3. **Spline strip** — place/edit a centreline along a limb, tail, neck etc.; set widths at points/ends, generate a ribbon mesh following the curve. Controls for subdivisions **along** and **across** the strip; allow tapering/width adjustment and eventually extra density at bends. Generated vertices use the atlas beneath their positions automatically.
+
+Selection and tool editing should work with phone-sized hit targets, zoom/pan, numeric or pad-assisted precision where helpful, and clear Apply/Cancel/Undo. Start with the simplest usable tool if needed; **do not claim all three are delivered in the first increment until genuinely implemented**. Manual mesh vertex editing is part of the Atlas workspace, again not a distinct UV tool.
+
+### Atlas-to-character semantics — the non-negotiable separation
+
+- **Atlas owns:** image selection/identity, part identity/name, source-region mesh vertices/topology/triangles, subdivision/shape generator settings, and derived texture mapping. Geometry changes appear only after explicit edits.
+- **Parts owns:** existing assembled-character placement X/Y, rotation, X/Y scale, pivot, draw order and neutral layout. These transforms are completely independent from the atlas-space authoring vertices. Moving a leg on the assembled character must not move its atlas sampling, and adjusting an atlas mesh must not teleport it in the character layout.
+- **Rig owns:** rest bones/joints; **Skin owns:** bone influences/weight tuning/bind and pose-test diagnostics; **Animate owns:** clips/pose keys. Do not accidentally reintroduce the old Fox-specific assumption that Skin creates or repositions source topology. Atlas mesh shape edits must not implicitly move joints, pose keys, part layout, or the game-selected character.
+- **Existing part identities, rig attachment names, rest sources and skin weights** must be retained on a safe no-topology-change edit. Topology changes add/remove vertices and cannot blindly preserve one-to-one weights: interpolate/remap weights where demonstrably safe, otherwise warn and require an intentional regenerate/rebind action. No silent destruction of authored skin or clips.
+- Atlas import/replacement must be deliberate: validate PNG transparency/dimensions and ensure no existing character/art/UV/bind data is overwritten solely by browsing for an image. Preserve all Fox approved atlas PNGs and existing authored assets unchanged until explicitly replaced.
+
+### Data / export / restore requirement (part of the feature)
+
+A new character document must reference an actual durable imported atlas image and complete per-part mesh/texture mapping. **A file name, ephemeral File/Blob URL, browser-tab memory image or bundled-atlas path alone is not a portable custom-character export.** Design binary art storage deliberately (large images may need IndexedDB or durable equivalents), make **Single Character Export**, **All Anim Lab Data**, and **Global Project Backup/Restore** include/recover the necessary image bytes or an explicit self-contained companion package. Record storage ownership/schema/version/migration in `SIDESCROLL_EXPORT_COVERAGE.md`; cross-version imports must validate referenced bytes and notify about missing artwork. Keep the existing v205 JSON snapshot compatibility; don't promise imported pixels are backed up by the current system.
+
+### Delivery / acceptance gates
+
+- **A — Atlas workspace foundation:** new stage visible beside existing workspaces; select/import an atlas with safe preview; draw all loaded legacy meshes correctly over atlas; select/show/solo/lock without dirtying storage; reliable pan/zoom/rotation on iPhone. Parts/Rig/Skin/Animate/Play remain unchanged by entering/leaving Atlas.
+- **B — Author geometry:** rectangle creation/subdivisions and explicit edits; outline-spline and centreline-strip tools with inspectable topology; name/duplicate/delete parts; saved, undoable edits surviving reload. UVs always follow atlas-coordinate vertices; no independent UV editor.
+- **C — Downstream parity:** newly created named meshes show in **existing** Parts assembled layout; bind correctly in Rig/Skin; animate and Quick Play without Fox-specific code or six-part assumptions; no mode-switch drift. Existing Fox and Hero saves/animations unchanged.
+- **D — Portability:** full character art bytes + mesh + rig + skin + clips travel in an export and restore on a second browser/device; Global Project Backup covers new storage. Game-runtime selection and baked GitHub defaults remain **separate future work** unless explicitly scoped into a later release.
+
+**Regression minimum:** existing Fox and New01 part IDs/layout/rig/skin/animations round-trip unchanged when the new Atlas workspace is merely visited; new rectangle/outline/strip survives explicit Save/reopen; returning to Parts does not alter UV mapping; Atlas edits not saved are correctly Discarded; no cross-workspace silent writes or wrong texture; no unusable left drawer/safe-area/drag performance on actual iPhone. Browser tests alone are not device acceptance.
+
 ## Approved next design — coherent character-authoring workflow (18 October 2026)
 
 **Status: APPROVED TARGET / PARTLY IMPLEMENTED.** v1.0.192 adds initial P1 controls; this table is still the *target* workflow, not an implemented feature list. v1.0.191 is the user-confirmed working source. Do not describe P2 separation or a new-character workflow as delivered. This section is the **single authoritative detailed specification** for new character authoring. The Engine UX Bible records only general invariants; Tasks records implementation and acceptance. Refer here instead of duplicating divergent versions of this design.
@@ -27,14 +85,15 @@ This is a **global system**, descriptor-driven for quadruped, biped and future r
 
 ### One visible end-to-end workflow
 
-**Character → Parts → Rig → Skin/Bind → Animate → Play** (the Character and Play stages may open as workspaces rather than a transient subtool). Persistent top-level stage selection replaces competing Mode, View and Setup tabs whose scope is unclear. A stage shows only the inspector, controls and timeline relevant to that stage; optional display overlays never change which data is being edited. Do not change the existing `walk-lab.html` route just to rename navigation.
+**Character → Atlas → Parts → Rig → Skin/Bind → Animate → Play** (Atlas is the approved v1.1.0 planned addition, not yet shipped; Character is accessed through New/Load and Play is an existing stage). Persistent top-level stage selection replaces competing Mode, View and Setup tabs whose scope is unclear. A stage shows only the inspector, controls and timeline relevant to that stage; optional display overlays never change which data is being edited. Do not change the existing `walk-lab.html` route just to rename navigation.
 
 | Stage | Edits | Holds fixed / disabled while authoring | Leave-stage preview |
 | --- | --- | --- | --- |
 | **Character** | name/id, family, source art selection, movement/collider, animation slots/library links | all transform layers unless explicitly entering an editor | read-only summary / definition preview |
+| **Atlas (planned v1.1.0)** | imported atlas and meshes authored directly in atlas space; texture mapping follows the same vertices | character placement, rig, skin weights and clips locked | meshes overlay source texture; entering is read-only until explicitly editing |
 | **Parts** | art part X/Y, rotation, independent width/height scale, pivot, draw order | rest joints, animation keys, skinning/IK/deformation | posed skin preview recomputed from the current rest layout, with no visible snap in neutral rest |
 | **Rig** | structural joints, bone lengths where applicable, hierarchy/semantic sockets | **artwork stays absolutely stationary in character space**; no skinning-driven part movement during joint drag | preview of newly matched skeleton + artwork with updated bind relationship |
-| **Skin / Bind** | mesh vertices/topology, UV placement where expressly intended, per-bone weights, bind controls | art layout and rest joint positions locked | compare rest/pose deformation and wireframe without changing anatomy |
+| **Skin / Bind** | per-bone weights, attachment and bind controls; pose/deformation diagnostics | atlas mesh topology/texture coordinates, art layout and rest joints locked | compare rest/pose deformation and wireframe without changing anatomy |
 | **Animate** | key poses, paw/IK targets, interpolation, clip editing | authored part layout, rest rig and mesh bind locked | normal skinned/rigged evaluation |
 | **Play** | no structural authoring; use current working data for test | editing gestures and control overlays off | playable, return without erasing editor working copy |
 
@@ -157,20 +216,19 @@ The existing Group/Puzzle Template vs Bespoke workflow is the behavioural model:
 
 ## Intended new-character workflow
 
-Later visible workflow:
+**Updated v1.1.0 target workflow (not an implemented release):**
 
-1. Character Library → New Character.
-2. Name character.
-3. Choose Biped / Quadruped starter rig.
-4. Receive a generic placeholder atlas + starter mesh/binding.
-5. Adjust rest rig and collider.
-6. Assign animation templates or Add Animation.
-7. Make selected animations unique where character-specific tailoring is needed.
-8. Tune skin mesh/weights.
-9. Quick Play using current working data.
-10. Save to Character Library.
-11. Normal game character selector discovers the saved definition dynamically.
-12. Export an Art Kit / atlas guide, replace artwork later without destroying rig, weights or animations.
+1. Character Library → New Character; name it and choose a rig family (Biped / Quadruped starters are examples).
+2. Choose/import an atlas or continue with a placeholder; enter the **new Atlas workspace**.
+3. Create or edit named part meshes **directly over the atlas** using rectangle, outline spline or centreline spline-strip; vertices determine the texture mapping automatically.
+4. Use the **existing Parts workspace** to assemble the part meshes without changing their atlas mapping.
+5. Match the rest rig and collider in Rig; bind and tune weights in Skin.
+6. Assign/Create animation assets (reusable templates or Make Unique once the planned animation library is implemented).
+7. Animate and Quick Play using current working data.
+8. Explicitly Save to the Character Library; export complete data **and imported image bytes** once binary packaging is delivered.
+9. In a later independent runtime milestone, choose the saved character in normal gameplay and promote approved content to GitHub build defaults.
+
+Do not confuse an approved user workflow with delivered code. See the v1.1.0 Atlas specification above for data separation and acceptance.
 
 ## Deformable 2D skin model
 

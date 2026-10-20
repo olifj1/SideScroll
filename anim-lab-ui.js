@@ -127,6 +127,7 @@
   });
 
   const tips = {
+    atlas: 'Source-image mesh authoring. Layout stays in Parts.',
     parts: 'Arrange artwork. Skeleton stays fixed.',
     rig: 'Move joints without moving the artwork.',
     skin: 'Tune deforming regions and bone weights.',
@@ -135,7 +136,7 @@
   };
   function update(s = core.getState()) {
     const stage = s.mode === 'setup'
-      ? ({art:'parts',rig:'rig',skin:'skin'}[s.setupTool] || 'rig')
+      ? ({atlas:'atlas',art:'parts',rig:'rig',skin:'skin'}[s.setupTool] || 'rig')
       : s.mode === 'play' ? 'play' : 'animate';
     const fox = s.family === 'fox';
     for (const btn of stageButtons) {

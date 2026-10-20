@@ -656,7 +656,7 @@
       characterId:charId,
       clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
       mode:saved?.mode === 'setup' ? 'setup' : saved?.mode === 'play' ? 'play' : 'animate',
-      setupTool:['rig','art','skin'].includes(saved?.setupTool) ? saved.setupTool : 'rig',
+      setupTool:['rig','art','skin','atlas'].includes(saved?.setupTool) ? saved.setupTool : 'rig',
       frame:Number.isInteger(saved?.frame) ? clamp(saved.frame,0,15) : 0
     };
   }
@@ -912,6 +912,7 @@
   }
 
   function undo() {
+    if (selection.mode === 'setup' && selection.setupTool === 'atlas' && sessionParticipants.get('atlas')?.undo?.()) { draw(); updateUi(); notify(); return; }
     const entry = history.pop();
     if (!entry) return;
     conversionPreview = null;
@@ -923,6 +924,7 @@
   }
 
   function redo() {
+    if (selection.mode === 'setup' && selection.setupTool === 'atlas' && sessionParticipants.get('atlas')?.redo?.()) { draw(); updateUi(); notify(); return; }
     const entry = future.pop();
     if (!entry) return;
     conversionPreview = null;
@@ -937,7 +939,7 @@
     try {
       const character = currentCharacter();
       const adapter = currentAdapter();
-      const saveSetup = selection.mode === 'setup' || selection.mode === 'play';
+      const saveSetup = selection.mode === 'play' || (selection.mode === 'setup' && !same(setupDraft, checkpoint?.setup));
       const saveClip = selection.mode === 'animate' || selection.mode === 'play';
       if (saveSetup) {
         // A changed rig must never be saved with stale inverse bind joints.
@@ -1117,8 +1119,8 @@
   function navigateAuthorStage(stage) {
     if (stage === 'animate') { switchMode('animate'); return true; }
     if (stage === 'play') { switchMode('play'); return currentCharacter().family === 'fox'; }
-    const tool = {parts:'art',rig:'rig',skin:'skin'}[stage];
-    if (!tool || (tool !== 'rig' && !supportsRestBinding(currentAdapter()))) return false;
+    const tool = {atlas:'atlas',parts:'art',rig:'rig',skin:'skin'}[stage];
+    if (!tool || (tool !== 'rig' && tool !== 'atlas' && !supportsRestBinding(currentAdapter()))) return false;
     const enter = () => {
       const wasSetup = selection.mode === 'setup';
       const wasPlay = selection.mode === 'play';
@@ -1413,7 +1415,7 @@
 
   function updateUi(displayPose = currentPose()) {
     const character=currentCharacter(),adapter=currentAdapter(),dirty=isDirty();
-    const modeLabel=selection.mode==='setup'?({rig:'Rig',art:'Parts',skin:'Skin'}[selection.setupTool]||'Setup'):selection.mode==='play'?'Play':'Animate';
+    const modeLabel=selection.mode==='setup'?({atlas:'Atlas',rig:'Rig',art:'Parts',skin:'Skin'}[selection.setupTool]||'Setup'):selection.mode==='play'?'Play':'Animate';
     contextEl.textContent=selection.mode==='play'
       ? `${character.label} · Quick Play`
       : `${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${modeLabel}${previewApplies()?' · Preview':''}`;
@@ -1426,7 +1428,9 @@
         : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
     dirtyBadge.hidden=!dirty;
     if (saveStateEl) { saveStateEl.textContent = dirty ? 'Unsaved' : 'Saved'; saveStateEl.classList.toggle('dirty', dirty); }
-    undoBtn.disabled=!history.length;redoBtn.disabled=!future.length;discardBtn.disabled=!dirty;saveBtn.disabled=!dirty;
+    const atlasSession = selection.mode === 'setup' && selection.setupTool === 'atlas' ? sessionParticipants.get('atlas') : null;
+    undoBtn.disabled=!(atlasSession ? atlasSession.canUndo?.() : history.length);
+    redoBtn.disabled=!(atlasSession ? atlasSession.canRedo?.() : future.length);discardBtn.disabled=!dirty;saveBtn.disabled=!dirty;
     if (timelineDock) timelineDock.hidden=selection.mode==='setup'||selection.mode==='play';
     scrub.value=String(selection.frame);scrub.disabled=selection.mode!=='animate';prevBtn.disabled=selection.mode!=='animate';nextBtn.disabled=selection.mode!=='animate';playBtn.disabled=selection.mode!=='animate';
     playBtn.textContent=playing?'Pause':'Play';
@@ -1777,7 +1781,7 @@
     CHARACTERS.push({id,label:displayName,family,starter,library:true,atlas:STARTERS[starter].atlas});
     initialiseLibraryClips(entry);loadAtlas(id);
     selection.characterId=id;selection.frame=0;playing=false;playPhase=0;conversionPreview=null;
-    selection.mode='setup';selection.setupTool=family==='fox'?'art':'rig';
+    selection.mode='setup';selection.setupTool='atlas';
     setupDraft=defaultSetupFor(id);
     saveEditorSelection();fitView(false);resetCheckpoint();draw();notify();
     hint.textContent=`${displayName} created with ${family==='fox'?'20 Oct Fox setup, rig, skin and clips':'Biped'} starter data. Your built-in characters are unchanged.`;
@@ -1829,7 +1833,7 @@
     CHARACTERS.push({id,label:imported.name,family,starter:imported.starter,library:true,atlas:STARTERS[imported.starter].atlas});
     initialiseLibraryClips(imported);loadAtlas(id);
     selection.characterId=id;selection.frame=0;playing=false;playPhase=0;conversionPreview=null;
-    selection.mode='setup';selection.setupTool=family==='fox'?'art':'rig';
+    selection.mode='setup';selection.setupTool='atlas';
     setupDraft=defaultSetupFor(id);
     saveEditorSelection();fitView(false);resetCheckpoint();draw();notify();
     return id;
@@ -1875,8 +1879,8 @@
     getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
     navigateAuthorStage,
     setSetupTool:id=>{
-      const next=['art','skin'].includes(id)?id:'rig';
-      if(next!=='rig'&&!supportsRestBinding(currentAdapter()))return false;
+      const next=['art','skin','atlas'].includes(id)?id:'rig';
+      if(next!=='rig'&&next!=='atlas'&&!supportsRestBinding(currentAdapter()))return false;
       if(selection.setupTool===next)return true;
       selection.setupTool=next;saveEditorSelection();draw();updateUi();notify();return true;
     },

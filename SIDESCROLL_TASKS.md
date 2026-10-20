@@ -1,5 +1,21 @@
 ## October 19, 2026 — v1.0.200 unified Character Library and sidebar patch (iPhone acceptance pending)
 
+## October 20, 2026 — v1.1.0 Atlas Stage A TEST PATCH (device acceptance pending)
+
+- [x] Atlas nav before Parts; separate 2D source-image canvas with pan, pinch and wheel zoom; existing Parts inspector and transforms untouched.
+- [x] Read-only overlays of six currently procedural Fox deform meshes remapped onto actual bundled 2048×1024 texture coordinates; named selection, temporary hide/solo/lock (no data writes).
+- [x] First Atlas rectangle authoring: drag and preview, 1–24 X/Y subdivision grid, name and Apply; manually drag vertices; pixel-space vertices determine UVs; existing Save/Discard and Atlas Undo/Redo. Per-character `sidescroll.animlab.atlas-docs.v1` storage is explicit-Save only.
+- [x] Import transparent PNG to preview; store bytes on this device in IndexedDB with ID metadata in Atlas JSON. Reject wrong file type/oversize/invalid alpha; missing saved bytes visibly reported.
+- [x] Source-level validation: JS syntax, Chromium inline DOM with bundled Fox texture + supplied v205 snapshot; both Fox and `New01` show 6 legacy regions on Atlas, read-only visit stays clean, rectangle Apply/Undo/Redo/Save operates, original library/setup/sparse clips unchanged.
+- [ ] iPhone acceptance: verify Safari orientation, touch accuracy, pan/pinch, Undo, Discard/Save, reload, PNG import and missing-image diagnostics.
+- [ ] Implement outline spline and spline strip authoring, vertex/mesh rename/duplicate/delete, safe triangulation/weight migration.
+- [ ] Bridge Atlas-created meshes to existing assembled **Parts**, Rig, Skin, Animate and Quick Play without Fox six-piece assumptions.
+- [ ] Make image bytes portable through per-character, Anim Lab and global exports/restores, including integrity and rollback; second-device import.
+- [ ] Confirm no old Fox atlas/rig/weights/clips, New01, or original art is ever silently migrated; user device verification remains open.
+
+**Scope limitation:** This initial patch intentionally does **not** claim new rectangle meshes already deform in Parts/Skin, or that IndexedDB PNGs are captured by v205 backup formats. Legacy Fox mesh read-only editing is not yet convertible. Continue milestones B–D in `SIDESCROLL_CHARACTER_AUTHORING.md`.
+
+
 - [x] Replace v199's always-expanded custom library and duplicate built-in buttons with **one** Character Library: persistent loaded-character name/status; New · Load · Save opens one contextual panel at a time.
 - [x] **Load lists built-in Hero 1, Hero 2, Fox and local user-created characters together**, and switches using existing unsaved-change guard. Current row marked Loaded. Never allow rename/delete of built-ins.
 - [x] **New** creates a local custom character, automatically appears alongside originals in the same Load list. **Save** uses existing session pipeline for any loaded character, retaining rig Rebind+Save confirmation; hide duplicate Edit Session Save button (Undo/Redo/Discard retained).
@@ -25,6 +41,39 @@
 **Current status:** on-device testing showed Safari could finish a native Setup range gesture with `pointercancel`. Stage 2 treated that as a custom-gesture cancellation, restoring the old setup value while the native thumb could remain visually moved. v1.0.147 commits native slider pointer-cancel/end values instead. Anim Lab and Asset Lab edge columns now also reserve the iPhone landscape safe-area insets, including track-width compensation so controls remain usable.
 
 # SideScroll Development Tasks
+
+## October 20, 2026 — v1.1.0 Atlas workspace (APPROVED DESIGN; STAGE A PARTIALLY IMPLEMENTED)
+
+**Scope handoff:** v1.0.205 is the last delivered code patch. The user is deliberately beginning the next code release numbering at **v1.1.0**. The original handover was documentation-only. The current v1.1.0 test patch implements the first bounded Stage A portion described above. The primary specification is `SIDESCROLL_CHARACTER_AUTHORING.md` → **Approved next milestone — v1.1.0 Atlas-first 2D Mesh Authoring**. The UX/architecture invariant is in `SIDESCROLL_ENGINE_UX_BIBLE.md`. **Do not add a second Parts/Character Layout editor or independent UV editing mode.**
+
+### New Atlas stage and minimal UX
+- [ ] Extend existing Anim Lab workspace selector to **Atlas / Parts / Rig / Skin / Animate / Play**. Keep New · Load · Save and existing built-in/local character workflow; no duplicate layout editor or second Save implementation.
+- [ ] New Character can choose/import a transparent atlas (or use placeholder), including asset load/preview/error handling on iPhone. Do not silently change built-in Fox, Hero saves, atlases or existing custom character settings.
+- [ ] Show **all previously created parts/meshes in their actual atlas texture-space positions**, not assembled Parts positions; include saved Fox meshes, named selection, transient Show/Hide/Solo/Lock, pan/zoom, useful mesh/vertex display toggles. Opening/preview/selecting Atlas cannot dirty or write.
+- [ ] Geometry editing is **directly over the source image**. Vertex position = sampled texture position. UV coordinates are automatically derived from 2D texture coordinates; **no separate UV editor, independent UV vertex handling or 3D geometry mode**.
+
+### Geometry authoring
+- [ ] Rectangle mesh create/draw/resize; X/Y subdivisions, editable vertices and triangles, preview/apply/cancel/undo.
+- [ ] Closed outline spline tracing; safe interior triangulation/subdivision controls, invalid/self-crossing geometry detection.
+- [ ] Centreline spline strip following leg/tail/neck; variable width/taper and subdivisions along/across curve; mesh follows the drawn artwork.
+- [ ] Named part list with Rename / Duplicate / explicit Delete; stable IDs and part ownership independent of number/names of Fox's six pieces.
+- [ ] Keep structural source mesh separate from existing **Parts** assembly transforms, which already support move X/Y, rotate, independent scale/pivot, draw order and copy/paste. A Parts drag never alters texture mapping and Atlas edits never cause Parts layout to teleport.
+
+### Rig/Skin/Animate + storage
+- [ ] Preserve existing rig family descriptors, part IDs, rest rig, skin bind, weight tuning and clips when Atlas is only inspected. Geometry edits with unchanged vertex topology preserve applicable weights; rebuild/subdivision changes warn and explicitly remap or rebind weights (never silently discard them).
+- [ ] Persist the atlas image bytes safely and version the mesh schema; don't rely on temporary blob URLs, image filename or page memory as durable artwork storage. Ensure single-character, whole Anim Lab, and global backup **export and restore** the artwork as well as geometry. Update `SIDESCROLL_EXPORT_COVERAGE.md` when shipping.
+- [ ] Link newly authored meshes to **existing** Parts, Rig, Skin, Animate and Quick Play without hardcoding Fox region count. Runtime game selector/packaged defaults and linked-vs-unique reusable clip library remain separate unimplemented milestones.
+
+### Incremental release gates
+- [ ] **v1.1.0 candidate A:** Atlas nav + imported atlas + legacy-mesh overlay + safe read-only selection/display + first rectangular mesh editing + explicit Save, if implementable as one stable mobile patch. If split further, report precisely what's working vs deferred, don't claim spline tools/portability finished.
+- [ ] **Next increments:** outline/strip mesh tools; robust topology and skin handoff; binarily portable image exports; full rig family/Quick Play adoption.
+- [ ] Source/unit test matrix: atlas coordinate → derived UV match, rectangular UV samples, silhouette triangulation, strip taper, undo/discard, reload, stale atlas references, legacy Fox/New01 roundtrip, no silent weight loss, cross-stage switch stability, iPhone screen size and touch performance.
+- [ ] **Acceptance on user's iPhone:** import a new atlas; create and name meshes and see texture correctly in Atlas; switch to Parts and assemble without UV movement; Rig/Skin/Animate remain intact; Save/reload with identical data; export/import on test browser incl texture bytes. Do not present headless Chromium-only smoke tests as iPhone acceptance.
+
+### Project safety and inherited incomplete work
+- [x] v1.0.205 Project Backup: global JSON export and import preview/merge/restore with explicit safety export; per-Lab data exports. Last code state; independent-device restore still **not** tested by user.
+- [ ] Imported image pixels / IndexedDB (if used) are **not protected** by v205 global snapshot; require complete portability as part of atlas milestone. Do not overwrite user localStorage/working save or claim baked GitHub game content promotion.
+- [ ] Built-in Hero biped full custom Parts/Skin authoring, reusable linked animation templates/Make Unique, normal-game character selection and GitHub promotion remain work outside the initial Atlas view unless specifically scheduled.
 
 ## October 18, 2026 — Approved Character Authoring workflow redesign (P1 TEST PATCH 1.0.192; unaccepted on iPhone)
 

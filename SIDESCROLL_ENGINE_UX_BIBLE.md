@@ -1,5 +1,10 @@
 # SideScroll Engine & UX Bible
 
+### v1.1.0 Atlas Stage A — implemented boundaries (20 October 2026)
+
+Atlas is now the leftmost stage, before untouched Parts. It renders on its own texture-space 2D canvas; assembled layout remains the existing Parts system. Inspecting image/legacy Fox meshes, hide/solo/lock and viewport pan/pinch should never change a character working copy. Only explicit Apply/vertex changes create an undoable Atlas document edit; core Save/Discard handles its independent session participant. The UI's legacy Fox mesh overlay is read-only and calculated from the existing deform renderer without writing back its bind/skin data. Source rectangles store only pixel positions and triangle indices and derive UVs from image dimensions; there is no second UV manipulation mode. This is test-only initial Atlas authoring, not general Parts/Skin integration. IndexedDB PNG bytes currently lack portable export/restore: users must retain original PNG files until this is completed.
+
+
 **Project:** SideScroll / Aureli  
 **Status:** Authoritative living engineering and editor-design reference  
 **Established:** October 2026  
@@ -1040,12 +1045,20 @@ Rules:
 
 
 
+### Atlas-first 2D mesh authoring invariant — approved v1.1.0 target (20 Oct 2026)
+
+The character workflow becomes **New / Load → Atlas → Parts → Rig → Skin → Animate → Play**. **Atlas** is a new stage; **Parts already exists and must not be duplicated or redesigned**. Atlas is a single 2D texture-background/mesh-overlay editor, **not** a second independent UV editor. Vertex positions over the atlas define both mesh topology/shape and sampled UV locations; derived UV values may be stored/rendered internally, but there must not be an author-facing separate UV mode or adjustment layer. Rectangle, silhouette/outline-spline and centreline/spline-strip tools are candidate geometry constructors in this same view.
+
+All previously authored meshes (including loaded Fox meshes) must appear in atlas-space with named selection and temporary Show/Hide/Solo. Mere inspection, switching stage, pan/zoom, and temporary display toggles must not mutate the authored mesh or storage. **Atlas edits source geometry/texture mapping; existing Parts edits assembled-character placement/pivot/order; Rig edits rest joints; Skin edits weights/binding; Animate edits clips**. Do not silently couple or migrate these layers. Topology rebuilds may require explicit weight remapping/rebind with safety preview; no implicit loss of custom weights, identity, clips or accepted source pixels.
+
+Imported atlas **image bytes** are part of the project, not just a file name/path: new binary persistence must also be covered by single-character export, All Anim Lab Data and global export/restore before claiming a portable custom character. See `SIDESCROLL_CHARACTER_AUTHORING.md` for the complete design and `SIDESCROLL_TASKS.md` for delivery gates. **Design approved; unimplemented at v1.0.205.**
+
 ### Authoring stages and unified Display — global UI rule (18 Oct 2026; design, not implementation)
 
 **Full canonical design:** `SIDESCROLL_CHARACTER_AUTHORING.md` → **Approved next design — coherent character-authoring workflow**. This Bible defines only the cross-editor invariant; do not duplicate part-by-part specifications here.
 
-- Every authoring surface distinguishes **editing target** (Character / Parts / Rig / Skin / Animate / Play) from **Display** (art/opacity, static red reference/opacity, motion ref, bones, mesh, ground, bind proof). Display controls share one consistent location and never dirty authored character data.
-- Different editing modes own distinct data. **Parts** may arrange/scalе/rotate artwork without joint changes; **Rig** moves rest joints while displayed artwork remains frozen; **Skin** edits mesh/weights without moving either; **Animate** evaluates completed binding but does not alter structural rest data. Leaving a stage can preview re-enabled skinning; publishing/rebinding a new rest state is an explicit reversible Save decision.
+- Every authoring surface distinguishes **editing target** (Character / Atlas [planned v1.1.0] / Parts / Rig / Skin / Animate / Play) from **Display** (art/opacity, static red reference/opacity, motion ref, bones, mesh, ground, bind proof). Display controls share one consistent location and never dirty authored character data.
+- Different editing modes own distinct data. **Parts** may arrange/scalе/rotate artwork without joint changes; **Rig** moves rest joints while displayed artwork remains frozen; **Atlas** edits source 2D mesh/texture-space geometry while all assembled transforms remain fixed; **Skin** edits weights/bind without altering atlas geometry; **Animate** evaluates completed binding but does not alter structural rest data. Leaving a stage can preview re-enabled skinning; publishing/rebinding a new rest state is an explicit reversible Save decision.
 - Named selectable list left; pad bottom-right; pan/pinch independent; touch selection must not unintentionally drag parts or joints. Stage inspector is context-sensitive; the animation timeline belongs with Animate rather than crowding layout work.
 - Draw order is character authoring data; editor-only Solo/Hide, opacity, comparison references and overlays are view state. One gesture is one Undo action; Save/Discard/Cancel applies at all editing stage boundaries.
 - Existing documented Asset Lab principles (shared dark grammar, collapsible sections, reusable property controls, template/bespoke ownership) should be applied as reusable UI/system primitives, not copied ad hoc into a Fox-only editor.
