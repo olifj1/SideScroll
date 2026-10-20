@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#172026">
+  <link rel="manifest" href="manifest.json">
+  <title>Project Backup · SideScroll</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: #101a1e; color: #e5e6dd; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; overflow-x: hidden; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+    main { margin: 0 auto; max-width: 720px; }
+    a { color: #d2ebdd; }
+    nav { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 0 0 17px; border-bottom: 1px solid #385057; }
+    nav a { text-decoration: none; border: 1px solid #476368; padding: 8px 13px; border-radius: 8px; }
+    .eyebrow { letter-spacing: .12em; font-size: .73rem; color: #a0cbb9; }
+    h1 { font-size: clamp(1.35rem, 4vw, 2rem); line-height: 1.2; margin: 17px 0 8px; }
+    h2 { font-size: 1rem; margin: 0 0 8px; }
+    p { margin: 7px 0 13px; }
+    .subtle { color: #b6c2c3; }
+    .card { margin: 16px 0; border: 1px solid #3b5358; background: #1a282d; padding: 16px; border-radius: 12px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; padding: 7px 0; }
+    button, .download { background: #547f74; border: 1px solid #a6cdbf; border-radius: 8px; color: #fff; font: inherit; font-weight: 650; padding: 10px 15px; min-height: 43px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    button.secondary, .download { background: #273d43; border-color: #58767a; }
+    button:disabled { opacity: .5; cursor: wait; }
+    [hidden] { display: none !important; }
+    #snapshot-status { padding: 10px 0 0; min-height: 35px; }
+    #snapshot-status[data-level="error"], .snapshot-warning { color: #ffcfba; }
+    #snapshot-status[data-level="success"] { color: #a2e6c4; }
+    .snapshot-totals { font-weight: 700; font-size: 1.06rem; }
+    .snapshot-categories { padding-left: 20px; margin: 8px 0; }
+    .snapshot-note { color: #bdc9c9; font-size: .9rem; }
+    details { border-top: 1px solid #3b5358; padding: 10px 0 0; }
+    summary { cursor: pointer; }
+    pre { color: #d2d8d6; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; font-size: .76rem; }
+    .warning { border-left: 3px solid #e4bd76; padding: 9px 12px; background: #2b302f; }
+  </style>
+  <script defer src="project-snapshot.js?v=1.0.202"></script>
+</head>
+<body>
+  <main>
+    <nav><span class="eyebrow">SIDESCROLL · PROJECT</span><a href="index.html">← Back to menu</a></nav>
+    <h1>Project Backup</h1>
+    <p class="subtle">Capture the authored data saved on this device, so we can audit the separate Lab exports and prepare a reliable restore system.</p>
+    <section class="card" aria-label="Project snapshot">
+      <h2>Project Snapshot · v1.0.202</h2>
+      <p><strong>Save your work in each Lab first.</strong> This reads existing stored data without changing it; unsaved edits open inside an editor are not included.</p>
+      <div class="actions">
+        <button class="secondary" type="button" id="snapshot-preview">Preview data</button>
+        <button type="button" id="snapshot-export">Export Snapshot</button>
+      </div>
+      <div class="actions" aria-label="File access">
+        <a class="download" id="snapshot-download" hidden>Download snapshot again</a>
+        <button class="secondary" type="button" id="snapshot-share" hidden>Share / Save to Files</button>
+      </div>
+      <div id="snapshot-status" role="status" aria-live="polite"></div>
+      <div id="snapshot-preview-panel" hidden></div>
+    </section>
+    <section class="card" aria-label="Snapshot coverage">
+      <h2>What's in this first export?</h2>
+      <p>Stored SideScroll world, puzzles, groups, assets, character library, rigs, clips, design/concept work, and editor settings — including older keys used by SideScroll. Original values are preserved, even when they are not valid JSON.</p>
+      <p><strong>Not yet included:</strong> game files/PNG textures already on GitHub, browser cache files, IndexedDB records, unsaved edits, or unrelated data from other websites/apps sharing this origin. Detected IndexedDB databases and excluded key names are listed for auditing.</p>
+      <p class="warning"><strong>Important:</strong> This is an initial diagnostic snapshot, <em>not yet a tested recovery backup</em>. Keep your existing individual Lab exports and don't delete Safari website data.</p>
+      <p class="subtle">Once exported, save the JSON file to iCloud Drive/Files and share it in our conversation. It stays on your device until you choose to share it.</p>
+    </section>
+  </main>
+</body>
+</html>
