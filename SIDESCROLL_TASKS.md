@@ -2574,3 +2574,11 @@ All copy operations run through Setup transactions and Undo/Redo/Save/Discard. T
 - [ ] **Individual export coverage:** fill all gaps, including complete character artwork when applicable, editable animation templates, biped/hero clips, puzzle/group templates and any local design assets; add counterpart import/version checks and round-trip tests for each Lab.
 - [ ] **Verified global export/restore:** define versioned app manifest and GitHub data promotion workflow, package binary resources as required, dry-run summary, conflict resolution, compatibility/migration checks, undo/restore safeguards and real-device round-trip acceptance. A snapshot is not automatically a valid distributable game build.
 - [ ] **Future persistence rule:** every new Lab feature must document persisted keys/schema, exports/imports, binary assets, compatibility and coverage in global backup *at the same time the feature ships*.
+
+
+### Project Export iPhone usability — v1.0.203 (20 October 2026)
+
+- [x] Fix v202 diagnostic export flow: prebuild real JSON File with raw snapshot and manifest while page loads; direct click-handler native file share with only `files:[file]` (no title/text); only one Export Project button; download fallback on unsupported browsers or share failure.
+- [x] Keep v202 coverage, raw values and SHA checks where available, avoid storage writes; bump service worker cache to v203.
+- [ ] **Required iPhone Safari/PWA verification**: tap Home → Menu → Project Backup → Export Project, choose Save to Files, verify saved `.json` is non-empty and includes `schema=sidescroll.project-snapshot.v1`, attach it in chat. Prior text-only `text(3).txt` is not a backup.
+- [ ] Continue raw storage audit, individual lab export fixes, complete project restore and bundled-game-data promotion once a valid project JSON is received.

@@ -422,3 +422,8 @@ Project Backup is a **read-only, snapshot/audit tool** accessible from Home → 
 **Important:** Custom character handoff JSON still does not package its referenced art PNG bytes, and in-flight unsaved edits are not part of localStorage. `v202` does NOT restore snapshots, promote characters into bundled runtime data, alter Fox/Hero storage keys, or replace per-character JSON handoff. Subsequent individual export-completeness audit must cover artwork payloads, templates and runtime parity before announcing portable character backups.
 
 **Rule for future persisted features:** list storage owner/key, schema/version, whether it is authored or transient, scope of individual Export/Import, scope of global Export/Restore, binary asset dependencies, and migration strategy as part of the feature's acceptance criteria. Global inclusion is necessary but not sufficient: each appropriate Lab-level export must be independently complete and test-restorable.
+
+
+### Project export handoff UX correction — v1.0.203 (20 October 2026)
+
+The v202 Project Snapshot's captured data schema and scope are unchanged. In v203, `project-snapshot.js` prepares a real `.json` `File` **before** the user's export tap so `navigator.share({files:[file]})` is called synchronously from that tap, with no `title`/`text` field. This matches the working Lab export path and avoids the report of `text(3).txt` containing only the share title. The manual preview, redundant secondary Share action and automatic-click-on-prepared-file were removed in favour of one **Export Project** button, a status/count/size indication and a real JSON download fallback. No restoration, uncommitted data capture, asset embedding or character data mutation was added.

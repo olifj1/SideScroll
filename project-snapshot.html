@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
-  <title>Project Backup · SideScroll</title>
+  <title>Export Project · SideScroll</title>
   <style>
     :root { color-scheme: dark; font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: #101a1e; color: #e5e6dd; }
     * { box-sizing: border-box; }
@@ -36,34 +36,26 @@
     pre { color: #d2d8d6; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; font-size: .76rem; }
     .warning { border-left: 3px solid #e4bd76; padding: 9px 12px; background: #2b302f; }
   </style>
-  <script defer src="project-snapshot.js?v=1.0.202"></script>
+  <script defer src="project-snapshot.js?v=1.0.203"></script>
 </head>
 <body>
   <main>
     <nav><span class="eyebrow">SIDESCROLL · PROJECT</span><a href="index.html">← Back to menu</a></nav>
-    <h1>Project Backup</h1>
-    <p class="subtle">Capture the authored data saved on this device, so we can audit the separate Lab exports and prepare a reliable restore system.</p>
-    <section class="card" aria-label="Project snapshot">
-      <h2>Project Snapshot · v1.0.202</h2>
-      <p><strong>Save your work in each Lab first.</strong> This reads existing stored data without changing it; unsaved edits open inside an editor are not included.</p>
+    <h1>Export Project</h1>
+    <p class="subtle">Save a copy of your locally stored SideScroll work to Files or iCloud Drive.</p>
+    <section class="card" aria-label="Export saved project data">
+      <p><strong>Save your work in each Lab first.</strong> This collects data already saved on this device.</p>
       <div class="actions">
-        <button class="secondary" type="button" id="snapshot-preview">Preview data</button>
-        <button type="button" id="snapshot-export">Export Snapshot</button>
+        <button type="button" id="snapshot-export" disabled>Export Project</button>
       </div>
-      <div class="actions" aria-label="File access">
-        <a class="download" id="snapshot-download" hidden>Download snapshot again</a>
-        <button class="secondary" type="button" id="snapshot-share" hidden>Share / Save to Files</button>
-      </div>
-      <div id="snapshot-status" role="status" aria-live="polite"></div>
-      <div id="snapshot-preview-panel" hidden></div>
+      <div id="snapshot-status" role="status" aria-live="polite">Preparing project data…</div>
+      <div class="actions"><a class="download" id="snapshot-download" hidden>Download JSON</a></div>
     </section>
-    <section class="card" aria-label="Snapshot coverage">
-      <h2>What's in this first export?</h2>
-      <p>Stored SideScroll world, puzzles, groups, assets, character library, rigs, clips, design/concept work, and editor settings — including older keys used by SideScroll. Original values are preserved, even when they are not valid JSON.</p>
-      <p><strong>Not yet included:</strong> game files/PNG textures already on GitHub, browser cache files, IndexedDB records, unsaved edits, or unrelated data from other websites/apps sharing this origin. Detected IndexedDB databases and excluded key names are listed for auditing.</p>
-      <p class="warning"><strong>Important:</strong> This is an initial diagnostic snapshot, <em>not yet a tested recovery backup</em>. Keep your existing individual Lab exports and don't delete Safari website data.</p>
-      <p class="subtle">Once exported, save the JSON file to iCloud Drive/Files and share it in our conversation. It stays on your device until you choose to share it.</p>
-    </section>
+    <details class="card" aria-label="Export details">
+      <summary>What does this include?</summary>
+      <p>Saved SideScroll world, puzzles, groups, characters, rigs, animations, and Lab settings. The file includes a data manifest for the audit.</p>
+      <p class="snapshot-note">This first export captures SideScroll browser storage, not unsaved edits, imported image files, offline game files, or IndexedDB records. It does not restore data yet. Keep your individual Lab exports and do not clear Safari website data.</p>
+    </details>
   </main>
 </body>
 </html>

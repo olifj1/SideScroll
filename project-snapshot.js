@@ -6,7 +6,7 @@
   'use strict';
 
   const SCHEMA = 'sidescroll.project-snapshot.v1';
-  const APP_VERSION = '1.0.202';
+  const APP_VERSION = '1.0.203';
   const RELATED_EXACT_KEYS = new Set([
     'gameHubProgress',
     'ss-concept-lab-state-v1',
@@ -180,14 +180,18 @@
     };
   }
 
+  // v203 — Match the existing World/Anim/Design Lab one-tap file-export flow.
+  // Prepare the actual JSON file *before* the tap so navigator.share() can be
+  // invoked synchronously from the user's click. Do not send a text/title
+  // payload: on some iOS share targets that produces a tiny text(3).txt
+  // containing the title instead of the JSON attachment.
   const $ = id => document.getElementById(id);
-  const previewButton = $('snapshot-preview');
   const exportButton = $('snapshot-export');
   const download = $('snapshot-download');
-  const shareButton = $('snapshot-share');
   const status = $('snapshot-status');
-  const preview = $('snapshot-preview-panel');
-  let currentURL = null, currentFile = null;
+  let preparedFile = null;
+  let downloadURL = null;
+  let preparing = null;
 
   function formatBytes(bytes) {
     if (bytes < 1024) return `${bytes} B`;
@@ -201,100 +205,94 @@
     status.dataset.level = level;
   }
 
-  function setBusy(busy) {
-    if (previewButton) previewButton.disabled = busy;
-    if (exportButton) exportButton.disabled = busy;
+  async function prepareExport() {
+    if (preparing) return preparing;
+    if (exportButton) exportButton.disabled = true;
+    preparedFile = null;
+    if (download) download.hidden = true;
+    setStatus('Preparing project data…');
+    preparing = (async () => {
+      try {
+        const snapshot = await buildSnapshot();
+        if (snapshot.manifest.localStorage.status !== 'captured') {
+          setStatus('Cannot read saved project data on this device.', 'error');
+          return;
+        }
+        const total = snapshot.manifest.localStorage.keysCaptured
+          + snapshot.manifest.sessionStorage.keysCaptured;
+        if (!total) {
+          setStatus('No saved SideScroll data found in this browser. Nothing exported.', 'error');
+          return;
+        }
+        const contents = JSON.stringify(snapshot, null, 2) + '\n';
+        // Validate the real payload before offering it to the iOS Share Sheet.
+        if (JSON.parse(contents).schema !== SCHEMA) {
+          throw new Error('Project data failed validation.');
+        }
+        const filename = `SS-PROJECT-SNAPSHOT-${snapshot.exportedAt.replace(/[:.]/g, '-')}.json`;
+        preparedFile = new File([contents], filename, { type: 'application/json' });
+        if (!preparedFile.size || preparedFile.size < 100) {
+          throw new Error('Export file is empty.');
+        }
+        if (exportButton) exportButton.disabled = false;
+        setStatus(`Ready · ${total} saved items · ${formatBytes(preparedFile.size)}`, 'success');
+      } catch (error) {
+        setStatus(`Couldn't prepare export: ${String(error?.message || error)}`, 'error');
+      } finally {
+        preparing = null;
+      }
+    })();
+    return preparing;
   }
 
-  function renderPreview(data) {
-    if (!preview) return;
-    preview.replaceChildren();
-    const count = data.manifest.localStorage.keysCaptured + data.manifest.sessionStorage.keysCaptured;
-    const sum = [...data.storage.localStorage, ...data.storage.sessionStorage]
-      .reduce((n, x) => n + x.bytes, 0);
-    const info = document.createElement('p');
-    info.className = 'snapshot-totals';
-    info.textContent = `${count} SideScroll storage entries · ${formatBytes(sum)} of stored values`;
-    preview.appendChild(info);
-    const list = document.createElement('ul');
-    list.className = 'snapshot-categories';
-    for (const [category, item] of Object.entries(data.manifest.categories)) {
-      const row = document.createElement('li');
-      row.textContent = `${category}: ${item.keys} keys (${formatBytes(item.bytes)})`;
-      list.appendChild(row);
-    }
-    preview.appendChild(list);
-    const excluded = data.manifest.skippedKeys;
-    const note = document.createElement('p');
-    note.className = 'snapshot-note';
-    note.textContent = `${excluded.length} same-origin keys excluded (unrelated or potentially sensitive).`;
-    preview.appendChild(note);
-    const detail = document.createElement('details');
-    const summary = document.createElement('summary');
-    summary.textContent = 'View included and excluded key names';
-    detail.appendChild(summary);
-    const names = document.createElement('pre');
-    names.textContent = [
-      'Included localStorage:',
-      ...data.storage.localStorage.map(x => `  ${x.key} (${formatBytes(x.bytes)})`),
-      'Included sessionStorage:',
-      ...data.storage.sessionStorage.map(x => `  ${x.key} (${formatBytes(x.bytes)})`),
-      'Excluded (names only, no values):',
-      ...excluded.map(x => `  ${x.storage}: ${x.key} — ${x.reason}`)
-    ].join('\n');
-    detail.appendChild(names);
-    preview.appendChild(detail);
-    if (data.manifest.errors.length || data.storage.indexedDB.databases.length) {
-      const warn = document.createElement('p');
-      warn.className = 'snapshot-warning';
-      warn.textContent = `${data.manifest.errors.length} read error(s), ${data.storage.indexedDB.databases.length} IndexedDB database(s) detected but not backed up. See snapshot manifest.`;
-      preview.appendChild(warn);
-    }
-    preview.hidden = false;
+  function showDownloadLink(autoStart) {
+    if (!preparedFile || !download) return;
+    if (downloadURL) URL.revokeObjectURL(downloadURL);
+    downloadURL = URL.createObjectURL(preparedFile);
+    download.href = downloadURL;
+    download.download = preparedFile.name;
+    download.hidden = false;
+    if (autoStart) download.click();
   }
 
-  async function withSnapshot(save) {
-    setBusy(true);
-    setStatus('Reading SideScroll browser storage…');
+  function exportOnTap() {
+    if (!preparedFile) {
+      setStatus('Project data is not ready yet. Try again in a moment.', 'error');
+      return;
+    }
+
+    // This call must be made directly in the tap handler — NOT after an
+    // awaited snapshot, hash operation, IndexedDB query or simulated click.
     try {
-      const data = await buildSnapshot();
-      renderPreview(data);
-      if (data.manifest.localStorage.status !== 'captured') {
-        setStatus('Local storage could not be read. Snapshot not created.', 'error');
+      if (typeof navigator.share === 'function'
+          && typeof navigator.canShare === 'function'
+          && navigator.canShare({ files: [preparedFile] })) {
+        const promise = navigator.share({ files: [preparedFile] });
+        Promise.resolve(promise).then(() => {
+          setStatus(`Project JSON shared (${formatBytes(preparedFile.size)}).`, 'success');
+        }).catch(error => {
+          if (error?.name === 'AbortError') {
+            setStatus('Export cancelled. Tap Export Project to try again.');
+            return;
+          }
+          showDownloadLink(false);
+          setStatus('Sharing was unavailable. Tap Download JSON instead.', 'error');
+        });
         return;
       }
-      if (!save) {
-        setStatus('Preview ready. This did not alter your game data.', 'success');
-        return;
-      }
-      const json = JSON.stringify(data, null, 2) + '\n';
-      const filename = `SS-PROJECT-SNAPSHOT-${data.exportedAt.replace(/[:.]/g, '-').replace('Z', 'Z')}.json`;
-      const file = new File([json], filename, { type: 'application/json' });
-      const url = URL.createObjectURL(file);
-      if (currentURL) URL.revokeObjectURL(currentURL);
-      currentURL = url;
-      currentFile = file;
-      download.href = url;
-      download.download = filename;
-      download.hidden = false;
-      if (shareButton && typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
-        try { shareButton.hidden = !navigator.canShare({ files: [file] }); }
-        catch (_) { shareButton.hidden = true; }
-      }
-      // A visible link remains available when Safari/PWA blocks automatic downloads.
-      download.click();
-      setStatus(`Snapshot prepared (${formatBytes(file.size)}). Save it in Files/iCloud Drive and send it here for the audit.`, 'success');
-    } catch (error) {
-      setStatus(`Export failed: ${String(error && error.message || error)}`, 'error');
-    } finally { setBusy(false); }
+    } catch (_) {
+      // Use a standard JSON file download when Web Share is unavailable.
+    }
+    showDownloadLink(true);
+    setStatus('JSON export requested. If it did not save, tap Download JSON.', 'success');
   }
 
-  if (previewButton) previewButton.addEventListener('click', () => withSnapshot(false));
-  if (exportButton) exportButton.addEventListener('click', () => withSnapshot(true));
-  if (shareButton) shareButton.addEventListener('click', async () => {
-    if (!currentFile || typeof navigator.share !== 'function') return;
-    try { await navigator.share({ files: [currentFile], title: 'SideScroll Project Snapshot' }); }
-    catch (error) { if (error && error.name !== 'AbortError') setStatus('Sharing failed. Use the Download link instead.', 'error'); }
+  if (exportButton) exportButton.addEventListener('click', exportOnTap);
+  // One click in the same iPhone share flow as the existing Lab exports.
+  // No Share title/text, preview controls, clipboard copying or editable text.
+  prepareExport();
+
+  window.SideScrollProjectSnapshot = Object.freeze({
+    buildSnapshot, isProjectKey, categoryFor, prepareExport
   });
-  window.SideScrollProjectSnapshot = Object.freeze({ buildSnapshot, isProjectKey, categoryFor });
 })();

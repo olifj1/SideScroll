@@ -1,31 +1,31 @@
-# SS-PATCH-1.0.202 — Project Snapshot (read-only audit export)
+# SS-PATCH-1.0.203 — one-tap Project Export (iPhone UX correction)
 
-**Install directly over v1.0.201.** Changed-files-only patch. Do not clear Safari website data; it contains locally authored SideScroll work.
+**Install over v1.0.202.** Only seven changed files. Leave locally saved SideScroll/Safari data untouched.
 
 ## Where to find it
 
-Open the game's **Home screen → Menu → Project Backup**. You will see **Preview data** and **Export Snapshot**. Save the JSON to iCloud Drive / Files and attach it in our conversation for the export-coverage audit. A persistent download link is shown after export, and supported browsers also offer Share / Save to Files.
+**Home → Menu → Project Backup → Export Project.**
 
-**Save your work in each Lab first.** The snapshot reads persisted browser storage only; unsaved in-memory edits are not captured.
+Save your work in the individual Labs first. When the Project Backup page opens, it prepares a real `.json` file containing the saved project data and enables **Export Project**. Tap once: on supported iPhone Safari/PWA setups, the native iOS share sheet opens just like the working World Lab, Anim Lab and Design Lab exports. Choose **Save to Files**, then attach the JSON to the chat. Do not use the iOS "copy text" action.
 
-## Exactly what is included
+If the native file-sharing API is unavailable, a normal JSON download is attempted and a **Download JSON** fallback link appears. If sharing fails, the fallback link appears without pretending that the export was saved. If the user cancels, nothing is saved and no fallback is forced.
 
-- All `localStorage` and `sessionStorage` keys whose names start with `sidescroll` (case-insensitive, followed by `.`/`-`/`_`), plus specifically used legacy keys `gameHubProgress`, `gamehub.walklab.anim.v*`, and `ss-concept-lab-state-v1`.
-- Values are exported as **raw strings**, without parsing or normalising, so even old or malformed data is preserved intact. SHA-256 per value is included when Web Crypto is supported.
-- An audit manifest lists categories, each key's name/byte size, excluded keys *by name only*, capture failures, and whether IndexedDB names and SideScroll Cache Storage names could be inspected.
-- No local data is written or removed; no remote upload is performed.
+## Corrected behaviour
 
-## Explicit limits — this is NOT yet a verified full recovery backup
+v202 created a blob with a programmatic click *after awaiting* a potentially long storage scan. It also separately offered a Share action with a text title; on some iPhone sharing routes, this can result in a `text(3).txt` containing only "SideScroll Project Snapshot" instead of the JSON attachment.
 
-- **No Restore button** in v202. A verified restore needs a storage/compatibility audit, conflicts/merge policy and test on a second device.
-- Browser Cache Storage holds offline copies of game files and is **not** exported. Game PNG/code/media already live on GitHub and are not embedded.
-- IndexedDB database names can be detected on browsers supporting `indexedDB.databases()`, but database **records are not exported**. Current SideScroll JS has no IndexedDB usage; unexpected databases should be audited before declaring backup complete.
-- Unrecognised keys on the same website origin (which might belong to other GitHub Pages projects) and possible credential keys are **excluded**; their *names and reasons* appear in the manifest for follow-up, without revealing their values. Storage is origin-wide rather than repository-path scoped.
-- Browser session/UI state may be transient. In-memory unsaved edits, files outside browser storage, installed app/offline cache contents and any data held on another origin/device are not included.
-- The snapshot is for personal backup/audit, not automatically baked into runtime/gameplay. Do not delete old individual exports or clear Safari storage.
+v203 fixes the export handoff rather than changing underlying saved data:
+- The project snapshot is assembled as an actual JSON File while the page loads.
+- Tapping **Export Project** immediately calls `navigator.share({ files: [jsonFile] })` **inside the click handler**, with no title or text.
+- A single primary button; preview, secondary Share and automatic background downloads have been removed.
+- The exported JSON is validated for the expected schema and has a nonempty file body before sharing. Status displays captured-key count and size.
+- The previous v202 scope/manifest/raw storage contents, SHA-256 where supported, and original key filtering are preserved. This change makes **no** browser storage writes.
+- The service worker version is updated to `sidescroll-runtime-v203` to load the new export page/script offline.
 
-## QA
+## Still an audit snapshot, not a verified restore
 
-Node syntax pass. Inlined Chromium 844×390 and 390×844 smoke tests exercised Preview and actual JSON download, checked all enumerated SideScroll and named legacy keys (including malformed JSON) were preserved verbatim, excluded unrelated and credential keys, checked storage remained unchanged, validated manifest and absence of JS exceptions. **iPhone Safari / GitHub Pages testing remains pending.**
+This is a read-only snapshot of SideScroll-related localStorage/sessionStorage values and an audit manifest. No restore yet. Browser game files, externally referenced images, IndexedDB records and unsaved editor changes are not backed up. Keep individual Lab exports as well. Do **not** clear Safari website data.
 
-**Changed files (8):** `index.html`, `project-snapshot.html` (new), `project-snapshot.js` (new), `sw.js`, `README.md`, `SIDESCROLL_CHARACTER_AUTHORING.md`, `SIDESCROLL_ENGINE_UX_BIBLE.md`, `SIDESCROLL_TASKS.md`. No game scenes, character assets, texture files, animations, world/lab code or other browser storage keys were changed.
+## Validation
+
+Node syntax check and desktop Chromium headless checks of the page, populated saved data and export behaviour. iOS share-sheet behaviour must be confirmed on the user's actual iPhone.
