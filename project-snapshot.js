@@ -6,7 +6,7 @@
   'use strict';
 
   const SCHEMA = 'sidescroll.project-snapshot.v1';
-  const APP_VERSION = '1.0.204';
+  const APP_VERSION = '1.0.205';
   const RELATED_EXACT_KEYS = new Set([
     'gameHubProgress',
     'gamehub.sidescroll.scene.v2',

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
-  <title>Export Project · SideScroll</title>
+  <title>Project Backup · SideScroll</title>
   <style>
     :root { color-scheme: dark; font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: #101a1e; color: #e5e6dd; }
     * { box-sizing: border-box; }
@@ -35,13 +35,29 @@
     summary { cursor: pointer; }
     pre { color: #d2d8d6; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; font-size: .76rem; }
     .warning { border-left: 3px solid #e4bd76; padding: 9px 12px; background: #2b302f; }
+    .restore-category { display: flex; align-items: center; gap: 7px; padding: 5px 0; }
+    .restore-modes { display: grid; gap: 7px; }
+    .restore-modes label { display: flex; align-items: flex-start; gap: 8px; }
+    .restore-modes input, .restore-category input, .restore-ack input { accent-color: #83c6ab; margin-top: 4px; flex-shrink: 0; }
+    #restore-counts { font-weight: 700; color: #d3ecd7; }
+    #restore-status { margin: 12px 0 0; min-height: 25px; }
+    #restore-status[data-level="error"] { color: #ffcfba; }
+    #restore-status[data-level="success"] { color: #a2e6c4; }
+    .restore-ack { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0; }
+    #restore-preview { padding-top: 6px; }
+    #restore-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); }
+    .restore-warning { border-left: 3px solid #e4bd76; padding: 10px 12px; background: #2b302f; }
+    #restore-source { font-size: .84rem; overflow-wrap: anywhere; }
+    #restore-apply { background: #764e43; border-color: #dcac94; }
+    #restore-apply:disabled { background: #493e3a; }
   </style>
-  <script defer src="project-snapshot.js?v=1.0.204"></script>
+  <script defer src="project-snapshot.js?v=1.0.205"></script>
+  <script defer src="project-restore.js?v=1.0.205"></script>
 </head>
 <body>
   <main>
     <nav><span class="eyebrow">SIDESCROLL · PROJECT</span><a href="index.html">← Back to menu</a></nav>
-    <h1>Export Project</h1>
+    <h1>Project Backup</h1>
     <p class="subtle">Save a copy of your locally stored SideScroll work to Files or iCloud Drive.</p>
     <section class="card" aria-label="Export saved project data">
       <p><strong>Save your work in each Lab first.</strong> This collects data already saved on this device.</p>
@@ -51,10 +67,36 @@
       <div id="snapshot-status" role="status" aria-live="polite">Preparing project data…</div>
       <div class="actions"><a class="download" id="snapshot-download" hidden>Download JSON</a></div>
     </section>
+    <section class="card" aria-label="Import project snapshot">
+      <h2>Import Project</h2>
+      <p class="subtle">Recover saved work from a SideScroll project JSON. Nothing changes until you review and confirm.</p>
+      <label class="actions" for="restore-file"><span class="download">Choose Project JSON</span></label>
+      <input type="file" id="restore-file" accept=".json,application/json" hidden>
+      <div id="restore-status" role="status" aria-live="polite">Select a project snapshot to check it.</div>
+      <div id="restore-preview" hidden>
+        <p id="restore-source" class="subtle"></p>
+        <fieldset class="restore-modes">
+          <legend><strong>How should it import?</strong></legend>
+          <label><input type="radio" name="restore-mode" value="merge" checked> <span><strong>Merge missing only</strong><br><small>Keep everything already stored on this device.</small></span></label>
+          <label><input type="radio" name="restore-mode" value="replace"> <span><strong>Restore from file</strong><br><small>Replace matching saved entries. Do not delete other entries.</small></span></label>
+        </fieldset>
+        <details class="card" open><summary>Areas to include</summary>
+          <div id="restore-categories"></div>
+          <label class="restore-category"><input id="restore-session" type="checkbox"> Session-only editor data (normally leave off)</label>
+        </details>
+        <p id="restore-counts"></p><p id="restore-notes" class="snapshot-note"></p>
+        <p class="restore-warning"><strong>Safety step:</strong> save a new backup of what's on this device <em>before</em> importing. The saved data may be newer than your file.</p>
+        <div class="actions"><button id="restore-backup" type="button" disabled>1. Save safety backup</button>
+          <a class="download" id="restore-backup-download" hidden>Download safety JSON</a></div>
+        <label class="restore-ack"><input id="restore-backup-saved" type="checkbox" disabled> I have saved the safety JSON to Files/iCloud.</label>
+        <div class="actions"><button id="restore-apply" type="button" disabled>2. Apply selected data</button></div>
+        <p class="snapshot-note">Data is checked before writing. Imports do not contain art PNGs, unsaved edits or IndexedDB records. Additional project keys already on this device are kept.</p>
+      </div>
+    </section>
     <details class="card" aria-label="Export details">
       <summary>What does this include?</summary>
       <p>Saved SideScroll world, puzzles, groups, characters, rigs, animations, and Lab settings. The file includes a data manifest for the audit.</p>
-      <p class="snapshot-note">This first export captures SideScroll browser storage, not unsaved edits, imported image files, offline game files, or IndexedDB records. It does not restore data yet. Keep your individual Lab exports and do not clear Safari website data.</p>
+      <p class="snapshot-note">This first export captures SideScroll browser storage, not unsaved edits, imported image files, offline game files, or IndexedDB records. Import restores only the included saved browser data; images and unsaved edits are not restored. Keep your individual Lab exports and do not clear Safari website data.</p>
     </details>
   </main>
 </body>

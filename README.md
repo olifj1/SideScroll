@@ -1,32 +1,30 @@
-# SS-PATCH-1.0.204 — Lab Export Coverage (Stage A)
+# SS-PATCH-1.0.205 — Global Project Restore
 
-**Install directly over v1.0.203.** This patch contains only changed files. It **does not** reset or migrate existing SideScroll browser data or alter any PNGs, playable world code, characters or animation keys.
+**Install over v1.0.204.** Changed-files-only patch. No art, game runtime or authored data changed. It adds a read/validate/preview/import facility to Home → Menu → Project Backup. Existing one-tap Export Project is unchanged.
 
-## What's new
+## How to use
 
-- **Puzzle Lab → Lab Data:** Export Puzzle Data / Import Puzzle Data (reusable puzzle definitions, groups, puzzle sandbox state, player puzzle state and other saved puzzle keys).
-- **Asset Lab → Data (bottom of inspector):** Export Asset Data / Import Asset Data (all saved asset settings).
-- **Anim Lab → Character Library → Load → All Anim Lab data:** Export All Anim Lab Data / Import All Anim Lab Data (library and built-ins, clips, rigs, skin, editor settings). No extra buttons in the primary New / Load / Save toolbar. Bulk import is disabled while a character has unsaved edits or Play is active.
-- Each exported file is a **real `.json` attachment**, handled with the native iPhone Share → Save to Files flow like Project Backup. Download fallback if file sharing unavailable. Exports do not modify saved work.
-- **Import** validates matching Lab, supported keys, entry sizes and manifest, gives a preview of new/overwritten entries, requires confirmation, and attempts rollback on any write failure. Existing keys absent from an import are **not** deleted. Do **not** run imports during ordinary export testing; they can overwrite newer work.
-- **World Lab's Complete Game export format v3** includes independently saved Puzzle Lab sandbox keys, player puzzle state, and the live Design Lab v2 working document (also preserving v1 legacy data). World Lab still accepts older v1/v2 exports.
-- **Project Backup** now includes two older SideScroll/WalkLab-prefixed keys that the previous filter listed as excluded, *if* they are still stored on your phone.
-- New `SIDESCROLL_EXPORT_COVERAGE.md` tracks which Lab owns each dataset and remaining gaps; all three canonical docs updated.
+1. Save current edits in the individual Labs; open **Project Backup → Import Project** and choose a previously saved `SS-PROJECT-SNAPSHOT-*.json` file.
+2. The file is checked (schema, source, SHA-256 hashes where present, UTF-8 byte lengths, manifest, allowed SideScroll key scope). Read the comparison and choose **Merge missing only** (default; safest) or **Restore from file** (replace values stored under matching keys, never delete unlisted keys). Select the areas to import; transient session editor data is off by default.
+3. Tap **1. Save safety backup**. Save the actual `SS-BEFORE-RESTORE-*.json` file to Files/iCloud, then tick that you saved it.
+4. Tap **2. Apply selected data** and approve the final confirmation. Data is rechecked for changes since the safety snapshot; the import writes only selected, changed keys, verifies readback, and attempts rollback of completed writes if an error occurs. Open the relevant Lab/refresh the game to load imported data.
 
-## What to test
+**Strong recommendation:** On the working iPhone, test only file selection and the non-destructive preview first. Do not press Apply just to test this patch. Complete device roundtrip recovery on a spare/test browser or device before relying on full restore for disaster recovery.
 
-1. Keep your v203 Global Snapshot in iCloud Drive.
-2. Patch v204, then **save current work in your Labs**. Open Puzzle Lab, Asset Lab, Anim Lab (Load menu) and try each *Export* button. Each should produce one file: `SS-LAB-PUZZLES-...json`, `SS-LAB-ASSETS-...json`, `SS-LAB-CHARACTERS-...json`.
-3. Export World Lab → Complete Game. Export Project Backup once more if you want the additional older keys captured.
-4. For now **do not press Import** on your working iPhone unless intentionally restoring. Share the files if you want a cross-check of the resulting Lab formats.
+## Limits and safety
 
-## Scope/limits
+- A Global Snapshot is a raw saved-browser-data backup. It does not include original art PNGs/audio, user image files outside browser storage, IndexedDB records, offline caches, or unsaved in-memory Lab edits. `v204` snapshots include two additional legacy keys that a v203 snapshot omitted.
+- Restore is **non-deleting**: values absent from the file remain on the device. Selective Restore replaces matching keys; Merge only adds missing ones. Unrelated same-origin storage and credentials are never imported.
+- A rollback snapshot is captured **before** any writes. The user must save it off-device before continuing. On write failure, previous changed values are restored best-effort. Abrupt power loss/browser kill mid-write is not transactionally recoverable automatically: preserve the safety JSON for subsequent recovery.
+- Source schema `sidescroll.project-snapshot.v1` remains compatible with v202–v204 exported JSON. The importer refuses files with a corrupt manifest, mismatched saved lengths, duplicate or foreign keys, or bad SHA-256. Files without hashes can be loaded with a prominent warning and UTF-8 length validation; prefer a new v204+ snapshot.
+- Restoring a snapshot does **not** publish its contents as bundled GitHub game defaults. That workflow is a separate subsequent stage.
 
-This is **Stage A**, not yet Global Restore. The Global Snapshot remains audit/export-only. Lab data files capture **browser-stored values**, not source PNG pixels or files stored outside the browser; **unsaved edits are never included**. New character artwork uses bundled placeholder files. Independent Hero 1/Hero 2 handoffs, imported-art packaging, IndexedDB review, full global restore and GitHub build promotion are outstanding.
+## Verification
 
-## Automated checks
+- Node / WebCrypto validation with the actual user-supplied v203 JSON: 76 items; all 76 SHA-256 hashes validated.
+- Failure tests: corrupted value/size/checksum, foreign/credential/duplicate keys, wrong Lab data, stale local edits, excluded session values, select-and-merge plan, backup/confirmation gate, preserving existing/unrelated values.
+- Headless Chromium UI exercised at phone portrait (390×844) and landscape (844×390); file input, preview, category selection, modes and horizontal fit checked. This sandbox blocks ordinary HTTP resources; manual iPhone Safari/PWA share/import verification remains outstanding.
 
-- Node syntax checks for touched JavaScript.
-- Headless Chromium with the exact uploaded v203 Snapshot values: Puzzle (32 entries), Assets (7), Anim (18), all with byte-preserving export → import roundtrip and out-of-scope import rejection.
-- Headless Chromium running real World Lab JS: v3 JSON has 15 independent Puzzle Lab keys plus live v2/legacy v1 design documents; importing v3 restores sandbox and v2 Design Lab values.
-- **Still requires device approval:** actual iPhone PWA share sheet, import review UI, and preservation of local app state after reload.
+## File changes
+
+`project-restore.js` (new), `project-snapshot.html`, `project-snapshot.js`, `index.html`, `sw.js`, README, and four documentation files.

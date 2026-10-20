@@ -1388,3 +1388,11 @@ Project Backup is a Home → Menu action with one primary **Export Project** but
 - Global Snapshot exporter v204 also recognises legacy `gamehub.sidescroll.scene.v2` and `gamehub.walklab.character.v1` (if present). Do not auto-migrate these raw values.
 - The saved-data exports **do not embed art PNGs, imported image pixels, bundled resources or IndexedDB**. Save current edits before export. Project Backup is still read-only, **not an approved full restore**. GitHub packaged baseline defaults will need a deliberate promotion/migration pipeline; local work must not be silently overwritten.
 - Machine-readable key/source mapping and exact test outcomes live in `SIDESCROLL_EXPORT_COVERAGE.md`. iPhone Safari approval pending. Next: verified global restore with preview/rollbacks, artwork packaging and per-character export parity.
+
+
+### v1.0.205 — Global Project Restore / Backups (20 Oct 2026)
+
+- Home → Menu → Project Backup now offers one-button Export Project and **Import Project**. Import is deliberately a separate, opt-in view: select a JSON, validate schema/hash/manifest/key scope, review categories and add/replace/skip counts, choose Merge missing (default) or Restore from file. Session/editor-only data is disabled by default.
+- Safety workflow: capture all currently saved project keys (not just affected keys), **Save safety JSON to Files/iCloud first**, acknowledge success, recheck that current storage has not changed since preview, then final confirmation and selective writes. Verify readback and attempt rollback on failure; do not claim atomicity across browser termination. Old extra keys are never deleted; foreign same-origin keys and credentials are never imported.
+- This is saved **browser data** recovery, not a complete art/image/IndexedDB backup and not a GitHub baked-defaults promotion. Single-Lab data scopes remain available for smaller imports/exports. Export/import are companion responsibilities for every new editor storage key.
+- Keep the running iPhone state safe: UI/preview test only on production phone until restore has been roundtrip-verified separately. See `SIDESCROLL_EXPORT_COVERAGE.md` for detailed formats, gaps and device QA.
