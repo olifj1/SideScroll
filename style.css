@@ -15082,3 +15082,76 @@ body[data-game-id="game-17"] .animlab-assembly-panel{display:none!important;}
 .animlab-parts-add-actions{display:flex;gap:8px;}
 .animlab-parts-add-actions button{flex:1;min-height:42px;border-radius:8px;background:#2a4148;
   border:1px solid #61817f;color:#f0f5f2;font:700 13px system-ui,sans-serif;}
+
+/* Anim Lab v1.1.6 — one Atlas-style Parts list and contained editing inspector.
+   All rows are in the ordinary drawer scroll; no second six-part scroller. */
+body[data-game-id="game-17"] .animlab-art-layout-controls{gap:6px;}
+body[data-game-id="game-17"] .animlab-parts-caption{
+  display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  color:#9bd4cc;text-transform:uppercase;letter-spacing:.12em;
+  font:800 10px/1.25 system-ui,-apple-system,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-parts-selection-count{
+  color:#adc5c1;letter-spacing:0;text-transform:none;font:600 10px/1.3 system-ui,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-art-part-board{
+  display:flex;flex-direction:column;gap:4px;max-height:none;overflow:visible;
+}
+body[data-game-id="game-17"] .animlab-art-part-board.many{
+  max-height:520px;overflow-y:auto;overscroll-behavior:contain;
+}
+body[data-game-id="game-17"] .animlab-parts-row{
+  display:grid;grid-template-columns:minmax(0,2.1fr) repeat(3,minmax(0,1fr));gap:4px;align-items:stretch;
+}
+body[data-game-id="game-17"] .animlab-parts-row button{
+  min-width:0;min-height:36px;padding:6px 4px;border:1px solid #526a6e;
+  border-radius:7px;background:#24343b;color:#edf3ef;
+  font:700 10px/1.2 system-ui,-apple-system,sans-serif;overflow-wrap:anywhere;
+}
+body[data-game-id="game-17"] .animlab-parts-row .animlab-parts-name{
+  text-align:left;padding-left:8px;font-size:11px;
+}
+body[data-game-id="game-17"] .animlab-parts-row.is-active .animlab-parts-name{
+  border-color:#7ed8c7;background:rgba(126,216,199,.15);color:#e7fff8;
+}
+body[data-game-id="game-17"] .animlab-parts-row.is-multi-selected .animlab-parts-name{
+  border-color:#d7c68c;background:rgba(200,172,96,.16);
+}
+body[data-game-id="game-17"] .animlab-parts-row.is-hidden-part .animlab-parts-name{opacity:.55;border-style:dashed;}
+body[data-game-id="game-17"] .animlab-parts-row.is-locked-part .animlab-parts-name{border-right-color:#efbd82;}
+body[data-game-id="game-17"] .animlab-parts-row [data-part-row-action].is-active{
+  background:#294e4a;border-color:#7ed8c7;color:#ecf9f2;
+}
+body[data-game-id="game-17"] .animlab-parts-row [data-part-row-action="lock"].is-active{
+  background:#50412a;border-color:#e0b86e;
+}
+body[data-game-id="game-17"] .animlab-part-inventory-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+body[data-game-id="game-17"] .animlab-part-inventory-actions button{min-height:34px;font-size:10px;padding:4px 2px;}
+body[data-game-id="game-17"] .animlab-parts-editor{gap:6px;padding:7px;}
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-rig-selected{margin:0;}
+body[data-game-id="game-17"] .animlab-parts-subgroup-label{
+  color:#b4cbc6;font:700 10px/1.3 system-ui,sans-serif;
+  padding-top:4px;border-top:1px solid rgba(172,203,195,.14);
+}
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-art-numeric-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;
+}
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-art-numeric-grid label{font-size:10px;}
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-art-numeric-grid input{min-height:30px;font-size:13px;}
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-art-transform-row button,
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-art-axis button,
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-art-order-buttons button,
+body[data-game-id="game-17"] .animlab-parts-editor .animlab-parts-manage-buttons button{
+  min-height:35px;min-width:0;padding:5px 3px;font:700 10px/1.2 system-ui,-apple-system,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-parts-editor button:disabled{opacity:.35;}
+body[data-game-id="game-17"] .animlab-art-layout-pad.is-disabled{opacity:.45;pointer-events:none;}
+body[data-game-id="game-17"] .animlab-parts-advanced{display:block;}
+body[data-game-id="game-17"] .animlab-parts-advanced summary{cursor:pointer;list-style:revert;min-height:25px;padding:4px;}
+body[data-game-id="game-17"] .animlab-parts-advanced[open]{display:flex;flex-direction:column;gap:8px;}
+body[data-game-id="game-17"] .animlab-parts-advanced:not([open]) > :not(summary){display:none;}
+body[data-game-id="game-17"] .animlab-parts-advanced .animlab-art-reference-tools > button{
+  background:#2b434a;color:#eef5f2;border:1px solid #5a7676;border-radius:6px;min-height:32px;
+}
+/* Keep legacy visibility handlers available internally without showing a duplicate toolbar. */
+body[data-game-id="game-17"] .animlab-art-layer-tools[hidden]{display:none!important;}

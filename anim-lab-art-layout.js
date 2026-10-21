@@ -10,81 +10,91 @@
   section.className='animlab-section animlab-art-layout-controls';
   section.hidden=true;
   section.innerHTML=`
-    <div class="animlab-section-title">Part Layout</div>
-    <p class="animlab-art-layout-note">Select one or more parts below. Add opens your Atlas mesh list; Delete removes only assembled parts, never the Atlas source. Select a part to use the usual transform tools.</p>
+    <div class="animlab-section-title">Parts · character assembly</div>
+    <div class="animlab-parts-caption">Assembled parts <span class="animlab-parts-selection-count" aria-live="polite"></span></div>
     <div class="animlab-part-inventory-actions">
       <button type="button" data-part-manage="add">Add</button>
       <button type="button" data-part-manage="delete">Delete selected</button>
       <button type="button" data-part-manage="all">Select all</button>
       <button type="button" data-part-manage="clear">Clear all</button>
     </div>
-    <div class="animlab-art-part-board" aria-label="Assembled parts"></div>
-    <div class="animlab-rig-selected animlab-art-selected">
-      <div class="animlab-rig-selected-title">No part selected</div>
-      <div class="animlab-rig-selected-pos"></div>
-    </div>
-    <div class="animlab-art-numeric-grid" aria-label="Selected part transform values">
-      <label>X <input type="number" data-art-number="x" inputmode="decimal" step="0.01"></label>
-      <label>Y <input type="number" data-art-number="y" inputmode="decimal" step="0.01"></label>
-      <label>Rotation ° <input type="number" data-art-number="rotation" inputmode="decimal" step="0.5"></label>
-      <label>Width <input type="number" data-art-number="scaleX" inputmode="decimal" min="0.25" max="3" step="0.01"></label>
-      <label>Height <input type="number" data-art-number="scaleY" inputmode="decimal" min="0.25" max="3" step="0.01"></label>
-      <label>Pivot X <input type="number" data-art-number="pivotX" inputmode="decimal" step="0.01"></label>
-      <label>Pivot Y <input type="number" data-art-number="pivotY" inputmode="decimal" step="0.01"></label>
-    </div>
-    <div class="animlab-segmented animlab-art-transform-row">
-      <button type="button" data-art-transform="move">Move</button>
-      <button type="button" data-art-transform="rotate">Rotate</button>
-      <button type="button" data-art-transform="scale">Scale</button>
-      <button type="button" data-art-transform="pivot">Pivot</button>
-    </div>
-    <div class="animlab-precision animlab-rig-precision">
+    <div class="animlab-art-part-board" aria-label="Assembled parts (name to select; Hide, Solo and Lock affect display and editing)"></div>
+    <div class="animlab-atlas-control-group animlab-parts-editor">
+      <div class="animlab-atlas-group-label">Edit selected part</div>
+      <div class="animlab-rig-selected animlab-art-selected">
+        <div class="animlab-rig-selected-title">No part selected</div>
+        <div class="animlab-rig-selected-pos"></div>
+      </div>
+      <div class="animlab-parts-subgroup-label">Transform</div>
+      <div class="animlab-segmented animlab-art-transform-row">
+        <button type="button" data-art-transform="move">Move</button>
+        <button type="button" data-art-transform="rotate">Rotate</button>
+        <button type="button" data-art-transform="scale">Scale</button>
+        <button type="button" data-art-transform="pivot">Pivot</button>
+      </div>
       <div class="animlab-precision-row animlab-rig-axis animlab-art-axis">
         <button type="button" data-art-axis="free">Free</button>
         <button type="button" data-art-axis="x">X only</button>
         <button type="button" data-art-axis="y">Y only</button>
         <button type="button" data-art-fine="1">Fine</button>
       </div>
-      <p class="animlab-art-layout-note">Select a part above, then drag the right pad. Scale: Free = X+Y, X only = width, Y only = height. Pivot moves without shifting the picture. The viewport only pans/zooms.</p>
-    </div>
-    <div class="animlab-art-layer-tools">
-      <div class="animlab-view-grid animlab-art-visibility-buttons">
-        <button type="button" data-art-action="toggle-visible">Hide Part</button>
-        <button type="button" data-art-action="solo">Solo: Off</button>
-        <button type="button" data-art-action="show-all">Show All</button>
+      <div class="animlab-art-numeric-grid" aria-label="Selected part transform values">
+        <label>X <input type="number" data-art-number="x" inputmode="decimal" step="0.01"></label>
+        <label>Y <input type="number" data-art-number="y" inputmode="decimal" step="0.01"></label>
+        <label>Rotation ° <input type="number" data-art-number="rotation" inputmode="decimal" step="0.5"></label>
+        <label>Width <input type="number" data-art-number="scaleX" inputmode="decimal" min="0.25" max="3" step="0.01"></label>
+        <label>Height <input type="number" data-art-number="scaleY" inputmode="decimal" min="0.25" max="3" step="0.01"></label>
+        <label>Pivot X <input type="number" data-art-number="pivotX" inputmode="decimal" step="0.01"></label>
+        <label>Pivot Y <input type="number" data-art-number="pivotY" inputmode="decimal" step="0.01"></label>
       </div>
+      <p class="animlab-art-layout-note">Drag the existing right thumb pad to edit. The viewport pans and zooms without moving parts.</p>
+      <div class="animlab-parts-subgroup-label">Layer order</div>
       <div class="animlab-view-grid animlab-art-order-buttons">
         <button type="button" data-art-action="back">Send Back</button>
         <button type="button" data-art-action="forward">Bring Forward</button>
         <button type="button" data-art-action="bottom">To Back</button>
         <button type="button" data-art-action="top">To Front</button>
       </div>
-    </div>
-    <div class="animlab-art-clipboard-tools">
-      <div class="animlab-view-grid animlab-art-clipboard-buttons">
-        <button type="button" data-art-action="copy">Copy Part</button>
-        <button type="button" data-art-action="paste">Paste All</button>
-        <button type="button" data-art-action="paste-position">Paste Position</button>
-        <button type="button" data-art-action="paste-rotation">Paste Rotation</button>
-        <button type="button" data-art-action="paste-scale">Paste Scale</button>
-        <button type="button" data-art-action="paste-pivot">Paste Pivot</button>
-        <button type="button" data-art-action="copy-pair">Copy Selected Part → Pair</button>
-        <button type="button" data-art-action="copy-both-near-far">Both Legs Near → Far</button>
-        <button type="button" data-art-action="copy-both-far-near">Both Legs Far → Near</button>
+      <div class="animlab-parts-subgroup-label">Manage</div>
+      <div class="animlab-atlas-tools three animlab-parts-manage-buttons">
+        <button type="button" data-part-edit="rename">Rename</button>
+        <button type="button" data-part-edit="duplicate">Duplicate</button>
+        <button type="button" data-part-edit="remove">Delete</button>
+        <button type="button" data-art-action="reset-part">Reset part</button>
+        <button type="button" data-art-action="reset-layout">Reset layout</button>
+        <button type="button" data-art-action="show-all">Show all</button>
       </div>
     </div>
-    <div class="animlab-art-reference-tools">
-      <div class="animlab-view-grid animlab-art-reference-buttons">
-        <button type="button" data-art-action="reference">Show Reference</button>
-        <button type="button" data-art-action="difference">Difference: Off</button>
+    <details class="animlab-atlas-control-group animlab-parts-advanced">
+      <summary class="animlab-atlas-group-label">Advanced · transform clipboard and reference</summary>
+      <div class="animlab-art-clipboard-tools">
+        <div class="animlab-view-grid animlab-art-clipboard-buttons">
+          <button type="button" data-art-action="copy">Copy Part</button>
+          <button type="button" data-art-action="paste">Paste All</button>
+          <button type="button" data-art-action="paste-position">Paste Position</button>
+          <button type="button" data-art-action="paste-rotation">Paste Rotation</button>
+          <button type="button" data-art-action="paste-scale">Paste Scale</button>
+          <button type="button" data-art-action="paste-pivot">Paste Pivot</button>
+          <button type="button" data-art-action="copy-pair">Copy Selected Part → Pair</button>
+          <button type="button" data-art-action="copy-both-near-far">Both Legs Near → Far</button>
+          <button type="button" data-art-action="copy-both-far-near">Both Legs Far → Near</button>
+        </div>
       </div>
-      <label class="animlab-slider"><span>Reference opacity</span><input type="range" data-art-reference-opacity min="0.05" max="1" step="0.01"><output></output></label>
-    </div>
-    <div class="animlab-rig-actions animlab-art-actions">
-      <button type="button" data-art-action="reset-part">Reset Part</button>
-      <button type="button" data-art-action="reset-layout">Reset Layout</button>
-      <button type="button" data-art-action="align-reference">Align Reference</button>
-    </div>
+      <div class="animlab-art-reference-tools">
+        <div class="animlab-view-grid animlab-art-reference-buttons">
+          <button type="button" data-art-action="reference">Show Reference</button>
+          <button type="button" data-art-action="difference">Difference: Off</button>
+        </div>
+        <label class="animlab-slider"><span>Reference opacity</span><input type="range" data-art-reference-opacity min="0.05" max="1" step="0.01"><output></output></label>
+        <button type="button" data-art-action="align-reference">Align Reference</button>
+      </div>
+      <div class="animlab-art-layer-tools" hidden>
+        <div class="animlab-view-grid animlab-art-visibility-buttons">
+          <button type="button" data-art-action="toggle-visible">Hide Part</button>
+          <button type="button" data-art-action="solo">Solo: Off</button>
+        </div>
+      </div>
+    </details>
   `;
   const rigSection=document.querySelector('.animlab-rig-controls');
   (rigSection||setupSection).insertAdjacentElement('afterend',section);
@@ -122,6 +132,7 @@
   let selectedPart=null;
   const markedParts=new Set();
   let boardSignature='';
+  let displayCharacter=null;
   let transformMode='move';
   let axis='free';
   let fine=false;
@@ -132,6 +143,7 @@
   let queuedDragPoint=null,queuedDragFrame=0;
   let soloPart=null; // display-only: never written into Setup or exported
   const hiddenParts=new Set(); // display-only: Hide/Show never dirty authored data
+  const lockedParts=new Set(); // editor-only, like Atlas locks; never affects exports
   let showOutlines = true;
   let clipboard=null; // editor-only, available between part selections
 
@@ -146,6 +158,7 @@
   function meshNames(){return new Map((window.AnimLabAtlasInspect?.getDocument?.()?.meshes||[]).map(m=>[m.id,m.name]));}
   function instanceName(item){
     const legacy=item.meshId.startsWith('atlas-builtin-');
+    if(item.nameOverride)return item.nameOverride;
     return legacy?item.label:(meshNames().get(item.meshId)||`Missing: ${item.label||item.meshId}`);
   }
   function descriptorFor(s){
@@ -167,6 +180,9 @@
   function ensureSelection(s,desc){
     const valid=new Set((desc?.parts||[]).map(p=>p.id));
     for(const id of markedParts)if(!valid.has(id))markedParts.delete(id);
+    for(const id of lockedParts)if(!valid.has(id))lockedParts.delete(id);
+    for(const id of hiddenParts)if(!valid.has(id))hiddenParts.delete(id);
+    if(soloPart&&!valid.has(soloPart))soloPart=null;
     if(selectedPart&&valid.has(selectedPart))return;
     selectedPart=desc?.parts?.[0]?.id||null;
   }
@@ -176,14 +192,34 @@
     if(boardSignature===signature&&board.childElementCount===(desc?.parts||[]).length)return;
     boardSignature=signature;board.replaceChildren();
     for(const part of desc?.parts||[]){
-      const button=document.createElement('button');button.type='button';button.dataset.artPart=part.id;
-      button.addEventListener('click',()=>{
+      const row=document.createElement('div');row.className='animlab-parts-row';row.dataset.partRow=part.id;
+      const name=document.createElement('button');name.type='button';name.dataset.artPart=part.id;
+      name.className='animlab-parts-name';name.setAttribute('aria-label',`Select ${part.label}`);
+      name.addEventListener('click',()=>{
         selectedPart=part.id;
-        if(markedParts.has(part.id))markedParts.delete(part.id);
-        else markedParts.add(part.id);
+        if(markedParts.has(part.id))markedParts.delete(part.id);else markedParts.add(part.id);
         renderUI();core.redrawOnly?.();
       });
-      board.appendChild(button);
+      row.appendChild(name);
+      for(const kind of ['hide','solo','lock']){
+        const button=document.createElement('button');button.type='button';button.dataset.partRowAction=kind;
+        button.setAttribute('aria-label',`${kind} ${part.label}`);
+        button.textContent=kind[0].toUpperCase()+kind.slice(1);
+        button.addEventListener('click',()=>{
+          const id=part.id;
+          if(kind==='hide'){
+            if(hiddenParts.has(id))hiddenParts.delete(id);else hiddenParts.add(id);
+          }else if(kind==='solo'){
+            if(soloPart!==id)hiddenParts.delete(id);
+            soloPart=soloPart===id?null:id;
+          }else{
+            if(lockedParts.has(id))lockedParts.delete(id);else lockedParts.add(id);
+          }
+          renderUI();core.redrawOnly?.();
+        });
+        row.appendChild(button);
+      }
+      board.appendChild(row);
     }
   }
 
@@ -249,6 +285,45 @@
       addDialog.close();renderUI();
     }
   });
+  function editSelectedPart(name){
+    const s=state(),desc=descriptorFor(s),part=partById(desc,selectedPart);
+    if(!part||lockedParts.has(selectedPart))return;
+    if(name==='rename'){
+      const old=part.label;
+      const proposed=window.prompt('Name this assembled part (Atlas source is unchanged):',old);
+      if(proposed===null)return;
+      const renamed=proposed.trim().replace(/[\u0000-\u001f\u007f<>]/g,'').slice(0,70);
+      if(!renamed||renamed===old)return;
+      inventoryEdit(`Rename assembled part ${old}`,items=>{
+        const item=items.find(p=>p.id===selectedPart||p.meshId===`atlas-builtin-${selectedPart}`);
+        if(item)item.nameOverride=renamed;
+      });
+      renderUI();return;
+    }
+    if(name==='duplicate'){
+      const id=assemblyId();
+      const source=isAssembly(s)?instances(s).find(p=>p.id===selectedPart):null;
+      inventoryEdit(`Duplicate assembled part ${part.label}`,items=>{
+        const original=source||items.find(p=>p.meshId===`atlas-builtin-${selectedPart}`);
+        if(!original||items.length>=64)return;
+        const at=items.findIndex(p=>p.id===original.id);
+        const copy=clone(original);copy.id=id;copy.x=clamp(copy.x+.045,-3,3);
+        items.splice(at+1,0,copy);
+      });
+      selectedPart=id;markedParts.clear();markedParts.add(id);renderUI();return;
+    }
+    if(name==='remove'){
+      const id=selectedPart;
+      inventoryEdit(`Delete assembled part ${part.label}`,items=>{
+        const idx=items.findIndex(p=>p.id===id||p.meshId===`atlas-builtin-${id}`);
+        if(idx>=0)items.splice(idx,1);
+      });
+      markedParts.delete(id);selectedPart=null;hiddenParts.delete(id);lockedParts.delete(id);
+      if(soloPart===id)soloPart=null;
+      renderUI();return;
+    }
+  }
+  section.querySelectorAll('[data-part-edit]').forEach(button=>button.addEventListener('click',()=>editSelectedPart(button.dataset.partEdit)));
   section.querySelectorAll('[data-part-manage]').forEach(button=>button.addEventListener('click',()=>{
     const name=button.dataset.partManage,desc=descriptorFor(state());
     if(name==='add'){openAdd();return;}
@@ -260,6 +335,7 @@
     }
     if(name==='delete'){
       if(!markedParts.size)return;
+      if([...markedParts].some(id=>lockedParts.has(id))){window.alert('Unlock selected parts before deleting them.');return;}
       const removed=new Set(markedParts);
       inventoryEdit(`Delete ${removed.size} assembled parts`,items=>{
         for(let i=items.length-1;i>=0;i--){
@@ -271,6 +347,7 @@
     }
     if(name==='clear'){
       if(!desc?.parts?.length)return;
+      if(desc.parts.some(p=>lockedParts.has(p.id))){window.alert('Unlock the parts before clearing the assembly.');return;}
       if(!window.confirm(`Clear all ${desc.parts.length} assembled parts? Atlas source meshes are not deleted. Undo is available.`))return;
       inventoryEdit('Clear all assembled parts',items=>{items.length=0;});
       markedParts.clear();selectedPart=null;renderUI();
@@ -303,6 +380,7 @@
 
   function renderUI(){
     const s=state(),desc=descriptorFor(s),active=isActive(s);
+    if(displayCharacter!==s.characterId){displayCharacter=s.characterId;selectedPart=null;markedParts.clear();hiddenParts.clear();lockedParts.clear();soloPart=null;boardSignature='';}
     if(addDialog.open&&state().characterId!==addDialog.dataset.characterId)addDialog.close();
     section.hidden=!active;
     // Keep the Setup Joints / Part Layout switch visible, but put Part tools
@@ -312,29 +390,42 @@
     if(viewportPadHost)viewportPadHost.hidden=false;
     pad.hidden=false;
     renderBoard(desc);ensureSelection(s,desc);
+    board.classList.toggle('many',desc.parts.length>14);
     const layout=layoutFor(s);
     const order=isAssembly(s)?instances(s).map(p=>p.id):(layout?.order||desc.parts.map(p=>p.id));
-    board.querySelectorAll('[data-art-part]').forEach(button=>{
-      const id=button.dataset.artPart,part=partById(desc,id),shown=!hiddenParts.has(id);
-      button.classList.toggle('is-active',id===selectedPart);
-      button.classList.toggle('is-multi-selected',markedParts.has(id));
-      button.classList.toggle('is-hidden-part',!shown);
-      button.classList.toggle('is-solo-part',soloPart===id);
+    board.querySelectorAll('[data-part-row]').forEach(row=>{
+      const id=row.dataset.partRow,part=partById(desc,id);
+      const selected=id===selectedPart,marked=markedParts.has(id),hidden=hiddenParts.has(id),locked=lockedParts.has(id);
+      row.classList.toggle('is-active',selected);
+      row.classList.toggle('is-multi-selected',marked);
+      row.classList.toggle('is-hidden-part',hidden);
+      row.classList.toggle('is-locked-part',locked);
+      const name=row.querySelector('[data-art-part]');
       const repeated=desc.parts.slice(0,order.indexOf(id)).filter(p=>p.label===part?.label).length;
-      button.textContent=`${markedParts.has(id)?'☑':'□'} ${order.indexOf(id)+1}. ${part?.label||id}${repeated?' · '+(repeated+1):''}${shown?'':' (hidden)'}${soloPart===id?' (solo)':''}`;
+      name.textContent=`${marked?'☑':'□'} ${part?.label||id}${repeated?' · '+(repeated+1):''}`;
+      name.setAttribute('aria-pressed',String(marked));
+      for(const kind of ['hide','solo','lock']){
+        const button=row.querySelector(`[data-part-row-action="${kind}"]`);
+        const on=kind==='hide'?hidden:kind==='solo'?soloPart===id:locked;
+        button.textContent=kind==='hide'?(on?'Show':'Hide'):kind==='solo'?(on?'Unsolo':'Solo'):(on?'Unlock':'Lock');
+        button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));
+      }
     });
+    section.querySelector('.animlab-parts-selection-count').textContent=`${markedParts.size} marked · ${desc.parts.length} total`;
     transformButtons.forEach(button=>{const on=button.dataset.artTransform===transformMode;button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));});
     axisButtons.forEach(button=>{const on=button.dataset.artAxis===axis;button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));button.disabled=!(transformMode==='move'||transformMode==='scale'||transformMode==='pivot');});
     fineButton.classList.toggle('is-active',fine);fineButton.setAttribute('aria-pressed',String(fine));
     const part=partById(desc,selectedPart),tr=transformFor(s,selectedPart);
+    const editLocked=!part||lockedParts.has(selectedPart);
     selectedTitle.textContent=part?.label||'No part selected';
     selectedPos.textContent=part?`X ${tr.x.toFixed(3)} Y ${tr.y.toFixed(3)}  Rot ${(tr.rotation/DEG).toFixed(1)}°  Width ${tr.scaleX.toFixed(2)} Height ${tr.scaleY.toFixed(2)}  Pivot ${tr.pivotX.toFixed(3)}, ${tr.pivotY.toFixed(3)}`:'';
     for(const input of section.querySelectorAll('[data-art-number]')){
       const property=input.dataset.artNumber,display=property==='rotation'?tr.rotation/DEG:tr[property];
       if(document.activeElement!==input)input.value=part?String(Number(display.toFixed(4))):'';
-      input.disabled=!part;
+      input.disabled=editLocked;
     }
     section.querySelector('[data-art-action="copy-pair"]').disabled=isAssembly(s)||!pairFor(selectedPart);
+    for(const b of section.querySelectorAll('[data-art-transform],[data-art-axis],[data-art-fine],[data-part-edit],.animlab-art-order-buttons button,[data-art-action="reset-part"]')) b.disabled=editLocked;
     section.querySelectorAll('[data-art-action="copy-pair"],[data-art-action="copy-both-near-far"],[data-art-action="copy-both-far-near"]').forEach(b=>b.hidden=isAssembly(s));
     for(const action of section.querySelectorAll('[data-part-manage]')){
       action.disabled=(action.dataset.partManage==='delete'&&!markedParts.size)||(action.dataset.partManage==='clear'&&!desc.parts.length)||(action.dataset.partManage==='all'&&!desc.parts.length);
@@ -343,11 +434,15 @@
     visibility.textContent=hiddenParts.has(selectedPart)?'Show Part':'Hide Part';
     const soloBtn=section.querySelector('[data-art-action="solo"]');
     soloBtn.textContent=soloPart===selectedPart?'Solo: On':'Solo: Off';soloBtn.classList.toggle('is-active',soloPart===selectedPart);
-    section.querySelectorAll('[data-art-action^="paste"]').forEach(btn=>btn.disabled=!clipboard);
+    section.querySelectorAll('[data-art-action^="paste"]').forEach(btn=>btn.disabled=!clipboard||editLocked);
+    const status=section.querySelector('.animlab-rig-selected-pos');
+    if(editLocked&&part)status.textContent+=' · Locked (unlock from the list to edit)';
     const index=order.indexOf(selectedPart);
-    for(const name of ['back','bottom'])section.querySelector(`[data-art-action="${name}"]`).disabled=index<1;
-    for(const name of ['forward','top'])section.querySelector(`[data-art-action="${name}"]`).disabled=index<0||index===order.length-1;
+    for(const name of ['back','bottom'])section.querySelector(`[data-art-action="${name}"]`).disabled=editLocked||index<1;
+    for(const name of ['forward','top'])section.querySelector(`[data-art-action="${name}"]`).disabled=editLocked||index<0||index===order.length-1;
     pad.querySelector('span').textContent=`${transformMode[0].toUpperCase()+transformMode.slice(1)} selected part`;
+    pad.classList.toggle('is-disabled',editLocked);
+    section.querySelector('[data-art-action="reset-layout"]').disabled=lockedParts.size>0;
     const ref=core.getStaticReference?.()||{opacity:.38};
     if(document.activeElement!==referenceOpacity)referenceOpacity.value=String(ref.opacity);
     const output=referenceOpacity.parentElement.querySelector('output');if(output)output.textContent=Number(ref.opacity).toFixed(2);
@@ -413,6 +508,7 @@
 
   function action(name){
     const s=state(),desc=descriptorFor(s);if(!desc)return;
+    if(lockedParts.has(selectedPart)&&!['show-all','reference','difference','align-reference','copy'].includes(name))return;
     if(name==='reference'){
       core.setOverlay?.('reference',!core.getOverlay?.('reference'));return;
     }
@@ -486,6 +582,7 @@
       return;
     }
     if(name==='reset-layout'){
+      if(lockedParts.size)return;
       if(isAssembly(s)){
         editLayout('Reset assembled part transforms',layout=>{
           for(const part of Object.values(layout.parts))Object.assign(part,{x:0,y:0,rotation:0,scaleX:1,scaleY:1,pivotX:0,pivotY:0});
@@ -504,7 +601,7 @@
   });
 
   section.querySelector('.animlab-art-numeric-grid').addEventListener('change',event=>{
-    const input=event.target.closest('[data-art-number]');if(!input||!selectedPart)return;
+    const input=event.target.closest('[data-art-number]');if(!input||!selectedPart||lockedParts.has(selectedPart))return;
     const property=input.dataset.artNumber,entered=Number(input.value);
     if(!Number.isFinite(entered)||input.value.trim()===''){renderUI();return;}
     const s=state(),current=transformFor(s,selectedPart);
@@ -581,7 +678,7 @@
   // canvas.addEventListener('pointercancel',event=>finishViewport(event,true),true);
 
   function precisionDown(event){
-    const s=state();if(!isActive(s)||!selectedPart)return;
+    const s=state();if(!isActive(s)||!selectedPart||lockedParts.has(selectedPart))return;
     event.preventDefault();precisionDrag={pointerId:event.pointerId,part:selectedPart,startX:event.clientX,startY:event.clientY,start:transformFor(s,selectedPart),tx:core.beginTransaction('setup',`${transformMode} ${partById(descriptorFor(s),selectedPart)?.label||selectedPart}`)};
     try{pad.setPointerCapture(event.pointerId);}catch(_){}
   }

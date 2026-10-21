@@ -339,6 +339,7 @@
         used.add(id);
         const number=(v,defaultValue,min,max)=>Number.isFinite(Number(v))&&v!==null?clamp(Number(v),min,max):defaultValue;
         instances.push({id,meshId,label:String(candidate.label||'Atlas part').slice(0,70),
+          nameOverride:String(candidate.nameOverride||'').trim().slice(0,70),
           x:number(candidate.x,0,-3,3),y:number(candidate.y,0,-2,3),
           rotation:number(candidate.rotation,0,-Math.PI,Math.PI),
           scaleX:number(candidate.scaleX,1,.05,8),scaleY:number(candidate.scaleY,1,.05,8),

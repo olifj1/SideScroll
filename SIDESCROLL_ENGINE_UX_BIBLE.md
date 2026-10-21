@@ -1457,3 +1457,10 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 **Future Hierarchy/Shared Atlas:** preserve the already proposed Character Hierarchy, linked atlas pages, shared outfits and validation work; do not implement them in the inventory editor. Subsequent Skin generalisation should consume stable instances from this streamlined list, not restore a competing part inventory panel.
 
+
+
+## Parts visual/tool consistency contract — v1.1.6 (21 Oct 2026)
+
+Use the existing Atlas editor as the Parts editor interaction convention: a plainly labelled **single assembled-parts list**, one row per part with explicit Hide, Solo and Lock, and a **contained Edit selected part** area that groups Transform, Layer order and Manage commands. Do not add an extra permanently expanded inventory panel, duplicate transform pad, or original/new switch. Keep the Add picker modal; multiple marked names represent inventory selection while one active name drives individual transforms. The list grows with content for small inventories (up to 14 entries) and bounds its own scrolling only when large. Move less-used legacy clipboard/reference commands into optional Advanced, without deleting their functionality. Hide/Solo/Lock must be nondirty editor state, not silent rig/mesh/animation data edits.
+
+**Source versus instance naming:** In Atlas, Rename modifies the *source mesh*; in Parts, Rename only gives one instance a non-destructive override. All instances without an override follow their stable source mesh ID/name. Copy/duplicate of an assembled instance does not duplicate the Atlas source, and must not invent a `copy` name; this distinction must remain visible in UI/docs. A part Lock must disable editing that instance until unlocked. Keep existing Save/Discard/Undo rather than adding an independent persistence path.

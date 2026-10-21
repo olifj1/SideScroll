@@ -555,3 +555,12 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 **Future Hierarchy/Shared Atlas:** preserve the already proposed Character Hierarchy, linked atlas pages, shared outfits and validation work; do not implement them in the inventory editor. Subsequent Skin generalisation should consume stable instances from this streamlined list, not restore a competing part inventory panel.
 
+
+
+## v1.1.6 — unified Parts inspector and assembled-instance naming (21 Oct 2026)
+
+- **Atlas** owns editable source meshes and the source texture; **Parts** owns instances referencing stable source mesh IDs. The Parts inspector is one list with per-row Select/Hide/Solo/Lock followed by the grouped Edit selected part controls. Selection has two aspects: checked rows are a multi-selection for inventory deletion; the most recently tapped row is the individual transform target. The latter cannot silently transform other marked rows.
+- **Parts list tools** are Add (modal choose one or many saved Atlas meshes), Delete selected, Select all, Clear all (confirmation). Part inventory mutations are Setup edits, undoable, saveable, and never delete meshes/PNG from Atlas.
+- **Per-instance name override** (`nameOverride`, optional) is the label assigned through Parts → Rename. It is stored on the assembled instance only; if empty, the display follows the Atlas mesh's current name by `meshId`. Adding/duplicating another instance does not clone a new source mesh or add `copy` to the source's name. Rename the source in Atlas when you intend to change all unoverridden instances.
+- All normal transform/pivot/order controls remain under **Edit selected part**; legacy clipboard and reference controls move to the optional Advanced group. Hide/Solo/Lock are ephemeral and cannot change what is saved/exported. Lock blocks authoring changes while active.
+- The path **Atlas → Parts → Rig** is still rigid preview. Arbitrary custom atlas-mesh Skin bind/deform, Animate/Play runtime integration, full portable image export and future Character Hierarchy/multi-atlas/shared clothing are separate incomplete stages; do not present v1.1.6 as solving them.

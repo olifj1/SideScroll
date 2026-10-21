@@ -1,13 +1,17 @@
-# SideScroll — SS-PATCH-1.1.5
+# SideScroll — SS-PATCH-1.1.6
 
-**Changed-files-only patch.** Install over v1.1.4. This README describes **only v1.1.5**.
+**Changed-files-only release.** Install directly over v1.1.5 (with its ordinary code patch). This README covers **only v1.1.6**.
 
-- Parts now uses its existing part list and transform tools with **Add**, multi-select **Delete selected**, **Select all** and **Clear all**; no second inventory panel or original/new assembly switch.
-- **Add** opens a multi-select list of source meshes saved in Atlas. Select any combination and **Create** assembled part instances; adding/removing never changes or deletes the source mesh.
-- The existing position, rotation, size, pivot, layer, visibility, clipboard and thumb-pad controls work on the assembled Atlas parts.
-- Source names are resolved by stable Atlas mesh ID so subsequent Atlas renames update the Parts list; adding the same source multiple times does not silently append “copy” to a saved source name.
-- No suggested joint controls in Parts. Initial structural edits migrate the visible built-in parts to inventory entries when necessary. Prior v1.1.4 assemblies are read without resetting their positions.
+The **Parts** workspace now follows the Atlas editor's interaction pattern:
 
-**Limitations:** custom Parts are rigid previews in Parts/Rig. Skin weighting, animation deformation, Quick Play/runtime for new meshes, and portable PNG/export/restore are not implemented in this drop. Imported PNGs remain local to the device. iPhone Safari testing is pending.
+- One expanded **Assembled parts** list with a name/select button plus **Hide, Solo, Lock** controls on every row. It grows naturally through 14 parts; longer lists are capped at 520px.
+- **Add**, **Delete selected**, **Select all** and **Clear all** remain directly above that same list. Tapping names marks multiple parts for deletion; the most recently tapped part is the individual transform target.
+- A **contained Edit selected part** section groups Move/Rotate/Scale/Pivot, numeric controls, layer order and **Rename / Duplicate / Delete** with existing Reset actions. The original right-side thumb pad still drives transforms, and canvas dragging remains pan/zoom.
+- **Rename** gives a particular assembled instance its own optional name. Its underlying Atlas mesh name and geometry do **not** change. Unrenamed instances continue to follow their source mesh's name. Duplicate creates another positioned **instance**, not a new Atlas mesh.
+- Existing clipboard, reference and specialised near/far transfer commands remain available in a collapsed **Advanced** group, keeping the common workflow short. Hide/Solo/Lock are temporary editor view/tool controls, not exported character data; Lock blocks transform and deletion while set.
 
-See `README-PATCH-1.1.5.md` for detailed installation/verification notes for this patch only.
+All changes to assembled inventory, instance names, transforms and order use existing Setup Undo/Redo/Save/Discard. Neither the Fox source atlas nor Rig/Skin data is migrated by merely visiting Parts. v1.1.5 assemblies remain readable.
+
+**Limitations:** The Atlas-backed Parts preview is still rigid; arbitrary source meshes are not yet weighted in Skin or rendered through Animate/Play. PNG image bytes remain device-local in IndexedDB and absent from JSON exports. iPhone Safari acceptance remains outstanding.
+
+See `README-PATCH-1.1.6.md` for installation and test notes specific to this release.

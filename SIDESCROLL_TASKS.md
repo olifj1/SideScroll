@@ -2728,3 +2728,13 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 **Future Hierarchy/Shared Atlas:** preserve the already proposed Character Hierarchy, linked atlas pages, shared outfits and validation work; do not implement them in the inventory editor. Subsequent Skin generalisation should consume stable instances from this streamlined list, not restore a competing part inventory panel.
 
+
+
+## 21 October 2026 — v1.1.6 Parts list / inspector consistency
+
+- [x] Replace the old compact two-column button board with an Atlas-like one-row-per-part list: Select, Hide, Solo and Lock.
+- [x] Group the active selected part's Transform, numeric values, Layer order and Manage controls in one contained editor; move clipboard/reference to Advanced without removing functions.
+- [x] Preserve Add modal, multi-select Delete, Select all, Clear all, undo and normal Save/Discard; support individual assembled-instance Rename and Duplicate without changing the Atlas source; normalise/save the optional override.
+- [x] Browser-level/Node checks on selection, Lock, Delete/Undo, Clear/Undo, multi-source Add, Duplicate, Rename/Undo, Save. Browser localStorage shim used; live iPhone PWA validation pending.
+- [ ] iPhone acceptance: visually inspect narrow landscape inspector, list hit areas/scroll confinement; Save/reload instance alias, hide/solo/lock transient behaviour, no original Fox data regressions.
+- [ ] Next architecture gate: Atlas-sourced assembled instances still require generic Skin bone weights/rest-bind and Animate/Play/game render; then portable imported-PNG bundle and future Character Hierarchy/graph with multiple atlas pages/shared clothing parts.
