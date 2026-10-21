@@ -1,4 +1,3 @@
-SideScroll v1.1.7 — Parts move-distance hotfix
-Install this changed-files-only patch directly over v1.1.6.
-Corrects Parts thumb-pad Move/Pivot projection for Atlas-backed assemblies; a small drag no longer sends the part to its coordinate limit. Already moved parts can be restored with Undo or X/Y numeric fields. No authored data is rewritten by installing this patch.
-See README-PATCH-1.1.7.md for test and recovery details specific to v1.1.7.
+SideScroll v1.1.8 — Parts multi-selection + Atlas assembly Skin binding.
+Install this changed-files-only patch directly over v1.1.7.
+Parts now has explicit single/multi-selection and uniform proportional group Scale/Move. Skin uses new Atlas parts with automatic per-vertex bone binding and local Rest/Walk/Run tests; Animate/Quick Play also preview saved assembly weights. No normal game-runtime integration or portable PNG bundle yet. See README-PATCH-1.1.8.md for this drop only.

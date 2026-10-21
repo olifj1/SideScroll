@@ -2746,3 +2746,14 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Chromium landscape regression and Setup Undo/Redo round trip, plus syntax checks; no JS errors.
 - [ ] Verify normal/fine Move/Pivot at multiple zooms and after orientation changes on target iPhone, including restoring any saved displaced part with numeric X/Y.
 - [ ] Continue planned dynamic Skin / Animate / Play pipeline and portable PNG project export; unchanged in this hotfix.
+
+
+## 2026-10-21 · v1.1.8 Atlas → Skin vertical slice
+
+- [x] Replace confusing multiple active highlights in Parts with normal single-select + explicit multi-select, and batch Move/Scale in one undoable transaction (with consistent numeric inputs).
+- [x] Display assembled Atlas instances in Skin instead of fixed legacy Fox regions; bind/unbind using rig-descriptor bone groups, per-vertex weights, topology-signature protection and diagnostic pose/vertex preview.
+- [x] Route bound Atlas meshes to Anim Lab Animate and Quick Play, preserving actual imported PNG sampling and Setup Save/Undo, and do not require original legacy Fox sprite to load.
+- [ ] **Device acceptance:** actual iPhone/Safari touch tests, high-vertex-count performance, rest↔posed deformation and local IndexedDB source-image restoration after reload; revisit auto bone weighting and manual painting UX based on results.
+- [ ] **Next essential integration:** publish/bake assembled characters and skins to normal gameplay renderer, not just Anim Lab previews. Validate runtime rig/weights/clips and choose character without overwriting Fox.
+- [ ] **Portability:** binary PNG payloads in portable character export/restore and optional GitHub-relative source texture URLs; linked multi-page/shared atlases remain separate future design.
+- [ ] **Hierarchy:** inspect/validate graph of atlas pages, parts, bones, weights, clips and runtime dependencies, with missing/stale warnings. Existing future design remains in force.

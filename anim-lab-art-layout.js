@@ -14,6 +14,7 @@
     <div class="animlab-parts-caption">Assembled parts <span class="animlab-parts-selection-count" aria-live="polite"></span></div>
     <div class="animlab-part-inventory-actions">
       <button type="button" data-part-manage="add">Add</button>
+      <button type="button" data-part-manage="multi" aria-pressed="false">Multi-select: Off</button>
       <button type="button" data-part-manage="delete">Delete selected</button>
       <button type="button" data-part-manage="all">Select all</button>
       <button type="button" data-part-manage="clear">Clear all</button>
@@ -25,6 +26,7 @@
         <div class="animlab-rig-selected-title">No part selected</div>
         <div class="animlab-rig-selected-pos"></div>
       </div>
+      <p class="animlab-parts-multi-hint" aria-live="polite">Tap a part to edit it. Enable Multi-select to build a group.</p>
       <div class="animlab-parts-subgroup-label">Transform</div>
       <div class="animlab-segmented animlab-art-transform-row">
         <button type="button" data-art-transform="move">Move</button>
@@ -131,6 +133,7 @@
 
   let selectedPart=null;
   const markedParts=new Set();
+  let multiSelect=false;
   let boardSignature='';
   let displayCharacter=null;
   let transformMode='move';
@@ -185,6 +188,7 @@
     if(soloPart&&!valid.has(soloPart))soloPart=null;
     if(selectedPart&&valid.has(selectedPart))return;
     selectedPart=desc?.parts?.[0]?.id||null;
+    if(!multiSelect){markedParts.clear();if(selectedPart)markedParts.add(selectedPart);}
   }
 
   function renderBoard(desc){
@@ -197,7 +201,11 @@
       name.className='animlab-parts-name';name.setAttribute('aria-label',`Select ${part.label}`);
       name.addEventListener('click',()=>{
         selectedPart=part.id;
-        if(markedParts.has(part.id))markedParts.delete(part.id);else markedParts.add(part.id);
+        if(multiSelect){
+          if(markedParts.has(part.id))markedParts.delete(part.id);else markedParts.add(part.id);
+          if(!markedParts.size){selectedPart=null;}
+          else if(!markedParts.has(selectedPart))selectedPart=[...markedParts][markedParts.size-1];
+        }else{markedParts.clear();markedParts.add(part.id);}
         renderUI();core.redrawOnly?.();
       });
       row.appendChild(name);
@@ -327,11 +335,17 @@
   section.querySelectorAll('[data-part-manage]').forEach(button=>button.addEventListener('click',()=>{
     const name=button.dataset.partManage,desc=descriptorFor(state());
     if(name==='add'){openAdd();return;}
+    if(name==='multi'){
+      multiSelect=!multiSelect;
+      if(!multiSelect){markedParts.clear();if(selectedPart)markedParts.add(selectedPart);}
+      renderUI();return;
+    }
     if(name==='all'){
       const all=(desc?.parts||[]).map(p=>p.id);
+      multiSelect=true;
       if(all.every(id=>markedParts.has(id)))markedParts.clear();
       else all.forEach(id=>markedParts.add(id));
-      if(all.length&&!selectedPart)selectedPart=all[0];renderUI();return;
+      selectedPart=markedParts.size?[...markedParts][0]:null;renderUI();return;
     }
     if(name==='delete'){
       if(!markedParts.size)return;
@@ -380,7 +394,7 @@
 
   function renderUI(){
     const s=state(),desc=descriptorFor(s),active=isActive(s);
-    if(displayCharacter!==s.characterId){displayCharacter=s.characterId;selectedPart=null;markedParts.clear();hiddenParts.clear();lockedParts.clear();soloPart=null;boardSignature='';}
+    if(displayCharacter!==s.characterId){displayCharacter=s.characterId;selectedPart=null;markedParts.clear();multiSelect=false;hiddenParts.clear();lockedParts.clear();soloPart=null;boardSignature='';}
     if(addDialog.open&&state().characterId!==addDialog.dataset.characterId)addDialog.close();
     section.hidden=!active;
     // Keep the Setup Joints / Part Layout switch visible, but put Part tools
@@ -402,7 +416,7 @@
       row.classList.toggle('is-locked-part',locked);
       const name=row.querySelector('[data-art-part]');
       const repeated=desc.parts.slice(0,order.indexOf(id)).filter(p=>p.label===part?.label).length;
-      name.textContent=`${marked?'☑':'□'} ${part?.label||id}${repeated?' · '+(repeated+1):''}`;
+      name.textContent=`${multiSelect?(marked?'☑ ':'□ '):''}${part?.label||id}${repeated?' · '+(repeated+1):''}`;
       name.setAttribute('aria-pressed',String(marked));
       for(const kind of ['hide','solo','lock']){
         const button=row.querySelector(`[data-part-row-action="${kind}"]`);
@@ -411,21 +425,29 @@
         button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));
       }
     });
-    section.querySelector('.animlab-parts-selection-count').textContent=`${markedParts.size} marked · ${desc.parts.length} total`;
+    section.querySelector('.animlab-parts-selection-count').textContent=`${markedParts.size} selected · ${desc.parts.length} total`;
+    const multiButton=section.querySelector('[data-part-manage="multi"]');
+    multiButton.textContent=`Multi-select: ${multiSelect?'On':'Off'}`;
+    multiButton.classList.toggle('is-active',multiSelect);
+    multiButton.setAttribute('aria-pressed',String(multiSelect));
+    const grouped=markedParts.size>1;
+    section.querySelector('.animlab-parts-multi-hint').textContent=grouped
+      ?`${markedParts.size} parts selected. Move or Scale applies to the group in one Undo step; individual Rotate/Pivot, Rename and layering require one selection.`
+      :multiSelect?'Tap part names to add or remove them from the selection; turn Multi-select off to edit one part.':'Tap a part to edit it. Enable Multi-select to build a group.';
     transformButtons.forEach(button=>{const on=button.dataset.artTransform===transformMode;button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));});
     axisButtons.forEach(button=>{const on=button.dataset.artAxis===axis;button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));button.disabled=!(transformMode==='move'||transformMode==='scale'||transformMode==='pivot');});
     fineButton.classList.toggle('is-active',fine);fineButton.setAttribute('aria-pressed',String(fine));
     const part=partById(desc,selectedPart),tr=transformFor(s,selectedPart);
-    const editLocked=!part||lockedParts.has(selectedPart);
-    selectedTitle.textContent=part?.label||'No part selected';
+    const editLocked=!part||lockedParts.has(selectedPart)||[...markedParts].some(id=>lockedParts.has(id));
+    selectedTitle.textContent=grouped?`${markedParts.size} parts selected`:part?.label||'No part selected';
     selectedPos.textContent=part?`X ${tr.x.toFixed(3)} Y ${tr.y.toFixed(3)}  Rot ${(tr.rotation/DEG).toFixed(1)}°  Width ${tr.scaleX.toFixed(2)} Height ${tr.scaleY.toFixed(2)}  Pivot ${tr.pivotX.toFixed(3)}, ${tr.pivotY.toFixed(3)}`:'';
     for(const input of section.querySelectorAll('[data-art-number]')){
       const property=input.dataset.artNumber,display=property==='rotation'?tr.rotation/DEG:tr[property];
       if(document.activeElement!==input)input.value=part?String(Number(display.toFixed(4))):'';
-      input.disabled=editLocked;
+      input.disabled=editLocked||(grouped&&!['scaleX','scaleY','x','y'].includes(property));
     }
     section.querySelector('[data-art-action="copy-pair"]').disabled=isAssembly(s)||!pairFor(selectedPart);
-    for(const b of section.querySelectorAll('[data-art-transform],[data-art-axis],[data-art-fine],[data-part-edit],.animlab-art-order-buttons button,[data-art-action="reset-part"]')) b.disabled=editLocked;
+    for(const b of section.querySelectorAll('[data-art-transform],[data-art-axis],[data-art-fine],[data-part-edit],.animlab-art-order-buttons button,[data-art-action="reset-part"]')) b.disabled=editLocked||(grouped&&(b.dataset.artTransform==='rotate'||b.dataset.artTransform==='pivot'||b.hasAttribute('data-part-edit')||b.hasAttribute('data-art-action')));
     section.querySelectorAll('[data-art-action="copy-pair"],[data-art-action="copy-both-near-far"],[data-art-action="copy-both-far-near"]').forEach(b=>b.hidden=isAssembly(s));
     for(const action of section.querySelectorAll('[data-part-manage]')){
       action.disabled=(action.dataset.partManage==='delete'&&!markedParts.size)||(action.dataset.partManage==='clear'&&!desc.parts.length)||(action.dataset.partManage==='all'&&!desc.parts.length);
@@ -440,8 +462,8 @@
     const index=order.indexOf(selectedPart);
     for(const name of ['back','bottom'])section.querySelector(`[data-art-action="${name}"]`).disabled=editLocked||index<1;
     for(const name of ['forward','top'])section.querySelector(`[data-art-action="${name}"]`).disabled=editLocked||index<0||index===order.length-1;
-    pad.querySelector('span').textContent=`${transformMode[0].toUpperCase()+transformMode.slice(1)} selected part`;
-    pad.classList.toggle('is-disabled',editLocked);
+    pad.querySelector('span').textContent=`${transformMode[0].toUpperCase()+transformMode.slice(1)} ${grouped?markedParts.size+' selected parts':'selected part'}`;
+    pad.classList.toggle('is-disabled',editLocked||(grouped&&!['scale','move'].includes(transformMode)));
     section.querySelector('[data-art-action="reset-layout"]').disabled=lockedParts.size>0;
     const ref=core.getStaticReference?.()||{opacity:.38};
     if(document.activeElement!==referenceOpacity)referenceOpacity.value=String(ref.opacity);
@@ -604,6 +626,19 @@
     const input=event.target.closest('[data-art-number]');if(!input||!selectedPart||lockedParts.has(selectedPart))return;
     const property=input.dataset.artNumber,entered=Number(input.value);
     if(!Number.isFinite(entered)||input.value.trim()===''){renderUI();return;}
+    if(markedParts.size>1){
+      if(!['x','y','scaleX','scaleY'].includes(property))return;
+      const active=transformFor(state(),selectedPart),delta=entered-active[property];
+      const ratio=['scaleX','scaleY'].includes(property)?entered/Math.max(.000001,active[property]):1;
+      const ids=[...markedParts];
+      if(ids.some(id=>lockedParts.has(id))){renderUI();return;}
+      editLayout(`Group ${property} (${ids.length} parts)`,layout=>{
+        for(const id of ids){const tr=layout.parts[id];if(!tr)continue;
+          if(property==='x'||property==='y')tr[property]=clamp(tr[property]+delta,property==='x'?-3:-2,3);
+          else tr[property]=clamp(tr[property]*ratio,.25,3);
+        }
+      });renderUI();return;
+    }
     const s=state(),current=transformFor(s,selectedPart);
     let next={};
     if(property==='rotation')next.rotation=clamp(entered*DEG,-Math.PI,Math.PI);
@@ -679,7 +714,11 @@
 
   function precisionDown(event){
     const s=state();if(!isActive(s)||!selectedPart||lockedParts.has(selectedPart))return;
-    event.preventDefault();precisionDrag={pointerId:event.pointerId,part:selectedPart,startX:event.clientX,startY:event.clientY,start:transformFor(s,selectedPart),tx:core.beginTransaction('setup',`${transformMode} ${partById(descriptorFor(s),selectedPart)?.label||selectedPart}`)};
+    const ids=markedParts.size>1?[...markedParts]:[selectedPart];
+    if(ids.some(id=>lockedParts.has(id))||(ids.length>1&&!['scale','move'].includes(transformMode)))return;
+    event.preventDefault();precisionDrag={pointerId:event.pointerId,part:selectedPart,ids,startX:event.clientX,startY:event.clientY,
+      starts:Object.fromEntries(ids.map(id=>[id,transformFor(s,id)])),start:transformFor(s,selectedPart),
+      tx:core.beginTransaction('setup',`${transformMode} ${ids.length} part(s)`)};
     try{pad.setPointerCapture(event.pointerId);}catch(_){}
   }
 
@@ -719,7 +758,29 @@
       if(axis!=='y')next.scaleX=clamp(start.scaleX+amount,.25,3);
       if(axis!=='x')next.scaleY=clamp(start.scaleY+amount,.25,3);
     }
-    setPartInTransaction(precisionDrag.tx,precisionDrag.part,next);
+    if(precisionDrag.ids.length>1){
+      const changes={};const drag=precisionDrag;
+      for(const id of drag.ids){
+        const start=drag.starts[id];
+        if(transformMode==='move'){
+          changes[id]={x:clamp(start.x+(next.x-drag.start.x),-3,3),
+            y:clamp(start.y+(next.y-drag.start.y),-2,3)};
+        }else if(transformMode==='scale'){
+          // Proportional scaling preserves each part's non-uniform proportions.
+          // Translation is unchanged: artwork remains aligned to the rig as
+          // individual body components rather than zooming away from its bones.
+          changes[id]={};
+          if(axis!=='y')changes[id].scaleX=clamp(start.scaleX*(next.scaleX/drag.start.scaleX),.25,3);
+          if(axis!=='x')changes[id].scaleY=clamp(start.scaleY*(next.scaleY/drag.start.scaleY),.25,3);
+        }
+      }
+      core.previewTransaction(drag.tx,setup=>{
+        const layout=setup.artLayout;
+        if(layout?.assembly?.enabled){for(const part of layout.assembly.instances){if(changes[part.id])Object.assign(part,changes[part.id]);}}
+        else if(layout?.parts){for(const [id,change] of Object.entries(changes)){if(layout.parts[id])Object.assign(layout.parts[id],change);}}
+        return setup;
+      });
+    }else setPartInTransaction(precisionDrag.tx,precisionDrag.part,next);
   }
   function precisionMove(event){
     if(!precisionDrag||precisionDrag.pointerId!==event.pointerId)return;

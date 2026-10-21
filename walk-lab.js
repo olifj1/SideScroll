@@ -344,7 +344,18 @@
           rotation:number(candidate.rotation,0,-Math.PI,Math.PI),
           scaleX:number(candidate.scaleX,1,.05,8),scaleY:number(candidate.scaleY,1,.05,8),
           pivotX:number(candidate.pivotX,0,-2,2),pivotY:number(candidate.pivotY,0,-2,2),
-          boneTarget:String(candidate.boneTarget||'').slice(0,60)});
+          boneTarget:String(candidate.boneTarget||'').slice(0,60),
+          ...(candidate.skinBinding&&typeof candidate.skinBinding==='object'&&
+             candidate.skinBinding.schema==='animlab.skin-binding.v1'?{
+            skinBinding:{schema:'animlab.skin-binding.v1',
+              meshSignature:String(candidate.skinBinding.meshSignature||'').slice(0,75),
+              group:String(candidate.skinBinding.group||'body').slice(0,36),
+              weights:(Array.isArray(candidate.skinBinding.weights)?candidate.skinBinding.weights.slice(0,4096):[]).map(row=>
+                (Array.isArray(row)?row.slice(0,4):[]).filter(pair=>Array.isArray(pair)&&
+                  Number.isInteger(pair[0])&&pair[0]>=0&&pair[0]<128&&
+                  Number.isFinite(Number(pair[1]))&&Number(pair[1])>=0)
+                  .map(pair=>[pair[0],Math.round(clamp(Number(pair[1]),0,1)*10000)/10000]))}
+          }: {})});
       }
       result.assembly={schema:'animlab.parts-assembly.v1',enabled:source.enabled===true,instances};
     }
@@ -1265,7 +1276,9 @@
 
   function drawRigArt(character, adapter, pose, sv, alpha = 1) {
     const atlas = atlases.get(character.id);
-    if (!atlas) return;
+    // Custom Atlas-backed characters may have no valid legacy sprite file.
+    // Their art renderer owns the imported atlas image, so do not suppress it.
+    if (!atlas && !setupDraft?.artLayout?.assembly?.enabled) return;
     const restRig = adapter.id === 'fox' ? (setupDraft.rig || displayRestRig(adapter)) : displayRestRig(adapter);
     if (artRenderers.size) {
       const args={ctx,canvas,character,adapter,pose,view:sv,alpha,atlas,restRig,setup:setupDraft,project};
@@ -1274,6 +1287,7 @@
         catch (err) { console.error('[Anim Lab] Art renderer failed.',err); }
       }
     }
+    if (!atlas) return; // no original art fallback for custom image-only assembly
     if (adapter.id === 'human' && typeof HumanRig.drawCanvas === 'function') HumanRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
     else adapter.rig.partsForPose(pose,restRig).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
@@ -1447,7 +1461,9 @@
     readout.textContent=selection.mode==='play'
       ? `${character.label} · QUICK PLAY · current working clips · ${Math.round(view.zoom*100)}%`
       : selection.mode==='setup'
-        ? `${character.label} · REST · ${modeLabel} · ${Math.round(view.zoom*100)}%`
+        ? `${character.label} · ${selection.setupTool==='skin' && setupDraft?.artLayout?.assembly?.enabled
+            ? (window.AnimLabAssemblySkinInspect?.status?.().preview||'rest').toUpperCase()
+            : 'REST'} · ${modeLabel} · ${Math.round(view.zoom*100)}%`
       : playing
         ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
         : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;

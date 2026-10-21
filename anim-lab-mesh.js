@@ -1004,11 +1004,13 @@
   function render(args){
     if(args.adapter?.id!=='fox'||!args.atlas)return false;
     const editor=core.getState();
-    // The opt-in Atlas assembly owns the Parts/Rig rest-art preview. Do not
-    // paint the fixed six-region Fox here; a later renderer will use the
-    // independently authored source meshes. Skin remains legacy-only until
-    // per-vertex bindings are implemented.
-    if(editor.mode==='setup' && ['art','rig'].includes(editor.setupTool) && editor.setup?.artLayout?.assembly?.enabled) return false;
+    // Keep the source sprite available for read-only migrated builtin mesh
+    // references even while the dynamic Atlas renderer owns the viewport.
+    skinLastAtlas=args.atlas;
+    // A single dynamic Atlas assembly is used from Parts through Play.
+    // Its source topology and saved bindings supersede fixed Fox regions;
+    // never draw the old atlas over it in Skin/Animate/Play.
+    if(editor.setup?.artLayout?.assembly?.enabled)return false;
     const setupMode=editor.mode==='setup';
     const partsMode=setupMode&&editor.setupTool==='art';
     const rigMode=setupMode&&editor.setupTool==='rig';
@@ -1084,8 +1086,8 @@
   function skinRegionChanged(){commitSkinSlider();skinPickArmed=false;skinLastViewport=null;selectedSkinVertex=0;selectedSkinBone=0;refreshSkinUI();core.redrawOnly?.();}
   function refreshSkinUI(state=core.getState()){
     const active=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
-    skinSection.hidden=!active;
-    if(!active)return;
+    skinSection.hidden=!active||!!state.setup?.artLayout?.assembly?.enabled;
+    if(!active||state.setup?.artLayout?.assembly?.enabled)return;
     for(const btn of skinRegionBoard.querySelectorAll('button'))btn.classList.toggle('active',btn.dataset.region===selectedSkinRegion);
     const region=skinRegionInfo(state),def=selectedSkinDef();
     const chain=def.topology==='chain';
@@ -1255,10 +1257,11 @@
 
   function updateUi(state=core.getState()){ 
     const visible=state.family==='fox';
-    section.hidden=!visible;
+    const customAssembly=!!state.setup?.artLayout?.assembly?.enabled;
+    section.hidden=!visible||customAssembly;
     if(lastFamily!==state.family){lastFamily=state.family;}
     const skinActive=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
-    deformPlanesButton.hidden=!visible;
+    deformPlanesButton.hidden=!visible||customAssembly;
     // Skin should begin in a stable neutral rest view. Walk/Run poses are
     // opt-in diagnostic previews and must not look like lasting part movement.
     if(skinActive&&!wasSkinActive){skinPreview='neutral';skinPhase=.25;}

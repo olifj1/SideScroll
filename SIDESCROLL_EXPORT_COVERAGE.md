@@ -90,3 +90,8 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 **Future Hierarchy/Shared Atlas:** preserve the already proposed Character Hierarchy, linked atlas pages, shared outfits and validation work; do not implement them in the inventory editor. Subsequent Skin generalisation should consume stable instances from this streamlined list, not restore a competing part inventory panel.
 
+
+
+### v1.1.8 — per-instance Skin weight storage coverage
+
+`artLayout.assembly.instances[].skinBinding` is authored current-character Setup data saved alongside the existing `sidescroll.animlab.setup.v1` map for built-ins or in the custom Character Library entry's Setup document. It is included automatically wherever *that exact saved Setup key/document* is exported (Lab Data raw-storage backup and Project Snapshot), but **not** in unsaved in-memory workspace edits. It contains validated per-vertex rig-bone-link index/weight pairs and a source topology/vertex-position signature, not image bytes or triangulated atlas source copies. To restore successfully the matching **Atlas source mesh document** must also exist with the same vertex order/positions and triangles; currently this document is stored in `sidescroll.animlab.atlas-docs.v1`, while **PNG image bytes remain in IndexedDB** `sidescroll-animlab-art-v1/atlas-images`, not packed in JSON exports. Restoring only Setup produces unresolved links; restoring topology-changed source produces a *Needs rebind* diagnostic and rigid preview. Normal-game runtime consumption and tested cross-device restore remain outstanding.

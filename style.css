@@ -15155,3 +15155,23 @@ body[data-game-id="game-17"] .animlab-parts-advanced .animlab-art-reference-tool
 }
 /* Keep legacy visibility handlers available internally without showing a duplicate toolbar. */
 body[data-game-id="game-17"] .animlab-art-layer-tools[hidden]{display:none!important;}
+
+/* v1.1.8: current edit target vs explicit multi-selection are distinct. */
+body[data-game-id="game-17"] .animlab-parts-row.is-active .animlab-parts-name{
+  border-color:#80d9ce;background:rgba(65,152,142,.24);color:#eefffc;
+}
+body[data-game-id="game-17"] .animlab-parts-row.is-multi-selected:not(.is-active) .animlab-parts-name{
+  border-color:#a4a8b9;background:rgba(116,128,146,.10);color:#c9d3d7;
+}
+body[data-game-id="game-17"] .animlab-parts-multi-hint{margin:8px 0 4px;color:#b4c8c6;font-size:11px;line-height:1.5;}
+body[data-game-id="game-17"] [data-part-manage="multi"].is-active{background:#25514b;border-color:#7ed8c7;color:#e4fcf4;}
+
+/* v1.1.8 Atlas assembly Skin section */
+body[data-game-id="game-17"] .animlab-skin-assembly-parts{display:flex;flex-direction:column;gap:5px;margin:8px 0 12px;max-height:400px;overflow-y:auto;}
+body[data-game-id="game-17"] .animlab-skin-assembly-parts button{text-align:left;min-height:40px;color:#dfeee9;background:#22343b;border:1px solid #516971;border-radius:7px;padding:7px 10px;font:600 12px/1.35 system-ui,sans-serif;}
+body[data-game-id="game-17"] .animlab-skin-assembly-parts button.is-active{border-color:#80d9ce;background:rgba(71,152,140,.25);}
+body[data-game-id="game-17"] .animlab-skin-assembly-status{padding:8px 10px;background:#1b3238;border-radius:6px;color:#b5d5ce;font:600 12px/1.35 system-ui,sans-serif;}
+body[data-game-id="game-17"] .animlab-skin-group-select{display:flex;flex-direction:column;gap:7px;margin:10px 0;color:#b0d0c9;font:600 12px/1.3 system-ui,sans-serif;}
+body[data-game-id="game-17"] .animlab-skin-group-select select{min-height:42px;width:100%;background:#22393d;color:#fff;border:1px solid #58797e;border-radius:7px;font-size:16px;padding:4px 10px;}
+body[data-game-id="game-17"] .animlab-skin-assembly-vertex{margin:12px 0;padding:10px;border:1px solid #3b575c;border-radius:8px;}
+body[data-game-id="game-17"] .animlab-skin-vertex-label{color:#b1c9c3;font:12px/1.5 system-ui,sans-serif;padding:7px 0;}
