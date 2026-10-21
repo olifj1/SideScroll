@@ -1,3 +1,22 @@
+# SideScroll Tasks / Release Tracking
+
+
+## v1.1.3 — Atlas topology and editability (20 October 2026; synthetic QA done, iPhone pending)
+
+- [x] Live procedural preview for rectangle cells and outline/strip final triangulation, with numeric changes reflected before Commit, draggable outline/strip control handles during preview and Cancel leaving source data unchanged.
+- [x] Regenerate any custom Atlas-authored rectangle, outline, spline strip using stored generator metadata; keep mesh identity, explicit Apply, warning if manually edited vertices/triangles would be replaced.
+- [x] Outline topology quality pass: staggered interior spacing points and minimum-triangle-quality diagonal flips instead of the previous recursive triangle centroid fans. Boundary triangulation validity checks remain; cannot promise perfect topology for all silhouettes.
+- [x] Manual editable mesh actions: Connect vertices across one pair of adjacent triangles via convex edge-flip, Split triangular face, Trim triangular face and prune unreferenced vertices; all Undo/Redo tracked. These tools do NOT currently support arbitrary cross-polygon new edges.
+- [x] Add two-level Atlas editing: default top-level `Select / Move` selects by filled triangle and translates all vertices of an editable, unlocked source mesh; `Vertices` performs individual point edits. Duplicates can be independently repositioned. Whole-part moves also translate procedural generator origins/controls and are tracked as one undoable transaction; selection of locked/legacy source meshes is view-only.
+- [x] Fix stale shared Undo/Redo enabled-state after Atlas participant edits, one history snapshot per completed vertex drag; pointercancel rolls back vertex drag.
+- [x] Test synthetic transparent PNG/phone viewport Chromium Atlas harness: live grid settings, commit/undo/redo, regeneration, vertex drag+undo, split+undo, trim+undo, outline interior-density change, strip X/Y subdivisions, saved control-node drag+regeneration; no JS errors; Node syntax.
+- [ ] **Device acceptance:** verify iPhone touch hit areas/longer sessions/dense outline performance, editor persistence, Undo/Redo/Save/Discard, switching Atlas–Parts–Rig, and no unintended Fox/New01 changes.
+- [ ] **Next:** better topology primitives for arbitrary vertex connections, merging/splitting longer edge paths, deleting a triangle range, and boundary shaping; support a full user-controlled art mesh workflow before integration.
+- [ ] **Separate stage:** explicit Atlas custom meshes → Parts/Skin/render adoption with reversible compatibility checks; preserve legacy Fox authoring. Add reliable PNG export/restore + GitHub-relative art paths before cross-device acceptance.
+
+**Storage:** same `sidescroll.animlab.atlas-docs.v1` text map, with new outline `generator.fillSpacing` (reads old `fillDetail` when editing/re-generating). Texture blobs remain IndexedDB-only; global/character JSON still omit binary assets. No migration or silent autosave.
+
+
 ## October 19, 2026 — v1.0.200 unified Character Library and sidebar patch (iPhone acceptance pending)
 
 ## v1.1.2 — Atlas Stage B: constructors, management and inspector ergonomics (20 October 2026)

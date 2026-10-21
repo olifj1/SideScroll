@@ -1,4 +1,16 @@
-# SideScroll — Current release: v1.1.2 (Anim Lab Atlas Stage B)
+# SideScroll — Current release: v1.1.3 (Anim Lab topology review)
+
+**Install chain:** working v1.0.205 → v1.1.0 → v1.1.1 (either original or corrected docs version) → v1.1.2 → **SS-PATCH-1.1.3.zip**. All patches are changed-files-only; upload contents to the repository root in order and refresh the PWA after the GitHub deploy. README-PATCH-1.1.3.md contains release detail and testing limitations.
+
+## What's new in v1.1.3
+
+Each Atlas constructor has a **non-destructive live topology preview** before Commit; change the generator numbers repeatedly, and edit outline/strip control handles in preview. Select an already-authored custom mesh and choose **Regenerate** to reopen those controls; explicit Apply replaces its vertex layout (manual edits warn first). Rectangle Across/Down create grid cells. Spline strip Across/Along gives two-axis control. Outline spline now uses an interior spacing grid and iterative edge-quality improvement instead of the earlier centroid fan. The new **Topology** group supports `Connect verts` (flip a common diagonal of adjacent triangles), `Split face`, and `Trim face` for selected, editable source meshes. All finished edits, including vertex drags, correctly enable Atlas Undo/Redo. **Select / Move** is now the top-level mesh edit mode: tap a mesh to select and drag to move the entire editable piece (including a duplicate), with **Vertices** providing the separate per-point sublevel. Whole-part movement keeps generator controls aligned and is one Undo step; source UVs move with the geometry, but assembled Parts remain untouched. Source-mesh/preview ownership does not touch the assembled Parts workspace.
+
+**Important:** `Connect verts` is currently limited to two opposite vertices of neighbouring triangles, not arbitrary edge construction. Legacy Fox source meshes stay read-only. Imported alpha PNGs remain on this device only in IndexedDB, and current JSON exports do not include their pixels; retain your original images. Source meshes still do NOT flow to Parts/Skin/gameplay. Editing is locally saved only after pressing Save. Real iPhone acceptance remains pending; automated coverage was a synthetic Chromium harness, not an end-to-end iPhone test.
+
+---
+
+## Previous release: v1.1.2 (Anim Lab Atlas Stage B)
 
 **Install chain:** existing working v1.0.205 → `SS-PATCH-1.1.0.zip` → `SS-PATCH-1.1.1.zip` → **`SS-PATCH-1.1.2.zip`**. All are flat changed-files-only ZIPs: upload their contents to your GitHub Pages repository root. Existing media files and browser storage must not be replaced or cleared. If installed on iPhone as a PWA, reopen/reload after GitHub Pages updates so the new service-worker cache (`sidescroll-runtime-v112`) takes effect.
 

@@ -1,5 +1,14 @@
 # SideScroll Engine & UX Bible
 
+## v1.1.3 Atlas topology UX rules (20 October 2026)
+
+- **Preview before committing** any procedural source mesh. Mesh generation uses the same final vertices/triangles in the preview; numeric settings and spline control handles must update immediately and remain unsaved until an explicit Commit. Users can cancel without changing the character. Reopen procedural settings on an authored mesh through a safe Regenerate action, never force Delete/Recreate merely to change subdivisions. Warn if regeneration will replace manually modified source vertices/faces; preserve mesh ID/name, storage separation, and explicit Save.
+- **Shape creation and topology editing are separate concerns**: create a rectangle, closed outline or strip; then edit generated source vertices or use explicit Connect (shared-diagonal flip of adjacent faces only), Split face, Trim face. Do not imply Connect works across arbitrary mesh spans or that auto triangulation always produces production-clean topology.
+- **Selection hierarchy:** The default Atlas editing level is `Select / Move`, selecting any visible mesh by its actual filled triangles (not only its bounding rectangle) and allowing source-wide translation of editable unlocked meshes, including duplicates. `Vertices` is an explicit detail mode for manipulating individual source vertices. Never confuse Atlas source-pixel movement (moves UVs with source geometry) with assembled-character transform controls in Parts. Repositioning an authored source mesh must translate its saved generator controls as well so reopening Regenerate does not snap it back. A completed whole-piece drag is one Undo/Redo transaction; cancel/pinch interrupts must revert uncommitted changes.
+- **Undo correctness**: one completed vertex drag/face edit/Regenerate must be one actual history entry and immediately update enabled controls. A canceled pointer gesture must not leave an uncommitted vertex move. Temporary previews should never become dirty data or be exported before explicit Commit.
+- No Atlas change may alter or migrate the existing assembled Parts workspace, legacy Fox deform/skin structures, animation clips, or external gameplay. Source geometry and UV coordinates are still one pixel-space representation; keep skin/render conversion an explicit later stage.
+
+
 ## v1.1.2 Atlas UI + release maintenance checkpoint (20 October 2026)
 
 - Atlas-specific inspector groups are **Navigate**, **Create mesh**, **Edit selected mesh**, followed by Source meshes; the global Display panel remains suppressed only for Atlas and keeps its existing controls untouched elsewhere. The mesh list grows in the normal inspector flow for 1–14 entries, avoiding the separate 96/140px scroll trap; with 15+ entries it can scroll independently within a bounded 520px height. Mobile external inspector scrolling remains the responsibility of the existing layout.

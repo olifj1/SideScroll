@@ -1920,6 +1920,7 @@
     registerSessionParticipant,
     setPlayFrameProvider:fn=>{playFrameProvider=typeof fn==='function'?fn:null;lastPlayFrame=null;draw();},
     redraw:()=>{draw();notify();},
+    refreshSessionUI:()=>updateUi(),
     redrawOnly:()=>draw(),
     setOverlay:(name,value)=>{if(name in overlays){overlays[name]=!!value;draw();updateUi();notify();}},
     getOverlay:name=>!!overlays[name],
