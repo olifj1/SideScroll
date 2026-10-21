@@ -374,11 +374,23 @@
                 }
                 if(Object.keys(profiles).length)clean.boneProfiles=profiles;
               }
+              // v1.1.11 spatial capsule envelopes: explicit influence strength,
+              // inner full-weight boundary and outer zero-weight boundary.
+              // Absent on old bindings: their weights remain unchanged.
+              if(raw.envelopeMode==='capsule-v1'&&raw.envelopes&&typeof raw.envelopes==='object'){
+                const envelopes={};
+                for(const [key,env] of Object.entries(raw.envelopes)){
+                  if(!/^\d{1,2}$/.test(key)||+key>=128||!env||typeof env!=='object')continue;
+                  const inner=number(env.inner,.03,0,.5),outer=number(env.outer,.12,0,.5);
+                  envelopes[key]={strength:number(env.strength,1,0,1),inner:Math.min(inner,outer),outer};
+                }
+                clean.envelopeMode='capsule-v1';clean.envelopes=envelopes;
+              }
               if(raw.manualWeights&&typeof raw.manualWeights==='object'){
                 const overrides={};
                 for(const [key,row] of Object.entries(raw.manualWeights)){
                   if(!/^(0|[1-9]\d{0,3})$/.test(key)||+key>=clean.weights.length)continue;
-                  const sanitized=cleanRow(row);if(sanitized.length)overrides[key]=sanitized;
+                  const sanitized=cleanRow(row);if(sanitized.length||raw.envelopeMode==='capsule-v1')overrides[key]=sanitized;
                 }
                 if(Object.keys(overrides).length)clean.manualWeights=overrides;
               }
@@ -1428,7 +1440,9 @@
     ctx.restore();
   }
 
-  function draw() {
+  let lastPlaybackUiTime=0;
+  let lastPlaybackNotifyTime=0;
+  function draw(playbackFrame=false) {
     resize();
     const character=currentCharacter(),adapter=currentAdapter(),frames=displayFrames();
     const phase=playing?playPhase:selection.frame/16;
@@ -1478,7 +1492,11 @@
     for (const renderer of pluginRenderers.values()) {
       try { renderer(renderArgs); } catch (err) { console.error('[Anim Lab] Plugin renderer failed.',err); }
     }
-    updateUi(pose);
+    // The full editor UI does deep save/dirty checks and updates many DOM
+    // controls. That is useful after edits but expensive every animation frame.
+    if(!playbackFrame||performance.now()-lastPlaybackUiTime>140){
+      lastPlaybackUiTime=performance.now();updateUi(pose);
+    }
   }
 
   function updateUi(displayPose = currentPose()) {
@@ -1680,10 +1698,18 @@
   function animate(now) {
     const dt=Math.min(50,Math.max(0,now-lastAnimTime));lastAnimTime=now;
     if(playing&&selection.mode==='animate'){
-      const ms=currentAdapter().clipMs[selection.clip]||1050;playPhase=(playPhase+dt/ms)%1;const nextFrame=Math.floor(playPhase*16)%16;const changed=nextFrame!==selection.frame;selection.frame=nextFrame;draw();if(changed)notify();
+      const ms=currentAdapter().clipMs[selection.clip]||1050;
+      // Use real elapsed time for the clip; slower devices must not play
+      // slowed-down motion just because a frame takes >50 ms to render.
+      const realDt=Math.min(250,Math.max(0,now-(animate._lastPlaybackFrameTime||now)));
+      animate._lastPlaybackFrameTime=now;
+      playPhase=(playPhase+realDt/ms)%1;
+      const nextFrame=Math.floor(playPhase*16)%16,changed=nextFrame!==selection.frame;
+      selection.frame=nextFrame;draw(true);
+      if(changed&&now-lastPlaybackNotifyTime>135){lastPlaybackNotifyTime=now;notify();}
     } else if(selection.mode==='play') {
-      draw();
-    }
+      animate._lastPlaybackFrameTime=0;draw(true);
+    } else animate._lastPlaybackFrameTime=0;
     requestAnimationFrame(animate);
   }
 
@@ -1939,6 +1965,10 @@
     renameLibraryCharacter,
     deleteLibraryCharacter,
     selectCharacter:id=>{if(!CHARACTERS.some(c=>c.id===id))return false;switchCharacter(id);return true;},
+    // Renderer-only read path: no JSON cloning or dirty/history scan each
+    // animation frame. Consumers MUST NOT mutate returned references.
+    peekArtRenderState:()=>({characterId:selection.characterId,family:currentCharacter().family,
+      mode:selection.mode,setupTool:selection.setupTool,setup:setupDraft}),
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),

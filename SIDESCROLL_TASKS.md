@@ -2778,3 +2778,14 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Return Skin parts inventory to compact, single-row UI; lift pinch zoom cap to 900%.
 - [ ] Confirm actual user's saved Fox New01 lower-leg results and iPhone Safari gesture/UI acceptance.
 - [ ] Continue improving smooth auto-bind across joints, review bone-space assumptions and deformation diagnostics if rigid tests pass but multi-bone bending is unsatisfactory.
+
+
+## 2026-10-21 — v1.1.11 spatial weighting / playback performance
+
+- [x] Replace nonintuitive normalized Peak/Spread tuning for new Atlas assemblies with independent Strength and rest-bone capsule Inner/Outer radius controls and drawn envelope outlines. Zero bone strength must be 0 effective influence, partial remaining influence stays in rest space, and overlapping capsules blend smoothly. Keep fully opaque texture + accurate heatmap and actual min/max/rest diagnostics.
+- [x] Preserve v1.1.10 stored normalized weights until explicit envelope edit or Auto-bind; schema optional fields round-trip through Setup Save/Undo; manual/rigid overrides remain reversible.
+- [x] Add cropped Canvas2D source-region sampling per triangle, optional WebGL textured-triangle compositor with automatic 2D fallback, and reduce full UI/dirty reads per animation frame. Playback should use elapsed time to avoid apparent slow motion under load.
+- [x] Node mathematical regression for 4 limbs at 0/50/100% and envelope falloff; Chromium synthetic 351v/624-triangle Skin→Animate script without page exceptions.
+- [ ] **Acceptance required:** test real imported New01 Fox Atlas mesh, correct bone-space geometry, capsule adjustment across ankle/knee, effect of unassigned rest weight, portrait/landscape input controls, 900% zoom and long sequences on target iPhone.
+- [ ] **GPU rendering validation:** this environment cannot create WebGL in headless Chromium, so verify the compositor's output matches the Canvas2D fallback (atlas UV orientation, alpha, vertex transform, layering), and ensure context-loss fallback on actual browser. Measure phone frame rate/performance with six meshes rather than extrapolating from a synthetic one-mesh benchmark.
+- [ ] Continue general Skin/mesh-bind ergonomics and debug tools based on actual user character, publish to normal game renderer, and provide portable texture+mesh+animation export.

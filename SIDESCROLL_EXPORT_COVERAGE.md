@@ -104,3 +104,8 @@ The Skin binding schema remains `animlab.skin-binding.v1` and still writes the a
 ### v1.1.10 — weight data compatibility
 
 `Rigid bind` uses existing `animlab.skin-binding.v1.manualWeights` per-vertex override rows (`[[boneIndex,1]]`), leaving `baseWeights` available for `Reset Part`; no schema bump and no automatic data migrations. The user still needs to Save setup to persist changes. Imported atlas PNG bytes are still **not** included in the existing project JSON export; this release does not change export coverage.
+
+
+## v1.1.11 Skin envelope persistence (21 October 2026)
+
+Existing optional `setup.artLayout.assembly.instances[].skinBinding` (`animlab.skin-binding.v1`) now includes `envelopeMode:'capsule-v1'` and per-link `envelopes:{<index>:{strength,inner,outer}}` in metres. `walk-lab.js` accepts/sanitizes these fields, retains old weight arrays/boneProfiles unchanged when no spatial mode is authored, and stores the resulting final `weights` for animation preview. In capsule mode, sums < 1 deliberately retain rest/unassigned influence and empty per-vertex manual override rows are valid. This is a JSON/Setup data addition only. **Actual imported atlas PNG bytes still reside in IndexedDB and remain excluded from current JSON export/snapshot; no portable project claim is made.** GPU compositor contains no persisted state.

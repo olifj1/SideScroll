@@ -839,7 +839,10 @@
   const observer=new ResizeObserver(()=>{if(isActive(core.getState()))layout();});
   observer.observe(viewport);
   // Test/diagnostic surface: reads are clones; never allows direct mutation.
-  window.AnimLabAtlasInspect=Object.freeze({getDocument:()=>state.draft?clone(state.draft):null,
+  window.AnimLabAtlasInspect=Object.freeze({
+    // Fast renderer read: stable references; never mutate these objects.
+    getRenderDocument:()=>state.draft||null,
+    getDocument:()=>state.draft?clone(state.draft):null,
     getImage:()=>relevantImage(),getCharacterId:()=>state.charId,
     getLegacyCount:()=>state.legacy?.meshes?.length||0,
     getTool:()=>state.tool,getDraftPath:()=>clone(state.path),

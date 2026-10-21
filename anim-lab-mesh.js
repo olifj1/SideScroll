@@ -1003,14 +1003,11 @@
 
   function render(args){
     if(args.adapter?.id!=='fox'||!args.atlas)return false;
-    const editor=core.getState();
-    // Keep the source sprite available for read-only migrated builtin mesh
-    // references even while the dynamic Atlas renderer owns the viewport.
+    // Preserve read-only legacy source for builtins, but do not deep-clone
+    // the editor document every animation frame merely to skip its renderer.
     skinLastAtlas=args.atlas;
-    // A single dynamic Atlas assembly is used from Parts through Play.
-    // Its source topology and saved bindings supersede fixed Fox regions;
-    // never draw the old atlas over it in Skin/Animate/Play.
-    if(editor.setup?.artLayout?.assembly?.enabled)return false;
+    if(args.setup?.artLayout?.assembly?.enabled)return false;
+    const editor=core.getState();
     const setupMode=editor.mode==='setup';
     const partsMode=setupMode&&editor.setupTool==='art';
     const rigMode=setupMode&&editor.setupTool==='rig';
