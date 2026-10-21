@@ -1004,6 +1004,11 @@
   function render(args){
     if(args.adapter?.id!=='fox'||!args.atlas)return false;
     const editor=core.getState();
+    // The opt-in Atlas assembly owns the Parts/Rig rest-art preview. Do not
+    // paint the fixed six-region Fox here; a later renderer will use the
+    // independently authored source meshes. Skin remains legacy-only until
+    // per-vertex bindings are implemented.
+    if(editor.mode==='setup' && ['art','rig'].includes(editor.setupTool) && editor.setup?.artLayout?.assembly?.enabled) return false;
     const setupMode=editor.mode==='setup';
     const partsMode=setupMode&&editor.setupTool==='art';
     const rigMode=setupMode&&editor.setupTool==='rig';

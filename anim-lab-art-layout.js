@@ -175,7 +175,7 @@
   function project(point,view){return{x:view.cx+point.x*view.scale*(view.flipX||1),y:view.groundY-point.y*view.scale};}
 
   function renderUI(){
-    const s=state(),desc=descriptorFor(s),active=isActive(s);
+    const s=state(),desc=descriptorFor(s),active=isActive(s) && !s.setup?.artLayout?.assembly?.enabled;
     section.hidden=!active;
     // Keep the Setup Joints / Part Layout switch visible, but put Part tools
     // directly beneath it instead of forcing a scroll past collider sliders.

@@ -110,7 +110,7 @@
     </div>
     <p class="animlab-atlas-status" aria-live="polite"></p>
     <div class="animlab-section-title">Source meshes</div><div class="animlab-atlas-list" aria-label="Atlas mesh list"></div>
-    <p class="animlab-atlas-warning">Legacy meshes are read-only. New Atlas meshes do not yet appear in Parts/Skin. PNGs are device-local; JSON exports/backups still omit image bytes.</p>`;
+    <p class="animlab-atlas-warning">Legacy meshes are read-only. Save new source meshes, then open Parts → Use Atlas parts to assemble them. Skin binding is not yet connected. PNG image bytes remain device-local and are omitted from JSON exports.</p>`;
   extension.insertBefore(panel, extension.firstChild);
   const pick=(attr,val)=>panel.querySelector(`[${attr}="${val}"]`);
   const status=panel.querySelector('.animlab-atlas-status');
@@ -148,6 +148,9 @@
     if (state.imageURL) URL.revokeObjectURL(state.imageURL);
     state.imageURL=url;state.img=img;
     fit(); refresh();
+    // The assembled Parts preview uses this same in-memory texture. A loaded
+    // IndexedDB image is intentionally NOT cloned or encoded into the setup.
+    core.redrawOnly?.();
   }
   async function loadStoredImage(id) {
     const current=++state.loadSerial;
@@ -837,6 +840,7 @@
   observer.observe(viewport);
   // Test/diagnostic surface: reads are clones; never allows direct mutation.
   window.AnimLabAtlasInspect=Object.freeze({getDocument:()=>state.draft?clone(state.draft):null,
+    getImage:()=>relevantImage(),getCharacterId:()=>state.charId,
     getLegacyCount:()=>state.legacy?.meshes?.length||0,
     getTool:()=>state.tool,getDraftPath:()=>clone(state.path),
     getPreview:()=>state.preview?clone(state.preview):null,getUndoDepth:()=>state.undo.length,

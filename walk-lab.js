@@ -323,7 +323,30 @@
     const requested=Array.isArray(value?.order)?value.order:[];
     const order=[...new Set(requested.filter(id=>ids.includes(id)))];
     for(const id of ids)if(!order.includes(id))order.push(id);
-    return {schema:ART_LAYOUT_SCHEMA,parts,order};
+    const result={schema:ART_LAYOUT_SCHEMA,parts,order};
+    // Opt-in assembled Atlas instances are character-setup data, not edits to
+    // the six legacy Fox descriptors. Absent means exactly the old behaviour.
+    // Keep stable source mesh IDs (no vertex copies, no shared cross-character
+    // identity in this schema). Bone targets are *intent*, not Skin weights.
+    if(value?.assembly && typeof value.assembly==='object') {
+      const source=value.assembly;
+      const used=new Set();
+      const instances=[];
+      for(const candidate of Array.isArray(source.instances)?source.instances.slice(0,64):[]){
+        if(!candidate || typeof candidate!=='object')continue;
+        const id=String(candidate.id||'').slice(0,75),meshId=String(candidate.meshId||'').slice(0,90);
+        if(!/^atlas-part-[A-Za-z0-9_-]+$/.test(id)||!/^atlas-[A-Za-z0-9_-]+$/.test(meshId)||used.has(id))continue;
+        used.add(id);
+        const number=(v,defaultValue,min,max)=>Number.isFinite(Number(v))&&v!==null?clamp(Number(v),min,max):defaultValue;
+        instances.push({id,meshId,label:String(candidate.label||'Atlas part').slice(0,70),
+          x:number(candidate.x,0,-3,3),y:number(candidate.y,0,-2,3),
+          rotation:number(candidate.rotation,0,-Math.PI,Math.PI),
+          scaleX:number(candidate.scaleX,1,.05,8),scaleY:number(candidate.scaleY,1,.05,8),
+          boneTarget:String(candidate.boneTarget||'').slice(0,60)});
+      }
+      result.assembly={schema:'animlab.parts-assembly.v1',enabled:source.enabled===true,instances};
+    }
+    return result;
   }
 
   // Generic SkinBinding tuning slot in the character setup. Descriptors are
