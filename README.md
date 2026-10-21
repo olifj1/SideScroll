@@ -1,9 +1,13 @@
-# SideScroll — SS-PATCH-1.1.4
+# SideScroll — SS-PATCH-1.1.5
 
-A **changed-files-only** patch for the first Atlas → Parts handoff stage. Apply over the **v1.1.3 code build** (either original v1.1.3 or the corrected documentation reissue). This patch includes current drop-specific README files, so no separate corrected v1.1.3 documentation upload is necessary.
+**Changed-files-only patch.** Install over v1.1.4. This README describes **only v1.1.5**.
 
-**Included in this drop:** the Parts workspace can opt into a character-specific inventory of source meshes authored in Atlas. Add one/all, duplicate, remove, clear with confirmation, change draw order and edit the instance's position/rotation/scale. The static authored mesh/texture previews replace legacy Fox art in Parts and Rig while opt-in is enabled. A suggested target joint and optional snap help plan the upcoming Skin handoff. Original legacy Parts can be restored without losing your new assembly or editing the Atlas source.
+- Parts now uses its existing part list and transform tools with **Add**, multi-select **Delete selected**, **Select all** and **Clear all**; no second inventory panel or original/new assembly switch.
+- **Add** opens a multi-select list of source meshes saved in Atlas. Select any combination and **Create** assembled part instances; adding/removing never changes or deletes the source mesh.
+- The existing position, rotation, size, pivot, layer, visibility, clipboard and thumb-pad controls work on the assembled Atlas parts.
+- Source names are resolved by stable Atlas mesh ID so subsequent Atlas renames update the Parts list; adding the same source multiple times does not silently append “copy” to a saved source name.
+- No suggested joint controls in Parts. Initial structural edits migrate the visible built-in parts to inventory entries when necessary. Prior v1.1.4 assemblies are read without resetting their positions.
 
-**Not included:** actual Skin binding of new meshes, animated deformation, Quick Play/runtime integration, portable IndexedDB PNG export/restore, multiple atlas pages, shared clothing, or the proposed Character Hierarchy graph. Keep the original PNG files and don't assume this is a complete character export.
+**Limitations:** custom Parts are rigid previews in Parts/Rig. Skin weighting, animation deformation, Quick Play/runtime for new meshes, and portable PNG/export/restore are not implemented in this drop. Imported PNGs remain local to the device. iPhone Safari testing is pending.
 
-See `README-PATCH-1.1.4.md` for the install/test instructions and `SIDESCROLL_CHARACTER_AUTHORING.md` / `SIDESCROLL_TASKS.md` for cumulative design and future roadmap. iPhone acceptance is pending.
+See `README-PATCH-1.1.5.md` for detailed installation/verification notes for this patch only.

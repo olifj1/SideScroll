@@ -1,3 +1,6 @@
-SideScroll / SS-PATCH-1.1.4
-Apply on v1.1.3 code (either README variant).
-This drop: opt-in Atlas → Parts assembled-part inventory, move/rotate/scale, add/duplicate/remove/clear/reorder, static mesh preview in Parts/Rig and proposed joint targets. Does NOT yet bind to Skin or Animate/Play. See README-PATCH-1.1.4.md. Current README files describe this drop only.
+SideScroll SS-PATCH-1.1.5 — changed-files-only over v1.1.4.
+This release replaces the extra Atlas Parts panel with the normal Parts list:
+Add (multi-select dialog), Delete selected, Select all and Clear all.
+Original Parts transform controls now edit Atlas-backed instances; no suggested
+joint UI. Saved source names remain tied to their Atlas mesh IDs.
+No Skin/Play bindings or portable PNG export yet. iPhone QA pending.

@@ -11,8 +11,14 @@
   section.hidden=true;
   section.innerHTML=`
     <div class="animlab-section-title">Part Layout</div>
-    <p class="animlab-art-layout-note">Arrange neutral artwork; joints and animation keys stay unchanged. Move joints in Rig without moving artwork; Save offers Rebind when needed.</p>
-    <div class="animlab-art-part-board" aria-label="Bind art parts"></div>
+    <p class="animlab-art-layout-note">Select one or more parts below. Add opens your Atlas mesh list; Delete removes only assembled parts, never the Atlas source. Select a part to use the usual transform tools.</p>
+    <div class="animlab-part-inventory-actions">
+      <button type="button" data-part-manage="add">Add</button>
+      <button type="button" data-part-manage="delete">Delete selected</button>
+      <button type="button" data-part-manage="all">Select all</button>
+      <button type="button" data-part-manage="clear">Clear all</button>
+    </div>
+    <div class="animlab-art-part-board" aria-label="Assembled parts"></div>
     <div class="animlab-rig-selected animlab-art-selected">
       <div class="animlab-rig-selected-title">No part selected</div>
       <div class="animlab-rig-selected-pos"></div>
@@ -84,6 +90,18 @@
   (rigSection||setupSection).insertAdjacentElement('afterend',section);
 
   const board=section.querySelector('.animlab-art-part-board');
+  const addDialog=document.createElement('dialog');
+  addDialog.className='animlab-parts-add-dialog';
+  addDialog.setAttribute('aria-label','Add Atlas parts');
+  addDialog.innerHTML=`<form method="dialog" class="animlab-parts-add-content">
+    <div class="animlab-section-title">Add parts from Atlas</div>
+    <p>Choose one, several, or all saved source meshes. Source meshes are not copied or deleted.</p>
+    <div class="animlab-parts-add-options"></div>
+    <div class="animlab-parts-add-actions"><button type="button" data-add-action="all">Select all</button><button type="button" data-add-action="none">None</button></div>
+    <div class="animlab-parts-add-actions"><button type="button" data-add-action="create">Create</button><button type="button" data-add-action="cancel">Cancel</button></div>
+  </form>`;
+  document.body.appendChild(addDialog);
+  const addOptions=addDialog.querySelector('.animlab-parts-add-options');
   const selectedTitle=section.querySelector('.animlab-rig-selected-title');
   const selectedPos=section.querySelector('.animlab-rig-selected-pos');
   const transformButtons=[...section.querySelectorAll('[data-art-transform]')];
@@ -102,6 +120,8 @@
   pad.hidden=true;
 
   let selectedPart=null;
+  const markedParts=new Set();
+  let boardSignature='';
   let transformMode='move';
   let axis='free';
   let fine=false;
@@ -120,12 +140,23 @@
   const DEG=Math.PI/180;
 
   function state(){return core.getState();}
-  function descriptorFor(s){return s?.mode==='setup'&&s?.setupTool==='art'&&s?.rig?.ART_LAYOUT_DESIGNER||null;}
+  function rawDescriptor(s){return s?.mode==='setup'&&s?.setupTool==='art'&&s?.rig?.ART_LAYOUT_DESIGNER||null;}
+  function isAssembly(s){return s?.setup?.artLayout?.assembly?.enabled===true;}
+  function instances(s){return s?.setup?.artLayout?.assembly?.instances||[];}
+  function meshNames(){return new Map((window.AnimLabAtlasInspect?.getDocument?.()?.meshes||[]).map(m=>[m.id,m.name]));}
+  function instanceName(item){
+    const legacy=item.meshId.startsWith('atlas-builtin-');
+    return legacy?item.label:(meshNames().get(item.meshId)||`Missing: ${item.label||item.meshId}`);
+  }
+  function descriptorFor(s){
+    const base=rawDescriptor(s);if(!base||!isAssembly(s))return base;
+    return {...base,parts:instances(s).map(item=>({id:item.id,label:instanceName(item),pivot:{x:0,y:0},sourceRect:null}))};
+  }
   function layoutFor(s){return s?.setup?.artLayout?.parts?s.setup.artLayout:null;}
   function isActive(s){return !!(descriptorFor(s)&&layoutFor(s));}
   function partById(desc,id){return desc?.parts?.find(part=>part.id===id)||null;}
   function transformFor(s,id){
-    const raw=layoutFor(s)?.parts?.[id]||{};
+    const raw=(isAssembly(s)?instances(s).find(v=>v.id===id):layoutFor(s)?.parts?.[id])||{};
     const scale=Number(raw.scale)||1;
     return {x:Number(raw.x)||0,y:Number(raw.y)||0,rotation:Number(raw.rotation)||0,
       scaleX:Number(raw.scaleX)||scale,scaleY:Number(raw.scaleY)||scale,
@@ -134,21 +165,117 @@
   }
 
   function ensureSelection(s,desc){
-    if(selectedPart&&partById(desc,selectedPart))return;
+    const valid=new Set((desc?.parts||[]).map(p=>p.id));
+    for(const id of markedParts)if(!valid.has(id))markedParts.delete(id);
+    if(selectedPart&&valid.has(selectedPart))return;
     selectedPart=desc?.parts?.[0]?.id||null;
   }
 
   function renderBoard(desc){
-    if(lastDescriptor===desc&&board.childElementCount)return;
-    lastDescriptor=desc;
-    board.textContent='';
+    const signature=JSON.stringify((desc?.parts||[]).map(p=>[p.id,p.label]));
+    if(boardSignature===signature&&board.childElementCount===(desc?.parts||[]).length)return;
+    boardSignature=signature;board.replaceChildren();
     for(const part of desc?.parts||[]){
-      const button=document.createElement('button');
-      button.type='button';button.dataset.artPart=part.id;button.textContent=part.label||part.id;
-      button.addEventListener('click',()=>{selectedPart=part.id;renderUI();core.redrawOnly?.();});
+      const button=document.createElement('button');button.type='button';button.dataset.artPart=part.id;
+      button.addEventListener('click',()=>{
+        selectedPart=part.id;
+        if(markedParts.has(part.id))markedParts.delete(part.id);
+        else markedParts.add(part.id);
+        renderUI();core.redrawOnly?.();
+      });
       board.appendChild(button);
     }
   }
+
+  const assemblyId=()=>`atlas-part-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  // On first structural edit, convert the visible original six into normal
+  // inventory entries. The old layout is kept only for backwards data reading;
+  // there is no competing 'Use Atlas / Show originals' mode in the UI.
+  function ensureInventory(setup){
+    if(!setup.artLayout)return null;
+    const previous=setup.artLayout.assembly;
+    if(previous?.enabled)return previous;
+    if(previous?.instances?.length){previous.enabled=true;return previous;}
+    const base=rawDescriptor(state());
+    const instances=(base?.parts||[]).map(part=>{
+      const tr=setup.artLayout.parts?.[part.id]||{};
+      return {id:`atlas-part-builtin-${part.id}`,meshId:`atlas-builtin-${part.id}`,
+        label:part.label||part.id,x:tr.x||0,y:tr.y||0,rotation:tr.rotation||0,
+        scaleX:tr.scaleX||1,scaleY:tr.scaleY||1,
+        pivotX:tr.pivotX||0,pivotY:tr.pivotY||0};
+    });
+    setup.artLayout.assembly={schema:'animlab.parts-assembly.v1',enabled:true,instances};
+    return setup.artLayout.assembly;
+  }
+  function inventoryEdit(label,update){
+    core.edit('setup',label,setup=>{
+      const group=ensureInventory(setup);if(group)update(group.instances);
+      return setup;
+    });
+  }
+  function openAdd(){
+    const available=window.AnimLabAtlasInspect?.getDocument?.()?.meshes||[];
+    addOptions.replaceChildren();
+    for(const mesh of available){
+      const label=document.createElement('label');
+      const check=document.createElement('input');check.type='checkbox';check.value=mesh.id;
+      const caption=document.createElement('span');caption.textContent=mesh.name||mesh.id;
+      label.append(check,caption);addOptions.append(label);
+    }
+    if(!available.length){
+      const msg=document.createElement('p');msg.textContent='No saved Atlas meshes available. Create and save meshes in Atlas first.';
+      addOptions.append(msg);
+    }
+    addDialog.dataset.characterId=state().characterId;
+    addDialog.showModal();
+  }
+  addDialog.addEventListener('click',e=>{
+    const action=e.target.closest('[data-add-action]')?.dataset.addAction;if(!action)return;
+    if(action==='cancel'){addDialog.close();return;}
+    const inputs=[...addOptions.querySelectorAll('input[type="checkbox"]')];
+    if(action==='all'||action==='none'){inputs.forEach(c=>c.checked=action==='all');return;}
+    if(action==='create'){
+      const selected=new Set(inputs.filter(c=>c.checked).map(c=>c.value));
+      const meshes=(window.AnimLabAtlasInspect?.getDocument?.()?.meshes||[]).filter(m=>selected.has(m.id));
+      if(!meshes.length)return;
+      const ids=meshes.map(()=>assemblyId());
+      inventoryEdit(`Add ${meshes.length} Atlas parts`,items=>{
+        meshes.forEach((m,i)=>{
+          if(items.length>=64)return;
+          items.push({id:ids[i],meshId:m.id,label:m.name||'Atlas part',x:0,y:0,rotation:0,scaleX:1,scaleY:1,pivotX:0,pivotY:0});
+        });
+      });
+      markedParts.clear();selectedPart=ids[0];markedParts.add(ids[0]);
+      addDialog.close();renderUI();
+    }
+  });
+  section.querySelectorAll('[data-part-manage]').forEach(button=>button.addEventListener('click',()=>{
+    const name=button.dataset.partManage,desc=descriptorFor(state());
+    if(name==='add'){openAdd();return;}
+    if(name==='all'){
+      const all=(desc?.parts||[]).map(p=>p.id);
+      if(all.every(id=>markedParts.has(id)))markedParts.clear();
+      else all.forEach(id=>markedParts.add(id));
+      if(all.length&&!selectedPart)selectedPart=all[0];renderUI();return;
+    }
+    if(name==='delete'){
+      if(!markedParts.size)return;
+      const removed=new Set(markedParts);
+      inventoryEdit(`Delete ${removed.size} assembled parts`,items=>{
+        for(let i=items.length-1;i>=0;i--){
+          const oldId=items[i].meshId.replace(/^atlas-builtin-/, '');
+          if(removed.has(items[i].id)||removed.has(oldId))items.splice(i,1);
+        }
+      });
+      markedParts.clear();selectedPart=null;renderUI();return;
+    }
+    if(name==='clear'){
+      if(!desc?.parts?.length)return;
+      if(!window.confirm(`Clear all ${desc.parts.length} assembled parts? Atlas source meshes are not deleted. Undo is available.`))return;
+      inventoryEdit('Clear all assembled parts',items=>{items.length=0;});
+      markedParts.clear();selectedPart=null;renderUI();
+    }
+  }));
 
   function sourcePixelToLocal(desc,px,py){
     const source=desc?.source||{};const ppu=Number(source.pixelsPerLocal)||1;
@@ -175,7 +302,8 @@
   function project(point,view){return{x:view.cx+point.x*view.scale*(view.flipX||1),y:view.groundY-point.y*view.scale};}
 
   function renderUI(){
-    const s=state(),desc=descriptorFor(s),active=isActive(s) && !s.setup?.artLayout?.assembly?.enabled;
+    const s=state(),desc=descriptorFor(s),active=isActive(s);
+    if(addDialog.open&&state().characterId!==addDialog.dataset.characterId)addDialog.close();
     section.hidden=!active;
     // Keep the Setup Joints / Part Layout switch visible, but put Part tools
     // directly beneath it instead of forcing a scroll past collider sliders.
@@ -185,13 +313,15 @@
     pad.hidden=false;
     renderBoard(desc);ensureSelection(s,desc);
     const layout=layoutFor(s);
-    const order=layout?.order||desc.parts.map(p=>p.id);
+    const order=isAssembly(s)?instances(s).map(p=>p.id):(layout?.order||desc.parts.map(p=>p.id));
     board.querySelectorAll('[data-art-part]').forEach(button=>{
       const id=button.dataset.artPart,part=partById(desc,id),shown=!hiddenParts.has(id);
       button.classList.toggle('is-active',id===selectedPart);
+      button.classList.toggle('is-multi-selected',markedParts.has(id));
       button.classList.toggle('is-hidden-part',!shown);
       button.classList.toggle('is-solo-part',soloPart===id);
-      button.textContent=`${order.indexOf(id)+1}. ${part?.label||id}${shown?'':' (hidden)'}${soloPart===id?' (solo)':''}`;
+      const repeated=desc.parts.slice(0,order.indexOf(id)).filter(p=>p.label===part?.label).length;
+      button.textContent=`${markedParts.has(id)?'☑':'□'} ${order.indexOf(id)+1}. ${part?.label||id}${repeated?' · '+(repeated+1):''}${shown?'':' (hidden)'}${soloPart===id?' (solo)':''}`;
     });
     transformButtons.forEach(button=>{const on=button.dataset.artTransform===transformMode;button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));});
     axisButtons.forEach(button=>{const on=button.dataset.artAxis===axis;button.classList.toggle('is-active',on);button.setAttribute('aria-pressed',String(on));button.disabled=!(transformMode==='move'||transformMode==='scale'||transformMode==='pivot');});
@@ -204,7 +334,11 @@
       if(document.activeElement!==input)input.value=part?String(Number(display.toFixed(4))):'';
       input.disabled=!part;
     }
-    section.querySelector('[data-art-action="copy-pair"]').disabled=!pairFor(selectedPart);
+    section.querySelector('[data-art-action="copy-pair"]').disabled=isAssembly(s)||!pairFor(selectedPart);
+    section.querySelectorAll('[data-art-action="copy-pair"],[data-art-action="copy-both-near-far"],[data-art-action="copy-both-far-near"]').forEach(b=>b.hidden=isAssembly(s));
+    for(const action of section.querySelectorAll('[data-part-manage]')){
+      action.disabled=(action.dataset.partManage==='delete'&&!markedParts.size)||(action.dataset.partManage==='clear'&&!desc.parts.length)||(action.dataset.partManage==='all'&&!desc.parts.length);
+    }
     const visibility=section.querySelector('[data-art-action="toggle-visible"]');
     visibility.textContent=hiddenParts.has(selectedPart)?'Show Part':'Hide Part';
     const soloBtn=section.querySelector('[data-art-action="solo"]');
@@ -228,8 +362,20 @@
     const s=state();if(!isActive(s))return;
     core.edit('setup',label,setup=>{
       setup.artLayout=core.normaliseArtLayout?.(setup.artLayout)||setup.artLayout;
-      if(!setup.artLayout?.parts)return setup;
-      mutator(setup.artLayout,descriptorFor(s));
+      if(!setup.artLayout)return setup;
+      if(setup.artLayout.assembly?.enabled){
+        const items=setup.artLayout.assembly.instances;
+        const proxy={parts:Object.fromEntries(items.map(p=>[p.id,{...p}])),order:items.map(p=>p.id)};
+        mutator(proxy,descriptorFor(s));
+        const byId=new Map(items.map(p=>[p.id,p]));
+        const order=[...new Set(proxy.order)].filter(id=>byId.has(id));
+        for(const id of byId.keys())if(!order.includes(id))order.push(id);
+        setup.artLayout.assembly.instances=order.map(id=>({
+          ...byId.get(id),...proxy.parts[id],id,meshId:byId.get(id).meshId
+        }));
+      }else if(setup.artLayout.parts){
+        mutator(setup.artLayout,descriptorFor(s));
+      }
       setup.artLayout=core.normaliseArtLayout?.(setup.artLayout)||setup.artLayout;
       return setup;
     });
@@ -239,8 +385,12 @@
     if(!tx||!id)return;
     core.previewTransaction(tx,setup=>{
       setup.artLayout=core.normaliseArtLayout?.(setup.artLayout)||setup.artLayout;
-      if(!setup.artLayout?.parts?.[id])return setup;
-      Object.assign(setup.artLayout.parts[id],next);
+      if(setup.artLayout?.assembly?.enabled){
+        const part=setup.artLayout.assembly.instances.find(p=>p.id===id);
+        if(part)Object.assign(part,next);
+      }else if(setup.artLayout?.parts?.[id]){
+        Object.assign(setup.artLayout.parts[id],next);
+      }
       setup.artLayout=core.normaliseArtLayout?.(setup.artLayout)||setup.artLayout;
       return setup;
     });
@@ -331,11 +481,16 @@
       });return;
     }
     if(name==='reset-part'&&selectedPart){
-      const base=defaults()?.parts?.[selectedPart];if(!base)return;
+      const base=isAssembly(s)?{x:0,y:0,rotation:0,scaleX:1,scaleY:1,pivotX:0,pivotY:0}:defaults()?.parts?.[selectedPart];if(!base)return;
       editLayout(`Reset ${partById(desc,selectedPart)?.label||selectedPart} layout`,layout=>{layout.parts[selectedPart]=clone(base);});
       return;
     }
     if(name==='reset-layout'){
+      if(isAssembly(s)){
+        editLayout('Reset assembled part transforms',layout=>{
+          for(const part of Object.values(layout.parts))Object.assign(part,{x:0,y:0,rotation:0,scaleX:1,scaleY:1,pivotX:0,pivotY:0});
+        });return;
+      }
       const base=defaults();if(!base)return;
       core.edit('setup','Reset part layout',setup=>{setup.artLayout=clone(base);return setup;});
     }
@@ -485,7 +640,7 @@
   pad.addEventListener('pointercancel',event=>finishPrecision(event,true));
 
   function renderer(args){
-    const s=state(),desc=descriptorFor(s);if(!desc||!layoutFor(s)){lastRender=null;return;}
+    const s=state(),desc=descriptorFor(s);if(!desc||!layoutFor(s)||isAssembly(s)){lastRender=null;return;}
     const {ctx,view}=args,polygons={},pivots={};
     const order=layoutFor(s)?.order||desc.parts.map(p=>p.id);
     if(soloPart&&!partById(desc,soloPart))soloPart=null;
@@ -508,6 +663,7 @@
 
   // Read-only display state consumed by compatible renderers. Solo is ephemeral.
   window.AnimLabPartLayoutDisplay=Object.freeze({
+    getSelected:()=>selectedPart,
     getSolo:()=>isActive(state())?soloPart:null,
     isHidden:id=>isActive(state())&&hiddenParts.has(id),
     getOutlines:()=>showOutlines,

@@ -342,6 +342,7 @@
           x:number(candidate.x,0,-3,3),y:number(candidate.y,0,-2,3),
           rotation:number(candidate.rotation,0,-Math.PI,Math.PI),
           scaleX:number(candidate.scaleX,1,.05,8),scaleY:number(candidate.scaleY,1,.05,8),
+          pivotX:number(candidate.pivotX,0,-2,2),pivotY:number(candidate.pivotY,0,-2,2),
           boneTarget:String(candidate.boneTarget||'').slice(0,60)});
       }
       result.assembly={schema:'animlab.parts-assembly.v1',enabled:source.enabled===true,instances};

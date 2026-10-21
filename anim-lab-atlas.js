@@ -110,7 +110,7 @@
     </div>
     <p class="animlab-atlas-status" aria-live="polite"></p>
     <div class="animlab-section-title">Source meshes</div><div class="animlab-atlas-list" aria-label="Atlas mesh list"></div>
-    <p class="animlab-atlas-warning">Legacy meshes are read-only. Save new source meshes, then open Parts → Use Atlas parts to assemble them. Skin binding is not yet connected. PNG image bytes remain device-local and are omitted from JSON exports.</p>`;
+    <p class="animlab-atlas-warning">Legacy meshes are read-only. Save new source meshes, then use Parts → Add to assemble them. Skin binding is not yet connected. PNG image bytes remain device-local and are omitted from JSON exports.</p>`;
   extension.insertBefore(panel, extension.firstChild);
   const pick=(attr,val)=>panel.querySelector(`[${attr}="${val}"]`);
   const status=panel.querySelector('.animlab-atlas-status');
