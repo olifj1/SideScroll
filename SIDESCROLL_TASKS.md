@@ -2789,3 +2789,11 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [ ] **Acceptance required:** test real imported New01 Fox Atlas mesh, correct bone-space geometry, capsule adjustment across ankle/knee, effect of unassigned rest weight, portrait/landscape input controls, 900% zoom and long sequences on target iPhone.
 - [ ] **GPU rendering validation:** this environment cannot create WebGL in headless Chromium, so verify the compositor's output matches the Canvas2D fallback (atlas UV orientation, alpha, vertex transform, layering), and ensure context-loss fallback on actual browser. Measure phone frame rate/performance with six meshes rather than extrapolating from a synthetic one-mesh benchmark.
 - [ ] Continue general Skin/mesh-bind ergonomics and debug tools based on actual user character, publish to normal game renderer, and provide portable texture+mesh+animation export.
+
+## 2026-10-21 — v1.1.12 animation texture renderer isolation
+
+- [x] User-reported: Skin pose preview coherent, Animate always grossly distorted after WebGL branch was introduced. Make Skin/Animate/Quick Play share the exact Canvas2D triangle renderer, disable WebGL loading and remove its SW shell entry; avoid skin data changes.
+- [x] Keep v1.1.11's cropped atlas-region CPU drawing and UI/playback optimisations; bump script URL and service-worker cache; update current-drop README files and cumulative docs.
+- [x] Node JS syntax tests and synthetic inline Chromium Skin→Animate smoke test passed without page exceptions; test was software-rendered (WebGL not loaded).
+- [ ] **User iPhone acceptance:** reopen actual New01 saved art/rig/weights, compare matching Walk/Run phases in Skin and Animate without rebinding, ensure Quick Play consistency; measure playback speed. If still broken, record pre/post-deform world vertices in both modes and identify pose mismatch before touching skin controls.
+- [ ] Reintroduce optional GPU only after on-device pixel-parity proof for nonrectangular source mesh UVs, alpha/layer order, and consistent frame positions at multiple DPR/zoom values.

@@ -1,4 +1,4 @@
-/* SideScroll v1.1.11 — spatial bone envelopes, predictable weights and faster playback.
+/* SideScroll v1.1.12 — unified, validated Canvas2D renderer for Skin/Animate/Play.
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -657,9 +657,10 @@
     const posed=pose?rig.geometry(pose,s.setup?.rig||rig.DEFAULT_REST_RIG):rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const ctx=args.ctx;
     ctx.save();ctx.globalAlpha=1;ctx.imageSmoothingEnabled=true;
-    // Geometry is still computed on CPU; animated triangles are rasterised in
-    // one reusable GPU canvas where available (2D clipping remains fallback).
-    const gpu=!skinMode?window.AnimLabGpuAtlas?.begin?.(args.canvas.width,args.canvas.height):null;
+    // v1.1.12: one authoritative rasterisation path for Skin, Animate and
+    // Quick Play. The v1.1.11 WebGL compositor was not device-validated and
+    // produced broken Animate artwork while Skin's Canvas2D preview looked
+    // correct. Do NOT re-enable GPU until pixel-parity is tested on device.
     lastPickedPoints=null;
     for(const item of parts){
       if(skinMode&&(hiddenParts.has(item.id)||(soloPart&&soloPart!==item.id)))continue;
@@ -670,13 +671,10 @@
       const rest=transformVertices(mesh,item,image);
       const points=rest.map((p,i)=>project(binding&&pose?skinVertex(p,binding.weights[i],bindGeom,posed):p,args.view));
       const ready=!!(image&&image.complete!==false&&(image.naturalWidth||image.width));
-      const drawnOnGpu=ready&&gpu?.paint(image,mesh,points);
       for(const tri of mesh.triangles){
         const [i,j,k]=tri,a=points[i],b=points[j],c=points[k];if(!a||!b||!c)continue;
-        if(!drawnOnGpu){
-          if(ready)triangle(ctx,image,a,b,c,mesh.vertices[i],mesh.vertices[j],mesh.vertices[k]);
-          else{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.closePath();ctx.fillStyle='#536b67';ctx.fill();}
-        }
+        if(ready)triangle(ctx,image,a,b,c,mesh.vertices[i],mesh.vertices[j],mesh.vertices[k]);
+        else{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.closePath();ctx.fillStyle='#536b67';ctx.fill();}
         if(selected&&heatmap&&binding){
           const weight=n=>binding.weights[n]?.find(p=>p[0]===selectedBone)?.[1]||0;
           heatTri(ctx,a,b,c,weight(i),weight(j),weight(k));
@@ -695,7 +693,6 @@
         }
       }
     }
-    if(gpu)ctx.drawImage(gpu.canvas,0,0);
     if(skinMode){
       const item=parts.find(p=>p.id===selectedId),source=item&&sources.get(item.meshId);
       const bound=item&&bindingFor(item,source);

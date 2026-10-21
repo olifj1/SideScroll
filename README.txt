@@ -1,4 +1,4 @@
-SS-PATCH-1.1.11 — changed-files-only drop; install over v1.1.10.
-Skin: adjustable bone-centred inner/outer envelope falloff, meaningful 0% strength; legacy weights preserved until edit.
-Animate: reduced CPU drawing/DOM work, optional WebGL compositor, real-time clip progression.
-See README-PATCH-1.1.11.md for checks. iPhone Safari acceptance pending.
+SS-PATCH-1.1.12 — changed-files-only hotfix; install on v1.1.11.
+Animate and Quick Play now use the same Canvas2D textured mesh renderer as Skin; unvalidated WebGL disabled.
+No skin weights, atlas files, or character saves are modified. iPhone acceptance pending.
+See README-PATCH-1.1.12.md for this drop's testing and boundaries.
