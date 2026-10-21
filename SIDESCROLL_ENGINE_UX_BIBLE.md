@@ -1481,3 +1481,10 @@ Skin always previews the current character's assembled source instances and asso
 When a character has Atlas-authored Parts, Skin must follow **the same list → Edit selected part → Advanced** convention as Atlas/Parts. Show one selectable Parts inventory with per-row Hide/Solo/Lock, and a contained editor for bone group, bone link, peak weight, falloff, heatmap, reset, and advanced vertex adjustment. Hide/Solo/Lock are *local preview/editor flags*, not persisted edits to Parts. Selecting another part changes the inspector target only; it never silently Auto-binds or overwrites weights. Do not show a separate competing legacy panel when assembled Atlas sources are present; preserve the legacy controls when no assembly is present.
 
 **Opacity/diagnostics:** Skin must draw all assembled texture triangles at 100% authored sprite opacity. Selection may use a thin wireframe, skeleton emphasis, or optional separate heatmap colour wash, but must never make unselected art see-through. Heatmap Off is the starting state. Selection overlays are editor-only. Pan/zoom is unaffected unless the explicitly armed Pick Vertex action captures one tap. Sliders should live-preview while dragging and commit a single Undo history step on release/change; Cancel/Discard restores only the editable Setup transaction.
+
+
+### v1.1.10 — Compact Skin rows, diagnostic weight feedback and zoom
+
+- Skin list uses the Atlas/Parts grammar: a single clean row per part; a one-line name (ellipsized only if necessary) with a small binding-status caption **within** that name button; Hide/Solo/Lock aligned in the row. Never allow two-row grid auto-placement to make the list needlessly tall or wrap a whole part name through multiple lines.
+- Bone Peak/Falloff controls must clearly distinguish local/maximum influence from rigid, whole-mesh assignment. The inspector displays selected bone's **actual minimum and maximum** across vertices, and offers an explicit undoable Rigid bind command for mechanical verification.
+- Anim Lab normal viewport pinch zoom is permitted from 35% to 900%, with Fit always restoring 100%. Zoom changes are a local editor view, not a UV or mesh edit.

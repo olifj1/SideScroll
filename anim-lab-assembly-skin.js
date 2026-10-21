@@ -1,4 +1,4 @@
-/* SideScroll v1.1.9 — unified Atlas-assembly Skin editor.
+/* SideScroll v1.1.10 — rigid bone weights and consistent Skin editing.
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance normalized weights. No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -119,9 +119,23 @@
       const combined=[...requested].map(([i,w])=>[i,w]);
       if(availableSum>1e-9)for(const [id,w] of available)combined.push([id,w/availableSum*remainder]);
       else if(remainder>1e-9){
-        const free=allowed.find(i=>!requested.has(i));
-        if(free!==undefined)combined.push([free,remainder]);
-        else if(combined.length)combined[0][1]+=remainder;
+        // If the artist explicitly set all but one bone to 0, all remaining
+        // influence MUST go to that non-zero bone. Previously it was assigned
+        // to the first (even zeroed-out) bone in the group: lower-leg tests
+        // twisted and collapsed although the selected bone was set to 100%.
+        const positives=combined.filter(pair=>pair[1]>1e-9);
+        const total=positives.reduce((sum,pair)=>sum+pair[1],0);
+        if(total>1e-9){for(const pair of positives)pair[1]+=remainder*pair[1]/total;}
+        else {
+          // A bone with zero automatic influence needs a well-defined fallback.
+          // Prefer a positively requested peak; otherwise preserve the strongest
+          // automatic bone, NOT the arbitrary first link in the group.
+          const userBone=Object.entries(profiles)
+            .filter(([key,p])=>allowed.includes(Number(key))&&Number(p.peakWeight)>0)
+            .sort((a,b)=>Number(b[1].peakWeight)-Number(a[1].peakWeight))[0];
+          const fallback=userBone?Number(userBone[0]):row[0]?.[0]??allowed[0];
+          if(fallback!==undefined)combined.push([fallback,remainder]);
+        }
       }
       return normalizeRow(binding.manualWeights?.[index]||combined,allowed);
     });
@@ -209,6 +223,7 @@
       </div>
       <div class="animlab-parts-subgroup-label">Bone influence</div>
       <div class="animlab-skin-bones" data-skin-bones aria-label="Bones influencing selected part"></div>
+      <button type="button" class="animlab-skin-rigid-action" data-bind-action="rigid">Rigid bind: 100% selected bone (all vertices)</button>
       <label class="animlab-slider animlab-skin-primary-slider"><span>Peak Bone Weight (0–100%)</span><input data-skin-peak type="range" min="0" max="100" step="1" value="50"><output>50%</output></label>
       <div class="animlab-skin-weight-status" data-weight-status role="status"></div>
       <label class="animlab-slider"><span>Influence Spread / Falloff</span><input data-skin-spread type="range" min="0.5" max="2.5" step="0.05" value="1"><output>1.00×</output></label>
@@ -218,7 +233,7 @@
         <button type="button" data-bind-action="reset-bone">Reset bone</button>
       </div>
       <div class="animlab-skin-legend" data-heat-legend hidden><span>0% · Blue</span><i></i><span>Red · 100%</span></div>
-      <p class="animlab-skin-note">Peak and falloff adjust the selected bone across the part. Heatmap annotates the weights without making the artwork transparent. Bind before editing weights.</p>
+      <p class="animlab-skin-note">Peak adjusts the maximum weight, not every vertex. For an exact one-bone test use <b>Rigid bind</b>, which gives 100% of the selected bone to every vertex. Heatmap never reduces artwork opacity.</p>
       <details class="animlab-skin-assembly-vertex">
         <summary>Advanced · Individual vertex weights</summary>
         <div class="animlab-view-grid animlab-skin-assembly-actions">
@@ -284,9 +299,11 @@
       for(const item of parts){
         const row=document.createElement('div');row.className='animlab-skin-part-row';row.dataset.skinRow=item.id;
         const name=document.createElement('button');name.type='button';name.dataset.skinPart=item.id;
-        name.className='animlab-skin-part-name';name.textContent=label(item,sources);
+        name.className='animlab-skin-part-name';name.title=label(item,sources);
+        const nameText=document.createElement('span');nameText.className='animlab-skin-part-text';nameText.textContent=label(item,sources);
+        const badge=document.createElement('span');badge.className='animlab-skin-part-status';badge.textContent=statusFor(item,sources);
+        name.append(nameText,badge);
         name.addEventListener('click',()=>selectPart(item.id));row.append(name);
-        const badge=document.createElement('span');badge.className='animlab-skin-part-status';badge.textContent=statusFor(item,sources);row.append(badge);
         for(const [mode,text] of [['hide','Hide'],['solo','Solo'],['lock','Lock']]){
           const button=document.createElement('button');button.type='button';button.dataset.skinRowAction=mode;button.textContent=text;
           button.addEventListener('click',()=>{
@@ -347,8 +364,14 @@
     if(document.activeElement!==spreadSlider)spreadSlider.value=String(spread);
     peakSlider.parentElement.querySelector('output').textContent=`${Math.round(peak*100)}%`;
     spreadSlider.parentElement.querySelector('output').textContent=`${Number(spread).toFixed(2)}×`;
+    const actualMin=binding?Math.min(1,...binding.weights.map(row=>row.find(p=>p[0]===selectedBone)?.[1]||0)):0;
+    const isRigid=!!binding&&binding.weights.length>0&&binding.weights.every(row=>row.length===1&&row[0][0]===selectedBone&&row[0][1]>=.9999);
     panel.querySelector('[data-weight-status]').textContent=binding?
-      `Automatic peak ${Math.round(automaticPeak*100)}% · Actual peak ${Math.round(actualPeak*100)}%`:'Bind a part to edit its weights.';
+      `${isRigid?'Rigid · ':''}Selected bone across vertices: ${Math.round(actualMin*100)}–${Math.round(actualPeak*100)}% · Auto max ${Math.round(automaticPeak*100)}%`:
+      'Bind a part to edit its weights.';
+    const rigidButton=panel.querySelector('[data-bind-action="rigid"]');
+    rigidButton.classList.toggle('active',isRigid);
+    rigidButton.setAttribute('aria-pressed',String(isRigid));
     for(const action of ['heatmap','wires']){
       const button=panel.querySelector(`[data-skin-display="${action}"]`),on=action==='heatmap'?heatmap:wires;
       button.textContent=`${action==='heatmap'?'Heatmap':'Wireframe'}: ${on?'On':'Off'}`;
@@ -446,6 +469,20 @@
         }
         return setup;
       });groupCandidate=null;vertexIndex=0;liveBinding=null;liveItemId=null;
+    }
+    if(action==='rigid'&&item&&!lockedParts.has(item.id)){
+      const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
+      if(saved&&groupBones(saved.group).includes(selectedBone)){
+        const binding=clone(saved);
+        // A rigid assignment is explicit per-vertex data, not a peak-profile.
+        // Preserve base weights so Reset Part can restore the soft auto bind.
+        binding.baseWeights ||=clone(saved.weights);
+        binding.boneProfiles={};
+        binding.manualWeights={};
+        for(let i=0;i<source.mesh.vertices.length;i++)binding.manualWeights[i]=[[selectedBone,1]];
+        rebuildWeights(binding);
+        commitBinding(item.id,binding,'Rigid bind selected bone (all vertices)');
+      }
     }
     if(action==='reset'&&item&&!lockedParts.has(item.id))core.edit('setup','Unbind selected part',setup=>{
       const target=setup.artLayout?.assembly?.instances?.find(p=>p.id===item.id);

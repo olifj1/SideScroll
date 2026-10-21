@@ -99,3 +99,8 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 ### v1.1.9 — per-instance automatic baseline and tuning in exports
 
 The Skin binding schema remains `animlab.skin-binding.v1` and still writes the authoritative **final** `weights[vertexIndex]` rows consumed by Animate/Quick Play. The same Setup record may now also include optional `baseWeights` (matching vertex-count auto-bind rows), indexed `boneProfiles` (normalised `peakWeight` and `spread`), and sparse `manualWeights` per vertex. They are stored *inside each assembled instance* and carried by existing saved Setup JSON and the existing snapshot mechanisms; no new global key or binary packaging is introduced. Previous v1.1.8 binding records lacking these optional fields must round-trip unchanged until deliberately edited. Changing Atlas vertex order/positions or topology still invalidates the binding's mesh signature and requires intentional rebind. Exports still do **not** package imported PNG bytes stored in IndexedDB, nor do they install characters into normal SideScroll runtime. Future hierarchy/graph validation should flag these unresolved dependencies and stale skinning.
+
+
+### v1.1.10 — weight data compatibility
+
+`Rigid bind` uses existing `animlab.skin-binding.v1.manualWeights` per-vertex override rows (`[[boneIndex,1]]`), leaving `baseWeights` available for `Reset Part`; no schema bump and no automatic data migrations. The user still needs to Save setup to persist changes. Imported atlas PNG bytes are still **not** included in the existing project JSON export; this release does not change export coverage.

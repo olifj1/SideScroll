@@ -1,15 +1,11 @@
-# SideScroll — SS-PATCH-1.1.9
+# SideScroll Anim Lab — v1.1.10 Skin deformation hotfix
 
-**Changed-files-only release. Install over v1.1.8.** This README covers **only v1.1.9**.
+Changed-files-only overlay. **Install directly over v1.1.9.** This README describes this drop only.
 
-## Skin interface and controls
+- Corrected Skin's profile-weight normalization: when all but one bone are explicitly set to 0, residual weight now belongs to the active bone instead of leaking onto an unrelated first bone (the cause of the lower-leg collapse).
+- Added **Rigid bind: 100% selected bone (all vertices)** for reliable one-bone testing. This is undoable and survives Save; **Reset part** restores the prior automatic weights.
+- Skin now reports the **minimum and maximum actual weight across vertices**, rather than only the peak; its heatmap remains an optional overlay on fully opaque artwork.
+- Skin's Parts list is compact, single-row and legible, with status below the name inside the same selection button.
+- Increased Anim Lab's pinch-zoom limit from 320% to 900% and minimum from 55% to 35%.
 
-The Skin workspace for Atlas-assembled characters now uses the same **Parts list → Edit selected part** pattern as Atlas and Parts. Each part has Select, Hide, Solo and Lock; those visibility/lock choices are editor-only. A selected part exposes rig-descriptor bone groups and bones, **Peak Bone Weight (0–100%)**, **Influence Spread/Falloff**, the optional selected-bone heatmap, and reset controls. Rest, Walk and Run previews remain available. Advanced controls include viewport **Pick vertex**, per-vertex weight adjustment/auto-reset, reset part weights, and copying a binding to another instance of the *same* source mesh.
-
-**Texture transparency fix:** Every assembled mesh is rendered at its original texture opacity in Skin. Unselected parts are no longer artificially faded to 18%. Heatmap is Off by default and overlays a colour diagnostic without making texture pixels see-through.
-
-## Data and compatibility
-
-The existing Skin binding schema is extended with optional automatic baseline, per-bone peak/spread profiles and sparse manual vertex overrides. The final normalized weights remain the data used by Animate and Quick Play. Existing v1.1.8 bindings load without migration; edits remain Undoable and saved in normal character Setup. Neither the original Fox art/clips nor Atlas source geometry is changed by this patch.
-
-**Not included:** normal gameplay renderer integration, cross-device transfer of imported PNG bytes, multi-atlas/shared clothing and Character Hierarchy. iPhone Safari validation is still required.
+See `README-PATCH-1.1.10.md` for device tests and caveats. No legacy asset/character data is migrated or cleared.

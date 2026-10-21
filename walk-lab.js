@@ -1587,7 +1587,7 @@
       if(!interactionSnapshot)captureInteractionSnapshot();
       const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y,dist=Math.hypot(dx,dy)||1,mid={x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2};
       const old=baseView(setupDraft.scale);old.scale/=Math.max(.0001,view.zoom);old.scale*=gesture.zoom;old.cx=canvas.width*(.5+gesture.panX);old.groundY=canvas.height*(.86+gesture.panY);
-      const local=unproject(gesture.mid,old);view.zoom=clamp(gesture.zoom*(dist/gesture.dist),.55,3.2);const next=baseView(setupDraft.scale);view.panX=(mid.x-local.x*next.scale)/canvas.width-.5;view.panY=(mid.y+local.y*next.scale)/canvas.height-.86;scheduleGestureRender();return;
+      const local=unproject(gesture.mid,old);view.zoom=clamp(gesture.zoom*(dist/gesture.dist),.35,9);const next=baseView(setupDraft.scale);view.panX=(mid.x-local.x*next.scale)/canvas.width-.5;view.panY=(mid.y+local.y*next.scale)/canvas.height-.86;scheduleGestureRender();return;
     }
     if(gesture?.type==='pan'){
       if(!interactionSnapshot)captureInteractionSnapshot();

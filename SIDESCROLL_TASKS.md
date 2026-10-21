@@ -2767,3 +2767,14 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Syntax checks and inline Chromium regression with synthetic loaded Atlas texture and two instances: full alpha 1 for textured triangles; auto-bind, peak 80%, spread, per-vertex weight editing/reset, pose switching and row selection all completed without page exceptions.
 - [ ] **iPhone acceptance:** test sliders with touch and pinch/pan, heatmap visibility and texture alpha, viewport vertex picking, 0% and 100% bone peaks, Undo/Redo/Save/Discard and reload for the actual user-created New01 character.
 - [ ] **Additional architecture:** generalise rig family beyond quadruped, preview deform performance for large atlas mesh counts, apply bound assembly to normal game renderer, and export/import a complete portable character with binary source PNG(s); Character Hierarchy/shared atlas remain future separate work.
+
+
+### Skin deformation regression — v1.1.10 (addressed; device acceptance pending)
+
+- [x] Diagnose bone-profile residual weights being incorrectly assigned to the first, even zeroed, bone, producing crumpled lower-leg deformation.
+- [x] Correct profile regeneration and test single second-bone weight with all other profile bones 0.
+- [x] Add undoable Rigid bind (100% selected bone for every vertex), with automatic-weight Reset Part fallback.
+- [x] Report effective min/max weight; retain opaque texture under heatmap.
+- [x] Return Skin parts inventory to compact, single-row UI; lift pinch zoom cap to 900%.
+- [ ] Confirm actual user's saved Fox New01 lower-leg results and iPhone Safari gesture/UI acceptance.
+- [ ] Continue improving smooth auto-bind across joints, review bone-space assumptions and deformation diagnostics if rigid tests pass but multi-bone bending is unsatisfactory.

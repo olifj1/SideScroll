@@ -15272,3 +15272,43 @@ body[data-game-id="game-17"] .animlab-skin-part-row [data-skin-row-action="lock"
 @media (max-width:650px){
  body[data-game-id="game-17"] .animlab-skin-part-row{grid-template-columns:minmax(0,1fr) repeat(3,minmax(39px,46px));}
 }
+
+
+/* v1.1.10 — Skin list uses the same compact single-row grammar as Atlas/Parts. */
+body[data-game-id="game-17"] .animlab-skin-assembly-parts{
+  max-height:620px;overflow-y:auto;gap:5px;
+}
+body[data-game-id="game-17"] .animlab-skin-part-row{
+  display:grid;grid-template-columns:minmax(0,1fr) repeat(3,48px);
+  grid-template-rows:46px;gap:5px;min-width:0;align-items:stretch;
+}
+body[data-game-id="game-17"] .animlab-skin-part-row .animlab-skin-part-name{
+  grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:center;
+  align-items:flex-start;text-align:left;padding:3px 7px;min-width:0;overflow:hidden;
+}
+body[data-game-id="game-17"] .animlab-skin-part-row .animlab-skin-part-text{
+  display:block;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:11px;line-height:17px;
+}
+body[data-game-id="game-17"] .animlab-skin-part-row .animlab-skin-part-status{
+  position:static;display:block;width:100%;font-size:9px;line-height:13px;
+  padding:0;color:#a2c9be;text-align:left;white-space:nowrap;
+}
+body[data-game-id="game-17"] .animlab-skin-part-row [data-skin-row-action]{
+  grid-row:1;min-width:0;min-height:44px;font-size:10px;padding:4px 2px;
+}
+body[data-game-id="game-17"] .animlab-skin-part-row [data-skin-row-action="hide"]{grid-column:2;}
+body[data-game-id="game-17"] .animlab-skin-part-row [data-skin-row-action="solo"]{grid-column:3;}
+body[data-game-id="game-17"] .animlab-skin-part-row [data-skin-row-action="lock"]{grid-column:4;}
+body[data-game-id="game-17"] .animlab-skin-edit-box .animlab-skin-rigid-action{
+  min-width:0;min-height:44px;white-space:normal;padding:7px 9px;
+  background:#25383f;border:1px solid #6b8e91;border-radius:7px;
+  color:#dceee9;font:650 11px/1.3 system-ui,sans-serif;
+}
+body[data-game-id="game-17"] .animlab-skin-edit-box .animlab-skin-rigid-action.active{
+  background:#214b45;border-color:#80d9ce;color:#e7fff9;
+}
+@media (max-width:650px){
+ body[data-game-id="game-17"] .animlab-skin-part-row{grid-template-columns:minmax(0,1fr) repeat(3,40px);gap:4px;}
+ body[data-game-id="game-17"] .animlab-skin-part-row .animlab-skin-part-name{padding-left:5px;}
+}

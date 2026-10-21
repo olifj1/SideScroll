@@ -1,3 +1,4 @@
-SideScroll SS-PATCH-1.1.9 — Unified Atlas-assembly Skin controls and full-opacity artwork.
-Apply this changed-files-only patch over v1.1.8.
-Skin now restores bone peak/spread weighting, heatmap, viewport vertex picking, weight resets and Advanced editing in a consistent Parts-style inspector. All meshes remain fully opaque. Existing bindings remain compatible. See README-PATCH-1.1.9.md for this drop only.
+SideScroll Anim Lab v1.1.10 — Skin one-bone deformation fix
+Changed-files-only patch over v1.1.9.
+Fixes zeroed-bone weight leakage; adds true rigid binding and actual min/max weight readout; compacts Skin Parts rows; raises pinch zoom ceiling to 900%.
+See README-PATCH-1.1.10.md. No existing bindings automatically changed.
