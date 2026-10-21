@@ -2757,3 +2757,13 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [ ] **Next essential integration:** publish/bake assembled characters and skins to normal gameplay renderer, not just Anim Lab previews. Validate runtime rig/weights/clips and choose character without overwriting Fox.
 - [ ] **Portability:** binary PNG payloads in portable character export/restore and optional GitHub-relative source texture URLs; linked multi-page/shared atlases remain separate future design.
 - [ ] **Hierarchy:** inspect/validate graph of atlas pages, parts, bones, weights, clips and runtime dependencies, with missing/stale warnings. Existing future design remains in force.
+
+## 2026-10-21 · v1.1.9 Skin restoration + unified controls
+
+- [x] Remove the v1.1.8 Skin fade: selected and unselected assembled source art render at full original opacity; optional heatmap annotates colour without changing base texture alpha.
+- [x] Reorganise dynamic Skin controls to the Atlas/Parts layout: per-part Select/Hide/Solo/Lock list, one grouped Edit selected part, descriptor-based bone buttons, Rest/Walk/Run/phase preview, Advanced vertex and compatible copy controls.
+- [x] Restore Peak Bone Weight, Influence Spread/Falloff, measured automatic/actual peaks, heatmap toggle/legend, Reset Bone, Reset Part, Auto Vertex and one-tap viewport Pick Vertex; avoid a second fixed-Fox-specific weighting implementation.
+- [x] Persist v119 automatic base weights + individual bone profiles + sparse vertex overrides in existing per-instance Skin binding through Setup normalisation, Undo/Redo/Save/Discard; existing v118 binding arrays remain loadable.
+- [x] Syntax checks and inline Chromium regression with synthetic loaded Atlas texture and two instances: full alpha 1 for textured triangles; auto-bind, peak 80%, spread, per-vertex weight editing/reset, pose switching and row selection all completed without page exceptions.
+- [ ] **iPhone acceptance:** test sliders with touch and pinch/pan, heatmap visibility and texture alpha, viewport vertex picking, 0% and 100% bone peaks, Undo/Redo/Save/Discard and reload for the actual user-created New01 character.
+- [ ] **Additional architecture:** generalise rig family beyond quadruped, preview deform performance for large atlas mesh counts, apply bound assembly to normal game renderer, and export/import a complete portable character with binary source PNG(s); Character Hierarchy/shared atlas remain future separate work.

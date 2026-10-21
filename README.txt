@@ -1,3 +1,3 @@
-SideScroll v1.1.8 — Parts multi-selection + Atlas assembly Skin binding.
-Install this changed-files-only patch directly over v1.1.7.
-Parts now has explicit single/multi-selection and uniform proportional group Scale/Move. Skin uses new Atlas parts with automatic per-vertex bone binding and local Rest/Walk/Run tests; Animate/Quick Play also preview saved assembly weights. No normal game-runtime integration or portable PNG bundle yet. See README-PATCH-1.1.8.md for this drop only.
+SideScroll SS-PATCH-1.1.9 — Unified Atlas-assembly Skin controls and full-opacity artwork.
+Apply this changed-files-only patch over v1.1.8.
+Skin now restores bone peak/spread weighting, heatmap, viewport vertex picking, weight resets and Advanced editing in a consistent Parts-style inspector. All meshes remain fully opaque. Existing bindings remain compatible. See README-PATCH-1.1.9.md for this drop only.

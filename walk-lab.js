@@ -347,14 +347,43 @@
           boneTarget:String(candidate.boneTarget||'').slice(0,60),
           ...(candidate.skinBinding&&typeof candidate.skinBinding==='object'&&
              candidate.skinBinding.schema==='animlab.skin-binding.v1'?{
-            skinBinding:{schema:'animlab.skin-binding.v1',
-              meshSignature:String(candidate.skinBinding.meshSignature||'').slice(0,75),
-              group:String(candidate.skinBinding.group||'body').slice(0,36),
-              weights:(Array.isArray(candidate.skinBinding.weights)?candidate.skinBinding.weights.slice(0,4096):[]).map(row=>
-                (Array.isArray(row)?row.slice(0,4):[]).filter(pair=>Array.isArray(pair)&&
-                  Number.isInteger(pair[0])&&pair[0]>=0&&pair[0]<128&&
+            skinBinding:(()=>{
+              const raw=candidate.skinBinding;
+              const cleanRow=row=>(Array.isArray(row)?row.slice(0,4):[])
+                .filter(pair=>Array.isArray(pair)&&Number.isInteger(pair[0])&&pair[0]>=0&&pair[0]<128&&
                   Number.isFinite(Number(pair[1]))&&Number(pair[1])>=0)
-                  .map(pair=>[pair[0],Math.round(clamp(Number(pair[1]),0,1)*10000)/10000]))}
+                .map(pair=>[pair[0],Math.round(clamp(Number(pair[1]),0,1)*10000)/10000]);
+              const clean={schema:'animlab.skin-binding.v1',
+                meshSignature:String(raw.meshSignature||'').slice(0,75),
+                group:String(raw.group||'body').slice(0,36),
+                weights:(Array.isArray(raw.weights)?raw.weights.slice(0,4096):[]).map(cleanRow)};
+              // v1.1.9: preserve automatic base weights separately from tuned
+              // per-vertex weights. Existing v1.1.8 bindings remain readable.
+              if(Array.isArray(raw.baseWeights)&&raw.baseWeights.length===clean.weights.length)
+                clean.baseWeights=raw.baseWeights.slice(0,4096).map(cleanRow);
+              if(raw.boneProfiles&&typeof raw.boneProfiles==='object'){
+                const profiles={};
+                for(const [key,value] of Object.entries(raw.boneProfiles)){
+                  if(!/^\d{1,2}$/.test(key)||+key>=128||!value||typeof value!=='object')continue;
+                  const profile={};
+                  if(Number.isFinite(Number(value.peakWeight))&&value.peakWeight!==null)
+                    profile.peakWeight=clamp(Number(value.peakWeight),0,1);
+                  if(Number.isFinite(Number(value.spread))&&value.spread!==null)
+                    profile.spread=clamp(Number(value.spread),.5,2.5);
+                  if(Object.keys(profile).length)profiles[key]=profile;
+                }
+                if(Object.keys(profiles).length)clean.boneProfiles=profiles;
+              }
+              if(raw.manualWeights&&typeof raw.manualWeights==='object'){
+                const overrides={};
+                for(const [key,row] of Object.entries(raw.manualWeights)){
+                  if(!/^(0|[1-9]\d{0,3})$/.test(key)||+key>=clean.weights.length)continue;
+                  const sanitized=cleanRow(row);if(sanitized.length)overrides[key]=sanitized;
+                }
+                if(Object.keys(overrides).length)clean.manualWeights=overrides;
+              }
+              return clean;
+            })()
           }: {})});
       }
       result.assembly={schema:'animlab.parts-assembly.v1',enabled:source.enabled===true,instances};
