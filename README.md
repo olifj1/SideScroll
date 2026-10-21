@@ -1,17 +1,13 @@
-# SideScroll — SS-PATCH-1.1.6
+# SideScroll — SS-PATCH-1.1.7
 
-**Changed-files-only release.** Install directly over v1.1.5 (with its ordinary code patch). This README covers **only v1.1.6**.
+**Changed-files-only hotfix.** Install directly over **v1.1.6**. This README describes **only this drop**.
 
-The **Parts** workspace now follows the Atlas editor's interaction pattern:
+**Fix — Parts Move/Pivot thumb pad:** Moving an assembled Atlas part could jump it to the extreme end of its position range. The Atlas-backed renderer correctly disables the old procedural layout outline, but the precision-pad handler was mistakenly reading that disabled outline's missing viewport scale. It fell back to scale `1` instead of the actual canvas-pixels-per-character-unit scale, multiplying drag distance enormously.
 
-- One expanded **Assembled parts** list with a name/select button plus **Hide, Solo, Lock** controls on every row. It grows naturally through 14 parts; longer lists are capped at 520px.
-- **Add**, **Delete selected**, **Select all** and **Clear all** remain directly above that same list. Tapping names marks multiple parts for deletion; the most recently tapped part is the individual transform target.
-- A **contained Edit selected part** section groups Move/Rotate/Scale/Pivot, numeric controls, layer order and **Rename / Duplicate / Delete** with existing Reset actions. The original right-side thumb pad still drives transforms, and canvas dragging remains pan/zoom.
-- **Rename** gives a particular assembled instance its own optional name. Its underlying Atlas mesh name and geometry do **not** change. Unrenamed instances continue to follow their source mesh's name. Duplicate creates another positioned **instance**, not a new Atlas mesh.
-- Existing clipboard, reference and specialised near/far transfer commands remain available in a collapsed **Advanced** group, keeping the common workflow short. Hide/Solo/Lock are temporary editor view/tool controls, not exported character data; Lock blocks transform and deletion while set.
+The Parts editor now reads the current viewport projection directly from AnimLab Core, whether the selected part is a legacy Fox region or an Atlas-assembled instance. Move/Pivot use the correct canvas-to-CSS pixel ratio and honour normal coordinate bounds. Existing transforms, saves, rigs, meshes, and art are **not migrated or reset**.
 
-All changes to assembled inventory, instance names, transforms and order use existing Setup Undo/Redo/Save/Discard. Neither the Fox source atlas nor Rig/Skin data is migrated by merely visiting Parts. v1.1.5 assemblies remain readable.
+**Recover an already displaced part:** While still unsaved, use Undo. If saved, select the part and set **X / Y** to their previous values in **Edit selected part** (normally `0 / 0` when first added); **Reset part** is an option if you want to reset its other transforms too. Save once the part is back in place.
 
-**Limitations:** The Atlas-backed Parts preview is still rigid; arbitrary source meshes are not yet weighted in Skin or rendered through Animate/Play. PNG image bytes remain device-local in IndexedDB and absent from JSON exports. iPhone Safari acceptance remains outstanding.
+**Tests:** Reproduced the bug on v1.1.6 in a 2×-pixel-density landscape Chromium harness (`26px` pad movement drove `X=3, Y=-2`, i.e. hard limits). With v1.1.7 the same movement generated `X=0.07393, Y=-0.03696`, consistent with the actual viewport scale. Undo/Redo preserved the move, and no browser JavaScript errors were observed. Actual iPhone Safari/PWA verification remains pending.
 
-See `README-PATCH-1.1.6.md` for installation and test notes specific to this release.
+**Unchanged boundaries:** Atlas-authored meshes still need generic Skin binding and Animate/Play integration; phone-imported PNG bytes are still local to IndexedDB and excluded from portable JSON backup. This drop does not modify those systems.

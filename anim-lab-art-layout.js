@@ -687,14 +687,24 @@
     if(!precisionDrag)return;
     const dx=clientX-precisionDrag.startX,dy=clientY-precisionDrag.startY;
     const next={};
-    const rect=canvas.getBoundingClientRect(),view=lastRender?.view;
-    const pxScale=canvas.width/Math.max(1,rect.width);
-    const sensitivity=(fine ? .25 : 1)*pxScale/Math.max(1,view?.scale||1);
+    // Always use the active preview's real projection. Atlas-backed assembly
+    // intentionally suppresses the old procedural overlay, so `lastRender`
+    // is null; using scale=1 here once caused a few pixels of pad movement
+    // to translate a part across the entire character canvas.
+    const rect=canvas.getBoundingClientRect();
+    const view=core.getPreviewView?.()||lastRender?.view;
+    const viewScale=Number(view?.scale);
+    if(!Number.isFinite(viewScale)||viewScale<=0||rect.width<=0)return;
+    const pxScale=canvas.width/rect.width;
+    const sensitivity=(fine ? .25 : 1)*pxScale/viewScale;
     if(transformMode==='move'||transformMode==='pivot'){
       let mx=dx*sensitivity,my=-dy*sensitivity;
       if(axis==='x')my=0;if(axis==='y')mx=0;
       if(transformMode==='move'){
-        next.x=precisionDrag.start.x+mx;next.y=precisionDrag.start.y+my;
+        // The same authored-coordinate bounds as normaliseArtLayout are a
+        // defensive stop for invalid gesture deltas or an unusual resize.
+        next.x=clamp(precisionDrag.start.x+mx,isAssembly(state())?-3:-1.5,isAssembly(state())?3:1.5);
+        next.y=clamp(precisionDrag.start.y+my,isAssembly(state())?-2:-1,isAssembly(state())?3:1);
       }else{
         // Rebase translation so moving a pivot cannot shift existing artwork.
         const start=precisionDrag.start;

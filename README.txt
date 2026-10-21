@@ -1,4 +1,4 @@
-SideScroll v1.1.6 — Atlas-style Parts inspector
-Install this changed-files-only ZIP over v1.1.5.
-Parts now has a single source-like list with Hide/Solo/Lock, a grouped Edit selected part panel, and compact optional advanced controls. Rename and Duplicate operate on individual assembled instances, leaving Atlas sources unchanged. Setup Save/Discard/Undo/Redo are reused.
-See README-PATCH-1.1.6.md for v1.1.6 checks. Skin/Animate/Play integration and portable imported PNG export are not part of this release.
+SideScroll v1.1.7 — Parts move-distance hotfix
+Install this changed-files-only patch directly over v1.1.6.
+Corrects Parts thumb-pad Move/Pivot projection for Atlas-backed assemblies; a small drag no longer sends the part to its coordinate limit. Already moved parts can be restored with Undo or X/Y numeric fields. No authored data is rewritten by installing this patch.
+See README-PATCH-1.1.7.md for test and recovery details specific to v1.1.7.

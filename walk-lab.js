@@ -1909,6 +1909,14 @@
       if(selection.setupTool===next)return true;
       selection.setupTool=next;saveEditorSelection();draw();updateUi();notify();return true;
     },
+    // Parts editor's precision pad needs the actual canvas-pixels-per-local-unit
+    // scale even when the Atlas assembly renderer supersedes the legacy overlay.
+    // Previously that overlay stopped publishing a view and pad drags could
+    // interpret a single screen pixel as one whole character unit.
+    getPreviewView:()=>{
+      const v=currentPreviewViewSnapshot();
+      return {scale:v.scale,cx:v.cx,groundY:v.groundY,flipX:v.flipX||1};
+    },
     getArtLayoutDescriptor:()=>clone(artLayoutDescriptor(currentAdapter())),
     normaliseArtLayout:value=>clone(normaliseArtLayout(currentAdapter(),value)),
     edit,

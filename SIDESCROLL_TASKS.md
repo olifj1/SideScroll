@@ -2738,3 +2738,11 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Browser-level/Node checks on selection, Lock, Delete/Undo, Clear/Undo, multi-source Add, Duplicate, Rename/Undo, Save. Browser localStorage shim used; live iPhone PWA validation pending.
 - [ ] iPhone acceptance: visually inspect narrow landscape inspector, list hit areas/scroll confinement; Save/reload instance alias, hide/solo/lock transient behaviour, no original Fox data regressions.
 - [ ] Next architecture gate: Atlas-sourced assembled instances still require generic Skin bone weights/rest-bind and Animate/Play/game render; then portable imported-PNG bundle and future Character Hierarchy/graph with multiple atlas pages/shared clothing parts.
+
+## 21 October 2026 — v1.1.7 Parts move-distance regression
+
+- [x] Reproduce Atlas-backed Parts move jump on v1.1.6: +26,+13 CSS-pixel thumb drag on DPR-2 canvas saturated to x=3,y=-2 because the hidden legacy overlay no longer provided `lastRender.view.scale`.
+- [x] Source the live view from read-only AnimLab Core viewport API, apply correct pixel-to-local conversion for Move/Pivot in legacy and Atlas-backed Parts, and guard invalid projection and range.
+- [x] Chromium landscape regression and Setup Undo/Redo round trip, plus syntax checks; no JS errors.
+- [ ] Verify normal/fine Move/Pivot at multiple zooms and after orientation changes on target iPhone, including restoring any saved displaced part with numeric X/Y.
+- [ ] Continue planned dynamic Skin / Animate / Play pipeline and portable PNG project export; unchanged in this hotfix.
