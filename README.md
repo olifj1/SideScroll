@@ -1,16 +1,15 @@
-# SideScroll — SS-PATCH-1.1.12
+# SideScroll — SS-PATCH-1.1.13
 
-**Renderer-parity hotfix for Anim Lab.** Install over v1.1.11. This ZIP includes only files changed in v1.1.12, not a full build.
+**CPU animation performance patch.** Install directly over v1.1.12. This archive contains **only files changed in v1.1.13**, not a complete build.
 
-- Disables the **untested WebGL compositor** that was introduced for Animate and Quick Play in v1.1.11. Skin, Animate and Quick Play now draw source-textured triangles through the *same* Canvas2D renderer. The WebGL file already installed by v1.1.11 remains on disk but is not loaded or pre-cached.
-- Retains v1.1.11 capsule-envelope weights, vertex bindings, per-part transforms, previews, and performance improvements unrelated to GPU drawing. This hotfix does not rewrite saved data or reset binding values.
-- Keeps the cropped-source Canvas2D triangle drawing optimisation. Playback FPS on iPhone remains to be measured; correct geometry has priority over speculative GPU speed-ups.
-- Updates the service-worker cache name and the script query version to avoid mixing old and new rendering code.
+- Replaces hundreds or thousands of redundant Canvas2D atlas draws with consecutive subpixel-compatible triangle batches. All original posed triangle boundaries are retained; the atlas sampling for a batched run differs by at most 0.18 canvas pixel at its vertices.
+- Precomputes bone-to-bone affine transforms once per rendered pose, rather than recalculating them for every influence of every vertex; reuses stable bind geometries and source-mesh signatures.
+- Keeps exactly one shared Canvas2D rendering path for Skin, Animate and Quick Play. **The experimental WebGL renderer remains disabled.** No change to envelope sliders, saved bone weights, rig, Atlas, Parts, or existing character data.
+- Provides read-only renderer counters through `AnimLabAssemblySkinInspect.performance()` (triangles, draws, batched triangles, last paint time) for later diagnosis.
+- Bumps the Anim Lab script version and service-worker cache to prevent mixed code.
 
-**Why:** User observation: changing poses in Skin gives a reasonable character, while every Animate pose is badly distorted. This isolates a strong **render-path suspicion**, not a confirmed root cause. Our headless browser cannot initialise WebGL, so it could not reproduce the iPhone GPU failure. The safe response is to remove the divergent renderer and recheck the same saved character without adjusting weights.
+**Synthetic browser test:** In headless Chromium with five mesh instances, each containing 800 triangles, 25 redraws at a fixed Walk pose averaged around 39 ms (v1.1.12) vs 11 ms (v1.1.13) with uniform weights, and 53 ms vs 13 ms with gradient weights. This is not a measurement on the user's iPhone or actual New01 character; heavily overlapping meshes, extreme zoom or different topology can behave differently.
 
-**Test:** Open New01 → Skin and preview Walk → Animate Walk. If Animate now matches Skin (except for differences in frame/phase), the GPU renderer was responsible. If it remains broken, preserve your saved data and compare pose/geometry evaluation next. Also check Walk playback speed and Quick Play.
+**Acceptance test:** Open your saved New01 character, compare Skin's Walk preview to Animate Walk, then play the full clip. Check image stability, joints, and responsiveness. Do not rebind or regenerate meshes for this test. Compare to the original Fox separately; its six-region renderer is intrinsically cheaper than fully deformable custom Atlas meshes.
 
-**Checks:** JavaScript syntax checks passed. A headless Chromium synthetic atlas-mesh test navigated Skin → Animate with the WebGL module absent, displayed textured triangles in both and had no page exceptions. This does **not** validate the actual imported Fox on iPhone.
-
-Changed files are: `anim-lab-assembly-skin.js`, `walk-lab.html`, `sw.js`, the three current-drop READMEs, and the three cumulative design/UX/task documents. Existing PNGs and rig/skin data are unchanged.
+**Still open:** Safari/iPhone frame-rate measurement; fully device-validated GPU path; runtime-game integration and portable imported PNG data in exports.

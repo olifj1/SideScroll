@@ -1,4 +1,4 @@
-/* SideScroll v1.1.12 — unified, validated Canvas2D renderer for Skin/Animate/Play.
+/* SideScroll v1.1.13 — shared Skin/Animate/Play Canvas2D with safe affine batching.
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -29,11 +29,17 @@
     return map;
   }
   const validSource=source=>source?.mesh?.vertices?.length>=3&&source.mesh.triangles?.length>0;
+  // The Atlas can edit vertices in place while in its own workspace. Clear
+  // signatures when Atlas is active; elsewhere the render-document mesh is
+  // stable and hashing its full JSON every animation frame is unnecessary.
+  let signatures=new WeakMap();
   function signature(mesh){
+    const cached=signatures.get(mesh);if(cached)return cached;
     const str=JSON.stringify([mesh.vertices.map(v=>[v.x,v.y]),mesh.triangles]);
     let hash=2166136261;
     for(let i=0;i<str.length;i++){hash^=str.charCodeAt(i);hash=Math.imul(hash,16777619);}
-    return `${mesh.vertices.length}:${mesh.triangles.length}:${(hash>>>0).toString(16)}`;
+    const id=`${mesh.vertices.length}:${mesh.triangles.length}:${(hash>>>0).toString(16)}`;
+    signatures.set(mesh,id);return id;
   }
   const neutral=(()=>{
     const p={...rig.IDLE_POSE};
@@ -52,6 +58,15 @@
     const dx=b.x-a.x,dy=b.y-a.y,d2=dx*dx+dy*dy;
     const t=d2>1e-8?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/d2,0,1):0;
     return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));
+  }
+  const bindGeometries=new WeakMap();
+  function bindingGeometry(restRig){
+    if(restRig&&typeof restRig==='object'){
+      let value=bindGeometries.get(restRig);
+      if(!value){value=rig.geometry(neutral,restRig);bindGeometries.set(restRig,value);}
+      return value;
+    }
+    return rig.geometry(neutral,rig.DEFAULT_REST_RIG);
   }
   function transformVertices(mesh,item,image){
     const verts=mesh.vertices,xs=verts.map(v=>v.x),ys=verts.map(v=>v.y);
@@ -243,15 +258,19 @@
     const rest=Math.max(0,1-sum),den=Math.max(1,sum);
     return sum>1e-8?{x:(x+rest*p.x)/den,y:(y+rest*p.y)/den}:p;
   }
-  function triangle(ctx,image,a,b,c,u,v,w){
+  function uvAffine(a,b,c,u,v,w){
     const den=u.x*(v.y-w.y)+v.x*(w.y-u.y)+w.x*(u.y-v.y);
-    if(Math.abs(den)<1e-7)return;
+    if(Math.abs(den)<1e-7)return null;
     const m={a:(a.x*(v.y-w.y)+b.x*(w.y-u.y)+c.x*(u.y-v.y))/den,
       c:(a.x*(w.x-v.x)+b.x*(u.x-w.x)+c.x*(v.x-u.x))/den,
       e:(a.x*(v.x*w.y-w.x*v.y)+b.x*(w.x*u.y-u.x*w.y)+c.x*(u.x*v.y-v.x*u.y))/den,
       b:(a.y*(v.y-w.y)+b.y*(w.y-u.y)+c.y*(u.y-v.y))/den,
       d:(a.y*(w.x-v.x)+b.y*(u.x-w.x)+c.y*(v.x-u.x))/den,
       f:(a.y*(v.x*w.y-w.x*v.y)+b.y*(w.x*u.y-u.x*w.y)+c.y*(u.x*v.y-v.x*u.y))/den};
+    return m;
+  }
+  function triangle(ctx,image,a,b,c,u,v,w){
+    const m=uvAffine(a,b,c,u,v,w);if(!m)return;
     ctx.save();ctx.globalAlpha=1;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);
     ctx.closePath();ctx.clip();ctx.transform(m.a,m.b,m.c,m.d,m.e,m.f);
     const W=image.naturalWidth||image.width,H=image.naturalHeight||image.height;
@@ -262,6 +281,86 @@
     ctx.drawImage(image,sx,sy,ex-sx,ey-sy,sx,sy,ex-sx,ey-sy);
     ctx.restore();
   }
+  // Neighbouring faces whose deformed UV mapping agrees within 0.18 canvas
+  // pixel can share one clipped atlas draw. Mesh edges stay exact, so this
+  // eliminates thousands of drawImage calls with subpixel-only UV differences.
+  // Runs are consecutive, preserving authored triangle stacking order.
+  function drawAffineRun(ctx,image,mesh,points,triangles,start,end){
+    const first=triangles[start],a=points[first[0]],b=points[first[1]],c=points[first[2]];
+    const u=mesh.vertices[first[0]],v=mesh.vertices[first[1]],w=mesh.vertices[first[2]];
+    const m=uvAffine(a,b,c,u,v,w);if(!m)return false;
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    ctx.save();ctx.globalAlpha=1;ctx.beginPath();
+    for(let k=start;k<end;k++){
+      const tri=triangles[k],p=points[tri[0]],q=points[tri[1]],r=points[tri[2]];
+      ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.lineTo(r.x,r.y);ctx.closePath();
+      for(const idx of tri){const pt=mesh.vertices[idx];
+        minX=Math.min(minX,pt.x);maxX=Math.max(maxX,pt.x);
+        minY=Math.min(minY,pt.y);maxY=Math.max(maxY,pt.y);}
+    }
+    const W=image.naturalWidth||image.width,H=image.naturalHeight||image.height;
+    const sx=clamp(Math.floor(minX)-2,0,W-1),sy=clamp(Math.floor(minY)-2,0,H-1);
+    const ex=clamp(Math.ceil(maxX)+2,sx+1,W),ey=clamp(Math.ceil(maxY)+2,sy+1,H);
+    ctx.clip();ctx.transform(m.a,m.b,m.c,m.d,m.e,m.f);
+    ctx.drawImage(image,sx,sy,ex-sx,ey-sy,sx,sy,ex-sx,ey-sy);
+    ctx.restore();return true;
+  }
+  // Group only consecutive triangles whose exact UV->screen affine maps agree
+  // at all three corners within a subpixel tolerance. This is *not* a mesh
+  // simplifier: every posed triangle boundary and vertex remains unchanged.
+  // Identical transform runs are pixel-exact apart from avoiding clip seams.
+  function rasterTriangles(ctx,image,mesh,points,binding,posed,counts){
+    const triangles=mesh.triangles,ready=!!(image&&image.complete!==false&&(image.naturalWidth||image.width));
+    const closeTo=(m,tri)=>{
+      for(const i of tri){const u=mesh.vertices[i],p=points[i];if(!u||!p)return false;
+        if(Math.abs(m.a*u.x+m.c*u.y+m.e-p.x)>.18||
+           Math.abs(m.b*u.x+m.d*u.y+m.f-p.y)>.18)return false;
+      }
+      return true;
+    };
+    for(let t=0;t<triangles.length;){
+      const tri=triangles[t],u=mesh.vertices,v=points;
+      const affine=ready?uvAffine(v[tri[0]],v[tri[1]],v[tri[2]],u[tri[0]],u[tri[1]],u[tri[2]]):null;
+      let end=t+1;
+      if(affine){
+        while(end<triangles.length&&end-t<320&&closeTo(affine,triangles[end]))end++;
+      }
+      if(ready&&end-t>=2&&drawAffineRun(ctx,image,mesh,points,triangles,t,end)){
+        counts.drawCalls++;counts.batched+=end-t;t=end;continue;
+      }
+      const [i,j,k]=tri,a=points[i],b=points[j],c=points[k];
+      if(a&&b&&c){
+        if(ready)triangle(ctx,image,a,b,c,mesh.vertices[i],mesh.vertices[j],mesh.vertices[k]);
+        else{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.closePath();ctx.fillStyle='#536b67';ctx.fill();}
+        counts.drawCalls++;
+      }
+      t++;
+    }
+    counts.triangles+=triangles.length;
+  }
+  // Precompute bone transforms once per pose (instead of calculating two
+  // hypot's + bone basis vectors for every influence of every vertex).
+  function boneTransforms(bind,posed){
+    return bones.map(b=>{
+      const A=bind[b.a],B=bind[b.b],C=posed[b.a],D=posed[b.b];
+      if(!A||!B||!C||!D)return {a:1,b:0,c:0,d:1,e:0,f:0};
+      const x=mapBone({x:0,y:0},A,B,C,D);
+      const xx=mapBone({x:1,y:0},A,B,C,D);
+      const yy=mapBone({x:0,y:1},A,B,C,D);
+      return {a:xx.x-x.x,b:xx.y-x.y,c:yy.x-x.x,d:yy.y-x.y,e:x.x,f:x.y};
+    });
+  }
+  function fastSkinVertex(p,influences,maps){
+    let x=0,y=0,sum=0;
+    for(const [i,w] of influences||[]){
+      const m=maps[i];if(!m||w<=0)continue;
+      x+=(m.a*p.x+m.c*p.y+m.e)*w;
+      y+=(m.b*p.x+m.d*p.y+m.f)*w;sum+=w;
+    }
+    const rest=Math.max(0,1-sum),den=Math.max(1,sum);
+    return sum>1e-8?{x:(x+rest*p.x)/den,y:(y+rest*p.y)/den}:p;
+  }
+  let lastPerf={triangles:0,drawCalls:0,batched:0,ms:0};
   // Heatmap is a colour annotation drawn OVER fully opaque textured triangles.
   // It never changes the artwork opacity, selected or unselected.
   function heatColour(w){
@@ -653,8 +752,10 @@
     if(s.mode==='setup'&&s.setupTool!=='skin')return false;
     const sources=sourceMap(s),skinMode=s.mode==='setup'&&s.setupTool==='skin';
     const pose=skinMode&&preview==='rest'?null:skinMode?(core.evaluateClip?.(preview,phase,'fox')||args.pose):args.pose;
-    const bindGeom=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
-    const posed=pose?rig.geometry(pose,s.setup?.rig||rig.DEFAULT_REST_RIG):rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+    const bindGeom=bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+    const posed=pose?rig.geometry(pose,s.setup?.rig||rig.DEFAULT_REST_RIG):bindGeom;
+    const maps=pose?boneTransforms(bindGeom,posed):null;
+    const counts={triangles:0,drawCalls:0,batched:0};const started=performance.now();
     const ctx=args.ctx;
     ctx.save();ctx.globalAlpha=1;ctx.imageSmoothingEnabled=true;
     // v1.1.12: one authoritative rasterisation path for Skin, Animate and
@@ -669,13 +770,11 @@
       const selected=skinMode&&item.id===selectedId;
       const binding=selected&&item.id===liveItemId&&liveBinding?liveBinding:bindingFor(item,source);
       const rest=transformVertices(mesh,item,image);
-      const points=rest.map((p,i)=>project(binding&&pose?skinVertex(p,binding.weights[i],bindGeom,posed):p,args.view));
-      const ready=!!(image&&image.complete!==false&&(image.naturalWidth||image.width));
-      for(const tri of mesh.triangles){
-        const [i,j,k]=tri,a=points[i],b=points[j],c=points[k];if(!a||!b||!c)continue;
-        if(ready)triangle(ctx,image,a,b,c,mesh.vertices[i],mesh.vertices[j],mesh.vertices[k]);
-        else{ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.closePath();ctx.fillStyle='#536b67';ctx.fill();}
-        if(selected&&heatmap&&binding){
+      const points=rest.map((p,i)=>project(binding&&maps?fastSkinVertex(p,binding.weights[i],maps):p,args.view));
+      rasterTriangles(ctx,image,mesh,points,binding,pose,counts);
+      if(selected&&heatmap&&binding){
+        for(const tri of mesh.triangles){
+          const [i,j,k]=tri,a=points[i],b=points[j],c=points[k];if(!a||!b||!c)continue;
           const weight=n=>binding.weights[n]?.find(p=>p[0]===selectedBone)?.[1]||0;
           heatTri(ctx,a,b,c,weight(i),weight(j),weight(k));
         }
@@ -718,9 +817,9 @@
         ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();
       });
     }
-    ctx.restore();return true;
+    ctx.restore();lastPerf={...counts,ms:performance.now()-started};return true;
   }
   core.registerArtRenderer('atlas-assembly-skin',render);
-  core.subscribe(()=>refresh());refresh();
-  window.AnimLabAssemblySkinInspect=Object.freeze({sourceSignature:signature,defaultEnvelope,envelopeFalloff,capsuleRows,activateEnvelopes,updateEnvelopeWeights,skinVertex,sourceMap:()=>sourceMap(state()),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
+  core.subscribe(s=>{if(s.mode==='setup'&&s.setupTool==='atlas')signatures=new WeakMap();refresh();});refresh();
+  window.AnimLabAssemblySkinInspect=Object.freeze({sourceSignature:signature,defaultEnvelope,envelopeFalloff,capsuleRows,activateEnvelopes,updateEnvelopeWeights,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
 })();

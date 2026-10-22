@@ -2797,3 +2797,12 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Node JS syntax tests and synthetic inline Chromium Skin→Animate smoke test passed without page exceptions; test was software-rendered (WebGL not loaded).
 - [ ] **User iPhone acceptance:** reopen actual New01 saved art/rig/weights, compare matching Walk/Run phases in Skin and Animate without rebinding, ensure Quick Play consistency; measure playback speed. If still broken, record pre/post-deform world vertices in both modes and identify pose mismatch before touching skin controls.
 - [ ] Reintroduce optional GPU only after on-device pixel-parity proof for nonrectangular source mesh UVs, alpha/layer order, and consistent frame positions at multiple DPR/zoom values.
+
+## 2026-10-21 — v1.1.13 CPU Skin/Animate performance parity
+
+- [x] Audit new Atlas assembly's draw-call cost against original Fox (per-triangle Canvas2D vs handful of atlas-region draws); isolate rendering workload from spatial-envelope weight authorship.
+- [x] Batch consecutive rendered triangles whose UV-to-screen transforms agree within 0.18 canvas pixel at corners; keep actual vertex positions/triangle ordering unchanged. Preserve shared Canvas2D Skin→Animate→Play parity (WebGL stays disabled).
+- [x] Precompute per-pose bone affine maps; cache bind rest geometry and Atlas source signatures safely; expose non-mutating paint counters.
+- [x] Synthetic Chromium 5 × 800 triangle fixed-pose benchmark: rigid ~38.6 → 11.3 ms, gradient ~52.7 → 13.1 ms per redraw, zero page errors. Update current-drop READMEs and cumulative docs.
+- [ ] **Device acceptance required:** measure actual user's New01 imported texture / topology / weight complexity at 100%, ~225%, and 900% zoom on iPhone Safari; inspect render counters, all animation clips and parity with Skin pose preview. Do not equate synthetic results to device FPS.
+- [ ] For remaining high-density soft-gradient load, implement and validate *separately* a GPU renderer with pixel-parity, texture UV, premultiplied alpha, source clipping, pose consistency, layer ordering, context-loss and iPhone Safari tests. Re-enable only after validation.

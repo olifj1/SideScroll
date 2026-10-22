@@ -1499,3 +1499,7 @@ Animation should run at usable phone speed without requiring reduced artwork opa
 ## v1.1.12 — Skin / Animate parity guard (21 Oct 2026)
 
 When adjacent character workspaces show the same authored parts with different geometric appearance, do not present the deformation controls as the first suspect without comparing render pathways. This release uses a **single Canvas2D atlas triangle compositor** in Skin, Animate and Quick Play and turns off v1.1.11's unverified WebGL animation-only branch. No authoring controls or saved setup records are altered. GPU reintroduction must be optional and must pass a same-pose **pixel/geometry comparison on the target device** (all triangle UVs, alpha and layering). Do not introduce a new compositor and a new skinning model in the same release without isolating both.
+
+### v1.1.13 — Animation authoring performance guardrail (2026-10-21)
+
+Do not alter an artist's rig, skin envelopes or binding values to compensate for slow preview rasterisation. Keep Skin, Animate and Quick Play geometrically consistent through one tested renderer; a new GPU backend must be independently validated against Canvas2D on actual iOS/Safari before being enabled. Optimize CPU draw calls without removing topology or changing authoring data. For phone testing, compare frames at identical animation poses, inspect draw-call statistics and note zoom/display resolution. Every README in a patch ZIP continues to describe **only that drop**; cumulative engine and task documents can include long-term plans.
