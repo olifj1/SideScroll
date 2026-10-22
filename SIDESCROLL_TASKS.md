@@ -2815,3 +2815,11 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] DPR2 landscape synthetic Chromium Fox Paw Target drag changed pose; Undo/Redo and pointercancel preserved semantics; no JS page exceptions.
 - [ ] **iPhone/New01 acceptance:** test many authored vertices with actual imported art, smoothness while dragging vs playback, timing at different zoom; watch texture CPU time via `AnimLabAssemblySkinInspect.performance()` if pad still lags.
 - [ ] Profile remaining Canvas2D mesh deformation/draw overhead if drag still feels delayed; do not prematurely re-enable unvalidated WebGL.
+
+## 2026-10-22 — v1.1.15 Fox Paw IK elbow/knee branch correction
+
+- [x] Reproduce wrong limb bends with real authored Fox rest rig: setting a target at unchanged paw position displaced the foreleg elbow 0.035m and hind knee 0.054m; the legacy branch chose the mirror solution.
+- [x] Derive stable limb-specific IK bend sign from saved rest Socket→Wrist/Hock and Socket→Knee cross product. Correct degenerate rest fallbacks (front - / rear +); cover near/far and existing three-segment out-of-reach path. No saved document migration.
+- [x] Regression test four limbs FK→IK at unchanged paw, 24 raised target samples, and altered rest rigs with opposite signed knees; retain exact segment lengths and rest branch.
+- [ ] iPhone user acceptance: test Fox Rig resting knees vs front/rear Paw Targets in Animate Idle, then Walk/Run/Jump, including New01 custom Atlas character; verify no bone branch crosses and check existing authored clips for legitimate pose differences.
+- [ ] Longer term: consider a user-authored IK bend/pole override for *nearly straight* custom rest rigs, but only if rest-shape inference is insufficient in practice. Keep it optional and rig-driven; do not add duplicate per-animation controls now.

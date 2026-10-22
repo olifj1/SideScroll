@@ -169,12 +169,35 @@
       Object.freeze(['rearNearPaw','rearFarPaw'])
     ]),
     groundContacts:Object.freeze(['frontNearPaw','frontFarPaw','rearNearPaw','rearFarPaw']),
-    // Stable two-bone IK bend branch per limb. Front knees solve on the + side
-    // of the socket→paw line; rear hocks solve on the - side. Keeping this in
-    // the rig-family descriptor prevents frame-by-frame branch selection from
-    // making knees/hocks snap backwards and forwards near ambiguous targets.
-    ikBendSides:Object.freeze({frontNear:1,frontFar:1,rearNear:-1,rearFar:-1})
+    // Anatomical fallback branch for an almost-straight or degenerate rest rig.
+    // Actual IK bend direction is derived from the authored rest skeleton by
+    // ikBendSideForRest(), not hardcoded independently of the Rig workspace.
+    // Fox forelegs bend backwards (-); hind knees bend forwards (+).
+    ikBendSides:Object.freeze({frontNear:-1,frontFar:-1,rearNear:1,rearFar:1})
   });
+
+  // v1.1.15: Rest-rig anatomy must determine the IK elbow/knee branch.
+  // The previous static bend sides were opposite the supplied Fox's authored
+  // rest joints. Activating an IK target at the *same paw position* mirrored
+  // the elbow/knee to the other circle intersection, breaking the silhouette.
+  // The first two bones solve to the wrist/hock, so derive the signed branch
+  // from Socket -> Wrist/Hock and Socket -> Knee, not the terminal paw.
+  // This is a property of the rest setup, never of the animated target.
+  function ikBendSideForRest(restRig, prefix) {
+    const joints=restRig?.joints||{};
+    const socket=joints[`${prefix}Socket`];
+    const knee=joints[`${prefix}Knee`];
+    const distal=joints[prefix.startsWith('front')?`${prefix}Wrist`:`${prefix}Hock`];
+    if(socket&&knee&&distal){
+      const ax=distal.x-socket.x, ay=distal.y-socket.y;
+      const bx=knee.x-socket.x, by=knee.y-socket.y;
+      const cross=ax*by-ay*bx;
+      const scale=Math.hypot(ax,ay)*Math.hypot(bx,by);
+      if(Number.isFinite(cross)&&scale>1e-12&&Math.abs(cross)>scale*1e-5)
+        return cross<0?-1:1;
+    }
+    return RIG_DESIGNER.ikBendSides?.[prefix]||1;
+  }
 
   function normalizedRestRig(value = null) {
     const raw = value?.joints && typeof value.joints === 'object' ? value.joints : {};
@@ -1048,7 +1071,7 @@
         return{root,knee:fkKnee,distal:fkDistal,paw:fkPaw,fkKnee,fkDistal,fkPaw,ikTarget:fkPaw,ikWeight:0};
       }
       const blendedTarget={x:lerp(fkPaw.x,target.x,weight),y:lerp(fkPaw.y,target.y,weight)};
-      const bendSide=Number(RIG_DESIGNER.ikBendSides?.[prefix])||1;
+      const bendSide=ikBendSideForRest(rest,prefix);
 
       // Full-chain extension while preserving existing authored poses.
       // Keep the established 1.0.160 solve exactly while the preferred
@@ -1262,7 +1285,7 @@
   window.GameHubFoxRig={
     version:'1.0.163',DEG,TAU,BODY,REST,LIMBS,ATLAS,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
-    REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
+    REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,ikBendSideForRest,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y
   };
 })();
