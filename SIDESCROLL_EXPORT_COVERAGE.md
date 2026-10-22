@@ -122,3 +122,8 @@ Canvas2D batching and per-pose affine bone-map caching are transient rendering i
 ## v1.1.16 optional Skin rectangle data
 
 `artLayout.assembly.instances[].skinBinding` retains schema `animlab.skin-binding.v1`. Binary rectangle assignments store `envelopeMode:'rect-binary-v1'` and per-bone `rectangles:{index:{scaleX,scaleY,offsetX,offsetY}}`, plus explicit `weights`/`baseWeights` rows (each binary row `[]` or `[[boneIndex,1]]`). Core normalisation accepts and clamps dimensions/offsets and **preserves empty manual-weight rows** in binary mode. This is JSON setup data, not an image export. The user's locally imported PNG remains device-local IndexedDB and is **not** made portable by this patch. Previously saved capsule metadata is preserved until explicit conversion.
+
+
+## v1.1.19 joint-owned Skin data
+
+Optional `setup.artLayout.assembly.instances[].skinBinding` of schema `animlab.skin-binding.v1` now permits `envelopeMode:'joint-boundaries-v1'` and `jointBoundaries:{[rigJointId]:{width,rotation,offsetX,offsetY}}` in addition to the authoritative per-vertex `weights`, `baseWeights` and optional sparse `manualWeights`. `walk-lab.js` validates and clamps each named joint's four fields when saving/loading Setup, preserves explicit empty manual override rows in this binary mode, and leaves previous rectangle metadata intact for reversible comparison. No additional persistent storage key, mesh copy, Atlas image export or runtime character installation is introduced. **Current JSON-only backups still exclude imported PNG blobs in IndexedDB** and are not fully portable until that issue is separately addressed.

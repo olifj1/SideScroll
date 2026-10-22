@@ -2849,3 +2849,10 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - **VERIFY on user's New01 on iPhone:** rectangle alignment with actual authored bones and whole mesh coverage, selection/preview slider responsiveness, Skin/Animate pose parity, rigid-body size invariance.
 - **NEXT, ON HOLD UNTIL VERIFIED:** optional border soften (global) vs second inner/outer falloff shape; define tie-break/priority during overlap and behaviour of uncovered vertices in soft mode.
 - **UNCHANGED OPEN:** normal game runtime character hookup; imported Atlas PNG portable export; complete character hierarchy/node graph and multi-atlas/shared clothing.
+
+
+## v1.1.19 — Shape-first joint Skin authoring milestone (22 October 2026)
+
+**IMPLEMENTED as opt-in:** per-part `joint-boundaries-v1` with an automatically bisected REST joint cap, adjustable width/rotation/local X/Y offsets, one line shared by all adjoining bone polygons in unbranched chains, selected polygon/active line previews, hard 0/100 ownership, uncovered status and Undo/Redo Save/Discard. Existing rectangles/Joint Fit may be restored rather than losing their settings. Bounds and convexity checks refuse invalid edits. No new renderer or rig logic. Device acceptance on user-imported New01 remains **OPEN**, as does visual comparison to old mitred rectangles in both straight and curled animations.
+
+**NEXT, only after shape feedback:** optional per-joint **Blend Distance**, default 0, centered on the authored boundary. Two incident bones only, with normalized weights, visible blend edges, and weights baked on edit (not animated every frame). Consider one linear/smoothstep profile before any independent secondary falloff shape. Verify enough mesh subdivisions exist in the blend zone; avoid automatic remeshing in the first blend release. Investigate skinning volume loss and interactive performance separately after the binary model is accepted. Full portable image asset export and cross-character hierarchy remain separate outstanding workstreams.

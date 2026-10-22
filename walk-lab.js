@@ -399,11 +399,23 @@
                 clean.envelopeMode='rect-binary-v1';clean.rectangles=rectangles;
                 if(raw.jointFit===true)clean.jointFit=true;
               }
+              // v1.1.19: opt-in joint-owned boundaries with independent
+              // width, rotation and rest-local offsets. Saved weights remain
+              // authoritative until an explicit Skin edit recomputes them.
+              if(raw.envelopeMode==='joint-boundaries-v1'&&raw.jointBoundaries&&typeof raw.jointBoundaries==='object'){
+                const boundaries={};
+                for(const [joint,entry] of Object.entries(raw.jointBoundaries)){
+                  if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,55}$/.test(joint)||!entry||typeof entry!=='object')continue;
+                  boundaries[joint]={width:number(entry.width,1.2,.05,8),
+                    rotation:number(entry.rotation,0,-70,70),offsetX:number(entry.offsetX,0,-1,1),offsetY:number(entry.offsetY,0,-1,1)};
+                }
+                if(Object.keys(boundaries).length){clean.envelopeMode='joint-boundaries-v1';clean.jointBoundaries=boundaries;}
+              }
               if(raw.manualWeights&&typeof raw.manualWeights==='object'){
                 const overrides={};
                 for(const [key,row] of Object.entries(raw.manualWeights)){
                   if(!/^(0|[1-9]\d{0,3})$/.test(key)||+key>=clean.weights.length)continue;
-                  const sanitized=cleanRow(row);if(sanitized.length||raw.envelopeMode==='capsule-v1'||raw.envelopeMode==='rect-binary-v1')overrides[key]=sanitized;
+                  const sanitized=cleanRow(row);if(sanitized.length||raw.envelopeMode==='capsule-v1'||raw.envelopeMode==='rect-binary-v1'||raw.envelopeMode==='joint-boundaries-v1')overrides[key]=sanitized;
                 }
                 if(Object.keys(overrides).length)clean.manualWeights=overrides;
               }
