@@ -1,13 +1,11 @@
-# SideScroll — Patch v1.1.16
+# SideScroll — Patch v1.1.17
 
-**Install this changed-files-only patch over v1.1.15.** Replace the files from `SS-PATCH-1.1.16.zip` in the flat GitHub repository and refresh the PWA after deployment.
+**Install this changed-files-only patch over v1.1.16.** Replace its files in the flat GitHub repository, then fully reload Anim Lab after deployment (service-worker cache `v127`).
 
-This drop adds an **opt-in, bone-local rectangular Skin influence** for Atlas-assembled characters. Each rectangle has independent local X/Y scale and offset, and assigns vertices **100% to one bone or 0%**. Overlapping rectangles select just one bone; there is **no smoothing or blending** at this stage. A 100%-weighted vertex uses a rigid translation/rotation bone transform, without inherited bone-length scaling. The Skin viewport displays the selected rectangle and vertex-coverage count.
+**Skin rectangle preview fix:** In v1.1.16, the selected bone's influence rectangle was always drawn in its *rest-pose position*, even while the bone and skinned artwork moved in Skin's Walk/Run previews. The rectangle now follows the selected bone's **rigid translation and rotation**, preserving the authored local X/Y offset, scale and orientation in the displayed pose. The local-axis guides move with it.
 
-Existing saved capsule and manual bindings remain in place until **Use binary rectangles** or **Auto-bind** is selected. Changes use the existing Setup Undo/Redo/Save/Discard workflow. No Atlas, Parts, Rig or clip migration is performed.
+The rectangle remains **authored and sampled in rest space** for binary vertex assignment. Changing preview poses does **not** recalculate weights, cause vertices to switch bones, or mutate saved Skin bindings. This is a viewport guide correction only, not a new skinning method. No Atlas, Parts, Rig, clips, weights or character records are migrated.
 
-**Important:** Vertices outside every rectangle remain in the rest position. If part of a mesh is uncovered, that region may stretch when animating; enlarge/move rectangles to cover it, or use Rigid Bind for a whole-piece test. Soft edges, secondary falloff rectangles and automatic coverage repair are **not** part of this release.
+Automated Chromium tests checked the moved rectangle against the same rigid bone transform used for mesh deformation on all four Fox upper leg bones. They also checked that its dimensions stay constant in posed previews. Actual iPhone Safari and New01 visual verification remain outstanding.
 
-Verification: Node geometry checks for all four Fox limbs, body and tail, plus a synthetic Chromium Skin UI smoke test passed. The user's actual New01 atlas and iPhone Safari remain untested.
-
-For detailed change notes and checks, see `README-PATCH-1.1.16.md`.
+See `README-PATCH-1.1.17.md` for details and acceptance checks.

@@ -1,6 +1,6 @@
-SIDESCROLL v1.1.16 — BINARY RECTANGLE SKIN ENVELOPES
+SIDESCROLL v1.1.17 — SKIN RECTANGLE POSE PREVIEW FIX
 
-Changed-files-only update; install over v1.1.15.
-Skin: opt-in bone-local hard-edged rectangles, adjustable X/Y size and offsets, 100%/0% assignment, no blend. Selected rectangle and coverage count visible. Rigid bone transform avoids length stretching. Saved older bindings are preserved until explicitly converted.
+Changed-files-only patch over v1.1.16.
+In Skin's animated pose previews, the selected local rectangle and its axis guides now move and rotate rigidly with their bone. Influence assignment stays based on the rest pose; saved weights and character data are untouched.
 
-See README-PATCH-1.1.16.md for controls, limits and testing.
+See README-PATCH-1.1.17.md for the exact scope and device test.

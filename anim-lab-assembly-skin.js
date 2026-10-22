@@ -1,4 +1,4 @@
-/* SideScroll v1.1.16 — optional hard-edged bone-local rectangular Skin regions.
+/* SideScroll v1.1.17 — pose-following visual guide for hard-edged bone-local rectangles.
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -174,6 +174,24 @@
     return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([i,j])=>({
       x:frame.cx+i*frame.ux*frame.hx+j*frame.nx*frame.hy,
       y:frame.cy+i*frame.uy*frame.hx+j*frame.ny*frame.hy}));
+  }
+  // The influence area is AUTHORed in the bind pose and weights are assigned
+  // there once. For pose preview, display that same area after the selected
+  // bone's rigid transform (identical to rect-binary skinned vertices).
+  // Do NOT recalculate/assign vertex weights in the animated pose: that would
+  // make influence jump between bones as the character moves.
+  function rectanglePoseFrame(index,frame,bind,posed){
+    if(!frame||!bind||!posed||bind===posed)return frame;
+    const bone=bones[index];if(!bone)return frame;
+    const A=bind[bone.a],B=bind[bone.b],C=posed[bone.a],D=posed[bone.b];
+    if(!A||!B||!C||!D)return frame;
+    const centre={x:frame.cx,y:frame.cy};
+    const move=p=>mapBoneRigid(p,A,B,C,D);
+    const c=move(centre);
+    const x=move({x:centre.x+frame.ux,y:centre.y+frame.uy});
+    const y=move({x:centre.x+frame.nx,y:centre.y+frame.ny});
+    return {...frame,cx:c.x,cy:c.y,
+      ux:x.x-c.x,uy:x.y-c.y,nx:y.x-c.x,ny:y.y-c.y};
   }
   function rectBinaryRows(binding,positions,geom){
     const allowed=groupBones(binding.group),frames=allowed.map(i=>[i,rectangleFrame(i,binding.rectangles?.[i]||defaultRectangle(),geom)]);
@@ -920,8 +938,9 @@
       const allowed=new Set(groupBones(groupCandidate||bound?.group||'body'));
       const displayed=item?.id===liveItemId&&liveBinding?liveBinding:bound;
       if(showRect&&displayed?.envelopeMode==='rect-binary-v1'&&allowed.has(selectedBone)){
-        const frame=rectangleFrame(selectedBone,displayed.rectangles?.[selectedBone]||defaultRectangle(),bindGeom);
-        if(frame){ctx.save();rectangleOutline(ctx,frame,args.view);ctx.restore();}
+        const restFrame=rectangleFrame(selectedBone,displayed.rectangles?.[selectedBone]||defaultRectangle(),bindGeom);
+        const displayFrame=rectanglePoseFrame(selectedBone,restFrame,bindGeom,posed);
+        if(displayFrame){ctx.save();rectangleOutline(ctx,displayFrame,args.view);ctx.restore();}
       }
       ctx.lineCap='round';ctx.lineJoin='round';
       bones.forEach((bone,i)=>{
@@ -937,5 +956,5 @@
   core.registerArtRenderer('atlas-assembly-skin',render);
   core.subscribe(s=>{if(s.mode==='setup'&&s.setupTool==='atlas')signatures=new WeakMap();refresh();});refresh();
   window.AnimLabAssemblySkinInspect=Object.freeze({sourceSignature:signature,defaultEnvelope,envelopeFalloff,capsuleRows,activateEnvelopes,updateEnvelopeWeights,
-    defaultRectangle,rectangleFrame,rectangleCorners,rectBinaryRows,activateRectangles,updateRectWeights,mapBoneRigid,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
+    defaultRectangle,rectangleFrame,rectangleCorners,rectanglePoseFrame,rectBinaryRows,activateRectangles,updateRectWeights,mapBoneRigid,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
 })();

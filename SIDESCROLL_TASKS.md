@@ -1,5 +1,13 @@
 # SideScroll Tasks / Release Tracking
 
+## v1.1.17 — Skin rectangle pose-alignment hotfix (22 October 2026)
+
+- [x] Correct the selected `rect-binary-v1` influence guide: transform its rest-space rectangle and local-axis cross with the selected bone's rigid bind→posed transform for Skin Walk/Run previews.
+- [x] Preserve original local size, X/Y offsets, authored rest-space weights, 0/100 binary ownership, schema and Save/Undo state. No rebinding or reassigning based on posed vertices.
+- [x] Chromium regression across four upper-leg bones with non-zero local offsets: guide corners exactly match the rigid vertex transform; no image or data updates required.
+- [ ] **iPhone/New01 acceptance:** confirm rectangle visually follows bone in Skin Rest/Walk/Run, local offsets remain correct and no saved data changes on preview switch.
+- [ ] Stage 2 gradual falloff remains intentionally out of scope; only consider after hard-box authoring and deformation both pass on-device.
+
 
 ## v1.1.3 — Atlas topology and editability (20 October 2026; synthetic QA done, iPhone pending)
 

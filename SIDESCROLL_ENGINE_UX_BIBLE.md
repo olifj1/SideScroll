@@ -1,5 +1,9 @@
 # SideScroll Engine & UX Bible
 
+## Skin influence guides must follow the previewed rig pose (v1.1.17)
+
+Skin authoring controls belong in **rest/bind-local coordinates** even while users preview Walk/Run deformation. Draw their viewport gizmos in the **currently shown pose** using the same geometric transform as skinned vertices: a selected bone's local rectangular guide must follow that bone's translation and rotation, including nonzero authored X/Y offsets, without changing its width or height when IK changes limb length. Do not use preview pose coordinates to **recompute** bind-pose influence, or silently alter saved weights. Ensure a Rest → Walk/Run → Rest preview round-trip leaves both the binding and original rest-space region unchanged. Validate guide geometry and actual deformed geometry together.
+
 ## v1.1.3 Atlas topology UX rules (20 October 2026)
 
 - **Preview before committing** any procedural source mesh. Mesh generation uses the same final vertices/triangles in the preview; numeric settings and spline control handles must update immediately and remain unsaved until an explicit Commit. Users can cancel without changing the character. Reopen procedural settings on an authored mesh through a safe Regenerate action, never force Delete/Recreate merely to change subdivisions. Warn if regeneration will replace manually modified source vertices/faces; preserve mesh ID/name, storage separation, and explicit Save.
