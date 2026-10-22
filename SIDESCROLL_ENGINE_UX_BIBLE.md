@@ -1503,3 +1503,8 @@ When adjacent character workspaces show the same authored parts with different g
 ### v1.1.13 — Animation authoring performance guardrail (2026-10-21)
 
 Do not alter an artist's rig, skin envelopes or binding values to compensate for slow preview rasterisation. Keep Skin, Animate and Quick Play geometrically consistent through one tested renderer; a new GPU backend must be independently validated against Canvas2D on actual iOS/Safari before being enabled. Optimize CPU draw calls without removing topology or changing authoring data. For phone testing, compare frames at identical animation poses, inspect draw-call statistics and note zoom/display resolution. Every README in a patch ZIP continues to describe **only that drop**; cumulative engine and task documents can include long-term plans.
+
+
+### v1.1.14 — Continuous IK direct manipulation
+
+A dragged IK handle/precision pad should move visually every rendered frame, not rebuild the entire character document and tool UI per touch event. Keep an ephemeral working pose until release, and coalesce pointer samples to the browser's visual refresh. Update the selected control's numeric readout during manipulation, then update the full inspector/Save state once committed. The last pointer position **must** be applied on pointerup even if a preceding frame was skipped. Cancellation must neither write a sparse key nor add Undo history. Pausing playback at drag start prevents competing pose evaluation. Do not suppress full updates for actual committed edits, or mask slow textured renderer performance as a weighting issue.

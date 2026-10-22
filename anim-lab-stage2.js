@@ -48,6 +48,8 @@
   let axis = 'free';
   let precisionTx = null;
   let precisionStart = null;
+  let precisionLatest = null;
+  let precisionAnimationFrame = 0;
   let lastMode = null;
   let lastFamily = null;
   let currentMode = 'animate';
@@ -345,8 +347,10 @@
       const ch=control.rotate;pose[ch.key]=clamp(Number(pose[ch.key]||0)+dx*rotateSensitivity,ch.min,ch.max);
     }
     if (control.ikPrefix) {
-      const st=core.getState();
-      if (st.family==='fox' && st.mode==='animate' && st.clip==='jump') {
+      // Capture this context once at pointerdown. getState() clones the entire
+      // character setup (including every mesh and weight) on each invocation.
+      const st=dragStart?.context;
+      if (st?.family==='fox' && st.mode==='animate' && st.clip==='jump') {
         const lift=Number(core.getJumpAuthoringLift?.(st.phase))||0;
         const key=`${control.ikPrefix}IkY`;
         pose[key]=Math.max(-lift,Number(pose[key])||0);
@@ -354,28 +358,60 @@
     }
   }
 
+  // Touch samples are coalesced into one visual update per animation frame.
+  // During the drag, only a temporary pose is drawn: no sparse-clip rebuild,
+  // Undo entry, full editor DOM update or expensive extension notification.
+  function applyLatestPrecision() {
+    precisionAnimationFrame=0;
+    if(!precisionTx||!precisionStart||!precisionLatest)return;
+    const {x,y}=precisionLatest;
+    const control=precisionStart.control;
+    const update=pose=>applyPrecision(control,pose,x-precisionStart.x,y-precisionStart.y,precisionStart);
+    const next=core.previewPoseDrag?.(precisionTx,update);
+    if(next)channelReadout.textContent=formatChannels(control,next);
+  }
   pad.addEventListener('pointerdown',e=>{
-    const state=core.getState(),control=selectedControl(state);if(!control)return;
+    if(precisionTx)return;
+    let state=core.getState(),control=selectedControl(state);if(!control)return;
+    // The authored pose should respond to the pointer, even when playback was
+    // active before the author began editing it.
+    if(state.playing){core.setPlaying(false);state=core.getState();}
     let ikCapture=null;
     if(control.ikPrefix && (Number(state.pose?.[`${control.ikPrefix}IkWeight`])||0)<=.0001){
       const g=state.rig?.geometry?.(state.pose,state.setup?.rig);
       const point=g?.[control.capturePoint];
       if(point)ikCapture={x:point.x,y:point.y};
     }
-    precisionTx=core.beginTransaction('pose',`Adjust ${control.label}`);precisionStart={x:e.clientX,y:e.clientY,control,ikCapture};
+    precisionTx=core.beginTransaction('pose',`Adjust ${control.label}`);
+    if(!precisionTx)return;
+    precisionStart={x:e.clientX,y:e.clientY,control,ikCapture,
+      context:{family:state.family,mode:state.mode,clip:state.clip,phase:state.phase}};
+    precisionLatest=null;
     pad.setPointerCapture?.(e.pointerId);e.preventDefault();
   });
   pad.addEventListener('pointermove',e=>{
     if(!precisionTx||!precisionStart)return;
-    const dx=e.clientX-precisionStart.x,dy=e.clientY-precisionStart.y,control=precisionStart.control;
-    core.previewTransaction(precisionTx,pose=>applyPrecision(control,pose,dx,dy,precisionStart));e.preventDefault();
+    precisionLatest={x:e.clientX,y:e.clientY};
+    if(!precisionAnimationFrame)precisionAnimationFrame=requestAnimationFrame(applyLatestPrecision);
+    e.preventDefault();
   });
   function finishPrecision(e,cancel=false){
     if(!precisionTx)return;
-    if(cancel)core.cancelTransaction(precisionTx);else core.commitTransaction(precisionTx);
-    precisionTx=null;precisionStart=null;e?.preventDefault?.();
+    if(precisionAnimationFrame){cancelAnimationFrame(precisionAnimationFrame);precisionAnimationFrame=0;}
+    if(cancel){core.cancelPoseDrag?.(precisionTx);}
+    else {
+      // Flush the final position on pointerup, even if Safari hasn't reached
+      // the next animation frame. Save exactly one pose edit/Undo entry.
+      if(e&&Number.isFinite(e.clientX)&&Number.isFinite(e.clientY))
+        precisionLatest={x:e.clientX,y:e.clientY};
+      if(precisionLatest)applyLatestPrecision();
+      core.commitPoseDrag?.(precisionTx);
+    }
+    precisionTx=null;precisionStart=null;precisionLatest=null;
+    e?.preventDefault?.();
   }
-  pad.addEventListener('pointerup',e=>finishPrecision(e,false));pad.addEventListener('pointercancel',e=>finishPrecision(e,true));
+  pad.addEventListener('pointerup',e=>finishPrecision(e,false));
+  pad.addEventListener('pointercancel',e=>finishPrecision(e,true));
 
   moveBtn.addEventListener('click',()=>{if(selectedControl()?.move){precisionMode='move';render(core.getState(),false);}});
   rotateBtn.addEventListener('click',()=>{if(selectedControl()?.rotate){precisionMode='rotate';render(core.getState(),false);}});

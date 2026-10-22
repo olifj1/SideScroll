@@ -2806,3 +2806,12 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Synthetic Chromium 5 × 800 triangle fixed-pose benchmark: rigid ~38.6 → 11.3 ms, gradient ~52.7 → 13.1 ms per redraw, zero page errors. Update current-drop READMEs and cumulative docs.
 - [ ] **Device acceptance required:** measure actual user's New01 imported texture / topology / weight complexity at 100%, ~225%, and 900% zoom on iPhone Safari; inspect render counters, all animation clips and parity with Skin pose preview. Do not equate synthetic results to device FPS.
 - [ ] For remaining high-density soft-gradient load, implement and validate *separately* a GPU renderer with pixel-parity, texture UV, premultiplied alpha, source clipping, pose consistency, layer ordering, context-loss and iPhone Safari tests. Re-enable only after validation.
+
+
+## 2026-10-22 — v1.1.14 Animate paw IK interaction optimisation
+
+- [x] Identify pointermove transaction overhead distinct from playback: repeated sparse-clip normalise/compile, full Save/dirty checks, cloned setup/snapshots, Lab subscription refresh.
+- [x] Add transient pose draw with 1× `requestAnimationFrame` coalescing, incremental selected channel readout, one final clip/Undo commit, non-mutating cancel; avoid per-move `getState()` clone and stop playback during drag.
+- [x] DPR2 landscape synthetic Chromium Fox Paw Target drag changed pose; Undo/Redo and pointercancel preserved semantics; no JS page exceptions.
+- [ ] **iPhone/New01 acceptance:** test many authored vertices with actual imported art, smoothness while dragging vs playback, timing at different zoom; watch texture CPU time via `AnimLabAssemblySkinInspect.performance()` if pad still lags.
+- [ ] Profile remaining Canvas2D mesh deformation/draw overhead if drag still feels delayed; do not prematurely re-enable unvalidated WebGL.

@@ -929,6 +929,45 @@
     };
   }
 
+  // Anim Lab authoring has a lightweight, non-destructive pose-preview path.
+  // The normal transaction path recompiles a sparse clip, compares the saved
+  // character, updates DOM and notifies every Lab on *each* pointermove. With
+  // authored Atlas/Skin arrays this was vastly slower than clip playback.
+  // Only the final pose is committed to the sparse track and Undo history.
+  let interactivePose = null;
+  let interactivePoseFrame = -1;
+  function previewPoseDrag(tx, updater) {
+    if(!tx || tx.scope!=='pose' || selection.mode!=='animate' || tx.frame!==selection.frame) return null;
+    const next=clone(tx.before);
+    if(typeof updater==='function')updater(next);
+    else if(updater)Object.assign(next,clone(updater));
+    interactivePose=currentAdapter().normalise(next,tx.frame);
+    interactivePoseFrame=tx.frame;
+    // No sparse-clip compilation, save-status scan, full UI update or cloned
+    // subscriber snapshots while the finger is moving.
+    draw(false,true);
+    return interactivePose;
+  }
+  function commitPoseDrag(tx) {
+    if(!tx || tx.scope!=='pose')return false;
+    const finalPose=interactivePose && interactivePoseFrame===tx.frame ? clone(interactivePose) : null;
+    interactivePose=null;interactivePoseFrame=-1;
+    if(finalPose){
+      // The track has not been changed during the drag: compile it once.
+      upsertCurrentKey(tx.frame,finalPose,tx.keyName);
+      pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),tx.label,tx.frame);
+    }
+    draw();notify();
+    return !!finalPose;
+  }
+  function cancelPoseDrag(tx) {
+    if(!tx || tx.scope!=='pose')return false;
+    // No authored data was touched, so cancel must not recompile the clip.
+    interactivePose=null;interactivePoseFrame=-1;
+    draw();notify();
+    return true;
+  }
+
   function previewTransaction(tx, updater) {
     if (!tx) return;
     if (tx.scope === 'setup') {
@@ -1442,7 +1481,7 @@
 
   let lastPlaybackUiTime=0;
   let lastPlaybackNotifyTime=0;
-  function draw(playbackFrame=false) {
+  function draw(playbackFrame=false,skipEditorUi=false) {
     resize();
     const character=currentCharacter(),adapter=currentAdapter(),frames=displayFrames();
     const phase=playing?playPhase:selection.frame/16;
@@ -1464,6 +1503,8 @@
             return adapter.normalise(neutral,0);
           })()
         : (playing?evaluateSparsePose(displaySparseClip(),playPhase*16,currentCharacter().family):currentPose());
+    if(interactivePose && interactivePoseFrame===selection.frame && selection.mode==='animate' && !playing)
+      pose=interactivePose;
     if (selection.mode==='animate' && adapter.id==='fox' && selection.clip==='jump') {
       pose = clampJumpPoseToRealGround(pose,phase);
     }
@@ -1494,7 +1535,7 @@
     }
     // The full editor UI does deep save/dirty checks and updates many DOM
     // controls. That is useful after edits but expensive every animation frame.
-    if(!playbackFrame||performance.now()-lastPlaybackUiTime>140){
+    if(!skipEditorUi&&(!playbackFrame||performance.now()-lastPlaybackUiTime>140)){
       lastPlaybackUiTime=performance.now();updateUi(pose);
     }
   }
@@ -1997,6 +2038,9 @@
     edit,
     editSparseClip,
     beginTransaction,
+    previewPoseDrag,
+    commitPoseDrag,
+    cancelPoseDrag,
     previewTransaction,
     commitTransaction,
     cancelTransaction,
