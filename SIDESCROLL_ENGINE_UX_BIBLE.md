@@ -1,5 +1,9 @@
 # SideScroll Engine & UX Bible
 
+## v1.1.18 — Skin Joint Fit remains a *single opt-in step*
+
+Do not change the accepted rectangular binary weighting model while testing joint seams. Add **Joint Fit: On/Off** inside the existing Skin bone-influence controls instead of another skinning workspace. Rest-linked sequential bones must calculate **one common** mitred boundary using their authored rest joint angle, rather than each side having an independently moved square cap. Remain 100%/0% ownership, with at most one bone controlling each vertex and unclaimed vertices staying at rest; no automatic blending, smoothing or posed-frame reassignment. A connected cap stays anchored to the joint: explain that Local X size/offset controls free ends while Local Y scale affects the shared mitre width. Allow Undo/Redo, Save/Discard, explicit opt-in and a reliable Off comparison with previously saved independent rectangles. When posed, guide shape moves rigidly with its selected bone, as do vertices; it is not dynamically fitted again using posed anatomy. Preserve original Fox and never alter the asset/source mesh. Do not proceed to Stage 2 soften without iPhone validation.
+
 ## Skin influence guides must follow the previewed rig pose (v1.1.17)
 
 Skin authoring controls belong in **rest/bind-local coordinates** even while users preview Walk/Run deformation. Draw their viewport gizmos in the **currently shown pose** using the same geometric transform as skinned vertices: a selected bone's local rectangular guide must follow that bone's translation and rotation, including nonzero authored X/Y offsets, without changing its width or height when IK changes limb length. Do not use preview pose coordinates to **recompute** bind-pose influence, or silently alter saved weights. Ensure a Rest → Walk/Run → Rest preview round-trip leaves both the binding and original rest-space region unchanged. Validate guide geometry and actual deformed geometry together.

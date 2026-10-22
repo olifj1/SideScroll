@@ -1,5 +1,15 @@
 # SideScroll Tasks / Release Tracking
 
+## v1.1.18 — Binary rest-joint Joint Fit (22 October 2026)
+
+- [x] Add opt-in Joint Fit on the existing Skin part binding, default Off for previously saved `rect-binary-v1` rectangles.
+- [x] Build common rest-joint mitred cap from two consecutive bones' angle bisector, identical endpoint coordinates for both envelopes; taper polygon sides to join without acute overlap / obtuse gap at the rest joint.
+- [x] Keep exactly one 100% owning bone per covered vertex, no falloff or redistribution; uncovered stays Rest. End cap ownership never recomputed in poses; preview outlines use each bone's rigid pose transform.
+- [x] Persist optional `jointFit:true` in Setup normalisation, provide toggle with history / Save and clear On/Off readout; preserve capsule and legacy Skin modes.
+- [x] Browser tests: all six Fox groups, matched endpoints, midpoint coverage, binary assignments, varied width/offset and touch-viewport toggle on/off with Rest/Walk preview; no JS exceptions.
+- [ ] **New01/iPhone acceptance:** test a real joint, rest mitres with unequal widths and selected bone changes, Undo/Redo/Save, compare Off. Inspect triangles across a rigidly bending joint; no softness is expected.
+- [ ] **Later, NOT now:** consider limited global softening / secondary falloff only when binary coverage and rig-pose parity are accepted; improve near-180° and unusual branched anatomy handling if needed.
+
 ## v1.1.17 — Skin rectangle pose-alignment hotfix (22 October 2026)
 
 - [x] Correct the selected `rect-binary-v1` influence guide: transform its rest-space rectangle and local-axis cross with the selected bone's rigid bind→posed transform for Skin Walk/Run previews.

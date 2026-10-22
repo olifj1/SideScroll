@@ -397,6 +397,7 @@
                     offsetX:number(rect.offsetX,0,-1,1),offsetY:number(rect.offsetY,0,-1,1)};
                 }
                 clean.envelopeMode='rect-binary-v1';clean.rectangles=rectangles;
+                if(raw.jointFit===true)clean.jointFit=true;
               }
               if(raw.manualWeights&&typeof raw.manualWeights==='object'){
                 const overrides={};

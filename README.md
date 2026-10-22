@@ -1,11 +1,11 @@
-# SideScroll — Patch v1.1.17
+# SideScroll — Patch v1.1.18
 
-**Install this changed-files-only patch over v1.1.16.** Replace its files in the flat GitHub repository, then fully reload Anim Lab after deployment (service-worker cache `v127`).
+**Changed-files-only release. Install over v1.1.17** in the flat GitHub SideScroll repository and reload Anim Lab after deployment (service-worker cache `v128`).
 
-**Skin rectangle preview fix:** In v1.1.16, the selected bone's influence rectangle was always drawn in its *rest-pose position*, even while the bone and skinned artwork moved in Skin's Walk/Run previews. The rectangle now follows the selected bone's **rigid translation and rotation**, preserving the authored local X/Y offset, scale and orientation in the displayed pose. The local-axis guides move with it.
+**Skin · Joint Fit (first binary trial):** Atlas-assembled characters using bone-local `rect-binary-v1` binding now have an optional **Joint Fit: On/Off** in the selected part's Skin controls. When enabled, consecutive connected rest bones share one mitred end-cap edge calculated from their rest-angle bisector, rather than independently intersecting square-capped boxes. This creates a continuous hard-edged *rest-space* influence shell at an ordinary elbow/knee while leaving separate, uncovered end caps free. Neighbouring envelopes can taper to a common shared boundary even when their widths differ. Only the one selected owning bone controls each vertex (100% or 0%); **no skin blend or falloff has been introduced.**
 
-The rectangle remains **authored and sampled in rest space** for binary vertex assignment. Changing preview poses does **not** recalculate weights, cause vertices to switch bones, or mutate saved Skin bindings. This is a viewport guide correction only, not a new skinning method. No Atlas, Parts, Rig, clips, weights or character records are migrated.
+Joint Fit is **off by default for all existing bindings**. Toggle it explicitly for a part. It is undoable and saved in that part's existing binding; no automatic weight migration or damage to legacy Fox, rig, poses, or animation clips. Existing X/Y scale/offset controls remain, but in Joint Fit the ends at connected joints are anchored to those joints: X scale/offset primarily alter free ends. If a rest joint folds almost 180° or transforms become degenerate, that pair keeps its original rectangular ends. Animated previews still show the rest-assigned polygon following each bone rigidly, not freshly computing weights per pose.
 
-Automated Chromium tests checked the moved rectangle against the same rigid bone transform used for mesh deformation on all four Fox upper leg bones. They also checked that its dimensions stay constant in posed previews. Actual iPhone Safari and New01 visual verification remain outstanding.
+**Validation:** Javascript syntax, browser geometry tests of body/front/rear/tail chains (identical shared seam endpoints, exclusive binary ownership), and a synthetic touch-layout Skin control/save/preview test passed. Real New01 artwork and iPhone Safari visual acceptance remain outstanding. View the patch README for test steps and limitations.
 
-See `README-PATCH-1.1.17.md` for details and acceptance checks.
+See `README-PATCH-1.1.18.md` for this drop's full scope.

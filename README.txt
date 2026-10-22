@@ -1,6 +1,5 @@
-SIDESCROLL v1.1.17 — SKIN RECTANGLE POSE PREVIEW FIX
+SIDESCROLL v1.1.18 — SKIN JOINT FIT: HARD MITRED ENVELOPES
 
-Changed-files-only patch over v1.1.16.
-In Skin's animated pose previews, the selected local rectangle and its axis guides now move and rotate rigidly with their bone. Influence assignment stays based on the rest pose; saved weights and character data are untouched.
+Changed-files-only patch over v1.1.17. Skin adds an opt-in Joint Fit toggle to connect neighbouring bone-local binary influence shapes at shared rest joints. It keeps 0%/100% rigid bone ownership; no soft blending. Existing bindings unchanged until enabled. Save/Undo supported. Device test pending.
 
-See README-PATCH-1.1.17.md for the exact scope and device test.
+See README-PATCH-1.1.18.md for this drop only.

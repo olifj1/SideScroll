@@ -1,4 +1,4 @@
-/* SideScroll v1.1.17 — pose-following visual guide for hard-edged bone-local rectangles.
+/* SideScroll v1.1.18 — optional joint-mitred, binary bone envelopes.
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -175,6 +175,79 @@
       x:frame.cx+i*frame.ux*frame.hx+j*frame.nx*frame.hy,
       y:frame.cy+i*frame.uy*frame.hx+j*frame.ny*frame.hy}));
   }
+  // Optional Joint Fit: construct shared MITRED endpoints in rest space.
+  // A pair of successive bones with exactly one shared joint receives ONE
+  // boundary computed from the bisector of their rest directions. Both polygons
+  // reference the identical endpoints, so no independent caps can overlap or
+  // leave a wedge. Free ends retain the artist's ordinary rectangle controls.
+  // The joint boundary is anchored to the rest joint: X offset/scale affect
+  // free ends, while Y scale affects the shared width. This is deliberately
+  // hard binary ownership, NOT a blend, and requires explicit opt-in.
+  function jointFitPolygons(binding,geom){
+    const allowed=groupBones(binding.group);
+    const frames=new Map(allowed.map(i=>[i,rectangleFrame(i,binding.rectangles?.[i]||defaultRectangle(),geom)]));
+    const begin=new Map(),end=new Map();
+    const incoming=new Map(),outgoing=new Map();
+    for(const i of allowed){
+      if(!frames.get(i))continue;
+      const bone=bones[i];
+      if(!incoming.has(bone.b))incoming.set(bone.b,[]);
+      incoming.get(bone.b).push(i);
+      if(!outgoing.has(bone.a))outgoing.set(bone.a,[]);
+      outgoing.get(bone.a).push(i);
+    }
+    for(const [joint,ins] of incoming){
+      const outs=outgoing.get(joint)||[];
+      // Only unambiguous chain joints. Do not mitre branched anatomy.
+      if(ins.length!==1||outs.length!==1)continue;
+      const before=ins[0],after=outs[0],prev=frames.get(before),next=frames.get(after);
+      const j=geom[joint];if(!prev||!next||!j||before===after)continue;
+      const dx=prev.ux+next.ux,dy=prev.uy+next.uy,len=Math.hypot(dx,dy);
+      // An almost fully folded back joint has no stable bisector.
+      if(len<.12)continue;
+      let tx=-dy/len,ty=dx/len;
+      if(tx*prev.nx+ty*prev.ny<0){tx=-tx;ty=-ty;}
+      const cos=Math.abs(tx*prev.nx+ty*prev.ny);
+      // Bound mitre length at sharp bends to avoid exploding envelopes.
+      const halfWidth=(prev.hy+next.hy)*.5;
+      const reach=halfWidth/Math.max(cos,.4);
+      const negative={x:j.x-tx*reach,y:j.y-ty*reach};
+      const positive={x:j.x+tx*reach,y:j.y+ty*reach};
+      end.set(before,[negative,positive]);
+      begin.set(after,[negative,positive]);
+    }
+    const polygons=new Map();
+    for(const [i,frame] of frames){
+      if(!frame)continue;
+      const rect=rectangleCorners(frame);
+      const start=begin.get(i)||[rect[0],rect[3]];
+      const finish=end.get(i)||[rect[1],rect[2]];
+      // Walk around the negative side, distal cap, positive side and root.
+      const poly=[start[0],finish[0],finish[1],start[1]];
+      // Extreme user offsets can place the free end past the joint and
+      // invert the quad. Fall back to the unmitred rectangle rather than
+      // assigning an unpredictable self-intersecting influence region.
+      const area=poly.reduce((sum,v,k)=>{
+        const w=poly[(k+1)%poly.length];return sum+v.x*w.y-w.x*v.y;
+      },0);
+      const baseArea=rect.reduce((sum,v,k)=>{
+        const w=rect[(k+1)%rect.length];return sum+v.x*w.y-w.x*v.y;
+      },0);
+      polygons.set(i,Math.abs(area)>1e-9&&area*baseArea>0?poly:rect);
+    }
+    return polygons;
+  }
+  function polygonContains(p,poly){
+    if(!poly||poly.length<3)return false;
+    let inside=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const a=poly[j],b=poly[i],vx=b.x-a.x,vy=b.y-a.y;
+      const cross=(p.x-a.x)*vy-(p.y-a.y)*vx;
+      if(Math.abs(cross)<1e-9&&(p.x-a.x)*(p.x-b.x)+(p.y-a.y)*(p.y-b.y)<=1e-9)return true;
+      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+    }
+    return inside;
+  }
   // The influence area is AUTHORed in the bind pose and weights are assigned
   // there once. For pose preview, display that same area after the selected
   // bone's rigid transform (identical to rect-binary skinned vertices).
@@ -195,14 +268,15 @@
   }
   function rectBinaryRows(binding,positions,geom){
     const allowed=groupBones(binding.group),frames=allowed.map(i=>[i,rectangleFrame(i,binding.rectangles?.[i]||defaultRectangle(),geom)]);
+    const polygons=binding.jointFit===true?jointFitPolygons(binding,geom):null;
     return positions.map(point=>{
       let chosen=-1,score=Infinity;
       for(const [i,f] of frames){
         if(!f)continue;
         const dx=point.x-f.cx,dy=point.y-f.cy;
         const lx=(dx*f.ux+dy*f.uy)/f.hx,ly=(dx*f.nx+dy*f.ny)/f.hy;
-        if(Math.abs(lx)>1+1e-7||Math.abs(ly)>1+1e-7)continue;
-        // Hard overlapping rectangles are exclusive: closest *normalised*
+        if(polygons?!polygonContains(point,polygons.get(i)):(Math.abs(lx)>1+1e-7||Math.abs(ly)>1+1e-7))continue;
+        // Hard overlapping regions are exclusive: closest *normalised*
         // centre wins; bone order is merely a stable tie-breaker.
         const d=lx*lx+ly*ly;
         if(d<score-1e-9){chosen=i;score=d;}
@@ -215,6 +289,7 @@
   function activateRectangles(binding,item,source,geom){
     if(binding.envelopeMode==='rect-binary-v1'&&binding.rectangles)return binding;
     binding.envelopeMode='rect-binary-v1';
+    binding.jointFit=false;
     binding.rectangles=defaultRectangles(groupBones(binding.group));
     delete binding.envelopes;
     binding.boneProfiles={};binding.manualWeights={};
@@ -523,9 +598,10 @@
         <button type="button" data-skin-display="wires">Wireframe: On</button>
         <button type="button" data-skin-display="rect">Rectangle: On</button>
         <button type="button" data-bind-action="reset-bone">Reset rectangle</button>
+        <button type="button" data-bind-action="joint-fit" aria-pressed="false">Joint Fit: Off</button>
       </div>
       <div class="animlab-skin-legend" data-heat-legend hidden><span>0% · Blue</span><i></i><span>Red · 100%</span></div>
-      <p class="animlab-skin-note">Stage 1 is binary: inside one bone rectangle = 100%; outside every rectangle = 0% (rest). Overlaps choose one bone, never blend. Cover all required vertices before animating; an uncovered edge can stretch. No softness/falloff yet.</p>
+      <p class="animlab-skin-note">Binary 100% / 0%, no softness. Joint Fit is optional: in the rest pose, neighbouring bone shapes share a mitred seam. The joint caps stay at the joint; X scale/offset affect free ends. Weights never change during pose preview. Uncovered vertices remain at rest.</p>
       <details class="animlab-skin-assembly-vertex">
         <summary>Advanced · Individual vertex weights</summary>
         <div class="animlab-view-grid animlab-skin-assembly-actions">
@@ -660,6 +736,12 @@
     const convert=panel.querySelector('[data-bind-action="rect-convert"]');
     convert.disabled=!canWeight||binary;
     convert.textContent=binary?'Binary rectangles active':'Use binary rectangles on this part';
+    const jointButton=panel.querySelector('[data-bind-action="joint-fit"]');
+    const fitEnabled=binary&&binding.jointFit===true;
+    jointButton.disabled=!canWeight||!binary;
+    jointButton.textContent=`Joint Fit: ${fitEnabled?'On':'Off'}`;
+    jointButton.classList.toggle('active',fitEnabled);
+    jointButton.setAttribute('aria-pressed',String(fitEnabled));
     const actualMin=binding?Math.min(1,...binding.weights.map(row=>row.find(p=>p[0]===selectedBone)?.[1]||0)):0;
     const actualPeak=binding?peakOf(binding.weights,selectedBone):0;
     const unassigned=binding?Math.round(binding.weights.reduce((n,row)=>n+Math.max(0,1-row.reduce((a,p)=>a+p[1],0)),0)/Math.max(1,binding.weights.length)*100):0;
@@ -670,7 +752,7 @@
       `${binary?'Binary · ':''}${isRigid?'Rigid · ':''}Selected bone: ${Math.round(actualMin*100)}–${Math.round(actualPeak*100)}% · Covered ${claimed}/${binding.weights.length} vertices · Unassigned ${binding.weights.length-claimed}${manualCount?` · ${manualCount} manual`:''}`:
       'Bind a part to edit its weights.';
     panel.querySelector('[data-envelope-mode-note]').textContent=binary?
-      'Local X follows the rest bone (scale 1 = one bone length); local Y is perpendicular (scale 1 = 0.12 m wide). Offsets are rest-local metres. The cyan box assigns this bone a hard 100% influence. Uncovered vertices are 0% and remain at rest. Drag sliders for a live preview; Save to persist.':
+      `Local X follows the rest bone (1× = bone length); Y is perpendicular (1× = 0.12 m wide). ${fitEnabled?'Joint Fit creates matching mitred caps at connected joints in REST space. ':'Independent rectangles active. '}Only free ends honour X extent when Joint Fit is on. Each covered vertex belongs to exactly one bone.`:
       'Existing weights are preserved. Choose “Use binary rectangles” to opt in, or Auto-bind part for fresh rectangles. Undo can restore your earlier binding.';
     const rigidButton=panel.querySelector('[data-bind-action="rigid"]');
     rigidButton.classList.toggle('active',isRigid);
@@ -783,6 +865,19 @@
         commitBinding(item.id,binding,'Switch part to binary rectangle envelopes');
       }
     }
+    if(action==='joint-fit'&&item&&!lockedParts.has(item.id)){
+      const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
+      if(saved?.envelopeMode==='rect-binary-v1'){
+        const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+        const binding=clone(saved);
+        binding.jointFit=!(binding.jointFit===true);
+        // A previous rigid full-part override would conceal the fitted result.
+        if(Object.keys(binding.manualWeights||{}).length>=source.mesh.vertices.length&&
+           binding.weights.every(row=>row.length===1&&row[0][1]>=.9999))binding.manualWeights={};
+        updateRectWeights(binding,item,source,geometry);
+        commitBinding(item.id,binding,`Joint Fit ${binding.jointFit?'on':'off'}`);
+      }
+    }
     if(action==='rigid'&&item&&!lockedParts.has(item.id)){
       const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
       if(saved&&groupBones(saved.group).includes(selectedBone)){
@@ -868,8 +963,8 @@
     else core.setHint?.('No vertex near that tap; zoom in or try again.');
     pickArmed=false;refresh();core.redrawOnly?.();
   },true);
-  function rectangleOutline(ctx,frame,view){
-    const corners=rectangleCorners(frame).map(p=>project(p,view));
+  function rectangleOutline(ctx,frame,view,outline){
+    const corners=(outline||rectangleCorners(frame)).map(p=>project(p,view));
     if(corners.length!==4)return;
     ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);
     for(let k=1;k<4;k++)ctx.lineTo(corners[k].x,corners[k].y);
@@ -940,7 +1035,14 @@
       if(showRect&&displayed?.envelopeMode==='rect-binary-v1'&&allowed.has(selectedBone)){
         const restFrame=rectangleFrame(selectedBone,displayed.rectangles?.[selectedBone]||defaultRectangle(),bindGeom);
         const displayFrame=rectanglePoseFrame(selectedBone,restFrame,bindGeom,posed);
-        if(displayFrame){ctx.save();rectangleOutline(ctx,displayFrame,args.view);ctx.restore();}
+        if(displayFrame){
+          const restOutline=displayed.jointFit===true?jointFitPolygons(displayed,bindGeom).get(selectedBone):null;
+          const bone=bones[selectedBone];
+          const A=bindGeom[bone.a],B=bindGeom[bone.b],C=posed[bone.a],D=posed[bone.b];
+          const shownOutline=restOutline&&A&&B&&C&&D
+            ?restOutline.map(p=>mapBoneRigid(p,A,B,C,D)):restOutline;
+          ctx.save();rectangleOutline(ctx,displayFrame,args.view,shownOutline);ctx.restore();
+        }
       }
       ctx.lineCap='round';ctx.lineJoin='round';
       bones.forEach((bone,i)=>{
@@ -956,5 +1058,5 @@
   core.registerArtRenderer('atlas-assembly-skin',render);
   core.subscribe(s=>{if(s.mode==='setup'&&s.setupTool==='atlas')signatures=new WeakMap();refresh();});refresh();
   window.AnimLabAssemblySkinInspect=Object.freeze({sourceSignature:signature,defaultEnvelope,envelopeFalloff,capsuleRows,activateEnvelopes,updateEnvelopeWeights,
-    defaultRectangle,rectangleFrame,rectangleCorners,rectanglePoseFrame,rectBinaryRows,activateRectangles,updateRectWeights,mapBoneRigid,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
+    defaultRectangle,rectangleFrame,rectangleCorners,rectanglePoseFrame,jointFitPolygons,polygonContains,rectBinaryRows,activateRectangles,updateRectWeights,mapBoneRigid,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
 })();
