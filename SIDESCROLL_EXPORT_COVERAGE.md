@@ -113,3 +113,8 @@ Existing optional `setup.artLayout.assembly.instances[].skinBinding` (`animlab.s
 ### v1.1.13 renderer-only optimization
 
 Canvas2D batching and per-pose affine bone-map caching are transient rendering implementation details. No new persistent keys, no schema changes, and no changes to saved skin weights, art assembly, Atlas UV vertices or project exports. `AnimLabAssemblySkinInspect.performance()` returns ephemeral, read-only last-frame numbers, not a portable export. IndexedDB imported PNG bytes remain outside existing JSON-only project exports.
+
+
+## v1.1.16 optional Skin rectangle data
+
+`artLayout.assembly.instances[].skinBinding` retains schema `animlab.skin-binding.v1`. Binary rectangle assignments store `envelopeMode:'rect-binary-v1'` and per-bone `rectangles:{index:{scaleX,scaleY,offsetX,offsetY}}`, plus explicit `weights`/`baseWeights` rows (each binary row `[]` or `[[boneIndex,1]]`). Core normalisation accepts and clamps dimensions/offsets and **preserves empty manual-weight rows** in binary mode. This is JSON setup data, not an image export. The user's locally imported PNG remains device-local IndexedDB and is **not** made portable by this patch. Previously saved capsule metadata is preserved until explicit conversion.

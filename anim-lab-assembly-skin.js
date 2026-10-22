@@ -1,4 +1,4 @@
-/* SideScroll v1.1.13 — shared Skin/Animate/Play Canvas2D with safe affine batching.
+/* SideScroll v1.1.16 — optional hard-edged bone-local rectangular Skin regions.
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -116,8 +116,8 @@
     if(!allowed.length)return null;
     const binding={schema:'animlab.skin-binding.v1',meshSignature:signature(source.mesh),group:chosen,
       weights:[],baseWeights:[],boneProfiles:{},manualWeights:{},
-      envelopeMode:'capsule-v1',envelopes:defaultEnvelopes(allowed,geom)};
-    return updateEnvelopeWeights(binding,item,source,geom);
+      envelopeMode:'rect-binary-v1',rectangles:defaultRectangles(allowed,geom)};
+    return updateRectWeights(binding,item,source,geom);
   }
   // Spatial bind v1: one capsule around each rest bone. Strength 0 is truly
   // 0, radius <=inner is 100%, radius >=outer is 0%, with a smooth transition.
@@ -149,6 +149,67 @@
       // Preserve residual rest weight for sum < 1, normalize only overlaps.
       return positive.map(([i,w])=>[i,Math.round(w/Math.max(1,sum)*10000)/10000]);
     });
+  }
+  // Rectangle authoring v1: a crisp, BINARY, per-bone influence region
+  // defined in that bone's *rest-local* coordinate frame. Local X follows
+  // A -> B, local Y is its left normal. Scale X multiplies bone length;
+  // scale Y multiplies 0.12 m. Offsets are in metres in this same frame.
+  // Intentionally NO blending, fuzzy boundary or weight redistribution.
+  function defaultRectangle(){return {scaleX:1.45,scaleY:1.2,offsetX:0,offsetY:0};}
+  function defaultRectangles(allowed){return Object.fromEntries(allowed.map(i=>[i,defaultRectangle()]));}
+  function rectangleFrame(index,rect,geom){
+    const bone=bones[index],a=geom[bone?.a],b=geom[bone?.b];
+    if(!a||!b)return null;
+    const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+    if(len<1e-6)return null;
+    const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
+    const sx=clamp(Number(rect?.scaleX)||0,.05,8);
+    const sy=clamp(Number(rect?.scaleY)||0,.05,8);
+    const ox=clamp(Number(rect?.offsetX)||0,-1,1),oy=clamp(Number(rect?.offsetY)||0,-1,1);
+    return {cx:(a.x+b.x)*.5+ux*ox+nx*oy,cy:(a.y+b.y)*.5+uy*ox+ny*oy,
+      ux,uy,nx,ny,hx:len*.5*sx,hy:.06*sy};
+  }
+  function rectangleCorners(frame){
+    if(!frame)return [];
+    return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([i,j])=>({
+      x:frame.cx+i*frame.ux*frame.hx+j*frame.nx*frame.hy,
+      y:frame.cy+i*frame.uy*frame.hx+j*frame.ny*frame.hy}));
+  }
+  function rectBinaryRows(binding,positions,geom){
+    const allowed=groupBones(binding.group),frames=allowed.map(i=>[i,rectangleFrame(i,binding.rectangles?.[i]||defaultRectangle(),geom)]);
+    return positions.map(point=>{
+      let chosen=-1,score=Infinity;
+      for(const [i,f] of frames){
+        if(!f)continue;
+        const dx=point.x-f.cx,dy=point.y-f.cy;
+        const lx=(dx*f.ux+dy*f.uy)/f.hx,ly=(dx*f.nx+dy*f.ny)/f.hy;
+        if(Math.abs(lx)>1+1e-7||Math.abs(ly)>1+1e-7)continue;
+        // Hard overlapping rectangles are exclusive: closest *normalised*
+        // centre wins; bone order is merely a stable tie-breaker.
+        const d=lx*lx+ly*ly;
+        if(d<score-1e-9){chosen=i;score=d;}
+      }
+      // Unclaimed vertices stay at rest (empty row), visibly reported in UI.
+      // Do not inject another bone's weight or blend across rectangle edges.
+      return chosen<0?[]:[[chosen,1]];
+    });
+  }
+  function activateRectangles(binding,item,source,geom){
+    if(binding.envelopeMode==='rect-binary-v1'&&binding.rectangles)return binding;
+    binding.envelopeMode='rect-binary-v1';
+    binding.rectangles=defaultRectangles(groupBones(binding.group));
+    delete binding.envelopes;
+    binding.boneProfiles={};binding.manualWeights={};
+    return updateRectWeights(binding,item,source,geom);
+  }
+  function updateRectWeights(binding,item,source,geom){
+    const positions=transformVertices(source.mesh,item,source.image);
+    binding.baseWeights=rectBinaryRows(binding,positions,geom);
+    binding.weights=binding.baseWeights.map((row,index)=>{
+      const override=binding.manualWeights?.[index];
+      return override!==undefined?clone(override):clone(row);
+    });
+    return binding;
   }
   function activateEnvelopes(binding,item,source,geom){
     if(binding.envelopeMode==='capsule-v1'&&binding.envelopes)return binding;
@@ -218,6 +279,12 @@
     const allowed=groupBones(binding.group),old=clone(binding.weights[index]||[]);
     if(!allowed.includes(bone))return;
     const remain=Math.max(0,1-clamp(value,0,1));
+    if(binding.envelopeMode==='rect-binary-v1'){
+      binding.manualWeights ||= {};
+      binding.manualWeights[index]=value>=.5?[[bone,1]]:[];
+      binding.weights[index]=clone(binding.manualWeights[index]);
+      return binding;
+    }
     if(binding.envelopeMode==='capsule-v1'){
       // Manual zero must not magically move weight onto another bone.
       const others=old.filter(p=>p[0]!==bone&&p[1]>0),othersTotal=others.reduce((n,p)=>n+p[1],0);
@@ -246,11 +313,23 @@
     const dx=p.x-a.x,dy=p.y-a.y,along=(dx*ux+dy*uy)*pl/bl,across=dx*vx+dy*vy;
     return{x:c.x+dux*along+dvx*across,y:c.y+duy*along+dvy*across};
   }
-  function skinVertex(p,influences,bind,posed){
+  // A binary rectangle belongs to ONE bone at full weight. Avoid the
+  // legacy mapBone along-axis stretch when IK/body guides slightly change
+  // length: rigid mode is translation + rotation ONLY, anchored at bone A.
+  function mapBoneRigid(p,A,B,C,D){
+    if(!A||!B||!C||!D)return p;
+    const rx=B.x-A.x,ry=B.y-A.y,tx=D.x-C.x,ty=D.y-C.y;
+    const rl=Math.hypot(rx,ry),tl=Math.hypot(tx,ty);
+    if(rl<1e-8||tl<1e-8)return {x:p.x+C.x-A.x,y:p.y+C.y-A.y};
+    const cos=(rx*tx+ry*ty)/(rl*tl),sin=(rx*ty-ry*tx)/(rl*tl);
+    const dx=p.x-A.x,dy=p.y-A.y;
+    return {x:C.x+cos*dx-sin*dy,y:C.y+sin*dx+cos*dy};
+  }
+  function skinVertex(p,influences,bind,posed,mode){
     let x=0,y=0,sum=0;
     for(const [i,w] of influences||[]){
       const bone=bones[i];if(!bone||w<=0)continue;
-      const point=mapBone(p,bind[bone.a],bind[bone.b],posed[bone.a],posed[bone.b]);
+      const point=(mode==='rect-binary-v1'?mapBoneRigid:mapBone)(p,bind[bone.a],bind[bone.b],posed[bone.a],posed[bone.b]);
       x+=point.x*w;y+=point.y*w;sum+=w;
     }
     // Legacy normalized weights sum to 1; capsule weights may sum to less.
@@ -350,6 +429,16 @@
       return {a:xx.x-x.x,b:xx.y-x.y,c:yy.x-x.x,d:yy.y-x.y,e:x.x,f:x.y};
     });
   }
+  function rigidBoneTransforms(bind,posed){
+    return bones.map(b=>{
+      const A=bind[b.a],B=bind[b.b],C=posed[b.a],D=posed[b.b];
+      if(!A||!B||!C||!D)return {a:1,b:0,c:0,d:1,e:0,f:0};
+      const O=mapBoneRigid({x:0,y:0},A,B,C,D);
+      const X=mapBoneRigid({x:1,y:0},A,B,C,D);
+      const Y=mapBoneRigid({x:0,y:1},A,B,C,D);
+      return {a:X.x-O.x,b:X.y-O.y,c:Y.x-O.x,d:Y.y-O.y,e:O.x,f:O.y};
+    });
+  }
   function fastSkinVertex(p,influences,maps){
     let x=0,y=0,sum=0;
     for(const [i,w] of influences||[]){
@@ -401,20 +490,24 @@
       <div class="animlab-parts-subgroup-label">Bone influence</div>
       <div class="animlab-skin-bones" data-skin-bones aria-label="Bones influencing selected part"></div>
       <button type="button" class="animlab-skin-rigid-action" data-bind-action="rigid">Rigid bind: 100% selected bone (all vertices)</button>
-      <div class="animlab-skin-envelope-heading">Spatial envelope · selected bone</div>
-      <label class="animlab-slider animlab-skin-primary-slider"><span>Bone strength (0 = no influence)</span><input data-skin-strength type="range" min="0" max="100" step="1" value="100"><output>100%</output></label>
-      <label class="animlab-slider"><span>Inner radius · 100% influence</span><input data-skin-inner type="range" min="0" max="0.3" step="0.005" value="0.03"><output>0.030 m</output></label>
-      <label class="animlab-slider"><span>Outer radius · 0% influence</span><input data-skin-outer type="range" min="0" max="0.5" step="0.005" value="0.12"><output>0.120 m</output></label>
+      <div class="animlab-skin-envelope-heading">Bone-local rectangle · hard 100% / 0%</div>
+      <button type="button" data-bind-action="rect-convert" class="animlab-skin-rigid-action">Use binary rectangles on this part</button>
+      <div class="animlab-skin-rectangle-controls">
+        <label class="animlab-slider"><span>Local X scale · along bone</span><input data-rect-x-scale type="range" min="0.2" max="5" step="0.05" value="1.45"><output>1.45×</output></label>
+        <label class="animlab-slider"><span>Local Y scale · across bone</span><input data-rect-y-scale type="range" min="0.2" max="5" step="0.05" value="1.20"><output>1.20×</output></label>
+        <label class="animlab-slider"><span>Local X offset</span><input data-rect-x-offset type="range" min="-0.35" max="0.35" step="0.005" value="0"><output>0.000 m</output></label>
+        <label class="animlab-slider"><span>Local Y offset</span><input data-rect-y-offset type="range" min="-0.35" max="0.35" step="0.005" value="0"><output>0.000 m</output></label>
+      </div>
       <div class="animlab-skin-weight-status" data-weight-status role="status"></div>
-      <p class="animlab-skin-note" data-envelope-mode-note>New bindings use editable bone-centred capsules. Existing saved bindings remain unchanged until a slider is moved or Auto-bind is pressed.</p>
+      <p class="animlab-skin-note" data-envelope-mode-note>Current binding retained until you choose binary rectangles or Auto-bind. Shape controls only take effect in rectangle mode.</p>
       <div class="animlab-view-grid animlab-skin-assembly-actions">
         <button type="button" data-skin-display="heatmap">Heatmap: Off</button>
         <button type="button" data-skin-display="wires">Wireframe: On</button>
-        <button type="button" data-skin-display="capsule">Envelope: On</button>
-        <button type="button" data-bind-action="reset-bone">Reset bone</button>
+        <button type="button" data-skin-display="rect">Rectangle: On</button>
+        <button type="button" data-bind-action="reset-bone">Reset rectangle</button>
       </div>
       <div class="animlab-skin-legend" data-heat-legend hidden><span>0% · Blue</span><i></i><span>Red · 100%</span></div>
-      <p class="animlab-skin-note">Each bone has a full-influence inner capsule and a zero-influence outer capsule. Overlapping bone weights blend; unused influence remains at rest, so strength 0 never secretly binds elsewhere. <b>Rigid bind</b> still assigns an entire part to one bone. Manual vertex weights override the envelope on those vertices.</p>
+      <p class="animlab-skin-note">Stage 1 is binary: inside one bone rectangle = 100%; outside every rectangle = 0% (rest). Overlaps choose one bone, never blend. Cover all required vertices before animating; an uncovered edge can stretch. No softness/falloff yet.</p>
       <details class="animlab-skin-assembly-vertex">
         <summary>Advanced · Individual vertex weights</summary>
         <div class="animlab-view-grid animlab-skin-assembly-actions">
@@ -445,12 +538,13 @@
   (legacy||document.getElementById('animlab-extension')).insertAdjacentElement('afterend',panel);
   const rows=panel.querySelector('.animlab-skin-assembly-parts'),groupSelect=panel.querySelector('[data-skin-group]');
   const bonesBoard=panel.querySelector('[data-skin-bones]');
-  const strengthSlider=panel.querySelector('[data-skin-strength]'),innerSlider=panel.querySelector('[data-skin-inner]'),outerSlider=panel.querySelector('[data-skin-outer]');
+  const rectControls=[['scaleX',panel.querySelector('[data-rect-x-scale]')],['scaleY',panel.querySelector('[data-rect-y-scale]')],
+    ['offsetX',panel.querySelector('[data-rect-x-offset]')],['offsetY',panel.querySelector('[data-rect-y-offset]')]];
   const weightInput=panel.querySelector('[data-v-weight]'),copySelect=panel.querySelector('[data-copy-target]');
   const canvas=document.getElementById('animlab-canvas');
   groupSelect.innerHTML=groups.map(g=>`<option value="${g.id}">${g.label}</option>`).join('');
   let selectedId=null,selectedBone=0,vertexIndex=0,groupCandidate=null,preview='rest',phase=.25;
-  let heatmap=false,wires=true,showCapsule=true,pickArmed=false,lastPickedPoints=null,liveBinding=null,liveItemId=null;
+  let heatmap=false,wires=true,showRect=true,pickArmed=false,lastPickedPoints=null,liveBinding=null,liveItemId=null;
   const hiddenParts=new Set(),lockedParts=new Set();let soloPart=null,lastCharacterId=null;
   function label(item,sources){return item.nameOverride||sources.get(item.meshId)?.mesh?.name||item.label||item.id;}
   function selectedItem(s){return inventory(s)?.find(p=>p.id===selectedId)||null;}
@@ -538,30 +632,34 @@
     }
     for(const button of bonesBoard.children){button.classList.toggle('active',Number(button.dataset.skinBone)===selectedBone);button.disabled=!canWeight;}
     const bindGeom=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
-    const envelope=binding?.envelopes?.[selectedBone]||defaultEnvelope(selectedBone,bindGeom);
-    const capsule=binding?.envelopeMode==='capsule-v1';
-    for(const [input,value,unit] of [[strengthSlider,envelope.strength*100,'%'],[innerSlider,envelope.inner,'m'],[outerSlider,envelope.outer,'m']]){
-      input.disabled=!canWeight;
-      if(document.activeElement!==input)input.value=String(value);
-      input.parentElement.querySelector('output').textContent=unit==='%'?`${Math.round(value)}%`:`${Number(value).toFixed(3)} m`;
+    const binary=binding?.envelopeMode==='rect-binary-v1';
+    const rect=binary?(binding?.rectangles?.[selectedBone]||defaultRectangle()):defaultRectangle();
+    for(const [key,input] of rectControls){
+      input.disabled=!canWeight||!binary;
+      if(document.activeElement!==input)input.value=String(rect[key]);
+      input.parentElement.querySelector('output').textContent=key.startsWith('scale')?`${rect[key].toFixed(2)}×`:`${rect[key].toFixed(3)} m`;
     }
+    const convert=panel.querySelector('[data-bind-action="rect-convert"]');
+    convert.disabled=!canWeight||binary;
+    convert.textContent=binary?'Binary rectangles active':'Use binary rectangles on this part';
     const actualMin=binding?Math.min(1,...binding.weights.map(row=>row.find(p=>p[0]===selectedBone)?.[1]||0)):0;
     const actualPeak=binding?peakOf(binding.weights,selectedBone):0;
     const unassigned=binding?Math.round(binding.weights.reduce((n,row)=>n+Math.max(0,1-row.reduce((a,p)=>a+p[1],0)),0)/Math.max(1,binding.weights.length)*100):0;
     const manualCount=Object.keys(binding?.manualWeights||{}).length;
     const isRigid=!!binding&&binding.weights.length>0&&binding.weights.every(row=>row.length===1&&row[0][0]===selectedBone&&row[0][1]>=.9999);
+    const claimed=binding?.weights.filter(row=>row.length>0).length||0;
     panel.querySelector('[data-weight-status]').textContent=binding?
-      `${isRigid?'Rigid · ':''}Actual selected weight: ${Math.round(actualMin*100)}–${Math.round(actualPeak*100)}% · Avg unassigned/rest: ${unassigned}%${manualCount?` · ${manualCount} manual overrides`:''}`:
+      `${binary?'Binary · ':''}${isRigid?'Rigid · ':''}Selected bone: ${Math.round(actualMin*100)}–${Math.round(actualPeak*100)}% · Covered ${claimed}/${binding.weights.length} vertices · Unassigned ${binding.weights.length-claimed}${manualCount?` · ${manualCount} manual`:''}`:
       'Bind a part to edit its weights.';
-    panel.querySelector('[data-envelope-mode-note]').textContent=capsule?
-      `Envelope editing active. Inner radius = full strength; outer radius = zero.${manualCount&&!isRigid?' Manually overridden vertices retain their explicit weights (Reset Part clears overrides).':''} Move a slider to preview.` :
-      'Legacy weights preserved. Moving an envelope slider will switch this part to spatial envelopes; Undo restores the earlier weights.';
+    panel.querySelector('[data-envelope-mode-note]').textContent=binary?
+      'Local X follows the rest bone (scale 1 = one bone length); local Y is perpendicular (scale 1 = 0.12 m wide). Offsets are rest-local metres. The cyan box assigns this bone a hard 100% influence. Uncovered vertices are 0% and remain at rest. Drag sliders for a live preview; Save to persist.':
+      'Existing weights are preserved. Choose “Use binary rectangles” to opt in, or Auto-bind part for fresh rectangles. Undo can restore your earlier binding.';
     const rigidButton=panel.querySelector('[data-bind-action="rigid"]');
     rigidButton.classList.toggle('active',isRigid);
     rigidButton.setAttribute('aria-pressed',String(isRigid));
-    for(const action of ['heatmap','wires','capsule']){
-      const button=panel.querySelector(`[data-skin-display="${action}"]`),on=action==='heatmap'?heatmap:action==='wires'?wires:showCapsule;
-      button.textContent=`${action==='heatmap'?'Heatmap':action==='wires'?'Wireframe':'Envelope'}: ${on?'On':'Off'}`;
+    for(const action of ['heatmap','wires','rect']){
+      const button=panel.querySelector(`[data-skin-display="${action}"]`),on=action==='heatmap'?heatmap:action==='wires'?wires:showRect;
+      button.textContent=`${action==='heatmap'?'Heatmap':action==='wires'?'Wireframe':'Rectangle'}: ${on?'On':'Off'}`;
       button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));
     }
     panel.querySelector('[data-heat-legend]').hidden=!heatmap;
@@ -570,6 +668,7 @@
     panel.querySelector('.animlab-skin-vertex-label').textContent=`Vertex ${vertCount?vertexIndex+1:0} / ${vertCount} · ${binding?.manualWeights?.[vertexIndex]?'Manual':'Automatic'}${pickArmed?' · tap the viewport':''}`;
     const weight=binding?.weights?.[vertexIndex]?.find(p=>p[0]===selectedBone)?.[1]||0;
     weightInput.disabled=!canWeight;
+    weightInput.step=binary?100:1;
     if(document.activeElement!==weightInput)weightInput.value=String(Math.round(weight*100));
     weightInput.parentElement.querySelector('output').textContent=`${Math.round(weight*100)}%`;
     const pickBtn=panel.querySelector('[data-v-nav="pick"]');
@@ -599,37 +698,34 @@
     liveBinding=null;liveItemId=null;
     refresh();core.redrawOnly?.();
   }
-  function previewSlider(input,kind){
+  function previewRectangle(input,key){
     const s=state(),item=selectedItem(s),source=item&&sourceMap(s).get(item.meshId),saved=item&&bindingFor(item,source);
-    if(!saved||lockedParts.has(item.id))return;
+    if(!saved||lockedParts.has(item.id)||saved.envelopeMode!=='rect-binary-v1')return;
     const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const next=clone(saved);
-    activateEnvelopes(next,item,source,geometry);
-    // A whole-part Rigid Bind is a diagnostic override. Editing an envelope
-    // should leave rigid mode rather than deceptively appearing to do nothing.
+    // Whole-part rigid mode must not hide subsequent rectangle changes.
     if(Object.keys(next.manualWeights||{}).length>=source.mesh.vertices.length&&
        next.weights.every(row=>row.length===1&&row[0][1]>=.9999))next.manualWeights={};
-    const env={...next.envelopes[selectedBone]};
-    if(kind==='strength')env.strength=clamp(Number(input.value)/100,0,1);
-    if(kind==='inner')env.inner=clamp(Number(input.value),0,.3);
-    if(kind==='outer')env.outer=clamp(Number(input.value),0,.5);
-    // Keep a valid two-boundary capsule. Crossing controls is predictable.
-    if(env.outer<env.inner){if(kind==='inner')env.outer=env.inner;else env.inner=env.outer;}
-    next.envelopes[selectedBone]=env;
-    updateEnvelopeWeights(next,item,source,geometry);
+    const rect={...defaultRectangle(),...next.rectangles?.[selectedBone]};
+    const value=Number(input.value);
+    rect[key]=key.startsWith('scale')?clamp(value,.2,5):clamp(value,-.35,.35);
+    next.rectangles[selectedBone]=rect;
+    updateRectWeights(next,item,source,geometry);
     liveBinding=next;liveItemId=item.id;
-    for(const [slider,val,unit] of [[strengthSlider,env.strength*100,'%'],[innerSlider,env.inner,'m'],[outerSlider,env.outer,'m']]){
-      if(document.activeElement!==slider)slider.value=String(val);
-      slider.parentElement.querySelector('output').textContent=unit==='%'?`${Math.round(val)}%`:`${val.toFixed(3)} m`;
+    for(const [name,slider] of rectControls){
+      if(document.activeElement!==slider)slider.value=String(rect[name]);
+      slider.parentElement.querySelector('output').textContent=name.startsWith('scale')?`${rect[name].toFixed(2)}×`:`${rect[name].toFixed(3)} m`;
     }
-    // Do not rebuild control markup for every touchmove: only redraw the art.
+    const claimed=next.weights.filter(row=>row.length>0).length;
+    panel.querySelector('[data-weight-status]').textContent=
+      `Binary · Covered ${claimed}/${next.weights.length} vertices · Unassigned ${next.weights.length-claimed}`;
     core.redrawOnly?.();
   }
-  for(const [input,kind] of [[strengthSlider,'strength'],[innerSlider,'inner'],[outerSlider,'outer']]){
-    input.addEventListener('input',()=>previewSlider(input,kind));
+  for(const [key,input] of rectControls){
+    input.addEventListener('input',()=>previewRectangle(input,key));
     input.addEventListener('change',()=>{
-      if(!liveBinding||liveItemId!==selectedId)previewSlider(input,kind);
-      if(liveBinding&&liveItemId===selectedId)commitBinding(selectedId,liveBinding,`Adjust ${kind} envelope`);
+      if(!liveBinding||liveItemId!==selectedId)previewRectangle(input,key);
+      if(liveBinding&&liveItemId===selectedId)commitBinding(selectedId,liveBinding,`Adjust rectangle ${key}`);
     });
     input.addEventListener('pointercancel',()=>{liveBinding=null;liveItemId=null;refresh();core.redrawOnly?.();});
   }
@@ -661,6 +757,14 @@
         return setup;
       });groupCandidate=null;vertexIndex=0;liveBinding=null;liveItemId=null;
     }
+    if(action==='rect-convert'&&item&&!lockedParts.has(item.id)){
+      const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
+      if(saved){
+        const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+        const binding=activateRectangles(clone(saved),item,source,geometry);
+        commitBinding(item.id,binding,'Switch part to binary rectangle envelopes');
+      }
+    }
     if(action==='rigid'&&item&&!lockedParts.has(item.id)){
       const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
       if(saved&&groupBones(saved.group).includes(selectedBone)){
@@ -685,7 +789,16 @@
       if(saved&&!lockedParts.has(item.id)){
         const binding=clone(saved);binding.baseWeights ||= clone(saved.weights);
         binding.boneProfiles ||= {};binding.manualWeights ||= {};
-        if(binding.envelopeMode==='capsule-v1'){
+        if(binding.envelopeMode==='rect-binary-v1'){
+          const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+          if(action==='reset-bone')binding.rectangles[selectedBone]=defaultRectangle();
+          if(action==='auto-vertex')delete binding.manualWeights[vertexIndex];
+          if(action==='reset-part'){
+            binding.rectangles=defaultRectangles(groupBones(binding.group));
+            binding.manualWeights={};
+          }
+          updateRectWeights(binding,item,sources.get(item.meshId),geometry);
+        }else         if(binding.envelopeMode==='capsule-v1'){
           const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
           if(action==='reset-bone')binding.envelopes[selectedBone]=defaultEnvelope(selectedBone,geometry);
           if(action==='auto-vertex')delete binding.manualWeights[vertexIndex];
@@ -717,7 +830,7 @@
     const display=event.target.closest('[data-skin-display]')?.dataset.skinDisplay;
     if(display==='heatmap')heatmap=!heatmap;
     if(display==='wires')wires=!wires;
-    if(display==='capsule')showCapsule=!showCapsule;
+    if(display==='rect')showRect=!showRect;
     const pose=event.target.closest('[data-preview]')?.dataset.preview;
     if(pose){if(pose==='phase')phase=(phase+.25)%1;else preview=pose;}
     const nav=event.target.closest('[data-v-nav]')?.dataset.vNav;
@@ -737,15 +850,22 @@
     else core.setHint?.('No vertex near that tap; zoom in or try again.');
     pickArmed=false;refresh();core.redrawOnly?.();
   },true);
-  function capsuleOutline(ctx,A,B,r,color){
-    if(r<=0)return;
-    const dx=B.x-A.x,dy=B.y-A.y,theta=Math.atan2(dy,dx),normal=theta+Math.PI/2;
-    ctx.beginPath();ctx.moveTo(A.x+Math.cos(normal)*r,A.y+Math.sin(normal)*r);
-    ctx.lineTo(B.x+Math.cos(normal)*r,B.y+Math.sin(normal)*r);
-    ctx.arc(B.x,B.y,r,normal,normal+Math.PI,false);
-    ctx.lineTo(A.x-Math.cos(normal)*r,A.y-Math.sin(normal)*r);
-    ctx.arc(A.x,A.y,r,normal+Math.PI,normal+2*Math.PI,false);
-    ctx.closePath();ctx.strokeStyle=color;ctx.lineWidth=Math.max(1,ctx.lineWidth);ctx.stroke();
+  function rectangleOutline(ctx,frame,view){
+    const corners=rectangleCorners(frame).map(p=>project(p,view));
+    if(corners.length!==4)return;
+    ctx.beginPath();ctx.moveTo(corners[0].x,corners[0].y);
+    for(let k=1;k<4;k++)ctx.lineTo(corners[k].x,corners[k].y);
+    ctx.closePath();
+    ctx.fillStyle='rgba(58,188,205,.075)';ctx.fill();
+    ctx.strokeStyle='rgba(84,214,229,.9)';ctx.lineWidth=1;ctx.stroke();
+    // The axis cross explicitly shows the bone-local X/Y frame.
+    const center=project({x:frame.cx,y:frame.cy},view);
+    const x=project({x:frame.cx+frame.ux*frame.hx*.55,y:frame.cy+frame.uy*frame.hx*.55},view);
+    const y=project({x:frame.cx+frame.nx*frame.hy*.55,y:frame.cy+frame.ny*frame.hy*.55},view);
+    ctx.beginPath();ctx.moveTo(center.x,center.y);ctx.lineTo(x.x,x.y);
+    ctx.strokeStyle='rgba(255,210,117,.95)';ctx.stroke();
+    ctx.beginPath();ctx.moveTo(center.x,center.y);ctx.lineTo(y.x,y.y);
+    ctx.strokeStyle='rgba(99,228,219,.95)';ctx.stroke();
   }
   function render(args){
     const s=renderState(),parts=inventory(s);if(!parts||s.family!=='fox')return false;
@@ -755,6 +875,7 @@
     const bindGeom=bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const posed=pose?rig.geometry(pose,s.setup?.rig||rig.DEFAULT_REST_RIG):bindGeom;
     const maps=pose?boneTransforms(bindGeom,posed):null;
+    const rigidMaps=pose?rigidBoneTransforms(bindGeom,posed):null;
     const counts={triangles:0,drawCalls:0,batched:0};const started=performance.now();
     const ctx=args.ctx;
     ctx.save();ctx.globalAlpha=1;ctx.imageSmoothingEnabled=true;
@@ -770,7 +891,8 @@
       const selected=skinMode&&item.id===selectedId;
       const binding=selected&&item.id===liveItemId&&liveBinding?liveBinding:bindingFor(item,source);
       const rest=transformVertices(mesh,item,image);
-      const points=rest.map((p,i)=>project(binding&&maps?fastSkinVertex(p,binding.weights[i],maps):p,args.view));
+      const chosenMaps=binding?.envelopeMode==='rect-binary-v1'?rigidMaps:maps;
+      const points=rest.map((p,i)=>project(binding&&chosenMaps?fastSkinVertex(p,binding.weights[i],chosenMaps):p,args.view));
       rasterTriangles(ctx,image,mesh,points,binding,pose,counts);
       if(selected&&heatmap&&binding){
         for(const tri of mesh.triangles){
@@ -796,17 +918,10 @@
       const item=parts.find(p=>p.id===selectedId),source=item&&sources.get(item.meshId);
       const bound=item&&bindingFor(item,source);
       const allowed=new Set(groupBones(groupCandidate||bound?.group||'body'));
-      if(showCapsule&&bound&&allowed.has(selectedBone)){
-        const bone=bones[selectedBone],geo=bindGeom;
-        const a=geo[bone.a],b=geo[bone.b];
-        if(a&&b){
-          const A=project(a,args.view),B=project(b,args.view);
-          const env=(item?.id===liveItemId&&liveBinding?liveBinding:bound)?.envelopes?.[selectedBone]||defaultEnvelope(selectedBone,geo);
-          ctx.save();ctx.lineWidth=1;
-          capsuleOutline(ctx,A,B,Math.max(.15,env.outer*args.view.scale),'rgba(88,206,225,.80)');
-          capsuleOutline(ctx,A,B,Math.max(.15,env.inner*args.view.scale),'rgba(255,208,116,.90)');
-          ctx.restore();
-        }
+      const displayed=item?.id===liveItemId&&liveBinding?liveBinding:bound;
+      if(showRect&&displayed?.envelopeMode==='rect-binary-v1'&&allowed.has(selectedBone)){
+        const frame=rectangleFrame(selectedBone,displayed.rectangles?.[selectedBone]||defaultRectangle(),bindGeom);
+        if(frame){ctx.save();rectangleOutline(ctx,frame,args.view);ctx.restore();}
       }
       ctx.lineCap='round';ctx.lineJoin='round';
       bones.forEach((bone,i)=>{
@@ -821,5 +936,6 @@
   }
   core.registerArtRenderer('atlas-assembly-skin',render);
   core.subscribe(s=>{if(s.mode==='setup'&&s.setupTool==='atlas')signatures=new WeakMap();refresh();});refresh();
-  window.AnimLabAssemblySkinInspect=Object.freeze({sourceSignature:signature,defaultEnvelope,envelopeFalloff,capsuleRows,activateEnvelopes,updateEnvelopeWeights,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
+  window.AnimLabAssemblySkinInspect=Object.freeze({sourceSignature:signature,defaultEnvelope,envelopeFalloff,capsuleRows,activateEnvelopes,updateEnvelopeWeights,
+    defaultRectangle,rectangleFrame,rectangleCorners,rectBinaryRows,activateRectangles,updateRectWeights,mapBoneRigid,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});
 })();

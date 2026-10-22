@@ -2823,3 +2823,11 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Regression test four limbs FK→IK at unchanged paw, 24 raised target samples, and altered rest rigs with opposite signed knees; retain exact segment lengths and rest branch.
 - [ ] iPhone user acceptance: test Fox Rig resting knees vs front/rear Paw Targets in Animate Idle, then Walk/Run/Jump, including New01 custom Atlas character; verify no bone branch crosses and check existing authored clips for legitimate pose differences.
 - [ ] Longer term: consider a user-authored IK bend/pole override for *nearly straight* custom rest rigs, but only if rest-shape inference is insufficient in practice. Keep it optional and rig-driven; do not add duplicate per-animation controls now.
+
+
+## Atlas→Skin v1.1.16 checkpoint (2026-10-22)
+
+- **IMPLEMENTED / DEVICE REVIEW NEEDED:** rectangular bone-local scale/offset control, mutually exclusive binary vertex ownership, overlap decision, rest-space unclaimed vertices and coverage display, rigid rotation+translation for full 100% single-bone binding, legacy opt-in conversion and schema round-trip.
+- **VERIFY on user's New01 on iPhone:** rectangle alignment with actual authored bones and whole mesh coverage, selection/preview slider responsiveness, Skin/Animate pose parity, rigid-body size invariance.
+- **NEXT, ON HOLD UNTIL VERIFIED:** optional border soften (global) vs second inner/outer falloff shape; define tie-break/priority during overlap and behaviour of uncovered vertices in soft mode.
+- **UNCHANGED OPEN:** normal game runtime character hookup; imported Atlas PNG portable export; complete character hierarchy/node graph and multi-atlas/shared clothing.

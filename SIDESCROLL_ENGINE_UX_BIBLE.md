@@ -1512,3 +1512,8 @@ A dragged IK handle/precision pad should move visually every rendered frame, not
 ## v1.1.15 — IK pole/bend authoring contract (22 October 2026)
 
 In quadruped rigs, a Paw Target must never silently flip the elbow/knee compared with its authored Rest pose. In the Fox family the elbow/knee branch is calculated once from current rig geometry (Socket, Knee, Wrist/Hock) and held consistent across pose evaluation: foreleg bends backwards and hind knee forwards on the current authored rest layout. If the rig is edited to another anatomical branch, IK follows *that* rest branch. An ambiguous straight rest rig uses the documented nominal fallback and may eventually need an explicit pole-control tool. Avoid a second independent bend decision in Animate versus Rig, and do not equate this bend-branch correction with Skin weights or animation playback performance. No new UI is added in this drop.
+
+
+## v1.1.16 — Skin shape editing convention
+
+Stage 1 binary rectangles follow the existing select part → select bone → edit controls pattern. The four local bone-space Scale X/Y and Offset X/Y properties are grouped together. Live input previews should only redraw and the completed gesture commits one Setup edit (Undo/Redo/Save/Discard). An unobtrusive rectangle gizmo, heatmap and covered/unassigned count make actual assignment understandable. Preserve existing saved capsule weights until explicit opt-in; no automatic data rewrite on entering the workspace. Do not claim a whole mesh will move rigidly unless its vertices have 100% ownership by the same bone. Release README files describe the specific release only; canonical docs are cumulative.

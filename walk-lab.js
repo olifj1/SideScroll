@@ -386,11 +386,23 @@
                 }
                 clean.envelopeMode='capsule-v1';clean.envelopes=envelopes;
               }
+              // v1.1.16: per-bone hard rectangles in rest-local coordinates.
+              // Geometry/weights remain optional. Older capsule bindings do
+              // not convert unless the artist explicitly requests it.
+              if(raw.envelopeMode==='rect-binary-v1'&&raw.rectangles&&typeof raw.rectangles==='object'){
+                const rectangles={};
+                for(const [key,rect] of Object.entries(raw.rectangles)){
+                  if(!/^\d{1,2}$/.test(key)||+key>=128||!rect||typeof rect!=='object')continue;
+                  rectangles[key]={scaleX:number(rect.scaleX,1.45,.05,8),scaleY:number(rect.scaleY,1.2,.05,8),
+                    offsetX:number(rect.offsetX,0,-1,1),offsetY:number(rect.offsetY,0,-1,1)};
+                }
+                clean.envelopeMode='rect-binary-v1';clean.rectangles=rectangles;
+              }
               if(raw.manualWeights&&typeof raw.manualWeights==='object'){
                 const overrides={};
                 for(const [key,row] of Object.entries(raw.manualWeights)){
                   if(!/^(0|[1-9]\d{0,3})$/.test(key)||+key>=clean.weights.length)continue;
-                  const sanitized=cleanRow(row);if(sanitized.length||raw.envelopeMode==='capsule-v1')overrides[key]=sanitized;
+                  const sanitized=cleanRow(row);if(sanitized.length||raw.envelopeMode==='capsule-v1'||raw.envelopeMode==='rect-binary-v1')overrides[key]=sanitized;
                 }
                 if(Object.keys(overrides).length)clean.manualWeights=overrides;
               }
