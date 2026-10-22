@@ -2856,3 +2856,13 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 **IMPLEMENTED as opt-in:** per-part `joint-boundaries-v1` with an automatically bisected REST joint cap, adjustable width/rotation/local X/Y offsets, one line shared by all adjoining bone polygons in unbranched chains, selected polygon/active line previews, hard 0/100 ownership, uncovered status and Undo/Redo Save/Discard. Existing rectangles/Joint Fit may be restored rather than losing their settings. Bounds and convexity checks refuse invalid edits. No new renderer or rig logic. Device acceptance on user-imported New01 remains **OPEN**, as does visual comparison to old mitred rectangles in both straight and curled animations.
 
 **NEXT, only after shape feedback:** optional per-joint **Blend Distance**, default 0, centered on the authored boundary. Two incident bones only, with normalized weights, visible blend edges, and weights baked on edit (not animated every frame). Consider one linear/smoothstep profile before any independent secondary falloff shape. Verify enough mesh subdivisions exist in the blend zone; avoid automatic remeshing in the first blend release. Investigate skinning volume loss and interactive performance separately after the binary model is accepted. Full portable image asset export and cross-character hierarchy remain separate outstanding workstreams.
+
+
+## v1.1.20 — Rotated joint axes and terminal influence reach (2026-10-22)
+
+- [x] Rotate the joint-offset coordinate frame with the authored mitre line: local Y travels along the line after rotation; local X follows its rotated perpendicular.
+- [x] Add per-terminal `endExtension` (rest-space signed metres) for cap reach beyond a chain's first/last bones. Show it only at Socket/Root and Paw/Tip; preserve shared middle joints.
+- [x] Preserve v119 saved weight/cap parity: legacy frame until edited, equivalent new slider values, lossless first-edit conversion into `jointOffsetFrame:'rotated-v1'`. No dynamic bind/weight mutation on pose changes.
+- [x] Validate in synthetic Node geometry, six true Fox chain families with expanded ends, and a mobile-landscape synthetic Chromium UI commit/visibility scenario; no JavaScript exceptions.
+- [ ] Validate on New01's existing leg artwork in iPhone Safari: select hind Socket, extend top cap over thigh, rotate Knee and check Local Y follows line; check Save/Reopen/Undo and visible covered/unassigned vertices.
+- [ ] **Only after acceptance:** independently scope optional joint `Blend Distance`, starting at zero and using just connected bones; no blend in v120.

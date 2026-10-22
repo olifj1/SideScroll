@@ -127,3 +127,8 @@ Canvas2D batching and per-pose affine bone-map caching are transient rendering i
 ## v1.1.19 joint-owned Skin data
 
 Optional `setup.artLayout.assembly.instances[].skinBinding` of schema `animlab.skin-binding.v1` now permits `envelopeMode:'joint-boundaries-v1'` and `jointBoundaries:{[rigJointId]:{width,rotation,offsetX,offsetY}}` in addition to the authoritative per-vertex `weights`, `baseWeights` and optional sparse `manualWeights`. `walk-lab.js` validates and clamps each named joint's four fields when saving/loading Setup, preserves explicit empty manual override rows in this binary mode, and leaves previous rectangle metadata intact for reversible comparison. No additional persistent storage key, mesh copy, Atlas image export or runtime character installation is introduced. **Current JSON-only backups still exclude imported PNG blobs in IndexedDB** and are not fully portable until that issue is separately addressed.
+
+
+## v1.1.20 joint-boundary data compatibility
+
+Optional `jointBoundaries[jointId].endExtension` is a signed **metre** value clamped to -0.25…+0.65 m and defaults to 0 when absent; only chain endpoints apply it. New-format records add `skinBinding.jointOffsetFrame:'rotated-v1'`. A v1.1.19 record **without** that marker retains its previously baked `weights` and legacy rest-frame offset interpretation on read, and is converted to rotated-frame X/Y offsets only upon a deliberate Skin editor change (rest-space guide position preserved). `walk-lab.js` normalises both optional fields within the existing `animlab.skin-binding.v1` schema; existing rest/bind mesh signatures and per-vertex binary rows remain unchanged by loading. No new storage key or portable PNG payload; imported art is still in IndexedDB rather than JSON.

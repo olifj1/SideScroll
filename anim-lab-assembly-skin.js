@@ -1,4 +1,4 @@
-/* SideScroll v1.1.19 — optional joint-authored influence regions (binary).
+/* SideScroll v1.1.20 — joint-local offsets after rotation and extendable terminal caps (binary).
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -241,7 +241,7 @@
   // A bone's influence polygon is generated BETWEEN its two joint caps.
   // The same cap endpoints are referenced by BOTH neighbours, not computed
   // independently by each bone. This stage is hard binary (no falloff).
-  const defaultJointBoundary=()=>({width:1.2,rotation:0,offsetX:0,offsetY:0});
+  const defaultJointBoundary=()=>({width:1.2,rotation:0,offsetX:0,offsetY:0,endExtension:0});
   function jointChain(binding){
     const allowed=groupBones(binding.group),ids=new Set();
     for(const i of allowed){ids.add(bones[i].a);ids.add(bones[i].b);}
@@ -277,14 +277,43 @@
     }
     return result;
   }
-  function boundaryLine(joint,settings,geom,frame){
+  // v1.1.19 stored offsets in unrotated chain coordinates. Preserve those
+  // bindings/weight assignments until the artist edits them, then migrate
+  // both offsets into the rotated frame without moving the existing line.
+  function rotatedOffsets(entry){
+    const b={...defaultJointBoundary(),...entry};
+    const angle=clamp(Number(b.rotation)||0,-70,70)*Math.PI/180;
+    const c=Math.cos(angle),s=Math.sin(angle),x=Number(b.offsetX)||0,y=Number(b.offsetY)||0;
+    return {...b,offsetX:+(x*c+y*s).toFixed(8),offsetY:+(-x*s+y*c).toFixed(8)};
+  }
+  function upgradeJointOffsetFrame(binding){
+    if(binding.jointOffsetFrame==='rotated-v1')return binding;
+    for(const [joint,entry] of Object.entries(binding.jointBoundaries||{}))
+      binding.jointBoundaries[joint]=rotatedOffsets(entry);
+    binding.jointOffsetFrame='rotated-v1';
+    return binding;
+  }
+  function boundaryLine(joint,settings,geom,frame,offsetFrame='rotated-v1'){
     const pos=geom[joint];if(!pos||!frame||frame.invalid)return null;
     const a={...defaultJointBoundary(),...settings};
     const width=clamp(Number(a.width)||0,.05,8),angle=clamp(Number(a.rotation)||0,-70,70)*Math.PI/180;
     const ox=clamp(Number(a.offsetX)||0,-1,1),oy=clamp(Number(a.offsetY)||0,-1,1);
-    const cx=pos.x+frame.ux*ox+frame.nx*oy,cy=pos.y+frame.uy*ox+frame.ny*oy;
     const cs=Math.cos(angle),sn=Math.sin(angle);
+    // Artist offsets are in the ROTATED joint-line frame, not the unrotated
+    // rest-chain frame: local Y always travels along the visible cap line.
+    const ux=frame.ux*cs-frame.uy*sn,uy=frame.ux*sn+frame.uy*cs;
     const nx=frame.nx*cs-frame.ny*sn,ny=frame.nx*sn+frame.ny*cs;
+    // A chain end has only one incident bone. Positive extension pushes its
+    // cap OUTWARD beyond the skeletal endpoint; middle joints cannot extend.
+    const terminal=frame.incident.length===1;
+    const extension=terminal?clamp(Number(a.endExtension)||0,-.25,.65):0;
+    const sign=terminal?(bones[frame.incident[0]].a===joint?-1:1):0;
+    const localX=offsetFrame==='rotated-v1'?ux:frame.ux;
+    const localY=offsetFrame==='rotated-v1'?uy:frame.uy;
+    const crossX=offsetFrame==='rotated-v1'?nx:frame.nx;
+    const crossY=offsetFrame==='rotated-v1'?ny:frame.ny;
+    const cx=pos.x+localX*ox+crossX*oy+frame.ux*sign*extension;
+    const cy=pos.y+localY*ox+crossY*oy+frame.uy*sign*extension;
     const hx=.06*width;
     return [{x:cx-nx*hx,y:cy-ny*hx},{x:cx+nx*hx,y:cy+ny*hx}];
   }
@@ -299,7 +328,7 @@
     const lines=new Map(),polygons=new Map(),errors=[];
     for(const [joint,frame] of frames){
       if(frame.invalid){errors.push(`${joint}: ${frame.invalid}`);continue;}
-      const line=boundaryLine(joint,binding.jointBoundaries?.[joint],geom,frame);
+      const line=boundaryLine(joint,binding.jointBoundaries?.[joint],geom,frame,binding.jointOffsetFrame||'rest-v1');
       if(line)lines.set(joint,line);
     }
     for(const i of allowed){
@@ -344,6 +373,7 @@
     if(binding.envelopeMode==='joint-boundaries-v1')return binding;
     binding.jointBoundaries=defaultJointBoundaries(binding,geom);
     binding.envelopeMode='joint-boundaries-v1';
+    binding.jointOffsetFrame='rotated-v1';
     binding.manualWeights={};binding.boneProfiles={};
     return updateJointWeights(binding,item,source,geom);
   }
@@ -719,8 +749,10 @@
         <div data-joint-controls>
           <label class="animlab-slider"><span>Joint line width</span><input data-joint-width type="range" min="0.2" max="5" step="0.05" value="1.2"><output>1.20×</output></label>
           <label class="animlab-slider"><span>Mitre rotation · rest angle offset</span><input data-joint-rotation type="range" min="-60" max="60" step="1" value="0"><output>0°</output></label>
-          <label class="animlab-slider"><span>Local X offset · along chain</span><input data-joint-offset-x type="range" min="-0.35" max="0.35" step="0.005" value="0"><output>0.000 m</output></label>
-          <label class="animlab-slider"><span>Local Y offset · across chain</span><input data-joint-offset-y type="range" min="-0.35" max="0.35" step="0.005" value="0"><output>0.000 m</output></label>
+          <label class="animlab-slider"><span>Local X offset · after rotation</span><input data-joint-offset-x type="range" min="-0.6" max="0.6" step="0.005" value="0"><output>0.000 m</output></label>
+          <label class="animlab-slider"><span>Local Y offset · along rotated line</span><input data-joint-offset-y type="range" min="-0.6" max="0.6" step="0.005" value="0"><output>0.000 m</output></label>
+          <label class="animlab-slider" data-joint-end-row hidden><span>Free-end extension · past bone tip</span><input data-joint-end-extension type="range" min="-0.25" max="0.65" step="0.005" value="0"><output>0.000 m</output></label>
+          <p class="animlab-skin-note" data-joint-end-help hidden>Only chain ends have an extension. Select the top or bottom joint of the leg to expand coverage beyond its skeleton.</p>
         </div>
         <div class="animlab-skin-note" data-joint-feedback role="status"></div>
         <button type="button" data-bind-action="reset-joint">Reset selected joint</button>
@@ -770,7 +802,8 @@
     ['offsetX',panel.querySelector('[data-rect-x-offset]')],['offsetY',panel.querySelector('[data-rect-y-offset]')]];
   const jointSelect=panel.querySelector('[data-joint-select]');
   const jointControls=[['width',panel.querySelector('[data-joint-width]')],['rotation',panel.querySelector('[data-joint-rotation]')],
-    ['offsetX',panel.querySelector('[data-joint-offset-x]')],['offsetY',panel.querySelector('[data-joint-offset-y]')]];
+    ['offsetX',panel.querySelector('[data-joint-offset-x]')],['offsetY',panel.querySelector('[data-joint-offset-y]')],
+    ['endExtension',panel.querySelector('[data-joint-end-extension]')]];
   const weightInput=panel.querySelector('[data-v-weight]'),copySelect=panel.querySelector('[data-copy-target]');
   const canvas=document.getElementById('animlab-canvas');
   groupSelect.innerHTML=groups.map(g=>`<option value="${g.id}">${g.label}</option>`).join('');
@@ -892,7 +925,12 @@
     if(!jointIds.includes(selectedJoint))selectedJoint=jointIds.find(id=>id===bones[selectedBone]?.b)||jointIds[0]||null;
     if(document.activeElement!==jointSelect)jointSelect.value=selectedJoint||'';
     jointSelect.disabled=!canWeight||!jointMode;
-    const jointValue={...defaultJointBoundary(),...binding?.jointBoundaries?.[selectedJoint]};
+    const terminal=jointMode&&jointFrameDirections(binding,bindGeom).get(selectedJoint)?.incident?.length===1;
+    const endRow=panel.querySelector('[data-joint-end-row]');
+    endRow.hidden=!terminal;endRow.style.display=terminal?'':'none';
+    panel.querySelector('[data-joint-end-help]').hidden=!jointMode;
+    const rawJointValue={...defaultJointBoundary(),...binding?.jointBoundaries?.[selectedJoint]};
+    const jointValue=jointMode&&binding.jointOffsetFrame!=='rotated-v1'?rotatedOffsets(rawJointValue):rawJointValue;
     for(const [key,input] of jointControls){
       input.disabled=!canWeight||!jointMode;
       if(document.activeElement!==input)input.value=String(jointValue[key]);
@@ -916,7 +954,7 @@
       `${binary||jointMode?'Binary · ':''}${isRigid?'Rigid · ':''}Selected bone: ${Math.round(actualMin*100)}–${Math.round(actualPeak*100)}% · Covered ${claimed}/${binding.weights.length} vertices · Unassigned ${binding.weights.length-claimed}${manualCount?` · ${manualCount} manual`:''}`:
       'Bind a part to edit its weights.';
     panel.querySelector('[data-envelope-mode-note]').textContent=jointMode?
-      'Joint boundaries own the shape. Select a joint and edit its line; neighbouring bone regions share both endpoints. No blending yet.':binary?
+      'Joint boundaries own the shape. Local X/Y offsets follow the rotated line. Select a chain-end joint for Free-end extension. No blending yet.':binary?
       `Local X follows the rest bone (1× = bone length); Y is perpendicular (1× = 0.12 m wide). ${fitEnabled?'Joint Fit creates matching mitred caps at connected joints in REST space. ':'Independent rectangles active. '}Only free ends honour X extent when Joint Fit is on. Each covered vertex belongs to exactly one bone.`:
       'Existing weights are preserved. Choose “Use binary rectangles” to opt in, or Auto-bind part for fresh rectangles. Undo can restore your earlier binding.';
     const rigidButton=panel.querySelector('[data-bind-action="rigid"]');
@@ -993,8 +1031,11 @@
     // Keep a live copy across consecutive drag events; don't rebuild from the
     // persisted Setup state after every touch movement.
     const next=clone(liveItemId===item.id&&liveBinding?liveBinding:saved);
+    // Existing v119 guides stay aligned with baked weights until first edit;
+    // a normal offset-frame upgrade here preserves all line centres exactly.
+    upgradeJointOffsetFrame(next);
     const val=Number(input.value),boundary={...defaultJointBoundary(),...next.jointBoundaries?.[selectedJoint]};
-    boundary[key]=key==='width'?clamp(val,.2,5):key==='rotation'?clamp(val,-60,60):clamp(val,-.35,.35);
+    boundary[key]=key==='width'?clamp(val,.2,5):key==='rotation'?clamp(val,-60,60):key==='endExtension'?clamp(val,-.25,.65):clamp(val,-.6,.6);
     next.jointBoundaries[selectedJoint]=boundary;
     if(Object.keys(next.manualWeights||{}).length>=source.mesh.vertices.length&&
        next.weights.every(row=>row.length===1&&row[0][1]>=.9999))next.manualWeights={};
@@ -1071,6 +1112,7 @@
       const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
       if(saved?.envelopeMode==='joint-boundaries-v1'&&selectedJoint){
         const binding=clone(saved),geometry=bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+        upgradeJointOffsetFrame(binding);
         binding.jointBoundaries[selectedJoint]=defaultJointBoundaries(binding,geometry)[selectedJoint]||defaultJointBoundary();
         if(updateJointWeights(binding,item,source,geometry))commitBinding(item.id,binding,`Reset joint boundary ${selectedJoint}`);
       }

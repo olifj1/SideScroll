@@ -1,11 +1,9 @@
-# SideScroll — Patch v1.1.19
+# SideScroll changed-files-only patch v1.1.20
 
-**Changed-files-only release. Install over v1.1.18.** Replace the listed files in the flat GitHub repo and reload Anim Lab (service-worker cache `v129`).
+Install **over v1.1.19** by replacing the included files in the flat GitHub Pages repository.
 
-**Skin · Joint boundary authoring, first binary trial:** A selected Atlas-assembled part can now opt into a *joint-owned* influence system. Instead of each bone making its own rectangle and later mitring its ends, every chain joint owns one shared rest-pose boundary line. The bone's influence polygon is built between its two endpoint joint lines. Select a joint, then adjust **Width, Mitre rotation, local X offset, local Y offset**; both connected bone regions share the line exactly.
+**New in this drop only:** Local X/Y offsets in Joint Boundaries are interpreted after the joint line's rotation. Terminal joints (for example hind-leg Socket or Paw) get a **Free-end extension** slider to extend the binary influence region beyond a skeletal endpoint. A compatibility field preserves existing v1.1.19 shapes/weights until the first edit, when offsets convert losslessly to the new rotated coordinates.
 
-This **does not yet blend** adjacent bones. Covered vertices are assigned to exactly one bone at 100%, unassigned vertices remain at rest, and manual vertex overrides still apply. Zero-flip/invalid polygons are rejected. Rest-assigned weights stay fixed during Animate/Play; guides rotate with the bone in posed Skin previews. Conversion is explicit and undoable. The original rectangle/Joint Fit metadata is retained if you switch back, and all other existing saved parts retain their prior mode.
+No soft blending, bone/IK changes, UV changes, mesh remeshing or rendering changes. Existing rectangle bindings remain unchanged. For test details and all 11 changed files, see `README-PATCH-1.1.20.md`.
 
-**Validation:** geometry for all six default Fox bone chains and a synthetic Chromium touch-layout Skin test passed. The user's actual imported New01 PNG and iPhone Safari performance/appearance remain unverified. No change to rig/IK, animation render path, art source, or runtime export. Imported PNG bytes are still excluded from JSON-only backups.
-
-See `README-PATCH-1.1.19.md` for complete drop-specific changes and test steps.
+**Acceptance:** In Skin on New01, select your hind leg and Edit joint → **Socket**; extend the top cap, then try rotating Knee and changing Local Y. iPhone/New01 remains unverified by automated tests.
