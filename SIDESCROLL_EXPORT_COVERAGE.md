@@ -132,3 +132,7 @@ Optional `setup.artLayout.assembly.instances[].skinBinding` of schema `animlab.s
 ## v1.1.20 joint-boundary data compatibility
 
 Optional `jointBoundaries[jointId].endExtension` is a signed **metre** value clamped to -0.25…+0.65 m and defaults to 0 when absent; only chain endpoints apply it. New-format records add `skinBinding.jointOffsetFrame:'rotated-v1'`. A v1.1.19 record **without** that marker retains its previously baked `weights` and legacy rest-frame offset interpretation on read, and is converted to rotated-frame X/Y offsets only upon a deliberate Skin editor change (rest-space guide position preserved). `walk-lab.js` normalises both optional fields within the existing `animlab.skin-binding.v1` schema; existing rest/bind mesh signatures and per-vertex binary rows remain unchanged by loading. No new storage key or portable PNG payload; imported art is still in IndexedDB rather than JSON.
+
+## v1.1.21 — Joint-boundary compatibility
+
+Joint-authored skin bindings continue in `animlab.skin-binding.v1` with `jointBoundaries` and `jointOffsetFrame:'rotated-v1'`. New records store only `{width, rotation, offsetX, offsetY}` for each boundary. The old nonzero `endExtension` is **read for backward compatibility only**, folded into rotated local offsets at first edit with equivalent geometry, then dropped from the saved joint entry. The weight array remains authoritative. All-guide rendering, ±1 mm nudges, and valid concave outlines require no new serialized fields. Patch installation itself does not rewrite existing exports or auto-rebind.

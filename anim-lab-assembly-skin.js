@@ -1,4 +1,4 @@
-/* SideScroll v1.1.20 — joint-local offsets after rotation and extendable terminal caps (binary).
+/* SideScroll v1.1.21 — reliable rotated-cap offsets, all-region guides and fine nudging (binary).
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
  * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
@@ -241,7 +241,7 @@
   // A bone's influence polygon is generated BETWEEN its two joint caps.
   // The same cap endpoints are referenced by BOTH neighbours, not computed
   // independently by each bone. This stage is hard binary (no falloff).
-  const defaultJointBoundary=()=>({width:1.2,rotation:0,offsetX:0,offsetY:0,endExtension:0});
+  const defaultJointBoundary=()=>({width:1.2,rotation:0,offsetX:0,offsetY:0});
   function jointChain(binding){
     const allowed=groupBones(binding.group),ids=new Set();
     for(const i of allowed){ids.add(bones[i].a);ids.add(bones[i].b);}
@@ -286,10 +286,27 @@
     const c=Math.cos(angle),s=Math.sin(angle),x=Number(b.offsetX)||0,y=Number(b.offsetY)||0;
     return {...b,offsetX:+(x*c+y*s).toFixed(8),offsetY:+(-x*s+y*c).toFixed(8)};
   }
-  function upgradeJointOffsetFrame(binding){
-    if(binding.jointOffsetFrame==='rotated-v1')return binding;
-    for(const [joint,entry] of Object.entries(binding.jointBoundaries||{}))
-      binding.jointBoundaries[joint]=rotatedOffsets(entry);
+  function upgradeJointOffsetFrame(binding,geom){
+    // v119 authored offsets relative to an unrotated cap. v120 authored
+    // rotated offsets plus an independent terminal extension. Consolidate
+    // that obsolete extension into X/Y so the cap never shifts on upgrade.
+    const oldBasis=binding.jointOffsetFrame!=='rotated-v1';
+    const frames=geom?jointFrameDirections(binding,geom):new Map();
+    for(const [joint,entry] of Object.entries(binding.jointBoundaries||{})){
+      const cap=oldBasis?rotatedOffsets(entry):{...defaultJointBoundary(),...entry};
+      const frame=frames.get(joint);
+      const extension=Number(cap.endExtension)||0;
+      if(extension&&frame&&!frame.invalid&&frame.incident.length===1){
+        const sign=bones[frame.incident[0]].a===joint?-1:1;
+        const angle=clamp(Number(cap.rotation)||0,-70,70)*Math.PI/180;
+        cap.offsetX=+(cap.offsetX+sign*extension*Math.cos(angle)).toFixed(8);
+        cap.offsetY=+(cap.offsetY-sign*extension*Math.sin(angle)).toFixed(8);
+      }
+      // When a terminal cap is converted, its old extension is now entirely
+      // represented by the local X/Y offsets. Never save a hidden slider.
+      delete cap.endExtension;
+      binding.jointBoundaries[joint]=cap;
+    }
     binding.jointOffsetFrame='rotated-v1';
     return binding;
   }
@@ -342,11 +359,14 @@
       const area=polygonArea(poly);
       const turns=poly.map((p,k)=>{const q=poly[(k+1)%4],r=poly[(k+2)%4];
         return (q.x-p.x)*(r.y-q.y)-(q.y-p.y)*(r.x-q.x);});
-      const convex=turns.every(v=>v>1e-9)||turns.every(v=>v< -1e-9);
+      // A user-rotated joint can form a legitimate *concave* quadrilateral.
+      // Binary polygonContains supports these. Reject self-crossing/inverted
+      // outlines, not harmless concavity which made offsets snap back to 0.
+      const nonDegenerate=turns.some(v=>Math.abs(v)>1e-10);
       const centreA={x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2};
       const centreB={x:(b[0].x+b[1].x)/2,y:(b[0].y+b[1].y)/2};
       const along=(centreB.x-centreA.x)*ux+(centreB.y-centreA.y)*uy;
-      if(!convex||Math.abs(area)<1e-8||area*expected<=1e-8||along<.18*(ux*ux+uy*uy)||
+      if(!nonDegenerate||Math.abs(area)<1e-8||area*expected<=1e-8||along<.035*(ux*ux+uy*uy)||
          segmentsCross(poly[0],poly[1],poly[2],poly[3])||segmentsCross(poly[1],poly[2],poly[3],poly[0])){
         errors.push(`${bone.label||i}: boundaries cross or invert`);continue;
       }
@@ -749,10 +769,10 @@
         <div data-joint-controls>
           <label class="animlab-slider"><span>Joint line width</span><input data-joint-width type="range" min="0.2" max="5" step="0.05" value="1.2"><output>1.20×</output></label>
           <label class="animlab-slider"><span>Mitre rotation · rest angle offset</span><input data-joint-rotation type="range" min="-60" max="60" step="1" value="0"><output>0°</output></label>
-          <label class="animlab-slider"><span>Local X offset · after rotation</span><input data-joint-offset-x type="range" min="-0.6" max="0.6" step="0.005" value="0"><output>0.000 m</output></label>
-          <label class="animlab-slider"><span>Local Y offset · along rotated line</span><input data-joint-offset-y type="range" min="-0.6" max="0.6" step="0.005" value="0"><output>0.000 m</output></label>
-          <label class="animlab-slider" data-joint-end-row hidden><span>Free-end extension · past bone tip</span><input data-joint-end-extension type="range" min="-0.25" max="0.65" step="0.005" value="0"><output>0.000 m</output></label>
-          <p class="animlab-skin-note" data-joint-end-help hidden>Only chain ends have an extension. Select the top or bottom joint of the leg to expand coverage beyond its skeleton.</p>
+          <label class="animlab-slider"><span>Local X offset · after rotation</span><input data-joint-offset-x type="range" min="-0.6" max="0.6" step="0.001" value="0"><output>0.000 m</output></label>
+          <div class="animlab-skin-nudge-row"><button type="button" data-joint-nudge="offsetX:-1">X −1 mm</button><button type="button" data-joint-nudge="offsetX:1">X +1 mm</button></div>
+          <label class="animlab-slider"><span>Local Y offset · along rotated line</span><input data-joint-offset-y type="range" min="-0.6" max="0.6" step="0.001" value="0"><output>0.000 m</output></label>
+          <div class="animlab-skin-nudge-row"><button type="button" data-joint-nudge="offsetY:-1">Y −1 mm</button><button type="button" data-joint-nudge="offsetY:1">Y +1 mm</button></div>
         </div>
         <div class="animlab-skin-note" data-joint-feedback role="status"></div>
         <button type="button" data-bind-action="reset-joint">Reset selected joint</button>
@@ -802,8 +822,7 @@
     ['offsetX',panel.querySelector('[data-rect-x-offset]')],['offsetY',panel.querySelector('[data-rect-y-offset]')]];
   const jointSelect=panel.querySelector('[data-joint-select]');
   const jointControls=[['width',panel.querySelector('[data-joint-width]')],['rotation',panel.querySelector('[data-joint-rotation]')],
-    ['offsetX',panel.querySelector('[data-joint-offset-x]')],['offsetY',panel.querySelector('[data-joint-offset-y]')],
-    ['endExtension',panel.querySelector('[data-joint-end-extension]')]];
+    ['offsetX',panel.querySelector('[data-joint-offset-x]')],['offsetY',panel.querySelector('[data-joint-offset-y]')]];
   const weightInput=panel.querySelector('[data-v-weight]'),copySelect=panel.querySelector('[data-copy-target]');
   const canvas=document.getElementById('animlab-canvas');
   groupSelect.innerHTML=groups.map(g=>`<option value="${g.id}">${g.label}</option>`).join('');
@@ -916,6 +935,7 @@
     jointButton.classList.toggle('active',fitEnabled);
     jointButton.setAttribute('aria-pressed',String(fitEnabled));
     const jointMode=binding?.envelopeMode==='joint-boundaries-v1';
+    for(const button of panel.querySelectorAll('[data-joint-nudge]'))button.disabled=!canWeight||!jointMode;
     const jointIds=jointChain({group:binding?.group||currentGroup});
     const jointDigest=jointIds.join('|');
     if(jointSelect.dataset.signature!==jointDigest){
@@ -925,10 +945,6 @@
     if(!jointIds.includes(selectedJoint))selectedJoint=jointIds.find(id=>id===bones[selectedBone]?.b)||jointIds[0]||null;
     if(document.activeElement!==jointSelect)jointSelect.value=selectedJoint||'';
     jointSelect.disabled=!canWeight||!jointMode;
-    const terminal=jointMode&&jointFrameDirections(binding,bindGeom).get(selectedJoint)?.incident?.length===1;
-    const endRow=panel.querySelector('[data-joint-end-row]');
-    endRow.hidden=!terminal;endRow.style.display=terminal?'':'none';
-    panel.querySelector('[data-joint-end-help]').hidden=!jointMode;
     const rawJointValue={...defaultJointBoundary(),...binding?.jointBoundaries?.[selectedJoint]};
     const jointValue=jointMode&&binding.jointOffsetFrame!=='rotated-v1'?rotatedOffsets(rawJointValue):rawJointValue;
     for(const [key,input] of jointControls){
@@ -942,7 +958,7 @@
     panel.querySelector('[data-bind-action="reset-joint"]').disabled=!canWeight||!jointMode;
     const jointDetails=jointMode?jointBoundaryGeometry(binding,bindGeom):null;
     panel.querySelector('[data-joint-feedback]').textContent=jointMode
-      ?(jointDetails.valid?'Shared joint boundaries · binary 100% / 0% · no blend.':'Invalid joint geometry: '+jointDetails.errors.join(', '))
+      ?(jointDetails.valid?'All bone regions shown; bright outline = selected bone · binary 100% / 0% · no blend.':'Invalid joint geometry: '+jointDetails.errors.join(', '))
       :'Enable joint boundaries to adjust a shared cap instead of individual bone rectangles.';
     const actualMin=binding?Math.min(1,...binding.weights.map(row=>row.find(p=>p[0]===selectedBone)?.[1]||0)):0;
     const actualPeak=binding?peakOf(binding.weights,selectedBone):0;
@@ -954,7 +970,7 @@
       `${binary||jointMode?'Binary · ':''}${isRigid?'Rigid · ':''}Selected bone: ${Math.round(actualMin*100)}–${Math.round(actualPeak*100)}% · Covered ${claimed}/${binding.weights.length} vertices · Unassigned ${binding.weights.length-claimed}${manualCount?` · ${manualCount} manual`:''}`:
       'Bind a part to edit its weights.';
     panel.querySelector('[data-envelope-mode-note]').textContent=jointMode?
-      'Joint boundaries own the shape. Local X/Y offsets follow the rotated line. Select a chain-end joint for Free-end extension. No blending yet.':binary?
+      'Joint boundaries own the shape. Local X/Y follow the rotated cap; adjust the first or last joint X offset to extend past a bone end. All bound regions shown. No blending yet.':binary?
       `Local X follows the rest bone (1× = bone length); Y is perpendicular (1× = 0.12 m wide). ${fitEnabled?'Joint Fit creates matching mitred caps at connected joints in REST space. ':'Independent rectangles active. '}Only free ends honour X extent when Joint Fit is on. Each covered vertex belongs to exactly one bone.`:
       'Existing weights are preserved. Choose “Use binary rectangles” to opt in, or Auto-bind part for fresh rectangles. Undo can restore your earlier binding.';
     const rigidButton=panel.querySelector('[data-bind-action="rigid"]');
@@ -1033,24 +1049,45 @@
     const next=clone(liveItemId===item.id&&liveBinding?liveBinding:saved);
     // Existing v119 guides stay aligned with baked weights until first edit;
     // a normal offset-frame upgrade here preserves all line centres exactly.
-    upgradeJointOffsetFrame(next);
+    upgradeJointOffsetFrame(next,geometry);
     const val=Number(input.value),boundary={...defaultJointBoundary(),...next.jointBoundaries?.[selectedJoint]};
-    boundary[key]=key==='width'?clamp(val,.2,5):key==='rotation'?clamp(val,-60,60):key==='endExtension'?clamp(val,-.25,.65):clamp(val,-.6,.6);
+    const acceptedBefore=Number(boundary[key])||0;
+    const wanted=key==='width'?clamp(val,.2,5):key==='rotation'?clamp(val,-60,60):clamp(val,-.6,.6);
+    boundary[key]=wanted;
     next.jointBoundaries[selectedJoint]=boundary;
+    // Moving a shared cap can eventually cross another cap. Stop at the
+    // *nearest valid position* along this drag, instead of snapping all the
+    // way back to zero (especially noticeable with rotated local Y).
+    let limited=false;
+    if(!jointBoundaryGeometry(next,geometry).valid){
+      let lo=acceptedBefore,hi=wanted;
+      boundary[key]=lo;
+      if(jointBoundaryGeometry(next,geometry).valid){
+        for(let iteration=0;iteration<12;iteration++){
+          const mid=(lo+hi)*.5;boundary[key]=mid;
+          if(jointBoundaryGeometry(next,geometry).valid)lo=mid;
+          else hi=mid;
+        }
+        boundary[key]=lo;limited=true;
+      }else{
+        boundary[key]=acceptedBefore;limited=true;
+      }
+    }
     if(Object.keys(next.manualWeights||{}).length>=source.mesh.vertices.length&&
        next.weights.every(row=>row.length===1&&row[0][1]>=.9999))next.manualWeights={};
     if(!updateJointWeights(next,item,source,geometry)){
-      panel.querySelector('[data-joint-feedback]').textContent='Invalid boundary: would cross, invert or fold a bone region. Last valid shape retained.';
+      panel.querySelector('[data-joint-feedback]').textContent='Cannot move this line: the neighbouring region is already inverted. Reduce the joint angle or width.';
       return;
     }
     liveBinding=next;liveItemId=item.id;
+    if(limited)input.value=String(+(boundary[key]).toFixed(4));
     for(const [name,slider] of jointControls){
       if(document.activeElement!==slider)slider.value=String(boundary[name]);
       slider.parentElement.querySelector('output').textContent=name==='width'?`${boundary.width.toFixed(2)}×`:name==='rotation'?`${boundary.rotation.toFixed(0)}°`:`${boundary[name].toFixed(3)} m`;
     }
     const covered=next.weights.filter(row=>row.length>0).length;
     panel.querySelector('[data-weight-status]').textContent=`Joint binary · Covered ${covered}/${next.weights.length} vertices · Unassigned ${next.weights.length-covered}`;
-    panel.querySelector('[data-joint-feedback]').textContent='Shared joint line · no blend · rest-space ownership';
+    panel.querySelector('[data-joint-feedback]').textContent=limited?'Boundary limit: stopped before neighbouring regions would fold or cross.':'Shared joint line · no blend · rest-space ownership';
     core.redrawOnly?.();
   }
   jointSelect.addEventListener('change',()=>{selectedJoint=jointSelect.value;liveBinding=null;liveItemId=null;refresh();core.redrawOnly?.();});
@@ -1059,9 +1096,24 @@
     input.addEventListener('change',()=>{
       if(!liveBinding||liveItemId!==selectedId)previewJoint(input,key);
       if(liveBinding&&liveItemId===selectedId)commitBinding(selectedId,liveBinding,`Adjust joint ${selectedJoint} ${key}`);
-      else refresh();
+      else {
+        const message=panel.querySelector('[data-joint-feedback]').textContent;
+        refresh();
+        if(message.startsWith('Limit reached:'))panel.querySelector('[data-joint-feedback]').textContent=message;
+      }
     });
     input.addEventListener('pointercancel',()=>{liveBinding=null;liveItemId=null;refresh();core.redrawOnly?.();});
+  }
+  for(const button of panel.querySelectorAll('[data-joint-nudge]')){
+    button.addEventListener('click',()=>{
+      const [axis,delta]=button.dataset.jointNudge.split(':');
+      const input=jointControls.find(([name])=>name===axis)?.[1];
+      if(!input||input.disabled)return;
+      const cur=Number(input.value);
+      input.value=String(+(clamp(cur+Number(delta)*.001,-.6,.6)).toFixed(4));
+      previewJoint(input,axis);
+      if(liveBinding&&liveItemId===selectedId)commitBinding(selectedId,liveBinding,`Nudge joint ${selectedJoint} ${axis}`);
+    });
   }
   for(const [key,input] of rectControls){
     input.addEventListener('input',()=>previewRectangle(input,key));
@@ -1246,6 +1298,15 @@
     ctx.beginPath();ctx.moveTo(center.x,center.y);ctx.lineTo(y.x,y.y);
     ctx.strokeStyle='rgba(99,228,219,.95)';ctx.stroke();
   }
+  function drawInfluenceGuide(ctx,screen,selected){
+    if(!screen||screen.length<3)return;
+    ctx.save();ctx.beginPath();ctx.moveTo(screen[0].x,screen[0].y);
+    for(let k=1;k<screen.length;k++)ctx.lineTo(screen[k].x,screen[k].y);
+    ctx.closePath();
+    ctx.fillStyle=selected?'rgba(58,188,205,.095)':'rgba(58,188,205,.028)';ctx.fill();
+    ctx.strokeStyle=selected?'rgba(102,231,237,.95)':'rgba(102,214,229,.43)';
+    ctx.lineWidth=selected?1.65:0.9;ctx.stroke();ctx.restore();
+  }
   function render(args){
     const s=renderState(),parts=inventory(s);if(!parts||s.family!=='fox')return false;
     if(s.mode==='setup'&&s.setupTool!=='skin')return false;
@@ -1298,29 +1359,29 @@
       const bound=item&&bindingFor(item,source);
       const allowed=new Set(groupBones(groupCandidate||bound?.group||'body'));
       const displayed=item?.id===liveItemId&&liveBinding?liveBinding:bound;
-      if(showRect&&displayed?.envelopeMode==='rect-binary-v1'&&allowed.has(selectedBone)){
-        const restFrame=rectangleFrame(selectedBone,displayed.rectangles?.[selectedBone]||defaultRectangle(),bindGeom);
-        const displayFrame=rectanglePoseFrame(selectedBone,restFrame,bindGeom,posed);
-        if(displayFrame){
-          const restOutline=displayed.jointFit===true?jointFitPolygons(displayed,bindGeom).get(selectedBone):null;
-          const bone=bones[selectedBone];
+      if(showRect&&displayed?.envelopeMode==='rect-binary-v1'){
+        const fitted=displayed.jointFit===true?jointFitPolygons(displayed,bindGeom):null;
+        // Every envelope belonging to THIS selected part stays visible.
+        // The selected bone receives the brighter stroke and fill.
+        for(const i of groupBones(displayed.group)){
+          const bone=bones[i],restFrame=rectangleFrame(i,displayed.rectangles?.[i]||defaultRectangle(),bindGeom);
+          if(!restFrame)continue;
+          const poly=fitted?.get(i)||rectangleCorners(restFrame);
           const A=bindGeom[bone.a],B=bindGeom[bone.b],C=posed[bone.a],D=posed[bone.b];
-          const shownOutline=restOutline&&A&&B&&C&&D
-            ?restOutline.map(p=>mapBoneRigid(p,A,B,C,D)):restOutline;
-          ctx.save();rectangleOutline(ctx,displayFrame,args.view,shownOutline);ctx.restore();
+          const world=A&&B&&C&&D?poly.map(p=>mapBoneRigid(p,A,B,C,D)):poly;
+          const screen=world.map(p=>project(p,args.view));
+          drawInfluenceGuide(ctx,screen,i===selectedBone);
         }
       }
       if(showRect&&displayed?.envelopeMode==='joint-boundaries-v1'){
         const shape=jointBoundaryGeometry(displayed,bindGeom);
-        const poly=shape.polygons.get(selectedBone),bone=bones[selectedBone];
-        if(poly&&bone){
+        // Show ALL influence quads from the selected part, not just the
+        // currently highlighted bone. A joint edit updates both neighbours.
+        for(const [i,poly] of shape.polygons){
+          const bone=bones[i];if(!bone)continue;
           const A=bindGeom[bone.a],B=bindGeom[bone.b],C=posed[bone.a],D=posed[bone.b];
           const world=A&&B&&C&&D?poly.map(p=>mapBoneRigid(p,A,B,C,D)):poly;
-          const screen=world.map(p=>project(p,args.view));
-          ctx.save();ctx.beginPath();ctx.moveTo(screen[0].x,screen[0].y);
-          for(let k=1;k<screen.length;k++)ctx.lineTo(screen[k].x,screen[k].y);
-          ctx.closePath();ctx.fillStyle='rgba(58,188,205,.07)';ctx.fill();
-          ctx.strokeStyle='rgba(84,214,229,.9)';ctx.lineWidth=1.25;ctx.stroke();ctx.restore();
+          drawInfluenceGuide(ctx,world.map(p=>project(p,args.view)),i===selectedBone);
         }
         if(selectedJoint&&shape.lines.has(selectedJoint)){
           const connected=groupBones(displayed.group).find(i=>bones[i].a===selectedJoint||bones[i].b===selectedJoint);

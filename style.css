@@ -15332,3 +15332,14 @@ body[data-game-id="game-17"] .animlab-skin-rectangle-controls{
 }
 body[data-game-id="game-17"] .animlab-skin-rectangle-controls .animlab-slider{margin:0;min-width:0;}
 body[data-game-id="game-17"] .animlab-skin-rectangle-controls input:disabled{opacity:.45;}
+
+/* SideScroll v1.1.21: precise mobile joint boundary nudges. */
+body[data-game-id="game-17"] .animlab-skin-nudge-row{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:-1px 0 11px;
+}
+body[data-game-id="game-17"] .animlab-skin-nudge-row button{
+  min-height:39px;padding:8px 5px;border:1px solid rgba(139,190,183,.36);
+  border-radius:8px;background:rgba(36,68,72,.55);color:#d3eae5;
+  font:700 12px/1.2 system-ui,sans-serif;touch-action:manipulation;
+}
+body[data-game-id="game-17"] .animlab-skin-nudge-row button:disabled{opacity:.38;}

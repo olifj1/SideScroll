@@ -408,7 +408,9 @@
                   if(!/^[a-zA-Z][a-zA-Z0-9_-]{0,55}$/.test(joint)||!entry||typeof entry!=='object')continue;
                   boundaries[joint]={width:number(entry.width,1.2,.05,8),
                     rotation:number(entry.rotation,0,-70,70),offsetX:number(entry.offsetX,0,-1,1),offsetY:number(entry.offsetY,0,-1,1),
-                    endExtension:number(entry.endExtension,0,-.25,.65)};
+                    // Read old v120 terminal reach only when nonzero. On the
+                    // next Skin edit it merges into rotated X/Y and disappears.
+                    ...(Math.abs(Number(entry.endExtension)||0)>1e-9?{endExtension:number(entry.endExtension,0,-.25,.65)}:{})};
                 }
                 if(Object.keys(boundaries).length){clean.envelopeMode='joint-boundaries-v1';clean.jointBoundaries=boundaries;
                   if(raw.jointOffsetFrame==='rotated-v1')clean.jointOffsetFrame='rotated-v1';}

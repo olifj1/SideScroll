@@ -1,7 +1,5 @@
-SS-PATCH-1.1.20 (apply directly over v1.1.19; changed files only)
+SS-PATCH-1.1.21 — changed-files-only; install over v1.1.20.
 
-- Joint boundary Local X/Y offsets now follow the rotated line's axes.
-- Chain-end joints gain Free-end extension (-0.25 to +0.65 m) to cover artwork past the root/paw bone endpoints.
-- Existing v1.1.19 saved outlines and weights stay aligned, with lossless conversion upon editing.
-- Binary-only influence and unchanged renderer/IK. No blends added.
-- See README-PATCH-1.1.20.md for exact files, tests and limitations.
+Fix joint-offset snapping after rotation, show every bound bone influence guide for the selected part, remove obsolete Free-end extension slider, add 1 mm X/Y slider steps and ±1 mm nudge buttons. Legacy end extensions are preserved as offsets on next edit. Binary-only weights remain unchanged in concept; no soft blending or renderer changes.
+
+Full drop-specific details: README-PATCH-1.1.21.md

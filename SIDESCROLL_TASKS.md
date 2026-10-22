@@ -2866,3 +2866,7 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 - [x] Validate in synthetic Node geometry, six true Fox chain families with expanded ends, and a mobile-landscape synthetic Chromium UI commit/visibility scenario; no JavaScript exceptions.
 - [ ] Validate on New01's existing leg artwork in iPhone Safari: select hind Socket, extend top cap over thigh, rotate Knee and check Local Y follows line; check Save/Reopen/Undo and visible covered/unassigned vertices.
 - [ ] **Only after acceptance:** independently scope optional joint `Blend Distance`, starting at zero and using just connected bones; no blend in v120.
+
+## v1.1.21 — Joint authoring follow-up (22 Oct 2026)
+
+Implemented: retain valid non-self-crossing concave influence regions and clamp invalid joint edits instead of snapping back; draw all bone polygons of the selected part (selected bone highlighted); remove redundant terminal reach slider while preserving historical values via mathematical coordinate migration; 1 mm offset sliders plus ±1 mm mobile nudges. Synthetic Chromium UI checks passed; real New01/iPhone Safari still needs acceptance testing. **Next only if accepted:** independent per-joint Blend Distance with current zero-blend behaviour as default; no automatic work on smoothing or mesh subdivision.
