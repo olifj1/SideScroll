@@ -1,4 +1,4 @@
-/* SideScroll v1.1.24 — read-only same-origin Character Lab -> Game bridge.
+/* SideScroll v1.1.25 — read-only same-origin Character Lab -> Game bridge.
  * User character JSON is never modified. IndexedDB art stays on this device.
  * Render geometry uses exactly the same rest-space placement, UVs and skin
  * transforms as the Character Lab Canvas2D assembly renderer.
@@ -17,7 +17,8 @@
     for(const candidate of sourceLibrary.entries.slice(0,24)){
       if(!candidate||!/^user-[a-z0-9-]{5,40}$/.test(candidate.id)||!['fox','original'].includes(candidate.starter)||entries.has(candidate.id))continue;
       entries.set(candidate.id,{id:candidate.id,label:String(candidate.name||candidate.id).slice(0,42),
-        family:candidate.starter==='fox'?'fox':'human',setup:candidate.setup,sparseClips:candidate.sparseClips});
+        family:candidate.starter==='fox'?'fox':'human',setup:candidate.setup,
+        sparseClips:candidate.sparseClips,legacyAtlasSource:candidate.legacyAtlasSource||null});
     }
   }
   const prepared=new Map(), failures=new Map(), inFlight=new Map();
@@ -51,6 +52,17 @@
     });return image;
     }finally{URL.revokeObjectURL(url);}
   }
+  async function loadBundledImage(file) {
+    // Allowlist means saved browser records can never choose arbitrary URL paths.
+    assert(file==='fox-deform-atlas-v2.png','Unsupported bundled artwork source');
+    const image=new Image();
+    await new Promise((resolve,reject)=>{
+      image.onload=resolve;
+      image.onerror=()=>reject(Error('Bundled Fox deform atlas missing from game'));
+      image.src='./fox-deform-atlas-v2.png?v=1.1.25';
+    });
+    return image;
+  }
   // Keep this hashing convention identical to Anim Lab Skin's mesh signature.
   function signature(mesh){
     const value=JSON.stringify([mesh.vertices.map(v=>[v.x,v.y]),mesh.triangles]);
@@ -58,7 +70,7 @@
     for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619);}
     return `${mesh.vertices.length}:${mesh.triangles.length}:${(hash>>>0).toString(16)}`;
   }
-  function makePart(item,mesh,image){
+  function makePart(item,mesh,image,sourceKey){
     const verts=mesh.vertices;
     assert(Array.isArray(verts)&&verts.length>=3&&verts.length<=4096,`Invalid vertices for ${item.label||item.id}`);
     assert(Array.isArray(mesh.triangles)&&mesh.triangles.length>0&&mesh.triangles.length<=8192,`Invalid faces for ${item.label||item.id}`);
@@ -83,7 +95,7 @@
     const weights=validBinding?binding.weights.map(row=>Array.isArray(row)?row.filter(p=>Array.isArray(p)&&Number.isInteger(p[0])&&finite(p[1])&&p[1]>0).slice(0,4):[]):null;
     return {id:item.id,label:String(item.label||mesh.name||item.id),rest,vertices:verts,
       indices:new Uint16Array(indices),weights,mode:binding?.envelopeMode||'',
-      buffer:new Float32Array(verts.length*5),mesh:null,
+      image,sourceKey,texture:null,buffer:new Float32Array(verts.length*5),mesh:null,
       warning:validBinding?null:`${item.label||item.id}: missing/stale Skin bind (rest pose shown)`};
   }
   async function load(id){
@@ -106,18 +118,38 @@
       assert(setup.rig?.joints&&setup.skinBindRig?.joints,'Character Rig / Skin Bind missing; Save in Character Lab');
       assert(assembly?.enabled===true&&Array.isArray(assembly.instances)&&assembly.instances.length,
         'No Atlas assembly: save assembled Parts in Character Lab');
-      const doc=atlasMap?.characters?.[id];
-      assert(doc?.schema==='animlab.atlas-document.v1','Atlas source document missing on this device');
-      assert(doc.atlas?.kind==='indexeddb'&&doc.atlas.id,'Imported atlas image reference missing');
-      assert(Array.isArray(doc.meshes),'Atlas meshes missing');
-      const meshMap=new Map(doc.meshes.map(m=>[m.id,m]));
-      for(const part of assembly.instances)assert(meshMap.has(part.meshId),
-        `Atlas source mesh missing: ${part.label||part.meshId}. Legacy builtin sources not yet supported in game.`);
-      const image=await loadImage(doc.atlas.id);
-      assert(image.naturalWidth===doc.atlas.width&&image.naturalHeight===doc.atlas.height,
-        'Imported image size no longer matches authored mesh UVs');
-      const parts=assembly.instances.map(item=>makePart(item,meshMap.get(item.meshId),image));
-      const value={...entry,technique:'atlas-deform',image,parts,warnings:parts.flatMap(p=>p.warning?[p.warning]:[])};
+      const requiresLegacy=assembly.instances.some(p=>String(p.meshId).startsWith('atlas-builtin-'));
+      const requiresCustom=assembly.instances.some(p=>!String(p.meshId).startsWith('atlas-builtin-'));
+      let legacyMeshMap=null,legacyImage=null,customMeshMap=null,customImage=null;
+      if(requiresLegacy){
+        const bundled=entry.legacyAtlasSource;
+        assert(bundled?.schema==='animlab.legacy-atlas-sources.v1' &&
+          bundled.file==='fox-deform-atlas-v2.png' && Array.isArray(bundled.meshes),
+          'Original Parts need a new Character Lab Save to record their meshes');
+        legacyMeshMap=new Map(bundled.meshes.map(m=>[`atlas-builtin-${m.id}`,m]));
+        legacyImage=await loadBundledImage(bundled.file);
+        assert(legacyImage.naturalWidth===bundled.width&&legacyImage.naturalHeight===bundled.height,
+          'Bundled Fox atlas dimensions changed; please Save in Character Lab');
+      }
+      if(requiresCustom){
+        const doc=atlasMap?.characters?.[id];
+        assert(doc?.schema==='animlab.atlas-document.v1','Atlas source document missing on this device');
+        assert(doc.atlas?.kind==='indexeddb'&&doc.atlas.id,'Imported atlas image reference missing');
+        assert(Array.isArray(doc.meshes),'Atlas meshes missing');
+        customMeshMap=new Map(doc.meshes.map(m=>[m.id,m]));
+        customImage=await loadImage(doc.atlas.id);
+        assert(customImage.naturalWidth===doc.atlas.width&&customImage.naturalHeight===doc.atlas.height,
+          'Imported image size no longer matches authored mesh UVs');
+      }
+      const parts=assembly.instances.map(item=>{
+        const legacy=String(item.meshId).startsWith('atlas-builtin-');
+        const source=legacy?legacyMeshMap:customMeshMap;
+        assert(source?.has(item.meshId),`Atlas source mesh missing: ${item.label||item.meshId}`);
+        return makePart(item,source.get(item.meshId),legacy?legacyImage:customImage,
+          legacy?'bundled-fox-deform':'imported-atlas');
+      });
+      const technique=requiresLegacy?(requiresCustom?'atlas-mixed':'atlas-bundled'):'atlas-deform';
+      const value={...entry,technique,parts,warnings:parts.flatMap(p=>p.warning?[p.warning]:[])};
       prepared.set(id,value);failures.delete(id);return value;
     })().catch(error=>{failures.set(id,String(error.message||error));throw error;}).finally(()=>inFlight.delete(id));
     inFlight.set(id,promise);return promise;
@@ -148,7 +180,7 @@
     const flexible=transforms(rig,bind,posed,false),rigid=transforms(rig,bind,posed,true);
     for(const part of data.parts){
       const maps=(part.mode==='rect-binary-v1'||part.mode==='joint-boundaries-v1')?rigid:flexible;
-      const out=part.buffer,imw=data.image.naturalWidth,imh=data.image.naturalHeight;
+      const out=part.buffer,imw=part.image.naturalWidth,imh=part.image.naturalHeight;
       for(let i=0;i<part.vertices.length;i++){
         const p=part.rest[i],row=part.weights?.[i]||[];let x=0,y=0,total=0;
         for(const [bi,w] of row){const m=maps[bi];if(!m)continue;

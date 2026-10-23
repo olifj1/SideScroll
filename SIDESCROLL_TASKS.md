@@ -2955,3 +2955,14 @@ Implemented: retain valid non-self-crossing concave influence regions and clamp 
 - [ ] **iPhone acceptance:** choose New01 from new list and confirm correct source pixels/UVs/deformation and character retention after reload/offline; test unavailable image diagnostic; select/return to Hero 1, Hero 2 and Fox; verify Biped saved Walk/Run/Jump and all gameplay collisions. Character Lab test clean and dirty switches, Save/Discard/Cancel and closed Load only upon successful switch. Browser automation did not establish device fidelity.
 - [ ] **Remaining CL1:** custom character original rigid-piece assemblies with edited Parts offsets, source `atlas-builtin-*` meshes and independently authored biped Atlas/rig/skin; do not claim full authoring path until tested. Add robust art-inclusive portable backup/cross-device restore separately.
 - [ ] **Next CL2:** expandable animation collection, New/Duplicate/Rename/Assign, biped Idle, shared animation assets and explicit gameplay slots. Climb and object interactions follow in later gates as already specified; avoid implementing them as implicit side effects of a chooser.
+
+
+### v1.1.25 — Original legacy Parts and corrected custom Biped loading (23 October 2026)
+
+- [x] Code: capture referenced editor-generated `atlas-builtin-*` mesh source vertices/triangles when saving a custom Fox Setup; preserve existing Skin binding/mesh signature. No editor-only procedural mesh generation in the game runtime.
+- [x] Code: load original bundled Fox deform source image and separate per-Part textures for original-only and mixed original/imported Atlas assemblies; validate sources without silent fallback. Previously saved legacy references require a new Character Lab Save; report reason in chooser.
+- [x] Code: no `gl.texImage2D(undefined)` for custom Biped starter (no source PNG). Use Hero starter renderer with authored saved sparse clips as planned.
+- [x] Code: keep exported JSON structure compatible by preserving optional `legacyAtlasSource` on character import/export; do not claim imported PNG restoration.
+- [ ] **Device acceptance:** original-only and mixed Parts characters; visual/UV parity, animation, facing, blend and FPS; no Skin loss after Save/Reload; Biped starter ready with Walk/Run/Jump; New01 still renders; game offline.
+- [ ] Remaining CL1: user-authored Biped Atlas/Rig/Skin, *true* unskinned rigid single-bone attachment authoring; confirmed iPhone end-to-end full pipeline.
+- [ ] Then CL2: scalable animation collection, Create/Duplicate/Rename/Assign; Biped Idle, then Climb/Pick Up/Put Down/Carry and compatible templates as previously documented.

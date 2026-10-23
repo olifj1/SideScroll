@@ -81,6 +81,7 @@
         id:entry.id,name:safeCharacterName(entry.name),starter:entry.starter,
         family:STARTERS[entry.starter].family,setup:entry.setup&&typeof entry.setup==='object'?entry.setup:{},
         sparseClips:entry.sparseClips&&typeof entry.sparseClips==='object'?entry.sparseClips:{},
+        legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'?entry.legacyAtlasSource:null,
         createdAt:String(entry.createdAt||''),updatedAt:String(entry.updatedAt||'')
       }));
     }catch(err){console.warn('[Anim Lab] Character library read failed; existing data not overwritten.',err);return [];}
@@ -1080,12 +1081,37 @@
     draw(); updateUi(); notify();
   }
 
+  // v1.1.25: Legacy Parts entries use the bundled Fox deform-atlas PNG, but
+  // their calculated mesh coordinates depend on the *authoring* rest rig.
+  // Snapshot those coordinates on Save, so the game can render them without
+  // having to run Character Lab's editor-only mesh generator. Image pixels
+  // remain in the shipped bundle and are never duplicated into localStorage.
+  function captureLegacyAtlasSource(assembly) {
+    const needed=[...new Set((assembly?.enabled ? assembly.instances||[] : [])
+      .map(p=>String(p.meshId||''))
+      .filter(id=>id.startsWith('atlas-builtin-'))
+      .map(id=>id.slice('atlas-builtin-'.length)))];
+    if(!needed.length)return null;
+    const snapshot=window.AnimLabLegacyAtlas?.getSnapshot?.();
+    if(!snapshot?.image?.naturalWidth || !Array.isArray(snapshot.meshes))
+      throw Error('Bundled Fox atlas is still loading. Return to Parts, then Save again.');
+    const meshes=needed.map(id=>snapshot.meshes.find(mesh=>mesh.id===id));
+    if(meshes.some(m=>!m?.vertices?.length||!m?.triangles?.length))
+      throw Error('One or more original Parts meshes could not be rebuilt. Open Parts and check the mesh sources.');
+    return {schema:'animlab.legacy-atlas-sources.v1',
+      file:'fox-deform-atlas-v2.png',width:snapshot.width,height:snapshot.height,
+      meshes:clone(meshes.map(m=>({id:m.id,name:m.name,vertices:m.vertices,triangles:m.triangles})))};
+  }
+
   function saveCurrent() {
     try {
       const character = currentCharacter();
       const adapter = currentAdapter();
       const saveSetup = selection.mode === 'play' || (selection.mode === 'setup' && !same(setupDraft, checkpoint?.setup));
       const saveClip = selection.mode === 'animate' || selection.mode === 'play';
+      const existingEntry=libraryEntry(character.id);
+      const legacySource=existingEntry && saveSetup
+        ? captureLegacyAtlasSource(setupDraft.artLayout?.assembly) : undefined;
       if (saveSetup) {
         // A changed rig must never be saved with stale inverse bind joints.
         // Manual Rebind remains available (with Undo), but Save can now offer
@@ -1122,7 +1148,8 @@
           // Commit with the clip library in one document so no custom edit
           // spills into the existing per-family runtime banks.
           const updated=libraryEntries.map(item=>item.id===character.id
-            ? {...item,setup:clone({...storedSetup,collider:setupDraft.collider,rig:setupDraft.rig}),updatedAt:new Date().toISOString()}
+            ? {...item,setup:clone({...storedSetup,collider:setupDraft.collider,rig:setupDraft.rig}),
+              legacyAtlasSource:legacySource,updatedAt:new Date().toISOString()}
             : item);
           storeLibrary(updated);
         }else{
@@ -2014,7 +2041,10 @@
     const id='user-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     const time=new Date().toISOString();
     const imported={id,name:safeCharacterName(entry.name),family,starter:entry.starter,
-      setup,sparseClips:clips,createdAt:time,updatedAt:time};
+      setup,sparseClips:clips,
+      legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'
+        ? clone(entry.legacyAtlasSource) : null,
+      createdAt:time,updatedAt:time};
     try{storeLibrary([...libraryEntries,imported]);}
     catch(err){console.error('[Anim Lab] Import write failed.',err);return false;}
     CHARACTERS.push({id,label:imported.name,family,starter:imported.starter,library:true,atlas:STARTERS[imported.starter].atlas});

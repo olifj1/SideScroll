@@ -166,3 +166,10 @@ Custom biped, legacy atlas-builtin parts and remote/cross-device image provision
 ## v1.1.24 — Chooser and biped starter compatibility (no export changes)
 
 The game chooses from existing saved user character JSON and the built-in character records; the overlay does not write a new schema, make copies or export artwork. Built-in IDs still persist under `gamehub.walklab.character.v1` and custom IDs under `sidescroll.game.local-character.v1`. Saving/opening in Character Lab continues to use the same `sidescroll.animlab.character-library.v1` and existing workspace data. A saved custom Biped starter (`starter:'original'`) can now be read at runtime without a custom PNG because its renderer explicitly uses shipped Hero 1 *starter* art; it still uses saved own Human sparse clips for Walk/Run/Jump. This does **not** make user-created Biped atlases or any IndexedDB imported PNG portable. Custom quadruped deformable assemblies still need their device-local imported source pixels.
+
+
+## v1.1.25 — Snapshot of referenced bundled Fox mesh sources
+
+When a local Fox character saves Parts that still reference `atlas-builtin-*`, Character Lab writes **geometry only** under optional `entry.legacyAtlasSource` in the existing `sidescroll.animlab.character-library.v1` record. This optional data survives the existing single-character handoff JSON export/import, and the same bundled Fox deform PNG is available in the game distribution (offline after caching). Legacy custom characters saved before this version must be opened and re-saved to acquire the geometry. No new browser store or migration rewrites previous entries.
+
+`atlas-docs` for imported meshes and source PNG blobs in IndexedDB are *not* included in that JSON export, nor in the older project-snapshot JSON. Exporting a mixed character's geometry cannot make its imported PNG available on another device. A portable image-inclusive backup/restore workflow remains a separate deliverable.

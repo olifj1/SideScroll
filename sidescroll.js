@@ -2676,7 +2676,9 @@ function renderCharacterPicker(){
       const ready=item.status==='ready';
       const human=item.family==='human';
       const technique=item.technique==='biped-starter-rigid'?'Hero starter art':
-        item.technique==='atlas-deform'?'Authored Atlas mesh':'Character Lab asset';
+        item.technique==='atlas-deform'?'Authored Atlas mesh':
+        item.technique==='atlas-mixed'?'Mixed Atlas pieces':
+        item.technique==='atlas-bundled'?'Bundled Parts mesh':'Character Lab asset';
       return {id:item.id,name:item.label,mark:human?'BP':'QP',
         kind:(human?'Biped':'Quadruped')+' · '+technique,ready,
         status:ready?'Ready':item.status==='loading'?'Loading artwork…':item.status};
@@ -2753,19 +2755,29 @@ availableCharacterVariants.forEach(id => {
 // PNG URL. Failed or incomplete user characters stay unselectable.
 if(GameCharacters)for(const candidate of GameCharacters.list()){
   GameCharacters.load(candidate.id).then(data=>{
-    const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,data.image);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-    data.texture=tex;
-    for(const part of data.parts){
-      part.mesh=createMesh(part.buffer,part.indices);
-      gl.bindBuffer(gl.ARRAY_BUFFER,part.mesh.vbo);
-      gl.bufferData(gl.ARRAY_BUFFER,part.buffer.byteLength,gl.DYNAMIC_DRAW);
+    // Biped starters use the already-loaded Hero rigid renderer and have no
+    // imported image. Rigid/unbound and skinned Atlas parts each use their
+    // own authored source PNG; mixed assemblies need both textures.
+    if(data.parts.length){
+      const sourceTextures=new Map();
+      for(const part of data.parts){
+        let tex=sourceTextures.get(part.sourceKey);
+        if(!tex){
+          tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+          gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+          gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,part.image);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+          sourceTextures.set(part.sourceKey,tex);
+        }
+        part.texture=tex;
+        part.mesh=createMesh(part.buffer,part.indices);
+        gl.bindBuffer(gl.ARRAY_BUFFER,part.mesh.vbo);
+        gl.bufferData(gl.ARRAY_BUFFER,part.buffer.byteLength,gl.DYNAMIC_DRAW);
+      }
     }
     availableCharacterVariants.push(candidate.id);
     if(data.warnings.length)console.warn('[SideScroll] Character Skin warnings',data.label,data.warnings);
@@ -17438,7 +17450,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(!part.mesh)continue;
       bindMesh(part.mesh);
       gl.bufferSubData(gl.ARRAY_BUFFER,0,part.buffer);
-      gl.bindTexture(gl.TEXTURE_2D,data.texture);
+      gl.bindTexture(gl.TEXTURE_2D,part.texture);
       const z=character.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
       gl.uniformMatrix4fv(loc.model,false,mat4Model2D(character.x,characterRenderY(),z,character.scale,0,facing));
       gl.uniformMatrix4fv(loc.view,false,view);
@@ -17513,7 +17525,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
     const facing = character.lastFacing >= 0 ? 1 : -1;
     const local=GameCharacters?.ready(currentCharacterVariant);
-    if(local?.texture){
+    if(local?.parts?.length){
       drawLocalMeshCharacter(view,pose,facing,local);
       if(carriedObject||interactionState)drawCarriedCrate(view,facing,null);
       return;
