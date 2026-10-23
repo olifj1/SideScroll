@@ -1,4 +1,4 @@
-/* SideScroll Anim Lab — unified Character Library (v1.0.200).
+/* SideScroll Character Lab — unified Character Library (v1.1.22).
    Built-ins and locally-authored characters have one Open / Edit / Save workflow.
    Legacy built-in storage and custom character library remain intentionally
    separate under the hood; do not migrate saved data during a UI tidy-up. */
@@ -52,10 +52,10 @@
       </label>
       <small class="animlab-library-footnote">Built-in characters remain part of the game. Your new characters save in this browser; export a JSON backup before clearing website data.</small>
       <div data-ss-lab="characters" class="animlab-library-import" style="border-top:1px solid rgba(150,200,190,.3);padding-top:9px;margin-top:8px">
-        <strong>All Anim Lab data</strong>
+        <strong>All Character Lab data</strong>
         <small>Backup all saved characters, built-in edits, animation clips, rigs and editor settings together. Image pixels are not included.</small>
-        <button type="button" data-ss-export class="animlab-library-action">Export All Anim Lab Data</button>
-        <button type="button" data-ss-import class="animlab-library-action">Import All Anim Lab Data</button>
+        <button type="button" data-ss-export class="animlab-library-action">Export All Character Lab Data</button>
+        <button type="button" data-ss-import class="animlab-library-action">Import All Character Lab Data</button>
         <input type="file" data-ss-import-file accept=".json,application/json" hidden>
         <small data-ss-status role="status" aria-live="polite"></small>
       </div>
@@ -104,6 +104,7 @@
     // shift the visual viewport before the user chooses to type.
     if(openPanel==='load') {listSignature='';refresh();}
     if(openPanel==='save') refreshSave();
+    delete status.dataset.pendingCharacter;
     setStatus('');
   }
   function refreshSave(state=core.getState()){
@@ -123,16 +124,23 @@
     return b;
   }
   function refresh(state=core.getState()){
+    const pendingId=status.dataset.pendingCharacter;
+    if(pendingId && document.getElementById('animlab-guard')?.hidden){
+      delete status.dataset.pendingCharacter;
+      const target=allCharacters().find(item=>item.id===pendingId);
+      setStatus(state.characterId===pendingId
+        ? `${target?.name||'Character'} is now loaded.`
+        : 'Character switch cancelled. Your working edits are unchanged.');
+    }
     const entries=allCharacters();
     const customCount=core.getLibraryCharacters().length;
     const dirty=!!state.dirty;
     currentName.textContent=state.character?.label||'Unknown character';
     currentKind.textContent=(state.character?.library?'Local character':'Built-in character')+(dirty?' · Unsaved changes':' · Saved');
-    // Closing panels after a character switch avoids showing the previous
-    // character's contextual actions to the new character.
-    if(lastCharacterId!==null && lastCharacterId!==state.characterId && openPanel){
-      setPanel(null);
-    }
+    // Keep Load open while switching so another character can be opened
+    // immediately. Only close New/Save, whose context may now be stale.
+    if(lastCharacterId!==null && lastCharacterId!==state.characterId &&
+       openPanel && openPanel!=='load')setPanel(null);
     lastCharacterId=state.characterId;
     create.disabled=dirty||state.mode==='play'||customCount>=24;
     importInput.disabled=dirty||state.mode==='play'||customCount>=24;
@@ -156,7 +164,7 @@
       title.appendChild(sub);row.appendChild(title);
       const actions=document.createElement('div');actions.className='animlab-library-actions';
       const open=makeButton(state.characterId===entry.id?'Loaded':'Open','open',entry);
-      open.disabled=state.mode==='play'||state.characterId===entry.id;
+      open.disabled=state.characterId===entry.id;
       actions.append(open);
       if(!entry.builtIn){
         const manage=makeButton('•••','manage',entry);
@@ -212,9 +220,14 @@
       manageId=manageId===id?null:id;listSignature='';refresh();return;
     }
     if(action==='open'){
-      core.selectCharacter(id);
-      // A dirty session may open the existing Save / Discard confirmation;
-      // the menu always reflects the actually loaded character afterwards.
+      // Distinguish a successful selection from a guarded (still-pending)
+      // selection; a true return value previously hid that distinction.
+      const result=core.selectCharacter(id);
+      if(result==='pending'){
+        status.dataset.pendingCharacter=id;
+        setStatus(`Unsaved changes in ${core.getState().character.label}. Choose Save, Discard or Cancel to open ${entry.name}.`);
+      }else if(result==='opened')setStatus(`${entry.name} is now loaded.`);
+      else if(result===false)setStatus(`Could not open ${entry.name}.`);
       refresh();return;
     }
     if(action==='export')await exportEntry(id);

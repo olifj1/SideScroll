@@ -4,7 +4,7 @@ window.APP_CONFIG = {
     displayName: "SideScroll",
     shortName: "SideScroll",
     tagline: "A small woodland adventure in development.",
-    description: "SideScroll with companion Walk Lab, Asset Lab and Design Lab development tools."
+    description: "SideScroll with companion Character Lab, Asset Lab and Design Lab development tools."
   },
   games: [
     {
@@ -17,8 +17,8 @@ window.APP_CONFIG = {
     },
     {
       id: "game-17",
-      displayName: "Walk Lab",
-      description: "Inspect and edit the walk, run and jump animation rig used by SideScroll.",
+      displayName: "Character Lab",
+      description: "Author characters, atlas meshes, rigs, skin and animations for SideScroll.",
       icon: "↻",
       enabled: true,
       path: "walk-lab.html"

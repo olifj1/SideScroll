@@ -1,5 +1,5 @@
-SS-PATCH-1.1.21 — changed-files-only; install over v1.1.20.
+SS-PATCH-1.1.22 — changed-files-only. Install over v1.1.21.
 
-Fix joint-offset snapping after rotation, show every bound bone influence guide for the selected part, remove obsolete Free-end extension slider, add 1 mm X/Y slider steps and ±1 mm nudge buttons. Legacy end extensions are preserved as offsets on next edit. Binary-only weights remain unchanged in concept; no soft blending or renderer changes.
+Visible rename to Character Lab. Character Library Load switches remain accessible, including from Quick Play. Save/Discard/Cancel guard now reports pending navigation and retains edits if saving fails. All existing data schemas, art, rigs, animation banks and paths are retained.
 
-Full drop-specific details: README-PATCH-1.1.21.md
+Next: validate on iPhone, then integrate saved characters into normal game. See README-PATCH-1.1.22.md.

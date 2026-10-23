@@ -9,30 +9,30 @@
   <meta name="theme-color" content="#e7dbd2">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.21">
-  <title>Anim Lab · SideScroll</title>
+  <link rel="stylesheet" href="style.css?v=1.1.22">
+  <title>Character Lab · SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-17">
   <div class="game-info-overlay" hidden>
     <div class="game-info-dialog" role="dialog" aria-modal="true" aria-labelledby="game-17-info-title">
       <button class="game-info-close" type="button" aria-label="Close instructions">×</button>
-      <p class="kicker">ANIMATION TOOL</p>
-      <h2 id="game-17-info-title">Anim Lab</h2>
+      <p class="kicker">CHARACTER AUTHORING</p>
+      <h2 id="game-17-info-title">Character Lab</h2>
       <p>Use Character Library → New, Load or Save to work with any character, including the built-in Hero 1, Hero 2 and Fox. New characters are saved on this device and appear alongside the built-ins in Load. Their editing data and animations are separate from the built-in character data. Custom characters are currently editor-only, not yet available in the normal game. Changes live in a working copy until Save; Discard restores the current checkpoint. Rig mode owns character scale, collider and structural rest rig; Animate owns clip poses. Fox Play mode instantly tests the current working Idle/Walk/Run/Jump clips and lets Walk/Run ground speed be tuned against animation cadence. Motion Reference can overlay editor-only gait footage by normalised cycle phase. Static Reference provides Hero 1, Hero 2 / Hair and Fox Shape proportion guides, and Fox Handoff can export the current rig plus all Fox clips as one JSON file.</p>
     </div>
   </div>
 
   <main class="screen-wrap animlab-screen-wrap">
-    <section class="screen active" aria-label="Anim Lab">
+    <section class="screen active" aria-label="Character Lab">
       <div class="animlab-page">
         <header class="animlab-topbar">
           <a class="game-home-button animlab-home" href="index.html" aria-label="Back to SideScroll home">← Home</a>
-          <div class="animlab-title"><small>SIDESCROLL</small><strong>Anim Lab</strong></div>
+          <div class="animlab-title"><small>SIDESCROLL</small><strong>Character Lab</strong></div>
           <div class="animlab-current"><small>EDITING</small><strong class="animlab-context" id="animlab-context">Hero 1 · Walk · Animate</strong></div>
           <div class="animlab-save-state" id="animlab-save-state">Saved</div>
-          <button class="game-info-button animlab-info" type="button" aria-label="How to use Anim Lab" aria-haspopup="dialog">i</button>
+          <button class="game-info-button animlab-info" type="button" aria-label="How to use Character Lab" aria-haspopup="dialog">i</button>
         </header>
-        <aside class="animlab-drawer" aria-label="Anim Lab controls">
+        <aside class="animlab-drawer" aria-label="Character Lab controls">
 
           <section class="animlab-section animlab-legacy-character-row" hidden aria-labelledby="animlab-character-label">
             <div class="animlab-section-title" id="animlab-character-label">Built-in Characters</div>
@@ -113,7 +113,7 @@
 
         <div class="animlab-main">
           <section class="animlab-viewport" aria-label="Character animation viewport">
-            <canvas id="animlab-canvas" aria-label="Anim Lab character preview"></canvas>
+            <canvas id="animlab-canvas" aria-label="Character Lab character preview"></canvas>
             <div class="animlab-readout" id="animlab-readout">Hero 1 · Walk · Frame 1 / 16</div>
             <div class="animlab-hint" id="animlab-hint">Drag empty space to pan · pinch to zoom</div>
             <div class="animlab-dirty" id="animlab-dirty" hidden>UNSAVED</div>
@@ -157,8 +157,8 @@
   <script src="fox-authoring-baseline.js?v=1.0.163"></script>
   <script src="fox-rig.js?v=1.1.15"></script>
   <script src="anim-lab-fox-starter.js?v=1.0.201"></script>
-  <script src="walk-lab.js?v=1.1.21"></script>
-  <script src="anim-lab-character-library.js?v=1.0.200"></script>
+  <script src="walk-lab.js?v=1.1.22"></script>
+  <script src="anim-lab-character-library.js?v=1.1.22"></script>
   <script src="lab-data.js?v=1.0.204"></script>
   <script src="anim-lab-stage2.js?v=1.1.14"></script>
   <script src="anim-lab-mesh.js?v=1.1.11"></script>

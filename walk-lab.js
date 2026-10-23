@@ -1148,7 +1148,7 @@
       for (const participant of sessionParticipants.values()) {
         if (!participant?.save) continue;
         const result = participant.save();
-        if (result === false) throw new Error('An Anim Lab extension could not save its working data.');
+        if (result === false) throw new Error('A Character Lab extension could not save its working data.');
       }
       resetCheckpoint();
       hint.textContent = 'Saved · working copy checkpoint updated';
@@ -1156,7 +1156,7 @@
       return true;
     } catch (err) {
       console.error('[Anim Lab] Save failed.', err);
-      alert(`Anim Lab could not save: ${err.message}`);
+      alert(`Character Lab could not save: ${err.message}`);
       return false;
     }
   }
@@ -1178,18 +1178,30 @@
   }
 
   function guardNavigation(action) {
-    if (!isDirty()) { action(); return; }
+    if (!isDirty()) { action(); return 'opened'; }
     pendingNavigation = action;
     guard.hidden = false;
+    // The modal must be keyboard/touch discoverable, not a silent no-op in
+    // the Load panel. Do not change selection until Save/Discard succeeds.
+    guardCancel.focus({preventScroll:true});
+    return 'pending';
   }
 
   function finishGuard(kind) {
     const action = pendingNavigation;
-    pendingNavigation = null;
-    guard.hidden = true;
-    if (!action || kind === 'cancel') return;
+    if (!action) { guard.hidden = true; return; }
+    if (kind === 'cancel') {
+      pendingNavigation = null;
+      guard.hidden = true;
+      notify();
+      return;
+    }
+    // Keep the guard visible and the requested action pending if saving fails
+    // or the user rejects a rebind; Cancel and Discard remain available.
     if (kind === 'save' && !saveCurrent()) return;
     if (kind === 'discard') discardCurrent();
+    pendingNavigation = null;
+    guard.hidden = true;
     action();
   }
 
@@ -1209,9 +1221,18 @@
   CHARACTERS.forEach(c => loadAtlas(c.id));
 
   function switchCharacter(id) {
-    if (id === selection.characterId || !CHARACTERS.some(c => c.id === id)) return;
-    guardNavigation(() => {
+    if (!CHARACTERS.some(c => c.id === id)) return false;
+    if (id === selection.characterId) return 'already-open';
+    return guardNavigation(() => {
       conversionPreview = null;
+      // Load is also usable from Quick Play: leave that temporary viewport
+      // without carrying its layer overrides into a different character.
+      if (selection.mode === 'play') {
+        if (playOverlaySnapshot) Object.assign(overlays,playOverlaySnapshot);
+        playOverlaySnapshot = null;
+        lastPlayFrame = null;
+        selection.mode = 'setup'; selection.setupTool = 'rig';
+      }
       selection.characterId = id;
       if (!clipNamesForFamily(characterById(id).family).includes(selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
@@ -2034,7 +2055,7 @@
     createLibraryCharacter,
     renameLibraryCharacter,
     deleteLibraryCharacter,
-    selectCharacter:id=>{if(!CHARACTERS.some(c=>c.id===id))return false;switchCharacter(id);return true;},
+    selectCharacter:id=>switchCharacter(id),
     // Renderer-only read path: no JSON cloning or dirty/history scan each
     // animation frame. Consumers MUST NOT mutate returned references.
     peekArtRenderState:()=>({characterId:selection.characterId,family:currentCharacter().family,

@@ -21,7 +21,7 @@
       owns: k => /^sidescroll\.asset[-.]/i.test(k)
     },
     characters: {
-      label: 'Anim Lab',
+      label: 'Character Lab',
       name: 'CHARACTERS',
       owns: k => /^sidescroll\.animlab\./i.test(k) || /^sidescroll\.fox\./i.test(k)
         || /^sidescroll\.walklab\./i.test(k) || /^gamehub\.walklab\./i.test(k)
