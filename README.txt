@@ -1,5 +1,11 @@
-SS-PATCH-1.1.22 — changed-files-only. Install over v1.1.21.
+# SS-PATCH-1.1.23 — Character Lab → playable local quadruped
 
-Visible rename to Character Lab. Character Library Load switches remain accessible, including from Quick Play. Save/Discard/Cancel guard now reports pending navigation and retains edits if saving fails. All existing data schemas, art, rigs, animation banks and paths are retained.
+**Install:** Apply this ZIP directly over the previous v1.1.22 installation on GitHub Pages. Only files changed by v1.1.23 are included. Service worker cache is now `sidescroll-runtime-v133`; reload or reopen the app if old code remains cached.
 
-Next: validate on iPhone, then integrate saved characters into normal game. See README-PATCH-1.1.22.md.
+**Scope:** This is the first actual in-game Character Lab runtime bridge, not an editor-only Play preview. Saved quadrupeds with complete assembled Atlas meshes and imported PNG pixels on the **same browser origin / device** are loaded read-only. Loaded characters join the actual game's Change Character cycle. Source geometry, UVs, Skin weights, rest rig, own Idle/Walk/Run/Jump sparse clips, scale, collider and movement speeds feed game-side WebGL. Built-in Hero 1, Hero 2 and Fox keep their original rigid-part renderer, storage and animations. Custom selection persists separately. No code overwrites any saved character.
+
+**iPhone test:** Open Character Lab → Load New01 → **Save** (ensure imported atlas PNG is present); open the SideScroll **game** in the same iPhone install, not a separate Safari vs standalone PWA container. In the game's menu tap **Change character** through Hero 1 / Hero 2 / Fox until New01. Walk, run, jump, face both ways, verify deformation and texture match Character Lab, cycle back to built-ins. Relaunch/reload game to check persistence. Test with Wi-Fi disconnected after initial cache update.
+
+**Known limitations:** User-authored biped / simple rigid-assembly characters and `atlas-builtin-*` source meshes are not yet integrated. A missing IndexedDB imported PNG prevents selecting that custom character; JSON backup/snapshot does not carry image bytes. Full mesh-to-game colour/geometry parity has not been physically tested on iPhone; check for distortions and report. Character Lab edits need a game page reload to appear. New animation management and Climb/Pick Up/Put Down/Carry editing remain later milestones. No source assets are generated or replaced by this patch.
+
+**Verification:** `node --check` pass; Node synthetic runtime smoke using the user's Oct 23 New01 saved JSON: 6 meshes, 376 triangles, all 6 saved bind signatures valid, all posed vertices finite. Actual source PNG wasn't supplied; synthetic test image only, **not included** in release. Chromium browser navigations were blocked by this environment; no on-device/WebGL visual acceptance claimed.

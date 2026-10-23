@@ -1563,3 +1563,10 @@ Urgent observed UX bug: after opening local character New01, the Load menu's Ope
 **Action preview:** show visual clip playback **and** optional actual gameplay action preview. Climb displays distance/handhold contact and entry/exit context; Pick Up/Put Down show grasp/release cue; Carry previews locomotion + held-object anchor rather than freezing the legs. Gameplay object placement, collisions and climbing path remain runtime systems. If no compatible authored clip is assigned, identify the built-in/procedural fallback (or disabled action), do not render a different clip without explanation. Do not advertise these new clips as playable until each gate has actually shipped.
 
 **Delivery order:** New01 Open reliability and visible rename first → saved-character game parity using current clips → expandable local clips and editable Idle → Climb clip bridge → Pick Up/Put Down/Carry authoring → reusable template library/explicit retarget. The full working character-to-game path remains the immediate highest-priority acceptance gate; names and UI are secondary to not breaking it.
+
+
+## v1.1.23 — Runtime character selection safeguards
+
+Existing **Change Character** action is retained; successfully loaded device-local Character Lab quadrupeds join the cycling picker without replacing Hero 1/Hero 2/Fox. A local character is listed only after its saved Atlas PNG, source mesh IDs, setup and Skin bind references pass load checks. Missing assets are surfaced, not rendered as another character under the local character's name. Switching does not open the editor, change unsaved Character Lab data or replace the original rigid pipeline; per-character selection is a separate preference. Character Lab itself is still reached through the unchanged `walk-lab.html` route.
+
+This is a first testing gate, not a full picker redesign: names appear in the non-player button's label and player button aria-label; the player button still says Change character. Proper dedicated character list with per-character readiness/reason/technique should follow once custom biped and original rigid-part authoring are connected.

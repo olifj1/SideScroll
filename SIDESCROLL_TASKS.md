@@ -2932,3 +2932,14 @@ Implemented: retain valid non-self-crossing concave influence regions and clamp 
 - [x] Implementation: Character Library Load remains available after switching and allows exiting Quick Play; confirms Save/Discard/Cancel explicitly.
 - [ ] **Acceptance:** on iPhone, recreate `New01` Load/Open issue; verify Hero 1 ↔ Hero 2 ↔ Fox ↔ New01, clean and dirty states, Save/Discard/Cancel, Play exit and restart/offline. Do not mark confirmed until tested by user.
 - [ ] After Gate 0 accepted: normal-game same-origin saved-character resolver and selection (Gate 1), preserving rigid and deformable techniques.
+
+
+### v1.1.23 — Gate 1 experimental playable local quadruped (23 October 2026)
+
+- [x] Code: read **saved** `sidescroll.animlab.character-library.v1` and `sidescroll.animlab.atlas-docs.v1` without mutating Character Lab authoring data. Load imported `sidescroll-animlab-art-v1/atlas-images` PNG by actual stored ID. No fake source image, silent fallback or mixing with built-in Fox edits.
+- [x] Code: validate runtime source mesh IDs, triangle indices, image dimensions, per-vertex bind signatures and character setup. Build game WebGL deformable meshes from the imported atlas; evaluate saved Fox-family Idle/Walk/Run/Jump sparse clips with saved rest rig and inverse Skin Bind. Preserve original Fox/Hero rigid renderer.
+- [x] Code: put *ready* saved quadrupeds into the existing in-game Change Character cycle; use per-character movement, scale and collision; remember custom selection separately from the built-in variant key. Missing image/unsupported custom character cannot be selected; warning printed, game unaffected.
+- [ ] **User iPhone acceptance:** test New01 on same installation/browser origin with saved imported artwork; verify actual mesh deformation in walk/run/jump, rest alignment, draw order, left/right facing, movement, climb fallback, reload/offline and switch back to built-ins. Earlier Atlas experimental GPU had parity defects: physical device visual approval is required.
+- [ ] Compatibility expansion: custom biped + original rigid authorable parts, bundled legacy `atlas-builtin-*` mesh sources, and a graceful per-character status list. These are **not delivered** in v1.1.23 (the original rigid built-ins are retained).
+- [ ] Inspect a saved character after modifying it in Character Lab then reloading game; ensure no stale GL images or unexpected writeback. Full binary-inclusive export and cross-device recovery remain pending.
+- [ ] After Gate 1 acceptance, proceed to CL2 animation collection and action-slot mappings (Climb, Pick Up/Put Down/Carry are still procedural).

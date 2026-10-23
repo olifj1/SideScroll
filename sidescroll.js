@@ -2515,6 +2515,10 @@
   }
 
 
+// v1.1.23: separate built-in selection from device-local Character Lab documents.
+// A local character never writes into the built-in Fox/Hero rig banks.
+const GameCharacters = window.SideScrollGameCharacters || null;
+const LOCAL_CHARACTER_SELECTION_KEY = 'sidescroll.game.local-character.v1';
 const allCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
 const RIG_TEXTURE_VERSION = '1.0.62';
 const CHARACTER_SETUP_STORAGE_KEY = 'sidescroll.animlab.setup.v1';
@@ -2528,15 +2532,18 @@ let characterScaleReady = false;
 const missingRigDiagnostics = new Set();
 
 function characterVariantInfo(id = currentCharacterVariant) {
+  const local = GameCharacters?.find(id);
+  if(local)return {id,label:local.label,rigType:local.family==='fox'?'fox':'human',soleArtOffset:0};
   return Rig.characterVariantInfo ? Rig.characterVariantInfo(id) : null;
 }
 
 function characterScaleMultiplier(id = currentCharacterVariant) {
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
+    const savedCustom = GameCharacters?.ready(id)?.setup;
     const foxSetupCurrent = id !== 'fox' || !FoxRig || setup?.[id]?.baselineId === FoxRig.AUTHORING_BASELINE_ID;
-    const raw = foxSetupCurrent ? Number(setup?.[id]?.scale) : NaN;
-    const fallback = id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1;
+    const raw = savedCustom ? Number(savedCustom.scale) : (foxSetupCurrent ? Number(setup?.[id]?.scale) : NaN);
+    const fallback = (id === 'fox' || savedCustom?.rig?.family==='quadruped') && FoxRig ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1;
     const value = Number.isFinite(raw) ? raw : fallback;
     return Math.max(CHARACTER_SCALE_MIN, Math.min(CHARACTER_SCALE_MAX, value));
   } catch (_) {
@@ -2554,6 +2561,12 @@ function characterMotionSettings(id = currentCharacterVariant) {
     walk: id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15) : 1.15,
     run: id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85) : 2.85
   };
+  const custom = GameCharacters?.ready(id);
+  if(custom?.family==='fox'){
+    const walk=Rig.clamp(Number(custom.setup?.walkSpeed)||defaults.walk,.45,3.25);
+    const run=Rig.clamp(Number(custom.setup?.runSpeed)||defaults.run,Math.max(1,walk+.2),5.75);
+    return {walk,run};
+  }
   if (id !== 'fox' || !FoxRig) return defaults;
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
@@ -2593,6 +2606,7 @@ function characterRigAvailable(id) {
   return !!characterRigForVariant(id);
 }
 
+// Only validated, fully loaded custom characters join the playable picker.
 const availableCharacterVariants = allCharacterVariants.filter(characterRigAvailable);
 
 function activeCharacterRig(id = currentCharacterVariant) {
@@ -2630,7 +2644,14 @@ function updateCharacterSwapButton() {
 }
 
 function applyCharacterVariant(id, announce = false) {
-  const requested = Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(id) : id;
+  const isCustom=!!GameCharacters?.find(id);
+  // Never silently substitute a built-in character for an unready local one.
+  if(isCustom && !GameCharacters.ready(id)){
+    const failure=GameCharacters.reason(id)||'Artwork is still loading';
+    if(hintEl){hintEl.textContent=`${characterVariantInfo(id)?.label||id}: ${failure}`;hintEl.classList.remove('hidden');}
+    return false;
+  }
+  const requested = isCustom ? id : (Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(id) : id);
   if (!characterRigAvailable(requested)) {
     reportMissingCharacterRig(requested);
     const fallback = availableCharacterVariants.includes(Rig.DEFAULT_CHARACTER_VARIANT || 'original')
@@ -2639,8 +2660,14 @@ function applyCharacterVariant(id, announce = false) {
     if (!fallback) return false;
     currentCharacterVariant = fallback;
   } else {
-    const desired = Rig.saveCharacterVariant ? Rig.saveCharacterVariant(requested) : requested;
-    currentCharacterVariant = Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(desired) : desired;
+    if(isCustom){
+      currentCharacterVariant=requested;
+      try{localStorage.setItem(LOCAL_CHARACTER_SELECTION_KEY,requested);}catch(_){}
+    }else{
+      const desired=Rig.saveCharacterVariant ? Rig.saveCharacterVariant(requested) : requested;
+      currentCharacterVariant=Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(desired) : desired;
+      try{localStorage.removeItem(LOCAL_CHARACTER_SELECTION_KEY);}catch(_){}
+    }
   }
   textures.rigAtlas = textures[rigVariantTextureKey(currentCharacterVariant)] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
   updateCharacterSwapButton();
@@ -2662,6 +2689,36 @@ function toggleCharacterVariant() {
 availableCharacterVariants.forEach(id => {
   textures[rigVariantTextureKey(id)] = createImageTexture(rigVariantUrl(id), `Walk Lab cutout rig atlas ${id}`);
 });
+// Load imported artwork from Character Lab's IndexedDB, never from a guessed
+// PNG URL. Failed or incomplete user characters stay unselectable.
+if(GameCharacters)for(const candidate of GameCharacters.list()){
+  GameCharacters.load(candidate.id).then(data=>{
+    const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,data.image);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    data.texture=tex;
+    for(const part of data.parts){
+      part.mesh=createMesh(part.buffer,part.indices);
+      gl.bindBuffer(gl.ARRAY_BUFFER,part.mesh.vbo);
+      gl.bufferData(gl.ARRAY_BUFFER,part.buffer.byteLength,gl.DYNAMIC_DRAW);
+    }
+    availableCharacterVariants.push(candidate.id);
+    if(data.warnings.length)console.warn('[SideScroll] Character Skin warnings',data.label,data.warnings);
+    if(localStorage.getItem(LOCAL_CHARACTER_SELECTION_KEY)===candidate.id)
+      applyCharacterVariant(candidate.id,false);
+  }).catch(err=>{
+    console.warn(`[SideScroll] ${candidate.label} cannot be played:`,err);
+    // A missing phone-local PNG must be visible without requiring DevTools.
+    if(hintEl){
+      hintEl.textContent=`${candidate.label} unavailable: ${err.message||err}`;hintEl.classList.remove('hidden');
+    }
+  });
+}
 textures.rigAtlas = textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')];
 applyCharacterVariant(currentCharacterVariant, false);
 if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleCharacterVariant(); setStageMenuOpen(false); });
@@ -8509,6 +8566,10 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
   }
 
   function foxPoseForClip(name, phase, fallbackFrames) {
+    const custom=GameCharacters?.ready(currentCharacterVariant);
+    const customClip=custom?.sparseClips?.[name];
+    if(customClip?.keys?.length && typeof FoxRig?.sampleSparseClip==='function')
+      return FoxRig.sampleSparseClip(customClip,phase);
     const clip = foxSparseClips?.[name];
     if (clip && typeof FoxRig?.sampleSparseClip === 'function') return FoxRig.sampleSparseClip(clip,phase);
     return FoxRig.sampleFrames(fallbackFrames,phase);
@@ -8538,12 +8599,16 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
 
   characterCollider = (() => {
     const rig = activeCharacterRig();
-    return rig.loadCollider ? rig.loadCollider() : rig.normalizedCollider();
+    const custom=GameCharacters?.ready(currentCharacterVariant);
+    return custom?.setup?.collider ? rig.normalizedCollider(custom.setup.collider)
+      : (rig.loadCollider ? rig.loadCollider() : rig.normalizedCollider());
   })();
   characterColliderReady = true;
   function refreshCharacterCollider() {
     const rig = activeCharacterRig();
-    characterCollider = rig.loadCollider ? rig.loadCollider() : rig.normalizedCollider(characterCollider);
+    const custom=GameCharacters?.ready(currentCharacterVariant);
+    characterCollider=custom?.setup?.collider ? rig.normalizedCollider(custom.setup.collider)
+      : (rig.loadCollider ? rig.loadCollider() : rig.normalizedCollider(characterCollider));
   }
   function colliderWorld() {
     return {
@@ -17287,6 +17352,36 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
   }
 
+  // v1.1.23 game-side deformable mesh draw. Existing WebGL rigid part path
+  // below remains completely unchanged for built-in Fox and both Heroes.
+  function drawLocalMeshCharacter(view,pose,facing,data){
+    GameCharacters.poseParts(data,pose,FoxRig);
+    for(let i=0;i<data.parts.length;i++){
+      const part=data.parts[i];
+      if(!part.mesh)continue;
+      bindMesh(part.mesh);
+      gl.bufferSubData(gl.ARRAY_BUFFER,0,part.buffer);
+      gl.bindTexture(gl.TEXTURE_2D,data.texture);
+      const z=character.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
+      gl.uniformMatrix4fv(loc.model,false,mat4Model2D(character.x,characterRenderY(),z,character.scale,0,facing));
+      gl.uniformMatrix4fv(loc.view,false,view);
+      gl.uniformMatrix4fv(loc.projection,false,projection);
+      const tint=debugDepth?debugTints.character:character.tint;
+      gl.uniform3f(loc.tint,tint[0],tint[1],tint[2]);
+      gl.uniform1f(loc.highlight,0);
+      gl.uniform3f(loc.highlightColor,1,.18,.48);
+      gl.uniform3f(loc.fogColor,fogColor[0],fogColor[1],fogColor[2]);
+      gl.uniform1f(loc.fogNear,fogSettings.near);
+      gl.uniform1f(loc.fogFar,fogSettings.far);
+      gl.uniform1f(loc.fogAmount,fogSettings.enabled?(debugDepth?.22:fogSettings.amount):0);
+      gl.uniform1f(loc.fogCurve,fogSettings.curve);
+      gl.uniform1f(loc.opacity,character.opacity);
+      gl.uniform2f(loc.uvScale,1,1);
+      gl.uniform2f(loc.uvOffset,0,0);
+      gl.drawElements(gl.TRIANGLES,part.mesh.count,gl.UNSIGNED_SHORT,0);
+    }
+  }
+
   function drawRigCharacter(view, isWalking) {
     const phase = currentCharacterPhase(isWalking);
     const charRig = activeCharacterRig();
@@ -17340,6 +17435,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
 
     const facing = character.lastFacing >= 0 ? 1 : -1;
+    const local=GameCharacters?.ready(currentCharacterVariant);
+    if(local?.texture){
+      drawLocalMeshCharacter(view,pose,facing,local);
+      if(carriedObject||interactionState)drawCarriedCrate(view,facing,null);
+      return;
+    }
     const parts = charRig.partsForPose(pose);
     let crateDrawn = false;
     for (const part of parts) {
