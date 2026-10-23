@@ -161,3 +161,8 @@ Extend **Single Character**, **All Character Lab Data** (historical UI/export la
 New runtime preference **`sidescroll.game.local-character.v1`** stores the selected user character ID as a simple string. This key is not a character export and can be absent without loss; game defaults to built-in character until the preferred imported character loads. Do not confuse this with the built-in selector `gamehub.walklab.character.v1`. Neither selection key writes authoring data. The authoring Lab and running game must be under the same origin and browser data container; iOS standalone PWA versus Safari can have distinct storage.
 
 Custom biped, legacy atlas-builtin parts and remote/cross-device image provisioning remain future work. Imported images also must remain available in IndexedDB for offline use.
+
+
+## v1.1.24 — Chooser and biped starter compatibility (no export changes)
+
+The game chooses from existing saved user character JSON and the built-in character records; the overlay does not write a new schema, make copies or export artwork. Built-in IDs still persist under `gamehub.walklab.character.v1` and custom IDs under `sidescroll.game.local-character.v1`. Saving/opening in Character Lab continues to use the same `sidescroll.animlab.character-library.v1` and existing workspace data. A saved custom Biped starter (`starter:'original'`) can now be read at runtime without a custom PNG because its renderer explicitly uses shipped Hero 1 *starter* art; it still uses saved own Human sparse clips for Walk/Run/Jump. This does **not** make user-created Biped atlases or any IndexedDB imported PNG portable. Custom quadruped deformable assemblies still need their device-local imported source pixels.

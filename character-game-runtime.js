@@ -1,4 +1,4 @@
-/* SideScroll v1.1.23 — read-only same-origin Character Lab -> Game bridge.
+/* SideScroll v1.1.24 — read-only same-origin Character Lab -> Game bridge.
  * User character JSON is never modified. IndexedDB art stays on this device.
  * Render geometry uses exactly the same rest-space placement, UVs and skin
  * transforms as the Character Lab Canvas2D assembly renderer.
@@ -21,7 +21,8 @@
     }
   }
   const prepared=new Map(), failures=new Map(), inFlight=new Map();
-  const list=()=>[...entries.values()].map(e=>({id:e.id,label:e.label,family:e.family,status:prepared.has(e.id)?'ready':failures.get(e.id)||'loading'}));
+  const list=()=>[...entries.values()].map(e=>({id:e.id,label:e.label,family:e.family,
+    technique:prepared.get(e.id)?.technique||null,status:prepared.has(e.id)?'ready':failures.get(e.id)||'loading'}));
   const find=id=>entries.get(id)||null;
   const ready=id=>prepared.get(id)||null;
   const reason=id=>failures.get(id)||null;
@@ -90,8 +91,18 @@
     if(inFlight.has(id))return inFlight.get(id);
     const entry=entries.get(id);if(!entry)throw Error('Character not in local library');
     const promise=(async()=>{
-      assert(entry.family==='fox','Custom biped rendering is not yet available; Hero 1/2 remain playable');
       const setup=entry.setup||{},assembly=setup.artLayout?.assembly;
+      // Biped authoring currently has poses/collider/scale but no authored Atlas
+      // assembly or structural rig. Play with the existing Hero 1 rigid atlas
+      // while preserving each character's own saved animation data. No fake
+      // biped skin/bind is synthesized and no source document is modified.
+      if(entry.family==='human'){
+        assert(entry.sparseClips && ['walk','run','jump'].every(name=>
+          Array.isArray(entry.sparseClips?.[name]?.keys)&&entry.sparseClips[name].keys.length),
+          'Biped starter animation clips missing; Save in Character Lab');
+        const value={...entry,technique:'biped-starter-rigid',parts:[],warnings:[]};
+        prepared.set(id,value);failures.delete(id);return value;
+      }
       assert(setup.rig?.joints&&setup.skinBindRig?.joints,'Character Rig / Skin Bind missing; Save in Character Lab');
       assert(assembly?.enabled===true&&Array.isArray(assembly.instances)&&assembly.instances.length,
         'No Atlas assembly: save assembled Parts in Character Lab');
@@ -106,7 +117,7 @@
       assert(image.naturalWidth===doc.atlas.width&&image.naturalHeight===doc.atlas.height,
         'Imported image size no longer matches authored mesh UVs');
       const parts=assembly.instances.map(item=>makePart(item,meshMap.get(item.meshId),image));
-      const value={...entry,image,parts,warnings:parts.flatMap(p=>p.warning?[p.warning]:[])};
+      const value={...entry,technique:'atlas-deform',image,parts,warnings:parts.flatMap(p=>p.warning?[p.warning]:[])};
       prepared.set(id,value);failures.delete(id);return value;
     })().catch(error=>{failures.set(id,String(error.message||error));throw error;}).finally(()=>inFlight.delete(id));
     inFlight.set(id,promise);return promise;
@@ -150,5 +161,25 @@
       }
     }
   }
-  window.SideScrollGameCharacters=Object.freeze({list,find,ready,reason,load,poseParts});
+  // Biped sparse clips share Character Lab's 16-frame authored format. Use
+  // continuous key-to-key interpolation; the built-in Hero atlas is simply the
+  // renderer of those poses, not the source of the saved clip.
+  function sampleBipedClip(data,name,phase,rig){
+    if(data?.family!=='human'||!rig?.interpolatePose||!rig?.normalizedPose)return null;
+    const clip=data.sparseClips?.[name];
+    if(!Array.isArray(clip?.keys)||!clip.keys.length)return null;
+    const keys=clip.keys.filter(k=>Number.isInteger(k?.frame)&&k.frame>=0&&k.frame<16&&
+      k.pose&&typeof k.pose==='object').slice().sort((a,b)=>a.frame-b.frame);
+    if(keys.length<2)return null;
+    const f=(((Number(phase)||0)%1)+1)%1*16;
+    let before=keys[keys.length-1],after=keys[0];
+    let beforeFrame=before.frame-16,afterFrame=after.frame+16;
+    for(const k of keys){if(k.frame<=f){before=k;beforeFrame=k.frame;}else{after=k;afterFrame=k.frame;break;}}
+    if(afterFrame<=beforeFrame)afterFrame=after.frame+16;
+    const t=Math.max(0,Math.min(1,(f-beforeFrame)/Math.max(.0001,afterFrame-beforeFrame)));
+    const a=rig.normalizedPose(before.pose,before.frame),b=rig.normalizedPose(after.pose,after.frame);
+    const travelB=(afterFrame>=16?(Number(b.travel)||0)+1:Number(b.travel)||0);
+    return rig.normalizedPose(rig.interpolatePose(a,b,t,before.name||name,travelB),Math.floor(f));
+  }
+  window.SideScrollGameCharacters=Object.freeze({list,find,ready,reason,load,poseParts,sampleBipedClip});
 })();

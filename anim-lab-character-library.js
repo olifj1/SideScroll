@@ -1,4 +1,4 @@
-/* SideScroll Character Lab — unified Character Library (v1.1.22).
+/* SideScroll Character Lab — unified Character Library (v1.1.24).
    Built-ins and locally-authored characters have one Open / Edit / Save workflow.
    Legacy built-in storage and custom character library remain intentionally
    separate under the hood; do not migrate saved data during a UI tidy-up. */
@@ -42,7 +42,7 @@
         </select>
       </label>
       <button class="animlab-library-create" id="animlab-library-create" type="button">Create Character</button>
-      <small class="animlab-library-footnote">Quadrupeds begin with the current Fox setup, rig, artwork placement, skin and clips. Existing characters are not changed. Still editor-only.</small>
+      <small class="animlab-library-footnote">Quadrupeds begin with the current Fox setup, rig, artwork placement, skin and clips. Characters can be selected in the game once their art and rig are playable on this device.</small>
     </div>
     <div class="animlab-library-panel" id="animlab-library-load" hidden>
       <div class="animlab-library-panel-heading"><strong>Open character</strong><button type="button" data-library-close aria-label="Close Load character">×</button></div>
@@ -137,10 +137,12 @@
     const dirty=!!state.dirty;
     currentName.textContent=state.character?.label||'Unknown character';
     currentKind.textContent=(state.character?.library?'Local character':'Built-in character')+(dirty?' · Unsaved changes':' · Saved');
-    // Keep Load open while switching so another character can be opened
-    // immediately. Only close New/Save, whose context may now be stale.
-    if(lastCharacterId!==null && lastCharacterId!==state.characterId &&
-       openPanel && openPanel!=='load')setPanel(null);
+    // Close Load only AFTER the selection really changed. This also handles
+    // the asynchronous Save/Discard guard path; Cancel must leave Load open.
+    if(lastCharacterId!==null && lastCharacterId!==state.characterId && openPanel) {
+      setPanel(null);
+      setStatus(`${state.character?.label||'Character'} is now loaded.`);
+    }
     lastCharacterId=state.characterId;
     create.disabled=dirty||state.mode==='play'||customCount>=24;
     importInput.disabled=dirty||state.mode==='play'||customCount>=24;
@@ -226,7 +228,7 @@
       if(result==='pending'){
         status.dataset.pendingCharacter=id;
         setStatus(`Unsaved changes in ${core.getState().character.label}. Choose Save, Discard or Cancel to open ${entry.name}.`);
-      }else if(result==='opened')setStatus(`${entry.name} is now loaded.`);
+      }else if(result==='opened'){setPanel(null);setStatus(`${entry.name} is now loaded.`);}
       else if(result===false)setStatus(`Could not open ${entry.name}.`);
       refresh();return;
     }

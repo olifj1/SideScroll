@@ -411,6 +411,10 @@
   const sectionResetProceduralBtn = document.getElementById('sidescroll-section-reset-procedural');
   const sectionResetProceduralAllBtn = document.getElementById('sidescroll-section-reset-procedural-all');
   const characterSwapBtn = document.getElementById('sidescroll-character');
+  const characterPicker = document.getElementById('sidescroll-character-picker');
+  const characterPickerList = document.getElementById('sidescroll-character-picker-list');
+  const characterPickerCurrent = document.getElementById('sidescroll-character-picker-current');
+  const characterPickerClose = document.getElementById('sidescroll-character-picker-close');
   const cameraEditorBtn = document.getElementById('sidescroll-editor-camera');
   const cameraEditorPanel = document.getElementById('sidescroll-camera-editor');
   const cameraValuesEl = document.getElementById('sidescroll-camera-values');
@@ -2633,13 +2637,68 @@ function rigVariantUrl(id) {
   return src.includes('?') ? src : `${src}?v=${RIG_TEXTURE_VERSION}`;
 }
 
+// A single-tap, grouped selector replaces the old wraparound cycling button.
+// Loading and unavailable characters remain visible with an explicit reason;
+// they are never silently swapped to another character.
+function renderCharacterPicker(){
+  if(!characterPickerList || characterPicker?.hidden)return;
+  const selected=characterVariantInfo();
+  if(characterPickerCurrent)characterPickerCurrent.textContent=`Current: ${selected?.label||currentCharacterVariant}`;
+  characterPickerList.replaceChildren();
+  const makeGroup=(title,items)=>{
+    if(!items.length)return;
+    const group=document.createElement('section');group.className='sidescroll-character-picker-group';
+    const heading=document.createElement('h3');heading.textContent=title;group.appendChild(heading);
+    const grid=document.createElement('div');grid.className='sidescroll-character-picker-grid';
+    for(const item of items){
+      const active=item.id===currentCharacterVariant;
+      const button=document.createElement('button');button.type='button';button.className='sidescroll-character-choice';
+      button.dataset.characterId=item.id;button.disabled=!item.ready;
+      button.setAttribute('aria-current',active?'true':'false');
+      const mark=document.createElement('span');mark.className='sidescroll-character-choice-mark';mark.setAttribute('aria-hidden','true');mark.textContent=item.mark;
+      const copy=document.createElement('span');copy.className='sidescroll-character-choice-copy';
+      const name=document.createElement('span');name.className='sidescroll-character-choice-name';name.textContent=item.name;
+      const kind=document.createElement('span');kind.className='sidescroll-character-choice-type';kind.textContent=item.kind;
+      const state=document.createElement('span');state.className='sidescroll-character-choice-state';state.textContent=active?'Selected':item.status;
+      copy.append(name,kind,state);button.append(mark,copy);grid.appendChild(button);
+      if(!item.ready)button.title=item.status;
+    }
+    group.appendChild(grid);characterPickerList.appendChild(group);
+  };
+  makeGroup('Built-in',allCharacterVariants.map((id,index)=>{
+    const info=characterVariantInfo(id),available=characterRigAvailable(id);
+    return {id,name:info?.label||id,mark:['H1','H2','FX'][index]||'CH',
+      kind:(info?.rigType==='fox'?'Quadruped':'Biped')+' · Original art',
+      ready:available,status:available?'Ready':'Required rig unavailable'};
+  }));
+  if(GameCharacters){
+    makeGroup('My characters',GameCharacters.list().map(item=>{
+      const ready=item.status==='ready';
+      const human=item.family==='human';
+      const technique=item.technique==='biped-starter-rigid'?'Hero starter art':
+        item.technique==='atlas-deform'?'Authored Atlas mesh':'Character Lab asset';
+      return {id:item.id,name:item.label,mark:human?'BP':'QP',
+        kind:(human?'Biped':'Quadruped')+' · '+technique,ready,
+        status:ready?'Ready':item.status==='loading'?'Loading artwork…':item.status};
+    }));
+  }
+}
+function setCharacterPickerOpen(open){
+  if(!characterPicker)return;
+  const next=!!open;
+  if(next)setStageMenuOpen(false);
+  characterPicker.hidden=!next;
+  if(characterSwapBtn)characterSwapBtn.setAttribute('aria-expanded',String(next));
+  if(next){renderCharacterPicker();characterPickerClose?.focus({preventScroll:true});}
+  else stageMenuBtn?.focus({preventScroll:true});
+}
 function updateCharacterSwapButton() {
   if (!characterSwapBtn) return;
   const info = characterVariantInfo();
   // The player menu is deliberately tiny: this is an action, not an editor
   // status readout. Keep the current hero in the accessible label instead.
   characterSwapBtn.textContent = PLAYER_MODE ? 'Change character' : (info?.label || 'Character');
-  characterSwapBtn.setAttribute('aria-pressed', currentCharacterVariant !== (Rig.DEFAULT_CHARACTER_VARIANT || 'original') ? 'true' : 'false');
+  characterSwapBtn.setAttribute('aria-expanded', String(characterPicker?.hidden===false));
   characterSwapBtn.setAttribute('aria-label', `Change character · current ${info?.label || currentCharacterVariant}`);
 }
 
@@ -2671,6 +2730,7 @@ function applyCharacterVariant(id, announce = false) {
   }
   textures.rigAtlas = textures[rigVariantTextureKey(currentCharacterVariant)] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
   updateCharacterSwapButton();
+  renderCharacterPicker();
   if (characterColliderReady) refreshCharacterCollider();
   if (characterScaleReady) refreshCharacterScale();
   if (announce && hintEl) {
@@ -2709,10 +2769,12 @@ if(GameCharacters)for(const candidate of GameCharacters.list()){
     }
     availableCharacterVariants.push(candidate.id);
     if(data.warnings.length)console.warn('[SideScroll] Character Skin warnings',data.label,data.warnings);
+    renderCharacterPicker();
     if(localStorage.getItem(LOCAL_CHARACTER_SELECTION_KEY)===candidate.id)
       applyCharacterVariant(candidate.id,false);
   }).catch(err=>{
     console.warn(`[SideScroll] ${candidate.label} cannot be played:`,err);
+    renderCharacterPicker();
     // A missing phone-local PNG must be visible without requiring DevTools.
     if(hintEl){
       hintEl.textContent=`${candidate.label} unavailable: ${err.message||err}`;hintEl.classList.remove('hidden');
@@ -2721,7 +2783,17 @@ if(GameCharacters)for(const candidate of GameCharacters.list()){
 }
 textures.rigAtlas = textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')];
 applyCharacterVariant(currentCharacterVariant, false);
-if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleCharacterVariant(); setStageMenuOpen(false); });
+if(characterSwapBtn)characterSwapBtn.addEventListener('click',()=>setCharacterPickerOpen(characterPicker?.hidden!==false));
+characterPickerClose?.addEventListener('click',()=>setCharacterPickerOpen(false));
+characterPicker?.querySelector('[data-character-dismiss]')?.addEventListener('click',()=>setCharacterPickerOpen(false));
+characterPickerList?.addEventListener('click',event=>{
+  const button=event.target.closest('button[data-character-id]');
+  if(!button||button.disabled)return;
+  if(applyCharacterVariant(button.dataset.characterId,true))setCharacterPickerOpen(false);
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&characterPicker?.hidden===false){event.preventDefault();setCharacterPickerOpen(false);}
+});
 
 
   function mulberry32(seed) {
@@ -8573,6 +8645,11 @@ if (characterSwapBtn) characterSwapBtn.addEventListener('click', () => { toggleC
     const clip = foxSparseClips?.[name];
     if (clip && typeof FoxRig?.sampleSparseClip === 'function') return FoxRig.sampleSparseClip(clip,phase);
     return FoxRig.sampleFrames(fallbackFrames,phase);
+  }
+
+  function bipedPoseForClip(name,phase,fallback){
+    const local=GameCharacters?.ready(currentCharacterVariant);
+    return GameCharacters?.sampleBipedClip(local,name,phase,Rig)||fallback;
   }
 
   function refreshCharacterFrames() {
@@ -17397,7 +17474,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       pose = foxPoseForClip('run',(climbState.time * 1.35) % 1,foxRunFrames);
     } else if (jumping) {
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
-      pose = isFox ? foxPoseForClip('jump',jumpPhase,foxJumpFrames) : charRig.sampleFrames(jumpFrames,jumpPhase);
+      pose = isFox ? foxPoseForClip('jump',jumpPhase,foxJumpFrames) : bipedPoseForClip('jump',jumpPhase,charRig.sampleFrames(jumpFrames,jumpPhase));
     } else if (isWalking) {
       if (isFox) {
         // v1.0.162: Walk and Run remain intact authored gaits.  Only the short
@@ -17405,13 +17482,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         // pose that could leave one diagonal pair suspended between contacts.
         pose = currentFoxGaitPose();
       } else {
-        const walkPose = charRig.sampleFrames(characterFrames,phase);
-        const runPose = charRig.sampleFrames(runFrames,phase);
+        const walkPose = bipedPoseForClip('walk',phase,charRig.sampleFrames(characterFrames,phase));
+        const runPose = bipedPoseForClip('run',phase,charRig.sampleFrames(runFrames,phase));
         pose = blendPose(walkPose, runPose, runBlend);
       }
     } else {
       const idlePhase = ((performance.now ? performance.now() : Date.now()) % 1400) / 1400;
-      pose = isFox ? foxPoseForClip('idle',idlePhase,foxIdleFrames) : charRig.sampleFrames(characterFrames, 0.02);
+      pose = isFox ? foxPoseForClip('idle',idlePhase,foxIdleFrames) : bipedPoseForClip('idle',idlePhase,charRig.sampleFrames(characterFrames, 0.02));
     }
 
     // Carry/push poses are humanoid-specific. Gameplay interaction remains
@@ -18851,6 +18928,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     stageMenuBtn.setAttribute('aria-expanded', String(next));
     stageMenuBtn.classList.toggle('active', next);
     if (next) {
+      setCharacterPickerOpen(false);
       if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);

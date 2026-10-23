@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.163">
+  <link rel="stylesheet" href="style.css?v=1.1.24">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -45,7 +45,7 @@
               <button id="sidescroll-post" class="sidescroll-tools-item" type="button" aria-expanded="false">Post</button>
               <button id="sidescroll-collision-view" class="sidescroll-tools-item" type="button" aria-pressed="false">Collision</button>
               <button id="sidescroll-player-hints" class="sidescroll-tools-item" type="button" aria-pressed="true">Hints on</button>
-              <button id="sidescroll-character" class="sidescroll-tools-item sidescroll-character-button" type="button" aria-pressed="false">Hero 1</button>
+              <button id="sidescroll-character" class="sidescroll-tools-item sidescroll-character-button" type="button" aria-haspopup="dialog" aria-expanded="false">Hero 1</button>
               <button id="sidescroll-sound" class="sidescroll-tools-item sidescroll-sound-button" type="button" aria-expanded="false">Sound</button>
               <button id="sidescroll-quick-nav" class="sidescroll-tools-item sidescroll-quick-nav-button" type="button" aria-expanded="false" hidden>Go to</button>
               <button id="sidescroll-delete-save" class="sidescroll-tools-item sidescroll-delete-save-button" type="button" hidden>Delete save</button>
@@ -53,6 +53,18 @@
             </div>
           </aside>
 
+
+          <section class="sidescroll-character-picker" id="sidescroll-character-picker" hidden role="dialog" aria-modal="true" aria-labelledby="sidescroll-character-picker-title">
+            <div class="sidescroll-character-picker-scrim" data-character-dismiss></div>
+            <div class="sidescroll-character-picker-dialog">
+              <header class="sidescroll-character-picker-head">
+                <div><span class="sidescroll-character-picker-eyebrow">PLAYABLE CHARACTERS</span><h2 id="sidescroll-character-picker-title">Choose character</h2><p id="sidescroll-character-picker-current">Current: Hero 1</p></div>
+                <button id="sidescroll-character-picker-close" type="button" aria-label="Close character selection">Close</button>
+              </header>
+              <div class="sidescroll-character-picker-scroll" id="sidescroll-character-picker-list" aria-label="Characters on this device"></div>
+              <footer class="sidescroll-character-picker-foot"><span>Characters are saved on this device. Edits appear after reloading the game.</span><a href="walk-lab.html">Character Lab</a></footer>
+            </div>
+          </section>
 
           <aside class="sidescroll-sound-panel" id="sidescroll-sound-panel" hidden aria-label="Sound settings">
             <div class="sidescroll-sound-head"><strong>SOUND</strong><button id="sidescroll-sound-close" type="button" aria-label="Close sound settings">×</button></div>
@@ -799,7 +811,7 @@
   <script src="puzzle-groups.js?v=1.0.62"></script>
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="character-game-runtime.js?v=1.1.23"></script>
-  <script src="sidescroll.js?v=1.1.23"></script>
+  <script src="character-game-runtime.js?v=1.1.24"></script>
+  <script src="sidescroll.js?v=1.1.24"></script>
 </body>
 </html>
