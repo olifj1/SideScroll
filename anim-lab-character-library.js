@@ -114,7 +114,7 @@
     saveChanges.disabled=!state.dirty;
     // Custom entries and shipped Fox can both export from the Save context.
     exportCurrent.hidden=!(state.character?.library || state.characterId==='fox');
-    exportCurrent.textContent=state.characterId==='fox'?'Export Fox handoff JSON':'Export character JSON';
+    exportCurrent.textContent=state.characterId==='fox'?'Export legacy Fox handoff':'Export character JSON';
     exportCurrent.disabled=!!state.dirty;
   }
   function makeButton(label,action,entry){

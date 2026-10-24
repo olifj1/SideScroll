@@ -51,10 +51,10 @@
   const ART_LAYOUT_SCHEMA = 'animlab.art-layout.v1';
   const SETUP_SCALE_MIN = 0.55;
   const SETUP_SCALE_MAX = 2.25;
-  const FOX_WALK_SPEED_MIN = 0.45;
-  const FOX_WALK_SPEED_MAX = 3.25;
-  const FOX_RUN_SPEED_MIN = 1.00;
-  const FOX_RUN_SPEED_MAX = 5.75;
+  const MOVE_WALK_SPEED_MIN = 0.45;
+  const MOVE_WALK_SPEED_MAX = 3.25;
+  const MOVE_RUN_SPEED_MIN = 1.00;
+  const MOVE_RUN_SPEED_MAX = 5.75;
   const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
   const STATIC_REFERENCE_KEY = 'sidescroll.animlab.static-reference.v1';
   const FOX_HANDOFF_SCHEMA = 'sidescroll.animlab.fox-handoff.v1';
@@ -259,7 +259,7 @@
       id:'human', label:'Humanoid', rig:HumanRig,
       clipMs:{walk:1050,run:650,jump:935},
       loadBank:loadHumanBank, saveBank:saveHumanBank,
-      normalise:(pose, index) => HumanRig.normalizedPose(pose,index),
+      normalise:(pose, index) => HumanRig.normalizedPose(pose,Math.floor(((Number(index)||0)%16+16)%16)),
       defaultPose:(clip,index) => {
         const source = clip === 'run' ? HumanRig.RUN_FRAMES : clip === 'jump' ? HumanRig.JUMP_FRAMES : HumanRig.DEFAULT_FRAMES;
         return HumanRig.normalizedPose(source[index], index);
@@ -288,6 +288,29 @@
       scope:'Fox clips save to the Fox runtime bank; Play uses the last explicitly saved Idle/Walk/Run/Jump clips with the promoted authoring baseline as fallback.'
     }
   };
+
+  // Character Lab's public, descriptive capability layer. The old `human` / `fox`
+  // adapter IDs remain stable serialization identifiers for existing clips, atlas
+  // documents and imported characters. Never infer editor features just from a
+  // character name or equate a rendering technique with a skeleton family.
+  const CHARACTER_PROFILES = Object.freeze({
+    human:Object.freeze({rigFamily:'biped',legacyAdapter:'human',renderTechnique:'rigid-parts',
+      quickPlay:true,authoring:Object.freeze({atlas:true,parts:false,rig:true,skin:false,animate:true}),
+      clips:Object.freeze(['walk','run','jump']),
+      actionSlots:Object.freeze(['idle','walk','run','jump']),
+      clipMs:Object.freeze({idle:1400,walk:1050,run:650,jump:935}),
+      defaultSpeeds:Object.freeze({walk:1.15,run:2.85}),
+      idleFallback:'neutral-pose'}),
+    fox:Object.freeze({rigFamily:'quadruped',legacyAdapter:'fox',renderTechnique:'atlas-mesh',
+      quickPlay:true,authoring:Object.freeze({atlas:true,parts:true,rig:true,skin:true,animate:true}),
+      clips:Object.freeze(['idle','walk','run','jump']),
+      actionSlots:Object.freeze(['idle','walk','run','jump']),
+      clipMs:Object.freeze({idle:1400,walk:Number(FoxRig.WALK_CYCLE_MS)||539,
+        run:Number(FoxRig.RUN_CYCLE_MS)||323,jump:Number(FoxRig.JUMP_CYCLE_MS)||1139}),
+      defaultSpeeds:Object.freeze({walk:Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,
+        run:Number(FoxRig.DEFAULT_RUN_SPEED)||2.85}),idleFallback:null})
+  });
+  const characterProfile = (family=currentCharacter().family) => CHARACTER_PROFILES[family] || null;
 
   function artLayoutDescriptor(adapter = currentAdapter?.()) {
     return adapter?.rig?.ART_LAYOUT_DESIGNER || null;
@@ -501,14 +524,13 @@
       // the runtime still shares one human collider.
       collider: adapter.normaliseCollider(custom?.setup?.collider || adapter.collider())
     };
-    if (adapter.id === 'fox') {
-      const defaultWalk = Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15;
-      const defaultRun = Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85;
-      const savedWalk = foxSetupCurrent ? Number(saved.walkSpeed) : NaN;
-      const savedRun = foxSetupCurrent ? Number(saved.runSpeed) : NaN;
-      setup.walkSpeed = clamp(Number.isFinite(savedWalk) ? savedWalk : defaultWalk, FOX_WALK_SPEED_MIN, FOX_WALK_SPEED_MAX);
-      setup.runSpeed = clamp(Number.isFinite(savedRun) ? savedRun : defaultRun, FOX_RUN_SPEED_MIN, FOX_RUN_SPEED_MAX);
-    }
+    // Movement speeds are character settings, not a Fox-only setting.
+    // No existing saved value is rewritten until the user explicitly Saves.
+    const speeds = characterProfile(character.family)?.defaultSpeeds || {walk:1.15,run:2.85};
+    const savedWalk = foxSetupCurrent && saved.walkSpeed != null ? Number(saved.walkSpeed) : NaN;
+    const savedRun = foxSetupCurrent && saved.runSpeed != null ? Number(saved.runSpeed) : NaN;
+    setup.walkSpeed = clamp(Number.isFinite(savedWalk) ? savedWalk : speeds.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
+    setup.runSpeed = clamp(Math.max(Number.isFinite(savedRun) ? savedRun : speeds.run,setup.walkSpeed+.20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
@@ -770,7 +792,7 @@
 
   const selection = loadEditorSelection();
   if (!clipNamesForFamily(characterById(selection.characterId).family).includes(selection.clip)) selection.clip = 'walk';
-  if (selection.mode === 'play' && characterById(selection.characterId).family !== 'fox') selection.mode = 'animate';
+  if (selection.mode === 'play' && !characterProfile(characterById(selection.characterId).family)?.quickPlay) selection.mode = 'animate';
   if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(selection.characterId).family])) selection.setupTool = 'rig';
   let setupDraft = defaultSetupFor(selection.characterId);
   let checkpoint = null;
@@ -912,10 +934,9 @@
     if (scope === 'setup') {
       const adapter = currentAdapter();
       setupDraft = { scale:clamp(Number(value.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX), collider:adapter.normaliseCollider(value.collider) };
-      if (adapter.id === 'fox') {
-        setupDraft.walkSpeed = clamp(Number(value.walkSpeed) || Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15, FOX_WALK_SPEED_MIN, FOX_WALK_SPEED_MAX);
-        setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85, setupDraft.walkSpeed + .20), FOX_RUN_SPEED_MIN, FOX_RUN_SPEED_MAX);
-      }
+      const defaults=characterProfile()?.defaultSpeeds || {walk:1.15,run:2.85};
+      setupDraft.walkSpeed = clamp(Number(value.walkSpeed) || defaults.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
+      setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || defaults.run, setupDraft.walkSpeed + .20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
       if (supportsRestBinding(adapter)) setupDraft.skinTuning = normaliseSkinTuning(value.skinTuning);
@@ -1132,12 +1153,11 @@
         setupDraft.collider = custom ? adapter.normaliseCollider(setupDraft.collider) : adapter.saveCollider(setupDraft.collider);
         if (adapter.saveRestRig && setupDraft.rig)
           setupDraft.rig = custom ? adapter.normaliseRestRig(setupDraft.rig) : adapter.saveRestRig(setupDraft.rig);
+        const defaults=characterProfile(character.family)?.defaultSpeeds || {walk:1.15,run:2.85};
         const storedSetup={scale:setupDraft.scale};
-        if (character.family === 'fox') {
-          storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX);
-          storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,storedSetup.walkSpeed+.20),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX);
-          storedSetup.baselineId=FoxRig.AUTHORING_BASELINE_ID || null;
-        }
+        storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||defaults.walk,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX);
+        storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||defaults.run,storedSetup.walkSpeed+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX);
+        if (character.family === 'fox') storedSetup.baselineId=FoxRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (supportsRestBinding(adapter)) {
           storedSetup.skinTuning=normaliseSkinTuning(setupDraft.skinTuning);
@@ -1280,8 +1300,8 @@
 
   function switchMode(mode) {
     if (mode === selection.mode || !['animate','setup','play'].includes(mode)) return;
-    if (mode === 'play' && currentCharacter().family !== 'fox') {
-      hint.textContent = 'Quick Play is currently enabled for the Fox authoring workflow.';
+    if (mode === 'play' && !characterProfile()?.quickPlay) {
+      hint.textContent = 'Quick Play is unavailable for this rig adapter.';
       return;
     }
     // Quick Play is deliberately a non-destructive view of the current working
@@ -1311,7 +1331,7 @@
 
   function navigateAuthorStage(stage) {
     if (stage === 'animate') { switchMode('animate'); return true; }
-    if (stage === 'play') { switchMode('play'); return currentCharacter().family === 'fox'; }
+    if (stage === 'play') { if (!characterProfile()?.quickPlay) return false; switchMode('play'); return true; }
     const tool = {atlas:'atlas',parts:'art',rig:'rig',skin:'skin'}[stage];
     if (!tool || (tool !== 'rig' && tool !== 'atlas' && !supportsRestBinding(currentAdapter()))) return false;
     const enter = () => {
@@ -1642,12 +1662,12 @@
     playBtn.textContent=playing?'Pause':'Play';
     characterButtons.forEach(btn=>{const active=btn.dataset.character===selection.characterId;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='play';});
     clipButtons.forEach(btn=>{const allowed=clipNamesForFamily(character.family).includes(btn.dataset.clip);const active=allowed&&btn.dataset.clip===selection.clip;btn.hidden=!allowed;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode!=='animate'||!allowed;});
-    modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=btn.dataset.mode==='play'&&character.family!=='fox';});
+    modeButtons.forEach(btn=>{const active=btn.dataset.mode===selection.mode;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=btn.dataset.mode==='play'&&!characterProfile(character.family)?.quickPlay;});
     viewButtons.forEach(btn=>{const active=!!overlays[btn.dataset.view];btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));btn.disabled=selection.mode==='play';});
     scopeEl.textContent=selection.mode==='setup'
       ? `${character.label} setup · Parts and Rig are independent. If you move rig joints, explicitly Rebind before Save; Undo/Discard remain available.`
       : selection.mode==='play'
-        ? 'Quick Play tests the current working Fox clips. Walk/Run movement speed is authored here and remains a working copy until Save.'
+        ? 'Quick Play tests this character’s current working clips. Movement speeds are a working copy until Save. Biped Idle currently uses a neutral fallback pose.'
         : previewApplies()
           ? `${conversionPreview.label || 'Conversion'} preview · view only until Adopt or Exit Preview.`
           : `${adapter.scope} Smooth clips are evaluated continuously; the 16-frame timeline remains the authoring/key layout.`;
@@ -1875,8 +1895,8 @@
       ? clone(setupDraft)
       : {
           scale:clamp(Number.isFinite(savedFoxScale) ? savedFoxScale : (Number(FoxRig.DEFAULT_SCALE) || 1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
-          walkSpeed:clamp(Number.isFinite(savedFoxWalk) ? savedFoxWalk : (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15),FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
-          runSpeed:clamp(Number.isFinite(savedFoxRun) ? savedFoxRun : (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85),FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
+          walkSpeed:clamp(Number.isFinite(savedFoxWalk) ? savedFoxWalk : (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15),MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
+          runSpeed:clamp(Number.isFinite(savedFoxRun) ? savedFoxRun : (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(FoxRig.loadCollider()),
           rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig()),
           artLayout:normaliseArtLayout(adapters.fox,savedFoxCurrent ? savedFoxSetup.artLayout : null),
@@ -1895,8 +1915,8 @@
       fox:{
         setup:{
           scale:clamp(Number(setup.scale)||(Number(FoxRig.DEFAULT_SCALE)||1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
-          walkSpeed:clamp(Number(setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
-          runSpeed:clamp(Number(setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
+          walkSpeed:clamp(Number(setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
+          runSpeed:clamp(Number(setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
           collider:FoxRig.normalizedCollider(setup.collider),
           restRig:FoxRig.normalizedRestRig(setup.rig),
           artLayout:normaliseArtLayout(adapters.fox,setup.artLayout),
@@ -1967,8 +1987,8 @@
       const src=bundled?.setup;
       const rest=adapterRestRig(src?.rig||rig.DEFAULT_REST_RIG);
       setup={scale:clamp(Number(src?.scale)||Number(rig.DEFAULT_SCALE)||1.71,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
-        walkSpeed:clamp(Number(src?.walkSpeed)||Number(rig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
-        runSpeed:clamp(Number(src?.runSpeed)||Number(rig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
+        walkSpeed:clamp(Number(src?.walkSpeed)||Number(rig.DEFAULT_WALK_SPEED)||1.15,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
+        runSpeed:clamp(Number(src?.runSpeed)||Number(rig.DEFAULT_RUN_SPEED)||2.85,MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
         collider:rig.normalizedCollider(src?.collider||rig.DEFAULT_COLLIDER),
         rig:rest,
         artRestRig:adapterRestRig(src?.artRestRig||rest),
@@ -1977,7 +1997,7 @@
         skinTuning:normaliseSkinTuning(src?.skinTuning||null),
         baselineId:rig.AUTHORING_BASELINE_ID};
     }else{
-      setup={scale:1,collider:rig.normalizedCollider(rig.loadCollider())};
+      setup={scale:1,walkSpeed:1.15,runSpeed:2.85,collider:rig.normalizedCollider(rig.loadCollider())};
     }
     const sparseClips={};
     const pristine=defaultBank(rig,family);
@@ -2026,8 +2046,8 @@
       const rig=adapter.normaliseRestRig(entry.setup.rig);
       setup={
         scale:clamp(Number(entry.setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
-        walkSpeed:clamp(Number(entry.setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,FOX_WALK_SPEED_MIN,FOX_WALK_SPEED_MAX),
-        runSpeed:clamp(Number(entry.setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,FOX_RUN_SPEED_MIN,FOX_RUN_SPEED_MAX),
+        walkSpeed:clamp(Number(entry.setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
+        runSpeed:clamp(Number(entry.setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
         collider:adapter.normaliseCollider(entry.setup.collider),rig,
         artRestRig:adapter.normaliseRestRig(entry.setup.artRestRig||rig),
         skinBindRig:adapter.normaliseRestRig(entry.setup.skinBindRig||rig),
@@ -2036,6 +2056,8 @@
       };
     }else{
       setup={scale:clamp(Number(entry.setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
+        walkSpeed:clamp(Number(entry.setup.walkSpeed)||1.15,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
+        runSpeed:clamp(Math.max(Number(entry.setup.runSpeed)||2.85,(Number(entry.setup.walkSpeed)||1.15)+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
         collider:adapter.normaliseCollider(entry.setup.collider)};
     }
     const id='user-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
@@ -2080,6 +2102,7 @@
   const api = {
     version:'1.0.199',
     getLibraryCharacters,
+    getCharacterCapabilities:()=>clone(characterProfile()),
     exportLibraryCharacterDocument,
     importLibraryCharacterDocument,
     createLibraryCharacter,
@@ -2091,7 +2114,7 @@
     peekArtRenderState:()=>({characterId:selection.characterId,family:currentCharacter().family,
       mode:selection.mode,setupTool:selection.setupTool,setup:setupDraft}),
     getState:() => ({
-      character:clone(currentCharacter()), family:currentCharacter().family, characterId:selection.characterId,
+      character:clone(currentCharacter()), family:currentCharacter().family, capabilities:clone(characterProfile()), characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
       pose:clone(selection.mode==='play'&&lastPlayFrame?.pose?lastPlayFrame.pose:currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
       sparseClip:clone(currentSparseClip()), preview:previewApplies()?{label:conversionPreview.label,candidate:clone(conversionPreview.candidate)}:null,

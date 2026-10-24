@@ -2966,3 +2966,18 @@ Implemented: retain valid non-self-crossing concave influence regions and clamp 
 - [ ] **Device acceptance:** original-only and mixed Parts characters; visual/UV parity, animation, facing, blend and FPS; no Skin loss after Save/Reload; Biped starter ready with Walk/Run/Jump; New01 still renders; game offline.
 - [ ] Remaining CL1: user-authored Biped Atlas/Rig/Skin, *true* unskinned rigid single-bone attachment authoring; confirmed iPhone end-to-end full pipeline.
 - [ ] Then CL2: scalable animation collection, Create/Duplicate/Rename/Assign; Biped Idle, then Climb/Pick Up/Put Down/Carry and compatible templates as previously documented.
+
+
+### v1.1.26 — Generalisation Stage A, first implemented slice (24 October 2026)
+
+- [x] Introduce a **read-only compatibility/capabilities profile** (`rigFamily`, legacy adapter, authoring support, clips/action slots, render technique, cadence/default speeds) for current Biped/Quadruped adapters. Retain `human`/`fox` persistent IDs unchanged.
+- [x] Remove Fox-only Play gates in core workflow and stage UI; Biped/Hero and user-created Biped can use Quick Play with working Walk, Run and Jump clips, common movement pad and jump.
+- [x] Add Biped static-neutral Idle fallback, explicitly not an editable clip; fix fractional-frame pose normalization in the Biped sparse evaluator used during continuous Play.
+- [x] Enable Biped Walk/Run speed editing, explicit Save and game-side speed consumption for built-in/custom characters. No auto-write of old records.
+- [x] Mark built-in Fox handoff export as **legacy** in visible UI. Keep old export format/code readable.
+- [x] Chromium synthetic DOM Play smoke tests; JavaScript syntax and changed-files ZIP checks.
+- [ ] **DEVICE ACCEPTANCE:** on iPhone, Hero 1, Hero 2, built-in Fox, new Biped and New01; Play button, touch movement/facing and jump, Idle stance, switching in/out, speed sliders, Save/Discard, game speed parity and offline reload. Confirm no unusual pose/art drift.
+- [ ] **Stage A continuation:** inventory and isolate Fox-specific bone/vertex/attachment assumptions in shared modules. Introduce descriptor-driven bone/action-control mapping without touching legacy persisted IDs. Implement truly general rig/parts/Skin adapters before claiming end-to-end parity.
+- [ ] **Stage B:** build authored Biped Atlas/Parts/Rig/Skin and rigid single-bone attachments; independently saved art/rig/weights and runtime parity.
+- [ ] **Stage C:** extendable named animation collection, Create/Duplicate/Rename/Assign, Biped editable Idle, Climb, Pick Up, Put Down, Carry, compatible animation templates + explicit retargeting.
+- [ ] **Export migration:** common portable all-character bundle with embedded/source PNG, backward-compatible importer; legacy Fox handoff remains supported until proven migration.

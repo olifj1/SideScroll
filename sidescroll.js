@@ -2566,16 +2566,16 @@ function characterMotionSettings(id = currentCharacterVariant) {
     run: id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85) : 2.85
   };
   const custom = GameCharacters?.ready(id);
-  if(custom?.family==='fox'){
+  if(custom){
     const walk=Rig.clamp(Number(custom.setup?.walkSpeed)||defaults.walk,.45,3.25);
     const run=Rig.clamp(Number(custom.setup?.runSpeed)||defaults.run,Math.max(1,walk+.2),5.75);
     return {walk,run};
   }
-  if (id !== 'fox' || !FoxRig) return defaults;
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
-    if (setup?.fox?.baselineId !== FoxRig.AUTHORING_BASELINE_ID) return defaults;
-    const walkRaw = Number(setup.fox.walkSpeed), runRaw = Number(setup.fox.runSpeed);
+    if (id === 'fox' && (!FoxRig || setup?.fox?.baselineId !== FoxRig.AUTHORING_BASELINE_ID)) return defaults;
+    const walkRaw = setup?.[id]?.walkSpeed == null ? NaN : Number(setup[id].walkSpeed);
+    const runRaw = setup?.[id]?.runSpeed == null ? NaN : Number(setup[id].runSpeed);
     const walk = Rig.clamp(Number.isFinite(walkRaw) ? walkRaw : defaults.walk, .45, 3.25);
     const run = Rig.clamp(Math.max(Number.isFinite(runRaw) ? runRaw : defaults.run, walk + .20), 1.0, 5.75);
     return {walk,run};

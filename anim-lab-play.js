@@ -25,7 +25,7 @@
   section.hidden = true;
   section.innerHTML = `
     <div class="animlab-section-title">Quick Play</div>
-    <div class="animlab-quickplay-status" aria-live="polite">Fox motion test</div>
+    <div class="animlab-quickplay-status" aria-live="polite">Character motion test</div>
     <label class="animlab-slider animlab-motion-slider">
       <span>Walk Speed</span>
       <input type="range" data-motion-speed="walkSpeed" min="0.45" max="3.25" step="0.05" value="1.15">
@@ -39,7 +39,7 @@
     <div class="animlab-quickplay-actions">
       <button type="button" data-quickplay-reset>Reset Speeds</button>
     </div>
-    <p class="animlab-contact-note">The animation cadence stays fixed while these controls change ground travel, so you can visually balance the gait against movement. Save writes the speeds with the Fox setup.</p>
+    <p class="animlab-contact-note">The animation cadence stays fixed while these controls change ground travel, so you can visually balance the gait against movement. Save writes movement speeds with the selected character. Biped Idle uses a static neutral preview until an editable Idle clip exists.</p>
   `;
   session.insertAdjacentElement('beforebegin', section);
 
@@ -79,7 +79,9 @@
     idlePhase:0,
     lastNow:0,
     actualSpeed:0,
-    modeLabel:'Idle'
+    modeLabel:'Idle',
+    family:null,
+    profile:null
   };
 
   let pointerId = null;
@@ -88,11 +90,20 @@
   let lastStatusStamp = 0;
 
   function state(){ return core.getState(); }
-  function activeState(s=state()){ return s.family === 'fox' && s.mode === 'play'; }
-  function defaultWalk(s){ return Number(s.rig?.DEFAULT_WALK_SPEED) || 1.15; }
-  function defaultRun(s){ return Number(s.rig?.DEFAULT_RUN_SPEED) || 2.85; }
-  function walkCycleMs(s){ return Number(s.rig?.WALK_CYCLE_MS) || 539; }
-  function runCycleMs(s){ return Number(s.rig?.RUN_CYCLE_MS) || 323; }
+  function activeState(s=state()){ return s.mode === 'play' && !!s.capabilities?.quickPlay; }
+  function defaultWalk(s){ return Number(s.capabilities?.defaultSpeeds?.walk) || 1.15; }
+  function defaultRun(s){ return Number(s.capabilities?.defaultSpeeds?.run) || 2.85; }
+  function clipMs(profile,name){ return Number(profile?.clipMs?.[name]) || (name==='run'?650:1050); }
+  // Until Biped Idle is an editable clip, pose the existing rig at a grounded,
+  // neutral stance rather than displaying one of its walking contact poses.
+  function neutralIdlePose(rig){
+    if(!rig?.normalizedPose || !rig?.DEFAULT_FRAMES?.[0])return null;
+    return rig.normalizedPose({...rig.DEFAULT_FRAMES[0],
+      name:'Idle (neutral fallback)',travel:0,planted:null,
+      pelvisY:.507,lean:0,aFootX:-.09,bFootX:.09,
+      aFootLift:0,bFootLift:0,aFootAngle:0,bFootAngle:0,
+      aHandX:-.12,bHandX:.12,aHandY:.31,bHandY:.31},0);
+  }
 
   function setupSpeeds(s=state()){
     const walk=clamp(Number(s.setup?.walkSpeed)||defaultWalk(s),0.45,3.25);
@@ -179,7 +190,7 @@
   function beginSpeed(input){
     if(speedTx)return speedTx;
     speedTxInput=input;
-    speedTx=core.beginTransaction('setup',`Adjust Fox ${input.dataset.motionSpeed==='walkSpeed'?'walk':'run'} speed`);
+    speedTx=core.beginTransaction('setup',`Adjust ${input.dataset.motionSpeed==='walkSpeed'?'walk':'run'} speed`);
     return speedTx;
   }
 
@@ -218,17 +229,17 @@
 
   resetButton.addEventListener('click',()=>{
     const s=state();
-    core.edit('setup','Reset Fox movement speeds',setup=>{
+    core.edit('setup','Reset movement speeds',setup=>{
       setup.walkSpeed=defaultWalk(s);
       setup.runSpeed=defaultRun(s);
     });
   });
 
   function sampleGait(mode,phase){
-    return core.evaluateClip(mode==='run'?'run':'walk',phase,'fox');
+    return core.evaluateClip(mode==='run'?'run':'walk',phase,sim.family);
   }
   function gaitHz(rig,mode){
-    const ms=mode==='run'?Number(rig?.RUN_CYCLE_MS)||323:Number(rig?.WALK_CYCLE_MS)||539;
+    const ms=clipMs(sim.profile,mode);
     return 1000/Math.max(1,ms);
   }
   function gaitCadenceScale(mode,analogSpeed,speeds){
@@ -271,7 +282,10 @@
     if(!tr)return sampleGait(sim.gaitMode,sim.gaitPhase);
     const a=sampleGait(tr.fromMode,tr.fromPhase),b=sampleGait(tr.toMode,tr.toPhase);
     const t=clamp(tr.elapsed/Math.max(.001,tr.duration),0,1);
-    return typeof rig?.locomotionTransitionPose==='function'?rig.locomotionTransitionPose(a,b,t):(t<.5?a:b);
+    if(typeof rig?.locomotionTransitionPose==='function')return rig.locomotionTransitionPose(a,b,t);
+    return a&&b&&typeof rig?.interpolatePose==='function'
+      ?rig.interpolatePose(a,b,t,'Locomotion transition',Number(b.travel)||0)
+      :(t<.5?a:b);
   }
   function gaitRunMix(){
     const tr=sim.gaitTransition;
@@ -281,13 +295,14 @@
   }
 
   function frameProvider({now,setup,rig}){
-    if(!activeState())return null;
+    if(!sim.active && !activeState())return null;
     const stamp=Number(now)||performance.now();
     const dt=sim.lastNow?Math.min(.05,Math.max(0,(stamp-sim.lastNow)/1000)):0;
     sim.lastNow=stamp;
+    const defaults=sim.profile?.defaultSpeeds || {walk:1.15,run:2.85};
     const speeds={
-      walk:clamp(Number(setup?.walkSpeed)||Number(rig?.DEFAULT_WALK_SPEED)||1.15,.45,3.25),
-      run:clamp(Math.max(Number(setup?.runSpeed)||Number(rig?.DEFAULT_RUN_SPEED)||2.85,(Number(setup?.walkSpeed)||1.15)+.20),1,5.75)
+      walk:clamp(Number(setup?.walkSpeed)||defaults.walk,.45,3.25),
+      run:clamp(Math.max(Number(setup?.runSpeed)||defaults.run,(Number(setup?.walkSpeed)||defaults.walk)+.20),1,5.75)
     };
     const axisMag=Math.abs(sim.axis);
     const moveDir=axisMag>DRIVE_DEADZONE?Math.sign(sim.axis):0;
@@ -325,12 +340,13 @@
 
     let pose;
     if(sim.jumping){
-      pose=core.evaluateClip('jump',clamp(sim.jumpTime/JUMP_DURATION,0,.999),'fox');
+      pose=core.evaluateClip('jump',clamp(sim.jumpTime/JUMP_DURATION,0,.999),sim.family);
       sim.modeLabel='Jump';
     }else if(moveDir&&analogSpeed>.001){
       pose=currentGaitPose(rig);
     }else{
-      pose=core.evaluateClip('idle',sim.idlePhase,'fox');
+      pose=core.evaluateClip('idle',sim.idlePhase,sim.family);
+      if(!pose && sim.profile?.idleFallback==='neutral-pose') pose=neutralIdlePose(rig);
     }
     if(!pose)pose=rig?.IDLE_POSE||null;
 
@@ -341,8 +357,8 @@
   }
 
   function renderStatus(speeds,rig,runMix=gaitRunMix()){
-    const walkMs=Number(rig?.WALK_CYCLE_MS)||539;
-    const runMs=Number(rig?.RUN_CYCLE_MS)||323;
+    const walkMs=clipMs(sim.profile,'walk');
+    const runMs=clipMs(sim.profile,'run');
     const cycleMs=lerp(walkMs,runMs,clamp(runMix,0,1));
     const fullSpeed=lerp(speeds.walk,speeds.run,clamp(runMix,0,1));
     const metresPerCycle=fullSpeed*cycleMs/1000;
@@ -351,7 +367,9 @@
 
   function render(s=state()){
     const active=activeState(s);
-    if(active&&!sim.active){sim.active=true;resetSimulation();}
+    if(active&&(!sim.active||sim.family!==s.family)){
+      sim.active=true;resetSimulation();sim.family=s.family;sim.profile=s.capabilities;
+    }
     if(!active&&sim.active){sim.active=false;releaseMove();sim.lastNow=0;}
     section.hidden=!active;
     pad.hidden=!active;

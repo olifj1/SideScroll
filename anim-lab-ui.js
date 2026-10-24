@@ -132,7 +132,7 @@
     rig: 'Move joints without moving the artwork.',
     skin: 'Tune deforming regions and bone weights.',
     animate: 'Edit clips using the shared timeline.',
-    play: 'Test your working Fox clips and movement.'
+    play: 'Test this character’s working clips and movement.'
   };
   function update(s = core.getState()) {
     const stage = s.mode === 'setup'
@@ -141,11 +141,14 @@
     // Atlas has its own image-space controls; the shared Character Display
     // belongs only to Parts/Rig/Skin/Animate/Play. Restore it on exit.
     panel.hidden = stage === 'atlas';
-    const fox = s.family === 'fox';
+    const caps = s.capabilities || core.getCharacterCapabilities?.() || {};
+    const fox = caps.rigFamily === 'quadruped'; // legacy Difference overlay only
     for (const btn of stageButtons) {
       const id = btn.dataset.authorStage;
       const active = id === stage;
-      btn.disabled = !fox && ['parts', 'skin', 'play'].includes(id);
+      btn.disabled = id === 'play' ? !caps.quickPlay :
+        id === 'parts' ? !caps.authoring?.parts :
+        id === 'skin' ? !caps.authoring?.skin : false;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-pressed', String(active));
       btn.setAttribute('aria-current', active ? 'step' : 'false');
