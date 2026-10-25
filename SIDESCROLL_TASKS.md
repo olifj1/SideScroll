@@ -2981,3 +2981,13 @@ Implemented: retain valid non-self-crossing concave influence regions and clamp 
 - [ ] **Stage B:** build authored Biped Atlas/Parts/Rig/Skin and rigid single-bone attachments; independently saved art/rig/weights and runtime parity.
 - [ ] **Stage C:** extendable named animation collection, Create/Duplicate/Rename/Assign, Biped editable Idle, Climb, Pick Up, Put Down, Carry, compatible animation templates + explicit retargeting.
 - [ ] **Export migration:** common portable all-character bundle with embedded/source PNG, backward-compatible importer; legacy Fox handoff remains supported until proven migration.
+
+
+### v1.1.27 — Generalisation Stage A2 + sizing/reference fixes (24 Oct 2026)
+- [x] Fix Reference underlay scaling with `setup.scale`: author character sizes independently from world-aligned Static Reference. Per-character reference preferences, with old per-family defaults preserved, no automatic mutation.
+- [x] Expand authoring/runtime scale limit from 2.25 to 8, provide exact numeric input and viewport-fit handling. Runtime collider shares actor multiplier; giant actor puzzle clearance not guaranteed.
+- [x] Optional `POSE_CONTROL_DESIGNER.controls` to allow new adapters to register semantic animation controls without touching fallback Fox/Human pose mappings. Existing editor behavior preserved.
+- [x] Introduce semantic `rigFamily` on new library entries while retaining stable `starter` and legacy `family` codec keys; old records still read without migration.
+- [ ] **iPhone acceptance v1.1.27:** Fox/hero/New01 Reference unchanged as actor enlarges; exact input, Undo, Save, reopen, game size/collider; per-character refs; touch zoom/fit; no other regressions.
+- [ ] **Next substantive Stage B:** rig topology interface for authored Bipeds, deformable/rigid Parts attachment & Skin mapping, then game parity; ensure no hard-coded Fox bone IDs in generic renderer. Delivery in small independently testable drops. Do not imply Biped custom art is finished.
+- [ ] Later Stage C: scalable animation list, New/Duplicate/Assign, editable Biped Idle, authored Climb/Pick Up/Put Down/Carry, reusable asset templates and explicit compatibility checks.

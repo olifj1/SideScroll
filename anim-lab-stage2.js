@@ -117,7 +117,11 @@
         <button type="button" data-setup-tool="art">Parts</button>
         <button type="button" data-setup-tool="skin">Skin</button>
       </div>
-      <label class="animlab-slider"><span>Scale</span><input type="range" data-setup="scale" min="0.55" max="2.25" step="0.01"><output></output></label>
+      <label class="animlab-slider"><span>Character Scale</span><input type="range" data-setup="scale" min="0.55" max="8" step="0.01"><output></output></label>
+      <label class="animlab-character-scale-entry" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:5px 0 14px;">
+        <span style="font-size:.9em;opacity:.85;">Exact scale (0.55–8)</span>
+        <input id="animlab-character-scale-number" type="number" min="0.55" max="8" step="0.01" inputmode="decimal" aria-label="Exact character scale" style="width:6em;max-width:42%;background:#111b20;color:#e3eee9;border:1px solid #52666c;border-radius:7px;padding:7px;" />
+      </label>
       <label class="animlab-slider"><span>Collider X</span><input type="range" data-collider="offsetX" min="-0.18" max="0.18" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Radius</span><input type="range" data-collider="radius" min="0.07" max="0.32" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Height</span><input type="range" data-collider="height" min="0.25" max="1.15" step="0.005"><output></output></label>
@@ -167,9 +171,15 @@
   const staticRefInputs = [staticRefOpacity,staticRefScale,staticRefX,staticRefY];
   const axisButtons = [...host.querySelectorAll('[data-axis]')];
   const sliders = [...setupSection.querySelectorAll('.animlab-slider input')];
+  const scaleNumberInput = $('animlab-character-scale-number');
   const setupToolButtons = [...setupSection.querySelectorAll('[data-setup-tool]')];
 
-  function controlsFor(state = core.getState()) { return CONTROL_SETS[state.family] || []; }
+  function controlsFor(state = core.getState()) {
+    // New rig families may provide semantic controls without changing this
+    // editor. Legacy Biped/Fox mappings remain the exact compatibility fallback.
+    const authored=state.rig?.POSE_CONTROL_DESIGNER?.controls;
+    return Array.isArray(authored) ? authored : (CONTROL_SETS[state.adapterId] || CONTROL_SETS[state.family] || []);
+  }
   function selectedControl(state = core.getState()) { return controlsFor(state).find(c => c.id === selectedId) || null; }
 
   function ensureSelection(state) {
@@ -185,7 +195,7 @@
 
   function selectControl(id, redraw = true) {
     const state=core.getState();
-    if (!(CONTROL_SETS[state.family]||[]).some(control=>control.id===id)) return false;
+    if (!controlsFor(state).some(control=>control.id===id)) return false;
     selectedId=id;
     ensureSelection(state);
     render(state,false);
@@ -238,6 +248,8 @@
       button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
       button.disabled=tool!=='rig'&&!hasArtLayout;
     });
+    if(scaleNumberInput && document.activeElement!==scaleNumberInput)
+      scaleNumberInput.value=Number(state.setup.scale).toFixed(2);
     for (const input of sliders) {
       let value;
       if (input.dataset.setup === 'scale') value=state.setup.scale;
@@ -494,6 +506,18 @@
     core.commitTransaction(tx);
     sliderTx.delete(input);
   }
+  // Direct numeric editing is important with the much larger scale range;
+  // unlike native range dragging, a number commits exactly one Undo entry.
+  scaleNumberInput?.addEventListener('change',()=>{
+    const raw=Number(scaleNumberInput.value);
+    if(!Number.isFinite(raw)||raw<.55||raw>8){
+      scaleNumberInput.value=Number(core.getState().setup.scale).toFixed(2);
+      return;
+    }
+    const value=Math.round(raw*100)/100;
+    if(Math.abs(value-core.getState().setup.scale)>0.00001)
+      core.edit('setup','Set character scale',setup=>{setup.scale=value;});
+  });
   sliders.forEach(input=>{
     input.addEventListener('pointerdown',()=>beginSlider(input));
     input.addEventListener('input',()=>previewSlider(input));
@@ -506,8 +530,9 @@
   });
 
   core.setPluginRenderer(({ctx,pose,adapter,view,project})=>{
-    const family=adapter.id;
-    const control=(CONTROL_SETS[family]||[]).find(c=>c.id===selectedId);
+    const authored=adapter.rig?.POSE_CONTROL_DESIGNER?.controls;
+    const controls=Array.isArray(authored)?authored:(CONTROL_SETS[adapter.id]||[]);
+    const control=controls.find(c=>c.id===selectedId);
     if(!control || currentMode!=='animate')return;
     const point=adapter.rig.geometry(pose)?.[control.point];if(!point)return;
     const p=project(point,view),side=control.side||'';ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,Math.max(4,Math.min(7,view.scale*.012)),0,Math.PI*2);

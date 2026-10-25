@@ -17,12 +17,13 @@
     for(const candidate of sourceLibrary.entries.slice(0,24)){
       if(!candidate||!/^user-[a-z0-9-]{5,40}$/.test(candidate.id)||!['fox','original'].includes(candidate.starter)||entries.has(candidate.id))continue;
       entries.set(candidate.id,{id:candidate.id,label:String(candidate.name||candidate.id).slice(0,42),
-        family:candidate.starter==='fox'?'fox':'human',setup:candidate.setup,
+        family:candidate.starter==='fox'?'fox':'human',
+        rigFamily:candidate.starter==='fox'?'quadruped':'biped',setup:candidate.setup,
         sparseClips:candidate.sparseClips,legacyAtlasSource:candidate.legacyAtlasSource||null});
     }
   }
   const prepared=new Map(), failures=new Map(), inFlight=new Map();
-  const list=()=>[...entries.values()].map(e=>({id:e.id,label:e.label,family:e.family,
+  const list=()=>[...entries.values()].map(e=>({id:e.id,label:e.label,family:e.family,rigFamily:e.rigFamily,
     technique:prepared.get(e.id)?.technique||null,status:prepared.has(e.id)?'ready':failures.get(e.id)||'loading'}));
   const find=id=>entries.get(id)||null;
   const ready=id=>prepared.get(id)||null;

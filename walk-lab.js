@@ -50,7 +50,7 @@
   const SPARSE_SCHEMA = 'animlab.sparse.v1';
   const ART_LAYOUT_SCHEMA = 'animlab.art-layout.v1';
   const SETUP_SCALE_MIN = 0.55;
-  const SETUP_SCALE_MAX = 2.25;
+  const SETUP_SCALE_MAX = 8.0;
   const MOVE_WALK_SPEED_MIN = 0.45;
   const MOVE_WALK_SPEED_MAX = 3.25;
   const MOVE_RUN_SPEED_MIN = 1.00;
@@ -64,8 +64,8 @@
   const CHARACTER_LIBRARY_KEY = 'sidescroll.animlab.character-library.v1';
   const CHARACTER_LIBRARY_SCHEMA = 'animlab.character-library.v1';
   const STARTERS = Object.freeze({
-    fox:{family:'fox',label:'Quadruped',atlas:'fox-rig-atlas-v3.png?v=1.0.163'},
-    original:{family:'human',label:'Biped',atlas:'walklab-rig-v4.png'}
+    fox:{family:'fox',rigFamily:'quadruped',label:'Quadruped',atlas:'fox-rig-atlas-v3.png?v=1.0.163'},
+    original:{family:'human',rigFamily:'biped',label:'Biped',atlas:'walklab-rig-v4.png'}
   });
   const safeCharacterName = input => String(input||'').trim().replace(/[\u0000-\u001f\u007f<>]/g,'').slice(0,42);
   function loadCharacterLibrary() {
@@ -79,7 +79,8 @@
         seen.add(entry.id); return true;
       }).map(entry=>({
         id:entry.id,name:safeCharacterName(entry.name),starter:entry.starter,
-        family:STARTERS[entry.starter].family,setup:entry.setup&&typeof entry.setup==='object'?entry.setup:{},
+        family:STARTERS[entry.starter].family,
+        rigFamily:STARTERS[entry.starter].rigFamily,setup:entry.setup&&typeof entry.setup==='object'?entry.setup:{},
         sparseClips:entry.sparseClips&&typeof entry.sparseClips==='object'?entry.sparseClips:{},
         legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'?entry.legacyAtlasSource:null,
         createdAt:String(entry.createdAt||''),updatedAt:String(entry.updatedAt||'')
@@ -832,14 +833,20 @@
   }
 
   function currentStaticReference() {
-    const family = currentCharacter().family;
-    return normaliseStaticReference(staticReferenceMap[family], family);
+    const character = currentCharacter();
+    // Existing v1 reference preferences were per family (fox/human). Use them
+    // as a read-only fallback until this particular character is adjusted;
+    // independent character alignments never overwrite the old keys.
+    const key = `character:${character.id}`;
+    const saved = Object.prototype.hasOwnProperty.call(staticReferenceMap,key)
+      ? staticReferenceMap[key] : staticReferenceMap[character.family];
+    return normaliseStaticReference(saved, character.family);
   }
 
   function setStaticReference(patch = {}) {
-    const family = currentCharacter().family;
-    const next = normaliseStaticReference({...currentStaticReference(), ...patch}, family);
-    staticReferenceMap[family] = next;
+    const character = currentCharacter();
+    const next = normaliseStaticReference({...currentStaticReference(), ...patch}, character.family);
+    staticReferenceMap[`character:${character.id}`] = next;
     try { localStorage.setItem(STATIC_REFERENCE_KEY, JSON.stringify({schema:'animlab.static-reference.v1',contexts:staticReferenceMap})); } catch (_) {}
     draw(); updateUi(); notify();
     return clone(next);
@@ -1528,15 +1535,15 @@
     ctx.restore();
   }
 
-  function drawReference(sv) {
+  function drawReference(referenceView) {
     if (!overlays.reference) return;
     const settings = currentStaticReference();
     const refScale = settings.scale;
     const refView = {
-      ...sv,
-      scale:sv.scale * refScale,
-      cx:sv.cx + settings.offsetX * sv.scale,
-      groundY:sv.groundY - settings.offsetY * sv.scale
+      ...referenceView,
+      scale:referenceView.scale * refScale,
+      cx:referenceView.cx + settings.offsetX * referenceView.scale,
+      groundY:referenceView.groundY - settings.offsetY * referenceView.scale
     };
 
     ctx.save();
@@ -1619,7 +1626,10 @@
     }
     if (typeof underlayDraw === 'function') underlayDraw(underlayArgs);
     drawGroundAndRuler(gridView);
-    drawReference(sv);
+    // A proportion reference belongs to editor/world space, NOT the active
+    // character's scale. Camera pan/zoom applies to both, but Setup.Scale
+    // changes only the authored character/collider/animation geometry.
+    drawReference(gridView);
     if(overlays.art) drawRigArt(character,adapter,pose,sv,.99*artOpacity);
     if(overlays.planes) drawPlanes(adapter,pose,sv);
     if(overlays.collider) drawCollider(sv);
@@ -1678,7 +1688,13 @@
     for (const fn of listeners) { try { fn(snap); } catch (err) { console.error('[Anim Lab] Extension listener failed.',err); } }
   }
 
-  function fitView(redraw=true) { view.zoom=1;view.panX=0;view.panY=0;if(redraw){clearInteractionSnapshot();draw();notify();} }
+  function fitView(redraw=true) {
+    // Fit keeps old framing for established sizes, but now also accommodates
+    // larger user-authored characters without requiring repeated pinch-outs.
+    view.zoom=Math.min(1,2.25/Math.max(0.001,setupDraft.scale));
+    view.panX=0;view.panY=0;
+    if(redraw){clearInteractionSnapshot();draw();notify();}
+  }
   function pointerPos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};}
   function currentPreviewViewSnapshot(){
     const phase=playing?playPhase:selection.frame/16;
@@ -1743,7 +1759,7 @@
       if(!interactionSnapshot)captureInteractionSnapshot();
       const ps=[...pointers.values()],dx=ps[1].x-ps[0].x,dy=ps[1].y-ps[0].y,dist=Math.hypot(dx,dy)||1,mid={x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2};
       const old=baseView(setupDraft.scale);old.scale/=Math.max(.0001,view.zoom);old.scale*=gesture.zoom;old.cx=canvas.width*(.5+gesture.panX);old.groundY=canvas.height*(.86+gesture.panY);
-      const local=unproject(gesture.mid,old);view.zoom=clamp(gesture.zoom*(dist/gesture.dist),.35,9);const next=baseView(setupDraft.scale);view.panX=(mid.x-local.x*next.scale)/canvas.width-.5;view.panY=(mid.y+local.y*next.scale)/canvas.height-.86;scheduleGestureRender();return;
+      const local=unproject(gesture.mid,old);view.zoom=clamp(gesture.zoom*(dist/gesture.dist),.10,9);const next=baseView(setupDraft.scale);view.panX=(mid.x-local.x*next.scale)/canvas.width-.5;view.panY=(mid.y+local.y*next.scale)/canvas.height-.86;scheduleGestureRender();return;
     }
     if(gesture?.type==='pan'){
       if(!interactionSnapshot)captureInteractionSnapshot();
@@ -1963,7 +1979,7 @@
   // starter; the art is visibly placeholder imagery until an asset importer
   // is implemented. No game-runtime character selection is advertised yet.
   function getLibraryCharacters(){return libraryEntries.map(entry=>({
-    id:entry.id,name:entry.name,family:entry.family,starter:entry.starter,
+    id:entry.id,name:entry.name,family:entry.family,rigFamily:entry.rigFamily||characterProfile(entry.family)?.rigFamily,starter:entry.starter,
     createdAt:entry.createdAt,updatedAt:entry.updatedAt
   }));}
   function createLibraryCharacter(name,starter='fox'){
@@ -2009,7 +2025,7 @@
         ? normaliseSparseClip(clone(snapshot),family,clip,pristine[clip])
         : importSparseClip(pristine[clip],family,clip);
     }
-    const entry={id,name:displayName,starter,family,setup,sparseClips,createdAt:time,updatedAt:time};
+    const entry={id,name:displayName,starter,family,rigFamily:STARTERS[starter].rigFamily,setup,sparseClips,createdAt:time,updatedAt:time};
     try{storeLibrary([...libraryEntries,entry]);}
     catch(err){console.error('[Anim Lab] Cannot create character:',err);alert('Character could not be saved. Check available device storage.');return false;}
     CHARACTERS.push({id,label:displayName,family,starter,library:true,atlas:STARTERS[starter].atlas});
@@ -2062,7 +2078,7 @@
     }
     const id='user-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     const time=new Date().toISOString();
-    const imported={id,name:safeCharacterName(entry.name),family,starter:entry.starter,
+    const imported={id,name:safeCharacterName(entry.name),family,rigFamily:STARTERS[entry.starter].rigFamily,starter:entry.starter,
       setup,sparseClips:clips,
       legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'
         ? clone(entry.legacyAtlasSource) : null,
