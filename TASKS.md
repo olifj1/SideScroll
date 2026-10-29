@@ -32,24 +32,10 @@ Stage A (generalisation) shipped in 1.1.26–1.1.27. Next:
 ---
 
 ## Needs iPhone testing
-Everything below was checked only in desktop/headless browsers. Delete a line once
-you've confirmed it on the phone; if it fails, move it to **Now** as a bug.
+Changes checked only in desktop/headless browsers. Delete a line once you've
+confirmed it on the phone; if it fails, move it to **Now** as a bug.
 
-**Recent (most important):**
-- [ ] **1.1.27** — character size/reference: Fox, heroes and New01 reference stays unchanged as the character is scaled up; numeric input, Undo, Save, reopen; in-game size and collider match; per-character references; touch zoom/fit.
-- [ ] **1.1.26** — Hero 1, Hero 2, built-in Fox, new Biped and New01: Play button, touch movement/facing and jump, Idle stance, switching characters, speed sliders, Save/Discard, game speed matches Character Lab, offline reload.
-- [ ] **1.1.25** — characters made from original Parts only, and mixed Parts: looks right, animates, faces correctly, frame rate OK; no Skin loss after Save/reload; Biped starter has Walk/Run/Jump.
-- [ ] **1.1.24** — character chooser: pick New01 and check correct art/deformation; it stays selected after reload/offline; switch back to Hero 1, Hero 2, Fox; Load panel closes only on a successful switch.
-- [ ] **1.1.23** — New01 playable in game: mesh deforms during walk/run/jump; draw order, facing, climbing fallback; no stale images after editing in Character Lab and reloading the game.
-- [ ] **1.1.22** — Character Lab Load/Open bug: open New01, then Load → Open another character works (clean and unsaved states, Save/Discard/Cancel).
-- [ ] **1.1.15–1.1.21** — Skin and IK: joint fit, rotated joint offsets, rectangles follow pose, knee/elbow bend direction in Idle/Walk/Run/Jump, drag responsiveness and playback speed with New01.
-- [ ] **1.1.0–1.1.14** — Atlas/Parts/Skin editors: touch accuracy, pan/pinch, Undo/Redo/Save/Discard, PNG import survives reload, switching Atlas → Parts → Rig → Skin without drift.
-
-**Older (may already be confirmed; delete if so):**
-- [ ] **1.0.202–1.0.205** — Project Backup: Export to Files gives a non-empty `.json`; full restore tested on a spare browser/profile, *not* on the main phone.
-- [ ] **1.0.141–1.0.169** — Fox animation: walk/run/jump seams at game scale, Walk↔Run transition, Paw IK, saved clips match in game, fox height vs heroes.
-- [ ] **1.0.136–1.0.140** — Terrain Edit and World Lab surfaces: Follow Player, height/depth edits, surface blends look smooth in game, Undo/Save/Discard/reload.
-- [ ] **1.0.131–1.0.135** — Puzzle editor: Fallen Tree / Stone Wall / Broken Bridge zones, entry/exit, reset, templates vs standalone, linked-template propagation.
+*Nothing waiting.* (Everything up to 1.1.27 signed off on 29 October 2026.)
 
 ---
 
