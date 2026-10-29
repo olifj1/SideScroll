@@ -1,3 +1,5 @@
+> **Archived 29 October 2026 at v1.1.27.** This is the historical task/release log. Open work now lives in `/TASKS.md` and release history in `/CHANGELOG.md`. Do not add to this file.
+
 # SideScroll Tasks / Release Tracking
 
 ## v1.1.18 — Binary rest-joint Joint Fit (22 October 2026)
