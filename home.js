@@ -23,7 +23,6 @@
     'sidescroll.js',
     'sidescroll-music.m4a',
     'terrain-dirt.png',
-    'sidescroll-tree-atlas.png',
     'sidescroll-tree-01.png',
     'sidescroll-tree-02.png',
     'sidescroll-tree-03.png',
