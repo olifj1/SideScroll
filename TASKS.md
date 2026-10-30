@@ -4,13 +4,13 @@ The single task list. Open work only: when something is done, delete it here and
 add a line to `CHANGELOG.md`. Detail and history for older items:
 `docs/archive/SIDESCROLL_TASKS.md` (search for the version number shown).
 
-Last reviewed: 30 October 2026.
+Last reviewed: 30 October 2026 (character system agreed).
 
 ---
 
 ## Now
-Order of work: publishing step 2, then Character Lab Stage B, then publishing
-step 3. (Step 1, the foundation, is done.) Clean-up items are small and slot in between.
+Proposed order: publishing 2b → characters C1–C3 → Publish Lab (step 3) →
+characters C4–C6. Clean-up items are small and slot in between.
 
 ### Publishing workflow (agreed 30 Oct)
 Author on the phone, then publish chosen content into the game for every player.
@@ -19,16 +19,21 @@ export (`tools/bake_project.py`). Design: three kinds of data — published game
 content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
 - [ ] **Step 2b — Publish characters with their artwork:** the bake tool takes character packages (from Export / Export all) and puts imported artwork into `assets/`; the game and Character Lab load bundled art for library characters (today only `fox-deform-atlas-v2.png` is allowed), so New01 works for every player without importing anything.
-- [ ] **One kind of character:** built-in Hero 1 / Hero 2 / Fox become ordinary library characters (same storage, Rename / Delete, own animations each — today the heroes share one animation set and collider). Until then a *copy* of the Fox needs its Parts assembled once in Character Lab before it can be played (it uses the built-in Fox renderer, library characters use the Atlas assembly), and a copy of Hero 2 starts with Hero 1's art.
 - [ ] **Step 3 — Publish Lab** (grown from the Project Backup page): every content area and each character with a status (Published / Changed / New / Local only); tick-list publish package; separate "My settings" export; full backup including artwork; restore; "discard my changes, use published" per area; exports and backups driven by the catalogue (replacing the lists in `lab-data.js` and `project-snapshot.js`). Bake tool supports publishing selected areas / single characters. Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
 - [ ] **Step 4 (optional) — Automatic publishing:** upload a publish package to GitHub from the phone; a GitHub Action bakes it and opens the pull request.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
 
-### Character Lab → actual game runtime (top priority, agreed 23 Oct)
-Stage A (generalisation) shipped in 1.1.26–1.1.27. Next, after publishing step 2:
-- [ ] **Stage B — authored Bipeds:** rig topology interface for authored Bipeds; deformable and rigid single-bone Parts attachment; Skin mapping; then game-runtime parity. No hard-coded Fox bone IDs in the generic renderer. Ship in small, separately testable drops.
-- [ ] Finish isolating Fox-specific bone/vertex/attachment assumptions in shared modules; descriptor-driven bone/action-control mapping without changing saved IDs. *(Stage A continuation, 1.1.26)*
-- [ ] Remaining CL1: custom characters built from original rigid pieces with edited Parts offsets, bundled `atlas-builtin-*` mesh sources, and a per-character status list in the chooser. *(1.1.23–1.1.25)*
+### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
+Design: `docs/CHARACTER_SYSTEM_DESIGN.md`. Every character is built the same
+way: rig and animations are shared templates (instances) or unique copies; atlas,
+mesh parts and skin are the character's own; abilities come from a shared list.
+- [ ] **C1 — One kind of character:** Hero 1 / Hero 2 / Fox become ordinary characters (same storage as library characters, fixed internal IDs, **Rename** for all, Export / copy / delete alike). Heroes become two instances of one Biped rig + animation set (today's hidden shared storage made explicit). Includes the remaining Stage A work: no Fox-specific bone/vertex/attachment assumptions in shared modules; built-in rigid-piece / `atlas-builtin-*` sources usable by any character; per-character status in the game chooser. Fixes: a copy of the Fox needs Parts assembled before it plays; a copy of Hero 2 starts with Hero 1's art.
+- [ ] **C2 — Rig templates:** presets menu (Biped, Quadruped, …); instance or unique copy; **Save as template**; editing a shared rig warns, lists affected characters and offers *edit template* / *make unique*; opening a character whose template changed offers *use updated* (with **Rebind skin**) / *keep previous and make unique*. Absorbs Stage B: the Biped template is fully authorable (rig topology, Parts attachment, Skin mapping, game parity, no hard-coded Fox bone IDs).
+- [ ] **C3 — Animation library and templates:** per-character animation list instead of four fixed buttons; **create new animations**; assign to action slots as instance or unique copy; make unique; save as template; only rig-compatible templates offered; editable Biped Idle; safe migration of today's `sparseClips`. Manual retargeting only.
+- [ ] **C4 — New Character flow:** name → rig → atlas → mesh parts → skin → animations (instance / copy each) → abilities → play-test in the lab → save → in game.
+- [ ] **C5 — Actions and abilities:** one shared ability list, editable in Character Lab and Asset Lab; **create new actions** (name, button label, animation slot) and assign them to characters; rig templates give default abilities; the game only offers actions a character has. Asset behaviours (carryable, pushable, climbable) become "this asset offers action X". First real actions: Climb as an editable Biped clip (keep current climb paths/speed), Pick Up / Put Down / Carry (grasp/release markers driving existing interaction timing).
+- [ ] **C6 — Action paths:** generalise the climb path into an action path (action name, button label, bound animation, character follows the path), bound to an asset in Asset Lab or placed as a stand-alone node in the world and shown in World Lab. Example: *Crawl* through a gap. Design together with Environment Animation Path and Puzzle Logic (Later).
+- [ ] **Character packages for templates:** exports carry (or reference) linked templates; importing a shared template lists the characters it affects. *(with C2/C3)*
 
 ### Repo clean-up
 - [ ] Show the version number on the start page, read from one shared version constant.
@@ -54,10 +59,6 @@ confirmed it on the phone; if it fails, move it to **Now** as a bug.
 ---
 
 ## Next
-- [ ] **Animation collection (CL2):** selected character's animation list instead of four fixed buttons; New/Duplicate/Rename/Assign to action slots; editable Biped Idle; versioned data with safe migration of `sparseClips`.
-- [ ] **Climb as an editable clip (CL3):** convert the human climbing motion into a Biped starter clip and add a `climb` slot without changing climb paths or speed.
-- [ ] **Pick Up / Put Down / Carry clips (CL4):** one-shot clips with grasp/release markers feeding existing interaction timing; carry as an overlay or locomotion variant.
-- [ ] **Shared animations (CL5):** library with link/copy, Save as Template, Make Unique; compatibility checks; manual retargeting only.
 - [ ] **Atlas tools:** better topology editing (connect vertices, split/merge edge paths, delete triangle ranges, boundary shaping) and spline control-node editing.
 
 ## Later
@@ -79,5 +80,4 @@ confirmed it on the phone; if it fails, move it to **Now** as a bug.
 ## Decisions waiting on you
 - Should the Fox cut atlas be regenerated as a clean purpose-built puppet atlas, or is the current one good enough?
 - Keep or drop the unfinished WebGL atlas compositor (`review/unused-code/anim-lab-assembly-gpu.js`)?
-- Fox companion rules: should the fox be able to carry/push human-scale puzzle props?
 - Skin softness (joint Blend Distance / falloff): parked until binary skinning is accepted on device.
