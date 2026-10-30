@@ -90,6 +90,16 @@ The authored project ships as built-in defaults so a fresh install has it:
 - Changing a stored format? The built-in data is in the *old* format until it is
   re-baked, so migrations must handle it exactly as they handle a device's data.
 
+## Character registry
+`character-registry.js` (`window.SideScrollCharacters`) is the one list of
+characters for Character Lab and the game: display names (library characters keep
+theirs in their library entry), categories with display order (the game picker
+shows categories marked playable), order within a category, roles (protected tags
+such as Default player: each on one character, movable, never removed; a character
+with a role can't be deleted) and deleted original characters (hidden, since their
+data is shared storage). Stored in `sidescroll.characters.registry.v1`, written only
+when the author changes something. Load it on any page that lists characters.
+
 ## Character packages
 `character-packages.js` exports one character or all characters to a file and
 imports them. A package holds the character's raw saved pieces ("slices", used
@@ -97,7 +107,7 @@ for **Replace** — an exact restore) plus a library-entry copy (used for **Add 
 copy**), and embeds imported artwork from IndexedDB as PNG data. Built-in
 characters (Hero 1 / Hero 2 / Fox) and library characters use the same format;
 the heroes share one animation set and collider, so both heroes' packages carry
-those. Import validates that a file only touches that character's own keys.
+those. Packages also carry the character's registry entry (name, category, order). Import validates that a file only touches that character's own keys.
 Any new per-character storage must be added to `slicesFor()` there.
 
 ## Pages and what they load

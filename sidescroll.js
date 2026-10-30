@@ -2531,6 +2531,19 @@ const BASE_CHARACTER_SCALE = 2.31;
 const CHARACTER_SCALE_MIN = 0.55;
 const CHARACTER_SCALE_MAX = 8.0;
 let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
+// Character registry: display names, playable categories and the Default player
+// role. A player who has never chosen a character starts as the Default player.
+const CharacterRegistry = window.SideScrollCharacters || null;
+const hadSavedCharacterChoice = (() => {
+  try { return localStorage.getItem(Rig.CHARACTER_VARIANT_STORAGE_KEY || 'gamehub.walklab.character.v1') !== null
+    || localStorage.getItem(LOCAL_CHARACTER_SELECTION_KEY) !== null; } catch (_) { return true; }
+})();
+const registryDefaultPlayer = CharacterRegistry?.defaultPlayer() || null;
+if (!hadSavedCharacterChoice && registryDefaultPlayer && Rig.CHARACTER_VARIANTS?.[registryDefaultPlayer]) currentCharacterVariant = registryDefaultPlayer;
+if (CharacterRegistry?.find(currentCharacterVariant)?.hidden) {
+  currentCharacterVariant = (Rig.CHARACTER_VARIANTS?.[registryDefaultPlayer] && registryDefaultPlayer)
+    || Object.keys(Rig.CHARACTER_VARIANTS || {}).find(id => !CharacterRegistry.find(id)?.hidden) || currentCharacterVariant;
+}
 let characterCollider = null;
 let characterColliderReady = false;
 let characterScaleReady = false;
@@ -2538,8 +2551,10 @@ const missingRigDiagnostics = new Set();
 
 function characterVariantInfo(id = currentCharacterVariant) {
   const local = GameCharacters?.find(id);
-  if(local)return {id,label:local.label,rigType:local.family==='fox'?'fox':'human',soleArtOffset:0};
-  return Rig.characterVariantInfo ? Rig.characterVariantInfo(id) : null;
+  if(local)return {id,label:CharacterRegistry?.name(id)||local.label,rigType:local.family==='fox'?'fox':'human',soleArtOffset:0};
+  const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(id) : null;
+  const name = CharacterRegistry?.name(id);
+  return info && name ? {...info,label:name} : info;
 }
 
 function characterScaleMultiplier(id = currentCharacterVariant) {
@@ -2666,25 +2681,37 @@ function renderCharacterPicker(){
     }
     group.appendChild(grid);characterPickerList.appendChild(group);
   };
-  makeGroup('Built-in',allCharacterVariants.map((id,index)=>{
+  const mark=name=>String(name||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()||'CH';
+  const originalItem=id=>{
     const info=characterVariantInfo(id),available=characterRigAvailable(id);
-    return {id,name:info?.label||id,mark:['H1','H2','FX'][index]||'CH',
+    return {id,name:info?.label||id,mark:mark(info?.label||id),
       kind:(info?.rigType==='fox'?'Quadruped':'Biped')+' · Original art',
       ready:available,status:available?'Ready':'Required rig unavailable'};
-  }));
-  if(GameCharacters){
-    makeGroup('My characters',GameCharacters.list().map(item=>{
-      const ready=item.status==='ready';
-      const human=item.family==='human';
-      const technique=item.technique==='biped-starter-rigid'?'Hero starter art':
-        item.technique==='atlas-deform'?'Authored Atlas mesh':
-        item.technique==='atlas-mixed'?'Mixed Atlas pieces':
-        item.technique==='atlas-bundled'?'Bundled Parts mesh':'Character Lab asset';
-      return {id:item.id,name:item.label,mark:human?'BP':'QP',
-        kind:(human?'Biped':'Quadruped')+' · '+technique,ready,
-        status:ready?'Ready':item.status==='loading'?'Loading artwork…':item.status};
-    }));
+  };
+  const libraryItem=id=>{
+    const item=GameCharacters?.list().find(entry=>entry.id===id);
+    if(!item)return null;
+    const ready=item.status==='ready';
+    const human=item.family==='human';
+    const technique=item.technique==='biped-starter-rigid'?'Biped starter art':
+      item.technique==='atlas-deform'?'Authored Atlas mesh':
+      item.technique==='atlas-mixed'?'Mixed Atlas pieces':
+      item.technique==='atlas-bundled'?'Bundled Parts mesh':'Character Lab asset';
+    const name=CharacterRegistry?.name(id)||item.label;
+    return {id,name,mark:mark(name),kind:(human?'Biped':'Quadruped')+' · '+technique,ready,
+      status:ready?'Ready':item.status==='loading'?'Loading artwork…':item.status};
+  };
+  if(CharacterRegistry){
+    // One list: playable categories in the author's order, characters in order.
+    const characters=CharacterRegistry.list();
+    for(const category of CharacterRegistry.categories().filter(c=>c.playable)){
+      makeGroup(category.name,characters.filter(c=>c.category===category.id)
+        .map(c=>c.library?libraryItem(c.id):(allCharacterVariants.includes(c.id)?originalItem(c.id):null)).filter(Boolean));
+    }
+    return;
   }
+  makeGroup('Characters',[...allCharacterVariants.map(originalItem),
+    ...(GameCharacters?GameCharacters.list().map(item=>libraryItem(item.id)).filter(Boolean):[])]);
 }
 function setCharacterPickerOpen(open){
   if(!characterPicker)return;
@@ -2783,7 +2810,8 @@ if(GameCharacters)for(const candidate of GameCharacters.list()){
     availableCharacterVariants.push(candidate.id);
     if(data.warnings.length)console.warn('[SideScroll] Character Skin warnings',data.label,data.warnings);
     renderCharacterPicker();
-    if(localStorage.getItem(LOCAL_CHARACTER_SELECTION_KEY)===candidate.id)
+    if(localStorage.getItem(LOCAL_CHARACTER_SELECTION_KEY)===candidate.id
+      || (!hadSavedCharacterChoice && registryDefaultPlayer===candidate.id))
       applyCharacterVariant(candidate.id,false);
   }).catch(err=>{
     console.warn(`[SideScroll] ${candidate.label} cannot be played:`,err);

@@ -18,7 +18,7 @@
       <button class="game-info-close" type="button" aria-label="Close instructions">×</button>
       <p class="kicker">CHARACTER AUTHORING</p>
       <h2 id="game-17-info-title">Character Lab</h2>
-      <p>Use Character Library → New, Load or Save to work with any character, including the built-in Hero 1, Hero 2 and Fox. New characters are saved on this device and appear alongside the built-ins in Load. Their editing data and animations are separate from the built-in character data. Saved local characters can be chosen from the game’s new character selection menu. Quadruped Atlas assemblies require their imported PNG to remain saved on this device; newly created bipeds can use the Hero starter art and their own saved clips. Other custom artwork and legacy assemblies are not yet fully supported. Changes live in a working copy until Save; Discard restores the current checkpoint. Rig mode owns character scale, collider and structural rest rig; Animate owns clip poses. Fox Play mode instantly tests the current working Idle/Walk/Run/Jump clips and lets Walk/Run ground speed be tuned against animation cadence. Motion Reference can overlay editor-only gait footage by normalised cycle phase. Static Reference provides Hero 1, Hero 2 / Hair and Fox Shape proportion guides, and Fox Handoff can export the current rig plus all Fox clips as one JSON file.</p>
+      <p>Character Library → <strong>New</strong> creates a character, <strong>Open</strong> lists every character by category (rename, reorder, roles, delete), <strong>Save</strong> stores your edits and <strong>Share</strong> exports or imports characters. Characters in a playable category can be chosen in the game. Changes live in a working copy until Save; Discard restores the current checkpoint. Rig mode owns character scale, collider and structural rest rig; Animate owns clip poses. Play mode instantly tests the current working Idle/Walk/Run/Jump clips and lets Walk/Run ground speed be tuned against animation cadence. Motion Reference can overlay editor-only gait footage by normalised cycle phase. Static Reference provides biped and quadruped proportion guides.</p>
     </div>
   </div>
 
@@ -28,18 +28,18 @@
         <header class="animlab-topbar">
           <a class="game-home-button animlab-home" href="index.html" aria-label="Back to SideScroll home">← Home</a>
           <div class="animlab-title"><small>SIDESCROLL</small><strong>Character Lab</strong></div>
-          <div class="animlab-current"><small>EDITING</small><strong class="animlab-context" id="animlab-context">Hero 1 · Walk · Animate</strong></div>
+          <div class="animlab-current"><small>EDITING</small><strong class="animlab-context" id="animlab-context">Loading…</strong></div>
           <div class="animlab-save-state" id="animlab-save-state">Saved</div>
           <button class="game-info-button animlab-info" type="button" aria-label="How to use Character Lab" aria-haspopup="dialog">i</button>
         </header>
         <aside class="animlab-drawer" aria-label="Character Lab controls">
 
           <section class="animlab-section animlab-legacy-character-row" hidden aria-labelledby="animlab-character-label">
-            <div class="animlab-section-title" id="animlab-character-label">Built-in Characters</div>
+            <div class="animlab-section-title" id="animlab-character-label">Characters</div>
             <div class="animlab-segmented animlab-three" id="animlab-character-row">
-              <button type="button" data-character="original">Hero 1</button>
-              <button type="button" data-character="alternate">Hero 2</button>
-              <button type="button" data-character="fox">Fox</button>
+              <button type="button" data-character="original">original</button>
+              <button type="button" data-character="alternate">alternate</button>
+              <button type="button" data-character="fox">fox</button>
             </div>
           </section>
 
@@ -114,7 +114,7 @@
         <div class="animlab-main">
           <section class="animlab-viewport" aria-label="Character animation viewport">
             <canvas id="animlab-canvas" aria-label="Character Lab character preview"></canvas>
-            <div class="animlab-readout" id="animlab-readout">Hero 1 · Walk · Frame 1 / 16</div>
+            <div class="animlab-readout" id="animlab-readout">Loading…</div>
             <div class="animlab-hint" id="animlab-hint">Drag empty space to pan · pinch to zoom</div>
             <div class="animlab-dirty" id="animlab-dirty" hidden>UNSAVED</div>
             <div class="animlab-viewport-pad-host" id="animlab-viewport-pad-host" hidden></div>
@@ -154,6 +154,7 @@
   <script src="project-defaults-data.js?v=2026-10-30"></script>
   <script src="project-defaults.js?v=1.1.28"></script>
   <script src="asset-paths.js?v=1.1.28"></script>
+  <script src="character-registry.js?v=1.1.28"></script>
   <script src="site-config.js?v=1.0.62"></script>
   <script src="core.js?v=1.0.62"></script>
   <script src="walk-rig.js?v=1.0.144"></script>

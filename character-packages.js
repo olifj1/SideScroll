@@ -21,7 +21,8 @@
     setup: 'sidescroll.animlab.setup.v1',
     sparse: 'sidescroll.animlab.sparse.clips.v1',
     staticRef: 'sidescroll.animlab.static-reference.v1',
-    motionRef: 'sidescroll.animlab.reference.settings.v1'
+    motionRef: 'sidescroll.animlab.reference.settings.v1',
+    registry: 'sidescroll.characters.registry.v1'
   });
   const EMPTY = Object.freeze({
     [KEY.library]: () => ({ schema: 'animlab.character-library.v1', entries: [] }),
@@ -29,7 +30,8 @@
     [KEY.setup]: () => ({}),
     [KEY.sparse]: () => ({ schema: 'animlab.sparse.v1', sampleCount: 16, families: {} }),
     [KEY.staticRef]: () => ({ schema: 'animlab.static-reference.v1', contexts: {} }),
-    [KEY.motionRef]: () => ({ schema: 'animlab.reference.settings.v1', contexts: {} })
+    [KEY.motionRef]: () => ({ schema: 'animlab.reference.settings.v1', contexts: {} }),
+    [KEY.registry]: () => ({ schema: 'sidescroll.character-registry.v1', characters: {} })
   });
   const BUILT_IN = Object.freeze({
     original: { name: 'Hero 1', family: 'human' },
@@ -97,7 +99,10 @@
   }
 
   // ---- Listing --------------------------------------------------------------
+  // Names, order and deletions come from the character registry when present.
   function listCharacters() {
+    const registry = window.SideScrollCharacters;
+    if (registry) return registry.list().map(c => ({ id: c.id, name: c.name, family: c.family, builtIn: !c.library }));
     return [
       ...Object.entries(BUILT_IN).map(([id, c]) => ({ id, name: c.name, family: c.family, builtIn: true })),
       ...libraryEntries().filter(e => USER_ID.test(e?.id)).map(e => ({ id: e.id, name: String(e.name || e.id), family: e.family === 'fox' ? 'fox' : 'human', builtIn: false }))
@@ -144,6 +149,7 @@
     slices.push(sliceAt(KEY.staticRef, ['contexts', id]));
     slices.push(sliceAt(KEY.staticRef, ['contexts', `character:${id}`]));
     slices.push(contextPrefix(KEY.motionRef, `${id}|`));
+    slices.push(sliceAt(KEY.registry, ['characters', id]));
     return slices;
   }
 
@@ -191,7 +197,8 @@
     const allowedPaths = new Set([
       JSON.stringify([KEY.atlas, 'characters', c.id]),
       JSON.stringify([KEY.staticRef, 'contexts', c.id]),
-      JSON.stringify([KEY.staticRef, 'contexts', `character:${c.id}`])
+      JSON.stringify([KEY.staticRef, 'contexts', `character:${c.id}`]),
+      JSON.stringify([KEY.registry, 'characters', c.id])
     ]);
     if (builtIn) {
       allowedPaths.add(JSON.stringify([KEY.setup, c.id]));
@@ -246,6 +253,9 @@
   // ---- Applying an import ----------------------------------------------------
   function writeJSON(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
   function setPath(key, path, present, value) {
+    // Removing something from a key the device doesn't have is a no-op; writing
+    // an empty copy would stop later published updates reaching this device.
+    if (!present && readJSON(key) === null) return;
     const root = readJSON(key) || EMPTY[key]();
     let node = root;
     for (const part of path.slice(0, -1)) {

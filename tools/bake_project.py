@@ -53,6 +53,7 @@ EMPTY = {
     'sidescroll.animlab.sparse.clips.v1': lambda: {'schema': 'animlab.sparse.v1', 'sampleCount': 16, 'families': {}},
     'sidescroll.animlab.static-reference.v1': lambda: {'schema': 'animlab.static-reference.v1', 'contexts': {}},
     'sidescroll.animlab.reference.settings.v1': lambda: {'schema': 'animlab.reference.settings.v1', 'contexts': {}},
+    'sidescroll.characters.registry.v1': lambda: {'schema': 'sidescroll.character-registry.v1', 'characters': {}},
 }
 
 
@@ -116,6 +117,8 @@ def apply_slice(storage, s, catalogue):
         else:
             storage.pop(key, None)
     else:
+        if not s.get('present') and key not in storage:
+            return
         root = read_json(storage, key)
         node = root
         for part in s['path'][:-1]:

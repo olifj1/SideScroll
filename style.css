@@ -14895,6 +14895,15 @@ body[data-game-id="game-17"] .animlab-library-actions {flex-shrink:0;}
 body[data-game-id="game-17"] .animlab-library-management {
   display:flex;flex-wrap:wrap;gap:4px;width:100%;border-top:1px solid #496866;padding-top:5px;
 }
+/* Character registry: four-button toolbar, category headings, roles/categories. */
+body[data-game-id="game-17"] .animlab-library-toolbar.animlab-library-toolbar-4 {grid-template-columns:repeat(4,minmax(0,1fr));}
+body[data-game-id="game-17"] .animlab-library-category {font-size:10px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:#a0dbb5;margin-top:4px;}
+body[data-game-id="game-17"] .animlab-library-management select {min-height:27px;font-size:10px;max-width:100%;}
+body[data-game-id="game-17"] .animlab-library-organise {display:flex;flex-direction:column;gap:5px;padding-top:6px;border-top:1px solid rgba(150,200,190,.3);color:#e8f5f0;font-size:11px;min-width:0;}
+body[data-game-id="game-17"] .animlab-library-organise-row {display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0;}
+body[data-game-id="game-17"] .animlab-library-organise-row > span {flex:1 1 90px;min-width:0;overflow-wrap:anywhere;font-weight:700;}
+body[data-game-id="game-17"] .animlab-library-organise-row select {min-height:27px;font-size:10px;max-width:100%;}
+body[data-game-id="game-17"] .animlab-library-check {font-size:10px;display:flex;align-items:center;gap:2px;}
 body[data-game-id="game-17"] .animlab-library-status {
   overflow-wrap:anywhere;padding:4px 5px;background:rgba(143,207,197,.08);border-radius:6px;
 }

@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 30 October 2026 — Character registry
+`sidescroll.characters.registry.v1` (content) holds character names, categories, order, roles and deleted original characters. It is in Project Backup and built-in content like any content key, and each character package carries that character's registry entry, so Replace restores its name, category and order (and un-deletes a deleted original character). Roles and categories themselves are project-wide and travel with Project Backup, not with character files.
+
 ## 30 October 2026 — Publishing character artwork
 `tools/bake_project.py` accepts character exports alongside (or instead of) a Project Backup. Imported atlas PNGs become `assets/char-<character id>-<content hash>.png` and the published atlas document says `{kind:"bundled", file, width, height}`. Devices with their own saved atlas document (the author's phone) keep using their IndexedDB image; everyone else loads the published file. Exporting a character whose atlas is bundled embeds no pixels (the art ships with the game).
 
