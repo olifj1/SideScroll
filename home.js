@@ -16,9 +16,9 @@
     'style.css',
     'site-config.js',
     'core.js',
-    'walk-rig.js',
-    'fox-authoring-baseline.js',
-    'fox-rig.js',
+    'biped-rig.js',
+    'quadruped-baseline.js',
+    'quadruped-rig.js',
     'puzzle-groups.js',
     'baked-game-design.js',
     'audio.js',
@@ -46,9 +46,9 @@
     'sidescroll-ground-11.png',
     'sidescroll-ground-12.png',
     'walklab-rig-v4.png',
-    'walklab-rig-v4-alt-hero2.png',
-    'fox-rig-atlas-v3.png',
-    'fox-deform-atlas-v2.png',
+    'walklab-rig-v4-alt-b.png',
+    'quadruped-parts-atlas-v3.png',
+    'quadruped-deform-atlas-v2.png',
     'puzzle-log-a.png',
     'puzzle-log-b.png',
     'puzzle-log-c.png',
@@ -147,7 +147,8 @@
 
   const loadPlayerScript = src => new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = withVersion(src);
+    // play.html's own ?v= is used as-is so the cached copy is shared.
+    script.src = src.includes('?') ? src : withVersion(src);
     script.onload = resolve;
     script.onerror = () => reject(new Error(`Could not load ${src}`));
     document.body.appendChild(script);
@@ -160,6 +161,13 @@
 
     const markup = await response.text();
     const parsed = new DOMParser().parseFromString(markup, 'text/html');
+    // The game's own script list, in play.html order. Scripts this page already
+    // runs (shared ones such as core.js and audio.js) are not loaded twice.
+    const fileOf = src => String(src || '').split(/[?#]/)[0].split('/').pop();
+    const running = new Set([...document.querySelectorAll('script[src]')].map(node => fileOf(node.getAttribute('src'))));
+    const gameScripts = [...parsed.querySelectorAll('script[src]')]
+      .map(node => node.getAttribute('src'))
+      .filter(src => !running.has(fileOf(src)));
     parsed.querySelectorAll('script').forEach(node => node.remove());
 
     // Keep the current Window/AudioContext alive. Only the document contents and
@@ -185,13 +193,7 @@
     if (theme) theme.setAttribute('content', '#081015');
     document.title = 'SideScroll';
 
-    // site-config/core/audio are already alive from the splash page. Load only
-    // the game-specific modules, in the same order as play.html.
-    await loadPlayerScript('walk-rig.js');
-    await loadPlayerScript('fox-rig.js');
-    await loadPlayerScript('puzzle-groups.js');
-    await loadPlayerScript('baked-game-design.js');
-    await loadPlayerScript('sidescroll.js');
+    for (const src of gameScripts) await loadPlayerScript(src);
   };
 
   play?.addEventListener('pointerdown', () => {

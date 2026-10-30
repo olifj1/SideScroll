@@ -9,6 +9,9 @@
  * own, is skipped: the game re-saves some content on every load (migrations),
  * and storing it would pin that device to today's version so later published
  * updates would never reach it.
+ * Renamed storage keys (storage-catalogue.json "renamed", copied into the
+ * generated data as renamedKeys) are migrated here once per device: a value
+ * saved under an old key moves to the new key, so code only uses new names.
  * Must load before any script that reads saved data.
  */
 (() => {
@@ -34,7 +37,20 @@
     return setItem.call(this, key, value);
   };
 
+  // One-time move of values saved under renamed keys. If the device already has
+  // the new key, the old copy is simply dropped (the new one is newer).
+  const renamedKeys = window.SIDESCROLL_PROJECT_DEFAULTS.renamedKeys || {};
+  for (const [oldKey, newKey] of Object.entries(renamedKeys)) {
+    try {
+      const old = getItem.call(store, oldKey);
+      if (old === null) continue;
+      if (getItem.call(store, newKey) === null) store.setItem(newKey, old);
+      store.removeItem(oldKey);
+    } catch (_) {}
+  }
+
   window.SideScrollProjectDefaults = Object.freeze({
+    renamedKeys: Object.freeze({ ...renamedKeys }),
     exportedAt: window.SIDESCROLL_PROJECT_DEFAULTS.exportedAt || null,
     has: key => has.call(defaults, key),
     isBuiltIn: key => has.call(defaults, key) && getItem.call(store, key) === null

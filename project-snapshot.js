@@ -26,7 +26,7 @@
 
   function categoryFor(key) {
     const k = String(key).toLowerCase();
-    if (/animlab|walklab|fox\.(?:rig|collider)|character/.test(k)) return 'Characters & Animations';
+    if (/animlab|walklab|(?:quadruped|fox)\.(?:rig|collider)|character/.test(k)) return 'Characters & Animations';
     if (/puzzle|group|inventory|collectib|player/.test(k)) return 'Puzzles & Gameplay';
     if (/asset[.\-_]|^sidescroll\.asset/.test(k)) return 'Assets';
     if (/design-doc|concept-lab/.test(k)) return 'Design & Concept';

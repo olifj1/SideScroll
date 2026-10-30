@@ -1,6 +1,6 @@
 /* SideScroll asset paths and versions.
  * Art and audio live in assets/. Code, bundled data and players' saved data keep
- * referring to them by bare filename (e.g. 'fox-deform-atlas-v2.png?v=1.1.25'),
+ * referring to them by bare filename (e.g. 'quadruped-deform-atlas-v2.png?v=1.1.25'),
  * so identifiers never change; only the URL used to load a file is resolved here.
  * Anything that already has a folder, a scheme (data:, blob:, https:) or is not
  * an art/audio file is returned unchanged, so calling this twice is harmless.
@@ -29,7 +29,7 @@
       'sidescroll-ground-12.png', 'sidescroll-music.m4a', 'splash-screen.png',
       'stone-piece-a.png', 'stone-piece-b.png', 'stone-piece-c.png', 'stone-wall.png',
       'terrain-dirt.png', 'tree-stump.png', 'walklab-character-source.png',
-      'walklab-rig-v4-alt-hero2.png', 'walklab-rig-v4.png'
+      'walklab-rig-v4-alt-b.png', 'walklab-rig-v4.png'
     ],
     '1.0.83': [
       'mountain-cliff-01.png', 'mountain-cliff-02.png', 'mountain-cliff-03.png',
@@ -61,14 +61,24 @@
       'terrain-surface-woodland-soil.png'
     ],
     '1.0.141': [
-      'fox-character-source-v1.png'
+      'quadruped-source-v1.png'
     ],
     '1.0.163': [
-      'fox-reference-charcoal.png', 'fox-rig-atlas-v3.png'
+      'quadruped-reference.png', 'quadruped-parts-atlas-v3.png'
     ],
     '1.0.173': [
-      'fox-deform-atlas-v2.png'
+      'quadruped-deform-atlas-v2.png'
     ]
+  };
+  // Files renamed so no file is named after a character. Saved data and older
+  // exports still use the old names, so they keep resolving here.
+  const RENAMED = {
+    'fox-deform-atlas-v2.png': 'quadruped-deform-atlas-v2.png',
+    'fox-rig-atlas-v3.png': 'quadruped-parts-atlas-v3.png',
+    'fox-rig-atlas-v1.png': 'quadruped-parts-atlas-v1.png',
+    'fox-reference-charcoal.png': 'quadruped-reference.png',
+    'fox-character-source-v1.png': 'quadruped-source-v1.png',
+    'walklab-rig-v4-alt-hero2.png': 'walklab-rig-v4-alt-b.png'
   };
   const ASSET_VERSIONS = {};
   for (const [version, files] of Object.entries(VERSIONED)) {
@@ -78,12 +88,14 @@
   function assetPath(url) {
     if (typeof url !== 'string' || !url) return url;
     const bare = url.startsWith('./') ? url.slice(2) : url;
-    const file = bare.split(/[?#]/)[0];
-    if (file.includes('/') || file.includes(':') || !ART_FILE.test(bare)) return url;
+    const named = bare.split(/[?#]/)[0];
+    if (named.includes('/') || named.includes(':') || !ART_FILE.test(bare)) return url;
+    const file = RENAMED[named] || named;
     const version = ASSET_VERSIONS[file];
-    return ASSET_DIR + (version ? `${file}?v=${version}` : bare);
+    return ASSET_DIR + (version ? `${file}?v=${version}` : file + bare.slice(named.length));
   }
 
   window.SideScrollAssetPath = assetPath;
+  window.SideScrollAssetRename = name => RENAMED[name] || name;
   window.SideScrollAssetVersions = Object.freeze(ASSET_VERSIONS);
 })();

@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 30 October 2026 — Renamed keys and files
+Six storage keys were renamed (`storage-catalogue.json` → `renamed`): `sidescroll.fox.rig.v3/v2/baseline-id`, `sidescroll.fox.collider.v1/baseline-id`, `sidescroll.animlab.fox.clips.v1` → `quadruped` equivalents. Devices migrate on first load; Project Backups and character files exported earlier still import/bake (old names are mapped). Renamed art files resolve from their old names via `asset-paths.js`.
+
 ## 30 October 2026 — Character registry
 `sidescroll.characters.registry.v1` (content) holds character names, categories, order, roles and deleted original characters. It is in Project Backup and built-in content like any content key, and each character package carries that character's registry entry, so Replace restores its name, category and order (and un-deletes a deleted original character). Roles and categories themselves are project-wide and travel with Project Backup, not with character files.
 

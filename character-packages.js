@@ -41,8 +41,8 @@
   // Whole storage keys owned by a built-in rig family.
   const FAMILY_KEYS = Object.freeze({
     human: ['gamehub.walklab.anim.v6', 'gamehub.walklab.anim.v5', 'gamehub.walklab.anim.v4', 'sidescroll.walklab.collider.v1'],
-    fox: ['sidescroll.animlab.fox.clips.v1', 'sidescroll.fox.rig.v3', 'sidescroll.fox.rig.v2', 'sidescroll.fox.rig.baseline-id',
-      'sidescroll.fox.collider.v1', 'sidescroll.fox.collider.baseline-id']
+    fox: ['sidescroll.animlab.quadruped.clips.v1', 'sidescroll.quadruped.rig.v3', 'sidescroll.quadruped.rig.v2', 'sidescroll.quadruped.rig.baseline-id',
+      'sidescroll.quadruped.collider.v1', 'sidescroll.quadruped.collider.baseline-id']
   });
   const USER_ID = /^user-[a-z0-9-]{5,40}$/;
   const IMAGE_ID = /^image-[a-z0-9-]{4,60}$/;
@@ -188,8 +188,15 @@
 
   // ---- Reading a file --------------------------------------------------------
   const BAD = message => { throw Error(message); };
+  // Files exported before a storage key was renamed still use the old name.
+  function renameOldKeys(p) {
+    const renamed = window.SideScrollProjectDefaults?.renamedKeys || {};
+    if (Array.isArray(p?.slices)) p.slices = p.slices.map(s => renamed[s?.key] ? { ...s, key: renamed[s.key] } : s);
+    return p;
+  }
   function validatePackage(p) {
     if (p?.schema !== PACKAGE_SCHEMA) BAD('Not a SideScroll character file.');
+    renameOldKeys(p);
     const c = p.character || {};
     const builtIn = isBuiltIn(c.id);
     if (!builtIn && !USER_ID.test(String(c.id))) BAD('Character file has an invalid character ID.');
