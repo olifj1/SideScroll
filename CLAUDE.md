@@ -46,6 +46,13 @@ Code, bundled data and saved data refer to art by **bare filename**
 `assets/<name>` at the moment it loads, and leaves data:/blob:/http URLs and
 anything with a folder unchanged. So:
 - New art goes in `assets/` and is referenced by bare filename as before.
+- `ASSET_VERSIONS` in `asset-paths.js` is the **only** place an art file's `?v=`
+  is set; for listed files any `?v=` written at a call site is ignored. Add new
+  art there, and bump a file's version there when its artwork changes. Every page
+  then requests the same URL, so one cached copy serves the game, the splash
+  preload and the labs.
+- If the game loads a file at startup, add it to `GAME_PRELOAD` in `home.js` too,
+  or it will pop in during play on a first launch.
 - Every place that sets an image `src`, CSS `background-image` or fetches audio
   must pass the URL through `assetPath(...)`. Each script takes a local
   `const assetPath = window.SideScrollAssetPath || (url => url);`.
@@ -79,10 +86,13 @@ anything with a folder unchanged. So:
 3. **Design Lab merge rule.** On load, Design Lab only adds *missing IDs* from
    `design-doc.json`; it never overwrites an existing ID. To get new design
    content to an existing user, add a new entry with a new stable ID.
-4. **Service worker / caching.** `sw.js` has one cache name (`CACHE`); bump it when
-   shipping. HTML/JS/CSS/JSON are network-first, **images/audio are cache-first**,
-   so changed art under the same filename needs a new `?v=` query where it is
-   referenced or players keep the old image. Don't add parallel cache strategies.
+4. **Service worker / caching.** `sw.js` has one cache name (`CACHE`). **Do not
+   change it for normal releases**: a new name deletes every cached file on
+   players' devices and forces a full (~70 MB) re-download, which is what made the
+   first launch after the `assets/` move take minutes. HTML/JS/CSS/JSON are
+   network-first, so code updates arrive without it. **Images/audio are
+   cache-first by exact URL**, so changed art needs a new version in
+   `asset-paths.js` (see below). Don't add parallel cache strategies.
 5. **Small blast radius.** Smallest safe change; identify data ownership before
    adding a system; never duplicate authoritative state between labs and runtime.
 6. **Ownership model.** Asset = what an object is. Puzzle = how objects/rules
@@ -104,7 +114,8 @@ anything with a folder unchanged. So:
 - `walk-rig.js` line 79 is an 821 KB base64 image — never print it.
 - About the first 10,000 lines of `style.css` are leftover styles from older
   GameHub games (clock, sums, laser, racer…); cleanup is a planned task.
-- Asset `?v=` numbers are hand-maintained and inconsistent across pages.
+- Script/CSS `?v=` numbers in the HTML pages are still hand-maintained and
+  inconsistent (art versions are centralised in `asset-paths.js`).
 - Text is UK English (colour, behaviour, centre).
 
 ## Docs index (`docs/`)
