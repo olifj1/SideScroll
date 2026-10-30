@@ -59,10 +59,29 @@ anything with a folder unchanged. So:
 - Any page that loads art must include `asset-paths.js` before its other scripts.
 - Plain `<img src>` in static HTML (splash, concept overview) uses `assets/...` directly.
 
+## Built-in content (project defaults)
+The authored project ships as built-in defaults so a fresh install has it:
+- `project-defaults-data.js` is **generated**: the user exports Project Backup on
+  the phone, and a session runs `python3 tools/bake_project.py <export.json>`. It
+  holds 58 content keys (world, puzzles, assets, characters, migration flags) and
+  also rewrites `design-doc.json` from the Design Lab working copy. Never edit it
+  by hand; review the tool's printed included/left-out report for new keys.
+- `project-defaults.js` makes `localStorage.getItem(key)` return the built-in
+  value when the device has no saved value for that key. It never writes. Saved
+  data always wins; removing a key (a lab's Reset) falls back to built-in content.
+- Both load before any other script on index, play, walk-lab, asset-lab,
+  puzzle-lab and world-lab. New pages that read saved data must include them.
+- Left out on purpose: play progress (position, puzzle progress, inventory, hints),
+  view preferences, selected character, transient lab state (see `EXCLUDE` in the tool).
+- IndexedDB images (e.g. New01's imported PNG) are not in the export and are not
+  built in.
+- Changing a stored format? The built-in data is in the *old* format until it is
+  re-baked, so migrations must handle it exactly as they handle a device's data.
+
 ## Pages and what they load
 | Page | Purpose | Main scripts |
 |---|---|---|
-| `index.html` | Splash/launcher, preloads game assets | `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
+| `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `walk-rig.js`, `fox-authoring-baseline.js`, `fox-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `lab-data.js` |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
@@ -99,7 +118,9 @@ anything with a folder unchanged. So:
    combine (puzzle-owned elements are relative to the puzzle marker). World
    Element = where content sits in the journey. Section = runtime/streaming chunk.
 7. **Persistence changes** must update `docs/SIDESCROLL_EXPORT_COVERAGE.md` and
-   the Project Backup export/restore in the same change.
+   the Project Backup export/restore in the same change. A new storage key that is
+   authored content must also be considered for `tools/bake_project.py` (it is
+   built in by default unless listed in `EXCLUDE`).
 8. **Durable architecture/UX rules** go in `docs/SIDESCROLL_ENGINE_UX_BIBLE.md`.
 
 ## Testing

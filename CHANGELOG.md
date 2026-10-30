@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Built-in content: the authored world, puzzles, assets, characters (rigs, skins,
+  animations) and Design Lab document from the 30 October project export now ship
+  with the game (`project-defaults-data.js`, `design-doc.json`), so a fresh install
+  starts with the full project instead of a September snapshot. Saved data on a
+  device always takes priority. Play progress and view preferences are not built in.
 - Faster loading: every art file now has one version in `asset-paths.js`, so the
   splash preload, the game and the labs request identical URLs and share one cached
   copy (no more duplicate downloads). The preload now covers everything the game

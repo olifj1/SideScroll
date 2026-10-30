@@ -33,8 +33,8 @@ Stage A (generalisation) shipped in 1.1.26–1.1.27. Next:
 Changes checked only in desktop/headless browsers. Delete a line once you've
 confirmed it on the phone; if it fails, move it to **Now** as a bug.
 
-- [ ] **Art moved to `assets/`** — after merging, open the Home Screen app (close and reopen once so the new service worker takes over). Check: splash art and music; PLAY into the game and walk through woodland/mountain/settlement areas; switch Hero 1 / Hero 2 / Fox / New01 in the game and in Character Lab (New01's imported art should be unaffected); Asset Lab thumbnails; World Lab surface previews; Concept Lab images; Motion Reference overlay; play offline once after everything has loaded.
-- [ ] **Loading speed fix** — after merging, open the app twice. The second launch should reach PLAY in a second or two, with nothing popping in during play (including the settlement area). The first launch after this update should *not* re-download everything.
+- [ ] **Offline** — once everything has loaded, turn on Airplane Mode and launch the Home Screen app: splash, PLAY and the labs should all still work.
+- [ ] **Built-in content** — (1) In the Home Screen app nothing should change: your world, puzzles, characters and Design Lab are exactly as before. (2) Open the site in Safari itself (not the Home Screen app — Safari keeps separate storage, so it behaves like a brand-new device): the game, World Lab, Asset Lab, Puzzle Lab, Character Lab and Design Lab should all show your content. Expected differences there: the game starts at the beginning, Character Lab opens on Hero 1, and New01 shows "Imported PNG missing from this device" (its art isn't built in yet).
 
 ---
 
@@ -43,6 +43,8 @@ confirmed it on the phone; if it fails, move it to **Now** as a bug.
 - [ ] **Climb as an editable clip (CL3):** convert the human climbing motion into a Biped starter clip and add a `climb` slot without changing climb paths or speed.
 - [ ] **Pick Up / Put Down / Carry clips (CL4):** one-shot clips with grasp/release markers feeding existing interaction timing; carry as an overlay or locomotion variant.
 - [ ] **Shared animations (CL5):** library with link/copy, Save as Template, Make Unique; compatibility checks; manual retargeting only.
+- [ ] **Bundle New01's artwork:** its imported PNG lives only in the phone's IndexedDB, so on any other device New01 shows "Imported PNG missing". Needs the PNG added to `assets/` and Character Lab / `character-game-runtime.js` taught to use a bundled source for a custom character (today only `fox-deform-atlas-v2.png` is allowed).
+- [ ] **Retire `baked-game-design.js`:** the September (0.2.94) baked design is now shadowed by `project-defaults-data.js` for every key it covered; remove it and its fallback paths in `sidescroll.js` / `world-lab.js` once the built-in content is confirmed on device.
 - [ ] **Portable backups with art:** character/project export and restore that include PNG pixels from IndexedDB (JSON backups currently omit them); test on a second device.
 - [ ] **Atlas tools:** better topology editing (connect vertices, split/merge edge paths, delete triangle ranges, boundary shaping) and spline control-node editing.
 
