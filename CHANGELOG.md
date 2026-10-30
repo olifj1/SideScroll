@@ -6,6 +6,7 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 ## Unreleased
 - Added `CLAUDE.md` (session orientation), `TASKS.md` (the single task list) and
   this changelog; archived the old task log to `docs/archive/`.
+- Signed off all outstanding iPhone acceptance tests up to 1.1.27.
 - Organised the repo into `docs/`, `assets/unplaced/` and `review/`; nothing
   deleted, no loaded files moved. Removed the unused 6.4 MB tree atlas from the
   splash preload.
