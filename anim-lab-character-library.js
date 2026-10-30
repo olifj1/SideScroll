@@ -1,7 +1,9 @@
-/* SideScroll Character Lab — unified Character Library (v1.1.24).
-   Built-ins and locally-authored characters have one Open / Edit / Save workflow.
-   Legacy built-in storage and custom character library remain intentionally
-   separate under the hood; do not migrate saved data during a UI tidy-up. */
+/* SideScroll Character Lab — unified Character Library.
+   Every character (Hero 1, Hero 2, Fox and library characters) has the same
+   Open / Export workflow; Export all and Import (Replace / Add as copy / Skip)
+   cover backups, rollback and duplicates. Packaging lives in
+   character-packages.js. Built-in and library storage remain separate under the
+   hood; do not migrate saved data during a UI change. */
 (() => {
   'use strict';
   const core=window.AnimLabCore;
@@ -47,24 +49,25 @@
     <div class="animlab-library-panel" id="animlab-library-load" hidden>
       <div class="animlab-library-panel-heading"><strong>Open character</strong><button type="button" data-library-close aria-label="Close Load character">×</button></div>
       <div class="animlab-library-list" id="animlab-library-list" aria-label="Available characters"></div>
-      <label class="animlab-library-import">Import character JSON
-        <input id="animlab-library-import" type="file" accept=".json,application/json" aria-label="Import character JSON">
-      </label>
-      <small class="animlab-library-footnote">Built-in characters remain part of the game. Your new characters save in this browser; export a JSON backup before clearing website data.</small>
-      <div data-ss-lab="characters" class="animlab-library-import" style="border-top:1px solid rgba(150,200,190,.3);padding-top:9px;margin-top:8px">
-        <strong>All Character Lab data</strong>
-        <small>Backup all saved characters, built-in edits, animation clips, rigs and editor settings together. Image pixels are not included.</small>
-        <button type="button" data-ss-export class="animlab-library-action">Export All Character Lab Data</button>
-        <button type="button" data-ss-import class="animlab-library-action">Import All Character Lab Data</button>
-        <input type="file" data-ss-import-file accept=".json,application/json" hidden>
-        <small data-ss-status role="status" aria-live="polite"></small>
+      <div class="animlab-library-transfer">
+        <button type="button" id="animlab-library-export-all" class="animlab-library-action">Export all characters</button>
+        <button type="button" id="animlab-library-import-button" class="animlab-library-action">Import characters…</button>
+        <input id="animlab-library-import" type="file" accept=".json,application/json" hidden aria-label="Import character file">
+        <small class="animlab-library-footnote">An export holds everything for each character: setup, rig, skin, animations, reference alignment and imported artwork. Import lets you replace a character (roll back or update), add it as a copy, or skip it.</small>
+      </div>
+      <div class="animlab-library-review" id="animlab-library-review" hidden>
+        <strong>Import characters</strong>
+        <div id="animlab-library-review-list"></div>
+        <div class="animlab-library-review-actions">
+          <button type="button" id="animlab-library-review-apply" class="animlab-library-create">Import</button>
+          <button type="button" id="animlab-library-review-cancel" class="animlab-library-action">Cancel</button>
+        </div>
       </div>
     </div>
     <div class="animlab-library-panel" id="animlab-library-save" hidden>
       <div class="animlab-library-panel-heading"><strong>Save character</strong><button type="button" data-library-close aria-label="Close Save character">×</button></div>
       <div id="animlab-library-save-caption" class="animlab-library-footnote"></div>
       <button id="animlab-library-save-changes" type="button" class="animlab-library-create">Save changes</button>
-      <button id="animlab-library-export-current" type="button" class="animlab-library-action" hidden>Export character JSON</button>
     </div>`;
   drawer.insertBefore(section,builtin);
   // iOS can give a vertically scrolling sidebar a few pixels of horizontal
@@ -76,7 +79,11 @@
   const create=$('animlab-library-create'),status=$('animlab-library-status');
   const list=$('animlab-library-list'),importInput=$('animlab-library-import');
   const saveChanges=$('animlab-library-save-changes');
-  const exportCurrent=$('animlab-library-export-current');
+  const exportAllButton=$('animlab-library-export-all'),importButton=$('animlab-library-import-button');
+  const review=$('animlab-library-review'),reviewList=$('animlab-library-review-list');
+  const reviewApply=$('animlab-library-review-apply'),reviewCancel=$('animlab-library-review-cancel');
+  const packages=window.SideScrollCharacterPackages;
+  let pendingImport=null;
   const saveCaption=$('animlab-library-save-caption');
   const currentName=$('animlab-library-current-name');
   const currentKind=$('animlab-library-current-kind');
@@ -112,10 +119,6 @@
     const label=state.character?.label||'current character';
     saveCaption.textContent=state.dirty?`Unsaved changes in ${label}.`:`${label} has no unsaved changes.`;
     saveChanges.disabled=!state.dirty;
-    // Custom entries and shipped Fox can both export from the Save context.
-    exportCurrent.hidden=!(state.character?.library || state.characterId==='fox');
-    exportCurrent.textContent=state.characterId==='fox'?'Export legacy Fox handoff':'Export character JSON';
-    exportCurrent.disabled=!!state.dirty;
   }
   function makeButton(label,action,entry){
     const b=document.createElement('button');b.type='button';
@@ -145,9 +148,10 @@
     }
     lastCharacterId=state.characterId;
     create.disabled=dirty||state.mode==='play'||customCount>=24;
-    importInput.disabled=dirty||state.mode==='play'||customCount>=24;
-    const importAll=section.querySelector('[data-ss-lab=characters] [data-ss-import]');
-    if(importAll)importAll.disabled=dirty||state.mode==='play';
+    // Exports read saved data, so unsaved edits must be saved or discarded first.
+    exportAllButton.disabled=dirty||state.mode==='play'||!packages;
+    importButton.disabled=dirty||state.mode==='play'||!packages;
+    reviewApply.disabled=dirty||state.mode==='play'||!reviewComplete();
     refreshSave(state);
     // The list is intentionally populated only when Load is opened, rather
     // than rebuilding buttons during animated viewport redraws.
@@ -167,7 +171,10 @@
       const actions=document.createElement('div');actions.className='animlab-library-actions';
       const open=makeButton(state.characterId===entry.id?'Loaded':'Open','open',entry);
       open.disabled=state.characterId===entry.id;
-      actions.append(open);
+      const exported=makeButton('Export','export',entry);
+      exported.disabled=dirty||state.mode==='play'||!packages;
+      exported.setAttribute('aria-label',`Export ${entry.name}`);
+      actions.append(open,exported);
       if(!entry.builtIn){
         const manage=makeButton('•••','manage',entry);
         manage.setAttribute('aria-label',`Manage ${entry.name}`);
@@ -178,9 +185,8 @@
       if(!entry.builtIn && manageId===entry.id){
         const management=document.createElement('div');management.className='animlab-library-management';
         const rename=makeButton('Rename','rename',entry),remove=makeButton('Delete','delete',entry);
-        const exported=makeButton('Export','export',entry);
         rename.disabled=dirty||state.mode==='play';remove.disabled=dirty||state.mode==='play';
-        management.append(exported,rename,remove);row.append(management);
+        management.append(rename,remove);row.append(management);
       }
       list.appendChild(row);
     }
@@ -196,23 +202,91 @@
   });
   name.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();create.click();}});
 
-  async function exportEntry(id){
-    const data=core.exportLibraryCharacterDocument(id);
-    if(!data){setStatus('Could not export this character.');return;}
-    const json=JSON.stringify(data,null,2),filename=`SS-CHAR-${id}.json`;
+  const slug=value=>String(value||'character').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'character';
+  const stamp=()=>new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  async function shareFile(data,filename){
+    const json=JSON.stringify(data);
     const file=typeof File==='function'?new File([json],filename,{type:'application/json'}):null;
-    try{
-      if(file && navigator.share && navigator.canShare?.({files:[file]})){
-        await navigator.share({files:[file]});
-      }else{
-        const blob=new Blob([json],{type:'application/json'});
-        const url=URL.createObjectURL(blob),link=document.createElement('a');
-        link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();
-        setTimeout(()=>URL.revokeObjectURL(url),5000);
-      }
-      setStatus('Exported saved character data (artwork pixels are not included).');
-    }catch(err){if(err?.name!=='AbortError')setStatus('Export failed. Please try again.');}
+    if(file && navigator.share && navigator.canShare?.({files:[file]})){
+      await navigator.share({files:[file]});
+    }else{
+      const url=URL.createObjectURL(new Blob([json],{type:'application/json'})),link=document.createElement('a');
+      link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+    }
   }
+  async function runExport(label,build,filename){
+    if(core.getState().dirty){setStatus('Save or discard your edits first: exports contain saved data.');return;}
+    setStatus(`Preparing ${label}…`);
+    try{
+      const data=await build();
+      await shareFile(data,filename(data));
+      setStatus(`Exported ${label}, including artwork.`);
+    }catch(err){
+      if(err?.name==='AbortError'){setStatus('');return;}
+      console.error('[Character Library] Export failed.',err);
+      setStatus(`Export failed: ${err.message||err}`);
+    }
+  }
+  const exportEntry=id=>{
+    const entry=allCharacters().find(item=>item.id===id);
+    return runExport(entry?.name||'character',()=>packages.exportCharacter(id,core.characterCopySource),
+      ()=>`SS-CHARACTER-${slug(entry?.name)}-${stamp()}.json`);
+  };
+  exportAllButton.addEventListener('click',()=>runExport('all characters',
+    ()=>packages.exportAll(core.characterCopySource),data=>`SS-CHARACTERS-ALL-${data.characters.length}-${stamp()}.json`));
+
+  // ---- Import review: one choice per character in the file -----------------
+  function reviewComplete(){
+    return !!pendingImport && pendingImport.every(item=>item.choice) && pendingImport.some(item=>item.choice!=='skip');
+  }
+  function closeReview(){pendingImport=null;review.hidden=true;reviewList.replaceChildren();refresh();}
+  function optionsFor(item){
+    if(item.exists && item.replaceable)return [['','Choose…'],['replace','Replace the existing one'],['copy','Add as a copy'],['skip','Skip']];
+    if(item.exists)return [['','Choose…'],['copy','Add as a copy'],['skip','Skip']];
+    if(item.replaceable)return [['add','Add'],['copy','Add as a copy'],['skip','Skip']];
+    return [['copy','Add as a copy'],['skip','Skip']];
+  }
+  function showReview(items){
+    pendingImport=items.map(item=>({...item,choice:optionsFor(item)[0][0]}));
+    reviewList.replaceChildren();
+    pendingImport.forEach((item,index)=>{
+      const row=document.createElement('label');row.className='animlab-library-review-row';
+      const title=document.createElement('span');title.className='animlab-library-entry-name';title.textContent=item.name;
+      const note=document.createElement('small');
+      const parts=[item.exists?'Already on this device':'Not on this device',item.family==='fox'?'Quadruped':'Biped'];
+      if(item.sharedWith?.length)parts.push(`replacing also changes ${item.sharedWith.map(id=>allCharacters().find(c=>c.id===id)?.name||id).join(', ')} (shared animations and collider)`);
+      if(item.old)parts.push('older file without artwork: copy only');
+      note.textContent=parts.join(' · ');title.appendChild(note);
+      const select=document.createElement('select');select.setAttribute('aria-label',`Import choice for ${item.name}`);
+      for(const [value,label] of optionsFor(item)){const o=document.createElement('option');o.value=value;o.textContent=label;select.appendChild(o);}
+      select.value=item.choice;
+      select.addEventListener('change',()=>{pendingImport[index].choice=select.value;refresh();});
+      row.append(title,select);reviewList.appendChild(row);
+    });
+    review.hidden=false;
+    setStatus(`${items.length} character${items.length===1?'':'s'} in this file. Choose what to do with each, then Import.`);
+    refresh();
+  }
+  importButton.addEventListener('click',()=>{if(!importButton.disabled)importInput.click();});
+  reviewCancel.addEventListener('click',()=>{closeReview();setStatus('Import cancelled. Nothing was changed.');});
+  reviewApply.addEventListener('click',async()=>{
+    if(!reviewComplete()||core.getState().dirty)return;
+    const replacing=pendingImport.filter(item=>item.choice==='replace');
+    if(replacing.length && !window.confirm(`Replace ${replacing.map(item=>item.name).join(', ')} with the version in this file? The current saved version on this device will be overwritten. Export it first if you might want it back.`))return;
+    reviewApply.disabled=true;
+    try{
+      const done=await packages.applyImport(pendingImport.map(item=>({item,action:item.choice})),core.importLibraryCharacterDocument);
+      setStatus(`${done.join(' · ')}. Reloading Character Lab…`);
+      // Every Character Lab module read its data at start-up; reload so they all
+      // see the imported characters.
+      setTimeout(()=>location.reload(),900);
+    }catch(err){
+      console.error('[Character Library] Import failed.',err);
+      setStatus(`Import stopped: ${err.message||err}`);
+      reviewApply.disabled=false;
+    }
+  });
   list.addEventListener('click',async event=>{
     const button=event.target.closest('button[data-action]');if(!button)return;
     const id=button.dataset.characterId;
@@ -250,13 +324,9 @@
   });
   importInput.addEventListener('change',async()=>{
     const file=importInput.files?.[0];importInput.value='';if(!file)return;
-    if(file.size>1024*1024){setStatus('File too large (maximum 1 MB).');return;}
-    try{
-      const data=JSON.parse(await file.text());
-      const id=core.importLibraryCharacterDocument(data);
-      setStatus(id?'Character imported with a separate library ID.':'Unable to import. Save edits first or check the file.');
-    }catch(err){setStatus('Could not read the character JSON file.');}
-    listSignature='';refresh();
+    if(file.size>80*1024*1024){setStatus('File too large (maximum 80 MB).');return;}
+    try{showReview(packages.readFile(JSON.parse(await file.text())));}
+    catch(err){closeReview();setStatus(`Could not import: ${err.message||'unreadable file'}`);}
   });
   saveChanges.addEventListener('click',()=>{
     const original=document.getElementById('animlab-save');
@@ -266,12 +336,6 @@
     original.click();
     refreshSave();
     if(!core.getState().dirty){setPanel(null);setStatus('Changes saved.');}
-  });
-  exportCurrent.addEventListener('click',async()=>{
-    const state=core.getState();
-    if(state.dirty)return;
-    if(state.character?.library) await exportEntry(state.characterId);
-    else if(state.characterId==='fox') await core.exportFoxHandoffBundle?.();
   });
   core.subscribe(refresh);
   refresh();

@@ -83,12 +83,22 @@ The authored project ships as built-in defaults so a fresh install has it:
 - Changing a stored format? The built-in data is in the *old* format until it is
   re-baked, so migrations must handle it exactly as they handle a device's data.
 
+## Character packages
+`character-packages.js` exports one character or all characters to a file and
+imports them. A package holds the character's raw saved pieces ("slices", used
+for **Replace** — an exact restore) plus a library-entry copy (used for **Add as
+copy**), and embeds imported artwork from IndexedDB as PNG data. Built-in
+characters (Hero 1 / Hero 2 / Fox) and library characters use the same format;
+the heroes share one animation set and collider, so both heroes' packages carry
+those. Import validates that a file only touches that character's own keys.
+Any new per-character storage must be added to `slicesFor()` there.
+
 ## Pages and what they load
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `walk-rig.js`, `fox-authoring-baseline.js`, `fox-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
-| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `lab-data.js` |
+| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement | `world-lab.js` |

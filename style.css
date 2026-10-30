@@ -14555,8 +14555,6 @@ body[data-game-id="game-17"] .animlab-contact-actions-simple .animlab-contact-ex
 
 /* SideScroll v1.0.158 — static Rig reference + Fox handoff */
 body[data-game-id="game-17"] .animlab-static-reference #animlab-static-reference-sources button{font-size:7px;}
-body[data-game-id="game-17"] .animlab-fox-handoff .animlab-view-grid{grid-template-columns:minmax(0,1fr);}
-body[data-game-id="game-17"] .animlab-fox-handoff #animlab-export-fox{width:100%;}
 
 /* SideScroll v1.0.160 — Anim Lab Quick Play + Fox motion-speed tuning. */
 body[data-game-id="game-17"] .animlab-quickplay-section[hidden],
@@ -14847,6 +14845,12 @@ body[data-game-id="game-17"] .animlab-library-action:disabled{opacity:.48}
 body[data-game-id="game-17"] .animlab-library-import{display:flex;flex-direction:column;gap:4px;
   font-size:10px;font-weight:700;color:#c9ded5;}
 body[data-game-id="game-17"] .animlab-library-import input{width:100%;font-size:10px;}
+/* Character export / import (character-packages.js). */
+body[data-game-id="game-17"] .animlab-library-transfer{display:flex;flex-direction:column;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(150,200,190,.3);min-width:0}
+body[data-game-id="game-17"] .animlab-library-review{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding:7px;border:1px solid #a0dbb5;border-radius:6px;background:rgba(29,52,57,.75);color:#fff;font-size:11px;min-width:0}
+body[data-game-id="game-17"] .animlab-library-review-row{display:flex;flex-direction:column;gap:4px;min-width:0}
+body[data-game-id="game-17"] .animlab-library-review-row select{min-height:28px;font-size:11px;max-width:100%}
+body[data-game-id="game-17"] .animlab-library-review-actions{display:flex;gap:6px}
 
 /* v1.0.200 — lock Anim Lab to its viewport, and expose the Character Library
    through three contextual actions instead of one permanently open form. */

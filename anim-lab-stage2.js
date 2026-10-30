@@ -129,13 +129,6 @@
       <label class="animlab-slider"><span>Foot Probe</span><input type="range" data-collider="footProbe" min="0.035" max="0.30" step="0.005"><output></output></label>
     </section>
 
-    <section class="animlab-section animlab-fox-handoff" id="animlab-fox-handoff" hidden aria-labelledby="animlab-fox-handoff-title">
-      <div class="animlab-section-title" id="animlab-fox-handoff-title">Fox Handoff</div>
-      <div class="animlab-setup-note">Exports the current Fox rest rig, scale/collider, Walk/Run movement speeds, sparse Idle/Walk/Run/Jump keys and compiled runtime samples as one JSON file.</div>
-      <div class="animlab-view-grid">
-        <button type="button" id="animlab-export-fox">Export / Share Rig + Animations</button>
-      </div>
-    </section>
   `;
 
   const $ = id => document.getElementById(id);
@@ -161,8 +154,6 @@
   const groundBtn = $('animlab-ground');
   const referenceBtn = $('animlab-reference');
   const setupNote = $('animlab-setup-note');
-  const foxHandoffSection = $('animlab-fox-handoff');
-  const exportFoxBtn = $('animlab-export-fox');
   const staticReferenceButtons = [...host.querySelectorAll('[data-static-reference]')];
   const staticRefOpacity = $('animlab-static-reference-opacity');
   const staticRefScale = $('animlab-static-reference-scale');
@@ -292,7 +283,6 @@
     const control=selectedControl(state);
     controlSection.hidden=state.mode!=='animate';
     setupSection.hidden=state.mode!=='setup';
-    foxHandoffSection.hidden=state.family!=='fox'||state.mode==='play';
     groundBtn.classList.toggle('active',core.getOverlay('ground'));groundBtn.setAttribute('aria-pressed',String(core.getOverlay('ground')));
     renderStaticReference();
     if (state.mode === 'animate') {
@@ -457,11 +447,6 @@
     const value=Number(input.value);if(!Number.isFinite(value))return;
     core.setStaticReference?.({[key]:value});
   }));
-  exportFoxBtn.addEventListener('click',async()=>{
-    exportFoxBtn.disabled=true;
-    try { await core.exportFoxHandoffBundle?.(); }
-    finally { exportFoxBtn.disabled=false; }
-  });
 
   setupToolButtons.forEach(button=>button.addEventListener('click',()=>{
     if(button.dataset.setupTool==='art'){

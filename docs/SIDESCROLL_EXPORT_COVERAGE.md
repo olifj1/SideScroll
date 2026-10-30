@@ -1,5 +1,12 @@
 # SideScroll — Export and Recovery Coverage
 
+## 30 October 2026 — Character packages (Character Lab export / import)
+Every character has **Export**; **Export all characters** writes one file with every character. Each package (`sidescroll.character-package.v1`, collection `sidescroll.character-collection.v1`) contains:
+- the character's raw saved pieces: library entry or built-in setup map entry, sparse clips family, compiled clips, rig and collider keys, atlas document, static and motion reference alignment;
+- a library-entry copy for **Add as copy**;
+- **imported artwork pixels** (IndexedDB PNG) as base64 — the first export that carries artwork.
+Import: Replace (exact restore, also from an older file of the same character), Add (same ID, when not on the device), Add as a copy (new ID, new image key), Skip. Hero 1 and Hero 2 share animation/collider storage, so replacing one changes both (the import screen says so). Older `animlab.character-handoff.v1` files import as copy only, without artwork. Removed: Fox Handoff export, "All Character Lab Data" (`lab-data.js` characters scope) — Project Backup still covers raw keys.
+
 ## 30 October 2026 — Built-in project content from a Project Backup export
 A Project Backup export can now be baked into the game with `tools/bake_project.py`, producing `project-defaults-data.js` (58 content keys) and `design-doc.json`. `project-defaults.js` serves those values from `localStorage.getItem` only when the device has no saved value, so device data always wins and nothing is written. Consequences for backup/restore:
 - A fresh install shows the built-in content, but **Project Backup and Lab exports list only keys actually saved on the device**, so an untouched fresh install exports almost nothing. Its content is already in the build.
