@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Drawing method per character (C1c): Character Lab → Parts has **Parts / Mesh**. Mesh
+  builds the character's Parts assembly from its original pieces (placed exactly
+  where Parts drew them) with automatic skin weights, to tune in Skin; Parts draws
+  rigid pieces and keeps the mesh for switching back. The game draws each
+  character the same way, including the Fox (falls back to Parts if its mesh
+  can't load); the picker shows Parts / Mesh. The old Skin Prototype deform view
+  is retired, so Character Lab and the game no longer disagree. Copies of a Mesh
+  Fox now play in the game.
 - Neutral names in code: every variable, function and global that was named after a
   character is renamed (e.g. `FoxRig` → `QuadrupedRig`, `HumanRig` → `BipedRig`,
   `window.GameHubFoxRig` → `window.SideScrollQuadrupedRig`), and comments and

@@ -1407,6 +1407,24 @@
     ctx.restore();lastPerf={...counts,ms:performance.now()-started};return true;
   }
   core.registerArtRenderer('atlas-assembly-skin',render);
+  // Drawing method → Mesh (anim-lab-art-layout.js): give every assembled part
+  // without a current binding an automatic one, inside the caller's Setup edit
+  // (so it is undoable). Parts already bound are left exactly as they are.
+  window.AnimLabAssemblySkin=Object.freeze({
+    bindUnbound(setup){
+      const s=core.getState(),sources=sourceMap({...s,setup});
+      const geometry=rig.geometry(neutral,setup.skinBindRig||setup.rig||rig.DEFAULT_REST_RIG);
+      let bound=0,missing=0;
+      for(const part of setup.artLayout?.assembly?.instances||[]){
+        const source=sources.get(part.meshId);
+        if(!validSource(source)){missing++;continue;}
+        if(bindingFor(part,source))continue;
+        const binding=createBinding(part,source,geometry,'auto');
+        if(binding){part.skinBinding=binding;bound++;}else missing++;
+      }
+      return {bound,missing};
+    }
+  });
   core.subscribe(s=>{if(s.mode==='setup'&&s.setupTool==='atlas')signatures=new WeakMap();refresh();});refresh();
   window.AnimLabAssemblySkinInspect=Object.freeze({sourceSignature:signature,defaultEnvelope,envelopeFalloff,capsuleRows,activateEnvelopes,updateEnvelopeWeights,
     defaultRectangle,rectangleFrame,rectangleCorners,rectanglePoseFrame,jointFitPolygons,defaultJointBoundary,jointFrameDirections,defaultJointBoundaries,boundaryLine,jointBoundaryGeometry,jointBinaryRows,activateJointBoundaries,updateJointWeights,polygonContains,rectBinaryRows,activateRectangles,updateRectWeights,mapBoneRigid,skinVertex,sourceMap:()=>sourceMap(state()),performance:()=>({...lastPerf}),status:()=>({selectedId,selectedBone,preview,phase,heatmap,bound:(inventory(state())||[]).filter(p=>bindingFor(p,sourceMap(state()).get(p.meshId))).length}),rebuildWeights});

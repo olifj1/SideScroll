@@ -170,6 +170,9 @@ Any new per-character storage must be added to `slicesFor()` there.
 ## Gotchas
 - `sidescroll.js` is ~21k lines and `style.css` ~15k; grep, don't read whole.
 - `biped-rig.js` line 79 is an 821 KB base64 image — never print it.
+- A character's drawing method (Parts / Mesh) is its Parts assembly's `enabled` flag.
+  `anim-lab-mesh.js`'s old Skin Prototype is retired; the file only still builds the
+  original parts' mesh (`window.AnimLabLegacyAtlas`) that Mesh drawing uses.
 - PLAY on the splash screen loads the game into the splash page using the script
   list in `play.html` (`home.js`), so a script added to `play.html` is picked up
   automatically.

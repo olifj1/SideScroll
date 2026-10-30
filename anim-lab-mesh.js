@@ -68,6 +68,7 @@
   let deformAtlas = null;
   let artRevision = 0;
   let mode = 'mesh';
+  const PROTOTYPE_RETIRED = true;
   let wireframe = false;
   let deformPlanes = false; // display-only independent of legacy rigid Planes and full wireframe
   let inspectIndex = 0;
@@ -1006,7 +1007,11 @@
     // Preserve read-only legacy source for builtins, but do not deep-clone
     // the editor document every animation frame merely to skip its renderer.
     skinLastAtlas=args.atlas;
-    if(args.setup?.artLayout?.assembly?.enabled)return false;
+    // Retired (C1c): this prototype no longer draws. A character is drawn either
+    // with its Parts (rigid, Character Lab's default renderer) or as a Mesh (its
+    // Parts assembly + Skin, anim-lab-assembly-skin.js), the same as the game.
+    // This file still builds the original parts' mesh source (AnimLabLegacyAtlas).
+    if(PROTOTYPE_RETIRED||args.setup?.artLayout?.assembly?.enabled)return false;
     const editor=core.getState();
     const setupMode=editor.mode==='setup';
     const partsMode=setupMode&&editor.setupTool==='art';
@@ -1051,7 +1056,7 @@
   let skinLastAtlas=null;
   function selectedSkinDef(){return REGION_DEFS.find(def=>def.id===selectedSkinRegion)||REGION_DEFS[0];}
   function skinDraft(){return core.getState().setup?.skinTuning?.regions?.[selectedSkinRegion]||{};}
-  function skinEditingNow(){const s=core.getState();return s.family==='fox'&&s.mode==='setup'&&s.setupTool==='skin';}
+  function skinEditingNow(){const s=core.getState();return !PROTOTYPE_RETIRED&&s.family==='fox'&&s.mode==='setup'&&s.setupTool==='skin';}
   function skinEdit(label,change){
     if(!skinEditingNow())return;
     core.edit('setup',label,setup=>{
@@ -1083,8 +1088,8 @@
   function skinRegionChanged(){commitSkinSlider();skinPickArmed=false;skinLastViewport=null;selectedSkinVertex=0;selectedSkinBone=0;refreshSkinUI();core.redrawOnly?.();}
   function refreshSkinUI(state=core.getState()){
     const active=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
-    skinSection.hidden=!active||!!state.setup?.artLayout?.assembly?.enabled;
-    if(!active||state.setup?.artLayout?.assembly?.enabled)return;
+    skinSection.hidden=PROTOTYPE_RETIRED||!active||!!state.setup?.artLayout?.assembly?.enabled;
+    if(skinSection.hidden)return;
     for(const btn of skinRegionBoard.querySelectorAll('button'))btn.classList.toggle('active',btn.dataset.region===selectedSkinRegion);
     const region=skinRegionInfo(state),def=selectedSkinDef();
     const chain=def.topology==='chain';
@@ -1255,10 +1260,10 @@
   function updateUi(state=core.getState()){ 
     const visible=state.family==='fox';
     const customAssembly=!!state.setup?.artLayout?.assembly?.enabled;
-    section.hidden=!visible||customAssembly;
+    section.hidden=PROTOTYPE_RETIRED||!visible||customAssembly;
     if(lastFamily!==state.family){lastFamily=state.family;}
     const skinActive=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
-    deformPlanesButton.hidden=!visible||customAssembly;
+    deformPlanesButton.hidden=PROTOTYPE_RETIRED||!visible||customAssembly;
     // Skin should begin in a stable neutral rest view. Walk/Run poses are
     // opt-in diagnostic previews and must not look like lasting part movement.
     if(skinActive&&!wasSkinActive){skinPreview='neutral';skinPhase=.25;}
@@ -1327,15 +1332,41 @@
         const dy = PAD+(innerH-dh)*(fit.alignY ?? .5)+innerH*(fit.offsetYPct || 0)+(fit.offsetY || 0);
         const rawView = {scale:TEXELS_PER_LOCAL,cx:PAD-box.minX*TEXELS_PER_LOCAL,
           groundY:PAD+box.maxY*TEXELS_PER_LOCAL,flipX:1};
-        return {id:def.id,name:def.label,readOnly:true,
-          vertices:region.vertices.map(v => {
-            const pt = projectLocal(v.bind,rawView);
-            return {x:r.x+(pt.x-dx)*r.w/dw,y:r.y+(pt.y-dy)*r.h/dh};
-          }), triangles:region.triangles.map(tri => [...tri])};
+        const vertices = region.vertices.map(v => {
+          const pt = projectLocal(v.bind,rawView);
+          return {x:r.x+(pt.x-dx)*r.w/dw,y:r.y+(pt.y-dy)*r.h/dh};
+        });
+        // Where this mesh sits at rest: the bind-space centre-x and lowest y,
+        // and bind units per atlas pixel (the map above is linear per axis).
+        const range = values => Math.max(...values)-Math.min(...values);
+        const bx = region.vertices.map(v => v.bind.x), by = region.vertices.map(v => v.bind.y);
+        const placement = {bx:(Math.min(...bx)+Math.max(...bx))/2, by:Math.min(...by),
+          kx:range(bx)/Math.max(1e-6,range(vertices.map(v => v.x))),
+          ky:range(by)/Math.max(1e-6,range(vertices.map(v => v.y)))};
+        return {id:def.id,name:def.label,readOnly:true,vertices,placement,
+          triangles:region.triangles.map(tri => [...tri])};
       }).filter(Boolean)};
     return atlasSnapshotCache;
   }
-  window.AnimLabLegacyAtlas = Object.freeze({getSnapshot:legacyAtlasSnapshot});
+  // Assembly transform that puts an original part's mesh exactly where Parts
+  // drawing puts it: its rest placement plus the character's Parts layout
+  // (layoutVertex above), expressed in the assembly's instance transform.
+  function placementFor(meshId, artLayout) {
+    const snapshot = legacyAtlasSnapshot();
+    const mesh = snapshot?.meshes.find(m => `atlas-builtin-${m.id}` === meshId);
+    if (!mesh?.placement || !snapshot.width) return null;
+    const {bx,by,kx,ky} = mesh.placement, ppu = .95/snapshot.width;
+    const tr = artLayout?.parts?.[mesh.id] || {};
+    const fallback = Number(tr.scale) || 1;
+    const lsx = clamp(Number(tr.scaleX) || fallback,.25,3), lsy = clamp(Number(tr.scaleY) || fallback,.25,3);
+    const restPivot = ART_PARTS.get(mesh.id)?.pivot || {x:bx,y:by};
+    const px = Number.isFinite(Number(tr.pivotX)) && tr.pivotX !== null ? Number(tr.pivotX) : restPivot.x;
+    const py = Number.isFinite(Number(tr.pivotY)) && tr.pivotY !== null ? Number(tr.pivotY) : restPivot.y;
+    const ux = kx/ppu, uy = ky/ppu, ox = (px-bx)/ux, oy = (py-by)/uy;
+    return {x:px+(Number(tr.x) || 0)-ox, y:py+(Number(tr.y) || 0)-oy, rotation:Number(tr.rotation) || 0,
+      scaleX:lsx*ux, scaleY:lsy*uy, pivotX:ox, pivotY:oy};
+  }
+  window.AnimLabLegacyAtlas = Object.freeze({getSnapshot:legacyAtlasSnapshot, placementFor});
 
   loadDedicatedArt();
   core.registerArtRenderer('quadruped-deform-mesh',render);

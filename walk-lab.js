@@ -1141,8 +1141,9 @@
       const adapter = currentAdapter();
       const saveSetup = selection.mode === 'play' || (selection.mode === 'setup' && !same(setupDraft, checkpoint?.setup));
       const saveClip = selection.mode === 'animate' || selection.mode === 'play';
-      const existingEntry=libraryEntry(character.id);
-      const legacySource=existingEntry && saveSetup
+      // Every character drawn as a Mesh from original parts records their mesh
+      // sources, original characters included (C1c), so the game can draw it.
+      const legacySource=saveSetup
         ? captureLegacyAtlasSource(setupDraft.artLayout?.assembly) : undefined;
       if (saveSetup) {
         // A changed rig must never be saved with stale inverse bind joints.
@@ -1184,7 +1185,7 @@
             : item);
           storeLibrary(updated);
         }else{
-          setupMap[character.id]=storedSetup;
+          setupMap[character.id]=legacySource?{...storedSetup,legacyAtlasSource:legacySource}:storedSetup;
           localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
           if (character.family === 'fox') for (const clipName of QUADRUPED_CLIP_NAMES) syncCompiledClip('fox',clipName);
         }
@@ -1977,7 +1978,8 @@
     if(entry)return clone({name:entry.name,starter:entry.starter,setup:entry.setup,
       sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource});
     return clone({name:character.label,starter:character.family==='fox'?'fox':'original',
-      setup:defaultSetupFor(id),sparseClips:sparseBanks[character.family],legacyAtlasSource:null});
+      setup:defaultSetupFor(id),sparseClips:sparseBanks[character.family],
+      legacyAtlasSource:setupMap[id]?.legacyAtlasSource||null});
   }
   function importLibraryCharacterDocument(raw) {
     if(isDirty() || selection.mode==='play' || libraryEntries.length>=24)return false;

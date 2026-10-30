@@ -16,7 +16,7 @@ A character is a set of choices, each either **linked** to a shared template
 |---|---|---|
 | Rig | Template (instance) or unique copy | Bones and rest proportions; presets menu (Biped, Quadruped, …) |
 | Atlas | Always the character's own | The artwork image |
-| Drawing method | Character's own choice | **Multi-part** (rigid cut-out pieces) or **deformable mesh**; the same in Character Lab and the game. Both stay supported (30 Oct: bipeds multi-part, quadrupeds mesh) |
+| Drawing method | Character's own choice | **Multi-part** (rigid cut-out pieces) or **deformable mesh**; the same in Character Lab and the game. Both stay supported (30 Oct: bipeds multi-part, quadrupeds mesh). Built (C1c): Parts → *Drawing method*; Mesh = the Parts assembly is enabled |
 | Mesh parts + skin | Always the character's own | Depend on that atlas and rig |
 | Animations | Per action: template (instance) or unique copy | Only templates compatible with the character's rig are offered |
 | Abilities | Chosen per character from the shared ability list | Rig template supplies defaults |

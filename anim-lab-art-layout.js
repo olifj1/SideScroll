@@ -240,14 +240,19 @@
     const previous=setup.artLayout.assembly;
     if(previous?.enabled)return previous;
     if(previous?.instances?.length){previous.enabled=true;return previous;}
-    const base=rawDescriptor(state());
+    const base=rawDescriptor(state())||state()?.rig?.ART_LAYOUT_DESIGNER;
     const instances=(base?.parts||[]).map(part=>{
-      const tr=setup.artLayout.parts?.[part.id]||{};
-      return {id:`atlas-part-builtin-${part.id}`,meshId:`atlas-builtin-${part.id}`,
-        label:part.label||part.id,x:tr.x||0,y:tr.y||0,rotation:tr.rotation||0,
-        scaleX:tr.scaleX||1,scaleY:tr.scaleY||1,
-        pivotX:tr.pivotX||0,pivotY:tr.pivotY||0};
+      const tr=setup.artLayout.parts?.[part.id]||{},meshId=`atlas-builtin-${part.id}`;
+      // Same place as Parts drawing shows it, when the original mesh is loaded.
+      const placed=window.AnimLabLegacyAtlas?.placementFor?.(meshId,setup.artLayout);
+      return {id:`atlas-part-builtin-${part.id}`,meshId,label:part.label||part.id,
+        ...(placed||{x:tr.x||0,y:tr.y||0,rotation:tr.rotation||0,
+          scaleX:tr.scaleX||1,scaleY:tr.scaleY||1,pivotX:tr.pivotX||0,pivotY:tr.pivotY||0})};
     });
+    // Keep the Parts layer order (back to front).
+    const order=Array.isArray(setup.artLayout.order)?setup.artLayout.order:[];
+    const rank=item=>{const i=order.indexOf(item.meshId.slice('atlas-builtin-'.length));return i<0?order.length:i;};
+    instances.sort((a,b)=>rank(a)-rank(b));
     setup.artLayout.assembly={schema:'animlab.parts-assembly.v1',enabled:true,instances};
     return setup.artLayout.assembly;
   }
@@ -837,7 +842,61 @@
     getOutlines:()=>showOutlines,
     setOutlines:value=>{showOutlines=!!value;core.redrawOnly?.();}
   });
+  // Drawing method (C1c). Parts draws the original pieces rigidly; Mesh draws
+  // the Parts assembly with its Skin. The game draws the character the same way.
+  // Mesh is simply an enabled assembly, so no extra setting is stored.
+  const methodSection=document.createElement('section');
+  methodSection.className='animlab-section animlab-drawing-method';
+  methodSection.hidden=true;
+  methodSection.innerHTML=`
+    <div class="animlab-section-title">Drawing method</div>
+    <div class="animlab-segmented animlab-two" role="group" aria-label="Drawing method">
+      <button type="button" data-drawing-method="parts">Parts</button>
+      <button type="button" data-drawing-method="mesh">Mesh</button>
+    </div>
+    <p class="animlab-setup-note" data-drawing-note></p>`;
+  section.insertAdjacentElement('beforebegin',methodSection);
+  const methodButtons=[...methodSection.querySelectorAll('[data-drawing-method]')];
+  const methodNote=methodSection.querySelector('[data-drawing-note]');
+  // Parts drawing uses the original parts artwork; an assembly that uses
+  // imported artwork can only be drawn as a Mesh for now.
+  const importedParts=s=>instances(s).some(p=>!String(p.meshId||'').startsWith('atlas-builtin-'));
+  function renderMethod(){
+    const s=state();
+    const show=s.family==='fox'&&s.mode==='setup'&&!!s.setup?.artLayout&&!!s.rig?.ART_LAYOUT_DESIGNER&&
+      (s.setupTool==='art'||(s.setupTool==='skin'&&!isAssembly(s)));
+    methodSection.hidden=!show;if(!show)return;
+    const method=isAssembly(s)?'mesh':'parts',imported=importedParts(s);
+    for(const button of methodButtons){
+      const on=button.dataset.drawingMethod===method;
+      button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));
+      button.disabled=button.dataset.drawingMethod==='parts'&&imported;
+    }
+    methodNote.textContent=method==='parts'
+      ? 'Drawn as rigid parts, in Character Lab and the game. Mesh bends the artwork with the Skin; switching builds the mesh from these parts with automatic skin weights.'
+      : imported
+        ? 'Drawn as a mesh with its Skin, in Character Lab and the game. Parts drawing needs the original parts artwork; this character uses imported artwork.'
+        : 'Drawn as a mesh with its Skin, in Character Lab and the game. Tune the weights in Skin. Parts keeps this mesh and skin, so you can switch back.';
+  }
+  methodSection.addEventListener('click',event=>{
+    const choice=event.target.closest('[data-drawing-method]')?.dataset.drawingMethod;
+    const s=state();if(!choice||(choice==='mesh')===isAssembly(s))return;
+    if(choice==='parts'){
+      core.edit('setup','Drawing method: Parts',setup=>{if(setup.artLayout?.assembly)setup.artLayout.assembly.enabled=false;return setup;});
+      core.setHint?.('Drawing method: Parts · Save to use it in the game');
+      return;
+    }
+    let result=null;
+    core.edit('setup','Drawing method: Mesh',setup=>{
+      if(ensureInventory(setup))result=window.AnimLabAssemblySkin?.bindUnbound?.(setup)||null;
+      return setup;
+    });
+    core.setHint?.(result&&!result.missing
+      ? `Drawing method: Mesh${result.bound?` · ${result.bound} parts skinned automatically`:''} · tune in Skin, then Save`
+      : 'Drawing method: Mesh · some parts could not be skinned yet: open Skin and use Auto-bind all, then Save');
+  });
+
   core.registerPluginRenderer?.('art-layout-designer',renderer);
-  core.subscribe?.(()=>renderUI());
-  renderUI();
+  core.subscribe?.(()=>{renderUI();renderMethod();});
+  renderUI();renderMethod();
 })();
