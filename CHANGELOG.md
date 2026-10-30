@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Publishing foundation: `storage-catalogue.json` classifies all 95 storage keys
+  (content, migration, local, progress, transient, backup, stale) and now drives
+  the bake tool. Players' devices no longer save copies of built-in content when
+  the game merely re-saves it, so future published updates reach them. Fixed: the
+  hero collider (`sidescroll.walklab.collider.v1`) is now built in.
 - Built-in content: the authored world, puzzles, assets, characters (rigs, skins,
   animations) and Design Lab document from the 30 October project export now ship
   with the game (`project-defaults-data.js`, `design-doc.json`), so a fresh install

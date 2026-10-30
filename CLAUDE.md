@@ -63,16 +63,21 @@ anything with a folder unchanged. So:
 The authored project ships as built-in defaults so a fresh install has it:
 - `project-defaults-data.js` is **generated**: the user exports Project Backup on
   the phone, and a session runs `python3 tools/bake_project.py <export.json>`. It
-  holds 58 content keys (world, puzzles, assets, characters, migration flags) and
-  also rewrites `design-doc.json` from the Design Lab working copy. Never edit it
-  by hand; review the tool's printed included/left-out report for new keys.
+  holds the content and migration keys and also rewrites `design-doc.json` from
+  the Design Lab working copy. Never edit it by hand.
+- `storage-catalogue.json` lists **every** storage key with its scope (content,
+  migration, local, progress, transient, backup, stale). The bake tool builds in
+  content + migration keys only and warns about any key it doesn't know. **Add a
+  catalogue line whenever code introduces a new storage key.**
 - `project-defaults.js` makes `localStorage.getItem(key)` return the built-in
-  value when the device has no saved value for that key. It never writes. Saved
-  data always wins; removing a key (a lab's Reset) falls back to built-in content.
+  value when the device has no saved value for that key. Saved data always wins;
+  removing a key (a lab's Reset) falls back to built-in content. A save of a value
+  identical to the built-in one, on a device without its own copy, is skipped, so
+  devices only hold copies of content they have genuinely changed (otherwise the
+  game's on-load re-saves would pin players to an old version).
 - Both load before any other script on index, play, walk-lab, asset-lab,
   puzzle-lab and world-lab. New pages that read saved data must include them.
-- Left out on purpose: play progress (position, puzzle progress, inventory, hints),
-  view preferences, selected character, transient lab state (see `EXCLUDE` in the tool).
+- Left out on purpose: everything not scoped content/migration in the catalogue.
 - IndexedDB images (e.g. New01's imported PNG) are not in the export and are not
   built in.
 - Changing a stored format? The built-in data is in the *old* format until it is
@@ -118,9 +123,8 @@ The authored project ships as built-in defaults so a fresh install has it:
    combine (puzzle-owned elements are relative to the puzzle marker). World
    Element = where content sits in the journey. Section = runtime/streaming chunk.
 7. **Persistence changes** must update `docs/SIDESCROLL_EXPORT_COVERAGE.md` and
-   the Project Backup export/restore in the same change. A new storage key that is
-   authored content must also be considered for `tools/bake_project.py` (it is
-   built in by default unless listed in `EXCLUDE`).
+   the Project Backup export/restore in the same change, and every new storage key
+   needs a line in `storage-catalogue.json`.
 8. **Durable architecture/UX rules** go in `docs/SIDESCROLL_ENGINE_UX_BIBLE.md`.
 
 ## Testing

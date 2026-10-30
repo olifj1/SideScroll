@@ -10,9 +10,10 @@ Writes:
                             value for that key
   design-doc.json           the Design Lab working document from the export
 
-Play state, view preferences and stale keys are left out (see EXCLUDE).
-Any key not listed in EXCLUDE is built in, so review the printed report when
-new storage keys appear.
+What is built in comes from storage-catalogue.json: keys with scope "content"
+or "migration" are built in; everything else (local settings, play progress,
+transient state, backups, stale keys) is left out. A key in the export that the
+catalogue does not know is left out with a warning: classify it there first.
 """
 import json
 import sys
@@ -21,34 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 DESIGN_DOC_KEY = 'sidescroll-design-doc-working-v2'
-
-EXCLUDE = {
-    # Play-through progress: a fresh install starts a new game.
-    'sidescroll.player.position.v1': 'player progress',
-    'sidescroll.player.puzzle-state.v1': 'player progress',
-    'sidescroll.player.inventory.v1': 'player progress',
-    'sidescroll.inventory.v1': 'player progress (old key)',
-    'sidescroll-player-hints-v1': 'player progress',
-    # Device / editor view preferences.
-    'sidescroll.audio.settings.v1': 'preference',
-    'sidescroll.editor.section-collapse.v1': 'preference',
-    'sidescroll.animlab.editor-display.v1': 'preference',
-    'sidescroll.animlab.ik-view.v2': 'preference',
-    'sidescroll.animlab.contact-view.v1': 'preference (unused)',
-    'gamehub.walklab.character.v1': 'preference (selected character)',
-    'sidescroll.game.local-character.v1': 'preference (selected character)',
-    'sidescroll.puzzle-lab.ui.v1': 'preference',
-    # Transient lab state.
-    'sidescroll.puzzle-lab.launch.v1': 'transient',
-    'sidescroll.puzzle-lab.runtime.v1': 'transient',
-    # Handled separately or not read by any code.
-    DESIGN_DOC_KEY: 'written to design-doc.json instead',
-    'sidescroll-design-doc-working-v1': 'superseded by working-v2',
-    'sidescroll.animlab.legacy.samples.backup.v1': 'backup copy',
-    'gamehub.sidescroll.scene.v2': 'not read by any code',
-    'sidescroll.asset-mechanisms.v1': 'not read by any code (code uses v3)',
-    'sidescroll.walklab.collider.v1': 'not read by any code',
-}
+PUBLISHED_SCOPES = {'content', 'migration'}
 
 
 def main(path):
@@ -57,11 +31,17 @@ def main(path):
         sys.exit('Not a SideScroll Project Backup export.')
     entries = snapshot['storage']['localStorage']
 
-    storage, skipped = {}, []
+    catalogue = json.loads((ROOT / 'storage-catalogue.json').read_text(encoding='utf-8'))['keys']
+    storage, skipped, unknown = {}, [], []
     for entry in sorted(entries, key=lambda e: e['key']):
         key, value = entry['key'], entry['value']
-        if key in EXCLUDE:
-            skipped.append((key, EXCLUDE[key]))
+        info = catalogue.get(key)
+        if info is None:
+            unknown.append(key)
+        elif key == DESIGN_DOC_KEY:
+            skipped.append((key, 'written to design-doc.json instead'))
+        elif info['scope'] not in PUBLISHED_SCOPES:
+            skipped.append((key, info['scope']))
         else:
             storage[key] = value if isinstance(value, str) else json.dumps(value)
 
@@ -89,6 +69,11 @@ def main(path):
     for key, why in skipped:
         print(f'  - {key}  ({why})')
     print('design-doc.json', 'updated' if design is not None else 'NOT updated (no working copy in export)')
+    if unknown:
+        print(f'WARNING: {len(unknown)} keys are not in storage-catalogue.json and were left out.')
+        print('Classify them in the catalogue, then run this again:')
+        for key in unknown:
+            print('  ?', key)
 
 
 if __name__ == '__main__':
