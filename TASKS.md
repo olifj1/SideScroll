@@ -9,7 +9,7 @@ Last reviewed: 30 October 2026 (character system agreed).
 ---
 
 ## Now
-Proposed order: publish New01 → characters C1–C3 → Publish Lab (step 3) →
+Proposed order: characters C1–C3 → Publish Lab (step 3) →
 characters C4–C6. Clean-up items are small and slot in between.
 
 ### Publishing workflow (agreed 30 Oct)
@@ -18,7 +18,7 @@ Until the Publish Lab exists, publishing works by giving Claude a Project Backup
 export (`tools/bake_project.py`). Design: three kinds of data — published game
 content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
-- [ ] **Publish New01:** export all characters in Character Lab (on the phone) and hand the file over; bake it so New01 works on every device.
+- [ ] **Character Library layout:** export / import currently sit inside **Load**, which hides them. Decide a better home (e.g. their own Library / Share panel in Character Lab, or as part of the Publish Lab) when C1 reworks the library.
 - [ ] **Step 3 — Publish Lab** (grown from the Project Backup page): every content area and each character with a status (Published / Changed / New / Local only); tick-list publish package; separate "My settings" export; full backup including artwork; restore; "discard my changes, use published" per area; exports and backups driven by the catalogue (replacing the lists in `lab-data.js` and `project-snapshot.js`). Bake tool supports publishing selected areas / single characters. Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
 - [ ] **Step 4 (optional) — Automatic publishing:** upload a publish package to GitHub from the phone; a GitHub Action bakes it and opens the pull request.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
@@ -54,6 +54,7 @@ confirmed it on the phone; if it fails, move it to **Now** as a bug.
 
 - [ ] **Offline** — once everything has loaded, turn on Airplane Mode and launch the Home Screen app: splash, PLAY and the labs should all still work.
 - [ ] **Character export / import** — Character Lab → Load: every character has **Export**; also **Export all characters** and **Import characters…**. Check on iPhone: (1) Export New01 and Export all share/save to Files (expect a few MB with artwork). (2) Rename New01, then Import the New01 file → *Replace* → it comes back with its old name and art. (3) Import the Fox file → *Add as a copy* → "Fox copy" appears. (4) In Safari (separate storage), Import the export-all file → *Replace* New01 → New01 plays in the game with its art. Fox Handoff and "All Character Lab Data" are gone.
+- [ ] **Published New01** — open the site in **Safari** (separate storage, like a new device): New01 should appear in the game's character picker as Ready and play with its artwork; in Character Lab its Atlas shows "Published PNG · 1448 × 1240". In the Home Screen app nothing changes (it still uses your own copy).
 - [ ] **Built-in content** — (1) In the Home Screen app nothing should change: your world, puzzles, characters and Design Lab are exactly as before. (2) Open the site in Safari itself (not the Home Screen app — Safari keeps separate storage, so it behaves like a brand-new device): the game, World Lab, Asset Lab, Puzzle Lab, Character Lab and Design Lab should all show your content. Expected differences there: the game starts at the beginning, Character Lab opens on Hero 1, and New01 shows "Imported PNG missing from this device" (its art isn't built in yet).
 
 ---

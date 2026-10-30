@@ -4,6 +4,8 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Published New01 with its artwork (`assets/char-user-mvfqd1f9-cpjpp1-b28a05c2c7.png`):
+  it now works on every device, not only the phone it was made on.
 - Publishing characters with their artwork: `tools/bake_project.py` now also takes
   character exports and writes imported artwork to `assets/char-<id>-<hash>.png`;
   the game and Character Lab load published character art, so a published
