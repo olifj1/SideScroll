@@ -1,4 +1,4 @@
-const CACHE = "sidescroll-runtime-v137";
+const CACHE = "sidescroll-runtime-v138";
 const CORE_SHELL = [
   "./",
   "./index.html",
@@ -22,6 +22,7 @@ const CORE_SHELL = [
   "./design-lab.js",
   "./design-doc.json",
   "./manifest.json",
+  "./asset-paths.js",
   "./site-config.js",
   "./home.js",
   "./core.js",
@@ -39,7 +40,7 @@ const CORE_SHELL = [
   "./anim-lab-character-library.js",
   "./anim-lab-stage2.js",
   "./anim-lab-mesh.js",
-  "./fox-deform-atlas-v2.png",
+  "./assets/fox-deform-atlas-v2.png",
   "./anim-lab-stage3.js",
   "./anim-lab-stage4.js",
   "./anim-lab-reference.js",
@@ -54,7 +55,7 @@ const CORE_SHELL = [
   "./asset-lab.js",
   "./icon-192.png",
   "./icon-512.png",
-  "./splash-screen.png"
+  "./assets/splash-screen.png"
 ];
 
 self.addEventListener("install", event => {

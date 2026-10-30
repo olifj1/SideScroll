@@ -1827,6 +1827,7 @@
 
   const textures = {};
   const assetAspect = {};
+  const assetPath = window.SideScrollAssetPath || (url => url);
 
   function createImageTexture(url, label = 'image', fallbackUrl = null, aspectOverride = null) {
     const tex = gl.createTexture();
@@ -1863,7 +1864,7 @@
         }
         finishVisualLoad();
       };
-      image.src = src;
+      image.src = assetPath(src);
     };
 
     loadIntoTexture(url);
@@ -1914,7 +1915,7 @@
       const image = new Image();
       image.onload = () => resolve(image);
       image.onerror = reject;
-      image.src = url;
+      image.src = assetPath(url);
     });
     imageSourceCache.set(url, entry);
     return entry;
@@ -2047,7 +2048,7 @@
         }
         finishVisualLoad();
       };
-      image.src = src;
+      image.src = assetPath(src);
     };
 
     loadIntoTexture(url);
@@ -6856,7 +6857,7 @@ document.addEventListener('keydown',event=>{
   }
 
   function inventoryThumbMarkup(itemDef) {
-    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${itemDef.image}?v=1.0.62" alt=""></span>`;
+    if (itemDef?.image) return `<span class="sidescroll-inventory-thumb"><img src="${assetPath(`${itemDef.image}?v=1.0.62`)}" alt=""></span>`;
     if (itemDef?.asset === 'forest-key') return '<span class="sidescroll-inventory-thumb sidescroll-inventory-key-thumb" aria-hidden="true"><i></i></span>';
     return '<span class="sidescroll-inventory-thumb" aria-hidden="true">◇</span>';
   }
@@ -14976,7 +14977,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
         if (file) {
           const thumbVersion = name.startsWith('settlement-') ? '1.0.102' : (name.startsWith('mountain-') ? '1.0.83' : '1.0.62');
-          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${file}?v=${thumbVersion}" alt="" loading="eager"></span><small>${info.label}</small>`;
+          btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${assetPath(`${file}?v=${thumbVersion}`)}" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {
           btn.innerHTML = `<span class="sidescroll-crate-thumb" aria-hidden="true"><i></i></span><small>${info.label}</small>`;
         } else {

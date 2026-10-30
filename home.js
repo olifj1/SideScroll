@@ -1,5 +1,6 @@
 (() => {
   const VERSION = '1.0.169';
+  const assetPath = window.SideScrollAssetPath || (url => url);
   const ASSET_VERSION = '1.0.62';
   const PRELOAD_CACHE = 'sidescroll-runtime-v23';
   const play = document.getElementById('ss-splash-play');
@@ -104,7 +105,7 @@
   };
 
   const warmResource = async url => {
-    const response = await fetch(url, { cache: 'force-cache', credentials: 'same-origin' });
+    const response = await fetch(assetPath(url), { cache: 'force-cache', credentials: 'same-origin' });
     if (!response.ok) throw new Error(`${response.status} ${url}`);
     // Populate the exact release cache before the worker installs. This makes
     // the loading bar real useful work rather than a second download.

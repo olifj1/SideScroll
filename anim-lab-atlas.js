@@ -186,7 +186,7 @@
       const current=++state.loadSerial, image=new Image();
       image.onload=()=>{if(current!==state.loadSerial)return;setImage(image);refresh();};
       image.onerror=()=>{if(current===state.loadSerial){state.imageStatus='Bundled atlas unavailable';refresh();}};
-      image.src=s.character.atlas;
+      image.src=(window.SideScrollAssetPath||(url=>url))(s.character.atlas);
     }
   }
   function updateLegacy(s) {

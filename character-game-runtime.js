@@ -60,7 +60,7 @@
     await new Promise((resolve,reject)=>{
       image.onload=resolve;
       image.onerror=()=>reject(Error('Bundled Fox deform atlas missing from game'));
-      image.src='./fox-deform-atlas-v2.png?v=1.1.25';
+      image.src=(window.SideScrollAssetPath||(url=>url))('fox-deform-atlas-v2.png?v=1.1.25');
     });
     return image;
   }

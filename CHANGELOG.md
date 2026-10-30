@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Moved all art and audio into `assets/` (icons stay in the root). New `asset-paths.js`
+  resolves bare filenames at load time, so saved characters and lab data need no
+  migration. Service-worker cache bumped to v138; players re-download art once.
 - Added `CLAUDE.md` (session orientation), `TASKS.md` (the single task list) and
   this changelog; archived the old task log to `docs/archive/`.
 - Signed off all outstanding iPhone acceptance tests up to 1.1.27.

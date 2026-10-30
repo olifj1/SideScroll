@@ -23,5 +23,5 @@ game and Character Lab use) and `fox-rig-atlas-v3.png`.
   by any page, so the v3 images are only reachable through it.
 
 ## To restore a file
-Move it back to the project root (same filename). No code paths were changed
-for anything in this folder.
+Move it into `assets/` (same filename); code refers to art by bare filename and
+`asset-paths.js` resolves it to `assets/`. Scripts go back to the project root.

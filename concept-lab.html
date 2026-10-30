@@ -161,7 +161,9 @@
     </div>
   </div>
 
+  <script src="asset-paths.js?v=1.1.28"></script>
   <script>
+    const assetPath = window.SideScrollAssetPath || (url => url);
     const DATA_URL = 'concept-lab-data.json?v=1.0.63-concept-lab-flat';
     const STORAGE_KEY = 'ss-concept-lab-state-v1';
     const state = { current: 'overview', doc: null, local: loadLocalState(), saveTimer: 0 };
@@ -255,7 +257,7 @@
       const workflow = state.doc.overview.workflow.map(item => `<li>${escapeHtml(item)}</li>`).join('');
       const locationCards = state.doc.locations.map(loc => `
         <div class="cl-card">
-          <img src="${escapeAttr(loc.images[0]?.src || '')}" alt="${escapeAttr(loc.title)}" data-title="${escapeAttr(loc.title)}">
+          <img src="${escapeAttr(assetPath(loc.images[0]?.src || ''))}" alt="${escapeAttr(loc.title)}" data-title="${escapeAttr(loc.title)}">
           <div class="cl-card-body">
             <strong>${escapeHtml(loc.title)}</strong>
             <small>${escapeHtml(loc.folder)}</small>
@@ -267,7 +269,7 @@
         <section class="cl-panel cl-hero">
           <h1>${escapeHtml(state.doc.title || 'Concept Lab')}</h1>
           <p>${escapeHtml(state.doc.overview.summary || '')}</p>
-          <img class="cl-overview-image" src="concept-shared-game-view-reference.png" alt="Current game view reference" data-title="Current game view reference">
+          <img class="cl-overview-image" src="assets/concept-shared-game-view-reference.png" alt="Current game view reference" data-title="Current game view reference">
         </section>
         <div class="cl-stack">
           <section class="cl-panel cl-grid-2">
@@ -296,7 +298,7 @@
       const images = [...(location.images || []), ...extraRefs];
       const gallery = images.length ? images.map((img, index) => `
         <div class="cl-card">
-          <img src="${escapeAttr(img.src)}" alt="${escapeAttr(img.title || location.title)}" data-title="${escapeAttr(img.title || location.title)}">
+          <img src="${escapeAttr(assetPath(img.src))}" alt="${escapeAttr(img.title || location.title)}" data-title="${escapeAttr(img.title || location.title)}">
           <div class="cl-card-body">
             <strong>${escapeHtml(img.title || 'Reference image')}</strong>
             <small>${escapeHtml(img.role || (index >= (location.images || []).length ? 'repo-support' : 'baseline'))}</small>
