@@ -167,7 +167,7 @@
 
   function controlsFor(state = core.getState()) {
     // New rig families may provide semantic controls without changing this
-    // editor. Legacy Biped/Fox mappings remain the exact compatibility fallback.
+    // editor. Legacy Biped/quadruped mappings remain the exact compatibility fallback.
     const authored=state.rig?.POSE_CONTROL_DESIGNER?.controls;
     return Array.isArray(authored) ? authored : (CONTROL_SETS[state.adapterId] || CONTROL_SETS[state.family] || []);
   }
@@ -232,7 +232,7 @@
     setupNote.textContent = hasArtLayout
       ? `${state.character.label} scale, collider, structural joints and bind-art Part Layout are one saved character setup. Use Parts for art, Rig for joints, Skin for deformation weights. These are independent edit stages.`
       : state.family === 'human'
-        ? `${state.character.label} scale is per-character and drives gameplay size after Save. Saving the human collider still affects both Hero 1 and Hero 2. This rig family has not exposed bind-art Part Layout yet.`
+        ? `${state.character.label} scale is per-character and drives gameplay size after Save. The biped collider is shared by bipeds without their own setup, so saving it affects them all. This rig family has not exposed bind-art Part Layout yet.`
         : `${state.character.label} uses the shared Character Setup workflow, but this rig family has not exposed bind-art Part Layout yet.`;
     setupToolButtons.forEach(button=>{
       const tool=button.dataset.setupTool,active=tool===state.setupTool;
@@ -332,7 +332,7 @@
         pose[`${prefix}IkX`]=dragStart.ikCapture.x;
         pose[`${prefix}IkY`]=dragStart.ikCapture.y;
       }
-      // Paw targets are the normal Fox limb-authoring method. Moving one turns
+      // Paw targets are the normal quadruped limb-authoring method. Moving one turns
       // IK on for that pose automatically; authors do not key an FK/IK switch.
       pose[`${prefix}IkWeight`]=1;
       pose[`${prefix}Planted`]=false;
@@ -534,7 +534,7 @@
 
   core.subscribe(state=>render(state,false));
   core.setOverlay('ground',true);
-  // Keep the Hero 1 scale ghost off during normal animation comparison. It is
+  // Keep the first original biped's scale ghost off during normal animation comparison. It is
   // enabled automatically when entering Setup, where it remains useful as a
   // physical scale reference. Motion references use their own underlay layer.
   core.setOverlay('reference',core.getState().mode==='setup');

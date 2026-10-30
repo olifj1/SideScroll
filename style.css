@@ -14524,7 +14524,7 @@ body[data-game-id="game-17"] .animlab-contact-limbs button{font-size:6.2px!impor
   body[data-game-id="game-17"] .animlab-contact-actions button{min-height:27px;font-size:6.2px;}
 }
 
-/* SideScroll v1.0.156 — simplified persistent Fox IK, matching Rig/Animate
+/* SideScroll v1.0.156 — simplified persistent quadruped IK, matching Rig/Animate
    two-thumb workflow, and near/far limb readability. */
 body[data-game-id="game-17"] .animlab-side-near>.animlab-control-group-title,
 body[data-game-id="game-17"] .animlab-rig-group.animlab-side-near>.animlab-rig-group-title{
@@ -14553,10 +14553,10 @@ body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-far.is-acti
 body[data-game-id="game-17"] .animlab-contact-actions-simple{grid-template-columns:repeat(2,minmax(0,1fr));}
 body[data-game-id="game-17"] .animlab-contact-actions-simple .animlab-contact-example{grid-column:1/-1;}
 
-/* SideScroll v1.0.158 — static Rig reference + Fox handoff */
+/* SideScroll v1.0.158 — static Rig reference + quadruped handoff */
 body[data-game-id="game-17"] .animlab-static-reference #animlab-static-reference-sources button{font-size:7px;}
 
-/* SideScroll v1.0.160 — Anim Lab Quick Play + Fox motion-speed tuning. */
+/* SideScroll v1.0.160 — Anim Lab Quick Play + quadruped motion-speed tuning. */
 body[data-game-id="game-17"] .animlab-quickplay-section[hidden],
 body[data-game-id="game-17"] .animlab-quickplay-pad[hidden]{display:none!important;}
 body[data-game-id="game-17"] .animlab-quickplay-status{

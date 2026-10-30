@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const HumanRig = window.GameHubWalkRig || null;
-  const FoxRig = window.GameHubFoxRig || null;
+  const BipedRig = window.GameHubWalkRig || null;
+  const QuadrupedRig = window.SideScrollQuadrupedRig || null;
   const canvas = document.getElementById('animlab-canvas');
-  if (!HumanRig || !FoxRig || !canvas) {
-    console.error('[Anim Lab] Required rig family or canvas is missing.', { human: !!HumanRig, fox: !!FoxRig, canvas: !!canvas });
+  if (!BipedRig || !QuadrupedRig || !canvas) {
+    console.error('[Anim Lab] Required rig family or canvas is missing.', { human: !!BipedRig, fox: !!QuadrupedRig, canvas: !!canvas });
     return;
   }
 
@@ -39,12 +39,12 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  const FOX_CLIPS_KEY = 'sidescroll.animlab.quadruped.clips.v1';
+  const QUADRUPED_CLIPS_KEY = 'sidescroll.animlab.quadruped.clips.v1';
   const SETUP_KEY = 'sidescroll.animlab.setup.v1';
   const EDITOR_SELECTION_KEY = 'sidescroll.animlab.editor.selection.v1';
-  const HUMAN_CLIPS_KEY = 'gamehub.walklab.anim.v6';
-  const HUMAN_WALK_KEY = 'gamehub.walklab.anim.v4';
-  const HUMAN_PREVIOUS_KEY = 'gamehub.walklab.anim.v5';
+  const BIPED_CLIPS_KEY = 'gamehub.walklab.anim.v6';
+  const BIPED_WALK_KEY = 'gamehub.walklab.anim.v4';
+  const BIPED_PREVIOUS_KEY = 'gamehub.walklab.anim.v5';
   const SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
   const LEGACY_BACKUP_KEY = 'sidescroll.animlab.legacy.samples.backup.v1';
   const SPARSE_SCHEMA = 'animlab.sparse.v1';
@@ -58,7 +58,7 @@
   const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
   const STATIC_REFERENCE_KEY = 'sidescroll.animlab.static-reference.v1';
   // v199: new library entries are private character documents, not aliases for
-  // built-in Fox/Hero gameplay storage. Never copy arbitrary atlas paths from
+  // built-in original gameplay storage. Never copy arbitrary atlas paths from
   // localStorage into an image URL.
   const CHARACTER_LIBRARY_KEY = 'sidescroll.animlab.character-library.v1';
   const CHARACTER_LIBRARY_SCHEMA = 'animlab.character-library.v1';
@@ -93,9 +93,9 @@
     libraryEntries=entries;
   }
 
-  const HUMAN_CLIP_NAMES = Object.freeze(['walk','run','jump']);
-  const FOX_CLIP_NAMES = Object.freeze(['idle','walk','run','jump']);
-  const clipNamesForFamily = family => family === 'fox' ? FOX_CLIP_NAMES : HUMAN_CLIP_NAMES;
+  const BIPED_CLIP_NAMES = Object.freeze(['walk','run','jump']);
+  const QUADRUPED_CLIP_NAMES = Object.freeze(['idle','walk','run','jump']);
+  const clipNamesForFamily = family => family === 'fox' ? QUADRUPED_CLIP_NAMES : BIPED_CLIP_NAMES;
 
   function loadCollapseState() {
     try { return JSON.parse(localStorage.getItem(COLLAPSE_STATE_KEY) || '{}') || {}; }
@@ -183,76 +183,76 @@
     return bank;
   }
 
-  function loadHumanBank() {
-    const bank = defaultBank(HumanRig,'human');
+  function loadBipedBank() {
+    const bank = defaultBank(BipedRig,'human');
     try {
-      const saved = JSON.parse(localStorage.getItem(HUMAN_CLIPS_KEY) || 'null');
+      const saved = JSON.parse(localStorage.getItem(BIPED_CLIPS_KEY) || 'null');
       if (saved) {
         for (const name of ['walk','run','jump']) {
-          if (Array.isArray(saved[name]) && saved[name].length === 16) bank[name] = saved[name].map((p,i) => HumanRig.normalizedPose(p,i));
+          if (Array.isArray(saved[name]) && saved[name].length === 16) bank[name] = saved[name].map((p,i) => BipedRig.normalizedPose(p,i));
         }
       } else {
-        const previous = JSON.parse(localStorage.getItem(HUMAN_PREVIOUS_KEY) || 'null');
-        if (Array.isArray(previous?.walk) && previous.walk.length === 16) bank.walk = previous.walk.map((p,i) => HumanRig.normalizedPose(p,i));
+        const previous = JSON.parse(localStorage.getItem(BIPED_PREVIOUS_KEY) || 'null');
+        if (Array.isArray(previous?.walk) && previous.walk.length === 16) bank.walk = previous.walk.map((p,i) => BipedRig.normalizedPose(p,i));
         else {
-          const old = JSON.parse(localStorage.getItem(HUMAN_WALK_KEY) || 'null');
-          if (Array.isArray(old?.frames) && old.frames.length === 16) bank.walk = old.frames.map((p,i) => HumanRig.normalizedPose(p,i));
+          const old = JSON.parse(localStorage.getItem(BIPED_WALK_KEY) || 'null');
+          if (Array.isArray(old?.frames) && old.frames.length === 16) bank.walk = old.frames.map((p,i) => BipedRig.normalizedPose(p,i));
         }
       }
     } catch (err) {
-      console.warn('[Anim Lab] Human clip read failed; using current rig defaults.', err);
+      console.warn('[Anim Lab] Biped clip read failed; using current rig defaults.', err);
     }
     return bank;
   }
 
-  function saveHumanBank(bank) {
+  function saveBipedBank(bank) {
     const safe = {};
-    for (const name of ['walk','run','jump']) safe[name] = bank[name].map((p,i) => HumanRig.normalizedPose(p,i));
-    localStorage.setItem(HUMAN_CLIPS_KEY, JSON.stringify({version:14, ...safe}));
-    localStorage.setItem(HUMAN_WALK_KEY, JSON.stringify({version:12, frames:safe.walk}));
+    for (const name of ['walk','run','jump']) safe[name] = bank[name].map((p,i) => BipedRig.normalizedPose(p,i));
+    localStorage.setItem(BIPED_CLIPS_KEY, JSON.stringify({version:14, ...safe}));
+    localStorage.setItem(BIPED_WALK_KEY, JSON.stringify({version:12, frames:safe.walk}));
   }
 
-  function foxExampleStrideLocal() {
+  function quadrupedExampleStrideLocal() {
     const saved = setupMap?.fox || {};
-    const raw = saved.baselineId === FoxRig.AUTHORING_BASELINE_ID ? Number(saved.scale) : NaN;
-    const scale = clamp(Number.isFinite(raw) ? raw : (Number(FoxRig.DEFAULT_SCALE) || 1.71), SETUP_SCALE_MIN, SETUP_SCALE_MAX);
-    return (Number(FoxRig.WALK_STRIDE_WORLD) || 0) / Math.max(.001, 2.31 * scale);
+    const raw = saved.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID ? Number(saved.scale) : NaN;
+    const scale = clamp(Number.isFinite(raw) ? raw : (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71), SETUP_SCALE_MIN, SETUP_SCALE_MAX);
+    return (Number(QuadrupedRig.WALK_STRIDE_WORLD) || 0) / Math.max(.001, 2.31 * scale);
   }
 
-  function foxExampleFrames() {
-    if (typeof FoxRig.buildExampleWalkFrames === 'function') {
-      return FoxRig.buildExampleWalkFrames(FoxRig.loadRestRig?.(), foxExampleStrideLocal()).map((p,i)=>FoxRig.normalizedPose(p,i));
+  function quadrupedExampleFrames() {
+    if (typeof QuadrupedRig.buildExampleWalkFrames === 'function') {
+      return QuadrupedRig.buildExampleWalkFrames(QuadrupedRig.loadRestRig?.(), quadrupedExampleStrideLocal()).map((p,i)=>QuadrupedRig.normalizedPose(p,i));
     }
-    return FoxRig.DEFAULT_FRAMES.map((p,i)=>FoxRig.normalizedPose(p,i));
+    return QuadrupedRig.DEFAULT_FRAMES.map((p,i)=>QuadrupedRig.normalizedPose(p,i));
   }
 
-  function loadFoxBank() {
-    const bank = defaultBank(FoxRig,'fox');
+  function loadQuadrupedBank() {
+    const bank = defaultBank(QuadrupedRig,'fox');
     try {
-      const saved = JSON.parse(localStorage.getItem(FOX_CLIPS_KEY) || 'null');
-      // v1.0.159 promotes the exported authoring handoff into the built-in Fox
+      const saved = JSON.parse(localStorage.getItem(QUADRUPED_CLIPS_KEY) || 'null');
+      // v1.0.159 promotes the exported authoring handoff into the built-in quadruped
       // baseline. Pre-baseline local clip banks are intentionally ignored so an
       // older experiment cannot silently replace the newly approved rig/clip set.
-      if (saved?.baselineId === FoxRig.AUTHORING_BASELINE_ID && saved?.clips) {
-        for (const name of FOX_CLIP_NAMES) {
-          if (Array.isArray(saved.clips[name]) && saved.clips[name].length === 16) bank[name] = saved.clips[name].map((p,i) => FoxRig.normalizedPose(p,i));
+      if (saved?.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID && saved?.clips) {
+        for (const name of QUADRUPED_CLIP_NAMES) {
+          if (Array.isArray(saved.clips[name]) && saved.clips[name].length === 16) bank[name] = saved.clips[name].map((p,i) => QuadrupedRig.normalizedPose(p,i));
         }
       }
     } catch (err) {
-      console.warn('[Anim Lab] Fox editor clip read failed; using the promoted v1.0.159 Fox authoring baseline.', err);
+      console.warn('[Anim Lab] Quadruped editor clip read failed; using the original quadruped baseline.', err);
     }
     return bank;
   }
 
-  function saveFoxBank(bank) {
+  function saveQuadrupedBank(bank) {
     const clips = {};
-    for (const name of FOX_CLIP_NAMES) clips[name] = bank[name].map((p,i) => FoxRig.normalizedPose(p,i));
-    localStorage.setItem(FOX_CLIPS_KEY, JSON.stringify({
+    for (const name of QUADRUPED_CLIP_NAMES) clips[name] = bank[name].map((p,i) => QuadrupedRig.normalizedPose(p,i));
+    localStorage.setItem(QUADRUPED_CLIPS_KEY, JSON.stringify({
       schema:'animlab.legacy-sampled.v1',
       family:'fox',
       sampleCount:16,
-      baselineId:FoxRig.AUTHORING_BASELINE_ID || null,
-      walkFoundationVersion:FoxRig.WALK_EXAMPLE_ID || null,
+      baselineId:QuadrupedRig.AUTHORING_BASELINE_ID || null,
+      walkFoundationVersion:QuadrupedRig.WALK_EXAMPLE_ID || null,
       clips
     }));
   }
@@ -260,35 +260,35 @@
 
   const adapters = {
     human: {
-      id:'human', label:'Biped', rig:HumanRig,
+      id:'human', label:'Biped', rig:BipedRig,
       clipMs:{walk:1050,run:650,jump:935},
-      loadBank:loadHumanBank, saveBank:saveHumanBank,
-      normalise:(pose, index) => HumanRig.normalizedPose(pose,Math.floor(((Number(index)||0)%16+16)%16)),
+      loadBank:loadBipedBank, saveBank:saveBipedBank,
+      normalise:(pose, index) => BipedRig.normalizedPose(pose,Math.floor(((Number(index)||0)%16+16)%16)),
       defaultPose:(clip,index) => {
-        const source = clip === 'run' ? HumanRig.RUN_FRAMES : clip === 'jump' ? HumanRig.JUMP_FRAMES : HumanRig.DEFAULT_FRAMES;
-        return HumanRig.normalizedPose(source[index], index);
+        const source = clip === 'run' ? BipedRig.RUN_FRAMES : clip === 'jump' ? BipedRig.JUMP_FRAMES : BipedRig.DEFAULT_FRAMES;
+        return BipedRig.normalizedPose(source[index], index);
       },
-      collider:() => HumanRig.loadCollider(),
-      normaliseCollider:value => HumanRig.normalizedCollider(value),
-      saveCollider:value => HumanRig.saveCollider(value),
+      collider:() => BipedRig.loadCollider(),
+      normaliseCollider:value => BipedRig.normalizedCollider(value),
+      saveCollider:value => BipedRig.saveCollider(value),
       scope:'Biped characters without their own clips share one animation set and collider.'
     },
     fox: {
-      id:'fox', label:'Quadruped', rig:FoxRig,
+      id:'fox', label:'Quadruped', rig:QuadrupedRig,
       // Match the actual distance-driven gameplay cadence: cycle time = stride / speed.
-      clipMs:{idle:1400,walk:Number(FoxRig.WALK_CYCLE_MS)||539,run:Number(FoxRig.RUN_CYCLE_MS)||323,jump:Number(FoxRig.JUMP_CYCLE_MS)||1139},
-      loadBank:loadFoxBank, saveBank:saveFoxBank,
-      normalise:(pose,index) => FoxRig.normalizedPose(pose,index),
+      clipMs:{idle:1400,walk:Number(QuadrupedRig.WALK_CYCLE_MS)||539,run:Number(QuadrupedRig.RUN_CYCLE_MS)||323,jump:Number(QuadrupedRig.JUMP_CYCLE_MS)||1139},
+      loadBank:loadQuadrupedBank, saveBank:saveQuadrupedBank,
+      normalise:(pose,index) => QuadrupedRig.normalizedPose(pose,index),
       defaultPose:(clip,index) => {
-        const source = clip === 'idle' ? FoxRig.IDLE_FRAMES : clip === 'run' ? FoxRig.RUN_FRAMES : clip === 'jump' ? FoxRig.JUMP_FRAMES : FoxRig.DEFAULT_FRAMES;
-        return FoxRig.normalizedPose(source[index], index);
+        const source = clip === 'idle' ? QuadrupedRig.IDLE_FRAMES : clip === 'run' ? QuadrupedRig.RUN_FRAMES : clip === 'jump' ? QuadrupedRig.JUMP_FRAMES : QuadrupedRig.DEFAULT_FRAMES;
+        return QuadrupedRig.normalizedPose(source[index], index);
       },
-      collider:() => FoxRig.loadCollider(),
-      normaliseCollider:value => FoxRig.normalizedCollider(value),
-      saveCollider:value => FoxRig.saveCollider(value),
-      loadRestRig:() => FoxRig.loadRestRig(),
-      normaliseRestRig:value => FoxRig.normalizedRestRig(value),
-      saveRestRig:value => FoxRig.saveRestRig(value),
+      collider:() => QuadrupedRig.loadCollider(),
+      normaliseCollider:value => QuadrupedRig.normalizedCollider(value),
+      saveCollider:value => QuadrupedRig.saveCollider(value),
+      loadRestRig:() => QuadrupedRig.loadRestRig(),
+      normaliseRestRig:value => QuadrupedRig.normalizedRestRig(value),
+      saveRestRig:value => QuadrupedRig.saveRestRig(value),
       scope:'Quadruped clips save to the shared quadruped set; Play uses the last saved Idle/Walk/Run/Jump clips, with the original set as fallback.'
     }
   };
@@ -309,10 +309,10 @@
       quickPlay:true,authoring:Object.freeze({atlas:true,parts:true,rig:true,skin:true,animate:true}),
       clips:Object.freeze(['idle','walk','run','jump']),
       actionSlots:Object.freeze(['idle','walk','run','jump']),
-      clipMs:Object.freeze({idle:1400,walk:Number(FoxRig.WALK_CYCLE_MS)||539,
-        run:Number(FoxRig.RUN_CYCLE_MS)||323,jump:Number(FoxRig.JUMP_CYCLE_MS)||1139}),
-      defaultSpeeds:Object.freeze({walk:Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,
-        run:Number(FoxRig.DEFAULT_RUN_SPEED)||2.85}),idleFallback:null})
+      clipMs:Object.freeze({idle:1400,walk:Number(QuadrupedRig.WALK_CYCLE_MS)||539,
+        run:Number(QuadrupedRig.RUN_CYCLE_MS)||323,jump:Number(QuadrupedRig.JUMP_CYCLE_MS)||1139}),
+      defaultSpeeds:Object.freeze({walk:Number(QuadrupedRig.DEFAULT_WALK_SPEED)||1.15,
+        run:Number(QuadrupedRig.DEFAULT_RUN_SPEED)||2.85}),idleFallback:null})
   });
   const characterProfile = (family=currentCharacter().family) => CHARACTER_PROFILES[family] || null;
 
@@ -353,7 +353,7 @@
     for(const id of ids)if(!order.includes(id))order.push(id);
     const result={schema:ART_LAYOUT_SCHEMA,parts,order};
     // Opt-in assembled Atlas instances are character-setup data, not edits to
-    // the six legacy Fox descriptors. Absent means exactly the old behaviour.
+    // the six legacy quadruped descriptors. Absent means exactly the old behaviour.
     // Keep stable source mesh IDs (no vertex copies, no shared cross-character
     // identity in this schema). Bone targets are *intent*, not Skin weights.
     if(value?.assembly && typeof value.assembly==='object') {
@@ -519,40 +519,40 @@
     const adapter = adapters[character.family];
     const custom=libraryEntry(characterId);
     const saved = custom ? custom.setup : (setupMap[characterId] || {});
-    const foxSetupCurrent = !!custom || adapter.id !== 'fox' || saved.baselineId === FoxRig.AUTHORING_BASELINE_ID;
-    const savedScale = foxSetupCurrent ? Number(saved.scale) : NaN;
+    const quadrupedSetupCurrent = !!custom || adapter.id !== 'fox' || saved.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID;
+    const savedScale = quadrupedSetupCurrent ? Number(saved.scale) : NaN;
     const setup = {
-      scale: clamp(Number.isFinite(savedScale) ? savedScale : (adapter.id === 'fox' ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1), SETUP_SCALE_MIN, SETUP_SCALE_MAX),
+      scale: clamp(Number.isFinite(savedScale) ? savedScale : (adapter.id === 'fox' ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1), SETUP_SCALE_MIN, SETUP_SCALE_MAX),
       // Collider ownership remains with the existing rig family storage. This
-      // prevents Hero 1/Hero 2 from showing stale per-character copies while
-      // the runtime still shares one human collider.
+      // prevents the two original bipeds from showing stale per-character copies while
+      // the runtime still shares one biped collider.
       collider: adapter.normaliseCollider(custom?.setup?.collider || adapter.collider())
     };
-    // Movement speeds are character settings, not a Fox-only setting.
+    // Movement speeds are character settings, not a quadruped-only setting.
     // No existing saved value is rewritten until the user explicitly Saves.
     const speeds = characterProfile(character.family)?.defaultSpeeds || {walk:1.15,run:2.85};
-    const savedWalk = foxSetupCurrent && saved.walkSpeed != null ? Number(saved.walkSpeed) : NaN;
-    const savedRun = foxSetupCurrent && saved.runSpeed != null ? Number(saved.runSpeed) : NaN;
+    const savedWalk = quadrupedSetupCurrent && saved.walkSpeed != null ? Number(saved.walkSpeed) : NaN;
+    const savedRun = quadrupedSetupCurrent && saved.runSpeed != null ? Number(saved.runSpeed) : NaN;
     setup.walkSpeed = clamp(Number.isFinite(savedWalk) ? savedWalk : speeds.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
     setup.runSpeed = clamp(Math.max(Number.isFinite(savedRun) ? savedRun : speeds.run,setup.walkSpeed+.20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
     if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(custom?.setup?.rig || adapter.loadRestRig());
-    if (artLayoutDescriptor(adapter)) setup.artLayout = normaliseArtLayout(adapter, foxSetupCurrent ? saved.artLayout : null);
-    if (supportsRestBinding(adapter)) setup.skinTuning = normaliseSkinTuning(foxSetupCurrent ? saved.skinTuning : null);
+    if (artLayoutDescriptor(adapter)) setup.artLayout = normaliseArtLayout(adapter, quadrupedSetupCurrent ? saved.artLayout : null);
+    if (supportsRestBinding(adapter)) setup.skinTuning = normaliseSkinTuning(quadrupedSetupCurrent ? saved.skinTuning : null);
     // P2: two independent rest snapshots. Art's source assembly is frozen to
     // the last accepted artwork coordinate system. Skin uses the last *explicit*
     // bind snapshot, not a moving Rig draft. Legacy saves are anchored to the
-    // user's EXISTING Fox rig on first open, never to a guessed default.
+    // user's EXISTING quadruped rig on first open, never to a guessed default.
     if (supportsRestBinding(adapter) && setup.rig) {
-      setup.artRestRig = adapter.normaliseRestRig(foxSetupCurrent && saved.artRestRig || setup.rig);
-      setup.skinBindRig = adapter.normaliseRestRig(foxSetupCurrent && saved.skinBindRig || setup.rig);
+      setup.artRestRig = adapter.normaliseRestRig(quadrupedSetupCurrent && saved.artRestRig || setup.rig);
+      setup.skinBindRig = adapter.normaliseRestRig(quadrupedSetupCurrent && saved.skinBindRig || setup.rig);
     }
     return setup;
   }
 
-  const banks = { human:loadHumanBank(), fox:loadFoxBank() };
+  const banks = { human:loadBipedBank(), fox:loadQuadrupedBank() };
   const legacySamplesAtOpen = clone(banks);
 
   function normaliseSparseClip(raw, family, clipName, fallbackFrames = banks[family][clipName]) {
@@ -600,20 +600,20 @@
     let stored = null;
     try { stored = JSON.parse(localStorage.getItem(SPARSE_CLIPS_KEY) || 'null'); } catch (err) { console.warn('[Anim Lab] Sparse clip read failed; importing sampled clips.', err); }
     const out = {human:{},fox:{}};
-    const foxStoredIsCurrent = stored?.foxBaselineId === FoxRig.AUTHORING_BASELINE_ID;
+    const quadrupedStoredIsCurrent = stored?.foxBaselineId === QuadrupedRig.AUTHORING_BASELINE_ID;
     for (const family of ['human','fox']) {
       for (const clipName of clipNamesForFamily(family)) {
         let raw = stored?.schema === SPARSE_SCHEMA ? stored?.families?.[family]?.[clipName] : null;
-        if (family === 'fox' && !foxStoredIsCurrent) raw = null;
-        if (!raw && family === 'fox' && FoxRig.AUTHORED_SPARSE_CLIPS?.[clipName]) raw = clone(FoxRig.AUTHORED_SPARSE_CLIPS[clipName]);
-        if (family === 'fox' && clipName === 'walk' && FoxRig.WALK_EXAMPLE_ID
-          && raw?.foundationVersion !== FoxRig.WALK_EXAMPLE_ID) {
-          const keys = typeof FoxRig.buildExampleWalkKeys === 'function'
-            ? FoxRig.buildExampleWalkKeys(FoxRig.loadRestRig?.(), foxExampleStrideLocal())
-            : FoxRig.WALK_EXAMPLE_KEYS;
+        if (family === 'fox' && !quadrupedStoredIsCurrent) raw = null;
+        if (!raw && family === 'fox' && QuadrupedRig.AUTHORED_SPARSE_CLIPS?.[clipName]) raw = clone(QuadrupedRig.AUTHORED_SPARSE_CLIPS[clipName]);
+        if (family === 'fox' && clipName === 'walk' && QuadrupedRig.WALK_EXAMPLE_ID
+          && raw?.foundationVersion !== QuadrupedRig.WALK_EXAMPLE_ID) {
+          const keys = typeof QuadrupedRig.buildExampleWalkKeys === 'function'
+            ? QuadrupedRig.buildExampleWalkKeys(QuadrupedRig.loadRestRig?.(), quadrupedExampleStrideLocal())
+            : QuadrupedRig.WALK_EXAMPLE_KEYS;
           raw = {
             source:'fox-example-walk',
-            foundationVersion:FoxRig.WALK_EXAMPLE_ID,
+            foundationVersion:QuadrupedRig.WALK_EXAMPLE_ID,
             keys
           };
         }
@@ -628,7 +628,7 @@
 
   let sparseBanks = loadSparseBanks();
   // Per-character clip documents are independent of the legacy shared
-  // human/Fox animation banks. Existing characters retain their old keys.
+  // biped/quadruped animation banks. Existing characters retain their old keys.
   const customSparseBanks={};
   const customSampleBanks={};
   function initialiseLibraryClips(entry) {
@@ -645,14 +645,14 @@
   let conversionPreview = null;
 
   const GAMEPLAY_BASE_CHARACTER_SCALE = 2.31;
-  function foxSavedSetupScale() {
+  function quadrupedSavedSetupScale() {
     return clamp(Number(setupMap?.fox?.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX);
   }
-  function foxLocalStride(clipName) {
-    const strideWorld = clipName === 'run' ? Number(FoxRig.RUN_STRIDE_WORLD) || 0
-      : clipName === 'walk' ? Number(FoxRig.WALK_STRIDE_WORLD) || 0
+  function quadrupedLocalStride(clipName) {
+    const strideWorld = clipName === 'run' ? Number(QuadrupedRig.RUN_STRIDE_WORLD) || 0
+      : clipName === 'walk' ? Number(QuadrupedRig.WALK_STRIDE_WORLD) || 0
       : 0;
-    return strideWorld / Math.max(.001, GAMEPLAY_BASE_CHARACTER_SCALE * foxSavedSetupScale());
+    return strideWorld / Math.max(.001, GAMEPLAY_BASE_CHARACTER_SCALE * quadrupedSavedSetupScale());
   }
   function hermiteValue(v0,v1,v2,v3,x0,x1,x2,x3,t){
     const span=Math.max(.0001,x2-x1);
@@ -684,7 +684,7 @@
   }
 
   function evaluateSparsePose(clipData, frame, family, options = {}) {
-    if (family === 'fox' && typeof FoxRig.evaluateSparsePose === 'function') return FoxRig.evaluateSparsePose(clipData,frame);
+    if (family === 'fox' && typeof QuadrupedRig.evaluateSparsePose === 'function') return QuadrupedRig.evaluateSparsePose(clipData,frame);
     const adapter = adapters[family];
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
     if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
@@ -731,7 +731,7 @@
   for (const family of ['human','fox']) for (const clipName of clipNamesForFamily(family)) syncCompiledClip(family,clipName);
 
   function saveSparseBanks() {
-    localStorage.setItem(SPARSE_CLIPS_KEY, JSON.stringify({schema:SPARSE_SCHEMA, sampleCount:16, foxBaselineId:FoxRig.AUTHORING_BASELINE_ID || null, families:sparseBanks}));
+    localStorage.setItem(SPARSE_CLIPS_KEY, JSON.stringify({schema:SPARSE_SCHEMA, sampleCount:16, foxBaselineId:QuadrupedRig.AUTHORING_BASELINE_ID || null, families:sparseBanks}));
   }
 
   function ensureLegacyBackup(family, clipName) {
@@ -749,10 +749,10 @@
   }
 
   const atlases = new Map();
-  const foxShapeReference = new Image();
-  foxShapeReference.onload = () => draw();
-  foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
-  foxShapeReference.src = (window.SideScrollAssetPath || (url => url))('quadruped-reference.png?v=1.0.163');
+  const quadrupedShapeReference = new Image();
+  quadrupedShapeReference.onload = () => draw();
+  quadrupedShapeReference.onerror = () => console.error('[Anim Lab] Quadruped shape reference failed to load.');
+  quadrupedShapeReference.src = (window.SideScrollAssetPath || (url => url))('quadruped-reference.png?v=1.0.163');
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -783,7 +783,7 @@
   function loadEditorSelection() {
     let saved = null;
     try { saved = JSON.parse(sessionStorage.getItem(EDITOR_SELECTION_KEY) || 'null'); } catch (_) {}
-    const gameplay = HumanRig.loadCharacterVariant ? HumanRig.loadCharacterVariant() : 'original';
+    const gameplay = BipedRig.loadCharacterVariant ? BipedRig.loadCharacterVariant() : 'original';
     const fallback = Registry?.defaultPlayer() || CHARACTERS.find(c => characterVisible(c.id))?.id || 'original';
     const charId = characterVisible(saved?.characterId) ? saved.characterId : (characterVisible(gameplay) ? gameplay : fallback);
     return {
@@ -838,7 +838,7 @@
 
   function currentStaticReference() {
     const character = currentCharacter();
-    // Existing v1 reference preferences were per family (fox/human). Use them
+    // Existing v1 reference preferences were per family (quadruped/biped). Use them
     // as a read-only fallback until this particular character is adjusted;
     // independent character alignments never overwrite the old keys.
     const key = `character:${character.id}`;
@@ -1113,7 +1113,7 @@
     draw(); updateUi(); notify();
   }
 
-  // v1.1.25: Legacy Parts entries use the bundled Fox deform-atlas PNG, but
+  // v1.1.25: Legacy Parts entries use the bundled quadruped deform-atlas PNG, but
   // their calculated mesh coordinates depend on the *authoring* rest rig.
   // Snapshot those coordinates on Save, so the game can render them without
   // having to run Character Lab's editor-only mesh generator. Image pixels
@@ -1160,7 +1160,7 @@
         }
         const custom=libraryEntry(character.id);
         // Library members must never overwrite the built-in game's collider
-        // or Fox rest rig. Validate their drafts using the same adapter only.
+        // or quadruped rest rig. Validate their drafts using the same adapter only.
         setupDraft.collider = custom ? adapter.normaliseCollider(setupDraft.collider) : adapter.saveCollider(setupDraft.collider);
         if (adapter.saveRestRig && setupDraft.rig)
           setupDraft.rig = custom ? adapter.normaliseRestRig(setupDraft.rig) : adapter.saveRestRig(setupDraft.rig);
@@ -1168,7 +1168,7 @@
         const storedSetup={scale:setupDraft.scale};
         storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||defaults.walk,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX);
         storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||defaults.run,storedSetup.walkSpeed+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX);
-        if (character.family === 'fox') storedSetup.baselineId=FoxRig.AUTHORING_BASELINE_ID || null;
+        if (character.family === 'fox') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (supportsRestBinding(adapter)) {
           storedSetup.skinTuning=normaliseSkinTuning(setupDraft.skinTuning);
@@ -1186,7 +1186,7 @@
         }else{
           setupMap[character.id]=storedSetup;
           localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
-          if (character.family === 'fox') for (const clipName of FOX_CLIP_NAMES) syncCompiledClip('fox',clipName);
+          if (character.family === 'fox') for (const clipName of QUADRUPED_CLIP_NAMES) syncCompiledClip('fox',clipName);
         }
       }
       if (saveClip) {
@@ -1476,7 +1476,7 @@
       }
     }
     if (!atlas) return; // no original art fallback for custom image-only assembly
-    if (adapter.id === 'human' && typeof HumanRig.drawCanvas === 'function') HumanRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
+    if (adapter.id === 'human' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
     else adapter.rig.partsForPose(pose,restRig).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
 
@@ -1555,23 +1555,23 @@
     ctx.imageSmoothingEnabled = true;
 
     if (settings.source === 'foxShape') {
-      if (foxShapeReference.complete && foxShapeReference.naturalWidth) {
+      if (quadrupedShapeReference.complete && quadrupedShapeReference.naturalWidth) {
         // The trimmed source is a neutral side-profile reference. Its default
-        // width is mapped to the legacy Fox head-to-tail local span, then the
+        // width is mapped to the legacy quadruped head-to-tail local span, then the
         // author can align it non-destructively with Scale / X / Y.
         const baseLocalWidth = 0.72;
         const width = baseLocalWidth * refView.scale;
-        const height = width * (foxShapeReference.naturalHeight / foxShapeReference.naturalWidth);
+        const height = width * (quadrupedShapeReference.naturalHeight / quadrupedShapeReference.naturalWidth);
         const x = refView.cx - width * 0.5;
         const y = refView.groundY - height;
-        ctx.drawImage(foxShapeReference,x,y,width,height);
+        ctx.drawImage(quadrupedShapeReference,x,y,width,height);
       }
     } else {
       const id = settings.source === 'alternate' ? 'alternate' : 'original';
       const atlas = atlases.get(id);
       if (atlas) {
-        const pose=HumanRig.normalizedPose(HumanRig.DEFAULT_FRAMES[0],0);
-        HumanRig.drawCanvas(ctx,atlas,pose,refView,{alpha:1});
+        const pose=BipedRig.normalizedPose(BipedRig.DEFAULT_FRAMES[0],0);
+        BipedRig.drawCanvas(ctx,atlas,pose,refView,{alpha:1});
         drawBones(adapters.human,pose,refView,.22);
       }
     }
@@ -1921,14 +1921,14 @@
     const id='user-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     const time=new Date().toISOString();
     let setup;
-    // New quadrupeds start from the exported, working Fox character supplied
+    // New quadrupeds start from the exported, working quadruped character supplied
     // 20 October 2026. A bundled, versioned snapshot is deliberately used
-    // rather than whatever edits happen to be in built-in Fox localStorage.
+    // rather than whatever edits happen to be in built-in quadruped localStorage.
     // Preserve rest, art, inverse-bind, layout, tuning and clips as one unit:
     // mixing any two revisions is how limbs/skins become misregistered.
     const adapterRestRig=value=>adapters.fox.normaliseRestRig(value);
-    const bundled=family==='fox'&&window.AnimLabFoxStarter?.schema==='sidescroll.animlab.character-starter.v1'
-      ?window.AnimLabFoxStarter:null;
+    const bundled=family==='fox'&&window.AnimLabQuadrupedStarter?.schema==='sidescroll.animlab.character-starter.v1'
+      ?window.AnimLabQuadrupedStarter:null;
     if(family==='fox'){
       const src=bundled?.setup;
       const rest=adapterRestRig(src?.rig||rig.DEFAULT_REST_RIG);
@@ -1950,7 +1950,7 @@
     for(const clip of clipNamesForFamily(family)){
       const snapshot=family==='fox'?(bundled?.sparseClips?.[clip]||rig.AUTHORED_SPARSE_CLIPS?.[clip]):null;
       // Each clip is deep-copied into the new character, never linked to the
-      // immutable starter bundle or to the built-in Fox's authored keys.
+      // immutable starter bundle or to the built-in quadruped's authored keys.
       sparseClips[clip]=snapshot
         ? normaliseSparseClip(clone(snapshot),family,clip,pristine[clip])
         : importSparseClip(pristine[clip],family,clip);
@@ -1998,13 +1998,13 @@
       const rig=adapter.normaliseRestRig(entry.setup.rig);
       setup={
         scale:clamp(Number(entry.setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
-        walkSpeed:clamp(Number(entry.setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
-        runSpeed:clamp(Number(entry.setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
+        walkSpeed:clamp(Number(entry.setup.walkSpeed)||Number(QuadrupedRig.DEFAULT_WALK_SPEED)||1.15,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
+        runSpeed:clamp(Number(entry.setup.runSpeed)||Number(QuadrupedRig.DEFAULT_RUN_SPEED)||2.85,MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
         collider:adapter.normaliseCollider(entry.setup.collider),rig,
         artRestRig:adapter.normaliseRestRig(entry.setup.artRestRig||rig),
         skinBindRig:adapter.normaliseRestRig(entry.setup.skinBindRig||rig),
         artLayout:normaliseArtLayout(adapter,entry.setup.artLayout),
-        skinTuning:normaliseSkinTuning(entry.setup.skinTuning),baselineId:FoxRig.AUTHORING_BASELINE_ID
+        skinTuning:normaliseSkinTuning(entry.setup.skinTuning),baselineId:QuadrupedRig.AUTHORING_BASELINE_ID
       };
     }else{
       setup={scale:clamp(Number(entry.setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),

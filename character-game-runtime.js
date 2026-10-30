@@ -60,13 +60,13 @@
     // Allowlist means saved browser records can never choose arbitrary URL paths.
     // Saved data may still name the atlas by its old file name; resolve renames first.
     file=(window.SideScrollAssetRename||(n=>n))(String(file));
-    const fox=file==='quadruped-deform-atlas-v2.png';
-    assert(fox||PUBLISHED_CHARACTER_ART.test(String(file)),'Unsupported bundled artwork source');
+    const quadruped=file==='quadruped-deform-atlas-v2.png';
+    assert(quadruped||PUBLISHED_CHARACTER_ART.test(String(file)),'Unsupported bundled artwork source');
     const image=new Image();
     await new Promise((resolve,reject)=>{
       image.onload=resolve;
-      image.onerror=()=>reject(Error(fox?'Original deform atlas missing from the game':`Published character art missing from the game (${file})`));
-      image.src=(window.SideScrollAssetPath||(url=>url))(fox?'quadruped-deform-atlas-v2.png?v=1.1.25':file);
+      image.onerror=()=>reject(Error(quadruped?'Original deform atlas missing from the game':`Published character art missing from the game (${file})`));
+      image.src=(window.SideScrollAssetPath||(url=>url))(quadruped?'quadruped-deform-atlas-v2.png?v=1.1.25':file);
     });
     return image;
   }
@@ -112,7 +112,7 @@
     const promise=(async()=>{
       const setup=entry.setup||{},assembly=setup.artLayout?.assembly;
       // Biped authoring currently has poses/collider/scale but no authored Atlas
-      // assembly or structural rig. Play with the existing Hero 1 rigid atlas
+      // assembly or structural rig. Play with the first original biped's rigid atlas
       // while preserving each character's own saved animation data. No fake
       // biped skin/bind is synthesized and no source document is modified.
       if(entry.family==='human'){
@@ -154,7 +154,7 @@
         const source=legacy?legacyMeshMap:customMeshMap;
         assert(source?.has(item.meshId),`Atlas source mesh missing: ${item.label||item.meshId}`);
         return makePart(item,source.get(item.meshId),legacy?legacyImage:customImage,
-          legacy?'bundled-fox-deform':'imported-atlas');
+          legacy?'bundled-quadruped-deform':'imported-atlas');
       });
       const technique=requiresLegacy?(requiresCustom?'atlas-mixed':'atlas-bundled'):'atlas-deform';
       const value={...entry,technique,parts,warnings:parts.flatMap(p=>p.warning?[p.warning]:[])};
@@ -202,7 +202,7 @@
     }
   }
   // Biped sparse clips share Character Lab's 16-frame authored format. Use
-  // continuous key-to-key interpolation; the built-in Hero atlas is simply the
+  // continuous key-to-key interpolation; the built-in biped atlas is simply the
   // renderer of those poses, not the source of the saved clip.
   function sampleBipedClip(data,name,phase,rig){
     if(data?.family!=='human'||!rig?.interpolatePose||!rig?.normalizedPose)return null;

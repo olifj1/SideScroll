@@ -178,6 +178,11 @@ Any new per-character storage must be added to `slicesFor()` there.
 - Script/CSS `?v=` numbers in the HTML pages are still hand-maintained and
   inconsistent (art versions are centralised in `asset-paths.js`).
 - Text is UK English (colour, behaviour, centre).
+- Nothing is named after a character except display names (agreed design). The
+  remaining `fox` / `human` strings are **saved-data values** (rig families,
+  `foxBaselineId`, schema names, the original character ID `fox`): don't rename them
+  without a migration; C2 and C1c replace them. Globals: `SideScrollQuadrupedRig`,
+  `GameHubWalkRig` (biped), `SideScrollQuadrupedBaseline`, `AnimLabQuadrupedStarter`.
 
 ## Docs index (`docs/`)
 - `SIDESCROLL_ENGINE_UX_BIBLE.md` — architecture and UX rules (authoritative).

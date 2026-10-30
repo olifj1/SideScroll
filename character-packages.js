@@ -6,9 +6,9 @@
  *   - Add as copy: start a new character from it, with its own ID ("copy").
  * Imported artwork (PNG pixels in IndexedDB) travels inside the file. Art that
  * ships with the game is referenced, not copied.
- * Built-in characters (Hero 1, Hero 2, Fox) and library characters use the same
- * format. Hero 1 and Hero 2 share one animation set and collider in storage, so
- * each hero's package carries those shared pieces.
+ * Built-in characters (the original characters) and library characters use the same
+ * format. the two original bipeds share one animation set and collider in storage, so
+ * each original biped's package carries those shared pieces.
  */
 (() => {
   'use strict';

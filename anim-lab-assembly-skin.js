@@ -1,11 +1,11 @@
 /* SideScroll v1.1.21 — reliable rotated-cap offsets, all-region guides and fine nudging (binary).
  * Atlas owns UV/geometry, Parts owns instances and transforms, Rig owns joints.
  * Skin owns per-instance weights (including rest-space residual). No fixed-six-region assumptions.
- * Legacy Fox skin remains untouched when no Atlas assembly is enabled.
+ * Legacy quadruped skin remains untouched when no Atlas assembly is enabled.
  */
 (() => {
   'use strict';
-  const core=window.AnimLabCore,rig=window.GameHubFoxRig;
+  const core=window.AnimLabCore,rig=window.SideScrollQuadrupedRig;
   if(!core||!rig?.RIG_DESIGNER?.boneLinks||!core.registerArtRenderer)return;
   const clone=v=>JSON.parse(JSON.stringify(v));
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
