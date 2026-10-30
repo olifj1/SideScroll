@@ -155,6 +155,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 
 ## Docs index (`docs/`)
 - `SIDESCROLL_ENGINE_UX_BIBLE.md` — architecture and UX rules (authoritative).
+- `CHARACTER_SYSTEM_DESIGN.md` — **agreed target** for characters: templates (instance / unique copy), actions, abilities, action paths. Read before any Character Lab work.
 - `SIDESCROLL_CHARACTER_AUTHORING.md` — Character Lab / rig / skin / animation system.
 - `SIDESCROLL_EXPORT_COVERAGE.md` — what is persisted and exported, per lab.
 - `ART_ASSET_PIPELINE.md`, `SETTLEMENT_TEXTURE_PROCESSING_WORKFLOW.md` — art processing checklists.
