@@ -22,11 +22,35 @@
         sparseClips:candidate.sparseClips,legacyAtlasSource:candidate.legacyAtlasSource||null});
     }
   }
+  // Original characters (not in the library) whose Drawing method is Mesh:
+  // Character Lab saved an enabled Parts assembly and its mesh sources in their
+  // setup. Only their drawing changes; scale, speeds, collider and animation
+  // still come from the game's usual original-character data, so these entries
+  // are reached through meshFor() and never through find()/ready()/list().
+  const SETUP_KEY='sidescroll.animlab.setup.v1';
+  const setupMap=read(SETUP_KEY);
+  const QuadrupedRig=window.SideScrollQuadrupedRig;
+  const registry=window.SideScrollCharacters;
+  const originalMeshIds=[];
+  for(const id of registry?.ORIGINAL_IDS||['fox']){
+    const saved=setupMap?.[id],family=registry?.find(id)?.family||(id==='fox'?'fox':'human');
+    if(family!=='fox'||!QuadrupedRig||saved?.artLayout?.assembly?.enabled!==true)continue;
+    // Same rule as the game's original-character setup: data saved against an
+    // older baseline is not used.
+    if(saved.baselineId!==QuadrupedRig.AUTHORING_BASELINE_ID)continue;
+    entries.set(id,{id,label:registry?.name(id)||id,family:'fox',rigFamily:'quadruped',original:true,
+      setup:{...saved,rig:QuadrupedRig.loadRestRig?.()||QuadrupedRig.DEFAULT_REST_RIG},
+      sparseClips:null,legacyAtlasSource:saved.legacyAtlasSource||null});
+    originalMeshIds.push(id);
+  }
   const prepared=new Map(), failures=new Map(), inFlight=new Map();
-  const list=()=>[...entries.values()].map(e=>({id:e.id,label:e.label,family:e.family,rigFamily:e.rigFamily,
+  const library=()=>[...entries.values()].filter(e=>!e.original);
+  const list=()=>library().map(e=>({id:e.id,label:e.label,family:e.family,rigFamily:e.rigFamily,
     technique:prepared.get(e.id)?.technique||null,status:prepared.has(e.id)?'ready':failures.get(e.id)||'loading'}));
-  const find=id=>entries.get(id)||null;
-  const ready=id=>prepared.get(id)||null;
+  const find=id=>{const e=entries.get(id);return e&&!e.original?e:null;};
+  const ready=id=>find(id)?prepared.get(id)||null:null;
+  // The prepared mesh for drawing, for library and original characters alike.
+  const meshFor=id=>{const data=prepared.get(id);return data?.parts?.length?data:null;};
   const reason=id=>failures.get(id)||null;
   const finite=n=>typeof n==='number'&&Number.isFinite(n);
   const assert=(test,message)=>{if(!test)throw Error(message);};
@@ -221,5 +245,6 @@
     const travelB=(afterFrame>=16?(Number(b.travel)||0)+1:Number(b.travel)||0);
     return rig.normalizedPose(rig.interpolatePose(a,b,t,before.name||name,travelB),Math.floor(f));
   }
-  window.SideScrollGameCharacters=Object.freeze({list,find,ready,reason,load,poseParts,sampleBipedClip});
+  window.SideScrollGameCharacters=Object.freeze({list,find,ready,reason,load,poseParts,sampleBipedClip,
+    meshFor,originalMeshIds:()=>originalMeshIds.slice()});
 })();

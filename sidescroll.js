@@ -2523,6 +2523,10 @@
 // v1.1.23: separate built-in selection from device-local Character Lab documents.
 // A local character never writes into the built-in original rig banks.
 const GameCharacters = window.SideScrollGameCharacters || null;
+// Original characters whose Drawing method is Mesh, once their mesh is loaded.
+// Until (or unless) it loads they are drawn with their Parts, so they never
+// become unselectable.
+const originalCharacterMeshes=new Map();
 const LOCAL_CHARACTER_SELECTION_KEY = 'sidescroll.game.local-character.v1';
 const allCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
 const RIG_TEXTURE_VERSION = '1.0.62';
@@ -2685,7 +2689,7 @@ function renderCharacterPicker(){
   const originalItem=id=>{
     const info=characterVariantInfo(id),available=characterRigAvailable(id);
     return {id,name:info?.label||id,mark:mark(info?.label||id),
-      kind:(info?.rigType==='fox'?'Quadruped':'Biped')+' · Original art',
+      kind:(info?.rigType==='fox'?'Quadruped':'Biped')+(originalCharacterMeshes.has(id)?' · Mesh':' · Parts'),
       ready:available,status:available?'Ready':'Required rig unavailable'};
   };
   const libraryItem=id=>{
@@ -2781,11 +2785,10 @@ availableCharacterVariants.forEach(id => {
 });
 // Load imported artwork from Character Lab's IndexedDB, never from a guessed
 // PNG URL. Failed or incomplete user characters stay unselectable.
-if(GameCharacters)for(const candidate of GameCharacters.list()){
-  GameCharacters.load(candidate.id).then(data=>{
-    // Biped starters use the already-loaded biped rigid renderer and have no
-    // imported image. Rigid/unbound and skinned Atlas parts each use their
-    // own authored source PNG; mixed assemblies need both textures.
+// Biped starters use the already-loaded biped rigid renderer and have no
+// imported image. Rigid/unbound and skinned Atlas parts each use their
+// own authored source PNG; mixed assemblies need both textures.
+function uploadCharacterMesh(data){
     if(data.parts.length){
       const sourceTextures=new Map();
       for(const part of data.parts){
@@ -2807,6 +2810,18 @@ if(GameCharacters)for(const candidate of GameCharacters.list()){
         gl.bufferData(gl.ARRAY_BUFFER,part.buffer.byteLength,gl.DYNAMIC_DRAW);
       }
     }
+}
+if(GameCharacters?.originalMeshIds)for(const id of GameCharacters.originalMeshIds()){
+  GameCharacters.load(id).then(data=>{
+    uploadCharacterMesh(data);
+    if(GameCharacters.meshFor(id))originalCharacterMeshes.set(id,data);
+    if(data.warnings.length)console.warn('[SideScroll] Character Skin warnings',data.label,data.warnings);
+    renderCharacterPicker();
+  }).catch(err=>console.warn(`[SideScroll] ${id}: mesh unavailable, drawing its Parts instead:`,err));
+}
+if(GameCharacters)for(const candidate of GameCharacters.list()){
+  GameCharacters.load(candidate.id).then(data=>{
+    uploadCharacterMesh(data);
     availableCharacterVariants.push(candidate.id);
     if(data.warnings.length)console.warn('[SideScroll] Character Skin warnings',data.label,data.warnings);
     renderCharacterPicker();
@@ -17553,7 +17568,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
 
     const facing = character.lastFacing >= 0 ? 1 : -1;
-    const local=GameCharacters?.ready(currentCharacterVariant);
+    const local=GameCharacters?.ready(currentCharacterVariant)||originalCharacterMeshes.get(currentCharacterVariant);
     if(local?.parts?.length){
       drawLocalMeshCharacter(view,pose,facing,local);
       if(carriedObject||interactionState)drawCarriedCrate(view,facing,null);

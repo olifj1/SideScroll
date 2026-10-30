@@ -120,6 +120,17 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### C1c — drawing method and original characters' mesh sources
+
+No new storage key. A character's drawing method is its Parts assembly's
+`enabled` flag (Mesh = enabled, Parts = disabled; the instances and skin are kept
+either way). An original character (not in the library) saved as a Mesh now also
+stores `legacyAtlasSource` (its original parts' mesh vertices and triangles, no
+image bytes) in its `sidescroll.animlab.setup.v1` entry, as library entries
+already did; the game reads it to draw the mesh. Carried by everything that
+carries that key: character packages (the character's setup slice; a copy gets it
+too), Project Backup and the bake tool (content scope).
+
 ### v1.1.8 — per-instance Skin weight storage coverage
 
 `artLayout.assembly.instances[].skinBinding` is authored current-character Setup data saved alongside the existing `sidescroll.animlab.setup.v1` map for built-ins or in the custom Character Library entry's Setup document. It is included automatically wherever *that exact saved Setup key/document* is exported (Lab Data raw-storage backup and Project Snapshot), but **not** in unsaved in-memory workspace edits. It contains validated per-vertex rig-bone-link index/weight pairs and a source topology/vertex-position signature, not image bytes or triangulated atlas source copies. To restore successfully the matching **Atlas source mesh document** must also exist with the same vertex order/positions and triangles; currently this document is stored in `sidescroll.animlab.atlas-docs.v1`, while **PNG image bytes remain in IndexedDB** `sidescroll-animlab-art-v1/atlas-images`, not packed in JSON exports. Restoring only Setup produces unresolved links; restoring topology-changed source produces a *Needs rebind* diagnostic and rigid preview. Normal-game runtime consumption and tested cross-device restore remain outstanding.
