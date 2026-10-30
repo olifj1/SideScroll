@@ -53,14 +53,18 @@
     });return image;
     }finally{URL.revokeObjectURL(url);}
   }
+  // Published character art is written to assets/ by tools/bake_project.py as
+  // char-<character id>-<content hash>.png (a new name whenever the art changes).
+  const PUBLISHED_CHARACTER_ART=/^char-[a-z0-9-]{4,90}\.png$/;
   async function loadBundledImage(file) {
     // Allowlist means saved browser records can never choose arbitrary URL paths.
-    assert(file==='fox-deform-atlas-v2.png','Unsupported bundled artwork source');
+    const fox=file==='fox-deform-atlas-v2.png';
+    assert(fox||PUBLISHED_CHARACTER_ART.test(String(file)),'Unsupported bundled artwork source');
     const image=new Image();
     await new Promise((resolve,reject)=>{
       image.onload=resolve;
-      image.onerror=()=>reject(Error('Bundled Fox deform atlas missing from game'));
-      image.src=(window.SideScrollAssetPath||(url=>url))('fox-deform-atlas-v2.png?v=1.1.25');
+      image.onerror=()=>reject(Error(fox?'Bundled Fox deform atlas missing from game':`Published character art missing from game (${file})`));
+      image.src=(window.SideScrollAssetPath||(url=>url))(fox?'fox-deform-atlas-v2.png?v=1.1.25':file);
     });
     return image;
   }
@@ -135,10 +139,11 @@
       if(requiresCustom){
         const doc=atlasMap?.characters?.[id];
         assert(doc?.schema==='animlab.atlas-document.v1','Atlas source document missing on this device');
-        assert(doc.atlas?.kind==='indexeddb'&&doc.atlas.id,'Imported atlas image reference missing');
+        assert((doc.atlas?.kind==='indexeddb'&&doc.atlas.id)||(doc.atlas?.kind==='bundled'&&doc.atlas.file),
+          'Imported atlas image reference missing');
         assert(Array.isArray(doc.meshes),'Atlas meshes missing');
         customMeshMap=new Map(doc.meshes.map(m=>[m.id,m]));
-        customImage=await loadImage(doc.atlas.id);
+        customImage=doc.atlas.kind==='bundled'?await loadBundledImage(doc.atlas.file):await loadImage(doc.atlas.id);
         assert(customImage.naturalWidth===doc.atlas.width&&customImage.naturalHeight===doc.atlas.height,
           'Imported image size no longer matches authored mesh UVs');
       }

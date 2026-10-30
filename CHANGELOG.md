@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Publishing characters with their artwork: `tools/bake_project.py` now also takes
+  character exports and writes imported artwork to `assets/char-<id>-<hash>.png`;
+  the game and Character Lab load published character art, so a published
+  character works on every device without importing anything.
 - Characters: every character (Hero 1, Hero 2, Fox and library characters) now has
   **Export** in Character Lab → Load, plus **Export all characters** and **Import
   characters…**. Files include everything for each character, including imported

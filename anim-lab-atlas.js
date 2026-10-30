@@ -167,6 +167,24 @@
     }
     refresh();
   }
+  // Published character art (tools/bake_project.py) ships in assets/ as
+  // char-<character id>-<content hash>.png. Only that pattern is accepted, so a
+  // saved record can never point the editor at an arbitrary URL.
+  const PUBLISHED_CHARACTER_ART=/^char-[a-z0-9-]{4,90}\.png$/;
+  function loadPublishedImage(file) {
+    const current=++state.loadSerial;
+    if(!PUBLISHED_CHARACTER_ART.test(String(file))){setImage(null);state.imageStatus='Unsupported published artwork source';refresh();return;}
+    const image=new Image();
+    image.onload=()=>{if(current!==state.loadSerial)return;setImage(image);state.imageStatus=`Published PNG · ${image.naturalWidth} × ${image.naturalHeight}`;refresh();};
+    image.onerror=()=>{if(current===state.loadSerial){setImage(null);state.imageStatus=`Published artwork missing from the game (${file})`;refresh();}};
+    image.src=(window.SideScrollAssetPath||(url=>url))(file);
+  }
+  // Load whichever image the atlas document points at; false when it has none.
+  function loadAtlasImage(atlas) {
+    if(atlas?.kind==='indexeddb'&&atlas.id){loadStoredImage(atlas.id);return true;}
+    if(atlas?.kind==='bundled'&&atlas.file){loadPublishedImage(atlas.file);return true;}
+    return false;
+  }
   function loadCharacter(s) {
     if(state.charId===s.characterId)return;
     state.loadSerial++;
@@ -181,7 +199,7 @@
     state.undo=[];state.redo=[];state.pending=null;state.path=[];state.hover=null;state.gesture=null;state.review=false;state.preview=null;state.editingId=null;state.connectStart=null;
     setImage(null);
     state.imageStatus='';
-    if(state.draft.atlas?.kind==='indexeddb'&&state.draft.atlas.id)loadStoredImage(state.draft.atlas.id);
+    if(loadAtlasImage(state.draft.atlas)) { /* the character's own atlas image */ }
     else if(s.family!=='fox' && s.character.atlas) {
       const current=++state.loadSerial, image=new Image();
       image.onload=()=>{if(current!==state.loadSerial)return;setImage(image);refresh();};
@@ -346,8 +364,8 @@
     state.undo.push(before);if(state.undo.length>70)state.undo.shift();state.redo=[];
     core.refreshSessionUI?.();core.redraw();return true;
   }
-  function undo() {if(!state.undo.length)return false;state.redo.push(clone(state.draft));state.draft=state.undo.pop();state.pending=null;state.loadSerial++;if(state.draft.atlas?.kind==='indexeddb')loadStoredImage(state.draft.atlas.id);else if(state.imageURL)setImage(null);refresh();return true;}
-  function redo() {if(!state.redo.length)return false;state.undo.push(clone(state.draft));state.draft=state.redo.pop();state.pending=null;state.loadSerial++;if(state.draft.atlas?.kind==='indexeddb')loadStoredImage(state.draft.atlas.id);else if(state.imageURL)setImage(null);refresh();return true;}
+  function undo() {if(!state.undo.length)return false;state.redo.push(clone(state.draft));state.draft=state.undo.pop();state.pending=null;state.loadSerial++;if(!loadAtlasImage(state.draft.atlas)&&state.imageURL)setImage(null);refresh();return true;}
+  function redo() {if(!state.redo.length)return false;state.undo.push(clone(state.draft));state.draft=state.redo.pop();state.pending=null;state.loadSerial++;if(!loadAtlasImage(state.draft.atlas)&&state.imageURL)setImage(null);refresh();return true;}
   function rectangle(box,cols,rows) {
     const vertices=[],triangles=[];
     for(let y=0;y<=rows;y++)for(let x=0;x<=cols;x++)vertices.push({x:box.x+box.w*x/cols,y:box.y+box.h*y/rows});
@@ -822,8 +840,7 @@
       state.saved=clone(state.draft);state.undo=[];state.redo=[];refresh();return true;
     },
     discard:()=>{if(!state.saved)return;state.draft=clone(state.saved);state.undo=[];state.redo=[];discardPreview();
-      if(state.draft.atlas?.kind==='indexeddb')loadStoredImage(state.draft.atlas.id);
-      else if(state.imageURL)setImage(null);
+      if(!loadAtlasImage(state.draft.atlas)&&state.imageURL)setImage(null);
       refresh();}
   });
   core.subscribe(s=>{
