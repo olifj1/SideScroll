@@ -26,6 +26,8 @@ const CORE_SHELL = [
   "./design-doc.json",
   "./manifest.json",
   "./asset-paths.js",
+  "./project-defaults.js",
+  "./project-defaults-data.js",
   "./site-config.js",
   "./home.js",
   "./core.js",

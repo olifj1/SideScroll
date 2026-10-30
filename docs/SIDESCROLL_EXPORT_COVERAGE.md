@@ -1,5 +1,12 @@
 # SideScroll — Export and Recovery Coverage
 
+## 30 October 2026 — Built-in project content from a Project Backup export
+A Project Backup export can now be baked into the game with `tools/bake_project.py`, producing `project-defaults-data.js` (58 content keys) and `design-doc.json`. `project-defaults.js` serves those values from `localStorage.getItem` only when the device has no saved value, so device data always wins and nothing is written. Consequences for backup/restore:
+- A fresh install shows the built-in content, but **Project Backup and Lab exports list only keys actually saved on the device**, so an untouched fresh install exports almost nothing. Its content is already in the build.
+- Removing a key (Reset, or a restore that deletes a key) falls back to the built-in value, not to empty.
+- IndexedDB pixels (imported character PNGs) are still not exported and are not built in.
+- Play progress, view preferences, the selected character and transient lab state are deliberately not built in (`EXCLUDE` in the tool).
+
 ## v1.1.18 — Optional Skin Joint Fit metadata, no new art export coverage
 
 In an Atlas-assembly part's existing `animlab.skin-binding.v1` under `artLayout.assembly.instances[]`, a binary rectangle bind may now optionally carry `jointFit:true`. Absence/false means the original independent bone-local rectangles. Existing setup Save/Undo/Redo, character JSON, and raw project snapshots carry this small JSON flag with saved weights; there is no new file, storage location or schema version. Fitted polygon corners are **derived from saved rest rig + rectangles + jointFit** and are not an independently saved/duplicated mesh. Changing Joint Fit explicitly rebuilds per-vertex binary weights inside the existing binding. No automatic rewriting of prior bindings. Imported phone PNG bytes remain device-local IndexedDB and still do not accompany the JSON backup; portable character export is unresolved.

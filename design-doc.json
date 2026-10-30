@@ -9,14 +9,14 @@
   "sections": [
     {
       "id": "narrative",
-      "title": "Story — The Player-Facing Journey",
+      "title": "Story — The Players Journey",
       "status": "PROPOSED",
       "implementation": "PARTIAL",
       "tags": [
         "story",
         "narrative"
       ],
-      "body": "Read this section first. It describes the game in the order Aureli and the player experience it, without requiring knowledge of the deeper universe explanation.\n\nThe central emotional premise is simple: **Aureli sees the Darkness take her father and follows it through a world that becomes progressively stranger.** The player learns the same things she learns. Artefacts, transformed life, abandoned places and the fox gradually reveal that the events are systematic rather than random, but the game should resist turning that mystery into an exposition dump.\n\nThe player's story needs a clearer emotional resolution than the universe story. By the end the player should understand Aureli's relationships, choices and immediate effect on the world even if the civilisation that built the planetary systems remains largely unknown.",
+      "body": "We join the main character on the start of a journey that begins on a day where something strange happens… where all all the people are swept away by an unknown force, including the father of our character, which creates the need to embark in the journey to rescue him, and along the way we will discover many strange things about this world and overcome many obstacles… ",
       "children": [
         {
           "id": "aureli-opening",
