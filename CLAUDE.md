@@ -61,10 +61,17 @@ anything with a folder unchanged. So:
 
 ## Built-in content (project defaults)
 The authored project ships as built-in defaults so a fresh install has it:
-- `project-defaults-data.js` is **generated**: the user exports Project Backup on
-  the phone, and a session runs `python3 tools/bake_project.py <export.json>`. It
-  holds the content and migration keys and also rewrites `design-doc.json` from
-  the Design Lab working copy. Never edit it by hand.
+- `project-defaults-data.js` is **generated** by `python3 tools/bake_project.py
+  FILE [FILE ...]` from files the user exports on the phone: a Project Backup
+  (rebuilds everything, also rewrites `design-doc.json`) and/or character exports
+  (publishes those characters on top; with only character files the current
+  built-in content is the starting point). Never edit it by hand.
+- **Publishing character art:** the tool writes a character's imported PNG to
+  `assets/char-<character id>-<content hash>.png` and switches its atlas document
+  to `{kind:'bundled', file}`; the game and Character Lab load that pattern only
+  (plus `fox-deform-atlas-v2.png`). A new hash means a new file name, so changed
+  art is fetched fresh; older files for that character are removed. A Project
+  Backup alone cannot carry art (the tool says which characters stay phone-only).
 - `storage-catalogue.json` lists **every** storage key with its scope (content,
   migration, local, progress, transient, backup, stale). The bake tool builds in
   content + migration keys only and warns about any key it doesn't know. **Add a
@@ -78,8 +85,8 @@ The authored project ships as built-in defaults so a fresh install has it:
 - Both load before any other script on index, play, walk-lab, asset-lab,
   puzzle-lab and world-lab. New pages that read saved data must include them.
 - Left out on purpose: everything not scoped content/migration in the catalogue.
-- IndexedDB images (e.g. New01's imported PNG) are not in the export and are not
-  built in.
+- IndexedDB images are not in a Project Backup; they reach the game through
+  character exports (see above).
 - Changing a stored format? The built-in data is in the *old* format until it is
   re-baked, so migrations must handle it exactly as they handle a device's data.
 

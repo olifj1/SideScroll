@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 30 October 2026 — Publishing character artwork
+`tools/bake_project.py` accepts character exports alongside (or instead of) a Project Backup. Imported atlas PNGs become `assets/char-<character id>-<content hash>.png` and the published atlas document says `{kind:"bundled", file, width, height}`. Devices with their own saved atlas document (the author's phone) keep using their IndexedDB image; everyone else loads the published file. Exporting a character whose atlas is bundled embeds no pixels (the art ships with the game).
+
 ## 30 October 2026 — Character packages (Character Lab export / import)
 Every character has **Export**; **Export all characters** writes one file with every character. Each package (`sidescroll.character-package.v1`, collection `sidescroll.character-collection.v1`) contains:
 - the character's raw saved pieces: library entry or built-in setup map entry, sparse clips family, compiled clips, rig and collider keys, atlas document, static and motion reference alignment;

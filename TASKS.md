@@ -9,7 +9,7 @@ Last reviewed: 30 October 2026 (character system agreed).
 ---
 
 ## Now
-Proposed order: publishing 2b → characters C1–C3 → Publish Lab (step 3) →
+Proposed order: publish New01 → characters C1–C3 → Publish Lab (step 3) →
 characters C4–C6. Clean-up items are small and slot in between.
 
 ### Publishing workflow (agreed 30 Oct)
@@ -18,7 +18,7 @@ Until the Publish Lab exists, publishing works by giving Claude a Project Backup
 export (`tools/bake_project.py`). Design: three kinds of data — published game
 content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
-- [ ] **Step 2b — Publish characters with their artwork:** the bake tool takes character packages (from Export / Export all) and puts imported artwork into `assets/`; the game and Character Lab load bundled art for library characters (today only `fox-deform-atlas-v2.png` is allowed), so New01 works for every player without importing anything.
+- [ ] **Publish New01:** export all characters in Character Lab (on the phone) and hand the file over; bake it so New01 works on every device.
 - [ ] **Step 3 — Publish Lab** (grown from the Project Backup page): every content area and each character with a status (Published / Changed / New / Local only); tick-list publish package; separate "My settings" export; full backup including artwork; restore; "discard my changes, use published" per area; exports and backups driven by the catalogue (replacing the lists in `lab-data.js` and `project-snapshot.js`). Bake tool supports publishing selected areas / single characters. Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
 - [ ] **Step 4 (optional) — Automatic publishing:** upload a publish package to GitHub from the phone; a GitHub Action bakes it and opens the pull request.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
