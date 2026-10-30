@@ -167,6 +167,10 @@
   ];
   for(const entry of libraryEntries) CHARACTERS.push({id:entry.id,label:entry.name,family:entry.family,
     atlas:STARTERS[entry.starter].atlas,starter:entry.starter,library:true});
+  // Display names, categories and roles come from the character registry.
+  const Registry = window.SideScrollCharacters || null;
+  for (const c of CHARACTERS) { const name = Registry?.name(c.id); if (name) c.label = name; }
+  const characterVisible = id => CHARACTERS.some(c => c.id === id) && !Registry?.find(id)?.hidden;
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
 
   function defaultBank(rig, family='human') {
@@ -256,7 +260,7 @@
 
   const adapters = {
     human: {
-      id:'human', label:'Humanoid', rig:HumanRig,
+      id:'human', label:'Biped', rig:HumanRig,
       clipMs:{walk:1050,run:650,jump:935},
       loadBank:loadHumanBank, saveBank:saveHumanBank,
       normalise:(pose, index) => HumanRig.normalizedPose(pose,Math.floor(((Number(index)||0)%16+16)%16)),
@@ -267,10 +271,10 @@
       collider:() => HumanRig.loadCollider(),
       normaliseCollider:value => HumanRig.normalizedCollider(value),
       saveCollider:value => HumanRig.saveCollider(value),
-      scope:'Hero 1 and Hero 2 share the current human animation bank and runtime collider.'
+      scope:'Biped characters without their own clips share one animation set and collider.'
     },
     fox: {
-      id:'fox', label:'Fox', rig:FoxRig,
+      id:'fox', label:'Quadruped', rig:FoxRig,
       // Match the actual distance-driven gameplay cadence: cycle time = stride / speed.
       clipMs:{idle:1400,walk:Number(FoxRig.WALK_CYCLE_MS)||539,run:Number(FoxRig.RUN_CYCLE_MS)||323,jump:Number(FoxRig.JUMP_CYCLE_MS)||1139},
       loadBank:loadFoxBank, saveBank:saveFoxBank,
@@ -285,7 +289,7 @@
       loadRestRig:() => FoxRig.loadRestRig(),
       normaliseRestRig:value => FoxRig.normalizedRestRig(value),
       saveRestRig:value => FoxRig.saveRestRig(value),
-      scope:'Fox clips save to the Fox runtime bank; Play uses the last explicitly saved Idle/Walk/Run/Jump clips with the promoted authoring baseline as fallback.'
+      scope:'Quadruped clips save to the shared quadruped set; Play uses the last saved Idle/Walk/Run/Jump clips, with the original set as fallback.'
     }
   };
 
@@ -780,7 +784,8 @@
     let saved = null;
     try { saved = JSON.parse(sessionStorage.getItem(EDITOR_SELECTION_KEY) || 'null'); } catch (_) {}
     const gameplay = HumanRig.loadCharacterVariant ? HumanRig.loadCharacterVariant() : 'original';
-    const charId = CHARACTERS.some(c => c.id === saved?.characterId) ? saved.characterId : (CHARACTERS.some(c => c.id === gameplay) ? gameplay : 'original');
+    const fallback = Registry?.defaultPlayer() || CHARACTERS.find(c => characterVisible(c.id))?.id || 'original';
+    const charId = characterVisible(saved?.characterId) ? saved.characterId : (characterVisible(gameplay) ? gameplay : fallback);
     return {
       characterId:charId,
       clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
@@ -1121,7 +1126,7 @@
     if(!needed.length)return null;
     const snapshot=window.AnimLabLegacyAtlas?.getSnapshot?.();
     if(!snapshot?.image?.naturalWidth || !Array.isArray(snapshot.meshes))
-      throw Error('Bundled Fox atlas is still loading. Return to Parts, then Save again.');
+      throw Error('The original parts atlas is still loading. Return to Parts, then Save again.');
     const meshes=needed.map(id=>snapshot.meshes.find(mesh=>mesh.id===id));
     if(meshes.some(m=>!m?.vertices?.length||!m?.triangles?.length))
       throw Error('One or more original Parts meshes could not be rebuilt. Open Parts and check the mesh sources.');
@@ -1959,7 +1964,7 @@
     selection.mode='setup';selection.setupTool='atlas';
     setupDraft=defaultSetupFor(id);
     saveEditorSelection();fitView(false);resetCheckpoint();draw();notify();
-    hint.textContent=`${displayName} created with ${family==='fox'?'20 Oct Fox setup, rig, skin and clips':'Biped'} starter data. Your built-in characters are unchanged.`;
+    hint.textContent=`${displayName} created from the ${family==='fox'?'Quadruped':'Biped'} starter. Other characters are unchanged.`;
     return id;
   }
   // Everything needed to start a NEW library character from this one (Character
@@ -2039,11 +2044,31 @@
     const index=CHARACTERS.findIndex(c=>c.id===id);
     if(index>=0)CHARACTERS.splice(index,1);
     delete customSparseBanks[id];delete customSampleBanks[id];atlases.delete(id);
-    if(selection.characterId===id){
-      selection.characterId='fox';setupDraft=defaultSetupFor('fox');
-      selection.clip='walk';selection.mode='setup';selection.setupTool='rig';selection.frame=0;
-      playing=false;conversionPreview=null;saveEditorSelection();fitView(false);resetCheckpoint();
-    }
+    if(selection.characterId===id)selectFallbackCharacter(id);
+    draw();notify();return true;
+  }
+  // After the open character is deleted: open the Default player (or the first
+  // character still listed).
+  function selectFallbackCharacter(removedId){
+    const next=[Registry?.defaultPlayer(),...CHARACTERS.map(c=>c.id)].find(cid=>cid&&cid!==removedId&&characterVisible(cid))||'original';
+    selection.characterId=next;setupDraft=defaultSetupFor(next);
+    selection.clip='walk';selection.mode='animate';selection.setupTool='rig';selection.frame=0;
+    playing=false;conversionPreview=null;saveEditorSelection();fitView(false);resetCheckpoint();
+  }
+  // Every character is renamed and deleted the same way. Library characters own
+  // their entry; other characters' names live in the registry, and deleting one
+  // hides it (its data is shared storage). A character with a role can't be deleted.
+  function renameCharacter(id,name){
+    if(libraryEntry(id))return renameLibraryCharacter(id,name);
+    if(isDirty()||selection.mode==='play'||!Registry?.renameOriginal(id,name))return false;
+    const c=CHARACTERS.find(item=>item.id===id);if(c)c.label=Registry.name(id);
+    draw();notify();return true;
+  }
+  function deleteCharacter(id){
+    if(!Registry?.canDelete(id)||isDirty()||selection.mode==='play')return false;
+    if(libraryEntry(id))return deleteLibraryCharacter(id)&&Registry.forget(id);
+    if(!Registry.hideOriginal(id))return false;
+    if(selection.characterId===id)selectFallbackCharacter(id);
     draw();notify();return true;
   }
   const api = {
@@ -2055,6 +2080,8 @@
     createLibraryCharacter,
     renameLibraryCharacter,
     deleteLibraryCharacter,
+    renameCharacter,
+    deleteCharacter,
     selectCharacter:id=>switchCharacter(id),
     // Renderer-only read path: no JSON cloning or dirty/history scan each
     // animation frame. Consumers MUST NOT mutate returned references.

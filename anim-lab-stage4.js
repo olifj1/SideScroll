@@ -32,7 +32,7 @@
   ikSection.setAttribute('aria-labelledby','animlab-contact-title');
   ikSection.innerHTML=`
     <div class="animlab-section-title" id="animlab-contact-title">Paw IK</div>
-    <p class="animlab-contact-note">Fox legs use persistent paw targets. Select a Paw Target in the Control Board, then move it with the viewport drag pad. Body motion does not carry the target with it, and there is no Plant / Release switch to key.</p>
+    <p class="animlab-contact-note">Quadruped legs use persistent paw targets. Select a Paw Target in the Control Board, then move it with the viewport drag pad. Body motion does not carry the target with it, and there is no Plant / Release switch to key.</p>
     <div class="animlab-contact-status" id="animlab-contact-status">Select a Paw Target in the Control Board.</div>
     <div class="animlab-contact-actions animlab-contact-actions-simple">
       <button id="animlab-contact-capture" type="button">Capture Current Paw</button>
@@ -46,7 +46,7 @@
   groundSection.setAttribute('aria-labelledby','animlab-ground-motion-title');
   groundSection.innerHTML=`
     <div class="animlab-section-title" id="animlab-ground-motion-title">Ground Motion</div>
-    <p class="animlab-contact-note">Editor-only moving datum for spotting paw slip. At ×1 it represents the current Fox gameplay stride. During stance, animate the paw target backwards with the ground; during swing, move it forwards and up.</p>
+    <p class="animlab-contact-note">Editor-only moving datum for spotting paw slip. At ×1 it represents the current quadruped gameplay stride. During stance, animate the paw target backwards with the ground; during swing, move it forwards and up.</p>
     <div class="animlab-segmented animlab-two">
       <button id="animlab-ground-motion-show" type="button">Moving Ground</button>
       <button id="animlab-ground-motion-reset" type="button">Speed ×1</button>
@@ -128,7 +128,7 @@
       ? FoxRig.buildExampleWalkKeys(st.setup?.rig,strideLocal(st))
       : clone(FoxRig.WALK_EXAMPLE_KEYS||[]);
     if(!Array.isArray(keys)||keys.length<2)return;
-    const changed=core.editSparseClip?.('Reload Fox example walk',clip=>{
+    const changed=core.editSparseClip?.('Reload example walk',clip=>{
       clip.source='fox-example-walk';
       clip.foundationVersion=FoxRig.WALK_EXAMPLE_ID||'fox-walk-example-v3';
       clip.keys=clone(keys);

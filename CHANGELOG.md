@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Character registry: every character can be renamed, ordered, put in a category
+  (Playable, Enemy, Interactive, or your own; the game's picker lists playable
+  ones) and deleted, except characters holding a role (Default player, Default
+  animal, or roles you add), which move but can't be removed. New players start as
+  the Default player. Character Lab toolbar is now New · Open · Save · Share. No
+  character-specific wording on screen apart from names (`character-registry.js`).
 - Published New01 with its artwork (`assets/char-user-mvfqd1f9-cpjpp1-b28a05c2c7.png`):
   it now works on every device, not only the phone it was made on.
 - Publishing characters with their artwork: `tools/bake_project.py` now also takes

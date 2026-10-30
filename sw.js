@@ -42,6 +42,7 @@ const CORE_SHELL = [
   "./audio.js",
   "./walk-lab.js",
   "./anim-lab-fox-starter.js",
+  "./character-registry.js",
   "./character-packages.js",
   "./anim-lab-character-library.js",
   "./anim-lab-stage2.js",

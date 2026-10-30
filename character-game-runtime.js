@@ -63,7 +63,7 @@
     const image=new Image();
     await new Promise((resolve,reject)=>{
       image.onload=resolve;
-      image.onerror=()=>reject(Error(fox?'Bundled Fox deform atlas missing from game':`Published character art missing from game (${file})`));
+      image.onerror=()=>reject(Error(fox?'Original deform atlas missing from the game':`Published character art missing from the game (${file})`));
       image.src=(window.SideScrollAssetPath||(url=>url))(fox?'fox-deform-atlas-v2.png?v=1.1.25':file);
     });
     return image;
@@ -134,7 +134,7 @@
         legacyMeshMap=new Map(bundled.meshes.map(m=>[`atlas-builtin-${m.id}`,m]));
         legacyImage=await loadBundledImage(bundled.file);
         assert(legacyImage.naturalWidth===bundled.width&&legacyImage.naturalHeight===bundled.height,
-          'Bundled Fox atlas dimensions changed; please Save in Character Lab');
+          'Original parts atlas size changed; please Save in Character Lab');
       }
       if(requiresCustom){
         const doc=atlasMap?.characters?.[id];

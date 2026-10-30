@@ -29,6 +29,34 @@ Today's state maps straight onto this: Hero 1 and Hero 2 are two characters that
 are instances of the same Biped rig and animation set (currently hidden shared
 storage, becomes an explicit, choosable link).
 
+### Naming rule (agreed 30 Oct)
+Nothing in the game, its data, its files or its screens is named after a
+particular character; only a character's **display name** is. "Fox" is just the
+name of one character. Rigs are named collections of bones held as data —
+*Biped* and *Quadruped* are two such templates, with nothing special about them
+and nothing hard-coded. Existing identifiers (`fox` / `human` families, the
+`sidescroll.fox.*` keys, `fox-rig.js`, `fox-*.png`) are renamed with migrations
+that still read the old names, so no saved data breaks.
+
+### Roles: protected tags
+- A **role** is a tag such as *Default player* or *Default animal* (the animal you
+  play as). Each role is on exactly one character.
+- A character carrying a role **cannot be deleted**. To delete it, move the role
+  to another character first.
+- Roles can be **moved** but not removed (new roles can be added as the game
+  needs more key characters). The game uses *Default player* as the starting
+  character when the player hasn't chosen one.
+
+### Categories and display order
+- Characters belong to one **category** from an editable list with its own order
+  (e.g. *Playable*, *Enemy*, *Interactive*), and have an order within it.
+- Character Lab lists characters grouped by category in that order; the game's
+  character picker lists the *Playable* category.
+
+### Character Library actions
+Toolbar **New · Open · Save · Share**. *Share* holds Export this character,
+Export all characters and Import characters (previously hidden under Load).
+
 ## 2. Templates: linking, editing and splitting
 Applies to rig templates and animation templates alike.
 

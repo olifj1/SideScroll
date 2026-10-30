@@ -99,7 +99,7 @@
   section.setAttribute('aria-labelledby','animlab-mesh-preview-title');
   section.innerHTML = `
     <div class="animlab-section-title" id="animlab-mesh-preview-title">Skin Prototype</div>
-    <div class="animlab-setup-note">Stage M1.3 · fully rebuilt clean charcoal Fox deform atlas: new body + tail from the approved modular sheet, matched copied front/rear legs. Editor-only; rig and animation keys stay untouched.</div>
+    <div class="animlab-setup-note">Deform atlas: body, tail and four legs from the modular source sheet. Editor-only; rig and animation keys stay untouched.</div>
     <div class="animlab-segmented animlab-two" id="animlab-mesh-mode">
       <button type="button" data-mesh-mode="rigid">Rigid</button>
       <button type="button" data-mesh-mode="mesh">Deform</button>
@@ -162,7 +162,7 @@
       <button type="button" data-skin-action="copy-both-far-near">Both Legs Far → Near</button>
       <button type="button" data-skin-action="reset-region">Reset Region</button>
     </div>
-    <p class="animlab-skin-note">Editor-only in this stage: gameplay still uses its existing Fox mesh. A later integration stage will connect saved skin tuning to the runtime.</p>
+    <p class="animlab-skin-note">Editor-only in this stage: gameplay still uses the character's existing mesh. A later integration stage will connect saved skin tuning to the runtime.</p>
   `;
   section.insertAdjacentElement('afterend',skinSection);
   const skinRegionBoard=skinSection.querySelector('.animlab-skin-region-board');
@@ -1286,7 +1286,7 @@
       const ready=!!dedicatedArtFor(REGION_DEFS[0]);
       setupNote.textContent=ready
         ? 'Deform atlas v2 loaded. Parts/Rig share a fixed neutral artwork assembly; binding rest is independent. No source art or animation keys overwritten.'
-        : 'Stage M1.3 · loading clean charcoal Fox deform atlas v2; rigid-atlas fallback remains active.';
+        : 'Loading the deform atlas; rigid-atlas fallback remains active.';
     }
   }
 

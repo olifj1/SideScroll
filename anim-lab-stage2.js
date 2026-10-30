@@ -67,9 +67,9 @@
       <div class="animlab-section-title" id="animlab-static-reference-title">Static Reference</div>
       <div class="animlab-reference-note">Single-image proportion reference · editor-only and never dirties the rig or animation.</div>
       <div class="animlab-segmented animlab-three" id="animlab-static-reference-sources">
-        <button type="button" data-static-reference="original">Hero 1</button>
-        <button type="button" data-static-reference="alternate">Hero 2 / Hair</button>
-        <button type="button" data-static-reference="foxShape">Fox Shape</button>
+        <button type="button" data-static-reference="original">Biped A</button>
+        <button type="button" data-static-reference="alternate">Biped B</button>
+        <button type="button" data-static-reference="foxShape">Quadruped</button>
       </div>
       <div class="animlab-view-grid animlab-stage2-view-grid">
         <button type="button" id="animlab-reference">Show Reference</button>
