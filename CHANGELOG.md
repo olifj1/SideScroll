@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Faster loading: every art file now has one version in `asset-paths.js`, so the
+  splash preload, the game and the labs request identical URLs and share one cached
+  copy (no more duplicate downloads). The preload now covers everything the game
+  loads at startup, including the settlement art, and no longer stores a second
+  copy in an unused cache. The service-worker cache name is kept, so nothing
+  already downloaded is thrown away.
 - Moved all art and audio into `assets/` (icons stay in the root). New `asset-paths.js`
   resolves bare filenames at load time, so saved characters and lab data need no
   migration. Service-worker cache bumped to v138; players re-download art once.

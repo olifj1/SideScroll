@@ -1,8 +1,7 @@
 (() => {
   const VERSION = '1.0.169';
   const assetPath = window.SideScrollAssetPath || (url => url);
-  const ASSET_VERSION = '1.0.62';
-  const PRELOAD_CACHE = 'sidescroll-runtime-v23';
+  const ART_FILE = /\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i;
   const play = document.getElementById('ss-splash-play');
   const bar = document.getElementById('ss-preload-bar');
   const label = document.getElementById('ss-preload-label');
@@ -11,6 +10,8 @@
   const menu = document.getElementById('ss-splash-menu');
 
   const withVersion = (path, version = VERSION) => `${path}${path.includes('?') ? '&' : '?'}v=${version}`;
+  // Art/audio URLs come from asset-paths.js so they match exactly what the game
+  // requests (the service worker caches by exact URL). Scripts keep VERSION.
   const GAME_PRELOAD = [
     'style.css',
     'site-config.js',
@@ -46,11 +47,8 @@
     'sidescroll-ground-12.png',
     'walklab-rig-v4.png',
     'walklab-rig-v4-alt-hero2.png',
-    'walklab-character-source.png',
     'fox-rig-atlas-v3.png',
-    'fox-reference-charcoal.png',
     'fox-deform-atlas-v2.png',
-    'fox-character-source-v1.png',
     'puzzle-log-a.png',
     'puzzle-log-b.png',
     'puzzle-log-c.png',
@@ -81,12 +79,24 @@
     'mountain-tree-02.png',
     'mountain-grass-01.png',
     'mountain-grass-02.png',
-    'mountain-grass-03.png'
-  ].map(path => withVersion(path, path === 'fox-rig-atlas-v3.png' ? VERSION : (path === 'fox-reference-charcoal.png' ? VERSION : (path.startsWith('fox-deform-') ? VERSION : (path.startsWith('fox-') && /\.(?:png|jpe?g|webp)$/i.test(path)
-    ? '1.0.141'
-    : (path.startsWith('mountain-')
-      ? VERSION
-      : (/\.(?:png|jpe?g|webp|m4a|mp3|wav)$/i.test(path) ? ASSET_VERSION : VERSION)))))));
+    'mountain-grass-03.png',
+    'settlement-house-01.png',
+    'settlement-house-02.png',
+    'settlement-house-03.png',
+    'settlement-house-04.png',
+    'settlement-house-05.png',
+    'settlement-house-06.png',
+    'settlement-roof-01.png',
+    'settlement-roof-02.png',
+    'settlement-roof-03.png',
+    'settlement-roof-04.png',
+    'settlement-fence-01.png',
+    'settlement-fence-02.png',
+    'settlement-fence-03.png',
+    'settlement-wall-01.png',
+    'settlement-wall-02.png',
+    'settlement-wall-03.png'
+  ].map(path => (ART_FILE.test(path) ? assetPath(path) : withVersion(path)));
 
   const setProgress = (done, total, failed = 0) => {
     const value = total ? Math.round((done / total) * 100) : 100;
@@ -105,16 +115,10 @@
   };
 
   const warmResource = async url => {
-    const response = await fetch(assetPath(url), { cache: 'force-cache', credentials: 'same-origin' });
+    // The service worker stores the response in its own cache on the way through;
+    // a second page-side copy is not needed.
+    const response = await fetch(url, { cache: 'force-cache', credentials: 'same-origin' });
     if (!response.ok) throw new Error(`${response.status} ${url}`);
-    // Populate the exact release cache before the worker installs. This makes
-    // the loading bar real useful work rather than a second download.
-    if ('caches' in window) {
-      try {
-        const cache = await caches.open(PRELOAD_CACHE);
-        await cache.put(url, response.clone());
-      } catch (_) {}
-    }
     // Consume the body so progress reflects a complete download rather than headers only.
     await response.blob();
   };

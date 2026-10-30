@@ -1,3 +1,6 @@
+// Keep this name unless every cached file must be thrown away: changing it
+// deletes all cached art on players' devices and forces a full re-download.
+// Changed art gets a new version in asset-paths.js instead.
 const CACHE = "sidescroll-runtime-v138";
 const CORE_SHELL = [
   "./",
@@ -40,7 +43,7 @@ const CORE_SHELL = [
   "./anim-lab-character-library.js",
   "./anim-lab-stage2.js",
   "./anim-lab-mesh.js",
-  "./assets/fox-deform-atlas-v2.png",
+  "./assets/fox-deform-atlas-v2.png?v=1.0.173",
   "./anim-lab-stage3.js",
   "./anim-lab-stage4.js",
   "./anim-lab-reference.js",
@@ -55,7 +58,7 @@ const CORE_SHELL = [
   "./asset-lab.js",
   "./icon-192.png",
   "./icon-512.png",
-  "./assets/splash-screen.png"
+  "./assets/splash-screen.png?v=1.0.62"
 ];
 
 self.addEventListener("install", event => {

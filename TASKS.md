@@ -17,9 +17,8 @@ Stage A (generalisation) shipped in 1.1.26–1.1.27. Next:
 - [ ] Remaining CL1: custom characters built from original rigid pieces with edited Parts offsets, bundled `atlas-builtin-*` mesh sources, and a per-character status list in the chooser. *(1.1.23–1.1.25)*
 
 ### Repo clean-up
-- [ ] Fix the splash preloader: it saves into cache `sidescroll-runtime-v23`, which the service worker never reads and deletes on update, and its `?v=` tags don't match what the game requests, so it rarely helps.
 - [ ] Show the version number on the start page, read from one shared version constant.
-- [ ] Use that one version constant for cache-busting instead of hand-edited `?v=` tags (currently inconsistent: `style.css` is 1.1.22 on some pages and 1.1.24 on others; `fox-rig.js` is 1.0.163 in play and 1.1.15 in walk-lab).
+- [ ] Use that one version constant for script/CSS cache-busting instead of hand-edited `?v=` tags (currently inconsistent: `style.css` is 1.1.22 on some pages and 1.1.24 on others; `fox-rig.js` is 1.0.163 in play and 1.1.15 in walk-lab). Art versions are already centralised in `asset-paths.js`.
 - [ ] Remove the ~345 KB of old GameHub game CSS (clock, sums, coding, laser, gravity, flight, snake, racer, tower attack, my house) from `style.css`, keeping the shared shell, orientation guard and install overlay.
 - [ ] Remove unused GameHub code from `core.js` (`GameHubResults`/`GameHubProgress`, link to the missing `progress.html`); decide whether the v1.0.11 bridge-mirror save migration can go.
 - [ ] Replace the 821 KB embedded copy of `walklab-rig-v4.png` in `walk-rig.js` with a reference to the file.
@@ -35,6 +34,7 @@ Changes checked only in desktop/headless browsers. Delete a line once you've
 confirmed it on the phone; if it fails, move it to **Now** as a bug.
 
 - [ ] **Art moved to `assets/`** — after merging, open the Home Screen app (close and reopen once so the new service worker takes over). Check: splash art and music; PLAY into the game and walk through woodland/mountain/settlement areas; switch Hero 1 / Hero 2 / Fox / New01 in the game and in Character Lab (New01's imported art should be unaffected); Asset Lab thumbnails; World Lab surface previews; Concept Lab images; Motion Reference overlay; play offline once after everything has loaded.
+- [ ] **Loading speed fix** — after merging, open the app twice. The second launch should reach PLAY in a second or two, with nothing popping in during play (including the settlement area). The first launch after this update should *not* re-download everything.
 
 ---
 
