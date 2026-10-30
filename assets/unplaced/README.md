@@ -9,5 +9,5 @@ Nothing in code points here, so these are never downloaded by players.
   `sidescroll-tree-01…08.png` files instead. (Was in the splash preload list,
   which downloaded 6.4 MB on every launch for nothing; removed from it.)
 
-When one of these is placed in the game, move it alongside the other used art
-and reference it from code.
+When one of these is placed in the game, move it up into `assets/` and reference
+it from code by bare filename.

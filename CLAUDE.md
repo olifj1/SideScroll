@@ -31,17 +31,31 @@ record changes in `CHANGELOG.md` and the PR description instead.
   mechanics), not for tasks.
 
 ## Layout
-- Root — the live app: pages, scripts, data, and all art the game/labs load.
-  (Art is still flat in the root; moving it into `assets/` is a planned task.)
+- Root — the live app: pages, scripts and data, plus the two app icons
+  (`icon-192.png`, `icon-512.png`, which the Home Screen install expects here).
+- `assets/` — all art and audio the game and labs load (see **Art and audio paths**).
 - `docs/` — design and engine docs. `docs/patch-notes/` old per-patch notes,
   `docs/audits/` one-off audit JSON, `docs/archive/` the old task log.
 - `assets/unplaced/` — art kept for future use, not referenced by code yet.
 - `review/` — unreferenced files awaiting a keep/delete decision (`review/README.md`).
 
+## Art and audio paths
+Code, bundled data and saved data refer to art by **bare filename**
+(`'fox-deform-atlas-v2.png?v=1.1.25'`). `asset-paths.js` defines
+`window.SideScrollAssetPath(name)`, which turns a bare art/audio filename into
+`assets/<name>` at the moment it loads, and leaves data:/blob:/http URLs and
+anything with a folder unchanged. So:
+- New art goes in `assets/` and is referenced by bare filename as before.
+- Every place that sets an image `src`, CSS `background-image` or fetches audio
+  must pass the URL through `assetPath(...)`. Each script takes a local
+  `const assetPath = window.SideScrollAssetPath || (url => url);`.
+- Any page that loads art must include `asset-paths.js` before its other scripts.
+- Plain `<img src>` in static HTML (splash, concept overview) uses `assets/...` directly.
+
 ## Pages and what they load
 | Page | Purpose | Main scripts |
 |---|---|---|
-| `index.html` | Splash/launcher, preloads game assets | `site-config.js`, `core.js`, `audio.js`, `home.js` |
+| `index.html` | Splash/launcher, preloads game assets | `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `walk-rig.js`, `fox-authoring-baseline.js`, `fox-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `lab-data.js` |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |

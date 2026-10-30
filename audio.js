@@ -6,7 +6,8 @@
   // after a genuine user gesture so iOS/Safari never needs brittle autoplay.
 
   const VERSION = '1.0.62';
-  const MUSIC_URL = `sidescroll-music.m4a?v=${VERSION}`;
+  const assetPath = window.SideScrollAssetPath || (url => url);
+  const MUSIC_URL = assetPath(`sidescroll-music.m4a?v=${VERSION}`);
   const STORAGE_KEY = 'sidescroll.audio.settings.v1';
   const DEFAULTS = Object.freeze({ musicEnabled: true, musicVolume: 0.32 });
   const LOOP_CROSSFADE_SECONDS = 0.03;

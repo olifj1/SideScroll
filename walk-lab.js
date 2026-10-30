@@ -749,7 +749,7 @@
   const foxShapeReference = new Image();
   foxShapeReference.onload = () => draw();
   foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
-  foxShapeReference.src = 'fox-reference-charcoal.png?v=1.0.163';
+  foxShapeReference.src = (window.SideScrollAssetPath || (url => url))('fox-reference-charcoal.png?v=1.0.163');
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -1270,7 +1270,7 @@
       hint.textContent = `${character.label} art failed to load`;
       draw();
     };
-    img.src = character.atlas;
+    img.src = (window.SideScrollAssetPath || (url => url))(character.atlas);
   }
   CHARACTERS.forEach(c => loadAtlas(c.id));
 

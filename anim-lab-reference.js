@@ -257,7 +257,7 @@
   }
 
   function imageUrl(file) {
-    return `${file}?v=${ASSET_VERSION}`;
+    return (window.SideScrollAssetPath || (url => url))(`${file}?v=${ASSET_VERSION}`);
   }
 
   function imageForFile(file) {

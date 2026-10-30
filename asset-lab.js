@@ -2,6 +2,7 @@
   'use strict';
 
   const VERSION = '1.0.102';
+  const assetPath = window.SideScrollAssetPath || (url => url);
   const BEHAVIOUR_KEY = 'sidescroll.asset-behaviours.v1';
   const COLLISION_KEY = 'sidescroll.asset-collisions.v1';
   const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
@@ -234,7 +235,7 @@
   const clamp = (value,min,max) => Math.max(min,Math.min(max,value));
   const cartWheelPreview = new Image();
   cartWheelPreview.onload = () => draw();
-  cartWheelPreview.src = `handcart-wheel.png?v=${VERSION}`;
+  cartWheelPreview.src = assetPath(`handcart-wheel.png?v=${VERSION}`);
 
   function drawAxlePin(ctx,w,h){
     ctx.clearRect(0,0,w,h);
@@ -268,7 +269,7 @@
     }
     const img = new Image();
     img.onload = () => { resize(); renderPointEditor(); draw(); };
-    img.src = `${asset.image}?v=${VERSION}`;
+    img.src = assetPath(`${asset.image}?v=${VERSION}`);
     imageCache.set(asset.name,img);
     return img;
   }
@@ -802,7 +803,7 @@
       }
       const row=document.createElement('button');row.type='button';row.className='assetlab-asset-row';row.classList.toggle('active',asset.name===state.asset.name);
       const preview=ensureImage(asset);
-      const previewSrc=preview?.src || asset.image || '';
+      const previewSrc=preview?.src || assetPath(asset.image || '');
       row.innerHTML=`<img src="${previewSrc}" alt=""><span><strong>${asset.label}</strong><small>${effectiveBehaviour(asset).pushable?'PUSH · ':''}${effectiveBehaviour(asset).climbable?'CLIMB · ':''}${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
       row.addEventListener('click',()=>selectAsset(asset,{keepView:state.pairMode&&isBridge(asset)}));
       listEl.appendChild(row);

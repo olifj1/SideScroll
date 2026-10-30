@@ -219,7 +219,7 @@
       core.redraw?.();
     };
     img.onerror=()=>console.warn(`[Anim Lab Mesh] Deform atlas failed to load: ${DEFORM_ATLAS_FILE}`);
-    img.src=`${DEFORM_ATLAS_FILE}?v=${ART_VERSION}`;
+    img.src=(window.SideScrollAssetPath||(url=>url))(`${DEFORM_ATLAS_FILE}?v=${ART_VERSION}`);
     deformAtlas=img;
   }
 
