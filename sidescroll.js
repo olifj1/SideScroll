@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // SideScroll v1.0.141: first playable fox pass adds a dedicated quadruped rig family, cutout atlas, fox collider and walk/run/jump clips while preserving the humanoid rigs unchanged.
+  // SideScroll v1.0.141: first playable quadruped pass adds a dedicated quadruped rig family, cutout atlas, quadruped collider and walk/run/jump clips while preserving the biped rigs unchanged.
   // SideScroll v1.0.140: World Group Free members preserve their own local terrain-relative floor offset through template placement and whole-group moves; legacy linked source instances can repair old template height data.
   // SideScroll v1.0.129: support grounding is preserved through Edit frames and resolved before player reveal; manual placement still shares Support Surfaces while procedural placement stays terrain-only.
   // SideScroll v1.0.122: restore selected-object Quick Tools in Group Edit + explicit relative Move mode.
@@ -307,7 +307,7 @@
   const PUSH_SPEED = 0.90;
 
   const Rig = window.GameHubWalkRig;
-  const FoxRig = window.GameHubFoxRig || null;
+  const QuadrupedRig = window.SideScrollQuadrupedRig || null;
   if (!Rig) return;
 
   const canvas = document.getElementById('sidescroll-canvas');
@@ -1697,9 +1697,9 @@
 
   const rigPartMeshesByType = { human:{} };
   Object.keys(Rig.ATLAS.parts).forEach(name => { rigPartMeshesByType.human[name] = createRigPartMesh(Rig, name); });
-  if (FoxRig) {
+  if (QuadrupedRig) {
     rigPartMeshesByType.fox = {};
-    Object.keys(FoxRig.ATLAS.parts).forEach(name => { rigPartMeshesByType.fox[name] = createRigPartMesh(FoxRig, name); });
+    Object.keys(QuadrupedRig.ATLAS.parts).forEach(name => { rigPartMeshesByType.fox[name] = createRigPartMesh(QuadrupedRig, name); });
   }
 
   function bindMesh(mesh) {
@@ -2521,7 +2521,7 @@
 
 
 // v1.1.23: separate built-in selection from device-local Character Lab documents.
-// A local character never writes into the built-in Fox/Hero rig banks.
+// A local character never writes into the built-in original rig banks.
 const GameCharacters = window.SideScrollGameCharacters || null;
 const LOCAL_CHARACTER_SELECTION_KEY = 'sidescroll.game.local-character.v1';
 const allCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
@@ -2561,13 +2561,13 @@ function characterScaleMultiplier(id = currentCharacterVariant) {
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
     const savedCustom = GameCharacters?.ready(id)?.setup;
-    const foxSetupCurrent = id !== 'fox' || !FoxRig || setup?.[id]?.baselineId === FoxRig.AUTHORING_BASELINE_ID;
-    const raw = savedCustom ? Number(savedCustom.scale) : (foxSetupCurrent ? Number(setup?.[id]?.scale) : NaN);
-    const fallback = (id === 'fox' || savedCustom?.rig?.family==='quadruped') && FoxRig ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1;
+    const quadrupedSetupCurrent = id !== 'fox' || !QuadrupedRig || setup?.[id]?.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID;
+    const raw = savedCustom ? Number(savedCustom.scale) : (quadrupedSetupCurrent ? Number(setup?.[id]?.scale) : NaN);
+    const fallback = (id === 'fox' || savedCustom?.rig?.family==='quadruped') && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1;
     const value = Number.isFinite(raw) ? raw : fallback;
     return Math.max(CHARACTER_SCALE_MIN, Math.min(CHARACTER_SCALE_MAX, value));
   } catch (_) {
-    return id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_SCALE) || 1.71) : 1;
+    return id === 'fox' && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1;
   }
 }
 
@@ -2578,8 +2578,8 @@ function refreshCharacterScale() {
 
 function characterMotionSettings(id = currentCharacterVariant) {
   const defaults = {
-    walk: id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15) : 1.15,
-    run: id === 'fox' && FoxRig ? (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85) : 2.85
+    walk: id === 'fox' && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_WALK_SPEED) || 1.15) : 1.15,
+    run: id === 'fox' && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_RUN_SPEED) || 2.85) : 2.85
   };
   const custom = GameCharacters?.ready(id);
   if(custom){
@@ -2589,7 +2589,7 @@ function characterMotionSettings(id = currentCharacterVariant) {
   }
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
-    if (id === 'fox' && (!FoxRig || setup?.fox?.baselineId !== FoxRig.AUTHORING_BASELINE_ID)) return defaults;
+    if (id === 'fox' && (!QuadrupedRig || setup?.fox?.baselineId !== QuadrupedRig.AUTHORING_BASELINE_ID)) return defaults;
     const walkRaw = setup?.[id]?.walkSpeed == null ? NaN : Number(setup[id].walkSpeed);
     const runRaw = setup?.[id]?.runSpeed == null ? NaN : Number(setup[id].runSpeed);
     const walk = Rig.clamp(Number.isFinite(walkRaw) ? walkRaw : defaults.walk, .45, 3.25);
@@ -2603,7 +2603,7 @@ function characterMotionSettings(id = currentCharacterVariant) {
 function characterRigForVariant(id = currentCharacterVariant) {
   const info = characterVariantInfo(id);
   if (!info || info.rigType === 'human') return Rig;
-  if (info.rigType === 'fox') return FoxRig;
+  if (info.rigType === 'fox') return QuadrupedRig;
   return null;
 }
 
@@ -2638,7 +2638,7 @@ function activeCharacterRig(id = currentCharacterVariant) {
 function activeCharacterRigType(id = currentCharacterVariant) {
   const rig = activeCharacterRig(id);
   if (!rig) return null;
-  return rig === FoxRig ? 'fox' : 'human';
+  return rig === QuadrupedRig ? 'fox' : 'human';
 }
 
 function rigVariantTextureKey(id) {
@@ -2647,8 +2647,8 @@ function rigVariantTextureKey(id) {
 
 function rigVariantUrl(id) {
   const familyRig = characterRigForVariant(id);
-  const src = familyRig === FoxRig
-    ? (FoxRig?.ATLAS?.fileUrl || 'quadruped-parts-atlas-v3.png?v=1.0.163')
+  const src = familyRig === QuadrupedRig
+    ? (QuadrupedRig?.ATLAS?.fileUrl || 'quadruped-parts-atlas-v3.png?v=1.0.163')
     : (Rig.atlasImageUrl ? Rig.atlasImageUrl(id) : (Rig.ATLAS.fileUrl || Rig.ATLAS.url));
   return src.includes('?') ? src : `${src}?v=${RIG_TEXTURE_VERSION}`;
 }
@@ -2692,13 +2692,13 @@ function renderCharacterPicker(){
     const item=GameCharacters?.list().find(entry=>entry.id===id);
     if(!item)return null;
     const ready=item.status==='ready';
-    const human=item.family==='human';
+    const biped=item.family==='human';
     const technique=item.technique==='biped-starter-rigid'?'Biped starter art':
       item.technique==='atlas-deform'?'Authored Atlas mesh':
       item.technique==='atlas-mixed'?'Mixed Atlas pieces':
       item.technique==='atlas-bundled'?'Bundled Parts mesh':'Character Lab asset';
     const name=CharacterRegistry?.name(id)||item.label;
-    return {id,name,mark:mark(name),kind:(human?'Biped':'Quadruped')+' · '+technique,ready,
+    return {id,name,mark:mark(name),kind:(biped?'Biped':'Quadruped')+' · '+technique,ready,
       status:ready?'Ready':item.status==='loading'?'Loading artwork…':item.status};
   };
   if(CharacterRegistry){
@@ -2726,7 +2726,7 @@ function updateCharacterSwapButton() {
   if (!characterSwapBtn) return;
   const info = characterVariantInfo();
   // The player menu is deliberately tiny: this is an action, not an editor
-  // status readout. Keep the current hero in the accessible label instead.
+  // status readout. Keep the current character in the accessible label instead.
   characterSwapBtn.textContent = PLAYER_MODE ? 'Change character' : (info?.label || 'Character');
   characterSwapBtn.setAttribute('aria-expanded', String(characterPicker?.hidden===false));
   characterSwapBtn.setAttribute('aria-label', `Change character · current ${info?.label || currentCharacterVariant}`);
@@ -2783,7 +2783,7 @@ availableCharacterVariants.forEach(id => {
 // PNG URL. Failed or incomplete user characters stay unselectable.
 if(GameCharacters)for(const candidate of GameCharacters.list()){
   GameCharacters.load(candidate.id).then(data=>{
-    // Biped starters use the already-loaded Hero rigid renderer and have no
+    // Biped starters use the already-loaded biped rigid renderer and have no
     // imported image. Rigid/unbound and skinned Atlas parts each use their
     // own authored source PNG; mixed assemblies need both textures.
     if(data.parts.length){
@@ -7490,7 +7490,7 @@ document.addEventListener('keydown',event=>{
     jumpVelocity = 0;
     standingOnObject = null;
     runBlend = 0;
-    resetFoxGaitState();
+    resetQuadrupedGaitState();
     setDriveAxis(0);
   }
 
@@ -7825,7 +7825,7 @@ document.addEventListener('keydown',event=>{
     jumpCameraBaseY = character.y;
     cameraFollowOffset = 0;
     runBlend = 0;
-    resetFoxGaitState();
+    resetQuadrupedGaitState();
     setDriveAxis(0);
     lastPuzzleRespawnAt = performance.now();
     if (playerHintsEnabled) { hintEl.textContent = 'Respawned at puzzle checkpoint'; hintEl.classList.remove('hidden'); }
@@ -8630,62 +8630,62 @@ document.addEventListener('keydown',event=>{
   let characterFrames = Rig.DEFAULT_FRAMES.map(Rig.clone);
   let runFrames = Rig.RUN_FRAMES.map(Rig.clone);
   let jumpFrames = Rig.JUMP_FRAMES.map(Rig.clone);
-  const FOX_RUNTIME_CLIPS_KEY = 'sidescroll.animlab.quadruped.clips.v1';
-  const FOX_SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
-  let foxSparseClips = FoxRig ? FoxRig.clone(FoxRig.AUTHORED_SPARSE_CLIPS || {}) : {};
-  let foxIdleFrames = FoxRig ? (FoxRig.IDLE_FRAMES || Array.from({length:16},()=>FoxRig.IDLE_POSE)).map(FoxRig.clone) : [];
-  let foxWalkFrames = FoxRig ? FoxRig.DEFAULT_FRAMES.map(FoxRig.clone) : [];
-  let foxRunFrames = FoxRig ? FoxRig.RUN_FRAMES.map(FoxRig.clone) : [];
-  let foxJumpFrames = FoxRig ? FoxRig.JUMP_FRAMES.map(FoxRig.clone) : [];
-  function builtInFoxWalkFrames() {
-    if (!FoxRig) return [];
-    if (FoxRig.AUTHORING_BASELINE_ID) return FoxRig.DEFAULT_FRAMES.map((pose,index)=>FoxRig.normalizedPose(pose,index));
-    if (typeof FoxRig.buildExampleWalkFrames === 'function') {
-      const foxScale = Math.max(.001, BASE_CHARACTER_SCALE * characterScaleMultiplier('fox'));
-      const strideLocal = (Number(FoxRig.WALK_STRIDE_WORLD) || 0) / foxScale;
-      return FoxRig.buildExampleWalkFrames(FoxRig.loadRestRig?.(), strideLocal).map((pose,index)=>FoxRig.normalizedPose(pose,index));
+  const QUADRUPED_RUNTIME_CLIPS_KEY = 'sidescroll.animlab.quadruped.clips.v1';
+  const QUADRUPED_SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
+  let quadrupedSparseClips = QuadrupedRig ? QuadrupedRig.clone(QuadrupedRig.AUTHORED_SPARSE_CLIPS || {}) : {};
+  let quadrupedIdleFrames = QuadrupedRig ? (QuadrupedRig.IDLE_FRAMES || Array.from({length:16},()=>QuadrupedRig.IDLE_POSE)).map(QuadrupedRig.clone) : [];
+  let quadrupedWalkFrames = QuadrupedRig ? QuadrupedRig.DEFAULT_FRAMES.map(QuadrupedRig.clone) : [];
+  let quadrupedRunFrames = QuadrupedRig ? QuadrupedRig.RUN_FRAMES.map(QuadrupedRig.clone) : [];
+  let quadrupedJumpFrames = QuadrupedRig ? QuadrupedRig.JUMP_FRAMES.map(QuadrupedRig.clone) : [];
+  function builtInQuadrupedWalkFrames() {
+    if (!QuadrupedRig) return [];
+    if (QuadrupedRig.AUTHORING_BASELINE_ID) return QuadrupedRig.DEFAULT_FRAMES.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
+    if (typeof QuadrupedRig.buildExampleWalkFrames === 'function') {
+      const quadrupedScale = Math.max(.001, BASE_CHARACTER_SCALE * characterScaleMultiplier('fox'));
+      const strideLocal = (Number(QuadrupedRig.WALK_STRIDE_WORLD) || 0) / quadrupedScale;
+      return QuadrupedRig.buildExampleWalkFrames(QuadrupedRig.loadRestRig?.(), strideLocal).map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
     }
-    return FoxRig.DEFAULT_FRAMES.map(FoxRig.clone);
+    return QuadrupedRig.DEFAULT_FRAMES.map(QuadrupedRig.clone);
   }
-  function refreshFoxFrames() {
-    if (!FoxRig) return;
-    foxSparseClips = FoxRig.clone(FoxRig.AUTHORED_SPARSE_CLIPS || {});
-    foxIdleFrames = (FoxRig.IDLE_FRAMES || Array.from({length:16},()=>FoxRig.IDLE_POSE)).map(FoxRig.clone);
-    foxWalkFrames = builtInFoxWalkFrames();
-    foxRunFrames = FoxRig.RUN_FRAMES.map(FoxRig.clone);
-    foxJumpFrames = FoxRig.JUMP_FRAMES.map(FoxRig.clone);
+  function refreshQuadrupedFrames() {
+    if (!QuadrupedRig) return;
+    quadrupedSparseClips = QuadrupedRig.clone(QuadrupedRig.AUTHORED_SPARSE_CLIPS || {});
+    quadrupedIdleFrames = (QuadrupedRig.IDLE_FRAMES || Array.from({length:16},()=>QuadrupedRig.IDLE_POSE)).map(QuadrupedRig.clone);
+    quadrupedWalkFrames = builtInQuadrupedWalkFrames();
+    quadrupedRunFrames = QuadrupedRig.RUN_FRAMES.map(QuadrupedRig.clone);
+    quadrupedJumpFrames = QuadrupedRig.JUMP_FRAMES.map(QuadrupedRig.clone);
     try {
-      const sparseSaved = JSON.parse(localStorage.getItem(FOX_SPARSE_CLIPS_KEY) || 'null');
-      if (sparseSaved?.schema === 'animlab.sparse.v1' && sparseSaved?.foxBaselineId === FoxRig.AUTHORING_BASELINE_ID) {
+      const sparseSaved = JSON.parse(localStorage.getItem(QUADRUPED_SPARSE_CLIPS_KEY) || 'null');
+      if (sparseSaved?.schema === 'animlab.sparse.v1' && sparseSaved?.foxBaselineId === QuadrupedRig.AUTHORING_BASELINE_ID) {
         for (const name of ['idle','walk','run','jump']) {
           const clip = sparseSaved?.families?.fox?.[name];
-          if (clip?.keys?.length >= 2) foxSparseClips[name] = FoxRig.clone(clip);
+          if (clip?.keys?.length >= 2) quadrupedSparseClips[name] = QuadrupedRig.clone(clip);
         }
       }
-      const saved = JSON.parse(localStorage.getItem(FOX_RUNTIME_CLIPS_KEY) || 'null');
+      const saved = JSON.parse(localStorage.getItem(QUADRUPED_RUNTIME_CLIPS_KEY) || 'null');
       const clips = saved?.clips;
       // Keep the legacy 16-sample bank as a compatibility fallback, but v1.0.160
-      // renders saved sparse Fox clips directly so Smooth is not quantised back
+      // renders saved sparse quadruped clips directly so Smooth is not quantised back
       // down to sixteen linearly interpolated poses.
-      if (saved?.baselineId === FoxRig.AUTHORING_BASELINE_ID) {
-        if (Array.isArray(clips?.idle) && clips.idle.length >= 16) foxIdleFrames = clips.idle.map((pose,index)=>FoxRig.normalizedPose(pose,index));
-        if (Array.isArray(clips?.walk) && clips.walk.length >= 16) foxWalkFrames = clips.walk.map((pose,index)=>FoxRig.normalizedPose(pose,index));
-        if (Array.isArray(clips?.run) && clips.run.length >= 16) foxRunFrames = clips.run.map((pose,index)=>FoxRig.normalizedPose(pose,index));
-        if (Array.isArray(clips?.jump) && clips.jump.length >= 16) foxJumpFrames = clips.jump.map((pose,index)=>FoxRig.normalizedPose(pose,index));
+      if (saved?.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID) {
+        if (Array.isArray(clips?.idle) && clips.idle.length >= 16) quadrupedIdleFrames = clips.idle.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
+        if (Array.isArray(clips?.walk) && clips.walk.length >= 16) quadrupedWalkFrames = clips.walk.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
+        if (Array.isArray(clips?.run) && clips.run.length >= 16) quadrupedRunFrames = clips.run.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
+        if (Array.isArray(clips?.jump) && clips.jump.length >= 16) quadrupedJumpFrames = clips.jump.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
       }
     } catch (err) {
-      console.warn('[SideScroll] Saved Fox Anim Lab data could not be loaded; using the promoted Fox authoring baseline.', err);
+      console.warn('[SideScroll] Saved quadruped Character Lab data could not be loaded; using the original quadruped baseline.', err);
     }
   }
 
-  function foxPoseForClip(name, phase, fallbackFrames) {
+  function quadrupedPoseForClip(name, phase, fallbackFrames) {
     const custom=GameCharacters?.ready(currentCharacterVariant);
     const customClip=custom?.sparseClips?.[name];
-    if(customClip?.keys?.length && typeof FoxRig?.sampleSparseClip==='function')
-      return FoxRig.sampleSparseClip(customClip,phase);
-    const clip = foxSparseClips?.[name];
-    if (clip && typeof FoxRig?.sampleSparseClip === 'function') return FoxRig.sampleSparseClip(clip,phase);
-    return FoxRig.sampleFrames(fallbackFrames,phase);
+    if(customClip?.keys?.length && typeof QuadrupedRig?.sampleSparseClip==='function')
+      return QuadrupedRig.sampleSparseClip(customClip,phase);
+    const clip = quadrupedSparseClips?.[name];
+    if (clip && typeof QuadrupedRig?.sampleSparseClip === 'function') return QuadrupedRig.sampleSparseClip(clip,phase);
+    return QuadrupedRig.sampleFrames(fallbackFrames,phase);
   }
 
   function bipedPoseForClip(name,phase,fallback){
@@ -8713,7 +8713,7 @@ document.addEventListener('keydown',event=>{
     } catch (_) {}
   }
   refreshCharacterFrames();
-  refreshFoxFrames();
+  refreshQuadrupedFrames();
 
   characterCollider = (() => {
     const rig = activeCharacterRig();
@@ -9058,89 +9058,89 @@ document.addEventListener('keydown',event=>{
 
   let runBlend = 0;
   let locomotionPhase = 0;
-  const FOX_GAIT_RUN_ENTER = 0.18;
-  const FOX_GAIT_RUN_EXIT = 0.08;
-  const FOX_GAIT_TRANSITION_SECONDS = 0.17;
-  let foxGaitMode = 'walk';
-  let foxGaitPhase = 0;
-  let foxGaitTransition = null;
+  const QUADRUPED_GAIT_RUN_ENTER = 0.18;
+  const QUADRUPED_GAIT_RUN_EXIT = 0.08;
+  const QUADRUPED_GAIT_TRANSITION_SECONDS = 0.17;
+  let quadrupedGaitMode = 'walk';
+  let quadrupedGaitPhase = 0;
+  let quadrupedGaitTransition = null;
 
-  function resetFoxGaitState(mode='walk',phase=0) {
-    foxGaitMode = mode === 'run' ? 'run' : 'walk';
-    foxGaitPhase = ((Number(phase)||0)%1+1)%1;
-    foxGaitTransition = null;
-    locomotionPhase = foxGaitPhase;
+  function resetQuadrupedGaitState(mode='walk',phase=0) {
+    quadrupedGaitMode = mode === 'run' ? 'run' : 'walk';
+    quadrupedGaitPhase = ((Number(phase)||0)%1+1)%1;
+    quadrupedGaitTransition = null;
+    locomotionPhase = quadrupedGaitPhase;
   }
-  function foxGaitPose(mode,phase) {
+  function quadrupedGaitPose(mode,phase) {
     return mode === 'run'
-      ? foxPoseForClip('run',phase,foxRunFrames)
-      : foxPoseForClip('walk',phase,foxWalkFrames);
+      ? quadrupedPoseForClip('run',phase,quadrupedRunFrames)
+      : quadrupedPoseForClip('walk',phase,quadrupedWalkFrames);
   }
-  function foxGaitHz(mode) {
-    const ms = mode === 'run' ? Number(FoxRig?.RUN_CYCLE_MS)||323 : Number(FoxRig?.WALK_CYCLE_MS)||539;
+  function quadrupedGaitHz(mode) {
+    const ms = mode === 'run' ? Number(QuadrupedRig?.RUN_CYCLE_MS)||323 : Number(QuadrupedRig?.WALK_CYCLE_MS)||539;
     return 1000 / Math.max(1,ms);
   }
-  function foxGaitCadenceScale(mode,analogSpeed,walkSpeed,runSpeed) {
+  function quadrupedGaitCadenceScale(mode,analogSpeed,walkSpeed,runSpeed) {
     const nominal = mode === 'run' ? runSpeed : walkSpeed;
     return Rig.clamp(analogSpeed / Math.max(.001,nominal),0,1.25);
   }
-  function beginFoxGaitTransition(toMode) {
-    if (!FoxRig || foxGaitTransition || toMode === foxGaitMode) return;
-    const fromPose = foxGaitPose(foxGaitMode,foxGaitPhase);
-    const preferred = foxGaitPhase;
-    const targetPhase = typeof FoxRig.findMatchingLocomotionPhase === 'function'
-      ? FoxRig.findMatchingLocomotionPhase(fromPose,phase=>foxGaitPose(toMode,phase),preferred,64)
+  function beginQuadrupedGaitTransition(toMode) {
+    if (!QuadrupedRig || quadrupedGaitTransition || toMode === quadrupedGaitMode) return;
+    const fromPose = quadrupedGaitPose(quadrupedGaitMode,quadrupedGaitPhase);
+    const preferred = quadrupedGaitPhase;
+    const targetPhase = typeof QuadrupedRig.findMatchingLocomotionPhase === 'function'
+      ? QuadrupedRig.findMatchingLocomotionPhase(fromPose,phase=>quadrupedGaitPose(toMode,phase),preferred,64)
       : preferred;
-    foxGaitTransition = {
-      fromMode:foxGaitMode,toMode,
-      fromPhase:foxGaitPhase,toPhase:targetPhase,
-      elapsed:0,duration:FOX_GAIT_TRANSITION_SECONDS
+    quadrupedGaitTransition = {
+      fromMode:quadrupedGaitMode,toMode,
+      fromPhase:quadrupedGaitPhase,toPhase:targetPhase,
+      elapsed:0,duration:QUADRUPED_GAIT_TRANSITION_SECONDS
     };
   }
-  function updateFoxGait(dt,analogSpeed,targetRun,isMoving,walkSpeed,runSpeed) {
-    if (!FoxRig) return;
+  function updateQuadrupedGait(dt,analogSpeed,targetRun,isMoving,walkSpeed,runSpeed) {
+    if (!QuadrupedRig) return;
     if (!isMoving || analogSpeed <= .0001) {
       // A fresh slow start should always begin as a walk, rather than briefly
       // replaying the tail of a run after the player released the control.
-      if (targetRun <= FOX_GAIT_RUN_EXIT) resetFoxGaitState('walk',foxGaitPhase);
+      if (targetRun <= QUADRUPED_GAIT_RUN_EXIT) resetQuadrupedGaitState('walk',quadrupedGaitPhase);
       return;
     }
-    if (!foxGaitTransition) {
-      if (foxGaitMode === 'walk' && targetRun >= FOX_GAIT_RUN_ENTER) beginFoxGaitTransition('run');
-      else if (foxGaitMode === 'run' && targetRun <= FOX_GAIT_RUN_EXIT) beginFoxGaitTransition('walk');
+    if (!quadrupedGaitTransition) {
+      if (quadrupedGaitMode === 'walk' && targetRun >= QUADRUPED_GAIT_RUN_ENTER) beginQuadrupedGaitTransition('run');
+      else if (quadrupedGaitMode === 'run' && targetRun <= QUADRUPED_GAIT_RUN_EXIT) beginQuadrupedGaitTransition('walk');
     }
-    if (foxGaitTransition) {
-      const tr=foxGaitTransition;
-      tr.fromPhase=(tr.fromPhase+dt*foxGaitHz(tr.fromMode)*foxGaitCadenceScale(tr.fromMode,analogSpeed,walkSpeed,runSpeed))%1;
-      tr.toPhase=(tr.toPhase+dt*foxGaitHz(tr.toMode)*foxGaitCadenceScale(tr.toMode,analogSpeed,walkSpeed,runSpeed))%1;
+    if (quadrupedGaitTransition) {
+      const tr=quadrupedGaitTransition;
+      tr.fromPhase=(tr.fromPhase+dt*quadrupedGaitHz(tr.fromMode)*quadrupedGaitCadenceScale(tr.fromMode,analogSpeed,walkSpeed,runSpeed))%1;
+      tr.toPhase=(tr.toPhase+dt*quadrupedGaitHz(tr.toMode)*quadrupedGaitCadenceScale(tr.toMode,analogSpeed,walkSpeed,runSpeed))%1;
       tr.elapsed+=dt;
       if (tr.elapsed >= tr.duration) {
-        foxGaitMode=tr.toMode;
-        foxGaitPhase=tr.toPhase;
-        foxGaitTransition=null;
+        quadrupedGaitMode=tr.toMode;
+        quadrupedGaitPhase=tr.toPhase;
+        quadrupedGaitTransition=null;
       }
     } else {
-      foxGaitPhase=(foxGaitPhase+dt*foxGaitHz(foxGaitMode)*foxGaitCadenceScale(foxGaitMode,analogSpeed,walkSpeed,runSpeed))%1;
+      quadrupedGaitPhase=(quadrupedGaitPhase+dt*quadrupedGaitHz(quadrupedGaitMode)*quadrupedGaitCadenceScale(quadrupedGaitMode,analogSpeed,walkSpeed,runSpeed))%1;
     }
-    locomotionPhase = foxGaitTransition
-      ? (foxGaitTransition.elapsed < foxGaitTransition.duration*.5 ? foxGaitTransition.fromPhase : foxGaitTransition.toPhase)
-      : foxGaitPhase;
+    locomotionPhase = quadrupedGaitTransition
+      ? (quadrupedGaitTransition.elapsed < quadrupedGaitTransition.duration*.5 ? quadrupedGaitTransition.fromPhase : quadrupedGaitTransition.toPhase)
+      : quadrupedGaitPhase;
   }
-  function currentFoxGaitPose() {
-    if (!FoxRig) return null;
-    const tr=foxGaitTransition;
-    if (!tr) return foxGaitPose(foxGaitMode,foxGaitPhase);
-    const a=foxGaitPose(tr.fromMode,tr.fromPhase),b=foxGaitPose(tr.toMode,tr.toPhase);
+  function currentQuadrupedGaitPose() {
+    if (!QuadrupedRig) return null;
+    const tr=quadrupedGaitTransition;
+    if (!tr) return quadrupedGaitPose(quadrupedGaitMode,quadrupedGaitPhase);
+    const a=quadrupedGaitPose(tr.fromMode,tr.fromPhase),b=quadrupedGaitPose(tr.toMode,tr.toPhase);
     const t=Rig.clamp(tr.elapsed/Math.max(.001,tr.duration),0,1);
-    return typeof FoxRig.locomotionTransitionPose === 'function'
-      ? FoxRig.locomotionTransitionPose(a,b,t)
-      : FoxRig.blendPose(a,b,t);
+    return typeof QuadrupedRig.locomotionTransitionPose === 'function'
+      ? QuadrupedRig.locomotionTransitionPose(a,b,t)
+      : QuadrupedRig.blendPose(a,b,t);
   }
-  function foxGaitIsRun() {
-    if (!foxGaitTransition) return foxGaitMode === 'run';
-    return foxGaitTransition.elapsed >= foxGaitTransition.duration*.5
-      ? foxGaitTransition.toMode === 'run'
-      : foxGaitTransition.fromMode === 'run';
+  function quadrupedGaitIsRun() {
+    if (!quadrupedGaitTransition) return quadrupedGaitMode === 'run';
+    return quadrupedGaitTransition.elapsed >= quadrupedGaitTransition.duration*.5
+      ? quadrupedGaitTransition.toMode === 'run'
+      : quadrupedGaitTransition.fromMode === 'run';
   }
 
   let jumping = false;
@@ -17429,7 +17429,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function drawRigPartWebGL(part, view, facing, charRig) {
-    const rigType = charRig === FoxRig ? 'fox' : 'human';
+    const rigType = charRig === QuadrupedRig ? 'fox' : 'human';
     const mesh = rigPartMeshesByType[rigType]?.[part.name];
     const r = charRig.atlasRect(part.name);
     if (!mesh || !r) return;
@@ -17471,9 +17471,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   // v1.1.23 game-side deformable mesh draw. Existing WebGL rigid part path
-  // below remains completely unchanged for built-in Fox and both Heroes.
+  // below remains completely unchanged for built-in quadruped and both original bipeds.
   function drawLocalMeshCharacter(view,pose,facing,data){
-    GameCharacters.poseParts(data,pose,FoxRig);
+    GameCharacters.poseParts(data,pose,QuadrupedRig);
     for(let i=0;i<data.parts.length;i++){
       const part=data.parts[i];
       if(!part.mesh)continue;
@@ -17503,25 +17503,25 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function drawRigCharacter(view, isWalking) {
     const phase = currentCharacterPhase(isWalking);
     const charRig = activeCharacterRig();
-    const isFox = charRig === FoxRig;
+    const isQuadruped = charRig === QuadrupedRig;
     let pose;
 
-    if (climbState && !isFox) {
+    if (climbState && !isQuadruped) {
       pose = poseForClimbing(climbState);
-    } else if (climbState && isFox) {
-      // First-pass fox climbing uses the run/scramble cycle. The movement and
+    } else if (climbState && isQuadruped) {
+      // First-pass quadruped climbing uses the run/scramble cycle. The movement and
       // climb-path mechanics remain unchanged; a dedicated climb clip can be
       // authored later once the quadruped proportions are proven in-game.
-      pose = foxPoseForClip('run',(climbState.time * 1.35) % 1,foxRunFrames);
+      pose = quadrupedPoseForClip('run',(climbState.time * 1.35) % 1,quadrupedRunFrames);
     } else if (jumping) {
       const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
-      pose = isFox ? foxPoseForClip('jump',jumpPhase,foxJumpFrames) : bipedPoseForClip('jump',jumpPhase,charRig.sampleFrames(jumpFrames,jumpPhase));
+      pose = isQuadruped ? quadrupedPoseForClip('jump',jumpPhase,quadrupedJumpFrames) : bipedPoseForClip('jump',jumpPhase,charRig.sampleFrames(jumpFrames,jumpPhase));
     } else if (isWalking) {
-      if (isFox) {
+      if (isQuadruped) {
         // v1.0.162: Walk and Run remain intact authored gaits.  Only the short
         // phase-matched hand-off is blended, eliminating the permanent hybrid
         // pose that could leave one diagonal pair suspended between contacts.
-        pose = currentFoxGaitPose();
+        pose = currentQuadrupedGaitPose();
       } else {
         const walkPose = bipedPoseForClip('walk',phase,charRig.sampleFrames(characterFrames,phase));
         const runPose = bipedPoseForClip('run',phase,charRig.sampleFrames(runFrames,phase));
@@ -17529,13 +17529,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
     } else {
       const idlePhase = ((performance.now ? performance.now() : Date.now()) % 1400) / 1400;
-      pose = isFox ? foxPoseForClip('idle',idlePhase,foxIdleFrames) : bipedPoseForClip('idle',idlePhase,charRig.sampleFrames(characterFrames, 0.02));
+      pose = isQuadruped ? quadrupedPoseForClip('idle',idlePhase,quadrupedIdleFrames) : bipedPoseForClip('idle',idlePhase,charRig.sampleFrames(characterFrames, 0.02));
     }
 
-    // Carry/push poses are humanoid-specific. Gameplay interaction remains
-    // available to the fox test character, but its locomotion rig is not bent
+    // Carry/push poses are biped-specific. Gameplay interaction remains
+    // available to the quadruped test character, but its locomotion rig is not bent
     // into impossible arm poses.
-    if (!isFox) {
+    if (!isQuadruped) {
       if (pushingObject) pose = poseForPushing(pose, 1);
       if (carriedObject) pose = poseForCarrying(pose, 1, 0);
       if (interactionState) {
@@ -17562,13 +17562,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const parts = charRig.partsForPose(pose);
     let crateDrawn = false;
     for (const part of parts) {
-      if (!isFox && !crateDrawn && (carriedObject || interactionState) && part.name === 'near_upper_arm') {
+      if (!isQuadruped && !crateDrawn && (carriedObject || interactionState) && part.name === 'near_upper_arm') {
         drawCarriedCrate(view, facing, pose);
         crateDrawn = true;
       }
       drawRigPartWebGL(part, view, facing, charRig);
     }
-    if (!crateDrawn && (carriedObject || interactionState)) drawCarriedCrate(view, facing, isFox ? null : pose);
+    if (!crateDrawn && (carriedObject || interactionState)) drawCarriedCrate(view, facing, isQuadruped ? null : pose);
   }
 
   function nearestActionPushable() {
@@ -18654,11 +18654,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (isWalking) {
       const travel = Math.abs(cameraDelta);
       const charRig = activeCharacterRig();
-      if (charRig === FoxRig) {
-        // Fox ground speed remains analogue, but gait selection is discrete.
+      if (charRig === QuadrupedRig) {
+        // quadruped ground speed remains analogue, but gait selection is discrete.
         // Crossing the outer control range triggers a short phase-aware Walk↔Run
         // hand-off instead of holding a permanent same-phase pose blend.
-        updateFoxGait(dt,analogSpeed,targetRun,true,activeWalkSpeed,activeRunSpeed);
+        updateQuadrupedGait(dt,analogSpeed,targetRun,true,activeWalkSpeed,activeRunSpeed);
       } else {
         const walkStride = Number(charRig?.WALK_STRIDE_WORLD) || WALK_STRIDE;
         const runStride = Number(charRig?.RUN_STRIDE_WORLD) || RUN_STRIDE;
@@ -18667,7 +18667,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       character.distanceTravelled += travel;
     }
-    if (!isWalking && activeCharacterRig() === FoxRig) updateFoxGait(dt,0,targetRun,false,activeWalkSpeed,activeRunSpeed);
+    if (!isWalking && activeCharacterRig() === QuadrupedRig) updateQuadrupedGait(dt,0,targetRun,false,activeWalkSpeed,activeRunSpeed);
     previousCameraX = camera.x;
 
     character.x = camera.x + character.screenOffsetX;
@@ -18721,8 +18721,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     presentSceneWithPost();
     drawEditorOverlay();
 
-    const foxRunLabel = activeCharacterRig() === FoxRig && foxGaitIsRun();
-    const baseMotionLabel = climbState ? 'CLIMB' : (jumping ? 'JUMP' : ((activeCharacterRig() === FoxRig ? foxRunLabel : runBlend > .55) && isWalking ? 'RUN' : (isWalking ? 'WALK' : 'IDLE')));
+    const quadrupedRunLabel = activeCharacterRig() === QuadrupedRig && quadrupedGaitIsRun();
+    const baseMotionLabel = climbState ? 'CLIMB' : (jumping ? 'JUMP' : ((activeCharacterRig() === QuadrupedRig ? quadrupedRunLabel : runBlend > .55) && isWalking ? 'RUN' : (isWalking ? 'WALK' : 'IDLE')));
     const motionLabel = interactionState
       ? (interactionState.type === 'pickup' ? 'PICK UP' : 'PUT DOWN')
       : (pushingObject ? `PUSH ${isWalking ? 'WALK' : 'IDLE'}` : (carriedObject ? `CARRY ${isWalking ? 'WALK' : 'IDLE'}` : baseMotionLabel));
@@ -20811,7 +20811,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (interactionState?.type === 'pickup') interactionState.object.carried = false;
     if (interactionState?.type === 'drop') completeDrop();
     interactionState = null;
-    resetFoxGaitState();
+    resetQuadrupedGaitState();
     character.y = playSurfaceYAt(character.x) + jumpOffset;
     lastTime = performance.now();
     previousCameraX = camera.x;

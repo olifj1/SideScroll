@@ -3,7 +3,7 @@
 
   const core = window.AnimLabCore;
   const controls = window.AnimLabControlSurface;
-  const FoxRig = window.GameHubFoxRig || null;
+  const QuadrupedRig = window.SideScrollQuadrupedRig || null;
   const host = document.getElementById('animlab-extension');
   if (!core || !host) {
     console.error('[Anim Lab Stage 4] AnimLabCore or extension host is missing.');
@@ -123,14 +123,14 @@
 
   function reloadExampleWalk(){
     const st=state();
-    if(st.family!=='fox'||st.mode!=='animate'||st.clip!=='walk'||st.preview||!FoxRig)return;
-    const keys=typeof FoxRig.buildExampleWalkKeys==='function'
-      ? FoxRig.buildExampleWalkKeys(st.setup?.rig,strideLocal(st))
-      : clone(FoxRig.WALK_EXAMPLE_KEYS||[]);
+    if(st.family!=='fox'||st.mode!=='animate'||st.clip!=='walk'||st.preview||!QuadrupedRig)return;
+    const keys=typeof QuadrupedRig.buildExampleWalkKeys==='function'
+      ? QuadrupedRig.buildExampleWalkKeys(st.setup?.rig,strideLocal(st))
+      : clone(QuadrupedRig.WALK_EXAMPLE_KEYS||[]);
     if(!Array.isArray(keys)||keys.length<2)return;
     const changed=core.editSparseClip?.('Reload example walk',clip=>{
       clip.source='fox-example-walk';
-      clip.foundationVersion=FoxRig.WALK_EXAMPLE_ID||'fox-walk-example-v3';
+      clip.foundationVersion=QuadrupedRig.WALK_EXAMPLE_ID||'fox-walk-example-v3';
       clip.keys=clone(keys);
     });
     if(changed!==false){
@@ -201,8 +201,8 @@
     ctx.restore();
   }
 
-  core.registerUnderlayRenderer?.('fox-ground-motion',drawMovingGround);
-  core.registerPluginRenderer?.('fox-paw-ik',drawIkTargets);
+  core.registerUnderlayRenderer?.('quadruped-ground-motion',drawMovingGround);
+  core.registerPluginRenderer?.('quadruped-paw-ik',drawIkTargets);
 
   function render(st=state()){
     const visible=st.family==='fox'&&st.mode==='animate';

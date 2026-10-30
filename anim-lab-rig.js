@@ -250,7 +250,7 @@
   }
 
   function limbGroup(desc,id){
-    // Rig-family metadata, not a hard-coded Fox list, owns limb membership.
+    // Rig-family metadata, not a hard-coded quadruped list, owns limb membership.
     return (desc?.jointGroups||[]).find(group =>
       /(Near|Far)$/.test(group.id||'') && Array.isArray(group.joints) && group.joints.includes(id))||null;
   }

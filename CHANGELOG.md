@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Neutral names in code: every variable, function and global that was named after a
+  character is renamed (e.g. `FoxRig` → `QuadrupedRig`, `HumanRig` → `BipedRig`,
+  `window.GameHubFoxRig` → `window.SideScrollQuadrupedRig`), and comments and
+  console messages reworded. Saved-data values (`fox`/`human` families,
+  `foxBaselineId`, schemas) are unchanged until C2 / C1c. No behaviour change.
 - Neutral file and storage names: `fox-rig.js` → `quadruped-rig.js`, `walk-rig.js` →
   `biped-rig.js`, `fox-authoring-baseline.js` → `quadruped-baseline.js`,
   `anim-lab-fox-starter.js` → `anim-lab-quadruped-starter.js`, `fox-*.png` →

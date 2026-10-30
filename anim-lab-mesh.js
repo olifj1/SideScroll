@@ -2,15 +2,15 @@
   'use strict';
 
   const core = window.AnimLabCore;
-  const FoxRig = window.GameHubFoxRig;
+  const QuadrupedRig = window.SideScrollQuadrupedRig;
   const host = document.getElementById('animlab-extension');
-  if (!core || !FoxRig || !host || typeof core.registerArtRenderer !== 'function') {
+  if (!core || !QuadrupedRig || !host || typeof core.registerArtRenderer !== 'function') {
     console.error('[Anim Lab Mesh] Required mesh preview hooks are missing.');
     return;
   }
 
   // Stage M1.3: keep the clean topology/twist-safe binding from M1.1, but feed it
-  // one deliberately packed deform atlas cut from the approved charcoal Fox source.
+  // one deliberately packed deform atlas cut from the approved charcoal quadruped source.
   // A single atlas keeps the source coherent and avoids region-by-region image drift.
   // The old rigid atlas remains a fallback while the deform atlas is loading/unavailable.
   const REGION_DEFS = [
@@ -229,11 +229,11 @@
   }
 
   function neutralPose(){
-    const p = clone(FoxRig.IDLE_POSE || {});
+    const p = clone(QuadrupedRig.IDLE_POSE || {});
     for (const key of ['bodyBob','frontBodyLift','rearBodyLift','bodyPitch','neckPitch','headPitch','tailBase','tailMid','tailTip',
       'rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','rnDistal','rfDistal','fnDistal','ffDistal']) p[key]=0;
     for (const prefix of ['rn','rf','fn','ff']) p[`${prefix}IkWeight`]=0;
-    return FoxRig.normalizedPose(p,0);
+    return QuadrupedRig.normalizedPose(p,0);
   }
 
   const BIND_POSE = neutralPose();
@@ -262,7 +262,7 @@
   }
 
   function planeCornersLocal(part){
-    const rect=FoxRig.atlasRect(part.name);
+    const rect=QuadrupedRig.atlasRect(part.name);
     if(!rect)return[];
     const sv={scale:1000,cx:0,groundY:0,flipX:1};
     const m=partTransform(rect,part,sv);
@@ -278,7 +278,7 @@
   }
 
   function drawPartToTexture(ctx,atlas,part,view){
-    const rect=FoxRig.atlasRect(part.name);
+    const rect=QuadrupedRig.atlasRect(part.name);
     if(!rect)return;
     const m=partTransform(rect,part,view);
     ctx.save();
@@ -554,8 +554,8 @@
   }
 
   function buildRegion(def,atlas,restRig){
-    const bindGeom=FoxRig.geometry(BIND_POSE,restRig);
-    const allParts=FoxRig.partsForPose(BIND_POSE,restRig);
+    const bindGeom=QuadrupedRig.geometry(BIND_POSE,restRig);
+    const allParts=QuadrupedRig.partsForPose(BIND_POSE,restRig);
     const wanted=new Set(def.parts);
     const parts=allParts.filter(p=>wanted.has(p.name));
     const bbox=bboxForParts(parts);
@@ -570,7 +570,7 @@
     const rawView={scale,cx:PAD-bbox.minX*scale,groundY:PAD+bbox.maxY*scale,flipX:1};
     const dedicated=dedicatedArtFor(def);
     if(dedicated){
-      // Stage M1.3 uses one source atlas cut from the approved charcoal Fox. Each
+      // Stage M1.3 uses one source atlas cut from the approved charcoal quadruped. Each
       // region keeps a known clean rectangle, then fits into the already-approved
       // bind-space region without changing rig proportions or animation keys.
       const r=dedicated.rect;
@@ -728,7 +728,7 @@
   function texturedHeatmap(region,tuning){
     // Paint in source texture UV, then use its existing alpha as a mask.
     // Unlike a screen-space triangle overlay, this never colours transparent
-    // rectangle corners or empty spaces between Fox body/leg silhouettes.
+    // rectangle corners or empty spaces between quadruped body/leg silhouettes.
     const key=JSON.stringify([region.id,selectedSkinBone,tuning,artRevision]);
     if(heatTextureCache?.key===key&&heatTextureCache.region===region)return heatTextureCache.texture;
     const texture=document.createElement('canvas');
@@ -890,7 +890,7 @@
   // Layout happens BEFORE deformation, using stable character-space pivots.
   // The inverse bind and current posed geometry coincide at neutral rest, so
   // the assembled artwork is never displaced simply by moving a Rig joint.
-  const ART_PARTS=new Map((FoxRig.ART_LAYOUT_DESIGNER?.parts||[]).map(part=>[part.id,part]));
+  const ART_PARTS=new Map((QuadrupedRig.ART_LAYOUT_DESIGNER?.parts||[]).map(part=>[part.id,part]));
   function layoutVertex(point,regionId,artLayout){
     const tr=artLayout?.parts?.[regionId];
     if(!tr)return point;
@@ -1013,7 +1013,7 @@
     const rigMode=setupMode&&editor.setupTool==='rig';
     const skinEditing=setupMode&&editor.setupTool==='skin';
     if(mode!=='mesh'&&!setupMode)return false;
-    const restRig=args.restRig||args.setup?.rig||FoxRig.loadRestRig?.()||FoxRig.DEFAULT_REST_RIG;
+    const restRig=args.restRig||args.setup?.rig||QuadrupedRig.loadRestRig?.()||QuadrupedRig.DEFAULT_REST_RIG;
     const artRig=args.setup?.artRestRig||restRig;
     skinLastAtlas=args.atlas;
     const regions=regionsFor(args.atlas,artRig);
@@ -1023,9 +1023,9 @@
       ?(core.evaluateClip?.('walk',.25,'fox')||args.pose)
       :skinEditing&&skinPreview!=='neutral'
         ?(core.evaluateClip?.(skinPreview,skinPhase,'fox')||args.pose):args.pose;
-    const poseGeom=neutralMode?null:FoxRig.geometry(pose,restRig);
+    const poseGeom=neutralMode?null:QuadrupedRig.geometry(pose,restRig);
     const bindRig=rigMode&&preview==='candidate'?restRig:(args.setup?.skinBindRig||restRig);
-    const bindGeom=neutralMode?null:FoxRig.geometry(BIND_POSE,bindRig);
+    const bindGeom=neutralMode?null:QuadrupedRig.geometry(BIND_POSE,bindRig);
     const layout=args.setup?.artLayout,display=partsMode?window.AnimLabPartLayoutDisplay:null;
     const solo=display?.getSolo?.()||null;
     const order=Array.isArray(layout?.order)?layout.order:REGION_DEFS.map(r=>r.id);
@@ -1038,13 +1038,13 @@
       renderRegion(skinEditing&&id!==selectedSkinRegion?{...args,alpha:(args.alpha??1)*.20}:args,region,poseGeom,bindGeom,neutralMode,skinEditing);
     }
     args.ctx.restore();
-    if(skinEditing)drawPosedSkinRig(args,neutralMode?FoxRig.geometry(BIND_POSE,restRig):poseGeom);
+    if(skinEditing)drawPosedSkinRig(args,neutralMode?QuadrupedRig.geometry(BIND_POSE,restRig):poseGeom);
     return true;
   }
 
 
   function skinRegionInfo(state=core.getState()){
-    const rest=state.setup?.artRestRig||state.setup?.rig||FoxRig.DEFAULT_REST_RIG;
+    const rest=state.setup?.artRestRig||state.setup?.rig||QuadrupedRig.DEFAULT_REST_RIG;
     const atlas=core.getState().family==='fox'?skinLastAtlas:null;
     return atlas?regionsFor(atlas,rest).find(region=>region.id===selectedSkinRegion):null;
   }
@@ -1140,7 +1140,7 @@
     pick.textContent=skinPickArmed?'Tap a Vertex…':'Pick Vertex';pick.classList.toggle('active',skinPickArmed);
   }
 
-  // The region descriptor is the only region-specific input. No Fox-specific
+  // The region descriptor is the only region-specific input. No quadruped-specific
   // part IDs are embedded in the controls, so subsequent rig families can
   // expose equivalent descriptors without cloning the editor design.
   REGION_DEFS.forEach(def=>{
@@ -1298,7 +1298,7 @@
   inspectBtn.addEventListener('click',()=>{inspectIndex=(inspectIndex+1)%INSPECT.length;updateUi();core.redrawOnly?.();});
 
   // Read-only source-image atlas projection for the v1.1.0 Atlas Editor.
-  // The active Fox renderer uses dynamic per-region cropped textures, NOT
+  // The active quadruped renderer uses dynamic per-region cropped textures, NOT
   // directly stored atlas UVs. Invert the exact dedicated-art draw transform
   // to visualise its procedural vertices at their source pixels. No migration.
   let atlasSnapshotCache = null, atlasSnapshotCacheKey = '';
@@ -1306,7 +1306,7 @@
     if (!deformAtlas?.complete || !deformAtlas.naturalWidth || !skinLastAtlas) return null;
     const state = core.getState();
     if (state.family !== 'fox') return null;
-    const rest = state.setup?.artRestRig || state.setup?.rig || FoxRig.DEFAULT_REST_RIG;
+    const rest = state.setup?.artRestRig || state.setup?.rig || QuadrupedRig.DEFAULT_REST_RIG;
     const cacheKey = `${artRevision}:${rigKey(rest)}`;
     if (atlasSnapshotCache && atlasSnapshotCacheKey === cacheKey && atlasSnapshotCache.image === deformAtlas) return atlasSnapshotCache;
     const regions = regionsFor(skinLastAtlas, rest);
@@ -1315,7 +1315,7 @@
       meshes: regions.filter(region => region.artSource === 'dedicated').map(region => {
         const def = REGION_DEFS.find(d => d.id === region.id);
         const r = def.artRect, fit = def.fit || {};
-        const allParts = FoxRig.partsForPose(BIND_POSE,rest).filter(part => def.parts.includes(part.name));
+        const allParts = QuadrupedRig.partsForPose(BIND_POSE,rest).filter(part => def.parts.includes(part.name));
         const box = bboxForParts(allParts);
         if (!box) return null;
         const rawW = Math.max(32,Math.ceil((box.maxX-box.minX)*TEXELS_PER_LOCAL)+PAD*2);
@@ -1338,7 +1338,7 @@
   window.AnimLabLegacyAtlas = Object.freeze({getSnapshot:legacyAtlasSnapshot});
 
   loadDedicatedArt();
-  core.registerArtRenderer('fox-deform-mesh',render);
+  core.registerArtRenderer('quadruped-deform-mesh',render);
   core.subscribe(state=>updateUi(state));
   updateUi();
 })();

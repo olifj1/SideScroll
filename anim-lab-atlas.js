@@ -1,6 +1,6 @@
 /* SideScroll v1.1.3 — Atlas topology, preview and whole-mesh/vertex editing.
  * A separate 2D texture-space editor, NEVER a replacement for Part Layout.
- * Legacy Fox procedural meshes are read-only; no conversion or binding here.
+ * Legacy quadruped procedural meshes are read-only; no conversion or binding here.
  * Source vertices in pixels define UVs by (x / imageWidth, y / imageHeight).
  */
 (() => {
@@ -211,7 +211,7 @@
     const previousImage = state.legacy?.image;
     state.legacy=isActive(s) && s.family==='fox' && !state.draft.atlas
       ? window.AnimLabLegacyAtlas?.getSnapshot?.() || null : null;
-    // The bundled Fox atlas loads after the stage may already be open.
+    // The bundled quadruped atlas loads after the stage may already be open.
     // Initialise its view once, rather than displaying a cropped 1:1 corner.
     if (state.legacy?.image && previousImage !== state.legacy.image) fit();
   }

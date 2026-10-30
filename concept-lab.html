@@ -59,9 +59,9 @@
     .cl-main { flex:1; min-width:0; }
     .cl-document { max-width: 1100px; margin: 0 auto; padding: 18px 16px calc(40px + env(safe-area-inset-bottom)); }
     .cl-panel { background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
-    .cl-hero { display:grid; gap:16px; }
-    .cl-hero h1, .cl-location-head h1 { margin: 0; font-size: 28px; line-height:1.1; }
-    .cl-hero p, .cl-location-head p { color: var(--accent-2); margin: 0; }
+    .cl-intro { display:grid; gap:16px; }
+    .cl-intro h1, .cl-location-head h1 { margin: 0; font-size: 28px; line-height:1.1; }
+    .cl-intro p, .cl-location-head p { color: var(--accent-2); margin: 0; }
     .cl-stack { display:grid; gap: 16px; margin-top: 16px; }
     .cl-grid-2 { display:grid; gap: 16px; grid-template-columns: repeat(2, minmax(0,1fr)); }
     .cl-list, .cl-folder-list { margin: 0; padding-left: 18px; display:grid; gap:8px; color: var(--accent-2); }
@@ -266,7 +266,7 @@
         </div>
       `).join('');
       els.doc.innerHTML = `
-        <section class="cl-panel cl-hero">
+        <section class="cl-panel cl-intro">
           <h1>${escapeHtml(state.doc.title || 'Concept Lab')}</h1>
           <p>${escapeHtml(state.doc.overview.summary || '')}</p>
           <img class="cl-overview-image" src="assets/concept-shared-game-view-reference.png" alt="Current game view reference" data-title="Current game view reference">

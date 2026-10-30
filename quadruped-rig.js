@@ -10,7 +10,7 @@
   const distance = (a,b) => Math.hypot(b.x-a.x,b.y-a.y);
   const angle = (a,b) => Math.atan2(b.y-a.y,b.x-a.x);
   const DISTAL_SPLIT = 0.58;
-  const AUTHORING_BASELINE_BUNDLE = window.SideScrollFoxAuthoringBaseline || null;
+  const AUTHORING_BASELINE_BUNDLE = window.SideScrollQuadrupedBaseline || null;
   const AUTHORING_BASELINE = AUTHORING_BASELINE_BUNDLE?.fox || null;
   const AUTHORING_BASELINE_ID = String(AUTHORING_BASELINE_BUNDLE?.baselineId || 'fox-authoring-baseline-1.0.159');
   const DEFAULT_SCALE = Number(AUTHORING_BASELINE?.setup?.scale) || 1.71;
@@ -172,12 +172,12 @@
     // Anatomical fallback branch for an almost-straight or degenerate rest rig.
     // Actual IK bend direction is derived from the authored rest skeleton by
     // ikBendSideForRest(), not hardcoded independently of the Rig workspace.
-    // Fox forelegs bend backwards (-); hind knees bend forwards (+).
+    // quadruped forelegs bend backwards (-); hind knees bend forwards (+).
     ikBendSides:Object.freeze({frontNear:-1,frontFar:-1,rearNear:1,rearFar:1})
   });
 
   // v1.1.15: Rest-rig anatomy must determine the IK elbow/knee branch.
-  // The previous static bend sides were opposite the supplied Fox's authored
+  // The previous static bend sides were opposite the supplied quadruped's authored
   // rest joints. Activating an IK target at the *same paw position* mirrored
   // the elbow/knee to the other circle intersection, breaking the silhouette.
   // The first two bones solve to the wrist/hock, so derive the signed branch
@@ -360,7 +360,7 @@
   const WALK_STRIDE_WORLD = 0.62;
   const RUN_STRIDE_WORLD = 0.92;
   // v1.0.160: movement speed is authored independently from animation cadence.
-  // These preserve the previously approved Fox timing while Quick Play lets the
+  // These preserve the previously approved quadruped timing while Quick Play lets the
   // author tune how much ground the character covers during each cycle.
   const DEFAULT_WALK_SPEED = 1.15;
   const DEFAULT_RUN_SPEED = 2.85;
@@ -966,7 +966,7 @@
     return (2*t3-3*t2+1)*v1 + (t3-2*t2+t)*span*m1 + (-2*t3+3*t2)*v2 + (t3-t2)*span*m2;
   }
 
-  // Evaluate sparse authored Fox animation directly at a fractional timeline
+  // Evaluate sparse authored quadruped animation directly at a fractional timeline
   // position. v1.0.159 baked the curve to 16 samples and then linearly sampled
   // those frames, which made Smooth look almost linear at gameplay cadence.
   // v1.0.160 keeps the 16-frame authoring timeline but evaluates the cubic curve
@@ -1282,7 +1282,7 @@
       referenceSource:'foxShape',source,parts:Object.freeze(parts)});
   })();
 
-  window.GameHubFoxRig={
+  window.SideScrollQuadrupedRig={
     version:'1.0.163',DEG,TAU,BODY,REST,LIMBS,ATLAS,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,ikBendSideForRest,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,

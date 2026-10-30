@@ -142,7 +142,7 @@
     // belongs only to Parts/Rig/Skin/Animate/Play. Restore it on exit.
     panel.hidden = stage === 'atlas';
     const caps = s.capabilities || core.getCharacterCapabilities?.() || {};
-    const fox = caps.rigFamily === 'quadruped'; // legacy Difference overlay only
+    const quadruped = caps.rigFamily === 'quadruped'; // legacy Difference overlay only
     for (const btn of stageButtons) {
       const id = btn.dataset.authorStage;
       const active = id === stage;
@@ -173,13 +173,13 @@
       outlineBtn.textContent = visible ? 'Outlines: On' : 'Outlines: Off';
     }
     if (differenceBtn) {
-      differenceBtn.hidden = stage !== 'parts' || !fox;
+      differenceBtn.hidden = stage !== 'parts' || !quadruped;
       differenceBtn.textContent = originalDifference?.textContent || 'Difference: Off';
       differenceBtn.disabled = originalDifference?.disabled ?? true;
       differenceBtn.classList.toggle('active', !!originalDifference?.classList.contains('active'));
     }
     if (bindBtn) {
-      bindBtn.hidden = stage !== 'rig' || !fox;
+      bindBtn.hidden = stage !== 'rig' || !quadruped;
       bindBtn.textContent = originalBind?.textContent || 'Walk Preview: Off';
       bindBtn.disabled = originalBind?.disabled ?? false;
       bindBtn.classList.toggle('active', /Previous|Proposed/.test(bindBtn.textContent));
