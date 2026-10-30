@@ -5,7 +5,8 @@ A Project Backup export can now be baked into the game with `tools/bake_project.
 - A fresh install shows the built-in content, but **Project Backup and Lab exports list only keys actually saved on the device**, so an untouched fresh install exports almost nothing. Its content is already in the build.
 - Removing a key (Reset, or a restore that deletes a key) falls back to the built-in value, not to empty.
 - IndexedDB pixels (imported character PNGs) are still not exported and are not built in.
-- Play progress, view preferences, the selected character and transient lab state are deliberately not built in (`EXCLUDE` in the tool).
+- What is built in is decided by `storage-catalogue.json` (scope `content` or `migration`); play progress, view preferences, the selected character, transient lab state, backups and stale keys are not.
+- A save of a value identical to the built-in one is skipped on devices without their own copy, so a device only holds content it has genuinely changed.
 
 ## v1.1.18 — Optional Skin Joint Fit metadata, no new art export coverage
 

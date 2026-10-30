@@ -5,6 +5,10 @@
  * it gets the built-in value instead, so a fresh install starts with the full
  * project. Saved data on the device always wins and is never written or changed
  * here; removing a key (a lab's Reset) returns it to the built-in content.
+ * Saving a value identical to the built-in one, on a device with no copy of its
+ * own, is skipped: the game re-saves some content on every load (migrations),
+ * and storing it would pin that device to today's version so later published
+ * updates would never reach it.
  * Must load before any script that reads saved data.
  */
 (() => {
@@ -18,10 +22,16 @@
   const has = Object.prototype.hasOwnProperty;
   const proto = Object.getPrototypeOf(store);
   const getItem = proto.getItem;
+  const setItem = proto.setItem;
   proto.getItem = function (key) {
     const value = getItem.call(this, key);
     if (value === null && this === store && has.call(defaults, key)) return defaults[key];
     return value;
+  };
+  proto.setItem = function (key, value) {
+    if (this === store && has.call(defaults, key) && String(value) === defaults[key]
+      && getItem.call(this, key) === null) return;
+    return setItem.call(this, key, value);
   };
 
   window.SideScrollProjectDefaults = Object.freeze({
