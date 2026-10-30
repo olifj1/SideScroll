@@ -57,7 +57,6 @@
   const MOVE_RUN_SPEED_MAX = 5.75;
   const COLLAPSE_STATE_KEY = 'sidescroll.editor.section-collapse.v1';
   const STATIC_REFERENCE_KEY = 'sidescroll.animlab.static-reference.v1';
-  const FOX_HANDOFF_SCHEMA = 'sidescroll.animlab.fox-handoff.v1';
   // v199: new library entries are private character documents, not aliases for
   // built-in Fox/Hero gameplay storage. Never copy arbitrary atlas paths from
   // localStorage into an image URL.
@@ -1900,80 +1899,6 @@
     return changed;
   }
 
-  function buildFoxHandoffBundle() {
-    const liveFox = currentCharacter().id === 'fox';
-    const savedFoxSetup = setupMap?.fox || {};
-    const savedFoxCurrent = savedFoxSetup.baselineId === FoxRig.AUTHORING_BASELINE_ID;
-    const savedFoxScale = savedFoxCurrent ? Number(savedFoxSetup.scale) : NaN;
-    const savedFoxWalk = savedFoxCurrent ? Number(savedFoxSetup.walkSpeed) : NaN;
-    const savedFoxRun = savedFoxCurrent ? Number(savedFoxSetup.runSpeed) : NaN;
-    const setup = liveFox
-      ? clone(setupDraft)
-      : {
-          scale:clamp(Number.isFinite(savedFoxScale) ? savedFoxScale : (Number(FoxRig.DEFAULT_SCALE) || 1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
-          walkSpeed:clamp(Number.isFinite(savedFoxWalk) ? savedFoxWalk : (Number(FoxRig.DEFAULT_WALK_SPEED) || 1.15),MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
-          runSpeed:clamp(Number.isFinite(savedFoxRun) ? savedFoxRun : (Number(FoxRig.DEFAULT_RUN_SPEED) || 2.85),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
-          collider:FoxRig.normalizedCollider(FoxRig.loadCollider()),
-          rig:FoxRig.normalizedRestRig(FoxRig.loadRestRig()),
-          artLayout:normaliseArtLayout(adapters.fox,savedFoxCurrent ? savedFoxSetup.artLayout : null),
-          artRestRig:FoxRig.normalizedRestRig(savedFoxCurrent && savedFoxSetup.artRestRig || FoxRig.loadRestRig()),
-          skinBindRig:FoxRig.normalizedRestRig(savedFoxCurrent && savedFoxSetup.skinBindRig || FoxRig.loadRestRig()),
-          skinTuning:normaliseSkinTuning(savedFoxCurrent && savedFoxSetup.skinTuning)
-        };
-    const sparseClips = clone(sparseBanks.fox);
-    const runtimeSamples = {};
-    for (const clipName of FOX_CLIP_NAMES) runtimeSamples[clipName] = compileSparseClip(sparseClips[clipName],'fox');
-    return {
-      schema:FOX_HANDOFF_SCHEMA,
-      app:'SideScroll',
-      animLabVersion:'1.0.164',
-      exportedAt:new Date().toISOString(),
-      fox:{
-        setup:{
-          scale:clamp(Number(setup.scale)||(Number(FoxRig.DEFAULT_SCALE)||1.71),SETUP_SCALE_MIN,SETUP_SCALE_MAX),
-          walkSpeed:clamp(Number(setup.walkSpeed)||Number(FoxRig.DEFAULT_WALK_SPEED)||1.15,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX),
-          runSpeed:clamp(Number(setup.runSpeed)||Number(FoxRig.DEFAULT_RUN_SPEED)||2.85,MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX),
-          collider:FoxRig.normalizedCollider(setup.collider),
-          restRig:FoxRig.normalizedRestRig(setup.rig),
-          artLayout:normaliseArtLayout(adapters.fox,setup.artLayout),
-          artRestRig:FoxRig.normalizedRestRig(setup.artRestRig || setup.rig),
-          skinBindRig:FoxRig.normalizedRestRig(setup.skinBindRig || setup.rig),
-          skinTuning:normaliseSkinTuning(setup.skinTuning)
-        },
-        sparseClips,
-        runtimeSamples
-      }
-    };
-  }
-
-  async function exportFoxHandoffBundle() {
-    if(currentCharacter().library){
-      hint.textContent='Use Character Library > Export for this custom character; Fox Handoff exports only the built-in Fox.';
-      return false;
-    }
-    try {
-      const payload = JSON.stringify(buildFoxHandoffBundle(),null,2);
-      const fileName = 'SS-FOX-RIG-ANIM-1.0.175.json';
-      const blob = new Blob([payload],{type:'application/json'});
-      const file = typeof File === 'function' ? new File([blob],fileName,{type:'application/json'}) : null;
-      if (file && navigator.share && navigator.canShare?.({files:[file]})) {
-        await navigator.share({files:[file]});
-        hint.textContent = 'Fox rig + animation bundle shared.';
-      } else {
-        const url=URL.createObjectURL(blob);
-        const link=document.createElement('a');
-        link.href=url;link.download=fileName;document.body.appendChild(link);link.click();link.remove();
-        setTimeout(()=>URL.revokeObjectURL(url),0);
-        hint.textContent = 'Fox rig + animation bundle exported.';
-      }
-      return true;
-    } catch (err) {
-      if (err?.name === 'AbortError') return false;
-      console.error('[Anim Lab] Fox handoff export failed.',err);
-      alert(`Fox export failed: ${err.message || err}`);
-      return false;
-    }
-  }
 
   // v199 Character Library: entry creation is based on a known rig-family
   // starter; the art is visibly placeholder imagery until an asset importer
@@ -2037,11 +1962,17 @@
     hint.textContent=`${displayName} created with ${family==='fox'?'20 Oct Fox setup, rig, skin and clips':'Biped'} starter data. Your built-in characters are unchanged.`;
     return id;
   }
-  function exportLibraryCharacterDocument(id) {
+  // Everything needed to start a NEW library character from this one (Character
+  // Library > Import > Add as copy). Built-in characters are expressed in the
+  // same library-entry shape as custom ones, using their saved setup and clips.
+  function characterCopySource(id) {
+    const character=CHARACTERS.find(item=>item.id===id);
+    if(!character)return null;
     const entry=libraryEntry(id);
-    if(!entry)return null;
-    return {schema:'animlab.character-handoff.v1',app:'SideScroll',exportedAt:new Date().toISOString(),
-      character:clone(entry)};
+    if(entry)return clone({name:entry.name,starter:entry.starter,setup:entry.setup,
+      sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource});
+    return clone({name:character.label,starter:character.family==='fox'?'fox':'original',
+      setup:defaultSetupFor(id),sparseClips:sparseBanks[character.family],legacyAtlasSource:null});
   }
   function importLibraryCharacterDocument(raw) {
     if(isDirty() || selection.mode==='play' || libraryEntries.length>=24)return false;
@@ -2119,7 +2050,7 @@
     version:'1.0.199',
     getLibraryCharacters,
     getCharacterCapabilities:()=>clone(characterProfile()),
-    exportLibraryCharacterDocument,
+    characterCopySource,
     importLibraryCharacterDocument,
     createLibraryCharacter,
     renameLibraryCharacter,
@@ -2222,8 +2153,6 @@
     normalisePose:pose=>normaliseCurrentFrame(pose),
     getStaticReference:()=>clone(currentStaticReference()),
     setStaticReference,
-    buildFoxHandoffBundle:()=>clone(buildFoxHandoffBundle()),
-    exportFoxHandoffBundle,
     clamp,
     fitView,
     save:saveCurrent,

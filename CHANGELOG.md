@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Characters: every character (Hero 1, Hero 2, Fox and library characters) now has
+  **Export** in Character Lab → Load, plus **Export all characters** and **Import
+  characters…**. Files include everything for each character, including imported
+  artwork; import offers Replace (exact rollback / update), Add as a copy, or Skip.
+  Removed the legacy Fox Handoff, the Save-panel export, the old JSON import and
+  "All Character Lab Data" (`character-packages.js`).
 - Publishing foundation: `storage-catalogue.json` classifies all 95 storage keys
   (content, migration, local, progress, transient, backup, stale) and now drives
   the bake tool. Players' devices no longer save copies of built-in content when
