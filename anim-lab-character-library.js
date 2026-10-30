@@ -1,8 +1,10 @@
 /* SideScroll Character Lab — Character Library.
    Every character has the same workflow. Toolbar: New · Open · Save · Share.
    - Open lists every character grouped by category (character-registry.js), with
-     Rename, category, order, roles and Delete for each. A character holding a
-     role (e.g. Default player) can't be deleted until the role is moved.
+     Rename, category, order and Delete for each. A character holding a role
+     (e.g. Default player) can't be deleted until the role is moved.
+   - Settings (top bar) holds project-wide character settings: roles and
+     categories (later rig templates and abilities).
    - Share exports the open character or all characters, and imports characters
      (Replace / Add / Add as a copy / Skip). Packaging is character-packages.js.
    Library and original character storage remain separate under the hood; do not
@@ -54,17 +56,7 @@
     <div class="animlab-library-panel" id="animlab-library-open" hidden>
       <div class="animlab-library-panel-heading"><strong>Open character</strong><button type="button" data-library-close aria-label="Close Open character">×</button></div>
       <div class="animlab-library-list" id="animlab-library-list" aria-label="Characters by category"></div>
-      <button type="button" id="animlab-library-organise-toggle" class="animlab-library-action" aria-expanded="false">Roles and categories…</button>
-      <div class="animlab-library-organise" id="animlab-library-organise" hidden>
-        <strong>Roles</strong>
-        <small class="animlab-library-footnote">Each role is on one character. A character with a role can't be deleted; move the role first.</small>
-        <div id="animlab-library-roles"></div>
-        <button type="button" id="animlab-library-add-role" class="animlab-library-action">Add role…</button>
-        <strong>Categories</strong>
-        <small class="animlab-library-footnote">Characters are listed in this order. The game's character picker shows playable categories.</small>
-        <div id="animlab-library-categories"></div>
-        <button type="button" id="animlab-library-add-category" class="animlab-library-action">Add category…</button>
-      </div>
+      <small class="animlab-library-footnote">Roles and categories are in Settings (top bar).</small>
     </div>
     <div class="animlab-library-panel" id="animlab-library-save" hidden>
       <div class="animlab-library-panel-heading"><strong>Save character</strong><button type="button" data-library-close aria-label="Close Save character">×</button></div>
@@ -90,6 +82,29 @@
       </div>
     </div>`;
   drawer.insertBefore(section,original);
+  // Settings: a top-bar button opening a dialog with project-wide character
+  // settings, kept out of the Open list.
+  const settingsButton=document.createElement('button');
+  settingsButton.type='button';settingsButton.className='animlab-settings-button';
+  settingsButton.textContent='Settings';settingsButton.setAttribute('aria-haspopup','dialog');settingsButton.setAttribute('aria-expanded','false');
+  document.querySelector('.animlab-topbar .animlab-info')?.before(settingsButton);
+  const settings=document.createElement('div');
+  settings.className='animlab-settings-overlay';settings.hidden=true;
+  settings.innerHTML=`
+    <section class="animlab-settings-card" role="dialog" aria-modal="true" aria-labelledby="animlab-settings-title">
+      <div class="animlab-library-panel-heading"><strong id="animlab-settings-title">Character settings</strong><button type="button" data-settings-close aria-label="Close settings">×</button></div>
+      <div class="animlab-library-organise" id="animlab-library-organise">
+        <strong>Roles</strong>
+        <small class="animlab-library-footnote">Each role is on one character. A character with a role can't be deleted; move the role first.</small>
+        <div id="animlab-library-roles"></div>
+        <button type="button" id="animlab-library-add-role" class="animlab-library-action">Add role…</button>
+        <strong>Categories</strong>
+        <small class="animlab-library-footnote">Characters are listed in this order. The game's character picker shows playable categories.</small>
+        <div id="animlab-library-categories"></div>
+        <button type="button" id="animlab-library-add-category" class="animlab-library-action">Add category…</button>
+      </div>
+    </section>`;
+  document.body.appendChild(settings);
   // iOS can give a vertically scrolling sidebar a few pixels of horizontal
   // overscroll when nested controls resize. Keep the drawer's X origin fixed.
   drawer.addEventListener('scroll',()=>{if(drawer.scrollLeft!==0)drawer.scrollLeft=0;},{passive:true});
@@ -104,8 +119,8 @@
   const exportAllButton=$('animlab-library-export-all'),importButton=$('animlab-library-import-button');
   const review=$('animlab-library-review'),reviewList=$('animlab-library-review-list');
   const reviewApply=$('animlab-library-review-apply'),reviewCancel=$('animlab-library-review-cancel');
-  const organiseToggle=$('animlab-library-organise-toggle'),organise=$('animlab-library-organise');
-  const rolesList=$('animlab-library-roles'),categoriesList=$('animlab-library-categories');
+  const organise=settings.querySelector('#animlab-library-organise');
+  const rolesList=settings.querySelector('#animlab-library-roles'),categoriesList=settings.querySelector('#animlab-library-categories');
   const toolbar=[...section.querySelectorAll('[data-library-panel]')];
   const panels=Object.fromEntries(['new','open','save','share'].map(key=>[key,$('animlab-library-'+key)]));
   let openPanel=null,manageId=null,listSignature='',lastCharacterId=null,pendingImport=null;
@@ -194,11 +209,10 @@
         list.appendChild(row);
       });
     }
-    renderOrganise();
   }
-  // ---- Roles and categories -------------------------------------------------
+  // ---- Settings: roles and categories ----------------------------------------
   function renderOrganise(){
-    if(organise.hidden)return;
+    if(settings.hidden)return;
     const characters=allCharacters();
     rolesList.replaceChildren();
     for(const role of registry.roles()){
@@ -262,13 +276,13 @@
     // The list is populated only while Open is shown, rather than rebuilding
     // buttons during animated viewport redraws.
     if(openPanel!=='open')return;
-    const signature=JSON.stringify({id:state.characterId,mode:state.mode,dirty,manageId,organise:!organise.hidden,
+    const signature=JSON.stringify({id:state.characterId,mode:state.mode,dirty,manageId,
       reg:registry.load(),entries:allCharacters().map(e=>[e.id,e.name])});
     if(signature===listSignature)return;
     listSignature=signature;
     renderList(state);
   }
-  const rerender=()=>{listSignature='';refresh();};
+  const rerender=()=>{listSignature='';refresh();renderOrganise();};
   toolbar.forEach(button=>button.addEventListener('click',()=>setPanel(button.dataset.libraryPanel)));
   section.querySelectorAll('[data-library-close]').forEach(button=>button.addEventListener('click',()=>setPanel(null)));
   create.addEventListener('click',()=>{
@@ -279,9 +293,16 @@
     refresh();
   });
   name.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();create.click();}});
-  organiseToggle.addEventListener('click',()=>{
-    organise.hidden=!organise.hidden;organiseToggle.setAttribute('aria-expanded',String(!organise.hidden));rerender();
+  const setSettingsOpen=open=>{
+    settings.hidden=!open;settingsButton.setAttribute('aria-expanded',String(open));
+    if(open){renderOrganise();settings.querySelector('[data-settings-close]')?.focus({preventScroll:true});}
+    else settingsButton.focus({preventScroll:true});
+  };
+  settingsButton.addEventListener('click',()=>setSettingsOpen(settings.hidden));
+  settings.addEventListener('click',event=>{
+    if(event.target===settings||event.target.closest('[data-settings-close]'))setSettingsOpen(false);
   });
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!settings.hidden)setSettingsOpen(false);});
 
   // ---- Export ---------------------------------------------------------------
   const slug=value=>String(value||'character').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'character';

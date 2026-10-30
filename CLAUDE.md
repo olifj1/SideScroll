@@ -99,6 +99,7 @@ such as Default player: each on one character, movable, never removed; a charact
 with a role can't be deleted) and deleted original characters (hidden, since their
 data is shared storage). Stored in `sidescroll.characters.registry.v1`, written only
 when the author changes something. Load it on any page that lists characters.
+Character Lab edits roles and categories in its **Settings** dialog (top bar).
 
 ## Character packages
 `character-packages.js` exports one character or all characters to a file and

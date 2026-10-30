@@ -54,7 +54,9 @@ that still read the old names, so no saved data breaks.
   character picker lists the *Playable* category.
 
 ### Character Library actions
-Toolbar **New · Open · Save · Share**. *Share* holds Export this character,
+Toolbar **New · Open · Save · Share**; project-wide character settings (roles,
+categories, later rig templates and the ability list) live in a **Settings**
+dialog in the top bar. *Share* holds Export this character,
 Export all characters and Import characters (previously hidden under Load).
 
 ## 2. Templates: linking, editing and splitting

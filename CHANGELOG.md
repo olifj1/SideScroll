@@ -4,6 +4,8 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Character Lab: roles and categories moved out of Open into a **Settings** dialog
+  (top bar), the future home of rig templates and abilities.
 - Character registry: every character can be renamed, ordered, put in a category
   (Playable, Enemy, Interactive, or your own; the game's picker lists playable
   ones) and deleted, except characters holding a role (Default player, Default
