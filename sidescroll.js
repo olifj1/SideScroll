@@ -2648,7 +2648,7 @@ function rigVariantTextureKey(id) {
 function rigVariantUrl(id) {
   const familyRig = characterRigForVariant(id);
   const src = familyRig === FoxRig
-    ? (FoxRig?.ATLAS?.fileUrl || 'fox-rig-atlas-v3.png?v=1.0.163')
+    ? (FoxRig?.ATLAS?.fileUrl || 'quadruped-parts-atlas-v3.png?v=1.0.163')
     : (Rig.atlasImageUrl ? Rig.atlasImageUrl(id) : (Rig.ATLAS.fileUrl || Rig.ATLAS.url));
   return src.includes('?') ? src : `${src}?v=${RIG_TEXTURE_VERSION}`;
 }
@@ -8630,7 +8630,7 @@ document.addEventListener('keydown',event=>{
   let characterFrames = Rig.DEFAULT_FRAMES.map(Rig.clone);
   let runFrames = Rig.RUN_FRAMES.map(Rig.clone);
   let jumpFrames = Rig.JUMP_FRAMES.map(Rig.clone);
-  const FOX_RUNTIME_CLIPS_KEY = 'sidescroll.animlab.fox.clips.v1';
+  const FOX_RUNTIME_CLIPS_KEY = 'sidescroll.animlab.quadruped.clips.v1';
   const FOX_SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
   let foxSparseClips = FoxRig ? FoxRig.clone(FoxRig.AUTHORED_SPARSE_CLIPS || {}) : {};
   let foxIdleFrames = FoxRig ? (FoxRig.IDLE_FRAMES || Array.from({length:16},()=>FoxRig.IDLE_POSE)).map(FoxRig.clone) : [];

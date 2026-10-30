@@ -64,7 +64,7 @@
   const ALPHA_THRESHOLD = 10;
   const caches = new Map();
   const ART_VERSION = '1.0.173';
-  const DEFORM_ATLAS_FILE = 'fox-deform-atlas-v2.png';
+  const DEFORM_ATLAS_FILE = 'quadruped-deform-atlas-v2.png';
   let deformAtlas = null;
   let artRevision = 0;
   let mode = 'mesh';

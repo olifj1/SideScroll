@@ -4,6 +4,15 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Neutral file and storage names: `fox-rig.js` → `quadruped-rig.js`, `walk-rig.js` →
+  `biped-rig.js`, `fox-authoring-baseline.js` → `quadruped-baseline.js`,
+  `anim-lab-fox-starter.js` → `anim-lab-quadruped-starter.js`, `fox-*.png` →
+  `quadruped-*.png`, `…-alt-hero2.png` → `…-alt-b.png`, and the six `sidescroll.fox.*`
+  / `animlab.fox.clips` keys → `quadruped` keys. Old names keep working (art alias,
+  one-time key migration, import/bake mapping). Fixed: starting the game with PLAY
+  on the splash screen skipped two game scripts, so library characters (New01)
+  were unavailable and the Fox lacked its baseline; PLAY now loads `play.html`'s
+  own script list.
 - Character Lab: roles and categories moved out of Open into a **Settings** dialog
   (top bar), the future home of rig templates and abilities.
 - Character registry: every character can be renamed, ordered, put in a category

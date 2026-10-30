@@ -58,13 +58,15 @@
   const PUBLISHED_CHARACTER_ART=/^char-[a-z0-9-]{4,90}\.png$/;
   async function loadBundledImage(file) {
     // Allowlist means saved browser records can never choose arbitrary URL paths.
-    const fox=file==='fox-deform-atlas-v2.png';
+    // Saved data may still name the atlas by its old file name; resolve renames first.
+    file=(window.SideScrollAssetRename||(n=>n))(String(file));
+    const fox=file==='quadruped-deform-atlas-v2.png';
     assert(fox||PUBLISHED_CHARACTER_ART.test(String(file)),'Unsupported bundled artwork source');
     const image=new Image();
     await new Promise((resolve,reject)=>{
       image.onload=resolve;
       image.onerror=()=>reject(Error(fox?'Original deform atlas missing from the game':`Published character art missing from the game (${file})`));
-      image.src=(window.SideScrollAssetPath||(url=>url))(fox?'fox-deform-atlas-v2.png?v=1.1.25':file);
+      image.src=(window.SideScrollAssetPath||(url=>url))(fox?'quadruped-deform-atlas-v2.png?v=1.1.25':file);
     });
     return image;
   }
@@ -129,7 +131,7 @@
       if(requiresLegacy){
         const bundled=entry.legacyAtlasSource;
         assert(bundled?.schema==='animlab.legacy-atlas-sources.v1' &&
-          bundled.file==='fox-deform-atlas-v2.png' && Array.isArray(bundled.meshes),
+          (window.SideScrollAssetRename||(n=>n))(String(bundled.file))==='quadruped-deform-atlas-v2.png' && Array.isArray(bundled.meshes),
           'Original Parts need a new Character Lab Save to record their meshes');
         legacyMeshMap=new Map(bundled.meshes.map(m=>[`atlas-builtin-${m.id}`,m]));
         legacyImage=await loadBundledImage(bundled.file);

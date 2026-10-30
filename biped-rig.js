@@ -121,16 +121,16 @@ const CHARACTER_VARIANTS = Object.freeze({
     id: 'alternate',
     label: 'Hero 2',
     rigType: 'human',
-    fileUrl: 'walklab-rig-v4-alt-hero2.png',
-    sourceUrl: 'walklab-rig-v4-alt-hero2.png'
+    fileUrl: 'walklab-rig-v4-alt-b.png',
+    sourceUrl: 'walklab-rig-v4-alt-b.png'
   },
   fox: {
     id: 'fox',
     label: 'Fox',
     rigType: 'fox',
     visibleInWalkLab: false,
-    fileUrl: 'fox-rig-atlas-v1.png?v=1.0.141',
-    sourceUrl: 'fox-character-source-v1.png?v=1.0.141',
+    fileUrl: 'quadruped-parts-atlas-v1.png?v=1.0.141',
+    sourceUrl: 'quadruped-source-v1.png?v=1.0.141',
     soleArtOffset: 0
   }
 });

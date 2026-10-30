@@ -41,7 +41,7 @@ record changes in `CHANGELOG.md` and the PR description instead.
 
 ## Art and audio paths
 Code, bundled data and saved data refer to art by **bare filename**
-(`'fox-deform-atlas-v2.png?v=1.1.25'`). `asset-paths.js` defines
+(`'quadruped-deform-atlas-v2.png?v=1.1.25'`). `asset-paths.js` defines
 `window.SideScrollAssetPath(name)`, which turns a bare art/audio filename into
 `assets/<name>` at the moment it loads, and leaves data:/blob:/http URLs and
 anything with a folder unchanged. So:
@@ -53,6 +53,9 @@ anything with a folder unchanged. So:
   preload and the labs.
 - If the game loads a file at startup, add it to `GAME_PRELOAD` in `home.js` too,
   or it will pop in during play on a first launch.
+- Files renamed so nothing is named after a character keep their old names as
+  aliases (`RENAMED` in `asset-paths.js`), because saved data and older exports
+  still use them; compare file names through `SideScrollAssetRename()`.
 - Every place that sets an image `src`, CSS `background-image` or fetches audio
   must pass the URL through `assetPath(...)`. Each script takes a local
   `const assetPath = window.SideScrollAssetPath || (url => url);`.
@@ -69,11 +72,13 @@ The authored project ships as built-in defaults so a fresh install has it:
 - **Publishing character art:** the tool writes a character's imported PNG to
   `assets/char-<character id>-<content hash>.png` and switches its atlas document
   to `{kind:'bundled', file}`; the game and Character Lab load that pattern only
-  (plus `fox-deform-atlas-v2.png`). A new hash means a new file name, so changed
+  (plus `quadruped-deform-atlas-v2.png`). A new hash means a new file name, so changed
   art is fetched fresh; older files for that character are removed. A Project
   Backup alone cannot carry art (the tool says which characters stay phone-only).
 - `storage-catalogue.json` lists **every** storage key with its scope (content,
-  migration, local, progress, transient, backup, stale). The bake tool builds in
+  migration, local, progress, transient, backup, stale). Its `renamed` map lists
+  old key → new key: devices migrate once on load (`project-defaults.js`), and the
+  bake tool and character imports map old names, so a key can be renamed safely. The bake tool builds in
   content + migration keys only and warns about any key it doesn't know. **Add a
   catalogue line whenever code introduces a new storage key.**
 - `project-defaults.js` makes `localStorage.getItem(key)` return the built-in
@@ -115,7 +120,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `walk-rig.js`, `fox-authoring-baseline.js`, `fox-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
+| `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
@@ -132,8 +137,8 @@ Any new per-character storage must be added to `slicesFor()` there.
 2. **Protect local authoring data.** Players' and the user's work lives in
    `localStorage` and IndexedDB on the device. Never require clearing site data;
    prefer migrations and fix-forward. Saved data references art by **bare
-   filename** (e.g. `fox-deform-atlas-v2.png`, checked exactly in
-   `character-game-runtime.js`), so renaming/moving art needs a path resolver,
+   filename** (e.g. `quadruped-deform-atlas-v2.png`, or its old name
+   `fox-deform-atlas-v2.png`, checked in `character-game-runtime.js`), so renaming/moving art needs a path resolver,
    not a find-and-replace.
 3. **Design Lab merge rule.** On load, Design Lab only adds *missing IDs* from
    `design-doc.json`; it never overwrites an existing ID. To get new design
@@ -164,7 +169,10 @@ Any new per-character storage must be added to `slicesFor()` there.
 
 ## Gotchas
 - `sidescroll.js` is ~21k lines and `style.css` ~15k; grep, don't read whole.
-- `walk-rig.js` line 79 is an 821 KB base64 image — never print it.
+- `biped-rig.js` line 79 is an 821 KB base64 image — never print it.
+- PLAY on the splash screen loads the game into the splash page using the script
+  list in `play.html` (`home.js`), so a script added to `play.html` is picked up
+  automatically.
 - About the first 10,000 lines of `style.css` are leftover styles from older
   GameHub games (clock, sums, laser, racer…); cleanup is a planned task.
 - Script/CSS `?v=` numbers in the HTML pages are still hand-maintained and

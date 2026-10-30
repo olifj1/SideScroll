@@ -39,7 +39,7 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  const FOX_CLIPS_KEY = 'sidescroll.animlab.fox.clips.v1';
+  const FOX_CLIPS_KEY = 'sidescroll.animlab.quadruped.clips.v1';
   const SETUP_KEY = 'sidescroll.animlab.setup.v1';
   const EDITOR_SELECTION_KEY = 'sidescroll.animlab.editor.selection.v1';
   const HUMAN_CLIPS_KEY = 'gamehub.walklab.anim.v6';
@@ -63,7 +63,7 @@
   const CHARACTER_LIBRARY_KEY = 'sidescroll.animlab.character-library.v1';
   const CHARACTER_LIBRARY_SCHEMA = 'animlab.character-library.v1';
   const STARTERS = Object.freeze({
-    fox:{family:'fox',rigFamily:'quadruped',label:'Quadruped',atlas:'fox-rig-atlas-v3.png?v=1.0.163'},
+    fox:{family:'fox',rigFamily:'quadruped',label:'Quadruped',atlas:'quadruped-parts-atlas-v3.png?v=1.0.163'},
     original:{family:'human',rigFamily:'biped',label:'Biped',atlas:'walklab-rig-v4.png'}
   });
   const safeCharacterName = input => String(input||'').trim().replace(/[\u0000-\u001f\u007f<>]/g,'').slice(0,42);
@@ -162,8 +162,8 @@
 
   const CHARACTERS = [
     { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
-    { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-hero2.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'fox-rig-atlas-v3.png?v=1.0.163' }
+    { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-b.png' },
+    { id:'fox', label:'Fox', family:'fox', atlas:'quadruped-parts-atlas-v3.png?v=1.0.163' }
   ];
   for(const entry of libraryEntries) CHARACTERS.push({id:entry.id,label:entry.name,family:entry.family,
     atlas:STARTERS[entry.starter].atlas,starter:entry.starter,library:true});
@@ -752,7 +752,7 @@
   const foxShapeReference = new Image();
   foxShapeReference.onload = () => draw();
   foxShapeReference.onerror = () => console.error('[Anim Lab] Fox shape reference failed to load.');
-  foxShapeReference.src = (window.SideScrollAssetPath || (url => url))('fox-reference-charcoal.png?v=1.0.163');
+  foxShapeReference.src = (window.SideScrollAssetPath || (url => url))('quadruped-reference.png?v=1.0.163');
   const view = { zoom:1, panX:0, panY:0 };
   const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
   const pointers = new Map();
@@ -1131,7 +1131,7 @@
     if(meshes.some(m=>!m?.vertices?.length||!m?.triangles?.length))
       throw Error('One or more original Parts meshes could not be rebuilt. Open Parts and check the mesh sources.');
     return {schema:'animlab.legacy-atlas-sources.v1',
-      file:'fox-deform-atlas-v2.png',width:snapshot.width,height:snapshot.height,
+      file:'quadruped-deform-atlas-v2.png',width:snapshot.width,height:snapshot.height,
       meshes:clone(meshes.map(m=>({id:m.id,name:m.name,vertices:m.vertices,triangles:m.triangles})))};
   }
 

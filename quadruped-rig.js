@@ -110,9 +110,9 @@
     };
   }
 
-  const REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v3';
-  const REST_RIG_BASELINE_KEY = 'sidescroll.fox.rig.baseline-id';
-  const PREVIOUS_REST_RIG_STORAGE_KEY = 'sidescroll.fox.rig.v2';
+  const REST_RIG_STORAGE_KEY = 'sidescroll.quadruped.rig.v3';
+  const REST_RIG_BASELINE_KEY = 'sidescroll.quadruped.rig.baseline-id';
+  const PREVIOUS_REST_RIG_STORAGE_KEY = 'sidescroll.quadruped.rig.v2';
   const LEGACY_DEFAULT_REST_RIG = Object.freeze(buildLegacyRestRig());
   const DEFAULT_REST_RIG = Object.freeze(clone(AUTHORING_BASELINE?.setup?.restRig || LEGACY_DEFAULT_REST_RIG));
   const RIG_JOINT_IDS = Object.freeze(Object.keys(DEFAULT_REST_RIG.joints));
@@ -249,8 +249,8 @@
   }
   function resetRestRig() { return normalizedRestRig(DEFAULT_REST_RIG); }
 
-  const COLLIDER_STORAGE_KEY = 'sidescroll.fox.collider.v1';
-  const COLLIDER_BASELINE_KEY = 'sidescroll.fox.collider.baseline-id';
+  const COLLIDER_STORAGE_KEY = 'sidescroll.quadruped.collider.v1';
+  const COLLIDER_BASELINE_KEY = 'sidescroll.quadruped.collider.baseline-id';
   const DEFAULT_COLLIDER = Object.freeze({
     offsetX: 0.020,
     radius: 0.220,
@@ -303,8 +303,8 @@
   const ATLAS = Object.freeze({
     width: 2048,
     height: 2048,
-    fileUrl: 'fox-rig-atlas-v3.png?v=1.0.163',
-    sourceUrl: 'fox-reference-charcoal.png?v=1.0.163',
+    fileUrl: 'quadruped-parts-atlas-v3.png?v=1.0.163',
+    sourceUrl: 'quadruped-reference.png?v=1.0.163',
     parts: Object.freeze({
       head_neck:{x:18,y:18,w:409,h:360,a0:[0.2885085575,0.6111111111],a1:[0.6552567237,0.5277777778]},
       tail_base:{x:445,y:18,w:369,h:317,a0:[0.6476964770,0.3753943218],a1:[0.2411924119,0.6119873817]},
