@@ -120,6 +120,16 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### C3b — animation list (31 Oct)
+
+No new keys. A character's animations outside the action slots are saved as
+`extraClips: {clip-…: {name, basedOn, clip, link?}}` and slot names as
+`animationNames: {slot: name}` — in `sidescroll.animlab.character-clips.v1`
+(`characters[id]`) for original characters and in the library entry for library
+characters, so Project Backup, the bake tool and character packages carry them as
+before. Bipeds gain an `idle` slot clip (absent until edited; the game falls back to
+its standing pose).
+
 ### C3a — animation templates and own clips (31 Oct)
 
 New keys (content): `sidescroll.animation-templates.v1` `{schema, templates: {id:

@@ -48,6 +48,7 @@ const CORE_SHELL = [
   "./anim-lab-rig-templates.js",
   "./animation-templates.js",
   "./anim-lab-animation-templates.js",
+  "./anim-lab-animation-list.js",
   "./character-packages.js",
   "./anim-lab-character-library.js",
   "./anim-lab-stage2.js",

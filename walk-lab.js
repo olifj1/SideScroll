@@ -96,6 +96,8 @@
         legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'?entry.legacyAtlasSource:null,
         ...(characterArt(entry.starter,entry.art)?{art:characterArt(entry.starter,entry.art)}:{}),
         ...(entry.animationLinks&&typeof entry.animationLinks==='object'?{animationLinks:entry.animationLinks}:{}),
+        ...(entry.animationNames&&typeof entry.animationNames==='object'?{animationNames:entry.animationNames}:{}),
+        ...(entry.extraClips&&typeof entry.extraClips==='object'?{extraClips:entry.extraClips}:{}),
         createdAt:String(entry.createdAt||''),updatedAt:String(entry.updatedAt||'')
       }));
     }catch(err){console.warn('[Anim Lab] Character library read failed; existing data not overwritten.',err);return [];}
@@ -107,7 +109,7 @@
     libraryEntries=entries;
   }
 
-  const BIPED_CLIP_NAMES = Object.freeze(['walk','run','jump']);
+  const BIPED_CLIP_NAMES = Object.freeze(['idle','walk','run','jump']);
   const QUADRUPED_CLIP_NAMES = Object.freeze(['idle','walk','run','jump']);
   const clipNamesForFamily = family => family === 'quadruped' ? QUADRUPED_CLIP_NAMES : BIPED_CLIP_NAMES;
 
@@ -196,7 +198,14 @@
       jump: rig.JUMP_FRAMES.map(rig.clone)
     };
     if (family === 'quadruped') bank.idle = (rig.IDLE_FRAMES || Array.from({length:16},()=>rig.IDLE_POSE)).map(rig.clone);
+    else bank.idle = bipedIdleFrames(rig, bank.walk);
     return bank;
+  }
+  // A biped's default Idle is what the game has always shown standing still:
+  // the walk pose 2% into the cycle, held (C3b made Idle editable for bipeds).
+  function bipedIdleFrames(rig, walk) {
+    const still = rig.sampleFrames(walk, .02);
+    return Array.from({length:16}, (_, i) => rig.normalizedPose({...still}, i));
   }
 
   function loadBipedBank() {
@@ -207,6 +216,7 @@
         for (const name of ['walk','run','jump']) {
           if (Array.isArray(saved[name]) && saved[name].length === 16) bank[name] = saved[name].map((p,i) => BipedRig.normalizedPose(p,i));
         }
+        bank.idle = bipedIdleFrames(BipedRig, bank.walk);
       } else {
         const previous = JSON.parse(localStorage.getItem(BIPED_PREVIOUS_KEY) || 'null');
         if (Array.isArray(previous?.walk) && previous.walk.length === 16) bank.walk = previous.walk.map((p,i) => BipedRig.normalizedPose(p,i));
@@ -277,10 +287,11 @@
   const adapters = {
     biped: {
       id:'biped', label:'Biped', rig:BipedRig,
-      clipMs:{walk:1050,run:650,jump:935},
+      clipMs:{idle:1400,walk:1050,run:650,jump:935},
       loadBank:loadBipedBank, saveBank:saveBipedBank,
       normalise:(pose, index) => BipedRig.normalizedPose(pose,Math.floor(((Number(index)||0)%16+16)%16)),
       defaultPose:(clip,index) => {
+        if (clip === 'idle') return bipedIdleFrames(BipedRig, BipedRig.DEFAULT_FRAMES)[index];
         const source = clip === 'run' ? BipedRig.RUN_FRAMES : clip === 'jump' ? BipedRig.JUMP_FRAMES : BipedRig.DEFAULT_FRAMES;
         return BipedRig.normalizedPose(source[index], index);
       },
@@ -316,7 +327,7 @@
   const CHARACTER_PROFILES = Object.freeze({
     biped:Object.freeze({rigFamily:'biped',legacyAdapter:'biped',renderTechnique:'rigid-parts',
       quickPlay:true,authoring:Object.freeze({atlas:true,parts:false,rig:true,skin:false,animate:true}),
-      clips:Object.freeze(['walk','run','jump']),
+      clips:Object.freeze(['idle','walk','run','jump']),
       actionSlots:Object.freeze(['idle','walk','run','jump']),
       clipMs:Object.freeze({idle:1400,walk:1050,run:650,jump:935}),
       defaultSpeeds:Object.freeze({walk:1.15,run:2.85}),
@@ -675,6 +686,24 @@
     }
     customSparseBanks[entry.id]=bank;
     customSampleBanks[entry.id]=samples;
+    addExtraAnimations(entry.id,entry.family,entry.extraClips);
+  }
+  // Extra animations (C3b): a character's animations that are not in an action
+  // slot. Kept in the same clip banks under their own key ('clip-…'), with a
+  // name and the slot they were made from (for playback speed); not played by
+  // the game until actions can use them (C5).
+  const extraAnimations={};
+  const EXTRA_KEY=/^clip-[a-z0-9-]{3,60}$/;
+  function addExtraAnimations(characterId,family,extras){
+    const list=[];
+    for(const [key,extra] of Object.entries(extras&&typeof extras==='object'?extras:{})){
+      if(!EXTRA_KEY.test(key)||!Array.isArray(extra?.clip?.keys))continue;
+      const basedOn=clipNamesForFamily(family).includes(extra.basedOn)?extra.basedOn:null;
+      customSparseBanks[characterId][key]=normaliseSparseClip(extra.clip,family,key,banks[family][basedOn||'walk']);
+      customSampleBanks[characterId][key]=compileSparseClip(customSparseBanks[characterId][key],family);
+      list.push({key,name:safeCharacterName(extra.name)||'Animation',basedOn});
+    }
+    extraAnimations[characterId]=list;
   }
   for(const entry of libraryEntries)initialiseLibraryClips(entry);
 
@@ -706,8 +735,46 @@
     }
     customSparseBanks[character.id]=bank;
     customSampleBanks[character.id]=samples;
+    addExtraAnimations(character.id,character.family,loadCharacterClips().characters[character.id]?.extraClips);
   }
   for (const character of CHARACTERS) if (!character.library) initialiseOriginalClips(character);
+  const titleCase = s => s.charAt(0).toUpperCase() + s.slice(1);
+  // Saved animation names of slot animations (extras carry their own).
+  function savedAnimationNames(characterId) {
+    const entry = libraryEntry(characterId);
+    return (entry ? entry.animationNames : loadCharacterClips().characters[characterId]?.animationNames) || {};
+  }
+  // Every animation of a character: slot animations in slot order, then extras.
+  function animationList(characterId = selection.characterId) {
+    const character = characterById(characterId), names = savedAnimationNames(characterId);
+    return [
+      ...clipNamesForFamily(character.family).map(slot => ({key:slot, name:names[slot] || titleCase(slot), slot})),
+      ...(extraAnimations[characterId] || []).map(x => ({key:x.key, name:x.name, slot:null, basedOn:x.basedOn}))
+    ];
+  }
+  const clipExists = (characterId, key) => clipNamesForFamily(characterById(characterId).family).includes(key)
+    || !!extraAnimations[characterId]?.some(x => x.key === key);
+  const extraOf = (characterId, key) => extraAnimations[characterId]?.find(x => x.key === key) || null;
+  // Playback length: the slot's, or the slot an extra was made from.
+  const clipDuration = () => currentAdapter().clipMs[selection.clip] || currentAdapter().clipMs[extraOf(selection.characterId, selection.clip)?.basedOn] || 1050;
+  // Change a character's saved animations in one write. The callback gets the
+  // saved {clips, links, names, extras} objects (slot clips, template links by
+  // slot, slot names, extra animations) to change in place.
+  function updateSavedAnimations(characterId, change) {
+    const entry = libraryEntry(characterId);
+    if (entry) {
+      const next = clone(entry);
+      const parts = {clips:next.sparseClips ||= {}, links:next.animationLinks ||= {}, names:next.animationNames ||= {}, extras:next.extraClips ||= {}};
+      change(parts);
+      next.updatedAt = new Date().toISOString();
+      storeLibrary(libraryEntries.map(item => item.id === characterId ? next : item));
+      return;
+    }
+    const store = clone(loadCharacterClips());
+    const record = store.characters[characterId] ||= {};
+    change({clips:record.sparseClips ||= {}, links:record.links ||= {}, names:record.animationNames ||= {}, extras:record.extraClips ||= {}});
+    storeCharacterClips(store);
+  }
   // Saved animation-template links of a character, by slot.
   function savedClipLinks(characterId) {
     const entry = libraryEntry(characterId);
@@ -886,7 +953,7 @@
   }
 
   const selection = loadEditorSelection();
-  if (!clipNamesForFamily(characterById(selection.characterId).family).includes(selection.clip)) selection.clip = 'walk';
+  if (!clipExists(selection.characterId, selection.clip)) selection.clip = 'walk';
   if (selection.mode === 'play' && !characterProfile(characterById(selection.characterId).family)?.quickPlay) selection.mode = 'animate';
   if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(selection.characterId).family])) selection.setupTool = 'rig';
   let setupDraft = defaultSetupFor(selection.characterId);
@@ -1306,9 +1373,16 @@
       }
       if (saveClip) {
         conversionPreview = null;
-        if(libraryEntry(character.id)){
+        const extra=extraOf(character.id,selection.clip);
+        if(extra){
+          updateSavedAnimations(character.id,({extras})=>{
+            extras[extra.key]={name:extra.name,basedOn:extra.basedOn,clip:clone(customSparseBanks[character.id][extra.key]),
+              ...(extras[extra.key]?.link?{link:extras[extra.key].link}:{})};
+          });
+        }else if(libraryEntry(character.id)){
+          const slots=Object.fromEntries(clipNamesForFamily(character.family).map(slot=>[slot,clone(customSparseBanks[character.id][slot])]));
           const updated=libraryEntries.map(item=>item.id===character.id
-            ? {...item,sparseClips:clone(customSparseBanks[character.id]),updatedAt:new Date().toISOString()}
+            ? {...item,sparseClips:slots,updatedAt:new Date().toISOString()}
             : item);
           storeLibrary(updated);
         }else{
@@ -1317,7 +1391,7 @@
           record.sparseClips = {...(record.sparseClips || {}), [selection.clip]:clone(customSparseBanks[character.id][selection.clip])};
           storeCharacterClips(store);
         }
-        saveClipTemplate(character, selection.clip);
+        if(!extra)saveClipTemplate(character, selection.clip);
       }
       for (const participant of sessionParticipants.values()) {
         if (!participant?.save) continue;
@@ -1413,12 +1487,102 @@
       selection.characterId = id;
       rigEditChoice = null;
       clipEditChoices.clear();
-      if (!clipNamesForFamily(characterById(id).family).includes(selection.clip)) selection.clip = 'walk';
+      if (!clipExists(id, selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
       if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
       selection.frame = 0; playPhase = 0; playing = false;
       fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
+  }
+
+  // A character's animations as a library entry holds them (for copies).
+  function animationCopy(characterId) {
+    const family = characterById(characterId).family, bank = customSparseBanks[characterId] || {};
+    const extraClips = Object.fromEntries((extraAnimations[characterId] || [])
+      .map(x => [x.key, {name:x.name, basedOn:x.basedOn, clip:clone(bank[x.key])}]));
+    return {sparseClips:Object.fromEntries(clipNamesForFamily(family).map(slot => [slot, clone(bank[slot])])),
+      ...(Object.keys(extraClips).length ? {extraClips} : {}),
+      animationNames:clone(savedAnimationNames(characterId))};
+  }
+
+  // ---- Animation list (C3b) ---------------------------------------------------
+  // Structural changes are saved straight away and need no unsaved edits.
+  function animationEditBlocked() {
+    if (!isDirty() && selection.mode === 'animate') return false;
+    hint.textContent = selection.mode !== 'animate' ? 'Open Animate to change animations.' : 'Save or discard your edits first.';
+    return true;
+  }
+  const newClipKey = () => `clip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
+  // A new animation, not in a slot: a copy of the current one, or a blank one
+  // holding the current frame's pose. It opens for editing.
+  function createAnimation(kind, name) {
+    if (animationEditBlocked()) return null;
+    const character = currentCharacter(), family = character.family, key = newClipKey();
+    const source = extraOf(character.id, selection.clip)?.basedOn || (clipNamesForFamily(family).includes(selection.clip) ? selection.clip : 'walk');
+    const clip = kind === 'blank'
+      ? normaliseSparseClip({source:'sparse-authored', keys:[{frame:0, name:'Pose', pose:currentPose()}]}, family, key, banks[family][source])
+      : normaliseSparseClip(clone(currentSparseClip()), family, key, currentFrames());
+    const clean = safeCharacterName(name) || (kind === 'blank' ? 'New animation' : `${animationList().find(a => a.key === selection.clip)?.name || 'Animation'} copy`);
+    updateSavedAnimations(character.id, ({extras}) => { extras[key] = {name:clean, basedOn:source, clip:clone(clip)}; });
+    customSparseBanks[character.id][key] = clip;
+    customSampleBanks[character.id][key] = compileSparseClip(clip, family);
+    (extraAnimations[character.id] ||= []).push({key, name:clean, basedOn:source});
+    selection.clip = key; selection.frame = 0; playPhase = 0; playing = false;
+    saveEditorSelection(); resetCheckpoint();
+    hint.textContent = `${clean} created · not in a slot yet`;
+    draw(); updateUi(); notify();
+    return key;
+  }
+  function renameAnimation(key, name) {
+    const clean = safeCharacterName(name), character = currentCharacter();
+    if (!clean || !clipExists(character.id, key)) return false;
+    const extra = extraOf(character.id, key);
+    updateSavedAnimations(character.id, ({names, extras}) => {
+      if (extra) extras[key] = {...(extras[key] || {name:extra.name, basedOn:extra.basedOn, clip:clone(customSparseBanks[character.id][key])}), name:clean};
+      else names[key] = clean;
+    });
+    if (extra) extra.name = clean;
+    draw(); notify();
+    return true;
+  }
+  // Only animations outside a slot can be deleted (a slot always has one).
+  function deleteAnimation(key) {
+    const character = currentCharacter(), extra = extraOf(character.id, key);
+    if (!extra || animationEditBlocked()) return false;
+    updateSavedAnimations(character.id, ({extras}) => { delete extras[key]; });
+    delete customSparseBanks[character.id][key]; delete customSampleBanks[character.id][key];
+    extraAnimations[character.id] = extraAnimations[character.id].filter(x => x.key !== key);
+    if (selection.clip === key) { selection.clip = 'walk'; selection.frame = 0; saveEditorSelection(); resetCheckpoint(); }
+    hint.textContent = `${extra.name} deleted`;
+    draw(); updateUi(); notify();
+    return true;
+  }
+  // Put an extra animation into a slot; the slot's previous animation becomes an
+  // extra (with its name and template link), so nothing is lost.
+  function assignAnimation(key, slot) {
+    const character = currentCharacter(), family = character.family, extra = extraOf(character.id, key);
+    if (!extra || !clipNamesForFamily(family).includes(slot) || animationEditBlocked()) return false;
+    const bank = customSparseBanks[character.id], names = savedAnimationNames(character.id);
+    const slotClip = bank[slot], slotName = names[slot] || titleCase(slot), slotLink = clipLinkFor(character, slot);
+    const incoming = normaliseSparseClip(clone(bank[key]), family, slot, banks[family][slot]);
+    const outgoing = normaliseSparseClip(clone(slotClip), family, key, banks[family][slot]);
+    let extraLink = null;
+    const incomingName = extra.name;
+    updateSavedAnimations(character.id, ({clips, links, names, extras}) => {
+      extraLink = extras[key]?.link || null;
+      clips[slot] = clone(incoming);
+      names[slot] = extra.name;
+      links[slot] = extraLink || {id:AnimationTemplates?.builtInId(family, slot) || `anim-${family}-${slot}`, mode:'unique', revision:1};
+      extras[key] = {name:slotName, basedOn:slot, clip:clone(outgoing), link:clone(slotLink)};
+    });
+    bank[slot] = incoming; bank[key] = outgoing;
+    customSampleBanks[character.id][slot] = compileSparseClip(incoming, family);
+    customSampleBanks[character.id][key] = compileSparseClip(outgoing, family);
+    Object.assign(extra, {name:slotName, basedOn:slot});
+    selection.clip = slot; selection.frame = 0; saveEditorSelection(); resetCheckpoint();
+    hint.textContent = `${titleCase(slot)} now plays ${incomingName} · ${slotName} kept under Other animations`;
+    draw(); updateUi(); notify();
+    return true;
   }
 
   // ---- Animation templates (C3a) ---------------------------------------------
@@ -1558,7 +1722,7 @@
   }
 
   function switchClip(name) {
-    if (name === selection.clip || !clipNamesForFamily(currentCharacter().family).includes(name)) return;
+    if (name === selection.clip || !clipExists(selection.characterId, name)) return;
     guardNavigation(() => {
       conversionPreview = null;
       selection.clip = name; selection.frame = 0; playPhase = 0; playing = false;
@@ -2113,7 +2277,7 @@
   function animate(now) {
     const dt=Math.min(50,Math.max(0,now-lastAnimTime));lastAnimTime=now;
     if(playing&&selection.mode==='animate'){
-      const ms=currentAdapter().clipMs[selection.clip]||1050;
+      const ms=clipDuration();
       // Use real elapsed time for the clip; slower devices must not play
       // slowed-down motion just because a frame takes >50 ms to render.
       const realDt=Math.min(250,Math.max(0,now-(animate._lastPlaybackFrameTime||now)));
@@ -2231,10 +2395,11 @@
     const character=CHARACTERS.find(item=>item.id===id);
     if(!character)return null;
     const entry=libraryEntry(id);
+    const animations=animationCopy(id);
     if(entry)return clone({name:entry.name,starter:entry.starter,setup:entry.setup,
-      sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource,...(entry.art?{art:entry.art}:{})});
+      sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource,...(entry.art?{art:entry.art}:{}),...animations});
     return clone({name:character.label,starter:character.family,
-      setup:defaultSetupFor(id),sparseClips:customSparseBanks[id],
+      setup:defaultSetupFor(id),...animationCopy(id),
       legacyAtlasSource:setupMap[id]?.legacyAtlasSource||null,
       ...(character.family==='biped'?{art:characterArt('biped',character.atlas)}:{})});
   }
@@ -2249,9 +2414,23 @@
     const adapter=adapters[family];
     const clips={};
     for(const clip of clipNamesForFamily(family)){
-      if(!entry.sparseClips[clip]?.keys || !Array.isArray(entry.sparseClips[clip]?.keys))return false;
+      // Files from before C3b have no biped Idle: it starts from the default.
+      if(!Array.isArray(entry.sparseClips[clip]?.keys)){
+        if(family==='biped'&&clip==='idle'){clips[clip]=clone(sparseBanks.biped.idle);continue;}
+        return false;
+      }
       clips[clip]=normaliseSparseClip(entry.sparseClips[clip],family,clip,banks[family][clip]);
     }
+    // Extra animations (not in a slot) and animation names (C3b).
+    const extraClips={};
+    for(const [key,extra] of Object.entries(entry.extraClips&&typeof entry.extraClips==='object'?entry.extraClips:{}).slice(0,48)){
+      if(!/^clip-[a-z0-9-]{3,60}$/.test(key)||!Array.isArray(extra?.clip?.keys))continue;
+      extraClips[key]={name:safeCharacterName(extra.name)||'Animation',basedOn:clipNamesForFamily(family).includes(extra.basedOn)?extra.basedOn:null,
+        clip:normaliseSparseClip(extra.clip,family,key,banks[family][extra.basedOn]||banks[family].walk)};
+    }
+    const animationNames={};
+    for(const [key,value] of Object.entries(entry.animationNames&&typeof entry.animationNames==='object'?entry.animationNames:{}))
+      if(clipNamesForFamily(family).includes(key)&&safeCharacterName(value))animationNames[key]=safeCharacterName(value);
     let setup;
     if(family==='quadruped'){
       const rig=adapter.normaliseRestRig(entry.setup.rig);
@@ -2275,6 +2454,7 @@
     const time=new Date().toISOString();
     const imported={id,name:safeCharacterName(entry.name),family,rigFamily:STARTERS[entry.starter].rigFamily,starter:entry.starter,
       setup,sparseClips:clips,
+      ...(Object.keys(extraClips).length?{extraClips}:{}),...(Object.keys(animationNames).length?{animationNames}:{}),
       legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'
         ? clone(entry.legacyAtlasSource) : null,
       ...(characterArt(entry.starter,entry.art)?{art:characterArt(entry.starter,entry.art)}:{}),
@@ -2363,6 +2543,12 @@
     saveRigAsTemplate,
     setRigEditListener:fn=>{rigEditListener=typeof fn==='function'?fn:null;},
     clipTemplateState,
+    animationList:()=>clone(animationList()),
+    createAnimation,
+    renameAnimation,
+    deleteAnimation,
+    assignAnimation,
+    selectClip:name=>switchClip(name),
     useClipTemplate,
     makeClipUnique,
     setClipEditListener:fn=>{clipEditListener=typeof fn==='function'?fn:null;},

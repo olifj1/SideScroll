@@ -20,7 +20,7 @@
   'use strict';
   const KEY = 'sidescroll.animation-templates.v1';
   const SCHEMA = 'sidescroll.animation-templates.v1';
-  const SLOTS = Object.freeze({ biped: ['walk', 'run', 'jump'], quadruped: ['idle', 'walk', 'run', 'jump'] });
+  const SLOTS = Object.freeze({ biped: ['idle', 'walk', 'run', 'jump'], quadruped: ['idle', 'walk', 'run', 'jump'] });
   const clone = value => JSON.parse(JSON.stringify(value));
   const has = (obj, key) => !!obj && Object.prototype.hasOwnProperty.call(obj, key);
   const cleanName = value => String(value || '').trim().replace(/[\u0000-\u001f\u007f<>]/g, '').slice(0, 42);
