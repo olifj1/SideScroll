@@ -820,7 +820,7 @@
       <button type="button" data-preview="phase">Phase: 25%</button>
     </div>
     <p class="animlab-skin-note">Binding edits use Setup Save / Discard / Undo / Redo. Geometry changes require an explicit rebind. Game runtime integration remains a future stage.</p>`;
-  (legacy||document.getElementById('animlab-extension')).insertAdjacentElement('afterend',panel);
+  if(legacy)legacy.insertAdjacentElement('afterend',panel);else document.getElementById('animlab-extension')?.appendChild(panel);
   const rows=panel.querySelector('.animlab-skin-assembly-parts'),groupSelect=panel.querySelector('[data-skin-group]');
   const bonesBoard=panel.querySelector('[data-skin-bones]');
   const rectControls=[['scaleX',panel.querySelector('[data-rect-x-scale]')],['scaleY',panel.querySelector('[data-rect-y-scale]')],

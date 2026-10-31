@@ -49,10 +49,8 @@
   const staticSection = move('animlab-static-reference-section', 'animlab-display-extras');
   const motionSection = document.querySelector('.animlab-reference-section');
   if (motionSection) extras.appendChild(motionSection);
-  const meshSection = move('animlab-mesh-preview-section', 'animlab-display-extras');
   if (staticSection) staticSection.querySelector('.animlab-section-title').textContent = 'Static reference · Source & Align';
   if (motionSection) motionSection.querySelector('.animlab-section-title').textContent = 'Motion reference · Timing & Align';
-  if (meshSection) meshSection.querySelector('.animlab-section-title').textContent = 'Mesh / Wireframe';
 
   // Part Layout's extra reference show/opacity are duplicates of Display.
   // Keep the hidden original handlers for compatibility; expose Difference as
