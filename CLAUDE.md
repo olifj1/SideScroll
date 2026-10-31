@@ -140,6 +140,11 @@ original characters in `sidescroll.animlab.character-clips.v1` (`characters[id]`
 shared family set, which is also where the built-in templates *Biped walk* etc. start
 from). Without saved links, original characters are instances of their family's
 built-in templates (the heroes share the Biped set), library characters unique.
+Animations outside the action slots (`extraClips`, key `clip-…`) and slot names
+(`animationNames`) sit next to those clips; `anim-lab-animation-list.js` is the
+Animate list (New, Duplicate, Rename, Delete, *Use in game*), whose structural
+changes are saved straight away. Bipeds have an `idle` slot (default: the standing
+pose the game always used).
 `anim-lab-animation-templates.js` asks *Edit template / Make unique* on the first
 edit of a linked clip and *Use updated / Keep previous* when its template changed.
 
