@@ -15402,3 +15402,9 @@ body[data-game-id="game-16"] .sidescroll-character-picker-foot{display:flex;alig
 body[data-game-id="game-16"] .sidescroll-character-picker-foot a{color:#d1f0e4;border:1px solid rgba(188,234,213,.28);border-radius:9px;white-space:nowrap;text-decoration:none;font-weight:750;padding:8px 9px;}
 @media(max-width:520px){body[data-game-id="game-16"] .sidescroll-character-picker-grid{grid-template-columns:1fr;}body[data-game-id="game-16"] .sidescroll-character-picker-dialog{width:100%;}}
 @media(max-height:430px){body[data-game-id="game-16"] .sidescroll-character-picker-head{padding:9px 13px 7px;}body[data-game-id="game-16"] .sidescroll-character-picker h2{font-size:17px;}body[data-game-id="game-16"] .sidescroll-character-picker-scroll{padding:6px 11px;}body[data-game-id="game-16"] .sidescroll-character-choice{min-height:57px;padding:7px;}body[data-game-id="game-16"] .sidescroll-character-picker-foot{padding:6px 12px;}}
+
+/* Rig templates (C2b): action rows and the choice dialog's primary button. */
+body[data-game-id="game-17"] .animlab-rig-template-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+body[data-game-id="game-17"] .animlab-rig-template-new{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px;}
+body[data-game-id="game-17"] .animlab-rig-template .animlab-library-action{min-height:32px;font-size:10px;font-weight:750;}
+body[data-game-id="game-17"] .animlab-guard-actions .animlab-choice-primary{background:rgba(118,158,149,.24);border-color:rgba(172,211,200,.42);color:#c8f4e9;}

@@ -54,6 +54,7 @@
     "sidescroll.asset-states.v1":                        { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Asset states" },
 
     "sidescroll.characters.registry.v1":                 { "area": "Characters", "scope": "content", "lab": "Character Lab / game", "what": "Character names, categories, order, roles" },
+    "sidescroll.rig-templates.v1":                       { "area": "Characters", "scope": "content", "lab": "Character Lab", "what": "Rig templates: named rigs (family + rest proportions) characters link to" },
     "sidescroll.animlab.character-library.v1":           { "area": "Characters", "scope": "content", "lab": "Character Lab", "what": "Character library (custom characters)" },
     "sidescroll.animlab.atlas-docs.v1":                  { "area": "Characters", "scope": "content", "lab": "Character Lab", "what": "Atlas meshes (artwork pixels are in IndexedDB, not here)" },
     "sidescroll.animlab.setup.v1":                       { "area": "Characters", "scope": "content", "lab": "Character Lab", "what": "Character setup (scale, speeds)" },

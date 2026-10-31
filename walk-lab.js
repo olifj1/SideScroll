@@ -526,6 +526,16 @@
   }
   let setupMap = loadSetupMap();
 
+  const RigTemplates = window.SideScrollRigTemplates || null;
+  const validRigLink = link => !!link && typeof link === 'object' && /^rig-[a-z0-9-]{3,60}$/.test(String(link.id))
+    && ['instance','unique'].includes(link.mode) && Number.isFinite(Number(link.revision));
+  // The current character's rig template link (from the working copy).
+  const rigLink = () => RigTemplates?.linkFor(currentCharacter(), setupDraft) || null;
+  // Set when the author answers "Edit template / Make unique" for a linked rig
+  // edit (anim-lab-rig-templates.js); applied on Save, cleared on save/discard/switch.
+  let rigEditChoice = null;
+  let rigEditListener = null;
+
   function defaultSetupFor(characterId) {
     const character = characterById(characterId);
     const adapter = adapters[character.family];
@@ -565,6 +575,8 @@
     // and skins from these, exactly as the game does: rebuilding them by
     // calculation gives slightly different numbers on another browser, which
     // would unbind the skin (mesh signatures must match exactly).
+    // Rig template link (rig-templates.js); absent means the default link.
+    if (validRigLink(saved.rigTemplate)) setup.rigTemplate = clone(saved.rigTemplate);
     const recorded = custom ? custom.legacyAtlasSource : saved.legacyAtlasSource;
     if (quadrupedSetupCurrent && recorded?.schema === 'animlab.legacy-atlas-sources.v1' && Array.isArray(recorded.meshes))
       setup.legacyAtlasSource = clone(recorded);
@@ -975,6 +987,7 @@
         setupDraft.artRestRig = adapter.normaliseRestRig(value.artRestRig || setupDraft.rig);
         setupDraft.skinBindRig = adapter.normaliseRestRig(value.skinBindRig || setupDraft.rig);
       }
+      if (validRigLink(value.rigTemplate)) setupDraft.rigTemplate = clone(value.rigTemplate);
       // Read-only: the original parts' meshes recorded at the last Save.
       if (value.legacyAtlasSource?.schema === 'animlab.legacy-atlas-sources.v1') setupDraft.legacyAtlasSource = clone(value.legacyAtlasSource);
       return;
@@ -1073,6 +1086,9 @@
     if (!tx) return;
     if (tx.scope === 'setup') {
       pushHistory('setup',tx.before,clone(setupDraft),tx.label,tx.frame);
+      if (rigEditListener && !same(tx.before.rig, setupDraft.rig)) {
+        try { rigEditListener(tx.label); } catch (err) { console.error('[Anim Lab] Rig edit listener failed.', err); }
+      }
     } else {
       pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),tx.label,tx.frame);
     }
@@ -1181,6 +1197,15 @@
             return setup;
           });
         }
+        // A linked rig edited with "Edit template" updates the template itself;
+        // other characters linked to it are offered the update when opened.
+        const link = rigLink();
+        const linkedTemplate = link && RigTemplates.get(link.id);
+        if (rigEditChoice === 'template' && link?.mode === 'instance' && character.family === 'quadruped' && setupDraft.rig
+            && !same(adapter.normaliseRestRig(setupDraft.rig), adapter.normaliseRestRig(linkedTemplate?.restRig))) {
+          const revision = RigTemplates.update(link.id, adapter.normaliseRestRig(setupDraft.rig));
+          if (revision) setupDraft.rigTemplate = {id:link.id, mode:'instance', revision};
+        }
         const custom=libraryEntry(character.id);
         // Library members must never overwrite the built-in game's collider
         // or quadruped rest rig. Validate their drafts using the same adapter only.
@@ -1193,6 +1218,7 @@
         storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||defaults.run,storedSetup.walkSpeed+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX);
         if (character.family === 'quadruped') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
+        if (validRigLink(setupDraft.rigTemplate)) storedSetup.rigTemplate=clone(setupDraft.rigTemplate);
         if (supportsRestBinding(adapter)) {
           storedSetup.skinTuning=normaliseSkinTuning(setupDraft.skinTuning);
           storedSetup.artRestRig=adapter.normaliseRestRig(setupDraft.artRestRig || setupDraft.rig);
@@ -1232,6 +1258,7 @@
         if (result === false) throw new Error('A Character Lab extension could not save its working data.');
       }
       resetCheckpoint();
+      rigEditChoice = null;
       hint.textContent = 'Saved · working copy checkpoint updated';
       draw(); notify();
       return true;
@@ -1254,6 +1281,7 @@
     }
     history = []; future = [];
     playing = false;
+    rigEditChoice = null;
     hint.textContent = 'Discarded · checkpoint restored';
     draw(); updateUi(); notify();
   }
@@ -1315,12 +1343,95 @@
         selection.mode = 'setup'; selection.setupTool = 'rig';
       }
       selection.characterId = id;
+      rigEditChoice = null;
       if (!clipNamesForFamily(characterById(id).family).includes(selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
       if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
       selection.frame = 0; playPhase = 0; playing = false;
       fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
+  }
+
+  // ---- Rig templates (C2b) ---------------------------------------------------
+  // A small choice dialog in the style of the unsaved-changes guard. Resolves
+  // with the chosen id, or null if dismissed.
+  function choose({kicker='', title='', text='', choices=[]}) {
+    return new Promise(resolve => {
+      const host = document.createElement('div');
+      host.className = 'animlab-guard animlab-choice';
+      const card = document.createElement('section');
+      card.className = 'animlab-guard-card';
+      card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true');
+      for (const [tag,cls,value] of [['p','kicker',kicker],['h2','',title],['p','',text]]) {
+        if (!value) continue;
+        const el = document.createElement(tag); if (cls) el.className = cls; el.textContent = value; card.appendChild(el);
+      }
+      const actions = document.createElement('div');
+      actions.className = 'animlab-guard-actions';
+      actions.style.gridTemplateColumns = `repeat(${Math.max(1,choices.length)},1fr)`;
+      const done = value => { host.remove(); resolve(value); };
+      for (const choice of choices) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.textContent = choice.label;
+        if (choice.primary) button.classList.add('animlab-choice-primary');
+        button.addEventListener('click', () => done(choice.id));
+        actions.appendChild(button);
+      }
+      card.appendChild(actions); host.appendChild(card);
+      host.addEventListener('click', event => { if (event.target === host) done(null); });
+      document.body.appendChild(host);
+      actions.querySelector('.animlab-choice-primary, button')?.focus({preventScroll:true});
+    });
+  }
+  function rigTemplateState() {
+    if (!RigTemplates) return null;
+    const character = currentCharacter(), link = rigLink(), template = RigTemplates.get(link.id);
+    return {characterId:character.id, characterName:character.label, family:character.family, link:clone(link),
+      template:template ? {id:template.id, name:template.name, revision:template.revision, builtIn:!!template.builtIn} : null,
+      users:RigTemplates.usersOf(link.id, character.id).map(c => c.name),
+      stale:RigTemplates.isStale(link, template), editable:character.family === 'quadruped',
+      templates:RigTemplates.list(character.family).map(t => ({id:t.id, name:t.name})), editChoice:rigEditChoice};
+  }
+  // Link to a template as an instance: take its proportions and rebind the skin
+  // to them (art stays put; Undo restores). Bipeds only relink (fixed rig).
+  function useRigTemplate(templateId) {
+    const template = RigTemplates?.get(templateId), adapter = currentAdapter();
+    if (!template || template.family !== currentCharacter().family) return false;
+    const listener = rigEditListener; rigEditListener = null;
+    try {
+      edit('setup', `Use rig template ${template.name}`, setup => {
+        if (template.restRig && adapter.normaliseRestRig) {
+          setup.rig = adapter.normaliseRestRig(template.restRig);
+          if (supportsRestBinding(adapter)) setup.skinBindRig = adapter.normaliseRestRig(template.restRig);
+        }
+        setup.rigTemplate = {id:template.id, mode:'instance', revision:template.revision};
+        return setup;
+      });
+    } finally { rigEditListener = listener; }
+    rigEditChoice = null;
+    hint.textContent = `${currentCharacter().label} uses the ${template.name} rig${supportsRestBinding(adapter)?' · skin rebound':''} · Save to keep`;
+    return true;
+  }
+  function makeRigUnique() {
+    const link = rigLink();
+    if (!link) return false;
+    edit('setup', 'Make rig unique', setup => { setup.rigTemplate = {id:link.id, mode:'unique', revision:link.revision}; return setup; });
+    rigEditChoice = 'unique';
+    hint.textContent = `${currentCharacter().label} now has its own rig · Save to keep`;
+    return true;
+  }
+  // New template from this character's current rig; the character links to it.
+  function saveRigAsTemplate(name) {
+    const character = currentCharacter(), adapter = currentAdapter();
+    if (!RigTemplates || character.family !== 'quadruped' || !setupDraft.rig) return null;
+    const template = RigTemplates.create(name, character.family, adapter.normaliseRestRig(setupDraft.rig));
+    if (!template) return null;
+    edit('setup', `Save rig as template ${template.name}`, setup => {
+      setup.rigTemplate = {id:template.id, mode:'instance', revision:template.revision}; return setup;
+    });
+    rigEditChoice = null;
+    hint.textContent = `Template ${template.name} saved · ${character.label} now uses it · Save to keep the link`;
+    return template.id;
   }
 
   function switchClip(name) {
@@ -2122,6 +2233,14 @@
     }),
     getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
     navigateAuthorStage,
+    choose,
+    rigTemplateState,
+    useRigTemplate,
+    makeRigUnique,
+    saveRigAsTemplate,
+    setRigEditListener:fn=>{rigEditListener=typeof fn==='function'?fn:null;},
+    setRigEditChoice:choice=>{rigEditChoice=['template','unique'].includes(choice)?choice:null;},
+    undo,
     setSetupTool:id=>{
       const next=['art','skin','atlas'].includes(id)?id:'rig';
       if(next!=='rig'&&next!=='atlas'&&!supportsRestBinding(currentAdapter()))return false;

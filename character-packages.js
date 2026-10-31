@@ -22,7 +22,8 @@
     sparse: 'sidescroll.animlab.sparse.clips.v1',
     staticRef: 'sidescroll.animlab.static-reference.v1',
     motionRef: 'sidescroll.animlab.reference.settings.v1',
-    registry: 'sidescroll.characters.registry.v1'
+    registry: 'sidescroll.characters.registry.v1',
+    rigTemplates: 'sidescroll.rig-templates.v1'
   });
   const EMPTY = Object.freeze({
     [KEY.library]: () => ({ schema: 'animlab.character-library.v1', entries: [] }),
@@ -31,7 +32,8 @@
     [KEY.sparse]: () => ({ schema: 'animlab.sparse.v1', sampleCount: 16, families: {} }),
     [KEY.staticRef]: () => ({ schema: 'animlab.static-reference.v1', contexts: {} }),
     [KEY.motionRef]: () => ({ schema: 'animlab.reference.settings.v1', contexts: {} }),
-    [KEY.registry]: () => ({ schema: 'sidescroll.character-registry.v1', characters: {} })
+    [KEY.registry]: () => ({ schema: 'sidescroll.character-registry.v1', characters: {} }),
+    [KEY.rigTemplates]: () => ({ schema: 'sidescroll.rig-templates.v1', templates: {}, order: [] })
   });
   const BUILT_IN = Object.freeze({
     'char-1': { name: 'Hero 1', family: 'biped' },
@@ -151,6 +153,14 @@
     slices.push(sliceAt(KEY.staticRef, ['contexts', `character:${id}`]));
     slices.push(contextPrefix(KEY.motionRef, `${id}|`));
     slices.push(sliceAt(KEY.registry, ['characters', id]));
+    // The rig template the character links to (or started from), when it is
+    // saved on this device. Imports add it only if it is missing there.
+    const templates = window.SideScrollRigTemplates;
+    if (templates) {
+      const setup = builtIn ? readJSON(KEY.setup)?.[id] : libraryEntries().find(e => e.id === id)?.setup;
+      const link = templates.linkFor({ id, family, library: !builtIn }, setup);
+      if (has(readJSON(KEY.rigTemplates)?.templates, link.id)) slices.push(sliceAt(KEY.rigTemplates, ['templates', link.id]));
+    }
     return slices;
   }
 
@@ -265,6 +275,9 @@
       } else if (s.path === null) {
         if (!builtIn || !FAMILY_KEYS[family].includes(s.key)) BAD('Character file contains data it is not allowed to change.');
         if (s.present && typeof s.value !== 'string') BAD('Character file data is damaged.');
+      } else if (s.key === KEY.rigTemplates) {
+        if (!Array.isArray(s.path) || s.path.length !== 2 || s.path[0] !== 'templates' || !/^rig-[a-z0-9-]{3,60}$/.test(String(s.path[1])))
+          BAD('Character file contains a damaged rig template.');
       } else if (!Array.isArray(s.path) || !allowedPaths.has(JSON.stringify([s.key, ...s.path]))) {
         BAD('Character file contains data for another character.');
       }
@@ -347,8 +360,14 @@
       if (s.entry !== undefined) setLibraryEntry(s.entry, s.present, s.value);
       else if (s.prefix !== undefined) setContextPrefix(s.key, s.prefix, s.value);
       else if (s.path === null) { if (s.present) localStorage.setItem(s.key, s.value); else localStorage.removeItem(s.key); }
+      else if (s.key === KEY.rigTemplates) addMissingTemplate(s);
       else setPath(s.key, s.path, s.present, s.value);
     }
+  }
+  // A rig template other characters may link to is never replaced by an import.
+  function addMissingTemplate(s) {
+    if (!s.present || has(readJSON(KEY.rigTemplates)?.templates, s.path[1])) return;
+    setPath(KEY.rigTemplates, s.path, true, s.value);
   }
 
   // Add as copy: addLibraryCharacter (Character Lab core) validates the setup and
@@ -369,6 +388,7 @@
       await restoreArtwork(Object.fromEntries(Object.entries(item.pkg.artwork || {}).filter(([k]) => renames[k])), renames);
       setPath(KEY.atlas, ['characters', id], true, doc);
     }
+    for (const s of item.pkg.slices) if (s.key === KEY.rigTemplates) addMissingTemplate(s);
     const staticRef = item.pkg.slices.find(s => s.key === KEY.staticRef && s.present && s.path?.[1] === `character:${item.id}`)
       || item.pkg.slices.find(s => s.key === KEY.staticRef && s.present);
     if (staticRef) setPath(KEY.staticRef, ['contexts', `character:${id}`], true, staticRef.value);

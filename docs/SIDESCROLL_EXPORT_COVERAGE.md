@@ -120,6 +120,16 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### C2b — rig templates (31 Oct)
+
+New key `sidescroll.rig-templates.v1` (content): `{schema, templates: {id: {name,
+family, restRig, revision, updatedAt}}, order}`, written only when a template is
+created, edited, renamed or removed (until then Biped and Quadruped are defaults; the
+Quadruped's proportions are the original quadruped's rig). Characters' setups gain
+`rigTemplate: {id, mode, revision}`. In the Project Backup (all `sidescroll.*` keys)
+and the bake tool (content scope). Character packages carry the linked template as a
+slice `['templates', id]`; import adds it only when missing.
+
 ### C2a — neutral IDs (31 Oct)
 
 No new keys. Values inside these keys changed: original character IDs (`original` /

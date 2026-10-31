@@ -68,7 +68,8 @@
   // behind several collider sliders and Skin behind unrelated utilities.
   const extension = $('animlab-extension');
   if (extension && setupSection) {
-    for (const node of [document.querySelector('.animlab-rig-controls'),
+    for (const node of [document.querySelector('.animlab-rig-template'),
+                        document.querySelector('.animlab-rig-controls'),
                         document.querySelector('.animlab-drawing-method'),
                         document.querySelector('.animlab-art-layout-controls'),
                         $('animlab-skin-editor')]) {
