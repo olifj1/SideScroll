@@ -4,6 +4,17 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Published the Mesh Fox exactly as exported on 31 Oct: every device now gets the Fox
+  drawn as a mesh with your tuned skin.
+- Skin: **joint boundaries are the one envelope method**. Auto-bind and Mesh now
+  create joint boundaries; the rectangle controls are gone (older rectangle
+  bindings keep working and offer "Use joint boundaries on this part"). A point
+  outside every section has no bone and stays where it is; the Skin status line
+  counts these (Unassigned).
+- Fixed: on another device (or browser) a Mesh character's original parts showed
+  "Rebind needed" in Character Lab, because the lab rebuilt their meshes by
+  calculation and got very slightly different numbers. It now uses the meshes saved
+  with the character, as the game does.
 - Drawing method per character (C1c): Character Lab → Parts has **Parts / Mesh**. Mesh
   builds the character's Parts assembly from its original pieces (placed exactly
   where Parts drew them) with automatic skin weights, to tune in Skin; Parts draws

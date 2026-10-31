@@ -389,12 +389,8 @@
         // At an exactly shared boundary, pick a deterministic owner.
         if(dist<best-1e-9){best=dist;chosen=i;}
       }
-      // Outside every section: the nearest bone of the part, so no point is
-      // left behind at rest while the rest of the part moves.
-      if(chosen<0)for(const i of allowed){
-        const d=pointSegmentDistance(point,geom[bones[i].a],geom[bones[i].b]);
-        if(d<best-1e-9){best=d;chosen=i;}
-      }
+      // Outside every section: deliberately unweighted (stays at rest). The
+      // author covers every point; the status line counts any left out.
       return chosen<0?[]:[[chosen,1]];
     });
   }
@@ -773,7 +769,7 @@
       <section class="animlab-skin-joint-mode" aria-label="Joint boundary authoring">
         <div class="animlab-skin-envelope-heading">Joint boundaries · binary regions</div>
         <button type="button" data-bind-action="joint-convert" class="animlab-skin-rigid-action">Use joint boundaries on this part</button>
-        <p class="animlab-skin-note">Each bone's section lies between its two joint lines. Shape a joint once; both neighbouring sections share it. A point outside every section follows its nearest bone. No blending yet.</p>
+        <p class="animlab-skin-note">Each bone's section lies between its two joint lines. Shape a joint once; both neighbouring sections share it. A point outside every section has no bone and stays where it is: cover every point (the status line counts any left out). No blending yet.</p>
         <label class="animlab-skin-group-select">Edit joint <select data-joint-select aria-label="Select a skin influence boundary joint"></select></label>
         <div data-joint-controls>
           <label class="animlab-slider"><span>Joint line width</span><input data-joint-width type="range" min="0.2" max="5" step="0.05" value="1.2"><output>1.20×</output></label>
