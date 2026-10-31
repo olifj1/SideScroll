@@ -37,7 +37,9 @@ name of one character. Rigs are named collections of bones held as data —
 *Biped* and *Quadruped* are two such templates, with nothing special about them
 and nothing hard-coded. Existing identifiers (`fox` / `human` families, the
 `sidescroll.fox.*` keys, `fox-rig.js`, `fox-*.png`) are renamed with migrations
-that still read the old names, so no saved data breaks.
+that still read the old names, so no saved data breaks. Done (30–31 Oct): files, keys,
+code names, and saved values (original characters `char-1`–`char-3`, families
+`biped` / `quadruped`; `saved-data-migrations.js`).
 
 ### Roles: protected tags
 - A **role** is a tag such as *Default player* or *Default animal* (the animal you

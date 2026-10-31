@@ -544,7 +544,7 @@
       skin.setBindProof?.(true);skin.setDifference?.(!skin.getDifference?.());renderUI();return;
     }
     if(name==='align-reference'){
-      const source=desc.referenceSource||core.getStaticReference?.()?.source||'original';
+      const source=desc.referenceSource||core.getStaticReference?.()?.source||'char-1';
       core.setStaticReference?.({source,scale:1,offsetX:0,offsetY:0});
       if(!core.getOverlay?.('reference'))core.setOverlay?.('reference',true);
       return;
@@ -863,7 +863,7 @@
   const importedParts=s=>instances(s).some(p=>!String(p.meshId||'').startsWith('atlas-builtin-'));
   function renderMethod(){
     const s=state();
-    const show=s.family==='fox'&&s.mode==='setup'&&!!s.setup?.artLayout&&!!s.rig?.ART_LAYOUT_DESIGNER&&
+    const show=s.family==='quadruped'&&s.mode==='setup'&&!!s.setup?.artLayout&&!!s.rig?.ART_LAYOUT_DESIGNER&&
       (s.setupTool==='art'||(s.setupTool==='skin'&&!isAssembly(s)));
     methodSection.hidden=!show;if(!show)return;
     const method=isAssembly(s)?'mesh':'parts',imported=importedParts(s);

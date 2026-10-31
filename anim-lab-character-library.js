@@ -46,8 +46,8 @@
       </label>
       <label class="animlab-library-field">Starter rig
         <select id="animlab-library-family" aria-label="Starter rig">
-          <option value="fox">Quadruped</option>
-          <option value="original">Biped</option>
+          <option value="quadruped">Quadruped</option>
+          <option value="biped">Biped</option>
         </select>
       </label>
       <button class="animlab-library-create" id="animlab-library-create" type="button">Create Character</button>
@@ -126,7 +126,7 @@
   let openPanel=null,manageId=null,listSignature='',lastCharacterId=null,pendingImport=null;
 
   const allCharacters=()=>registry.list();
-  const familyLabel=f=>f==='fox'?'Quadruped':'Biped';
+  const familyLabel=f=>f==='quadruped'?'Quadruped':'Biped';
   const editingBlocked=state=>!!state.dirty||state.mode==='play';
   function setStatus(value){status.textContent=value||'';status.hidden=!value;}
   function setPanel(which){

@@ -12,12 +12,12 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
   const CHANNELS = {
-    human: {
+    biped: {
       linear:['pelvisY','aFootX','aFootLift','bFootX','bFootLift','aHandX','aHandY','bHandX','bHandY','travel'],
       angular:['lean','aFootAngle','bFootAngle','hairAngle','hairBend'],
       discrete:['planted']
     },
-    fox: {
+    quadruped: {
       linear:[
         'bodyBob','frontBodyLift','rearBodyLift','travel',
         'fnIkX','fnIkY','fnIkWeight','ffIkX','ffIkY','ffIkWeight',
@@ -160,7 +160,7 @@
 
   function mirrorName(name, family) {
     let out=String(name||'');
-    if (family === 'human') {
+    if (family === 'biped') {
       out=swapWords(out,' L',' R');
       out=swapWords(out,'Left','Right');
     } else {
@@ -171,7 +171,7 @@
 
   function mirrorPose(pose, family) {
     const out=clone(pose);
-    if (family === 'human') {
+    if (family === 'biped') {
       for (const [a,b] of [
         ['aFootX','bFootX'],['aFootLift','bFootLift'],['aFootAngle','bFootAngle'],
         ['aHandX','bHandX'],['aHandY','bHandY']
@@ -325,7 +325,7 @@
     for(let frame=0;frame<16;frame+=2){
       const pose=clone(frames[frame]);
       const named=existing.get(frame)?.name;
-      const fallback=st.family==='fox' && /^Walk$|^Run$/i.test(String(pose.name||'')) ? `Phase ${frame/2+1}` : (pose.name||`Key ${frame+1}`);
+      const fallback=st.family==='quadruped' && /^Walk$|^Run$/i.test(String(pose.name||'')) ? `Phase ${frame/2+1}` : (pose.name||`Key ${frame+1}`);
       const name=String(named||fallback).slice(0,48);
       pose.name=name;
       keys.push({frame,name,pose});

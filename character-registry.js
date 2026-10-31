@@ -20,9 +20,9 @@
   // Characters whose data predates the library. Only their display names and
   // families are listed here; nothing else about them is special.
   const ORIGINAL = Object.freeze({
-    original: { name: 'Hero 1', family: 'human' },
-    alternate: { name: 'Hero 2', family: 'human' },
-    fox: { name: 'Fox', family: 'fox' }
+    'char-1': { name: 'Hero 1', family: 'biped' },
+    'char-2': { name: 'Hero 2', family: 'biped' },
+    'char-3': { name: 'Fox', family: 'quadruped' }
   });
   const DEFAULTS = () => ({
     schema: SCHEMA,
@@ -32,8 +32,8 @@
       { id: 'interactive', name: 'Interactive', playable: false }
     ],
     roles: [
-      { id: 'default-player', name: 'Default player', character: 'original' },
-      { id: 'default-animal', name: 'Default animal', character: 'fox' }
+      { id: 'default-player', name: 'Default player', character: 'char-1' },
+      { id: 'default-animal', name: 'Default animal', character: 'char-3' }
     ],
     characters: {}
   });
@@ -80,7 +80,7 @@
     const fallbackCategory = reg.categories[0]?.id || 'playable';
     const rows = [
       ...Object.entries(ORIGINAL).map(([id, c], i) => ({ id, name: c.name, family: c.family, library: false, seq: i })),
-      ...libraryEntries().map((e, i) => ({ id: e.id, name: cleanName(e.name) || e.id, family: e.family === 'fox' ? 'fox' : 'human', library: true, seq: 100 + i }))
+      ...libraryEntries().map((e, i) => ({ id: e.id, name: cleanName(e.name) || e.id, family: e.starter === 'quadruped' ? 'quadruped' : 'biped', library: true, seq: 100 + i }))
     ].map(row => {
       const meta = reg.characters[row.id] || {};
       const category = categoryIndex.has(meta.category) ? meta.category : fallbackCategory;

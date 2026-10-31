@@ -34,14 +34,14 @@
     [KEY.registry]: () => ({ schema: 'sidescroll.character-registry.v1', characters: {} })
   });
   const BUILT_IN = Object.freeze({
-    original: { name: 'Hero 1', family: 'human' },
-    alternate: { name: 'Hero 2', family: 'human' },
-    fox: { name: 'Fox', family: 'fox' }
+    'char-1': { name: 'Hero 1', family: 'biped' },
+    'char-2': { name: 'Hero 2', family: 'biped' },
+    'char-3': { name: 'Fox', family: 'quadruped' }
   });
   // Whole storage keys owned by a built-in rig family.
   const FAMILY_KEYS = Object.freeze({
-    human: ['gamehub.walklab.anim.v6', 'gamehub.walklab.anim.v5', 'gamehub.walklab.anim.v4', 'sidescroll.walklab.collider.v1'],
-    fox: ['sidescroll.animlab.quadruped.clips.v1', 'sidescroll.quadruped.rig.v3', 'sidescroll.quadruped.rig.v2', 'sidescroll.quadruped.rig.baseline-id',
+    biped: ['gamehub.walklab.anim.v6', 'gamehub.walklab.anim.v5', 'gamehub.walklab.anim.v4', 'sidescroll.walklab.collider.v1'],
+    quadruped: ['sidescroll.animlab.quadruped.clips.v1', 'sidescroll.quadruped.rig.v3', 'sidescroll.quadruped.rig.v2', 'sidescroll.quadruped.rig.baseline-id',
       'sidescroll.quadruped.collider.v1', 'sidescroll.quadruped.collider.baseline-id']
   });
   const USER_ID = /^user-[a-z0-9-]{5,40}$/;
@@ -105,7 +105,7 @@
     if (registry) return registry.list().map(c => ({ id: c.id, name: c.name, family: c.family, builtIn: !c.library }));
     return [
       ...Object.entries(BUILT_IN).map(([id, c]) => ({ id, name: c.name, family: c.family, builtIn: true })),
-      ...libraryEntries().filter(e => USER_ID.test(e?.id)).map(e => ({ id: e.id, name: String(e.name || e.id), family: e.family === 'fox' ? 'fox' : 'human', builtIn: false }))
+      ...libraryEntries().filter(e => USER_ID.test(e?.id)).map(e => ({ id: e.id, name: String(e.name || e.id), family: e.starter === 'quadruped' ? 'quadruped' : 'biped', builtIn: false }))
     ];
   }
   const findCharacter = id => listCharacters().find(c => c.id === id) || null;
@@ -139,14 +139,15 @@
     if (builtIn) {
       slices.push(sliceAt(KEY.setup, [id]));
       slices.push(sliceAt(KEY.sparse, ['families', family]));
-      if (family === 'fox') slices.push(sliceAt(KEY.sparse, ['foxBaselineId']));
+      if (family === 'quadruped') slices.push(sliceAt(KEY.sparse, ['quadrupedBaselineId']));
       for (const key of FAMILY_KEYS[family]) slices.push(wholeKey(key));
     } else {
       const entry = libraryEntries().find(e => e.id === id);
       slices.push({ key: KEY.library, entry: id, present: !!entry, value: clone(entry) });
     }
     slices.push(sliceAt(KEY.atlas, ['characters', id]));
-    slices.push(sliceAt(KEY.staticRef, ['contexts', id]));
+    // A built-in character also carries its rig family's reference fallback.
+    if (builtIn) slices.push(sliceAt(KEY.staticRef, ['contexts', family]));
     slices.push(sliceAt(KEY.staticRef, ['contexts', `character:${id}`]));
     slices.push(contextPrefix(KEY.motionRef, `${id}|`));
     slices.push(sliceAt(KEY.registry, ['characters', id]));
@@ -173,7 +174,7 @@
       app: 'SideScroll',
       exportedAt: new Date().toISOString(),
       character: { id: character.id, name: character.name, family: character.family, builtIn: character.builtIn,
-        sharedWith: character.family === 'human' && character.builtIn ? Object.keys(BUILT_IN).filter(k => k !== id && BUILT_IN[k].family === 'human') : [] },
+        sharedWith: character.family === 'biped' && character.builtIn ? Object.keys(BUILT_IN).filter(k => k !== id && BUILT_IN[k].family === 'biped') : [] },
       slices,
       copy: copySource ? clone(copySource(id)) : null,
       artwork: await artworkFor(slices)
@@ -194,13 +195,54 @@
     if (Array.isArray(p?.slices)) p.slices = p.slices.map(s => renamed[s?.key] ? { ...s, key: renamed[s.key] } : s);
     return p;
   }
+  // Files exported before C2a name characters original / alternate / fox and rig
+  // families human / fox. Upgrade the whole file first (saved-data-migrations.js),
+  // so validation and import only ever see current names.
+  const SLICE_PATHS = Object.freeze({
+    [KEY.setup]: ([id]) => [M.characterId(id)],
+    [KEY.atlas]: ([a, id]) => [a, M.characterId(id)],
+    [KEY.registry]: ([a, id]) => [a, M.characterId(id)],
+    [KEY.sparse]: path => path[0] === 'families' ? ['families', M.family(path[1])]
+      : path[0] === 'foxBaselineId' ? ['quadrupedBaselineId'] : path,
+    [KEY.staticRef]: ([a, name]) => [a, String(name).startsWith('character:')
+      ? `character:${M.characterId(String(name).slice(10))}`
+      // Older files also named a built-in character's own slot by its ID.
+      : (BUILT_IN[M.characterId(name)]?.family ?? M.family(name))]
+  });
+  const M = window.SideScrollMigrations || { characterId: x => x, family: x => x, migrateValue: (k, v) => v, migrateRaw: (k, v) => v };
+  const at = (root, path) => path.reduce((node, part) => (node && has(node, part) ? node[part] : undefined), root);
+  function upgradeSlice(s) {
+    if (s.entry !== undefined) return { ...s, value: s.present ? M.migrateValue(KEY.library, s.value) : s.value };
+    if (s.prefix !== undefined) {
+      const id = s.prefix.slice(0, -1);
+      return { ...s, prefix: `${M.characterId(id)}|`,
+        value: M.migrateValue(KEY.motionRef, { contexts: s.value || {} }).contexts };
+    }
+    if (s.path === null) return { ...s, value: s.present ? M.migrateRaw(s.key, s.value) : s.value };
+    if (!Array.isArray(s.path) || !SLICE_PATHS[s.key]) return s;
+    const path = SLICE_PATHS[s.key](s.path);
+    if (!s.present) return { ...s, path };
+    const doc = {};
+    let node = doc;
+    s.path.forEach((part, i) => { node = node[part] = i === s.path.length - 1 ? clone(s.value) : {}; });
+    return { ...s, path, value: at(M.migrateValue(s.key, doc), path) };
+  }
+  function upgradePackage(p) {
+    const c = p.character || {};
+    p.character = { ...c, id: M.characterId(c.id), family: M.family(c.family),
+      sharedWith: Array.isArray(c.sharedWith) ? c.sharedWith.map(M.characterId) : c.sharedWith };
+    if (Array.isArray(p.slices)) p.slices = p.slices.map(upgradeSlice);
+    if (p.copy) p.copy = M.migrateValue(KEY.library, p.copy);
+    return p;
+  }
   function validatePackage(p) {
     if (p?.schema !== PACKAGE_SCHEMA) BAD('Not a SideScroll character file.');
     renameOldKeys(p);
+    upgradePackage(p);
     const c = p.character || {};
     const builtIn = isBuiltIn(c.id);
     if (!builtIn && !USER_ID.test(String(c.id))) BAD('Character file has an invalid character ID.');
-    const family = builtIn ? BUILT_IN[c.id].family : (c.family === 'fox' ? 'fox' : 'human');
+    const family = builtIn ? BUILT_IN[c.id].family : (c.family === 'quadruped' ? 'quadruped' : 'biped');
     const allowedPaths = new Set([
       JSON.stringify([KEY.atlas, 'characters', c.id]),
       JSON.stringify([KEY.staticRef, 'contexts', c.id]),
@@ -210,7 +252,8 @@
     if (builtIn) {
       allowedPaths.add(JSON.stringify([KEY.setup, c.id]));
       allowedPaths.add(JSON.stringify([KEY.sparse, 'families', family]));
-      if (family === 'fox') allowedPaths.add(JSON.stringify([KEY.sparse, 'foxBaselineId']));
+      allowedPaths.add(JSON.stringify([KEY.staticRef, 'contexts', family]));
+      if (family === 'quadruped') allowedPaths.add(JSON.stringify([KEY.sparse, 'quadrupedBaselineId']));
     }
     for (const s of Array.isArray(p.slices) ? p.slices : BAD('Character file has no saved data.')) {
       if (s.entry !== undefined) {
@@ -235,11 +278,11 @@
   // Files exported before character packages existed: custom characters only,
   // no artwork. They can only be added as a copy.
   function fromOldCharacterFile(doc) {
-    const entry = doc.character || {};
+    const entry = M.migrateValue(KEY.library, doc.character || {});
     if (!entry.name || !entry.setup || !entry.sparseClips) BAD('This older character file is incomplete.');
     return { pkg: { copy: { name: entry.name, starter: entry.starter, setup: entry.setup, sparseClips: entry.sparseClips,
       legacyAtlasSource: entry.legacyAtlasSource || null, ...(entry.art ? { art: entry.art } : {}) }, artwork: {}, slices: [] },
-      id: String(entry.id || ''), name: String(entry.name), family: entry.starter === 'fox' ? 'fox' : 'human',
+      id: String(entry.id || ''), name: String(entry.name), family: entry.starter === 'quadruped' ? 'quadruped' : 'biped',
       builtIn: false, replaceable: false, sharedWith: [], old: true };
   }
 

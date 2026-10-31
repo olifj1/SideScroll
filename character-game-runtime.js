@@ -15,10 +15,9 @@
   const entries=new Map();
   if(sourceLibrary?.schema==='animlab.character-library.v1'&&Array.isArray(sourceLibrary.entries)){
     for(const candidate of sourceLibrary.entries.slice(0,24)){
-      if(!candidate||!/^user-[a-z0-9-]{5,40}$/.test(candidate.id)||!['fox','original'].includes(candidate.starter)||entries.has(candidate.id))continue;
+      if(!candidate||!/^user-[a-z0-9-]{5,40}$/.test(candidate.id)||!['quadruped','biped'].includes(candidate.starter)||entries.has(candidate.id))continue;
       entries.set(candidate.id,{id:candidate.id,label:String(candidate.name||candidate.id).slice(0,42),
-        family:candidate.starter==='fox'?'fox':'human',
-        rigFamily:candidate.starter==='fox'?'quadruped':'biped',setup:candidate.setup,
+        family:candidate.starter,rigFamily:candidate.starter,setup:candidate.setup,
         sparseClips:candidate.sparseClips,legacyAtlasSource:candidate.legacyAtlasSource||null,
         art:typeof candidate.art==='string'?candidate.art:null});
     }
@@ -33,13 +32,13 @@
   const QuadrupedRig=window.SideScrollQuadrupedRig;
   const registry=window.SideScrollCharacters;
   const originalMeshIds=[];
-  for(const id of registry?.ORIGINAL_IDS||['fox']){
-    const saved=setupMap?.[id],family=registry?.find(id)?.family||(id==='fox'?'fox':'human');
-    if(family!=='fox'||!QuadrupedRig||saved?.artLayout?.assembly?.enabled!==true)continue;
+  for(const id of registry?.ORIGINAL_IDS||[]){
+    const saved=setupMap?.[id],family=registry?.find(id)?.family;
+    if(family!=='quadruped'||!QuadrupedRig||saved?.artLayout?.assembly?.enabled!==true)continue;
     // Same rule as the game's original-character setup: data saved against an
     // older baseline is not used.
-    if(saved.baselineId!==QuadrupedRig.AUTHORING_BASELINE_ID)continue;
-    entries.set(id,{id,label:registry?.name(id)||id,family:'fox',rigFamily:'quadruped',original:true,
+    if(!QuadrupedRig.isCurrentBaseline(saved.baselineId))continue;
+    entries.set(id,{id,label:registry?.name(id)||id,family:'quadruped',rigFamily:'quadruped',original:true,
       setup:{...saved,rig:QuadrupedRig.loadRestRig?.()||QuadrupedRig.DEFAULT_REST_RIG},
       sparseClips:null,legacyAtlasSource:saved.legacyAtlasSource||null});
     originalMeshIds.push(id);
@@ -140,7 +139,7 @@
       // assembly or structural rig. Play with the first original biped's rigid atlas
       // while preserving each character's own saved animation data. No fake
       // biped skin/bind is synthesized and no source document is modified.
-      if(entry.family==='human'){
+      if(entry.family==='biped'){
         assert(entry.sparseClips && ['walk','run','jump'].every(name=>
           Array.isArray(entry.sparseClips?.[name]?.keys)&&entry.sparseClips[name].keys.length),
           'Biped starter animation clips missing; Save in Character Lab');
@@ -230,7 +229,7 @@
   // continuous key-to-key interpolation; the built-in biped atlas is simply the
   // renderer of those poses, not the source of the saved clip.
   function sampleBipedClip(data,name,phase,rig){
-    if(data?.family!=='human'||!rig?.interpolatePose||!rig?.normalizedPose)return null;
+    if(data?.family!=='biped'||!rig?.interpolatePose||!rig?.normalizedPose)return null;
     const clip=data.sparseClips?.[name];
     if(!Array.isArray(clip?.keys)||!clip.keys.length)return null;
     const keys=clip.keys.filter(k=>Number.isInteger(k?.frame)&&k.frame>=0&&k.frame<16&&

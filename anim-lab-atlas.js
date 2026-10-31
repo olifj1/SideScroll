@@ -136,7 +136,7 @@
   ];
   function relevantImage() {
     if (state.draft?.atlas) return state.img;
-    if (core.getState().family==='fox') return state.legacy?.image || null;
+    if (core.getState().family==='quadruped') return state.legacy?.image || null;
     return state.img;
   }
   function dims() {
@@ -200,7 +200,7 @@
     setImage(null);
     state.imageStatus='';
     if(loadAtlasImage(state.draft.atlas)) { /* the character's own atlas image */ }
-    else if(s.family!=='fox' && s.character.atlas) {
+    else if(s.family!=='quadruped' && s.character.atlas) {
       const current=++state.loadSerial, image=new Image();
       image.onload=()=>{if(current!==state.loadSerial)return;setImage(image);refresh();};
       image.onerror=()=>{if(current===state.loadSerial){state.imageStatus='Bundled atlas unavailable';refresh();}};
@@ -209,7 +209,7 @@
   }
   function updateLegacy(s) {
     const previousImage = state.legacy?.image;
-    state.legacy=isActive(s) && s.family==='fox' && !state.draft.atlas
+    state.legacy=isActive(s) && s.family==='quadruped' && !state.draft.atlas
       ? window.AnimLabLegacyAtlas?.getSnapshot?.() || null : null;
     // The bundled quadruped atlas loads after the stage may already be open.
     // Initialise its view once, rather than displaying a cropped 1:1 corner.

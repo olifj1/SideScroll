@@ -1695,11 +1695,11 @@
     );
   }
 
-  const rigPartMeshesByType = { human:{} };
-  Object.keys(Rig.ATLAS.parts).forEach(name => { rigPartMeshesByType.human[name] = createRigPartMesh(Rig, name); });
+  const rigPartMeshesByType = { biped:{} };
+  Object.keys(Rig.ATLAS.parts).forEach(name => { rigPartMeshesByType.biped[name] = createRigPartMesh(Rig, name); });
   if (QuadrupedRig) {
-    rigPartMeshesByType.fox = {};
-    Object.keys(QuadrupedRig.ATLAS.parts).forEach(name => { rigPartMeshesByType.fox[name] = createRigPartMesh(QuadrupedRig, name); });
+    rigPartMeshesByType.quadruped = {};
+    Object.keys(QuadrupedRig.ATLAS.parts).forEach(name => { rigPartMeshesByType.quadruped[name] = createRigPartMesh(QuadrupedRig, name); });
   }
 
   function bindMesh(mesh) {
@@ -2528,13 +2528,17 @@ const GameCharacters = window.SideScrollGameCharacters || null;
 // become unselectable.
 const originalCharacterMeshes=new Map();
 const LOCAL_CHARACTER_SELECTION_KEY = 'sidescroll.game.local-character.v1';
-const allCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'original'];
+// The original quadruped character, whose setup lives in the shared quadruped
+// slots (rig, collider, clips). Found by its rig, never by name or ID.
+const isOriginalQuadruped = id => Rig.CHARACTER_VARIANTS?.[id]?.rigType === 'quadruped';
+const ORIGINAL_QUADRUPED_ID = Object.keys(Rig.CHARACTER_VARIANTS || {}).find(isOriginalQuadruped) || null;
+const allCharacterVariants = Rig.CHARACTER_VARIANTS ? Object.keys(Rig.CHARACTER_VARIANTS) : [Rig.DEFAULT_CHARACTER_VARIANT || 'char-1'];
 const RIG_TEXTURE_VERSION = '1.0.62';
 const CHARACTER_SETUP_STORAGE_KEY = 'sidescroll.animlab.setup.v1';
 const BASE_CHARACTER_SCALE = 2.31;
 const CHARACTER_SCALE_MIN = 0.55;
 const CHARACTER_SCALE_MAX = 8.0;
-let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'original');
+let currentCharacterVariant = Rig.loadCharacterVariant ? Rig.loadCharacterVariant() : (Rig.DEFAULT_CHARACTER_VARIANT || 'char-1');
 // Character registry: display names, playable categories and the Default player
 // role. A player who has never chosen a character starts as the Default player.
 const CharacterRegistry = window.SideScrollCharacters || null;
@@ -2555,7 +2559,7 @@ const missingRigDiagnostics = new Set();
 
 function characterVariantInfo(id = currentCharacterVariant) {
   const local = GameCharacters?.find(id);
-  if(local)return {id,label:CharacterRegistry?.name(id)||local.label,rigType:local.family==='fox'?'fox':'human',soleArtOffset:0};
+  if(local)return {id,label:CharacterRegistry?.name(id)||local.label,rigType:local.family,soleArtOffset:0};
   const info = Rig.characterVariantInfo ? Rig.characterVariantInfo(id) : null;
   const name = CharacterRegistry?.name(id);
   return info && name ? {...info,label:name} : info;
@@ -2565,13 +2569,13 @@ function characterScaleMultiplier(id = currentCharacterVariant) {
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
     const savedCustom = GameCharacters?.ready(id)?.setup;
-    const quadrupedSetupCurrent = id !== 'fox' || !QuadrupedRig || setup?.[id]?.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID;
+    const quadrupedSetupCurrent = !isOriginalQuadruped(id) || !QuadrupedRig || QuadrupedRig.isCurrentBaseline(setup?.[id]?.baselineId);
     const raw = savedCustom ? Number(savedCustom.scale) : (quadrupedSetupCurrent ? Number(setup?.[id]?.scale) : NaN);
-    const fallback = (id === 'fox' || savedCustom?.rig?.family==='quadruped') && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1;
+    const fallback = (isOriginalQuadruped(id) || savedCustom?.rig?.family==='quadruped') && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1;
     const value = Number.isFinite(raw) ? raw : fallback;
     return Math.max(CHARACTER_SCALE_MIN, Math.min(CHARACTER_SCALE_MAX, value));
   } catch (_) {
-    return id === 'fox' && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1;
+    return isOriginalQuadruped(id) && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1;
   }
 }
 
@@ -2582,8 +2586,8 @@ function refreshCharacterScale() {
 
 function characterMotionSettings(id = currentCharacterVariant) {
   const defaults = {
-    walk: id === 'fox' && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_WALK_SPEED) || 1.15) : 1.15,
-    run: id === 'fox' && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_RUN_SPEED) || 2.85) : 2.85
+    walk: isOriginalQuadruped(id) && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_WALK_SPEED) || 1.15) : 1.15,
+    run: isOriginalQuadruped(id) && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_RUN_SPEED) || 2.85) : 2.85
   };
   const custom = GameCharacters?.ready(id);
   if(custom){
@@ -2593,7 +2597,7 @@ function characterMotionSettings(id = currentCharacterVariant) {
   }
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
-    if (id === 'fox' && (!QuadrupedRig || setup?.fox?.baselineId !== QuadrupedRig.AUTHORING_BASELINE_ID)) return defaults;
+    if (isOriginalQuadruped(id) && (!QuadrupedRig || !QuadrupedRig.isCurrentBaseline(setup?.[id]?.baselineId))) return defaults;
     const walkRaw = setup?.[id]?.walkSpeed == null ? NaN : Number(setup[id].walkSpeed);
     const runRaw = setup?.[id]?.runSpeed == null ? NaN : Number(setup[id].runSpeed);
     const walk = Rig.clamp(Number.isFinite(walkRaw) ? walkRaw : defaults.walk, .45, 3.25);
@@ -2606,8 +2610,8 @@ function characterMotionSettings(id = currentCharacterVariant) {
 
 function characterRigForVariant(id = currentCharacterVariant) {
   const info = characterVariantInfo(id);
-  if (!info || info.rigType === 'human') return Rig;
-  if (info.rigType === 'fox') return QuadrupedRig;
+  if (!info || info.rigType === 'biped') return Rig;
+  if (info.rigType === 'quadruped') return QuadrupedRig;
   return null;
 }
 
@@ -2642,7 +2646,7 @@ function activeCharacterRig(id = currentCharacterVariant) {
 function activeCharacterRigType(id = currentCharacterVariant) {
   const rig = activeCharacterRig(id);
   if (!rig) return null;
-  return rig === QuadrupedRig ? 'fox' : 'human';
+  return rig === QuadrupedRig ? 'quadruped' : 'biped';
 }
 
 // A biped library character draws with the original biped artwork it names
@@ -2698,14 +2702,14 @@ function renderCharacterPicker(){
   const originalItem=id=>{
     const info=characterVariantInfo(id),available=characterRigAvailable(id);
     return {id,name:info?.label||id,mark:mark(info?.label||id),
-      kind:(info?.rigType==='fox'?'Quadruped':'Biped')+(originalCharacterMeshes.has(id)?' · Mesh':' · Parts'),
+      kind:(info?.rigType==='quadruped'?'Quadruped':'Biped')+(originalCharacterMeshes.has(id)?' · Mesh':' · Parts'),
       ready:available,status:available?'Ready':'Required rig unavailable'};
   };
   const libraryItem=id=>{
     const item=GameCharacters?.list().find(entry=>entry.id===id);
     if(!item)return null;
     const ready=item.status==='ready';
-    const biped=item.family==='human';
+    const biped=item.family==='biped';
     const technique=item.technique==='biped-starter-rigid'?'Biped starter art':
       item.technique==='atlas-deform'?'Authored Atlas mesh':
       item.technique==='atlas-mixed'?'Mixed Atlas pieces':
@@ -2756,8 +2760,8 @@ function applyCharacterVariant(id, announce = false) {
   const requested = isCustom ? id : (Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(id) : id);
   if (!characterRigAvailable(requested)) {
     reportMissingCharacterRig(requested);
-    const fallback = availableCharacterVariants.includes(Rig.DEFAULT_CHARACTER_VARIANT || 'original')
-      ? (Rig.DEFAULT_CHARACTER_VARIANT || 'original')
+    const fallback = availableCharacterVariants.includes(Rig.DEFAULT_CHARACTER_VARIANT || 'char-1')
+      ? (Rig.DEFAULT_CHARACTER_VARIANT || 'char-1')
       : availableCharacterVariants[0];
     if (!fallback) return false;
     currentCharacterVariant = fallback;
@@ -2771,7 +2775,7 @@ function applyCharacterVariant(id, announce = false) {
       try{localStorage.removeItem(LOCAL_CHARACTER_SELECTION_KEY);}catch(_){}
     }
   }
-  textures.rigAtlas = textures[rigVariantTextureKey(artVariantFor(currentCharacterVariant))] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
+  textures.rigAtlas = textures[rigVariantTextureKey(artVariantFor(currentCharacterVariant))] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'char-1')] || textures.rigAtlas;
   updateCharacterSwapButton();
   renderCharacterPicker();
   if (characterColliderReady) refreshCharacterCollider();
@@ -2846,7 +2850,7 @@ if(GameCharacters)for(const candidate of GameCharacters.list()){
     }
   });
 }
-textures.rigAtlas = textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')];
+textures.rigAtlas = textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'char-1')];
 applyCharacterVariant(currentCharacterVariant, false);
 if(characterSwapBtn)characterSwapBtn.addEventListener('click',()=>setCharacterPickerOpen(characterPicker?.hidden!==false));
 characterPickerClose?.addEventListener('click',()=>setCharacterPickerOpen(false));
@@ -8665,7 +8669,7 @@ document.addEventListener('keydown',event=>{
     if (!QuadrupedRig) return [];
     if (QuadrupedRig.AUTHORING_BASELINE_ID) return QuadrupedRig.DEFAULT_FRAMES.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
     if (typeof QuadrupedRig.buildExampleWalkFrames === 'function') {
-      const quadrupedScale = Math.max(.001, BASE_CHARACTER_SCALE * characterScaleMultiplier('fox'));
+      const quadrupedScale = Math.max(.001, BASE_CHARACTER_SCALE * characterScaleMultiplier(ORIGINAL_QUADRUPED_ID));
       const strideLocal = (Number(QuadrupedRig.WALK_STRIDE_WORLD) || 0) / quadrupedScale;
       return QuadrupedRig.buildExampleWalkFrames(QuadrupedRig.loadRestRig?.(), strideLocal).map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
     }
@@ -8680,9 +8684,9 @@ document.addEventListener('keydown',event=>{
     quadrupedJumpFrames = QuadrupedRig.JUMP_FRAMES.map(QuadrupedRig.clone);
     try {
       const sparseSaved = JSON.parse(localStorage.getItem(QUADRUPED_SPARSE_CLIPS_KEY) || 'null');
-      if (sparseSaved?.schema === 'animlab.sparse.v1' && sparseSaved?.foxBaselineId === QuadrupedRig.AUTHORING_BASELINE_ID) {
+      if (sparseSaved?.schema === 'animlab.sparse.v1' && QuadrupedRig.isCurrentBaseline(sparseSaved?.quadrupedBaselineId)) {
         for (const name of ['idle','walk','run','jump']) {
-          const clip = sparseSaved?.families?.fox?.[name];
+          const clip = sparseSaved?.families?.quadruped?.[name];
           if (clip?.keys?.length >= 2) quadrupedSparseClips[name] = QuadrupedRig.clone(clip);
         }
       }
@@ -8691,7 +8695,7 @@ document.addEventListener('keydown',event=>{
       // Keep the legacy 16-sample bank as a compatibility fallback, but v1.0.160
       // renders saved sparse quadruped clips directly so Smooth is not quantised back
       // down to sixteen linearly interpolated poses.
-      if (saved?.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID) {
+      if (QuadrupedRig.isCurrentBaseline(saved?.baselineId)) {
         if (Array.isArray(clips?.idle) && clips.idle.length >= 16) quadrupedIdleFrames = clips.idle.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
         if (Array.isArray(clips?.walk) && clips.walk.length >= 16) quadrupedWalkFrames = clips.walk.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
         if (Array.isArray(clips?.run) && clips.run.length >= 16) quadrupedRunFrames = clips.run.map((pose,index)=>QuadrupedRig.normalizedPose(pose,index));
@@ -17453,7 +17457,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function drawRigPartWebGL(part, view, facing, charRig) {
-    const rigType = charRig === QuadrupedRig ? 'fox' : 'human';
+    const rigType = charRig === QuadrupedRig ? 'quadruped' : 'biped';
     const mesh = rigPartMeshesByType[rigType]?.[part.name];
     const r = charRig.atlasRect(part.name);
     if (!mesh || !r) return;
