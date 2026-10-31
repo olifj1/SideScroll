@@ -238,7 +238,7 @@
     const entry = doc.character || {};
     if (!entry.name || !entry.setup || !entry.sparseClips) BAD('This older character file is incomplete.');
     return { pkg: { copy: { name: entry.name, starter: entry.starter, setup: entry.setup, sparseClips: entry.sparseClips,
-      legacyAtlasSource: entry.legacyAtlasSource || null }, artwork: {}, slices: [] },
+      legacyAtlasSource: entry.legacyAtlasSource || null, ...(entry.art ? { art: entry.art } : {}) }, artwork: {}, slices: [] },
       id: String(entry.id || ''), name: String(entry.name), family: entry.starter === 'fox' ? 'fox' : 'human',
       builtIn: false, replaceable: false, sharedWith: [], old: true };
   }

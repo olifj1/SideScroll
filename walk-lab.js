@@ -66,6 +66,15 @@
     fox:{family:'fox',rigFamily:'quadruped',label:'Quadruped',atlas:'quadruped-parts-atlas-v3.png?v=1.0.163'},
     original:{family:'human',rigFamily:'biped',label:'Biped',atlas:'walklab-rig-v4.png'}
   });
+  // A biped library character draws with one of the original bipeds' artwork
+  // (a copy of Hero 2 keeps Hero 2's art). Saved as a bare file name; old file
+  // names are accepted through the asset rename map.
+  const BIPED_ART = Object.freeze(['walklab-rig-v4.png','walklab-rig-v4-alt-b.png']);
+  const characterArt = (starter, name) => {
+    if (starter !== 'original' || !name) return null;
+    const file = (window.SideScrollAssetRename || (n => n))(String(name).split('?')[0]);
+    return BIPED_ART.includes(file) ? file : null;
+  };
   const safeCharacterName = input => String(input||'').trim().replace(/[\u0000-\u001f\u007f<>]/g,'').slice(0,42);
   function loadCharacterLibrary() {
     try {
@@ -82,6 +91,7 @@
         rigFamily:STARTERS[entry.starter].rigFamily,setup:entry.setup&&typeof entry.setup==='object'?entry.setup:{},
         sparseClips:entry.sparseClips&&typeof entry.sparseClips==='object'?entry.sparseClips:{},
         legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'?entry.legacyAtlasSource:null,
+        ...(characterArt(entry.starter,entry.art)?{art:characterArt(entry.starter,entry.art)}:{}),
         createdAt:String(entry.createdAt||''),updatedAt:String(entry.updatedAt||'')
       }));
     }catch(err){console.warn('[Anim Lab] Character library read failed; existing data not overwritten.',err);return [];}
@@ -105,7 +115,7 @@
   // On first use, prioritise the working inspector. Display stays one tap away;
   // advanced diagnostics open only when requested. Respect saved user choices.
   for (const key of ['animlab-unified-display','animlab-static-reference-section',
-                     'animlab-motion-reference-title','animlab-mesh-preview-section']) {
+                     'animlab-motion-reference-title']) {
     if (!Object.prototype.hasOwnProperty.call(collapseState,key)) collapseState[key] = true;
   }
 
@@ -166,7 +176,7 @@
     { id:'fox', label:'Fox', family:'fox', atlas:'quadruped-parts-atlas-v3.png?v=1.0.163' }
   ];
   for(const entry of libraryEntries) CHARACTERS.push({id:entry.id,label:entry.name,family:entry.family,
-    atlas:STARTERS[entry.starter].atlas,starter:entry.starter,library:true});
+    atlas:entry.art||STARTERS[entry.starter].atlas,starter:entry.starter,library:true});
   // Display names, categories and roles come from the character registry.
   const Registry = window.SideScrollCharacters || null;
   for (const c of CHARACTERS) { const name = Registry?.name(c.id); if (name) c.label = name; }
@@ -1985,10 +1995,11 @@
     if(!character)return null;
     const entry=libraryEntry(id);
     if(entry)return clone({name:entry.name,starter:entry.starter,setup:entry.setup,
-      sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource});
+      sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource,...(entry.art?{art:entry.art}:{})});
     return clone({name:character.label,starter:character.family==='fox'?'fox':'original',
       setup:defaultSetupFor(id),sparseClips:sparseBanks[character.family],
-      legacyAtlasSource:setupMap[id]?.legacyAtlasSource||null});
+      legacyAtlasSource:setupMap[id]?.legacyAtlasSource||null,
+      ...(character.family==='human'?{art:characterArt('original',character.atlas)}:{})});
   }
   function importLibraryCharacterDocument(raw) {
     if(isDirty() || selection.mode==='play' || libraryEntries.length>=24)return false;
@@ -2029,10 +2040,11 @@
       setup,sparseClips:clips,
       legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'
         ? clone(entry.legacyAtlasSource) : null,
+      ...(characterArt(entry.starter,entry.art)?{art:characterArt(entry.starter,entry.art)}:{}),
       createdAt:time,updatedAt:time};
     try{storeLibrary([...libraryEntries,imported]);}
     catch(err){console.error('[Anim Lab] Import write failed.',err);return false;}
-    CHARACTERS.push({id,label:imported.name,family,starter:imported.starter,library:true,atlas:STARTERS[imported.starter].atlas});
+    CHARACTERS.push({id,label:imported.name,family,starter:imported.starter,library:true,atlas:imported.art||STARTERS[imported.starter].atlas});
     initialiseLibraryClips(imported);loadAtlas(id);
     selection.characterId=id;selection.frame=0;playing=false;playPhase=0;conversionPreview=null;
     selection.mode='setup';selection.setupTool='atlas';

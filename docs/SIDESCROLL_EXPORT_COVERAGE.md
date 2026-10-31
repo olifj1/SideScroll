@@ -120,6 +120,13 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### Biped library characters' artwork (31 Oct)
+
+A biped library entry (`sidescroll.animlab.character-library.v1`) may carry
+`art`: the bare file name of the original biped artwork it draws with
+(`walklab-rig-v4.png` or `walklab-rig-v4-alt-b.png`; anything else is ignored).
+No new key. Character packages carry it in the entry and in *Add as copy*.
+
 ### C1c — drawing method and original characters' mesh sources
 
 No new storage key. A character's drawing method is its Parts assembly's
