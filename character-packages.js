@@ -180,6 +180,8 @@
     if (animTemplates && savedAnim) {
       const links = builtIn ? readJSON(KEY.clips)?.characters?.[id]?.links : libraryEntries().find(e => e.id === id)?.animationLinks;
       const ids = new Set((animTemplates.SLOTS[family] || []).map(slot => animTemplates.linkFor({ id, family, library: !builtIn }, slot, links).id));
+      const extras = builtIn ? readJSON(KEY.clips)?.characters?.[id]?.extraClips : libraryEntries().find(e => e.id === id)?.extraClips;
+      for (const extra of Object.values(extras || {})) if (extra?.link?.id) ids.add(extra.link.id);
       for (const tid of ids) if (has(savedAnim, tid)) slices.push(sliceAt(KEY.animTemplates, ['templates', tid]));
     }
     // Custom action slots its animations are assigned to.

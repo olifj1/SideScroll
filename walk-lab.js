@@ -805,22 +805,26 @@
     storeCharacterClips(store);
   }
   // Saved animation-template links of a character, by slot.
+  // Saved animation-template links of a character, by animation key (its
+  // originals' links, plus the links of animations it created).
   function savedClipLinks(characterId) {
     const entry = libraryEntry(characterId);
-    return entry ? (entry.animationLinks || {}) : (loadCharacterClips().characters[characterId]?.links || {});
+    const record = entry ? {links:entry.animationLinks, extras:entry.extraClips}
+      : {links:loadCharacterClips().characters[characterId]?.links, extras:loadCharacterClips().characters[characterId]?.extraClips};
+    const links = {...(record.links || {})};
+    for (const [key, extra] of Object.entries(record.extras || {})) if (extra?.link) links[key] = extra.link;
+    return links;
   }
-  const clipLinkFor = (character, slot) => AnimationTemplates?.linkFor(character, slot, savedClipLinks(character.id)) || null;
-  function writeClipLink(characterId, slot, link) {
-    const entry = libraryEntry(characterId);
-    if (entry) {
-      storeLibrary(libraryEntries.map(item => item.id === characterId
-        ? {...item, animationLinks:{...(item.animationLinks || {}), [slot]:clone(link)}} : item));
-      return;
-    }
-    const store = loadCharacterClips();
-    const record = store.characters[characterId] ||= {};
-    record.links = {...(record.links || {}), [slot]:clone(link)};
-    storeCharacterClips(store);
+  // A template chosen with "Use this template" / "Save as template" waits here
+  // until Save (Discard drops it), keyed "characterId|animationKey".
+  const pendingClipLinks = new Map();
+  const clipLinkFor = (character, slot) => pendingClipLinks.get(`${character.id}|${slot}`)
+    || AnimationTemplates?.linkFor(character, slot, savedClipLinks(character.id)) || null;
+  function writeClipLink(characterId, key, link) {
+    updateSavedAnimations(characterId, ({links, extras}) => {
+      if (extras[key]) extras[key] = {...extras[key], link:clone(link)};
+      else links[key] = clone(link);
+    });
   }
   // Set when the author answers "Edit template / Make unique" for an edit of a
   // linked clip (anim-lab-animation-templates.js); per character and slot.
@@ -1420,7 +1424,7 @@
           record.sparseClips = {...(record.sparseClips || {}), [selection.clip]:clone(customSparseBanks[character.id][selection.clip])};
           storeCharacterClips(store);
         }
-        if(!extra)saveClipTemplate(character, selection.clip);
+        saveClipTemplate(character, selection.clip);
       }
       for (const participant of sessionParticipants.values()) {
         if (!participant?.save) continue;
@@ -1453,6 +1457,7 @@
     playing = false;
     rigEditChoice = null;
     clipEditChoices.clear();
+    pendingClipLinks.clear();
     hint.textContent = 'Discarded · checkpoint restored';
     draw(); updateUi(); notify();
   }
@@ -1516,6 +1521,7 @@
       selection.characterId = id;
       rigEditChoice = null;
       clipEditChoices.clear();
+      pendingClipLinks.clear();
       if (!clipExists(id, selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
       if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
@@ -1617,8 +1623,9 @@
       template = AnimationTemplates.get(link.id);
     }
     clipEditChoices.delete(choiceKey);
+    pendingClipLinks.delete(choiceKey);
     if (link.mode === 'instance' && template && same(clip, template.clip)) link = {...link, revision:template.revision};
-    if (!same(link, savedClipLinks(character.id)[slot])) writeClipLink(character.id, slot, link);
+    if (template && !same(link, savedClipLinks(character.id)[slot])) writeClipLink(character.id, slot, link);
   }
   // Characters (other than one) whose animation for some slot is an instance of a template.
   function clipTemplateUsers(templateId, exceptId) {
@@ -1630,27 +1637,56 @@
     if (!AnimationTemplates) return null;
     const character = currentCharacter(), slot = selection.clip, link = clipLinkFor(character, slot);
     const template = AnimationTemplates.get(link.id);
-    return {characterId:character.id, characterName:character.label, slot, link:clone(link), mode:selection.mode,
+    return {characterId:character.id, characterName:character.label, slot, name:clipLabel(), link:clone(link), mode:selection.mode,
+      templates:AnimationTemplates.list(character.family).filter(t => t.clip).map(t => ({id:t.id, name:t.name})),
+      pending:pendingClipLinks.has(clipChoiceKey()),
       template:template ? {id:template.id, name:template.name, revision:template.revision} : null,
       users:clipTemplateUsers(link.id, character.id), stale:AnimationTemplates.isStale(link, template),
       editChoice:clipEditChoices.get(clipChoiceKey()) || null, dirty:isDirty()};
   }
-  // Take the template's clip (undoable; Save keeps it and records the revision).
-  function useClipTemplate() {
-    const link = clipLinkFor(currentCharacter(), selection.clip), template = AnimationTemplates?.get(link?.id);
-    if (!template?.clip) return false;
+  // Take a template's clip and follow it (undoable; Save keeps both and records
+  // the revision). Without an id: the current link's template (an update).
+  function useClipTemplate(templateId = null) {
+    const character = currentCharacter(), link = clipLinkFor(character, selection.clip);
+    const template = AnimationTemplates?.get(templateId || link?.id);
+    if (!template?.clip || template.family !== character.family) return false;
+    if (templateId && (templateId !== link?.id || link?.mode !== 'instance')) pendingClipLinks.set(clipChoiceKey(), {id:template.id, mode:'instance', revision:template.revision});
     const listener = clipEditListener; clipEditListener = null;
     try { editSparseClip(`Use animation template ${template.name}`, clip => { Object.keys(clip).forEach(k => delete clip[k]); Object.assign(clip, clone(template.clip)); }); }
     finally { clipEditListener = listener; }
     clipEditChoices.delete(clipChoiceKey());
-    hint.textContent = `${currentCharacter().label} · ${clipLabel()} uses the updated ${template.name} · Save to keep`;
+    // Identical clip: nothing to Save, so record the link now.
+    if (!isDirty() && pendingClipLinks.has(clipChoiceKey())) {
+      writeClipLink(character.id, selection.clip, pendingClipLinks.get(clipChoiceKey()));
+      pendingClipLinks.delete(clipChoiceKey());
+      hint.textContent = `${character.label} · ${clipLabel()} follows ${template.name}`;
+      draw(); notify();
+      return true;
+    }
+    hint.textContent = `${currentCharacter().label} · ${clipLabel()} uses ${template.name} · Save to keep`;
     return true;
+  }
+  // New template from the current animation (as it is now); the animation
+  // follows it from the next Save.
+  function saveClipAsTemplate(name) {
+    const character = currentCharacter(), extra = extraOf(character.id, selection.clip);
+    const slot = extra ? (extra.basedOn || 'walk') : selection.clip;
+    const template = AnimationTemplates?.create(name, character.family, slot, clone(currentSparseClip()));
+    if (!template) return null;
+    const link = {id:template.id, mode:'instance', revision:template.revision};
+    if (isDirty()) pendingClipLinks.set(clipChoiceKey(), link);
+    else writeClipLink(character.id, selection.clip, link);
+    clipEditChoices.delete(clipChoiceKey());
+    hint.textContent = `Template ${template.name} saved · ${clipLabel()} follows it${isDirty() ? ' from the next Save' : ''}`;
+    draw(); notify();
+    return template.id;
   }
   // The character's clip stops following its template (written straight away:
   // the clip itself is already the character's own copy).
   function makeClipUnique() {
     const character = currentCharacter(), link = clipLinkFor(character, selection.clip);
     if (!link) return false;
+    pendingClipLinks.delete(clipChoiceKey());
     writeClipLink(character.id, selection.clip, {...link, mode:'unique'});
     clipEditChoices.set(clipChoiceKey(), 'unique');
     hint.textContent = `${character.label} · ${clipLabel()} is now its own animation`;
@@ -2576,6 +2612,7 @@
     selectClip:name=>switchClip(name),
     useClipTemplate,
     makeClipUnique,
+    saveClipAsTemplate,
     setClipEditListener:fn=>{clipEditListener=typeof fn==='function'?fn:null;},
     setClipEditChoice:choice=>{if(['template','unique'].includes(choice))clipEditChoices.set(clipChoiceKey(),choice);else clipEditChoices.delete(clipChoiceKey());},
     setRigEditChoice:choice=>{rigEditChoice=['template','unique'].includes(choice)?choice:null;},

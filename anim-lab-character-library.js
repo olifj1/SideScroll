@@ -109,6 +109,9 @@
         <strong>Rig templates</strong>
         <small class="animlab-library-footnote">Named rigs characters link to. Create one with Rig → Save as template. A template can be removed when no character uses it.</small>
         <div id="animlab-library-rig-templates"></div>
+        <strong>Animation templates</strong>
+        <small class="animlab-library-footnote">Named animations characters can follow. Create one in Animate → Save as template. Built-in ones always stay; others can be removed when no character follows them.</small>
+        <div id="animlab-library-animation-templates"></div>
       </div>
     </section>`;
   document.body.appendChild(settings);
@@ -130,6 +133,8 @@
   const rolesList=settings.querySelector('#animlab-library-roles'),categoriesList=settings.querySelector('#animlab-library-categories');
   const templatesList=settings.querySelector('#animlab-library-rig-templates');
   const slotsList=settings.querySelector('#animlab-library-action-slots');
+  const animTemplatesList=settings.querySelector('#animlab-library-animation-templates');
+  const animTemplates=window.SideScrollAnimationTemplates||null;
   const actionSlots=window.SideScrollActionSlots||null;
   const rigTemplates=window.SideScrollRigTemplates||null;
   const toolbar=[...section.querySelectorAll('[data-library-panel]')];
@@ -266,6 +271,15 @@
         button('Rename',{renameSlot:slot.id}),button('Remove',{removeSlot:slot.id},slot.builtIn,`Remove ${slot.name}`));
       slotsList.appendChild(row);
     });
+    animTemplatesList.replaceChildren();
+    for(const t of (animTemplates?.list()||[]).filter(t=>t.clip)){
+      const row=document.createElement('div');row.className='animlab-library-organise-row';
+      const label=document.createElement('span');label.textContent=`${t.name} · ${t.family==='quadruped'?'Quadruped':'Biped'}${t.builtIn?' · built in':''}`;
+      const button=(text,data,disabled)=>{const b=document.createElement('button');b.type='button';b.className='animlab-library-action';
+        b.textContent=text;Object.assign(b.dataset,data);b.disabled=!!disabled;return b;};
+      row.append(label,button('Rename',{renameAnimTemplate:t.id}),button('Remove',{removeAnimTemplate:t.id},!animTemplates.canRemove(t.id)));
+      animTemplatesList.appendChild(row);
+    }
     templatesList.replaceChildren();
     for(const t of rigTemplates?.list()||[]){
       const users=rigTemplates.usersOf(t.id).map(c=>c.name);
@@ -448,6 +462,12 @@
       const slot=actionSlots?.get(b.dataset.removeSlot);
       if(slot&&window.confirm(`Remove the ${slot.name} slot? Characters' animations stay; they just stop being assigned to it.`))actionSlots.remove(b.dataset.removeSlot);
       core.redraw?.();
+    }else if(b.dataset.renameAnimTemplate){
+      const t=animTemplates?.get(b.dataset.renameAnimTemplate);
+      const v=ask('Animation template name:',t?.name);if(v!==null)animTemplates.rename(b.dataset.renameAnimTemplate,v);
+      core.redraw?.();
+    }else if(b.dataset.removeAnimTemplate){
+      if(!animTemplates?.remove(b.dataset.removeAnimTemplate))setStatus('Only a template no character follows can be removed.');
     }else if(b.dataset.renameTemplate){
       const t=rigTemplates?.get(b.dataset.renameTemplate);
       const v=ask('Rig template name:',t?.name);if(v!==null)rigTemplates.rename(b.dataset.renameTemplate,v);

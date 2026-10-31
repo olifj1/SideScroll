@@ -98,8 +98,36 @@
     return store.templates[id];
   }
 
+  function rename(id, name) {
+    const clean = cleanName(name), store = load();
+    if (!clean || !store.templates[id]?.clip) return false;
+    store.templates[id].name = clean;
+    save(store);
+    return true;
+  }
+  // Every saved link to a template, across characters (original characters'
+  // clip store and library entries; slot animations and ones they created).
+  function savedLinkIds() {
+    const read = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; } };
+    const ids = new Set(), add = links => { for (const link of Object.values(links || {})) if (link?.id) ids.add(link.id); };
+    const addExtras = extras => { for (const extra of Object.values(extras || {})) if (extra?.link?.id) ids.add(extra.link.id); };
+    for (const record of Object.values(read('sidescroll.animlab.character-clips.v1')?.characters || {})) { add(record?.links); addExtras(record?.extraClips); }
+    for (const entry of read('sidescroll.animlab.character-library.v1')?.entries || []) { add(entry?.animationLinks); addExtras(entry?.extraClips); }
+    return ids;
+  }
+  // Built-in templates always stay (characters follow them by default).
+  const canRemove = id => { const t = get(id); return !!t && !t.builtIn && !savedLinkIds().has(id); };
+  function remove(id) {
+    if (!canRemove(id)) return false;
+    const store = load();
+    delete store.templates[id];
+    store.order = store.order.filter(x => x !== id);
+    save(store);
+    return true;
+  }
+
   window.SideScrollAnimationTemplates = Object.freeze({
-    KEY, SLOTS, builtInId, list, get, linkFor, defaultLink, isStale, update, create,
+    KEY, SLOTS, builtInId, list, get, linkFor, defaultLink, isStale, update, create, rename, canRemove, remove,
     // Character Lab supplies the original clip of each family slot.
     setDefaultSource: fn => { if (typeof fn === 'function') defaultSource = fn; }
   });

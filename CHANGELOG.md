@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animation template box (C3c): Animate shows the template the selected animation
+  follows, with **Use this template** (only the character's rig family), **Make
+  unique** and **Save as template**; animations a character created can follow
+  templates too. A chosen template is kept on Save and dropped by Discard. Settings
+  lists animation templates (rename; remove ones nothing follows). Exports carry
+  every template a character's animations follow.
 - Actions & animations (C3b): Character Lab → Animate lists the **action slots**
   (Idle, Walk, Run, Jump, plus any added in Settings → Action slots) with the
   animation each plays for the character, and the character's **animations** (New,
