@@ -127,7 +127,8 @@ No new storage key. A character's drawing method is its Parts assembly's
 either way). An original character (not in the library) saved as a Mesh now also
 stores `legacyAtlasSource` (its original parts' mesh vertices and triangles, no
 image bytes) in its `sidescroll.animlab.setup.v1` entry, as library entries
-already did; the game reads it to draw the mesh. Carried by everything that
+already did; the game reads it to draw the mesh. Character Lab also draws and skins from these recorded meshes (31 Oct), so
+skin bindings stay valid on every device. Carried by everything that
 carries that key: character packages (the character's setup slice; a copy gets it
 too), Project Backup and the bake tool (content scope).
 
