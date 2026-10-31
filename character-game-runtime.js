@@ -13,12 +13,26 @@
   const sourceLibrary=read(LIBRARY_KEY);
   const atlasMap=read(ATLAS_KEY);
   const entries=new Map();
+  // Which clip each built-in action slot plays (C3b): the character's slot map
+  // names one of its animations; with no entry the slot plays the animation of
+  // the same name. `fallback` supplies an animation the character has no saved
+  // copy of (original characters: the shared family set).
+  const SLOTS=['idle','walk','run','jump'];
+  function slotClips(record,fallback=()=>undefined){
+    const out={},map=record?.slotAnimations&&typeof record.slotAnimations==='object'?record.slotAnimations:{};
+    for(const slot of SLOTS){
+      const key=typeof map[slot]==='string'?map[slot]:slot;
+      const clip=record?.sparseClips?.[key]||record?.extraClips?.[key]?.clip||(key!==slot?fallback(key):undefined);
+      if(clip)out[slot]=clip;
+    }
+    return out;
+  }
   if(sourceLibrary?.schema==='animlab.character-library.v1'&&Array.isArray(sourceLibrary.entries)){
     for(const candidate of sourceLibrary.entries.slice(0,24)){
       if(!candidate||!/^user-[a-z0-9-]{5,40}$/.test(candidate.id)||!['quadruped','biped'].includes(candidate.starter)||entries.has(candidate.id))continue;
       entries.set(candidate.id,{id:candidate.id,label:String(candidate.name||candidate.id).slice(0,42),
         family:candidate.starter,rigFamily:candidate.starter,setup:candidate.setup,
-        sparseClips:candidate.sparseClips,legacyAtlasSource:candidate.legacyAtlasSource||null,
+        sparseClips:slotClips(candidate),legacyAtlasSource:candidate.legacyAtlasSource||null,
         art:typeof candidate.art==='string'?candidate.art:null});
     }
   }
@@ -46,9 +60,11 @@
   // Original characters' own saved clips (Character Lab, C3a), by slot. A slot
   // without one plays the shared family set, as before.
   const characterClips=read('sidescroll.animlab.character-clips.v1');
+  const sharedClips=read('sidescroll.animlab.sparse.clips.v1')?.families||{};
   const originalClips=id=>{
-    const own=characterClips?.schema==='sidescroll.character-clips.v1'?characterClips.characters?.[id]?.sparseClips:null;
-    return own&&typeof own==='object'?own:{};
+    const record=characterClips?.schema==='sidescroll.character-clips.v1'?characterClips.characters?.[id]:null;
+    const family=registry?.find(id)?.family;
+    return record?slotClips(record,key=>sharedClips[family]?.[key]):{};
   };
   const prepared=new Map(), failures=new Map(), inFlight=new Map();
   const library=()=>[...entries.values()].filter(e=>!e.original);

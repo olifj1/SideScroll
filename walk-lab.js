@@ -98,6 +98,7 @@
         ...(entry.animationLinks&&typeof entry.animationLinks==='object'?{animationLinks:entry.animationLinks}:{}),
         ...(entry.animationNames&&typeof entry.animationNames==='object'?{animationNames:entry.animationNames}:{}),
         ...(entry.extraClips&&typeof entry.extraClips==='object'?{extraClips:entry.extraClips}:{}),
+        ...(entry.slotAnimations&&typeof entry.slotAnimations==='object'?{slotAnimations:entry.slotAnimations}:{}),
         createdAt:String(entry.createdAt||''),updatedAt:String(entry.updatedAt||'')
       }));
     }catch(err){console.warn('[Anim Lab] Character library read failed; existing data not overwritten.',err);return [];}
@@ -744,14 +745,40 @@
     const entry = libraryEntry(characterId);
     return (entry ? entry.animationNames : loadCharacterClips().characters[characterId]?.animationNames) || {};
   }
-  // Every animation of a character: slot animations in slot order, then extras.
+  // ---- Action slots (C3b) ----------------------------------------------------
+  // Project-wide slots (action-slots.js); each character maps slots to its own
+  // animations. With no entry a built-in slot plays the animation of the same
+  // name (the character's original), custom slots play nothing.
+  const ActionSlots = window.SideScrollActionSlots || null;
+  const BUILT_IN_SLOTS = ActionSlots?.BUILT_IN || ['idle','walk','run','jump'];
+  function savedSlotMap(characterId) {
+    const entry = libraryEntry(characterId);
+    return (entry ? entry.slotAnimations : loadCharacterClips().characters[characterId]?.slotAnimations) || {};
+  }
+  function slotAnimation(characterId, slot) {
+    const saved = savedSlotMap(characterId)[slot];
+    if (saved && clipExists(characterId, saved)) return saved;
+    if (BUILT_IN_SLOTS.includes(slot) && clipExists(characterId, slot)) return slot;
+    return null;
+  }
+  // Every action slot with the animation it plays for this character.
+  function slotList(characterId = selection.characterId) {
+    return (ActionSlots?.list() || BUILT_IN_SLOTS.map(id => ({id, name:titleCase(id), builtIn:true})))
+      .map(slot => ({id:slot.id, name:slot.name, builtIn:!!slot.builtIn, hookedUp:ActionSlots?.isHookedUp(slot.id) ?? true,
+        animation:slotAnimation(characterId, slot.id)}));
+  }
+  // Every animation of a character (its originals, one per built-in slot name,
+  // then the ones it created), with the slots that play it.
   function animationList(characterId = selection.characterId) {
-    const character = characterById(characterId), names = savedAnimationNames(characterId);
+    const character = characterById(characterId), names = savedAnimationNames(characterId), slots = slotList(characterId);
+    const usedBy = key => slots.filter(slot => slot.animation === key).map(slot => slot.name);
     return [
-      ...clipNamesForFamily(character.family).map(slot => ({key:slot, name:names[slot] || titleCase(slot), slot})),
-      ...(extraAnimations[characterId] || []).map(x => ({key:x.key, name:x.name, slot:null, basedOn:x.basedOn}))
+      ...clipNamesForFamily(character.family).map(key => ({key, name:names[key] || titleCase(key), original:true, slots:usedBy(key)})),
+      ...(extraAnimations[characterId] || []).map(x => ({key:x.key, name:x.name, original:false, basedOn:x.basedOn, slots:usedBy(x.key)}))
     ];
   }
+  // The current animation's display name.
+  const clipLabel = () => animationList().find(a => a.key === selection.clip)?.name || titleCase(String(selection.clip));
   const clipExists = (characterId, key) => clipNamesForFamily(characterById(characterId).family).includes(key)
     || !!extraAnimations[characterId]?.some(x => x.key === key);
   const extraOf = (characterId, key) => extraAnimations[characterId]?.find(x => x.key === key) || null;
@@ -764,7 +791,8 @@
     const entry = libraryEntry(characterId);
     if (entry) {
       const next = clone(entry);
-      const parts = {clips:next.sparseClips ||= {}, links:next.animationLinks ||= {}, names:next.animationNames ||= {}, extras:next.extraClips ||= {}};
+      const parts = {clips:next.sparseClips ||= {}, links:next.animationLinks ||= {}, names:next.animationNames ||= {}, extras:next.extraClips ||= {},
+        slotMap:next.slotAnimations ||= {}};
       change(parts);
       next.updatedAt = new Date().toISOString();
       storeLibrary(libraryEntries.map(item => item.id === characterId ? next : item));
@@ -772,7 +800,8 @@
     }
     const store = clone(loadCharacterClips());
     const record = store.characters[characterId] ||= {};
-    change({clips:record.sparseClips ||= {}, links:record.links ||= {}, names:record.animationNames ||= {}, extras:record.extraClips ||= {}});
+    change({clips:record.sparseClips ||= {}, links:record.links ||= {}, names:record.animationNames ||= {}, extras:record.extraClips ||= {},
+      slotMap:record.slotAnimations ||= {}});
     storeCharacterClips(store);
   }
   // Saved animation-template links of a character, by slot.
@@ -1502,7 +1531,7 @@
       .map(x => [x.key, {name:x.name, basedOn:x.basedOn, clip:clone(bank[x.key])}]));
     return {sparseClips:Object.fromEntries(clipNamesForFamily(family).map(slot => [slot, clone(bank[slot])])),
       ...(Object.keys(extraClips).length ? {extraClips} : {}),
-      animationNames:clone(savedAnimationNames(characterId))};
+      animationNames:clone(savedAnimationNames(characterId)), slotAnimations:clone(savedSlotMap(characterId))};
   }
 
   // ---- Animation list (C3b) ---------------------------------------------------
@@ -1545,11 +1574,15 @@
     draw(); notify();
     return true;
   }
-  // Only animations outside a slot can be deleted (a slot always has one).
+  // Animations the character created can be deleted unless a built-in slot
+  // plays them (assign another first); custom slots playing it are cleared.
   function deleteAnimation(key) {
     const character = currentCharacter(), extra = extraOf(character.id, key);
-    if (!extra || animationEditBlocked()) return false;
-    updateSavedAnimations(character.id, ({extras}) => { delete extras[key]; });
+    if (!extra || animationEditBlocked() || BUILT_IN_SLOTS.some(slot => slotAnimation(character.id, slot) === key)) return false;
+    updateSavedAnimations(character.id, ({extras, slotMap}) => {
+      delete extras[key];
+      for (const slot of Object.keys(slotMap)) if (slotMap[slot] === key) slotMap[slot] = null;
+    });
     delete customSparseBanks[character.id][key]; delete customSampleBanks[character.id][key];
     extraAnimations[character.id] = extraAnimations[character.id].filter(x => x.key !== key);
     if (selection.clip === key) { selection.clip = 'walk'; selection.frame = 0; saveEditorSelection(); resetCheckpoint(); }
@@ -1557,31 +1590,17 @@
     draw(); updateUi(); notify();
     return true;
   }
-  // Put an extra animation into a slot; the slot's previous animation becomes an
-  // extra (with its name and template link), so nothing is lost.
-  function assignAnimation(key, slot) {
-    const character = currentCharacter(), family = character.family, extra = extraOf(character.id, key);
-    if (!extra || !clipNamesForFamily(family).includes(slot) || animationEditBlocked()) return false;
-    const bank = customSparseBanks[character.id], names = savedAnimationNames(character.id);
-    const slotClip = bank[slot], slotName = names[slot] || titleCase(slot), slotLink = clipLinkFor(character, slot);
-    const incoming = normaliseSparseClip(clone(bank[key]), family, slot, banks[family][slot]);
-    const outgoing = normaliseSparseClip(clone(slotClip), family, key, banks[family][slot]);
-    let extraLink = null;
-    const incomingName = extra.name;
-    updateSavedAnimations(character.id, ({clips, links, names, extras}) => {
-      extraLink = extras[key]?.link || null;
-      clips[slot] = clone(incoming);
-      names[slot] = extra.name;
-      links[slot] = extraLink || {id:AnimationTemplates?.builtInId(family, slot) || `anim-${family}-${slot}`, mode:'unique', revision:1};
-      extras[key] = {name:slotName, basedOn:slot, clip:clone(outgoing), link:clone(slotLink)};
-    });
-    bank[slot] = incoming; bank[key] = outgoing;
-    customSampleBanks[character.id][slot] = compileSparseClip(incoming, family);
-    customSampleBanks[character.id][key] = compileSparseClip(outgoing, family);
-    Object.assign(extra, {name:slotName, basedOn:slot});
-    selection.clip = slot; selection.frame = 0; saveEditorSelection(); resetCheckpoint();
-    hint.textContent = `${titleCase(slot)} now plays ${incomingName} · ${slotName} kept under Other animations`;
-    draw(); updateUi(); notify();
+  // Which animation a slot plays for the current character (saved straight away;
+  // the game picks it up next time it starts). Built-in slots always play one.
+  function setSlotAnimation(slot, key) {
+    const character = currentCharacter();
+    if (!slotList().some(s => s.id === slot)) return false;
+    if (key !== null && !clipExists(character.id, key)) return false;
+    if (key === null && BUILT_IN_SLOTS.includes(slot)) return false;
+    updateSavedAnimations(character.id, ({slotMap}) => { slotMap[slot] = key; });
+    const name = key === null ? 'nothing' : animationList().find(a => a.key === key)?.name;
+    hint.textContent = `${slotList().find(s => s.id === slot)?.name} plays ${name} for ${character.label}`;
+    draw(); notify();
     return true;
   }
 
@@ -1624,7 +1643,7 @@
     try { editSparseClip(`Use animation template ${template.name}`, clip => { Object.keys(clip).forEach(k => delete clip[k]); Object.assign(clip, clone(template.clip)); }); }
     finally { clipEditListener = listener; }
     clipEditChoices.delete(clipChoiceKey());
-    hint.textContent = `${currentCharacter().label} · ${selection.clip} uses the updated ${template.name} · Save to keep`;
+    hint.textContent = `${currentCharacter().label} · ${clipLabel()} uses the updated ${template.name} · Save to keep`;
     return true;
   }
   // The character's clip stops following its template (written straight away:
@@ -1634,7 +1653,7 @@
     if (!link) return false;
     writeClipLink(character.id, selection.clip, {...link, mode:'unique'});
     clipEditChoices.set(clipChoiceKey(), 'unique');
-    hint.textContent = `${character.label} · ${selection.clip} is now its own animation`;
+    hint.textContent = `${character.label} · ${clipLabel()} is now its own animation`;
     draw(); notify();
     return true;
   }
@@ -2077,7 +2096,7 @@
     const modeLabel=selection.mode==='setup'?({atlas:'Atlas',rig:'Rig',art:'Parts',skin:'Skin'}[selection.setupTool]||'Setup'):selection.mode==='play'?'Play':'Animate';
     contextEl.textContent=selection.mode==='play'
       ? `${character.label} · Quick Play`
-      : `${character.label} · ${selection.clip[0].toUpperCase()+selection.clip.slice(1)} · ${modeLabel}${previewApplies()?' · Preview':''}`;
+      : `${character.label} · ${clipLabel()} · ${modeLabel}${previewApplies()?' · Preview':''}`;
     readout.textContent=selection.mode==='play'
       ? `${character.label} · QUICK PLAY · current working clips · ${Math.round(view.zoom*100)}%`
       : selection.mode==='setup'
@@ -2085,8 +2104,8 @@
             ? (window.AnimLabAssemblySkinInspect?.status?.().preview||'rest').toUpperCase()
             : 'REST'} · ${modeLabel} · ${Math.round(view.zoom*100)}%`
       : playing
-        ? `${character.label} · Playing ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
-        : `${character.label} · ${selection.clip.toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
+        ? `${character.label} · Playing ${clipLabel().toUpperCase()}${previewApplies()?' PREVIEW':''} · ${Math.round(view.zoom*100)}%`
+        : `${character.label} · ${clipLabel().toUpperCase()}${previewApplies()?' PREVIEW':''} · Frame ${selection.frame+1} / 16 · ${displayPose?.name || 'Pose'} · ${Math.round(view.zoom*100)}%`;
     dirtyBadge.hidden=!dirty;
     if (saveStateEl) { saveStateEl.textContent = dirty ? 'Unsaved' : 'Saved'; saveStateEl.classList.toggle('dirty', dirty); }
     const atlasSession = selection.mode === 'setup' && selection.setupTool === 'atlas' ? sessionParticipants.get('atlas') : null;
@@ -2428,6 +2447,10 @@
       extraClips[key]={name:safeCharacterName(extra.name)||'Animation',basedOn:clipNamesForFamily(family).includes(extra.basedOn)?extra.basedOn:null,
         clip:normaliseSparseClip(extra.clip,family,key,banks[family][extra.basedOn]||banks[family].walk)};
     }
+    const slotAnimations={};
+    for(const [slot,key] of Object.entries(entry.slotAnimations&&typeof entry.slotAnimations==='object'?entry.slotAnimations:{}))
+      if((BUILT_IN_SLOTS.includes(slot)||window.SideScrollActionSlots?.SLOT_ID?.test(slot))&&(key===null||clipNamesForFamily(family).includes(key)||extraClips[key]))
+        slotAnimations[slot]=key;
     const animationNames={};
     for(const [key,value] of Object.entries(entry.animationNames&&typeof entry.animationNames==='object'?entry.animationNames:{}))
       if(clipNamesForFamily(family).includes(key)&&safeCharacterName(value))animationNames[key]=safeCharacterName(value);
@@ -2455,6 +2478,7 @@
     const imported={id,name:safeCharacterName(entry.name),family,rigFamily:STARTERS[entry.starter].rigFamily,starter:entry.starter,
       setup,sparseClips:clips,
       ...(Object.keys(extraClips).length?{extraClips}:{}),...(Object.keys(animationNames).length?{animationNames}:{}),
+      ...(Object.keys(slotAnimations).length?{slotAnimations}:{}),
       legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'
         ? clone(entry.legacyAtlasSource) : null,
       ...(characterArt(entry.starter,entry.art)?{art:characterArt(entry.starter,entry.art)}:{}),
@@ -2547,7 +2571,8 @@
     createAnimation,
     renameAnimation,
     deleteAnimation,
-    assignAnimation,
+    setSlotAnimation,
+    slotList:()=>clone(slotList()),
     selectClip:name=>switchClip(name),
     useClipTemplate,
     makeClipUnique,
@@ -2586,7 +2611,9 @@
       return clone((family===currentCharacter().family&&customSparseBanks[selection.characterId]?.[name]) || sparseBanks?.[family]?.[name] || null);
     },
     evaluateClip:(clipName,phase,family=currentCharacter().family)=>{
-      const name=String(clipName||'');
+      // Slot names play the animation assigned to that slot for this character.
+      const asked=String(clipName||'');
+      const name=family===currentCharacter().family&&BUILT_IN_SLOTS.includes(asked)?(slotAnimation(selection.characterId,asked)||asked):asked;
       const clip=(family===currentCharacter().family && customSparseBanks[selection.characterId]?.[name]) || sparseBanks?.[family]?.[name];
       if(!clip)return null;
       return clone(evaluateSparsePose(clip,(((Number(phase)||0)%1)+1)%1*16,family));

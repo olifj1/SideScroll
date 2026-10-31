@@ -81,6 +81,7 @@ Rig templates built 31 Oct (C2b, `rig-templates.js`); animation templates come w
   silently retarget animations (manual retarget only, as already agreed).
 
 ## 3. Actions, animations and abilities
+Action slots built 31 Oct (C3b, `action-slots.js`): one project-wide list of named slots; each character picks an animation per slot. An action (C5) attaches a button label and behaviour to a slot; an action path (C6) names a slot.
 - **Ability list:** one shared, editable list (e.g. walk, run, jump, climb, carry,
   push, squeeze/crawl, later swim). Editable from Character Lab and Asset Lab.
 - **Action:** an ability made playable — a name, the **button label** shown to the

@@ -140,11 +140,17 @@ original characters in `sidescroll.animlab.character-clips.v1` (`characters[id]`
 shared family set, which is also where the built-in templates *Biped walk* etc. start
 from). Without saved links, original characters are instances of their family's
 built-in templates (the heroes share the Biped set), library characters unique.
-Animations outside the action slots (`extraClips`, key `clip-…`) and slot names
-(`animationNames`) sit next to those clips; `anim-lab-animation-list.js` is the
-Animate list (New, Duplicate, Rename, Delete, *Use in game*), whose structural
-changes are saved straight away. Bipeds have an `idle` slot (default: the standing
-pose the game always used).
+**Action slots** (`action-slots.js`, key `sidescroll.action-slots.v1`) are one
+project-wide list: Idle/Walk/Run/Jump built in (played by the game), others added in
+Settings ("not hooked up yet" until C5 code or a C6 action path uses them). Each
+character maps slots to its animations (`slotAnimations`; no entry = a built-in slot
+plays the animation of the same name). Animations the character made (`extraClips`,
+key `clip-…`) and names (`animationNames`) sit next to its clips; the game and Quick
+Play resolve a slot through the map (`slotClips` in `character-game-runtime.js`,
+`evaluateClip` in `walk-lab.js`). `anim-lab-animation-list.js` is the Animate list
+(Actions with an animation menu each; Animations with New, Duplicate, Rename,
+Delete), saved straight away. Bipeds have an `idle` slot (default: the standing pose
+the game always used).
 `anim-lab-animation-templates.js` asks *Edit template / Make unique* on the first
 edit of a linked clip and *Use updated / Keep previous* when its template changed.
 
@@ -163,7 +169,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
-| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `character-packages.js` (export/import, see below) |
+| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement | `world-lab.js` |

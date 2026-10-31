@@ -102,6 +102,10 @@
         <small class="animlab-library-footnote">Characters are listed in this order. The game's character picker shows playable categories.</small>
         <div id="animlab-library-categories"></div>
         <button type="button" id="animlab-library-add-category" class="animlab-library-action">Add category…</button>
+        <strong>Action slots</strong>
+        <small class="animlab-library-footnote">Every character picks an animation for each slot (Character Lab → Animate). Idle, Walk, Run and Jump are played by the game; slots you add are kept as data until game code or an action path uses them.</small>
+        <div id="animlab-library-action-slots"></div>
+        <button type="button" id="animlab-library-add-slot" class="animlab-library-action">Add action slot…</button>
         <strong>Rig templates</strong>
         <small class="animlab-library-footnote">Named rigs characters link to. Create one with Rig → Save as template. A template can be removed when no character uses it.</small>
         <div id="animlab-library-rig-templates"></div>
@@ -125,6 +129,8 @@
   const organise=settings.querySelector('#animlab-library-organise');
   const rolesList=settings.querySelector('#animlab-library-roles'),categoriesList=settings.querySelector('#animlab-library-categories');
   const templatesList=settings.querySelector('#animlab-library-rig-templates');
+  const slotsList=settings.querySelector('#animlab-library-action-slots');
+  const actionSlots=window.SideScrollActionSlots||null;
   const rigTemplates=window.SideScrollRigTemplates||null;
   const toolbar=[...section.querySelectorAll('[data-library-panel]')];
   const panels=Object.fromEntries(['new','open','save','share'].map(key=>[key,$('animlab-library-'+key)]));
@@ -248,6 +254,17 @@
         button('Rename',{renameCategory:category.id}),
         button('Remove',{removeCategory:category.id},!empty||categories.length<=1,`Remove ${category.name}`));
       categoriesList.appendChild(row);
+    });
+    slotsList.replaceChildren();
+    const slots=actionSlots?.list()||[];
+    slots.forEach((slot,index)=>{
+      const row=document.createElement('div');row.className='animlab-library-organise-row';
+      const label=document.createElement('span');label.textContent=`${slot.name} · ${actionSlots.isHookedUp(slot.id)?'in the game':'not hooked up yet'}`;
+      const button=(text,data,disabled,aria)=>{const b=document.createElement('button');b.type='button';b.className='animlab-library-action';
+        b.textContent=text;Object.assign(b.dataset,data);b.disabled=!!disabled;if(aria)b.setAttribute('aria-label',aria);return b;};
+      row.append(label,button('↑',{slotUp:slot.id},index===0,`Move ${slot.name} up`),button('↓',{slotDown:slot.id},index===slots.length-1,`Move ${slot.name} down`),
+        button('Rename',{renameSlot:slot.id}),button('Remove',{removeSlot:slot.id},slot.builtIn,`Remove ${slot.name}`));
+      slotsList.appendChild(row);
     });
     templatesList.replaceChildren();
     for(const t of rigTemplates?.list()||[]){
@@ -418,6 +435,19 @@
     else if(b.dataset.categoryDown)registry.moveCategory(b.dataset.categoryDown,1);
     else if(b.dataset.removeCategory){
       if(!registry.removeCategory(b.dataset.removeCategory))setStatus('Only an empty category can be removed.');
+    }else if(b.id==='animlab-library-add-slot'){
+      const v=ask('New action slot name (e.g. Crawl):');if(v!==null&&!actionSlots?.add(v))setStatus('Enter a slot name.');
+      core.redraw?.();
+    }else if(b.dataset.renameSlot){
+      const slot=actionSlots?.get(b.dataset.renameSlot);
+      const v=ask('Action slot name:',slot?.name);if(v!==null)actionSlots.rename(b.dataset.renameSlot,v);
+      core.redraw?.();
+    }else if(b.dataset.slotUp||b.dataset.slotDown){
+      actionSlots?.move(b.dataset.slotUp||b.dataset.slotDown,b.dataset.slotUp?-1:1);core.redraw?.();
+    }else if(b.dataset.removeSlot){
+      const slot=actionSlots?.get(b.dataset.removeSlot);
+      if(slot&&window.confirm(`Remove the ${slot.name} slot? Characters' animations stay; they just stop being assigned to it.`))actionSlots.remove(b.dataset.removeSlot);
+      core.redraw?.();
     }else if(b.dataset.renameTemplate){
       const t=rigTemplates?.get(b.dataset.renameTemplate);
       const v=ask('Rig template name:',t?.name);if(v!==null)rigTemplates.rename(b.dataset.renameTemplate,v);
