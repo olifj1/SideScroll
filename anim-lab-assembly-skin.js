@@ -117,7 +117,10 @@
     const binding={schema:'animlab.skin-binding.v1',meshSignature:signature(source.mesh),group:chosen,
       weights:[],baseWeights:[],boneProfiles:{},manualWeights:{},
       envelopeMode:'rect-binary-v1',rectangles:defaultRectangles(allowed,geom)};
-    return updateRectWeights(binding,item,source,geom);
+    const rectangles=updateRectWeights(binding,item,source,geom);
+    // Joint boundaries are the envelope method (31 Oct); the rectangles only
+    // seed the joint line widths. A chain they can't describe keeps rectangles.
+    return (rectangles&&activateJointBoundaries(clone(rectangles),item,source,geom))||rectangles;
   }
   // Spatial bind v1: one capsule around each rest bone. Strength 0 is truly
   // 0, radius <=inner is 100%, radius >=outer is 0%, with a smooth transition.
@@ -385,6 +388,12 @@
         const dist=pointSegmentDistance(point,a,b);
         // At an exactly shared boundary, pick a deterministic owner.
         if(dist<best-1e-9){best=dist;chosen=i;}
+      }
+      // Outside every section: the nearest bone of the part, so no point is
+      // left behind at rest while the rest of the part moves.
+      if(chosen<0)for(const i of allowed){
+        const d=pointSegmentDistance(point,geom[bones[i].a],geom[bones[i].b]);
+        if(d<best-1e-9){best=d;chosen=i;}
       }
       return chosen<0?[]:[[chosen,1]];
     });
@@ -764,7 +773,7 @@
       <section class="animlab-skin-joint-mode" aria-label="Joint boundary authoring">
         <div class="animlab-skin-envelope-heading">Joint boundaries · binary regions</div>
         <button type="button" data-bind-action="joint-convert" class="animlab-skin-rigid-action">Use joint boundaries on this part</button>
-        <p class="animlab-skin-note">An alternative to bone rectangles: each bone region is built between its two joint lines. Shape a joint once; both neighbouring regions share it. No blending in this stage.</p>
+        <p class="animlab-skin-note">Each bone's section lies between its two joint lines. Shape a joint once; both neighbouring sections share it. A point outside every section follows its nearest bone. No blending yet.</p>
         <label class="animlab-skin-group-select">Edit joint <select data-joint-select aria-label="Select a skin influence boundary joint"></select></label>
         <div data-joint-controls>
           <label class="animlab-slider"><span>Joint line width</span><input data-joint-width type="range" min="0.2" max="5" step="0.05" value="1.2"><output>1.20×</output></label>
@@ -787,7 +796,7 @@
         <button type="button" data-bind-action="joint-fit" aria-pressed="false">Joint Fit: Off</button>
       </div>
       <div class="animlab-skin-legend" data-heat-legend hidden><span>0% · Blue</span><i></i><span>Red · 100%</span></div>
-      <p class="animlab-skin-note">Both binary methods keep exactly one bone per covered vertex, with no softness. The new joint-boundary method is opt-in; existing rectangle and Joint Fit bindings are unchanged until converted. Weights are assigned only in the rest pose.</p>
+      <p class="animlab-skin-note">Each vertex follows exactly one bone, with no softness. Weights are assigned in the rest pose; pose previews only show them.</p>
       <details class="animlab-skin-assembly-vertex">
         <summary>Advanced · Individual vertex weights</summary>
         <div class="animlab-view-grid animlab-skin-assembly-actions">
@@ -956,6 +965,11 @@
     jointConvert.disabled=!canWeight||jointMode;
     jointConvert.textContent=jointMode?'Joint boundaries active':'Use joint boundaries on this part';
     panel.querySelector('[data-bind-action="reset-joint"]').disabled=!canWeight||!jointMode;
+    // Joint boundaries are the one envelope method. Rectangle and capsule
+    // bindings saved earlier keep working; such a part only offers the switch.
+    for(const el of [panel.querySelector('.animlab-skin-envelope-heading'),convert,panel.querySelector('[data-rectangle-sliders]'),
+      panel.querySelector('[data-bind-action="reset-bone"]'),jointButton])el.style.display='none';
+    jointConvert.style.display=jointMode||!binding?'none':'';
     const jointDetails=jointMode?jointBoundaryGeometry(binding,bindGeom):null;
     panel.querySelector('[data-joint-feedback]').textContent=jointMode
       ?(jointDetails.valid?'All bone regions shown; bright outline = selected bone · binary 100% / 0% · no blend.':'Invalid joint geometry: '+jointDetails.errors.join(', '))
@@ -972,7 +986,7 @@
     panel.querySelector('[data-envelope-mode-note]').textContent=jointMode?
       'Joint boundaries own the shape. Local X/Y follow the rotated cap; adjust the first or last joint X offset to extend past a bone end. All bound regions shown. No blending yet.':binary?
       `Local X follows the rest bone (1× = bone length); Y is perpendicular (1× = 0.12 m wide). ${fitEnabled?'Joint Fit creates matching mitred caps at connected joints in REST space. ':'Independent rectangles active. '}Only free ends honour X extent when Joint Fit is on. Each covered vertex belongs to exactly one bone.`:
-      'Existing weights are preserved. Choose “Use binary rectangles” to opt in, or Auto-bind part for fresh rectangles. Undo can restore your earlier binding.';
+      'This part still uses an older envelope. Choose “Use joint boundaries on this part”, or Auto-bind part. Undo can restore your earlier binding.';
     const rigidButton=panel.querySelector('[data-bind-action="rigid"]');
     rigidButton.classList.toggle('active',isRigid);
     rigidButton.setAttribute('aria-pressed',String(isRigid));
