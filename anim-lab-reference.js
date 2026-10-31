@@ -9,7 +9,7 @@
   }
 
   const SETTINGS_KEY = 'sidescroll.animlab.reference.settings.v1';
-  const MANIFEST_URL = 'anim-reference-packs.json?v=1.0.151';
+  const MANIFEST_URL = 'anim-reference-packs.json?v=1.1.33';
   const ASSET_VERSION = '1.0.150';
   const clone = value => JSON.parse(JSON.stringify(value));
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -402,7 +402,7 @@
 
     const packs = compatiblePacks(state);
     if (!packs.length) {
-      note.textContent = state.family === 'human'
+      note.textContent = state.family === 'biped'
         ? 'No biped reference pack is installed yet. The same panel will accept one later.'
         : 'No compatible reference pack is installed for this rig.';
       controls.hidden = true;

@@ -120,6 +120,17 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### C2a — neutral IDs (31 Oct)
+
+No new keys. Values inside these keys changed: original character IDs (`original` /
+`alternate` / `fox` → `char-1` / `char-2` / `char-3`) in the setup map, atlas
+documents, registry, static-reference and reference-settings contexts and the game's
+character choice; rig families (`human` / `fox` → `biped` / `quadruped`) in sparse
+clips, library entries and clip documents (`foxBaselineId` → `quadrupedBaselineId`);
+starters; the quadruped baseline marker, rest-rig schema and clip source IDs.
+Devices migrate on load; Project Backups and character exports made before this are
+upgraded when restored (next load), imported or baked.
+
 ### Biped library characters' artwork (31 Oct)
 
 A biped library entry (`sidescroll.animlab.character-library.v1`) may carry

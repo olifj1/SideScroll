@@ -11,7 +11,7 @@
   const DEG = Math.PI / 180;
   const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
   const CONTROL_SETS = {
-    human: [
+    biped: [
       {id:'root',label:'Body / Root',group:'Core',point:'pelvis',move:{y:{key:'pelvisY',min:.40,max:.60,sign:1}},pair:null},
       {id:'chest',label:'Chest / Lean',group:'Core',point:'chest',rotate:{key:'lean',min:-25*DEG,max:25*DEG}},
       {id:'nearFoot',label:'Near Foot',group:'Near Side',point:'aAnkle',pair:'farFoot',move:{x:{key:'aFootX',min:-.45,max:.45,sign:1},y:{key:'aFootLift',min:0,max:.28,sign:1}},rotate:{key:'aFootAngle',min:-50*DEG,max:50*DEG}},
@@ -21,7 +21,7 @@
       {id:'hairBase',label:'Hair Base',group:'Secondary',point:'hairRoot',rotate:{key:'hairAngle',min:65*DEG,max:155*DEG}},
       {id:'hairTip',label:'Hair Bend',group:'Secondary',point:'hairTip',rotate:{key:'hairBend',min:-65*DEG,max:65*DEG}}
     ],
-    fox: [
+    quadruped: [
       {id:'midRoot',label:'Mid Root',group:'Core',point:'midRoot',move:{y:{key:'bodyBob',min:-.055,max:.070,sign:1}}},
       {id:'frontBody',label:'Front Body',group:'Core',point:'frontBody',move:{y:{key:'frontBodyLift',min:-.100,max:.120,sign:1}}},
       {id:'rearBody',label:'Rear Body',group:'Core',point:'rearBody',move:{y:{key:'rearBodyLift',min:-.100,max:.120,sign:1}}},
@@ -67,9 +67,9 @@
       <div class="animlab-section-title" id="animlab-static-reference-title">Static Reference</div>
       <div class="animlab-reference-note">Single-image proportion reference · editor-only and never dirties the rig or animation.</div>
       <div class="animlab-segmented animlab-three" id="animlab-static-reference-sources">
-        <button type="button" data-static-reference="original">Biped A</button>
-        <button type="button" data-static-reference="alternate">Biped B</button>
-        <button type="button" data-static-reference="foxShape">Quadruped</button>
+        <button type="button" data-static-reference="char-1">Biped A</button>
+        <button type="button" data-static-reference="char-2">Biped B</button>
+        <button type="button" data-static-reference="quadruped-shape">Quadruped</button>
       </div>
       <div class="animlab-view-grid animlab-stage2-view-grid">
         <button type="button" id="animlab-reference">Show Reference</button>
@@ -231,7 +231,7 @@
     const hasArtLayout=!!state.rig?.ART_LAYOUT_DESIGNER;
     setupNote.textContent = hasArtLayout
       ? `${state.character.label} scale, collider, structural joints and bind-art Part Layout are one saved character setup. Use Parts for art, Rig for joints, Skin for deformation weights. These are independent edit stages.`
-      : state.family === 'human'
+      : state.family === 'biped'
         ? `${state.character.label} scale is per-character and drives gameplay size after Save. The biped collider is shared by bipeds without their own setup, so saving it affects them all. This rig family has not exposed bind-art Part Layout yet.`
         : `${state.character.label} uses the shared Character Setup workflow, but this rig family has not exposed bind-art Part Layout yet.`;
     setupToolButtons.forEach(button=>{
@@ -257,7 +257,7 @@
   }
 
   function renderStaticReference() {
-    const settings=core.getStaticReference?.() || {source:'original',opacity:.24,scale:1,offsetX:0,offsetY:0};
+    const settings=core.getStaticReference?.() || {source:'char-1',opacity:.24,scale:1,offsetX:0,offsetY:0};
     staticReferenceButtons.forEach(button=>{
       const active=button.dataset.staticReference===settings.source;
       button.classList.toggle('active',active);
@@ -352,7 +352,7 @@
       // Capture this context once at pointerdown. getState() clones the entire
       // character setup (including every mesh and weight) on each invocation.
       const st=dragStart?.context;
-      if (st?.family==='fox' && st.mode==='animate' && st.clip==='jump') {
+      if (st?.family==='quadruped' && st.mode==='animate' && st.clip==='jump') {
         const lift=Number(core.getJumpAuthoringLift?.(st.phase))||0;
         const key=`${control.ikPrefix}IkY`;
         pose[key]=Math.max(-lift,Number(pose[key])||0);

@@ -852,7 +852,7 @@
   }
   function refresh(){
     const s=state(),parts=inventory(s);
-    const active=!!parts&&s.family==='fox'&&s.mode==='setup'&&s.setupTool==='skin';
+    const active=!!parts&&s.family==='quadruped'&&s.mode==='setup'&&s.setupTool==='skin';
     panel.hidden=!active;if(!active){lastPickedPoints=null;liveBinding=null;liveItemId=null;pickArmed=false;return;}
     if(lastCharacterId!==s.characterId){lastCharacterId=s.characterId;selectedId=null;selectedJoint=null;hiddenParts.clear();lockedParts.clear();soloPart=null;groupCandidate=null;}
     const sources=sourceMap(s);
@@ -1318,10 +1318,10 @@
     ctx.lineWidth=selected?1.65:0.9;ctx.stroke();ctx.restore();
   }
   function render(args){
-    const s=renderState(),parts=inventory(s);if(!parts||s.family!=='fox')return false;
+    const s=renderState(),parts=inventory(s);if(!parts||s.family!=='quadruped')return false;
     if(s.mode==='setup'&&s.setupTool!=='skin')return false;
     const sources=sourceMap(s),skinMode=s.mode==='setup'&&s.setupTool==='skin';
-    const pose=skinMode&&preview==='rest'?null:skinMode?(core.evaluateClip?.(preview,phase,'fox')||args.pose):args.pose;
+    const pose=skinMode&&preview==='rest'?null:skinMode?(core.evaluateClip?.(preview,phase,'quadruped')||args.pose):args.pose;
     const bindGeom=bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const posed=pose?rig.geometry(pose,s.setup?.rig||rig.DEFAULT_REST_RIG):bindGeom;
     const maps=pose?boneTransforms(bindGeom,posed):null;

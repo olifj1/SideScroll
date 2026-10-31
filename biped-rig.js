@@ -108,26 +108,28 @@
 
 
 const CHARACTER_VARIANT_STORAGE_KEY = 'gamehub.walklab.character.v1';
-const DEFAULT_CHARACTER_VARIANT = 'original';
+// The original characters (they predate the character library). IDs are
+// neutral (C2a); rigType names the rig family.
+const DEFAULT_CHARACTER_VARIANT = 'char-1';
 const CHARACTER_VARIANTS = Object.freeze({
-  original: {
-    id: 'original',
+  'char-1': {
+    id: 'char-1',
     label: 'Hero 1',
-    rigType: 'human',
+    rigType: 'biped',
     fileUrl: 'walklab-rig-v4.png',
     sourceUrl: 'walklab-character-source.png'
   },
-  alternate: {
-    id: 'alternate',
+  'char-2': {
+    id: 'char-2',
     label: 'Hero 2',
-    rigType: 'human',
+    rigType: 'biped',
     fileUrl: 'walklab-rig-v4-alt-b.png',
     sourceUrl: 'walklab-rig-v4-alt-b.png'
   },
-  fox: {
-    id: 'fox',
+  'char-3': {
+    id: 'char-3',
     label: 'Fox',
-    rigType: 'fox',
+    rigType: 'quadruped',
     visibleInWalkLab: false,
     fileUrl: 'quadruped-parts-atlas-v1.png?v=1.0.141',
     sourceUrl: 'quadruped-source-v1.png?v=1.0.141',
@@ -136,7 +138,9 @@ const CHARACTER_VARIANTS = Object.freeze({
 });
 
 function normaliseCharacterVariant(id) {
-  return Object.prototype.hasOwnProperty.call(CHARACTER_VARIANTS, id) ? id : DEFAULT_CHARACTER_VARIANT;
+  // Old IDs (original / alternate / fox) are still understood.
+  const value = window.SideScrollMigrations?.characterId(id) ?? id;
+  return Object.prototype.hasOwnProperty.call(CHARACTER_VARIANTS, value) ? value : DEFAULT_CHARACTER_VARIANT;
 }
 
 function loadCharacterVariant() {

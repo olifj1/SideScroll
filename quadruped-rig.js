@@ -11,8 +11,12 @@
   const angle = (a,b) => Math.atan2(b.y-a.y,b.x-a.x);
   const DISTAL_SPLIT = 0.58;
   const AUTHORING_BASELINE_BUNDLE = window.SideScrollQuadrupedBaseline || null;
-  const AUTHORING_BASELINE = AUTHORING_BASELINE_BUNDLE?.fox || null;
-  const AUTHORING_BASELINE_ID = String(AUTHORING_BASELINE_BUNDLE?.baselineId || 'fox-authoring-baseline-1.0.159');
+  const AUTHORING_BASELINE = AUTHORING_BASELINE_BUNDLE?.quadruped || null;
+  const AUTHORING_BASELINE_ID = String(AUTHORING_BASELINE_BUNDLE?.baselineId || 'quadruped-baseline-1.0.159');
+  // Saved data names the baseline it was authored against. The marker was
+  // renamed (C2a) and saved copies are migrated (saved-data-migrations.js); the
+  // old name is still accepted so a copy migration missed is never reset.
+  const isCurrentBaseline = id => String(id || '').replace(/^fox-authoring-baseline-/, 'quadruped-baseline-') === AUTHORING_BASELINE_ID;
   const DEFAULT_SCALE = Number(AUTHORING_BASELINE?.setup?.scale) || 1.71;
 
   // v1.0.150 source constants retained as the migration authority. The new
@@ -93,7 +97,7 @@
     const tail2=point(tail1.x+Math.cos(REST.tailAngle2)*BODY.tail2,tail1.y+Math.sin(REST.tailAngle2)*BODY.tail2);
     const tailTip=point(tail2.x+Math.cos(REST.tailAngle3)*BODY.tail3,tail2.y+Math.sin(REST.tailAngle3)*BODY.tail3);
     return {
-      schema:'sidescroll.fox.rest-rig.v3',
+      schema:'sidescroll.quadruped.rest-rig.v3',
       family:'quadruped',
       joints:{
         rearBody:point(BODY.hipX,BODY.hipY),
@@ -215,14 +219,14 @@
       if (raw[id] && Number.isFinite(Number(raw[id].x)) && Number.isFinite(Number(raw[id].y))) continue;
       joints[id] = point(lerp(joints[a].x,joints[b].x,DISTAL_SPLIT),lerp(joints[a].y,joints[b].y,DISTAL_SPLIT));
     }
-    return {schema:'sidescroll.fox.rest-rig.v3',family:'quadruped',joints};
+    return {schema:'sidescroll.quadruped.rest-rig.v3',family:'quadruped',joints};
   }
 
   function readRestRig() {
     try {
       if (typeof localStorage === 'undefined') return normalizedRestRig(DEFAULT_REST_RIG);
       const baselineId = localStorage.getItem(REST_RIG_BASELINE_KEY);
-      if (baselineId !== AUTHORING_BASELINE_ID) {
+      if (!isCurrentBaseline(baselineId)) {
         const promoted = normalizedRestRig(DEFAULT_REST_RIG);
         localStorage.setItem(REST_RIG_STORAGE_KEY,JSON.stringify(promoted));
         localStorage.setItem(REST_RIG_BASELINE_KEY,AUTHORING_BASELINE_ID);
@@ -280,7 +284,7 @@
   function loadCollider() {
     try {
       if (typeof localStorage === 'undefined') return normalizedCollider();
-      if (localStorage.getItem(COLLIDER_BASELINE_KEY) !== AUTHORING_BASELINE_ID) {
+      if (!isCurrentBaseline(localStorage.getItem(COLLIDER_BASELINE_KEY))) {
         const promoted = normalizedCollider(DEFAULT_COLLIDER);
         localStorage.setItem(COLLIDER_STORAGE_KEY,JSON.stringify(promoted));
         localStorage.setItem(COLLIDER_BASELINE_KEY,AUTHORING_BASELINE_ID);
@@ -523,7 +527,7 @@
     }
     return out;
   }
-  const WALK_EXAMPLE_ID = 'fox-walk-example-v3';
+  const WALK_EXAMPLE_ID = 'quadruped-walk-example-v3';
   // Eight readable body/head/tail templates. v1.0.156 rebuilds every leg as a
   // continuously active paw IK target; there is no stance/swing mode switch.
   const WALK_EXAMPLE_KEYS = Object.freeze([
@@ -1279,11 +1283,11 @@
         pivot:Object.freeze({x:pivot.x,y:pivot.y})});
     });
     return Object.freeze({schema:'animlab.art-layout-designer.v1',family:'quadruped',
-      referenceSource:'foxShape',source,parts:Object.freeze(parts)});
+      referenceSource:'quadruped-shape',source,parts:Object.freeze(parts)});
   })();
 
   window.SideScrollQuadrupedRig={
-    version:'1.0.163',DEG,TAU,BODY,REST,LIMBS,ATLAS,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
+    version:'1.0.163',isCurrentBaseline,DEG,TAU,BODY,REST,LIMBS,ATLAS,ART_LAYOUT_DESIGNER,WALK_STRIDE_WORLD,RUN_STRIDE_WORLD,DEFAULT_WALK_SPEED,DEFAULT_RUN_SPEED,WALK_CYCLE_MS,RUN_CYCLE_MS,JUMP_CYCLE_MS,WALK_EXAMPLE_ID,WALK_EXAMPLE_KEYS:WALK_EXAMPLE_DEFAULT_KEYS,buildExampleWalkKeys,buildExampleWalkFrames,AUTHORING_BASELINE_ID,DEFAULT_SCALE,AUTHORED_SPARSE_CLIPS,IDLE_POSE,IDLE_FRAMES,DEFAULT_FRAMES,RUN_FRAMES,JUMP_FRAMES,
     COLLIDER_STORAGE_KEY,COLLIDER_BASELINE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     REST_RIG_STORAGE_KEY,REST_RIG_BASELINE_KEY,DEFAULT_REST_RIG,RIG_DESIGNER,ikBendSideForRest,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restGeometry,
     clone,clamp,lerp,normalizedPose,sampleFrames,evaluateSparsePose,sampleSparseClip,blendPose,locomotionTransitionPose,locomotionPoseCost,findMatchingLocomotionPhase,interpolatePose,geometry,partsForPose,atlasRect,solveJoint,IK_PREFIXES,LOCOMOTION_CONTACT_Y

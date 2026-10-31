@@ -6,7 +6,7 @@
       "id": "animal-gaits-v1",
       "label": "Animal Gaits",
       "rigFamilies": [
-        "fox"
+        "quadruped"
       ],
       "source": {
         "title": "Animal Gaits for Animators",

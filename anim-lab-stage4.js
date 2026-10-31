@@ -84,7 +84,7 @@
     try { localStorage.setItem(PREF_KEY,JSON.stringify(prefs)); } catch (_) {}
   }
   function strideLocal(st=state()){
-    if(st.family!=='fox')return 0;
+    if(st.family!=='quadruped')return 0;
     const world=st.clip==='run' ? Number(st.rig?.RUN_STRIDE_WORLD)||0 : st.clip==='walk' ? Number(st.rig?.WALK_STRIDE_WORLD)||0 : 0;
     return world/Math.max(.001,BASE_GAMEPLAY_SCALE*(Number(st.setup?.scale)||1));
   }
@@ -94,7 +94,7 @@
 
   function captureCurrentPaw(){
     const st=state(),prefix=selectedPrefix();
-    if(st.family!=='fox'||st.mode!=='animate'||st.preview||!prefix)return;
+    if(st.family!=='quadruped'||st.mode!=='animate'||st.preview||!prefix)return;
     const limb=LIMBS[prefix];
     core.edit('pose',`Capture ${limb.label} paw target`,pose=>{
       // Force a clean FK read if this is an older pose that has never used IK.
@@ -107,7 +107,7 @@
 
   function targetToGround(){
     const st=state(),prefix=selectedPrefix();
-    if(st.family!=='fox'||st.mode!=='animate'||st.preview||!prefix)return;
+    if(st.family!=='quadruped'||st.mode!=='animate'||st.preview||!prefix)return;
     const limb=LIMBS[prefix];
     core.edit('pose',`${limb.label} paw target to ground`,pose=>{
       if((Number(pose[`${prefix}IkWeight`])||0)<=.0001){
@@ -123,14 +123,14 @@
 
   function reloadExampleWalk(){
     const st=state();
-    if(st.family!=='fox'||st.mode!=='animate'||st.clip!=='walk'||st.preview||!QuadrupedRig)return;
+    if(st.family!=='quadruped'||st.mode!=='animate'||st.clip!=='walk'||st.preview||!QuadrupedRig)return;
     const keys=typeof QuadrupedRig.buildExampleWalkKeys==='function'
       ? QuadrupedRig.buildExampleWalkKeys(st.setup?.rig,strideLocal(st))
       : clone(QuadrupedRig.WALK_EXAMPLE_KEYS||[]);
     if(!Array.isArray(keys)||keys.length<2)return;
     const changed=core.editSparseClip?.('Reload example walk',clip=>{
-      clip.source='fox-example-walk';
-      clip.foundationVersion=QuadrupedRig.WALK_EXAMPLE_ID||'fox-walk-example-v3';
+      clip.source='quadruped-example-walk';
+      clip.foundationVersion=QuadrupedRig.WALK_EXAMPLE_ID||'quadruped-walk-example-v3';
       clip.keys=clone(keys);
     });
     if(changed!==false){
@@ -148,7 +148,7 @@
 
   function drawMovingGround({ctx,canvas,adapter,view,project,phase}){
     const st=state();
-    if(st.family!=='fox'||st.mode!=='animate'||adapter.id!=='fox')return;
+    if(st.family!=='quadruped'||st.mode!=='animate'||adapter.id!=='quadruped')return;
     const base=project({x:0,y:0},view);
     if(st.clip==='jump'){
       if(!core.getOverlay?.('ground'))return;
@@ -183,7 +183,7 @@
   }
 
   function drawIkTargets({ctx,pose,adapter,view,project,restRig}){
-    if(adapter.id!=='fox'||state().mode!=='animate')return;
+    if(adapter.id!=='quadruped'||state().mode!=='animate')return;
     const g=adapter.rig.geometry(pose,restRig),activePrefix=selectedPrefix();
     ctx.save();
     for(const [prefix,limb] of Object.entries(LIMBS)){
@@ -205,7 +205,7 @@
   core.registerPluginRenderer?.('quadruped-paw-ik',drawIkTargets);
 
   function render(st=state()){
-    const visible=st.family==='fox'&&st.mode==='animate';
+    const visible=st.family==='quadruped'&&st.mode==='animate';
     const locomotion=visible&&(st.clip==='walk'||st.clip==='run');
     ikSection.hidden=!visible;
     groundSection.hidden=!locomotion;

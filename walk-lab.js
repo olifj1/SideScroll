@@ -5,7 +5,7 @@
   const QuadrupedRig = window.SideScrollQuadrupedRig || null;
   const canvas = document.getElementById('animlab-canvas');
   if (!BipedRig || !QuadrupedRig || !canvas) {
-    console.error('[Anim Lab] Required rig family or canvas is missing.', { human: !!BipedRig, fox: !!QuadrupedRig, canvas: !!canvas });
+    console.error('[Anim Lab] Required rig family or canvas is missing.', { biped: !!BipedRig, quadruped: !!QuadrupedRig, canvas: !!canvas });
     return;
   }
 
@@ -63,15 +63,15 @@
   const CHARACTER_LIBRARY_KEY = 'sidescroll.animlab.character-library.v1';
   const CHARACTER_LIBRARY_SCHEMA = 'animlab.character-library.v1';
   const STARTERS = Object.freeze({
-    fox:{family:'fox',rigFamily:'quadruped',label:'Quadruped',atlas:'quadruped-parts-atlas-v3.png?v=1.0.163'},
-    original:{family:'human',rigFamily:'biped',label:'Biped',atlas:'walklab-rig-v4.png'}
+    quadruped:{family:'quadruped',rigFamily:'quadruped',label:'Quadruped',atlas:'quadruped-parts-atlas-v3.png?v=1.0.163'},
+    biped:{family:'biped',rigFamily:'biped',label:'Biped',atlas:'walklab-rig-v4.png'}
   });
   // A biped library character draws with one of the original bipeds' artwork
   // (a copy of Hero 2 keeps Hero 2's art). Saved as a bare file name; old file
   // names are accepted through the asset rename map.
   const BIPED_ART = Object.freeze(['walklab-rig-v4.png','walklab-rig-v4-alt-b.png']);
   const characterArt = (starter, name) => {
-    if (starter !== 'original' || !name) return null;
+    if (starter !== 'biped' || !name) return null;
     const file = (window.SideScrollAssetRename || (n => n))(String(name).split('?')[0]);
     return BIPED_ART.includes(file) ? file : null;
   };
@@ -105,7 +105,7 @@
 
   const BIPED_CLIP_NAMES = Object.freeze(['walk','run','jump']);
   const QUADRUPED_CLIP_NAMES = Object.freeze(['idle','walk','run','jump']);
-  const clipNamesForFamily = family => family === 'fox' ? QUADRUPED_CLIP_NAMES : BIPED_CLIP_NAMES;
+  const clipNamesForFamily = family => family === 'quadruped' ? QUADRUPED_CLIP_NAMES : BIPED_CLIP_NAMES;
 
   function loadCollapseState() {
     try { return JSON.parse(localStorage.getItem(COLLAPSE_STATE_KEY) || '{}') || {}; }
@@ -171,9 +171,9 @@
   collapseObserver.observe(document.querySelector('.animlab-drawer'), {childList:true,subtree:true});
 
   const CHARACTERS = [
-    { id:'original', label:'Hero 1', family:'human', atlas:'walklab-rig-v4.png' },
-    { id:'alternate', label:'Hero 2', family:'human', atlas:'walklab-rig-v4-alt-b.png' },
-    { id:'fox', label:'Fox', family:'fox', atlas:'quadruped-parts-atlas-v3.png?v=1.0.163' }
+    { id:'char-1', label:'Hero 1', family:'biped', atlas:'walklab-rig-v4.png' },
+    { id:'char-2', label:'Hero 2', family:'biped', atlas:'walklab-rig-v4-alt-b.png' },
+    { id:'char-3', label:'Fox', family:'quadruped', atlas:'quadruped-parts-atlas-v3.png?v=1.0.163' }
   ];
   for(const entry of libraryEntries) CHARACTERS.push({id:entry.id,label:entry.name,family:entry.family,
     atlas:entry.art||STARTERS[entry.starter].atlas,starter:entry.starter,library:true});
@@ -182,19 +182,21 @@
   for (const c of CHARACTERS) { const name = Registry?.name(c.id); if (name) c.label = name; }
   const characterVisible = id => CHARACTERS.some(c => c.id === id) && !Registry?.find(id)?.hidden;
   const characterById = id => CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
+  // The original quadruped character, whose setup shares the quadruped slots.
+  const ORIGINAL_QUADRUPED_ID = CHARACTERS.find(c => !c.library && c.family === 'quadruped')?.id || null;
 
-  function defaultBank(rig, family='human') {
+  function defaultBank(rig, family='biped') {
     const bank = {
       walk: rig.DEFAULT_FRAMES.map(rig.clone),
       run: rig.RUN_FRAMES.map(rig.clone),
       jump: rig.JUMP_FRAMES.map(rig.clone)
     };
-    if (family === 'fox') bank.idle = (rig.IDLE_FRAMES || Array.from({length:16},()=>rig.IDLE_POSE)).map(rig.clone);
+    if (family === 'quadruped') bank.idle = (rig.IDLE_FRAMES || Array.from({length:16},()=>rig.IDLE_POSE)).map(rig.clone);
     return bank;
   }
 
   function loadBipedBank() {
-    const bank = defaultBank(BipedRig,'human');
+    const bank = defaultBank(BipedRig,'biped');
     try {
       const saved = JSON.parse(localStorage.getItem(BIPED_CLIPS_KEY) || 'null');
       if (saved) {
@@ -223,8 +225,8 @@
   }
 
   function quadrupedExampleStrideLocal() {
-    const saved = setupMap?.fox || {};
-    const raw = saved.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID ? Number(saved.scale) : NaN;
+    const saved = setupMap?.[ORIGINAL_QUADRUPED_ID] || {};
+    const raw = QuadrupedRig.isCurrentBaseline(saved.baselineId) ? Number(saved.scale) : NaN;
     const scale = clamp(Number.isFinite(raw) ? raw : (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71), SETUP_SCALE_MIN, SETUP_SCALE_MAX);
     return (Number(QuadrupedRig.WALK_STRIDE_WORLD) || 0) / Math.max(.001, 2.31 * scale);
   }
@@ -237,13 +239,13 @@
   }
 
   function loadQuadrupedBank() {
-    const bank = defaultBank(QuadrupedRig,'fox');
+    const bank = defaultBank(QuadrupedRig,'quadruped');
     try {
       const saved = JSON.parse(localStorage.getItem(QUADRUPED_CLIPS_KEY) || 'null');
       // v1.0.159 promotes the exported authoring handoff into the built-in quadruped
       // baseline. Pre-baseline local clip banks are intentionally ignored so an
       // older experiment cannot silently replace the newly approved rig/clip set.
-      if (saved?.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID && saved?.clips) {
+      if (QuadrupedRig.isCurrentBaseline(saved?.baselineId) && saved?.clips) {
         for (const name of QUADRUPED_CLIP_NAMES) {
           if (Array.isArray(saved.clips[name]) && saved.clips[name].length === 16) bank[name] = saved.clips[name].map((p,i) => QuadrupedRig.normalizedPose(p,i));
         }
@@ -259,7 +261,7 @@
     for (const name of QUADRUPED_CLIP_NAMES) clips[name] = bank[name].map((p,i) => QuadrupedRig.normalizedPose(p,i));
     localStorage.setItem(QUADRUPED_CLIPS_KEY, JSON.stringify({
       schema:'animlab.legacy-sampled.v1',
-      family:'fox',
+      family:'quadruped',
       sampleCount:16,
       baselineId:QuadrupedRig.AUTHORING_BASELINE_ID || null,
       walkFoundationVersion:QuadrupedRig.WALK_EXAMPLE_ID || null,
@@ -269,8 +271,8 @@
 
 
   const adapters = {
-    human: {
-      id:'human', label:'Biped', rig:BipedRig,
+    biped: {
+      id:'biped', label:'Biped', rig:BipedRig,
       clipMs:{walk:1050,run:650,jump:935},
       loadBank:loadBipedBank, saveBank:saveBipedBank,
       normalise:(pose, index) => BipedRig.normalizedPose(pose,Math.floor(((Number(index)||0)%16+16)%16)),
@@ -283,8 +285,8 @@
       saveCollider:value => BipedRig.saveCollider(value),
       scope:'Biped characters without their own clips share one animation set and collider.'
     },
-    fox: {
-      id:'fox', label:'Quadruped', rig:QuadrupedRig,
+    quadruped: {
+      id:'quadruped', label:'Quadruped', rig:QuadrupedRig,
       // Match the actual distance-driven gameplay cadence: cycle time = stride / speed.
       clipMs:{idle:1400,walk:Number(QuadrupedRig.WALK_CYCLE_MS)||539,run:Number(QuadrupedRig.RUN_CYCLE_MS)||323,jump:Number(QuadrupedRig.JUMP_CYCLE_MS)||1139},
       loadBank:loadQuadrupedBank, saveBank:saveQuadrupedBank,
@@ -303,19 +305,19 @@
     }
   };
 
-  // Character Lab's public, descriptive capability layer. The old `human` / `fox`
-  // adapter IDs remain stable serialization identifiers for existing clips, atlas
-  // documents and imported characters. Never infer editor features just from a
+  // Character Lab's public, descriptive capability layer, per rig family
+  // (`biped` / `quadruped`, which are also the saved family values; older data
+  // is migrated by saved-data-migrations.js). Never infer editor features just from a
   // character name or equate a rendering technique with a skeleton family.
   const CHARACTER_PROFILES = Object.freeze({
-    human:Object.freeze({rigFamily:'biped',legacyAdapter:'human',renderTechnique:'rigid-parts',
+    biped:Object.freeze({rigFamily:'biped',legacyAdapter:'biped',renderTechnique:'rigid-parts',
       quickPlay:true,authoring:Object.freeze({atlas:true,parts:false,rig:true,skin:false,animate:true}),
       clips:Object.freeze(['walk','run','jump']),
       actionSlots:Object.freeze(['idle','walk','run','jump']),
       clipMs:Object.freeze({idle:1400,walk:1050,run:650,jump:935}),
       defaultSpeeds:Object.freeze({walk:1.15,run:2.85}),
       idleFallback:'neutral-pose'}),
-    fox:Object.freeze({rigFamily:'quadruped',legacyAdapter:'fox',renderTechnique:'atlas-mesh',
+    quadruped:Object.freeze({rigFamily:'quadruped',legacyAdapter:'quadruped',renderTechnique:'atlas-mesh',
       quickPlay:true,authoring:Object.freeze({atlas:true,parts:true,rig:true,skin:true,animate:true}),
       clips:Object.freeze(['idle','walk','run','jump']),
       actionSlots:Object.freeze(['idle','walk','run','jump']),
@@ -529,10 +531,10 @@
     const adapter = adapters[character.family];
     const custom=libraryEntry(characterId);
     const saved = custom ? custom.setup : (setupMap[characterId] || {});
-    const quadrupedSetupCurrent = !!custom || adapter.id !== 'fox' || saved.baselineId === QuadrupedRig.AUTHORING_BASELINE_ID;
+    const quadrupedSetupCurrent = !!custom || adapter.id !== 'quadruped' || QuadrupedRig.isCurrentBaseline(saved.baselineId);
     const savedScale = quadrupedSetupCurrent ? Number(saved.scale) : NaN;
     const setup = {
-      scale: clamp(Number.isFinite(savedScale) ? savedScale : (adapter.id === 'fox' ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1), SETUP_SCALE_MIN, SETUP_SCALE_MAX),
+      scale: clamp(Number.isFinite(savedScale) ? savedScale : (adapter.id === 'quadruped' ? (Number(QuadrupedRig.DEFAULT_SCALE) || 1.71) : 1), SETUP_SCALE_MIN, SETUP_SCALE_MAX),
       // Collider ownership remains with the existing rig family storage. This
       // prevents the two original bipeds from showing stale per-character copies while
       // the runtime still shares one biped collider.
@@ -569,7 +571,7 @@
     return setup;
   }
 
-  const banks = { human:loadBipedBank(), fox:loadQuadrupedBank() };
+  const banks = { biped:loadBipedBank(), quadruped:loadQuadrupedBank() };
   const legacySamplesAtOpen = clone(banks);
 
   function normaliseSparseClip(raw, family, clipName, fallbackFrames = banks[family][clipName]) {
@@ -604,7 +606,7 @@
       loop:true,
       source:String(raw?.source || 'legacy-sampled'),
       foundationVersion:String(raw?.foundationVersion || ''),
-      interpolation:raw?.interpolation === 'linear' ? 'linear' : (family === 'fox' ? 'smooth' : 'linear'),
+      interpolation:raw?.interpolation === 'linear' ? 'linear' : (family === 'quadruped' ? 'smooth' : 'linear'),
       keys
     };
   }
@@ -616,20 +618,20 @@
   function loadSparseBanks() {
     let stored = null;
     try { stored = JSON.parse(localStorage.getItem(SPARSE_CLIPS_KEY) || 'null'); } catch (err) { console.warn('[Anim Lab] Sparse clip read failed; importing sampled clips.', err); }
-    const out = {human:{},fox:{}};
-    const quadrupedStoredIsCurrent = stored?.foxBaselineId === QuadrupedRig.AUTHORING_BASELINE_ID;
-    for (const family of ['human','fox']) {
+    const out = {biped:{},quadruped:{}};
+    const quadrupedStoredIsCurrent = QuadrupedRig.isCurrentBaseline(stored?.quadrupedBaselineId);
+    for (const family of ['biped','quadruped']) {
       for (const clipName of clipNamesForFamily(family)) {
         let raw = stored?.schema === SPARSE_SCHEMA ? stored?.families?.[family]?.[clipName] : null;
-        if (family === 'fox' && !quadrupedStoredIsCurrent) raw = null;
-        if (!raw && family === 'fox' && QuadrupedRig.AUTHORED_SPARSE_CLIPS?.[clipName]) raw = clone(QuadrupedRig.AUTHORED_SPARSE_CLIPS[clipName]);
-        if (family === 'fox' && clipName === 'walk' && QuadrupedRig.WALK_EXAMPLE_ID
+        if (family === 'quadruped' && !quadrupedStoredIsCurrent) raw = null;
+        if (!raw && family === 'quadruped' && QuadrupedRig.AUTHORED_SPARSE_CLIPS?.[clipName]) raw = clone(QuadrupedRig.AUTHORED_SPARSE_CLIPS[clipName]);
+        if (family === 'quadruped' && clipName === 'walk' && QuadrupedRig.WALK_EXAMPLE_ID
           && raw?.foundationVersion !== QuadrupedRig.WALK_EXAMPLE_ID) {
           const keys = typeof QuadrupedRig.buildExampleWalkKeys === 'function'
             ? QuadrupedRig.buildExampleWalkKeys(QuadrupedRig.loadRestRig?.(), quadrupedExampleStrideLocal())
             : QuadrupedRig.WALK_EXAMPLE_KEYS;
           raw = {
-            source:'fox-example-walk',
+            source:'quadruped-example-walk',
             foundationVersion:QuadrupedRig.WALK_EXAMPLE_ID,
             keys
           };
@@ -663,7 +665,7 @@
 
   const GAMEPLAY_BASE_CHARACTER_SCALE = 2.31;
   function quadrupedSavedSetupScale() {
-    return clamp(Number(setupMap?.fox?.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX);
+    return clamp(Number(setupMap?.[ORIGINAL_QUADRUPED_ID]?.scale) || 1, SETUP_SCALE_MIN, SETUP_SCALE_MAX);
   }
   function quadrupedLocalStride(clipName) {
     const strideWorld = clipName === 'run' ? Number(QuadrupedRig.RUN_STRIDE_WORLD) || 0
@@ -701,7 +703,7 @@
   }
 
   function evaluateSparsePose(clipData, frame, family, options = {}) {
-    if (family === 'fox' && typeof QuadrupedRig.evaluateSparsePose === 'function') return QuadrupedRig.evaluateSparsePose(clipData,frame);
+    if (family === 'quadruped' && typeof QuadrupedRig.evaluateSparsePose === 'function') return QuadrupedRig.evaluateSparsePose(clipData,frame);
     const adapter = adapters[family];
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
     if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
@@ -745,16 +747,16 @@
   function syncCompiledClip(family, clipName) {
     banks[family][clipName] = compileSparseClip(sparseBanks[family][clipName], family);
   }
-  for (const family of ['human','fox']) for (const clipName of clipNamesForFamily(family)) syncCompiledClip(family,clipName);
+  for (const family of ['biped','quadruped']) for (const clipName of clipNamesForFamily(family)) syncCompiledClip(family,clipName);
 
   function saveSparseBanks() {
-    localStorage.setItem(SPARSE_CLIPS_KEY, JSON.stringify({schema:SPARSE_SCHEMA, sampleCount:16, foxBaselineId:QuadrupedRig.AUTHORING_BASELINE_ID || null, families:sparseBanks}));
+    localStorage.setItem(SPARSE_CLIPS_KEY, JSON.stringify({schema:SPARSE_SCHEMA, sampleCount:16, quadrupedBaselineId:QuadrupedRig.AUTHORING_BASELINE_ID || null, families:sparseBanks}));
   }
 
   function ensureLegacyBackup(family, clipName) {
     try {
-      const backup = JSON.parse(localStorage.getItem(LEGACY_BACKUP_KEY) || 'null') || {schema:'animlab.legacy-sampled-backup.v1',families:{human:{},fox:{}}};
-      backup.families ||= {human:{},fox:{}};
+      const backup = JSON.parse(localStorage.getItem(LEGACY_BACKUP_KEY) || 'null') || {schema:'animlab.legacy-sampled-backup.v1',families:{biped:{},quadruped:{}}};
+      backup.families ||= {biped:{},quadruped:{}};
       backup.families[family] ||= {};
       if (!Array.isArray(backup.families[family][clipName])) {
         backup.families[family][clipName] = clone(legacySamplesAtOpen[family][clipName]);
@@ -800,8 +802,9 @@
   function loadEditorSelection() {
     let saved = null;
     try { saved = JSON.parse(sessionStorage.getItem(EDITOR_SELECTION_KEY) || 'null'); } catch (_) {}
-    const gameplay = BipedRig.loadCharacterVariant ? BipedRig.loadCharacterVariant() : 'original';
-    const fallback = Registry?.defaultPlayer() || CHARACTERS.find(c => characterVisible(c.id))?.id || 'original';
+    const gameplay = BipedRig.loadCharacterVariant ? BipedRig.loadCharacterVariant() : 'char-1';
+    const fallback = Registry?.defaultPlayer() || CHARACTERS.find(c => characterVisible(c.id))?.id || 'char-1';
+    if (saved?.characterId) saved.characterId = window.SideScrollMigrations?.characterId(saved.characterId) ?? saved.characterId;
     const charId = characterVisible(saved?.characterId) ? saved.characterId : (characterVisible(gameplay) ? gameplay : fallback);
     return {
       characterId:charId,
@@ -824,8 +827,8 @@
 
   function defaultStaticReference(family = currentCharacter().family) {
     return {
-      source: family === 'fox' ? 'foxShape' : 'original',
-      opacity: family === 'fox' ? 0.38 : 0.24,
+      source: family === 'quadruped' ? 'quadruped-shape' : 'char-1',
+      opacity: family === 'quadruped' ? 0.38 : 0.24,
       scale: 1,
       offsetX: 0,
       offsetY: 0
@@ -843,7 +846,7 @@
   function normaliseStaticReference(value, family = currentCharacter().family) {
     const base = defaultStaticReference(family);
     const raw = value && typeof value === 'object' ? value : {};
-    const allowed = ['original','alternate','foxShape'];
+    const allowed = ['char-1','char-2','quadruped-shape'];
     return {
       source: allowed.includes(raw.source) ? raw.source : base.source,
       opacity: clamp(Number(raw.opacity) || base.opacity, 0.05, 1),
@@ -1188,7 +1191,7 @@
         const storedSetup={scale:setupDraft.scale};
         storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||defaults.walk,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX);
         storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||defaults.run,storedSetup.walkSpeed+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX);
-        if (character.family === 'fox') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
+        if (character.family === 'quadruped') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (supportsRestBinding(adapter)) {
           storedSetup.skinTuning=normaliseSkinTuning(setupDraft.skinTuning);
@@ -1206,7 +1209,7 @@
         }else{
           setupMap[character.id]=legacySource?{...storedSetup,legacyAtlasSource:legacySource}:storedSetup;
           localStorage.setItem(SETUP_KEY, JSON.stringify(setupMap));
-          if (character.family === 'fox') for (const clipName of QUADRUPED_CLIP_NAMES) syncCompiledClip('fox',clipName);
+          if (character.family === 'quadruped') for (const clipName of QUADRUPED_CLIP_NAMES) syncCompiledClip('quadruped',clipName);
         }
       }
       if (saveClip) {
@@ -1479,7 +1482,7 @@
   }
 
   function displayRestRig(adapter = currentAdapter()) {
-    return adapter.id === 'fox' && (selection.mode === 'setup' || selection.mode === 'play') ? setupDraft.rig : undefined;
+    return adapter.id === 'quadruped' && (selection.mode === 'setup' || selection.mode === 'play') ? setupDraft.rig : undefined;
   }
 
   function drawRigArt(character, adapter, pose, sv, alpha = 1) {
@@ -1487,7 +1490,7 @@
     // Custom Atlas-backed characters may have no valid legacy sprite file.
     // Their art renderer owns the imported atlas image, so do not suppress it.
     if (!atlas && !setupDraft?.artLayout?.assembly?.enabled) return;
-    const restRig = adapter.id === 'fox' ? (setupDraft.rig || displayRestRig(adapter)) : displayRestRig(adapter);
+    const restRig = adapter.id === 'quadruped' ? (setupDraft.rig || displayRestRig(adapter)) : displayRestRig(adapter);
     if (artRenderers.size) {
       const args={ctx,canvas,character,adapter,pose,view:sv,alpha,atlas,restRig,setup:setupDraft,project};
       for (const renderer of artRenderers.values()) {
@@ -1496,7 +1499,7 @@
       }
     }
     if (!atlas) return; // no original art fallback for custom image-only assembly
-    if (adapter.id === 'human' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
+    if (adapter.id === 'biped' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
     else adapter.rig.partsForPose(pose,restRig).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
 
@@ -1506,8 +1509,8 @@
     ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(0.85,Math.min(1.9,canvas.width*.00135));
     for (const part of parts) {
       const name=String(part.name||'');
-      const near=adapter.id==='fox' && name.startsWith('near_');
-      const far=adapter.id==='fox' && name.startsWith('far_');
+      const near=adapter.id==='quadruped' && name.startsWith('near_');
+      const far=adapter.id==='quadruped' && name.startsWith('far_');
       const bone=near?`rgba(126,216,199,${.92*alpha})`:far?`rgba(188,197,199,${.72*alpha})`:`rgba(220,228,225,${.76*alpha})`;
       const jointFill=near?`rgba(31,49,50,${.96*alpha})`:far?`rgba(91,101,104,${.92*alpha})`:`rgba(245,241,236,${.94*alpha})`;
       const jointStroke=near?`rgba(126,216,199,${.98*alpha})`:far?`rgba(206,214,216,${.92*alpha})`:`rgba(47,61,66,${.85*alpha})`;
@@ -1574,7 +1577,7 @@
     ctx.globalAlpha = settings.opacity;
     ctx.imageSmoothingEnabled = true;
 
-    if (settings.source === 'foxShape') {
+    if (settings.source === 'quadruped-shape') {
       if (quadrupedShapeReference.complete && quadrupedShapeReference.naturalWidth) {
         // The trimmed source is a neutral side-profile reference. Its default
         // width is mapped to the legacy quadruped head-to-tail local span, then the
@@ -1587,12 +1590,12 @@
         ctx.drawImage(quadrupedShapeReference,x,y,width,height);
       }
     } else {
-      const id = settings.source === 'alternate' ? 'alternate' : 'original';
+      const id = settings.source === 'char-2' ? 'char-2' : 'char-1';
       const atlas = atlases.get(id);
       if (atlas) {
         const pose=BipedRig.normalizedPose(BipedRig.DEFAULT_FRAMES[0],0);
         BipedRig.drawCanvas(ctx,atlas,pose,refView,{alpha:1});
-        drawBones(adapters.human,pose,refView,.22);
+        drawBones(adapters.biped,pose,refView,.22);
       }
     }
     ctx.restore();
@@ -1621,7 +1624,7 @@
     lastPlayFrame=playFrame;
     let pose=selection.mode==='play'&&playFrame?.pose
       ? adapter.normalise(playFrame.pose,selection.frame)
-      : selection.mode==='setup' && adapter.id==='fox' && adapter.rig.IDLE_POSE
+      : selection.mode==='setup' && adapter.id==='quadruped' && adapter.rig.IDLE_POSE
         ? (()=>{
             const neutral=adapter.rig.clone(adapter.rig.IDLE_POSE);
             for(const key of ['bodyBob','frontBodyLift','rearBodyLift','bodyPitch','neckPitch','headPitch',
@@ -1633,7 +1636,7 @@
         : (playing?evaluateSparsePose(displaySparseClip(),playPhase*16,currentCharacter().family):currentPose());
     if(interactivePose && interactivePoseFrame===selection.frame && selection.mode==='animate' && !playing)
       pose=interactivePose;
-    if (selection.mode==='animate' && adapter.id==='fox' && selection.clip==='jump') {
+    if (selection.mode==='animate' && adapter.id==='quadruped' && selection.clip==='jump') {
       pose = clampJumpPoseToRealGround(pose,phase);
     }
     const sv=previewView(phase,setupDraft.scale,playFrame);
@@ -1932,7 +1935,7 @@
     id:entry.id,name:entry.name,family:entry.family,rigFamily:entry.rigFamily||characterProfile(entry.family)?.rigFamily,starter:entry.starter,
     createdAt:entry.createdAt,updatedAt:entry.updatedAt
   }));}
-  function createLibraryCharacter(name,starter='fox'){
+  function createLibraryCharacter(name,starter='quadruped'){
     const displayName=safeCharacterName(name);
     if(!displayName || !STARTERS[starter] || libraryEntries.length>=24 || selection.mode==='play')return false;
     if(isDirty()){hint.textContent='Save or discard current edits before creating a character.';return false;}
@@ -1946,10 +1949,10 @@
     // rather than whatever edits happen to be in built-in quadruped localStorage.
     // Preserve rest, art, inverse-bind, layout, tuning and clips as one unit:
     // mixing any two revisions is how limbs/skins become misregistered.
-    const adapterRestRig=value=>adapters.fox.normaliseRestRig(value);
-    const bundled=family==='fox'&&window.AnimLabQuadrupedStarter?.schema==='sidescroll.animlab.character-starter.v1'
+    const adapterRestRig=value=>adapters.quadruped.normaliseRestRig(value);
+    const bundled=family==='quadruped'&&window.AnimLabQuadrupedStarter?.schema==='sidescroll.animlab.character-starter.v1'
       ?window.AnimLabQuadrupedStarter:null;
-    if(family==='fox'){
+    if(family==='quadruped'){
       const src=bundled?.setup;
       const rest=adapterRestRig(src?.rig||rig.DEFAULT_REST_RIG);
       setup={scale:clamp(Number(src?.scale)||Number(rig.DEFAULT_SCALE)||1.71,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
@@ -1959,7 +1962,7 @@
         rig:rest,
         artRestRig:adapterRestRig(src?.artRestRig||rest),
         skinBindRig:adapterRestRig(src?.skinBindRig||rest),
-        artLayout:normaliseArtLayout(adapters.fox,src?.artLayout||null),
+        artLayout:normaliseArtLayout(adapters.quadruped,src?.artLayout||null),
         skinTuning:normaliseSkinTuning(src?.skinTuning||null),
         baselineId:rig.AUTHORING_BASELINE_ID};
     }else{
@@ -1968,7 +1971,7 @@
     const sparseClips={};
     const pristine=defaultBank(rig,family);
     for(const clip of clipNamesForFamily(family)){
-      const snapshot=family==='fox'?(bundled?.sparseClips?.[clip]||rig.AUTHORED_SPARSE_CLIPS?.[clip]):null;
+      const snapshot=family==='quadruped'?(bundled?.sparseClips?.[clip]||rig.AUTHORED_SPARSE_CLIPS?.[clip]):null;
       // Each clip is deep-copied into the new character, never linked to the
       // immutable starter bundle or to the built-in quadruped's authored keys.
       sparseClips[clip]=snapshot
@@ -1984,7 +1987,7 @@
     selection.mode='setup';selection.setupTool='atlas';
     setupDraft=defaultSetupFor(id);
     saveEditorSelection();fitView(false);resetCheckpoint();draw();notify();
-    hint.textContent=`${displayName} created from the ${family==='fox'?'Quadruped':'Biped'} starter. Other characters are unchanged.`;
+    hint.textContent=`${displayName} created from the ${family==='quadruped'?'Quadruped':'Biped'} starter. Other characters are unchanged.`;
     return id;
   }
   // Everything needed to start a NEW library character from this one (Character
@@ -1996,10 +1999,10 @@
     const entry=libraryEntry(id);
     if(entry)return clone({name:entry.name,starter:entry.starter,setup:entry.setup,
       sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource,...(entry.art?{art:entry.art}:{})});
-    return clone({name:character.label,starter:character.family==='fox'?'fox':'original',
+    return clone({name:character.label,starter:character.family,
       setup:defaultSetupFor(id),sparseClips:sparseBanks[character.family],
       legacyAtlasSource:setupMap[id]?.legacyAtlasSource||null,
-      ...(character.family==='human'?{art:characterArt('original',character.atlas)}:{})});
+      ...(character.family==='biped'?{art:characterArt('biped',character.atlas)}:{})});
   }
   function importLibraryCharacterDocument(raw) {
     if(isDirty() || selection.mode==='play' || libraryEntries.length>=24)return false;
@@ -2016,7 +2019,7 @@
       clips[clip]=normaliseSparseClip(entry.sparseClips[clip],family,clip,banks[family][clip]);
     }
     let setup;
-    if(family==='fox'){
+    if(family==='quadruped'){
       const rig=adapter.normaliseRestRig(entry.setup.rig);
       setup={
         scale:clamp(Number(entry.setup.scale)||1,SETUP_SCALE_MIN,SETUP_SCALE_MAX),
@@ -2073,7 +2076,7 @@
   // After the open character is deleted: open the Default player (or the first
   // character still listed).
   function selectFallbackCharacter(removedId){
-    const next=[Registry?.defaultPlayer(),...CHARACTERS.map(c=>c.id)].find(cid=>cid&&cid!==removedId&&characterVisible(cid))||'original';
+    const next=[Registry?.defaultPlayer(),...CHARACTERS.map(c=>c.id)].find(cid=>cid&&cid!==removedId&&characterVisible(cid))||'char-1';
     selection.characterId=next;setupDraft=defaultSetupFor(next);
     selection.clip='walk';selection.mode='animate';selection.setupTool='rig';selection.frame=0;
     playing=false;conversionPreview=null;saveEditorSelection();fitView(false);resetCheckpoint();

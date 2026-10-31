@@ -12,6 +12,8 @@
  * Renamed storage keys (storage-catalogue.json "renamed", copied into the
  * generated data as renamedKeys) are migrated here once per device: a value
  * saved under an old key moves to the new key, so code only uses new names.
+ * Values inside saved data are then migrated (saved-data-migrations.js, which
+ * loads just before this file): a device's own copies only, rewritten in place.
  * Must load before any script that reads saved data.
  */
 (() => {
@@ -46,6 +48,17 @@
       if (old === null) continue;
       if (getItem.call(store, newKey) === null) store.setItem(newKey, old);
       store.removeItem(oldKey);
+    } catch (_) {}
+  }
+
+  // Value-level migrations of this device's own copies (built-in data is baked
+  // in the current format). Idempotent, so it simply runs on every load.
+  const migrations = window.SideScrollMigrations;
+  for (const key of migrations?.KEYS || []) {
+    try {
+      const raw = getItem.call(store, key);
+      const next = migrations.migrateRaw(key, raw);
+      if (next !== raw) setItem.call(store, key, next);
     } catch (_) {}
   }
 

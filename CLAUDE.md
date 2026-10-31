@@ -95,6 +95,18 @@ The authored project ships as built-in defaults so a fresh install has it:
 - Changing a stored format? The built-in data is in the *old* format until it is
   re-baked, so migrations must handle it exactly as they handle a device's data.
 
+## Saved-data migrations
+`saved-data-migrations.js` (`window.SideScrollMigrations`) changes values *inside*
+saved data when a stored format changes (storage keys that are renamed go in the
+catalogue's `renamed` map instead). It loads just before `project-defaults.js`,
+which runs it over this device's own copies on every load (each step only maps
+old → new, so re-running is harmless and a restored old backup is upgraded next
+load). Character imports upgrade old export files with it, and
+`tools/saved_data_migrations.py` mirrors it for the bake tool, which also writes
+JSON exactly as the browser does (`js_json`). After changing either, run
+`node tools/test_migrations.js [exports…]` — it checks the two agree. Any page that
+loads `project-defaults.js` must load `saved-data-migrations.js` first.
+
 ## Character registry
 `character-registry.js` (`window.SideScrollCharacters`) is the one list of
 characters for Character Lab and the game: display names (library characters keep
@@ -182,10 +194,13 @@ Any new per-character storage must be added to `slicesFor()` there.
   inconsistent (art versions are centralised in `asset-paths.js`).
 - Text is UK English (colour, behaviour, centre).
 - Nothing is named after a character except display names (agreed design). The
-  remaining `fox` / `human` strings are **saved-data values** (rig families,
-  `foxBaselineId`, schema names, the original character ID `fox`): don't rename them
-  without a migration; C2 and C1c replace them. Globals: `SideScrollQuadrupedRig`,
-  `GameHubWalkRig` (biped), `SideScrollQuadrupedBaseline`, `AnimLabQuadrupedStarter`.
+  original characters' IDs are `char-1` (Hero 1), `char-2` (Hero 2), `char-3` (Fox);
+  rig families are `biped` / `quadruped`. Code that means "the original quadruped"
+  finds it by rig (`isOriginalQuadruped`, `ORIGINAL_QUADRUPED_ID`), never by ID.
+  Older saved data (`original` / `alternate` / `fox`, families `human` / `fox`,
+  `fox-authoring-baseline-…`) is migrated by `saved-data-migrations.js` (see
+  **Saved-data migrations**). Globals: `SideScrollQuadrupedRig`, `GameHubWalkRig`
+  (biped), `SideScrollQuadrupedBaseline`, `AnimLabQuadrupedStarter`.
 
 ## Docs index (`docs/`)
 - `SIDESCROLL_ENGINE_UX_BIBLE.md` — architecture and UX rules (authoritative).

@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Neutral internal names (C2a): the original characters' IDs are now `char-1` /
+  `char-2` / `char-3` (were `original` / `alternate` / `fox`), rig families `biped` /
+  `quadruped` (were `human` / `fox`), plus the quadruped baseline marker, rest-rig
+  schema and clip source IDs. Saved data on devices is migrated on load
+  (`saved-data-migrations.js`); old export files are upgraded on import and by the
+  bake tool; built-in content is re-baked in the new format. Nothing looks different.
 - Copies of Hero 2 keep Hero 2's art (they started with Hero 1's). A biped library
   character now records which original biped artwork it uses (`art` in its library
   entry), carried by character exports.

@@ -473,7 +473,7 @@
   }
 
   function rigKey(restRig){
-    try{return JSON.stringify(restRig?.joints||restRig||{});}catch(_){return'fox';}
+    try{return JSON.stringify(restRig?.joints||restRig||{});}catch(_){return'quadruped';}
   }
 
   function regionsFor(atlas,restRig){
@@ -496,7 +496,7 @@
   function legacyAtlasSnapshot() {
     if (!deformAtlas?.complete || !deformAtlas.naturalWidth || !skinLastAtlas) return null;
     const state = core.getState();
-    if (state.family !== 'fox') return null;
+    if (state.family !== 'quadruped') return null;
     const rest = state.setup?.artRestRig || state.setup?.rig || QuadrupedRig.DEFAULT_REST_RIG;
     // Meshes recorded at the character's last Save win over calculated ones
     // (see defaultSetupFor in walk-lab.js), when they were cut from this image.
@@ -567,7 +567,7 @@
   // Records the rigid atlas Character Lab draws with (needed to build the
   // meshes); never draws anything itself.
   core.registerArtRenderer('quadruped-parts-source',args=>{
-    if(args.adapter?.id==='fox'&&args.atlas)skinLastAtlas=args.atlas;
+    if(args.adapter?.id==='quadruped'&&args.atlas)skinLastAtlas=args.atlas;
     return false;
   });
 
@@ -575,7 +575,7 @@
   // own); the user's View choice comes back on leaving Skin, never saved.
   let skinBonesRestore = null;
   core.subscribe(state=>{
-    const skinActive=state.family==='fox'&&state.mode==='setup'&&state.setupTool==='skin';
+    const skinActive=state.family==='quadruped'&&state.mode==='setup'&&state.setupTool==='skin';
     if(skinActive&&skinBonesRestore===null){
       skinBonesRestore=!!state.overlays.bones;
       if(state.overlays.bones)core.setOverlay('bones',false);

@@ -23,6 +23,10 @@ Writes:
                             gives changed art a new file name (art is cached by
                             exact URL); older files for that character are removed.
 
+Inputs in an older saved-data format (e.g. character IDs original / alternate /
+fox, rig families human / fox) are upgraded first by saved_data_migrations.py,
+the mirror of saved-data-migrations.js, so built-in content is always current.
+
 What is built in comes from storage-catalogue.json: keys with scope "content"
 or "migration" are built in; everything else (local settings, play progress,
 transient state, backups, stale keys) is left out. A key the catalogue does not
@@ -35,6 +39,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from saved_data_migrations import IDS, js_json, migrate_raw, upgrade_package  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 DATA_FILE = ROOT / 'project-defaults-data.js'
 
@@ -45,7 +52,7 @@ DESIGN_DOC_KEY = 'sidescroll-design-doc-working-v2'
 ATLAS_KEY = 'sidescroll.animlab.atlas-docs.v1'
 LIBRARY_KEY = 'sidescroll.animlab.character-library.v1'
 PUBLISHED_SCOPES = {'content', 'migration'}
-CHARACTER_ID = re.compile(r'^(original|alternate|fox|user-[a-z0-9-]{5,40})$')
+CHARACTER_ID = re.compile(r'^(char-[1-3]|user-[a-z0-9-]{5,40})$')
 EMPTY = {
     LIBRARY_KEY: lambda: {'schema': 'animlab.character-library.v1', 'entries': []},
     ATLAS_KEY: lambda: {'schema': 'animlab.atlas-map.v1', 'characters': {}},
@@ -58,7 +65,8 @@ EMPTY = {
 
 
 def compact(value):
-    return json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+    # Exactly as the browser writes it (see saved_data_migrations.js_json).
+    return js_json(value)
 
 
 def load_current():
@@ -214,10 +222,14 @@ def main(paths):
     else:
         exported_at, storage, previous_characters = load_current()
     rename_keys(storage, renamed)
+    for key in list(storage):
+        storage[key] = migrate_raw(key, storage[key])
     for pkg in packages:
         for s in pkg.get('slices', []):
             s['key'] = renamed.get(s['key'], s['key'])
+        upgrade_package(pkg)
     published = bake_characters(storage, packages, catalogue, report)
+    previous_characters = [dict(c, id=IDS.get(c.get('id'), c.get('id'))) for c in previous_characters]
     characters = [c for c in previous_characters if c['id'] not in {p['id'] for p in published}] + published
     warn_phone_only_art(storage, report)
 
