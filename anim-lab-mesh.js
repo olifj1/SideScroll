@@ -1312,7 +1312,14 @@
     const state = core.getState();
     if (state.family !== 'fox') return null;
     const rest = state.setup?.artRestRig || state.setup?.rig || QuadrupedRig.DEFAULT_REST_RIG;
-    const cacheKey = `${artRevision}:${rigKey(rest)}`;
+    // Meshes recorded at the character's last Save win over calculated ones
+    // (see defaultSetupFor in walk-lab.js), when they were cut from this image.
+    const recorded = state.setup?.legacyAtlasSource;
+    const recordedMeshes = recorded?.schema === 'animlab.legacy-atlas-sources.v1' && Array.isArray(recorded.meshes) &&
+      recorded.width === deformAtlas.naturalWidth && recorded.height === deformAtlas.naturalHeight
+      ? new Map(recorded.meshes.filter(m => m?.vertices?.length >= 3 && m.triangles?.length).map(m => [m.id,m])) : new Map();
+    const recordedKey = [...recordedMeshes.values()].map(m => `${m.id}:${m.vertices.length}:${m.vertices[0].x}:${m.vertices[0].y}`).join(',');
+    const cacheKey = `${artRevision}:${rigKey(rest)}:${recordedKey}`;
     if (atlasSnapshotCache && atlasSnapshotCacheKey === cacheKey && atlasSnapshotCache.image === deformAtlas) return atlasSnapshotCache;
     const regions = regionsFor(skinLastAtlas, rest);
     atlasSnapshotCacheKey = cacheKey;
@@ -1343,6 +1350,9 @@
         const placement = {bx:(Math.min(...bx)+Math.max(...bx))/2, by:Math.min(...by),
           kx:range(bx)/Math.max(1e-6,range(vertices.map(v => v.x))),
           ky:range(by)/Math.max(1e-6,range(vertices.map(v => v.y)))};
+        const saved = recordedMeshes.get(def.id);
+        if (saved) return {id:def.id,name:def.label,readOnly:true,placement,
+          vertices:saved.vertices.map(v => ({x:v.x,y:v.y})), triangles:saved.triangles.map(tri => [...tri])};
         return {id:def.id,name:def.label,readOnly:true,vertices,placement,
           triangles:region.triangles.map(tri => [...tri])};
       }).filter(Boolean)};

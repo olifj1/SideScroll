@@ -549,6 +549,13 @@
       setup.artRestRig = adapter.normaliseRestRig(quadrupedSetupCurrent && saved.artRestRig || setup.rig);
       setup.skinBindRig = adapter.normaliseRestRig(quadrupedSetupCurrent && saved.skinBindRig || setup.rig);
     }
+    // Original parts' meshes as recorded at the last Save. Character Lab draws
+    // and skins from these, exactly as the game does: rebuilding them by
+    // calculation gives slightly different numbers on another browser, which
+    // would unbind the skin (mesh signatures must match exactly).
+    const recorded = custom ? custom.legacyAtlasSource : saved.legacyAtlasSource;
+    if (quadrupedSetupCurrent && recorded?.schema === 'animlab.legacy-atlas-sources.v1' && Array.isArray(recorded.meshes))
+      setup.legacyAtlasSource = clone(recorded);
     return setup;
   }
 
@@ -955,6 +962,8 @@
         setupDraft.artRestRig = adapter.normaliseRestRig(value.artRestRig || setupDraft.rig);
         setupDraft.skinBindRig = adapter.normaliseRestRig(value.skinBindRig || setupDraft.rig);
       }
+      // Read-only: the original parts' meshes recorded at the last Save.
+      if (value.legacyAtlasSource?.schema === 'animlab.legacy-atlas-sources.v1') setupDraft.legacyAtlasSource = clone(value.legacyAtlasSource);
       return;
     }
     if (scope === 'sparseClip' || scope === 'clip') {
