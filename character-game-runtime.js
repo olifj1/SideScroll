@@ -19,7 +19,8 @@
       entries.set(candidate.id,{id:candidate.id,label:String(candidate.name||candidate.id).slice(0,42),
         family:candidate.starter==='fox'?'fox':'human',
         rigFamily:candidate.starter==='fox'?'quadruped':'biped',setup:candidate.setup,
-        sparseClips:candidate.sparseClips,legacyAtlasSource:candidate.legacyAtlasSource||null});
+        sparseClips:candidate.sparseClips,legacyAtlasSource:candidate.legacyAtlasSource||null,
+        art:typeof candidate.art==='string'?candidate.art:null});
     }
   }
   // Original characters (not in the library) whose Drawing method is Mesh:

@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Copies of Hero 2 keep Hero 2's art (they started with Hero 1's). A biped library
+  character now records which original biped artwork it uses (`art` in its library
+  entry), carried by character exports.
+- Removed the retired Skin Prototype from `anim-lab-mesh.js` (about 800 lines);
+  the file now only builds the original parts' meshes for Mesh drawing, identical
+  to before.
 - Published the Mesh Fox exactly as exported on 31 Oct: every device now gets the Fox
   drawn as a mesh with your tuned skin.
 - Skin: **joint boundaries are the one envelope method**. Auto-bind and Mesh now

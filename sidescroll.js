@@ -2645,6 +2645,15 @@ function activeCharacterRigType(id = currentCharacterVariant) {
   return rig === QuadrupedRig ? 'fox' : 'human';
 }
 
+// A biped library character draws with the original biped artwork it names
+// (a copy of Hero 2 keeps Hero 2's art); others use their own variant's art.
+function artVariantFor(id) {
+  const art = GameCharacters?.find(id)?.art;
+  if (!art) return id;
+  const file = name => (window.SideScrollAssetRename || (n => n))(String(name || '').split('?')[0]);
+  return Object.keys(Rig.CHARACTER_VARIANTS || {}).find(v => file(Rig.CHARACTER_VARIANTS[v].fileUrl) === file(art)) || id;
+}
+
 function rigVariantTextureKey(id) {
   return `rigAtlas_${id}`;
 }
@@ -2762,7 +2771,7 @@ function applyCharacterVariant(id, announce = false) {
       try{localStorage.removeItem(LOCAL_CHARACTER_SELECTION_KEY);}catch(_){}
     }
   }
-  textures.rigAtlas = textures[rigVariantTextureKey(currentCharacterVariant)] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
+  textures.rigAtlas = textures[rigVariantTextureKey(artVariantFor(currentCharacterVariant))] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'original')] || textures.rigAtlas;
   updateCharacterSwapButton();
   renderCharacterPicker();
   if (characterColliderReady) refreshCharacterCollider();
