@@ -63,6 +63,7 @@ EMPTY = {
     'sidescroll.characters.registry.v1': lambda: {'schema': 'sidescroll.character-registry.v1', 'characters': {}},
     'sidescroll.rig-templates.v1': lambda: {'schema': 'sidescroll.rig-templates.v1', 'templates': {}, 'order': []},
     'sidescroll.animation-templates.v1': lambda: {'schema': 'sidescroll.animation-templates.v1', 'templates': {}, 'order': []},
+    'sidescroll.action-slots.v1': lambda: {'schema': 'sidescroll.action-slots.v1', 'slots': {}, 'order': []},
     'sidescroll.animlab.character-clips.v1': lambda: {'schema': 'sidescroll.character-clips.v1', 'characters': {}},
 }
 

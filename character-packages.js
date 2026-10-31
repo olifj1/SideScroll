@@ -25,10 +25,16 @@
     registry: 'sidescroll.characters.registry.v1',
     rigTemplates: 'sidescroll.rig-templates.v1',
     clips: 'sidescroll.animlab.character-clips.v1',
-    animTemplates: 'sidescroll.animation-templates.v1'
+    animTemplates: 'sidescroll.animation-templates.v1',
+    slots: 'sidescroll.action-slots.v1'
   });
-  // Keys holding templates other characters may link to: imports only add missing ones.
-  const TEMPLATE_KEYS = Object.freeze({ [KEY.rigTemplates]: /^rig-[a-z0-9-]{3,60}$/, [KEY.animTemplates]: /^anim-[a-z0-9-]{3,60}$/ });
+  // Project-wide keys other characters may rely on (templates, action slots):
+  // a package carries the entries a character uses; imports only add missing ones.
+  const SHARED_KEYS = Object.freeze({
+    [KEY.rigTemplates]: { field: 'templates', id: /^rig-[a-z0-9-]{3,60}$/ },
+    [KEY.animTemplates]: { field: 'templates', id: /^anim-[a-z0-9-]{3,60}$/ },
+    [KEY.slots]: { field: 'slots', id: /^slot-[a-z0-9-]{3,60}$/ }
+  });
   const EMPTY = Object.freeze({
     [KEY.library]: () => ({ schema: 'animlab.character-library.v1', entries: [] }),
     [KEY.atlas]: () => ({ schema: 'animlab.atlas-map.v1', characters: {} }),
@@ -39,7 +45,8 @@
     [KEY.registry]: () => ({ schema: 'sidescroll.character-registry.v1', characters: {} }),
     [KEY.rigTemplates]: () => ({ schema: 'sidescroll.rig-templates.v1', templates: {}, order: [] }),
     [KEY.clips]: () => ({ schema: 'sidescroll.character-clips.v1', characters: {} }),
-    [KEY.animTemplates]: () => ({ schema: 'sidescroll.animation-templates.v1', templates: {}, order: [] })
+    [KEY.animTemplates]: () => ({ schema: 'sidescroll.animation-templates.v1', templates: {}, order: [] }),
+    [KEY.slots]: () => ({ schema: 'sidescroll.action-slots.v1', slots: {}, order: [] })
   });
   const BUILT_IN = Object.freeze({
     'char-1': { name: 'Hero 1', family: 'biped' },
@@ -175,6 +182,10 @@
       const ids = new Set((animTemplates.SLOTS[family] || []).map(slot => animTemplates.linkFor({ id, family, library: !builtIn }, slot, links).id));
       for (const tid of ids) if (has(savedAnim, tid)) slices.push(sliceAt(KEY.animTemplates, ['templates', tid]));
     }
+    // Custom action slots its animations are assigned to.
+    const slotMap = (builtIn ? readJSON(KEY.clips)?.characters?.[id]?.slotAnimations : libraryEntries().find(e => e.id === id)?.slotAnimations) || {};
+    const savedSlots = readJSON(KEY.slots)?.slots;
+    for (const slot of Object.keys(slotMap)) if (SHARED_KEYS[KEY.slots].id.test(slot) && has(savedSlots, slot)) slices.push(sliceAt(KEY.slots, ['slots', slot]));
     return slices;
   }
 
@@ -290,9 +301,10 @@
       } else if (s.path === null) {
         if (!builtIn || !FAMILY_KEYS[family].includes(s.key)) BAD('Character file contains data it is not allowed to change.');
         if (s.present && typeof s.value !== 'string') BAD('Character file data is damaged.');
-      } else if (TEMPLATE_KEYS[s.key]) {
-        if (!Array.isArray(s.path) || s.path.length !== 2 || s.path[0] !== 'templates' || !TEMPLATE_KEYS[s.key].test(String(s.path[1])))
-          BAD('Character file contains a damaged template.');
+      } else if (SHARED_KEYS[s.key]) {
+        const shared = SHARED_KEYS[s.key];
+        if (!Array.isArray(s.path) || s.path.length !== 2 || s.path[0] !== shared.field || !shared.id.test(String(s.path[1])))
+          BAD('Character file contains a damaged template or action slot.');
       } else if (!Array.isArray(s.path) || !allowedPaths.has(JSON.stringify([s.key, ...s.path]))) {
         BAD('Character file contains data for another character.');
       }
@@ -375,14 +387,16 @@
       if (s.entry !== undefined) setLibraryEntry(s.entry, s.present, s.value);
       else if (s.prefix !== undefined) setContextPrefix(s.key, s.prefix, s.value);
       else if (s.path === null) { if (s.present) localStorage.setItem(s.key, s.value); else localStorage.removeItem(s.key); }
-      else if (TEMPLATE_KEYS[s.key]) addMissingTemplate(s);
+      else if (SHARED_KEYS[s.key]) addMissingShared(s);
       else setPath(s.key, s.path, s.present, s.value);
     }
   }
-  // A template other characters may link to is never replaced by an import.
-  function addMissingTemplate(s) {
-    if (!s.present || has(readJSON(s.key)?.templates, s.path[1])) return;
+  // A template or slot other characters may use is never replaced by an import.
+  function addMissingShared(s) {
+    if (!s.present || has(readJSON(s.key)?.[SHARED_KEYS[s.key].field], s.path[1])) return;
     setPath(s.key, s.path, true, s.value);
+    const root = readJSON(s.key);
+    if (Array.isArray(root?.order) && !root.order.includes(s.path[1])) { root.order.push(s.path[1]); writeJSON(s.key, root); }
   }
 
   // Add as copy: addLibraryCharacter (Character Lab core) validates the setup and
@@ -403,7 +417,7 @@
       await restoreArtwork(Object.fromEntries(Object.entries(item.pkg.artwork || {}).filter(([k]) => renames[k])), renames);
       setPath(KEY.atlas, ['characters', id], true, doc);
     }
-    for (const s of item.pkg.slices) if (TEMPLATE_KEYS[s.key]) addMissingTemplate(s);
+    for (const s of item.pkg.slices) if (SHARED_KEYS[s.key]) addMissingShared(s);
     const staticRef = item.pkg.slices.find(s => s.key === KEY.staticRef && s.present && s.path?.[1] === `character:${item.id}`)
       || item.pkg.slices.find(s => s.key === KEY.staticRef && s.present);
     if (staticRef) setPath(KEY.staticRef, ['contexts', `character:${id}`], true, staticRef.value);

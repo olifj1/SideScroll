@@ -4,12 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
-- Animation list (C3b): Character Lab → Animate lists each character's animations —
-  the ones the game plays (Idle, Walk, Run, Jump) and other animations kept for
-  later actions — with New (one pose), Duplicate, Rename, Delete and *Use in game*
-  (puts an animation in a slot; the slot's previous one is kept). Bipeds get an
-  editable Idle (it starts as the standing pose the game always used). Copies and
-  exports carry extra animations and names.
+- Actions & animations (C3b): Character Lab → Animate lists the **action slots**
+  (Idle, Walk, Run, Jump, plus any added in Settings → Action slots) with the
+  animation each plays for the character, and the character's **animations** (New,
+  Duplicate, Rename, Delete). Slots are project-wide; added ones are "not hooked up
+  yet" until game code (C5) or an action path (C6) uses them. Bipeds get an editable
+  Idle (starts as the standing pose the game always used). The game plays whatever
+  each built-in slot is set to. Exports carry animations, slot choices and custom
+  slots (`action-slots.js`).
 - Animation templates (C3a): every character now keeps its own copy of each clip,
   linked to an animation template (the heroes share the *Biped* set as before) or
   its own. Editing a linked clip asks *Edit template* (listing the other characters)

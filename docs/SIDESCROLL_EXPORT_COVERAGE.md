@@ -120,15 +120,18 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
-### C3b — animation list (31 Oct)
+### C3b — action slots and animations (31 Oct)
 
-No new keys. A character's animations outside the action slots are saved as
-`extraClips: {clip-…: {name, basedOn, clip, link?}}` and slot names as
-`animationNames: {slot: name}` — in `sidescroll.animlab.character-clips.v1`
-(`characters[id]`) for original characters and in the library entry for library
-characters, so Project Backup, the bake tool and character packages carry them as
-before. Bipeds gain an `idle` slot clip (absent until edited; the game falls back to
-its standing pose).
+New key `sidescroll.action-slots.v1` (content): `{schema, slots: {id: {name}}, order}`
+— the project-wide action slots (Idle/Walk/Run/Jump built in; added ones `slot-…`),
+written only when slots are added, renamed, reordered or removed. Per character, next
+to its clips (original characters: `sidescroll.animlab.character-clips.v1`
+`characters[id]`; library characters: their entry): `extraClips: {clip-…: {name,
+basedOn, clip, link?}}` (animations it made), `animationNames: {key: name}` and
+`slotAnimations: {slotId: animationKey | null}` (no entry: a built-in slot plays the
+animation of the same name). Bipeds gain an `idle` clip (absent until edited). Project
+Backup, bake tool and character packages carry these; packages also carry the custom
+slots a character uses (added on import only if missing).
 
 ### C3a — animation templates and own clips (31 Oct)
 
