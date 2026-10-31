@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animation templates (C3a): every character now keeps its own copy of each clip,
+  linked to an animation template (the heroes share the *Biped* set as before) or
+  its own. Editing a linked clip asks *Edit template* (listing the other characters)
+  or *Make unique*; opening a clip whose template changed offers *Use updated* or
+  *Keep previous*. Animate shows which template a clip follows. The game plays each
+  character's own saved clips (unchanged until you edit), so Hero 2 can now have
+  its own walk. Exports carry the character's clips and linked templates.
 - Rig templates (C2b): Character Lab → Rig shows the character's rig template —
   linked (instance) or its own copy — with **Use this template**, **Make unique** and
   **Save as template**. Editing a linked rig asks *Edit template* (listing the other

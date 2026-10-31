@@ -8690,6 +8690,10 @@ document.addEventListener('keydown',event=>{
           if (clip?.keys?.length >= 2) quadrupedSparseClips[name] = QuadrupedRig.clone(clip);
         }
       }
+      // The original quadruped's own saved clips (C3a) win over the shared set.
+      const own = GameCharacters?.originalClips?.(ORIGINAL_QUADRUPED_ID) || {};
+      for (const name of ['idle','walk','run','jump'])
+        if (own[name]?.keys?.length >= 2) quadrupedSparseClips[name] = QuadrupedRig.clone(own[name]);
       const saved = JSON.parse(localStorage.getItem(QUADRUPED_RUNTIME_CLIPS_KEY) || 'null');
       const clips = saved?.clips;
       // Keep the legacy 16-sample bank as a compatibility fallback, but v1.0.160
@@ -8717,7 +8721,10 @@ document.addEventListener('keydown',event=>{
   }
 
   function bipedPoseForClip(name,phase,fallback){
-    const local=GameCharacters?.ready(currentCharacterVariant);
+    // Library bipeds, or an original biped's own saved clips (C3a); otherwise
+    // the shared biped set (identical poses: both are its 16 linear keys).
+    const local=GameCharacters?.ready(currentCharacterVariant)
+      || {family:'biped',sparseClips:GameCharacters?.originalClips?.(currentCharacterVariant)||{}};
     return GameCharacters?.sampleBipedClip(local,name,phase,Rig)||fallback;
   }
 
