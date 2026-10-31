@@ -863,7 +863,7 @@
   const importedParts=s=>instances(s).some(p=>!String(p.meshId||'').startsWith('atlas-builtin-'));
   function renderMethod(){
     const s=state();
-    const show=s.family==='quadruped'&&s.mode==='setup'&&!!s.setup?.artLayout&&!!s.rig?.ART_LAYOUT_DESIGNER&&
+    const show=s.mode==='setup'&&!!s.setup?.artLayout&&!!s.rig?.ART_LAYOUT_DESIGNER&&!!s.rig?.RIG_DESIGNER&&
       (s.setupTool==='art'||(s.setupTool==='skin'&&!isAssembly(s)));
     methodSection.hidden=!show;if(!show)return;
     const method=isAssembly(s)?'mesh':'parts',imported=importedParts(s);
@@ -873,7 +873,9 @@
       button.disabled=button.dataset.drawingMethod==='parts'&&imported;
     }
     methodNote.textContent=method==='parts'
-      ? 'Drawn as rigid parts, in Character Lab and the game. Mesh bends the artwork with the Skin; switching builds the mesh from these parts with automatic skin weights.'
+      ? (s.rig.ART_LAYOUT_DESIGNER.parts?.length
+        ? 'Drawn as rigid parts, in Character Lab and the game. Mesh bends the artwork with the Skin; switching builds the mesh from these parts with automatic skin weights.'
+        : 'Drawn as rigid parts, in Character Lab and the game. Mesh draws parts you add from your Atlas, bent by the Skin.')
       : imported
         ? 'Drawn as a mesh with its Skin, in Character Lab and the game. Parts drawing needs the original parts artwork; this character uses imported artwork.'
         : 'Drawn as a mesh with its Skin, in Character Lab and the game. Tune the weights in Skin. Parts keeps this mesh and skin, so you can switch back.';
@@ -886,11 +888,14 @@
       core.setHint?.('Drawing method: Parts · Save to use it in the game');
       return;
     }
-    let result=null;
+    let result=null,empty=false;
     core.edit('setup','Drawing method: Mesh',setup=>{
-      if(ensureInventory(setup))result=window.AnimLabAssemblySkin?.bindUnbound?.(setup)||null;
+      const group=ensureInventory(setup);
+      if(group){empty=!group.instances.length;result=window.AnimLabAssemblySkin?.bindUnbound?.(setup)||null;}
       return setup;
     });
+    // A rig without original parts (bipeds) starts with no mesh parts.
+    if(empty){core.setHint?.('Drawing method: Mesh · add parts from your Atlas with Add, then skin them in Skin');return;}
     core.setHint?.(result&&!result.missing
       ? `Drawing method: Mesh${result.bound?` · ${result.bound} parts skinned automatically`:''} · tune in Skin, then Save`
       : 'Drawing method: Mesh · some parts could not be skinned yet: open Skin and use Auto-bind all, then Save');

@@ -120,6 +120,15 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### C2c — biped rig, Parts and Skin (1 Nov)
+
+No new keys. Original bipeds now save their own rest rig (`rig`) plus Parts
+(`artLayout`, assembly and skin bindings), `artRestRig` and `skinBindRig` in their
+`sidescroll.animlab.setup.v1` entry, as the original quadruped already did; library
+bipeds keep these in their entry's `setup`. The Biped rig template stores real
+proportions. Carried by Project Backup, the bake tool and character packages (setup
+slice / library entry) as before.
+
 ### C3c — animation template box (31 Oct)
 
 No new keys. Animations a character created can follow a template
