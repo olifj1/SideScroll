@@ -118,6 +118,18 @@ data is shared storage). Stored in `sidescroll.characters.registry.v1`, written 
 when the author changes something. Load it on any page that lists characters.
 Character Lab edits roles and categories in its **Settings** dialog (top bar).
 
+## Rig templates
+`rig-templates.js` (`window.SideScrollRigTemplates`, key `sidescroll.rig-templates.v1`):
+named rigs (family + rest proportions). A character's setup holds
+`rigTemplate: {id, mode: 'instance'|'unique', revision}`; with none saved, bipeds are
+instances of Biped, the original quadruped an instance of Quadruped and library
+quadrupeds unique copies. Every character keeps its **own saved copy** of its rig
+(the game reads only that), so a template change reaches a character only when the
+author accepts *Use updated* in Character Lab (`anim-lab-rig-templates.js`, which also
+asks *Edit template / Make unique* on the first edit of a linked rig). Templates are
+managed in Settings; character packages carry the linked template and imports add it
+only if missing (never overwrite a shared one).
+
 ## Character packages
 `character-packages.js` exports one character or all characters to a file and
 imports them. A package holds the character's raw saved pieces ("slices", used
@@ -133,7 +145,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
-| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `character-packages.js` (export/import, see below) |
+| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement | `world-lab.js` |

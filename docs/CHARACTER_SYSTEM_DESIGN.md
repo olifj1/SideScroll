@@ -64,6 +64,7 @@ Export all characters and Import characters (previously hidden under Load).
 
 ## 2. Templates: linking, editing and splitting
 Applies to rig templates and animation templates alike.
+Rig templates built 31 Oct (C2b, `rig-templates.js`); animation templates come with C3.
 
 - **Save as template:** any character's current rig (or animation) can be turned
   into a template and added to the library.

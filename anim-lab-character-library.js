@@ -102,6 +102,9 @@
         <small class="animlab-library-footnote">Characters are listed in this order. The game's character picker shows playable categories.</small>
         <div id="animlab-library-categories"></div>
         <button type="button" id="animlab-library-add-category" class="animlab-library-action">Add category…</button>
+        <strong>Rig templates</strong>
+        <small class="animlab-library-footnote">Named rigs characters link to. Create one with Rig → Save as template. A template can be removed when no character uses it.</small>
+        <div id="animlab-library-rig-templates"></div>
       </div>
     </section>`;
   document.body.appendChild(settings);
@@ -121,6 +124,8 @@
   const reviewApply=$('animlab-library-review-apply'),reviewCancel=$('animlab-library-review-cancel');
   const organise=settings.querySelector('#animlab-library-organise');
   const rolesList=settings.querySelector('#animlab-library-roles'),categoriesList=settings.querySelector('#animlab-library-categories');
+  const templatesList=settings.querySelector('#animlab-library-rig-templates');
+  const rigTemplates=window.SideScrollRigTemplates||null;
   const toolbar=[...section.querySelectorAll('[data-library-panel]')];
   const panels=Object.fromEntries(['new','open','save','share'].map(key=>[key,$('animlab-library-'+key)]));
   let openPanel=null,manageId=null,listSignature='',lastCharacterId=null,pendingImport=null;
@@ -244,6 +249,17 @@
         button('Remove',{removeCategory:category.id},!empty||categories.length<=1,`Remove ${category.name}`));
       categoriesList.appendChild(row);
     });
+    templatesList.replaceChildren();
+    for(const t of rigTemplates?.list()||[]){
+      const users=rigTemplates.usersOf(t.id).map(c=>c.name);
+      const row=document.createElement('div');row.className='animlab-library-organise-row';
+      const label=document.createElement('span');
+      label.textContent=`${t.name} · ${t.family==='quadruped'?'Quadruped':'Biped'}${users.length?` · ${users.join(', ')}`:''}`;
+      const button=(text,data,disabled)=>{const b=document.createElement('button');b.type='button';b.className='animlab-library-action';
+        b.textContent=text;Object.assign(b.dataset,data);b.disabled=!!disabled;return b;};
+      row.append(label,button('Rename',{renameTemplate:t.id}),button('Remove',{removeTemplate:t.id},!rigTemplates.canRemove(t.id)));
+      templatesList.appendChild(row);
+    }
   }
 
   function refresh(state=core.getState()){
@@ -402,6 +418,12 @@
     else if(b.dataset.categoryDown)registry.moveCategory(b.dataset.categoryDown,1);
     else if(b.dataset.removeCategory){
       if(!registry.removeCategory(b.dataset.removeCategory))setStatus('Only an empty category can be removed.');
+    }else if(b.dataset.renameTemplate){
+      const t=rigTemplates?.get(b.dataset.renameTemplate);
+      const v=ask('Rig template name:',t?.name);if(v!==null)rigTemplates.rename(b.dataset.renameTemplate,v);
+      core.redraw?.();
+    }else if(b.dataset.removeTemplate){
+      if(!rigTemplates?.remove(b.dataset.removeTemplate))setStatus('Only a template no character uses can be removed.');
     }
     rerender();
   });

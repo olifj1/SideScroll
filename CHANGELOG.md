@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Rig templates (C2b): Character Lab → Rig shows the character's rig template —
+  linked (instance) or its own copy — with **Use this template**, **Make unique** and
+  **Save as template**. Editing a linked rig asks *Edit template* (listing the other
+  characters) or *Make unique*; opening a character whose template changed offers
+  *Use updated* (skin rebound, undoable) or *Keep previous*. Settings lists templates
+  (rename; remove when unused). Characters keep their own saved rig, so the game only
+  changes when you Save. Exports carry the linked template (`rig-templates.js`).
 - Neutral internal names (C2a): the original characters' IDs are now `char-1` /
   `char-2` / `char-3` (were `original` / `alternate` / `fox`), rig families `biped` /
   `quadruped` (were `human` / `fox`), plus the quadruped baseline marker, rest-rig
