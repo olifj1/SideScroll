@@ -130,6 +130,19 @@ asks *Edit template / Make unique* on the first edit of a linked rig). Templates
 managed in Settings; character packages carry the linked template and imports add it
 only if missing (never overwrite a shared one).
 
+## Animation templates
+`animation-templates.js` (`window.SideScrollAnimationTemplates`, key
+`sidescroll.animation-templates.v1`): named clips per rig family and slot, the same
+model as rig templates. Every character keeps its **own saved copy** of each clip —
+original characters in `sidescroll.animlab.character-clips.v1` (`characters[id]` =
+`{sparseClips, links}`), library characters in their entry (`sparseClips`,
+`animationLinks`) — and the game plays only that (a slot with no saved copy plays the
+shared family set, which is also where the built-in templates *Biped walk* etc. start
+from). Without saved links, original characters are instances of their family's
+built-in templates (the heroes share the Biped set), library characters unique.
+`anim-lab-animation-templates.js` asks *Edit template / Make unique* on the first
+edit of a linked clip and *Use updated / Keep previous* when its template changed.
+
 ## Character packages
 `character-packages.js` exports one character or all characters to a file and
 imports them. A package holds the character's raw saved pieces ("slices", used
@@ -145,7 +158,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
-| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `character-packages.js` (export/import, see below) |
+| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement | `world-lab.js` |

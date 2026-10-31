@@ -62,6 +62,8 @@ EMPTY = {
     'sidescroll.animlab.reference.settings.v1': lambda: {'schema': 'animlab.reference.settings.v1', 'contexts': {}},
     'sidescroll.characters.registry.v1': lambda: {'schema': 'sidescroll.character-registry.v1', 'characters': {}},
     'sidescroll.rig-templates.v1': lambda: {'schema': 'sidescroll.rig-templates.v1', 'templates': {}, 'order': []},
+    'sidescroll.animation-templates.v1': lambda: {'schema': 'sidescroll.animation-templates.v1', 'templates': {}, 'order': []},
+    'sidescroll.animlab.character-clips.v1': lambda: {'schema': 'sidescroll.character-clips.v1', 'characters': {}},
 }
 
 

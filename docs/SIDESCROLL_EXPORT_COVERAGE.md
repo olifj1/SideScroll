@@ -120,6 +120,20 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### C3a — animation templates and own clips (31 Oct)
+
+New keys (content): `sidescroll.animation-templates.v1` `{schema, templates: {id:
+{name, family, slot, clip, revision, updatedAt}}, order}` (written only when a
+template changes; built-ins *Biped walk* etc. start from the shared family set) and
+`sidescroll.animlab.character-clips.v1` `{schema, characters: {id: {sparseClips,
+links}}}` for original characters' own clips and links (library characters keep
+`sparseClips` and gain `animationLinks` in their entry). The shared family banks
+(`sidescroll.animlab.sparse.clips.v1`, compiled `gamehub.walklab.anim.v6`,
+`sidescroll.animlab.quadruped.clips.v1`) are no longer written; slots without an own
+copy still play them. Project Backup (all `sidescroll.*` keys), bake tool and
+character packages (slice `['characters', id]` plus linked templates, added only if
+missing) carry them.
+
 ### C2b — rig templates (31 Oct)
 
 New key `sidescroll.rig-templates.v1` (content): `{schema, templates: {id: {name,

@@ -43,6 +43,13 @@
       sparseClips:null,legacyAtlasSource:saved.legacyAtlasSource||null});
     originalMeshIds.push(id);
   }
+  // Original characters' own saved clips (Character Lab, C3a), by slot. A slot
+  // without one plays the shared family set, as before.
+  const characterClips=read('sidescroll.animlab.character-clips.v1');
+  const originalClips=id=>{
+    const own=characterClips?.schema==='sidescroll.character-clips.v1'?characterClips.characters?.[id]?.sparseClips:null;
+    return own&&typeof own==='object'?own:{};
+  };
   const prepared=new Map(), failures=new Map(), inFlight=new Map();
   const library=()=>[...entries.values()].filter(e=>!e.original);
   const list=()=>library().map(e=>({id:e.id,label:e.label,family:e.family,rigFamily:e.rigFamily,
@@ -246,5 +253,5 @@
     return rig.normalizedPose(rig.interpolatePose(a,b,t,before.name||name,travelB),Math.floor(f));
   }
   window.SideScrollGameCharacters=Object.freeze({list,find,ready,reason,load,poseParts,sampleBipedClip,
-    meshFor,originalMeshIds:()=>originalMeshIds.slice()});
+    meshFor,originalMeshIds:()=>originalMeshIds.slice(),originalClips});
 })();

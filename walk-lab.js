@@ -46,6 +46,9 @@
   const BIPED_WALK_KEY = 'gamehub.walklab.anim.v4';
   const BIPED_PREVIOUS_KEY = 'gamehub.walklab.anim.v5';
   const SPARSE_CLIPS_KEY = 'sidescroll.animlab.sparse.clips.v1';
+  // Original characters' own clips and animation-template links (C3a). The
+  // shared family banks above are now only where built-in templates start from.
+  const CHARACTER_CLIPS_KEY = 'sidescroll.animlab.character-clips.v1';
   const LEGACY_BACKUP_KEY = 'sidescroll.animlab.legacy.samples.backup.v1';
   const SPARSE_SCHEMA = 'animlab.sparse.v1';
   const ART_LAYOUT_SCHEMA = 'animlab.art-layout.v1';
@@ -92,6 +95,7 @@
         sparseClips:entry.sparseClips&&typeof entry.sparseClips==='object'?entry.sparseClips:{},
         legacyAtlasSource:entry.legacyAtlasSource?.schema==='animlab.legacy-atlas-sources.v1'?entry.legacyAtlasSource:null,
         ...(characterArt(entry.starter,entry.art)?{art:characterArt(entry.starter,entry.art)}:{}),
+        ...(entry.animationLinks&&typeof entry.animationLinks==='object'?{animationLinks:entry.animationLinks}:{}),
         createdAt:String(entry.createdAt||''),updatedAt:String(entry.updatedAt||'')
       }));
     }catch(err){console.warn('[Anim Lab] Character library read failed; existing data not overwritten.',err);return [];}
@@ -283,7 +287,7 @@
       collider:() => BipedRig.loadCollider(),
       normaliseCollider:value => BipedRig.normalizedCollider(value),
       saveCollider:value => BipedRig.saveCollider(value),
-      scope:'Biped characters without their own clips share one animation set and collider.'
+      scope:'Each character saves its own clips (linked to an animation template or its own); bipeds share one collider.'
     },
     quadruped: {
       id:'quadruped', label:'Quadruped', rig:QuadrupedRig,
@@ -301,7 +305,7 @@
       loadRestRig:() => QuadrupedRig.loadRestRig(),
       normaliseRestRig:value => QuadrupedRig.normalizedRestRig(value),
       saveRestRig:value => QuadrupedRig.saveRestRig(value),
-      scope:'Quadruped clips save to the shared quadruped set; Play uses the last saved Idle/Walk/Run/Jump clips, with the original set as fallback.'
+      scope:'Each character saves its own clips (linked to an animation template or its own); Play uses the last saved Idle/Walk/Run/Jump clips.'
     }
   };
 
@@ -673,6 +677,60 @@
     customSampleBanks[entry.id]=samples;
   }
   for(const entry of libraryEntries)initialiseLibraryClips(entry);
+
+  // ---- Original characters' own clips and animation templates (C3a) ----------
+  const AnimationTemplates = window.SideScrollAnimationTemplates || null;
+  AnimationTemplates?.setDefaultSource((family, slot) => sparseBanks[family]?.[slot] || null);
+  function readCharacterClips() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(CHARACTER_CLIPS_KEY) || 'null');
+      return raw?.schema === 'sidescroll.character-clips.v1' && raw.characters && typeof raw.characters === 'object'
+        ? raw : {schema:'sidescroll.character-clips.v1', characters:{}};
+    } catch (_) { return {schema:'sidescroll.character-clips.v1', characters:{}}; }
+  }
+  // One in-memory copy (read often while drawing); every write goes through it.
+  let characterClips = readCharacterClips();
+  const loadCharacterClips = () => characterClips;
+  function storeCharacterClips(store) {
+    localStorage.setItem(CHARACTER_CLIPS_KEY, JSON.stringify(store));
+    characterClips = store;
+  }
+  // Every original character edits and saves its own copy of each clip; with no
+  // saved copy it starts from its family's original clip (as before C3a).
+  function initialiseOriginalClips(character) {
+    const saved = loadCharacterClips().characters[character.id]?.sparseClips || {};
+    const bank={},samples={};
+    for(const clip of clipNamesForFamily(character.family)){
+      bank[clip]=normaliseSparseClip(saved[clip] || sparseBanks[character.family][clip],character.family,clip,banks[character.family][clip]);
+      samples[clip]=compileSparseClip(bank[clip],character.family);
+    }
+    customSparseBanks[character.id]=bank;
+    customSampleBanks[character.id]=samples;
+  }
+  for (const character of CHARACTERS) if (!character.library) initialiseOriginalClips(character);
+  // Saved animation-template links of a character, by slot.
+  function savedClipLinks(characterId) {
+    const entry = libraryEntry(characterId);
+    return entry ? (entry.animationLinks || {}) : (loadCharacterClips().characters[characterId]?.links || {});
+  }
+  const clipLinkFor = (character, slot) => AnimationTemplates?.linkFor(character, slot, savedClipLinks(character.id)) || null;
+  function writeClipLink(characterId, slot, link) {
+    const entry = libraryEntry(characterId);
+    if (entry) {
+      storeLibrary(libraryEntries.map(item => item.id === characterId
+        ? {...item, animationLinks:{...(item.animationLinks || {}), [slot]:clone(link)}} : item));
+      return;
+    }
+    const store = loadCharacterClips();
+    const record = store.characters[characterId] ||= {};
+    record.links = {...(record.links || {}), [slot]:clone(link)};
+    storeCharacterClips(store);
+  }
+  // Set when the author answers "Edit template / Make unique" for an edit of a
+  // linked clip (anim-lab-animation-templates.js); per character and slot.
+  const clipEditChoices = new Map();
+  let clipEditListener = null;
+  const clipChoiceKey = () => `${selection.characterId}|${selection.clip}`;
   let conversionPreview = null;
 
   const GAMEPLAY_BASE_CHARACTER_SCALE = 2.31;
@@ -1053,6 +1111,7 @@
       // The track has not been changed during the drag: compile it once.
       upsertCurrentKey(tx.frame,finalPose,tx.keyName);
       pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),tx.label,tx.frame);
+      notifyClipEdit(tx.beforeClip);
     }
     draw();notify();
     return !!finalPose;
@@ -1091,6 +1150,7 @@
       }
     } else {
       pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),tx.label,tx.frame);
+      notifyClipEdit(tx.beforeClip);
     }
     draw(); notify();
   }
@@ -1110,6 +1170,11 @@
     return true;
   }
 
+  function notifyClipEdit(before) {
+    if (!clipEditListener || same(before, currentSparseClip())) return;
+    try { clipEditListener(); } catch (err) { console.error('[Anim Lab] Clip edit listener failed.', err); }
+  }
+
   function editSparseClip(label, updater) {
     if (previewApplies()) {
       hint.textContent = 'Exit or adopt the conversion preview before editing the key track.';
@@ -1122,6 +1187,7 @@
     setCurrentSparseClip(next);
     const after = clone(currentSparseClip());
     pushHistory('sparseClip',before,after,label || 'Edit key track',selection.frame);
+    notifyClipEdit(before);
     playing = false;
     draw(); updateUi(); notify();
     return !same(before,after);
@@ -1246,11 +1312,12 @@
             : item);
           storeLibrary(updated);
         }else{
-          ensureLegacyBackup(character.family, selection.clip);
-          syncCompiledClip(character.family, selection.clip);
-          saveSparseBanks();
-          adapter.saveBank(currentBank());
+          const store = loadCharacterClips();
+          const record = store.characters[character.id] ||= {};
+          record.sparseClips = {...(record.sparseClips || {}), [selection.clip]:clone(customSparseBanks[character.id][selection.clip])};
+          storeCharacterClips(store);
         }
+        saveClipTemplate(character, selection.clip);
       }
       for (const participant of sessionParticipants.values()) {
         if (!participant?.save) continue;
@@ -1282,6 +1349,7 @@
     history = []; future = [];
     playing = false;
     rigEditChoice = null;
+    clipEditChoices.clear();
     hint.textContent = 'Discarded · checkpoint restored';
     draw(); updateUi(); notify();
   }
@@ -1344,12 +1412,67 @@
       }
       selection.characterId = id;
       rigEditChoice = null;
+      clipEditChoices.clear();
       if (!clipNamesForFamily(characterById(id).family).includes(selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
       if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
       selection.frame = 0; playPhase = 0; playing = false;
       fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
+  }
+
+  // ---- Animation templates (C3a) ---------------------------------------------
+  // After saving a clip: "Edit template" writes it to its template; a linked
+  // clip identical to its template records the template's current revision.
+  function saveClipTemplate(character, slot) {
+    if (!AnimationTemplates) return;
+    const clip = customSparseBanks[character.id]?.[slot];
+    let link = clipLinkFor(character, slot), template = AnimationTemplates.get(link.id);
+    const choiceKey = `${character.id}|${slot}`;
+    if (clipEditChoices.get(choiceKey) === 'template' && link.mode === 'instance' && template && !same(clip, template.clip)) {
+      AnimationTemplates.update(link.id, clip);
+      template = AnimationTemplates.get(link.id);
+    }
+    clipEditChoices.delete(choiceKey);
+    if (link.mode === 'instance' && template && same(clip, template.clip)) link = {...link, revision:template.revision};
+    if (!same(link, savedClipLinks(character.id)[slot])) writeClipLink(character.id, slot, link);
+  }
+  // Characters (other than one) whose animation for some slot is an instance of a template.
+  function clipTemplateUsers(templateId, exceptId) {
+    return CHARACTERS.filter(c => c.id !== exceptId && characterVisible(c.id) && clipNamesForFamily(c.family)
+      .some(slot => { const link = clipLinkFor(c, slot); return link?.mode === 'instance' && link.id === templateId; }))
+      .map(c => c.label);
+  }
+  function clipTemplateState() {
+    if (!AnimationTemplates) return null;
+    const character = currentCharacter(), slot = selection.clip, link = clipLinkFor(character, slot);
+    const template = AnimationTemplates.get(link.id);
+    return {characterId:character.id, characterName:character.label, slot, link:clone(link), mode:selection.mode,
+      template:template ? {id:template.id, name:template.name, revision:template.revision} : null,
+      users:clipTemplateUsers(link.id, character.id), stale:AnimationTemplates.isStale(link, template),
+      editChoice:clipEditChoices.get(clipChoiceKey()) || null, dirty:isDirty()};
+  }
+  // Take the template's clip (undoable; Save keeps it and records the revision).
+  function useClipTemplate() {
+    const link = clipLinkFor(currentCharacter(), selection.clip), template = AnimationTemplates?.get(link?.id);
+    if (!template?.clip) return false;
+    const listener = clipEditListener; clipEditListener = null;
+    try { editSparseClip(`Use animation template ${template.name}`, clip => { Object.keys(clip).forEach(k => delete clip[k]); Object.assign(clip, clone(template.clip)); }); }
+    finally { clipEditListener = listener; }
+    clipEditChoices.delete(clipChoiceKey());
+    hint.textContent = `${currentCharacter().label} · ${selection.clip} uses the updated ${template.name} · Save to keep`;
+    return true;
+  }
+  // The character's clip stops following its template (written straight away:
+  // the clip itself is already the character's own copy).
+  function makeClipUnique() {
+    const character = currentCharacter(), link = clipLinkFor(character, selection.clip);
+    if (!link) return false;
+    writeClipLink(character.id, selection.clip, {...link, mode:'unique'});
+    clipEditChoices.set(clipChoiceKey(), 'unique');
+    hint.textContent = `${character.label} · ${selection.clip} is now its own animation`;
+    draw(); notify();
+    return true;
   }
 
   // ---- Rig templates (C2b) ---------------------------------------------------
@@ -2111,7 +2234,7 @@
     if(entry)return clone({name:entry.name,starter:entry.starter,setup:entry.setup,
       sparseClips:entry.sparseClips,legacyAtlasSource:entry.legacyAtlasSource,...(entry.art?{art:entry.art}:{})});
     return clone({name:character.label,starter:character.family,
-      setup:defaultSetupFor(id),sparseClips:sparseBanks[character.family],
+      setup:defaultSetupFor(id),sparseClips:customSparseBanks[id],
       legacyAtlasSource:setupMap[id]?.legacyAtlasSource||null,
       ...(character.family==='biped'?{art:characterArt('biped',character.atlas)}:{})});
   }
@@ -2239,6 +2362,11 @@
     makeRigUnique,
     saveRigAsTemplate,
     setRigEditListener:fn=>{rigEditListener=typeof fn==='function'?fn:null;},
+    clipTemplateState,
+    useClipTemplate,
+    makeClipUnique,
+    setClipEditListener:fn=>{clipEditListener=typeof fn==='function'?fn:null;},
+    setClipEditChoice:choice=>{if(['template','unique'].includes(choice))clipEditChoices.set(clipChoiceKey(),choice);else clipEditChoices.delete(clipChoiceKey());},
     setRigEditChoice:choice=>{rigEditChoice=['template','unique'].includes(choice)?choice:null;},
     undo,
     setSetupTool:id=>{
