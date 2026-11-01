@@ -54,6 +54,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0. Character Lab top bar** (1 Nov)
+- [ ] Undo, Redo and Discard sit in the top bar beside the Saved badge, nothing overlaps (portrait and landscape), and the floating "i" button is gone.
+- [ ] Make an edit: Undo/Discard light up and the badge says Unsaved; Undo, Redo and Discard behave as before.
+
 **1. The game — nothing should look different** (Home Screen app)
 - [ ] Hero 1, Hero 2, the Fox (mesh) and New01 look, animate and play as before; the character you last played is still selected.
 - [ ] The picker lists playable categories with your names and shows *Fox · Quadruped · Mesh*.
@@ -105,6 +109,7 @@ app and make a Project Backup.
 - [ ] **Atlas tools:** better topology editing (connect vertices, split/merge edge paths, delete triangle ranges, boundary shaping) and spline control-node editing.
 
 ## Later
+- **Rigid pieces as a supported drawing option (after the skinned Mesh path):** a character can be drawn as rigid cut-outs, each following one bone (how the heroes are drawn today), as well as a skinned, deforming Mesh. Today the heroes' 13 sprite-sheet squares (upper/lower leg, foot, arms, torso, dress, head), each with two pin points, are hard-coded in `biped-rig.js` (`partsForPose`, `atlasRect`), so Parts lists nothing for bipeds (`ART_LAYOUT_DESIGNER.parts` is empty). Upgrade: describe them as data like the quadruped's original parts (atlas area, bone, pins, group) so Parts lists and edits them, any rig can use rigid pieces, and they can seed a Mesh from the heroes' existing art. The game must draw the heroes identically until the author changes something. Consider clearer UI names: *Pieces (rigid)* vs *Mesh (skinned)*.
 - **Puzzle Logic foundation:** small `Event → Conditions → Actions` model; re-express Fallen Tree, Stone Wall and Broken Bridge with it; fix Broken Bridge's incorrect "Socket Completion / Forest Key" migration labels. No visual Logic editor until the model is proven.
 - **Environment Animation Path:** generalise the cart path into a reusable path that can move any object, with explicit trigger and settle state.
 - **Terrain Features (Stage 4–5):** turn puzzle `worldModifier` into reusable Terrain Features; then retire/migrate legacy Test Hill/River modes.

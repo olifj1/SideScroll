@@ -15425,3 +15425,18 @@ body[data-game-id="game-17"] .animlab-slot-row small{display:block;font-size:8px
 body[data-game-id="game-17"] .animlab-slot-row select{min-width:0;min-height:31px;border:1px solid #627b7b;border-radius:6px;background:#263a3d;color:#fff;padding:3px 6px;font:inherit;font-size:11px;}
 body[data-game-id="game-17"] .animlab-animation-template{display:flex;flex-direction:column;gap:5px;margin-top:8px;}
 body[data-game-id="game-17"] .animlab-animation-template[hidden]{display:none;}
+
+/* Character Lab (Nov 2026): Undo / Redo / Discard sit in the top bar beside the
+   Saved badge (always to hand); Settings ends the bar. The old "i" button is gone. */
+body[data-game-id="game-17"] .animlab-topbar{display:flex;flex-wrap:nowrap;gap:10px;}
+body[data-game-id="game-17"] .animlab-topbar .animlab-current{flex:1 1 auto;}
+body[data-game-id="game-17"] .animlab-topbar-session{display:flex!important;gap:5px;margin-left:auto;flex:0 0 auto;}
+body[data-game-id="game-17"] .animlab-topbar-session button{min-height:32px;padding:4px 10px;border:1px solid rgba(238,243,241,.16);border-radius:8px;background:rgba(255,255,255,.05);color:#e8f5f0;font-size:11px;font-weight:850;}
+body[data-game-id="game-17"] .animlab-topbar-session button:disabled{opacity:.38;}
+body[data-game-id="game-17"] .animlab-topbar-session #animlab-discard:not(:disabled){border-color:rgba(214,119,107,.35);background:rgba(157,76,68,.18);color:#f2cfca;}
+body[data-game-id="game-17"] .animlab-topbar .animlab-save-state,body[data-game-id="game-17"] .animlab-topbar .animlab-settings-button{flex:0 0 auto;}
+body[data-game-id="game-17"] .animlab-session .animlab-scope:empty{display:none;}
+@media(max-width:760px) and (orientation:landscape){
+  body[data-game-id="game-17"] .animlab-topbar{gap:6px;}
+  body[data-game-id="game-17"] .animlab-topbar .animlab-title small{display:none;}
+}
