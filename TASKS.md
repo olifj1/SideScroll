@@ -49,25 +49,55 @@ mesh parts and skin are the character's own; abilities come from a shared list.
 ---
 
 ## Needs iPhone testing
-Changes checked only in desktop/headless browsers. Delete a line once you've
-confirmed it on the phone; if it fails, move it to **Now** as a bug.
+Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). Tick
+or delete steps once confirmed on the phone; if one fails, tell Claude the section and
+step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
+app and make a Project Backup.
 
-- [ ] **Offline** — once everything has loaded, turn on Airplane Mode and launch the Home Screen app: splash, PLAY and the labs should all still work.
-- [ ] **Character export / import** — Character Lab → Load: every character has **Export**; also **Export all characters** and **Import characters…**. Check on iPhone: (1) Export New01 and Export all share/save to Files (expect a few MB with artwork). (2) Rename New01, then Import the New01 file → *Replace* → it comes back with its old name and art. (3) Import the Fox file → *Add as a copy* → "Fox copy" appears. (4) In Safari (separate storage), Import the export-all file → *Replace* New01 → New01 plays in the game with its art. Fox Handoff and "All Character Lab Data" are gone.
-- [ ] **Biped rig, Parts and Skin (C2c)** — Character Lab → Hero 1 → **Rig**: the Rig Designer now shows the biped's joints (pelvis, chest, head, hair, elbows, wrists, knees, ankles, heels, toes) with the hero standing on its rest rig. Move a joint (e.g. raise the pelvis for longer legs) → *Edit the shared rig?* lists Hero 2 → Edit template → Save → the game draws Hero 1 with the new proportions; open Hero 2 → *The Biped rig has changed* → Use updated / Keep previous. Heroes animate exactly as before until edited. **New biped from your own art:** New → Biped → Atlas: import a PNG and cut meshes → **Parts**: Add them and arrange them on the skeleton (Drawing method switches to Mesh) → **Skin**: Auto-bind all, then tune → Save → it plays in the game as a mesh.
-- [ ] **Animation template box (C3c)** — Animate: under the lists, *Animation template* shows what the selected animation follows (e.g. Hero 1 Run "follows Biped run · also used by Hero 2"). Try: type a name → **Save as template** (Hero 1 Run now follows it); on Hero 2's Run pick that template → **Use this template** → Save; **Make unique** on an animation; on an animation you created pick *Biped walk* → Use → Save. Settings → *Animation templates* lists them; built-in ones always stay, yours can be removed once nothing follows them.
-- [ ] **Actions & animations (C3b)** — Character Lab → Animate: **Actions** lists the action slots (Idle, Walk, Run, Jump — bipeds now have an editable **Idle**), each with a menu choosing the animation it plays; **Animations** lists the character's animations (tap one to edit). Try: **Duplicate** Run (name it), edit a key, Save, then choose it in the **Run** menu → play the game: the hero runs with it. **Settings → Action slots → Add action slot…** (e.g. Crawl): it appears under Actions as "not hooked up yet" with *— none —*; pick an animation for it. **Delete** works on animations you made, unless Idle/Walk/Run/Jump plays them. Hero 1's Idle looks as before until edited.
-- [ ] **Animation templates (C3a)** — nothing should look or play differently until you edit. Character Lab → Animate shows a line under the clip buttons, e.g. Hero 1 Walk: "linked to Biped walk · also used by Hero 2"; New01: "this character's own animation". Edit a key on Hero 1's Walk → **Edit the shared animation?** → *Edit template* → Save. Open Hero 2's Walk → **Biped walk has changed** → *Use updated* → Save. In the game both heroes walk with the new keys; Hero 2 keeps its old walk until you accept. *Make unique* on a clip stops it following the template.
-- [ ] **Rig templates (C2b)** — Character Lab → Rig: a *Rig template* box at the top. Fox: "Linked to Quadruped". New01: "Own rig (started from Quadruped)". Try: (1) New01 → Template *Quadruped* → **Use this template** → its rig takes the Fox's proportions (skin rebound; Undo goes back) → Save. (2) Fox → move a joint → **Edit the shared rig?** (lists New01) → *Edit template* → Save. (3) Open New01 in Setup → **The Quadruped rig has changed** → *Use updated* or *Keep previous*. (4) Type a name → **Save as template**. (5) Settings → *Rig templates* lists them with who uses each; Remove only works on unused ones. The game keeps drawing each character with its own saved rig, so nothing changes there until you Save.
-- [ ] **Neutral IDs (C2a)** — nothing should look different. After merging, open the Home Screen app: Hero 1, Hero 2, the Fox (Mesh) and New01 look, animate and play as before; the character you last played is still selected; Character Lab: the Fox's rig, skin, collider, clips and reference settings are as you left them (the Fox rig must **not** be back to its default shape), roles and categories unchanged. Share → Import one of your older exports (e.g. the 31 Oct Fox file) → Replace works.
-- [ ] **Hero 2 copies and the tidied Mesh code** — (1) Character Lab: Share → Import the Hero 2 export (or Export this character on Hero 2, then Import it) → *Add as a copy*: the copy shows Hero 2's art in Character Lab and in the game (it used to get Hero 1's). (2) Nothing else should look different: the Fox as Mesh, New01, Skin and Parts work as before; the Display panel no longer has an empty "Mesh / Wireframe" section.
-- [ ] **Joint boundaries only / published Mesh Fox** — (1) Character Lab → Fox → Skin: no rectangle controls; each part shows its joint sections and joint line sliders. Points outside every section stay where they are; the status line under the bones shows *Unassigned N* for the selected part (Front Far Leg 3, Body + Head 10 in the current Fox). (2) In **Safari** (fresh storage) the game picker shows *Fox · Quadruped · Mesh* and Character Lab → Fox → Skin says *6 of 6 parts bound* (it said Rebind needed before). (3) New01's skin unchanged.
-- [ ] **Drawing method (C1c)** — Character Lab → Fox → **Parts**: a *Drawing method* box (Parts / Mesh) sits at the top. Parts is selected and the Fox is drawn as rigid pieces — the same as the game has always shown it (the old "Skin Prototype" deform view is gone). Tap **Mesh**: the Fox is drawn as a mesh, legs bend in Animate, hint says 6 parts skinned automatically; Save. In the game the picker shows *Fox · Quadruped · Mesh* and the Fox walks as a mesh. Tune it in **Skin** (each part's bones/rectangles), Save, check the game again. Back in Parts → **Parts**, Save: the game draws it rigid again (the mesh and skin are kept for switching back). New01 shows *Mesh* with Parts greyed out. A copy of the Fox made while it is a Mesh plays in the game.
-- [ ] **Neutral code names (C1b-2)** — nothing to see: the Fox, both bipeds and New01 should look, animate and play exactly as before, in the game (including via PLAY on the splash screen) and in Character Lab; export / import still work.
-- [ ] **Renamed files and keys (C1b-1)** — after merging, open the Home Screen app: the Fox, Hero 2 and New01 look and play as before (art loads under new file names, a few MB downloads once); press **PLAY** on the splash screen and open the character picker: New01 is listed and Ready (it was missing when starting from PLAY before). Character Lab: Fox rig, collider and clips are as before.
-- [ ] **Character registry (C1a)** — Character Lab: toolbar is **New · Open · Save · Share**. Open lists characters under category headings with roles shown (Hero 1 · Default player, Fox · Default animal). Try on a character's •••: Rename, change category, ↑/↓, Export, Delete (disabled while it has a role). **Settings** (top bar, next to ⓘ): move a role, add a role, add / rename / reorder a category, tick *Playable*. In the game, the character picker shows only playable categories in that order and uses the new names. Share has Export this character / Export all / Import.
-- [ ] **Published New01** — open the site in **Safari** (separate storage, like a new device): New01 should appear in the game's character picker as Ready and play with its artwork; in Character Lab its Atlas shows "Published PNG · 1448 × 1240". In the Home Screen app nothing changes (it still uses your own copy).
-- [ ] **Built-in content** — (1) In the Home Screen app nothing should change: your world, puzzles, characters and Design Lab are exactly as before. (2) Open the site in Safari itself (not the Home Screen app — Safari keeps separate storage, so it behaves like a brand-new device): the game, World Lab, Asset Lab, Puzzle Lab, Character Lab and Design Lab should all show your content. Expected differences there: the game starts at the beginning, Character Lab opens on Hero 1, and New01 shows "Imported PNG missing from this device" (its art isn't built in yet).
+**1. The game — nothing should look different** (Home Screen app)
+- [ ] Hero 1, Hero 2, the Fox (mesh) and New01 look, animate and play as before; the character you last played is still selected.
+- [ ] The picker lists playable categories with your names and shows *Fox · Quadruped · Mesh*.
+- [ ] **PLAY** on the splash screen, open the picker: New01 is listed and Ready.
+- [ ] Offline: once loaded, turn on Airplane Mode and relaunch — splash, PLAY and the labs still work.
+
+**2. Character Lab basics**
+- [ ] Toolbar **New · Open · Save · Share**; Open lists characters by category with roles (Hero 1 · Default player, Fox · Default animal).
+- [ ] A character's **•••**: Rename, category, ↑/↓, Export, Delete (disabled while it has a role).
+- [ ] **Settings**: move/add a role, add/rename/reorder a category, tick *Playable* — the game picker follows.
+
+**3. Fox — drawing method and skin**
+- [ ] Rig, skin, collider and animations as you left them (rig **not** back to default).
+- [ ] **Parts**: *Drawing method* box, Mesh selected. **Parts** + Save → game draws it rigid; **Mesh** + Save → mesh and skin are still there.
+- [ ] **Skin**: joint sections only (no rectangles); status shows *Unassigned N* (Front Far Leg 3, Body + Head 10). New01 shows Mesh with Parts greyed out.
+- [ ] **Animate** and **Play** on the Fox run smoothly (the 1 Nov freeze is fixed).
+
+**4. Rigs and rig templates**
+- [ ] **Rig** box: Fox "Linked to Quadruped"; New01 "Own rig (started from Quadruped)".
+- [ ] New01 → *Quadruped* → **Use this template** (skin rebound; Undo goes back) → Save.
+- [ ] Fox: move a joint → *Edit the shared rig?* lists New01 → Edit template → Save. Open New01 in Setup → *The Quadruped rig has changed* → Use updated / Keep previous.
+- [ ] **Hero 1 → Rig**: Rig Designer shows the biped joints, hero standing on its rest rig. Raise the pelvis → *Edit the shared rig?* lists Hero 2 → Edit template → Save → game draws Hero 1 taller. Open Hero 2 → *The Biped rig has changed*.
+- [ ] Name → **Save as template**; Settings → *Rig templates* lists them with users; Remove only unused.
+
+**5. Animations, slots and animation templates**
+- [ ] **Animate**: *Actions* (Idle/Walk/Run/Jump, each with a menu) and *Animations*. Biped **Idle** looks as before until edited.
+- [ ] **Duplicate** Run (name it), edit a key, Save, pick it in the **Run** menu → the game runs with it. **New**, **Rename**, **Delete** (only yours, not while a game slot plays it).
+- [ ] **Settings → Action slots → Add action slot…** (e.g. Crawl): "not hooked up yet" with *— none —*; pick an animation.
+- [ ] *Animation template* box: Hero 1 Run "follows Biped run · also used by Hero 2". Edit Hero 1's Walk → *Edit the shared animation?* → Edit template → Save; Hero 2's Walk → *Biped walk has changed* → Use updated → Save; both walk with it in the game.
+- [ ] Name → **Save as template**; use it on Hero 2's Run → Save; try **Make unique**. Settings → *Animation templates*: built-ins stay, yours removable once unused.
+
+**6. A new biped from your own art**
+- [ ] New → Biped → **Atlas**: import a PNG, cut meshes → **Parts**: Add, arrange on the skeleton (Drawing method → Mesh) → **Skin**: Auto-bind all (every part binds), tune → Save → plays in the game as a mesh.
+
+**7. Export and import**
+- [ ] Export one character and *Export all* to Files (a few MB with artwork).
+- [ ] Rename New01, Import its file → *Replace* → old name and art back.
+- [ ] Import Hero 2's export → *Add as a copy* → copy has Hero 2's art (lab and game); Fox file → *Add as a copy* → plays in the game.
+- [ ] An older export (e.g. 31 Oct Fox) → *Replace* works.
+
+**8. Safari as a fresh device** (separate storage)
+- [ ] Game and all labs show your content; the game starts at the beginning.
+- [ ] New01 Ready with its art (Atlas "Published PNG · 1448 × 1240"); *Fox · Quadruped · Mesh*; Fox → Skin *6 of 6 parts bound*.
+- [ ] Import the export-all file → *Replace* New01 → plays with its art.
 
 ---
 
