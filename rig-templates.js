@@ -13,8 +13,8 @@
  * exactly how rigs were shared before templates existed.
  *
  * Stored in sidescroll.rig-templates.v1, written only when templates change.
- * Until then the Quadruped template's proportions are the original quadruped
- * character's current rig. Bipeds have fixed proportions (no Rig workspace yet).
+ * Until then the built-in templates' proportions are the original characters'
+ * current rigs (the shared biped and quadruped rest rigs).
  */
 (() => {
   'use strict';
@@ -28,18 +28,21 @@
   const cleanName = value => String(value || '').trim().replace(/[\u0000-\u001f\u007f<>]/g, '').slice(0, 42);
   const read = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; } };
   const Quadruped = () => window.SideScrollQuadrupedRig || null;
+  const Biped = () => window.GameHubWalkRig || null;
+  const engine = family => family === 'quadruped' ? Quadruped() : family === 'biped' ? Biped() : null;
 
   function builtIns() {
     const q = Quadruped();
     return {
-      [BIPED]: { id: BIPED, name: 'Biped', family: 'biped', restRig: null, revision: 1, builtIn: true },
+      [BIPED]: { id: BIPED, name: 'Biped', family: 'biped', revision: 1, builtIn: true,
+        restRig: Biped()?.loadRestRig ? clone(Biped().loadRestRig()) : null },
       [QUADRUPED]: { id: QUADRUPED, name: 'Quadruped', family: 'quadruped', revision: 1, builtIn: true,
         restRig: q ? clone(q.loadRestRig?.() || q.DEFAULT_REST_RIG) : null }
     };
   }
   function normaliseRig(family, rig) {
-    if (family !== 'quadruped' || !rig) return null;
-    return Quadruped()?.normalizedRestRig ? Quadruped().normalizedRestRig(rig) : clone(rig);
+    if (!rig || !engine(family)) return null;
+    return engine(family).normalizedRestRig ? engine(family).normalizedRestRig(rig) : clone(rig);
   }
   function load() {
     const raw = read(KEY), store = { schema: SCHEMA, templates: builtIns(), order: [BIPED, QUADRUPED] };
@@ -111,7 +114,7 @@
   // New proportions for a template; returns the new revision.
   function update(id, restRig) {
     const store = load(), t = store.templates[id];
-    if (!t || t.family !== 'quadruped') return null;
+    if (!t || !engine(t.family)?.normalizedRestRig) return null;
     t.restRig = normaliseRig(t.family, restRig);
     t.revision += 1;
     t.updatedAt = new Date().toISOString();

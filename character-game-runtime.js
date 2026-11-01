@@ -46,14 +46,18 @@
   const QuadrupedRig=window.SideScrollQuadrupedRig;
   const registry=window.SideScrollCharacters;
   const originalMeshIds=[];
+  const BipedRig=window.GameHubWalkRig;
   for(const id of registry?.ORIGINAL_IDS||[]){
     const saved=setupMap?.[id],family=registry?.find(id)?.family;
-    if(family!=='quadruped'||!QuadrupedRig||saved?.artLayout?.assembly?.enabled!==true)continue;
-    // Same rule as the game's original-character setup: data saved against an
-    // older baseline is not used.
-    if(!QuadrupedRig.isCurrentBaseline(saved.baselineId))continue;
-    entries.set(id,{id,label:registry?.name(id)||id,family:'quadruped',rigFamily:'quadruped',original:true,
-      setup:{...saved,rig:QuadrupedRig.loadRestRig?.()||QuadrupedRig.DEFAULT_REST_RIG},
+    if(saved?.artLayout?.assembly?.enabled!==true||!saved.artLayout.assembly.instances?.length)continue;
+    if(family==='quadruped'){
+      // Same rule as the game's original-character setup: data saved against an
+      // older baseline is not used.
+      if(!QuadrupedRig||!QuadrupedRig.isCurrentBaseline(saved.baselineId))continue;
+    }else if(family!=='biped'||!BipedRig?.restPose)continue;
+    const rig=family==='quadruped'?(QuadrupedRig.loadRestRig?.()||QuadrupedRig.DEFAULT_REST_RIG):(saved.rig||BipedRig.DEFAULT_REST_RIG);
+    entries.set(id,{id,label:registry?.name(id)||id,family,rigFamily:family,original:true,
+      setup:{...saved,rig},
       sparseClips:null,legacyAtlasSource:saved.legacyAtlasSource||null});
     originalMeshIds.push(id);
   }
@@ -162,7 +166,8 @@
       // assembly or structural rig. Play with the first original biped's rigid atlas
       // while preserving each character's own saved animation data. No fake
       // biped skin/bind is synthesized and no source document is modified.
-      if(entry.family==='biped'){
+      // Bipeds drawn as a Mesh (an enabled Parts assembly) take the mesh path below.
+      if(entry.family==='biped'&&!(assembly?.enabled===true&&assembly.instances?.length)){
         assert(entry.sparseClips && ['walk','run','jump'].every(name=>
           Array.isArray(entry.sparseClips?.[name]?.keys)&&entry.sparseClips[name].keys.length),
           'Biped starter animation clips missing; Save in Character Lab');
@@ -230,7 +235,9 @@
     });
   }
   function poseParts(data,pose,rig){
-    const bind=rig.geometry(neutralPose(rig),data.setup.skinBindRig||data.setup.rig);
+    // The rig at rest: bipeds stand in their rest rig; the quadruped zeroes its channels.
+    const bindRig=data.setup.skinBindRig||data.setup.rig;
+    const bind=rig.restPose?rig.geometry(rig.restPose(bindRig),bindRig):rig.geometry(neutralPose(rig),bindRig);
     const posed=rig.geometry(pose,data.setup.rig);
     const flexible=transforms(rig,bind,posed,false),rigid=transforms(rig,bind,posed,true);
     for(const part of data.parts){

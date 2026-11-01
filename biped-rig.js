@@ -353,24 +353,116 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     return {joint,target:t};
   }
 
-  function footGeometry(heel,angle){
-    const ankleToHeel=rot({x:-BODY.ankleForward,y:-BODY.ankleHeight},angle);
+  // ---- Rest rig (C2c): the biped's proportions as data -----------------------
+  // Joint positions in a standing pose. Animation stays as before (pelvis height,
+  // lean, foot/hand targets, hair angles solved with two-bone IK); bone lengths,
+  // foot shape and hair are measured from the rest rig, so editing it reshapes
+  // the character. The default rest rig reproduces the original BODY sizes, so
+  // the original bipeds look exactly as they always have.
+  const REST_SCHEMA='sidescroll.biped.rest-rig.v1';
+  const DEFAULT_HAIR_ANGLE=110*DEG;
+  function buildDefaultRestRig(){
+    const legY=BODY.ankleHeight+BODY.upperLeg+BODY.lowerLeg;
+    const pelvis={x:0,y:legY},chest={x:0,y:legY+BODY.torso};
+    const neck={x:0,y:chest.y+BODY.neck},head={x:0,y:neck.y+BODY.headR*.95},headTop={x:0,y:head.y+BODY.headR*.95};
+    const hairRoot={x:head.x-BODY.headR*.45,y:head.y-BODY.headR*.15};
+    const hairMid={x:hairRoot.x+Math.cos(DEFAULT_HAIR_ANGLE)*BODY.hair1,y:hairRoot.y-Math.sin(DEFAULT_HAIR_ANGLE)*BODY.hair1};
+    const hairTip={x:hairMid.x+Math.cos(DEFAULT_HAIR_ANGLE)*BODY.hair2,y:hairMid.y-Math.sin(DEFAULT_HAIR_ANGLE)*BODY.hair2};
+    const elbow={x:0,y:chest.y-BODY.upperArm},wrist={x:0,y:elbow.y-BODY.lowerArm};
+    const knee={x:0,y:pelvis.y-BODY.upperLeg},ankle={x:0,y:BODY.ankleHeight};
+    const heel={x:-BODY.ankleForward,y:0},toe={x:BODY.foot-BODY.ankleForward,y:0};
+    const side=S=>({[`elbow${S}`]:{...elbow},[`wrist${S}`]:{...wrist},[`knee${S}`]:{...knee},
+      [`ankle${S}`]:{...ankle},[`heel${S}`]:{...heel},[`toe${S}`]:{...toe}});
+    return {schema:REST_SCHEMA,family:'biped',joints:{pelvis,chest,neck,head,headTop,hairRoot,hairMid,hairTip,...side('Near'),...side('Far')}};
+  }
+  const DEFAULT_REST_RIG=Object.freeze(buildDefaultRestRig());
+  const REST_JOINT_IDS=Object.freeze(Object.keys(DEFAULT_REST_RIG.joints));
+  const RIG_DESIGNER=Object.freeze({
+    schema:'animlab.rig-designer.v1',
+    family:'biped',
+    bounds:Object.freeze({minX:-0.55,maxX:0.55,minY:-0.10,maxY:1.45}),
+    jointGroups:Object.freeze([
+      Object.freeze({id:'body',label:'Body / Head',joints:Object.freeze(['pelvis','chest','neck','head','headTop'])}),
+      Object.freeze({id:'hair',label:'Hair',joints:Object.freeze(['hairRoot','hairMid','hairTip'])}),
+      Object.freeze({id:'armNear',label:'Near Arm',joints:Object.freeze(['chest','elbowNear','wristNear'])}),
+      Object.freeze({id:'armFar',label:'Far Arm',joints:Object.freeze(['chest','elbowFar','wristFar'])}),
+      Object.freeze({id:'legNear',label:'Near Leg',joints:Object.freeze(['pelvis','kneeNear','ankleNear','toeNear'])}),
+      Object.freeze({id:'legFar',label:'Far Leg',joints:Object.freeze(['pelvis','kneeFar','ankleFar','toeFar'])})
+    ]),
+    labels:Object.freeze({pelvis:'Pelvis',chest:'Chest / Shoulder',neck:'Neck',head:'Head',headTop:'Head Top',
+      hairRoot:'Hair Root',hairMid:'Hair Mid',hairTip:'Hair Tip',
+      elbowNear:'Elbow',wristNear:'Wrist',elbowFar:'Elbow',wristFar:'Wrist',
+      kneeNear:'Knee',ankleNear:'Ankle',heelNear:'Heel',toeNear:'Toe',kneeFar:'Knee',ankleFar:'Ankle',heelFar:'Heel',toeFar:'Toe'}),
+    boneLinks:Object.freeze([
+      Object.freeze({a:'pelvis',b:'chest',label:'Torso'}),
+      Object.freeze({a:'chest',b:'neck',label:'Neck'}),
+      Object.freeze({a:'neck',b:'headTop',label:'Head'}),
+      Object.freeze({a:'hairRoot',b:'hairMid',label:'Hair Base'}),
+      Object.freeze({a:'hairMid',b:'hairTip',label:'Hair Tip'}),
+      Object.freeze({a:'chest',b:'elbowNear',label:'Near Upper Arm'}),
+      Object.freeze({a:'elbowNear',b:'wristNear',label:'Near Forearm'}),
+      Object.freeze({a:'chest',b:'elbowFar',label:'Far Upper Arm'}),
+      Object.freeze({a:'elbowFar',b:'wristFar',label:'Far Forearm'}),
+      Object.freeze({a:'pelvis',b:'kneeNear',label:'Near Thigh'}),
+      Object.freeze({a:'kneeNear',b:'ankleNear',label:'Near Shin'}),
+      Object.freeze({a:'ankleNear',b:'toeNear',label:'Near Foot'}),
+      Object.freeze({a:'pelvis',b:'kneeFar',label:'Far Thigh'}),
+      Object.freeze({a:'kneeFar',b:'ankleFar',label:'Far Shin'}),
+      Object.freeze({a:'ankleFar',b:'toeFar',label:'Far Foot'})
+    ]),
+    symmetryPairs:Object.freeze([['elbowNear','elbowFar'],['wristNear','wristFar'],['kneeNear','kneeFar'],
+      ['ankleNear','ankleFar'],['heelNear','heelFar'],['toeNear','toeFar']].map(Object.freeze)),
+    groundContacts:Object.freeze(['heelNear','toeNear','heelFar','toeFar'])
+  });
+  function normalizedRestRig(value=null){
+    const raw=value?.joints&&typeof value.joints==='object'?value.joints:{},joints={};
+    for(const id of REST_JOINT_IDS){
+      const fallback=DEFAULT_REST_RIG.joints[id],x=Number(raw[id]?.x),y=Number(raw[id]?.y);
+      joints[id]={x:Number.isFinite(x)?x:fallback.x,y:Number.isFinite(y)?y:fallback.y};
+    }
+    return {schema:REST_SCHEMA,family:'biped',joints};
+  }
+  // Every biped keeps its own rest rig in its character setup (Character Lab
+  // saves it; the game passes it in). Without one, the default proportions.
+  const activeRestRig=normalizedRestRig(DEFAULT_REST_RIG);
+  function loadRestRig(){ return clone(activeRestRig); }
+  function saveRestRig(value){ return clone(normalizedRestRig(value)); }
+  function resetRestRig(){ return normalizedRestRig(DEFAULT_REST_RIG); }
+  // Bone lengths and shapes measured from a rest rig (cached per rig object).
+  const lengthCache=new WeakMap();
+  function restLengths(restRig=activeRestRig){
+    if(restRig&&typeof restRig==='object'&&lengthCache.has(restRig))return lengthCache.get(restRig);
+    const j=normalizedRestRig(restRig).joints,dist=(a,b)=>Math.hypot(j[b].x-j[a].x,j[b].y-j[a].y);
+    const side=S=>({upperArm:dist('chest',`elbow${S}`),lowerArm:dist(`elbow${S}`,`wrist${S}`),
+      upperLeg:dist('pelvis',`knee${S}`),lowerLeg:dist(`knee${S}`,`ankle${S}`),
+      ankleToHeel:{x:j[`heel${S}`].x-j[`ankle${S}`].x,y:j[`heel${S}`].y-j[`ankle${S}`].y},
+      ankleToToe:{x:j[`toe${S}`].x-j[`ankle${S}`].x,y:j[`toe${S}`].y-j[`ankle${S}`].y}});
+    const out={torso:dist('pelvis','chest'),neck:dist('chest','neck'),head:dist('neck','head'),headTop:dist('head','headTop'),
+      hairRoot:{x:j.hairRoot.x-j.head.x,y:j.hairRoot.y-j.head.y},hair1:dist('hairRoot','hairMid'),hair2:dist('hairMid','hairTip'),
+      near:side('Near'),far:side('Far')};
+    if(restRig&&typeof restRig==='object')lengthCache.set(restRig,out);
+    return out;
+  }
+
+  function footGeometry(heel,angle,dims=restLengths().near){
+    const ankleToHeel=rot(dims.ankleToHeel,angle);
     const ankle={x:heel.x-ankleToHeel.x,y:heel.y-ankleToHeel.y};
-    const ankleToToe=rot({x:BODY.foot-BODY.ankleForward,y:-BODY.ankleHeight},angle);
+    const ankleToToe=rot(dims.ankleToToe,angle);
     const toe={x:ankle.x+ankleToToe.x,y:ankle.y+ankleToToe.y};
     return {heel,ankle,toe};
   }
 
-  function geometry(pose){
+  function geometry(pose,restRig=activeRestRig){
     const p=normalizedPose(pose);
+    const L=restLengths(restRig),A=L.near,B=L.far;
 
     // A planted heel is authoritative.  Never lift it to satisfy IK.  Instead,
     // lower the pelvis by the tiny amount required to keep the planted ankle
     // within the two-bone leg's reachable circle.
     const aHeel={x:p.aFootX,y:p.planted==='A'?0:p.aFootLift};
     const bHeel={x:p.bFootX,y:p.planted==='B'?0:p.bFootLift};
-    let aFoot=footGeometry(aHeel,p.aFootAngle);
-    let bFoot=footGeometry(bHeel,p.bFootAngle);
+    let aFoot=footGeometry(aHeel,p.aFootAngle,A);
+    let bFoot=footGeometry(bHeel,p.bFootAngle,B);
 
     // A grounded foot may roll rather than being forced flat. Whichever end of
     // the foot is lowest becomes the floor contact: neutral gives heel+toe
@@ -387,26 +479,26 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     // airborne jump poses deliberately have no planted foot, so they must not
     // be pulled back down by the grounding correction.
     if(p.planted==='A'||p.planted==='B'){
-      const support=p.planted==='A'?aFoot:bFoot;
-      const maxReach=BODY.upperLeg+BODY.lowerLeg-.0015;
+      const support=p.planted==='A'?aFoot:bFoot,legs=p.planted==='A'?A:B;
+      const maxReach=legs.upperLeg+legs.lowerLeg-.0015;
       const dx=support.ankle.x;
       const reachY=support.ankle.y+Math.sqrt(Math.max(0,maxReach*maxReach-dx*dx));
       pelvisY=Math.min(pelvisY,reachY);
     }
 
     const pelvis={x:0,y:pelvisY};
-    const chest={x:pelvis.x+Math.sin(p.lean)*BODY.torso,y:pelvis.y+Math.cos(p.lean)*BODY.torso};
+    const chest={x:pelvis.x+Math.sin(p.lean)*L.torso,y:pelvis.y+Math.cos(p.lean)*L.torso};
     const shoulder={...chest};
-    const neck={x:chest.x+Math.sin(p.lean)*BODY.neck,y:chest.y+Math.cos(p.lean)*BODY.neck};
-    const head={x:neck.x+Math.sin(p.lean)*BODY.headR*.95,y:neck.y+Math.cos(p.lean)*BODY.headR*.95};
-    const headTop={x:head.x+Math.sin(p.lean)*BODY.headR*.95,y:head.y+Math.cos(p.lean)*BODY.headR*.95};
-    const hairRoot={x:head.x-BODY.headR*.45,y:head.y-BODY.headR*.15};
-    const h1={x:hairRoot.x+Math.cos(p.hairAngle)*BODY.hair1,y:hairRoot.y-Math.sin(p.hairAngle)*BODY.hair1};
+    const neck={x:chest.x+Math.sin(p.lean)*L.neck,y:chest.y+Math.cos(p.lean)*L.neck};
+    const head={x:neck.x+Math.sin(p.lean)*L.head,y:neck.y+Math.cos(p.lean)*L.head};
+    const headTop={x:head.x+Math.sin(p.lean)*L.headTop,y:head.y+Math.cos(p.lean)*L.headTop};
+    const hairRoot={x:head.x+L.hairRoot.x,y:head.y+L.hairRoot.y};
+    const h1={x:hairRoot.x+Math.cos(p.hairAngle)*L.hair1,y:hairRoot.y-Math.sin(p.hairAngle)*L.hair1};
     const h2Angle=p.hairAngle+p.hairBend;
-    const h2={x:h1.x+Math.cos(h2Angle)*BODY.hair2,y:h1.y-Math.sin(h2Angle)*BODY.hair2};
+    const h2={x:h1.x+Math.cos(h2Angle)*L.hair2,y:h1.y-Math.sin(h2Angle)*L.hair2};
 
-    const aLeg=solveJoint(pelvis,aFoot.ankle,BODY.upperLeg,BODY.lowerLeg,'knee');
-    const bLeg=solveJoint(pelvis,bFoot.ankle,BODY.upperLeg,BODY.lowerLeg,'knee');
+    const aLeg=solveJoint(pelvis,aFoot.ankle,A.upperLeg,A.lowerLeg,'knee');
+    const bLeg=solveJoint(pelvis,bFoot.ankle,B.upperLeg,B.lowerLeg,'knee');
 
     // A swing target may still be outside the reachable circle while authored.
     // Only the swing foot may follow a clamped ankle.  The stance foot remains
@@ -420,8 +512,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
 
     const aWTarget={x:shoulder.x+p.aHandX,y:shoulder.y-p.aHandY};
     const bWTarget={x:shoulder.x+p.bHandX,y:shoulder.y-p.bHandY};
-    const aArm=solveJoint(shoulder,aWTarget,BODY.upperArm,BODY.lowerArm,'elbow');
-    const bArm=solveJoint(shoulder,bWTarget,BODY.upperArm,BODY.lowerArm,'elbow');
+    const aArm=solveJoint(shoulder,aWTarget,A.upperArm,A.lowerArm,'elbow');
+    const bArm=solveJoint(shoulder,bWTarget,B.upperArm,B.lowerArm,'elbow');
 
     const waist={x:lerp(chest.x,pelvis.x,.78),y:lerp(chest.y,pelvis.y,.78)};
     const dressHem={x:pelvis.x-.010,y:Math.max(.14,pelvis.y-.185)};
@@ -435,14 +527,36 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       hairRoot,hairMid:h1,hairTip:h2,cloakMid,cloakTip,cloakFrontTip,
       aK:aLeg.joint,aAnkle:aFoot.ankle,aHeel:aFoot.heel,aToe:aFoot.toe,
       bK:bLeg.joint,bAnkle:bFoot.ankle,bHeel:bFoot.heel,bToe:bFoot.toe,
-      aE:aArm.joint,aW:aArm.target,bE:bArm.joint,bW:bArm.target
+      aE:aArm.joint,aW:aArm.target,bE:bArm.joint,bW:bArm.target,
+      // The same joints under the rest rig's joint names (RIG_DESIGNER), for
+      // Skin and mesh drawing.
+      elbowNear:aArm.joint,wristNear:aArm.target,kneeNear:aLeg.joint,ankleNear:aFoot.ankle,heelNear:aFoot.heel,toeNear:aFoot.toe,
+      elbowFar:bArm.joint,wristFar:bArm.target,kneeFar:bLeg.joint,ankleFar:bFoot.ankle,heelFar:bFoot.heel,toeFar:bFoot.toe
     };
   }
 
   function seg(name,a,b,layer,alpha=1){ return {name,a,b,layer,alpha,kind:'segment'}; }
 
-  function partsForPose(pose){
-    const g=geometry(pose);
+  // A pose that stands the character in its rest rig (Setup shows this so the
+  // artwork lines up with the rest joints): hands and heels at their rest
+  // positions, no lean, hair along its rest direction.
+  function restPose(restRig=activeRestRig){
+    const j=normalizedRestRig(restRig).joints;
+    const angle=(a,b)=>Math.atan2(-(j[b].y-j[a].y),j[b].x-j[a].x);
+    const hair=angle('hairRoot','hairMid');
+    return normalizedPose({...DEFAULT_FRAMES[0],name:'Rest',pelvisY:j.pelvis.y,lean:0,planted:null,
+      aFootX:j.heelNear.x,aFootLift:j.heelNear.y,aFootAngle:0,bFootX:j.heelFar.x,bFootLift:j.heelFar.y,bFootAngle:0,
+      aHandX:j.wristNear.x-j.chest.x,aHandY:j.chest.y-j.wristNear.y,bHandX:j.wristFar.x-j.chest.x,bHandY:j.chest.y-j.wristFar.y,
+      hairAngle:hair,hairBend:angle('hairMid','hairTip')-hair,travel:0},0);
+  }
+
+  // Parts layout for Character Lab's Parts tool: bipeds have no original parts
+  // meshes (their original art is drawn as rigid pieces), so a biped's Mesh is
+  // assembled entirely from Atlas meshes.
+  const ART_LAYOUT_DESIGNER=Object.freeze({schema:'animlab.art-layout-designer.v1',family:'biped',parts:Object.freeze([])});
+
+  function partsForPose(pose,restRig){
+    const g=geometry(pose,restRig);
     // Deliberately simple v4 cutout: no cloak, extra hair chains or accessories yet.
     // Painter order is explicit: far leg / far arm / body / near leg / dress / near arm / head.
     return [
@@ -486,7 +600,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   }
 
   function drawCanvas(ctx,atlas,pose,view,opts={}){
-    const parts=partsForPose(pose);
+    const parts=partsForPose(pose,opts.restRig);
     parts.forEach(part=>drawPartCanvas(ctx,atlas,part,view,opts));
     return parts;
   }
@@ -496,6 +610,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     CHARACTER_VARIANT_STORAGE_KEY,DEFAULT_CHARACTER_VARIANT,CHARACTER_VARIANTS,normaliseCharacterVariant,loadCharacterVariant,saveCharacterVariant,characterVariantInfo,atlasImageUrl,
     clone,clamp,lerp,makeKey,defaultKeys,makeRunKey,runKeys,makeJumpKey,jumpKeys,interpolatePose,buildFramesFromKeys,buildFramesWithNames,normalizedPose,sampleFrames,
-    geometry,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry
+    geometry,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry,
+    DEFAULT_REST_RIG,RIG_DESIGNER,ART_LAYOUT_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restLengths,restPose
   };
 })();

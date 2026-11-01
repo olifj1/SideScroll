@@ -2528,6 +2528,20 @@ const GameCharacters = window.SideScrollGameCharacters || null;
 // become unselectable.
 const originalCharacterMeshes=new Map();
 const LOCAL_CHARACTER_SELECTION_KEY = 'sidescroll.game.local-character.v1';
+// A biped's rest rig (C2c): its own saved copy (library bipeds in their
+// entry, original bipeds in the Character Lab setup map), else the default.
+const bipedRestRigs = new Map();
+function bipedRestRig(id = currentCharacterVariant) {
+  if (bipedRestRigs.has(id)) return bipedRestRigs.get(id);
+  const local = GameCharacters?.find(id);
+  let rig = local?.family === 'biped' ? local.setup?.rig : null;
+  if (!local) {
+    try { rig = JSON.parse(localStorage.getItem('sidescroll.animlab.setup.v1') || '{}')?.[id]?.rig || null; } catch (_) {}
+  }
+  const value = rig ? (Rig.normalizedRestRig ? Rig.normalizedRestRig(rig) : rig) : Rig.DEFAULT_REST_RIG;
+  bipedRestRigs.set(id, value);
+  return value;
+}
 // The original quadruped character, whose setup lives in the shared quadruped
 // slots (rig, collider, clips). Found by its rig, never by name or ID.
 const isOriginalQuadruped = id => Rig.CHARACTER_VARIANTS?.[id]?.rigType === 'quadruped';
@@ -17355,8 +17369,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // The short entry move settles onto the climbing line. Fade the extreme
     // targets in through that approach so ACTION never pops the limbs abruptly.
     const settle = Rig.clamp(0.28 + frame.entryBlend * 0.72, 0, 1);
-    const shoulderX = Math.sin(p.lean) * Rig.BODY.torso;
-    const shoulderY = p.pelvisY + Math.cos(p.lean) * Rig.BODY.torso;
+    const torso = Rig.restLengths ? Rig.restLengths(bipedRestRig()).torso : Rig.BODY.torso;
+    const shoulderX = Math.sin(p.lean) * torso;
+    const shoulderY = p.pelvisY + Math.cos(p.lean) * torso;
     const applyHand = (target, prefix, fallbackX, fallbackY) => {
       // Convert world X back into mirrored rig-local X. Keep the scale
       // denominator positive, then apply the facing sign separately. Using
@@ -17400,7 +17415,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // shoulder rise and fall as the walk cycle instead of appearing to hover
     // while the character bobs behind it.
     if (pose && activeCharacterRig() === Rig) {
-      const g = Rig.geometry(pose);
+      const g = Rig.geometry(pose, bipedRestRig());
       const handX = ((g.aW.x + g.bW.x) * 0.5) * character.scale;
       const handY = ((g.aW.y + g.bW.y) * 0.5) * character.scale;
       x = character.x + handX * facing;
@@ -17508,7 +17523,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // v1.1.23 game-side deformable mesh draw. Existing WebGL rigid part path
   // below remains completely unchanged for built-in quadruped and both original bipeds.
   function drawLocalMeshCharacter(view,pose,facing,data){
-    GameCharacters.poseParts(data,pose,QuadrupedRig);
+    GameCharacters.poseParts(data,pose,data.family==='biped'?Rig:QuadrupedRig);
     for(let i=0;i<data.parts.length;i++){
       const part=data.parts[i];
       if(!part.mesh)continue;
@@ -17594,7 +17609,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(carriedObject||interactionState)drawCarriedCrate(view,facing,null);
       return;
     }
-    const parts = charRig.partsForPose(pose);
+    const parts = charRig === Rig ? charRig.partsForPose(pose, bipedRestRig()) : charRig.partsForPose(pose);
     let crateDrawn = false;
     for (const part of parts) {
       if (!isQuadruped && !crateDrawn && (carriedObject || interactionState) && part.name === 'near_upper_arm') {

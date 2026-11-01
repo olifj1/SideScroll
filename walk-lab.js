@@ -299,6 +299,14 @@
       collider:() => BipedRig.loadCollider(),
       normaliseCollider:value => BipedRig.normalizedCollider(value),
       saveCollider:value => BipedRig.saveCollider(value),
+      // Rest rig (C2c): every biped keeps its own in its setup (original
+      // bipeds included), starting from the default proportions.
+      rigInSetup:true,
+      loadRestRig:() => BipedRig.loadRestRig(),
+      normaliseRestRig:value => BipedRig.normalizedRestRig(value),
+      saveRestRig:value => BipedRig.saveRestRig(value),
+      libraryRestRig:() => BipedRig.normalizedRestRig(BipedRig.DEFAULT_REST_RIG),
+      restPose:rig => BipedRig.restPose(rig),
       scope:'Each character saves its own clips (linked to an animation template or its own); bipeds share one collider.'
     },
     quadruped: {
@@ -327,7 +335,7 @@
   // character name or equate a rendering technique with a skeleton family.
   const CHARACTER_PROFILES = Object.freeze({
     biped:Object.freeze({rigFamily:'biped',legacyAdapter:'biped',renderTechnique:'rigid-parts',
-      quickPlay:true,authoring:Object.freeze({atlas:true,parts:false,rig:true,skin:false,animate:true}),
+      quickPlay:true,authoring:Object.freeze({atlas:true,parts:true,rig:true,skin:true,animate:true}),
       clips:Object.freeze(['idle','walk','run','jump']),
       actionSlots:Object.freeze(['idle','walk','run','jump']),
       clipMs:Object.freeze({idle:1400,walk:1050,run:650,jump:935}),
@@ -355,7 +363,8 @@
 
   function normaliseArtLayout(adapter, value = null) {
     const desc=artLayoutDescriptor(adapter);
-    if(!desc?.parts?.length)return null;
+    // A rig with no original parts (bipeds) still has a Parts assembly.
+    if(!desc||!Array.isArray(desc.parts))return null;
     const raw=value?.parts&&typeof value.parts==='object'?value.parts:{};
     const parts={};
     const ids=desc.parts.map(p=>p.id);
@@ -576,7 +585,8 @@
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
-    if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(custom?.setup?.rig || adapter.loadRestRig());
+    if (adapter.loadRestRig) setup.rig = adapter.normaliseRestRig(custom?.setup?.rig || (!custom && adapter.rigInSetup && saved.rig)
+      || (custom && adapter.libraryRestRig?.()) || adapter.loadRestRig());
     if (artLayoutDescriptor(adapter)) setup.artLayout = normaliseArtLayout(adapter, quadrupedSetupCurrent ? saved.artLayout : null);
     if (supportsRestBinding(adapter)) setup.skinTuning = normaliseSkinTuning(quadrupedSetupCurrent ? saved.skinTuning : null);
     // P2: two independent rest snapshots. Art's source assembly is frozen to
@@ -1353,6 +1363,10 @@
         // A changed rig must never be saved with stale inverse bind joints.
         // Manual Rebind remains available (with Undo), but Save can now offer
         // an explicit, one-step Rebind + Save instead of failing with an error.
+        // Not drawn as a Mesh: nothing is bound to the skin rest reference yet,
+        // so it simply follows the rig.
+        if (supportsRestBinding(adapter) && setupDraft.rig && !setupDraft.artLayout?.assembly?.enabled)
+          setupDraft.skinBindRig = adapter.normaliseRestRig(setupDraft.rig);
         if (supportsRestBinding(adapter) && setupDraft.rig && setupDraft.skinBindRig &&
             !same(adapter.normaliseRestRig(setupDraft.rig),adapter.normaliseRestRig(setupDraft.skinBindRig))) {
           const accepted = typeof window.confirm === 'function' && window.confirm(
@@ -1367,7 +1381,7 @@
         // other characters linked to it are offered the update when opened.
         const link = rigLink();
         const linkedTemplate = link && RigTemplates.get(link.id);
-        if (rigEditChoice === 'template' && link?.mode === 'instance' && character.family === 'quadruped' && setupDraft.rig
+        if (rigEditChoice === 'template' && link?.mode === 'instance' && adapter.loadRestRig && setupDraft.rig
             && !same(adapter.normaliseRestRig(setupDraft.rig), adapter.normaliseRestRig(linkedTemplate?.restRig))) {
           const revision = RigTemplates.update(link.id, adapter.normaliseRestRig(setupDraft.rig));
           if (revision) setupDraft.rigTemplate = {id:link.id, mode:'instance', revision};
@@ -1385,6 +1399,7 @@
         if (character.family === 'quadruped') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (validRigLink(setupDraft.rigTemplate)) storedSetup.rigTemplate=clone(setupDraft.rigTemplate);
+        if (adapter.rigInSetup && setupDraft.rig) storedSetup.rig=adapter.normaliseRestRig(setupDraft.rig);
         if (supportsRestBinding(adapter)) {
           storedSetup.skinTuning=normaliseSkinTuning(setupDraft.skinTuning);
           storedSetup.artRestRig=adapter.normaliseRestRig(setupDraft.artRestRig || setupDraft.rig);
@@ -1731,7 +1746,7 @@
     return {characterId:character.id, characterName:character.label, family:character.family, link:clone(link),
       template:template ? {id:template.id, name:template.name, revision:template.revision, builtIn:!!template.builtIn} : null,
       users:RigTemplates.usersOf(link.id, character.id).map(c => c.name),
-      stale:RigTemplates.isStale(link, template), editable:character.family === 'quadruped',
+      stale:RigTemplates.isStale(link, template), editable:!!currentAdapter().loadRestRig,
       templates:RigTemplates.list(character.family).map(t => ({id:t.id, name:t.name})), editChoice:rigEditChoice};
   }
   // Link to a template as an instance: take its proportions and rebind the skin
@@ -1765,7 +1780,7 @@
   // New template from this character's current rig; the character links to it.
   function saveRigAsTemplate(name) {
     const character = currentCharacter(), adapter = currentAdapter();
-    if (!RigTemplates || character.family !== 'quadruped' || !setupDraft.rig) return null;
+    if (!RigTemplates || !adapter.loadRestRig || !setupDraft.rig) return null;
     const template = RigTemplates.create(name, character.family, adapter.normaliseRestRig(setupDraft.rig));
     if (!template) return null;
     edit('setup', `Save rig as template ${template.name}`, setup => {
@@ -1935,7 +1950,8 @@
   }
 
   function displayRestRig(adapter = currentAdapter()) {
-    return adapter.id === 'quadruped' && (selection.mode === 'setup' || selection.mode === 'play') ? setupDraft.rig : undefined;
+    // The character's own rest rig (outside Setup the working copy equals the saved one).
+    return adapter.loadRestRig && adapter === currentAdapter() ? setupDraft.rig : undefined;
   }
 
   function drawRigArt(character, adapter, pose, sv, alpha = 1) {
@@ -1943,7 +1959,8 @@
     // Custom Atlas-backed characters may have no valid legacy sprite file.
     // Their art renderer owns the imported atlas image, so do not suppress it.
     if (!atlas && !setupDraft?.artLayout?.assembly?.enabled) return;
-    const restRig = adapter.id === 'quadruped' ? (setupDraft.rig || displayRestRig(adapter)) : displayRestRig(adapter);
+    // Every character draws with its own rest rig (the working copy's).
+    const restRig = setupDraft.rig || displayRestRig(adapter);
     if (artRenderers.size) {
       const args={ctx,canvas,character,adapter,pose,view:sv,alpha,atlas,restRig,setup:setupDraft,project};
       for (const renderer of artRenderers.values()) {
@@ -1952,7 +1969,7 @@
       }
     }
     if (!atlas) return; // no original art fallback for custom image-only assembly
-    if (adapter.id === 'biped' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha});
+    if (adapter.id === 'biped' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha,restRig});
     else adapter.rig.partsForPose(pose,restRig).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
 
@@ -1962,8 +1979,8 @@
     ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=Math.max(0.85,Math.min(1.9,canvas.width*.00135));
     for (const part of parts) {
       const name=String(part.name||'');
-      const near=adapter.id==='quadruped' && name.startsWith('near_');
-      const far=adapter.id==='quadruped' && name.startsWith('far_');
+      const near=name.startsWith('near_');
+      const far=name.startsWith('far_');
       const bone=near?`rgba(126,216,199,${.92*alpha})`:far?`rgba(188,197,199,${.72*alpha})`:`rgba(220,228,225,${.76*alpha})`;
       const jointFill=near?`rgba(31,49,50,${.96*alpha})`:far?`rgba(91,101,104,${.92*alpha})`:`rgba(245,241,236,${.94*alpha})`;
       const jointStroke=near?`rgba(126,216,199,${.98*alpha})`:far?`rgba(206,214,216,${.92*alpha})`:`rgba(47,61,66,${.85*alpha})`;
@@ -2077,6 +2094,8 @@
     lastPlayFrame=playFrame;
     let pose=selection.mode==='play'&&playFrame?.pose
       ? adapter.normalise(playFrame.pose,selection.frame)
+      : selection.mode==='setup' && adapter.restPose
+        ? adapter.restPose(setupDraft.rig)
       : selection.mode==='setup' && adapter.id==='quadruped' && adapter.rig.IDLE_POSE
         ? (()=>{
             const neutral=adapter.rig.clone(adapter.rig.IDLE_POSE);
@@ -2586,7 +2605,7 @@
     // Renderer-only read path: no JSON cloning or dirty/history scan each
     // animation frame. Consumers MUST NOT mutate returned references.
     peekArtRenderState:()=>({characterId:selection.characterId,family:currentCharacter().family,
-      mode:selection.mode,setupTool:selection.setupTool,setup:setupDraft}),
+      mode:selection.mode,setupTool:selection.setupTool,setup:setupDraft,rig:currentAdapter().rig}),
     getState:() => ({
       character:clone(currentCharacter()), family:currentCharacter().family, capabilities:clone(characterProfile()), characterId:selection.characterId,
       clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),

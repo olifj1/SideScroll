@@ -36,7 +36,7 @@
       <button type="button" data-action="reset-joint">Reset Joint</button>
       <button type="button" data-action="near-far">Both Legs Near → Far</button>
       <button type="button" data-action="far-near">Both Legs Far → Near</button>
-      <button type="button" data-action="ground">Paws to Ground</button>
+      <button type="button" data-action="ground">Feet to Ground</button>
       <button type="button" data-action="reset-rig">Reset Rig</button>
       <button type="button" data-action="ghost" class="animlab-rig-ghost is-active">Art Ghost</button>
     </div>
@@ -210,6 +210,8 @@
     lengthsEl.textContent = lens.length ? `Bone lengths: ${lens.join(' · ')}` : '';
 
     const bound = !!s.setup.skinBindRig;
+    // Rebinding only applies to characters with a skin binding.
+    section.querySelector('.animlab-rig-bind-panel').hidden = !bound;
     const needsBind=bound && JSON.stringify(normalizedRig(s,draft))!==JSON.stringify(normalizedRig(s,s.setup.skinBindRig));
     bindStatus.textContent=needsBind
       ? 'Rig changed · Save will offer Rebind + Save. Art remains stationary.'
@@ -329,7 +331,7 @@
     } else if (name === 'far-near') {
       pairCopy('farNear');
     } else if (name === 'ground') {
-      editRig('Set paws to ground', rig => {
+      editRig('Set feet to ground', rig => {
         for (const id of desc.groundContacts || []) if (rig.joints[id]) rig.joints[id].y = 0;
       });
     } else if (name === 'reset-rig') {

@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Biped rig, Parts and Skin (C2c, first half): the Biped has an editable rest rig
+  (joints for pelvis, chest, head, hair, arms and legs) in the Rig Designer; bone
+  lengths and foot shape come from it, while animation still drives it the same way,
+  so the heroes look and animate exactly as before until edited. Every biped keeps
+  its own rig (original bipeds in their setup). Parts, Skin and the game's mesh
+  drawing now work for any rig, so a biped can go new atlas → parts → rig → skin →
+  game. The Biped rig template is editable like the Quadruped. Auto-bind picks a
+  part's bone group by name only when that group exists on the rig.
 - Animation template box (C3c): Animate shows the template the selected animation
   follows, with **Use this template** (only the character's rig family), **Make
   unique** and **Save as template**; animations a character created can follow

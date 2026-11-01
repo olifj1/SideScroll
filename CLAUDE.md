@@ -222,6 +222,14 @@ Any new per-character storage must be added to `slicesFor()` there.
 ## Gotchas
 - `sidescroll.js` is ~21k lines and `style.css` ~15k; grep, don't read whole.
 - `biped-rig.js` line 79 is an 821 KB base64 image — never print it.
+- Rigs: any rig with a `RIG_DESIGNER` (joints, bones, groups) and rest-rig functions
+  works in the Rig Designer, Parts, Skin and game mesh drawing. The Biped
+  (`biped-rig.js`) measures its bone lengths from a rest rig (`restLengths`) while
+  its animation channels still drive it; `restPose(restRig)` stands it on its rest
+  rig and its geometry also reports joints by rig name (`kneeNear`, …). Every biped
+  keeps its own rest rig in its setup (original bipeds in `sidescroll.animlab.setup.v1`);
+  the game reads it via `bipedRestRig()`. Bipeds have no original parts meshes, so a
+  biped's Mesh is built from Atlas meshes only.
 - A character's drawing method (Parts / Mesh) is its Parts assembly's `enabled` flag.
   `anim-lab-mesh.js`'s old Skin Prototype is retired; the file only still builds the
   original parts' mesh (`window.AnimLabLegacyAtlas`) that Mesh drawing uses.

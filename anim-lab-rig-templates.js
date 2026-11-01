@@ -40,7 +40,7 @@
     const name = rt.template?.name || 'unknown template';
     const others = rt.users.length ? `Also used by ${listNames(rt.users)}.` : 'No other character uses it.';
     status.textContent = !rt.editable
-      ? `Linked to ${name}. ${others} Biped proportions are fixed for now.`
+      ? `Linked to ${name}. ${others} This rig's proportions can't be edited.`
       : rt.link.mode === 'unique'
         ? `Own rig (started from ${name}). Rig edits change this character only.`
         : `Linked to ${name}. ${others}${rt.stale ? ' The template has changed since this character was saved.' : ''}`;

@@ -5,12 +5,22 @@
  */
 (() => {
   'use strict';
-  const core=window.AnimLabCore,rig=window.SideScrollQuadrupedRig;
-  if(!core||!rig?.RIG_DESIGNER?.boneLinks||!core.registerArtRenderer)return;
+  const core=window.AnimLabCore;
+  if(!core||!window.SideScrollQuadrupedRig?.RIG_DESIGNER?.boneLinks||!core.registerArtRenderer)return;
   const clone=v=>JSON.parse(JSON.stringify(v));
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const bones=rig.RIG_DESIGNER.boneLinks;
-  const groups=rig.RIG_DESIGNER.jointGroups||[];
+  // The current character's rig (C2c: any rig with a RIG_DESIGNER — biped or
+  // quadruped): its bones and joint groups, and how to stand it at rest.
+  let rig=null,bones=[],groups=[],neutral=null;
+  function useRig(next){
+    if(!next?.RIG_DESIGNER?.boneLinks||next===rig)return;
+    rig=next;bones=next.RIG_DESIGNER.boneLinks;groups=next.RIG_DESIGNER.jointGroups||[];
+    neutral=next.restPose?null:quadrupedNeutral(next);
+    bindGeometries=new WeakMap();
+  }
+  // The rig at rest: bipeds stand in their rest rig; the quadruped zeroes its
+  // animation channels.
+  const restGeometry=restRig=>rig.restPose?rig.geometry(rig.restPose(restRig),restRig):restGeometry(restRig);
   const state=()=>core.getState();
   const renderState=()=>core.peekArtRenderState?.()||core.getState();
   const inventory=s=>s?.setup?.artLayout?.assembly?.enabled?s.setup.artLayout.assembly.instances||[]:null;
@@ -41,13 +51,13 @@
     const id=`${mesh.vertices.length}:${mesh.triangles.length}:${(hash>>>0).toString(16)}`;
     signatures.set(mesh,id);return id;
   }
-  const neutral=(()=>{
-    const p={...rig.IDLE_POSE};
+  function quadrupedNeutral(r){
+    const p={...r.IDLE_POSE};
     for(const key of ['bodyBob','frontBodyLift','rearBodyLift','bodyPitch','neckPitch','headPitch','tailBase','tailMid','tailTip',
       'rnUpper','rnLower','rfUpper','rfLower','fnUpper','fnLower','ffUpper','ffLower','rnDistal','rfDistal','fnDistal','ffDistal'])p[key]=0;
     for(const prefix of ['rn','rf','fn','ff'])p[`${prefix}IkWeight`]=0;
-    return rig.normalizedPose(p,0);
-  })();
+    return r.normalizedPose(p,0);
+  }
   function groupBones(id){
     if(id==='auto')return bones.map((_,i)=>i);
     const joints=new Set(groups.find(g=>g.id===id)?.joints||[]);
@@ -59,15 +69,16 @@
     const t=d2>1e-8?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/d2,0,1):0;
     return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));
   }
-  const bindGeometries=new WeakMap();
+  let bindGeometries=new WeakMap();
   function bindingGeometry(restRig){
     if(restRig&&typeof restRig==='object'){
       let value=bindGeometries.get(restRig);
-      if(!value){value=rig.geometry(neutral,restRig);bindGeometries.set(restRig,value);}
+      if(!value){value=restGeometry(restRig);bindGeometries.set(restRig,value);}
       return value;
     }
-    return rig.geometry(neutral,rig.DEFAULT_REST_RIG);
+    return restGeometry(rig.DEFAULT_REST_RIG);
   }
+  useRig(window.SideScrollQuadrupedRig);
   function transformVertices(mesh,item,image){
     const verts=mesh.vertices,xs=verts.map(v=>v.x),ys=verts.map(v=>v.y);
     const cx=(Math.min(...xs)+Math.max(...xs))/2,ymax=Math.max(...ys);
@@ -83,10 +94,21 @@
   }
   function bestGroup(item,mesh,source,geom){
     const label=`${item.nameOverride||''} ${item.label||''} ${mesh.name||''}`.toLowerCase();
-    if(/tail/.test(label))return 'tail';
-    if(/body|head|torso|neck|trunk/.test(label))return 'body';
-    const near=/near/.test(label),far=/far/.test(label),front=/front/.test(label),rear=/back|rear|hind/.test(label);
-    if((near||far)&&(front||rear))return `${front?'front':'rear'}${near?'Near':'Far'}`;
+    // A part's name picks its group when that group exists on this rig;
+    // otherwise the nearest group to the part wins.
+    const exists=id=>groups.some(g=>g.id===id);
+    const named=(()=>{
+      if(/tail/.test(label))return 'tail';
+      if(/body|head|torso|neck|trunk/.test(label))return 'body';
+      if(/hair/.test(label))return 'hair';
+      const near=/near/.test(label),far=/far/.test(label),front=/front/.test(label),rear=/back|rear|hind/.test(label);
+      if((near||far)&&(front||rear))return `${front?'front':'rear'}${near?'Near':'Far'}`;
+      const side=near?'Near':far?'Far':'';
+      if(side&&/arm|hand/.test(label))return `arm${side}`;
+      if(side&&/leg|foot|feet/.test(label))return `leg${side}`;
+      return null;
+    })();
+    if(named&&exists(named))return named;
     const verts=transformVertices(mesh,item,source.image);
     const center=verts.reduce((p,v)=>({x:p.x+v.x/verts.length,y:p.y+v.y/verts.length}),{x:0,y:0});
     return groups.map(g=>({id:g.id,d:Math.min(...groupBones(g.id).map(i=>pointSegmentDistance(center,geom[bones[i].a],geom[bones[i].b])))}))
@@ -830,7 +852,14 @@
     ['offsetX',panel.querySelector('[data-joint-offset-x]')],['offsetY',panel.querySelector('[data-joint-offset-y]')]];
   const weightInput=panel.querySelector('[data-v-weight]'),copySelect=panel.querySelector('[data-copy-target]');
   const canvas=document.getElementById('animlab-canvas');
-  groupSelect.innerHTML=groups.map(g=>`<option value="${g.id}">${g.label}</option>`).join('');
+  // Bone groups belong to the current rig; rebuilt when the character's rig changes.
+  function syncGroupOptions(){
+    const key=rig?.RIG_DESIGNER?.family||'';
+    if(groupSelect.dataset.rig===key)return;
+    groupSelect.dataset.rig=key;
+    groupSelect.innerHTML=groups.map(g=>`<option value="${g.id}">${g.label}</option>`).join('');
+  }
+  syncGroupOptions();
   let selectedId=null,selectedBone=0,selectedJoint=null,vertexIndex=0,groupCandidate=null,preview='rest',phase=.25;
   let heatmap=false,wires=true,showRect=true,pickArmed=false,lastPickedPoints=null,liveBinding=null,liveItemId=null;
   const hiddenParts=new Set(),lockedParts=new Set();let soloPart=null,lastCharacterId=null;
@@ -852,8 +881,10 @@
   }
   function refresh(){
     const s=state(),parts=inventory(s);
-    const active=!!parts&&s.family==='quadruped'&&s.mode==='setup'&&s.setupTool==='skin';
+    useRig(s.rig);
+    const active=!!parts&&!!s.rig?.RIG_DESIGNER&&s.mode==='setup'&&s.setupTool==='skin';
     panel.hidden=!active;if(!active){lastPickedPoints=null;liveBinding=null;liveItemId=null;pickArmed=false;return;}
+    syncGroupOptions();
     if(lastCharacterId!==s.characterId){lastCharacterId=s.characterId;selectedId=null;selectedJoint=null;hiddenParts.clear();lockedParts.clear();soloPart=null;groupCandidate=null;}
     const sources=sourceMap(s);
     if(!parts.find(p=>p.id===selectedId)){selectedId=parts[0]?.id||null;selectedJoint=null;groupCandidate=null;}
@@ -898,7 +929,7 @@
     const item=selectedItem(s),source=item&&sources.get(item.meshId),binding=selectedBinding(s,sources);
     const canEdit=!!item&&validSource(source)&&!lockedParts.has(item.id),canWeight=canEdit&&!!binding;
     const currentGroup=groupCandidate||binding?.group||item?.skinBinding?.group||
-      (item&&validSource(source)?bestGroup(item,source.mesh,source,rig.geometry(neutral,s.setup?.rig)):groups[0]?.id);
+      (item&&validSource(source)?bestGroup(item,source.mesh,source,restGeometry(s.setup?.rig)):groups[0]?.id);
     if(document.activeElement!==groupSelect)groupSelect.value=currentGroup||'';
     groupSelect.disabled=!canEdit;
     for(const button of panel.querySelectorAll('[data-bind-action]')){
@@ -919,7 +950,7 @@
       }
     }
     for(const button of bonesBoard.children){button.classList.toggle('active',Number(button.dataset.skinBone)===selectedBone);button.disabled=!canWeight;}
-    const bindGeom=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+    const bindGeom=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const binary=binding?.envelopeMode==='rect-binary-v1';
     const rect=binary?(binding?.rectangles?.[selectedBone]||defaultRectangle()):defaultRectangle();
     for(const [key,input] of rectControls){
@@ -1030,7 +1061,7 @@
   function previewRectangle(input,key){
     const s=state(),item=selectedItem(s),source=item&&sourceMap(s).get(item.meshId),saved=item&&bindingFor(item,source);
     if(!saved||lockedParts.has(item.id)||saved.envelopeMode!=='rect-binary-v1')return;
-    const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+    const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const next=clone(saved);
     // Whole-part rigid mode must not hide subsequent rectangle changes.
     if(Object.keys(next.manualWeights||{}).length>=source.mesh.vertices.length&&
@@ -1147,12 +1178,12 @@
     const s=state(),item=selectedItem(s),parts=inventory(s)||[],sources=sourceMap(s);
     const candidate=groupCandidate||groupSelect.value;
     if(action==='selected'&&item&&!lockedParts.has(item.id)&&validSource(sources.get(item.meshId))){
-      const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+      const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
       const binding=createBinding(item,sources.get(item.meshId),geometry,candidate);
       if(binding){commitBinding(item.id,binding,'Auto-bind selected part');vertexIndex=0;groupCandidate=null;}
     }
     if(action==='all'){
-      const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+      const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
       core.edit('setup','Auto-bind all assembled parts',setup=>{
         for(const part of setup.artLayout?.assembly?.instances||[]){
           if(lockedParts.has(part.id))continue;
@@ -1182,7 +1213,7 @@
     if(action==='rect-convert'&&item&&!lockedParts.has(item.id)){
       const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
       if(saved){
-        const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+        const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
         const binding=activateRectangles(clone(saved),item,source,geometry);
         commitBinding(item.id,binding,'Switch part to binary rectangle envelopes');
       }
@@ -1190,7 +1221,7 @@
     if(action==='joint-fit'&&item&&!lockedParts.has(item.id)){
       const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
       if(saved?.envelopeMode==='rect-binary-v1'){
-        const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+        const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
         const binding=clone(saved);
         binding.jointFit=!(binding.jointFit===true);
         // A previous rigid full-part override would conceal the fitted result.
@@ -1231,7 +1262,7 @@
           if(action==='reset-part'){binding.jointBoundaries=defaultJointBoundaries(binding,geometry);binding.manualWeights={};}
           updateJointWeights(binding,item,sources.get(item.meshId),geometry);
         }else if(binding.envelopeMode==='rect-binary-v1'){
-          const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+          const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
           if(action==='reset-bone')binding.rectangles[selectedBone]=defaultRectangle();
           if(action==='auto-vertex')delete binding.manualWeights[vertexIndex];
           if(action==='reset-part'){
@@ -1240,7 +1271,7 @@
           }
           updateRectWeights(binding,item,sources.get(item.meshId),geometry);
         }else         if(binding.envelopeMode==='capsule-v1'){
-          const geometry=rig.geometry(neutral,s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+          const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
           if(action==='reset-bone')binding.envelopes[selectedBone]=defaultEnvelope(selectedBone,geometry);
           if(action==='auto-vertex')delete binding.manualWeights[vertexIndex];
           if(action==='reset-part'){
@@ -1318,10 +1349,11 @@
     ctx.lineWidth=selected?1.65:0.9;ctx.stroke();ctx.restore();
   }
   function render(args){
-    const s=renderState(),parts=inventory(s);if(!parts||s.family!=='quadruped')return false;
+    const s=renderState(),parts=inventory(s);if(!parts||!s.rig?.RIG_DESIGNER||!parts.length)return false;
+    useRig(s.rig);
     if(s.mode==='setup'&&s.setupTool!=='skin')return false;
     const sources=sourceMap(s),skinMode=s.mode==='setup'&&s.setupTool==='skin';
-    const pose=skinMode&&preview==='rest'?null:skinMode?(core.evaluateClip?.(preview,phase,'quadruped')||args.pose):args.pose;
+    const pose=skinMode&&preview==='rest'?null:skinMode?(core.evaluateClip?.(preview,phase,s.family)||args.pose):args.pose;
     const bindGeom=bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const posed=pose?rig.geometry(pose,s.setup?.rig||rig.DEFAULT_REST_RIG):bindGeom;
     const maps=pose?boneTransforms(bindGeom,posed):null;
@@ -1422,8 +1454,9 @@
   // (so it is undoable). Parts already bound are left exactly as they are.
   window.AnimLabAssemblySkin=Object.freeze({
     bindUnbound(setup){
-      const s=core.getState(),sources=sourceMap({...s,setup});
-      const geometry=rig.geometry(neutral,setup.skinBindRig||setup.rig||rig.DEFAULT_REST_RIG);
+      const s=core.getState();useRig(s.rig);
+      const sources=sourceMap({...s,setup});
+      const geometry=restGeometry(setup.skinBindRig||setup.rig||rig.DEFAULT_REST_RIG);
       let bound=0,missing=0;
       for(const part of setup.artLayout?.assembly?.instances||[]){
         const source=sources.get(part.meshId);
