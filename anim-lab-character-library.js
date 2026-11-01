@@ -87,7 +87,7 @@
   const settingsButton=document.createElement('button');
   settingsButton.type='button';settingsButton.className='animlab-settings-button';
   settingsButton.textContent='Settings';settingsButton.setAttribute('aria-haspopup','dialog');settingsButton.setAttribute('aria-expanded','false');
-  document.querySelector('.animlab-topbar .animlab-info')?.before(settingsButton);
+  document.querySelector('.animlab-topbar')?.appendChild(settingsButton);
   const settings=document.createElement('div');
   settings.className='animlab-settings-overlay';settings.hidden=true;
   settings.innerHTML=`
