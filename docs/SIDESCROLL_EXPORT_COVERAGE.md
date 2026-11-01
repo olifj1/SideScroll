@@ -120,6 +120,13 @@ The separate v1.1.4 **Use Atlas Parts / Show original Parts** panel has been ret
 
 
 
+### C3c — animation template box (31 Oct)
+
+No new keys. Animations a character created can follow a template
+(`extraClips[key].link`); templates created with *Save as template* are written to
+`sidescroll.animation-templates.v1`. Character packages carry every template a
+character's animations follow (slot animations and created ones).
+
 ### C3b — action slots and animations (31 Oct)
 
 New key `sidescroll.action-slots.v1` (content): `{schema, slots: {id: {name}}, order}`

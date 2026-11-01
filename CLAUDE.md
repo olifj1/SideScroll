@@ -151,8 +151,12 @@ Play resolve a slot through the map (`slotClips` in `character-game-runtime.js`,
 (Actions with an animation menu each; Animations with New, Duplicate, Rename,
 Delete), saved straight away. Bipeds have an `idle` slot (default: the standing pose
 the game always used).
-`anim-lab-animation-templates.js` asks *Edit template / Make unique* on the first
-edit of a linked clip and *Use updated / Keep previous* when its template changed.
+`anim-lab-animation-templates.js` is the Animate *Animation template* box (Use this
+template, Make unique, Save as template; links of created animations live in
+`extraClips[key].link`; a chosen template waits in walk-lab's `pendingClipLinks` until
+Save) and asks *Edit template / Make unique* on the first edit of a linked clip and
+*Use updated / Keep previous* when its template changed. Settings lists animation
+templates (rename; remove when nothing follows them).
 
 ## Character packages
 `character-packages.js` exports one character or all characters to a file and
