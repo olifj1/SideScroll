@@ -20,7 +20,7 @@
   }
   // The rig at rest: bipeds stand in their rest rig; the quadruped zeroes its
   // animation channels.
-  const restGeometry=restRig=>rig.restPose?rig.geometry(rig.restPose(restRig),restRig):restGeometry(restRig);
+  const restGeometry=restRig=>rig.restPose?rig.geometry(rig.restPose(restRig),restRig):rig.geometry(neutral,restRig);
   const state=()=>core.getState();
   const renderState=()=>core.peekArtRenderState?.()||core.getState();
   const inventory=s=>s?.setup?.artLayout?.assembly?.enabled?s.setup.artLayout.assembly.instances||[]:null;

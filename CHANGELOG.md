@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Fixed: Character Lab froze ("Loading…") on the iPhone when the Fox (drawn as a
+  Mesh) was on screen — a mistake in the 1 Nov Skin change made the quadruped's rest
+  geometry call itself endlessly, every frame. Biped skins were not affected.
 - Biped rig, Parts and Skin (C2c, first half): the Biped has an editable rest rig
   (joints for pelvis, chest, head, hair, arms and legs) in the Rig Designer; bone
   lengths and foot shape come from it, while animation still drives it the same way,
