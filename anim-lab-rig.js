@@ -13,7 +13,7 @@
   section.hidden = true;
   section.innerHTML = `
     <div class="animlab-section-title">Rig Designer</div>
-    <p class="animlab-rig-note">Edit the saved rest rig independently of the artwork. Use Joint, Segment, Limb or Both Legs to copy near/far; animation keys remain separate.</p>
+    <p class="animlab-rig-note">Edit the saved rest rig independently of the artwork. Animation keys stay separate.</p>
     <div class="animlab-rig-sides" role="group" aria-label="Show sides">
       <span>Show</span>
       <button type="button" class="animlab-side-near" data-rig-side="near" aria-pressed="true">Near side</button>
@@ -32,15 +32,19 @@
         <button type="button" data-axis="y">Y only</button>
         <button type="button" data-fine="1">Fine</button>
       </div>
-      <p class="animlab-rig-note">Select a joint and move it with the right pad. Copy Joint transfers one point; Copy Segment transfers that joint plus the next in the limb chain (Paw selects the final segment); Copy Limb transfers the entire selected chain. Both Legs copies front and rear together.</p>
+      <p class="animlab-rig-note">Select a joint and move it with the right pad.</p>
+    </div>
+    <div class="animlab-rig-copy" aria-label="Copy between sides">
+      <div class="animlab-rig-copy-title">Copy to the other side</div>
+      <p class="animlab-rig-note">Seen side-on, a limb and its pair sit in the same place, so copying a side mirrors it. Shared joints (Chest / Shoulder, Pelvis) stay as they are.</p>
+      <div class="animlab-rig-copy-selected">
+        <button type="button" data-copy="joint">Selected joint</button>
+        <button type="button" data-copy="limb">Selected limb</button>
+      </div>
+      <div class="animlab-rig-copy-rows" data-copy-rows></div>
     </div>
     <div class="animlab-rig-actions">
-      <button type="button" data-action="copy-pair">Copy Joint → Pair</button>
-      <button type="button" data-action="copy-segment">Copy Segment → Pair</button>
-      <button type="button" data-action="copy-limb">Copy Limb → Pair</button>
       <button type="button" data-action="reset-joint">Reset Joint</button>
-      <button type="button" data-action="near-far">Both Legs Near → Far</button>
-      <button type="button" data-action="far-near">Both Legs Far → Near</button>
       <button type="button" data-action="ground">Feet to Ground</button>
       <button type="button" data-action="reset-rig">Reset Rig</button>
       <button type="button" data-action="ghost" class="animlab-rig-ghost is-active">Art Ghost</button>
@@ -178,7 +182,7 @@
         button.textContent = labelFor(desc,id);
         if(String(group.id||'').includes('Near')) button.classList.add('animlab-side-near');
         if(String(group.id||'').includes('Far')) button.classList.add('animlab-side-far');
-        button.addEventListener('click', () => { selectedJoint = id; renderUI(); });
+        button.addEventListener('click', () => { selectedJoint = id; renderUI(); core.redrawOnly?.(); });
         joints.appendChild(button);
       }
       wrap.append(title,joints);
@@ -235,13 +239,7 @@
     bindStatus.classList.toggle('needs-bind',needsBind);
     bindPreviewBtn.textContent=`Walk Preview: ${previewBind==='off'?'Off':previewBind==='saved'?'Previous Binding':'Proposed Rebind'}`;
     rebindBtn.disabled=!needsBind;
-    const pair = selectedJoint && symmetryPair(desc,selectedJoint);
-    const copyPair = section.querySelector('[data-action="copy-pair"]');
-    if (copyPair) copyPair.disabled = !pair;
-    for (const name of ['copy-segment','copy-limb']) {
-      const control=section.querySelector(`[data-action="${name}"]`);
-      if(control) control.disabled=!limbGroup(desc,selectedJoint);
-    }
+    renderCopy(desc);
   }
 
   function editRig(label, mutator){
@@ -289,23 +287,66 @@
     });
   }
 
-  function copySelectedRigLimb(segmentOnly){
-    const desc=descriptorFor(state()),group=limbGroup(desc,selectedJoint);
-    if(!group)return;
-    const joints=group.joints;
-    const at=joints.indexOf(selectedJoint);
-    const selected=segmentOnly?joints.slice(Math.min(at,joints.length-2),Math.min(at,joints.length-2)+2):joints;
-    copyRigJoints(selected,`Copy ${group.label} ${segmentOnly?'bone segment':'whole limb'} to matching side`);
+  // Limbs that come in a near/far pair, from the rig's own joint groups
+  // (biped: Arms, Legs; quadruped: Front legs, Rear legs).
+  function limbPairs(desc){
+    const groups=desc?.jointGroups||[],out=[];
+    for(const near of groups){
+      const id=String(near.id||'');if(!id.endsWith('Near'))continue;
+      const far=groups.find(g=>g.id===id.slice(0,-4)+'Far');if(!far)continue;
+      const base=String(near.label||id).replace(/\bNear\b/,'').replace(/\s+/g,' ').trim();
+      const name=/(Arm|Leg)$/.test(base)?`${base}s`:`${base} legs`;
+      out.push({id:id.slice(0,-4),name,near,far});
+    }
+    return out;
   }
-
-  function pairCopy(direction){
-    editRig(direction === 'nearFar' ? 'Copy both near limbs to far' : 'Copy both far limbs to near', (rig,desc) => {
-      for (const pair of desc?.symmetryPairs || []) {
-        const src = direction === 'nearFar' ? pair[0] : pair[1];
-        const dst = direction === 'nearFar' ? pair[1] : pair[0];
-        if (rig.joints[src] && rig.joints[dst]) rig.joints[dst] = clone(rig.joints[src]);
+  const sideOfJoint=id=>String(id||'').includes('Near')?'near':String(id||'').includes('Far')?'far':'';
+  // Copy every paired joint of a limb from one side to the other.
+  function copyLimb(group,label){
+    copyRigJoints((group.joints||[]).filter(id=>symmetryPair(descriptorFor(state()),id)),label);
+  }
+  function copyAll(from){
+    editRig(`Copy all ${from} limbs to the ${from==='near'?'far':'near'} side`,(rig,desc)=>{
+      for(const pair of desc?.symmetryPairs||[]){
+        const src=from==='near'?pair[0]:pair[1],dst=from==='near'?pair[1]:pair[0];
+        if(rig.joints[src]&&rig.joints[dst])rig.joints[dst]=clone(rig.joints[src]);
       }
     });
+  }
+  function copyAction(kind,limb,from){
+    const desc=descriptorFor(state());
+    const to=from==='near'?'far':'near';
+    if(kind==='joint'){
+      const pair=selectedJoint&&symmetryPair(desc,selectedJoint);
+      if(pair)copyRigJoints([selectedJoint],`Copy ${labelFor(desc,selectedJoint)} to the ${sideOfJoint(pair.other)} side`);
+    }else if(kind==='limb'){
+      const group=limbGroup(desc,selectedJoint);
+      if(group)copyLimb(group,`Copy ${group.label} to the other side`);
+    }else if(kind==='pair'){
+      const pair=limbPairs(desc).find(p=>p.id===limb);
+      if(pair)copyLimb(from==='near'?pair.near:pair.far,`Copy ${from} ${pair.name.toLowerCase()} to the ${to} side`);
+    }else if(kind==='all'){
+      copyAll(from);
+    }
+  }
+  let copyRowsFor=null;
+  function renderCopy(desc){
+    const rows=section.querySelector('[data-copy-rows]');
+    if(copyRowsFor!==desc){
+      copyRowsFor=desc;
+      const pairs=limbPairs(desc);
+      const row=(label,kind,limb='')=>`<div class="animlab-rig-copy-row"><span>${label}</span>
+        <button type="button" class="animlab-side-near" data-copy="${kind}" data-limb="${limb}" data-from="near">Near → Far</button>
+        <button type="button" class="animlab-side-far" data-copy="${kind}" data-limb="${limb}" data-from="far">Far → Near</button></div>`;
+      rows.innerHTML=pairs.map(p=>row(p.name,'pair',p.id)).join('')+(pairs.length>1?row('All limbs','all'):'');
+    }
+    const pair=selectedJoint&&symmetryPair(desc,selectedJoint),group=pair&&limbGroup(desc,selectedJoint);
+    const joint=section.querySelector('[data-copy="joint"]'),limb=section.querySelector('[data-copy="limb"]');
+    const to=pair?sideOfJoint(pair.other):'';
+    joint.disabled=!pair;limb.disabled=!group;
+    joint.textContent=pair?`${labelFor(desc,selectedJoint)} → ${to} side`:'Selected joint';
+    limb.textContent=group?`${group.label} → ${to} side`:'Selected limb';
+    joint.title=pair?'':'Select a joint that has a pair (not Chest / Shoulder or Pelvis)';
   }
 
   function action(name){
@@ -333,26 +374,12 @@
       renderUI();
       return;
     }
-    if (name === 'copy-pair' && selectedJoint) {
-      const pair = symmetryPair(desc,selectedJoint);
-      if (!pair) return;
-      editRig(`Copy ${labelFor(desc,selectedJoint)} to pair`, rig => {
-        rig.joints[pair.other] = clone(rig.joints[selectedJoint]);
-      });
-    } else if (name === 'copy-segment') {
-      copySelectedRigLimb(true);
-    } else if (name === 'copy-limb') {
-      copySelectedRigLimb(false);
-    } else if (name === 'reset-joint' && selectedJoint) {
+    if (name === 'reset-joint' && selectedJoint) {
       const defaults = defaultRig(s);
       if (!defaults?.joints?.[selectedJoint]) return;
       editRig(`Reset ${labelFor(desc,selectedJoint)}`, rig => {
         rig.joints[selectedJoint] = clone(defaults.joints[selectedJoint]);
       });
-    } else if (name === 'near-far') {
-      pairCopy('nearFar');
-    } else if (name === 'far-near') {
-      pairCopy('farNear');
     } else if (name === 'ground') {
       editRig('Set feet to ground', rig => {
         for (const id of desc.groundContacts || []) if (rig.joints[id]) rig.joints[id].y = 0;
@@ -372,6 +399,8 @@
     const axisButton = ev.target.closest('[data-axis]');
     if (axisButton) { axis = axisButton.dataset.axis; renderUI(); return; }
     if (ev.target.closest('[data-fine]')) { fine = !fine; renderUI(); return; }
+    const copyButton = ev.target.closest('[data-copy]');
+    if (copyButton) { copyAction(copyButton.dataset.copy,copyButton.dataset.limb,copyButton.dataset.from); return; }
     const actionButton = ev.target.closest('[data-action]');
     if (actionButton) action(actionButton.dataset.action);
   });

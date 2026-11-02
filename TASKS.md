@@ -54,6 +54,9 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0c. Rig copy buttons (2 Nov)**
+- [ ] Rig → *Copy to the other side*: Arms / Legs / All limbs Near → Far and Far → Near copy just that (Fox: Front legs / Rear legs); Selected joint / limb say what they copy and are off for Chest / Shoulder and Pelvis; Undo puts it back.
+
 **0b. Biped hands (2 Nov)** — Character01
 - [ ] Rig → Near Arm / Far Arm each list Hand; the hand joint starts just past the wrist and moves on its own.
 - [ ] Animate → Near Hand / Far Hand: moving still moves the wrist; rotating turns the hand; Save, reopen, still there; plays in Quick Play and the game.
