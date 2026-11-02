@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Fixed: a second "ghost" knee (or elbow) next to the joint in Rig on a nearly
+  straight leg or arm, jumping about as the joint moved. The skeleton never let a
+  limb straighten fully, forcing a ~1–1.5 cm bend that flipped front/back as the
+  knee crossed the hip–ankle line. The rest pose (Rig, Skin binding) now lets a
+  limb straighten, so every joint sits exactly on the rig; animation keeps its soft
+  bend at full reach, so the heroes' walk, run and jump are unchanged (checked
+  frame by frame). A biped skin bound on a straight leg follows the corrected
+  knee, a difference of about 1 cm.
 - Rig Designer: the copy buttons are now one clear *Copy to the other side* box —
   Selected joint / Selected limb (labelled with what they copy), then Arms, Legs
   (Fox: Front legs, Rear legs) and All limbs, each Near → Far or Far → Near.
