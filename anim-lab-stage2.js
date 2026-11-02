@@ -16,8 +16,10 @@
       {id:'chest',label:'Chest / Lean',group:'Core',point:'chest',rotate:{key:'lean',min:-60*DEG,max:60*DEG}},
       {id:'spine',label:'Spine Bend',group:'Core',point:'spine',rotate:{key:'spineBend',min:-60*DEG,max:60*DEG}},
       {id:'nearFoot',label:'Near Foot',group:'Near Side',point:'aAnkle',pair:'farFoot',move:{x:{key:'aFootX',min:-.7,max:.7,sign:1},y:{key:'aFootLift',min:0,max:.6,sign:1}},rotate:{key:'aFootAngle',min:-80*DEG,max:80*DEG}},
+      {id:'nearToe',label:'Near Toes',group:'Near Side',point:'aBall',pair:'farToe',rotate:{key:'aToeBend',min:-70*DEG,max:70*DEG}},
       {id:'nearHand',label:'Near Hand',group:'Near Side',point:'aW',pair:'farHand',move:{x:{key:'aHandX',min:-.75,max:.75,sign:1},y:{key:'aHandY',min:-.75,max:.75,sign:-1}},rotate:{key:'aHandAngle',min:-120*DEG,max:120*DEG}},
       {id:'farFoot',label:'Far Foot',group:'Far Side',point:'bAnkle',pair:'nearFoot',move:{x:{key:'bFootX',min:-.7,max:.7,sign:1},y:{key:'bFootLift',min:0,max:.6,sign:1}},rotate:{key:'bFootAngle',min:-80*DEG,max:80*DEG}},
+      {id:'farToe',label:'Far Toes',group:'Far Side',point:'bBall',pair:'nearToe',rotate:{key:'bToeBend',min:-70*DEG,max:70*DEG}},
       {id:'farHand',label:'Far Hand',group:'Far Side',point:'bW',pair:'nearHand',move:{x:{key:'bHandX',min:-.75,max:.75,sign:1},y:{key:'bHandY',min:-.75,max:.75,sign:-1}},rotate:{key:'bHandAngle',min:-120*DEG,max:120*DEG}},
       {id:'hairBase',label:'Hair Base',group:'Secondary',point:'hairRoot',rotate:{key:'hairAngle',min:20*DEG,max:200*DEG}},
       {id:'hairTip',label:'Hair Bend',group:'Secondary',point:'hairTip',rotate:{key:'hairBend',min:-100*DEG,max:100*DEG}}
@@ -105,7 +107,7 @@
             </div>
           </div>
         </div>
-        <button type="button" id="animlab-control-path" aria-pressed="false">Motion path: Off</button>
+
       </div>
       <div class="animlab-precision" id="animlab-precision" hidden>
         <div class="animlab-precision-tools">
@@ -463,12 +465,19 @@
   const controlChannels=control=>[control?.move?.x?.key,control?.move?.y?.key,control?.rotate?.key].filter(Boolean);
   const keyedFor=(key,channels)=>channels.some(c=>Rig().keyHasChannel(key,c));
   function renderControlKeys(state,control){
-    pathBtn.hidden=!control;pathBtn.textContent=`Motion path: ${showPath?'On':'Off'}`;pathBtn.setAttribute('aria-pressed',String(showPath));pathBtn.classList.toggle('active',showPath);
     const on=state.family==='biped'&&!!Rig()?.KEY_CHANNELS&&!!control;
     controlKeysBox.hidden=!on;if(!on)return;
     const showPlanted=['root','nearFoot','farFoot'].includes(control.id);
     plantedBox.hidden=!showPlanted;
-    if(showPlanted){const now=state.pose?.planted||'';for(const b of plantedBox.querySelectorAll('[data-planted]')){const active=b.dataset.planted===now;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}}
+    if(showPlanted){
+      // Automatic contact (Key Pose Tools → Foot contact) works it out from the feet.
+      const auto=state.sparseClip?.contact==='auto';
+      plantedBox.querySelector('.animlab-channel-readout').textContent=auto
+        ?'Foot contact is automatic for this clip: a foot is planted while it touches the floor.'
+        :'Foot planted on the ground from this frame (the pelvis can\'t rise above its reach):';
+      const now=state.pose?.planted||'';
+      for(const b of plantedBox.querySelectorAll('[data-planted]')){const active=!auto&&b.dataset.planted===now;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));b.disabled=auto;}
+    }
     const channels=controlChannels(control),keys=state.sparseClip?.keys||[];
     const frames=keys.filter(k=>keyedFor(k,channels)).map(k=>k.frame+1);
     const here=keys.find(k=>k.frame===state.frame);
@@ -476,9 +485,8 @@
     keyDeleteBtn.disabled=!here||!keyedFor(here,channels);
     keyOnlyBtn.disabled=frames.length===1&&frames[0]===state.frame+1;
   }
-  const plantedBox=$('animlab-control-planted'),pathBtn=$('animlab-control-path');
-  let showPath=false;
-  pathBtn.addEventListener('click',()=>{showPath=!showPath;render(core.getState(),false);core.redraw();});
+  const plantedBox=$('animlab-control-planted');
+  // Motion path: Display → Motion Path.
   // Planted foot: a contact setting of the key on this frame (made if missing;
   // it holds until the next key).
   plantedBox.addEventListener('click',ev=>{
@@ -615,7 +623,7 @@
     const control=controls.find(c=>c.id===selectedId);
     if(!control || currentMode!=='animate')return;
     // The character's own rig (the default proportions put the dot elsewhere).
-    if(showPath)drawMotionPath(ctx,control,adapter,view,project);
+    if(core.getOverlay?.('path'))drawMotionPath(ctx,control,adapter,view,project);
     const point=adapter.rig.geometry(pose,restRig)?.[control.point];if(!point)return;
     const p=project(point,view),side=control.side||'';ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,Math.max(4,Math.min(7,view.scale*.012)),0,Math.PI*2);
     ctx.fillStyle=side==='far'?'rgba(188,197,199,.18)':side==='near'?'rgba(126,216,199,.22)':'rgba(111,143,137,.25)';ctx.fill();

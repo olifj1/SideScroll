@@ -75,11 +75,14 @@
     // Saved before bone lists: the group's bones that the saved shape covers
     // (bones added to a rig later — hands, upper back — have no joint line or
     // rectangle in it, and would make the shape invalid to edit).
-    const group=groupBones(binding?.group);
+    // (Every bone between the group's joints, as groups were before they could
+    // list bones: older shapes may use the Whole Back / Whole Foot bones.)
+    const groupJoints=new Set(groups.find(g=>g.id===binding?.group)?.joints||[]);
+    const group=bones.map((b,i)=>groupJoints.has(b.a)&&groupJoints.has(b.b)?i:-1).filter(i=>i>=0);
     const lines=binding?.envelopeMode==='joint-boundaries-v1'&&binding.jointBoundaries;
     const rects=binding?.envelopeMode==='rect-binary-v1'&&binding.rectangles;
     const described=lines?group.filter(i=>lines[bones[i].a]&&lines[bones[i].b]):rects?group.filter(i=>rects[i]):group;
-    return described.length?described:group;
+    return described.length?described:groupBones(binding?.group);
   }
   // A preset group whose bones are exactly this list, else 'custom'.
   function groupFor(list){

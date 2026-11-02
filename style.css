@@ -15492,3 +15492,9 @@ body[data-game-id="game-17"] .animlab-key-simplify{display:flex;flex-direction:c
 body[data-game-id="game-17"] .animlab-control-keys{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
 
 body[data-game-id="game-17"] .animlab-mesh-perf{margin-top:4px;font-size:9px;color:rgba(238,243,241,.6);}
+
+/* Key Pose Tools: Simplify keys and Foot contact match the other tool buttons. */
+body[data-game-id="game-17"] .animlab-key-simplify button,body[data-game-id="game-17"] #animlab-contact-mode button{min-height:32px;padding:4px 8px;border-radius:8px;border:1px solid rgba(238,243,241,.16);background:rgba(255,255,255,.05);color:#e8f5f0;font-size:9px;font-weight:850;}
+body[data-game-id="game-17"] .animlab-key-simplify button:disabled{opacity:.4;}
+body[data-game-id="game-17"] #animlab-contact-mode button.active{border-color:rgba(143,207,197,.55);background:rgba(118,158,149,.22);}
+body[data-game-id="game-17"] .animlab-contact-box{display:flex;flex-direction:column;gap:4px;margin-top:6px;}

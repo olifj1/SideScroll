@@ -223,7 +223,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const keys=['pelvisY','lean','aFootX','aFootLift','aFootAngle','bFootX','bFootLift','bFootAngle','aHandX','aHandY','bHandX','bHandY','hairAngle','hairBend'];
     const out={name,planted:a.planted,travel:lerp(a.travel,travelB,t),key:false};
     keys.forEach(k=>out[k]=lerp(a[k],b[k],t));
-    for(const k of ['aHandAngle','bHandAngle','spineBend','pelvisX'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
+    for(const k of ['aHandAngle','bHandAngle','spineBend','pelvisX','aToeBend','bToeBend'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
     if(out.planted==='A') out.aFootLift=0;
     if(out.planted==='B') out.bFootLift=0;
     return out;
@@ -319,6 +319,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       spineBend:Number.isFinite(p?.spineBend)?p.spineBend:0,
       // Root left/right (metres, + = forward) over the feet; older clips have none.
       pelvisX:Number.isFinite(p?.pelvisX)?p.pelvisX:0,
+      aToeBend:Number.isFinite(p?.aToeBend)?p.aToeBend:0,
+      bToeBend:Number.isFinite(p?.bToeBend)?p.bToeBend:0,
       aHandAngle:Number.isFinite(p?.aHandAngle)?p.aHandAngle:0,
       bHandAngle:Number.isFinite(p?.bHandAngle)?p.bHandAngle:0,
       key:i%2===0
@@ -380,6 +382,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   // Hand (wrist → fingertips), added 2 Nov 2026. Rigs saved before then have no
   // hand joint: it is placed this far straight on from their wrist.
   const DEFAULT_HAND_LENGTH=0.07;
+  // Ball of the foot (toe bend), added 2 Nov 2026: on rigs saved before, placed
+  // this far along the sole from heel to toe.
+  const DEFAULT_BALL_AT=0.7;
   function buildDefaultRestRig(){
     const legY=BODY.ankleHeight+BODY.upperLeg+BODY.lowerLeg;
     const pelvis={x:0,y:legY},chest={x:0,y:legY+BODY.torso},spine={x:0,y:legY+BODY.torso/2};
@@ -390,8 +395,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const elbow={x:0,y:chest.y-BODY.upperArm},wrist={x:0,y:elbow.y-BODY.lowerArm},hand={x:0,y:wrist.y-DEFAULT_HAND_LENGTH};
     const knee={x:0,y:pelvis.y-BODY.upperLeg},ankle={x:0,y:BODY.ankleHeight};
     const heel={x:-BODY.ankleForward,y:0},toe={x:BODY.foot-BODY.ankleForward,y:0};
+    const ball={x:heel.x+(toe.x-heel.x)*DEFAULT_BALL_AT,y:0};
     const side=S=>({[`elbow${S}`]:{...elbow},[`wrist${S}`]:{...wrist},[`hand${S}`]:{...hand},[`knee${S}`]:{...knee},
-      [`ankle${S}`]:{...ankle},[`heel${S}`]:{...heel},[`toe${S}`]:{...toe}});
+      [`ankle${S}`]:{...ankle},[`heel${S}`]:{...heel},[`ball${S}`]:{...ball},[`toe${S}`]:{...toe}});
     return {schema:REST_SCHEMA,family:'biped',joints:{pelvis,spine,chest,neck,head,headTop,hairRoot,hairMid,hairTip,...side('Near'),...side('Far')}};
   }
   const DEFAULT_REST_RIG=Object.freeze(buildDefaultRestRig());
@@ -406,13 +412,15 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       Object.freeze({id:'hair',label:'Hair',joints:Object.freeze(['hairRoot','hairMid','hairTip'])}),
       Object.freeze({id:'armNear',label:'Near Arm',joints:Object.freeze(['chest','elbowNear','wristNear','handNear'])}),
       Object.freeze({id:'armFar',label:'Far Arm',joints:Object.freeze(['chest','elbowFar','wristFar','handFar'])}),
-      Object.freeze({id:'legNear',label:'Near Leg',joints:Object.freeze(['pelvis','kneeNear','ankleNear','heelNear','toeNear'])}),
-      Object.freeze({id:'legFar',label:'Far Leg',joints:Object.freeze(['pelvis','kneeFar','ankleFar','heelFar','toeFar'])})
+      Object.freeze({id:'legNear',label:'Near Leg',joints:Object.freeze(['pelvis','kneeNear','ankleNear','heelNear','ballNear','toeNear']),
+        bones:Object.freeze([['pelvis','kneeNear'],['kneeNear','ankleNear'],['ankleNear','ballNear'],['ballNear','toeNear']].map(Object.freeze))}),
+      Object.freeze({id:'legFar',label:'Far Leg',joints:Object.freeze(['pelvis','kneeFar','ankleFar','heelFar','ballFar','toeFar']),
+        bones:Object.freeze([['pelvis','kneeFar'],['kneeFar','ankleFar'],['ankleFar','ballFar'],['ballFar','toeFar']].map(Object.freeze))})
     ]),
     labels:Object.freeze({pelvis:'Pelvis',spine:'Spine',chest:'Chest / Shoulder',neck:'Neck',head:'Head',headTop:'Head Top',
       hairRoot:'Hair Root',hairMid:'Hair Mid',hairTip:'Hair Tip',
       elbowNear:'Elbow',wristNear:'Wrist',handNear:'Hand',elbowFar:'Elbow',wristFar:'Wrist',handFar:'Hand',
-      kneeNear:'Knee',ankleNear:'Ankle',heelNear:'Heel',toeNear:'Toe',kneeFar:'Knee',ankleFar:'Ankle',heelFar:'Heel',toeFar:'Toe'}),
+      kneeNear:'Knee',ankleNear:'Ankle',heelNear:'Heel',ballNear:'Ball',toeNear:'Toe',kneeFar:'Knee',ankleFar:'Ankle',heelFar:'Heel',ballFar:'Ball',toeFar:'Toe'}),
     boneLinks:Object.freeze([
       // The whole back in one bone; skins bound before the Spine joint use it.
       // Not drawn in the Rig Designer (Lower / Upper Back show the spine).
@@ -427,18 +435,23 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       Object.freeze({a:'elbowFar',b:'wristFar',label:'Far Forearm'}),
       Object.freeze({a:'pelvis',b:'kneeNear',label:'Near Thigh'}),
       Object.freeze({a:'kneeNear',b:'ankleNear',label:'Near Shin'}),
-      Object.freeze({a:'ankleNear',b:'toeNear',label:'Near Foot'}),
+      Object.freeze({a:'ankleNear',b:'toeNear',label:'Near Whole Foot',overlay:false}),
       Object.freeze({a:'pelvis',b:'kneeFar',label:'Far Thigh'}),
       Object.freeze({a:'kneeFar',b:'ankleFar',label:'Far Shin'}),
-      Object.freeze({a:'ankleFar',b:'toeFar',label:'Far Foot'}),
+      Object.freeze({a:'ankleFar',b:'toeFar',label:'Far Whole Foot',overlay:false}),
       // Added later: Skin weights refer to bones by position, so new bones go last.
       Object.freeze({a:'wristNear',b:'handNear',label:'Near Hand'}),
       Object.freeze({a:'wristFar',b:'handFar',label:'Far Hand'}),
       Object.freeze({a:'pelvis',b:'spine',label:'Lower Back'}),
-      Object.freeze({a:'spine',b:'chest',label:'Upper Back'})
+      Object.freeze({a:'spine',b:'chest',label:'Upper Back'}),
+      // Toes (2 Nov 2026). The one-piece foot bones above stay for older skins.
+      Object.freeze({a:'ankleNear',b:'ballNear',label:'Near Sole'}),
+      Object.freeze({a:'ballNear',b:'toeNear',label:'Near Toes'}),
+      Object.freeze({a:'ankleFar',b:'ballFar',label:'Far Sole'}),
+      Object.freeze({a:'ballFar',b:'toeFar',label:'Far Toes'})
     ]),
     symmetryPairs:Object.freeze([['elbowNear','elbowFar'],['wristNear','wristFar'],['handNear','handFar'],['kneeNear','kneeFar'],
-      ['ankleNear','ankleFar'],['heelNear','heelFar'],['toeNear','toeFar']].map(Object.freeze)),
+      ['ankleNear','ankleFar'],['heelNear','heelFar'],['ballNear','ballFar'],['toeNear','toeFar']].map(Object.freeze)),
     groundContacts:Object.freeze(['heelNear','toeNear','heelFar','toeFar'])
   });
   function normalizedRestRig(value=null){
@@ -450,6 +463,13 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     // A rig saved before the Spine joint: halfway between pelvis and chest.
     if(!(Number.isFinite(Number(raw.spine?.x))&&Number.isFinite(Number(raw.spine?.y))))
       joints.spine={x:(joints.pelvis.x+joints.chest.x)/2,y:(joints.pelvis.y+joints.chest.y)/2};
+    // A rig saved before the ball joints: on the sole between heel and toe.
+    for(const S of ['Near','Far']){
+      const id=`ball${S}`;
+      if(Number.isFinite(Number(raw[id]?.x))&&Number.isFinite(Number(raw[id]?.y)))continue;
+      const h=joints[`heel${S}`],t=joints[`toe${S}`];
+      joints[id]={x:h.x+(t.x-h.x)*DEFAULT_BALL_AT,y:h.y+(t.y-h.y)*DEFAULT_BALL_AT};
+    }
     // A rig saved before hands existed: put each hand straight on from its forearm.
     for(const S of ['Near','Far']){
       const id=`hand${S}`;
@@ -482,7 +502,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       handTurn:Math.atan2(j[`hand${S}`].y-j[`wrist${S}`].y,j[`hand${S}`].x-j[`wrist${S}`].x)-Math.atan2(j[`wrist${S}`].y-j[`elbow${S}`].y,j[`wrist${S}`].x-j[`elbow${S}`].x),
       upperLeg:dist('pelvis',`knee${S}`),lowerLeg:dist(`knee${S}`,`ankle${S}`),
       ankleToHeel:{x:j[`heel${S}`].x-j[`ankle${S}`].x,y:j[`heel${S}`].y-j[`ankle${S}`].y},
-      ankleToToe:{x:j[`toe${S}`].x-j[`ankle${S}`].x,y:j[`toe${S}`].y-j[`ankle${S}`].y}});
+      ankleToToe:{x:j[`toe${S}`].x-j[`ankle${S}`].x,y:j[`toe${S}`].y-j[`ankle${S}`].y},
+      ankleToBall:{x:j[`ball${S}`].x-j[`ankle${S}`].x,y:j[`ball${S}`].y-j[`ankle${S}`].y},
+      ballToToe:{x:j[`toe${S}`].x-j[`ball${S}`].x,y:j[`toe${S}`].y-j[`ball${S}`].y}});
     // Spine directions and the pelvis's horizontal place come from the rest rig
     // too, so a rig that leans or is offset stands exactly on its joints at rest
     // (the default rig is upright at x = 0: the original bipeds are unchanged).
@@ -494,12 +516,16 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     return out;
   }
 
-  function footGeometry(heel,angle,dims=restLengths().near){
+  // toeBend (radians, + = toes up) turns the toes about the ball of the foot.
+  function footGeometry(heel,angle,dims=restLengths().near,toeBend=0){
     const ankleToHeel=rot(dims.ankleToHeel,angle);
     const ankle={x:heel.x-ankleToHeel.x,y:heel.y-ankleToHeel.y};
-    const ankleToToe=rot(dims.ankleToToe,angle);
-    const toe={x:ankle.x+ankleToToe.x,y:ankle.y+ankleToToe.y};
-    return {heel,ankle,toe};
+    const toBall=rot(dims.ankleToBall||dims.ankleToToe,angle);
+    const ball={x:ankle.x+toBall.x,y:ankle.y+toBall.y};
+    let toe;
+    if(toeBend&&dims.ballToToe){const t=rot(dims.ballToToe,angle+toeBend);toe={x:ball.x+t.x,y:ball.y+t.y};}
+    else{const ankleToToe=rot(dims.ankleToToe,angle);toe={x:ankle.x+ankleToToe.x,y:ankle.y+ankleToToe.y};}
+    return {heel,ankle,ball,toe};
   }
 
   function geometry(pose,restRig=activeRestRig){
@@ -509,18 +535,27 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     // A planted heel is authoritative.  Never lift it to satisfy IK.  Instead,
     // lower the pelvis by the tiny amount required to keep the planted ankle
     // within the two-bone leg's reachable circle.
+    // Automatic contact: a foot is planted while its lowest point (heel, ball or
+    // toe) is on the floor, from its own height, so curves decide the contact.
+    if(p.planted==='auto'){
+      const low=(x,lift,angle,dims,bend)=>{const f=footGeometry({x,y:lift},angle,dims,bend);return Math.min(f.heel.y,f.ball.y,f.toe.y);};
+      const la=low(p.aFootX,p.aFootLift,p.aFootAngle,A,p.aToeBend),lb=low(p.bFootX,p.bFootLift,p.bFootAngle,B,p.bToeBend),EPS=.004;
+      p.planted=la<=EPS&&(lb>EPS||la<=lb)?'A':lb<=EPS?'B':null;
+    }
     const aHeel={x:p.aFootX,y:p.planted==='A'?0:p.aFootLift};
     const bHeel={x:p.bFootX,y:p.planted==='B'?0:p.bFootLift};
-    let aFoot=footGeometry(aHeel,p.aFootAngle,A);
-    let bFoot=footGeometry(bHeel,p.bFootAngle,B);
+    let aFoot=footGeometry(aHeel,p.aFootAngle,A,p.aToeBend);
+    let bFoot=footGeometry(bHeel,p.bFootAngle,B,p.bToeBend);
 
     // A grounded foot may roll rather than being forced flat. Whichever end of
     // the foot is lowest becomes the floor contact: neutral gives heel+toe
     // contact; late stance keeps the toe pinned while the heel rises.
     const groundFoot=(f)=>{
-      const dy=-Math.min(f.heel.y,f.toe.y);
-      return {heel:{x:f.heel.x,y:f.heel.y+dy},ankle:{x:f.ankle.x,y:f.ankle.y+dy},toe:{x:f.toe.x,y:f.toe.y+dy}};
+      // The ball counts only when the toes bend (otherwise it lies on the sole).
+      const dy=-Math.min(f.heel.y,f.toe.y,...(f.bent?[f.ball.y]:[]));
+      return {...f,heel:{x:f.heel.x,y:f.heel.y+dy},ankle:{x:f.ankle.x,y:f.ankle.y+dy},ball:{x:f.ball.x,y:f.ball.y+dy},toe:{x:f.toe.x,y:f.toe.y+dy}};
     };
+    aFoot.bent=!!p.aToeBend;bFoot.bent=!!p.bToeBend;
     if(p.planted==='A') aFoot=groundFoot(aFoot);
     if(p.planted==='B') bFoot=groundFoot(bFoot);
 
@@ -562,7 +597,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     // physically planted on y=0 at all times.
     const shiftFoot=(f,newAnkle)=>{
       const dx=newAnkle.x-f.ankle.x,dy=newAnkle.y-f.ankle.y;
-      return {ankle:newAnkle,heel:{x:f.heel.x+dx,y:f.heel.y+dy},toe:{x:f.toe.x+dx,y:f.toe.y+dy}};
+      return {ankle:newAnkle,heel:{x:f.heel.x+dx,y:f.heel.y+dy},ball:{x:f.ball.x+dx,y:f.ball.y+dy},toe:{x:f.toe.x+dx,y:f.toe.y+dy}};
     };
     if(p.planted!=='A') aFoot=shiftFoot(aFoot,aLeg.target);
     if(p.planted!=='B') bFoot=shiftFoot(bFoot,bLeg.target);
@@ -587,13 +622,13 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     return {
       pose:p,pelvis,spine,chest,shoulder,neck,head,headTop,waist,dressHem,
       hairRoot,hairMid:h1,hairTip:h2,cloakMid,cloakTip,cloakFrontTip,
-      aK:aLeg.joint,aAnkle:aFoot.ankle,aHeel:aFoot.heel,aToe:aFoot.toe,
-      bK:bLeg.joint,bAnkle:bFoot.ankle,bHeel:bFoot.heel,bToe:bFoot.toe,
+      aK:aLeg.joint,aAnkle:aFoot.ankle,aHeel:aFoot.heel,aBall:aFoot.ball,aToe:aFoot.toe,
+      bK:bLeg.joint,bAnkle:bFoot.ankle,bHeel:bFoot.heel,bBall:bFoot.ball,bToe:bFoot.toe,
       aE:aArm.joint,aW:aArm.target,bE:bArm.joint,bW:bArm.target,aHand,bHand,
       // The same joints under the rest rig's joint names (RIG_DESIGNER), for
       // Skin and mesh drawing.
-      elbowNear:aArm.joint,wristNear:aArm.target,handNear:aHand,kneeNear:aLeg.joint,ankleNear:aFoot.ankle,heelNear:aFoot.heel,toeNear:aFoot.toe,
-      elbowFar:bArm.joint,wristFar:bArm.target,handFar:bHand,kneeFar:bLeg.joint,ankleFar:bFoot.ankle,heelFar:bFoot.heel,toeFar:bFoot.toe
+      elbowNear:aArm.joint,wristNear:aArm.target,handNear:aHand,kneeNear:aLeg.joint,ankleNear:aFoot.ankle,heelNear:aFoot.heel,ballNear:aFoot.ball,toeNear:aFoot.toe,
+      elbowFar:bArm.joint,wristFar:bArm.target,handFar:bHand,kneeFar:bLeg.joint,ankleFar:bFoot.ankle,heelFar:bFoot.heel,ballFar:bFoot.ball,toeFar:bFoot.toe
     };
   }
 
@@ -609,9 +644,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   // it sets them all (every older key). Each control is interpolated between
   // its own keys only, linearly or smoothly (clip.interpolation 'smooth').
   // Clips with no lists and linear tweening keep the original whole-key path.
-  const KEY_CHANNELS=Object.freeze(['pelvisY','pelvisX','lean','spineBend','aFootX','aFootLift','aFootAngle','bFootX','bFootLift','bFootAngle',
+  const KEY_CHANNELS=Object.freeze(['pelvisY','pelvisX','lean','spineBend','aFootX','aFootLift','aFootAngle','aToeBend','bFootX','bFootLift','bFootAngle','bToeBend',
     'aHandX','aHandY','aHandAngle','bHandX','bHandY','bHandAngle','hairAngle','hairBend']);
-  const ANGULAR=new Set(['lean','spineBend','aFootAngle','bFootAngle','aHandAngle','bHandAngle','hairAngle','hairBend']);
+  const ANGULAR=new Set(['lean','spineBend','aFootAngle','bFootAngle','aToeBend','bToeBend','aHandAngle','bHandAngle','hairAngle','hairBend']);
   const keyHasChannel=(key,c)=>!Array.isArray(key?.channels)||key.channels.includes(c);
   function validKeys(clip){
     return (Array.isArray(clip?.keys)?clip.keys:[]).filter(k=>Number.isInteger(k?.frame)&&k.frame>=0&&k.frame<16&&k.pose&&typeof k.pose==='object')
@@ -631,7 +666,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     p={length:raw.length,interpolation:clip.interpolation,keys,poses,lists,channels:keys.some(k=>Array.isArray(k.channels))};
     prepared.set(raw,p);return p;
   }
-  const usesChannelSampling=clip=>clip?.interpolation==='smooth'||!!prepare(clip)?.channels;
+  const usesChannelSampling=clip=>clip?.interpolation==='smooth'||clip?.contact==='auto'||!!prepare(clip)?.channels;
   function hermite(v0,v1,v2,v3,x0,x1,x2,x3,t){
     const span=Math.max(.0001,x2-x1),m1=(v2-v0)/Math.max(.0001,x2-x0),m2=(v3-v1)/Math.max(.0001,x3-x1),t2=t*t,t3=t2*t;
     return (2*t3-3*t2+1)*v1+(t3-2*t2+t)*span*m1+(-2*t3+3*t2)*v2+(t3-t2)*span*m2;
@@ -666,6 +701,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const travelB=afterFrame>=16?(Number(b.travel)||0)+1:Number(b.travel)||0;
     const out=interpolatePose(a,b,t,keys[bi].name||clip?.clip||'clip',travelB);
     for(const c of KEY_CHANNELS){const v=channelCurve(lists[c],f,smooth);if(v!==null)out[c]=v;}
+    // Automatic contact: geometry() plants a foot when it reaches the floor.
+    if(clip?.contact==='auto')out.planted='auto';
     if(out.planted==='A')out.aFootLift=0;
     if(out.planted==='B')out.bFootLift=0;
     // out is a fresh object built from normalised poses: no deep copy needed.
