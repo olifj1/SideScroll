@@ -15440,3 +15440,20 @@ body[data-game-id="game-17"] .animlab-session .animlab-scope:empty{display:none;
   body[data-game-id="game-17"] .animlab-topbar{gap:6px;}
   body[data-game-id="game-17"] .animlab-topbar .animlab-title small{display:none;}
 }
+
+/* Near / far sides (2 Nov 2026): far limbs are lavender everywhere (viewport
+   bones, Rig Designer, joint buttons) so they read apart from the teal near side
+   and the yellow selected joint. Display → Near side / Far side hide a side. */
+body[data-game-id="game-17"] .animlab-side-far>.animlab-control-group-title,
+body[data-game-id="game-17"] .animlab-rig-group.animlab-side-far>.animlab-rig-group-title{color:#c4a0ff;}
+body[data-game-id="game-17"] .animlab-control-cells button.animlab-side-far,
+body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-far{border-color:rgba(196,160,255,.32);color:#e3d4ff;background:rgba(196,160,255,.06);}
+body[data-game-id="game-17"] .animlab-control-cells button.animlab-side-far.active,
+body[data-game-id="game-17"] .animlab-rig-joints button.animlab-side-far.is-active{border-color:rgba(196,160,255,.72);background:rgba(196,160,255,.2);color:#f4edff;}
+body[data-game-id="game-17"] .animlab-display-switches button.animlab-side-near.active{border-color:rgba(126,216,199,.6);color:#c9f0e7;}
+body[data-game-id="game-17"] .animlab-display-switches button.animlab-side-far.active{border-color:rgba(196,160,255,.6);color:#e3d4ff;}
+body[data-game-id="game-17"] .animlab-rig-sides{display:grid;grid-template-columns:auto 1fr 1fr;align-items:center;gap:5px;}
+body[data-game-id="game-17"] .animlab-rig-sides span{font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgba(238,243,241,.6);}
+body[data-game-id="game-17"] .animlab-rig-sides button{min-height:30px;border-radius:8px;border:1px solid rgba(238,243,241,.16);background:rgba(255,255,255,.04);color:rgba(238,243,241,.55);font-size:10px;font-weight:850;}
+body[data-game-id="game-17"] .animlab-rig-sides button.animlab-side-near.active{border-color:rgba(126,216,199,.6);background:rgba(126,216,199,.14);color:#c9f0e7;}
+body[data-game-id="game-17"] .animlab-rig-sides button.animlab-side-far.active{border-color:rgba(196,160,255,.6);background:rgba(196,160,255,.16);color:#e3d4ff;}

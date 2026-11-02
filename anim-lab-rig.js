@@ -14,6 +14,11 @@
   section.innerHTML = `
     <div class="animlab-section-title">Rig Designer</div>
     <p class="animlab-rig-note">Edit the saved rest rig independently of the artwork. Use Joint, Segment, Limb or Both Legs to copy near/far; animation keys remain separate.</p>
+    <div class="animlab-rig-sides" role="group" aria-label="Show sides">
+      <span>Show</span>
+      <button type="button" class="animlab-side-near" data-rig-side="near" aria-pressed="true">Near side</button>
+      <button type="button" class="animlab-side-far" data-rig-side="far" aria-pressed="true">Far side</button>
+    </div>
     <div class="animlab-rig-board" aria-label="Rig joints"></div>
     <div class="animlab-rig-selected">
       <div class="animlab-rig-selected-title">No joint selected</div>
@@ -185,6 +190,11 @@
     const s = state();
     const active = isActive(s);
     section.hidden = !active;
+    // Same switches as Display → Near side / Far side.
+    for (const button of section.querySelectorAll('[data-rig-side]')) {
+      const on = core.getOverlay?.(button.dataset.rigSide) !== false;
+      button.classList.toggle('active',on); button.setAttribute('aria-pressed',String(on));
+    }
 
     if (active !== lastActive) {
       lastActive = active;
@@ -256,6 +266,13 @@
       return setup;
     });
   }
+
+  section.addEventListener('click', ev => {
+    const side = ev.target.closest('[data-rig-side]')?.dataset.rigSide;
+    if (!side || !core.setOverlay) return;
+    core.setOverlay(side, core.getOverlay(side) === false);
+    renderUI();
+  });
 
   function limbGroup(desc,id){
     // Rig-family metadata, not a hard-coded quadruped list, owns limb membership.
@@ -510,9 +527,11 @@
     const {ctx,view,project} = args;
     if (!ctx || !view || typeof project !== 'function') return;
 
+    // A side hidden in Display (Near side / Far side) is neither drawn nor tappable.
+    const shown=id=>{const side=String(id||'');return !((side.includes('Near')&&core.getOverlay?.('near')===false)||(side.includes('Far')&&core.getOverlay?.('far')===false));};
     const points = rig.joints;
     const screenPoints={};
-    for (const [id,p] of Object.entries(points)) screenPoints[id]=project(p,view);
+    for (const [id,p] of Object.entries(points)) if (shown(id)) screenPoints[id]=project(p,view);
     lastRender={view,screenPoints};
 
     ctx.save();
@@ -539,7 +558,7 @@
       const p0=screenPoints[a],p1=screenPoints[b];
       if (!p0||!p1) continue;
       const side=sideOf(a)||sideOf(b);
-      ctx.strokeStyle=side==='near'?'rgba(126,216,199,.95)':side==='far'?'rgba(188,197,199,.76)':'rgba(220,228,236,.88)';
+      ctx.strokeStyle=side==='near'?'rgba(126,216,199,.95)':side==='far'?'rgba(196,160,255,.9)':'rgba(220,228,236,.88)';
       ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
     }
 
@@ -547,8 +566,8 @@
     for (const [id,p] of Object.entries(screenPoints)) {
       const active=id===selectedJoint,side=sideOf(id);
       ctx.globalAlpha=1;
-      ctx.fillStyle=active?'rgba(255,196,92,1)':side==='near'?'rgba(31,49,50,.98)':side==='far'?'rgba(91,101,104,.96)':'rgba(44,54,64,.96)';
-      ctx.strokeStyle=active?'rgba(255,239,195,1)':side==='near'?'rgba(126,216,199,.98)':side==='far'?'rgba(210,218,220,.96)':'rgba(238,244,249,.95)';
+      ctx.fillStyle=active?'rgba(255,196,92,1)':side==='near'?'rgba(31,49,50,.98)':side==='far'?'rgba(58,44,84,.98)':'rgba(44,54,64,.96)';
+      ctx.strokeStyle=active?'rgba(255,239,195,1)':side==='near'?'rgba(126,216,199,.98)':side==='far'?'rgba(214,190,255,.98)':'rgba(238,244,249,.95)';
       ctx.lineWidth=Math.max(.75,Math.min(1.35,canvas.width/1250));
       ctx.beginPath();ctx.arc(p.x,p.y,active?r*1.23:r,0,Math.PI*2);ctx.fill();ctx.stroke();
       if (active) {

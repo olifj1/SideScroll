@@ -15,6 +15,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
   the selected joint, otherwise takes the near one (it used to grab the far one);
   tapping again without dragging switches to the next joint there. Viewport labels
   say which side (e.g. "Elbow · far").
+- Character Lab: far limbs are now lavender (near stays teal) in the viewport bones,
+  the Rig Designer and the joint buttons; *Near side* / *Far side* switches (Display
+  panel, and at the top of the Rig Designer) hide a side's bones and joints so they
+  can't be tapped. View only; both sides show again whenever Character Lab opens.
 - Character Lab: Undo, Redo and Discard now sit in the top bar next to the
   Saved/Unsaved badge, so they are always to hand. The small "i" help button (which
   had wrapped out of the top bar and floated over the left panel) is removed.

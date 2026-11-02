@@ -953,7 +953,8 @@
   quadrupedShapeReference.onerror = () => console.error('[Anim Lab] Quadruped shape reference failed to load.');
   quadrupedShapeReference.src = (window.SideScrollAssetPath || (url => url))('quadruped-reference.png?v=1.0.163');
   const view = { zoom:1, panX:0, panY:0 };
-  const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false };
+  // near / far: show each side's limbs (view only, not saved; both on at load).
+  const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false, near:true, far:true };
   const pointers = new Map();
   const listeners = new Set();
   const sessionParticipants = new Map();
@@ -1981,9 +1982,11 @@
       const name=String(part.name||'');
       const near=name.startsWith('near_');
       const far=name.startsWith('far_');
-      const bone=near?`rgba(126,216,199,${.92*alpha})`:far?`rgba(188,197,199,${.72*alpha})`:`rgba(220,228,225,${.76*alpha})`;
-      const jointFill=near?`rgba(31,49,50,${.96*alpha})`:far?`rgba(91,101,104,${.92*alpha})`:`rgba(245,241,236,${.94*alpha})`;
-      const jointStroke=near?`rgba(126,216,199,${.98*alpha})`:far?`rgba(206,214,216,${.92*alpha})`:`rgba(47,61,66,${.85*alpha})`;
+      if((near&&!overlays.near)||(far&&!overlays.far))continue;
+      // Near = teal, far = lavender (same colours as the Rig Designer).
+      const bone=near?`rgba(126,216,199,${.92*alpha})`:far?`rgba(196,160,255,${.88*alpha})`:`rgba(220,228,225,${.76*alpha})`;
+      const jointFill=near?`rgba(31,49,50,${.96*alpha})`:far?`rgba(58,44,84,${.94*alpha})`:`rgba(245,241,236,${.94*alpha})`;
+      const jointStroke=near?`rgba(126,216,199,${.98*alpha})`:far?`rgba(214,190,255,${.96*alpha})`:`rgba(47,61,66,${.85*alpha})`;
       const A=project(part.a,sv), B=project(part.b,sv);
       ctx.strokeStyle=bone;ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
       ctx.fillStyle=jointFill;ctx.strokeStyle=jointStroke;

@@ -58,6 +58,7 @@ app and make a Project Backup.
 - [ ] In Rig, move Chest / Shoulder, an elbow and a wrist: only the bones attached to that joint move; nothing swings the opposite way.
 - [ ] Where near and far joints overlap (knees, feet), dragging moves the near one; tap (no drag) again to switch to the far one; the label above it says near/far.
 - [ ] Hero 1 / Hero 2 still look and animate exactly as before, in Character Lab and the game.
+- [ ] Far limbs are lavender, near teal (viewport and joint buttons). *Show: Near side / Far side* (top of Rig Designer, also in Display) hides a side and its joints can't be grabbed; works on the Fox too.
 
 **0. Character Lab top bar** (1 Nov)
 - [ ] Undo, Redo and Discard sit in the top bar beside the Saved badge, nothing overlaps (portrait and landscape), and the floating "i" button is gone.
