@@ -654,7 +654,7 @@
       foundationVersion:String(raw?.foundationVersion || ''),
       interpolation:raw?.interpolation === 'linear' || raw?.interpolation === 'smooth' ? raw.interpolation : (family === 'quadruped' ? 'smooth' : 'linear'),
       // Biped foot contact: 'auto' plants a foot when it reaches the floor; absent = from the keys.
-      ...(family === 'biped' && raw?.contact === 'auto' ? {contact:'auto'} : {}),
+      ...(family === 'biped' && (raw?.contact === 'auto' || raw?.contact === 'off') ? {contact:raw.contact} : {}),
       keys
     };
   }

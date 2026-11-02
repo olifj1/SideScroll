@@ -666,7 +666,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     p={length:raw.length,interpolation:clip.interpolation,keys,poses,lists,channels:keys.some(k=>Array.isArray(k.channels))};
     prepared.set(raw,p);return p;
   }
-  const usesChannelSampling=clip=>clip?.interpolation==='smooth'||clip?.contact==='auto'||!!prepare(clip)?.channels;
+  const usesChannelSampling=clip=>clip?.interpolation==='smooth'||clip?.contact==='auto'||clip?.contact==='off'||!!prepare(clip)?.channels;
   function hermite(v0,v1,v2,v3,x0,x1,x2,x3,t){
     const span=Math.max(.0001,x2-x1),m1=(v2-v0)/Math.max(.0001,x2-x0),m2=(v3-v1)/Math.max(.0001,x3-x1),t2=t*t,t3=t2*t;
     return (2*t3-3*t2+1)*v1+(t3-2*t2+t)*span*m1+(-2*t3+3*t2)*v2+(t3-t2)*span*m2;
@@ -703,6 +703,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     for(const c of KEY_CHANNELS){const v=channelCurve(lists[c],f,smooth);if(v!==null)out[c]=v;}
     // Automatic contact: geometry() plants a foot when it reaches the floor.
     if(clip?.contact==='auto')out.planted='auto';
+    // Contact off: no foot is pinned to the floor; feet move and turn freely.
+    if(clip?.contact==='off')out.planted=null;
     if(out.planted==='A')out.aFootLift=0;
     if(out.planted==='B')out.bFootLift=0;
     // out is a fresh object built from normalised poses: no deep copy needed.

@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): Foot contact **Off** (Key Pose Tools, per clip) — no foot is ever
+  pinned to the floor, so feet move and rotate freely and the pelvis isn't held by leg
+  reach. From keys (Planted foot per frame) and Automatic remain.
 - Animate (bipeds): **Foot contact: Automatic** (Key Pose Tools, per clip): a foot is
   planted while its lowest point touches the floor, so a foot with few keys follows
   its smooth curve instead of snapping down where a keyed contact starts. From keys
