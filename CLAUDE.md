@@ -231,6 +231,8 @@ Any new per-character storage must be added to `slicesFor()` there.
   keeps its own rest rig in its setup (original bipeds in `sidescroll.animlab.setup.v1`);
   the game reads it via `bipedRestRig()`. Bipeds have no original parts meshes, so a
   biped's Mesh is built from Atlas meshes only.
+- Skin weights refer to a rig's bones by their **position** in `RIG_DESIGNER.boneLinks`,
+  so new bones are only ever appended at the end (the biped hands were added last).
 - A character's drawing method (Parts / Mesh) is its Parts assembly's `enabled` flag.
   `anim-lab-mesh.js`'s old Skin Prototype is retired; the file only still builds the
   original parts' mesh (`window.AnimLabLegacyAtlas`) that Mesh drawing uses.

@@ -1992,6 +1992,16 @@
       ctx.fillStyle=jointFill;ctx.strokeStyle=jointStroke;
       ctx.beginPath(); ctx.arc(A.x,A.y,Math.max(1.6,Math.min(3.2,canvas.width*.0025)),0,Math.PI*2); ctx.fill(); ctx.stroke();
     }
+    // Biped hands (wrist → hand) are rig bones without a rigid piece of their own.
+    const g=adapter.id==='biped'&&adapter.rig.geometry?adapter.rig.geometry(pose,displayRestRig(adapter)):null;
+    for(const [side,w,h] of [['near','wristNear','handNear'],['far','wristFar','handFar']]){
+      if(!g?.[w]||!g?.[h]||!overlays[side])continue;
+      const A=project(g[w],sv),B=project(g[h],sv),near=side==='near';
+      ctx.strokeStyle=near?`rgba(126,216,199,${.92*alpha})`:`rgba(196,160,255,${.88*alpha})`;
+      ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();
+      ctx.fillStyle=near?`rgba(31,49,50,${.96*alpha})`:`rgba(58,44,84,${.94*alpha})`;ctx.strokeStyle=near?`rgba(126,216,199,${.98*alpha})`:`rgba(214,190,255,${.96*alpha})`;
+      ctx.beginPath();ctx.arc(B.x,B.y,Math.max(1.6,Math.min(3.2,canvas.width*.0025)),0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
     ctx.restore();
   }
 
