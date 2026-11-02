@@ -12,15 +12,15 @@
   const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
   const CONTROL_SETS = {
     biped: [
-      {id:'root',label:'Body / Root',group:'Core',point:'pelvis',move:{x:{key:'pelvisX',min:-.25,max:.25,sign:1},y:{key:'pelvisY',min:.25,max:.95,sign:1}},pair:null},
-      {id:'chest',label:'Chest / Lean',group:'Core',point:'chest',rotate:{key:'lean',min:-25*DEG,max:25*DEG}},
-      {id:'spine',label:'Spine Bend',group:'Core',point:'spine',rotate:{key:'spineBend',min:-40*DEG,max:40*DEG}},
-      {id:'nearFoot',label:'Near Foot',group:'Near Side',point:'aAnkle',pair:'farFoot',move:{x:{key:'aFootX',min:-.45,max:.45,sign:1},y:{key:'aFootLift',min:0,max:.28,sign:1}},rotate:{key:'aFootAngle',min:-50*DEG,max:50*DEG}},
-      {id:'nearHand',label:'Near Hand',group:'Near Side',point:'aW',pair:'farHand',move:{x:{key:'aHandX',min:-.34,max:.34,sign:1},y:{key:'aHandY',min:.18,max:.58,sign:-1}},rotate:{key:'aHandAngle',min:-90*DEG,max:90*DEG}},
-      {id:'farFoot',label:'Far Foot',group:'Far Side',point:'bAnkle',pair:'nearFoot',move:{x:{key:'bFootX',min:-.45,max:.45,sign:1},y:{key:'bFootLift',min:0,max:.28,sign:1}},rotate:{key:'bFootAngle',min:-50*DEG,max:50*DEG}},
-      {id:'farHand',label:'Far Hand',group:'Far Side',point:'bW',pair:'nearHand',move:{x:{key:'bHandX',min:-.34,max:.34,sign:1},y:{key:'bHandY',min:.18,max:.58,sign:-1}},rotate:{key:'bHandAngle',min:-90*DEG,max:90*DEG}},
-      {id:'hairBase',label:'Hair Base',group:'Secondary',point:'hairRoot',rotate:{key:'hairAngle',min:65*DEG,max:155*DEG}},
-      {id:'hairTip',label:'Hair Bend',group:'Secondary',point:'hairTip',rotate:{key:'hairBend',min:-65*DEG,max:65*DEG}}
+      {id:'root',label:'Body / Root',group:'Core',point:'pelvis',move:{x:{key:'pelvisX',min:-.5,max:.5,sign:1},y:{key:'pelvisY',min:.15,max:1.2,sign:1}},pair:null},
+      {id:'chest',label:'Chest / Lean',group:'Core',point:'chest',rotate:{key:'lean',min:-60*DEG,max:60*DEG}},
+      {id:'spine',label:'Spine Bend',group:'Core',point:'spine',rotate:{key:'spineBend',min:-60*DEG,max:60*DEG}},
+      {id:'nearFoot',label:'Near Foot',group:'Near Side',point:'aAnkle',pair:'farFoot',move:{x:{key:'aFootX',min:-.7,max:.7,sign:1},y:{key:'aFootLift',min:0,max:.6,sign:1}},rotate:{key:'aFootAngle',min:-80*DEG,max:80*DEG}},
+      {id:'nearHand',label:'Near Hand',group:'Near Side',point:'aW',pair:'farHand',move:{x:{key:'aHandX',min:-.75,max:.75,sign:1},y:{key:'aHandY',min:-.75,max:.75,sign:-1}},rotate:{key:'aHandAngle',min:-120*DEG,max:120*DEG}},
+      {id:'farFoot',label:'Far Foot',group:'Far Side',point:'bAnkle',pair:'nearFoot',move:{x:{key:'bFootX',min:-.7,max:.7,sign:1},y:{key:'bFootLift',min:0,max:.6,sign:1}},rotate:{key:'bFootAngle',min:-80*DEG,max:80*DEG}},
+      {id:'farHand',label:'Far Hand',group:'Far Side',point:'bW',pair:'nearHand',move:{x:{key:'bHandX',min:-.75,max:.75,sign:1},y:{key:'bHandY',min:-.75,max:.75,sign:-1}},rotate:{key:'bHandAngle',min:-120*DEG,max:120*DEG}},
+      {id:'hairBase',label:'Hair Base',group:'Secondary',point:'hairRoot',rotate:{key:'hairAngle',min:20*DEG,max:200*DEG}},
+      {id:'hairTip',label:'Hair Bend',group:'Secondary',point:'hairTip',rotate:{key:'hairBend',min:-100*DEG,max:100*DEG}}
     ],
     quadruped: [
       {id:'midRoot',label:'Mid Root',group:'Core',point:'midRoot',move:{y:{key:'bodyBob',min:-.055,max:.070,sign:1}}},
@@ -96,7 +96,16 @@
             <button type="button" id="animlab-control-key-delete">Delete key here</button>
             <button type="button" id="animlab-control-key-only">Keep only this key</button>
           </div>
+          <div class="animlab-control-planted" id="animlab-control-planted" hidden>
+            <div class="animlab-channel-readout">Foot planted on the ground from this frame (the pelvis can't rise above its reach):</div>
+            <div class="animlab-segmented animlab-three">
+              <button type="button" data-planted="A">Near</button>
+              <button type="button" data-planted="B">Far</button>
+              <button type="button" data-planted="">Neither</button>
+            </div>
+          </div>
         </div>
+        <button type="button" id="animlab-control-path" aria-pressed="false">Motion path: Off</button>
       </div>
       <div class="animlab-precision" id="animlab-precision" hidden>
         <div class="animlab-precision-tools">
@@ -454,14 +463,48 @@
   const controlChannels=control=>[control?.move?.x?.key,control?.move?.y?.key,control?.rotate?.key].filter(Boolean);
   const keyedFor=(key,channels)=>channels.some(c=>Rig().keyHasChannel(key,c));
   function renderControlKeys(state,control){
+    pathBtn.hidden=!control;pathBtn.textContent=`Motion path: ${showPath?'On':'Off'}`;pathBtn.setAttribute('aria-pressed',String(showPath));pathBtn.classList.toggle('active',showPath);
     const on=state.family==='biped'&&!!Rig()?.KEY_CHANNELS&&!!control;
     controlKeysBox.hidden=!on;if(!on)return;
+    const showPlanted=['root','nearFoot','farFoot'].includes(control.id);
+    plantedBox.hidden=!showPlanted;
+    if(showPlanted){const now=state.pose?.planted||'';for(const b of plantedBox.querySelectorAll('[data-planted]')){const active=b.dataset.planted===now;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}}
     const channels=controlChannels(control),keys=state.sparseClip?.keys||[];
     const frames=keys.filter(k=>keyedFor(k,channels)).map(k=>k.frame+1);
     const here=keys.find(k=>k.frame===state.frame);
     controlKeyInfo.textContent=frames.length?`${control.label} keyed on frame${frames.length===1?'':'s'} ${frames.join(', ')}`:`${control.label} has no keys: it follows the clip's other keys.`;
     keyDeleteBtn.disabled=!here||!keyedFor(here,channels);
     keyOnlyBtn.disabled=frames.length===1&&frames[0]===state.frame+1;
+  }
+  const plantedBox=$('animlab-control-planted'),pathBtn=$('animlab-control-path');
+  let showPath=false;
+  pathBtn.addEventListener('click',()=>{showPath=!showPath;render(core.getState(),false);core.redraw();});
+  // Planted foot: a contact setting of the key on this frame (made if missing;
+  // it holds until the next key).
+  plantedBox.addEventListener('click',ev=>{
+    const b=ev.target.closest('[data-planted]');if(!b)return;
+    const state=core.getState(),value=b.dataset.planted||null;
+    const pose=core.evaluateSparsePose(state.sparseClip,state.frame);
+    core.editSparseClip(`Planted foot: ${value==='A'?'near':value==='B'?'far':'neither'} from frame ${state.frame+1}`,clip=>{
+      let key=clip.keys.find(k=>k.frame===state.frame);
+      if(!key){key={frame:state.frame,name:`Key ${state.frame+1}`,pose:JSON.parse(JSON.stringify(pose)),channels:[]};clip.keys.push(key);clip.keys.sort((a,c)=>a.frame-c.frame);}
+      key.pose.planted=value;clip.source='sparse-authored';
+    });
+  });
+  // Motion path: where the selected control's point travels over the whole
+  // clip, with its key frames marked (computed once per clip change).
+  function drawMotionPath(ctx,control,adapter,view,project){
+    const path=core.samplePath?.(control.point);if(!path?.points?.length)return;
+    const side=control.side||(/^near|^a[A-Z]/.test(control.id)||String(control.point).startsWith('a')?'near':/^far|^b[A-Z]/.test(control.id)||String(control.point).startsWith('b')?'far':'');
+    const colour=side==='far'?'196,160,255':side==='near'?'126,216,199':'255,203,118';
+    const pts=path.points.map(p=>project(p,view));
+    ctx.save();ctx.lineWidth=Math.max(1.2,Math.min(2.2,view.scale*.004));ctx.strokeStyle=`rgba(${colour},.85)`;ctx.setLineDash([]);
+    ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.stroke();
+    const channels=controlChannels(control),keys=core.getState().sparseClip?.keys||[];
+    const keyed=new Set(keys.filter(k=>channels.some(c=>!window.GameHubWalkRig||window.GameHubWalkRig.keyHasChannel(k,c))).map(k=>k.frame));
+    path.frames.forEach((p,f)=>{const q=project(p,view),k=keyed.has(f);ctx.beginPath();ctx.arc(q.x,q.y,k?Math.max(3,view.scale*.006):Math.max(1.5,view.scale*.003),0,Math.PI*2);
+      ctx.fillStyle=k?'rgba(255,203,118,.95)':`rgba(${colour},.7)`;ctx.fill();});
+    ctx.restore();
   }
   const withoutChannels=(key,channels)=>{const list=Array.isArray(key.channels)?key.channels:[...Rig().KEY_CHANNELS];key.channels=list.filter(c=>!channels.includes(c));};
   keyDeleteBtn.addEventListener('click',()=>{
@@ -566,12 +609,14 @@
     input.addEventListener('pointercancel',()=>finishSlider(input));
   });
 
-  core.setPluginRenderer(({ctx,pose,adapter,view,project})=>{
+  core.setPluginRenderer(({ctx,pose,adapter,view,project,restRig})=>{
     const authored=adapter.rig?.POSE_CONTROL_DESIGNER?.controls;
     const controls=Array.isArray(authored)?authored:(CONTROL_SETS[adapter.id]||[]);
     const control=controls.find(c=>c.id===selectedId);
     if(!control || currentMode!=='animate')return;
-    const point=adapter.rig.geometry(pose)?.[control.point];if(!point)return;
+    // The character's own rig (the default proportions put the dot elsewhere).
+    if(showPath)drawMotionPath(ctx,control,adapter,view,project);
+    const point=adapter.rig.geometry(pose,restRig)?.[control.point];if(!point)return;
     const p=project(point,view),side=control.side||'';ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,Math.max(4,Math.min(7,view.scale*.012)),0,Math.PI*2);
     ctx.fillStyle=side==='far'?'rgba(188,197,199,.18)':side==='near'?'rgba(126,216,199,.22)':'rgba(111,143,137,.25)';ctx.fill();
     ctx.strokeStyle=side==='far'?'rgba(202,210,212,.92)':side==='near'?'rgba(126,216,199,.98)':'#5f817b';ctx.lineWidth=Math.max(.9,Math.min(1.5,view.scale*.003));ctx.stroke();ctx.restore();

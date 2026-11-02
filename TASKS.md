@@ -60,6 +60,11 @@ app and make a Project Backup.
 - [ ] Select Spine Bend, change it on one frame: only that control gets a key there (bright dot). **Keep only this key**: the spine holds that bend for the whole clip. **Delete key here** removes just that control's key.
 - [ ] Tween → **Smooth**: playback is smooth (no frame-to-frame stepping) and visibly eases compared with Linear, without slowing down; Save, reopen, still Smooth; same in Quick Play and the game.
 
+**0i. Animate limits, planted foot, motion path (2 Nov)** — Character01
+- [ ] A hand can be raised above the head; the Root handle sits on the pelvis and moves with it.
+- [ ] Root very high with a foot planted stops at leg reach; Planted foot → **Neither** lets it rise; Near / Far switches which foot holds.
+- [ ] **Motion path: On** shows the selected control's path over the clip with its keyed frames marked; Smooth vs Linear visibly changes the path's shape.
+
 **0g. Skin copy to the other side (2 Nov)** — Character01
 - [ ] Bind and tune the near arm and leg, then Skin → *Copy to the other side* → Arms / Legs Near → Far: the far parts get far bones, the same blend and joint lines, and bend the same way in the Walk preview. Far → Near and *Selected part → Copy skin* work too; Undo puts it back.
 
