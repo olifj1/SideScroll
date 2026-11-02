@@ -86,6 +86,78 @@
     const key=[...list].sort((a,b)=>a-b).join(',');
     return groups.find(g=>[...groupBones(g.id)].sort((a,b)=>a-b).join(',')===key)?.id||'custom';
   }
+  // ---- Near / far mirroring (Copy to the other side) ----------------------
+  function jointPair(id){
+    for(const [a,b] of rig?.RIG_DESIGNER?.symmetryPairs||[]){if(a===id)return b;if(b===id)return a;}
+    return id;
+  }
+  function mirrorBone(i){
+    const bone=bones[i];if(!bone)return i;
+    const a=jointPair(bone.a),b=jointPair(bone.b),k=bones.findIndex(x=>x.a===a&&x.b===b);
+    return k>=0?k:i;
+  }
+  const remapKeys=(obj,fn)=>obj&&typeof obj==='object'?Object.fromEntries(Object.entries(obj).map(([k,v])=>[fn(k),clone(v)])):obj;
+  const sideWord=t=>/\bnear\b|near/i.test(t)?'near':/\bfar\b|far/i.test(t)?'far':'';
+  // The binding's side, from its bones' joints.
+  function bindingSide(binding){
+    let near=0,far=0;
+    for(const i of bindingBones(binding)){const b=bones[i];const t=`${b?.a} ${b?.b}`;if(/Near/.test(t))near++;else if(/Far/.test(t))far++;}
+    return near>far?'near':far>near?'far':'';
+  }
+  // A part's partner on the other side: same name with Near ↔ Far swapped.
+  function partnerOf(item,parts,sources){
+    const name=label(item,sources),swapped=name.replace(/near|far/gi,m=>{const lower=m.toLowerCase()==='near'?'far':'near';return m[0]===m[0].toUpperCase()?lower[0].toUpperCase()+lower.slice(1):lower;});
+    if(swapped===name)return null;
+    return parts.find(p=>p.id!==item.id&&label(p,sources).toLowerCase()===swapped.toLowerCase())||null;
+  }
+  // The source's binding moved to the other side and fitted to the target part.
+  function mirroredBinding(src,srcItem,srcSource,item,source,geom){
+    const next=clone(src);
+    next.meshSignature=signature(source.mesh);
+    next.bones=[...new Set(bindingBones(src).map(mirrorBone))].sort((a,b)=>a-b);
+    next.group=groupFor(next.bones);
+    const boneKey=k=>String(mirrorBone(Number(k)));
+    if(next.rectangles)next.rectangles=remapKeys(src.rectangles,boneKey);
+    if(next.envelopes)next.envelopes=remapKeys(src.envelopes,boneKey);
+    if(next.boneProfiles)next.boneProfiles=remapKeys(src.boneProfiles,boneKey);
+    if(next.jointBoundaries)next.jointBoundaries=remapKeys(src.jointBoundaries,jointPair);
+    // Per-point edits carry over only between parts with the same mesh.
+    const sameMesh=signature(srcSource.mesh)===signature(source.mesh);
+    const mapRow=row=>(row||[]).map(([i,w])=>[mirrorBone(i),w]);
+    next.manualWeights=sameMesh?Object.fromEntries(Object.entries(src.manualWeights||{}).map(([k,row])=>[k,mapRow(row)])):{};
+    if(sameMesh){next.weights=(src.weights||[]).map(mapRow);next.baseWeights=(src.baseWeights||src.weights||[]).map(mapRow);}
+    const jointGeom=bindingGeometry(state().setup?.skinBindRig||state().setup?.rig||rig.DEFAULT_REST_RIG);
+    if(next.envelopeMode==='joint-boundaries-v1'){
+      if(updateJointWeights(next,item,source,jointGeom))return next;
+      // The copied lines don't fit this mesh: fit fresh ones, keep the blend.
+      next.jointBoundaries=fittedJointBoundaries(next,jointGeom,transformVertices(source.mesh,item,source.image));next.manualWeights={};
+      return updateJointWeights(next,item,source,jointGeom);
+    }
+    if(next.envelopeMode==='rect-binary-v1')return updateRectWeights(next,item,source,geom);
+    if(next.envelopeMode==='capsule-v1')return updateEnvelopeWeights(next,item,source,geom);
+    if(sameMesh)return next;
+    return createBinding(item,source,geom,'auto',next.bones);
+  }
+  // Copy each source part's skin to its partner, in one Undo step.
+  function copyToOtherSide(pairs,description){
+    const s=state(),sources=sourceMap(s),geom=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
+    const results=[],done=[];
+    for(const [from,to] of pairs){
+      const fs=sources.get(from.meshId),ts=sources.get(to.meshId),src=fs&&bindingFor(from,fs);
+      if(!src||!validSource(ts)||lockedParts.has(to.id)){results.push(`${label(from,sources)}: skipped`);continue;}
+      const next=mirroredBinding(src,from,fs,to,ts,geom);
+      if(next){done.push([to.id,next]);const left=next.weights.filter(r=>!r.length).length;
+        results.push(`${label(from,sources)} → ${label(to,sources)}${left?` (${left} point${left===1?'':'s'} not covered: widen its joint lines)`:''}`);}
+      else results.push(`${label(from,sources)} → ${label(to,sources)}: didn't fit`);
+    }
+    if(done.length)core.edit('setup',description,setup=>{
+      for(const [id,binding] of done){const t=setup.artLayout?.assembly?.instances?.find(p=>p.id===id);if(t)t.skinBinding=clone(binding);}
+      return setup;
+    });
+    liveBinding=null;liveItemId=null;
+    core.setHint?.(results.length?`Copied skin: ${results.join(' · ')}`:'Nothing to copy: bind the parts on that side first.');
+    refresh();core.redrawOnly?.();
+  }
   const sameBones=(a,b)=>[...a].sort((x,y)=>x-y).join(',')===[...b].sort((x,y)=>x-y).join(',');
   function pointSegmentDistance(p,a,b){
     if(!a||!b)return 1e6;
@@ -897,7 +969,16 @@
         <button type="button" data-bind-action="joint-fit" aria-pressed="false">Joint Fit: Off</button>
       </div>
       <div class="animlab-skin-legend" data-heat-legend hidden><span>0% · Blue</span><i></i><span>Red · 100%</span></div>
-      <p class="animlab-skin-note">Each vertex follows exactly one bone, with no softness. Weights are assigned in the rest pose; pose previews only show them.</p>
+      <p class="animlab-skin-note">Each vertex follows one bone (or two near a joint when Blend at joints is on). Weights are assigned in the rest pose; pose previews only show them.</p>
+      <section class="animlab-skin-copy" aria-label="Copy skin to the other side">
+        <div class="animlab-rig-copy-title">Copy to the other side</div>
+        <p class="animlab-skin-note">Bones switch side; joint lines and blend come along. Partners are found by name (Near ↔ Far).</p>
+        <div class="animlab-skin-copy-selected">
+          <label class="animlab-skin-group-select">Selected part to <select data-mirror-target aria-label="Part to copy the selected part's skin to"></select></label>
+          <button type="button" data-mirror="selected">Copy skin</button>
+        </div>
+        <div class="animlab-rig-copy-rows" data-mirror-rows></div>
+      </section>
       <details class="animlab-skin-assembly-vertex">
         <summary>Advanced · Individual vertex weights</summary>
         <div class="animlab-view-grid animlab-skin-assembly-actions">
@@ -935,6 +1016,36 @@
   const jointControls=[['width',panel.querySelector('[data-joint-width]')],['rotation',panel.querySelector('[data-joint-rotation]')],
     ['offsetX',panel.querySelector('[data-joint-offset-x]')],['offsetY',panel.querySelector('[data-joint-offset-y]')]];
   const weightInput=panel.querySelector('[data-v-weight]'),copySelect=panel.querySelector('[data-copy-target]');
+  const mirrorSelect=panel.querySelector('[data-mirror-target]'),mirrorRows=panel.querySelector('[data-mirror-rows]');
+  // Limbs in near/far pairs from the rig's groups (biped Arms, Legs; quadruped Front/Rear legs).
+  function limbPairs(){
+    const out=[];
+    for(const near of groups){const id=String(near.id||'');if(!id.endsWith('Near'))continue;
+      const far=groups.find(g=>g.id===id.slice(0,-4)+'Far');if(!far)continue;
+      const base=String(near.label||id).replace(/\bNear\b/,'').replace(/\s+/g,' ').trim();
+      out.push({id:id.slice(0,-4),name:/(Arm|Leg)$/.test(base)?`${base}s`:`${base} legs`,near:near.id,far:far.id});}
+    return out;
+  }
+  function renderMirror(s,item,sources,parts,binding,canEdit){
+    const sig=`${rig?.RIG_DESIGNER?.family}|${groups.length}`;
+    if(mirrorRows.dataset.signature!==sig){
+      mirrorRows.dataset.signature=sig;
+      const row=(label,limb)=>`<div class="animlab-rig-copy-row"><span>${label}</span>
+        <button type="button" class="animlab-side-near" data-mirror="limb" data-limb="${limb}" data-from="near">Near → Far</button>
+        <button type="button" class="animlab-side-far" data-mirror="limb" data-limb="${limb}" data-from="far">Far → Near</button></div>`;
+      const pairs=limbPairs();
+      mirrorRows.innerHTML=pairs.map(p=>row(p.name,p.id)).join('')+(pairs.length>1?row('All limbs',''):'');
+    }
+    const others=parts.filter(p=>p.id!==item?.id);
+    const digest=others.map(p=>p.id+label(p,sources)).join('|')+'|'+(item?.id||'');
+    if(mirrorSelect.dataset.signature!==digest){
+      mirrorSelect.dataset.signature=digest;mirrorSelect.replaceChildren();
+      for(const p of others){const o=document.createElement('option');o.value=p.id;o.textContent=label(p,sources);mirrorSelect.append(o);}
+      const partner=item&&partnerOf(item,parts,sources);if(partner)mirrorSelect.value=partner.id;
+    }
+    mirrorSelect.disabled=!canEdit||!binding||!others.length;
+    panel.querySelector('[data-mirror="selected"]').disabled=!canEdit||!binding||!mirrorSelect.value;
+  }
   const canvas=document.getElementById('animlab-canvas');
   // Bone groups belong to the current rig; rebuilt when the character's rig changes.
   function syncGroupOptions(){
@@ -1139,6 +1250,7 @@
       if(compatibles.some(p=>p.id===keep))copySelect.value=keep;
     }
     copySelect.disabled=!canWeight||!compatibles.length;
+    renderMirror(s,item,sources,parts,binding,canEdit);
     panel.querySelector('[data-bind-action="copy"]').disabled=!canWeight||!compatibles.length;
     for(const button of panel.querySelectorAll('[data-preview]')){
       button.classList.toggle('active',button.dataset.preview===preview);
@@ -1431,6 +1543,25 @@
         }
         commitBinding(item.id,binding,action==='reset-bone'?'Reset bone influence':action==='auto-vertex'?'Reset vertex weights':'Reset part weights');
       }
+    }
+    const mirror=event.target.closest('[data-mirror]');
+    if(mirror&&!mirror.disabled){
+      if(mirror.dataset.mirror==='selected'&&item){
+        const target=parts.find(p=>p.id===mirrorSelect.value);
+        if(target)copyToOtherSide([[item,target]],`Copy skin ${label(item,sources)} → ${label(target,sources)}`);
+      }else if(mirror.dataset.mirror==='limb'){
+        const from=mirror.dataset.from,limb=mirror.dataset.limb,pair=limbPairs().find(p=>p.id===limb);
+        const sideBones=new Set(pair?groupBones(pair[from]):[]);
+        // Bound parts on that side (of that limb), each with its partner by name.
+        const sourcesList=parts.filter(p=>{const b=bindingFor(p,sources.get(p.meshId));if(!b)return false;
+          const list=bindingBones(b);return pair?list.every(i=>sideBones.has(i)):bindingSide(b)===from;});
+        const pairs=[],missing=[];
+        for(const p of sourcesList){const t=partnerOf(p,parts,sources);if(t)pairs.push([p,t]);else missing.push(label(p,sources));}
+        if(pairs.length)copyToOtherSide(pairs,`Copy ${pair?pair.name.toLowerCase():'all limbs'} skin ${from} → ${from==='near'?'far':'near'}`);
+        else core.setHint?.(sourcesList.length?`No partner found for ${missing.join(', ')}: name parts with Near / Far (e.g. NearArm ↔ FarArm), or use Selected part.`:`No bound ${from} ${pair?pair.name.toLowerCase():'limb'} parts to copy.`);
+        if(pairs.length&&missing.length)core.setHint?.(`Copied ${pairs.length}; no partner for ${missing.join(', ')} (name it Near / Far, or use Selected part).`);
+      }
+      return;
     }
     if(action==='copy'&&item&&copySelect.value&&!lockedParts.has(item.id)){
       const original=bindingFor(item,sources.get(item.meshId));
