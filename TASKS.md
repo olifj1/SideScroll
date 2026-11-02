@@ -54,6 +54,9 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0g. Skin copy to the other side (2 Nov)** — Character01
+- [ ] Bind and tune the near arm and leg, then Skin → *Copy to the other side* → Arms / Legs Near → Far: the far parts get far bones, the same blend and joint lines, and bend the same way in the Walk preview. Far → Near and *Selected part → Copy skin* work too; Undo puts it back.
+
 **0f. Free binding, blend, spine (2 Nov)** — Character01
 - [ ] Skin → *Bones this part follows*: tap bones on/off (or a Preset), **Bind to these bones**. Head on Neck + Head; Body on Lower Back + Upper Back; whole part covered (status shows no unassigned points).
 - [ ] **Blend at joints**: raise it on an arm and the body; in the Walk preview the elbow and waist bend smoothly instead of hinging. Save, reopen, still there; same in Quick Play and the game.

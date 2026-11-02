@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Skin: **Copy to the other side** (same layout as the Rig Designer's): Selected part
+  → any part, plus Arms / Legs / All limbs, Near → Far or Far → Near. Bones switch
+  side, joint lines, blend and shape settings come along, and the weights are worked
+  out again on the partner's own mesh (per-point edits too when both parts share a
+  mesh). Partners are found by name (NearArm ↔ FarArm, LegNear ↔ LegFar); the message
+  says if any points end up uncovered.
 - Skin: **choose any bones for a part.** *Bones this part follows* lists every bone
   of the rig under its group; tap to add or remove, start from a *Preset* (the old
   groups), then **Bind to these bones** (e.g. a head mesh on Neck + Head only, a
