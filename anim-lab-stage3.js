@@ -71,6 +71,22 @@
       <button type="button" data-tween="smooth">Smooth</button>
       <button type="button" data-tween="linear">Linear</button>
     </div>
+    <div class="animlab-limb-copy" id="animlab-limb-copy-box">
+      <div class="animlab-convert-head"><strong>Copy a limb to the other side</strong></div>
+      <div class="animlab-segmented animlab-two" id="animlab-limb-copy-offset">
+        <button type="button" data-offset="8">Half a cycle later</button>
+        <button type="button" data-offset="0">Same timing</button>
+      </div>
+      <div class="animlab-rig-copy-rows">
+        <div class="animlab-rig-copy-row"><span>Legs</span>
+          <button type="button" class="animlab-side-near" data-limb-copy="leg" data-from="near">Near → Far</button>
+          <button type="button" class="animlab-side-far" data-limb-copy="leg" data-from="far">Far → Near</button></div>
+        <div class="animlab-rig-copy-row"><span>Arms</span>
+          <button type="button" class="animlab-side-near" data-limb-copy="arm" data-from="near">Near → Far</button>
+          <button type="button" class="animlab-side-far" data-limb-copy="arm" data-from="far">Far → Near</button></div>
+      </div>
+      <div class="animlab-convert-copy">Copies one leg's (or arm's) keys onto the other, replacing that side's keys — "half a cycle later" gives the opposite step of a walk or run. Other controls are untouched. Undo restores.</div>
+    </div>
     <div class="animlab-contact-box" id="animlab-contact-box">
       <div class="animlab-convert-head"><strong>Foot contact</strong><span>clip-wide</span></div>
       <div class="animlab-segmented animlab-three" id="animlab-contact-mode">
@@ -464,6 +480,9 @@
     tweenButtons.forEach(button=>button.classList.toggle('active',(st.sparseClip?.interpolation||'linear')===button.dataset.tween));
     document.getElementById('animlab-key-simplify-box').hidden=st.family!=='biped';
     document.getElementById('animlab-contact-box').hidden=st.family!=='biped';
+    document.getElementById('animlab-limb-copy-box').hidden=st.family!=='biped';
+    document.querySelectorAll('#animlab-limb-copy-offset [data-offset]').forEach(b=>{const on=Number(b.dataset.offset)===limbOffset;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
+    document.querySelectorAll('[data-limb-copy]').forEach(b=>{b.disabled=!!st.preview;});
     document.querySelectorAll('#animlab-contact-mode [data-contact]').forEach(b=>{const on=(['auto','off'].includes(st.sparseClip?.contact)?st.sparseClip.contact:'keys')===b.dataset.contact;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));b.disabled=!!st.preview;});
     document.getElementById('animlab-key-simplify').disabled=!!st.preview||st.mode!=='animate';
 
@@ -504,6 +523,34 @@
     core.setHint(`Simplified: ${before} keys → ${after} (each control keeps only the keys it needs).`);
   });
   window.addEventListener('animlab-control-selected',()=>render(state()));
+  // Copy a limb's keyed controls to the other side, optionally half a cycle later.
+  let limbOffset=8;
+  const LIMB_CHANNELS={leg:['FootX','FootLift','FootAngle','ToeBend'],arm:['HandX','HandY','HandAngle']};
+  document.querySelectorAll('#animlab-limb-copy-offset [data-offset]').forEach(b=>b.addEventListener('click',()=>{limbOffset=Number(b.dataset.offset)||0;render(state());}));
+  document.querySelectorAll('[data-limb-copy]').forEach(b=>b.addEventListener('click',()=>{
+    const st=state(),Rig=window.GameHubWalkRig;
+    if(st.family!=='biped'||st.preview||!Rig?.KEY_CHANNELS)return;
+    const from=b.dataset.from,limb=b.dataset.limbCopy,src=from==='near'?'a':'b',dst=from==='near'?'b':'a';
+    const pairs=LIMB_CHANNELS[limb].map(n=>[src+n,dst+n]);
+    const srcSet=pairs.map(p=>p[0]),dstSet=pairs.map(p=>p[1]);
+    const original=st.sparseClip,at=f=>core.evaluateSparsePose(original,f);
+    // Source keys: each frame where the limb has a key, with the controls keyed there.
+    const sources=(original.keys||[]).map(k=>({frame:k.frame,channels:pairs.filter(([c])=>Rig.keyHasChannel(k,c)),pose:at(k.frame)})).filter(x=>x.channels.length);
+    if(!sources.length){core.setHint(`The ${from} ${limb} has no keys to copy.`);return;}
+    const to=from==='near'?'far':'near';
+    core.editSparseClip(`Copy ${from} ${limb} to ${to}${limbOffset?' (half a cycle later)':''}`,clip=>{
+      for(const key of clip.keys){const list=Array.isArray(key.channels)?key.channels:[...Rig.KEY_CHANNELS];key.channels=list.filter(c=>!dstSet.includes(c));}
+      for(const s of sources){
+        const frame=(s.frame+limbOffset)%16;
+        let key=clip.keys.find(k=>k.frame===frame);
+        if(!key){key={frame,name:`Key ${frame+1}`,pose:JSON.parse(JSON.stringify(at(frame))),channels:[]};clip.keys.push(key);clip.keys.sort((x,y)=>x.frame-y.frame);}
+        for(const [c,d] of s.channels){key.pose[d]=s.pose[c];if(!key.channels.includes(d))key.channels.push(d);}
+      }
+      markAuthored(clip);
+    });
+    const contactNote=st.sparseClip?.contact?'':' Foot contact is From keys: set it to Automatic or Off so the copied foot plants by its own height.';
+    core.setHint(`Copied the ${from} ${limb} to the ${to} side${limbOffset?', half a cycle later':''}.${limb==='leg'?contactNote:''}`);
+  }));
   document.querySelectorAll('#animlab-contact-mode [data-contact]').forEach(b=>b.addEventListener('click',()=>{
     const mode=b.dataset.contact;
     core.editSparseClip(`Foot contact: ${mode==='auto'?'automatic':mode==='off'?'off':'from keys'}`,clip=>{if(mode==='keys')delete clip.contact;else clip.contact=mode;markAuthored(clip);});

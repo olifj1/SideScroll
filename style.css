@@ -15498,3 +15498,12 @@ body[data-game-id="game-17"] .animlab-key-simplify button,body[data-game-id="gam
 body[data-game-id="game-17"] .animlab-key-simplify button:disabled{opacity:.4;}
 body[data-game-id="game-17"] #animlab-contact-mode button.active{border-color:rgba(143,207,197,.55);background:rgba(118,158,149,.22);}
 body[data-game-id="game-17"] .animlab-contact-box{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+
+/* Key Pose Tools · Copy a limb to the other side (2 Nov 2026). */
+body[data-game-id="game-17"] .animlab-limb-copy{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+body[data-game-id="game-17"] .animlab-limb-copy button{min-height:30px;padding:3px 6px;border-radius:8px;border:1px solid rgba(238,243,241,.16);background:rgba(255,255,255,.05);color:#e8f5f0;font-size:9px;font-weight:850;white-space:nowrap;}
+body[data-game-id="game-17"] .animlab-limb-copy button.active{border-color:rgba(143,207,197,.55);background:rgba(118,158,149,.22);}
+body[data-game-id="game-17"] .animlab-limb-copy .animlab-rig-copy-row{display:grid;grid-template-columns:54px 1fr 1fr;align-items:center;gap:4px;}
+body[data-game-id="game-17"] .animlab-limb-copy .animlab-rig-copy-row span{font-size:9px;font-weight:900;color:#dce7e3;}
+body[data-game-id="game-17"] .animlab-limb-copy button.animlab-side-near{border-color:rgba(126,216,199,.38);color:#c9f0e7;}
+body[data-game-id="game-17"] .animlab-limb-copy button.animlab-side-far{border-color:rgba(196,160,255,.40);color:#e3d4ff;}
