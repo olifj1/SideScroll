@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Fixed: in Character Lab, playback and Quick Play of a biped clip with per-control
+  keys or Smooth tweening jumped from frame to frame (the position was rounded to
+  whole frames), so Smooth looked no different; they now play every in-between.
+  The sampler prepares each clip once instead of rebuilding every key per sample
+  (about 20× faster), so Smooth no longer costs frame rate.
 - Animate (bipeds): **keys per control.** A key can hold just some controls; an
   edit now keys only the controls you changed, and each control moves between its
   own keys. The control panel shows the frames the selected control is keyed on

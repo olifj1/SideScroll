@@ -896,10 +896,11 @@
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
     if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
     // Per-control keys or smooth tweening: the sampler the game uses too.
+    // The exact (fractional) position: playback samples between frames.
     if (family === 'biped' && BipedRig.usesChannelSampling?.(clipData)) {
-      const f = ((Math.round(Number(frame)) % 16) + 16) % 16;
+      const f = (((Number(frame) || 0) % 16) + 16) % 16;
       const pose = BipedRig.sampleSparse(clipData, f / 16);
-      if (pose) return adapter.normalise(pose, f);
+      if (pose) return pose;
     }
     const f = ((Number(frame) % 16) + 16) % 16;
     const exact = keys.find(k => k.frame === f);
