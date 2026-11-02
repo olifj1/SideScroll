@@ -73,6 +73,7 @@
   const groundSpeed=$('animlab-ground-motion-speed');
   const groundSpeedOut=groundSpeed.parentElement.querySelector('output');
   const groundStatus=$('animlab-ground-motion-status');
+  const groundNote=groundSection.querySelector('.animlab-contact-note'),groundNoteQuadruped=groundNote.textContent;
 
   function state(){ return core.getState(); }
   function currentAuthoringPose(){ return core.getAuthoringPose ? core.getAuthoringPose() : state().pose; }
@@ -83,7 +84,24 @@
   function persistPrefs(){
     try { localStorage.setItem(PREF_KEY,JSON.stringify(prefs)); } catch (_) {}
   }
+  // Walk or run for the animation being edited: the action it plays (Idle and
+  // Jump don't travel; an animation not used by an action is treated as a walk).
+  function gaitOf(st=state()){
+    const clip=String(st.clip||'');
+    const slots=core.slotList?.()||[];
+    const slot=slots.find(x=>x.builtIn&&x.animation===clip)?.id||(['walk','run','idle','jump'].includes(clip)?clip:'walk');
+    return slot==='walk'||slot==='run'?slot:null;
+  }
+  // Bipeds: the distance Quick Play travels per cycle (walk/run speed × cycle
+  // time), in rig units — so a planted foot stays on one marker.
+  const BIPED_CYCLE_MS={walk:1050,run:650};
   function strideLocal(st=state()){
+    if(st.family==='biped'){
+      const gait=gaitOf(st);if(!gait)return 0;
+      const walk=Number(st.setup?.walkSpeed)||1.15,run=Math.max(Number(st.setup?.runSpeed)||2.85,walk+.2);
+      const speed=gait==='run'?run:walk;
+      return speed*(BIPED_CYCLE_MS[gait]/1000)/Math.max(.001,BASE_GAMEPLAY_SCALE*(Number(st.setup?.scale)||1));
+    }
     if(st.family!=='quadruped')return 0;
     const world=st.clip==='run' ? Number(st.rig?.RUN_STRIDE_WORLD)||0 : st.clip==='walk' ? Number(st.rig?.WALK_STRIDE_WORLD)||0 : 0;
     return world/Math.max(.001,BASE_GAMEPLAY_SCALE*(Number(st.setup?.scale)||1));
@@ -148,7 +166,7 @@
 
   function drawMovingGround({ctx,canvas,adapter,view,project,phase}){
     const st=state();
-    if(st.family!=='quadruped'||st.mode!=='animate'||adapter.id!=='quadruped')return;
+    if(st.mode!=='animate'||adapter.id!==st.family||!['quadruped','biped'].includes(st.family))return;
     const base=project({x:0,y:0},view);
     if(st.clip==='jump'){
       if(!core.getOverlay?.('ground'))return;
@@ -164,6 +182,7 @@
     }
     if(!prefs.showGround)return;
     const stride=strideLocal(st)*prefs.speed;
+    if(st.family==='biped'){drawBipedGround(ctx,canvas,view,project,phase,stride,base);return;}
     const spacing=Math.max(.045,stride?stride/4:.07);
     const offset=(phase*stride)%spacing;
     ctx.save();
@@ -178,6 +197,28 @@
       const h=major?14:8;
       ctx.strokeStyle=major?'rgba(126,216,199,.38)':'rgba(238,243,241,.16)';
       ctx.beginPath();ctx.moveTo(p.x,base.y+2);ctx.lineTo(p.x-5,base.y+h);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Biped: dense markers that scroll with the walk — a tick every 2.5 cm and a
+  // taller one every 10 cm (rig units), with dots on the floor line.
+  function drawBipedGround(ctx,canvas,view,project,phase,stride,base){
+    if(!stride)return;
+    const minor=.025,offset=(((phase||0)*stride)%minor+minor)%minor,shift=(phase||0)*stride;
+    ctx.save();
+    ctx.fillStyle='rgba(73,102,99,.10)';ctx.fillRect(0,base.y,canvas.width,Math.max(8,canvas.height-base.y));
+    ctx.strokeStyle='rgba(126,216,199,.4)';ctx.lineWidth=Math.max(1,view.scale*.0015);
+    ctx.beginPath();ctx.moveTo(0,base.y);ctx.lineTo(canvas.width,base.y);ctx.stroke();
+    const span=canvas.width/view.scale;
+    for(let x=Math.floor(-span/minor)*minor-offset;x<=span;x+=minor){
+      const p=project({x,y:0},view);if(p.x<-20||p.x>canvas.width+20)continue;
+      const index=Math.round((x+shift)/minor),major=index%4===0;
+      ctx.strokeStyle=major?'rgba(126,216,199,.75)':'rgba(238,243,241,.32)';
+      ctx.lineWidth=major?Math.max(1.4,view.scale*.002):Math.max(1,view.scale*.0012);
+      ctx.beginPath();ctx.moveTo(p.x,base.y-(major?6:3));ctx.lineTo(p.x,base.y+(major?16:8));ctx.stroke();
+      ctx.fillStyle=major?'rgba(126,216,199,.9)':'rgba(238,243,241,.45)';
+      ctx.beginPath();ctx.arc(p.x,base.y,major?2.4:1.4,0,Math.PI*2);ctx.fill();
     }
     ctx.restore();
   }
@@ -206,9 +247,18 @@
 
   function render(st=state()){
     const visible=st.family==='quadruped'&&st.mode==='animate';
-    const locomotion=visible&&(st.clip==='walk'||st.clip==='run');
+    const locomotion=st.mode==='animate'&&(st.family==='biped'?!!gaitOf(st):visible&&(st.clip==='walk'||st.clip==='run'));
     ikSection.hidden=!visible;
     groundSection.hidden=!locomotion;
+    if(locomotion){
+      groundShow.classList.toggle('active',prefs.showGround);groundShow.setAttribute('aria-pressed',String(prefs.showGround));
+      groundSpeed.value=String(prefs.speed);groundSpeedOut.textContent=`×${prefs.speed.toFixed(2)}`;
+      groundNote.textContent=st.family==='biped'
+        ?'Editor-only moving floor for spotting foot slip: it scrolls at the speed Quick Play walks or runs (Walk / Run speed × cycle time). A planted foot should stay over the same marker; a tick every 2.5 cm, a taller one every 10 cm.'
+        :groundNoteQuadruped;
+      if(st.family==='biped'){const gait=gaitOf(st),stride=strideLocal(st);
+        groundStatus.textContent=`${gait==='run'?'Run':'Walk'} · ${(stride*100).toFixed(1)} cm per cycle at Scale ${Number(st.setup?.scale||1).toFixed(2)} · display ×${prefs.speed.toFixed(2)}`;}
+    }
     if(!visible)return;
 
     const prefix=selectedPrefix(),key=st.sparseClip?.keys?.find(item=>item.frame===st.frame)||null;
