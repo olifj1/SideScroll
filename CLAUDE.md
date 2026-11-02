@@ -232,7 +232,10 @@ Any new per-character storage must be added to `slicesFor()` there.
   the game reads it via `bipedRestRig()`. Bipeds have no original parts meshes, so a
   biped's Mesh is built from Atlas meshes only.
 - Skin weights refer to a rig's bones by their **position** in `RIG_DESIGNER.boneLinks`,
-  so new bones are only ever appended at the end (the biped hands were added last).
+  so new bones are only ever appended at the end (biped hands, then Lower/Upper Back;
+  bone 0 stays the pelvis-to-chest *Whole Back* for older skins). A binding's `bones`
+  list (Skin → *Bones this part follows*) wins over its `group`; a jointGroup may list
+  its `bones` explicitly. `blend` (metres) shares points near joint lines.
 - A character's drawing method (Parts / Mesh) is its Parts assembly's `enabled` flag.
   `anim-lab-mesh.js`'s old Skin Prototype is retired; the file only still builds the
   original parts' mesh (`window.AnimLabLegacyAtlas`) that Mesh drawing uses.

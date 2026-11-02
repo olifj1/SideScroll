@@ -117,3 +117,29 @@ work (`TASKS.md` → Later); design them together.
 - The Publish Lab lists templates, actions and the ability list alongside
   characters.
 - Every new storage key gets a line in `storage-catalogue.json`.
+
+## 6. Bones beyond the fixed rigs (written up 2 Nov 2026, not scheduled)
+Where we are: each family (biped, quadruped) has a fixed set of joints and bones;
+the Rig Designer moves joints but cannot add them, because animation is driven by
+each family's own channels (biped: pelvis height, lean, spine bend, hand/foot
+targets and angles, hair angles) and a new bone would have nothing to move it.
+Skin can bind a part to any of the rig's bones (2 Nov), with blending at joints.
+Bones are referenced by their position in `RIG_DESIGNER.boneLinks`, so new bones
+are only ever appended.
+
+**Step 1 — extra bone chains.** The author adds a chain (skirt, cloak, ponytail,
+tail, ears) hanging from any existing joint: joints placed in Rig, bones appended
+for that character only (stored in its rest rig, e.g. `extraChains:[{id, parent,
+joints:[…]}]`). Each extra bone gets an angle channel in Animate, relative to its
+parent (0 = rest), so existing clips play unchanged. Skin binds to them like any
+bone. Game: geometry() appends the chains after solving the family skeleton. No
+change to the family's animation model.
+
+**Step 2 — custom skeletons.** The author lays out every bone: name, parent,
+rest position; templates as for rigs today. Animation becomes a general model:
+every bone has a rotation (forward kinematics) plus optional IK helpers (foot
+planting, hand targets) mapped onto chosen chains; clips store per-bone angles.
+Animate, Quick Play, the game runtime, animation templates, mirroring and the
+Rig Designer all work from that one model; biped and quadruped become built-in
+templates of it, with their current clips converted (and checked frame by frame).
+Large: several stages, each shipped behind the current families until parity.

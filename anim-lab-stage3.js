@@ -14,7 +14,7 @@
   const CHANNELS = {
     biped: {
       linear:['pelvisY','aFootX','aFootLift','bFootX','bFootLift','aHandX','aHandY','bHandX','bHandY','travel'],
-      angular:['lean','aFootAngle','bFootAngle','aHandAngle','bHandAngle','hairAngle','hairBend'],
+      angular:['lean','spineBend','aFootAngle','bFootAngle','aHandAngle','bHandAngle','hairAngle','hairBend'],
       discrete:['planted']
     },
     quadruped: {

@@ -4,6 +4,20 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Skin: **choose any bones for a part.** *Bones this part follows* lists every bone
+  of the rig under its group; tap to add or remove, start from a *Preset* (the old
+  groups), then **Bind to these bones** (e.g. a head mesh on Neck + Head only, a
+  body on the back bones only). A new binding's joint lines are fitted to the part,
+  so it covers the whole part instead of a narrow strip along the bones.
+- Skin: **Blend at joints** (0–12 cm) shares points near each joint line between
+  its two bones, easing from one to the other, so artwork bends smoothly instead of
+  hinging (joint-boundary bindings; the game already blends shared points).
+- Biped **spine**: a Spine joint (halfway between Pelvis and Chest on rigs saved
+  before) with **Lower Back** and **Upper Back** bones, and **Spine Bend** in
+  Animate (bends the upper body above the spine). The old pelvis-to-chest bone is
+  kept as **Whole Back**, so skins bound before still use it; with no spine bend
+  everything moves exactly as before (heroes checked frame by frame; a skin bound
+  before draws pixel-identical).
 - Skin: binding a part by hand is clear again. *Auto-bind part* is renamed **Bind to
   group** (it always bound to the group chosen in Bone group), and the bone list
   plus **Bind whole part to selected bone** (was "Rigid bind") now work on a part

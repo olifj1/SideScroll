@@ -54,6 +54,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0f. Free binding, blend, spine (2 Nov)** — Character01
+- [ ] Skin → *Bones this part follows*: tap bones on/off (or a Preset), **Bind to these bones**. Head on Neck + Head; Body on Lower Back + Upper Back; whole part covered (status shows no unassigned points).
+- [ ] **Blend at joints**: raise it on an arm and the body; in the Walk preview the elbow and waist bend smoothly instead of hinging. Save, reopen, still there; same in Quick Play and the game.
+- [ ] Rig → Body / Head has a **Spine** joint; Animate → **Spine Bend** bends the upper body; the heroes still look and animate as before.
+
 **0e. Manual skin binding (2 Nov)** — Character01 in Skin
 - [ ] On an unbound part: choose a Bone group, pick a bone, **Bind whole part to selected bone** — the part follows only that bone. **Bind to group** splits it across the group's bones. Undo works.
 
@@ -130,6 +135,7 @@ app and make a Project Backup.
 - [ ] **Atlas tools:** better topology editing (connect vertices, split/merge edge paths, delete triangle ranges, boundary shaping) and spline control-node editing.
 
 ## Later
+- **Custom bones (design first — see `docs/CHARACTER_SYSTEM_DESIGN.md` §6):** step 1 *extra bone chains* hung from any joint (skirt, cloak, ponytail, tail), each posed by an angle in Animate; step 2 *fully custom skeletons* (the author lays out, names and parents every bone) on a general rotate-every-bone animation model with foot/hand IK helpers, replacing the biped/quadruped special cases. Do when the fixed rigs plus free binding stop being enough.
 - **Rigid pieces as a supported drawing option (after the skinned Mesh path):** a character can be drawn as rigid cut-outs, each following one bone (how the heroes are drawn today), as well as a skinned, deforming Mesh. Today the heroes' 13 sprite-sheet squares (upper/lower leg, foot, arms, torso, dress, head), each with two pin points, are hard-coded in `biped-rig.js` (`partsForPose`, `atlasRect`), so Parts lists nothing for bipeds (`ART_LAYOUT_DESIGNER.parts` is empty). Upgrade: describe them as data like the quadruped's original parts (atlas area, bone, pins, group) so Parts lists and edits them, any rig can use rigid pieces, and they can seed a Mesh from the heroes' existing art. The game must draw the heroes identically until the author changes something. Consider clearer UI names: *Pieces (rigid)* vs *Mesh (skinned)*.
 - **Puzzle Logic foundation:** small `Event → Conditions → Actions` model; re-express Fallen Tree, Stone Wall and Broken Bridge with it; fix Broken Bridge's incorrect "Socket Completion / Forest Key" migration labels. No visual Logic editor until the model is proven.
 - **Environment Animation Path:** generalise the cart path into a reusable path that can move any object, with explicit trigger and settle state.
