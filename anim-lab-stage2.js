@@ -12,7 +12,7 @@
   const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
   const CONTROL_SETS = {
     biped: [
-      {id:'root',label:'Body / Root',group:'Core',point:'pelvis',move:{y:{key:'pelvisY',min:.40,max:.60,sign:1}},pair:null},
+      {id:'root',label:'Body / Root',group:'Core',point:'pelvis',move:{x:{key:'pelvisX',min:-.25,max:.25,sign:1},y:{key:'pelvisY',min:.25,max:.95,sign:1}},pair:null},
       {id:'chest',label:'Chest / Lean',group:'Core',point:'chest',rotate:{key:'lean',min:-25*DEG,max:25*DEG}},
       {id:'spine',label:'Spine Bend',group:'Core',point:'spine',rotate:{key:'spineBend',min:-40*DEG,max:40*DEG}},
       {id:'nearFoot',label:'Near Foot',group:'Near Side',point:'aAnkle',pair:'farFoot',move:{x:{key:'aFootX',min:-.45,max:.45,sign:1},y:{key:'aFootLift',min:0,max:.28,sign:1}},rotate:{key:'aFootAngle',min:-50*DEG,max:50*DEG}},
@@ -90,6 +90,13 @@
           <button type="button" id="animlab-pair" hidden>Pair</button>
         </div>
         <div class="animlab-channel-readout" id="animlab-channel-readout">Large labelled controls replace tiny viewport picking.</div>
+        <div class="animlab-control-keys" id="animlab-control-keys" hidden>
+          <div class="animlab-channel-readout" id="animlab-control-keyinfo"></div>
+          <div class="animlab-segmented animlab-two">
+            <button type="button" id="animlab-control-key-delete">Delete key here</button>
+            <button type="button" id="animlab-control-key-only">Keep only this key</button>
+          </div>
+        </div>
       </div>
       <div class="animlab-precision" id="animlab-precision" hidden>
         <div class="animlab-precision-tools">
@@ -191,6 +198,7 @@
     selectedId=id;
     ensureSelection(state);
     render(state,false);
+    window.dispatchEvent(new CustomEvent('animlab-control-selected'));
     if (redraw) core.redraw();
     return true;
   }
@@ -289,6 +297,7 @@
     if (state.mode === 'animate') {
       selectedLabel.textContent=control?.label || 'Select a control';
       channelReadout.textContent=formatChannels(control,state.pose);
+      renderControlKeys(state,control);
       precision.hidden=!control;
       if (viewportPadHost) viewportPadHost.hidden=!control;
       pad.hidden=!control;
@@ -433,6 +442,48 @@
         pose[`${prefix}Planted`]=false;
         pose[`${prefix}PlantPhase`]=0;
       }
+    });
+  });
+
+  // ---- Keys of the selected control (bipeds, 2 Nov 2026) --------------------
+  // A key may set only some controls (biped-rig.js KEY_CHANNELS); these act on
+  // the selected control's channels only.
+  const Rig=()=>window.GameHubWalkRig;
+  const controlKeysBox=$('animlab-control-keys'),controlKeyInfo=$('animlab-control-keyinfo');
+  const keyDeleteBtn=$('animlab-control-key-delete'),keyOnlyBtn=$('animlab-control-key-only');
+  const controlChannels=control=>[control?.move?.x?.key,control?.move?.y?.key,control?.rotate?.key].filter(Boolean);
+  const keyedFor=(key,channels)=>channels.some(c=>Rig().keyHasChannel(key,c));
+  function renderControlKeys(state,control){
+    const on=state.family==='biped'&&!!Rig()?.KEY_CHANNELS&&!!control;
+    controlKeysBox.hidden=!on;if(!on)return;
+    const channels=controlChannels(control),keys=state.sparseClip?.keys||[];
+    const frames=keys.filter(k=>keyedFor(k,channels)).map(k=>k.frame+1);
+    const here=keys.find(k=>k.frame===state.frame);
+    controlKeyInfo.textContent=frames.length?`${control.label} keyed on frame${frames.length===1?'':'s'} ${frames.join(', ')}`:`${control.label} has no keys: it follows the clip's other keys.`;
+    keyDeleteBtn.disabled=!here||!keyedFor(here,channels);
+    keyOnlyBtn.disabled=frames.length===1&&frames[0]===state.frame+1;
+  }
+  const withoutChannels=(key,channels)=>{const list=Array.isArray(key.channels)?key.channels:[...Rig().KEY_CHANNELS];key.channels=list.filter(c=>!channels.includes(c));};
+  keyDeleteBtn.addEventListener('click',()=>{
+    const state=core.getState(),control=selectedControl(state);if(!control)return;
+    const channels=controlChannels(control);
+    core.editSparseClip(`Delete ${control.label} key on frame ${state.frame+1}`,clip=>{
+      const key=clip.keys.find(k=>k.frame===state.frame);if(!key)return;
+      withoutChannels(key,channels);clip.source='sparse-authored';
+    });
+  });
+  keyOnlyBtn.addEventListener('click',()=>{
+    const state=core.getState(),control=selectedControl(state);if(!control)return;
+    const channels=controlChannels(control);
+    // The control holds its current value for the whole clip, from one key here.
+    const pose=core.evaluateSparsePose(state.sparseClip,state.frame);
+    core.editSparseClip(`Keep only ${control.label} key on frame ${state.frame+1}`,clip=>{
+      for(const key of clip.keys)if(key.frame!==state.frame)withoutChannels(key,channels);
+      let key=clip.keys.find(k=>k.frame===state.frame);
+      if(!key){key={frame:state.frame,name:`Key ${state.frame+1}`,pose:JSON.parse(JSON.stringify(pose)),channels:[]};clip.keys.push(key);clip.keys.sort((a,b)=>a.frame-b.frame);}
+      for(const c of channels)key.pose[c]=pose[c];
+      if(Array.isArray(key.channels))key.channels=[...new Set([...key.channels,...channels])];
+      clip.source='sparse-authored';
     });
   });
 

@@ -625,11 +625,15 @@
         const frame = clamp(Math.round(Number(item?.frame)), 0, 15);
         if (!Number.isFinite(frame) || seen.has(frame) || !item?.pose || typeof item.pose !== 'object') continue;
         seen.add(frame);
-        keys.push({
+        const key = {
           frame,
           name:String(item.name || item.pose?.name || `Key ${frame + 1}`).slice(0,48),
           pose:adapter.normalise(item.pose, frame)
-        });
+        };
+        // Biped keys may set only some controls (absent = all of them).
+        if (family === 'biped' && Array.isArray(item.channels) && BipedRig.KEY_CHANNELS)
+          key.channels = BipedRig.KEY_CHANNELS.filter(c => item.channels.includes(c));
+        keys.push(key);
       }
     }
     if (keys.length < 2) {
@@ -648,7 +652,7 @@
       loop:true,
       source:String(raw?.source || 'legacy-sampled'),
       foundationVersion:String(raw?.foundationVersion || ''),
-      interpolation:raw?.interpolation === 'linear' ? 'linear' : (family === 'quadruped' ? 'smooth' : 'linear'),
+      interpolation:raw?.interpolation === 'linear' || raw?.interpolation === 'smooth' ? raw.interpolation : (family === 'quadruped' ? 'smooth' : 'linear'),
       keys
     };
   }
@@ -891,6 +895,12 @@
     const adapter = adapters[family];
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
     if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
+    // Per-control keys or smooth tweening: the sampler the game uses too.
+    if (family === 'biped' && BipedRig.usesChannelSampling?.(clipData)) {
+      const f = ((Math.round(Number(frame)) % 16) + 16) % 16;
+      const pose = BipedRig.sampleSparse(clipData, f / 16);
+      if (pose) return adapter.normalise(pose, f);
+    }
     const f = ((Number(frame) % 16) + 16) % 16;
     const exact = keys.find(k => k.frame === f);
     if (exact) {
@@ -1091,6 +1101,14 @@
       name:String(preferredName || existing?.name || `Key ${frame + 1}`).slice(0,48),
       pose:currentAdapter().normalise(pose,frame)
     };
+    // Biped: a new key sets only the controls that changed; an existing
+    // per-control key adds them. A key that sets everything stays that way.
+    if (currentCharacter().family === 'biped' && BipedRig.KEY_CHANNELS) {
+      const before = evaluateSparsePose(clipData, frame, 'biped', {resolveContacts:false});
+      const changed = BipedRig.KEY_CHANNELS.filter(c => Math.abs((Number(key.pose[c])||0) - (Number(before[c])||0)) > 1e-9);
+      if (existing && Array.isArray(existing.channels)) key.channels = BipedRig.KEY_CHANNELS.filter(c => existing.channels.includes(c) || changed.includes(c));
+      else if (!existing && changed.length) key.channels = changed;
+    }
     if (index >= 0) clipData.keys[index] = key;
     else clipData.keys.push(key);
     clipData.keys.sort((a,b)=>a.frame-b.frame);

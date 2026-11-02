@@ -15483,3 +15483,10 @@ body[data-game-id="game-17"] .animlab-skin-copy button{min-height:28px;padding:3
 body[data-game-id="game-17"] .animlab-skin-copy button:disabled{opacity:.4;}
 body[data-game-id="game-17"] .animlab-skin-copy .animlab-rig-copy-row button.animlab-side-near{border-color:rgba(126,216,199,.38);color:#c9f0e7;}
 body[data-game-id="game-17"] .animlab-skin-copy .animlab-rig-copy-row button.animlab-side-far{border-color:rgba(196,160,255,.40);color:#e3d4ff;}
+
+/* Animate · per-control keys (2 Nov 2026): frames where the selected control is
+   keyed get a bright dot; other keys stay dim. */
+body[data-game-id="game-17"] .animlab-key-cell.has-key .animlab-key-dot{opacity:.45;}
+body[data-game-id="game-17"] .animlab-key-cell.control-key .animlab-key-dot{opacity:1;background:#ffcb76;box-shadow:0 0 0 2px rgba(255,203,118,.25);}
+body[data-game-id="game-17"] .animlab-key-simplify{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+body[data-game-id="game-17"] .animlab-control-keys{display:flex;flex-direction:column;gap:4px;margin-top:6px;}

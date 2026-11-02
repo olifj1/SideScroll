@@ -54,6 +54,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0h. Animate keys (2 Nov)** — Character01
+- [ ] Body / Root moves left/right and up/down.
+- [ ] Key Pose Tools → **Simplify keys**: far fewer keys, the walk looks the same; Undo restores.
+- [ ] Select Spine Bend, change it on one frame: only that control gets a key there (bright dot). **Keep only this key**: the spine holds that bend for the whole clip. **Delete key here** removes just that control's key.
+- [ ] Tween → **Smooth**: in-betweens curve; Save, reopen, still Smooth; same in Quick Play and the game.
+
 **0g. Skin copy to the other side (2 Nov)** — Character01
 - [ ] Bind and tune the near arm and leg, then Skin → *Copy to the other side* → Arms / Legs Near → Far: the far parts get far bones, the same blend and joint lines, and bend the same way in the Walk preview. Far → Near and *Selected part → Copy skin* work too; Undo puts it back.
 

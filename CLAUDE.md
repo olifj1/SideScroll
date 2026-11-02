@@ -151,6 +151,10 @@ Play resolve a slot through the map (`slotClips` in `character-game-runtime.js`,
 (Actions with an animation menu each; Animations with New, Duplicate, Rename,
 Delete), saved straight away. Bipeds have an `idle` slot (default: the standing pose
 the game always used).
+Biped keys may set only some controls (`key.channels`, from `GameHubWalkRig.KEY_CHANNELS`;
+absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampleSparse`
+in both Character Lab and the game; others keep the original whole-key path.
+`simplifySparse` is Key Pose Tools → Simplify keys.
 `anim-lab-animation-templates.js` is the Animate *Animation template* box (Use this
 template, Make unique, Save as template; links of created animations live in
 `extraClips[key].link`; a chosen template waits in walk-lab's `pendingClipLinks` until
