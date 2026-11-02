@@ -17369,9 +17369,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // The short entry move settles onto the climbing line. Fade the extreme
     // targets in through that approach so ACTION never pops the limbs abruptly.
     const settle = Rig.clamp(0.28 + frame.entryBlend * 0.72, 0, 1);
-    const torso = Rig.restLengths ? Rig.restLengths(bipedRestRig()).torso : Rig.BODY.torso;
-    const shoulderX = Math.sin(p.lean) * torso;
-    const shoulderY = p.pelvisY + Math.cos(p.lean) * torso;
+    const shoulder = Rig.chestFor ? Rig.chestFor(p.pelvisY, p.lean, bipedRestRig())
+      : { x: Math.sin(p.lean) * Rig.BODY.torso, y: p.pelvisY + Math.cos(p.lean) * Rig.BODY.torso };
+    const shoulderX = shoulder.x;
+    const shoulderY = shoulder.y;
     const applyHand = (target, prefix, fallbackX, fallbackY) => {
       // Convert world X back into mirrored rig-local X. Keep the scale
       // denominator positive, then apply the facing sign separately. Using
