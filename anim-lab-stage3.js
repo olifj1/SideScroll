@@ -14,7 +14,7 @@
   const CHANNELS = {
     biped: {
       linear:['pelvisY','pelvisX','aFootX','aFootLift','bFootX','bFootLift','aHandX','aHandY','bHandX','bHandY','travel'],
-      angular:['lean','spineBend','aFootAngle','bFootAngle','aHandAngle','bHandAngle','hairAngle','hairBend'],
+      angular:['lean','spineBend','aFootAngle','bFootAngle','aToeBend','bToeBend','aHandAngle','bHandAngle','hairAngle','hairBend'],
       discrete:['planted']
     },
     quadruped: {
@@ -70,6 +70,14 @@
     <div class="animlab-segmented animlab-two" id="animlab-tween-mode">
       <button type="button" data-tween="smooth">Smooth</button>
       <button type="button" data-tween="linear">Linear</button>
+    </div>
+    <div class="animlab-contact-box" id="animlab-contact-box">
+      <div class="animlab-convert-head"><strong>Foot contact</strong><span>clip-wide</span></div>
+      <div class="animlab-segmented animlab-two" id="animlab-contact-mode">
+        <button type="button" data-contact="keys">From keys</button>
+        <button type="button" data-contact="auto">Automatic</button>
+      </div>
+      <div class="animlab-convert-copy">Automatic plants a foot whenever it touches the floor, so its curve decides — no snapping when the foot has few keys.</div>
     </div>
     <div class="animlab-key-simplify" id="animlab-key-simplify-box">
       <button id="animlab-key-simplify" type="button">Simplify keys</button>
@@ -178,7 +186,7 @@
     if (family === 'biped') {
       for (const [a,b] of [
         ['aFootX','bFootX'],['aFootLift','bFootLift'],['aFootAngle','bFootAngle'],
-        ['aHandX','bHandX'],['aHandY','bHandY'],['aHandAngle','bHandAngle']
+        ['aHandX','bHandX'],['aHandY','bHandY'],['aHandAngle','bHandAngle'],['aToeBend','bToeBend']
       ]) swapValues(out,a,b);
       if (out.planted === 'A') out.planted='B';
       else if (out.planted === 'B') out.planted='A';
@@ -196,7 +204,7 @@
 
   function markAuthored(clip) { clip.source='sparse-authored'; }
   // A key's control list (biped per-control keys) follows a mirror too.
-  const BIPED_PAIRS=[['aFootX','bFootX'],['aFootLift','bFootLift'],['aFootAngle','bFootAngle'],['aHandX','bHandX'],['aHandY','bHandY'],['aHandAngle','bHandAngle']];
+  const BIPED_PAIRS=[['aFootX','bFootX'],['aFootLift','bFootLift'],['aFootAngle','bFootAngle'],['aToeBend','bToeBend'],['aHandX','bHandX'],['aHandY','bHandY'],['aHandAngle','bHandAngle']];
   function mirrorChannels(key, family) {
     if (family!=='biped' || !Array.isArray(key.channels)) return;
     const map=new Map(BIPED_PAIRS.flatMap(([a,b])=>[[a,b],[b,a]]));
@@ -454,6 +462,8 @@
     mirrorClipBtn.disabled=preview;
     tweenButtons.forEach(button=>button.classList.toggle('active',(st.sparseClip?.interpolation||'linear')===button.dataset.tween));
     document.getElementById('animlab-key-simplify-box').hidden=st.family!=='biped';
+    document.getElementById('animlab-contact-box').hidden=st.family!=='biped';
+    document.querySelectorAll('#animlab-contact-mode [data-contact]').forEach(b=>{const on=(st.sparseClip?.contact==='auto'?'auto':'keys')===b.dataset.contact;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));b.disabled=!!st.preview;});
     document.getElementById('animlab-key-simplify').disabled=!!st.preview||st.mode!=='animate';
 
     convertCount.textContent=`${keys.length} keys`;
@@ -493,6 +503,10 @@
     core.setHint(`Simplified: ${before} keys → ${after} (each control keeps only the keys it needs).`);
   });
   window.addEventListener('animlab-control-selected',()=>render(state()));
+  document.querySelectorAll('#animlab-contact-mode [data-contact]').forEach(b=>b.addEventListener('click',()=>{
+    const auto=b.dataset.contact==='auto';
+    core.editSparseClip(auto?'Foot contact: automatic':'Foot contact: from keys',clip=>{if(auto)clip.contact='auto';else delete clip.contact;markAuthored(clip);});
+  }));
   tweenButtons.forEach(button=>button.addEventListener('click',()=>{
     const mode=button.dataset.tween==='linear'?'linear':'smooth';
     core.editSparseClip(`Set ${mode} tween`,clip=>{clip.interpolation=mode;markAuthored(clip);});

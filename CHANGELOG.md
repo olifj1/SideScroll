@@ -4,6 +4,26 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): **Foot contact: Automatic** (Key Pose Tools, per clip): a foot is
+  planted while its lowest point touches the floor, so a foot with few keys follows
+  its smooth curve instead of snapping down where a keyed contact starts. From keys
+  (the default) is unchanged.
+- Biped **toes**: a Ball joint in each foot (on the sole, 70% heel → toe on rigs
+  saved before), Sole and Toes bones for Skin, and Near / Far Toes in Animate (toe
+  bend). The one-piece foot bones stay as Whole Foot for older skins; no bend = poses
+  unchanged.
+- Animate: **Motion Path** moved to the Display section. Simplify keys and Foot
+  contact buttons styled like the other tools.
+- Fixed: a skin bound before the Spine joint (or now the Ball joints) would have lost
+  its Whole Back / foot bone the first time it was edited; older skins now always keep
+  the bones their saved shape describes.
+- Character Lab draws mesh artwork (skinned parts, the Fox) with **WebGL** like the
+  game, instead of one clipped Canvas triangle at a time, which Safari renders very
+  slowly — the cause of the poor Animate / Quick Play frame rate (worse with Blend
+  at joints), which also made Smooth look no smoother. Same picture (minus the
+  Canvas method's faint triangle seams). Display → **GPU mesh** switches back to
+  the old method; it is also used automatically if WebGL isn't available. A
+  readout under Display shows which method drew the mesh and how long it took.
 - Animate (bipeds): wider control ranges — hands from well above the head to below
   the hips (they stopped at chest height), feet lift 60 cm, lean and spine ±60°, root
   ±50 cm and 0.15–1.2 m high, hand angle ±120°, hair wider. Arm and leg length still
