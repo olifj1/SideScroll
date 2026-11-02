@@ -205,7 +205,7 @@ too), Project Backup and the bake tool (content scope).
 
 ### v1.1.8 — per-instance Skin weight storage coverage
 
-**2 Nov 2026 (contact, toes):** biped clips may carry `contact:'auto'` or `'off'` (absent = contact from the keys), poses `aToeBend`/`bToeBend` (absent = 0), and biped rest rigs `ballNear`/`ballFar` joints (computed on load when missing). Inside existing data; no new key.
+**2 Nov 2026 (contact, toes):** biped clips may carry `contact:'auto'` or `'off'` (absent = contact from the keys), poses `aToeBend`/`bToeBend`, `neckBend`/`headTilt` (absent = 0), and biped rest rigs `ballNear`/`ballFar` joints (computed on load when missing). Inside existing data; no new key.
 
 **2 Nov 2026 (Animate):** a biped sparse-clip key may carry `channels` (the controls it sets, from `GameHubWalkRig.KEY_CHANNELS`; absent = all, as every older key), biped clips keep `interpolation:'smooth'`, and poses may carry `pelvisX` (root left/right, absent = 0). All inside the existing clip data (`sparseClips`, `extraClips`, the clip stores), sanitised by `normaliseSparseClip`; no new key.
 

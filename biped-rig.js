@@ -223,7 +223,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const keys=['pelvisY','lean','aFootX','aFootLift','aFootAngle','bFootX','bFootLift','bFootAngle','aHandX','aHandY','bHandX','bHandY','hairAngle','hairBend'];
     const out={name,planted:a.planted,travel:lerp(a.travel,travelB,t),key:false};
     keys.forEach(k=>out[k]=lerp(a[k],b[k],t));
-    for(const k of ['aHandAngle','bHandAngle','spineBend','pelvisX','aToeBend','bToeBend'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
+    for(const k of ['aHandAngle','bHandAngle','spineBend','pelvisX','aToeBend','bToeBend','neckBend','headTilt'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
     if(out.planted==='A') out.aFootLift=0;
     if(out.planted==='B') out.bFootLift=0;
     return out;
@@ -319,6 +319,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       spineBend:Number.isFinite(p?.spineBend)?p.spineBend:0,
       // Root left/right (metres, + = forward) over the feet; older clips have none.
       pelvisX:Number.isFinite(p?.pelvisX)?p.pelvisX:0,
+      neckBend:Number.isFinite(p?.neckBend)?p.neckBend:0,
+      headTilt:Number.isFinite(p?.headTilt)?p.headTilt:0,
       aToeBend:Number.isFinite(p?.aToeBend)?p.aToeBend:0,
       bToeBend:Number.isFinite(p?.bToeBend)?p.bToeBend:0,
       aHandAngle:Number.isFinite(p?.aHandAngle)?p.aHandAngle:0,
@@ -580,12 +582,17 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const spine=lean(pelvis,L.lowerBackV);
     const chest=bend?upper(spine,L.upperBackV):lean(pelvis,L.torsoV);
     const shoulder={...chest};
-    const neck=upper(chest,L.neckV);
-    const head=upper(neck,L.headV);
-    const headTop=upper(head,L.headTopV);
-    const hairRoot={x:head.x+L.hairRoot.x,y:head.y+L.hairRoot.y};
-    const h1={x:hairRoot.x+Math.cos(p.hairAngle)*L.hair1,y:hairRoot.y-Math.sin(p.hairAngle)*L.hair1};
-    const h2Angle=p.hairAngle+p.hairBend;
+    // Neck bend turns the neck and everything above it about the chest; head
+    // tilt turns the head about the top of the neck (the Neck joint). The hair
+    // turns with the head. Both 0 = exactly the poses before they existed.
+    const neckBend=Number(p.neckBend)||0,headTilt=Number(p.headTilt)||0,headTurn=neckBend+headTilt;
+    const neck=neckBend?turn(chest,L.neckV,p.lean+bend+neckBend):upper(chest,L.neckV);
+    const head=headTurn?turn(neck,L.headV,p.lean+bend+headTurn):upper(neck,L.headV);
+    const headTop=headTurn?turn(head,L.headTopV,p.lean+bend+headTurn):upper(head,L.headTopV);
+    const hairRoot=headTurn?turn(head,L.hairRoot,headTurn):{x:head.x+L.hairRoot.x,y:head.y+L.hairRoot.y};
+    const hairBase=p.hairAngle+headTurn;
+    const h1={x:hairRoot.x+Math.cos(hairBase)*L.hair1,y:hairRoot.y-Math.sin(hairBase)*L.hair1};
+    const h2Angle=hairBase+p.hairBend;
     const h2={x:h1.x+Math.cos(h2Angle)*L.hair2,y:h1.y-Math.sin(h2Angle)*L.hair2};
 
     const slack=p.rest===true?0:.001;
@@ -644,9 +651,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   // it sets them all (every older key). Each control is interpolated between
   // its own keys only, linearly or smoothly (clip.interpolation 'smooth').
   // Clips with no lists and linear tweening keep the original whole-key path.
-  const KEY_CHANNELS=Object.freeze(['pelvisY','pelvisX','lean','spineBend','aFootX','aFootLift','aFootAngle','aToeBend','bFootX','bFootLift','bFootAngle','bToeBend',
+  const KEY_CHANNELS=Object.freeze(['pelvisY','pelvisX','lean','spineBend','neckBend','headTilt','aFootX','aFootLift','aFootAngle','aToeBend','bFootX','bFootLift','bFootAngle','bToeBend',
     'aHandX','aHandY','aHandAngle','bHandX','bHandY','bHandAngle','hairAngle','hairBend']);
-  const ANGULAR=new Set(['lean','spineBend','aFootAngle','bFootAngle','aToeBend','bToeBend','aHandAngle','bHandAngle','hairAngle','hairBend']);
+  const ANGULAR=new Set(['lean','spineBend','neckBend','headTilt','aFootAngle','bFootAngle','aToeBend','bToeBend','aHandAngle','bHandAngle','hairAngle','hairBend']);
   const keyHasChannel=(key,c)=>!Array.isArray(key?.channels)||key.channels.includes(c);
   function validKeys(clip){
     return (Array.isArray(clip?.keys)?clip.keys:[]).filter(k=>Number.isInteger(k?.frame)&&k.frame>=0&&k.frame<16&&k.pose&&typeof k.pose==='object')
