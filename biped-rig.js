@@ -223,6 +223,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const keys=['pelvisY','lean','aFootX','aFootLift','aFootAngle','bFootX','bFootLift','bFootAngle','aHandX','aHandY','bHandX','bHandY','hairAngle','hairBend'];
     const out={name,planted:a.planted,travel:lerp(a.travel,travelB,t),key:false};
     keys.forEach(k=>out[k]=lerp(a[k],b[k],t));
+    for(const k of ['aHandAngle','bHandAngle'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
     if(out.planted==='A') out.aFootLift=0;
     if(out.planted==='B') out.bFootLift=0;
     return out;
@@ -313,6 +314,10 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       bFootAngle:Number.isFinite(p?.bFootAngle)?p.bFootAngle:d.bFootAngle,
       hairAngle:Number.isFinite(p?.hairAngle)?p.hairAngle:d.hairAngle,
       hairBend:Number.isFinite(p?.hairBend)?p.hairBend:d.hairBend,
+      // Hand angle (radians, + = anticlockwise) relative to the forearm; 0 keeps
+      // the hand as it is in the rest rig. Older clips have none.
+      aHandAngle:Number.isFinite(p?.aHandAngle)?p.aHandAngle:0,
+      bHandAngle:Number.isFinite(p?.bHandAngle)?p.bHandAngle:0,
       key:i%2===0
     };
   }
@@ -366,6 +371,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   // the original bipeds look exactly as they always have.
   const REST_SCHEMA='sidescroll.biped.rest-rig.v1';
   const DEFAULT_HAIR_ANGLE=110*DEG;
+  // Hand (wrist → fingertips), added 2 Nov 2026. Rigs saved before then have no
+  // hand joint: it is placed this far straight on from their wrist.
+  const DEFAULT_HAND_LENGTH=0.07;
   function buildDefaultRestRig(){
     const legY=BODY.ankleHeight+BODY.upperLeg+BODY.lowerLeg;
     const pelvis={x:0,y:legY},chest={x:0,y:legY+BODY.torso};
@@ -373,10 +381,10 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const hairRoot={x:head.x-BODY.headR*.45,y:head.y-BODY.headR*.15};
     const hairMid={x:hairRoot.x+Math.cos(DEFAULT_HAIR_ANGLE)*BODY.hair1,y:hairRoot.y-Math.sin(DEFAULT_HAIR_ANGLE)*BODY.hair1};
     const hairTip={x:hairMid.x+Math.cos(DEFAULT_HAIR_ANGLE)*BODY.hair2,y:hairMid.y-Math.sin(DEFAULT_HAIR_ANGLE)*BODY.hair2};
-    const elbow={x:0,y:chest.y-BODY.upperArm},wrist={x:0,y:elbow.y-BODY.lowerArm};
+    const elbow={x:0,y:chest.y-BODY.upperArm},wrist={x:0,y:elbow.y-BODY.lowerArm},hand={x:0,y:wrist.y-DEFAULT_HAND_LENGTH};
     const knee={x:0,y:pelvis.y-BODY.upperLeg},ankle={x:0,y:BODY.ankleHeight};
     const heel={x:-BODY.ankleForward,y:0},toe={x:BODY.foot-BODY.ankleForward,y:0};
-    const side=S=>({[`elbow${S}`]:{...elbow},[`wrist${S}`]:{...wrist},[`knee${S}`]:{...knee},
+    const side=S=>({[`elbow${S}`]:{...elbow},[`wrist${S}`]:{...wrist},[`hand${S}`]:{...hand},[`knee${S}`]:{...knee},
       [`ankle${S}`]:{...ankle},[`heel${S}`]:{...heel},[`toe${S}`]:{...toe}});
     return {schema:REST_SCHEMA,family:'biped',joints:{pelvis,chest,neck,head,headTop,hairRoot,hairMid,hairTip,...side('Near'),...side('Far')}};
   }
@@ -389,14 +397,14 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     jointGroups:Object.freeze([
       Object.freeze({id:'body',label:'Body / Head',joints:Object.freeze(['pelvis','chest','neck','head','headTop'])}),
       Object.freeze({id:'hair',label:'Hair',joints:Object.freeze(['hairRoot','hairMid','hairTip'])}),
-      Object.freeze({id:'armNear',label:'Near Arm',joints:Object.freeze(['chest','elbowNear','wristNear'])}),
-      Object.freeze({id:'armFar',label:'Far Arm',joints:Object.freeze(['chest','elbowFar','wristFar'])}),
+      Object.freeze({id:'armNear',label:'Near Arm',joints:Object.freeze(['chest','elbowNear','wristNear','handNear'])}),
+      Object.freeze({id:'armFar',label:'Far Arm',joints:Object.freeze(['chest','elbowFar','wristFar','handFar'])}),
       Object.freeze({id:'legNear',label:'Near Leg',joints:Object.freeze(['pelvis','kneeNear','ankleNear','toeNear'])}),
       Object.freeze({id:'legFar',label:'Far Leg',joints:Object.freeze(['pelvis','kneeFar','ankleFar','toeFar'])})
     ]),
     labels:Object.freeze({pelvis:'Pelvis',chest:'Chest / Shoulder',neck:'Neck',head:'Head',headTop:'Head Top',
       hairRoot:'Hair Root',hairMid:'Hair Mid',hairTip:'Hair Tip',
-      elbowNear:'Elbow',wristNear:'Wrist',elbowFar:'Elbow',wristFar:'Wrist',
+      elbowNear:'Elbow',wristNear:'Wrist',handNear:'Hand',elbowFar:'Elbow',wristFar:'Wrist',handFar:'Hand',
       kneeNear:'Knee',ankleNear:'Ankle',heelNear:'Heel',toeNear:'Toe',kneeFar:'Knee',ankleFar:'Ankle',heelFar:'Heel',toeFar:'Toe'}),
     boneLinks:Object.freeze([
       Object.freeze({a:'pelvis',b:'chest',label:'Torso'}),
@@ -413,9 +421,12 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       Object.freeze({a:'ankleNear',b:'toeNear',label:'Near Foot'}),
       Object.freeze({a:'pelvis',b:'kneeFar',label:'Far Thigh'}),
       Object.freeze({a:'kneeFar',b:'ankleFar',label:'Far Shin'}),
-      Object.freeze({a:'ankleFar',b:'toeFar',label:'Far Foot'})
+      Object.freeze({a:'ankleFar',b:'toeFar',label:'Far Foot'}),
+      // Added later: Skin weights refer to bones by position, so new bones go last.
+      Object.freeze({a:'wristNear',b:'handNear',label:'Near Hand'}),
+      Object.freeze({a:'wristFar',b:'handFar',label:'Far Hand'})
     ]),
-    symmetryPairs:Object.freeze([['elbowNear','elbowFar'],['wristNear','wristFar'],['kneeNear','kneeFar'],
+    symmetryPairs:Object.freeze([['elbowNear','elbowFar'],['wristNear','wristFar'],['handNear','handFar'],['kneeNear','kneeFar'],
       ['ankleNear','ankleFar'],['heelNear','heelFar'],['toeNear','toeFar']].map(Object.freeze)),
     groundContacts:Object.freeze(['heelNear','toeNear','heelFar','toeFar'])
   });
@@ -424,6 +435,14 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     for(const id of REST_JOINT_IDS){
       const fallback=DEFAULT_REST_RIG.joints[id],x=Number(raw[id]?.x),y=Number(raw[id]?.y);
       joints[id]={x:Number.isFinite(x)?x:fallback.x,y:Number.isFinite(y)?y:fallback.y};
+    }
+    // A rig saved before hands existed: put each hand straight on from its forearm.
+    for(const S of ['Near','Far']){
+      const id=`hand${S}`;
+      if(Number.isFinite(Number(raw[id]?.x))&&Number.isFinite(Number(raw[id]?.y)))continue;
+      const e=joints[`elbow${S}`],w=joints[`wrist${S}`],len=Math.hypot(w.x-e.x,w.y-e.y);
+      const u=len>1e-6?{x:(w.x-e.x)/len,y:(w.y-e.y)/len}:{x:0,y:-1};
+      joints[id]={x:w.x+u.x*DEFAULT_HAND_LENGTH,y:w.y+u.y*DEFAULT_HAND_LENGTH};
     }
     return {schema:REST_SCHEMA,family:'biped',joints};
   }
@@ -444,6 +463,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const bendSide=(a,m,b)=>{const u=vec(a,b),v=vec(a,m),c=u.x*v.y-u.y*v.x,len=Math.hypot(u.x,u.y)||1;return Math.abs(c)/len<.002?0:Math.sign(c);};
     const side=S=>({elbowBend:bendSide('chest',`elbow${S}`,`wrist${S}`),kneeBend:bendSide('pelvis',`knee${S}`,`ankle${S}`),
       upperArm:dist('chest',`elbow${S}`),lowerArm:dist(`elbow${S}`,`wrist${S}`),
+      // Hand: length and its angle from the forearm's direction at rest.
+      hand:dist(`wrist${S}`,`hand${S}`),
+      handTurn:Math.atan2(j[`hand${S}`].y-j[`wrist${S}`].y,j[`hand${S}`].x-j[`wrist${S}`].x)-Math.atan2(j[`wrist${S}`].y-j[`elbow${S}`].y,j[`wrist${S}`].x-j[`elbow${S}`].x),
       upperLeg:dist('pelvis',`knee${S}`),lowerLeg:dist(`knee${S}`,`ankle${S}`),
       ankleToHeel:{x:j[`heel${S}`].x-j[`ankle${S}`].x,y:j[`heel${S}`].y-j[`ankle${S}`].y},
       ankleToToe:{x:j[`toe${S}`].x-j[`ankle${S}`].x,y:j[`toe${S}`].y-j[`ankle${S}`].y}});
@@ -531,6 +553,11 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const aArm=solveJoint(shoulder,aWTarget,A.upperArm,A.lowerArm,'elbow',A.elbowBend);
     const bArm=solveJoint(shoulder,bWTarget,B.upperArm,B.lowerArm,'elbow',B.elbowBend);
 
+    // The hand keeps its rest angle to the forearm, turned by the hand angle.
+    const handOf=(arm,dims,angle)=>{const fa=Math.atan2(arm.target.y-arm.joint.y,arm.target.x-arm.joint.x)+dims.handTurn+angle;
+      return {x:arm.target.x+Math.cos(fa)*dims.hand,y:arm.target.y+Math.sin(fa)*dims.hand};};
+    const aHand=handOf(aArm,A,p.aHandAngle),bHand=handOf(bArm,B,p.bHandAngle);
+
     const waist={x:lerp(chest.x,pelvis.x,.78),y:lerp(chest.y,pelvis.y,.78)};
     const dressHem={x:pelvis.x-.010,y:Math.max(.14,pelvis.y-.185)};
     const sway=Math.sin((p.travel||0)*TAU)*.035;
@@ -543,11 +570,11 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       hairRoot,hairMid:h1,hairTip:h2,cloakMid,cloakTip,cloakFrontTip,
       aK:aLeg.joint,aAnkle:aFoot.ankle,aHeel:aFoot.heel,aToe:aFoot.toe,
       bK:bLeg.joint,bAnkle:bFoot.ankle,bHeel:bFoot.heel,bToe:bFoot.toe,
-      aE:aArm.joint,aW:aArm.target,bE:bArm.joint,bW:bArm.target,
+      aE:aArm.joint,aW:aArm.target,bE:bArm.joint,bW:bArm.target,aHand,bHand,
       // The same joints under the rest rig's joint names (RIG_DESIGNER), for
       // Skin and mesh drawing.
-      elbowNear:aArm.joint,wristNear:aArm.target,kneeNear:aLeg.joint,ankleNear:aFoot.ankle,heelNear:aFoot.heel,toeNear:aFoot.toe,
-      elbowFar:bArm.joint,wristFar:bArm.target,kneeFar:bLeg.joint,ankleFar:bFoot.ankle,heelFar:bFoot.heel,toeFar:bFoot.toe
+      elbowNear:aArm.joint,wristNear:aArm.target,handNear:aHand,kneeNear:aLeg.joint,ankleNear:aFoot.ankle,heelNear:aFoot.heel,toeNear:aFoot.toe,
+      elbowFar:bArm.joint,wristFar:bArm.target,handFar:bHand,kneeFar:bLeg.joint,ankleFar:bFoot.ankle,heelFar:bFoot.heel,toeFar:bFoot.toe
     };
   }
 

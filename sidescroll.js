@@ -17246,6 +17246,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const planted = a.planted === b.planted ? a.planted : (t < .34 ? a.planted : (t > .66 ? b.planted : null));
     const out={...Rig.clone(a),name:t<.5?a.name:b.name,key:false,planted};
     keys.forEach(k=>out[k]=Rig.lerp(a[k],b[k],t));
+    for(const k of ['aHandAngle','bHandAngle']) out[k]=Rig.lerp(Number(a[k])||0,Number(b[k])||0,t);
     if(out.planted==='A') out.aFootLift=0;
     if(out.planted==='B') out.bFootLift=0;
     return out;

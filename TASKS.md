@@ -54,6 +54,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0b. Biped hands (2 Nov)** — Character01
+- [ ] Rig → Near Arm / Far Arm each list Hand; the hand joint starts just past the wrist and moves on its own.
+- [ ] Animate → Near Hand / Far Hand: moving still moves the wrist; rotating turns the hand; Save, reopen, still there; plays in Quick Play and the game.
+- [ ] Skin: an arm or hand mesh can be weighted to Near Hand / Far Hand.
+
 **0a. Biped rig (2 Nov)** — Character01 (your new biped)
 - [ ] In Rig, move Chest / Shoulder, an elbow and a wrist: only the bones attached to that joint move; nothing swings the opposite way.
 - [ ] Where near and far joints overlap (knees, feet), dragging moves the near one; tap (no drag) again to switch to the far one; the label above it says near/far.

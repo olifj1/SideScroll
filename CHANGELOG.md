@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Biped hands: the arm now runs shoulder → elbow → wrist → **hand**. Rig has a
+  Hand joint per side (placed straight on from the forearm on rigs saved before);
+  the hand keeps its rest angle to the forearm and Animate's Near/Far Hand control
+  can turn it (new *hand angle* channel, mirrored with the other side; older clips
+  keep the hand straight). Skin can weight artwork to the new Near/Far Hand bones.
+  Existing joints, skins and the heroes' animation are unchanged (checked frame by
+  frame, and a skin bound before the change draws pixel-identical).
+- Removed test screenshots (`undefined/`) committed by mistake with PR #29.
 - Fixed: on a biped whose rig leans, is offset or has bent arms/legs, the animated
   skeleton only took bone *lengths* from the rig: it stood the spine straight up and
   re-solved elbows/knees with a fixed bend, so moving a shoulder swung the arms the

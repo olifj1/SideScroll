@@ -14,7 +14,7 @@
   const CHANNELS = {
     biped: {
       linear:['pelvisY','aFootX','aFootLift','bFootX','bFootLift','aHandX','aHandY','bHandX','bHandY','travel'],
-      angular:['lean','aFootAngle','bFootAngle','hairAngle','hairBend'],
+      angular:['lean','aFootAngle','bFootAngle','aHandAngle','bHandAngle','hairAngle','hairBend'],
       discrete:['planted']
     },
     quadruped: {
@@ -174,7 +174,7 @@
     if (family === 'biped') {
       for (const [a,b] of [
         ['aFootX','bFootX'],['aFootLift','bFootLift'],['aFootAngle','bFootAngle'],
-        ['aHandX','bHandX'],['aHandY','bHandY']
+        ['aHandX','bHandX'],['aHandY','bHandY'],['aHandAngle','bHandAngle']
       ]) swapValues(out,a,b);
       if (out.planted === 'A') out.planted='B';
       else if (out.planted === 'B') out.planted='A';
