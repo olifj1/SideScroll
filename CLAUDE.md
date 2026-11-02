@@ -240,6 +240,10 @@ Any new per-character storage must be added to `slicesFor()` there.
   bone 0 stays the pelvis-to-chest *Whole Back* for older skins). A binding's `bones`
   list (Skin → *Bones this part follows*) wins over its `group`; a jointGroup may list
   its `bones` explicitly. `blend` (metres) shares points near joint lines.
+- Character Lab draws posed meshes with WebGL (`gpuDrawMeshes` in `anim-lab-assembly-skin.js`,
+  one offscreen canvas composited per frame); the clipped-triangle Canvas path
+  (`rasterTriangles`) is the fallback and Display → GPU mesh off. Safari is very
+  slow at the Canvas path, so keep heavy per-triangle Canvas work out of playback.
 - A character's drawing method (Parts / Mesh) is its Parts assembly's `enabled` flag.
   `anim-lab-mesh.js`'s old Skin Prototype is retired; the file only still builds the
   original parts' mesh (`window.AnimLabLegacyAtlas`) that Mesh drawing uses.

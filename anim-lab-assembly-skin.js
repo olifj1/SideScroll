@@ -829,6 +829,83 @@
   // at all three corners within a subpixel tolerance. This is *not* a mesh
   // simplifier: every posed triangle boundary and vertex remains unchanged.
   // Identical transform runs are pixel-exact apart from avoiding clip seams.
+  // ---- GPU mesh drawing (2 Nov 2026) ------------------------------------------
+  // Safari draws the clipped-triangle Canvas path below very slowly, so the
+  // posed meshes are drawn with WebGL into a small offscreen canvas covering
+  // just the character, then composited onto the view in one drawImage. The
+  // game already draws meshes with WebGL. Display → "GPU mesh" switches back to
+  // the Canvas path, which is also used automatically if WebGL is unavailable,
+  // the atlas is larger than the GPU allows, or anything fails.
+  const GPU={canvas:null,gl:null,prog:null,failed:false,tex:new WeakMap(),loc:null,buf:null};
+  function gpuSetup(){
+    if(GPU.failed)return null;
+    if(GPU.gl&&!GPU.gl.isContextLost())return GPU.gl;
+    try{
+      const canvas=document.createElement('canvas');
+      const gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:true,preserveDrawingBuffer:false});
+      if(!gl)throw new Error('no WebGL');
+      const shader=(type,src)=>{const sh=gl.createShader(type);gl.shaderSource(sh,src);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;};
+      const prog=gl.createProgram();
+      gl.attachShader(prog,shader(gl.VERTEX_SHADER,'attribute vec2 p;attribute vec2 uv;uniform vec2 size;varying vec2 v;void main(){v=uv;gl_Position=vec4(p.x/size.x*2.0-1.0,1.0-p.y/size.y*2.0,0.0,1.0);}'));
+      gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,'precision mediump float;varying vec2 v;uniform sampler2D t;void main(){gl_FragColor=texture2D(t,v);}'));
+      gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));
+      GPU.canvas=canvas;GPU.gl=gl;GPU.prog=prog;GPU.tex=new WeakMap();
+      GPU.loc={p:gl.getAttribLocation(prog,'p'),uv:gl.getAttribLocation(prog,'uv'),size:gl.getUniformLocation(prog,'size'),t:gl.getUniformLocation(prog,'t')};
+      GPU.buf={p:gl.createBuffer(),uv:gl.createBuffer(),i:gl.createBuffer()};
+      return gl;
+    }catch(err){console.warn('[Skin] GPU mesh drawing unavailable; using Canvas.',err);GPU.failed=true;return null;}
+  }
+  function gpuTexture(gl,image){
+    let t=GPU.tex.get(image);if(t)return t;
+    const w=image.naturalWidth||image.width,h=image.naturalHeight||image.height,max=gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    if(!w||!h||w>max||h>max)return null;
+    t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
+    for(const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,k,v);
+    GPU.tex.set(image,t);return t;
+  }
+  // list: [{mesh,image,points}] in drawing order. Returns false to fall back.
+  function gpuDrawMeshes(ctx,list,counts){
+    if(!list.length)return true;
+    const gl=gpuSetup();if(!gl)return false;
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const e of list){
+      if(!(e.image&&e.image.complete!==false&&(e.image.naturalWidth||e.image.width)))return false;
+      if(e.mesh.vertices.length>65535)return false;
+      for(const p of e.points){if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))return false;
+        if(p.x<minX)minX=p.x;if(p.x>maxX)maxX=p.x;if(p.y<minY)minY=p.y;if(p.y>maxY)maxY=p.y;}
+    }
+    const ox=Math.floor(minX)-2,oy=Math.floor(minY)-2,w=Math.ceil(maxX)-ox+2,h=Math.ceil(maxY)-oy+2;
+    const limit=gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)||4096;
+    if(w<1||h<1||w>Math.min(limit,4096)||h>Math.min(limit,4096))return false;
+    try{
+      if(GPU.canvas.width!==w||GPU.canvas.height!==h){GPU.canvas.width=w;GPU.canvas.height=h;}
+      gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.useProgram(GPU.prog);gl.uniform2f(GPU.loc.size,w,h);gl.uniform1i(GPU.loc.t,0);gl.activeTexture(gl.TEXTURE0);
+      gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.disable(gl.CULL_FACE);gl.disable(gl.DEPTH_TEST);
+      for(const e of list){
+        const tex=gpuTexture(gl,e.image);if(!tex)return false;
+        const iw=e.image.naturalWidth||e.image.width,ih=e.image.naturalHeight||e.image.height,n=e.points.length;
+        const pos=new Float32Array(n*2),uv=new Float32Array(n*2);
+        for(let i=0;i<n;i++){pos[i*2]=e.points[i].x-ox;pos[i*2+1]=e.points[i].y-oy;const u=e.mesh.vertices[i];uv[i*2]=u.x/iw;uv[i*2+1]=u.y/ih;}
+        const idx=new Uint16Array(e.mesh.triangles.length*3);
+        e.mesh.triangles.forEach((t,k)=>{idx[k*3]=t[0];idx[k*3+1]=t[1];idx[k*3+2]=t[2];});
+        gl.bindTexture(gl.TEXTURE_2D,tex);
+        gl.bindBuffer(gl.ARRAY_BUFFER,GPU.buf.p);gl.bufferData(gl.ARRAY_BUFFER,pos,gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(GPU.loc.p);gl.vertexAttribPointer(GPU.loc.p,2,gl.FLOAT,false,0,0);
+        gl.bindBuffer(gl.ARRAY_BUFFER,GPU.buf.uv);gl.bufferData(gl.ARRAY_BUFFER,uv,gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(GPU.loc.uv);gl.vertexAttribPointer(GPU.loc.uv,2,gl.FLOAT,false,0,0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,GPU.buf.i);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.DYNAMIC_DRAW);
+        gl.drawElements(gl.TRIANGLES,idx.length,gl.UNSIGNED_SHORT,0);
+        counts.drawCalls++;counts.triangles+=e.mesh.triangles.length;
+      }
+      // Same coordinates as the Canvas path: the offscreen canvas is placed at
+      // the character's top-left in the view's current transform.
+      ctx.drawImage(GPU.canvas,ox,oy);
+      return true;
+    }catch(err){console.warn('[Skin] GPU mesh drawing failed; using Canvas.',err);GPU.failed=true;return false;}
+  }
   function rasterTriangles(ctx,image,mesh,points,binding,posed,counts){
     const triangles=mesh.triangles,ready=!!(image&&image.complete!==false&&(image.naturalWidth||image.width));
     const closeTo=(m,tri)=>{
@@ -890,7 +967,17 @@
     const rest=Math.max(0,1-sum),den=Math.max(1,sum);
     return sum>1e-8?{x:(x+rest*p.x)/den,y:(y+rest*p.y)/den}:p;
   }
-  let lastPerf={triangles:0,drawCalls:0,batched:0,ms:0};
+  let lastPerf={triangles:0,drawCalls:0,batched:0,ms:0},meshMethod='';
+  // Display panel readout: how the mesh was drawn and how long it took
+  // (averaged), so drawing speed can be checked on the phone.
+  let perfEl=null,perfAvg=0,perfShown=0;
+  function showPerf(){
+    perfAvg=perfAvg?perfAvg*.9+lastPerf.ms*.1:lastPerf.ms;
+    const now=performance.now();if(now-perfShown<500)return;perfShown=now;
+    if(!perfEl){const host=document.querySelector('.animlab-display-switches');if(!host)return;
+      perfEl=document.createElement('div');perfEl.className='animlab-mesh-perf';host.insertAdjacentElement('afterend',perfEl);}
+    perfEl.textContent=`Mesh drawn by ${meshMethod||'—'} · ${perfAvg.toFixed(1)} ms per frame · ${lastPerf.triangles} triangles`;
+  }
   // Heatmap is a colour annotation drawn OVER fully opaque textured triangles.
   // It never changes the artwork opacity, selected or unselected.
   function heatColour(w){
@@ -1636,11 +1723,12 @@
     const counts={triangles:0,drawCalls:0,batched:0};const started=performance.now();
     const ctx=args.ctx;
     ctx.save();ctx.globalAlpha=1;ctx.imageSmoothingEnabled=true;
-    // v1.1.12: one authoritative rasterisation path for Skin, Animate and
-    // Quick Play. The v1.1.11 WebGL compositor was not device-validated and
-    // produced broken Animate artwork while Skin's Canvas2D preview looked
-    // correct. Do NOT re-enable GPU until pixel-parity is tested on device.
+    // Skin, Animate and Quick Play share this path. Meshes are posed first, then
+    // drawn together (GPU, or the Canvas fallback), then the selected part's
+    // overlays go on top. (v1.1.11 had a different WebGL compositor that broke
+    // on the iPhone; this one has an on-device switch back to Canvas.)
     lastPickedPoints=null;
+    const drawList=[];
     for(const item of parts){
       if(skinMode&&(hiddenParts.has(item.id)||(soloPart&&soloPart!==item.id)))continue;
       const source=sources.get(item.meshId);if(!validSource(source))continue;
@@ -1650,7 +1738,13 @@
       const rest=transformVertices(mesh,item,image);
       const chosenMaps=(binding?.envelopeMode==='rect-binary-v1'||binding?.envelopeMode==='joint-boundaries-v1')?rigidMaps:maps;
       const points=rest.map((p,i)=>project(binding&&chosenMaps?fastSkinVertex(p,binding.weights[i],chosenMaps):p,args.view));
-      rasterTriangles(ctx,image,mesh,points,binding,pose,counts);
+      drawList.push({item,mesh,image,points,binding,selected});
+    }
+    const useGpu=core.getOverlay?.('gpu')!==false;
+    const gpuDrew=useGpu&&gpuDrawMeshes(ctx,drawList,counts);
+    if(!gpuDrew)for(const e of drawList)rasterTriangles(ctx,e.image,e.mesh,e.points,e.binding,pose,counts);
+    meshMethod=gpuDrew?'GPU':'Canvas';
+    for(const {mesh,points,binding,selected} of drawList){
       if(selected&&heatmap&&binding){
         for(const tri of mesh.triangles){
           const [i,j,k]=tri,a=points[i],b=points[j],c=points[k];if(!a||!b||!c)continue;
@@ -1721,7 +1815,7 @@
         ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();
       });
     }
-    ctx.restore();lastPerf={...counts,ms:performance.now()-started};return true;
+    ctx.restore();lastPerf={...counts,ms:performance.now()-started};showPerf();return true;
   }
   core.registerArtRenderer('atlas-assembly-skin',render);
   // Drawing method → Mesh (anim-lab-art-layout.js): give every assembled part

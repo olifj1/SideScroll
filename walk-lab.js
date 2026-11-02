@@ -969,7 +969,8 @@
   quadrupedShapeReference.src = (window.SideScrollAssetPath || (url => url))('quadruped-reference.png?v=1.0.163');
   const view = { zoom:1, panX:0, panY:0 };
   // near / far: show each side's limbs (view only, not saved; both on at load).
-  const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false, near:true, far:true };
+  // gpu: draw meshes with WebGL (Display → GPU mesh; saved with Display).
+  const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false, near:true, far:true, gpu:true };
   const pointers = new Map();
   const listeners = new Set();
   const sessionParticipants = new Map();

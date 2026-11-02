@@ -60,6 +60,10 @@ app and make a Project Backup.
 - [ ] Select Spine Bend, change it on one frame: only that control gets a key there (bright dot). **Keep only this key**: the spine holds that bend for the whole clip. **Delete key here** removes just that control's key.
 - [ ] Tween → **Smooth**: playback is smooth (no frame-to-frame stepping) and visibly eases compared with Linear, without slowing down; Save, reopen, still Smooth; same in Quick Play and the game.
 
+**0j. GPU mesh drawing (2 Nov)** — Character01 and the Fox in Animate
+- [ ] Artwork looks right (no missing, shifted or dark parts) with Display → **GPU mesh** on; compare with it off.
+- [ ] Playback and Quick Play are smooth; Smooth vs Linear now visibly differ. Note the Display readout ("Mesh drawn by GPU · … ms") with GPU mesh on and off and tell Claude both numbers.
+
 **0i. Animate limits, planted foot, motion path (2 Nov)** — Character01
 - [ ] A hand can be raised above the head; the Root handle sits on the pelvis and moves with it.
 - [ ] Root very high with a foot planted stops at leg reach; Planted foot → **Neither** lets it rise; Near / Far switches which foot holds.
