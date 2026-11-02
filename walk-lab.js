@@ -422,6 +422,10 @@
                 meshSignature:String(raw.meshSignature||'').slice(0,75),
                 group:String(raw.group||'body').slice(0,36),
                 weights:(Array.isArray(raw.weights)?raw.weights.slice(0,4096):[]).map(cleanRow)};
+              // 2 Nov 2026: the bones a part follows (chosen in Skin; absent = its
+              // group's bones) and the blend width at joint lines (metres).
+              if(Array.isArray(raw.bones)){const list=[...new Set(raw.bones.filter(i=>Number.isInteger(i)&&i>=0&&i<128))].slice(0,64);if(list.length)clean.bones=list;}
+              if(Number.isFinite(Number(raw.blend))&&Number(raw.blend)>0)clean.blend=clamp(Number(raw.blend),0,.2);
               // v1.1.9: preserve automatic base weights separately from tuned
               // per-vertex weights. Existing v1.1.8 bindings remain readable.
               if(Array.isArray(raw.baseWeights)&&raw.baseWeights.length===clean.weights.length)

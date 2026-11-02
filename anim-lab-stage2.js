@@ -14,6 +14,7 @@
     biped: [
       {id:'root',label:'Body / Root',group:'Core',point:'pelvis',move:{y:{key:'pelvisY',min:.40,max:.60,sign:1}},pair:null},
       {id:'chest',label:'Chest / Lean',group:'Core',point:'chest',rotate:{key:'lean',min:-25*DEG,max:25*DEG}},
+      {id:'spine',label:'Spine Bend',group:'Core',point:'spine',rotate:{key:'spineBend',min:-40*DEG,max:40*DEG}},
       {id:'nearFoot',label:'Near Foot',group:'Near Side',point:'aAnkle',pair:'farFoot',move:{x:{key:'aFootX',min:-.45,max:.45,sign:1},y:{key:'aFootLift',min:0,max:.28,sign:1}},rotate:{key:'aFootAngle',min:-50*DEG,max:50*DEG}},
       {id:'nearHand',label:'Near Hand',group:'Near Side',point:'aW',pair:'farHand',move:{x:{key:'aHandX',min:-.34,max:.34,sign:1},y:{key:'aHandY',min:.18,max:.58,sign:-1}},rotate:{key:'aHandAngle',min:-90*DEG,max:90*DEG}},
       {id:'farFoot',label:'Far Foot',group:'Far Side',point:'bAnkle',pair:'nearFoot',move:{x:{key:'bFootX',min:-.45,max:.45,sign:1},y:{key:'bFootLift',min:0,max:.28,sign:1}},rotate:{key:'bFootAngle',min:-50*DEG,max:50*DEG}},

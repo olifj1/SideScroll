@@ -582,6 +582,7 @@
     ctx.lineWidth=Math.max(.9,Math.min(1.7,canvas.width/1150));
     const sideOf=id=>String(id||'').includes('Near')?'near':String(id||'').includes('Far')?'far':'';
     for (const link of desc.boneLinks || []) {
+      if (link?.overlay === false) continue;
       const a=Array.isArray(link)?link[0]:link.a;
       const b=Array.isArray(link)?link[1]:link.b;
       const p0=screenPoints[a],p1=screenPoints[b];

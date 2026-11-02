@@ -223,7 +223,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const keys=['pelvisY','lean','aFootX','aFootLift','aFootAngle','bFootX','bFootLift','bFootAngle','aHandX','aHandY','bHandX','bHandY','hairAngle','hairBend'];
     const out={name,planted:a.planted,travel:lerp(a.travel,travelB,t),key:false};
     keys.forEach(k=>out[k]=lerp(a[k],b[k],t));
-    for(const k of ['aHandAngle','bHandAngle'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
+    for(const k of ['aHandAngle','bHandAngle','spineBend'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
     if(out.planted==='A') out.aFootLift=0;
     if(out.planted==='B') out.bFootLift=0;
     return out;
@@ -316,6 +316,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       hairBend:Number.isFinite(p?.hairBend)?p.hairBend:d.hairBend,
       // Hand angle (radians, + = anticlockwise) relative to the forearm; 0 keeps
       // the hand as it is in the rest rig. Older clips have none.
+      spineBend:Number.isFinite(p?.spineBend)?p.spineBend:0,
       aHandAngle:Number.isFinite(p?.aHandAngle)?p.aHandAngle:0,
       bHandAngle:Number.isFinite(p?.bHandAngle)?p.bHandAngle:0,
       key:i%2===0
@@ -379,7 +380,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   const DEFAULT_HAND_LENGTH=0.07;
   function buildDefaultRestRig(){
     const legY=BODY.ankleHeight+BODY.upperLeg+BODY.lowerLeg;
-    const pelvis={x:0,y:legY},chest={x:0,y:legY+BODY.torso};
+    const pelvis={x:0,y:legY},chest={x:0,y:legY+BODY.torso},spine={x:0,y:legY+BODY.torso/2};
     const neck={x:0,y:chest.y+BODY.neck},head={x:0,y:neck.y+BODY.headR*.95},headTop={x:0,y:head.y+BODY.headR*.95};
     const hairRoot={x:head.x-BODY.headR*.45,y:head.y-BODY.headR*.15};
     const hairMid={x:hairRoot.x+Math.cos(DEFAULT_HAIR_ANGLE)*BODY.hair1,y:hairRoot.y-Math.sin(DEFAULT_HAIR_ANGLE)*BODY.hair1};
@@ -389,7 +390,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const heel={x:-BODY.ankleForward,y:0},toe={x:BODY.foot-BODY.ankleForward,y:0};
     const side=S=>({[`elbow${S}`]:{...elbow},[`wrist${S}`]:{...wrist},[`hand${S}`]:{...hand},[`knee${S}`]:{...knee},
       [`ankle${S}`]:{...ankle},[`heel${S}`]:{...heel},[`toe${S}`]:{...toe}});
-    return {schema:REST_SCHEMA,family:'biped',joints:{pelvis,chest,neck,head,headTop,hairRoot,hairMid,hairTip,...side('Near'),...side('Far')}};
+    return {schema:REST_SCHEMA,family:'biped',joints:{pelvis,spine,chest,neck,head,headTop,hairRoot,hairMid,hairTip,...side('Near'),...side('Far')}};
   }
   const DEFAULT_REST_RIG=Object.freeze(buildDefaultRestRig());
   const REST_JOINT_IDS=Object.freeze(Object.keys(DEFAULT_REST_RIG.joints));
@@ -398,19 +399,22 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     family:'biped',
     bounds:Object.freeze({minX:-0.55,maxX:0.55,minY:-0.10,maxY:1.45}),
     jointGroups:Object.freeze([
-      Object.freeze({id:'body',label:'Body / Head',joints:Object.freeze(['pelvis','chest','neck','head','headTop'])}),
+      Object.freeze({id:'body',label:'Body / Head',joints:Object.freeze(['pelvis','spine','chest','neck','head','headTop']),
+        bones:Object.freeze([['pelvis','spine'],['spine','chest'],['chest','neck'],['neck','headTop']].map(Object.freeze))}),
       Object.freeze({id:'hair',label:'Hair',joints:Object.freeze(['hairRoot','hairMid','hairTip'])}),
       Object.freeze({id:'armNear',label:'Near Arm',joints:Object.freeze(['chest','elbowNear','wristNear','handNear'])}),
       Object.freeze({id:'armFar',label:'Far Arm',joints:Object.freeze(['chest','elbowFar','wristFar','handFar'])}),
       Object.freeze({id:'legNear',label:'Near Leg',joints:Object.freeze(['pelvis','kneeNear','ankleNear','heelNear','toeNear'])}),
       Object.freeze({id:'legFar',label:'Far Leg',joints:Object.freeze(['pelvis','kneeFar','ankleFar','heelFar','toeFar'])})
     ]),
-    labels:Object.freeze({pelvis:'Pelvis',chest:'Chest / Shoulder',neck:'Neck',head:'Head',headTop:'Head Top',
+    labels:Object.freeze({pelvis:'Pelvis',spine:'Spine',chest:'Chest / Shoulder',neck:'Neck',head:'Head',headTop:'Head Top',
       hairRoot:'Hair Root',hairMid:'Hair Mid',hairTip:'Hair Tip',
       elbowNear:'Elbow',wristNear:'Wrist',handNear:'Hand',elbowFar:'Elbow',wristFar:'Wrist',handFar:'Hand',
       kneeNear:'Knee',ankleNear:'Ankle',heelNear:'Heel',toeNear:'Toe',kneeFar:'Knee',ankleFar:'Ankle',heelFar:'Heel',toeFar:'Toe'}),
     boneLinks:Object.freeze([
-      Object.freeze({a:'pelvis',b:'chest',label:'Torso'}),
+      // The whole back in one bone; skins bound before the Spine joint use it.
+      // Not drawn in the Rig Designer (Lower / Upper Back show the spine).
+      Object.freeze({a:'pelvis',b:'chest',label:'Whole Back',overlay:false}),
       Object.freeze({a:'chest',b:'neck',label:'Neck'}),
       Object.freeze({a:'neck',b:'headTop',label:'Head'}),
       Object.freeze({a:'hairRoot',b:'hairMid',label:'Hair Base'}),
@@ -427,7 +431,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       Object.freeze({a:'ankleFar',b:'toeFar',label:'Far Foot'}),
       // Added later: Skin weights refer to bones by position, so new bones go last.
       Object.freeze({a:'wristNear',b:'handNear',label:'Near Hand'}),
-      Object.freeze({a:'wristFar',b:'handFar',label:'Far Hand'})
+      Object.freeze({a:'wristFar',b:'handFar',label:'Far Hand'}),
+      Object.freeze({a:'pelvis',b:'spine',label:'Lower Back'}),
+      Object.freeze({a:'spine',b:'chest',label:'Upper Back'})
     ]),
     symmetryPairs:Object.freeze([['elbowNear','elbowFar'],['wristNear','wristFar'],['handNear','handFar'],['kneeNear','kneeFar'],
       ['ankleNear','ankleFar'],['heelNear','heelFar'],['toeNear','toeFar']].map(Object.freeze)),
@@ -439,6 +445,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       const fallback=DEFAULT_REST_RIG.joints[id],x=Number(raw[id]?.x),y=Number(raw[id]?.y);
       joints[id]={x:Number.isFinite(x)?x:fallback.x,y:Number.isFinite(y)?y:fallback.y};
     }
+    // A rig saved before the Spine joint: halfway between pelvis and chest.
+    if(!(Number.isFinite(Number(raw.spine?.x))&&Number.isFinite(Number(raw.spine?.y))))
+      joints.spine={x:(joints.pelvis.x+joints.chest.x)/2,y:(joints.pelvis.y+joints.chest.y)/2};
     // A rig saved before hands existed: put each hand straight on from its forearm.
     for(const S of ['Near','Far']){
       const id=`hand${S}`;
@@ -475,7 +484,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     // Spine directions and the pelvis's horizontal place come from the rest rig
     // too, so a rig that leans or is offset stands exactly on its joints at rest
     // (the default rig is upright at x = 0: the original bipeds are unchanged).
-    const out={pelvisX:j.pelvis.x,torsoV:vec('pelvis','chest'),neckV:vec('chest','neck'),headV:vec('neck','head'),headTopV:vec('head','headTop'),
+    const out={pelvisX:j.pelvis.x,torsoV:vec('pelvis','chest'),lowerBackV:vec('pelvis','spine'),upperBackV:vec('spine','chest'),neckV:vec('chest','neck'),headV:vec('neck','head'),headTopV:vec('head','headTop'),
       torso:dist('pelvis','chest'),neck:dist('chest','neck'),head:dist('neck','head'),headTop:dist('head','headTop'),
       hairRoot:{x:j.hairRoot.x-j.head.x,y:j.hairRoot.y-j.head.y},hair1:dist('hairRoot','hairMid'),hair2:dist('hairMid','hairTip'),
       near:side('Near'),far:side('Far')};
@@ -526,13 +535,17 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     }
 
     // Lean turns the rest spine forward (clockwise in Y-up space).
-    const lean=(from,v)=>({x:from.x+v.x*Math.cos(p.lean)+v.y*Math.sin(p.lean),y:from.y-v.x*Math.sin(p.lean)+v.y*Math.cos(p.lean)});
+    const turn=(from,v,a)=>({x:from.x+v.x*Math.cos(a)+v.y*Math.sin(a),y:from.y-v.x*Math.sin(a)+v.y*Math.cos(a)});
+    const lean=(from,v)=>turn(from,v,p.lean);
+    // Spine bend turns the upper back (and everything above it) further.
+    const bend=Number(p.spineBend)||0,upper=(from,v)=>turn(from,v,p.lean+bend);
     const pelvis={x:L.pelvisX,y:pelvisY};
-    const chest=lean(pelvis,L.torsoV);
+    const spine=lean(pelvis,L.lowerBackV);
+    const chest=bend?upper(spine,L.upperBackV):lean(pelvis,L.torsoV);
     const shoulder={...chest};
-    const neck=lean(chest,L.neckV);
-    const head=lean(neck,L.headV);
-    const headTop=lean(head,L.headTopV);
+    const neck=upper(chest,L.neckV);
+    const head=upper(neck,L.headV);
+    const headTop=upper(head,L.headTopV);
     const hairRoot={x:head.x+L.hairRoot.x,y:head.y+L.hairRoot.y};
     const h1={x:hairRoot.x+Math.cos(p.hairAngle)*L.hair1,y:hairRoot.y-Math.sin(p.hairAngle)*L.hair1};
     const h2Angle=p.hairAngle+p.hairBend;
@@ -570,7 +583,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const cloakFrontTip={x:pelvis.x-.070+sway*.25,y:pelvis.y-.215};
 
     return {
-      pose:p,pelvis,chest,shoulder,neck,head,headTop,waist,dressHem,
+      pose:p,pelvis,spine,chest,shoulder,neck,head,headTop,waist,dressHem,
       hairRoot,hairMid:h1,hairTip:h2,cloakMid,cloakTip,cloakFrontTip,
       aK:aLeg.joint,aAnkle:aFoot.ankle,aHeel:aFoot.heel,aToe:aFoot.toe,
       bK:bLeg.joint,bAnkle:bFoot.ankle,bHeel:bFoot.heel,bToe:bFoot.toe,
@@ -583,6 +596,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   }
 
   // The shoulder (chest) for a pelvis height and lean, as geometry() places it.
+  // (No spine bend: climbing poses don't use it.)
   function chestFor(pelvisY,leanAngle,restRig=activeRestRig){
     const L=restLengths(restRig),v=L.torsoV;
     return {x:L.pelvisX+v.x*Math.cos(leanAngle)+v.y*Math.sin(leanAngle),y:pelvisY-v.x*Math.sin(leanAngle)+v.y*Math.cos(leanAngle)};
