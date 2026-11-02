@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): **Ground Motion** — the moving floor the Fox had, now for bipeds,
+  with denser markers (a tick every 2.5 cm, a taller one every 10 cm). It scrolls at the
+  speed Quick Play walks or runs (Walk / Run speed × cycle time), during playback and
+  frame by frame, so a planted foot should stay over one marker; on/off and a ×0.5–1.5
+  display speed in the Ground Motion section.
 - Animate (bipeds): Key Pose Tools → **Copy a limb to the other side** — Legs / Arms,
   Near → Far or Far → Near, **half a cycle later** (the opposite step of a walk or run)
   or same timing. Copies that limb's keyed controls (foot position, height, angle, toe

@@ -60,6 +60,9 @@ app and make a Project Backup.
 - [ ] Select Spine Bend, change it on one frame: only that control gets a key there (bright dot). **Keep only this key**: the spine holds that bend for the whole clip. **Delete key here** removes just that control's key.
 - [ ] Tween → **Smooth**: playback is smooth (no frame-to-frame stepping) and visibly eases compared with Linear, without slowing down; Save, reopen, still Smooth; same in Quick Play and the game.
 
+**0o. Moving ground for bipeds (2 Nov)** — Character01 walk / run in Animate
+- [ ] The floor markers scroll during playback and step with the frames; a planted foot stays over one marker (or shows how far it slips); the Ground Motion section toggles it and sets the display speed.
+
 **0n. Copy a limb to the other side (2 Nov)** — Character01
 - [ ] Animate the near leg (few keys), Foot contact Automatic or Off, then Key Pose Tools → Copy a limb → **Half a cycle later** → Legs **Near → Far**: the far leg steps the same way on the opposite beat. Same timing and Arms work too; Undo restores.
 
