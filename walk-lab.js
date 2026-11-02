@@ -896,10 +896,11 @@
     const keys = [...(clipData?.keys || [])].sort((a,b)=>a.frame-b.frame);
     if (!keys.length) return adapter.defaultPose(clipData?.clip || 'walk', clamp(Math.round(frame),0,15));
     // Per-control keys or smooth tweening: the sampler the game uses too.
+    // The exact (fractional) position: playback samples between frames.
     if (family === 'biped' && BipedRig.usesChannelSampling?.(clipData)) {
-      const f = ((Math.round(Number(frame)) % 16) + 16) % 16;
+      const f = (((Number(frame) || 0) % 16) + 16) % 16;
       const pose = BipedRig.sampleSparse(clipData, f / 16);
-      if (pose) return adapter.normalise(pose, f);
+      if (pose) return pose;
     }
     const f = ((Number(frame) % 16) + 16) % 16;
     const exact = keys.find(k => k.frame === f);
@@ -977,6 +978,7 @@
   const underlayRenderers = new Map();
   let pluginDraw = null;
   const pluginRenderers = new Map();
+  let pathCache = null;
   const artRenderers = new Map();
   let gesture = null;
   let pendingNavigation = null;
@@ -2754,6 +2756,15 @@
       return()=>{if(artRenderers.get(key)===fn)artRenderers.delete(key);draw();};
     },
     geometry:pose=>currentAdapter().rig.geometry(pose||currentPose(),displayRestRig()),
+    // A joint's path over the clip being edited: 64 samples plus the 16 frames;
+    // cached until the clip, rig or joint changes.
+    samplePath:point=>{
+      const clip=displaySparseClip(),restRig=displayRestRig(),family=currentCharacter().family,adapter=currentAdapter();
+      if(pathCache&&pathCache.clip===clip&&pathCache.restRig===restRig&&pathCache.point===point)return pathCache.result;
+      const at=f=>adapter.rig.geometry(evaluateSparsePose(clip,f,family),restRig)?.[point];
+      const result={points:Array.from({length:64},(_,i)=>at(i/4)).filter(Boolean),frames:Array.from({length:16},(_,f)=>at(f)).filter(Boolean)};
+      pathCache={clip,restRig,point,result};return result;
+    },
     normalisePose:pose=>normaliseCurrentFrame(pose),
     getStaticReference:()=>clone(currentStaticReference()),
     setStaticReference,

@@ -4,6 +4,23 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): wider control ranges — hands from well above the head to below
+  the hips (they stopped at chest height), feet lift 60 cm, lean and spine ±60°, root
+  ±50 cm and 0.15–1.2 m high, hand angle ±120°, hair wider. Arm and leg length still
+  limit reach.
+- Fixed: the selected control's handle used the default biped's proportions, so on
+  another character it sat in the wrong place (the "root dot stuck at a fixed
+  height"); it now follows the character's own rig.
+- Animate (bipeds): **Planted foot** (Near / Far / Neither) from the current frame on
+  the Root and Foot controls — a planted foot stops the pelvis rising above that
+  leg's reach; Neither frees it.
+- Animate: **Motion path** for the selected control: its path over the whole clip,
+  with the frames where it is keyed marked.
+- Fixed: in Character Lab, playback and Quick Play of a biped clip with per-control
+  keys or Smooth tweening jumped from frame to frame (the position was rounded to
+  whole frames), so Smooth looked no different; they now play every in-between.
+  The sampler prepares each clip once instead of rebuilding every key per sample
+  (about 20× faster), so Smooth no longer costs frame rate.
 - Animate (bipeds): **keys per control.** A key can hold just some controls; an
   edit now keys only the controls you changed, and each control moves between its
   own keys. The control panel shows the frames the selected control is keyed on
