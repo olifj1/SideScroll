@@ -471,9 +471,10 @@
     plantedBox.hidden=!showPlanted;
     if(showPlanted){
       // Automatic contact (Key Pose Tools → Foot contact) works it out from the feet.
-      const auto=state.sparseClip?.contact==='auto';
-      plantedBox.querySelector('.animlab-channel-readout').textContent=auto
-        ?'Foot contact is automatic for this clip: a foot is planted while it touches the floor.'
+      const contact=state.sparseClip?.contact,auto=contact==='auto'||contact==='off';
+      plantedBox.querySelector('.animlab-channel-readout').textContent=contact==='off'
+        ?'Foot contact is off for this clip: feet are never pinned to the floor (Key Pose Tools → Foot contact).'
+        :contact==='auto'?'Foot contact is automatic for this clip: a foot is planted while it touches the floor.'
         :'Foot planted on the ground from this frame (the pelvis can\'t rise above its reach):';
       const now=state.pose?.planted||'';
       for(const b of plantedBox.querySelectorAll('[data-planted]')){const active=!auto&&b.dataset.planted===now;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));b.disabled=auto;}
