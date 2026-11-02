@@ -265,6 +265,8 @@
     const keys=clip.keys.filter(k=>Number.isInteger(k?.frame)&&k.frame>=0&&k.frame<16&&
       k.pose&&typeof k.pose==='object').slice().sort((a,b)=>a.frame-b.frame);
     if(keys.length<2)return null;
+    // Per-control keys or smooth tweening (Character Lab, 2 Nov 2026).
+    if(rig.usesChannelSampling?.(clip))return rig.sampleSparse(clip,phase);
     const f=(((Number(phase)||0)%1)+1)%1*16;
     let before=keys[keys.length-1],after=keys[0];
     let beforeFrame=before.frame-16,afterFrame=after.frame+16;

@@ -13,7 +13,7 @@
   const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
   const CHANNELS = {
     biped: {
-      linear:['pelvisY','aFootX','aFootLift','bFootX','bFootLift','aHandX','aHandY','bHandX','bHandY','travel'],
+      linear:['pelvisY','pelvisX','aFootX','aFootLift','bFootX','bFootLift','aHandX','aHandY','bHandX','bHandY','travel'],
       angular:['lean','spineBend','aFootAngle','bFootAngle','aHandAngle','bHandAngle','hairAngle','hairBend'],
       discrete:['planted']
     },
@@ -70,6 +70,10 @@
     <div class="animlab-segmented animlab-two" id="animlab-tween-mode">
       <button type="button" data-tween="smooth">Smooth</button>
       <button type="button" data-tween="linear">Linear</button>
+    </div>
+    <div class="animlab-key-simplify" id="animlab-key-simplify-box">
+      <button id="animlab-key-simplify" type="button">Simplify keys</button>
+      <div class="animlab-convert-copy">Keeps only the keys each control needs (motion stays within 1.5 mm / 0.6°), so a key on every frame becomes a few clean ones per control. Undo restores.</div>
     </div>
 
     <div class="animlab-convert-box">
@@ -191,6 +195,13 @@
   }
 
   function markAuthored(clip) { clip.source='sparse-authored'; }
+  // A key's control list (biped per-control keys) follows a mirror too.
+  const BIPED_PAIRS=[['aFootX','bFootX'],['aFootLift','bFootLift'],['aFootAngle','bFootAngle'],['aHandX','bHandX'],['aHandY','bHandY'],['aHandAngle','bHandAngle']];
+  function mirrorChannels(key, family) {
+    if (family!=='biped' || !Array.isArray(key.channels)) return;
+    const map=new Map(BIPED_PAIRS.flatMap(([a,b])=>[[a,b],[b,a]]));
+    key.channels=key.channels.map(c=>map.get(c)||c);
+  }
 
   function setKeyName(frame, name) {
     const clean=String(name||'').trim().slice(0,48);
@@ -229,7 +240,7 @@
     const destination=nextFreeFrame(st.frame,keysFor(st));
     if (destination == null) { core.setHint('All 16 sample slots already contain keys.'); return; }
     core.editSparseClip('Duplicate key pose',clip=>{
-      clip.keys.push({frame:destination,name:`${key.name} copy`.slice(0,48),pose:clone(key.pose)});
+      clip.keys.push({frame:destination,name:`${key.name} copy`.slice(0,48),pose:clone(key.pose),...(Array.isArray(key.channels)?{channels:[...key.channels]}:{})});
       markAuthored(clip);
     });
     core.setFrame(destination);
@@ -248,7 +259,7 @@
   function copyKey() {
     const st=state(), key=keyAt(st.frame,st);
     if (!key) return;
-    clipboard={family:st.family,name:key.name,pose:clone(key.pose)};
+    clipboard={family:st.family,name:key.name,pose:clone(key.pose),channels:Array.isArray(key.channels)?[...key.channels]:null};
     core.setHint(`Copied key: ${key.name}`);
     render(state());
   }
@@ -259,7 +270,7 @@
     const existing=keyAt(st.frame,st);
     if (existing && !window.confirm(`Replace key at frame ${st.frame+1}?`)) return;
     core.editSparseClip(existing?'Paste over key pose':'Paste key pose',clip=>{
-      const next={frame:st.frame,name:String(clipboard.name||`Key ${st.frame+1}`).slice(0,48),pose:clone(clipboard.pose)};
+      const next={frame:st.frame,name:String(clipboard.name||`Key ${st.frame+1}`).slice(0,48),pose:clone(clipboard.pose),...(clipboard.channels?{channels:[...clipboard.channels]}:{})};
       const index=clip.keys.findIndex(k=>k.frame===st.frame);
       if(index>=0)clip.keys[index]=next;else clip.keys.push(next);
       markAuthored(clip);
@@ -287,6 +298,7 @@
       const target=clip.keys.find(k=>k.frame===st.frame);
       if(!target)return;
       target.pose=mirrorPose(target.pose,st.family);
+      mirrorChannels(target,st.family);
       target.name=mirrorName(target.name,st.family);
       target.pose.name=target.name;
       markAuthored(clip);
@@ -299,6 +311,7 @@
     core.editSparseClip('Mirror entire clip',clip=>{
       for(const key of clip.keys){
         key.pose=mirrorPose(key.pose,st.family);
+        mirrorChannels(key,st.family);
         key.name=mirrorName(key.name,st.family);
         key.pose.name=key.name;
       }
@@ -400,6 +413,10 @@
     for(const button of frameButtons){
       const frame=Number(button.dataset.frame), marker=keyMap.get(frame), current=frame===st.frame;
       button.classList.toggle('has-key',!!marker);
+      // Frames where the selected control is keyed (biped per-control keys).
+      const ctrl=st.family==='biped'?window.AnimLabControlSurface?.getSelectedControl?.():null;
+      const chans=ctrl?[ctrl.move?.x?.key,ctrl.move?.y?.key,ctrl.rotate?.key].filter(Boolean):[];
+      button.classList.toggle('control-key',!!marker&&chans.length>0&&chans.some(c=>window.GameHubWalkRig?.keyHasChannel?.(marker,c)));
       button.classList.toggle('current',current);
       button.classList.toggle('previewing',preview);
       button.setAttribute('aria-pressed',String(current));
@@ -436,6 +453,8 @@
     phaseHalfBtn.disabled=preview;
     mirrorClipBtn.disabled=preview;
     tweenButtons.forEach(button=>button.classList.toggle('active',(st.sparseClip?.interpolation||'linear')===button.dataset.tween));
+    document.getElementById('animlab-key-simplify-box').hidden=st.family!=='biped';
+    document.getElementById('animlab-key-simplify').disabled=!!st.preview||st.mode!=='animate';
 
     convertCount.textContent=`${keys.length} keys`;
     convertCopy.textContent=lastPreviewReport || (preview
@@ -465,6 +484,15 @@
   exitBtn.addEventListener('click',exitPreview);
 
 
+  const simplifyBtn=document.getElementById('animlab-key-simplify');
+  simplifyBtn.addEventListener('click',()=>{
+    const st=state(),Rig=window.GameHubWalkRig;
+    if(st.family!=='biped'||!Rig?.simplifySparse||st.preview)return;
+    const before=keysFor(st).length;let after=before;
+    core.editSparseClip('Simplify keys',clip=>{const next=Rig.simplifySparse(clip);if(next){clip.keys=next.keys;after=next.keys.length;markAuthored(clip);}});
+    core.setHint(`Simplified: ${before} keys → ${after} (each control keeps only the keys it needs).`);
+  });
+  window.addEventListener('animlab-control-selected',()=>render(state()));
   tweenButtons.forEach(button=>button.addEventListener('click',()=>{
     const mode=button.dataset.tween==='linear'?'linear':'smooth';
     core.editSparseClip(`Set ${mode} tween`,clip=>{clip.interpolation=mode;markAuthored(clip);});

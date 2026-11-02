@@ -4,6 +4,16 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): **keys per control.** A key can hold just some controls; an
+  edit now keys only the controls you changed, and each control moves between its
+  own keys. The control panel shows the frames the selected control is keyed on
+  (bright dots on the timeline) with **Delete key here** and **Keep only this key**
+  (holds the control still for the whole clip). Key Pose Tools → **Simplify keys**
+  turns a key-on-every-frame clip into the few keys each control needs (motion kept
+  within 1.5 mm / 0.6°, foot contacts kept). Older clips play exactly as before.
+- Animate (bipeds): the Root control moves **left/right** as well as up/down (new
+  root X), with a wider height range; **Smooth** tweening now sticks for bipeds
+  (it was reset to Linear on load) and the game plays it too.
 - Skin: **Copy to the other side** (same layout as the Rig Designer's): Selected part
   → any part, plus Arms / Legs / All limbs, Near → Far or Far → Near. Bones switch
   side, joint lines, blend and shape settings come along, and the weights are worked

@@ -223,7 +223,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const keys=['pelvisY','lean','aFootX','aFootLift','aFootAngle','bFootX','bFootLift','bFootAngle','aHandX','aHandY','bHandX','bHandY','hairAngle','hairBend'];
     const out={name,planted:a.planted,travel:lerp(a.travel,travelB,t),key:false};
     keys.forEach(k=>out[k]=lerp(a[k],b[k],t));
-    for(const k of ['aHandAngle','bHandAngle','spineBend'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
+    for(const k of ['aHandAngle','bHandAngle','spineBend','pelvisX'])out[k]=lerp(Number(a[k])||0,Number(b[k])||0,t);
     if(out.planted==='A') out.aFootLift=0;
     if(out.planted==='B') out.bFootLift=0;
     return out;
@@ -317,6 +317,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       // Hand angle (radians, + = anticlockwise) relative to the forearm; 0 keeps
       // the hand as it is in the rest rig. Older clips have none.
       spineBend:Number.isFinite(p?.spineBend)?p.spineBend:0,
+      // Root left/right (metres, + = forward) over the feet; older clips have none.
+      pelvisX:Number.isFinite(p?.pelvisX)?p.pelvisX:0,
       aHandAngle:Number.isFinite(p?.aHandAngle)?p.aHandAngle:0,
       bHandAngle:Number.isFinite(p?.bHandAngle)?p.bHandAngle:0,
       key:i%2===0
@@ -529,7 +531,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     if(p.planted==='A'||p.planted==='B'){
       const support=p.planted==='A'?aFoot:bFoot,legs=p.planted==='A'?A:B;
       const maxReach=legs.upperLeg+legs.lowerLeg-.0015;
-      const dx=support.ankle.x-L.pelvisX;
+      const dx=support.ankle.x-L.pelvisX-(Number(p.pelvisX)||0);
       const reachY=support.ankle.y+Math.sqrt(Math.max(0,maxReach*maxReach-dx*dx));
       pelvisY=Math.min(pelvisY,reachY);
     }
@@ -539,7 +541,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const lean=(from,v)=>turn(from,v,p.lean);
     // Spine bend turns the upper back (and everything above it) further.
     const bend=Number(p.spineBend)||0,upper=(from,v)=>turn(from,v,p.lean+bend);
-    const pelvis={x:L.pelvisX,y:pelvisY};
+    const pelvis={x:L.pelvisX+(Number(p.pelvisX)||0),y:pelvisY};
     const spine=lean(pelvis,L.lowerBackV);
     const chest=bend?upper(spine,L.upperBackV):lean(pelvis,L.torsoV);
     const shoulder={...chest};
@@ -600,6 +602,97 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   function chestFor(pelvisY,leanAngle,restRig=activeRestRig){
     const L=restLengths(restRig),v=L.torsoV;
     return {x:L.pelvisX+v.x*Math.cos(leanAngle)+v.y*Math.sin(leanAngle),y:pelvisY-v.x*Math.sin(leanAngle)+v.y*Math.cos(leanAngle)};
+  }
+
+  // ---- Per-control keys (2 Nov 2026) -----------------------------------------
+  // A sparse-clip key may list the controls it sets (`channels`); without a list
+  // it sets them all (every older key). Each control is interpolated between
+  // its own keys only, linearly or smoothly (clip.interpolation 'smooth').
+  // Clips with no lists and linear tweening keep the original whole-key path.
+  const KEY_CHANNELS=Object.freeze(['pelvisY','pelvisX','lean','spineBend','aFootX','aFootLift','aFootAngle','bFootX','bFootLift','bFootAngle',
+    'aHandX','aHandY','aHandAngle','bHandX','bHandY','bHandAngle','hairAngle','hairBend']);
+  const ANGULAR=new Set(['lean','spineBend','aFootAngle','bFootAngle','aHandAngle','bHandAngle','hairAngle','hairBend']);
+  const keyHasChannel=(key,c)=>!Array.isArray(key?.channels)||key.channels.includes(c);
+  function validKeys(clip){
+    return (Array.isArray(clip?.keys)?clip.keys:[]).filter(k=>Number.isInteger(k?.frame)&&k.frame>=0&&k.frame<16&&k.pose&&typeof k.pose==='object')
+      .slice().sort((a,b)=>a.frame-b.frame);
+  }
+  const usesChannelSampling=clip=>clip?.interpolation==='smooth'||validKeys(clip).some(k=>Array.isArray(k.channels));
+  function hermite(v0,v1,v2,v3,x0,x1,x2,x3,t){
+    const span=Math.max(.0001,x2-x1),m1=(v2-v0)/Math.max(.0001,x2-x0),m2=(v3-v1)/Math.max(.0001,x3-x1),t2=t*t,t3=t2*t;
+    return (2*t3-3*t2+1)*v1+(t3-2*t2+t)*span*m1+(-2*t3+3*t2)*v2+(t3-t2)*span*m2;
+  }
+  // Value of one control at frame f (0–16, looping) from [{frame, value}].
+  function channelCurve(list,f,smooth){
+    const n=list.length;if(!n)return null;if(n===1)return list[0].value;
+    let i=-1;for(let j=0;j<n;j++)if(list[j].frame<=f)i=j;
+    let bf,af,before,after,bi,ai;
+    if(i<0){bi=n-1;ai=0;bf=list[bi].frame-16;af=list[0].frame;}
+    else if(i===n-1){bi=n-1;ai=0;bf=list[bi].frame;af=list[0].frame+16;}
+    else{bi=i;ai=i+1;bf=list[bi].frame;af=list[ai].frame;}
+    before=list[bi];after=list[ai];
+    const t=Math.max(0,Math.min(1,(f-bf)/Math.max(.0001,af-bf)));
+    if(!smooth||n<3)return before.value+(after.value-before.value)*t;
+    const prev=list[(bi-1+n)%n],next=list[(ai+1)%n];
+    const pf=bf-((((before.frame-prev.frame)%16)+16)%16||16),nf=af+((((next.frame-after.frame)%16)+16)%16||16);
+    return hermite(prev.value,before.value,after.value,next.value,pf,bf,af,nf,t);
+  }
+  // Pose at phase 0–1 (frame = phase × 16). Whole-key interpolation supplies
+  // contact (planted), travel and the name; every control then comes from its
+  // own keys.
+  function sampleSparse(clip,phase){
+    const keys=validKeys(clip);if(!keys.length)return null;
+    const f=((((Number(phase)||0)%1)+1)%1)*16,smooth=clip?.interpolation==='smooth';
+    let before=keys[keys.length-1],after=keys[0],beforeFrame=before.frame-16,afterFrame=after.frame+16;
+    for(const k of keys){if(k.frame<=f){before=k;beforeFrame=k.frame;}else{after=k;afterFrame=k.frame;break;}}
+    if(afterFrame<=beforeFrame)afterFrame=after.frame+16;
+    const t=Math.max(0,Math.min(1,(f-beforeFrame)/Math.max(.0001,afterFrame-beforeFrame)));
+    const poses=new Map(keys.map(k=>[k,normalizedPose(k.pose,k.frame)]));
+    const a=poses.get(before),b=poses.get(after);
+    const travelB=afterFrame>=16?(Number(b.travel)||0)+1:Number(b.travel)||0;
+    const out=interpolatePose(a,b,t,before.name||clip?.clip||'clip',travelB);
+    for(const c of KEY_CHANNELS){
+      const list=keys.filter(k=>keyHasChannel(k,c)).map(k=>({frame:k.frame,value:Number(poses.get(k)[c])||0}));
+      const v=channelCurve(list,f,smooth);if(v!==null)out[c]=v;
+    }
+    if(out.planted==='A')out.aFootLift=0;
+    if(out.planted==='B')out.bFootLift=0;
+    return normalizedPose(out,Math.floor(f)%16);
+  }
+  // Fewest keys per control that keep the motion within a tiny tolerance
+  // (1.5 mm, 0.6°). Contact changes keep a key so feet plant as before.
+  function simplifySparse(clip,tolerance={linear:.0015,angular:.6*DEG}){
+    const keys=validKeys(clip);if(keys.length<2)return null;
+    const sample=f=>usesChannelSampling(clip)?sampleSparse(clip,f/16):sampleWhole(keys,f);
+    const P=Array.from({length:16},(_,f)=>sample(f)),smooth=clip?.interpolation==='smooth';
+    const kept={};
+    for(const c of KEY_CHANNELS){
+      const tol=ANGULAR.has(c)?tolerance.angular:tolerance.linear;
+      const frames=new Set(keys.filter(k=>keyHasChannel(k,c)).map(k=>k.frame));
+      const err=set=>{const list=[...set].sort((x,y)=>x-y).map(fr=>({frame:fr,value:Number(P[fr][c])||0}));
+        let worst=0;for(let f=0;f<16;f++)worst=Math.max(worst,Math.abs(channelCurve(list,f,smooth)-(Number(P[f][c])||0)));return worst;};
+      for(let changed=true;changed&&frames.size>1;){
+        changed=false;
+        for(const fr of [...frames]){if(frames.size<=1)break;frames.delete(fr);if(err(frames)<=tol)changed=true;else frames.add(fr);}
+      }
+      kept[c]=frames;
+    }
+    const union=new Set();for(const c of KEY_CHANNELS)for(const fr of kept[c])union.add(fr);
+    for(let f=0;f<16;f++)if(P[f].planted!==P[(f+15)%16].planted)union.add(f);
+    for(const fr of [0,8])if(union.size<2)union.add(fr);
+    const names=new Map(keys.map(k=>[k.frame,k.name]));
+    return {...JSON.parse(JSON.stringify(clip)),source:'sparse-authored',keys:[...union].sort((x,y)=>x-y).map(fr=>({frame:fr,
+      name:String(names.get(fr)||P[fr].name||`Key ${fr+1}`).slice(0,48),pose:normalizedPose(P[fr],fr),
+      channels:KEY_CHANNELS.filter(c=>kept[c].has(fr))}))};
+  }
+  // The original whole-key linear sample at an exact frame (old path).
+  function sampleWhole(keys,f){
+    const exact=keys.find(k=>k.frame===f);if(exact)return normalizedPose(exact.pose,f);
+    let before=keys[keys.length-1],after=keys[0],bf=before.frame-16,af=after.frame+16;
+    for(const k of keys){if(k.frame<=f){before=k;bf=k.frame;}else{after=k;af=k.frame;break;}}
+    if(af<=bf)af=after.frame+16;
+    const a=normalizedPose(before.pose,before.frame),b=normalizedPose(after.pose,after.frame);
+    return normalizedPose(interpolatePose(a,b,(f-bf)/Math.max(.0001,af-bf),before.name,af>=16?(Number(b.travel)||0)+1:Number(b.travel)||0),f);
   }
 
   function seg(name,a,b,layer,alpha=1){ return {name,a,b,layer,alpha,kind:'segment'}; }
@@ -677,6 +770,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     CHARACTER_VARIANT_STORAGE_KEY,DEFAULT_CHARACTER_VARIANT,CHARACTER_VARIANTS,normaliseCharacterVariant,loadCharacterVariant,saveCharacterVariant,characterVariantInfo,atlasImageUrl,
     clone,clamp,lerp,makeKey,defaultKeys,makeRunKey,runKeys,makeJumpKey,jumpKeys,interpolatePose,buildFramesFromKeys,buildFramesWithNames,normalizedPose,sampleFrames,
+    KEY_CHANNELS,keyHasChannel,usesChannelSampling,sampleSparse,simplifySparse,
     geometry,chestFor,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry,
     DEFAULT_REST_RIG,RIG_DESIGNER,ART_LAYOUT_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restLengths,restPose
   };
