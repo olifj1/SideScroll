@@ -771,15 +771,16 @@
     <div class="animlab-skin-assembly-parts" aria-label="Skin parts list"></div>
     <section class="animlab-skin-edit-box" aria-label="Edit selected part binding">
       <div class="animlab-section-title">Edit selected part</div>
+      <p class="animlab-skin-note">Bind the part yourself: choose a bone group and <strong>Bind to group</strong> (each bone takes its own section), or pick one bone below and <strong>Bind whole part to it</strong>. Auto-bind all picks groups for every part.</p>
       <label class="animlab-skin-group-select">Bone group <select data-skin-group></select></label>
       <div class="animlab-view-grid animlab-skin-assembly-actions">
-        <button type="button" data-bind-action="selected">Auto-bind part</button>
+        <button type="button" data-bind-action="selected">Bind to group</button>
         <button type="button" data-bind-action="all">Auto-bind all</button>
         <button type="button" data-bind-action="reset">Unbind part</button>
       </div>
-      <div class="animlab-parts-subgroup-label">Bone influence</div>
-      <div class="animlab-skin-bones" data-skin-bones aria-label="Bones influencing selected part"></div>
-      <button type="button" class="animlab-skin-rigid-action" data-bind-action="rigid">Rigid bind: 100% selected bone (all vertices)</button>
+      <div class="animlab-parts-subgroup-label">Bones in this group</div>
+      <div class="animlab-skin-bones" data-skin-bones aria-label="Bones of the chosen group"></div>
+      <button type="button" class="animlab-skin-rigid-action" data-bind-action="rigid">Bind whole part to selected bone</button>
       <div class="animlab-skin-envelope-heading">Bone-local rectangle · hard 100% / 0%</div>
       <button type="button" data-bind-action="rect-convert" class="animlab-skin-rigid-action">Use binary rectangles on this part</button>
       <div class="animlab-skin-rectangle-controls" data-rectangle-sliders>
@@ -927,7 +928,9 @@
     const missingTexture=parts.filter(p=>validSource(sources.get(p.meshId))&&!sources.get(p.meshId).image).length;
     panel.querySelector('.animlab-skin-assembly-status').textContent=`${bound} of ${parts.length} parts bound${missingTexture?` · ${missingTexture} texture(s) not loaded`:''}`;
     const item=selectedItem(s),source=item&&sources.get(item.meshId),binding=selectedBinding(s,sources);
-    const canEdit=!!item&&validSource(source)&&!lockedParts.has(item.id),canWeight=canEdit&&!!binding;
+    // Weight tuning needs a binding, and the group shown must be the bound one
+    // (choosing another group only previews its bones until you bind).
+    const canEdit=!!item&&validSource(source)&&!lockedParts.has(item.id),canWeight=canEdit&&!!binding&&(!groupCandidate||groupCandidate===binding.group);
     const currentGroup=groupCandidate||binding?.group||item?.skinBinding?.group||
       (item&&validSource(source)?bestGroup(item,source.mesh,source,restGeometry(s.setup?.rig)):groups[0]?.id);
     if(document.activeElement!==groupSelect)groupSelect.value=currentGroup||'';
@@ -935,10 +938,10 @@
     for(const button of panel.querySelectorAll('[data-bind-action]')){
       const action=button.dataset.bindAction;
       button.disabled=action==='all'?!parts.some(p=>validSource(sources.get(p.meshId))&&!lockedParts.has(p.id)):
-        action==='selected'?!canEdit:action==='copy'?!canWeight||!copySelect.value:
+        action==='selected'||action==='rigid'?!canEdit:action==='copy'?!canWeight||!copySelect.value:
         action==='reset'?!canEdit||!item?.skinBinding:!canWeight;
     }
-    const allowed=groupBones(binding?.group||currentGroup);
+    const allowed=groupBones(currentGroup);
     if(!allowed.includes(selectedBone))selectedBone=allowed[0]??0;
     const boneDigest=allowed.join(',');
     if(bonesBoard.dataset.signature!==boneDigest){
@@ -949,7 +952,7 @@
         button.addEventListener('click',()=>{selectedBone=i;selectedJoint=bones[i]?.b||null;liveBinding=null;liveItemId=null;refresh();core.redrawOnly?.();});bonesBoard.append(button);
       }
     }
-    for(const button of bonesBoard.children){button.classList.toggle('active',Number(button.dataset.skinBone)===selectedBone);button.disabled=!canWeight;}
+    for(const button of bonesBoard.children){button.classList.toggle('active',Number(button.dataset.skinBone)===selectedBone);button.disabled=!canEdit;}
     const bindGeom=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
     const binary=binding?.envelopeMode==='rect-binary-v1';
     const rect=binary?(binding?.rectangles?.[selectedBone]||defaultRectangle()):defaultRectangle();
@@ -1009,11 +1012,11 @@
     const claimed=binding?.weights.filter(row=>row.length>0).length||0;
     panel.querySelector('[data-weight-status]').textContent=binding?
       `${binary||jointMode?'Binary · ':''}${isRigid?'Rigid · ':''}Selected bone: ${Math.round(actualMin*100)}–${Math.round(actualPeak*100)}% · Covered ${claimed}/${binding.weights.length} vertices · Unassigned ${binding.weights.length-claimed}${manualCount?` · ${manualCount} manual`:''}`:
-      'Bind a part to edit its weights.';
+      (canEdit?'Not bound yet: choose a bone group and Bind to group, or pick a bone and Bind whole part to it.':'Bind a part to edit its weights.');
     panel.querySelector('[data-envelope-mode-note]').textContent=jointMode?
       'Joint boundaries own the shape. Local X/Y follow the rotated cap; adjust the first or last joint X offset to extend past a bone end. All bound regions shown. No blending yet.':binary?
       `Local X follows the rest bone (1× = bone length); Y is perpendicular (1× = 0.12 m wide). ${fitEnabled?'Joint Fit creates matching mitred caps at connected joints in REST space. ':'Independent rectangles active. '}Only free ends honour X extent when Joint Fit is on. Each covered vertex belongs to exactly one bone.`:
-      'This part still uses an older envelope. Choose “Use joint boundaries on this part”, or Auto-bind part. Undo can restore your earlier binding.';
+      'This part still uses an older envelope. Choose “Use joint boundaries on this part”, or Bind to group. Undo can restore your earlier binding.';
     const rigidButton=panel.querySelector('[data-bind-action="rigid"]');
     rigidButton.classList.toggle('active',isRigid);
     rigidButton.setAttribute('aria-pressed',String(isRigid));
@@ -1180,7 +1183,7 @@
     if(action==='selected'&&item&&!lockedParts.has(item.id)&&validSource(sources.get(item.meshId))){
       const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
       const binding=createBinding(item,sources.get(item.meshId),geometry,candidate);
-      if(binding){commitBinding(item.id,binding,'Auto-bind selected part');vertexIndex=0;groupCandidate=null;}
+      if(binding){commitBinding(item.id,binding,'Bind part to bone group');vertexIndex=0;groupCandidate=null;}
     }
     if(action==='all'){
       const geometry=restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
@@ -1231,9 +1234,13 @@
         commitBinding(item.id,binding,`Joint Fit ${binding.jointFit?'on':'off'}`);
       }
     }
-    if(action==='rigid'&&item&&!lockedParts.has(item.id)){
-      const source=sources.get(item.meshId),saved=source&&bindingFor(item,source);
-      if(saved&&groupBones(saved.group).includes(selectedBone)){
+    if(action==='rigid'&&item&&!lockedParts.has(item.id)&&validSource(sources.get(item.meshId))){
+      const source=sources.get(item.meshId),bound=bindingFor(item,source);
+      // The group shown (chosen, bound or suggested) owns the selected bone; an
+      // unbound part, or one bound to another group, is bound to it first.
+      const groupId=[candidate,bound?.group,...groups.map(g=>g.id)].find(id=>id&&groupBones(id).includes(selectedBone));
+      const saved=groupId&&(bound?.group===groupId?bound:createBinding(item,source,restGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG),groupId));
+      if(saved){
         const binding=clone(saved);
         // A rigid assignment is explicit per-vertex data, not a peak-profile.
         // Preserve base weights so Reset Part can restore the soft auto bind.
@@ -1243,7 +1250,8 @@
         for(let i=0;i<source.mesh.vertices.length;i++)binding.manualWeights[i]=[[selectedBone,1]];
         // Override every row exactly; do not invoke old normalized peak builder.
         binding.weights=source.mesh.vertices.map(()=>[[selectedBone,1]]);
-        commitBinding(item.id,binding,'Rigid bind selected bone (all vertices)');
+        commitBinding(item.id,binding,`Bind whole part to ${bones[selectedBone]?.label||'bone'}`);
+        groupCandidate=null;vertexIndex=0;
       }
     }
     if(action==='reset'&&item&&!lockedParts.has(item.id))core.edit('setup','Unbind selected part',setup=>{

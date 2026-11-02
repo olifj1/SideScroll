@@ -54,6 +54,9 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0e. Manual skin binding (2 Nov)** — Character01 in Skin
+- [ ] On an unbound part: choose a Bone group, pick a bone, **Bind whole part to selected bone** — the part follows only that bone. **Bind to group** splits it across the group's bones. Undo works.
+
 **0d. Straight-leg knee (2 Nov)** — Character01 in Rig
 - [ ] Only one knee dot per leg; dragging the knee across the straight line no longer makes a second dot appear or jump. Same for elbows.
 

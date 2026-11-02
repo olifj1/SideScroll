@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Skin: binding a part by hand is clear again. *Auto-bind part* is renamed **Bind to
+  group** (it always bound to the group chosen in Bone group), and the bone list
+  plus **Bind whole part to selected bone** (was "Rigid bind") now work on a part
+  that isn't bound yet, or bound to another group — choose a group, pick a bone,
+  bind. Choosing another group only previews its bones until you bind.
 - Fixed: a second "ghost" knee (or elbow) next to the joint in Rig on a nearly
   straight leg or arm, jumping about as the joint moved. The skeleton never let a
   limb straighten fully, forcing a ~1–1.5 cm bend that flipped front/back as the
