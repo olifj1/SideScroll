@@ -17552,6 +17552,26 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
   }
 
+  // Biped pose cross-fade (2 Nov 2026): when the pose source changes (standing,
+  // moving, jumping) the character eases from the last pose shown into the new
+  // one instead of snapping. Walk <-> run keeps its own runBlend.
+  let bipedPoseFade = null, bipedPoseSource = null, lastBipedPose = null;
+  const BIPED_FADE_MS = { idle:220, move:220, jump:150 };
+  function crossfadeBipedPose(pose, source) {
+    const now = performance.now ? performance.now() : Date.now();
+    if (source !== bipedPoseSource) {
+      if (bipedPoseSource && lastBipedPose) bipedPoseFade = { from: lastBipedPose, start: now, ms: BIPED_FADE_MS[source] || 200 };
+      bipedPoseSource = source;
+    }
+    if (bipedPoseFade) {
+      const t = (now - bipedPoseFade.start) / bipedPoseFade.ms;
+      if (t >= 1) bipedPoseFade = null;
+      else pose = blendPose(bipedPoseFade.from, pose, t * t * (3 - 2 * t));
+    }
+    lastBipedPose = pose;
+    return pose;
+  }
+
   function drawRigCharacter(view, isWalking) {
     const phase = currentCharacterPhase(isWalking);
     const charRig = activeCharacterRig();
@@ -17583,6 +17603,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const idlePhase = ((performance.now ? performance.now() : Date.now()) % 1400) / 1400;
       pose = isQuadruped ? quadrupedPoseForClip('idle',idlePhase,quadrupedIdleFrames) : bipedPoseForClip('idle',idlePhase,charRig.sampleFrames(characterFrames, 0.02));
     }
+    if (!isQuadruped && !climbState) pose = crossfadeBipedPose(pose, jumping ? 'jump' : (isWalking ? 'move' : 'idle'));
 
     // Carry/push poses are biped-specific. Gameplay interaction remains
     // available to the quadruped test character, but its locomotion rig is not bent

@@ -60,6 +60,9 @@ app and make a Project Backup.
 - [ ] Select Spine Bend, change it on one frame: only that control gets a key there (bright dot). **Keep only this key**: the spine holds that bend for the whole clip. **Delete key here** removes just that control's key.
 - [ ] Tween → **Smooth**: playback is smooth (no frame-to-frame stepping) and visibly eases compared with Linear, without slowing down; Save, reopen, still Smooth; same in Quick Play and the game.
 
+**0q. Start / stop blending (2 Nov)** — Character01 in the game and Quick Play
+- [ ] Standing → walking, running → stopping, and jump take-off / landing ease into the new pose (no flick); walk ↔ run as before.
+
 **0p. Jump: feet below the raised floor (2 Nov)** — Character01 Jump
 - [ ] In the middle of the jump, Near / Far Foot can be moved down past the old fixed level towards the real ground (until the leg is straight). Note: with Foot contact Automatic a foot below the floor counts as planted — use From keys or Off for jumps.
 

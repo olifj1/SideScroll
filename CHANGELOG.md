@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Bipeds ease between standing, moving and jumping in the game and Quick Play (a
+  0.22 s cross-fade when starting or stopping, 0.15 s on take-off and landing), so
+  stopping a run or starting a walk no longer flicks to the new pose. Walk ↔ run keeps
+  its existing blend.
 - Animate (bipeds): foot height can go **below the character's floor** (−60 to +60 cm;
   it stopped at 0). In Jump, Animate lifts the whole character along the preview jump
   arc, so feet were stuck at that raised level; now they can reach the real ground and

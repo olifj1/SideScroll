@@ -349,6 +349,8 @@
       if(!pose && sim.profile?.idleFallback==='neutral-pose') pose=neutralIdlePose(rig);
     }
     if(!pose)pose=rig?.IDLE_POSE||null;
+    // Bipeds: ease between standing, moving and jumping (as the game does).
+    if(pose&&sim.family==='biped'&&rig?.interpolatePose)pose=crossfade(rig,pose,sim.jumping?'jump':(moveDir&&analogSpeed>.001?'move':'idle'),stamp);
 
     const localLift=sim.jumpY/Math.max(.001,BASE_CHARACTER_SCALE*(Number(setup?.scale)||1));
     const runMix=gaitRunMix();
@@ -407,6 +409,31 @@
     }
     ctx.restore();
   });
+
+  const FADE_MS={idle:220,move:220,jump:150};
+  function crossfade(rig,pose,source,stamp){
+    if(source!==sim.poseSource){
+      if(sim.poseSource&&sim.lastPose)sim.poseFade={from:sim.lastPose,start:stamp,ms:FADE_MS[source]||200};
+      sim.poseSource=source;
+    }
+    if(sim.poseFade){
+      const t=(stamp-sim.poseFade.start)/sim.poseFade.ms;
+      if(t>=1)sim.poseFade=null;
+      else{
+        const k=t*t*(3-2*t),a=sim.poseFade.from;
+        const out=rig.interpolatePose(a,pose,k,k<.5?a.name:pose.name,Number(pose.travel)||0);
+        // interpolatePose holds the first pose's contact; mix the feet freely,
+        // then plant by the contact at this point of the fade.
+        for(const c of ['aFootLift','bFootLift'])out[c]=(Number(a[c])||0)+((Number(pose[c])||0)-(Number(a[c])||0))*k;
+        out.planted=a.planted===pose.planted?a.planted:(k<.34?a.planted:k>.66?pose.planted:null);
+        if(out.planted==='A')out.aFootLift=0;
+        if(out.planted==='B')out.bFootLift=0;
+        pose=rig.normalizedPose(out,0);
+      }
+    }
+    sim.lastPose=pose;
+    return pose;
+  }
 
   function canvasPixelRatio(){
     const canvas=document.getElementById('animlab-canvas');
