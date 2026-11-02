@@ -399,8 +399,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       Object.freeze({id:'hair',label:'Hair',joints:Object.freeze(['hairRoot','hairMid','hairTip'])}),
       Object.freeze({id:'armNear',label:'Near Arm',joints:Object.freeze(['chest','elbowNear','wristNear','handNear'])}),
       Object.freeze({id:'armFar',label:'Far Arm',joints:Object.freeze(['chest','elbowFar','wristFar','handFar'])}),
-      Object.freeze({id:'legNear',label:'Near Leg',joints:Object.freeze(['pelvis','kneeNear','ankleNear','toeNear'])}),
-      Object.freeze({id:'legFar',label:'Far Leg',joints:Object.freeze(['pelvis','kneeFar','ankleFar','toeFar'])})
+      Object.freeze({id:'legNear',label:'Near Leg',joints:Object.freeze(['pelvis','kneeNear','ankleNear','heelNear','toeNear'])}),
+      Object.freeze({id:'legFar',label:'Far Leg',joints:Object.freeze(['pelvis','kneeFar','ankleFar','heelFar','toeFar'])})
     ]),
     labels:Object.freeze({pelvis:'Pelvis',chest:'Chest / Shoulder',neck:'Neck',head:'Head',headTop:'Head Top',
       hairRoot:'Hair Root',hairMid:'Hair Mid',hairTip:'Hair Tip',

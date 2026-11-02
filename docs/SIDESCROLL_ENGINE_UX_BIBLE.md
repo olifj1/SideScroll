@@ -1383,7 +1383,7 @@ User confirmed v1.0.195 layout broadly usable, then requested interactive editor
 
 **A. Symmetry controls** (same language across authoring modes, descriptor-aware for the current quadruped proof):
 - **Parts:** Copy Selected Part → Pair, Both Legs Near → Far, Both Legs Far → Near. Only layout transform fields X/Y/rotation/scales/pivots copy, never atlas pixels, draw order, or transient solo/visibility.
-- **Rig:** Copy Joint → Pair; Copy Segment → Pair (two adjacent joints, endpoint selects last segment); Copy Limb → Pair (all joints in selected front/rear limb); Both Legs Near → Far / Far → Near. Membership and near/far pairing are resolved from rig-family `jointGroups` + `symmetryPairs` metadata; no copied animation keys. Body/spine/tail have no symmetry pair.
+- **Rig:** *Copy to the other side* box (2 Nov 2026): Selected joint / Selected limb (labelled with what they copy, e.g. "Elbow → far side"; off for shared joints), then one row per limb pair taken from the rig's `jointGroups` (`…Near`/`…Far`: biped Arms, Legs; quadruped Front legs, Rear legs) plus All limbs, each with Near → Far and Far → Near. Shared joints (Chest / Shoulder, Pelvis) are never copied. Side-on, copying is the mirror.
 - **Skin:** Copy Selected Bone → Pair copies only the selected bone's gain/spread profile; Copy Whole Part → Pair duplicates attachment, all bone profiles and any manual vertex weights; Both Legs Near → Far / Far → Near copies front and rear in a single undoable transaction. This is a skin-region proof, not generic arbitrary limb topology.
 All copy operations run through Setup transactions and Undo/Redo/Save/Discard. The destination is overwritten; users should verify direction before applying.
 

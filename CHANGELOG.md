@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Rig Designer: the copy buttons are now one clear *Copy to the other side* box —
+  Selected joint / Selected limb (labelled with what they copy), then Arms, Legs
+  (Fox: Front legs, Rear legs) and All limbs, each Near → Far or Far → Near.
+  Previously "Both Legs" actually copied arms too, and Copy Segment is gone. The
+  biped's leg now includes the Heel joint. Choosing a joint by its button also
+  highlights it in the viewport straight away.
 - Biped hands: the arm now runs shoulder → elbow → wrist → **hand**. Rig has a
   Hand joint per side (placed straight on from the forearm on rigs saved before);
   the hand keeps its rest angle to the forearm and Animate's Near/Far Hand control
