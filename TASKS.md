@@ -60,6 +60,9 @@ app and make a Project Backup.
 - [ ] Select Spine Bend, change it on one frame: only that control gets a key there (bright dot). **Keep only this key**: the spine holds that bend for the whole clip. **Delete key here** removes just that control's key.
 - [ ] Tween → **Smooth**: playback is smooth (no frame-to-frame stepping) and visibly eases compared with Linear, without slowing down; Save, reopen, still Smooth; same in Quick Play and the game.
 
+**0p. Jump: feet below the raised floor (2 Nov)** — Character01 Jump
+- [ ] In the middle of the jump, Near / Far Foot can be moved down past the old fixed level towards the real ground (until the leg is straight). Note: with Foot contact Automatic a foot below the floor counts as planted — use From keys or Off for jumps.
+
 **0o. Moving ground for bipeds (2 Nov)** — Character01 walk / run in Animate
 - [ ] The floor markers scroll during playback and step with the frames; a planted foot stays over one marker (or shows how far it slips); the Ground Motion section toggles it and sets the display speed.
 

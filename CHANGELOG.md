@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): foot height can go **below the character's floor** (−60 to +60 cm;
+  it stopped at 0). In Jump, Animate lifts the whole character along the preview jump
+  arc, so feet were stuck at that raised level; now they can reach the real ground and
+  below (leg length still limits reach).
 - Animate (bipeds): **Ground Motion** — the moving floor the Fox had, now for bipeds,
   with denser markers (a tick every 2.5 cm, a taller one every 10 cm). It scrolls at the
   speed Quick Play walks or runs (Walk / Run speed × cycle time), during playback and
