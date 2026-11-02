@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): **Neck** and **Head** controls (new neck bend and head tilt
+  channels). Neck turns the neck and everything above it about the chest; Head tilts
+  the head about the top of the neck; the hair turns with the head. At 0 every pose is
+  unchanged.
 - Animate (bipeds): Foot contact **Off** (Key Pose Tools, per clip) — no foot is ever
   pinned to the floor, so feet move and rotate freely and the pelvis isn't held by leg
   reach. From keys (Planted foot per frame) and Automatic remain.

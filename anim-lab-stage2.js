@@ -15,6 +15,8 @@
       {id:'root',label:'Body / Root',group:'Core',point:'pelvis',move:{x:{key:'pelvisX',min:-.5,max:.5,sign:1},y:{key:'pelvisY',min:.15,max:1.2,sign:1}},pair:null},
       {id:'chest',label:'Chest / Lean',group:'Core',point:'chest',rotate:{key:'lean',min:-60*DEG,max:60*DEG}},
       {id:'spine',label:'Spine Bend',group:'Core',point:'spine',rotate:{key:'spineBend',min:-60*DEG,max:60*DEG}},
+      {id:'neck',label:'Neck',group:'Core',point:'neck',rotate:{key:'neckBend',min:-60*DEG,max:60*DEG}},
+      {id:'head',label:'Head',group:'Core',point:'head',rotate:{key:'headTilt',min:-60*DEG,max:60*DEG}},
       {id:'nearFoot',label:'Near Foot',group:'Near Side',point:'aAnkle',pair:'farFoot',move:{x:{key:'aFootX',min:-.7,max:.7,sign:1},y:{key:'aFootLift',min:0,max:.6,sign:1}},rotate:{key:'aFootAngle',min:-80*DEG,max:80*DEG}},
       {id:'nearToe',label:'Near Toes',group:'Near Side',point:'aBall',pair:'farToe',rotate:{key:'aToeBend',min:-70*DEG,max:70*DEG}},
       {id:'nearHand',label:'Near Hand',group:'Near Side',point:'aW',pair:'farHand',move:{x:{key:'aHandX',min:-.75,max:.75,sign:1},y:{key:'aHandY',min:-.75,max:.75,sign:-1}},rotate:{key:'aHandAngle',min:-120*DEG,max:120*DEG}},
