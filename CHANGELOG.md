@@ -4,6 +4,17 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Fixed: on a biped whose rig leans, is offset or has bent arms/legs, the animated
+  skeleton only took bone *lengths* from the rig: it stood the spine straight up and
+  re-solved elbows/knees with a fixed bend, so moving a shoulder swung the arms the
+  other way and moving one elbow moved bones elsewhere. It now follows the rig's
+  directions, pelvis position and bend sides, so at rest it sits exactly on the
+  rig's joints. The default (straight) rig is unchanged, so Hero 1 and Hero 2 look
+  and animate exactly as before (checked frame by frame).
+- Rig Designer: where near and far joints sit on top of each other, a tap now keeps
+  the selected joint, otherwise takes the near one (it used to grab the far one);
+  tapping again without dragging switches to the next joint there. Viewport labels
+  say which side (e.g. "Elbow · far").
 - Character Lab: Undo, Redo and Discard now sit in the top bar next to the
   Saved/Unsaved badge, so they are always to hand. The small "i" help button (which
   had wrapped out of the top bar and floated over the left panel) is removed.

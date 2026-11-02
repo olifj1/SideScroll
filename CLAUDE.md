@@ -224,8 +224,9 @@ Any new per-character storage must be added to `slicesFor()` there.
 - `biped-rig.js` line 79 is an 821 KB base64 image — never print it.
 - Rigs: any rig with a `RIG_DESIGNER` (joints, bones, groups) and rest-rig functions
   works in the Rig Designer, Parts, Skin and game mesh drawing. The Biped
-  (`biped-rig.js`) measures its bone lengths from a rest rig (`restLengths`) while
-  its animation channels still drive it; `restPose(restRig)` stands it on its rest
+  (`biped-rig.js`) measures its bone lengths, spine directions, pelvis X and elbow/knee
+  bend sides from a rest rig (`restLengths`) while its animation channels still drive
+  it (so `geometry(restPose(rig),rig)` lands on the rig's joints); `restPose(restRig)` stands it on its rest
   rig and its geometry also reports joints by rig name (`kneeNear`, …). Every biped
   keeps its own rest rig in its setup (original bipeds in `sidescroll.animlab.setup.v1`);
   the game reads it via `bipedRestRig()`. Bipeds have no original parts meshes, so a

@@ -330,7 +330,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     return {x:v.x*c-v.y*s,y:v.x*s+v.y*c};
   }
 
-  function solveJoint(root,target,l1,l2,mode){
+  // bend: +1 / -1 picks the candidate on that side of root→target (the rest
+  // rig's bend); 0 or none keeps the original side-view rule below.
+  function solveJoint(root,target,l1,l2,mode,bend=0){
     let dx=target.x-root.x,dy=target.y-root.y,d=Math.hypot(dx,dy)||1e-5;
     const minD=Math.abs(l1-l2)+.001,maxD=l1+l2-.001,cd=clamp(d,minD,maxD);
     dx*=cd/d;dy*=cd/d;d=cd;
@@ -339,7 +341,10 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const ux=dx/d,uy=dy/d,bx=root.x+ux*a,by=root.y+uy*a,px=-uy,py=ux;
     const c1={x:bx+px*h,y:by+py*h},c2={x:bx-px*h,y:by-py*h};
     let joint;
-    if(mode==='knee') {
+    const sideOf=c=>(dx*(c.y-root.y)-dy*(c.x-root.x));
+    if(bend) {
+      joint=Math.sign(sideOf(c1))===bend?c1:c2;
+    } else if(mode==='knee') {
       // World-space Y points upward. Keep side-view knees bending toward travel
       // (screen-right) regardless of which algebraic IK candidate is c1/c2.
       joint=c1.x>=c2.x?c1:c2;
@@ -433,11 +438,20 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
   function restLengths(restRig=activeRestRig){
     if(restRig&&typeof restRig==='object'&&lengthCache.has(restRig))return lengthCache.get(restRig);
     const j=normalizedRestRig(restRig).joints,dist=(a,b)=>Math.hypot(j[b].x-j[a].x,j[b].y-j[a].y);
-    const side=S=>({upperArm:dist('chest',`elbow${S}`),lowerArm:dist(`elbow${S}`,`wrist${S}`),
+    const vec=(a,b)=>({x:j[b].x-j[a].x,y:j[b].y-j[a].y});
+    // Which side of root→end the middle joint sits (+1 / -1), or 0 when the
+    // limb is straight in the rest rig (then the original bend rule applies).
+    const bendSide=(a,m,b)=>{const u=vec(a,b),v=vec(a,m),c=u.x*v.y-u.y*v.x,len=Math.hypot(u.x,u.y)||1;return Math.abs(c)/len<.002?0:Math.sign(c);};
+    const side=S=>({elbowBend:bendSide('chest',`elbow${S}`,`wrist${S}`),kneeBend:bendSide('pelvis',`knee${S}`,`ankle${S}`),
+      upperArm:dist('chest',`elbow${S}`),lowerArm:dist(`elbow${S}`,`wrist${S}`),
       upperLeg:dist('pelvis',`knee${S}`),lowerLeg:dist(`knee${S}`,`ankle${S}`),
       ankleToHeel:{x:j[`heel${S}`].x-j[`ankle${S}`].x,y:j[`heel${S}`].y-j[`ankle${S}`].y},
       ankleToToe:{x:j[`toe${S}`].x-j[`ankle${S}`].x,y:j[`toe${S}`].y-j[`ankle${S}`].y}});
-    const out={torso:dist('pelvis','chest'),neck:dist('chest','neck'),head:dist('neck','head'),headTop:dist('head','headTop'),
+    // Spine directions and the pelvis's horizontal place come from the rest rig
+    // too, so a rig that leans or is offset stands exactly on its joints at rest
+    // (the default rig is upright at x = 0: the original bipeds are unchanged).
+    const out={pelvisX:j.pelvis.x,torsoV:vec('pelvis','chest'),neckV:vec('chest','neck'),headV:vec('neck','head'),headTopV:vec('head','headTop'),
+      torso:dist('pelvis','chest'),neck:dist('chest','neck'),head:dist('neck','head'),headTop:dist('head','headTop'),
       hairRoot:{x:j.hairRoot.x-j.head.x,y:j.hairRoot.y-j.head.y},hair1:dist('hairRoot','hairMid'),hair2:dist('hairMid','hairTip'),
       near:side('Near'),far:side('Far')};
     if(restRig&&typeof restRig==='object')lengthCache.set(restRig,out);
@@ -481,24 +495,26 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     if(p.planted==='A'||p.planted==='B'){
       const support=p.planted==='A'?aFoot:bFoot,legs=p.planted==='A'?A:B;
       const maxReach=legs.upperLeg+legs.lowerLeg-.0015;
-      const dx=support.ankle.x;
+      const dx=support.ankle.x-L.pelvisX;
       const reachY=support.ankle.y+Math.sqrt(Math.max(0,maxReach*maxReach-dx*dx));
       pelvisY=Math.min(pelvisY,reachY);
     }
 
-    const pelvis={x:0,y:pelvisY};
-    const chest={x:pelvis.x+Math.sin(p.lean)*L.torso,y:pelvis.y+Math.cos(p.lean)*L.torso};
+    // Lean turns the rest spine forward (clockwise in Y-up space).
+    const lean=(from,v)=>({x:from.x+v.x*Math.cos(p.lean)+v.y*Math.sin(p.lean),y:from.y-v.x*Math.sin(p.lean)+v.y*Math.cos(p.lean)});
+    const pelvis={x:L.pelvisX,y:pelvisY};
+    const chest=lean(pelvis,L.torsoV);
     const shoulder={...chest};
-    const neck={x:chest.x+Math.sin(p.lean)*L.neck,y:chest.y+Math.cos(p.lean)*L.neck};
-    const head={x:neck.x+Math.sin(p.lean)*L.head,y:neck.y+Math.cos(p.lean)*L.head};
-    const headTop={x:head.x+Math.sin(p.lean)*L.headTop,y:head.y+Math.cos(p.lean)*L.headTop};
+    const neck=lean(chest,L.neckV);
+    const head=lean(neck,L.headV);
+    const headTop=lean(head,L.headTopV);
     const hairRoot={x:head.x+L.hairRoot.x,y:head.y+L.hairRoot.y};
     const h1={x:hairRoot.x+Math.cos(p.hairAngle)*L.hair1,y:hairRoot.y-Math.sin(p.hairAngle)*L.hair1};
     const h2Angle=p.hairAngle+p.hairBend;
     const h2={x:h1.x+Math.cos(h2Angle)*L.hair2,y:h1.y-Math.sin(h2Angle)*L.hair2};
 
-    const aLeg=solveJoint(pelvis,aFoot.ankle,A.upperLeg,A.lowerLeg,'knee');
-    const bLeg=solveJoint(pelvis,bFoot.ankle,B.upperLeg,B.lowerLeg,'knee');
+    const aLeg=solveJoint(pelvis,aFoot.ankle,A.upperLeg,A.lowerLeg,'knee',A.kneeBend);
+    const bLeg=solveJoint(pelvis,bFoot.ankle,B.upperLeg,B.lowerLeg,'knee',B.kneeBend);
 
     // A swing target may still be outside the reachable circle while authored.
     // Only the swing foot may follow a clamped ankle.  The stance foot remains
@@ -512,8 +528,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
 
     const aWTarget={x:shoulder.x+p.aHandX,y:shoulder.y-p.aHandY};
     const bWTarget={x:shoulder.x+p.bHandX,y:shoulder.y-p.bHandY};
-    const aArm=solveJoint(shoulder,aWTarget,A.upperArm,A.lowerArm,'elbow');
-    const bArm=solveJoint(shoulder,bWTarget,B.upperArm,B.lowerArm,'elbow');
+    const aArm=solveJoint(shoulder,aWTarget,A.upperArm,A.lowerArm,'elbow',A.elbowBend);
+    const bArm=solveJoint(shoulder,bWTarget,B.upperArm,B.lowerArm,'elbow',B.elbowBend);
 
     const waist={x:lerp(chest.x,pelvis.x,.78),y:lerp(chest.y,pelvis.y,.78)};
     const dressHem={x:pelvis.x-.010,y:Math.max(.14,pelvis.y-.185)};
@@ -533,6 +549,12 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
       elbowNear:aArm.joint,wristNear:aArm.target,kneeNear:aLeg.joint,ankleNear:aFoot.ankle,heelNear:aFoot.heel,toeNear:aFoot.toe,
       elbowFar:bArm.joint,wristFar:bArm.target,kneeFar:bLeg.joint,ankleFar:bFoot.ankle,heelFar:bFoot.heel,toeFar:bFoot.toe
     };
+  }
+
+  // The shoulder (chest) for a pelvis height and lean, as geometry() places it.
+  function chestFor(pelvisY,leanAngle,restRig=activeRestRig){
+    const L=restLengths(restRig),v=L.torsoV;
+    return {x:L.pelvisX+v.x*Math.cos(leanAngle)+v.y*Math.sin(leanAngle),y:pelvisY-v.x*Math.sin(leanAngle)+v.y*Math.cos(leanAngle)};
   }
 
   function seg(name,a,b,layer,alpha=1){ return {name,a,b,layer,alpha,kind:'segment'}; }
@@ -610,7 +632,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     COLLIDER_STORAGE_KEY,DEFAULT_COLLIDER,normalizedCollider,loadCollider,saveCollider,
     CHARACTER_VARIANT_STORAGE_KEY,DEFAULT_CHARACTER_VARIANT,CHARACTER_VARIANTS,normaliseCharacterVariant,loadCharacterVariant,saveCharacterVariant,characterVariantInfo,atlasImageUrl,
     clone,clamp,lerp,makeKey,defaultKeys,makeRunKey,runKeys,makeJumpKey,jumpKeys,interpolatePose,buildFramesFromKeys,buildFramesWithNames,normalizedPose,sampleFrames,
-    geometry,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry,
+    geometry,chestFor,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry,
     DEFAULT_REST_RIG,RIG_DESIGNER,ART_LAYOUT_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restLengths,restPose
   };
 })();

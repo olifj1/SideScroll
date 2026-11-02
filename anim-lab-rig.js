@@ -115,6 +115,12 @@
     };
   }
 
+  // Viewport labels say which side, since near and far joints share names.
+  function sidedLabel(desc,id){
+    const side=String(id).includes('Near')?' · near':String(id).includes('Far')?' · far':'';
+    return labelFor(desc,id)+side;
+  }
+
   function symmetryPair(desc,id){
     const pairs = desc?.symmetryPairs || [];
     for (const pair of pairs) {
@@ -369,21 +375,30 @@
     const sx = (clientX-rect.left)*(canvas.width/rect.width);
     const sy = (clientY-rect.top)*(canvas.height/rect.height);
     const radius = 30 * (canvas.width / rect.width);
-    let best = null, bestD = radius*radius;
-    for (const [id,p] of Object.entries(render.screenPoints)) {
-      const d = (p.x-sx)**2 + (p.y-sy)**2;
-      if (d <= bestD) { bestD=d; best=id; }
-    }
-    return best;
+    // Joints within a few pixels of the nearest one count as one stack (near
+    // and far joints often sit on top of each other). In a stack, the joint
+    // already selected wins, then the near side (drawn on top); a tap without
+    // dragging moves on to the next joint in the stack (finishViewport).
+    const hits = Object.entries(render.screenPoints)
+      .map(([id,p]) => ({id, d:Math.hypot(p.x-sx,p.y-sy)}))
+      .filter(h => h.d <= radius).sort((a,b) => a.d-b.d);
+    if (!hits.length) return null;
+    const near = 6 * (canvas.width / rect.width);
+    const stack = hits.filter(h => h.d <= hits[0].d + near).map(h => h.id)
+      .sort((a,b) => (b.includes('Near')?1:0)-(a.includes('Near')?1:0));
+    const id = stack.includes(selectedJoint) ? selectedJoint : stack[0];
+    return {id, stack};
   }
 
   function onViewportDown(ev){
     const s = state();
     if (!isActive(s) || !lastRender) return;
-    const id = nearestJoint(lastRender,ev.clientX,ev.clientY);
-    if (!id) return;
+    const hit = nearestJoint(lastRender,ev.clientX,ev.clientY);
+    if (!hit) return;
+    const id = hit.id;
     ev.preventDefault();
     ev.stopImmediatePropagation();
+    const wasSelected = selectedJoint === id;
     selectedJoint = id;
     const model = unproject(lastRender,ev.clientX,ev.clientY);
     const start = clone(rigDraftFor(s).joints[id]);
@@ -391,6 +406,8 @@
       pointerId:ev.pointerId,
       joint:id,
       tx:core.beginTransaction('setup',`Move ${labelFor(descriptorFor(s),id)}`),
+      stack:wasSelected && hit.stack.length > 1 ? hit.stack : null,
+      startX:ev.clientX, startY:ev.clientY, moved:false,
       offset:model ? {x:start.x-model.x,y:start.y-model.y} : {x:0,y:0}
     };
     try { canvas.setPointerCapture(ev.pointerId); } catch (_) {}
@@ -402,6 +419,8 @@
     ev.preventDefault();
     ev.stopImmediatePropagation();
     const s = state();
+    if (!viewportDrag.moved && Math.hypot(ev.clientX-viewportDrag.startX,ev.clientY-viewportDrag.startY) < 4) return;
+    viewportDrag.moved = true;
     const model = unproject(lastRender,ev.clientX,ev.clientY);
     if (!model) return;
     setJointInTransaction(viewportDrag.tx,s,viewportDrag.joint,{
@@ -416,8 +435,14 @@
     ev.stopImmediatePropagation();
     const drag = viewportDrag;
     viewportDrag = null;
-    if (cancel) core.cancelTransaction(drag.tx);
+    if (cancel || !drag.moved) core.cancelTransaction(drag.tx);
     else core.commitTransaction(drag.tx);
+    // A tap (no drag) on the selected joint of a stack picks the next one.
+    if (!cancel && !drag.moved && drag.stack) {
+      selectedJoint = drag.stack[(drag.stack.indexOf(drag.joint)+1) % drag.stack.length];
+      core.setHint?.(`${sidedLabel(descriptorFor(state()),selectedJoint)} selected · tap again for the next joint here`);
+      core.redrawOnly?.();
+    }
     try { canvas.releasePointerCapture(ev.pointerId); } catch (_) {}
     renderUI();
   }
@@ -530,7 +555,7 @@
         ctx.font=`${Math.max(12,canvas.width/72)}px system-ui,-apple-system,sans-serif`;
         ctx.textAlign='center';ctx.textBaseline='bottom';
         ctx.fillStyle='rgba(250,250,250,.98)';
-        ctx.fillText(labelFor(desc,id),p.x,p.y-r*1.6);
+        ctx.fillText(sidedLabel(desc,id),p.x,p.y-r*1.6);
       }
     }
     ctx.restore();
