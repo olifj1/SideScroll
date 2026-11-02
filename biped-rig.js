@@ -337,9 +337,12 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
 
   // bend: +1 / -1 picks the candidate on that side of root→target (the rest
   // rig's bend); 0 or none keeps the original side-view rule below.
-  function solveJoint(root,target,l1,l2,mode,bend=0){
+  function solveJoint(root,target,l1,l2,mode,bend=0,slack=.001){
     let dx=target.x-root.x,dy=target.y-root.y,d=Math.hypot(dx,dy)||1e-5;
-    const minD=Math.abs(l1-l2)+.001,maxD=l1+l2-.001,cd=clamp(d,minD,maxD);
+    // slack: animation stops a limb 1 mm short of full reach, which keeps a soft
+    // bend (part of the heroes' run). The rest pose passes 0 so a straight rest
+    // limb stays straight, exactly on its joints, instead of popping out ~1.5 cm.
+    const minD=Math.abs(l1-l2)+.001,maxD=l1+l2-slack,cd=clamp(d,minD,maxD);
     dx*=cd/d;dy*=cd/d;d=cd;
     const t={x:root.x+dx,y:root.y+dy};
     const a=(l1*l1-l2*l2+d*d)/(2*d),h=Math.sqrt(Math.max(0,l1*l1-a*a));
@@ -460,7 +463,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const vec=(a,b)=>({x:j[b].x-j[a].x,y:j[b].y-j[a].y});
     // Which side of root→end the middle joint sits (+1 / -1), or 0 when the
     // limb is straight in the rest rig (then the original bend rule applies).
-    const bendSide=(a,m,b)=>{const u=vec(a,b),v=vec(a,m),c=u.x*v.y-u.y*v.x,len=Math.hypot(u.x,u.y)||1;return Math.abs(c)/len<.002?0:Math.sign(c);};
+    const bendSide=(a,m,b)=>{const u=vec(a,b),v=vec(a,m),c=u.x*v.y-u.y*v.x,len=Math.hypot(u.x,u.y)||1;return Math.abs(c)/len<.0003?0:Math.sign(c);};
     const side=S=>({elbowBend:bendSide('chest',`elbow${S}`,`wrist${S}`),kneeBend:bendSide('pelvis',`knee${S}`,`ankle${S}`),
       upperArm:dist('chest',`elbow${S}`),lowerArm:dist(`elbow${S}`,`wrist${S}`),
       // Hand: length and its angle from the forearm's direction at rest.
@@ -535,8 +538,9 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const h2Angle=p.hairAngle+p.hairBend;
     const h2={x:h1.x+Math.cos(h2Angle)*L.hair2,y:h1.y-Math.sin(h2Angle)*L.hair2};
 
-    const aLeg=solveJoint(pelvis,aFoot.ankle,A.upperLeg,A.lowerLeg,'knee',A.kneeBend);
-    const bLeg=solveJoint(pelvis,bFoot.ankle,B.upperLeg,B.lowerLeg,'knee',B.kneeBend);
+    const slack=p.rest===true?0:.001;
+    const aLeg=solveJoint(pelvis,aFoot.ankle,A.upperLeg,A.lowerLeg,'knee',A.kneeBend,slack);
+    const bLeg=solveJoint(pelvis,bFoot.ankle,B.upperLeg,B.lowerLeg,'knee',B.kneeBend,slack);
 
     // A swing target may still be outside the reachable circle while authored.
     // Only the swing foot may follow a clamped ankle.  The stance foot remains
@@ -550,8 +554,8 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
 
     const aWTarget={x:shoulder.x+p.aHandX,y:shoulder.y-p.aHandY};
     const bWTarget={x:shoulder.x+p.bHandX,y:shoulder.y-p.bHandY};
-    const aArm=solveJoint(shoulder,aWTarget,A.upperArm,A.lowerArm,'elbow',A.elbowBend);
-    const bArm=solveJoint(shoulder,bWTarget,B.upperArm,B.lowerArm,'elbow',B.elbowBend);
+    const aArm=solveJoint(shoulder,aWTarget,A.upperArm,A.lowerArm,'elbow',A.elbowBend,slack);
+    const bArm=solveJoint(shoulder,bWTarget,B.upperArm,B.lowerArm,'elbow',B.elbowBend,slack);
 
     // The hand keeps its rest angle to the forearm, turned by the hand angle.
     const handOf=(arm,dims,angle)=>{const fa=Math.atan2(arm.target.y-arm.joint.y,arm.target.x-arm.joint.x)+dims.handTurn+angle;
@@ -593,7 +597,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     const j=normalizedRestRig(restRig).joints;
     const angle=(a,b)=>Math.atan2(-(j[b].y-j[a].y),j[b].x-j[a].x);
     const hair=angle('hairRoot','hairMid');
-    return normalizedPose({...DEFAULT_FRAMES[0],name:'Rest',pelvisY:j.pelvis.y,lean:0,planted:null,
+    return normalizedPose({...DEFAULT_FRAMES[0],name:'Rest',rest:true,pelvisY:j.pelvis.y,lean:0,planted:null,
       aFootX:j.heelNear.x,aFootLift:j.heelNear.y,aFootAngle:0,bFootX:j.heelFar.x,bFootLift:j.heelFar.y,bFootAngle:0,
       aHandX:j.wristNear.x-j.chest.x,aHandY:j.chest.y-j.wristNear.y,bHandX:j.wristFar.x-j.chest.x,bHandY:j.chest.y-j.wristFar.y,
       hairAngle:hair,hairBend:angle('hairMid','hairTip')-hair,travel:0},0);
