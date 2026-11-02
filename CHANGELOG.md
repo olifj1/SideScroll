@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Animate (bipeds): Key Pose Tools → **Copy a limb to the other side** — Legs / Arms,
+  Near → Far or Far → Near, **half a cycle later** (the opposite step of a walk or run)
+  or same timing. Copies that limb's keyed controls (foot position, height, angle, toe
+  bend; or hand position and angle), replacing the other side's; nothing else changes.
 - Animate (bipeds): **Neck** and **Head** controls (new neck bend and head tilt
   channels). Neck turns the neck and everything above it about the chest; Head tilts
   the head about the top of the neck; the hair turns with the head. At 0 every pose is
