@@ -60,6 +60,10 @@ app and make a Project Backup.
 - [ ] Select Spine Bend, change it on one frame: only that control gets a key there (bright dot). **Keep only this key**: the spine holds that bend for the whole clip. **Delete key here** removes just that control's key.
 - [ ] Tween → **Smooth**: playback is smooth (no frame-to-frame stepping) and visibly eases compared with Linear, without slowing down; Save, reopen, still Smooth; same in Quick Play and the game.
 
+**0r. Jump height (3 Nov)** — Character01
+- [ ] Animate → Jump: the body rises as high as it does in the game (check side by side with Quick Play / the game).
+- [ ] Quick Play → **Jump Height**: lower it; the jump is lower and quicker in Quick Play, the Animate preview and the game; Save, reopen, still set. Hero 1 / Hero 2 / Fox jump exactly as before. (Lower jumps may not reach some ledges.)
+
 **0q. Start / stop blending (2 Nov)** — Character01 in the game and Quick Play
 - [ ] Standing → walking, running → stopping, and jump take-off / landing ease into the new pose (no flick); walk ↔ run as before.
 

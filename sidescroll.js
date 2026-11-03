@@ -2598,6 +2598,12 @@ function refreshCharacterScale() {
   character.scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(currentCharacterVariant);
 }
 
+// Jump height (world metres) set per character in Character Lab (Quick Play);
+// 1.49 m is the original jump (5.24 m/s against gravity 9.2).
+function characterJumpHeight(setup) {
+  const h = Number(setup?.jumpHeight);
+  return Number.isFinite(h) && h > 0 ? Math.max(.3, Math.min(2.5, h)) : 5.24 * 5.24 / (2 * 9.20);
+}
 function characterMotionSettings(id = currentCharacterVariant) {
   const defaults = {
     walk: isOriginalQuadruped(id) && QuadrupedRig ? (Number(QuadrupedRig.DEFAULT_WALK_SPEED) || 1.15) : 1.15,
@@ -2607,7 +2613,7 @@ function characterMotionSettings(id = currentCharacterVariant) {
   if(custom){
     const walk=Rig.clamp(Number(custom.setup?.walkSpeed)||defaults.walk,.45,3.25);
     const run=Rig.clamp(Number(custom.setup?.runSpeed)||defaults.run,Math.max(1,walk+.2),5.75);
-    return {walk,run};
+    return {walk,run,jump:characterJumpHeight(custom.setup)};
   }
   try {
     const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
@@ -2616,7 +2622,7 @@ function characterMotionSettings(id = currentCharacterVariant) {
     const runRaw = setup?.[id]?.runSpeed == null ? NaN : Number(setup[id].runSpeed);
     const walk = Rig.clamp(Number.isFinite(walkRaw) ? walkRaw : defaults.walk, .45, 3.25);
     const run = Rig.clamp(Math.max(Number.isFinite(runRaw) ? runRaw : defaults.run, walk + .20), 1.0, 5.75);
-    return {walk,run};
+    return {walk,run,jump:characterJumpHeight(setup?.[id])};
   } catch (_) {
     return defaults;
   }
@@ -9104,6 +9110,9 @@ document.addEventListener('keydown',event=>{
   const JUMP_VELOCITY = 5.24;
   const JUMP_GRAVITY = 9.20;
   const JUMP_DURATION = (JUMP_VELOCITY * 2) / JUMP_GRAVITY;
+  // Air time of the current jump (its launch speed follows the character's Jump
+  // height); falls off ledges use the original duration.
+  let jumpDuration = JUMP_DURATION;
 
   let runBlend = 0;
   let locomotionPhase = 0;
@@ -17586,7 +17595,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       // authored later once the quadruped proportions are proven in-game.
       pose = quadrupedPoseForClip('run',(climbState.time * 1.35) % 1,quadrupedRunFrames);
     } else if (jumping) {
-      const jumpPhase = Rig.clamp(jumpTime / JUMP_DURATION, 0, 0.999);
+      const jumpPhase = Rig.clamp(jumpTime / Math.max(.05, jumpDuration), 0, 0.999);
       pose = isQuadruped ? quadrupedPoseForClip('jump',jumpPhase,quadrupedJumpFrames) : bipedPoseForClip('jump',jumpPhase,charRig.sampleFrames(jumpFrames,jumpPhase));
     } else if (isWalking) {
       if (isQuadruped) {
@@ -18697,6 +18706,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           jumping = true;
           jumpTime = 0;
           jumpVelocity = 0;
+          jumpDuration = JUMP_DURATION;
           jumpCameraBaseY = previousCharacterWorldY;
         }
       } else {
@@ -18706,6 +18716,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         jumping = true;
         jumpTime = 0;
         jumpVelocity = 0;
+        jumpDuration = JUMP_DURATION;
         jumpCameraBaseY = previousCharacterWorldY;
       }
     }
@@ -18884,7 +18895,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Keep the current world-space support height so a jump from any authored
     // platform behaves identically even if the visual terrain below it changes.
     standingOnObject = null;
-    jumpVelocity = JUMP_VELOCITY;
+    // Launch for this character's Jump height (gravity unchanged); the Jump clip
+    // spans the time in the air.
+    jumpVelocity = Math.sqrt(2 * JUMP_GRAVITY * (characterMotionSettings().jump || JUMP_VELOCITY * JUMP_VELOCITY / (2 * JUMP_GRAVITY)));
+    jumpDuration = 2 * jumpVelocity / JUMP_GRAVITY;
     hideTransientHint();
   }
   jumpBtn.addEventListener('pointerdown', e => {

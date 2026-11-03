@@ -2,6 +2,9 @@
   'use strict';
 
   const BipedRig = window.GameHubWalkRig || null;
+  // Jump height (world metres; character setting). 1.49 m is the game's original
+  // jump (launch 5.24 m/s against gravity 9.2).
+  const DEFAULT_JUMP_HEIGHT = 5.24 * 5.24 / (2 * 9.20), JUMP_HEIGHT_MIN = .3, JUMP_HEIGHT_MAX = 2.5;
   const QuadrupedRig = window.SideScrollQuadrupedRig || null;
   const canvas = document.getElementById('animlab-canvas');
   if (!BipedRig || !QuadrupedRig || !canvas) {
@@ -586,6 +589,8 @@
     const savedRun = quadrupedSetupCurrent && saved.runSpeed != null ? Number(saved.runSpeed) : NaN;
     setup.walkSpeed = clamp(Number.isFinite(savedWalk) ? savedWalk : speeds.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
     setup.runSpeed = clamp(Math.max(Number.isFinite(savedRun) ? savedRun : speeds.run,setup.walkSpeed+.20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
+    const savedJump = quadrupedSetupCurrent && saved.jumpHeight != null ? Number(saved.jumpHeight) : NaN;
+    setup.jumpHeight = clamp(Number.isFinite(savedJump) ? savedJump : DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
@@ -1176,6 +1181,7 @@
       const defaults=characterProfile()?.defaultSpeeds || {walk:1.15,run:2.85};
       setupDraft.walkSpeed = clamp(Number(value.walkSpeed) || defaults.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
       setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || defaults.run, setupDraft.walkSpeed + .20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
+      setupDraft.jumpHeight = clamp(Number(value.jumpHeight) || DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
       if (supportsRestBinding(adapter)) setupDraft.skinTuning = normaliseSkinTuning(value.skinTuning);
@@ -1424,6 +1430,7 @@
         const storedSetup={scale:setupDraft.scale};
         storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||defaults.walk,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX);
         storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||defaults.run,storedSetup.walkSpeed+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX);
+        storedSetup.jumpHeight=clamp(Number(setupDraft.jumpHeight)||DEFAULT_JUMP_HEIGHT,JUMP_HEIGHT_MIN,JUMP_HEIGHT_MAX);
         if (character.family === 'quadruped') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (validRigLink(setupDraft.rigTemplate)) storedSetup.rigTemplate=clone(setupDraft.rigTemplate);
@@ -1927,8 +1934,13 @@
     };
   }
 
+  // The game's jump arc for this character, in rig units: a parabola up to its
+  // Jump height (world metres) and back, over the clip (phase 0–1). The game
+  // and Quick Play lift the character by exactly this; the clip adds the pose.
   function jumpAuthoringLift(phase) {
-    return Math.sin(clamp(Number(phase) || 0, 0, 1) * Math.PI) * .40;
+    const p = clamp(Number(phase) || 0, 0, 1);
+    const height = clamp(Number(setupDraft?.jumpHeight) || DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
+    return 4 * height * p * (1 - p) / (GAMEPLAY_BASE_CHARACTER_SCALE * Math.max(.001, Number(setupDraft?.scale) || 1));
   }
 
   function clampJumpPoseToRealGround(pose, phase) {

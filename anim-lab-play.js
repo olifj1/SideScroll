@@ -36,6 +36,11 @@
       <input type="range" data-motion-speed="runSpeed" min="1.00" max="5.75" step="0.05" value="2.85">
       <output>2.85 m/s</output>
     </label>
+    <label class="animlab-slider animlab-motion-slider">
+      <span>Jump Height</span>
+      <input type="range" data-motion-speed="jumpHeight" min="0.30" max="2.50" step="0.05" value="1.49">
+      <output>1.49 m</output>
+    </label>
     <div class="animlab-quickplay-actions">
       <button type="button" data-quickplay-reset>Reset Speeds</button>
     </div>
@@ -182,15 +187,20 @@
     if(!activeState()||sim.jumping)return;
     sim.jumping=true;
     sim.jumpTime=0;
-    sim.jumpVelocity=JUMP_VELOCITY;
+    // Launch speed for this character's Jump height (gravity unchanged); the
+    // Jump clip spans the time in the air.
+    sim.jumpVelocity=Math.sqrt(2*JUMP_GRAVITY*jumpHeightOf(state()));
+    sim.jumpDuration=2*sim.jumpVelocity/JUMP_GRAVITY;
     sim.jumpY=0;
   }
   jumpButton.addEventListener('click',triggerJump);
 
+  const DEFAULT_JUMP_HEIGHT=JUMP_VELOCITY*JUMP_VELOCITY/(2*JUMP_GRAVITY);
+  const jumpHeightOf=s=>clamp(Number(s?.setup?.jumpHeight)||DEFAULT_JUMP_HEIGHT,.3,2.5);
   function beginSpeed(input){
     if(speedTx)return speedTx;
     speedTxInput=input;
-    speedTx=core.beginTransaction('setup',`Adjust ${input.dataset.motionSpeed==='walkSpeed'?'walk':'run'} speed`);
+    speedTx=core.beginTransaction('setup',input.dataset.motionSpeed==='jumpHeight'?'Adjust jump height':`Adjust ${input.dataset.motionSpeed==='walkSpeed'?'walk':'run'} speed`);
     return speedTx;
   }
 
@@ -200,7 +210,9 @@
     const tx=beginSpeed(input);
     if(!tx)return;
     core.previewTransaction(tx,setup=>{
-      if(input.dataset.motionSpeed==='walkSpeed'){
+      if(input.dataset.motionSpeed==='jumpHeight'){
+        setup.jumpHeight=clamp(value,.3,2.5);
+      }else if(input.dataset.motionSpeed==='walkSpeed'){
         setup.walkSpeed=clamp(value,.45,3.25);
         setup.runSpeed=Math.max(Number(setup.runSpeed)||defaultRun(state()),setup.walkSpeed+.20);
       }else{
@@ -232,6 +244,7 @@
     core.edit('setup','Reset movement speeds',setup=>{
       setup.walkSpeed=defaultWalk(s);
       setup.runSpeed=defaultRun(s);
+      setup.jumpHeight=DEFAULT_JUMP_HEIGHT;
     });
   });
 
@@ -333,14 +346,14 @@
       sim.jumpTime+=dt;
       sim.jumpVelocity-=JUMP_GRAVITY*dt;
       sim.jumpY+=sim.jumpVelocity*dt;
-      if(sim.jumpTime>=JUMP_DURATION||sim.jumpY<=0&&sim.jumpTime>.12){
+      if(sim.jumpTime>=(sim.jumpDuration||JUMP_DURATION)||sim.jumpY<=0&&sim.jumpTime>.12){
         sim.jumping=false;sim.jumpTime=0;sim.jumpVelocity=0;sim.jumpY=0;
       }
     }
 
     let pose;
     if(sim.jumping){
-      pose=core.evaluateClip('jump',clamp(sim.jumpTime/JUMP_DURATION,0,.999),sim.family);
+      pose=core.evaluateClip('jump',clamp(sim.jumpTime/(sim.jumpDuration||JUMP_DURATION),0,.999),sim.family);
       sim.modeLabel='Jump';
     }else if(moveDir&&analogSpeed>.001){
       pose=currentGaitPose(rig);
@@ -379,9 +392,9 @@
     speedInputs.forEach(input=>{
       if(speedTxInput===input)return;
       const key=input.dataset.motionSpeed;
-      const val=Number(s.setup?.[key])||(key==='walkSpeed'?defaultWalk(s):defaultRun(s));
+      const val=key==='jumpHeight'?jumpHeightOf(s):Number(s.setup?.[key])||(key==='walkSpeed'?defaultWalk(s):defaultRun(s));
       input.value=String(val);
-      input.nextElementSibling.textContent=`${val.toFixed(2)} m/s`;
+      input.nextElementSibling.textContent=key==='jumpHeight'?`${val.toFixed(2)} m`:`${val.toFixed(2)} m/s`;
     });
     if(active)renderStatus(setupSpeeds(s),s.rig,gaitRunMix());
   }
