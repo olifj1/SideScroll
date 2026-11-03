@@ -9113,6 +9113,28 @@ document.addEventListener('keydown',event=>{
   // Air time of the current jump (its launch speed follows the character's Jump
   // height); falls off ledges use the original duration.
   let jumpDuration = JUMP_DURATION;
+  // Jump timing (3 Nov 2026): the Jump animation's lift-off / landing frames.
+  // Frames before lift-off play on the ground (anticipation), the arc runs from
+  // lift-off to landing, frames after landing play on the ground (recovery);
+  // every frame lasts the same time. jumpPlan = {v, T, L, M, tpf}.
+  let jumpPlan = null, jumpPrep = null, jumpRecover = null;
+  function currentJumpTiming() {
+    const id = currentCharacterVariant;
+    const clip = GameCharacters?.ready(id)?.sparseClips?.jump
+      || (isOriginalQuadruped(id) ? quadrupedSparseClips?.jump : GameCharacters?.originalClips?.(id)?.jump);
+    const lo = Math.round(Number(clip?.liftOff)), la = Math.round(Number(clip?.landing));
+    const L = Number.isFinite(lo) ? Math.max(0, Math.min(15, lo)) : 0;
+    const M = Number.isFinite(la) ? Math.max(L + 1, Math.min(16, la)) : 16;
+    return { L, M };
+  }
+  // Frame of the Jump animation now (0–16), or null when not jumping.
+  function currentJumpFrame() {
+    if (jumpPrep && jumpPlan) return jumpPrep.t / jumpPlan.tpf;
+    if (jumping && jumpPlan) return jumpPlan.L + Rig.clamp(jumpTime / jumpPlan.T, 0, 1) * (jumpPlan.M - jumpPlan.L);
+    if (jumping) return Rig.clamp(jumpTime / Math.max(.05, jumpDuration), 0, 1) * 16;
+    if (jumpRecover && jumpPlan) return jumpPlan.M + jumpRecover.t / jumpPlan.tpf;
+    return null;
+  }
 
   let runBlend = 0;
   let locomotionPhase = 0;
@@ -17594,8 +17616,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       // climb-path mechanics remain unchanged; a dedicated climb clip can be
       // authored later once the quadruped proportions are proven in-game.
       pose = quadrupedPoseForClip('run',(climbState.time * 1.35) % 1,quadrupedRunFrames);
-    } else if (jumping) {
-      const jumpPhase = Rig.clamp(jumpTime / Math.max(.05, jumpDuration), 0, 0.999);
+    } else if (currentJumpFrame() !== null) {
+      const jumpPhase = Rig.clamp(currentJumpFrame() / 16, 0, 0.999);
       pose = isQuadruped ? quadrupedPoseForClip('jump',jumpPhase,quadrupedJumpFrames) : bipedPoseForClip('jump',jumpPhase,charRig.sampleFrames(jumpFrames,jumpPhase));
     } else if (isWalking) {
       if (isQuadruped) {
@@ -17612,7 +17634,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const idlePhase = ((performance.now ? performance.now() : Date.now()) % 1400) / 1400;
       pose = isQuadruped ? quadrupedPoseForClip('idle',idlePhase,quadrupedIdleFrames) : bipedPoseForClip('idle',idlePhase,charRig.sampleFrames(characterFrames, 0.02));
     }
-    if (!isQuadruped && !climbState) pose = crossfadeBipedPose(pose, jumping ? 'jump' : (isWalking ? 'move' : 'idle'));
+    if (!isQuadruped && !climbState) pose = crossfadeBipedPose(pose, currentJumpFrame() !== null ? 'jump' : (isWalking ? 'move' : 'idle'));
 
     // Carry/push poses are biped-specific. Gameplay interaction remains
     // available to the quadruped test character, but its locomotion rig is not bent
@@ -18606,6 +18628,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // underneath an airborne character can no longer add/subtract jump height.
     const previousCharacterWorldY = character.y;
     let airborneWorldY = character.y;
+    if (jumpPrep) {
+      // Anticipation: on the ground until the Jump animation's lift-off frame.
+      if (introLocked || editMode || inventoryOpen || interactionState || pushingObject || climbState || jumping) { jumpPrep = null; jumpPlan = null; }
+      else { jumpPrep.t += dt; if (jumpPrep.t >= jumpPlan.L * jumpPlan.tpf) { jumpPrep = null; launchJump(); } }
+    }
+    if (jumpRecover) {
+      // Landing frames play out on the ground unless the character sets off.
+      jumpRecover.t += dt;
+      if (jumping || jumpRecover.t >= (16 - jumpPlan.M) * jumpPlan.tpf || (moveDir && analogSpeed > 0)) { jumpRecover = null; jumpPlan = null; }
+    }
     if (jumping) {
       jumpTime += dt;
       jumpVelocity -= JUMP_GRAVITY * dt;
@@ -18685,6 +18717,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
             jumping = false;
             jumpTime = 0;
             standingOnObject = support.obj;
+            if (jumpPlan && jumpPlan.M < 16) jumpRecover = { t: 0 }; else jumpPlan = null;
           }
         }
       }
@@ -18706,7 +18739,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           jumping = true;
           jumpTime = 0;
           jumpVelocity = 0;
-          jumpDuration = JUMP_DURATION;
+          jumpDuration = JUMP_DURATION; jumpPlan = null; jumpRecover = null;
           jumpCameraBaseY = previousCharacterWorldY;
         }
       } else {
@@ -18716,7 +18749,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         jumping = true;
         jumpTime = 0;
         jumpVelocity = 0;
-        jumpDuration = JUMP_DURATION;
+        jumpDuration = JUMP_DURATION; jumpPlan = null; jumpRecover = null;
         jumpCameraBaseY = previousCharacterWorldY;
       }
     }
@@ -18888,18 +18921,25 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function triggerJump(){
-    if (introLocked || editMode || inventoryOpen || jumping || interactionState || pushingObject || climbState) return;
+    if (introLocked || editMode || inventoryOpen || jumping || jumpPrep || interactionState || pushingObject || climbState) return;
+    // Launch for this character's Jump height (gravity unchanged).
+    const v = Math.sqrt(2 * JUMP_GRAVITY * (characterMotionSettings().jump || JUMP_VELOCITY * JUMP_VELOCITY / (2 * JUMP_GRAVITY)));
+    const T = 2 * v / JUMP_GRAVITY, { L, M } = currentJumpTiming();
+    jumpPlan = { v, T, L, M, tpf: T / Math.max(1, M - L) };
+    jumpRecover = null;
+    hideTransientHint();
+    if (L > 0) jumpPrep = { t: 0 };   // anticipation frames on the ground first
+    else launchJump();
+  }
+  function launchJump(){
     jumping = true;
     jumpTime = 0;
     jumpCameraBaseY = character.y;
     // Keep the current world-space support height so a jump from any authored
     // platform behaves identically even if the visual terrain below it changes.
     standingOnObject = null;
-    // Launch for this character's Jump height (gravity unchanged); the Jump clip
-    // spans the time in the air.
-    jumpVelocity = Math.sqrt(2 * JUMP_GRAVITY * (characterMotionSettings().jump || JUMP_VELOCITY * JUMP_VELOCITY / (2 * JUMP_GRAVITY)));
-    jumpDuration = 2 * jumpVelocity / JUMP_GRAVITY;
-    hideTransientHint();
+    jumpVelocity = jumpPlan.v;
+    jumpDuration = jumpPlan.T;
   }
   jumpBtn.addEventListener('pointerdown', e => {
     e.preventDefault();

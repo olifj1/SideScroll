@@ -62,6 +62,7 @@ app and make a Project Backup.
 
 **0r. Jump height (3 Nov)** — Character01
 - [ ] Animate → Jump: the body rises as high as it does in the game (check side by side with Quick Play / the game).
+- [ ] Animate → Jump → Key Pose Tools → **Jump timing**: set Lift-off a few frames in and Landing a few frames before the end; the preview stays on the ground before / after; in Quick Play and the game the character crouches on the ground first, then jumps, then plays the landing frames (walking off cuts the landing short).
 - [ ] Quick Play → **Jump Height**: lower it; the jump is lower and quicker in Quick Play, the Animate preview and the game; Save, reopen, still set. Hero 1 / Hero 2 / Fox jump exactly as before. (Lower jumps may not reach some ledges.)
 
 **0q. Start / stop blending (2 Nov)** — Character01 in the game and Quick Play

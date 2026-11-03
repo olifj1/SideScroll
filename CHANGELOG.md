@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Jump timing** (Animate → Key Pose Tools, shown on the Jump animation): **Lift-off
+  here** / **Landing here** / Reset. Frames before lift-off play on the ground
+  (crouch / anticipation), the jump arc runs from lift-off to landing, frames after
+  landing play on the ground (landing / recovery; cut short if you walk off). Every
+  frame lasts the same time, set by the Jump height. The Animate preview lifts the
+  character only between those frames, and the timeline marks them. Defaults (frame
+  1, end) keep the original instant jump.
 - **Jump height per character** (Character Lab → Quick Play, 0.3–2.5 m; default 1.49 m =
   the original jump). The game launches the jump to reach that height (gravity, and
   so falling, unchanged) and plays the Jump animation over the actual time in the air.
