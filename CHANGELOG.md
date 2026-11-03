@@ -4,6 +4,17 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Publish Lab** (menu → Publish Lab, new page): every game-content area (World,
+  Puzzles, Puzzle Lab, Assets, Character templates & actions, Design) and every
+  character shows **Published / Changed / New** compared with the game everyone
+  plays. Changed and new items are ticked; **Prepare package** makes one
+  `SS-PUBLISH-….json` with the ticked areas and characters (imported artwork
+  included) for `tools/bake_project.py`. **Use published** throws away this phone's
+  changes to one area or character. **My settings** exports/imports your own
+  settings (never published). Artwork already published reads as Published once its
+  picture on the phone matches the published file.
+- `tools/bake_project.py` accepts publish packages: builds in only the areas and
+  characters in the package (Design also rewrites `design-doc.json`).
 - **Jump timing** (Animate → Key Pose Tools, shown on the Jump animation): **Lift-off
   here** / **Landing here** / Reset. Frames before lift-off play on the ground
   (crouch / anticipation), the jump arc runs from lift-off to landing, frames after

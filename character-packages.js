@@ -70,8 +70,19 @@
   const isBuiltIn = id => has(BUILT_IN, id);
   const newId = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
+  // Where saved data is read from: this device (its own copies, else the
+  // built-in published content), or — for the Publish Lab — the published
+  // content only (withReader).
+  const deviceRead = key => localStorage.getItem(key);
+  const publishedRead = key => window.SIDESCROLL_PROJECT_DEFAULTS?.storage?.[key] ?? null;
+  let readRaw = deviceRead;
+  function withReader(read, work) {
+    const previous = readRaw;
+    readRaw = read;
+    try { return work(); } finally { readRaw = previous; }
+  }
   function readJSON(key) {
-    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
+    try { return JSON.parse(readRaw(key) || 'null'); } catch (_) { return null; }
   }
   function libraryEntries() {
     const lib = readJSON(KEY.library);
@@ -138,7 +149,7 @@
     return { key, path, present: true, value: clone(node) };
   }
   function wholeKey(key) {
-    const value = localStorage.getItem(key);
+    const value = readRaw(key);
     return value === null ? { key, path: null, present: false } : { key, path: null, present: true, value };
   }
   function contextPrefix(key, prefix) {
@@ -446,7 +457,60 @@
     return done;
   }
 
+  // ---- Publish Lab ------------------------------------------------------------
+  // JSON with sorted object keys, so equal data compares equal whatever order
+  // it was saved in.
+  const canonical = value => JSON.stringify(value, (k, v) => (v && typeof v === 'object' && !Array.isArray(v)
+    ? Object.fromEntries(Object.keys(v).sort().map(key => [key, v[key]])) : v));
+  // A character's own pieces (shared templates and slots are their own area).
+  const ownSlices = (character, read) => withReader(read, () => slicesFor(character)).filter(s => !SHARED_KEYS[s.key])
+    .map(s => s.path === null && s.present ? { ...s, value: (() => { try { return JSON.parse(s.value); } catch (_) { return s.value; } })() } : s);
+  // Published: the same as the game's built-in content. Changed: edited here.
+  // New: not in the built-in content at all. phoneOnlyArt: its artwork is only
+  // on this device (publishing carries it).
+  // After publishing, this device still keeps its artwork in IndexedDB while the
+  // published atlas points at assets/char-<id>-<hash>.png. When the picture is the
+  // same (checkPublishedArt: the file name carries the first 10 hex of the PNG's
+  // SHA-256, as tools/bake_project.py writes it), the two count as equal.
+  const artMatches = new Map();
+  const atlasOf = slices => slices.find(s => s.key === KEY.atlas)?.value?.atlas;
+  function compareWithPublished(id) {
+    const character = findCharacter(id);
+    if (!character) return null;
+    const device = ownSlices(character, deviceRead), published = ownSlices(character, publishedRead);
+    const isNew = !character.builtIn && !published.find(s => s.entry !== undefined)?.present;
+    const mine = atlasOf(device), theirs = atlasOf(published);
+    const sameArt = mine?.kind === 'indexeddb' && theirs?.kind === 'bundled' && artMatches.get(id) === `${mine.id}|${theirs.file}`;
+    if (sameArt) device.find(s => s.key === KEY.atlas).value = { ...device.find(s => s.key === KEY.atlas).value, atlas: theirs };
+    return { id, name: character.name, family: character.family, builtIn: character.builtIn,
+      status: isNew ? 'new' : canonical(device) === canonical(published) ? 'published' : 'changed',
+      phoneOnlyArt: mine?.kind === 'indexeddb' && !sameArt,
+      artToCheck: mine?.kind === 'indexeddb' && theirs?.kind === 'bundled' && !artMatches.has(id) };
+  }
+  async function checkPublishedArt(id) {
+    const character = findCharacter(id);
+    const mine = character && atlasOf(ownSlices(character, deviceRead)), theirs = character && atlasOf(ownSlices(character, publishedRead));
+    if (mine?.kind !== 'indexeddb' || theirs?.kind !== 'bundled') return false;
+    try {
+      const blob = await getImage(mine.id);
+      if (!blob || !crypto?.subtle) { artMatches.set(id, null); return false; }
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())), n => n.toString(16).padStart(2, '0')).join('');
+      const same = String(theirs.file || '').endsWith(`-${hash.slice(0, 10)}.png`);
+      artMatches.set(id, same ? `${mine.id}|${theirs.file}` : null);
+      return same;
+    } catch (_) { artMatches.set(id, null); return false; }
+  }
+  // Put a character back to its published version (its own pieces only).
+  async function usePublished(id) {
+    const character = findCharacter(id);
+    const state = character && compareWithPublished(id);
+    if (!state || state.status !== 'changed') BAD('Only a character changed on this device can go back to its published version.');
+    const slices = withReader(publishedRead, () => slicesFor(character)).filter(s => !SHARED_KEYS[s.key]);
+    await replaceCharacter({ pkg: { slices, artwork: {} } });
+  }
+
   window.SideScrollCharacterPackages = Object.freeze({
+    compareWithPublished, checkPublishedArt, usePublished,
     PACKAGE_SCHEMA, COLLECTION_SCHEMA,
     listCharacters, exportCharacter, exportAll, readFile, applyImport
   });

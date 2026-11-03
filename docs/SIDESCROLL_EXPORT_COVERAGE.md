@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 3 November 2026 — Publish Lab
+`publish-lab.html` adds two exports and stores no new keys. **Publish package** (`SS-PUBLISH-….json`, schema `sidescroll.publish-package.v1`): for each ticked area, every content/migration key the catalogue puts in that area (this device's value, or the built-in one), plus a character package per ticked character (artwork from IndexedDB embedded). The bake tool builds in only those areas and characters and refuses any key whose scope isn't content/migration. **My settings** (`SS-MY-SETTINGS-….json`, schema `sidescroll.my-settings.v1`): every `local`-scope key; import writes back only keys the catalogue marks local. Project Backup is unchanged and still the full device backup.
+
 ## 30 October 2026 — Renamed keys and files
 Six storage keys were renamed (`storage-catalogue.json` → `renamed`): `sidescroll.fox.rig.v3/v2/baseline-id`, `sidescroll.fox.collider.v1/baseline-id`, `sidescroll.animlab.fox.clips.v1` → `quadruped` equivalents. Devices migrate on first load; Project Backups and character files exported earlier still import/bake (old names are mapped). Renamed art files resolve from their old names via `asset-paths.js`.
 
