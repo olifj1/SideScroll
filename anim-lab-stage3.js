@@ -71,6 +71,15 @@
       <button type="button" data-tween="smooth">Smooth</button>
       <button type="button" data-tween="linear">Linear</button>
     </div>
+    <div class="animlab-jump-timing" id="animlab-jump-timing-box">
+      <div class="animlab-convert-head"><strong>Jump timing</strong><span id="animlab-jump-timing-summary"></span></div>
+      <div class="animlab-segmented animlab-three">
+        <button type="button" data-jump-timing="liftOff">Lift-off here</button>
+        <button type="button" data-jump-timing="landing">Landing here</button>
+        <button type="button" data-jump-timing="reset">Reset</button>
+      </div>
+      <div class="animlab-convert-copy">Frames before lift-off play on the ground (crouch / anticipation); the jump arc runs from lift-off to landing; frames after landing play on the ground (landing / recovery). Every frame lasts the same time, set by the Jump height.</div>
+    </div>
     <div class="animlab-limb-copy" id="animlab-limb-copy-box">
       <div class="animlab-convert-head"><strong>Copy a limb to the other side</strong></div>
       <div class="animlab-segmented animlab-two" id="animlab-limb-copy-offset">
@@ -438,6 +447,10 @@
     for(const button of frameButtons){
       const frame=Number(button.dataset.frame), marker=keyMap.get(frame), current=frame===st.frame;
       button.classList.toggle('has-key',!!marker);
+      // Jump animation: mark the lift-off and landing frames.
+      const jt=core.isJumpClip?.(st.clip)?core.jumpTiming():null;
+      button.classList.toggle('lift-off',!!jt&&jt.L>0&&frame===jt.L);
+      button.classList.toggle('landing',!!jt&&jt.M<16&&frame===jt.M);
       // Frames where the selected control is keyed (biped per-control keys).
       const ctrl=st.family==='biped'?window.AnimLabControlSurface?.getSelectedControl?.():null;
       const chans=ctrl?[ctrl.move?.x?.key,ctrl.move?.y?.key,ctrl.rotate?.key].filter(Boolean):[];
@@ -481,6 +494,14 @@
     document.getElementById('animlab-key-simplify-box').hidden=st.family!=='biped';
     document.getElementById('animlab-contact-box').hidden=st.family!=='biped';
     document.getElementById('animlab-limb-copy-box').hidden=st.family!=='biped';
+    const jumpClip=!!core.isJumpClip?.(st.clip),timing=jumpClip?core.jumpTiming():null;
+    document.getElementById('animlab-jump-timing-box').hidden=!jumpClip;
+    if(jumpClip){
+      document.getElementById('animlab-jump-timing-summary').textContent=`lift-off frame ${timing.L+1} · landing frame ${timing.M>=16?'end':timing.M+1} · in the air ${timing.M-timing.L} of 16`;
+      document.querySelector('[data-jump-timing=liftOff]').disabled=!!st.preview||st.frame>=timing.M;
+      document.querySelector('[data-jump-timing=landing]').disabled=!!st.preview||st.frame<=timing.L;
+      document.querySelector('[data-jump-timing=reset]').disabled=!!st.preview||(timing.L===0&&timing.M===16);
+    }
     document.querySelectorAll('#animlab-limb-copy-offset [data-offset]').forEach(b=>{const on=Number(b.dataset.offset)===limbOffset;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});
     document.querySelectorAll('[data-limb-copy]').forEach(b=>{b.disabled=!!st.preview;});
     document.querySelectorAll('#animlab-contact-mode [data-contact]').forEach(b=>{const on=(['auto','off'].includes(st.sparseClip?.contact)?st.sparseClip.contact:'keys')===b.dataset.contact;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));b.disabled=!!st.preview;});
@@ -523,6 +544,15 @@
     core.setHint(`Simplified: ${before} keys → ${after} (each control keeps only the keys it needs).`);
   });
   window.addEventListener('animlab-control-selected',()=>render(state()));
+  document.querySelectorAll('[data-jump-timing]').forEach(b=>b.addEventListener('click',()=>{
+    const st=state(),what=b.dataset.jumpTiming;
+    core.editSparseClip(what==='reset'?'Reset jump timing':what==='liftOff'?`Lift-off at frame ${st.frame+1}`:`Landing at frame ${st.frame+1}`,clip=>{
+      if(what==='reset'){delete clip.liftOff;delete clip.landing;}
+      else if(what==='liftOff'){if(st.frame>0)clip.liftOff=st.frame;else delete clip.liftOff;}
+      else clip.landing=st.frame;
+      markAuthored(clip);
+    });
+  }));
   // Copy a limb's keyed controls to the other side, optionally half a cycle later.
   let limbOffset=8;
   const LIMB_CHANNELS={leg:['FootX','FootLift','FootAngle','ToeBend'],arm:['HandX','HandY','HandAngle']};

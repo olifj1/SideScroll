@@ -4,6 +4,20 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Jump timing** (Animate → Key Pose Tools, shown on the Jump animation): **Lift-off
+  here** / **Landing here** / Reset. Frames before lift-off play on the ground
+  (crouch / anticipation), the jump arc runs from lift-off to landing, frames after
+  landing play on the ground (landing / recovery; cut short if you walk off). Every
+  frame lasts the same time, set by the Jump height. The Animate preview lifts the
+  character only between those frames, and the timeline marks them. Defaults (frame
+  1, end) keep the original instant jump.
+- **Jump height per character** (Character Lab → Quick Play, 0.3–2.5 m; default 1.49 m =
+  the original jump). The game launches the jump to reach that height (gravity, and
+  so falling, unchanged) and plays the Jump animation over the actual time in the air.
+- Fixed: Animate's Jump preview lifted the character along its own 0.40 arc, while the
+  game lifted it by the real jump (≈60% higher on a scale-1 biped), so a jump that
+  looked right in Animate floated in play. The preview now uses the exact game arc
+  for the character's Jump height and scale.
 - Bipeds ease between standing, moving and jumping in the game and Quick Play (a
   0.22 s cross-fade when starting or stopping, 0.15 s on take-off and landing), so
   stopping a run or starting a walk no longer flicks to the new pose. Walk ↔ run keeps

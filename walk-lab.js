@@ -2,6 +2,9 @@
   'use strict';
 
   const BipedRig = window.GameHubWalkRig || null;
+  // Jump height (world metres; character setting). 1.49 m is the game's original
+  // jump (launch 5.24 m/s against gravity 9.2).
+  const DEFAULT_JUMP_HEIGHT = 5.24 * 5.24 / (2 * 9.20), JUMP_HEIGHT_MIN = .3, JUMP_HEIGHT_MAX = 2.5;
   const QuadrupedRig = window.SideScrollQuadrupedRig || null;
   const canvas = document.getElementById('animlab-canvas');
   if (!BipedRig || !QuadrupedRig || !canvas) {
@@ -586,6 +589,8 @@
     const savedRun = quadrupedSetupCurrent && saved.runSpeed != null ? Number(saved.runSpeed) : NaN;
     setup.walkSpeed = clamp(Number.isFinite(savedWalk) ? savedWalk : speeds.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
     setup.runSpeed = clamp(Math.max(Number.isFinite(savedRun) ? savedRun : speeds.run,setup.walkSpeed+.20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
+    const savedJump = quadrupedSetupCurrent && saved.jumpHeight != null ? Number(saved.jumpHeight) : NaN;
+    setup.jumpHeight = clamp(Number.isFinite(savedJump) ? savedJump : DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
@@ -655,8 +660,27 @@
       interpolation:raw?.interpolation === 'linear' || raw?.interpolation === 'smooth' ? raw.interpolation : (family === 'quadruped' ? 'smooth' : 'linear'),
       // Biped foot contact: 'auto' plants a foot when it reaches the floor; absent = from the keys.
       ...(family === 'biped' && (raw?.contact === 'auto' || raw?.contact === 'off') ? {contact:raw.contact} : {}),
+      // Jump timing (3 Nov 2026): the frames where the jump leaves and meets the
+      // ground; frames before / after play on the ground. Absent = 0 and 16.
+      ...jumpTimingFields(raw),
       keys
     };
+  }
+
+  function jumpTimingFields(raw) {
+    const liftOff = Math.round(Number(raw?.liftOff)), landing = Math.round(Number(raw?.landing));
+    const L = Number.isFinite(liftOff) ? clamp(liftOff, 0, 15) : 0;
+    const M = Number.isFinite(landing) ? clamp(landing, L + 1, 16) : 16;
+    return {...(L > 0 ? {liftOff:L} : {}), ...(M < 16 ? {landing:M} : {})};
+  }
+  // Lift-off / landing frames of a clip (defaults 0 / 16).
+  function jumpTiming(clip) {
+    const f = jumpTimingFields(clip);
+    return {L: f.liftOff || 0, M: f.landing || 16};
+  }
+  // The animation played by the Jump action (or the clip called jump).
+  function isJumpClip(clipName = selection.clip) {
+    return clipName === 'jump' || slotAnimation(selection.characterId, 'jump') === clipName;
   }
 
   function importSparseClip(frames, family, clipName) {
@@ -1176,6 +1200,7 @@
       const defaults=characterProfile()?.defaultSpeeds || {walk:1.15,run:2.85};
       setupDraft.walkSpeed = clamp(Number(value.walkSpeed) || defaults.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
       setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || defaults.run, setupDraft.walkSpeed + .20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
+      setupDraft.jumpHeight = clamp(Number(value.jumpHeight) || DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
       if (supportsRestBinding(adapter)) setupDraft.skinTuning = normaliseSkinTuning(value.skinTuning);
@@ -1424,6 +1449,7 @@
         const storedSetup={scale:setupDraft.scale};
         storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||defaults.walk,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX);
         storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||defaults.run,storedSetup.walkSpeed+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX);
+        storedSetup.jumpHeight=clamp(Number(setupDraft.jumpHeight)||DEFAULT_JUMP_HEIGHT,JUMP_HEIGHT_MIN,JUMP_HEIGHT_MAX);
         if (character.family === 'quadruped') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (validRigLink(setupDraft.rigTemplate)) storedSetup.rigTemplate=clone(setupDraft.rigTemplate);
@@ -1927,8 +1953,18 @@
     };
   }
 
+  // The game's jump arc for this character, in rig units: a parabola up to its
+  // Jump height (world metres) and back, over the clip (phase 0–1). The game
+  // and Quick Play lift the character by exactly this; the clip adds the pose.
+  // Only between the clip's lift-off and landing frames: before and after, the
+  // character is on the ground (anticipation, landing).
   function jumpAuthoringLift(phase) {
-    return Math.sin(clamp(Number(phase) || 0, 0, 1) * Math.PI) * .40;
+    const {L, M} = jumpTiming(displaySparseClip());
+    const f = clamp(Number(phase) || 0, 0, 1) * 16;
+    if (f <= L || f >= M) return 0;
+    const p = (f - L) / (M - L);
+    const height = clamp(Number(setupDraft?.jumpHeight) || DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
+    return 4 * height * p * (1 - p) / (GAMEPLAY_BASE_CHARACTER_SCALE * Math.max(.001, Number(setupDraft?.scale) || 1));
   }
 
   function clampJumpPoseToRealGround(pose, phase) {
@@ -1948,7 +1984,7 @@
       const localLift = Number(playFrame?.localLift) || 0;
       return {...sv,groundY:sv.groundY-localLift*sv.scale,flipX:(Number(playFrame?.facing)||1)<0?-1:1};
     }
-    if (selection.mode !== 'animate' || selection.clip !== 'jump') return sv;
+    if (selection.mode !== 'animate' || !isJumpClip()) return sv;
     const lift = jumpAuthoringLift(phase);
     return {...sv, groundY:sv.groundY - lift * sv.scale};
   }
@@ -2720,6 +2756,13 @@
     evaluateSparsePose:(clipData,frame)=>evaluateSparsePose(normaliseSparseClip(clipData,currentCharacter().family,selection.clip,currentFrames()),frame,currentCharacter().family),
     getAuthoringPose:()=>clone(evaluateSparsePose(currentSparseClip(),selection.frame,currentCharacter().family,{resolveContacts:false})),
     getJumpAuthoringLift:phase=>jumpAuthoringLift(phase),
+    isJumpClip:name=>isJumpClip(name),
+    jumpTiming:()=>jumpTiming(displaySparseClip()),
+    // Lift-off / landing of the animation the Jump action plays (Quick Play).
+    jumpTimingOf:()=>{
+      const name=slotAnimation(selection.characterId,'jump')||'jump';
+      return jumpTiming(customSparseBanks[selection.characterId]?.[name]||sparseBanks[currentCharacter().family]?.[name]);
+    },
     setConversionPreview,
     clearConversionPreview,
     adoptConversionPreview,

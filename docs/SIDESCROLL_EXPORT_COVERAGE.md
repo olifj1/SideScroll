@@ -205,6 +205,10 @@ too), Project Backup and the bake tool (content scope).
 
 ### v1.1.8 — per-instance Skin weight storage coverage
 
+**3 Nov 2026 (jump timing):** a clip may carry `liftOff` (0–15) and `landing` (1–16) frames (absent = 0 / 16), kept by `normaliseSparseClip` and read by Quick Play and the game for the animation the Jump action plays. Inside the clip data; no new key.
+
+**3 Nov 2026 (jump height):** a character setup may carry `jumpHeight` (world metres, 0.3–2.5; absent = 1.49, the original jump), saved with walk/run speeds in the setup map or library entry and read by the game (`characterMotionSettings().jump`). No new key.
+
 **2 Nov 2026 (contact, toes):** biped clips may carry `contact:'auto'` or `'off'` (absent = contact from the keys), poses `aToeBend`/`bToeBend`, `neckBend`/`headTilt` (absent = 0), and biped rest rigs `ballNear`/`ballFar` joints (computed on load when missing). Inside existing data; no new key.
 
 **2 Nov 2026 (Animate):** a biped sparse-clip key may carry `channels` (the controls it sets, from `GameHubWalkRig.KEY_CHANNELS`; absent = all, as every older key), biped clips keep `interpolation:'smooth'`, and poses may carry `pelvisX` (root left/right, absent = 0). All inside the existing clip data (`sparseClips`, `extraClips`, the clip stores), sanitised by `normaliseSparseClip`; no new key.
