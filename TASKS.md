@@ -14,11 +14,12 @@ characters C4–C6. Clean-up items are small and slot in between.
 
 ### Publishing workflow (agreed 30 Oct)
 Author on the phone, then publish chosen content into the game for every player.
-Until the Publish Lab exists, publishing works by giving Claude a Project Backup
-export (`tools/bake_project.py`). Design: three kinds of data — published game
+Publishing works by giving Claude a publish package from the Publish Lab (or a
+Project Backup / character exports) for `tools/bake_project.py`. Design: three kinds of data — published game
 content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
-- [ ] **Step 3 — Publish Lab** (grown from the Project Backup page): every content area and each character with a status (Published / Changed / New / Local only); tick-list publish package; separate "My settings" export; full backup including artwork; restore; "discard my changes, use published" per area; exports and backups driven by the catalogue (replacing the lists in `lab-data.js` and `project-snapshot.js`). Bake tool supports publishing selected areas / single characters. Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
+- [x] **Step 3a — Publish Lab** (`publish-lab.html`): status per area and character, tick-list publish package (bake tool builds selected areas / characters), Use published per area / character, My settings export/import.
+- [ ] **Step 3b — Backups in the Publish Lab:** full backup including character artwork, and restore; Project Backup lists driven by the catalogue (replacing the lists in `lab-data.js` and `project-snapshot.js`). Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
 - [ ] **Step 4 (optional) — Automatic publishing:** upload a publish package to GitHub from the phone; a GitHub Action bakes it and opens the pull request.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
 
@@ -53,6 +54,12 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0p. Publish Lab (3 Nov)** — menu → Publish Lab
+- [ ] Areas and characters show sensible badges (things you've edited = Changed, Character01 = New or Published); nothing horizontal-scrolls.
+- [ ] Changed/new rows are ticked. **Prepare package**, then **Share package**: the share sheet offers the `SS-PUBLISH-….json` file (save it to Files).
+- [ ] **Export my settings** shares a small file; **Import my settings** with that file says "Imported N settings".
+- [ ] Optional (after a backup): **Use published** on a changed area or character asks first, then that row reads Published.
 
 **0h. Animate keys (2 Nov)** — Character01
 - [ ] Body / Root moves left/right and up/down.

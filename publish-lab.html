@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#172026">
+  <link rel="manifest" href="manifest.json">
+  <title>Publish Lab · SideScroll</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: #101a1e; color: #e5e6dd; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; overflow-x: hidden; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+    main { margin: 0 auto; max-width: 760px; }
+    a { color: #d2ebdd; }
+    nav { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 0 0 17px; border-bottom: 1px solid #385057; }
+    nav a { text-decoration: none; border: 1px solid #476368; padding: 8px 13px; border-radius: 8px; }
+    .eyebrow { letter-spacing: .12em; font-size: .73rem; color: #a0cbb9; }
+    h1 { font-size: clamp(1.35rem, 4vw, 2rem); line-height: 1.2; margin: 17px 0 8px; }
+    h2 { font-size: 1.02rem; margin: 0 0 8px; }
+    p { margin: 7px 0 12px; }
+    .subtle { color: #b6c2c3; }
+    .note { color: #bdc9c9; font-size: .88rem; }
+    .card { margin: 16px 0; border: 1px solid #3b5358; background: #1a282d; padding: 16px; border-radius: 12px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; padding: 7px 0; align-items: center; }
+    button, .download { background: #547f74; border: 1px solid #a6cdbf; border-radius: 8px; color: #fff; font: inherit; font-weight: 650; padding: 9px 14px; min-height: 42px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+    button.secondary, .download { background: #273d43; border-color: #58767a; }
+    button.small { min-height: 34px; padding: 5px 10px; font-size: .85rem; }
+    button.danger { background: #4d3530; border-color: #b98a7a; }
+    button:disabled { opacity: .45; cursor: default; }
+    [hidden] { display: none !important; }
+    .rows { display: grid; gap: 6px; margin: 8px 0; }
+    .row { display: grid; grid-template-columns: 30px 1fr auto auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid #304549; border-radius: 9px; background: #15222a; }
+    .row input { width: 20px; height: 20px; accent-color: #83c6ab; }
+    .row .name { font-weight: 650; }
+    .row .detail { display: block; color: #a9b8b9; font-size: .8rem; font-weight: 400; }
+    .badge { font-size: .74rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; border: 1px solid; white-space: nowrap; }
+    .badge.published { color: #a2e6c4; border-color: #4f8a72; }
+    .badge.changed { color: #f2cf8a; border-color: #8c7444; }
+    .badge.new { color: #c9b4ff; border-color: #6e5a9c; }
+    .badge.empty { color: #8b9a9b; border-color: #46585b; }
+    .status { min-height: 24px; margin: 8px 0 0; }
+    .status[data-level="error"] { color: #ffcfba; }
+    .status[data-level="success"] { color: #a2e6c4; }
+    .warning { border-left: 3px solid #e4bd76; padding: 9px 12px; background: #2b302f; }
+  </style>
+  <script src="saved-data-migrations.js?v=1.1.40"></script>
+  <script src="project-defaults-data.js?v=1.1.40"></script>
+  <script src="project-defaults.js?v=1.1.40"></script>
+  <script src="character-registry.js?v=1.1.40"></script>
+  <script src="rig-templates.js?v=1.1.40"></script>
+  <script src="animation-templates.js?v=1.1.40"></script>
+  <script src="action-slots.js?v=1.1.40"></script>
+  <script src="character-packages.js?v=1.1.40"></script>
+  <script defer src="publish-lab.js?v=1.1.40"></script>
+</head>
+<body>
+  <main>
+    <nav><span class="eyebrow">SIDESCROLL · PUBLISH</span><a href="index.html">← Back to menu</a></nav>
+    <h1>Publish Lab</h1>
+    <p class="subtle">What you've changed on this phone compared with the game everyone plays, and a package to publish it.
+      <strong>Published</strong> = the same as the game. <strong>Changed</strong> = edited on this phone. <strong>New</strong> = only on this phone.</p>
+
+    <section class="card" aria-labelledby="areas-title">
+      <h2 id="areas-title">Game content</h2>
+      <div class="rows" id="areas"></div>
+      <p class="note">Tick what to publish. <em>Use published</em> throws away this phone's changes to that area and goes back to the game's version (save a backup first if unsure).</p>
+    </section>
+
+    <section class="card" aria-labelledby="chars-title">
+      <h2 id="chars-title">Characters</h2>
+      <div class="rows" id="characters"></div>
+      <p class="note">A character's artwork imported on this phone travels inside the package, so it works for every player once published.</p>
+    </section>
+
+    <section class="card" aria-labelledby="publish-title">
+      <h2 id="publish-title">Publish package</h2>
+      <p>Makes one file with everything ticked above. Give it to Claude in a session to build it into the game (<code>tools/bake_project.py</code>); it reaches players when that pull request is merged.</p>
+      <div class="actions">
+        <button type="button" id="prepare">Prepare package</button>
+        <button type="button" id="share" class="secondary" disabled>Share package</button>
+        <a class="download" id="download" hidden>Download</a>
+      </div>
+      <p class="status" id="publish-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card" aria-labelledby="settings-title">
+      <h2 id="settings-title">My settings</h2>
+      <p class="subtle">Your own settings (Character Lab display, panels, music…), never published. Export them to keep or move to another device.</p>
+      <div class="actions">
+        <button type="button" id="settings-export" class="secondary">Export my settings</button>
+        <a class="download" id="settings-download" hidden>Download</a>
+        <label class="download" for="settings-file">Import my settings</label>
+        <input type="file" id="settings-file" accept=".json,application/json" hidden>
+      </div>
+      <p class="status" id="settings-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card" aria-labelledby="backup-title">
+      <h2 id="backup-title">Backups</h2>
+      <p class="subtle">A full backup of everything saved on this phone: <a href="project-snapshot.html">Project Backup</a> (character artwork travels in character exports from Character Lab → Share).</p>
+    </section>
+  </main>
+</body>
+</html>

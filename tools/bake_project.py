@@ -8,7 +8,9 @@ Each FILE can be:
   - a Project Backup export (SS-PROJECT-SNAPSHOT-....json): rebuilds the whole
     built-in content from it;
   - a character export (SS-CHARACTER-....json) or "Export all characters" file
-    (SS-CHARACTERS-ALL-....json): publishes those characters on top.
+    (SS-CHARACTERS-ALL-....json): publishes those characters on top;
+  - a Publish Lab package (SS-PUBLISH-....json): publishes the ticked content
+    areas (whole keys) and characters on top of the current built-in content.
 With only character files, the current built-in content is the starting point,
 so a single character can be published without a full backup.
 
@@ -48,6 +50,7 @@ DATA_FILE = ROOT / 'project-defaults-data.js'
 SNAPSHOT_SCHEMA = 'sidescroll.project-snapshot.v1'
 PACKAGE_SCHEMA = 'sidescroll.character-package.v1'
 COLLECTION_SCHEMA = 'sidescroll.character-collection.v1'
+PUBLISH_SCHEMA = 'sidescroll.publish-package.v1'
 DESIGN_DOC_KEY = 'sidescroll-design-doc-working-v2'
 ATLAS_KEY = 'sidescroll.animlab.atlas-docs.v1'
 LIBRARY_KEY = 'sidescroll.animlab.character-library.v1'
@@ -77,6 +80,24 @@ def load_current():
     text = DATA_FILE.read_text(encoding='utf-8')
     data = json.loads(text[text.index('{'):text.rindex('}') + 1])
     return data.get('exportedAt'), dict(data.get('storage', {})), list(data.get('characters', []))
+
+
+def bake_publish_areas(storage, pkg, catalogue, report):
+    """Whole content keys from a Publish Lab package, on top of the built-in content."""
+    for key, value in sorted((pkg.get('storage') or {}).items()):
+        info = catalogue.get(key)
+        if info is None:
+            report['unknown'].append(key)
+        elif key == DESIGN_DOC_KEY:
+            doc = json.loads(value) if isinstance(value, str) else value
+            doc.pop('workingUpdated', None)
+            (ROOT / 'design-doc.json').write_text(json.dumps(doc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+            report['design'] = True
+        elif info['scope'] not in PUBLISHED_SCOPES:
+            sys.exit(f'Publish package contains {key}, which is not published content ({info["scope"]}).')
+        else:
+            storage[key] = value if isinstance(value, str) else json.dumps(value)
+    report['areas'].extend(pkg.get('areas') or [])
 
 
 def bake_snapshot(snapshot, catalogue, report):
@@ -201,8 +222,8 @@ def rename_keys(storage, renamed):
 def main(paths):
     catalogue_file = json.loads((ROOT / 'storage-catalogue.json').read_text(encoding='utf-8'))
     catalogue, renamed = catalogue_file['keys'], catalogue_file.get('renamed', {})
-    report = {'skipped': [], 'unknown': [], 'warnings': [], 'art': [], 'removed': [], 'characters': [], 'design': False}
-    snapshots, packages = [], []
+    report = {'skipped': [], 'unknown': [], 'warnings': [], 'art': [], 'removed': [], 'characters': [], 'design': False, 'areas': []}
+    snapshots, packages, publishes = [], [], []
     for path in paths:
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         schema = data.get('schema')
@@ -214,8 +235,12 @@ def main(paths):
             packages.append(data)
         elif schema == COLLECTION_SCHEMA:
             packages.extend(data.get('characters', []))
+        elif schema == PUBLISH_SCHEMA:
+            data['storage'] = {renamed.get(k, k): v for k, v in (data.get('storage') or {}).items()}
+            publishes.append(data)
+            packages.extend(data.get('characters', []))
         else:
-            sys.exit(f'{path}: not a Project Backup or character export ({schema!r}).')
+            sys.exit(f'{path}: not a Project Backup, character export or Publish Lab package ({schema!r}).')
     if len(snapshots) > 1:
         sys.exit('Give at most one Project Backup export.')
 
@@ -225,6 +250,8 @@ def main(paths):
         previous_characters = []
     else:
         exported_at, storage, previous_characters = load_current()
+    for pkg in publishes:
+        bake_publish_areas(storage, pkg, catalogue, report)
     rename_keys(storage, renamed)
     for key in list(storage):
         storage[key] = migrate_raw(key, storage[key])
@@ -252,6 +279,8 @@ def main(paths):
         for key, why in report['skipped']:
             print(f'  - {key}  ({why})')
     print('design-doc.json', 'updated' if report['design'] else 'not changed')
+    if report['areas']:
+        print('Published areas:', ', '.join(report['areas']))
     if report['characters']:
         print('Published characters:', ', '.join(report['characters']))
     for line in report['art']:

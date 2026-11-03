@@ -68,7 +68,9 @@ The authored project ships as built-in defaults so a fresh install has it:
   FILE [FILE ...]` from files the user exports on the phone: a Project Backup
   (rebuilds everything, also rewrites `design-doc.json`) and/or character exports
   (publishes those characters on top; with only character files the current
-  built-in content is the starting point). Never edit it by hand.
+  built-in content is the starting point), and/or a **publish package** from the
+  Publish Lab (`sidescroll.publish-package.v1`: the ticked areas' content keys plus
+  character packages; only those are built in). Never edit it by hand.
 - **Publishing character art:** the tool writes a character's imported PNG to
   `assets/char-<character id>-<content hash>.png` and switches its atlas document
   to `{kind:'bundled', file}`; the game and Character Lab load that pattern only
@@ -88,7 +90,7 @@ The authored project ships as built-in defaults so a fresh install has it:
   devices only hold copies of content they have genuinely changed (otherwise the
   game's on-load re-saves would pin players to an old version).
 - Both load before any other script on index, play, walk-lab, asset-lab,
-  puzzle-lab and world-lab. New pages that read saved data must include them.
+  puzzle-lab, world-lab and publish-lab. New pages that read saved data must include them.
 - Left out on purpose: everything not scoped content/migration in the catalogue.
 - IndexedDB images are not in a Project Backup; they reach the game through
   character exports (see above).
@@ -183,6 +185,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | `world-lab.html` | Journey layout / placement | `world-lab.js` |
 | `design-lab.html` | Living game design doc | `design-lab.js`, `design-doc.json` |
 | `concept-lab.html` | Concept art boards | inline + `concept-lab-data.json` |
+| `publish-lab.html` | Status of each area/character vs published; publish package; Use published; My settings | `publish-lab.js`, `character-packages.js` (+ registry/templates/slots) |
 | `project-snapshot.html` | Backup / restore of all local data | `project-snapshot.js`, `project-restore.js` |
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
