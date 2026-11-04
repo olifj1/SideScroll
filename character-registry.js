@@ -42,9 +42,20 @@
   const cleanName = value => String(value || '').trim().replace(/[\u0000-\u001f\u007f<>]/g, '').slice(0, 42);
   const slug = value => cleanName(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
 
-  function load() {
+  // The game asks for names and families many times a frame, and the library
+  // value holds every library character's animations (100+ KB), so parsed
+  // values are kept and only rebuilt when the saved text changes.
+  const readText = key => { try { return localStorage.getItem(key); } catch (_) { return null; } };
+  let regCache = { text: undefined, reg: null };
+  function current() { // read-only: callers must not change the result
+    const text = readText(KEY);
+    if (text !== regCache.text || !regCache.reg) regCache = { text, reg: parseRegistry(text) };
+    return regCache.reg;
+  }
+  const load = () => clone(current());
+  function parseRegistry(text) {
     let raw = null;
-    try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) {}
+    try { raw = JSON.parse(text || 'null'); } catch (_) {}
     const reg = DEFAULTS();
     if (raw?.schema !== SCHEMA) return reg;
     if (Array.isArray(raw.categories) && raw.categories.length) {
@@ -65,22 +76,36 @@
   function save(reg) {
     localStorage.setItem(KEY, JSON.stringify({ schema: SCHEMA, categories: reg.categories, roles: reg.roles, characters: reg.characters }));
   }
-  function libraryEntries() {
+  let libraryCache = { text: undefined, entries: [] };
+  function libraryEntries() { // id, name and starter of each library character
+    const text = readText(LIBRARY_KEY);
+    if (text === libraryCache.text) return libraryCache.entries;
+    let entries = [];
     try {
-      const lib = JSON.parse(localStorage.getItem(LIBRARY_KEY) || 'null');
-      return Array.isArray(lib?.entries) ? lib.entries.filter(e => /^user-[a-z0-9-]{5,40}$/.test(e?.id)) : [];
-    } catch (_) { return []; }
+      const lib = JSON.parse(text || 'null');
+      if (Array.isArray(lib?.entries)) entries = lib.entries.filter(e => /^user-[a-z0-9-]{5,40}$/.test(e?.id))
+        .map(e => ({ id: e.id, name: e.name, starter: e.starter }));
+    } catch (_) {}
+    libraryCache = { text, entries };
+    return entries;
   }
 
   // Every character, in display order: category order, then order within the
   // category, then creation order.
+  let listCache = { reg: null, entries: null, rows: null };
   function list({ includeHidden = false } = {}) {
-    const reg = load();
+    const reg = current(), entries = libraryEntries();
+    if (listCache.reg !== reg || listCache.entries !== entries) listCache = { reg, entries, rows: buildList(reg, entries) };
+    // Fresh objects each call, so a caller changing one can't change the cache.
+    return listCache.rows.filter(row => includeHidden || !row.hidden)
+      .map(row => ({ ...row, roles: row.roles.map(r => ({ ...r })) }));
+  }
+  function buildList(reg, entries) {
     const categoryIndex = new Map(reg.categories.map((c, i) => [c.id, i]));
     const fallbackCategory = reg.categories[0]?.id || 'playable';
     const rows = [
       ...Object.entries(ORIGINAL).map(([id, c], i) => ({ id, name: c.name, family: c.family, library: false, seq: i })),
-      ...libraryEntries().map((e, i) => ({ id: e.id, name: cleanName(e.name) || e.id, family: e.starter === 'quadruped' ? 'quadruped' : 'biped', library: true, seq: 100 + i }))
+      ...entries.map((e, i) => ({ id: e.id, name: cleanName(e.name) || e.id, family: e.starter === 'quadruped' ? 'quadruped' : 'biped', library: true, seq: 100 + i }))
     ].map(row => {
       const meta = reg.characters[row.id] || {};
       const category = categoryIndex.has(meta.category) ? meta.category : fallbackCategory;
@@ -94,7 +119,6 @@
       };
     });
     return rows
-      .filter(row => includeHidden || !row.hidden)
       .sort((a, b) => (categoryIndex.get(a.category) - categoryIndex.get(b.category)) || (a.order - b.order) || (a.seq - b.seq));
   }
   const find = id => list({ includeHidden: true }).find(c => c.id === id) || null;
@@ -128,7 +152,7 @@
       meta(reg, id).order = index + delta; meta(reg, other.id).order = index;
     });
   }
-  const rolesOf = id => load().roles.filter(r => r.character === id);
+  const rolesOf = id => clone(current().roles).filter(r => r.character === id);
   const canDelete = id => rolesOf(id).length === 0;
   function assignRole(roleId, characterId) {
     if (!find(characterId)) return false;
@@ -180,12 +204,12 @@
   // The character a new player starts as: the Default player role, if that
   // character still exists.
   function defaultPlayer() {
-    const role = load().roles.find(r => r.id === 'default-player');
+    const role = current().roles.find(r => r.id === 'default-player');
     const target = role && find(role.character);
     return target && !target.hidden ? target.id : null;
   }
   const isPlayable = id => {
-    const c = find(id), reg = load();
+    const c = find(id), reg = current();
     return !!c && !c.hidden && !!reg.categories.find(x => x.id === c.category)?.playable;
   };
 
