@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Character Lab → Quick Play controls laid out like the game: **Jump** and **Pick up**
+  bottom-left, a wider move pad bottom-right. Jump / Pick up act on touch-down, so
+  they work while the other thumb holds the move pad (taps were lost before because
+  iOS drops clicks while another finger is down). Quick Play's view sits a little
+  higher and smaller so the character, boxes and markers stay clear of the controls.
 - Character Lab → Display → **Centre** (on by default): a dashed vertical line and
   ◆ *Centre* at the character's origin (where the game places it and centres its
   collider), and an amber ▲ *Body ±x* under the body whenever the body is off it.
