@@ -1,5 +1,5 @@
-/* SideScroll v1.0.205 — safe, opt-in global project snapshot restore.
- * A Project Snapshot is an origin-scoped *data* file, not an art/game-build ZIP.
+/* SideScroll — safe, opt-in Project Backup restore (saved data and, for
+ * backups that carry it, character artwork in IndexedDB).
  * No stored value is touched until file validation, review, a safety export,
  * explicit acknowledgement, a final recheck, and a destructive confirmation.
  */
@@ -8,7 +8,11 @@
   const snap = window.SideScrollProjectSnapshot;
   if (!snap) return;
   const SCHEMA = 'sidescroll.project-snapshot.v1';
-  const MAX_FILE_BYTES = 32 * 1024 * 1024;
+  const MAX_FILE_BYTES = 256 * 1024 * 1024;
+  const MAX_IMAGES = 500;
+  const MAX_ART_BYTES = 160 * 1024 * 1024;
+  const ART_ID = /^[A-Za-z0-9._-]{1,120}$/;
+  const ARTWORK = '__artwork';
   const MAX_ENTRIES = 1000;
   const MAX_ENTRY_BYTES = 8 * 1024 * 1024;
   const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
@@ -29,6 +33,7 @@
   const notesEl = $('restore-notes');
   const sourceEl = $('restore-source');
   let fileData = null;
+  let currentArt = new Map(); // image id → sha256, read with the safety backup
   let baseline = null;
   let backupFile = null;
   let backupURL = null;
@@ -118,13 +123,51 @@
       }
     }
     if (!validated.length) throw new Error('Snapshot contains no saved items.');
+    const images = await validateArtwork(payload);
     const listed = payload.manifest.categories || {};
     const manifestCategories = Object.keys(listed).sort();
     const actualCategories = Array.from(totals.keys()).sort();
     if (JSON.stringify(manifestCategories) !== JSON.stringify(actualCategories)
       || actualCategories.some(k => listed[k]?.keys !== totals.get(k).keys || listed[k]?.bytes !== totals.get(k).bytes))
       throw new Error('The category manifest does not match the snapshot entries.');
-    return { source: payload, entries: validated, categories: actualCategories, withoutHashes };
+    return { source: payload, entries: validated, categories: actualCategories, withoutHashes, images };
+  }
+  // Character artwork (backups made since 4 Nov 2026). Each image is decoded
+  // and checked against its recorded size and SHA-256 before anything is written.
+  async function validateArtwork(payload) {
+    const art = payload.storage.artwork;
+    if (art == null) return null; // older backup: no artwork in it
+    if (art.status !== 'captured' || !Array.isArray(art.images))
+      throw new Error('The backup could not read its character artwork. Use a complete export.');
+    if (art.images.length > MAX_IMAGES) throw new Error('Backup contains too many artwork images.');
+    const seen = new Set(), images = [];
+    let total = 0;
+    for (const image of art.images) {
+      if (!image || typeof image.key !== 'string' || !ART_ID.test(image.key) || seen.has(image.key)
+        || typeof image.dataUrl !== 'string' || !/^data:image\/(?:png|jpeg|webp|gif);base64,/.test(image.dataUrl)
+        || !/^[a-f\d]{64}$/i.test(image.sha256 || ''))
+        throw new Error('Backup contains an invalid artwork record.');
+      seen.add(image.key);
+      const blob = await (await fetch(image.dataUrl)).blob();
+      total += blob.size;
+      if (blob.size !== image.bytes || total > MAX_ART_BYTES) throw new Error(`Invalid artwork size for ${image.key}.`);
+      if (await snap.hashBytes(await blob.arrayBuffer()) !== image.sha256.toLowerCase())
+        throw new Error(`Integrity check failed for artwork ${image.key}. The file may be damaged.`);
+      images.push({ key: image.key, blob, sha256: image.sha256.toLowerCase() });
+    }
+    return images;
+  }
+  async function artTransaction(work) {
+    const db = await snap.openArt();
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(snap.ART_STORE, 'readwrite');
+        work(tx.objectStore(snap.ART_STORE));
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error || Error('Artwork could not be saved'));
+        tx.onabort = () => reject(tx.error || Error('Artwork saving cancelled'));
+      });
+    } finally { db.close(); }
   }
   function captureCurrent() {
     const captured = new Map();
@@ -153,7 +196,14 @@
   }
   function planChanges(source = fileData, opts = options()) {
     const list = [];
-    const counts = { newItems: 0, replaced: 0, same: 0, skipped: 0, selected: 0 };
+    const counts = { newItems: 0, replaced: 0, same: 0, skipped: 0, selected: 0, artNew: 0, artReplaced: 0, artSame: 0 };
+    const art = [];
+    if (source.images && opts.chosen.has(ARTWORK)) for (const image of source.images) {
+      const current = currentArt.get(image.key);
+      if (current === image.sha256) counts.artSame++;
+      else if (current == null) { counts.artNew++; art.push(image); }
+      else if (opts.mode === 'replace') { counts.artReplaced++; art.push(image); }
+    }
     for (const entry of source.entries) {
       if (!opts.chosen.has(entry.category) || (entry.storageName === 'sessionStorage' && !opts.session)) {
         counts.skipped++; continue;
@@ -166,17 +216,18 @@
       else if (opts.mode === 'replace') { counts.replaced++; list.push({ ...entry, before: current }); }
       else counts.skipped++;
     }
-    return { list, counts };
+    return { list, counts, art };
   }
   function refreshPlan() {
     if (!fileData || running || applied) return;
     try {
       const { counts } = planChanges();
-      if (countsEl) countsEl.textContent = `${counts.newItems} new · ${counts.replaced} overwritten · ${counts.same} unchanged · ${counts.skipped} skipped`;
+      if (countsEl) countsEl.textContent = `${counts.newItems} new · ${counts.replaced} overwritten · ${counts.same} unchanged · ${counts.skipped} skipped`
+        + (fileData.images ? ` · artwork: ${counts.artNew} new, ${counts.artReplaced} overwritten, ${counts.artSame} unchanged` : '');
       if (notesEl) notesEl.textContent = options().mode === 'merge'
         ? 'Merge only adds missing keys. It does not replace your existing work.'
         : 'Restore replaces the selected keys from this file. Newer local changes may be lost. Extra local keys are retained.';
-      if (commitButton) commitButton.disabled = !approvedBackup || !(counts.newItems + counts.replaced);
+      if (commitButton) commitButton.disabled = !approvedBackup || !(counts.newItems + counts.replaced + counts.artNew + counts.artReplaced);
     } catch (error) {
       if (commitButton) commitButton.disabled = true;
       setStatus(`Cannot compare saved data: ${errorText(error)}`, 'error');
@@ -184,7 +235,9 @@
   }
   function presentPreview(validated) {
     const data = validated.source;
-    if (sourceEl) sourceEl.textContent = `${validated.entries.length} items · ${new Date(data.exportedAt).toLocaleString()} · ${data.origin}`;
+    if (sourceEl) sourceEl.textContent = `${validated.entries.length} items`
+      + (validated.images ? ` · ${validated.images.length} artwork image${validated.images.length === 1 ? "" : "s"}` : ' · no artwork (older backup)')
+      + ` · ${new Date(data.exportedAt).toLocaleString()} · ${data.origin}`;
     if (categoryList) {
       categoryList.textContent = '';
       for (const category of validated.categories) {
@@ -192,6 +245,13 @@
         row.className = 'restore-category';
         const check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.value = category;
         row.append(check, document.createTextNode(' ' + category));
+        categoryList.appendChild(row);
+      }
+      if (validated.images?.length) {
+        const row = document.createElement('label');
+        row.className = 'restore-category';
+        const check = document.createElement('input'); check.type = 'checkbox'; check.checked = true; check.value = ARTWORK;
+        row.append(check, document.createTextNode(` Character artwork (${validated.images.length} image${validated.images.length === 1 ? '' : 's'})`));
         categoryList.appendChild(row);
       }
     }
@@ -215,7 +275,9 @@
       const currentSnap = await snap.buildSnapshot();
       if (currentSnap.manifest.localStorage.status !== 'captured'
         || currentSnap.manifest.sessionStorage.status !== 'captured'
+        || currentSnap.manifest.artwork?.status !== 'captured'
         || currentSnap.manifest.errors.length) throw new Error('Cannot make a complete safety backup of current data.');
+      currentArt = new Map(currentSnap.storage.artwork.images.map(x => [x.key, x.sha256]));
       baseline = captureCurrent();
       backupFile = new File([JSON.stringify(currentSnap, null, 2) + '\n'],
         `SS-BEFORE-RESTORE-${fileDate()}.json`, { type: 'application/json' });
@@ -253,7 +315,7 @@
     approvedBackup = !!backupSaved?.checked;
     refreshPlan();
   }
-  function applyRestore() {
+  async function applyRestore() {
     if (!fileData || !backupFile || !baseline || !approvedBackup || running || applied) return;
     // All storage checks/writes here are synchronous, so no editor can change
     // the origin storage between the last comparison and writes on this page.
@@ -266,18 +328,34 @@
         approvedBackup = false; if (backupSaved) backupSaved.checked = false;
         return;
       }
-      const { list, counts } = planChanges(fileData, opts);
-      if (!list.length) { setStatus('Nothing needs restoring with these settings.'); return; }
+      const { list, counts, art } = planChanges(fileData, opts);
+      if (!list.length && !art.length) { setStatus('Nothing needs restoring with these settings.'); return; }
       const answer = window.confirm(
         `Apply ${opts.mode === 'merge' ? 'MERGE' : 'RESTORE'} from this snapshot?\n\n` +
         `${counts.newItems} new saved entries.\n${counts.replaced} existing entries OVERWRITTEN.\n` +
-        `${counts.same} unchanged. ${counts.skipped} skipped.\n\n` +
+        `${counts.same} unchanged. ${counts.skipped} skipped.\n` +
+        (fileData.images ? `Artwork: ${counts.artNew} new, ${counts.artReplaced} OVERWRITTEN.\n` : '') + `\n` +
         `Entries missing from the snapshot are never deleted.\n` +
         `You confirmed saving the pre-restore backup. Continue?`
       );
       if (!answer) { setStatus('Restore cancelled. Nothing changed.'); return; }
       const written = [];
+      const artBefore = new Map();
       try {
+        // Artwork first (asynchronous): keep what each overwritten id held so a
+        // failure can put it back. Then the saved data, synchronously.
+        if (art.length) {
+          const db = await snap.openArt();
+          try {
+            await new Promise((resolve, reject) => {
+              const tx = db.transaction(snap.ART_STORE, 'readonly');
+              for (const image of art) { const r = tx.objectStore(snap.ART_STORE).get(image.key); r.onsuccess = () => artBefore.set(image.key, r.result ?? null); }
+              tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+            });
+          } finally { db.close(); }
+          await artTransaction(store => { for (const image of art) store.put(image.blob, image.key); });
+        }
+        if (!stateStillMatches(baseline)) throw new Error('saved data changed while restoring artwork');
         for (const entry of list) {
           const store = entry.storageName === 'localStorage' ? localStorage : sessionStorage;
           store.setItem(entry.key, entry.value);
@@ -292,6 +370,10 @@
           try { if (entry.before === null) store.removeItem(entry.key); else store.setItem(entry.key, entry.before); }
           catch (_) { rollbackOK = false; }
         }
+        if (artBefore.size) {
+          try { await artTransaction(store => { for (const [key, blob] of artBefore) { if (blob) store.put(blob, key); else store.delete(key); } }); }
+          catch (_) { rollbackOK = false; }
+        }
         setStatus(rollbackOK
           ? `Restore failed (${errorText(error)}). Previous data was restored automatically.`
           : 'Restore interrupted. Automatic rollback was incomplete! Keep the safety JSON and do not edit until recovery.', 'error');
@@ -304,7 +386,9 @@
       if (categoryList) categoryList.querySelectorAll('input').forEach(el => { el.disabled = true; });
       modeInputs.forEach(el => { el.disabled = true; });
       if (sessionOpt) sessionOpt.disabled = true;
-      setStatus(`Restored ${counts.newItems} new and ${counts.replaced} overwritten entries. Reload the game or Labs to use them. Keep both JSON files.`, 'success');
+      setStatus(`Restored ${counts.newItems} new and ${counts.replaced} overwritten entries`
+        + (art.length ? `, and ${art.length} artwork image${art.length === 1 ? '' : 's'}` : '')
+        + '. Reload the game or Labs to use them. Keep both JSON files.', 'success');
     } catch (error) {
       setStatus(`Restore cancelled without changes: ${errorText(error)}`, 'error');
     } finally { running = false; if (!applied) refreshPlan(); }

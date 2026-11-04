@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 4 November 2026 — Project Backup includes artwork
+Project Backup (`sidescroll.project-snapshot.v1`, same schema) adds `storage.artwork`: `{status, database:'sidescroll-animlab-art-v1', store:'atlas-images', images:[{key, type, bytes, sha256, dataUrl}]}` and `manifest.artwork` `{status, images, bytes}`; `binaryAssetsIncluded` is true when captured. Export fails rather than producing a backup without artwork if the image database can't be read. Restore validates every image (size + SHA-256), offers *Character artwork* as an area, merges (missing ids) or overwrites, puts artwork back on failure, and the pre-restore safety backup includes the device's artwork. Backups without `storage.artwork` import as before. The bake tool still reads only `storage.localStorage`. This is now the one full device backup; character exports remain the way to move or publish single characters.
+
 ## 3 November 2026 — Publish Lab
 `publish-lab.html` adds two exports and stores no new keys. **Publish package** (`SS-PUBLISH-….json`, schema `sidescroll.publish-package.v1`): for each ticked area, every content/migration key the catalogue puts in that area (this device's value, or the built-in one), plus a character package per ticked character (artwork from IndexedDB embedded). The bake tool builds in only those areas and characters and refuses any key whose scope isn't content/migration. **My settings** (`SS-MY-SETTINGS-….json`, schema `sidescroll.my-settings.v1`): every `local`-scope key; import writes back only keys the catalogue marks local. Project Backup is unchanged and still the full device backup.
 

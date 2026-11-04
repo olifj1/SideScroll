@@ -75,8 +75,9 @@ The authored project ships as built-in defaults so a fresh install has it:
   `assets/char-<character id>-<content hash>.png` and switches its atlas document
   to `{kind:'bundled', file}`; the game and Character Lab load that pattern only
   (plus `quadruped-deform-atlas-v2.png`). A new hash means a new file name, so changed
-  art is fetched fresh; older files for that character are removed. A Project
-  Backup alone cannot carry art (the tool says which characters stay phone-only).
+  art is fetched fresh; older files for that character are removed. The bake tool
+  ignores the artwork inside a Project Backup (the tool says which characters stay
+  phone-only); art is published through character exports or a publish package.
 - `storage-catalogue.json` lists **every** storage key with its scope (content,
   migration, local, progress, transient, backup, stale). Its `renamed` map lists
   old key → new key: devices migrate once on load (`project-defaults.js`), and the
@@ -92,8 +93,11 @@ The authored project ships as built-in defaults so a fresh install has it:
 - Both load before any other script on index, play, walk-lab, asset-lab,
   puzzle-lab, world-lab and publish-lab. New pages that read saved data must include them.
 - Left out on purpose: everything not scoped content/migration in the catalogue.
-- IndexedDB images are not in a Project Backup; they reach the game through
-  character exports (see above).
+- **Project Backup** (`project-snapshot.js` / `project-restore.js`) is the one full
+  device backup: every SideScroll storage key plus every IndexedDB artwork image
+  (`storage.artwork.images`: id, type, bytes, sha256, dataUrl). Restore checks each
+  item's SHA-256, offers artwork as its own area (merge adds missing ids, restore
+  overwrites), and rolls back on failure.
 - Changing a stored format? The built-in data is in the *old* format until it is
   re-baked, so migrations must handle it exactly as they handle a device's data.
 

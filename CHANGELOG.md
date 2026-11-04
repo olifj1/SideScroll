@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Full backup:** Project Backup now includes every character artwork image
+  imported in Character Lab, so one file holds everything on the phone. Import
+  checks each image (SHA-256), lists *Character artwork* as its own area (merge
+  adds missing images, restore overwrites), includes artwork in the safety backup
+  and rolls back on failure. Backups made before this still import (artwork left
+  as it is).
 - **Publish Lab** (menu → Publish Lab, new page): every game-content area (World,
   Puzzles, Puzzle Lab, Assets, Character templates & actions, Design) and every
   character shows **Published / Changed / New** compared with the game everyone
