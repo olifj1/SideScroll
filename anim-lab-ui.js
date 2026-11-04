@@ -9,7 +9,7 @@
   if (!core || !panel || typeof core.navigateAuthorStage !== 'function') return;
 
   const DISPLAY_KEY = 'sidescroll.animlab.editor-display.v1';
-  const fields = ['art', 'bones', 'planes', 'collider', 'ground', 'reference', 'gpu', 'path'];
+  const fields = ['art', 'bones', 'planes', 'collider', 'ground', 'reference', 'gpu', 'path', 'centre'];
   const artInput = $('animlab-display-art-opacity');
   const artOutput = artInput?.parentElement.querySelector('output');
   const stageButtons = [...document.querySelectorAll('[data-author-stage]')];

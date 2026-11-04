@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Character Lab → Display → **Centre** (on by default): a dashed vertical line and
+  ◆ *Centre* at the character's origin (where the game places it and centres its
+  collider), and an amber ▲ *Body ±x* under the body whenever the body is off it.
+- Animate → Key Pose Tools → **Centre body** (bipeds): moves the whole animation
+  (body and both feet together, so every pose is unchanged) so the body sits over
+  the centre on average (*Keep sway*), or exactly on every key (*Remove sway*).
+  Character01's animations had the body 10–13 cm forward of her centre (Body / Root
+  left–right), so in the game she was drawn ahead of her collider.
 - Character Lab → Quick Play: the test boxes use the character's own **collider**
   (Rig → Collider, sized as the game sizes it: × 2.31 × scale) for where it stops
   against a box, its height, step-up and reach; *Add box* places the box 0.8 m clear
