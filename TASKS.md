@@ -19,7 +19,8 @@ Project Backup / character exports) for `tools/bake_project.py`. Design: three k
 content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
 - [x] **Step 3a — Publish Lab** (`publish-lab.html`): status per area and character, tick-list publish package (bake tool builds selected areas / characters), Use published per area / character, My settings export/import.
-- [ ] **Step 3b — Backups in the Publish Lab:** full backup including character artwork, and restore; Project Backup lists driven by the catalogue (replacing the lists in `lab-data.js` and `project-snapshot.js`). Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
+- [x] **Step 3b — Full backup:** Project Backup now includes character artwork and restores it (linked from the Publish Lab).
+- [ ] **Step 3c:** drive the per-lab export lists in `lab-data.js` from the catalogue (Project Backup already covers every catalogue key). Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
 - [ ] **Step 4 (optional) — Automatic publishing:** upload a publish package to GitHub from the phone; a GitHub Action bakes it and opens the pull request.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
 
@@ -54,6 +55,10 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0q. Full backup (4 Nov)** — menu → Project Backup
+- [ ] **Export Project** says "Ready · N saved items · N artwork images"; the share sheet saves one `SS-PROJECT-SNAPSHOT-….json` (a few MB with artwork).
+- [ ] **Choose Project JSON** with that file: the areas list includes *Character artwork (N images)*; counts show artwork unchanged. (Optional, a real restore test: install the app on another device or browser, restore there, open Character Lab: Character01 shows its artwork.)
 
 **0p. Publish Lab (3 Nov)** — menu → Publish Lab
 - [ ] Areas and characters show sensible badges (things you've edited = Changed, Character01 = New or Published); nothing horizontal-scrolls.

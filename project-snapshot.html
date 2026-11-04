@@ -51,14 +51,14 @@
     #restore-apply { background: #764e43; border-color: #dcac94; }
     #restore-apply:disabled { background: #493e3a; }
   </style>
-  <script defer src="project-snapshot.js?v=1.1.34"></script>
-  <script defer src="project-restore.js?v=1.0.205"></script>
+  <script defer src="project-snapshot.js?v=1.1.41"></script>
+  <script defer src="project-restore.js?v=1.1.41"></script>
 </head>
 <body>
   <main>
     <nav><span class="eyebrow">SIDESCROLL · PROJECT</span><a href="index.html">← Back to menu</a></nav>
     <h1>Project Backup</h1>
-    <p class="subtle">Save a copy of your locally stored SideScroll work to Files or iCloud Drive.</p>
+    <p class="subtle">One file with everything saved on this phone — all Labs' data, your settings and progress, and the character artwork you imported — to Files or iCloud Drive.</p>
     <section class="card" aria-label="Export saved project data">
       <p><strong>Save your work in each Lab first.</strong> This collects data already saved on this device.</p>
       <div class="actions">
@@ -90,13 +90,13 @@
           <a class="download" id="restore-backup-download" hidden>Download safety JSON</a></div>
         <label class="restore-ack"><input id="restore-backup-saved" type="checkbox" disabled> I have saved the safety JSON to Files/iCloud.</label>
         <div class="actions"><button id="restore-apply" type="button" disabled>2. Apply selected data</button></div>
-        <p class="snapshot-note">Data is checked before writing. Imports do not contain art PNGs, unsaved edits or IndexedDB records. Additional project keys already on this device are kept.</p>
+        <p class="snapshot-note">Data and artwork are checked before writing. Unsaved edits are never in a backup. Saved items and artwork already on this device that the file doesn't have are kept.</p>
       </div>
     </section>
     <details class="card" aria-label="Export details">
       <summary>What does this include?</summary>
-      <p>Saved SideScroll world, puzzles, groups, characters, rigs, animations, and Lab settings. The file includes a data manifest for the audit.</p>
-      <p class="snapshot-note">This first export captures SideScroll browser storage, not unsaved edits, imported image files, offline game files, or IndexedDB records. Import restores only the included saved browser data; images and unsaved edits are not restored. Keep your individual Lab exports and do not clear Safari website data.</p>
+      <p>Saved SideScroll world, puzzles, groups, characters, rigs, skins, animations, templates, Lab settings and progress, plus every artwork image imported in Character Lab. The file includes a manifest and a SHA-256 for every item, checked on import.</p>
+      <p class="snapshot-note">Not included: unsaved edits, and the game's own files and art (they come with the game). Backups made before 4 November 2026 have no artwork; importing one leaves your artwork as it is.</p>
     </details>
   </main>
 </body>

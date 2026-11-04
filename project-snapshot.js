@@ -1,5 +1,6 @@
-/* SideScroll v1.0.202 — read-only project snapshot / data coverage audit.
- * No local or remote writes, no restore, no Cache Storage purge.
+/* SideScroll — Project Backup export: every SideScroll storage key plus the
+ * character artwork in IndexedDB. No writes (beyond opening the artwork
+ * database), no Cache Storage purge.
  * Storage on GitHub Pages is ORIGIN-scoped, not repository-path-scoped.
  */
 (() => {
@@ -92,8 +93,68 @@
     return { status: 'captured', entries, keysSeen: allKeys.length };
   }
 
-  // The current game does not call IndexedDB. List any databases present on
-  // this origin without exporting unrelated data or inventing restore support.
+  // Character artwork imported in Character Lab lives in IndexedDB (one
+  // database, one store of PNG/JPEG blobs keyed by image id). Every image is
+  // exported as a data URL with its size and SHA-256, so a restore is exact.
+  const ART_DB = 'sidescroll-animlab-art-v1';
+  const ART_STORE = 'atlas-images';
+  function openArt() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(ART_DB, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(ART_STORE)) request.result.createObjectStore(ART_STORE);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || Error('Artwork storage unavailable'));
+    });
+  }
+  async function readAllArt() {
+    const db = await openArt();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(ART_STORE, 'readonly');
+        const store = tx.objectStore(ART_STORE);
+        const keys = store.getAllKeys(), values = store.getAll();
+        tx.oncomplete = () => resolve(keys.result.map((key, i) => [key, values.result[i]]));
+        tx.onerror = () => reject(tx.error || Error('Artwork could not be read'));
+      });
+    } finally { db.close(); }
+  }
+  const blobToDataUrl = blob => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || Error('Artwork could not be read'));
+    reader.readAsDataURL(blob);
+  });
+  async function hashBytes(buffer) {
+    const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', buffer));
+    return Array.from(hash, n => n.toString(16).padStart(2, '0')).join('');
+  }
+  async function snapshotArtwork(errors) {
+    if (!('indexedDB' in window)) return { status: 'unavailable', database: ART_DB, store: ART_STORE, images: [] };
+    try {
+      const images = [];
+      for (const [key, blob] of await readAllArt()) {
+        if (typeof key !== 'string' || !(blob instanceof Blob)) {
+          errors.push(`Artwork: unexpected record '${String(key)}'.`);
+          continue;
+        }
+        images.push({
+          key,
+          type: blob.type || 'image/png',
+          bytes: blob.size,
+          sha256: await hashBytes(await blob.arrayBuffer()),
+          dataUrl: await blobToDataUrl(blob)
+        });
+      }
+      return { status: 'captured', database: ART_DB, store: ART_STORE, images };
+    } catch (error) {
+      errors.push(`Artwork could not be read (${String(error && error.message || error)}).`);
+      return { status: 'error', database: ART_DB, store: ART_STORE, images: [] };
+    }
+  }
+
+  // Other IndexedDB databases (none expected) are listed by name only.
   async function inspectIndexedDB() {
     if (!('indexedDB' in window) || typeof indexedDB.databases !== 'function') {
       return { status: 'not-enumerable', databases: [], note: 'Browser does not expose IndexedDB database enumeration.' };
@@ -104,7 +165,7 @@
         status: 'enumerated',
         databases: (all || []).filter(x => x && typeof x.name === 'string')
           .map(x => ({ name: x.name, version: x.version == null ? null : x.version })),
-        note: 'Database names only; records are NOT included in this initial audit snapshot.'
+        note: `Database names; the records of ${ART_DB} are in storage.artwork.`
       };
     } catch (error) {
       return { status: 'error', databases: [], note: String(error && error.message || error) };
@@ -146,15 +207,14 @@
       errors.push(`sessionStorage could not be accessed (${String(error && error.message || error)}).`);
       session = { status: 'error', entries: [], keysSeen: 0 };
     }
-    const [indexedDBInfo, cacheInfo] = await Promise.all([inspectIndexedDB(), inspectCacheStorage()]);
+    const [indexedDBInfo, cacheInfo, artwork] = await Promise.all([inspectIndexedDB(), inspectCacheStorage(), snapshotArtwork(errors)]);
     const warnings = [
-      'Read-only diagnostic snapshot, NOT a tested/restorable full backup.',
       'Save changes inside each Lab first. In-memory unsaved edits are not captured.',
-      'Bundled game assets, offline caches, IndexedDB records and files outside browser storage are not included.',
+      'Bundled game assets and offline caches are not included (they come with the game).',
       'Browser storage is origin-wide: unknown keys are listed by name but their values are excluded.'
     ];
-    if (indexedDBInfo.databases.length) warnings.push(`${indexedDBInfo.databases.length} IndexedDB database(s) detected; records were NOT exported.`);
-    if (indexedDBInfo.status !== 'enumerated') warnings.push('IndexedDB could not be fully enumerated in this browser.');
+    const otherDBs = indexedDBInfo.databases.filter(d => d.name !== ART_DB);
+    if (otherDBs.length) warnings.push(`${otherDBs.length} other IndexedDB database(s) detected; their records were NOT exported.`);
     if (errors.length) warnings.push('One or more storage reads failed; this export is incomplete.');
     return {
       schema: SCHEMA,
@@ -168,14 +228,16 @@
         localStorage: { status: local.status, keysSeen: local.keysSeen, keysCaptured: local.entries.length },
         sessionStorage: { status: session.status, keysSeen: session.keysSeen, keysCaptured: session.entries.length },
         skippedKeys: skipped, // Names/reasons only; no values for unrelated keys.
+        artwork: { status: artwork.status, images: artwork.images.length, bytes: artwork.images.reduce((n, x) => n + x.bytes, 0) },
         errors,
         warnings,
-        binaryAssetsIncluded: false,
+        binaryAssetsIncluded: artwork.status === 'captured',
         verifiedRestorable: false
       },
       storage: {
         localStorage: local.entries,
         sessionStorage: session.entries,
+        artwork,
         indexedDB: indexedDBInfo,
         cacheStorage: cacheInfo
       }
@@ -226,6 +288,10 @@
           setStatus('No saved SideScroll data found in this browser. Nothing exported.', 'error');
           return;
         }
+        if (snapshot.manifest.artwork.status !== 'captured') {
+          setStatus(`Cannot read character artwork on this device: ${snapshot.manifest.errors.join(' ')}`, 'error');
+          return;
+        }
         const contents = JSON.stringify(snapshot, null, 2) + '\n';
         // Validate the real payload before offering it to the iOS Share Sheet.
         if (JSON.parse(contents).schema !== SCHEMA) {
@@ -237,7 +303,8 @@
           throw new Error('Export file is empty.');
         }
         if (exportButton) exportButton.disabled = false;
-        setStatus(`Ready · ${total} saved items · ${formatBytes(preparedFile.size)}`, 'success');
+        const art = snapshot.manifest.artwork.images;
+        setStatus(`Ready · ${total} saved items · ${art} artwork image${art === 1 ? '' : 's'} · ${formatBytes(preparedFile.size)}`, 'success');
       } catch (error) {
         setStatus(`Couldn't prepare export: ${String(error?.message || error)}`, 'error');
       } finally {
@@ -295,6 +362,6 @@
   prepareExport();
 
   window.SideScrollProjectSnapshot = Object.freeze({
-    buildSnapshot, isProjectKey, categoryFor, prepareExport
+    buildSnapshot, isProjectKey, categoryFor, prepareExport, readAllArt, openArt, hashBytes, ART_STORE
   });
 })();
