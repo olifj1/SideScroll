@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 4 November 2026 — Near-side rows
+A biome profile in `sidescroll.biomes.v1` may hold `nearRows` (see `near-rows.js`), written by the game editor's Near-side rows panel. No new key: it travels with the biome data in Project Backup, publish packages (World area) and World Lab's export, and World Lab keeps it when saving. Hand edits of row items use the usual scene overrides (`nearrow-…` ids) and Reset procedural placement.
+
 ## 4 November 2026 — Held item draw order
 A character's setup may hold `heldItemLayer` (Quick Play → *Held item drawn*): original characters in `sidescroll.animlab.setup.v1[id]`, library characters in their library entry's `setup`. It is written only when not *Auto*, travels with the setup in character packages, Project Backup and publish packages, and needs no new key or migration. Quick Play's test boxes are not saved.
 

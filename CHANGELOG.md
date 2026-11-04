@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Near-side rows** (game editor → Environment → *Near-side rows*): a woodland biome
+  profile can replace the scattered grass/rocks between the camera and the path with
+  three rows (Edge, Middle, Outer) that follow the path. Each row: on/off, **depth**
+  from the path ± spread, **scale** ± amount, **spacing** ± amount, and which ground
+  textures it uses (thumbnails). Changes rebuild the near side live; **Save rows**
+  stores them in the biome profile (`sidescroll.biomes.v1`, World content, so it
+  publishes and blends at profile transitions), **Revert** goes back. Profiles that
+  never use rows keep today's scatter. World Lab keeps the rows when it saves.
 - Quick Play controls are half the height (Jump / Pick up and the move pad), giving
   the space back to the view.
 - Character Lab → Quick Play controls laid out like the game: **Jump** and **Pick up**

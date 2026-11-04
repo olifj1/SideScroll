@@ -377,6 +377,12 @@
     return assets;
   }
 
+  // Near-side rows (set in the game's editor; near-rows.js) are kept as they are.
+  function nearRowsOf(profile){
+    const rows=window.SideScrollNearRows?.normalise(profile?.nearRows);
+    return rows?{nearRows:rows}:(profile?.nearRows?{nearRows:clone(profile.nearRows)}:{});
+  }
+
   function normaliseBiomeState(raw){
     const defaults=defaultBiomeState();
     const src=raw&&typeof raw==='object'?clone(raw):{};
@@ -425,7 +431,8 @@
         out.profiles[id].default={
           id:'default',
           label:String(rawBiome.label||'Default'),
-          assets:normaliseProfileAssets(rawBiome.assets,id,out.assetOwners,builtinFallback)
+          assets:normaliseProfileAssets(rawBiome.assets,id,out.assetOwners,builtinFallback),
+          ...nearRowsOf(rawBiome)
         };
       }else if(rawBiome&&typeof rawBiome==='object'){
         for(const [rawId,profile] of Object.entries(rawBiome)){
@@ -434,7 +441,8 @@
           out.profiles[id][pid]={
             id:pid,
             label:String(profile.label||(pid==='default'?'Default':rawId)).slice(0,60),
-            assets:normaliseProfileAssets(profile.assets,id,out.assetOwners,builtinFallback)
+            assets:normaliseProfileAssets(profile.assets,id,out.assetOwners,builtinFallback),
+            ...nearRowsOf(profile)
           };
         }
       }

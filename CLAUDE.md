@@ -202,6 +202,15 @@ Any new per-character storage must be added to `slicesFor()` there.
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 
+**Near-side rows** (`near-rows.js`, `window.SideScrollNearRows`, loaded by play and
+world-lab): a biome profile's optional `nearRows` (`{enabled, rows:[3 × {on, depth,
+depthJitter, scale, scaleJitter, spacing, spacingJitter, textures}]}` in
+`sidescroll.biomes.v1`). The game builds row items (`nearrow-<profile>-<row>-<n>`,
+seeded per profile and row) in `buildNearRows()`; `proceduralBiomeVisibleAt` shows a
+profile's rows where its rows are on and the old scattered near side (`nearClassic`)
+elsewhere. Edited in the game editor (Environment → Near-side rows, live rebuild, own
+Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
+
 ## Rules (carried over from Design Lab → Project Workflow)
 1. **Phone-first.** No package manager, bundler or desktop-only toolchain unless
    the user agrees. Every change must work by merging to `main`.
