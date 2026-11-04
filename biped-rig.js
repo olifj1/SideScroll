@@ -47,7 +47,7 @@
     const radius = clamp(Number(raw.radius) || DEFAULT_COLLIDER.radius, 0.080, 0.320);
     const bottom = clamp(Number.isFinite(Number(raw.bottom)) ? Number(raw.bottom) : DEFAULT_COLLIDER.bottom, -0.080, 0.180);
     const minHeight = radius * 2 + 0.055;
-    const height = clamp(Number(raw.height) || DEFAULT_COLLIDER.height, minHeight, 1.150);
+    const height = clamp(Number(raw.height) || DEFAULT_COLLIDER.height, minHeight, 2.000);
     return {
       offsetX: clamp(Number.isFinite(Number(raw.offsetX)) ? Number(raw.offsetX) : DEFAULT_COLLIDER.offsetX, -0.180, 0.180),
       radius: Math.min(radius, height * 0.48),

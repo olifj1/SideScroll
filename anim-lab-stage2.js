@@ -145,7 +145,7 @@
       </label>
       <label class="animlab-slider"><span>Collider X</span><input type="range" data-collider="offsetX" min="-0.18" max="0.18" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Radius</span><input type="range" data-collider="radius" min="0.07" max="0.32" step="0.005"><output></output></label>
-      <label class="animlab-slider"><span>Height</span><input type="range" data-collider="height" min="0.25" max="1.15" step="0.005"><output></output></label>
+      <label class="animlab-slider"><span>Height</span><input type="range" data-collider="height" min="0.25" max="2.00" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Bottom</span><input type="range" data-collider="bottom" min="-0.08" max="0.18" step="0.005"><output></output></label>
       <label class="animlab-slider"><span>Foot Probe</span><input type="range" data-collider="footProbe" min="0.035" max="0.30" step="0.005"><output></output></label>
     </section>
@@ -263,6 +263,9 @@
     });
     if(scaleNumberInput && document.activeElement!==scaleNumberInput)
       scaleNumberInput.value=Number(state.setup.scale).toFixed(2);
+    // Collider height limit per rig family (biped-rig.js / quadruped-rig.js).
+    const heightInput=setupSection.querySelector('[data-collider="height"]');
+    if(heightInput) heightInput.max=state.family==='quadruped'?'1.20':'2.00';
     for (const input of sliders) {
       let value;
       if (input.dataset.setup === 'scale') value=state.setup.scale;

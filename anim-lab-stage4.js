@@ -164,20 +164,39 @@
   groundReset.addEventListener('click',()=>{prefs.speed=1;groundSpeed.value='1';persistPrefs();render(state());core.redrawOnly?.();});
   groundSpeed.addEventListener('input',()=>{prefs.speed=clamp(Number(groundSpeed.value)||1,.5,1.5);persistPrefs();render(state());core.redrawOnly?.();});
 
-  function drawMovingGround({ctx,canvas,adapter,view,project,phase}){
+  // Shared with Quick Play (window.AnimLabJumpFloor): amber dashed line at the
+  // character's floor with its height above the ground; optionally the arc's top.
+  function drawJumpFloor(ctx,canvas,view,gridView,floorY,st,showTop){
+    const worldPerPx=2.31*Math.max(.001,Number(st.setup?.scale)||1)/Math.max(.001,view.scale);
+    const groundY=gridView?.groundY??floorY,lift=(groundY-floorY)*worldPerPx;
+    const font=`700 ${Math.max(9,canvas.height*.022)}px system-ui,sans-serif`;
+    ctx.save();ctx.font=font;ctx.textBaseline='bottom';ctx.textAlign='right';
+    ctx.lineWidth=Math.max(1.2,canvas.width*.0014);
+    if(showTop){
+      const h=Math.min(2.5,Math.max(.3,Number(st.setup?.jumpHeight)||5.24*5.24/(2*9.2)));
+      const topY=groundY-h/worldPerPx;
+      ctx.strokeStyle='rgba(242,207,138,.32)';ctx.setLineDash([2,6]);
+      ctx.beginPath();ctx.moveTo(0,topY);ctx.lineTo(canvas.width,topY);ctx.stroke();
+      ctx.fillStyle='rgba(242,207,138,.6)';ctx.fillText(`Top of jump · ${h.toFixed(2)} m (game)`,canvas.width-12,topY-3);
+    }
+    if(lift>.005){
+      ctx.strokeStyle='rgba(242,207,138,.85)';ctx.setLineDash([10,6]);
+      ctx.beginPath();ctx.moveTo(0,floorY);ctx.lineTo(canvas.width,floorY);ctx.stroke();
+      ctx.fillStyle='rgba(242,207,138,.95)';ctx.fillText(`Character floor · +${lift.toFixed(2)} m (game)`,canvas.width-12,floorY-3);
+    }
+    ctx.restore();
+  }
+  window.AnimLabJumpFloor=drawJumpFloor;
+  function drawMovingGround({ctx,canvas,adapter,view,gridView,project,phase}){
     const st=state();
     if(st.mode!=='animate'||adapter.id!==st.family||!['quadruped','biped'].includes(st.family))return;
     const base=project({x:0,y:0},view);
     if(st.clip==='jump'){
       if(!core.getOverlay?.('ground'))return;
-      // Jump keeps the moving local Y=0 datum as a quiet reference only. The
-      // bright fixed Ground / Ruler is the real floor and remains unchanged.
-      ctx.save();
-      ctx.strokeStyle='rgba(126,216,199,.18)';
-      ctx.lineWidth=Math.max(1,view.scale*.0012);
-      ctx.setLineDash([5,7]);
-      ctx.beginPath();ctx.moveTo(0,base.y);ctx.lineTo(canvas.width,base.y);ctx.stroke();
-      ctx.restore();
+      // The character's own floor on this frame: where a foot at lift 0 is, lifted
+      // by the game's jump arc above the real Ground (the bright fixed line), and
+      // the top of the arc (the character's Jump height).
+      drawJumpFloor(ctx,canvas,view,gridView,base.y,st,true);
       return;
     }
     if(!prefs.showGround)return;

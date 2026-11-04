@@ -162,7 +162,8 @@ absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampl
 in both Character Lab and the game; others keep the original whole-key path.
 `simplifySparse` is Key Pose Tools → Simplify keys.
 **Quick Play test box** (`anim-lab-play.js`): game-sized boxes (0.96 × 0.68 m) to walk
-into, jump on, pick up, put down and stack, using the game's carry pose
+into, jump on, pick up, put down and stack — the body is the character's collider in world
+metres (collider × 2.31 × scale, as `colliderWorld()` in the game) — using the game's carry pose
 (`GameHubWalkRig.carryPose`). A character's `setup.heldItemLayer` ('auto' | 'front' |
 'back' | 'part:<part id or original part name>'; stored only when not auto) says where a
 held item is drawn among its parts (`GameHubWalkRig.heldItemIndex`); the game and

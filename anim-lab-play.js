@@ -22,7 +22,10 @@
   // Test box: one stack layer of the game's carryable items (STACK_ITEM_HEIGHT
   // 0.68 m; carry default 0.96 m wide). Distances below are the game's.
   const BOX_W = 0.96, BOX_H = 0.68;
-  const BODY_HALF = 0.22, BODY_HEIGHT = 1.5, STEP_UP = 0.12, FOOT_HALF = 0.08;
+  // The character's body is its collider (Rig → Collider), in world metres as
+  // the game uses it (collider × 2.31 × scale); refreshed every frame (body()).
+  const FOOT_HALF = 0.08;
+  const body = {offsetX:0, half:0.22, bottom:0.03, top:1.9, stepUp:0.31};
   const ACTION_RANGE = 0.72, STACK_ALIGN = 0.42, REACH_UP = 1.05;
   const PICKUP_DURATION = 0.48, DROP_DURATION = 0.44;
   const CARRY_FORWARD = 0.48, CARRY_BOTTOM = 0.64;
@@ -367,22 +370,22 @@
   function boxStop(from,to,dir){
     let x=to;
     for(const b of loose()){
-      if(b.y+BOX_H<=sim.jumpY+STEP_UP||b.y>=sim.jumpY+BODY_HEIGHT)continue;
-      if(Math.sign(b.x-from)!==dir)continue;
-      const limit=b.x-dir*(BOX_W/2+BODY_HALF);
+      if(b.y+BOX_H<=sim.jumpY+body.stepUp||b.y>=sim.jumpY+body.top)continue;
+      if(Math.sign(b.x-bodyX(from))!==dir)continue;
+      const limit=b.x-dir*(BOX_W/2+body.half)-body.offsetX;
       if(dir>0?x>limit:x<limit)x=dir>0?Math.max(from,limit):Math.min(from,limit);
     }
     return x;
   }
   const columnTop=x=>{let top=0;for(const b of loose())if(Math.abs(b.x-x)<STACK_ALIGN)top=Math.max(top,b.y+BOX_H);return top;};
   const columnNear=x=>loose().filter(b=>Math.abs(b.x-x)<BOX_W).sort((a,b)=>Math.abs(a.x-x)-Math.abs(b.x-x))[0]||null;
-  // Add: a new box on the floor 1.6 m ahead (or the next free spot).
+  // Add: a new box on the floor 0.8 m ahead of the collider (or the next free spot).
   // Stack: on top of the nearest column ahead (a new box if there is none).
   function addBox(stack){
     const dir=sim.facing||1;
     const ahead=loose().filter(b=>Math.sign(b.x-sim.distance)===dir).sort((a,b)=>Math.abs(a.x-sim.distance)-Math.abs(b.x-sim.distance))[0];
     if(stack&&ahead){sim.boxes.push({x:ahead.x,y:columnTop(ahead.x)});return;}
-    let x=sim.distance+dir*1.6;
+    let x=bodyX()+dir*(body.half+BOX_W/2+.8); // 0.8 m clear of the collider
     while(columnNear(x))x+=dir*(BOX_W+.1);
     sim.boxes.push({x,y:0});
   }
@@ -392,9 +395,9 @@
     let best=null,bestGap=Infinity;
     for(const b of loose()){
       if(loose().some(o=>o!==b&&Math.abs(o.x-b.x)<STACK_ALIGN&&o.y>b.y+.05))continue; // not the top one
-      const gap=Math.abs(b.x-sim.distance)-BOX_W/2-BODY_HALF;
-      const ahead=Math.sign(b.x-sim.distance)===sim.facing;
-      const standingOn=Math.abs(b.y+BOX_H-sim.jumpY)<.03&&Math.abs(b.x-sim.distance)<BOX_W/2+FOOT_HALF;
+      const gap=Math.abs(b.x-bodyX())-BOX_W/2-body.half;
+      const ahead=Math.sign(b.x-bodyX())===sim.facing;
+      const standingOn=Math.abs(b.y+BOX_H-sim.jumpY)<.03&&Math.abs(b.x-bodyX())<BOX_W/2+FOOT_HALF;
       if(!ahead||standingOn||gap>ACTION_RANGE||b.y>sim.jumpY+REACH_UP||b.y+BOX_H<sim.jumpY-.05)continue;
       if(gap<bestGap){best=b;bestGap=gap;}
     }
@@ -403,7 +406,7 @@
   // Where a put-down box lands: in front; on a column it overlaps (stacked).
   function dropTarget(){
     if(!sim.held||sim.action||sim.jumping||sim.jumpPrep)return null;
-    let x=sim.distance+sim.facing*(BODY_HALF+BOX_W/2+.06);
+    let x=bodyX()+sim.facing*(body.half+BOX_W/2+.06);
     const near=columnNear(x);
     if(near&&Math.abs(near.x-x)>=STACK_ALIGN)return null; // would half-overlap a column
     if(near)x=near.x;
@@ -439,7 +442,7 @@
   }
   // As the game: a foot keyed below the floor goes no lower than the real ground.
   function keepFeetAboveGround(pose,k){
-    const above=sim.jumping?Math.max(0,sim.jumpY-supportAt(sim.distance,sim.jumpY)):0;
+    const above=sim.jumping?Math.max(0,sim.jumpY-supportAt(bodyX(),sim.jumpY)):0;
     const min=-above/Math.max(.01,k);
     if((Number(pose.aFootLift)||0)>=min&&(Number(pose.bFootLift)||0)>=min)return pose;
     return {...pose,aFootLift:Math.max(min,Number(pose.aFootLift)||0),bFootLift:Math.max(min,Number(pose.bFootLift)||0)};
@@ -492,8 +495,17 @@
     actionButton.disabled=carrying?!dropTarget():!pickupTarget();
   }
 
+  function updateBody(setup,rig){
+    const c=rig?.normalizedCollider?rig.normalizedCollider(setup?.collider):null;if(!c)return;
+    const k=BASE_CHARACTER_SCALE*(Number(setup?.scale)||1);
+    body.offsetX=c.offsetX*k;body.half=c.radius*k;body.bottom=c.bottom*k;body.top=(c.bottom+c.height)*k;body.stepUp=c.stepUp*k;
+  }
+  // The collider's centre (the game offsets it from the character without facing).
+  const bodyX=(x=sim.distance)=>x+body.offsetX;
+
   function frameProvider({now,setup,rig}){
     if(!sim.active && !activeState())return null;
+    updateBody(setup,rig);
     const stamp=Number(now)||performance.now();
     const dt=sim.lastNow?Math.min(.05,Math.max(0,(stamp-sim.lastNow)/1000)):0;
     sim.lastNow=stamp;
@@ -539,16 +551,16 @@
       sim.jumpY+=sim.jumpVelocity*dt;
       // Land on the floor or a box top no higher than a step above the feet
       // (the same step walking allows, so a box edge can't be fallen into).
-      const floor=supportAt(sim.distance,before+STEP_UP);
+      const floor=supportAt(bodyX(),before+body.stepUp);
       if(sim.jumpVelocity<=0&&sim.jumpY<=floor){
         sim.jumping=false;sim.jumpTime=0;sim.jumpVelocity=0;sim.jumpY=floor;
         if(sim.jumpPlan&&sim.jumpPlan.M<16)sim.jumpRecover={t:0};else sim.jumpPlan=null;
       }
-    }else if(!sim.jumpPrep&&supportAt(sim.distance,sim.jumpY+STEP_UP)<sim.jumpY-.02){
+    }else if(!sim.jumpPrep&&supportAt(bodyX(),sim.jumpY+body.stepUp)<sim.jumpY-.02){
       // Walked off a box: fall.
       sim.jumping=true;sim.jumpTime=0;sim.jumpVelocity=0;sim.jumpPlan=null;sim.jumpRecover=null;
     }else{
-      sim.jumpY=supportAt(sim.distance,sim.jumpY+STEP_UP);
+      sim.jumpY=supportAt(bodyX(),sim.jumpY+body.stepUp);
     }
     updateAction(dt);
     if(!sim.jumping&&sim.jumpRecover){
@@ -621,9 +633,12 @@
   }
 
   core.setPlayFrameProvider(frameProvider);
-  core.registerUnderlayRenderer('quick-play-boxes',({ctx,gridView})=>{
-    if(!activeState())return;
+  core.registerUnderlayRenderer('quick-play-boxes',({ctx,canvas,view,gridView})=>{
+    const s=state();
+    if(!activeState(s))return;
     for(const b of loose())drawBox(ctx,gridView,b.x,b.y,false);
+    // Off the ground (jumping, or on a box): the character's own floor and its height.
+    if(sim.jumpY>.005&&core.getOverlay?.('ground')!==false)window.AnimLabJumpFloor?.(ctx,canvas,view,gridView,view.groundY,s,false);
   });
   core.setHeldItemDrawer?.(({ctx,gridView})=>{
     if(activeState()&&sim.heldAt)drawBox(ctx,gridView,sim.heldAt.x,sim.heldAt.y,true);
