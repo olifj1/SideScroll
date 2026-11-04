@@ -56,6 +56,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0u. Collider, jump floor line (4 Nov)** — Character Lab → Character01
+- [ ] Rig → *Height* goes up to 2.00; raise it until Display → Collider covers her head, Save. In the game she still walks, jumps and climbs normally.
+- [ ] Quick Play: she stops where her collider (Display → Collider) touches a box.
+- [ ] Animate → Jump: an amber *Character floor* line rises and falls with the jump (labelled in game metres), and a faint *Top of jump* line sits at her Jump height; her feet can be judged against it. In Quick Play the line shows while jumping and on top of a box.
+
 **0t. Quick Play test box (4 Nov)** — Character Lab → Character01 → Quick Play
 - [ ] **Add box**: a box appears ahead on the ground. Walk into it: she stops at its side. Jump, steer onto it: she lands on top; walk off: she drops down.
 - [ ] Walk up to it, **Pick up** (pad, right): she bends, lifts it to her hands, her near arm in front of it; walk/run/jump while carrying. **Put down** sets it in front; next to a box it stacks on top.

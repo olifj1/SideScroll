@@ -4,6 +4,18 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Character Lab → Quick Play: the test boxes use the character's own **collider**
+  (Rig → Collider, sized as the game sizes it: × 2.31 × scale) for where it stops
+  against a box, its height, step-up and reach; *Add box* places the box 0.8 m clear
+  of the collider.
+- Collider **Height** can go higher: up to 2.00 for bipeds (was 1.15) and 1.20 for
+  quadrupeds (was 0.72), so the capsule can cover a tall character's head. Saved
+  colliders are unchanged.
+- Animate → Jump: the character's own floor on each frame (where a foot at lift 0
+  sits, lifted by the game's jump arc) is now a clear amber line labelled with its
+  height in game metres, with a faint line at the top of the jump (the Jump height).
+  It was drawn at 18% opacity before. Quick Play shows the same floor line whenever
+  the character is off the ground (jumping, or standing on a box).
 - **Character Lab → Quick Play → Test box:** a box the game's size (0.96 × 0.68 m,
   one stack layer) to try gameplay with a character's animations. **Add box** /
   **Stack box** / **Clear**; walk into it (it blocks), jump onto it, walk off it
