@@ -1958,11 +1958,11 @@
     // Quick Play: ground higher and the view a little smaller, so the character
     // stands clear of the Jump / Pick up buttons and the move pad.
     const play = selection.mode==='play';
-    const base = Math.min(W * .34, H * .68) * (play ? .72 : 1);
+    const base = Math.min(W * .34, H * .68) * (play ? .86 : 1);
     return {
       scale:base * view.zoom * scaleMultiplier,
       cx:W * (.5 + view.panX),
-      groundY:H * ((play?.68:.86) + view.panY),
+      groundY:H * ((play?.78:.86) + view.panY),
       flipX:1
     };
   }

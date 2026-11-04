@@ -77,7 +77,7 @@
   pad.className = 'animlab-quickplay-pad';
   pad.hidden = true;
   pad.innerHTML = `
-    <div class="animlab-quickplay-move" role="application" aria-label="Quick Play movement control" tabindex="0">
+    <div class="animlab-quickplay-move" role="application" aria-label="Quick Play movement control: drag; farther from the centre runs" title="Drag: walk, farther runs" tabindex="0">
       <i class="animlab-quickplay-centre"></i>
       <i class="animlab-quickplay-thumb"></i>
       <span>Walk · drag farther to run</span>
