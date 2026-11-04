@@ -818,10 +818,53 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     ctx.drawImage(atlas,r.x,r.y,r.w,r.h,-p0.x,-p0.y,r.w,r.h); ctx.restore();
   }
 
+  // opts.drawHeld (Character Lab's Quick Play test box): draws a held item
+  // among the parts, where opts.heldLayer says (see heldItemIndex).
   function drawCanvas(ctx,atlas,pose,view,opts={}){
     const parts=partsForPose(pose,opts.restRig);
-    parts.forEach(part=>drawPartCanvas(ctx,atlas,part,view,opts));
+    const at=opts.drawHeld?heldItemIndex(parts,opts.heldLayer,p=>p.name,isNearArmPartName):-1;
+    parts.forEach((part,i)=>{if(i===at)opts.drawHeld();drawPartCanvas(ctx,atlas,part,view,opts);});
+    if(at===parts.length)opts.drawHeld();
     return parts;
+  }
+
+  // ---- Carrying (shared by the game and Character Lab's Quick Play) --------
+  // The arms of a pose carrying something: carry = holding it (0–1), reach =
+  // bending down to it (0–1). Hand targets are in the character's own units.
+  function carryPose(basePose,carryAmount=1,reachAmount=0){
+    const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
+    const p=clone(basePose),carry=ease(carryAmount),reach=ease(reachAmount);
+    const arm=Math.max(carry,reach);
+    p.aHandX=lerp(p.aHandX,lerp(.145,.105,reach),arm);
+    p.bHandX=lerp(p.bHandX,lerp(.215,.165,reach),arm);
+    p.aHandY=lerp(p.aHandY,lerp(.215,.345,reach),arm);
+    p.bHandY=lerp(p.bHandY,lerp(.225,.350,reach),arm);
+    p.pelvisY=lerp(p.pelvisY,.455,reach*.72);
+    p.lean=lerp(p.lean,13*DEG,reach*.80);
+    p.hairAngle=lerp(p.hairAngle,116*DEG,reach*.35);
+    return p;
+  }
+  // Where a held item is drawn among a character's parts (painter order):
+  // the index of the part it goes just behind (parts.length = in front of all).
+  // layer: 'auto' (behind the first near-arm part, so the near arm wraps round
+  // it; in front of all when there is none), 'front', 'back', or 'part:<id>'.
+  function heldItemIndex(parts,layer,idOf,isNearArm){
+    const L=String(layer||'auto');
+    if(L==='front')return parts.length;
+    if(L==='back')return 0;
+    if(L.startsWith('part:')){const i=parts.findIndex(p=>idOf(p)===L.slice(5));if(i>=0)return i;}
+    const i=parts.findIndex(isNearArm);
+    return i>=0?i:parts.length;
+  }
+  const isNearArmPartName=p=>p?.name==='near_upper_arm'||p?.name==='near_lower_arm';
+  // A skinned part belongs to the near arm when at least half its weight is on
+  // Near Upper Arm / Near Forearm / Near Hand (bones are referred to by index).
+  let nearArmBones=null;
+  function weightsAreNearArm(weights){
+    nearArmBones??=new Set(RIG_DESIGNER.boneLinks.map((b,i)=>/^Near (Upper Arm|Forearm|Hand)$/.test(b.label)?i:-1).filter(i=>i>=0));
+    let arm=0,all=0;
+    for(const row of weights||[])for(const [bi,w] of row||[]){all+=w;if(nearArmBones.has(bi))arm+=w;}
+    return all>0&&arm/all>=.5;
   }
 
   window.GameHubWalkRig={
@@ -830,7 +873,7 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     CHARACTER_VARIANT_STORAGE_KEY,DEFAULT_CHARACTER_VARIANT,CHARACTER_VARIANTS,normaliseCharacterVariant,loadCharacterVariant,saveCharacterVariant,characterVariantInfo,atlasImageUrl,
     clone,clamp,lerp,makeKey,defaultKeys,makeRunKey,runKeys,makeJumpKey,jumpKeys,interpolatePose,buildFramesFromKeys,buildFramesWithNames,normalizedPose,sampleFrames,
     KEY_CHANNELS,keyHasChannel,usesChannelSampling,sampleSparse,simplifySparse,
-    geometry,chestFor,partsForPose,atlasRect,projectPoint,drawCanvas,solveJoint,footGeometry,
+    geometry,chestFor,partsForPose,atlasRect,projectPoint,drawCanvas,carryPose,heldItemIndex,weightsAreNearArm,solveJoint,footGeometry,
     DEFAULT_REST_RIG,RIG_DESIGNER,ART_LAYOUT_DESIGNER,normalizedRestRig,loadRestRig,saveRestRig,resetRestRig,restLengths,restPose
   };
 })();

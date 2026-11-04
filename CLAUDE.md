@@ -161,6 +161,13 @@ Biped keys may set only some controls (`key.channels`, from `GameHubWalkRig.KEY_
 absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampleSparse`
 in both Character Lab and the game; others keep the original whole-key path.
 `simplifySparse` is Key Pose Tools → Simplify keys.
+**Quick Play test box** (`anim-lab-play.js`): game-sized boxes (0.96 × 0.68 m) to walk
+into, jump on, pick up, put down and stack, using the game's carry pose
+(`GameHubWalkRig.carryPose`). A character's `setup.heldItemLayer` ('auto' | 'front' |
+'back' | 'part:<part id or original part name>'; stored only when not auto) says where a
+held item is drawn among its parts (`GameHubWalkRig.heldItemIndex`); the game and
+Character Lab both use it (Character Lab: `core.setHeldItemDrawer`, the Skin module draws
+the parts in two passes around it). `window.AnimLabQuickPlay.state()` is a read-only test hook.
 `anim-lab-animation-templates.js` is the Animate *Animation template* box (Use this
 template, Make unique, Save as template; links of created animations live in
 `extraClips[key].link`; a chosen template waits in walk-lab's `pendingClipLinks` until

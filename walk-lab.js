@@ -5,6 +5,12 @@
   // Jump height (world metres; character setting). 1.49 m is the game's original
   // jump (launch 5.24 m/s against gravity 9.2).
   const DEFAULT_JUMP_HEIGHT = 5.24 * 5.24 / (2 * 9.20), JUMP_HEIGHT_MIN = .3, JUMP_HEIGHT_MAX = 2.5;
+  // Where a held item is drawn among the character's parts (Quick Play → Held
+  // item; the game reads it too): 'auto' | 'front' | 'back' | 'part:<id>'.
+  const normaliseHeldItemLayer = value => {
+    const v = String(value || 'auto');
+    return ['auto','front','back'].includes(v) || /^part:[A-Za-z0-9_.-]{1,80}$/.test(v) ? v : 'auto';
+  };
   const QuadrupedRig = window.SideScrollQuadrupedRig || null;
   const canvas = document.getElementById('animlab-canvas');
   if (!BipedRig || !QuadrupedRig || !canvas) {
@@ -591,6 +597,7 @@
     setup.runSpeed = clamp(Math.max(Number.isFinite(savedRun) ? savedRun : speeds.run,setup.walkSpeed+.20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
     const savedJump = quadrupedSetupCurrent && saved.jumpHeight != null ? Number(saved.jumpHeight) : NaN;
     setup.jumpHeight = clamp(Number.isFinite(savedJump) ? savedJump : DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
+    setup.heldItemLayer = normaliseHeldItemLayer(quadrupedSetupCurrent ? saved.heldItemLayer : null);
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
@@ -1018,6 +1025,7 @@
   let playReturnMode = 'animate';
   let playOverlaySnapshot = null;
   let playFrameProvider = null;
+  let heldItemDrawer = null;
   let lastPlayFrame = null;
   let lastRenderedView = null;
   let interactionSnapshot = null;
@@ -1201,6 +1209,7 @@
       setupDraft.walkSpeed = clamp(Number(value.walkSpeed) || defaults.walk, MOVE_WALK_SPEED_MIN, MOVE_WALK_SPEED_MAX);
       setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || defaults.run, setupDraft.walkSpeed + .20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
       setupDraft.jumpHeight = clamp(Number(value.jumpHeight) || DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
+      setupDraft.heldItemLayer = normaliseHeldItemLayer(value.heldItemLayer);
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
       if (supportsRestBinding(adapter)) setupDraft.skinTuning = normaliseSkinTuning(value.skinTuning);
@@ -1450,6 +1459,8 @@
         storedSetup.walkSpeed=clamp(Number(setupDraft.walkSpeed)||defaults.walk,MOVE_WALK_SPEED_MIN,MOVE_WALK_SPEED_MAX);
         storedSetup.runSpeed=clamp(Math.max(Number(setupDraft.runSpeed)||defaults.run,storedSetup.walkSpeed+.20),MOVE_RUN_SPEED_MIN,MOVE_RUN_SPEED_MAX);
         storedSetup.jumpHeight=clamp(Number(setupDraft.jumpHeight)||DEFAULT_JUMP_HEIGHT,JUMP_HEIGHT_MIN,JUMP_HEIGHT_MAX);
+        // Only stored when changed, so characters that never set it stay as published.
+        if (normaliseHeldItemLayer(setupDraft.heldItemLayer) !== 'auto') storedSetup.heldItemLayer=normaliseHeldItemLayer(setupDraft.heldItemLayer);
         if (character.family === 'quadruped') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (validRigLink(setupDraft.rigTemplate)) storedSetup.rigTemplate=clone(setupDraft.rigTemplate);
@@ -2018,7 +2029,7 @@
     return adapter.loadRestRig && adapter === currentAdapter() ? setupDraft.rig : undefined;
   }
 
-  function drawRigArt(character, adapter, pose, sv, alpha = 1) {
+  function drawRigArt(character, adapter, pose, sv, alpha = 1, held = null) {
     const atlas = atlases.get(character.id);
     // Custom Atlas-backed characters may have no valid legacy sprite file.
     // Their art renderer owns the imported atlas image, so do not suppress it.
@@ -2026,14 +2037,15 @@
     // Every character draws with its own rest rig (the working copy's).
     const restRig = setupDraft.rig || displayRestRig(adapter);
     if (artRenderers.size) {
-      const args={ctx,canvas,character,adapter,pose,view:sv,alpha,atlas,restRig,setup:setupDraft,project};
+      const args={ctx,canvas,character,adapter,pose,view:sv,alpha,atlas,restRig,setup:setupDraft,project,
+        drawHeld:adapter.id==='biped'?held?.draw:null,heldLayer:held?.layer};
       for (const renderer of artRenderers.values()) {
         try { if (renderer(args) === true) return; }
         catch (err) { console.error('[Anim Lab] Art renderer failed.',err); }
       }
     }
     if (!atlas) return; // no original art fallback for custom image-only assembly
-    if (adapter.id === 'biped' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha,restRig});
+    if (adapter.id === 'biped' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha,restRig,drawHeld:held?.draw,heldLayer:held?.layer});
     else adapter.rig.partsForPose(pose,restRig).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
 
@@ -2205,7 +2217,17 @@
     // character's scale. Camera pan/zoom applies to both, but Setup.Scale
     // changes only the authored character/collider/animation geometry.
     drawReference(gridView);
-    if(overlays.art) drawRigArt(character,adapter,pose,sv,.99*artOpacity);
+    // Quick Play's held test box goes among the character's parts (drawHeld,
+    // called once by the art renderer at the right place), else on top.
+    let heldDone=false;
+    const held=selection.mode==='play'&&typeof heldItemDrawer==='function'?{
+      layer:normaliseHeldItemLayer(setupDraft?.heldItemLayer),
+      draw:()=>{if(heldDone)return;heldDone=true;
+        try{heldItemDrawer({ctx,canvas,pose,adapter,view:sv,gridView,restRig:setupDraft?.rig||displayRestRig(adapter),setup:setupDraft});}
+        catch(err){console.error('[Anim Lab] Held item drawer failed.',err);}}
+    }:null;
+    if(overlays.art) drawRigArt(character,adapter,pose,sv,.99*artOpacity,held);
+    if(held) held.draw();
     if(overlays.planes) drawPlanes(adapter,pose,sv);
     if(overlays.collider) drawCollider(sv);
     if(overlays.bones) drawBones(adapter,pose,sv,1);
@@ -2773,6 +2795,8 @@
     subscribe:fn=>{if(typeof fn==='function'){listeners.add(fn);return()=>listeners.delete(fn);}return()=>{};},
     registerSessionParticipant,
     setPlayFrameProvider:fn=>{playFrameProvider=typeof fn==='function'?fn:null;lastPlayFrame=null;draw();},
+    // Quick Play's held test box: fn({ctx,pose,view,gridView,restRig,setup}).
+    setHeldItemDrawer:fn=>{heldItemDrawer=typeof fn==='function'?fn:null;},
     redraw:()=>{draw();notify();},
     refreshSessionUI:()=>updateUi(),
     redrawOnly:()=>draw(),

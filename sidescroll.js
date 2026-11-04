@@ -17301,23 +17301,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return t * t * (3 - 2 * t);
   }
 
+  // Shared with Character Lab's Quick Play test box (biped-rig.js).
   function poseForCarrying(basePose, carryAmount = 1, reachAmount = 0) {
-    const p = Rig.clone(basePose);
-    const carry = smooth01(carryAmount);
-    const reach = smooth01(reachAmount);
-    const targetAX = Rig.lerp(0.145, 0.105, reach);
-    const targetBX = Rig.lerp(0.215, 0.165, reach);
-    const targetAY = Rig.lerp(0.215, 0.345, reach);
-    const targetBY = Rig.lerp(0.225, 0.350, reach);
-    const armAmount = Math.max(carry, reach);
-    p.aHandX = Rig.lerp(p.aHandX, targetAX, armAmount);
-    p.bHandX = Rig.lerp(p.bHandX, targetBX, armAmount);
-    p.aHandY = Rig.lerp(p.aHandY, targetAY, armAmount);
-    p.bHandY = Rig.lerp(p.bHandY, targetBY, armAmount);
-    p.pelvisY = Rig.lerp(p.pelvisY, 0.455, reach * 0.72);
-    p.lean = Rig.lerp(p.lean, 13 * Math.PI / 180, reach * 0.80);
-    p.hairAngle = Rig.lerp(p.hairAngle, 116 * Math.PI / 180, reach * 0.35);
-    return p;
+    return Rig.carryPose(basePose, carryAmount, reachAmount);
   }
 
   function poseForPushing(basePose, amount = 1) {
@@ -17475,7 +17461,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       x = desiredPivotX - (u - 0.5) * sx;
       y = desiredPivotY - Rig.clamp(Number(mech?.pivotY)||0.5,0,1) * sy;
     }
-    return { x, y, z: character.z + CHARACTER_GAMEPLAY_Z_BIAS - 0.0004, sx, sy };
+    return { x, y, z: meshCarryZ ?? (character.z + CHARACTER_GAMEPLAY_Z_BIAS - 0.0004), sx, sy };
   }
 
   function interactionCrateTransform(facing, pose = null) {
@@ -17567,11 +17553,31 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   // v1.1.23 game-side deformable mesh draw. Existing WebGL rigid part path
   // below remains completely unchanged for built-in quadruped and both original bipeds.
-  function drawLocalMeshCharacter(view,pose,facing,data){
+  // Depth of a carried object drawn mid-way through a mesh character (see
+  // drawLocalMeshCharacter); null = the default depth.
+  let meshCarryZ=null;
+  function isNearArmPart(part){
+    if(part.nearArm===undefined)part.nearArm=Rig.weightsAreNearArm(part.weights);
+    return part.nearArm;
+  }
+  // Where a character's held item is drawn (Character Lab → Quick Play → Held
+  // item): setup.heldItemLayer, 'auto' when unset.
+  function heldItemLayer(id = currentCharacterVariant) {
+    const local = GameCharacters?.ready(id) || originalCharacterMeshes.get(id);
+    return (local?.setup || savedCharacterSetups()?.[id])?.heldItemLayer || 'auto';
+  }
+  // drawHeld(z), if given, draws a carried object just before the first near-arm
+  // part (or after every part when there is none).
+  function drawLocalMeshCharacter(view,pose,facing,data,drawHeld=null){
     GameCharacters.poseParts(data,pose,data.family==='biped'?Rig:QuadrupedRig);
+    const partZ=i=>character.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
+    let held=drawHeld,topZ=-Infinity;
+    const heldAt=held&&data.family==='biped'?Rig.heldItemIndex(data.parts,heldItemLayer(),p=>p.id,isNearArmPart):Infinity;
     for(let i=0;i<data.parts.length;i++){
       const part=data.parts[i];
+      if(held&&i>=heldAt){held(partZ(i)-.00045);held=null;}
       if(!part.mesh)continue;
+      topZ=Math.max(topZ,partZ(i));
       bindMesh(part.mesh);
       gl.bufferSubData(gl.ARRAY_BUFFER,0,part.buffer);
       gl.bindTexture(gl.TEXTURE_2D,part.texture);
@@ -17593,6 +17599,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       gl.uniform2f(loc.uvOffset,0,0);
       gl.drawElements(gl.TRIANGLES,part.mesh.count,gl.UNSIGNED_SHORT,0);
     }
+    if(held)held(Number.isFinite(topZ)?topZ+.00045:null);
   }
 
   // Biped pose cross-fade (2 Nov 2026): when the pose source changes (standing,
@@ -17613,6 +17620,23 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     lastBipedPose = pose;
     return pose;
+  }
+
+  // A foot may be keyed below the character's floor (Animate, −60 cm) so it can
+  // reach the real ground in mid-air. In the game it never goes below whatever is
+  // actually under the character: landing early on a log, or a keyed pose on the
+  // ground, keeps the feet on top instead of sinking in for a moment.
+  function keepFeetAboveGround(pose) {
+    let above = 0;
+    if (jumping) {
+      const x = camera.x + character.screenOffsetX + colliderWorld().offsetX;
+      const support = walkableSupportAt(x, jumpOffset, 0);
+      above = Math.max(0, jumpOffset - (support?.offset ?? 0));
+    }
+    const min = -above / Math.max(.01, character.scale || 1);
+    const a = Number(pose.aFootLift) || 0, b = Number(pose.bFootLift) || 0;
+    if (a >= min && b >= min) return pose;
+    return { ...pose, aFootLift: Math.max(min, a), bFootLift: Math.max(min, b) };
   }
 
   function drawRigCharacter(view, isWalking) {
@@ -17646,7 +17670,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const idlePhase = ((performance.now ? performance.now() : Date.now()) % 1400) / 1400;
       pose = isQuadruped ? quadrupedPoseForClip('idle',idlePhase,quadrupedIdleFrames) : bipedPoseForClip('idle',idlePhase,charRig.sampleFrames(characterFrames, 0.02));
     }
-    if (!isQuadruped && !climbState) pose = crossfadeBipedPose(pose, currentJumpFrame() !== null ? 'jump' : (isWalking ? 'move' : 'idle'));
+    if (!isQuadruped && !climbState) pose = keepFeetAboveGround(crossfadeBipedPose(pose, currentJumpFrame() !== null ? 'jump' : (isWalking ? 'move' : 'idle')));
 
     // Carry/push poses are biped-specific. Gameplay interaction remains
     // available to the quadruped test character, but its locomotion rig is not bent
@@ -17671,14 +17695,17 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const facing = character.lastFacing >= 0 ? 1 : -1;
     const local=GameCharacters?.ready(currentCharacterVariant)||originalCharacterMeshes.get(currentCharacterVariant);
     if(local?.parts?.length){
-      drawLocalMeshCharacter(view,pose,facing,local);
-      if(carriedObject||interactionState)drawCarriedCrate(view,facing,null);
+      // Painter order, as with the original parts: body, carried object, near arm.
+      const holding=carriedObject||interactionState;
+      drawLocalMeshCharacter(view,pose,facing,local,holding?z=>{meshCarryZ=z;drawCarriedCrate(view,facing,isQuadruped?null:pose);meshCarryZ=null;}:null);
       return;
     }
     const parts = charRig === Rig ? charRig.partsForPose(pose, bipedRestRig()) : charRig.partsForPose(pose);
     let crateDrawn = false;
-    for (const part of parts) {
-      if (!isQuadruped && !crateDrawn && (carriedObject || interactionState) && part.name === 'near_upper_arm') {
+    const heldAt = !isQuadruped && (carriedObject || interactionState)
+      ? Rig.heldItemIndex(parts, heldItemLayer(), p => p.name, p => p.name === 'near_upper_arm') : -1;
+    for (const [index, part] of parts.entries()) {
+      if (!crateDrawn && index === heldAt) {
         drawCarriedCrate(view, facing, pose);
         crateDrawn = true;
       }

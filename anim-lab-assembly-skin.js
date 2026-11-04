@@ -1744,8 +1744,19 @@
       drawList.push({item,mesh,image,points,binding,selected});
     }
     const useGpu=core.getOverlay?.('gpu')!==false;
-    const gpuDrew=useGpu&&gpuDrawMeshes(ctx,drawList,counts);
-    if(!gpuDrew)for(const e of drawList)rasterTriangles(ctx,e.image,e.mesh,e.points,e.binding,pose,counts);
+    // Quick Play's held test box goes between the parts (behind the near arm by
+    // default), so draw the parts in two passes around it.
+    const Biped=window.GameHubWalkRig;
+    const heldAt=args.drawHeld&&s.family==='biped'&&Biped?.heldItemIndex
+      ?Biped.heldItemIndex(drawList,args.heldLayer,e=>e.item.id,e=>Biped.weightsAreNearArm(e.binding?.weights)):-1;
+    const passes=heldAt>=0?[drawList.slice(0,heldAt),drawList.slice(heldAt)]:[drawList];
+    let gpuDrew=true;
+    passes.forEach((list,k)=>{
+      if(k===1)args.drawHeld();
+      const drewOnGpu=useGpu&&gpuDrawMeshes(ctx,list,counts);
+      if(!drewOnGpu)for(const e of list)rasterTriangles(ctx,e.image,e.mesh,e.points,e.binding,pose,counts);
+      gpuDrew=gpuDrew&&drewOnGpu;
+    });
     meshMethod=gpuDrew?'GPU':'Canvas';
     for(const {mesh,points,binding,selected} of drawList){
       if(selected&&heatmap&&binding){
