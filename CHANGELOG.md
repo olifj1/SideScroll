@@ -4,6 +4,8 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Published** (first Publish Lab package, 4 Nov): Puzzles area, Aureli (Hero 1, with
+  the shared hero animations), Fox, Character01 and Character02 with their artwork.
 - **Full backup:** Project Backup now includes every character artwork image
   imported in Character Lab, so one file holds everything on the phone. Import
   checks each image (SHA-256), lists *Character artwork* as its own area (merge
