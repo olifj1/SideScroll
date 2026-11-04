@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Performance:** the game re-read and re-parsed the whole character library
+  (130 KB+, every library character's animations) about 19 times a frame, just to
+  look up names and families: ~2.5 MB of JSON per frame, growing as characters
+  were added. The character registry now keeps its parsed list until the saved
+  data changes, and the game parses the character setup only when it changes
+  (per-frame parsing ~2.5 MB → ~8 KB). Affects every character and every Lab
+  that lists characters.
 - **Published** (first Publish Lab package, 4 Nov): Puzzles area, Aureli (Hero 1, with
   the shared hero animations), Fox, Character01 and Character02 with their artwork.
 - **Full backup:** Project Backup now includes every character artwork image

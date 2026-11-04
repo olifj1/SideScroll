@@ -56,6 +56,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0r. Game speed (4 Nov)** — Play as Character01
+- [ ] Running and jumping feel as smooth as they used to (no sluggishness or small hitches); same with Hero 1 and Fox.
+- [ ] Character Lab → Settings: rename a character; the new name shows in the character list and in the game's picker straight away.
+
 **0q. Full backup (4 Nov)** — menu → Project Backup
 - [ ] **Export Project** says "Ready · N saved items · N artwork images"; the share sheet saves one `SS-PROJECT-SNAPSHOT-….json` (a few MB with artwork).
 - [ ] **Choose Project JSON** with that file: the areas list includes *Character artwork (N images)*; counts show artwork unchanged. (Optional, a real restore test: install the app on another device or browser, restore there, open Character Lab: Character01 shows its artwork.)

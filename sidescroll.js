@@ -2579,9 +2579,21 @@ function characterVariantInfo(id = currentCharacterVariant) {
   return info && name ? {...info,label:name} : info;
 }
 
+// Called every frame: parse the saved setup only when its text changes.
+var characterSetupCache = { text: undefined, value: {} }; // var: may be read before this line runs
+function savedCharacterSetups() {
+  const text = localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY);
+  if (text !== characterSetupCache.text) {
+    let value = {};
+    try { value = JSON.parse(text || '{}') || {}; } catch (_) {}
+    characterSetupCache = { text, value };
+  }
+  return characterSetupCache.value;
+}
+
 function characterScaleMultiplier(id = currentCharacterVariant) {
   try {
-    const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
+    const setup = savedCharacterSetups();
     const savedCustom = GameCharacters?.ready(id)?.setup;
     const quadrupedSetupCurrent = !isOriginalQuadruped(id) || !QuadrupedRig || QuadrupedRig.isCurrentBaseline(setup?.[id]?.baselineId);
     const raw = savedCustom ? Number(savedCustom.scale) : (quadrupedSetupCurrent ? Number(setup?.[id]?.scale) : NaN);
@@ -2616,7 +2628,7 @@ function characterMotionSettings(id = currentCharacterVariant) {
     return {walk,run,jump:characterJumpHeight(custom.setup)};
   }
   try {
-    const setup = JSON.parse(localStorage.getItem(CHARACTER_SETUP_STORAGE_KEY) || '{}') || {};
+    const setup = savedCharacterSetups();
     if (isOriginalQuadruped(id) && (!QuadrupedRig || !QuadrupedRig.isCurrentBaseline(setup?.[id]?.baselineId))) return defaults;
     const walkRaw = setup?.[id]?.walkSpeed == null ? NaN : Number(setup[id].walkSpeed);
     const runRaw = setup?.[id]?.runSpeed == null ? NaN : Number(setup[id].runSpeed);
