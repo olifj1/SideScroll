@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 4 November 2026 — Held item draw order
+A character's setup may hold `heldItemLayer` (Quick Play → *Held item drawn*): original characters in `sidescroll.animlab.setup.v1[id]`, library characters in their library entry's `setup`. It is written only when not *Auto*, travels with the setup in character packages, Project Backup and publish packages, and needs no new key or migration. Quick Play's test boxes are not saved.
+
 ## 4 November 2026 — Project Backup includes artwork
 Project Backup (`sidescroll.project-snapshot.v1`, same schema) adds `storage.artwork`: `{status, database:'sidescroll-animlab-art-v1', store:'atlas-images', images:[{key, type, bytes, sha256, dataUrl}]}` and `manifest.artwork` `{status, images, bytes}`; `binaryAssetsIncluded` is true when captured. Export fails rather than producing a backup without artwork if the image database can't be read. Restore validates every image (size + SHA-256), offers *Character artwork* as an area, merges (missing ids) or overwrites, puts artwork back on failure, and the pre-restore safety backup includes the device's artwork. Backups without `storage.artwork` import as before. The bake tool still reads only `storage.localStorage`. This is now the one full device backup; character exports remain the way to move or publish single characters.
 

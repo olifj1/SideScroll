@@ -17301,23 +17301,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return t * t * (3 - 2 * t);
   }
 
+  // Shared with Character Lab's Quick Play test box (biped-rig.js).
   function poseForCarrying(basePose, carryAmount = 1, reachAmount = 0) {
-    const p = Rig.clone(basePose);
-    const carry = smooth01(carryAmount);
-    const reach = smooth01(reachAmount);
-    const targetAX = Rig.lerp(0.145, 0.105, reach);
-    const targetBX = Rig.lerp(0.215, 0.165, reach);
-    const targetAY = Rig.lerp(0.215, 0.345, reach);
-    const targetBY = Rig.lerp(0.225, 0.350, reach);
-    const armAmount = Math.max(carry, reach);
-    p.aHandX = Rig.lerp(p.aHandX, targetAX, armAmount);
-    p.bHandX = Rig.lerp(p.bHandX, targetBX, armAmount);
-    p.aHandY = Rig.lerp(p.aHandY, targetAY, armAmount);
-    p.bHandY = Rig.lerp(p.bHandY, targetBY, armAmount);
-    p.pelvisY = Rig.lerp(p.pelvisY, 0.455, reach * 0.72);
-    p.lean = Rig.lerp(p.lean, 13 * Math.PI / 180, reach * 0.80);
-    p.hairAngle = Rig.lerp(p.hairAngle, 116 * Math.PI / 180, reach * 0.35);
-    return p;
+    return Rig.carryPose(basePose, carryAmount, reachAmount);
   }
 
   function poseForPushing(basePose, amount = 1) {
@@ -17570,12 +17556,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // Depth of a carried object drawn mid-way through a mesh character (see
   // drawLocalMeshCharacter); null = the default depth.
   let meshCarryZ=null;
-  const NEAR_ARM_BONES=new Set((Rig.RIG_DESIGNER?.boneLinks||[]).map((b,i)=>/^Near (Upper Arm|Forearm|Hand)$/.test(b.label)?i:-1).filter(i=>i>=0));
   function isNearArmPart(part){
-    if(part.nearArm!==undefined)return part.nearArm;
-    let arm=0,all=0;
-    for(const row of part.weights||[])for(const [bi,w] of row){all+=w;if(NEAR_ARM_BONES.has(bi))arm+=w;}
-    return (part.nearArm=all>0&&arm/all>=.5);
+    if(part.nearArm===undefined)part.nearArm=Rig.weightsAreNearArm(part.weights);
+    return part.nearArm;
+  }
+  // Where a character's held item is drawn (Character Lab → Quick Play → Held
+  // item): setup.heldItemLayer, 'auto' when unset.
+  function heldItemLayer(id = currentCharacterVariant) {
+    const local = GameCharacters?.ready(id) || originalCharacterMeshes.get(id);
+    return (local?.setup || savedCharacterSetups()?.[id])?.heldItemLayer || 'auto';
   }
   // drawHeld(z), if given, draws a carried object just before the first near-arm
   // part (or after every part when there is none).
@@ -17583,10 +17572,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     GameCharacters.poseParts(data,pose,data.family==='biped'?Rig:QuadrupedRig);
     const partZ=i=>character.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
     let held=drawHeld,topZ=-Infinity;
+    const heldAt=held&&data.family==='biped'?Rig.heldItemIndex(data.parts,heldItemLayer(),p=>p.id,isNearArmPart):Infinity;
     for(let i=0;i<data.parts.length;i++){
       const part=data.parts[i];
+      if(held&&i>=heldAt){held(partZ(i)-.00045);held=null;}
       if(!part.mesh)continue;
-      if(held&&data.family==='biped'&&isNearArmPart(part)){held(partZ(i)-.00045);held=null;}
       topZ=Math.max(topZ,partZ(i));
       bindMesh(part.mesh);
       gl.bufferSubData(gl.ARRAY_BUFFER,0,part.buffer);
@@ -17712,8 +17702,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     const parts = charRig === Rig ? charRig.partsForPose(pose, bipedRestRig()) : charRig.partsForPose(pose);
     let crateDrawn = false;
-    for (const part of parts) {
-      if (!isQuadruped && !crateDrawn && (carriedObject || interactionState) && part.name === 'near_upper_arm') {
+    const heldAt = !isQuadruped && (carriedObject || interactionState)
+      ? Rig.heldItemIndex(parts, heldItemLayer(), p => p.name, p => p.name === 'near_upper_arm') : -1;
+    for (const [index, part] of parts.entries()) {
+      if (!crateDrawn && index === heldAt) {
         drawCarriedCrate(view, facing, pose);
         crateDrawn = true;
       }
