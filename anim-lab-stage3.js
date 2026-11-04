@@ -105,6 +105,14 @@
       </div>
       <div class="animlab-convert-copy">From keys: the Planted foot set per frame. Automatic: a foot is planted whenever it touches the floor. Off: feet are never pinned, so they move and turn freely (and the pelvis isn't held by leg reach).</div>
     </div>
+    <div class="animlab-key-simplify" id="animlab-centre-body-box">
+      <div class="animlab-convert-head"><strong>Centre body</strong><span>this animation</span></div>
+      <div class="animlab-segmented animlab-two">
+        <button type="button" data-centre-body="keep">Keep sway</button>
+        <button type="button" data-centre-body="remove">Remove sway</button>
+      </div>
+      <div class="animlab-convert-copy">Moves the whole animation (body and feet together, so every pose is unchanged) so the body sits over the Centre marker on average. <em>Remove sway</em> also puts the body exactly over the centre on every key, removing side-to-side shifts of the body. Undo restores.</div>
+    </div>
     <div class="animlab-key-simplify" id="animlab-key-simplify-box">
       <button id="animlab-key-simplify" type="button">Simplify keys</button>
       <div class="animlab-convert-copy">Keeps only the keys each control needs (motion stays within 1.5 mm / 0.6°), so a key on every frame becomes a few clean ones per control. Undo restores.</div>
@@ -492,6 +500,8 @@
     mirrorClipBtn.disabled=preview;
     tweenButtons.forEach(button=>button.classList.toggle('active',(st.sparseClip?.interpolation||'linear')===button.dataset.tween));
     document.getElementById('animlab-key-simplify-box').hidden=st.family!=='biped';
+    document.getElementById('animlab-centre-body-box').hidden=st.family!=='biped';
+    document.querySelectorAll('[data-centre-body]').forEach(b=>{b.disabled=!!st.preview||st.mode!=='animate';});
     document.getElementById('animlab-contact-box').hidden=st.family!=='biped';
     document.getElementById('animlab-limb-copy-box').hidden=st.family!=='biped';
     const jumpClip=!!core.isJumpClip?.(st.clip),timing=jumpClip?core.jumpTiming():null;
@@ -543,6 +553,29 @@
     core.editSparseClip('Simplify keys',clip=>{const next=Rig.simplifySparse(clip);if(next){clip.keys=next.keys;after=next.keys.length;markAuthored(clip);}});
     core.setHint(`Simplified: ${before} keys → ${after} (each control keeps only the keys it needs).`);
   });
+  // Centre body: shift the body (pelvisX) and both feet (aFootX/bFootX, measured
+  // from the origin) by the clip's average body offset; hands follow the body.
+  // Remove sway also zeroes the body offset on every key (feet keep the shift).
+  document.querySelectorAll('[data-centre-body]').forEach(b=>b.addEventListener('click',()=>{
+    const st=state(),remove=b.dataset.centreBody==='remove';
+    if(st.family!=='biped'||st.preview||st.mode!=='animate')return;
+    let avg=0,count=0;
+    core.editSparseClip(remove?'Centre body (remove sway)':'Centre body',clip=>{
+      const keyed=(k,ch)=>!Array.isArray(k.channels)||k.channels.includes(ch);
+      const xs=(clip.keys||[]).filter(k=>k.pose&&keyed(k,'pelvisX')).map(k=>Number(k.pose.pelvisX)||0);
+      if(!xs.length)return;
+      avg=xs.reduce((a,v)=>a+v,0)/xs.length;
+      for(const k of clip.keys){
+        const p=k.pose;if(!p)continue;
+        // Every key's values move (a key's unkeyed values are unused but kept consistent).
+        p.pelvisX=remove?0:(Number(p.pelvisX)||0)-avg;
+        for(const c of ['aFootX','bFootX'])if(Number.isFinite(Number(p[c])))p[c]=Number(p[c])-avg;
+        count++;
+      }
+      markAuthored(clip);
+    });
+    core.setHint(count?`Centred: moved ${count} keys by ${(-avg).toFixed(3)}${remove?', body over the centre on every key':''}. Save to keep.`:'Nothing to centre: this animation has no body keys.');
+  }));
   window.addEventListener('animlab-control-selected',()=>render(state()));
   document.querySelectorAll('[data-jump-timing]').forEach(b=>b.addEventListener('click',()=>{
     const st=state(),what=b.dataset.jumpTiming;

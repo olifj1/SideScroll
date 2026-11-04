@@ -1003,7 +1003,7 @@
   const view = { zoom:1, panX:0, panY:0 };
   // near / far: show each side's limbs (view only, not saved; both on at load).
   // gpu: draw meshes with WebGL (Display → GPU mesh; saved with Display).
-  const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false, near:true, far:true, gpu:true, path:false };
+  const overlays = { art:true, bones:true, planes:false, collider:false, ground:false, reference:false, near:true, far:true, gpu:true, path:false, centre:true };
   const pointers = new Map();
   const listeners = new Set();
   const sessionParticipants = new Map();
@@ -2120,6 +2120,32 @@
     ctx.restore();
   }
 
+  // Display → Centre: the character's origin (where the game places it; its
+  // collider is centred here plus Collider X) as a vertical line, and a marker on
+  // the floor under the body (pelvis) with its distance from the centre.
+  function drawCentreMarker(sv,pose,adapter){
+    if(!overlays.centre)return;
+    const base=project({x:0,y:0},sv),dpr=Math.max(1,canvas.width/Math.max(1,canvas.getBoundingClientRect().width||canvas.width));
+    ctx.save();
+    ctx.strokeStyle='rgba(236,240,238,.42)';ctx.lineWidth=Math.max(1,dpr);ctx.setLineDash([3*dpr,5*dpr]);
+    ctx.beginPath();ctx.moveTo(base.x,0);ctx.lineTo(base.x,canvas.height);ctx.stroke();ctx.setLineDash([]);
+    const r=5*dpr;
+    ctx.fillStyle='rgba(236,240,238,.85)';ctx.beginPath();ctx.moveTo(base.x,base.y-r);ctx.lineTo(base.x+r,base.y);ctx.lineTo(base.x,base.y+r);ctx.lineTo(base.x-r,base.y);ctx.closePath();ctx.fill();
+    ctx.font=`700 ${Math.round(10*dpr)}px system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText('Centre',base.x,base.y+r+3*dpr);
+    let bodyX=null;
+    try{if(adapter.id==='biped'&&pose&&adapter.rig.geometry)bodyX=adapter.rig.geometry(pose,setupDraft?.rig||displayRestRig(adapter))?.pelvis?.x;}catch(_){}
+    if(Number.isFinite(bodyX)&&Math.abs(bodyX)>.005){
+      const b=project({x:bodyX,y:0},sv),off=bodyX>=0?'+':'−'; // + = forward
+      // Below the floor, under the Centre label, so the character never covers it.
+      const y0=base.y+r+16*dpr;
+      ctx.fillStyle='rgba(242,207,138,.95)';
+      ctx.beginPath();ctx.moveTo(b.x,y0);ctx.lineTo(b.x+r,y0+r*1.6);ctx.lineTo(b.x-r,y0+r*1.6);ctx.closePath();ctx.fill();
+      ctx.textBaseline='top';ctx.fillText(`Body ${off}${Math.abs(bodyX).toFixed(3)}`,b.x,y0+r*1.6+2*dpr);
+    }
+    ctx.restore();
+  }
+
   function drawReference(referenceView) {
     if (!overlays.reference) return;
     const settings = currentStaticReference();
@@ -2213,6 +2239,7 @@
     }
     if (typeof underlayDraw === 'function') underlayDraw(underlayArgs);
     drawGroundAndRuler(gridView);
+    drawCentreMarker(sv,pose,adapter);
     // A proportion reference belongs to editor/world space, NOT the active
     // character's scale. Camera pan/zoom applies to both, but Setup.Scale
     // changes only the authored character/collider/animation geometry.
