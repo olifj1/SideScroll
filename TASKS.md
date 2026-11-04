@@ -56,6 +56,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0s. Carrying and landing (4 Nov)** — Play as Character01
+- [ ] Pick up a log: it sits at her hands and her near arm is in front of it (as Hero 1); it moves with her walk.
+- [ ] Jump onto a log: her feet land on top and don't sink in for a moment. Normal jumps on flat ground look the same as before.
+
 **0r. Game speed (4 Nov)** — Play as Character01
 - [ ] Running and jumping feel as smooth as they used to (no sluggishness or small hitches); same with Hero 1 and Fox.
 - [ ] Character Lab → Settings: rename a character; the new name shows in the character list and in the game's picker straight away.
@@ -193,6 +197,7 @@ app and make a Project Backup.
 ---
 
 ## Next
+- [ ] **Performance audit (game and Labs):** look for work repeated every frame that only needs doing when something changes, like the character-library re-parsing fixed on 4 Nov (`localStorage` reads + `JSON.parse` in per-frame paths, rebuilding lists/meshes/geometry that haven't changed, DOM updates during playback). Known next candidate: terrain height lookups (`terrainSparseNumberAt`, `terrainLayerSectionHeight`) are the biggest remaining script cost in a run. Measure first (CPU-throttled profile while running), fix the largest, keep a short before/after table in the PR.
 - [ ] **Character Lab overlays follow the drawing method (view only, small):** the Display *Rigid Planes* button draws the rig's original cut-out frames whatever the drawing method, so on a Mesh character (the Fox) it outlines frames nothing uses. For Mesh characters, replace it with a *Mesh* overlay showing every piece's wireframe, deforming live with the pose (useful in Animate); Parts characters keep *Rigid Planes*. In Skin, change *Wireframe: On/Off* to *Off / Selected / All* (selected piece stays highlighted), like the Atlas tool's *Wireframes* choice. Nothing saved changes; the game is unaffected.
 - [ ] **Atlas tools:** better topology editing (connect vertices, split/merge edge paths, delete triangle ranges, boundary shaping) and spline control-node editing.
 

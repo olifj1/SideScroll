@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Fixed (game, mesh characters such as Character01): a carried log sat at a fixed
+  spot in front of the whole character, covering both arms. It now follows the
+  hands (as with the original characters) and is drawn between the body and the
+  near arm, so the near arm wraps round the front.
+- Fixed (game): landing early on something higher than the take-off point (a log)
+  showed the Jump animation's reach-down frames with the feet inside it for a
+  moment. Feet keyed below the floor now go no lower than the ground actually
+  under the character.
 - **Performance:** the game re-read and re-parsed the whole character library
   (130 KB+, every library character's animations) about 19 times a frame, just to
   look up names and families: ~2.5 MB of JSON per frame, growing as characters
