@@ -82,14 +82,29 @@
       <i class="animlab-quickplay-thumb"></i>
       <span>Walk · drag farther to run</span>
     </div>
-    <button class="animlab-quickplay-jump" type="button">Jump</button>
-    <button class="animlab-quickplay-jump animlab-quickplay-action" type="button" disabled>Pick up</button>
   `;
   viewportPadHost.appendChild(pad);
+  // Jump and Pick up sit bottom-left of the viewport, as in the game (move with
+  // the right thumb, jump/act with the left). They act on touch-down, so they work
+  // while the other thumb is held on the move pad (iOS drops clicks then).
+  const leftPad = document.createElement('div');
+  leftPad.className = 'animlab-quickplay-left';
+  leftPad.hidden = true;
+  leftPad.innerHTML = `
+    <button class="animlab-quickplay-jump" type="button"><b aria-hidden="true">↑</b>Jump</button>
+    <button class="animlab-quickplay-jump animlab-quickplay-action" type="button" disabled>Pick up</button>
+  `;
+  viewportPadHost.parentElement.appendChild(leftPad);
+  const viewportEl = viewportPadHost.parentElement;
   const movePad = pad.querySelector('.animlab-quickplay-move');
   const moveThumb = pad.querySelector('.animlab-quickplay-thumb');
-  const jumpButton = pad.querySelector('.animlab-quickplay-jump:not(.animlab-quickplay-action)');
-  const actionButton = pad.querySelector('.animlab-quickplay-action');
+  const jumpButton = leftPad.querySelector('.animlab-quickplay-jump:not(.animlab-quickplay-action)');
+  const actionButton = leftPad.querySelector('.animlab-quickplay-action');
+  // Touch-down for fingers; click only for keyboard presses (detail 0).
+  function onPress(button,act){
+    button.addEventListener('pointerdown',ev=>{if(button.disabled)return;ev.preventDefault();try{button.setPointerCapture(ev.pointerId);}catch(_){}act();});
+    button.addEventListener('click',ev=>{if(ev.detail===0)act();});
+  }
   const heldLayerSelect = section.querySelector('[data-held-layer]');
 
   const sim = {
@@ -239,7 +254,7 @@
     if(sim.jumpRecover)return plan.M+sim.jumpRecover.t/plan.tpf;
     return null;
   }
-  jumpButton.addEventListener('click',triggerJump);
+  onPress(jumpButton,triggerJump);
 
   const DEFAULT_JUMP_HEIGHT=JUMP_VELOCITY*JUMP_VELOCITY/(2*JUMP_GRAVITY);
   const jumpHeightOf=s=>clamp(Number(s?.setup?.jumpHeight)||DEFAULT_JUMP_HEIGHT,.3,2.5);
@@ -475,7 +490,7 @@
   section.querySelector('[data-box-add]').addEventListener('click',()=>addBox(false));
   section.querySelector('[data-box-stack]').addEventListener('click',()=>addBox(true));
   section.querySelector('[data-box-clear]').addEventListener('click',()=>{sim.boxes=[];sim.held=null;sim.action=null;sim.heldAt=null;});
-  actionButton.addEventListener('click',performAction);
+  onPress(actionButton,performAction);
   heldLayerSelect.addEventListener('change',()=>{
     const value=heldLayerSelect.value;
     core.edit('setup','Held item drawn',setup=>{setup.heldItemLayer=value;});
@@ -611,6 +626,8 @@
     if(!active&&sim.active){sim.active=false;releaseMove();sim.lastNow=0;}
     section.hidden=!active;
     pad.hidden=!active;
+    leftPad.hidden=!active;
+    viewportEl.classList.toggle('is-quickplay',active);
     if(active)viewportPadHost.hidden=false;
     speedInputs.forEach(input=>{
       if(speedTxInput===input)return;

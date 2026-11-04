@@ -14570,7 +14570,7 @@ body[data-game-id="game-17"] .animlab-quickplay-actions button{
   background:rgba(255,255,255,.04);color:#dce7e3;font:850 7px/1 system-ui,-apple-system,sans-serif;
 }
 body[data-game-id="game-17"] .animlab-quickplay-pad{
-  width:100%;height:100%;display:grid;grid-template-columns:minmax(0,1fr) 44px 44px;gap:6px;align-items:stretch;
+  width:100%;height:100%;display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:stretch;
 }
 body[data-game-id="game-17"] .animlab-quickplay-move{
   position:relative;min-width:0;height:100%;overflow:hidden;border:1px solid rgba(238,243,241,.19);border-radius:12px;
@@ -14598,11 +14598,22 @@ body[data-game-id="game-17"] .animlab-quickplay-jump{
 }
 body[data-game-id="game-17"] .animlab-quickplay-jump:active{background:rgba(126,216,199,.28);}
 body[data-game-id="game-17"] .animlab-quickplay-action:disabled{opacity:.38;}
+/* Quick Play controls laid out like the game: Jump / Pick up bottom-left, move pad bottom-right. */
+body[data-game-id="game-17"] .animlab-quickplay-left{position:absolute;left:10px;bottom:10px;z-index:12;display:flex;gap:8px;align-items:stretch;height:clamp(64px,19vh,88px);}
+body[data-game-id="game-17"] .animlab-quickplay-left[hidden]{display:none!important;}
+body[data-game-id="game-17"] .animlab-quickplay-left .animlab-quickplay-jump{
+  width:clamp(64px,10vw,88px);height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-size:9px;background:rgba(12,20,24,.78);border-color:rgba(238,243,241,.26);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+body[data-game-id="game-17"] .animlab-quickplay-left .animlab-quickplay-jump b{font-size:20px;line-height:1;}
+body[data-game-id="game-17"] .animlab-viewport.is-quickplay .animlab-viewport-pad-host{width:clamp(170px,30vw,260px);}
+body[data-game-id="game-17"] .animlab-viewport.is-quickplay .animlab-hint{bottom:calc(clamp(64px,19vh,88px) + 18px);}
+body[data-game-id="game-17"] .animlab-quickplay-move{touch-action:none;}
 body[data-game-id="game-17"] .animlab-quickplay-action.is-carrying{border-color:rgba(242,207,138,.6);color:#f2cf8a;}
 body[data-game-id="game-17"] .animlab-held-layer{display:grid;gap:4px;margin:6px 0;font-size:12px;font-weight:700;color:#e6efec;}
 body[data-game-id="game-17"] .animlab-held-layer select{width:100%;min-height:32px;padding:4px 6px;background:#172227;color:#e6efec;border:1px solid rgba(238,243,241,.2);border-radius:7px;font:600 12px/1.2 system-ui,-apple-system,sans-serif;}
 @media(max-height:390px){
-  body[data-game-id="game-17"] .animlab-quickplay-pad{grid-template-columns:minmax(0,1fr) 40px 40px;gap:5px;}
+  body[data-game-id="game-17"] .animlab-quickplay-pad{grid-template-columns:minmax(0,1fr);gap:5px;}
   body[data-game-id="game-17"] .animlab-quickplay-thumb{height:28px;width:16px;}
 }
 

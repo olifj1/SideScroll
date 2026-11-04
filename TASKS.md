@@ -56,6 +56,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0w. Quick Play controls (4 Nov)** — Character Lab → Quick Play
+- [ ] Jump and Pick up are bottom-left, the move pad bottom-right; the character and ground sit above them.
+- [ ] Hold the move pad with the right thumb and tap Jump with the left: she jumps while still moving. Same for Pick up next to a box.
+
 **0v. Centre marker and Centre body (4 Nov)** — Character Lab → Character01 → Animate
 - [ ] Display → Centre is on: a dashed line and ◆ *Centre* under her, and ▲ *Body +0.135* (Idle) to the right.
 - [ ] Key Pose Tools → **Centre body → Keep sway** on Idle: she moves back over the line, the label goes, the pose looks identical; Save. Repeat for Walk, Run, Jump (and any other animations).
