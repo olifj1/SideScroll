@@ -4,6 +4,8 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Quick Play controls are half the height (Jump / Pick up and the move pad), giving
+  the space back to the view.
 - Character Lab → Quick Play controls laid out like the game: **Jump** and **Pick up**
   bottom-left, a wider move pad bottom-right. Jump / Pick up act on touch-down, so
   they work while the other thumb holds the move pad (taps were lost before because
