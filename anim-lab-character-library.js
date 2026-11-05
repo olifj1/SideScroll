@@ -427,7 +427,16 @@
   // ---- Roles and categories actions ----------------------------------------
   organise.addEventListener('change',event=>{
     const role=event.target.closest('select[data-role-id]');
-    if(role){registry.assignRole(role.dataset.roleId,role.value);setStatus('Role moved.');rerender();return;}
+    if(role){
+      registry.assignRole(role.dataset.roleId,role.value);
+      if(role.dataset.roleId==='default-player'){
+        // This device starts its next game with the new Default player too
+        // (players elsewhere keep a character they picked themselves).
+        for(const key of ['gamehub.walklab.character.v1','sidescroll.game.local-character.v1'])try{localStorage.removeItem(key);}catch(_){}
+        setStatus(`Default player: ${registry.name(role.value)||role.value}. New games and Character Lab start with this character.`);
+      }else setStatus('Role moved.');
+      rerender();return;
+    }
     const playable=event.target.closest('input[data-playable-category]');
     if(playable){registry.setCategoryPlayable(playable.dataset.playableCategory,playable.checked);rerender();}
   });

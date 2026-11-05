@@ -2795,7 +2795,10 @@ function updateCharacterSwapButton() {
   characterSwapBtn.setAttribute('aria-label', `Change character · current ${info?.label || currentCharacterVariant}`);
 }
 
-function applyCharacterVariant(id, announce = false) {
+// remember=false: show the character without saving it as the player's choice
+// (start-up uses this, so a saved library-character choice isn't erased before
+// the library characters have loaded).
+function applyCharacterVariant(id, announce = false, remember = true) {
   const isCustom=!!GameCharacters?.find(id);
   // Never silently substitute a built-in character for an unready local one.
   if(isCustom && !GameCharacters.ready(id)){
@@ -2814,11 +2817,11 @@ function applyCharacterVariant(id, announce = false) {
   } else {
     if(isCustom){
       currentCharacterVariant=requested;
-      try{localStorage.setItem(LOCAL_CHARACTER_SELECTION_KEY,requested);}catch(_){}
+      if(remember)try{localStorage.setItem(LOCAL_CHARACTER_SELECTION_KEY,requested);}catch(_){}
     }else{
-      const desired=Rig.saveCharacterVariant ? Rig.saveCharacterVariant(requested) : requested;
+      const desired=remember&&Rig.saveCharacterVariant ? Rig.saveCharacterVariant(requested) : requested;
       currentCharacterVariant=Rig.normaliseCharacterVariant ? Rig.normaliseCharacterVariant(desired) : desired;
-      try{localStorage.removeItem(LOCAL_CHARACTER_SELECTION_KEY);}catch(_){}
+      if(remember)try{localStorage.removeItem(LOCAL_CHARACTER_SELECTION_KEY);}catch(_){}
     }
   }
   textures.rigAtlas = textures[rigVariantTextureKey(artVariantFor(currentCharacterVariant))] || textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'char-1')] || textures.rigAtlas;
@@ -2897,7 +2900,7 @@ if(GameCharacters)for(const candidate of GameCharacters.list()){
   });
 }
 textures.rigAtlas = textures[rigVariantTextureKey(Rig.DEFAULT_CHARACTER_VARIANT || 'char-1')];
-applyCharacterVariant(currentCharacterVariant, false);
+applyCharacterVariant(currentCharacterVariant, false, false);
 if(characterSwapBtn)characterSwapBtn.addEventListener('click',()=>setCharacterPickerOpen(characterPicker?.hidden!==false));
 characterPickerClose?.addEventListener('click',()=>setCharacterPickerOpen(false));
 characterPicker?.querySelector('[data-character-dismiss]')?.addEventListener('click',()=>setCharacterPickerOpen(false));

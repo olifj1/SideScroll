@@ -123,6 +123,12 @@ with a role can't be deleted) and deleted original characters (hidden, since the
 data is shared storage). Stored in `sidescroll.characters.registry.v1`, written only
 when the author changes something. Load it on any page that lists characters.
 Character Lab edits roles and categories in its **Settings** dialog (top bar).
+The **Default player** role is the character a new game starts with (any playable
+character, library ones included; the game applies it when the device has no character
+choice saved) and the one Character Lab opens on (unless sessionStorage holds the
+session's selection). Moving it clears this device's saved game choice. The game's
+start-up apply uses `applyCharacterVariant(id,false,false)` (show, don't save), so a
+saved library-character choice survives until the library characters load.
 
 ## Rig templates
 `rig-templates.js` (`window.SideScrollRigTemplates`, key `sidescroll.rig-templates.v1`):

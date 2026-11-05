@@ -56,6 +56,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0z. Default player (5 Nov)**
+- [ ] Character Lab → Settings → Roles → **Default player** → Character01: the status confirms it. Close and reopen the app: the game starts as Character01, and Character Lab opens on Character01.
+- [ ] In the game pick Character02, close and reopen: still Character02 (it used to go back to Hero 1).
+
 **0y. Game speed with rows (5 Nov)**
 - [ ] With your near-side rows on, running feels as smooth as before rows. Dressing still sits on the ground on slopes and hills; after editing terrain, grass follows the new ground.
 
