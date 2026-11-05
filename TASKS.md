@@ -56,6 +56,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0x. Near-side rows (4 Nov)** — game → Edit → Environment → *Near-side rows*
+- [ ] Tick **Use rows here**: the near side becomes three rows; the scattered near-side grass goes.
+- [ ] Edge / Middle / Outer: drag Depth, Scale, Spacing and their ± sliders — the scene updates as you drag; tap textures to include/exclude; turn a row off.
+- [ ] **Save rows**, close and reopen the game: the same layout. **Revert** before saving restores the saved rows. *Done Editing* with unsaved rows asks to save.
+- [ ] Walk the level: rows follow the path, and at a transition to another profile they blend like other dressing.
+- [ ] Open World Lab and change a biome value: back in the game the rows are still there.
+
 **0w. Quick Play controls (4 Nov)** — Character Lab → Quick Play
 - [ ] Jump and Pick up are bottom-left, the move pad bottom-right; the character and ground sit above them.
 - [ ] Hold the move pad with the right thumb and tap Jump with the left: she jumps while still moving. Same for Pick up next to a box.
@@ -218,6 +225,7 @@ app and make a Project Backup.
 ---
 
 ## Next
+- [ ] **Rows for the far side:** once near-side rows are settled on the phone, the same row model (depth ±, scale ±, spacing ±, textures) for the dressing beyond the path; later *strip* rows (a long, short grass texture repeated continuously along a row) when those textures exist.
 - [ ] **Carry pose per character:** the game's carry arms (`carryPose` in `biped-rig.js`) are one set of hand targets tuned for Hero 1, so Character01 holds things lower. Let each character set its carry (a *Carry* action slot with an animation, or carry hand targets in Quick Play next to the test box), used by the game and Quick Play. Pick-up/put-down reach likewise.
 - [ ] **Performance audit (game and Labs):** look for work repeated every frame that only needs doing when something changes, like the character-library re-parsing fixed on 4 Nov (`localStorage` reads + `JSON.parse` in per-frame paths, rebuilding lists/meshes/geometry that haven't changed, DOM updates during playback). Known next candidate: terrain height lookups (`terrainSparseNumberAt`, `terrainLayerSectionHeight`) are the biggest remaining script cost in a run. Measure first (CPU-throttled profile while running), fix the largest, keep a short before/after table in the PR.
 - [ ] **Character Lab overlays follow the drawing method (view only, small):** the Display *Rigid Planes* button draws the rig's original cut-out frames whatever the drawing method, so on a Mesh character (the Fox) it outlines frames nothing uses. For Mesh characters, replace it with a *Mesh* overlay showing every piece's wireframe, deforming live with the pose (useful in Animate); Parts characters keep *Rigid Planes*. In Skin, change *Wireframe: On/Off* to *Off / Selected / All* (selected piece stays highlighted), like the Atlas tool's *Wireframes* choice. Nothing saved changes; the game is unaffected.

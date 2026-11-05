@@ -40,6 +40,7 @@ const CORE_SHELL = [
   "./quadruped-baseline.js",
   "./quadruped-rig.js",
   "./sidescroll.js",
+  "./near-rows.js",
   "./character-game-runtime.js",
   "./baked-game-design.js",
   "./puzzle-groups.js",

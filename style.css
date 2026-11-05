@@ -15531,3 +15531,29 @@ body[data-game-id="game-17"] .animlab-jump-timing button{min-height:30px;padding
 body[data-game-id="game-17"] .animlab-jump-timing button:disabled{opacity:.4;}
 body[data-game-id="game-17"] .animlab-key-cell.lift-off{box-shadow:inset 0 -3px 0 #ffcb76;}
 body[data-game-id="game-17"] .animlab-key-cell.landing{box-shadow:inset 0 -3px 0 #c4a0ff;}
+
+/* Editor → Environment → Near-side rows (near-rows.js). */
+.sidescroll-near-rows{margin:10px 0;padding:8px 10px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(0,0,0,.14);}
+.sidescroll-near-rows>summary{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;list-style:none;}
+.sidescroll-near-rows>summary::-webkit-details-marker{display:none;}
+.sidescroll-near-rows>summary small{opacity:.7;font-size:11px;}
+.sidescroll-near-rows.is-unavailable .sidescroll-near-rows-enable,.sidescroll-near-rows.is-unavailable .sidescroll-near-rows-actions{opacity:.4;pointer-events:none;}
+.sidescroll-near-rows-enable{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0;font-size:12px;font-weight:700;}
+.sidescroll-near-rows-enable small{font-weight:500;opacity:.7;}
+.sidescroll-near-rows-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:6px 0;}
+.sidescroll-near-rows-tabs button{min-height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:700 11px/1 system-ui,sans-serif;}
+.sidescroll-near-rows-tabs button.active{background:rgba(126,216,199,.28);border-color:rgba(126,216,199,.7);}
+.sidescroll-near-rows-body{display:grid;gap:4px;}
+.sidescroll-near-rows-on{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;}
+.sidescroll-near-rows-slider{display:grid;grid-template-columns:5.2em minmax(0,1fr) 3.4em;grid-template-rows:auto auto;column-gap:6px;align-items:center;font-size:11px;}
+.sidescroll-near-rows-slider span{font-weight:700;}
+.sidescroll-near-rows-slider input{width:100%;min-width:0;}
+.sidescroll-near-rows-slider output{text-align:right;font-variant-numeric:tabular-nums;}
+.sidescroll-near-rows-slider small{grid-column:2/4;opacity:.6;font-size:9px;margin-top:-3px;}
+.sidescroll-near-rows-texhead{font-size:10px;opacity:.7;margin-top:4px;}
+.sidescroll-near-rows-textures{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;}
+.sidescroll-near-rows-textures button{aspect-ratio:1;padding:2px;border-radius:7px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.04);opacity:.45;}
+.sidescroll-near-rows-textures button.active{opacity:1;border-color:rgba(126,216,199,.85);background:rgba(126,216,199,.18);}
+.sidescroll-near-rows-textures img{width:100%;height:100%;object-fit:contain;}
+.sidescroll-near-rows-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:8px;}
+.sidescroll-near-rows-actions button{min-height:32px;padding:0 12px;border-radius:8px;}

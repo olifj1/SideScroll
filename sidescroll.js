@@ -59,6 +59,7 @@
     mountain:{id:'mountain',label:'Mountain'}
   };
   const BIOME_RUNTIME_BUILTIN_IDS = Object.keys(BIOME_RUNTIME_DEFS);
+  const NearRows = window.SideScrollNearRows || null; // near-rows.js
   const BIOME_GLOBAL_OWNER = 'global';
   const BIOME_RUNTIME_PROFILE_DEFAULTS = {
     woodland:{
@@ -94,11 +95,11 @@
       out[biome]={};
       const rawBiome=rawProfiles?.[biome];
       if(rawBiome?.assets&&typeof rawBiome.assets==='object'){
-        out[biome].default={id:'default',label:String(rawBiome.label||'Default'),assets:{...runtimeProfileDefaults(biome).assets,...rawBiome.assets}};
+        out[biome].default={id:'default',label:String(rawBiome.label||'Default'),assets:{...runtimeProfileDefaults(biome).assets,...rawBiome.assets},nearRows:NearRows?.normalise(rawBiome.nearRows)||null};
       }else if(rawBiome&&typeof rawBiome==='object'){
         for(const [pid,profile] of Object.entries(rawBiome)){
           if(!profile||typeof profile!=='object')continue;
-          out[biome][pid]={id:pid,label:String(profile.label||pid),assets:{...runtimeProfileDefaults(biome).assets,...(profile.assets||{})}};
+          out[biome][pid]={id:pid,label:String(profile.label||pid),assets:{...runtimeProfileDefaults(biome).assets,...(profile.assets||{})},nearRows:NearRows?.normalise(profile.nearRows)||null};
         }
       }
       if(!out[biome].default)out[biome].default=runtimeProfileDefaults(biome);
@@ -256,11 +257,24 @@
   function tagProceduralBiomeObject(obj,owner,key,{candidatePool=false}={}){
     if(!obj)return obj;obj.biomeProceduralOwner=owner;obj.biomeActivation=stableBiomeHash01(key||obj.id);obj.biomeCandidatePool=!!candidatePool;return obj;
   }
+  function nearRowsOn(owner,profileId){return !!runtimeProfileRecord(owner,profileId)?.nearRows?.enabled;}
   function proceduralBiomeVisibleAt(obj,drawX){
     if(!obj?.biomeProceduralOwner)return true;
     const owner=runtimeBiomeOwner(obj.assetName);
     if(owner===BIOME_GLOBAL_OWNER)return false;
-    const ownerWeight=runtimeBiomeWeightsAt(drawX)[owner]||0;if(ownerWeight<=.0001)return false;
+    let ownerWeight=runtimeBiomeWeightsAt(drawX)[owner]||0;if(ownerWeight<=.0001)return false;
+    // Near-side rows: a profile with rows on shows its own rows (spaced by the
+    // row, not thinned by density) instead of the scattered near side.
+    if(obj.nearRowProfile!=null||obj.nearClassic){
+      let rowsWeight=0,classicWeight=0;
+      for(const stateAt of runtimeBiomeStatesAt(drawX)){
+        if(stateAt.biome!==owner)continue;
+        if(nearRowsOn(owner,stateAt.profile)){if(stateAt.profile===obj.nearRowProfile)rowsWeight+=stateAt.weight;}
+        else classicWeight+=stateAt.weight;
+      }
+      if(obj.nearRowProfile!=null)return obj.biomeActivation<=rowsWeight;
+      ownerWeight=classicWeight;if(ownerWeight<=.0001)return false;
+    }
     const entry=runtimeBiomeProfileEntryAt(owner,obj.assetName,drawX);
     let probability=ownerWeight;
     if(obj.biomeCandidatePool){
@@ -5075,22 +5089,26 @@ document.addEventListener('keydown',event=>{
     return obj;
   }
 
+  // Woodland ground dressing: family, pick weight, height range (hMin–hMax),
+  // spacing radius, same-texture spacing and near/far pick weights.
+  const WOODLAND_DRESSING_DEFS = Object.freeze({
+    ground01: { family:'foliage', weight:1.34, hMin:1.00, hMax:1.34, radius:0.96, same:4.0, nearWeight:1.32, farWeight:1.56 },
+    ground02: { family:'foliage', weight:1.12, hMin:1.26, hMax:1.68, radius:1.28, same:5.2, nearWeight:1.02, farWeight:1.16 },
+    ground03: { family:'foliage', weight:1.08, hMin:1.18, hMax:1.62, radius:1.18, same:4.7, nearWeight:1.22, farWeight:1.04 },
+    ground04: { family:'foliage', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
+    ground05: { family:'foliage', weight:0.72, hMin:0.98, hMax:1.28, radius:0.92, same:5.2, nearWeight:0.72, farWeight:1.42 },
+    ground06: { family:'foliage', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
+    ground07: { family:'foliage', weight:0.72, hMin:0.86, hMax:1.10, radius:1.02, same:4.8, nearWeight:0.90, farWeight:1.22 },
+    ground08: { family:'foliage',    weight:0.50, hMin:1.04, hMax:1.34, radius:1.34, same:5.8, nearWeight:0.76, farWeight:0.78 },
+    ground09: { family:'rock', weight:0.82, hMin:0.80, hMax:1.00, radius:0.94, same:4.4, nearWeight:0.84, farWeight:1.62 },
+    ground10: { family:'rock', weight:0.36, hMin:1.06, hMax:1.36, radius:1.28, same:5.8, nearWeight:0.68, farWeight:0.58 },
+    ground11: { family:'foliage', weight:1.18, hMin:0.98, hMax:1.28, radius:0.94, same:4.0, nearWeight:1.28, farWeight:1.54 },
+    ground12: { family:'foliage', weight:0.94, hMin:1.06, hMax:1.42, radius:1.08, same:4.4, nearWeight:1.12, farWeight:0.96 }
+  });
+
   function scatterForest() {
     const trees = ['tree01', 'tree02', 'tree03', 'tree04', 'tree05', 'tree06', 'tree07', 'tree08'];
-    const dressingDefs = {
-      ground01: { family:'foliage', weight:1.34, hMin:1.00, hMax:1.34, radius:0.96, same:4.0, nearWeight:1.32, farWeight:1.56 },
-      ground02: { family:'foliage', weight:1.12, hMin:1.26, hMax:1.68, radius:1.28, same:5.2, nearWeight:1.02, farWeight:1.16 },
-      ground03: { family:'foliage', weight:1.08, hMin:1.18, hMax:1.62, radius:1.18, same:4.7, nearWeight:1.22, farWeight:1.04 },
-      ground04: { family:'foliage', weight:1.04, hMin:1.18, hMax:1.64, radius:1.24, same:4.8, nearWeight:1.08, farWeight:1.18 },
-      ground05: { family:'foliage', weight:0.72, hMin:0.98, hMax:1.28, radius:0.92, same:5.2, nearWeight:0.72, farWeight:1.42 },
-      ground06: { family:'foliage', weight:1.10, hMin:1.16, hMax:1.56, radius:1.22, same:4.8, nearWeight:1.14, farWeight:1.06 },
-      ground07: { family:'foliage', weight:0.72, hMin:0.86, hMax:1.10, radius:1.02, same:4.8, nearWeight:0.90, farWeight:1.22 },
-      ground08: { family:'foliage',    weight:0.50, hMin:1.04, hMax:1.34, radius:1.34, same:5.8, nearWeight:0.76, farWeight:0.78 },
-      ground09: { family:'rock', weight:0.82, hMin:0.80, hMax:1.00, radius:0.94, same:4.4, nearWeight:0.84, farWeight:1.62 },
-      ground10: { family:'rock', weight:0.36, hMin:1.06, hMax:1.36, radius:1.28, same:5.8, nearWeight:0.68, farWeight:0.58 },
-      ground11: { family:'foliage', weight:1.18, hMin:0.98, hMax:1.28, radius:0.94, same:4.0, nearWeight:1.28, farWeight:1.54 },
-      ground12: { family:'foliage', weight:0.94, hMin:1.06, hMax:1.42, radius:1.08, same:4.4, nearWeight:1.12, farWeight:0.96 }
-    };
+    const dressingDefs = WOODLAND_DRESSING_DEFS;
 
     const placedTrees = [];
     const placedDressings = [];
@@ -5221,6 +5239,7 @@ document.addEventListener('keydown',event=>{
         layer: classifyLayer(z)
       });
       tagProceduralBiomeObject(obj,'woodland',obj.id);
+      if (side > 0) obj.nearClassic = true; // replaced by a profile's near-side rows when it has them on
       placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.74 + height * 0.15)), same:def.same || 5.0, obj });
       return true;
     }
@@ -5266,6 +5285,7 @@ document.addEventListener('keydown',event=>{
         layer: classifyLayer(z)
       });
       tagProceduralBiomeObject(obj,'woodland',obj.id);
+      if (side > 0) obj.nearClassic = true;
       placedDressings.push({ x, z, type, family:def.family, radius:Math.max(dressingGeneralSpacing, def.radius * (0.76 + baseHeight * 0.15)), same:def.same || 5.0 });
       return true;
     }
@@ -5292,6 +5312,7 @@ document.addEventListener('keydown',event=>{
     let nearPlaced = 0;
     attempts = 0;
     const nearTarget = 208;
+    forestScattered = true;
     while (nearPlaced < nearTarget && attempts < 8200) {
       attempts += 1;
       const x = TILE.minX + rand() * TILE_WIDTH;
@@ -5308,9 +5329,82 @@ document.addEventListener('keydown',event=>{
       if (addProceduralDressing(x, z, 1, `near-${nearPlaced}`)) nearPlaced += 1;
     }
 
+    buildNearRows();
     backdrop.sort((a, b) => a.z - b.z);
     midfill.sort((a, b) => a.z - b.z);
     frontOccluders.sort((a, b) => a.z - b.z);
+  }
+
+  // ---- Near-side rows (near-rows.js) ----------------------------------------
+  // For every woodland profile with rows (on or off, so switching on is instant),
+  // place each row's items along the tile: x steps by spacing ± its jitter, depth
+  // by row depth ± jitter, size by the texture's normal height × scale ± jitter.
+  // Seeded per profile and row, so a layout only changes when its row changes.
+  let forestScattered = false;
+  function seededRandom(seedText){
+    let h=2166136261>>>0;for(const ch of String(seedText)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)>>>0;}
+    return()=>{h=(h+0x6D2B79F5)>>>0;let t=h;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};
+  }
+  function removeNearRowObjects(profileId=null){
+    for(const list of [backdrop,midfill,frontOccluders]){
+      for(let i=list.length-1;i>=0;i-=1){
+        const obj=list[i];
+        if(obj?.nearRowProfile!=null&&(profileId===null||obj.nearRowProfile===profileId)){
+          if(selectedObject===obj){selectedObject=null;selectionCycleInfo=null;}
+          list.splice(i,1);
+        }
+      }
+    }
+  }
+  function placeNearRows(owner,profileId,rowsData){
+    const created=[];
+    rowsData.rows.forEach((row,r)=>{
+      const pool=row.textures.filter(t=>WOODLAND_DRESSING_DEFS[t]);
+      if(!row.on||!pool.length)return;
+      const rand=seededRandom(`nearrow|${owner}|${profileId}|${r}`);
+      const jit=amount=>(rand()*2-1)*amount;
+      let x=TILE.minX+rand()*row.spacing,n=0;
+      while(x<TILE.maxX&&n<2000){
+        const type=pool[Math.floor(rand()*pool.length)],def=WOODLAND_DRESSING_DEFS[type];
+        const z=Math.min(WORLD.nearZ-0.3,Math.max(PATH_FLAT_HALF+0.05,row.depth+jit(row.depthJitter)));
+        const scale=Math.max(0.05,row.scale+jit(row.scaleJitter));
+        const legacyHeight=(def.hMin+def.hMax)/2*scale;
+        const legacyDefault=(type==='ground09'||type==='ground04'||type==='ground07')?0.88:0.82;
+        const height=proceduralHeightFromAssetLab(type,legacyHeight,legacyDefault);
+        const obj=addObject(targetCollectionForZ(z),type,x,z,null,height,{
+          id:`nearrow-${profileId}-${r}-${n}`,
+          y:terrainVisibleGroundYAt(x,z),
+          shade:0.985+rand()*0.055,
+          opacity:0.95+rand()*0.05,
+          flip:rand()<0.5,
+          layer:classifyLayer(z)
+        });
+        tagProceduralBiomeObject(obj,owner,obj.id);
+        obj.nearRowProfile=profileId;
+        created.push(obj);
+        x+=Math.max(0.2,row.spacing+jit(row.spacingJitter));n+=1;
+      }
+    });
+    return created;
+  }
+  function buildNearRows(onlyProfile=null){
+    if(!NearRows)return [];
+    const owner='woodland',created=[];
+    for(const [profileId,profile] of Object.entries(runtimeBiomeState.profiles?.[owner]||{})){
+      if(onlyProfile!==null&&profileId!==onlyProfile)continue;
+      if(profile?.nearRows)created.push(...placeNearRows(owner,profileId,profile.nearRows));
+    }
+    return created;
+  }
+  // Live re-scatter (editor Rows panel): rebuild one profile's rows, re-apply
+  // any saved hand edits to them, and keep draw order sorted by depth.
+  function rebuildNearRows(profileId){
+    if(!forestScattered)return 0;
+    removeNearRowObjects(profileId);
+    const created=buildNearRows(profileId);
+    for(const obj of created)applyOverrideToObject(obj,sceneData.overrides[obj.id]);
+    for(const list of [backdrop,midfill,frontOccluders])list.sort((a,b)=>a.z-b.z);
+    return created.length;
   }
 
   let mountainBiomeCandidatesLoaded = false;
@@ -19321,8 +19415,134 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(editorDoneBtn, () => {
     if(worldGroupEditSession)return;
     if(puzzleWorkspaceActive&&!leavePuzzleWorkspace())return;
+    if(nearRowsEdit?.dirty){
+      if(window.confirm('Save your near-side row changes?'))saveNearRows();
+      else revertNearRows();
+    }
     setEditMode(false);
   });
+
+  // ---- Editor: Near-side rows panel ----------------------------------------
+  // Edits the near-side rows of the woodland profile at the camera, live. The
+  // working copy is the runtime profile; Save writes it into the biome storage,
+  // Revert reloads it from there.
+  const nearRowsPanel=document.getElementById('sidescroll-near-rows');
+  const nearRowsScopeEl=document.getElementById('sidescroll-near-rows-scope');
+  const nearRowsEnabledEl=document.getElementById('sidescroll-near-rows-enabled');
+  const nearRowsTabsEl=document.getElementById('sidescroll-near-rows-tabs');
+  const nearRowsRowEl=document.getElementById('sidescroll-near-rows-row');
+  const nearRowsStatusEl=document.getElementById('sidescroll-near-rows-status');
+  let nearRowsEdit=null; // {profileId, dirty}
+  let nearRowsTab=0, nearRowsRebuildQueued=false;
+  function nearRowsProfileHere(){
+    const states=runtimeBiomeStatesAt(camera.x).filter(stateAt=>stateAt.biome==='woodland').sort((a,b)=>b.weight-a.weight);
+    return states[0]?.profile||null;
+  }
+  const nearRowsProfileId=()=>nearRowsEdit?.profileId||nearRowsProfileHere();
+  function nearRowsData(profileId=nearRowsProfileId()){
+    const record=profileId?runtimeProfileRecord('woodland',profileId):null;
+    return record?(record.nearRows||NearRows.defaults()):null;
+  }
+  function setNearRowsStatus(text){if(nearRowsStatusEl)nearRowsStatusEl.textContent=text||'';}
+  function editNearRows(change){
+    const profileId=nearRowsProfileId(),record=profileId?runtimeProfileRecord('woodland',profileId):null;
+    if(!record||!NearRows)return;
+    const data=record.nearRows?deepCopy(record.nearRows):NearRows.defaults();
+    change(data);
+    record.nearRows=NearRows.normalise(data);
+    nearRowsEdit={profileId,dirty:true};
+    setNearRowsStatus('Unsaved changes · Save rows to keep them');
+    if(!nearRowsRebuildQueued){
+      nearRowsRebuildQueued=true;
+      requestAnimationFrame(()=>{nearRowsRebuildQueued=false;rebuildNearRows(profileId);});
+    }
+  }
+  function saveNearRows(){
+    const profileId=nearRowsEdit?.profileId,record=profileId?runtimeProfileRecord('woodland',profileId):null;
+    if(!record?.nearRows)return;
+    let raw=null;try{raw=JSON.parse(localStorage.getItem(BIOME_STORAGE_KEY)||'null');}catch(_){}
+    raw=raw&&typeof raw==='object'?raw:{};
+    raw.profiles=raw.profiles&&typeof raw.profiles==='object'?raw.profiles:{};
+    let biome=raw.profiles.woodland;
+    if(biome?.assets&&typeof biome.assets==='object'){
+      // Older single-profile shape: the biome entry is its default profile.
+      if(profileId==='default'){biome.nearRows=deepCopy(record.nearRows);}
+      else raw.profiles.woodland=biome={default:{id:'default',label:biome.label||'Default',assets:biome.assets,...(biome.nearRows?{nearRows:biome.nearRows}:{})}};
+    }
+    if(!biome||typeof biome!=='object')raw.profiles.woodland=biome={};
+    if(!biome.assets){
+      biome[profileId]=biome[profileId]&&typeof biome[profileId]==='object'?biome[profileId]:{id:profileId,label:record.label,assets:deepCopy(record.assets||{})};
+      biome[profileId].nearRows=deepCopy(record.nearRows);
+    }
+    try{localStorage.setItem(BIOME_STORAGE_KEY,JSON.stringify(raw));}
+    catch(err){setNearRowsStatus(`Couldn't save: ${err?.message||err}`);return;}
+    nearRowsEdit=null;
+    setNearRowsStatus('Saved to the biome profile.');
+  }
+  function revertNearRows(){
+    runtimeBiomeState=loadRuntimeBiomeState();
+    removeNearRowObjects(null);
+    const created=buildNearRows();
+    for(const obj of created)applyOverrideToObject(obj,sceneData.overrides[obj.id]);
+    for(const list of [backdrop,midfill,frontOccluders])list.sort((a,b)=>a.z-b.z);
+    nearRowsEdit=null;
+    setNearRowsStatus('Back to the saved rows.');
+    renderNearRowsPanel();
+  }
+  const NEAR_ROW_FIELDS=[
+    ['depth','Depth','m from the path',.05],['depthJitter','± depth','m',.05],
+    ['scale','Scale','× normal size',.01],['scaleJitter','± scale','×',.01],
+    ['spacing','Spacing','m apart',.05],['spacingJitter','± spacing','m',.05]
+  ];
+  function renderNearRowsPanel(){
+    if(!nearRowsPanel||!NearRows)return;
+    const profileId=nearRowsProfileId(),data=nearRowsData(profileId);
+    const record=profileId?runtimeProfileRecord('woodland',profileId):null;
+    if(nearRowsScopeEl)nearRowsScopeEl.textContent=record?`Woodland · profile ${record.label||profileId}`:'No woodland here';
+    nearRowsPanel.classList.toggle('is-unavailable',!data);
+    if(!data){nearRowsRowEl.replaceChildren();nearRowsTabsEl.replaceChildren();return;}
+    nearRowsEnabledEl.checked=!!data.enabled;
+    nearRowsTabsEl.replaceChildren(...data.rows.map((row,i)=>{
+      const b=document.createElement('button');b.type='button';b.setAttribute('role','tab');
+      b.textContent=`${row.label}${row.on?'':' · off'}`;b.classList.toggle('active',i===nearRowsTab);b.setAttribute('aria-selected',String(i===nearRowsTab));
+      b.addEventListener('click',()=>{nearRowsTab=i;renderNearRowsPanel();});
+      return b;
+    }));
+    const row=data.rows[nearRowsTab],L=NearRows.LIMITS;
+    const body=document.createElement('div');body.className='sidescroll-near-rows-body';
+    const on=document.createElement('label');on.className='sidescroll-near-rows-on';
+    on.innerHTML=`<input type="checkbox"${row.on?' checked':''}> ${row.label} row on`;
+    on.querySelector('input').addEventListener('change',ev=>{editNearRows(d=>{d.rows[nearRowsTab].on=ev.target.checked;});renderNearRowsPanel();});
+    body.appendChild(on);
+    for(const [key,label,unit,step] of NEAR_ROW_FIELDS){
+      const wrap=document.createElement('label');wrap.className='sidescroll-near-rows-slider';
+      wrap.innerHTML=`<span>${label}</span><input type="range" min="${L[key][0]}" max="${L[key][1]}" step="${step}" value="${row[key]}"><output>${row[key].toFixed(2)}</output><small>${unit}</small>`;
+      const input=wrap.querySelector('input'),out=wrap.querySelector('output');
+      input.addEventListener('input',()=>{const v=Number(input.value);out.textContent=v.toFixed(2);editNearRows(d=>{d.rows[nearRowsTab][key]=v;});});
+      body.appendChild(wrap);
+    }
+    const tex=document.createElement('div');tex.className='sidescroll-near-rows-textures';
+    tex.setAttribute('aria-label','Textures in this row');
+    for(const name of NearRows.TEXTURES){
+      const b=document.createElement('button');b.type='button';b.title=`Ground ${Number(name.slice(-2))}`;
+      const chosen=row.textures.includes(name);b.classList.toggle('active',chosen);b.setAttribute('aria-pressed',String(chosen));
+      const img=document.createElement('img');img.alt=b.title;img.src=assetPath(`sidescroll-ground-${name.slice(-2)}.png`);b.appendChild(img);
+      b.addEventListener('click',()=>{
+        editNearRows(d=>{const list=d.rows[nearRowsTab].textures;const i=list.indexOf(name);if(i>=0)list.splice(i,1);else list.push(name);});
+        renderNearRowsPanel();
+      });
+      tex.appendChild(b);
+    }
+    const texHead=document.createElement('small');texHead.className='sidescroll-near-rows-texhead';texHead.textContent='Textures in this row (tap to include)';
+    body.append(texHead,tex);
+    nearRowsRowEl.replaceChildren(body);
+  }
+  if(nearRowsPanel&&NearRows){
+    nearRowsPanel.addEventListener('toggle',()=>{if(nearRowsPanel.open)renderNearRowsPanel();});
+    nearRowsEnabledEl?.addEventListener('change',()=>{editNearRows(d=>{d.enabled=nearRowsEnabledEl.checked;});renderNearRowsPanel();});
+    bindEditorPress(document.getElementById('sidescroll-near-rows-save'),saveNearRows);
+    bindEditorPress(document.getElementById('sidescroll-near-rows-revert'),revertNearRows);
+  }else if(nearRowsPanel)nearRowsPanel.hidden=true;
   bindEditorPress(environmentScopeBtn, () => setEditorScope('environment'));
   bindEditorPress(terrainScopeBtn, () => setEditorScope('terrain'));
   bindEditorPress(puzzleScopeBtn, () => setEditorScope('puzzle'));
@@ -20140,7 +20360,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function knownProceduralOverrideId(id){
     const value=String(id||'');
-    return value.startsWith('forest263-') || value.startsWith('dressing263-') || value.startsWith('biome-mountain-');
+    return value.startsWith('forest263-') || value.startsWith('dressing263-') || value.startsWith('biome-mountain-') || value.startsWith('nearrow-');
   }
 
   function resetProceduralPlacementChanges({sectionIndex=null}={}){

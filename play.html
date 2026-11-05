@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.24">
+  <link rel="stylesheet" href="style.css?v=1.1.46">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -550,6 +550,19 @@
             <section class="sidescroll-environment-selection" id="sidescroll-environment-selection">
               <button class="sidescroll-open-assets" id="sidescroll-open-environment-assets" type="button">＋ Add Environment Asset</button>
 
+              <details class="sidescroll-near-rows" id="sidescroll-near-rows">
+                <summary><strong>Near-side rows</strong><small id="sidescroll-near-rows-scope">Woodland</small></summary>
+                <p class="sidescroll-puzzle-help">Grass and rocks between the camera and the path, as three rows that follow the path. Changes show live; <strong>Save rows</strong> keeps them in this biome profile (World content).</p>
+                <label class="sidescroll-near-rows-enable"><input type="checkbox" id="sidescroll-near-rows-enabled"> Use rows here <small>(replaces the scattered near side for this profile)</small></label>
+                <div class="sidescroll-near-rows-tabs" id="sidescroll-near-rows-tabs" role="tablist" aria-label="Row"></div>
+                <div id="sidescroll-near-rows-row"></div>
+                <div class="sidescroll-near-rows-actions">
+                  <button id="sidescroll-near-rows-revert" type="button">Revert</button>
+                  <button id="sidescroll-near-rows-save" class="primary" type="button">Save rows</button>
+                </div>
+                <p class="sidescroll-puzzle-help" id="sidescroll-near-rows-status"></p>
+              </details>
+
               <div class="sidescroll-panel-section-head compact">
                 <strong>World Groups</strong>
                 <small id="sidescroll-world-group-count">0 groups</small>
@@ -817,6 +830,7 @@
   <script src="baked-game-design.js?v=1.0.62"></script>
   <script src="audio.js?v=1.0.62"></script>
   <script src="character-game-runtime.js?v=1.1.39"></script>
-  <script src="sidescroll.js?v=1.1.41"></script>
+  <script src="near-rows.js?v=1.1.46"></script>
+  <script src="sidescroll.js?v=1.1.46"></script>
 </body>
 </html>
