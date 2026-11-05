@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Performance:** every wrapped grass/rock/tree re-measured the terrain height under
+  it twice per frame (its home spot and where it's drawn), plus twice more for slope
+  tilt, which made terrain lookups the biggest per-frame cost and grew with every item
+  (so denser near-side rows slowed the game). In play these are now kept per item and
+  drawn position until the terrain changes (not cached while editing). Asset behaviour
+  settings are likewise kept instead of re-merged for every item every frame.
+  Measured (4× CPU throttle): rows off 185 → 162 ms/frame, default rows 189 → 154,
+  dense rows (0.4 m spacing) 258 → 199; the picture is pixel-identical.
 - **Near-side rows** (game editor → Environment → *Near-side rows*): a woodland biome
   profile can replace the scattered grass/rocks between the camera and the path with
   three rows (Edge, Middle, Outer) that follow the path. Each row: on/off, **depth**

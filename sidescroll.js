@@ -3271,7 +3271,31 @@ document.addEventListener('keydown',event=>{
 
   function invalidateTerrainHeightCache() {
     terrainResolvedHeightCache.clear();
+    terrainDrawCacheGeneration += 1;
   }
+  // Wrapped scenery re-grounds itself at its drawn X every frame (objectYAtDrawX,
+  // slope tilt), which made terrain lookups the largest per-frame cost and grow
+  // with every grass/rock item. In play the terrain doesn't change, so each
+  // object keeps those results per drawn X until the terrain changes
+  // (invalidateTerrainHeightCache) or the object moves. Not used while editing.
+  var terrainDrawCacheGeneration = 0;
+  function terrainDrawCache(obj) {
+    let editing = true;
+    try { editing = editMode; } catch (_) {} // declared later; start-up draws skip the cache
+    if (editing) return null;
+    let c = obj._terrainDraw;
+    if (!c || c.gen !== terrainDrawCacheGeneration || c.x !== obj.x || c.z !== obj.z || c.y !== obj.y
+        || c.category !== obj.category || c.locked !== obj.gameplayLayerLocked || c.asset !== obj.assetName) {
+      c = obj._terrainDraw = { gen:terrainDrawCacheGeneration, x:obj.x, z:obj.z, y:obj.y, category:obj.category,
+        locked:obj.gameplayLayerLocked, asset:obj.assetName, source:null, bases:new Map(), angles:new Map() };
+    }
+    return c;
+  }
+  const remember = (map, key, compute) => {
+    let v = map.get(key);
+    if (v === undefined) { if (map.size > 6) map.clear(); v = compute(); map.set(key, v); }
+    return v;
+  };
 
   function terrainSectionPathHeight(index) {
     const i = Math.trunc(Number(index) || 0);
@@ -4059,9 +4083,11 @@ document.addEventListener('keydown',event=>{
     // re-grounded at its wrapped draw X.
     if (obj.layer === 'ground') return Number(obj.y);
     if (!obj.wrap || objectUsesFreePlacement(obj) || !Number.isFinite(Number(drawX))) return Number(obj.y);
-    const sourceBase = terrainAnchorBaseY(obj.x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
-    const drawBase = terrainAnchorBaseY(Number(drawX), obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
-    return Number(obj.y) + (drawBase - sourceBase);
+    const base = x => terrainAnchorBaseY(x, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
+    const cache = terrainDrawCache(obj);
+    if (!cache) return Number(obj.y) + (base(Number(drawX)) - base(obj.x));
+    if (cache.source === null) cache.source = base(obj.x);
+    return Number(obj.y) + (remember(cache.bases, Number(drawX), () => base(Number(drawX))) - cache.source);
   }
 
   const CRATE_HALF_WIDTH_FACTOR = 0.43;
@@ -4829,7 +4855,25 @@ document.addEventListener('keydown',event=>{
     return Object.prototype.hasOwnProperty.call(ASSET_BEHAVIOUR_DEFAULTS, settingsName) || Object.prototype.hasOwnProperty.call(assetBehaviourOverrides, settingsName);
   }
 
+  // Asked for every object many times a frame, so merged results are kept per
+  // asset + state. Cleared when the settings objects are replaced (reload) or
+  // edited in place (clearAssetBehaviourCache). Callers must not change the result.
+  const assetBehaviourCache = new Map();
+  let assetBehaviourCacheSources = null;
+  function clearAssetBehaviourCache() { assetBehaviourCache.clear(); }
   function assetBehaviours(assetName, stateName = null) {
+    if (!assetBehaviourCacheSources || assetBehaviourCacheSources[0] !== assetBehaviourOverrides || assetBehaviourCacheSources[1] !== assetStateProfiles) {
+      assetBehaviourCache.clear();
+      assetBehaviourCacheSources = [assetBehaviourOverrides, assetStateProfiles];
+    }
+    const cacheKey = `${assetName}|${stateName ?? ''}`;
+    const cached = assetBehaviourCache.get(cacheKey);
+    if (cached) return cached;
+    const merged = mergedAssetBehaviours(assetName, stateName);
+    assetBehaviourCache.set(cacheKey, merged);
+    return merged;
+  }
+  function mergedAssetBehaviours(assetName, stateName = null) {
     const settingsName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     const defaults = ASSET_BEHAVIOUR_DEFAULTS[settingsName] || EMPTY_ASSET_BEHAVIOURS;
     const overrides = assetBehaviourOverrides[settingsName] || {};
@@ -9814,6 +9858,7 @@ document.addEventListener('keydown',event=>{
     if (key === 'stackable' && enabled) next.placeable = true;
     if (key === 'pushable' && enabled) next.solid = true;
     assetBehaviourOverrides[assetName] = Object.fromEntries(ASSET_BEHAVIOUR_KEYS.map(k => [k, !!next[k]]));
+    clearAssetBehaviourCache();
     if (key === 'climbable' && enabled && !assetClimbPaths(assetName).length) {
       assetClimbPathOverrides[assetName] = [genericAssetClimbPath()];
       saveAssetClimbPaths();
@@ -9827,6 +9872,7 @@ document.addEventListener('keydown',event=>{
   function resetAssetBehaviours(assetName) {
     if (!assetName) return;
     delete assetBehaviourOverrides[assetName];
+    clearAssetBehaviourCache();
     delete assetCollisionDefaults[assetName];
     delete assetClimbPathOverrides[assetName];
     saveAssetBehaviourOverrides();
@@ -17273,7 +17319,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
               const y1=editorGroundBaseYForObject(obj,baseDrawX+sample,obj.z);
               return Rig.clamp(Math.atan2(y1-y0,sample*2),-Math.PI*.28,Math.PI*.28);
             })()
-          : terrainSurfaceAngleAt(baseDrawX, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName))
+          : (()=>{
+              const cache=terrainDrawCache(obj),angle=()=>terrainSurfaceAngleAt(baseDrawX, obj.z, obj.category, obj.gameplayLayerLocked, obj.assetName);
+              return cache?remember(cache.angles,baseDrawX,angle):angle();
+            })())
       : 0;
     const visualRotation = (Number(visual.rotationDeg) || 0) * Math.PI / 180 + (Number(obj.runtimeRotation) || 0) + followSurfaceRotation;
     const objectRotation = mechanismRotation || Number(obj.collectibleAngle) || visualRotation || 0;
