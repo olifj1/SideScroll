@@ -70,7 +70,8 @@ The authored project ships as built-in defaults so a fresh install has it:
   (publishes those characters on top; with only character files the current
   built-in content is the starting point), and/or a **publish package** from the
   Publish Lab (`sidescroll.publish-package.v1`: the ticked areas' content keys plus
-  character packages; only those are built in). Never edit it by hand.
+  character packages, and `registryShared` {roles, categories} when *Character roles
+  & categories* is ticked; only those are built in). Never edit it by hand.
 - **Publishing character art:** the tool writes a character's imported PNG to
   `assets/char-<character id>-<content hash>.png` and switches its atlas document
   to `{kind:'bundled', file}`; the game and Character Lab load that pattern only

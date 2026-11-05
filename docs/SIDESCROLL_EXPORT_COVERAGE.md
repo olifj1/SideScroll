@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 5 November 2026 — Character roles & categories in publish packages
+The registry's project-wide `roles` and `categories` (Default player, playable categories) were in Project Backup but in no publish route: the registry key is left out of the Publish Lab areas (character packages carry each character's own entry). The Publish Lab now has a **Character roles & categories** row; a ticked package carries `registryShared: {roles, categories}`, which `tools/bake_project.py` writes into the built-in registry, keeping its per-character entries. *Use published* replaces only those two lists on the device.
+
 ## 4 November 2026 — Near-side rows
 A biome profile in `sidescroll.biomes.v1` may hold `nearRows` (see `near-rows.js`), written by the game editor's Near-side rows panel. No new key: it travels with the biome data in Project Backup, publish packages (World area) and World Lab's export, and World Lab keeps it when saving. Hand edits of row items use the usual scene overrides (`nearrow-…` ids) and Reset procedural placement.
 

@@ -8,8 +8,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
   starts with — library characters (e.g. Character01) included — and the character
   Character Lab opens on (unless that session was already editing one). Moving the
   role also clears this device's own game choice so your next game starts with it;
-  players elsewhere keep a character they picked. Publish the change (Character
-  templates & actions / registry) for it to reach everyone.
+  players elsewhere keep a character they picked. Publish it with the Publish Lab's
+  new **Character roles & categories** row for it to reach everyone (roles and
+  categories travelled with neither character files nor any area before).
 - Fixed: picking a library character in the game was forgotten on the next launch
   (start-up saved the built-in character over it before library characters had
   loaded), and a library Default player only applied to a new player's first launch.
