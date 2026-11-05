@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#0d161b">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="puzzle-lab.css?v=1.0.68">
+  <link rel="stylesheet" href="puzzle-lab.css?v=1.1.49">
   <title>SideScroll · Puzzle Lab</title>
 </head>
 <body>
@@ -33,6 +33,7 @@
       </div>
       <p class="pl-copy">Puzzle Lab runs one reusable puzzle in its own disposable test stage. Main-world puzzle positions, World Lab layout and scene dressing are not changed by the sandbox.</p>
       <div class="pl-project-list" id="pl-project-list"></div>
+      <button class="pl-link-button" id="pl-show-hidden" type="button" hidden>Show hidden built-in puzzles</button>
     </section>
 
     <section class="pl-card pl-selected-card">
@@ -40,6 +41,10 @@
       <h2 id="pl-selected-name">Puzzle</h2>
       <p id="pl-selected-note" class="pl-copy"></p>
       <div class="pl-meta" id="pl-selected-meta"></div>
+      <div class="pl-manage">
+        <button class="pl-danger" id="pl-delete" type="button">Delete puzzle</button>
+        <small id="pl-manage-note"></small>
+      </div>
     </section>
 
     <section class="pl-card">
@@ -61,14 +66,14 @@
       </div>
 
       <div class="pl-field-group">
-        <div class="pl-inline-head"><strong>Puzzle marker</strong><b id="pl-position-value">0.0 m</b></div>
+        <div class="pl-inline-head"><strong>Puzzle position in the test stage</strong><b id="pl-position-value">0.0 m</b></div>
         <div class="pl-position-row">
           <button type="button" data-position="0">Section centre</button>
           <button type="button" data-position="5">Boundary</button>
           <button type="button" data-position="2.3">Offset</button>
         </div>
         <label class="pl-number-field"><span>X position</span><input id="pl-position" type="number" inputmode="decimal" step="0.1" value="0"></label>
-        <small>These presets are the first portability checks: centre → section boundary → arbitrary offset.</small>
+        <small>Where the puzzle's marker (its origin) sits in the empty test stage. Moving it checks the puzzle works anywhere in the world: centre of a terrain section → on a section boundary → an arbitrary offset. Run Test starts the player just left of the puzzle's left edge (its bounds), wherever it is.</small>
       </div>
 
       <label class="pl-toggle-row">
@@ -116,8 +121,8 @@
   <script src="project-defaults-data.js?v=2026-10-31-c2a"></script>
   <script src="saved-data-migrations.js?v=1.1.33"></script>
   <script src="project-defaults.js?v=1.1.33"></script>
-  <script src="puzzle-groups.js?v=1.0.68"></script>
-  <script src="puzzle-lab.js?v=1.0.70"></script>
+  <script src="puzzle-groups.js?v=1.1.49"></script>
+  <script src="puzzle-lab.js?v=1.1.49"></script>
   <script src="lab-data.js?v=1.0.204"></script>
 </body>
 </html>
