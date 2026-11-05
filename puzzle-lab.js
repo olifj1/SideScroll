@@ -24,6 +24,10 @@
       return parsed;
     } catch (_) { return { groups:{}, templates:{}, markers:[] }; }
   })();
+  // Built-in puzzles hidden by the author (Hide, below); kept in the library so
+  // the choice publishes with the project like the library itself.
+  const hiddenBuiltIns = new Set(Array.isArray(mainLibrary.hiddenBuiltIns) ? mainLibrary.hiddenBuiltIns : []);
+  let showHidden = false;
   const projectMap = new Map();
   for (const [id, def] of Object.entries(config.groups || {})) projectMap.set(id, { id, def, source:'built-in', template:null });
   for (const [id, def] of Object.entries(mainLibrary.groups || {})) projectMap.set(id, { id, def, source:'library', template:mainLibrary.templates?.[id] || null });
@@ -92,10 +96,19 @@
     return 'PUZZLE';
   }
 
+  function visibleProjects() {
+    return projects.filter(item => showHidden || !(item.source === 'built-in' && hiddenBuiltIns.has(item.id)));
+  }
   function renderProjects() {
     if (!listEl) return;
     listEl.innerHTML = '';
-    for (const item of projects) {
+    const hiddenCount = projects.filter(item => item.source === 'built-in' && hiddenBuiltIns.has(item.id)).length;
+    const showHiddenBtn = document.getElementById('pl-show-hidden');
+    if (showHiddenBtn) {
+      showHiddenBtn.hidden = !hiddenCount;
+      showHiddenBtn.textContent = showHidden ? 'Hide hidden built-in puzzles' : `Show ${hiddenCount} hidden built-in puzzle${hiddenCount === 1 ? '' : 's'}`;
+    }
+    for (const item of visibleProjects()) {
       const { id, def, source } = item;
       const button = document.createElement('button');
       button.type = 'button';
@@ -136,6 +149,7 @@
       modifiers.length ? `${modifiers.length} world modifier${modifiers.length === 1 ? '' : 's'}` : 'No world modifier'
     ].filter(Boolean);
     selectedMetaEl.innerHTML = tags.map(tag => `<span>${tag}</span>`).join('');
+    renderManage();
     const isClimb = state.groupId === 'MOUNTAIN_CLIMB_PROTO';
     document.getElementById('pl-checks-card').hidden = !isClimb;
     const primaryAsset = primaryAssetName();
@@ -259,5 +273,61 @@
     setTimeout(() => { resetBtn.textContent = 'Reset Puzzle Lab Test Data'; }, 1500);
   });
 
+  // ---- Delete (library) / Hide (built-in) ------------------------------------
+  // Library puzzles are project data: Delete removes the definition, its start
+  // state and its template entry — refused while it is placed in the world, so the
+  // world never loses a puzzle. Built-in puzzles are code: they can only be hidden.
+  const deleteBtn = document.getElementById('pl-delete');
+  const manageNoteEl = document.getElementById('pl-manage-note');
+  function readLibrary() {
+    try { const lib = JSON.parse(localStorage.getItem(MAIN_LIBRARY_KEY) || '{}') || {}; lib.groups ||= {}; lib.templates ||= {}; lib.markers ||= []; return lib; }
+    catch (_) { return null; }
+  }
+  function placementsOf(lib, id) { return (lib?.markers || []).filter(marker => marker?.group === id); }
+  function renderManage() {
+    const item = project();
+    if (!deleteBtn || !item) return;
+    if (item.source === 'built-in') {
+      const hidden = hiddenBuiltIns.has(item.id);
+      deleteBtn.textContent = hidden ? 'Show this built-in puzzle' : 'Hide this built-in puzzle';
+      deleteBtn.disabled = false;
+      manageNoteEl.textContent = 'Built-in puzzles are part of the game code, so they can be hidden here, not deleted.';
+      return;
+    }
+    const placed = placementsOf(readLibrary(), item.id);
+    deleteBtn.textContent = 'Delete puzzle';
+    deleteBtn.disabled = placed.length > 0;
+    manageNoteEl.textContent = placed.length
+      ? `Placed in your world ${placed.length === 1 ? 'once' : `${placed.length} times`} (at x ${placed.map(m => Math.round(Number(m.x) || 0)).join(', ')} m). Remove it from the world in the game editor first.`
+      : 'Not placed in your world. Deleting removes it from the project (Publish to remove it for everyone).';
+  }
+  function saveLibrary(lib) {
+    try { localStorage.setItem(MAIN_LIBRARY_KEY, JSON.stringify(lib)); return true; }
+    catch (err) { window.alert(`Couldn't save: ${err?.message || err}`); return false; }
+  }
+  deleteBtn?.addEventListener('click', () => {
+    const item = project(), lib = readLibrary();
+    if (!item || !lib) return;
+    const name = item.def?.label || item.id;
+    if (item.source === 'built-in') {
+      if (hiddenBuiltIns.has(item.id)) hiddenBuiltIns.delete(item.id); else hiddenBuiltIns.add(item.id);
+      lib.hiddenBuiltIns = [...hiddenBuiltIns];
+      if (!saveLibrary(lib)) return;
+      if (hiddenBuiltIns.has(item.id) && !showHidden) state.groupId = visibleProjects()[0]?.id || state.groupId;
+      saveState(); render(); return;
+    }
+    if (placementsOf(lib, item.id).length) { renderManage(); return; }
+    if (!window.confirm(`Delete “${name}” from the project? Its definition, start state and template are removed. This cannot be undone (a Project Backup can bring it back).`)) return;
+    delete lib.groups[item.id];
+    delete lib.templates[item.id];
+    if (Array.isArray(lib.puzzleTemplates)) lib.puzzleTemplates = lib.puzzleTemplates.filter(t => t?.groupId !== item.id);
+    if (!saveLibrary(lib)) return;
+    state.groupId = null; saveState();
+    location.reload();
+  });
+  document.getElementById('pl-show-hidden')?.addEventListener('click', () => { showHidden = !showHidden; render(); });
+
+  if (!projectMap.has(state.groupId) || (!showHidden && project()?.source === 'built-in' && hiddenBuiltIns.has(state.groupId)))
+    state.groupId = visibleProjects()[0]?.id || state.groupId;
   render();
 })();

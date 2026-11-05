@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 5 November 2026 — Puzzle Lab delete / hide
+Puzzle Lab writes the puzzle library (`sidescroll.puzzle-groups.library.v1`): *Delete puzzle* removes a library puzzle's `groups[id]`, `templates[id]` and `puzzleTemplates` entry (refused while `markers` place it in the world); *Hide* adds a built-in puzzle id to `hiddenBuiltIns`. No new key: both travel with the library (Puzzles area, Project Backup).
+
 ## 5 November 2026 — Character roles & categories in publish packages
 The registry's project-wide `roles` and `categories` (Default player, playable categories) were in Project Backup but in no publish route: the registry key is left out of the Publish Lab areas (character packages carry each character's own entry). The Publish Lab now has a **Character roles & categories** row; a ticked package carries `registryShared: {roles, categories}`, which `tools/bake_project.py` writes into the built-in registry, keeping its per-character entries. *Use published* replaces only those two lists on the device.
 

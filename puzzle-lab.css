@@ -29,3 +29,9 @@ button,a{-webkit-tap-highlight-color:transparent}
 .pl-launch-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}.pl-primary,.pl-secondary,.pl-danger{min-height:57px;border-radius:17px;font-weight:800;font-size:17px}.pl-primary{background:#d7b273;border:1px solid #e4c794;color:#1b1812}.pl-secondary{background:#29433f;border:1px solid #547b73;color:#e7f4f1}.pl-danger{width:100%;margin-top:16px;border:1px solid #805454;background:#2b1e20;color:#f1c5c5}.pl-launch-note{margin:10px 0 0}
 .pl-check-list{display:grid;gap:9px;margin-top:17px}.pl-check-list label{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:flex-start;padding:13px 14px;border:1px solid #34454c;border-radius:16px;background:#101b20;color:#cfdbdf;line-height:1.35}.pl-check-list input{width:22px;height:22px;margin:0;accent-color:#83aaa4}.pl-data-card{margin-bottom:12px}
 @media(max-width:640px){.pl-topbar{padding:13px 16px;gap:10px}.pl-home,.pl-tool-link{min-height:48px;padding:0 14px;border-radius:16px}.pl-title-block strong{font-size:24px}.pl-title-block span{font-size:14px}.pl-shell{padding:16px;gap:16px}.pl-card{padding:22px 20px;border-radius:24px}.pl-card h1,.pl-card h2{font-size:25px}.pl-copy{font-size:16px}.pl-launch-grid{grid-template-columns:1fr}.pl-position-row{grid-template-columns:1fr 1fr 1fr}.pl-number-field{grid-template-columns:1fr 112px}}
+/* Delete / Hide a puzzle (5 Nov 2026). */
+.pl-manage{display:grid;gap:6px;margin-top:12px}
+.pl-manage .pl-danger{min-height:44px}
+.pl-manage .pl-danger:disabled{opacity:.45}
+.pl-manage small{opacity:.75;line-height:1.35}
+.pl-link-button{margin-top:8px;background:none;border:0;color:inherit;opacity:.75;text-decoration:underline;font:inherit;padding:4px 0;cursor:pointer}

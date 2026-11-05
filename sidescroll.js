@@ -6037,8 +6037,11 @@ document.addEventListener('keydown',event=>{
     if (!marker) return { minX:-4, maxX:4 };
     if (puzzleDraftBounds[marker.id]) return puzzleDraftBounds[marker.id];
     const runtimeDraft = puzzleSavedState?.[marker.id]?.boundsDraft;
+    // Puzzle Lab's test copy falls back to the bounds of the template it was
+    // launched with, so Run Test starts the player at that template's left edge.
+    const labTemplateBounds = PUZZLE_LAB_MODE && marker.group === PUZZLE_LAB_GROUP_ID ? PUZZLE_LAB_LAUNCH?.template?.bounds : null;
     const authored = markerLinkMode(marker) === 'copy'
-      ? puzzleStartState[marker.id]?.bounds
+      ? (puzzleStartState[marker.id]?.bounds || labTemplateBounds)
       : (userPuzzleLibrary.templates?.[marker.group]?.bounds || puzzleStartState[marker.id]?.bounds);
     const source = runtimeDraft && Number.isFinite(runtimeDraft.minX) && Number.isFinite(runtimeDraft.maxX) ? runtimeDraft : authored;
     const initial = source && Number.isFinite(source.minX) && Number.isFinite(source.maxX)

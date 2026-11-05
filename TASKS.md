@@ -56,6 +56,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0aa. Puzzle Lab start and clean-up (5 Nov)** — Puzzle Lab
+- [ ] Pick one of your templates → **Run Test**: you start just left of the puzzle's left edge.
+- [ ] A library puzzle that isn't placed in the world → **Delete puzzle** (confirm): it's gone from the list. One that is placed: Delete is greyed out and says where it's placed.
+- [ ] Mountain Climb Prototype → **Hide this built-in puzzle**: gone from the list; *Show 1 hidden built-in puzzle* brings it back to view / unhide.
+- [ ] Your world still has all its puzzles (the old built-in Stone Wall / Fallen tree test definitions are gone from code).
+
 **0z. Default player (5 Nov)**
 - [ ] Character Lab → Settings → Roles → **Default player** → Character01: the status confirms it. Close and reopen the app: the game starts as Character01, and Character Lab opens on Character01.
 - [ ] In the game pick Character02, close and reopen: still Character02 (it used to go back to Hero 1).

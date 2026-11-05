@@ -4,6 +4,16 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Puzzle Lab: **Run Test starts at the puzzle's left edge** — the test copy now uses
+  the bounds of the template it was launched with (it fell back to the puzzle's
+  original default width, so templates started the player in the wrong place).
+- Puzzle Lab: **Delete puzzle** for library puzzles (refused while the puzzle is placed
+  in the world, saying where), **Hide** for built-in puzzles (saved in the library as
+  `hiddenBuiltIns`, so it publishes), and *Show hidden*. The *Puzzle marker* section
+  is renamed *Puzzle position in the test stage* and explains itself.
+- Removed the original built-in *Stone Wall* and *Fallen tree test* puzzles and their
+  code placements: the project's library/templates carry the versions in the world,
+  and the built-in Stone Wall could reappear beside a renamed template.
 - **Default player** (Character Lab → Settings → Roles): the character a new game
   starts with — library characters (e.g. Character01) included — and the character
   Character Lab opens on (unless that session was already editing one). Moving the
