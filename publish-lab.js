@@ -31,12 +31,14 @@
     'gamehub.walklab.anim.v6', 'gamehub.walklab.anim.v5', 'gamehub.walklab.anim.v4'
   ]);
   const AREA_NAMES = { Characters: 'Character templates & actions' };
+  const Registry = window.SideScrollCharacters || null;
   const AREA_DETAIL = {
     World: 'Terrain, biomes, journey elements, camera, fog',
     Puzzles: 'Puzzle and World Group templates, starts, collectables',
     'Puzzle Lab': 'Puzzle Lab test scene and templates',
     Assets: 'Asset behaviours, collisions, states, sockets',
     Characters: 'Rig and animation templates, action slots',
+    CharacterRoles: 'Default player and other roles; categories (which are playable)',
     Design: 'Design Lab document, Concept Lab boards'
   };
 
@@ -80,7 +82,22 @@
       const changed = states.filter(s => s === 'changed').length, added = states.filter(s => s === 'new').length;
       const status = changed ? 'changed' : added ? 'new' : states.every(s => s === 'empty') ? 'empty' : 'published';
       return { ...area, status, changed, added };
-    });
+    }).concat(rolesArea());
+  }
+  // Character roles & categories: the registry's project-wide lists (Default player
+  // and other roles; categories and which are playable). Character packages carry
+  // only each character's own registry entry, so these publish as their own area.
+  const REGISTRY_KEY = 'sidescroll.characters.registry.v1', ROLES_AREA = 'CharacterRoles';
+  const sharedLists = reg => ({ roles: reg?.roles || [], categories: reg?.categories || [] });
+  function publishedShared() {
+    const text = window.SIDESCROLL_PROJECT_DEFAULTS?.storage?.[REGISTRY_KEY] ?? null;
+    return sharedLists(Registry?.parse ? Registry.parse(text) : null);
+  }
+  function rolesArea() {
+    if (!Registry?.parse) return [];
+    const mine = ownValue(REGISTRY_KEY) === null ? null : sharedLists(Registry.parse(ownValue(REGISTRY_KEY)));
+    const status = !mine || canonical(JSON.stringify(mine)) === canonical(JSON.stringify(publishedShared())) ? 'published' : 'changed';
+    return [{ id: ROLES_AREA, name: 'Character roles & categories', keys: [], content: [], status, changed: status === 'changed' ? 1 : 0, added: 0 }];
   }
 
   // ---- rendering ------------------------------------------------------------
@@ -144,6 +161,7 @@
       for (const c of characters) if (selected.characters.has(c.id)) chars.push(await Packages.exportCharacter(c.id, null));
       const pkg = { schema: PUBLISH_SCHEMA, app: 'SideScroll', exportedAt: new Date().toISOString(),
         areas: areas.filter(a => selected.areas.has(a.id)).map(a => a.id), storage, characters: chars };
+      if (selected.areas.has(ROLES_AREA)) pkg.registryShared = sharedLists({ roles: Registry.roles(), categories: Registry.categories() });
       const text = JSON.stringify(pkg);
       if (JSON.parse(text).schema !== PUBLISH_SCHEMA) throw Error('Package failed validation.');
       preparedFile = new File([text], `SS-PUBLISH-${pkg.exportedAt.replace(/[:.]/g, '-')}.json`, { type: 'application/json' });
@@ -181,6 +199,14 @@
         + (fresh ? `\n\n${fresh} item${fresh === 1 ? '' : 's'} not in the published game will be removed.` : '')
         + '\n\nThis cannot be undone (make a Project Backup first if unsure).')) return;
       for (const key of area.keys) { try { localStorage.removeItem(key); } catch (_) {} }
+      if (id === ROLES_AREA) {
+        // Keep this phone's per-character entries; take the published lists.
+        let reg = null; try { reg = JSON.parse(localStorage.getItem(REGISTRY_KEY) || 'null'); } catch (_) {}
+        if (reg && typeof reg === 'object') {
+          Object.assign(reg, publishedShared());
+          try { localStorage.setItem(REGISTRY_KEY, JSON.stringify(reg)); } catch (_) {}
+        }
+      }
     } else {
       const c = characters.find(x => x.id === id);
       if (!window.confirm(`Put ${c.name} back to its published version? Its changes on this phone are lost.`)) return;

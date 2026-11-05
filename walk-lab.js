@@ -1034,10 +1034,11 @@
   function loadEditorSelection() {
     let saved = null;
     try { saved = JSON.parse(sessionStorage.getItem(EDITOR_SELECTION_KEY) || 'null'); } catch (_) {}
-    const gameplay = BipedRig.loadCharacterVariant ? BipedRig.loadCharacterVariant() : 'char-1';
-    const fallback = Registry?.defaultPlayer() || CHARACTERS.find(c => characterVisible(c.id))?.id || 'char-1';
+    // Opens on the Default player (Settings → Roles), unless this browser session
+    // was already working on a character (sessionStorage), which it keeps.
+    const fallback = [Registry?.defaultPlayer(), ...CHARACTERS.map(c => c.id)].find(id => id && characterVisible(id)) || 'char-1';
     if (saved?.characterId) saved.characterId = window.SideScrollMigrations?.characterId(saved.characterId) ?? saved.characterId;
-    const charId = characterVisible(saved?.characterId) ? saved.characterId : (characterVisible(gameplay) ? gameplay : fallback);
+    const charId = characterVisible(saved?.characterId) ? saved.characterId : fallback;
     return {
       characterId:charId,
       clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',

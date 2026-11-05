@@ -220,6 +220,8 @@
     rolesOf, canDelete, assignRole, addRole, renameRole,
     addCategory, renameCategory, setCategoryPlayable, moveCategory, removeCategory,
     hideOriginal, forget, defaultPlayer, isPlayable,
-    categories: () => load().categories, roles: () => load().roles
+    categories: () => load().categories, roles: () => load().roles,
+    // A registry's saved text, cleaned as load() does (Publish Lab compares published roles).
+    parse: text => clone(parseRegistry(text))
   });
 })();

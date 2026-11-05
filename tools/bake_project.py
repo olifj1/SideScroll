@@ -55,6 +55,7 @@ DESIGN_DOC_KEY = 'sidescroll-design-doc-working-v2'
 ATLAS_KEY = 'sidescroll.animlab.atlas-docs.v1'
 LIBRARY_KEY = 'sidescroll.animlab.character-library.v1'
 PUBLISHED_SCOPES = {'content', 'migration'}
+ROLES_AREA = 'CharacterRoles'  # Publish Lab area id for the registry's roles & categories
 CHARACTER_ID = re.compile(r'^(char-[1-3]|user-[a-z0-9-]{5,40})$')
 EMPTY = {
     LIBRARY_KEY: lambda: {'schema': 'animlab.character-library.v1', 'entries': []},
@@ -97,7 +98,20 @@ def bake_publish_areas(storage, pkg, catalogue, report):
             sys.exit(f'Publish package contains {key}, which is not published content ({info["scope"]}).')
         else:
             storage[key] = value if isinstance(value, str) else json.dumps(value)
-    report['areas'].extend(pkg.get('areas') or [])
+    report['areas'].extend(a for a in (pkg.get('areas') or []) if a != ROLES_AREA)
+    shared = pkg.get('registryShared')
+    if isinstance(shared, dict):
+        # Character roles & categories: project-wide lists in the registry, kept
+        # apart from each character's own entry (which character packages publish).
+        key = 'sidescroll.characters.registry.v1'
+        reg = json.loads(storage[key]) if isinstance(storage.get(key), str) else EMPTY[key]()
+        for field in ('roles', 'categories'):
+            if isinstance(shared.get(field), list):
+                reg[field] = shared[field]
+        reg.setdefault('schema', 'sidescroll.character-registry.v1')
+        reg.setdefault('characters', {})
+        storage[key] = compact(reg)
+        report['areas'].append('Character roles & categories')
 
 
 def bake_snapshot(snapshot, catalogue, report):
