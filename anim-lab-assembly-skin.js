@@ -674,30 +674,68 @@
     });
     return applyPin(binding,positions,geom);
   }
-  // ---- Pin to body (7 Nov 2026) ----------------------------------------------
-  // binding.pin = {bone, strength 0–1, reach (metres)}: points of the part near
-  // its root joint (where the limb meets the body: the hip for a leg, the chest
-  // for an arm) also follow a body bone, fully `strength` at the joint easing to
-  // nothing at `reach`, so the top of a limb stays attached instead of swinging
-  // with it. Applied on top of the part's own weights (hand-set points are left
-  // as set) and baked into binding.weights, so the game needs nothing new.
+  // ---- Pin to body (7 Nov 2026; along the chain 8 Nov) -------------------------
+  // binding.pin = {bone, strength 0–1, fade 0.05–1, curve −1…1}: the part also
+  // follows a body bone near where it meets the body. Each point's place along the
+  // part's own bone chain (0 at the root joint — the hip, the shoulder — to 1 at
+  // its far end) sets its share: `strength` at the root, falling off over `fade`
+  // of the chain, shaped by `curve` (−1 gentle … 0 linear … +1 sharp). Applied on
+  // top of the part's own weights (hand-set points are left as set) and baked
+  // into binding.weights, so the game needs nothing new. (7 Nov pins saved a
+  // radius, `reach`, which is read as the same distance along the chain.)
   function pinRoot(binding){
     const allowed=bindingBones(binding),ends=new Set(allowed.map(i=>bones[i].b));
     return allowed.map(i=>bones[i].a).find(joint=>!ends.has(joint))||bones[allowed[0]]?.a||null;
   }
+  // The part's joints from its root outwards, following its bones (at a fork,
+  // the longer bone), with distances along the chain.
+  function pinChain(binding,geom){
+    const allowed=bindingBones(binding),used=new Set();
+    let joint=pinRoot(binding);
+    if(!joint||!geom[joint])return null;
+    const joints=[joint];
+    const length=i=>{const a=geom[bones[i].a],b=geom[bones[i].b];return a&&b?Math.hypot(b.x-a.x,b.y-a.y):0;};
+    for(let k=0;k<allowed.length;k++){
+      const next=allowed.filter(i=>!used.has(i)&&bones[i].a===joint&&geom[bones[i].b]).sort((a,b)=>length(b)-length(a))[0];
+      if(next===undefined)break;
+      used.add(next);joint=bones[next].b;joints.push(joint);
+    }
+    const points=joints.map(j=>geom[j]),cumulative=[0];
+    for(let i=1;i<points.length;i++)cumulative.push(cumulative[i-1]+Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y));
+    const total=cumulative[cumulative.length-1];
+    return total>1e-6?{joints,points,cumulative,total}:null;
+  }
+  // Fraction (0–1) along the chain of the chain point nearest to p.
+  function chainFraction(p,chain){
+    let best=Infinity,along=0;
+    for(let i=1;i<chain.points.length;i++){
+      const a=chain.points[i-1],b=chain.points[i],dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy||1;
+      const t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/len2,0,1),qx=a.x+dx*t,qy=a.y+dy*t,d=Math.hypot(p.x-qx,p.y-qy);
+      if(d<best){best=d;along=chain.cumulative[i-1]+t*Math.sqrt(len2);}
+    }
+    return clamp(along/chain.total,0,1);
+  }
   function normalisePin(pin){
     if(!pin||!Number.isInteger(pin.bone)||pin.bone<0||pin.bone>=bones.length)return null;
-    return {bone:pin.bone,strength:clamp(Number(pin.strength)||0,0,1),reach:clamp(Number(pin.reach)||0,0,.6)};
+    const fade=Number(pin.fade);
+    return {bone:pin.bone,strength:clamp(Number(pin.strength)||0,0,1),
+      fade:Number.isFinite(fade)?clamp(fade,.05,1):null,reach:Number(pin.reach)||0,curve:clamp(Number(pin.curve)||0,-1,1)};
+  }
+  const pinFadeOf=(pin,chain)=>pin.fade??clamp((pin.reach||.12)/chain.total,.05,1);
+  // The body share at a fraction f along the chain.
+  function pinShare(pin,fade,f){
+    if(f>=fade)return 0;
+    return pin.strength*Math.pow(1-f/fade,Math.pow(2,pin.curve*2));
   }
   function applyPin(binding,positions,geom){
     const pin=normalisePin(binding?.pin);
-    if(!pin||pin.strength<=0||pin.reach<=0||!Array.isArray(binding.weights))return binding;
-    const root=geom[pinRoot(binding)];if(!root)return binding;
+    if(!pin||pin.strength<=0||!Array.isArray(binding.weights))return binding;
+    const chain=pinChain(binding,geom);if(!chain)return binding;
+    const fade=pinFadeOf(pin,chain);
     binding.weights=binding.weights.map((row,i)=>{
       const p=positions[i];
       if(!p||!row?.length||binding.manualWeights?.[i]!==undefined)return row;
-      const d=Math.hypot(p.x-root.x,p.y-root.y);if(d>=pin.reach)return row;
-      const t=1-d/pin.reach,w=pin.strength*t*t*(3-2*t);
+      const w=pinShare(pin,fade,chainFraction(p,chain));if(w<=1e-4)return row;
       const out=row.map(([bone,v])=>[bone,v*(1-w)]),own=out.find(q=>q[0]===pin.bone);
       if(own)own[1]+=w;else out.push([pin.bone,w]);
       return out.filter(q=>q[1]>1e-4).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([bone,v])=>[bone,+v.toFixed(4)]);
@@ -1055,9 +1093,10 @@
       <p class="animlab-skin-note" data-blend-note>Shares points near each joint line between its two bones, so the artwork bends smoothly instead of hinging. Works with joint boundaries.</p>
       <div class="animlab-skin-pin" data-skin-pin>
         <label class="animlab-skin-group-select">Pin to body <select data-skin-pin-bone aria-label="Body bone the top of this part also follows"></select></label>
-        <label class="animlab-slider"><span>Pin strength</span><input data-skin-pin-strength type="range" min="0" max="1" step="0.05" value="0.6" aria-label="Pin strength at the joint"><output></output></label>
-        <label class="animlab-slider"><span>Pin reach</span><input data-skin-pin-reach type="range" min="0.01" max="0.6" step="0.01" value="0.12" aria-label="How far down the part the pin reaches"><output></output></label>
-        <p class="animlab-skin-note" data-pin-note>The top of this part (where it meets the body) also follows the chosen body bone: <em>strength</em> at the joint, fading to nothing at <em>reach</em>. Keeps the top of a leg or arm attached instead of swinging with the limb. The red ring shows the reach.</p>
+        <label class="animlab-slider"><span>Strength at the top</span><input data-skin-pin-strength type="range" min="0" max="1" step="0.05" value="0.6" aria-label="Body share at the top of the part"><output></output></label>
+        <label class="animlab-slider"><span>Fade along limb</span><input data-skin-pin-fade type="range" min="0.05" max="1" step="0.05" value="0.3" aria-label="How far along the part's bones the body share fades out"><output></output></label>
+        <label class="animlab-slider"><span>Curve</span><input data-skin-pin-curve type="range" min="-1" max="1" step="0.1" value="0" aria-label="Fall-off curve: gentle to sharp"><output></output></label>
+        <p class="animlab-skin-note" data-pin-note>The part also follows the chosen body bone near where it meets the body: <em>strength</em> at the top joint (hip, shoulder), fading along the part's own bones over <em>fade</em> of the limb's length. <em>Curve</em>: gentle holds on longer, sharp lets go quickly. The red band on the bones shows it.</p>
       </div>
       <div class="animlab-parts-subgroup-label">Selected bone</div>
       <div class="animlab-skin-bones" data-skin-bones aria-label="Selected bone for editing"></div>
@@ -1544,8 +1583,15 @@
   }
   // ---- Pin to body controls --------------------------------------------------
   const pinBoneSelect=panel.querySelector('[data-skin-pin-bone]'),pinStrengthInput=panel.querySelector('[data-skin-pin-strength]');
-  const pinReachInput=panel.querySelector('[data-skin-pin-reach]');
-  const pinPct=v=>`${Math.round(v*100)}%`,pinCm=v=>`${Math.round(v*100)} cm`;
+  const pinFadeInput=panel.querySelector('[data-skin-pin-fade]'),pinCurveInput=panel.querySelector('[data-skin-pin-curve]');
+  const pinPct=v=>`${Math.round(v*100)}%`;
+  const curveText=v=>Math.abs(v)<.05?'Linear':v<0?`Gentle ${Math.round(-v*100)}%`:`Sharp ${Math.round(v*100)}%`;
+  const pinGeom=()=>{const s=state();return bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);};
+  function showPinValues(){
+    pinStrengthInput.nextElementSibling.textContent=pinPct(Number(pinStrengthInput.value));
+    pinFadeInput.nextElementSibling.textContent=`${pinPct(Number(pinFadeInput.value))} of limb`;
+    pinCurveInput.nextElementSibling.textContent=curveText(Number(pinCurveInput.value));
+  }
   const supportsPin=b=>['joint-boundaries-v1','rect-binary-v1','capsule-v1'].includes(b?.envelopeMode);
   // The body bone a part's root joint most likely belongs to (shown first).
   // A body bone (not another limb: near/far bones are skipped) meeting the
@@ -1569,11 +1615,11 @@
     }
     if(document.activeElement!==pinBoneSelect)pinBoneSelect.value=pin?String(pin.bone):'';
     if(pin&&document.activeElement!==pinStrengthInput)pinStrengthInput.value=String(pin.strength);
-    if(pin&&document.activeElement!==pinReachInput)pinReachInput.value=String(pin.reach);
-    pinStrengthInput.nextElementSibling.textContent=pinPct(Number(pinStrengthInput.value));
-    pinReachInput.nextElementSibling.textContent=pinCm(Number(pinReachInput.value));
+    if(pin&&document.activeElement!==pinFadeInput){const chain=pinChain(binding,pinGeom());pinFadeInput.value=String(chain?pinFadeOf(pin,chain):(pin.fade??.3));}
+    if(pin&&document.activeElement!==pinCurveInput)pinCurveInput.value=String(pin.curve);
+    showPinValues();
     pinBoneSelect.disabled=!usable;
-    pinStrengthInput.disabled=pinReachInput.disabled=!usable||!pin;
+    pinStrengthInput.disabled=pinFadeInput.disabled=pinCurveInput.disabled=!usable||!pin;
   }
   function recomputeWeights(binding,item,source,geom){
     if(binding.envelopeMode==='joint-boundaries-v1')return updateJointWeights(binding,item,source,geom);
@@ -1586,22 +1632,21 @@
     if(!saved||!supportsPin(saved)||lockedParts.has(item.id))return null;
     const next=clone(saved);
     if(pinBoneSelect.value==='')delete next.pin;
-    else next.pin={bone:Number(pinBoneSelect.value),strength:Number(pinStrengthInput.value),reach:Number(pinReachInput.value)};
+    else next.pin={bone:Number(pinBoneSelect.value),strength:Number(pinStrengthInput.value),fade:Number(pinFadeInput.value),curve:Number(pinCurveInput.value)};
     return recomputeWeights(next,item,source,bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG))?{item,next}:null;
   }
-  const pinLabel=next=>next.pin?`Pin to ${bones[next.pin.bone]?.label||'body'} ${pinPct(next.pin.strength)} · ${pinCm(next.pin.reach)}`:'Pin to body off';
-  for(const input of [pinStrengthInput,pinReachInput]){
+  const pinLabel=next=>next.pin?`Pin to ${bones[next.pin.bone]?.label||'body'} ${pinPct(next.pin.strength)} · fade ${pinPct(next.pin.fade)} · ${curveText(next.pin.curve).toLowerCase()}`:'Pin to body off';
+  for(const input of [pinStrengthInput,pinFadeInput,pinCurveInput]){
     input.addEventListener('input',()=>{
-      pinStrengthInput.nextElementSibling.textContent=pinPct(Number(pinStrengthInput.value));
-      pinReachInput.nextElementSibling.textContent=pinCm(Number(pinReachInput.value));
+      showPinValues();
       const r=pinBinding();if(r){liveBinding=r.next;liveItemId=r.item.id;core.redrawOnly?.();}
     });
     input.addEventListener('change',()=>{const r=pinBinding();if(r)commitBinding(r.item.id,r.next,pinLabel(r.next));});
   }
   pinBoneSelect.addEventListener('change',()=>{
-    // First pin on a part: start from a useful strength and reach.
+    // First pin on a part: start from a useful strength, fade and curve.
     const s=state(),item=selectedItem(s),saved=item&&bindingFor(item,sourceMap(s).get(item.meshId));
-    if(!saved?.pin&&pinBoneSelect.value!==''){pinStrengthInput.value='0.6';pinReachInput.value='0.12';}
+    if(!saved?.pin&&pinBoneSelect.value!==''){pinStrengthInput.value='0.6';pinFadeInput.value='0.3';pinCurveInput.value='0';}
     const r=pinBinding();if(r)commitBinding(r.item.id,r.next,pinLabel(r.next));
   });
   blendInput.addEventListener('input',()=>{
@@ -1867,12 +1912,26 @@
         }
       }
       if(selected&&skinMode&&binding){
-        const pin=normalisePin(binding.pin),joint=pin&&posed?.[pinRoot(binding)];
-        if(pin&&joint){
-          const c=project(joint,args.view),r=pin.reach*args.view.scale;
-          ctx.save();ctx.beginPath();ctx.arc(c.x,c.y,r,0,Math.PI*2);
-          ctx.strokeStyle='rgba(255,120,110,.9)';ctx.setLineDash([5,4]);ctx.lineWidth=1.4;ctx.stroke();
-          ctx.setLineDash([]);ctx.beginPath();ctx.arc(c.x,c.y,3,0,Math.PI*2);ctx.fillStyle='rgba(255,120,110,.95)';ctx.fill();ctx.restore();
+        // Pin to body: a red band along the part's bones from the top joint,
+        // as strong as the body share there, ending where the fade ends.
+        const pin=normalisePin(binding.pin),restChain=pin&&pinChain(binding,bindGeom);
+        const joints=restChain?.joints.map(j=>posed?.[j]);
+        if(pin&&restChain&&joints.every(Boolean)){
+          const fade=pinFadeOf(pin,restChain),posedChain={points:joints,cumulative:[0]};
+          for(let i=1;i<joints.length;i++)posedChain.cumulative.push(posedChain.cumulative[i-1]+Math.hypot(joints[i].x-joints[i-1].x,joints[i].y-joints[i-1].y));
+          const total=posedChain.cumulative[joints.length-1]||1;
+          const at=f=>{const d=f*total;let i=1;while(i<joints.length-1&&posedChain.cumulative[i]<d)i++;
+            const a=joints[i-1],b=joints[i],seg=(posedChain.cumulative[i]-posedChain.cumulative[i-1])||1,t=clamp((d-posedChain.cumulative[i-1])/seg,0,1);
+            return project({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t},args.view);};
+          ctx.save();ctx.lineCap='round';ctx.lineWidth=Math.max(4,args.view.scale*.018);
+          const steps=24;
+          for(let k=0;k<steps;k++){
+            const f0=fade*k/steps,f1=fade*(k+1)/steps,p0=at(f0),p1=at(f1);
+            ctx.strokeStyle=`rgba(255,110,100,${(.15+.8*pinShare(pin,fade,f0)/Math.max(pin.strength,.01)).toFixed(3)})`;
+            ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.stroke();
+          }
+          const end=at(fade);ctx.beginPath();ctx.arc(end.x,end.y,3.5,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.9)';ctx.fill();
+          ctx.restore();
         }
       }
       if(selected){
