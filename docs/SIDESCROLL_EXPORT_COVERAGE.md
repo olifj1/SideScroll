@@ -1,7 +1,7 @@
 # SideScroll — Export and Recovery Coverage
 
 ## 7 November 2026 — Skin pin to body
-A part's `skinBinding` may hold `pin: {bone, strength, reach}` (kept by walk-lab's binding cleaner). Its effect is also baked into `weights`, so older game builds and exports render it. No new key; it travels with the character's setup (character packages, publish packages, Project Backup).
+A part's `skinBinding` may hold `pin: {bone, strength, fade, curve}` (8 Nov; 7 Nov pins hold `reach` instead) (kept by walk-lab's binding cleaner). Its effect is also baked into `weights`, so older game builds and exports render it. No new key; it travels with the character's setup (character packages, publish packages, Project Backup).
 
 ## 5 November 2026 — Puzzle Lab delete / hide
 Puzzle Lab writes the puzzle library (`sidescroll.puzzle-groups.library.v1`): *Delete puzzle* removes a library puzzle's `groups[id]`, `templates[id]` and `puzzleTemplates` entry (refused while `markers` place it in the world); *Hide* adds a built-in puzzle id to `hiddenBuiltIns`. No new key: both travel with the library (Puzzles area, Project Backup).

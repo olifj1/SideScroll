@@ -435,9 +435,15 @@
               // group's bones) and the blend width at joint lines (metres).
               if(Array.isArray(raw.bones)){const list=[...new Set(raw.bones.filter(i=>Number.isInteger(i)&&i>=0&&i<128))].slice(0,64);if(list.length)clean.bones=list;}
               if(Number.isFinite(Number(raw.blend))&&Number(raw.blend)>0)clean.blend=clamp(Number(raw.blend),0,.2);
-              // 7 Nov 2026: Pin to body — the top of the part also follows a body bone.
-              if(raw.pin&&Number.isInteger(raw.pin.bone)&&raw.pin.bone>=0&&raw.pin.bone<128)
-                clean.pin={bone:raw.pin.bone,strength:clamp(Number(raw.pin.strength)||0,0,1),reach:clamp(Number(raw.pin.reach)||0,0,.6)};
+              // Pin to body — the part also follows a body bone near where it meets
+              // the body: strength at the top, fading along the part's bones over
+              // `fade` of its length, shaped by `curve` (8 Nov; 7 Nov pins: `reach`).
+              if(raw.pin&&Number.isInteger(raw.pin.bone)&&raw.pin.bone>=0&&raw.pin.bone<128){
+                clean.pin={bone:raw.pin.bone,strength:clamp(Number(raw.pin.strength)||0,0,1)};
+                if(Number.isFinite(Number(raw.pin.fade)))clean.pin.fade=clamp(Number(raw.pin.fade),.05,1);
+                else if(Number(raw.pin.reach)>0)clean.pin.reach=clamp(Number(raw.pin.reach),0,.6);
+                if(Number(raw.pin.curve))clean.pin.curve=clamp(Number(raw.pin.curve),-1,1);
+              }
               // v1.1.9: preserve automatic base weights separately from tuned
               // per-vertex weights. Existing v1.1.8 bindings remain readable.
               if(Array.isArray(raw.baseWeights)&&raw.baseWeights.length===clean.weights.length)

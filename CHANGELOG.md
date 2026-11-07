@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Skin → **Pin to body** now runs along the limb's own bones instead of a circle:
+  **Strength at the top** (the hip / shoulder), **Fade along limb** (% of the part's
+  bone chain over which the body share fades out) and **Curve** (gentle … linear …
+  sharp). A red band on the bones shows it, ending with a dot where the fade ends.
+  Pins saved with the 7 Nov radius read as the same distance along the limb.
 - Character Lab → Skin → **Pin to body** (per part): the top of a limb also follows a
   body bone, so a thigh or upper arm stays attached at the hip / shoulder instead of
   swinging rigidly with the limb. Choose the bone (Lower Back is suggested for legs,

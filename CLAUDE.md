@@ -272,8 +272,10 @@ Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
   bones stay for older skins, which keep the bones their saved shape describes). A binding's `bones`
   list (Skin → *Bones this part follows*) wins over its `group`; a jointGroup may list
   its `bones` explicitly. `blend` (metres) shares points near joint lines. `pin`
-  ({bone, strength, reach}; Skin → *Pin to body*) adds a body bone's influence to points
-  near the part's root joint (hip/shoulder), applied after the mode's weights
+  ({bone, strength, fade, curve}; Skin → *Pin to body*) adds a body bone's influence to
+  points by their place along the part's own bone chain from its root joint (hip/shoulder):
+  `strength` there, fading over `fade` of the chain (`curve` −1 gentle … 1 sharp; older
+  pins have a radius `reach`, read along the chain), applied after the mode's weights
   (`applyPin` in `anim-lab-assembly-skin.js`) and baked into `weights` — the game reads
   only `weights`. walk-lab's skin binding cleaner must keep each new binding field.
 - Character Lab draws posed meshes with WebGL (`gpuDrawMeshes` in `anim-lab-assembly-skin.js`,
