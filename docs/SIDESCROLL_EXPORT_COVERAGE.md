@@ -1,5 +1,11 @@
 # SideScroll — Export and Recovery Coverage
 
+## 7 November 2026 — Export tidy-up and automatic publishing
+- World Lab's *Export Complete Game* is retired: **Project Backup** is the full device backup and the **Publish Lab** publishes. World Lab keeps *Import older Complete Game file* for files exported before.
+- `baked-game-design.js` is retired: every key it supplied (asset behaviours/collisions/climb paths, scene edits, collectables, puzzle starts/library, camera) is in the built-in content.
+- Puzzle Lab / Asset Lab data exports (`lab-data.js`) cover every catalogue key in the Lab's areas (Puzzles + Puzzle Lab; Assets), excluding backup/stale/transient scopes, plus the earlier name patterns.
+- Publishing can run on GitHub: a file uploaded to `publish/` is baked by `.github/workflows/publish.yml` into a pull request.
+
 ## 7 November 2026 — Skin pin to body
 A part's `skinBinding` may hold `pin: {bone, strength, fade, curve}` (8 Nov; 7 Nov pins hold `reach` instead) (kept by walk-lab's binding cleaner). Its effect is also baked into `weights`, so older game builds and exports render it. No new key; it travels with the character's setup (character packages, publish packages, Project Backup).
 

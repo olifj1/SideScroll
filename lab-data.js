@@ -1,4 +1,4 @@
-/* SideScroll v1.0.204 — scoped Lab data exports/imports.
+/* SideScroll — scoped Lab data exports/imports (key lists from storage-catalogue.json).
  * Raw storage values are kept byte-for-byte: don't silently migrate or re-serialize
  * a saved character, puzzle, or asset when moving it between devices.
  * Scope is a strict allow-list; an imported file never writes outside its Lab.
@@ -6,11 +6,22 @@
 (() => {
   'use strict';
   const SCHEMA = 'sidescroll.lab-data.v1';
+  // Which keys each Lab's export carries: every key storage-catalogue.json puts in
+  // the Lab's areas (so new keys are included without editing this file), plus
+  // the name patterns used before the catalogue (older and legacy keys).
+  let catalogue = null;
+  try {
+    fetch('storage-catalogue.json', { cache:'no-cache' }).then(r => r.ok ? r.json() : null)
+      .then(c => { if (c?.keys) catalogue = c.keys; }).catch(() => {});
+  } catch (_) {}
+  const inAreas = (k, areas) => !!catalogue?.[k] && areas.includes(catalogue[k].area)
+    && !['backup', 'stale', 'transient'].includes(catalogue[k].scope);
   const LABS = Object.freeze({
     puzzles: {
       label: 'Puzzle Lab',
       name: 'PUZZLES',
-      owns: k => /^sidescroll\.puzzle[-.]/i.test(k) || /^sidescroll-puzzle-/i.test(k)
+      owns: k => inAreas(k, ['Puzzles', 'Puzzle Lab'])
+        || /^sidescroll\.puzzle[-.]/i.test(k) || /^sidescroll-puzzle-/i.test(k)
         || /^sidescroll\.world-group-/i.test(k) || /^sidescroll\.player\.puzzle-state\./i.test(k)
         || /^sidescroll\.player\.inventory\./i.test(k) || /^sidescroll\.inventory\./i.test(k)
         || /^sidescroll-player-hints-/i.test(k)
@@ -18,7 +29,7 @@
     assets: {
       label: 'Asset Lab',
       name: 'ASSETS',
-      owns: k => /^sidescroll\.asset[-.]/i.test(k)
+      owns: k => inAreas(k, ['Assets']) || /^sidescroll\.asset[-.]/i.test(k)
     }
   });
   const SECRET_KEY = /(?:password|passwd|private.?key|api.?key|api.?token|access.?token|refresh.?token|auth.?token|credential|bearer|secret)/i;

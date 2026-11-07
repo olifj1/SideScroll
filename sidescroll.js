@@ -51,6 +51,8 @@
   const WORLD_LAB_LAUNCH = queryParams.get('from') === 'world-lab' && Number.isFinite(WORLD_LAB_JUMP_X);
   const WORLD_LAB_PENDING_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-puzzle-moves.v1';
   const WORLD_LAB_PENDING_GROUP_MOVES_STORAGE_KEY = 'sidescroll.world-lab.pending-world-group-moves.v1';
+  // baked-game-design.js was retired on 7 Nov 2026 (built-in content comes from
+  // project-defaults-data.js through localStorage); its fallbacks below read nothing.
   const BAKED_GAME_DESIGN = window.SIDESCROLL_BAKED_GAME_DESIGN || null;
 
   const BIOME_STORAGE_KEY = 'sidescroll.biomes.v1';

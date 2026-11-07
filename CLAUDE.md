@@ -15,6 +15,12 @@ Current version: **1.1.27** (see `CHANGELOG.md`).
 2. Open a pull request into `main` (only when the user asks).
 3. The user merges on their phone. GitHub Pages redeploys `main` automatically
    ("pages build and deployment" action, ~1 minute). Nothing else to do.
+
+**Publishing content** needs no session: the user uploads a Publish Lab package (or
+character export / Project Backup) to `publish/` on github.com; the *Publish uploaded
+package* Action (`.github/workflows/publish.yml`) runs `tools/bake_project.py` and
+`tools/test_migrations.js`, removes the upload and opens a pull request
+(`auto-publish/…` branch) to merge. A session can still bake files the user attaches.
 4. The user tests the installed app on iPhone; close/reopen if it looks stale.
 
 The old "flat changed-files-only patch ZIP + README per patch" workflow is
@@ -94,6 +100,9 @@ The authored project ships as built-in defaults so a fresh install has it:
 - Both load before any other script on index, play, walk-lab, asset-lab,
   puzzle-lab, world-lab and publish-lab. New pages that read saved data must include them.
 - Left out on purpose: everything not scoped content/migration in the catalogue.
+- `baked-game-design.js` (an older baked export) was retired on 7 Nov 2026; code still
+  reading `BAKED_GAME_DESIGN` / `SIDESCROLL_BAKED_GAME_DESIGN` gets nothing and falls
+  back to the built-in content through localStorage.
 - **Project Backup** (`project-snapshot.js` / `project-restore.js`) is the one full
   device backup: every SideScroll storage key plus every IndexedDB artwork image
   (`storage.artwork.images`: id, type, bytes, sha256, dataUrl). Restore checks each
@@ -197,7 +206,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `baked-game-design.js`, `character-game-runtime.js`, `sidescroll.js` |
+| `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `sidescroll.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |

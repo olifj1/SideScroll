@@ -4,6 +4,19 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Automatic publishing:** upload a Publish Lab package (or a character export /
+  Project Backup) into the repo's `publish/` folder on github.com; the *Publish
+  uploaded package* Action (`.github/workflows/publish.yml`) bakes it with
+  `tools/bake_project.py`, removes the uploaded file and opens a pull request. Merge
+  it as usual. See `publish/README.md` (one-off repo setting there).
+- Retired `baked-game-design.js` (an old export the game and World Lab fell back to;
+  every key it covered is in the built-in content) and World Lab's *Export Complete
+  Game* (Project Backup and the Publish Lab replace it; *Import older Complete Game
+  file* still restores old files). Puzzle Lab's test stage no longer starts with the
+  old main-world scene edits from that file.
+- Puzzle Lab / Asset Lab data exports take their key lists from
+  `storage-catalogue.json` (by area) as well as the old name patterns, so new keys
+  are included (e.g. the collectibles setup now travels with Puzzle data).
 - Skin → **Pin to body** now runs along the limb's own bones instead of a circle:
   **Strength at the top** (the hip / shoulder), **Fade along limb** (% of the part's
   bone chain over which the body share fades out) and **Curve** (gentle … linear …
