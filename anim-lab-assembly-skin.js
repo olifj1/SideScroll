@@ -124,6 +124,7 @@
     if(next.envelopes)next.envelopes=remapKeys(src.envelopes,boneKey);
     if(next.boneProfiles)next.boneProfiles=remapKeys(src.boneProfiles,boneKey);
     if(next.jointBoundaries)next.jointBoundaries=remapKeys(src.jointBoundaries,jointPair);
+    if(next.pin)next.pin={...next.pin,bone:mirrorBone(next.pin.bone)};
     // Per-point edits carry over only between parts with the same mesh.
     const sameMesh=signature(srcSource.mesh)===signature(source.mesh);
     const mapRow=row=>(row||[]).map(([i,w])=>[mirrorBone(i),w]);
@@ -584,7 +585,7 @@
     if(!rows)return null; // refuse invalid edits; do not mutate the saved data
     binding.baseWeights=rows;
     binding.weights=rows.map((row,i)=>binding.manualWeights?.[i]!==undefined?clone(binding.manualWeights[i]):clone(row));
-    return binding;
+    return applyPin(binding,positions,geom);
   }
   function polygonContains(p,poly){
     if(!poly||poly.length<3)return false;
@@ -653,7 +654,7 @@
       const override=binding.manualWeights?.[index];
       return override!==undefined?clone(override):clone(row);
     });
-    return binding;
+    return applyPin(binding,positions,geom);
   }
   function activateEnvelopes(binding,item,source,geom){
     if(binding.envelopeMode==='capsule-v1'&&binding.envelopes)return binding;
@@ -670,6 +671,36 @@
     binding.weights=binding.baseWeights.map((row,index)=>{
       const override=binding.manualWeights?.[index];
       return override?clone(override):clone(row);
+    });
+    return applyPin(binding,positions,geom);
+  }
+  // ---- Pin to body (7 Nov 2026) ----------------------------------------------
+  // binding.pin = {bone, strength 0–1, reach (metres)}: points of the part near
+  // its root joint (where the limb meets the body: the hip for a leg, the chest
+  // for an arm) also follow a body bone, fully `strength` at the joint easing to
+  // nothing at `reach`, so the top of a limb stays attached instead of swinging
+  // with it. Applied on top of the part's own weights (hand-set points are left
+  // as set) and baked into binding.weights, so the game needs nothing new.
+  function pinRoot(binding){
+    const allowed=bindingBones(binding),ends=new Set(allowed.map(i=>bones[i].b));
+    return allowed.map(i=>bones[i].a).find(joint=>!ends.has(joint))||bones[allowed[0]]?.a||null;
+  }
+  function normalisePin(pin){
+    if(!pin||!Number.isInteger(pin.bone)||pin.bone<0||pin.bone>=bones.length)return null;
+    return {bone:pin.bone,strength:clamp(Number(pin.strength)||0,0,1),reach:clamp(Number(pin.reach)||0,0,.6)};
+  }
+  function applyPin(binding,positions,geom){
+    const pin=normalisePin(binding?.pin);
+    if(!pin||pin.strength<=0||pin.reach<=0||!Array.isArray(binding.weights))return binding;
+    const root=geom[pinRoot(binding)];if(!root)return binding;
+    binding.weights=binding.weights.map((row,i)=>{
+      const p=positions[i];
+      if(!p||!row?.length||binding.manualWeights?.[i]!==undefined)return row;
+      const d=Math.hypot(p.x-root.x,p.y-root.y);if(d>=pin.reach)return row;
+      const t=1-d/pin.reach,w=pin.strength*t*t*(3-2*t);
+      const out=row.map(([bone,v])=>[bone,v*(1-w)]),own=out.find(q=>q[0]===pin.bone);
+      if(own)own[1]+=w;else out.push([pin.bone,w]);
+      return out.filter(q=>q[1]>1e-4).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([bone,v])=>[bone,+v.toFixed(4)]);
     });
     return binding;
   }
@@ -1022,6 +1053,12 @@
       </div>
       <label class="animlab-slider animlab-skin-blend"><span>Blend at joints</span><input data-skin-blend type="range" min="0" max="0.12" step="0.005" value="0" aria-label="Blend width at joints"><output>Off</output></label>
       <p class="animlab-skin-note" data-blend-note>Shares points near each joint line between its two bones, so the artwork bends smoothly instead of hinging. Works with joint boundaries.</p>
+      <div class="animlab-skin-pin" data-skin-pin>
+        <label class="animlab-skin-group-select">Pin to body <select data-skin-pin-bone aria-label="Body bone the top of this part also follows"></select></label>
+        <label class="animlab-slider"><span>Pin strength</span><input data-skin-pin-strength type="range" min="0" max="1" step="0.05" value="0.6" aria-label="Pin strength at the joint"><output></output></label>
+        <label class="animlab-slider"><span>Pin reach</span><input data-skin-pin-reach type="range" min="0.01" max="0.6" step="0.01" value="0.12" aria-label="How far down the part the pin reaches"><output></output></label>
+        <p class="animlab-skin-note" data-pin-note>The top of this part (where it meets the body) also follows the chosen body bone: <em>strength</em> at the joint, fading to nothing at <em>reach</em>. Keeps the top of a leg or arm attached instead of swinging with the limb. The red ring shows the reach.</p>
+      </div>
       <div class="animlab-parts-subgroup-label">Selected bone</div>
       <div class="animlab-skin-bones" data-skin-bones aria-label="Selected bone for editing"></div>
       <button type="button" class="animlab-skin-rigid-action" data-bind-action="rigid">Bind whole part to selected bone</button>
@@ -1271,6 +1308,7 @@
     blendInput.disabled=!canWeight||!jointModeNow;
     if(document.activeElement!==blendInput)blendInput.value=String(Number(binding?.blend)||0);
     blendInput.parentElement.querySelector('output').textContent=blendText(Number(blendInput.value));
+    renderPin(binding,canWeight);
     const jointDigest=jointIds.join('|');
     if(jointSelect.dataset.signature!==jointDigest){
       jointSelect.dataset.signature=jointDigest;jointSelect.replaceChildren();
@@ -1504,6 +1542,68 @@
     const next=clone(saved);next.blend=Number(blendInput.value)||0;
     return updateJointWeights(next,item,source,bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG))?{item,next}:null;
   }
+  // ---- Pin to body controls --------------------------------------------------
+  const pinBoneSelect=panel.querySelector('[data-skin-pin-bone]'),pinStrengthInput=panel.querySelector('[data-skin-pin-strength]');
+  const pinReachInput=panel.querySelector('[data-skin-pin-reach]');
+  const pinPct=v=>`${Math.round(v*100)}%`,pinCm=v=>`${Math.round(v*100)} cm`;
+  const supportsPin=b=>['joint-boundaries-v1','rect-binary-v1','capsule-v1'].includes(b?.envelopeMode);
+  // The body bone a part's root joint most likely belongs to (shown first).
+  // A body bone (not another limb: near/far bones are skipped) meeting the
+  // root joint, preferring the one leading into it (Upper Back into the chest
+  // for an arm), else the one leaving it (Lower Back from the pelvis for a leg).
+  function suggestedPinBone(binding){
+    const root=pinRoot(binding),own=new Set(bindingBones(binding));
+    const body=bones.map((b,i)=>({i,b})).filter(({i,b})=>!own.has(i)&&b.overlay!==false&&!/\b(near|far)\b/i.test(String(b.label||'')));
+    return (body.find(({b})=>b.b===root)||body.find(({b})=>b.a===root))?.i??null;
+  }
+  function renderPin(binding,canWeight){
+    const usable=canWeight&&supportsPin(binding),pin=normalisePin(binding?.pin);
+    const own=new Set(binding?bindingBones(binding):[]),suggested=binding?suggestedPinBone(binding):null;
+    const signature=binding?`${[...own].join(',')}|${suggested}`:'none';
+    if(pinBoneSelect.dataset.signature!==signature){
+      pinBoneSelect.dataset.signature=signature;
+      const options=[['','Off']];
+      bones.forEach((b,i)=>{if(!own.has(i))options.push([String(i),`${b.label||i}${i===suggested?' (suggested)':''}`]);});
+      if(suggested!==null){const k=options.findIndex(o=>o[0]===String(suggested));options.splice(1,0,...options.splice(k,1));}
+      pinBoneSelect.replaceChildren(...options.map(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;return o;}));
+    }
+    if(document.activeElement!==pinBoneSelect)pinBoneSelect.value=pin?String(pin.bone):'';
+    if(pin&&document.activeElement!==pinStrengthInput)pinStrengthInput.value=String(pin.strength);
+    if(pin&&document.activeElement!==pinReachInput)pinReachInput.value=String(pin.reach);
+    pinStrengthInput.nextElementSibling.textContent=pinPct(Number(pinStrengthInput.value));
+    pinReachInput.nextElementSibling.textContent=pinCm(Number(pinReachInput.value));
+    pinBoneSelect.disabled=!usable;
+    pinStrengthInput.disabled=pinReachInput.disabled=!usable||!pin;
+  }
+  function recomputeWeights(binding,item,source,geom){
+    if(binding.envelopeMode==='joint-boundaries-v1')return updateJointWeights(binding,item,source,geom);
+    if(binding.envelopeMode==='rect-binary-v1')return updateRectWeights(binding,item,source,geom);
+    if(binding.envelopeMode==='capsule-v1')return updateEnvelopeWeights(binding,item,source,geom);
+    return null;
+  }
+  function pinBinding(){
+    const s=state(),item=selectedItem(s),source=item&&sourceMap(s).get(item.meshId),saved=item&&bindingFor(item,source);
+    if(!saved||!supportsPin(saved)||lockedParts.has(item.id))return null;
+    const next=clone(saved);
+    if(pinBoneSelect.value==='')delete next.pin;
+    else next.pin={bone:Number(pinBoneSelect.value),strength:Number(pinStrengthInput.value),reach:Number(pinReachInput.value)};
+    return recomputeWeights(next,item,source,bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG))?{item,next}:null;
+  }
+  const pinLabel=next=>next.pin?`Pin to ${bones[next.pin.bone]?.label||'body'} ${pinPct(next.pin.strength)} · ${pinCm(next.pin.reach)}`:'Pin to body off';
+  for(const input of [pinStrengthInput,pinReachInput]){
+    input.addEventListener('input',()=>{
+      pinStrengthInput.nextElementSibling.textContent=pinPct(Number(pinStrengthInput.value));
+      pinReachInput.nextElementSibling.textContent=pinCm(Number(pinReachInput.value));
+      const r=pinBinding();if(r){liveBinding=r.next;liveItemId=r.item.id;core.redrawOnly?.();}
+    });
+    input.addEventListener('change',()=>{const r=pinBinding();if(r)commitBinding(r.item.id,r.next,pinLabel(r.next));});
+  }
+  pinBoneSelect.addEventListener('change',()=>{
+    // First pin on a part: start from a useful strength and reach.
+    const s=state(),item=selectedItem(s),saved=item&&bindingFor(item,sourceMap(s).get(item.meshId));
+    if(!saved?.pin&&pinBoneSelect.value!==''){pinStrengthInput.value='0.6';pinReachInput.value='0.12';}
+    const r=pinBinding();if(r)commitBinding(r.item.id,r.next,pinLabel(r.next));
+  });
   blendInput.addEventListener('input',()=>{
     blendInput.parentElement.querySelector('output').textContent=blendText(Number(blendInput.value));
     const r=blendBinding();if(r){liveBinding=r.next;liveItemId=r.item.id;core.redrawOnly?.();}
@@ -1764,6 +1864,15 @@
           const [i,j,k]=tri,a=points[i],b=points[j],c=points[k];if(!a||!b||!c)continue;
           const weight=n=>binding.weights[n]?.find(p=>p[0]===selectedBone)?.[1]||0;
           heatTri(ctx,a,b,c,weight(i),weight(j),weight(k));
+        }
+      }
+      if(selected&&skinMode&&binding){
+        const pin=normalisePin(binding.pin),joint=pin&&posed?.[pinRoot(binding)];
+        if(pin&&joint){
+          const c=project(joint,args.view),r=pin.reach*args.view.scale;
+          ctx.save();ctx.beginPath();ctx.arc(c.x,c.y,r,0,Math.PI*2);
+          ctx.strokeStyle='rgba(255,120,110,.9)';ctx.setLineDash([5,4]);ctx.lineWidth=1.4;ctx.stroke();
+          ctx.setLineDash([]);ctx.beginPath();ctx.arc(c.x,c.y,3,0,Math.PI*2);ctx.fillStyle='rgba(255,120,110,.95)';ctx.fill();ctx.restore();
         }
       }
       if(selected){

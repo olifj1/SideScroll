@@ -56,6 +56,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ab. Pin to body (7 Nov)** — Character Lab → Character01 → Skin
+- [ ] Select LegNear → *Pin to body* offers **Lower Back (suggested)**; pick it: a red ring appears at the hip. Drag Strength and Reach: the top of the leg follows the body more/less (check in Animate → Walk/Run at a big stride). Save.
+- [ ] NearArm suggests **Upper Back**. Copy to the other side carries the pin to the far limb.
+- [ ] In the game the pinned limbs look the same as in Animate.
+
 **0aa. Puzzle Lab start and clean-up (5 Nov)** — Puzzle Lab
 - [ ] Pick one of your templates → **Run Test**: you start just left of the puzzle's left edge.
 - [ ] A library puzzle that isn't placed in the world → **Delete puzzle** (confirm): it's gone from the list. One that is placed: Delete is greyed out and says where it's placed.
