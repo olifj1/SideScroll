@@ -435,6 +435,9 @@
               // group's bones) and the blend width at joint lines (metres).
               if(Array.isArray(raw.bones)){const list=[...new Set(raw.bones.filter(i=>Number.isInteger(i)&&i>=0&&i<128))].slice(0,64);if(list.length)clean.bones=list;}
               if(Number.isFinite(Number(raw.blend))&&Number(raw.blend)>0)clean.blend=clamp(Number(raw.blend),0,.2);
+              // 7 Nov 2026: Pin to body — the top of the part also follows a body bone.
+              if(raw.pin&&Number.isInteger(raw.pin.bone)&&raw.pin.bone>=0&&raw.pin.bone<128)
+                clean.pin={bone:raw.pin.bone,strength:clamp(Number(raw.pin.strength)||0,0,1),reach:clamp(Number(raw.pin.reach)||0,0,.6)};
               // v1.1.9: preserve automatic base weights separately from tuned
               // per-vertex weights. Existing v1.1.8 bindings remain readable.
               if(Array.isArray(raw.baseWeights)&&raw.baseWeights.length===clean.weights.length)

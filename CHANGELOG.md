@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- Character Lab → Skin → **Pin to body** (per part): the top of a limb also follows a
+  body bone, so a thigh or upper arm stays attached at the hip / shoulder instead of
+  swinging rigidly with the limb. Choose the bone (Lower Back is suggested for legs,
+  Upper Back for arms), **strength** at the joint and **reach** down the part; a red
+  ring shows the reach. Works with joint lines, rectangles and envelopes; points
+  set by hand are left as set; Copy to the other side carries it. Baked into the
+  part's weights, so the game draws it with no change. Tip: the more mesh points
+  near the top of a limb, the smoother the pin.
 - Puzzle Lab: **Run Test starts at the puzzle's left edge** — the test copy now uses
   the bounds of the template it was launched with (it fell back to the puzzle's
   original default width, so templates started the player in the wrong place).
