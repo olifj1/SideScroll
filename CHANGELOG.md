@@ -4,8 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
-- **Story sequences design** (`docs/SEQUENCE_SYSTEM_DESIGN.md`, proposed): world
-  characters, sequence timelines, triggers and story flags, with a build order.
+- **Story sequences design** (`docs/SEQUENCE_SYSTEM_DESIGN.md`, agreed 8 Nov): world
+  characters, marks and moves, sequence timelines, triggers, story flags and World Lab
+  story tracks, with a build order.
 - **Automatic publishing:** upload a Publish Lab package (or a character export /
   Project Backup) into the repo's `publish/` folder on github.com; the *Publish
   uploaded package* Action (`.github/workflows/publish.yml`) bakes it with
