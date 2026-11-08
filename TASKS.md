@@ -20,6 +20,16 @@ content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
 
+### Story sequences (proposed 8 Nov — design for your review)
+Design: `docs/SEQUENCE_SYSTEM_DESIGN.md` (world characters, timelines with camera /
+actor / look / screen / event tracks, triggers, story flags). Answer its questions
+(§7) before stage 1.
+- [ ] **Stage 1 — World characters:** place a character with a looping animation (the father chopping wood); Story scope in the editor.
+- [ ] **Stage 2 — First sequences:** camera track with eases and blend back to gameplay, fades / letterbox / hide controls, New game and Enter area triggers, story flags, Skip (the opening pan).
+- [ ] **Stage 3 — Actor tracks and subtitles.**
+- [ ] **Stage 4 — Look track** (colour grade, vignette) and atmosphere zones.
+- [ ] **Stage 5 — Events and flags shared with puzzle logic.**
+
 ### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
 Design: `docs/CHARACTER_SYSTEM_DESIGN.md`. Every character is built the same
 way: rig and animations are shared templates (instances) or unique copies; atlas,
