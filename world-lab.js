@@ -45,7 +45,9 @@
   // Keep a generous future runway and extend it automatically as the user pans right.
   const WORLD_MIN_SPAN = 300;
   const WORLD_EXTEND_STEP = 200;
-  const baked = window.SIDESCROLL_BAKED_GAME_DESIGN || {};
+  // The old baked game design (baked-game-design.js) was retired on 7 Nov 2026:
+  // built-in content now comes from project-defaults-data.js via localStorage.
+  const baked = {};
   const puzzleConfig = window.SideScrollPuzzleConfig || { groups:{}, markers:[] };
   const RANGE_TYPES = new Set(['biome-region','biome-transition','dressing-group','audio-zone','vfx-zone']);
   const TYPE_TRACK = {
@@ -165,7 +167,6 @@
     dataMenu:$('wl-data-menu'),
     dataClose:$('wl-data-close'),
     dataScrim:$('wl-data-scrim'),
-    exportBtn:$('wl-export'),
     importBtn:$('wl-import'),
     resetWorld:$('wl-reset-world'),
     importFile:$('wl-import-file'),
@@ -244,7 +245,6 @@
     els.dataClose.addEventListener('click',closeDataMenu);
     els.dataScrim.addEventListener('click',closeDataMenu);
     document.addEventListener('keydown',event=>{if(event.key==='Escape')closeDataMenu();});
-    els.exportBtn.addEventListener('click',exportCompleteGameDesign);
     els.importBtn.addEventListener('click',()=>els.importFile.click());
     els.importFile.addEventListener('change',importCompleteGameDesign);
     els.resetWorld.addEventListener('click',()=>{
@@ -2071,103 +2071,9 @@
     return saved.sort((a,b)=>a.key.localeCompare(b.key));
   }
 
-  function completeGameDesignExportPayload(){
-    refreshGameData();
-    const bakedWorld=clone(baked?.world||{});
-    const placedWorldAssets=(state.scene?.added||[]).filter(item=>item&&!item.deleted&&!item.puzzleInstanceId).map(item=>clone(item));
-    const puzzleMarkers=state.puzzles.map(item=>({
-      id:item.id,group:item.group,label:item.label,x:item.x,actualX:item.actualX,local:!!item.local,
-      minX:item.minX,maxX:item.maxX,pending:!!item.pending
-    }));
-    return {
-      format:'SideScrollGameDesign',
-      formatVersion:3,
-      appVersion:'1.0.204',
-      exportedAt:new Date().toISOString(),
-      purpose:'Complete SideScroll authoring handoff and restore snapshot. Exported from World Lab.',
-      world:{
-        ...bakedWorld,
-        elements:clone(state.elements),
-        biomes:clone(state.biomes),
-        terrainSurfaces:clone(state.terrainSurfaces),
-        terrain:clone(state.terrain),
-        pendingPuzzleMoves:clone(state.pending),
-        pendingWorldGroupMoves:clone(state.groupMoves),
-        playerPosition:exportStore(STORAGE.player,null)
-      },
-      scene:{
-        edits:clone(state.scene),
-        placedWorldAssets
-      },
-      puzzles:{
-        markers:puzzleMarkers,
-        localLibrary:clone(state.userLibrary),
-        runtimeState:clone(state.puzzleState),
-        savedStarts:clone(state.puzzleStarts),
-        workshop:exportStore(STORAGE.puzzleWorkshop,{}),
-        exclusions:exportStore(STORAGE.puzzleExclusions,{}),
-        // Puzzle Lab's isolated edits and settings are not all part of its
-        // World Group library. Include them so World export is not lossy.
-        labStorage:capturePuzzleLabStorage(),
-        playerPuzzleState:exportStore('sidescroll.player.puzzle-state.v1',null)
-      },
-      assets:{
-        behaviourOverrides:exportStore(STORAGE.assetBehaviours,{}),
-        collisionDefaults:exportStore(STORAGE.assetCollisions,{}),
-        climbPaths:exportStore(STORAGE.assetClimbPaths,{}),
-        mechanisms:exportStore(STORAGE.assetMechanisms,{}),
-        sockets:exportStore(STORAGE.assetSockets,{}),
-        states:exportStore(STORAGE.assetStates,{}),
-        layout:exportStore(STORAGE.assetLayout,{})
-      },
-      collectables:{
-        setup:exportStore(STORAGE.collectables,{}),
-        inventory:exportStore(STORAGE.inventory,{})
-      },
-      camera:{
-        tune:exportStore(STORAGE.cameraTune,null),
-        follow:exportStore(STORAGE.cameraFollow,null)
-      },
-      render:{
-        fog:exportStore(STORAGE.renderFog,null),
-        post:exportStore(STORAGE.renderPost,null)
-      },
-      audio:exportStore(STORAGE.audio,null),
-      labs:{
-        concept:exportStore(STORAGE.conceptLab,null),
-        design:exportStore(STORAGE.designLab,null),
-        designLegacy:exportStore(STORAGE.designLabLegacy,null),
-        animationClips:exportStore(STORAGE.animClips,null),
-        animationWalk:exportStore(STORAGE.animWalk,null)
-      },
-      player:{
-        position:exportStore(STORAGE.player,null),
-        hints:localStorage.getItem(STORAGE.playerHints)
-      }
-    };
-  }
-
-  async function exportCompleteGameDesign(){
-    const payload=completeGameDesignExportPayload();
-    const text=JSON.stringify(payload,null,2);
-    const filename='SideScroll-Complete-Game-Design.json';
-    const blob=new Blob([text],{type:'application/json'});
-    try{
-      const file=new File([blob],filename,{type:'application/json'});
-      if(navigator.canShare?.({files:[file]})){
-        await navigator.share({files:[file]});
-        toast('Complete game exported.');
-        return;
-      }
-    }catch(err){
-      if(err?.name==='AbortError')return;
-    }
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1500);
-    toast('Complete game exported.');
-  }
+  // The "Export Complete Game" file was retired on 7 Nov 2026: Project Backup
+  // (everything on the phone) and the Publish Lab (publishing) replace it. The
+  // import below still restores files exported before then.
 
   function writeImportedStore(key,value){
     if(value===undefined)return;

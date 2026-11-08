@@ -14,14 +14,10 @@ characters C4–C6. Clean-up items are small and slot in between.
 
 ### Publishing workflow (agreed 30 Oct)
 Author on the phone, then publish chosen content into the game for every player.
-Publishing works by giving Claude a publish package from the Publish Lab (or a
-Project Backup / character exports) for `tools/bake_project.py`. Design: three kinds of data — published game
+Publishing: Publish Lab → package → upload it to `publish/` on github.com → the
+Action bakes it and opens a pull request → merge (`publish/README.md`). Design: three kinds of data — published game
 content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
-- [x] **Step 3a — Publish Lab** (`publish-lab.html`): status per area and character, tick-list publish package (bake tool builds selected areas / characters), Use published per area / character, My settings export/import.
-- [x] **Step 3b — Full backup:** Project Backup now includes character artwork and restores it (linked from the Publish Lab).
-- [ ] **Step 3c:** drive the per-lab export lists in `lab-data.js` from the catalogue (Project Backup already covers every catalogue key). Then retire World Lab's "Complete Game Design" export and `baked-game-design.js` (now shadowed by `project-defaults-data.js`).
-- [ ] **Step 4 (optional) — Automatic publishing:** upload a publish package to GitHub from the phone; a GitHub Action bakes it and opens the pull request.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
@@ -55,6 +51,11 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0ac. Automatic publishing (7 Nov)** — first use
+- [ ] One-off: GitHub → repo **Settings → Actions → General → Workflow permissions** → *Read and write permissions* + *Allow GitHub Actions to create and approve pull requests* → Save.
+- [ ] Publish Lab → Prepare package → Share → save to Files. In Safari open the repo's `publish` folder → *Add file → Upload files* (Request Desktop Website if needed) → choose the file → Commit. About a minute later a pull request *Publish: SS-PUBLISH-….json* appears (repo **Actions** tab shows progress/errors); merge it, then the Publish Lab rows read *Published*.
+- [ ] World Lab → Data: only *Import older Complete Game file*; Puzzle Lab test stage shows just the puzzle (no old world assets).
 
 **0ab. Pin to body along the limb (8 Nov)** — Character Lab → Character01 → Skin
 - [ ] Select LegNear → *Pin to body* → **Lower Back (suggested)**: a red band runs down the leg's bones from the hip. Drag **Strength at the top**, **Fade along limb** and **Curve**: the band and the top of the leg respond; check in Animate → Walk/Run at a big stride. Save.

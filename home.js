@@ -20,7 +20,6 @@
     'quadruped-baseline.js',
     'quadruped-rig.js',
     'puzzle-groups.js',
-    'baked-game-design.js',
     'audio.js',
     'sidescroll.js',
     'sidescroll-music.m4a',

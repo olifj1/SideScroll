@@ -42,7 +42,6 @@ const CORE_SHELL = [
   "./sidescroll.js",
   "./near-rows.js",
   "./character-game-runtime.js",
-  "./baked-game-design.js",
   "./puzzle-groups.js",
   "./audio.js",
   "./walk-lab.js",
