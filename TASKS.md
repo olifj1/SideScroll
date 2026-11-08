@@ -23,8 +23,7 @@ content, your working copy (overrides published on your phone only), local only
 ### Story sequences (agreed 8 Nov)
 Design: `docs/SEQUENCE_SYSTEM_DESIGN.md` (world characters, marks and moves, triggers
 that play sequences or direct characters, story flags, World Lab story tracks).
-- [ ] **Stage 1 — World characters and marks:** place a character at any depth with a looping animation (the father chopping wood), blocks the player (Auto / Always / Never), visible-when; marks; routes of moves (walk A → B by time t with a tagged animation); Story scope in the editor.
-- [ ] **Stage 2 — Triggers that direct characters** (play once, switch behaviour, move to a mark, face the player), story flags, and World Lab story tracks with details and a list view.
+- [ ] **Stage 2 — Triggers that direct characters** (play once, switch behaviour, move to a mark, face the player), story flags (plus each world character's *visible when* flag, already in its data), routes that start from a trigger, and World Lab story tracks with details and a list view. *(Stage 1, world characters and marks, done 8 Nov.)*
 - [ ] **Stage 3 — First sequences:** camera track with eases and blend back to gameplay, fades / letterbox / hide controls, New game trigger, Skip (the opening pan).
 - [ ] **Stage 4 — Actor tracks and speech bubbles** (bubble style still to decide).
 - [ ] **Stage 5 — Look track** (colour grade, vignette) and atmosphere zones.
@@ -61,6 +60,14 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0ad. Story: world characters and marks (8 Nov)** — game → Edit → **Story**
+- [ ] The scope row shows Environment · Terrain · Puzzle · Story on one line, readable.
+- [ ] Characters tab: pick a character → **+ Add character** → tap the ground: it appears there (nearer the camera if you tap lower). Change Animation (e.g. a chop or idle), Size, Facing, Depth; tap it in the view to select it (it tints pink while selected).
+- [ ] Marks tab: add two marks. Back on the character: **+ Add move to a mark** twice (to each mark), one with *Takes… 20 s*; the yellow route line and the timeline list appear; it walks between them with its feet keeping to the ground; *Repeat* makes it go round.
+- [ ] **Save story**, Done Editing, close and reopen the app: the characters are still there and walking.
+- [ ] Play: walk into a character standing on the path (Blocks: Auto) — you can't walk or jump past; set it to *Never* and you walk through.
+- [ ] Publish Lab shows a **Story** area (New) to publish.
 
 **0ac. Automatic publishing (7 Nov)** — first use
 - [ ] One-off: GitHub → repo **Settings → Actions → General → Workflow permissions** → *Read and write permissions* + *Allow GitHub Actions to create and approve pull requests* → Save.

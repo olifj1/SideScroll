@@ -4,6 +4,19 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story stage 1 — world characters and marks** (`docs/SEQUENCE_SYSTEM_DESIGN.md`): a
+  **Story** scope in the game editor places any character in the world at any depth,
+  looping one of its animations (speed, start offset, size, facing), and builds
+  routes of moves between named **marks** (walk / run / any animation, at walking
+  speed or *arrives after N s*, then wait, face, and an animation while there;
+  repeat; start when play starts or when the player comes near), with a timeline of
+  the route. Characters on the path block the player (Auto / Always / Never; no
+  walking or jumping past). New `story-world.js` (data and route maths) and
+  `story-editor.js` (panel); new content keys `sidescroll.story.world-characters.v1`
+  and `sidescroll.story.marks.v1` publish as the Publish Lab **Story** area. The
+  game's character drawing now takes a position, so the same code draws the player
+  and world characters; `character-game-runtime.js` gives any animation of a
+  character (`clipFor`, `slotAnimation`, `animationsFor`).
 - **Story sequences design** (`docs/SEQUENCE_SYSTEM_DESIGN.md`, agreed 8 Nov): world
   characters, marks and moves, sequence timelines, triggers, story flags and World Lab
   story tracks, with a build order.

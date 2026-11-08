@@ -41,6 +41,8 @@ const CORE_SHELL = [
   "./quadruped-rig.js",
   "./sidescroll.js",
   "./near-rows.js",
+  "./story-world.js",
+  "./story-editor.js",
   "./character-game-runtime.js",
   "./puzzle-groups.js",
   "./audio.js",

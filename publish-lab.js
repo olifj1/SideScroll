@@ -34,6 +34,7 @@
   const Registry = window.SideScrollCharacters || null;
   const AREA_DETAIL = {
     World: 'Terrain, biomes, journey elements, camera, fog',
+    Story: 'World characters and marks',
     Puzzles: 'Puzzle and World Group templates, starts, collectables',
     'Puzzle Lab': 'Puzzle Lab test scene and templates',
     Assets: 'Asset behaviours, collisions, states, sockets',
