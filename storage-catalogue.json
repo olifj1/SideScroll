@@ -24,6 +24,8 @@
     "sidescroll.terrain-sections.v1":                    { "area": "World", "scope": "content", "lab": "Game editor / World Lab", "what": "Terrain section heights and types" },
     "sidescroll.terrain-surfaces.v1":                    { "area": "World", "scope": "content", "lab": "World Lab", "what": "Terrain surface regions and blends" },
     "sidescroll.biomes.v1":                              { "area": "World", "scope": "content", "lab": "World Lab", "what": "Biome layout" },
+    "sidescroll.story.world-characters.v1":              { "area": "Story", "scope": "content", "lab": "Game editor (Story)", "what": "World characters: placed characters, their animation, blocking and routes" },
+    "sidescroll.story.marks.v1":                         { "area": "Story", "scope": "content", "lab": "Game editor (Story)", "what": "Marks: named spots world characters walk between" },
     "sidescroll.world-elements.v1":                      { "area": "World", "scope": "content", "lab": "World Lab", "what": "Journey elements" },
     "sidescroll.render.fog.v1":                          { "area": "World", "scope": "content", "lab": "Game editor", "what": "Fog look" },
     "sidescroll.render.post.v1":                         { "area": "World", "scope": "content", "lab": "Game editor", "what": "Post-processing look" },

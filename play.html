@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.46">
+  <link rel="stylesheet" href="style.css?v=1.1.53">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -216,7 +216,11 @@
               <button id="sidescroll-scope-environment" class="active" type="button">Environment</button>
               <button id="sidescroll-scope-terrain" type="button">Terrain</button>
               <button id="sidescroll-scope-puzzle" type="button">Puzzle</button>
+              <button id="sidescroll-scope-story" type="button">Story</button>
             </div>
+
+            <!-- Story scope: world characters and marks (story-editor.js, docs/SEQUENCE_SYSTEM_DESIGN.md) -->
+            <section class="sidescroll-story-panel" id="sidescroll-story-panel" hidden aria-label="Story editor"></section>
 
             <section class="sidescroll-terrain-workspace" id="sidescroll-section-panel" hidden aria-label="Terrain editor">
               <div class="sidescroll-world-group-edit-summary">
@@ -828,8 +832,10 @@
   <script src="quadruped-rig.js?v=1.1.42"></script>
   <script src="puzzle-groups.js?v=1.1.49"></script>
   <script src="audio.js?v=1.0.62"></script>
-  <script src="character-game-runtime.js?v=1.1.39"></script>
+  <script src="character-game-runtime.js?v=1.1.53"></script>
   <script src="near-rows.js?v=1.1.46"></script>
-  <script src="sidescroll.js?v=1.1.49"></script>
+  <script src="story-world.js?v=1.1.53"></script>
+  <script src="sidescroll.js?v=1.1.53"></script>
+  <script src="story-editor.js?v=1.1.53"></script>
 </body>
 </html>

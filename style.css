@@ -15557,3 +15557,46 @@ body[data-game-id="game-17"] .animlab-key-cell.landing{box-shadow:inset 0 -3px 0
 .sidescroll-near-rows-textures img{width:100%;height:100%;object-fit:contain;}
 .sidescroll-near-rows-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:8px;}
 .sidescroll-near-rows-actions button{min-height:32px;padding:0 12px;border-radius:8px;}
+
+/* Editor → Story: world characters and marks (story-editor.js). */
+.sidescroll-story-panel{display:grid;gap:8px;margin:8px 0;padding:8px 10px;border:1px solid rgba(255,214,120,.28);border-radius:10px;background:rgba(0,0,0,.16);font-size:12px;}
+.sidescroll-story-panel[hidden]{display:none;}
+.sidescroll-story-panel h4{margin:6px 0 0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;}
+.sidescroll-story-panel button{min-height:32px;padding:0 10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:700 11px/1.1 system-ui,sans-serif;}
+.sidescroll-story-panel button.primary{background:rgba(255,214,120,.24);border-color:rgba(255,214,120,.7);}
+.sidescroll-story-panel button.active{background:rgba(126,216,199,.28);border-color:rgba(126,216,199,.75);}
+.sidescroll-story-panel button:disabled{opacity:.4;}
+.sidescroll-story-panel select,.sidescroll-story-panel input[type=text],.sidescroll-story-panel input[type=number]{min-height:32px;min-width:0;padding:0 8px;border-radius:8px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.25);color:inherit;font:600 12px system-ui,sans-serif;}
+.sidescroll-story-panel input[type=number]{width:5.2em;}
+.sidescroll-story-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;}
+.sidescroll-story-status{font-size:10px;font-weight:800;opacity:.65;}
+.sidescroll-story-status.dirty{opacity:1;color:#ffd678;}
+.sidescroll-story-help{margin:0;font-size:11px;opacity:.7;line-height:1.35;}
+.sidescroll-story-segmented{display:flex;flex-wrap:wrap;gap:4px;}
+.sidescroll-story-segmented button{flex:1 1 0;}
+.sidescroll-story-list{display:grid;gap:4px;max-height:168px;overflow:auto;}
+.sidescroll-story-list button{display:flex;justify-content:space-between;align-items:center;gap:6px;text-align:left;}
+.sidescroll-story-list small{font-weight:600;opacity:.7;}
+.sidescroll-story-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;}
+.sidescroll-story-editor{display:grid;gap:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,.12);}
+.sidescroll-story-field{display:grid;gap:4px;}
+.sidescroll-story-field>span{font-weight:700;font-size:11px;}
+.sidescroll-story-field small{opacity:.65;font-size:10px;}
+.sidescroll-story-slider input{width:100%;}
+.sidescroll-story-slider b{font-variant-numeric:tabular-nums;color:#ffe7a6;}
+.sidescroll-story-nudge{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:4px;}
+.sidescroll-story-nudge input[type=number]{width:100%;}
+.sidescroll-story-row{display:flex;flex-wrap:wrap;gap:6px;}
+.sidescroll-story-row button{flex:1 1 auto;}
+.sidescroll-story-inline{display:flex;align-items:center;gap:6px;}
+.sidescroll-story-check{display:flex;align-items:center;gap:6px;font-weight:700;font-size:11px;}
+.sidescroll-story-move{display:grid;gap:6px;padding:8px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,214,120,.18);}
+.sidescroll-story-move-head{display:flex;align-items:center;gap:6px;}
+.sidescroll-story-move-head strong{flex:1;}
+.sidescroll-story-timeline{margin:0;padding-left:16px;font-size:11px;line-height:1.5;opacity:.85;}
+.sidescroll-story-timeline b{display:inline-block;min-width:4em;color:#ffe7a6;font-variant-numeric:tabular-nums;}
+.sidescroll-story-danger button:last-child{border-color:rgba(255,120,120,.45);}
+.sidescroll-story-actions{display:flex;gap:6px;justify-content:flex-end;padding-top:6px;border-top:1px solid rgba(255,255,255,.12);}
+/* Four editor scopes (Story added 8 Nov 2026) on one row. */
+body[data-game-id="game-16"] .sidescroll-editor-scope-switch{grid-template-columns:repeat(4,minmax(0,1fr));}
+body[data-game-id="game-16"] .sidescroll-editor-scope-switch button{padding:0 2px!important;letter-spacing:-.01em;font-size:9.5px!important;overflow:hidden;white-space:nowrap;}

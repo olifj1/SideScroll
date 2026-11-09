@@ -206,7 +206,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `sidescroll.js` |
+| `play.html` | The game + in-game scene/puzzle/story editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `story-world.js`, `sidescroll.js`, `story-editor.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
@@ -217,6 +217,22 @@ Any new per-character storage must be added to `slicesFor()` there.
 | `project-snapshot.html` | Backup / restore of all local data | `project-snapshot.js`, `project-restore.js` |
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
+
+**Story — world characters and marks** (`story-world.js`, `window.SideScrollStory`;
+`story-editor.js`; design `docs/SEQUENCE_SYSTEM_DESIGN.md`, stage 1 done): content keys
+`sidescroll.story.world-characters.v1` (characters: `{id wc-…, name, character, x, depth (world z,
++ nearer), facing, scale (× its own), animation, speed, offset, blocks 'auto'|'always'|'never',
+route?:{loop, start 'game'|'near', moves:[{to mark id, animation, timing 'speed'|'time', seconds,
+wait, face, arriveAnimation?}]}, visible? (flag, stage 2)}`) and `sidescroll.story.marks.v1`
+(`{id mark-…, name, x, depth, facing}`). Route positions come from `Story.stateAt(character,
+marks, walkSpeed, seconds)` — nothing about a route is saved while playing. The game
+(`updateWorldCharacters` / `drawWorldCharacters` / `resolveWorldCharacterBlocking` in
+`sidescroll.js`) draws them with the player's drawing code (`drawLocalMeshCharacter` and
+`drawRigPartWebGL` take a `body` {x, y, z, scale, tint, opacity, texture}; `playerBody()` is
+the player) and keeps the player out of blocking ones. The editor's **Story** scope talks to the
+game through `window.SideScrollStoryHost` (preview, select, taps arrive as `sidescroll:story-tap`).
+A built-in slot name (idle/walk/run/jump) plays the character's animation for that slot
+(`GameCharacters.slotAnimation`); other keys are its own animations (`clipFor`).
 
 **Near-side rows** (`near-rows.js`, `window.SideScrollNearRows`, loaded by play and
 world-lab): a biome profile's optional `nearRows` (`{enabled, rows:[3 × {on, depth,

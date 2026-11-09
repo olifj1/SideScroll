@@ -531,6 +531,8 @@
   const environmentScopeBtn = document.getElementById('sidescroll-scope-environment');
   const terrainScopeBtn = document.getElementById('sidescroll-scope-terrain');
   const puzzleScopeBtn = document.getElementById('sidescroll-scope-puzzle');
+  const storyScopeBtn = document.getElementById('sidescroll-scope-story');
+  const storyPanelEl = document.getElementById('sidescroll-story-panel');
   const puzzleSourceSwitch = document.getElementById('sidescroll-puzzle-source-switch');
   const puzzleSourceLibraryBtn = document.getElementById('sidescroll-puzzle-source-library');
   const puzzleSourceSceneBtn = document.getElementById('sidescroll-puzzle-source-scene');
@@ -10935,7 +10937,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const puzzleWorkspaceShown=!!(puzzleWorkspaceActive&&editMode&&!puzzleTestMode&&editorScope==='puzzle'&&puzzleBrowserMode==='scene'&&selectedPuzzleMarker());
     document.body.classList.toggle('sidescroll-puzzle-workspace-active',puzzleWorkspaceShown);
     if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':(puzzleWorkspaceShown?'PUZZLE EDIT':(terrainWorkspaceShown?'TERRAIN EDIT':'EDIT'));
-    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(terrainWorkspaceShown?'Terrain':(editorScope==='puzzle'?'Puzzle':'Environment')));
+    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(terrainWorkspaceShown?'Terrain':(editorScope==='puzzle'?'Puzzle':(editorScope==='story'?'Story':'Environment'))));
     const session=groupSession?worldGroupEditSession:(puzzleSession?puzzleEditSession:(terrainSession?terrainEditSession:null));
     const dirty=!!session?.dirty;
     if(editorDrawerDirtyEl)editorDrawerDirtyEl.hidden=!dirty;
@@ -13707,7 +13709,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function setEditorScope(scope) {
-    if (scope !== 'environment' && scope !== 'terrain' && scope !== 'puzzle') return false;
+    if (scope !== 'environment' && scope !== 'terrain' && scope !== 'puzzle' && scope !== 'story') return false;
     if(worldGroupEditSession&&scope!=='environment'){
       hintEl.textContent='Finish the current World Group edit with Save or Discard first';
       hintEl.classList.remove('hidden');
@@ -14273,7 +14275,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const placing = placementModeActive();
     const groupMemberSelected=!!(worldGroupEditSession&&worldGroupEditorTab==='contents'&&selectedWorldGroupMember());
     const groupNodeSelected=!!(groupMemberSelected&&(selectedIsThoughtTrigger()||selectedIsCameraTrigger()));
-    if (editorControls) editorControls.hidden = !editMode || editorScope==='terrain' || placing || (!!worldGroupEditSession&&!groupMemberSelected);
+    if (editorControls) editorControls.hidden = !editMode || editorScope==='terrain' || editorScope==='story' || placing || (!!worldGroupEditSession&&!groupMemberSelected);
     if (openAssetsBtn) {
       const puzzleInstanceReady = editorScope === 'puzzle' && puzzleBrowserMode === 'scene' && !!editorPuzzleMarkerId;
       openAssetsBtn.hidden = !editMode || puzzleTestMode || placing || !puzzleInstanceReady;
@@ -14420,6 +14422,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     environmentScopeBtn?.classList.toggle('active', !testing && editorScope === 'environment');
     terrainScopeBtn?.classList.toggle('active', terrainEditing);
     puzzleScopeBtn?.classList.toggle('active', testing || editorScope === 'puzzle');
+    storyScopeBtn?.classList.toggle('active', !testing && editorScope === 'story');
+    if (storyPanelEl) storyPanelEl.hidden = testing || !editMode || editorScope !== 'story';
     if (puzzleSourceSwitch) puzzleSourceSwitch.hidden = true;
     puzzleSourceLibraryBtn?.classList.toggle('active', !testing && libraryMode);
     puzzleSourceSceneBtn?.classList.toggle('active', !testing && sceneMode);
@@ -16110,6 +16114,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     drawTerrainSectionOverlay(ctx);
     drawTerrainSurfaceOverlay(ctx);
     if (!editMode || editorScope==='terrain') return;
+    if (editorScope==='story') { drawStoryOverlay(ctx); return; }
     drawWorldGroupGuides(ctx);
     drawPuzzleEditorGuides(ctx);
     drawAuthoredSockets(ctx);
@@ -17660,17 +17665,25 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     drawObject(temp, view, { force: true });
   }
 
-  function drawRigPartWebGL(part, view, facing, charRig) {
+  // Where a character is drawn: the player, or a story world character
+  // (drawWorldCharacters) — x, render y (feet + sole offset), z, scale, tint,
+  // opacity and, for Parts drawing, the atlas texture.
+  function playerBody() {
+    return { x: character.x, y: characterRenderY(), z: character.z, scale: character.scale,
+      tint: character.tint, opacity: character.opacity, texture: textures.rigAtlas };
+  }
+
+  function drawRigPartWebGL(part, view, facing, charRig, body = playerBody()) {
     const rigType = charRig === QuadrupedRig ? 'quadruped' : 'biped';
     const mesh = rigPartMeshesByType[rigType]?.[part.name];
     const r = charRig.atlasRect(part.name);
     if (!mesh || !r) return;
 
-    const ax = character.x + part.a.x * character.scale * facing;
-    const renderY = characterRenderY();
-    const ay = renderY + part.a.y * character.scale;
-    const bx = character.x + part.b.x * character.scale * facing;
-    const by = renderY + part.b.y * character.scale;
+    const ax = body.x + part.a.x * body.scale * facing;
+    const renderY = body.y;
+    const ay = renderY + part.a.y * body.scale;
+    const bx = body.x + part.b.x * body.scale * facing;
+    const by = renderY + part.b.y * body.scale;
     const dvx = bx - ax, dvy = by - ay;
     const p0x = r.a0[0] * r.w, p0y = r.a0[1] * r.h;
     const p1x = r.a1[0] * r.w, p1y = r.a1[1] * r.h;
@@ -17682,21 +17695,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const rotation = Math.atan2(dvy, dvx) - Math.atan2(svy, svx);
 
     bindMesh(mesh);
-    gl.bindTexture(gl.TEXTURE_2D, textures.rigAtlas);
-    const z = character.z + CHARACTER_GAMEPLAY_Z_BIAS + (part.layer - 10) * 0.0009;
+    gl.bindTexture(gl.TEXTURE_2D, body.texture || textures.rigAtlas);
+    const z = body.z + CHARACTER_GAMEPLAY_Z_BIAS + (part.layer - 10) * 0.0009;
     gl.uniformMatrix4fv(loc.model, false, mat4Model2D(ax, ay, z, scale, rotation, facing));
     gl.uniformMatrix4fv(loc.view, false, view);
     gl.uniformMatrix4fv(loc.projection, false, projection);
-    const tint = debugDepth ? debugTints.character : character.tint;
+    const tint = debugDepth ? debugTints.character : body.tint;
     gl.uniform3f(loc.tint, tint[0], tint[1], tint[2]);
-    gl.uniform1f(loc.highlight, 0);
+    gl.uniform1f(loc.highlight, body.highlight || 0);
     gl.uniform3f(loc.highlightColor, 1.0, 0.18, 0.48);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
     gl.uniform1f(loc.fogNear, fogSettings.near);
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.22 : fogSettings.amount) : 0);
     gl.uniform1f(loc.fogCurve, fogSettings.curve);
-    gl.uniform1f(loc.opacity, character.opacity * (part.alpha ?? 1));
+    gl.uniform1f(loc.opacity, body.opacity * (part.alpha ?? 1));
     gl.uniform2f(loc.uvScale, 1, 1);
     gl.uniform2f(loc.uvOffset, 0, 0);
     gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
@@ -17719,9 +17732,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   // drawHeld(z), if given, draws a carried object just before the first near-arm
   // part (or after every part when there is none).
-  function drawLocalMeshCharacter(view,pose,facing,data,drawHeld=null){
+  function drawLocalMeshCharacter(view,pose,facing,data,drawHeld=null,body=playerBody()){
     GameCharacters.poseParts(data,pose,data.family==='biped'?Rig:QuadrupedRig);
-    const partZ=i=>character.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
+    const partZ=i=>body.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
     let held=drawHeld,topZ=-Infinity;
     const heldAt=held&&data.family==='biped'?Rig.heldItemIndex(data.parts,heldItemLayer(),p=>p.id,isNearArmPart):Infinity;
     for(let i=0;i<data.parts.length;i++){
@@ -17732,20 +17745,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       bindMesh(part.mesh);
       gl.bufferSubData(gl.ARRAY_BUFFER,0,part.buffer);
       gl.bindTexture(gl.TEXTURE_2D,part.texture);
-      const z=character.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
-      gl.uniformMatrix4fv(loc.model,false,mat4Model2D(character.x,characterRenderY(),z,character.scale,0,facing));
+      const z=body.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
+      gl.uniformMatrix4fv(loc.model,false,mat4Model2D(body.x,body.y,z,body.scale,0,facing));
       gl.uniformMatrix4fv(loc.view,false,view);
       gl.uniformMatrix4fv(loc.projection,false,projection);
-      const tint=debugDepth?debugTints.character:character.tint;
+      const tint=debugDepth?debugTints.character:body.tint;
       gl.uniform3f(loc.tint,tint[0],tint[1],tint[2]);
-      gl.uniform1f(loc.highlight,0);
+      gl.uniform1f(loc.highlight,body.highlight||0);
       gl.uniform3f(loc.highlightColor,1,.18,.48);
       gl.uniform3f(loc.fogColor,fogColor[0],fogColor[1],fogColor[2]);
       gl.uniform1f(loc.fogNear,fogSettings.near);
       gl.uniform1f(loc.fogFar,fogSettings.far);
       gl.uniform1f(loc.fogAmount,fogSettings.enabled?(debugDepth?.22:fogSettings.amount):0);
       gl.uniform1f(loc.fogCurve,fogSettings.curve);
-      gl.uniform1f(loc.opacity,character.opacity);
+      gl.uniform1f(loc.opacity,body.opacity);
       gl.uniform2f(loc.uvScale,1,1);
       gl.uniform2f(loc.uvOffset,0,0);
       gl.drawElements(gl.TRIANGLES,part.mesh.count,gl.UNSIGNED_SHORT,0);
@@ -17853,6 +17866,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     const parts = charRig === Rig ? charRig.partsForPose(pose, bipedRestRig()) : charRig.partsForPose(pose);
     let crateDrawn = false;
+    const body = playerBody();
     const heldAt = !isQuadruped && (carriedObject || interactionState)
       ? Rig.heldItemIndex(parts, heldItemLayer(), p => p.name, p => p.name === 'near_upper_arm') : -1;
     for (const [index, part] of parts.entries()) {
@@ -17860,10 +17874,245 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         drawCarriedCrate(view, facing, pose);
         crateDrawn = true;
       }
-      drawRigPartWebGL(part, view, facing, charRig);
+      drawRigPartWebGL(part, view, facing, charRig, body);
     }
     if (!crateDrawn && (carriedObject || interactionState)) drawCarriedCrate(view, facing, isQuadruped ? null : pose);
   }
+
+  // ---- Story: world characters (docs/SEQUENCE_SYSTEM_DESIGN.md, stage 1) ----
+  // Characters placed in the world (sidescroll.story.world-characters.v1) loop
+  // one of their animations or walk a route between marks
+  // (sidescroll.story.marks.v1). They are drawn with the player's drawing code
+  // at their own position, and those on the path block the player (no getting
+  // past, jumping included). story-editor.js edits them through
+  // window.SideScrollStoryHost.
+  const Story = window.SideScrollStory || null;
+  let storyState = Story ? Story.load() : { characters: [], marks: [] };
+  let storyMarksById = new Map(storyState.marks.map(m => [m.id, m]));
+  const storyNow = () => (performance.now ? performance.now() : Date.now()) / 1000;
+  const storyClockStart = storyNow();
+  const storyRouteStarts = new Map(); // world character id -> route start (s), this session
+  const storyColliders = new Map();   // character id -> collider {radius, height} (rig units)
+  let storySelectedId = null;         // highlighted in the Story editor
+  let worldCharacterFrames = [];      // this frame: position, facing, blocking
+  const STORY_DRAW_RANGE = 34;
+  const STORY_SLOTS = ['idle', 'walk', 'run', 'jump'];
+  const STORY_CYCLE_MS = {
+    biped: { idle: 1400, walk: 1050, run: 650, jump: 935 },
+    quadruped: { idle: 1400, walk: Number(QuadrupedRig?.WALK_CYCLE_MS) || 539, run: Number(QuadrupedRig?.RUN_CYCLE_MS) || 323,
+      jump: Number(QuadrupedRig?.JUMP_CYCLE_MS) || 1139 }
+  };
+  function setStoryState(next, restart = true) {
+    storyState = { characters: next?.characters || [], marks: next?.marks || [] };
+    storyMarksById = new Map(storyState.marks.map(m => [m.id, m]));
+    storyColliders.clear();
+    if (restart) restartStoryRoutes();
+  }
+  // Routes start again from now (editor: after a change, or Restart routes).
+  function restartStoryRoutes() {
+    storyRouteStarts.clear();
+    const now = storyNow();
+    for (const wc of storyState.characters) if (wc.route?.start === 'game') storyRouteStarts.set(wc.id, now);
+  }
+  function storyCharacterKnown(id) {
+    return !!(GameCharacters?.find(id) || Rig.CHARACTER_VARIANTS?.[id]) && !!characterRigForVariant(id);
+  }
+  function storyRouteStart(wc, now) {
+    if (!wc.route) return null;
+    if (storyRouteStarts.has(wc.id)) return storyRouteStarts.get(wc.id);
+    if (wc.route.start === 'game') { storyRouteStarts.set(wc.id, storyClockStart); return storyClockStart; }
+    if (Math.abs((character?.x ?? camera.x) - wc.x) <= Story.NEAR_DISTANCE) { storyRouteStarts.set(wc.id, now); return now; }
+    return null;
+  }
+  function storyWalkSpeed(id) {
+    const motion = characterMotionSettings(id);
+    return animation => (animation === 'run' ? motion.run : motion.walk);
+  }
+  function storyCollider(id) {
+    if (storyColliders.has(id)) return storyColliders.get(id);
+    const out = { radius: 0.12, height: 0.8 };
+    try {
+      const rig = characterRigForVariant(id), custom = GameCharacters?.ready(id);
+      const c = custom?.setup?.collider ? rig.normalizedCollider(custom.setup.collider)
+        : (rig.loadCollider ? rig.loadCollider() : rig.normalizedCollider());
+      if (Number(c?.radius) > 0) out.radius = Number(c.radius);
+      if (Number(c?.height) > 0) out.height = Number(c.height) + Math.max(0, Number(c.bottom) || 0);
+    } catch (_) {}
+    if (GameCharacters?.find(id) && !GameCharacters.ready(id)) return out; // not cached until loaded
+    storyColliders.set(id, out);
+    return out;
+  }
+  function storyGroundY(x, depth) {
+    return Math.abs(depth - pathZ) <= PATH_FLAT_HALF ? playSurfaceYAt(x) : terrainVisibleGroundYAt(x, depth);
+  }
+  // Positions of every world character this frame (before the player moves, so
+  // blocking uses them, and drawing after).
+  function updateWorldCharacters() {
+    if (!Story || !storyState.characters.length) { worldCharacterFrames = []; return; }
+    const now = storyNow(), frames = [];
+    for (const wc of storyState.characters) {
+      const id = wc.character;
+      if (!storyCharacterKnown(id)) continue;
+      const start = storyRouteStart(wc, now);
+      const time = start === null ? 0 : now - start;
+      const state = Story.stateAt(wc, storyMarksById, storyWalkSpeed(id), time);
+      const scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(id) * wc.scale;
+      frames.push({ wc, id, state, time, now, scale, x: state.x, z: state.depth, facing: state.facing,
+        blocks: Story.blocksPlayer(wc, state.depth), radius: storyCollider(id).radius * scale, height: storyCollider(id).height * scale });
+    }
+    worldCharacterFrames = frames;
+  }
+  // The pose of one of a character's animations (a built-in slot name plays the
+  // character's animation for that slot).
+  function storyPose(id, rig, key, phase) {
+    const resolved = STORY_SLOTS.includes(key) ? (GameCharacters?.slotAnimation?.(id, key) || key) : key;
+    const clip = GameCharacters?.clipFor?.(id, resolved) || null;
+    if (rig === QuadrupedRig) {
+      if (clip && QuadrupedRig.sampleSparseClip) return QuadrupedRig.sampleSparseClip(clip, phase);
+      const shared = isOriginalQuadruped(id) ? quadrupedSparseClips?.[resolved] : null;
+      if (shared && QuadrupedRig.sampleSparseClip) return QuadrupedRig.sampleSparseClip(shared, phase);
+      const frames = { walk: quadrupedWalkFrames, run: quadrupedRunFrames, jump: quadrupedJumpFrames }[resolved] || quadrupedIdleFrames;
+      return QuadrupedRig.sampleFrames(frames, phase);
+    }
+    const sampled = clip ? GameCharacters.sampleBipedClip({ family: 'biped', sparseClips: { [resolved]: clip } }, resolved, phase, Rig) : null;
+    if (sampled) return sampled;
+    const frames = { walk: characterFrames, run: runFrames, jump: jumpFrames }[resolved];
+    return frames ? Rig.sampleFrames(frames, phase) : Rig.sampleFrames(characterFrames, 0.02);
+  }
+  function storyPhase(frame, rig) {
+    const { wc, state, id } = frame;
+    if (state.moving) {
+      const run = state.animation === 'run';
+      const stride = (run ? Number(rig?.RUN_STRIDE_WORLD) || RUN_STRIDE : Number(rig?.WALK_STRIDE_WORLD) || WALK_STRIDE) * wc.scale;
+      return ((state.distance / Math.max(0.01, stride)) % 1 + 1) % 1;
+    }
+    const family = rig === QuadrupedRig ? 'quadruped' : 'biped';
+    const based = (GameCharacters?.animationsFor?.(id) || []).find(a => a.key === state.animation)?.basedOn || state.animation;
+    const cycle = (STORY_CYCLE_MS[family][based] || 1050) / 1000 / Math.max(0.05, wc.speed);
+    return ((frame.now / cycle + wc.offset) % 1 + 1) % 1;
+  }
+  function drawWorldCharacters(view) {
+    for (const frame of worldCharacterFrames) {
+      if (Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
+      const { id } = frame;
+      if (GameCharacters?.find(id) && !GameCharacters.ready(id)) continue; // artwork still loading
+      const rig = characterRigForVariant(id);
+      const pose = storyPose(id, rig, frame.state.animation, storyPhase(frame, rig));
+      const sole = Number(characterVariantInfo(id)?.soleArtOffset);
+      const body = { x: frame.x, y: storyGroundY(frame.x, frame.z) + (Number.isFinite(sole) ? sole : CHARACTER_SOLE_ART_LOCAL_OFFSET) * frame.scale,
+        z: frame.z, scale: frame.scale, tint: character.tint, opacity: character.opacity,
+        texture: textures[rigVariantTextureKey(artVariantFor(id))] || textures.rigAtlas,
+        highlight: editMode && editorScope === 'story' && storySelectedId === frame.wc.id ? 0.24 : 0 };
+      const local = GameCharacters?.ready(id) || originalCharacterMeshes.get(id);
+      if (local?.parts?.length) { drawLocalMeshCharacter(view, pose, frame.facing, local, null, body); continue; }
+      const parts = rig === Rig ? Rig.partsForPose(pose, bipedRestRig(id)) : rig.partsForPose(pose);
+      for (const part of parts) drawRigPartWebGL(part, view, frame.facing, rig, body);
+    }
+  }
+  // Keep the player's body out of every blocking world character, whichever
+  // side she came from (a character walking into her pushes her along).
+  function resolveWorldCharacterBlocking(cameraX, previousX) {
+    if (!worldCharacterFrames.length) return cameraX;
+    const capsule = colliderWorld();
+    const offset = character.screenOffsetX + capsule.offsetX;
+    const before = previousX + offset;
+    let x = cameraX + offset;
+    for (const frame of worldCharacterFrames) {
+      if (!frame.blocks) continue;
+      const half = frame.radius + capsule.radius;
+      const crossed = (before - frame.x) * (x - frame.x) < 0;
+      if (!crossed && Math.abs(x - frame.x) >= half) continue;
+      const side = before < frame.x - 0.001 ? -1 : (before > frame.x + 0.001 ? 1 : (x <= frame.x ? -1 : 1));
+      x = frame.x + side * half;
+    }
+    return x - offset;
+  }
+  // Story editor overlay: marks, the selected character's route and names.
+  function drawStoryOverlay(ctx) {
+    if (!Story) return;
+    ctx.save();
+    ctx.font = '800 10px -apple-system, BlinkMacSystemFont, sans-serif';
+    const label = (text, x, y, colour) => {
+      const tw = ctx.measureText(text).width + 12;
+      ctx.fillStyle = 'rgba(20,24,44,.86)'; ctx.fillRect(x - tw / 2, y - 18, tw, 17);
+      ctx.fillStyle = colour; ctx.fillText(text, x - tw / 2 + 6, y - 6);
+    };
+    const selected = storySelectedId ? storyState.characters.find(c => c.id === storySelectedId) : null;
+    const markPoint = m => projectWorldPoint(m.x, storyGroundY(m.x, m.depth) + 0.04, m.depth);
+    if (selected?.route) {
+      ctx.strokeStyle = 'rgba(255,214,120,.85)'; ctx.lineWidth = 2; ctx.setLineDash([7, 5]);
+      ctx.beginPath();
+      const start = projectWorldPoint(selected.x, storyGroundY(selected.x, selected.depth) + 0.04, selected.depth);
+      if (start) ctx.moveTo(start.x, start.y);
+      for (const move of selected.route.moves) {
+        const mark = storyMarksById.get(move.to), p = mark && markPoint(mark);
+        if (p) ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    for (const mark of storyState.marks) {
+      if (Math.abs(mark.x - camera.x) > STORY_DRAW_RANGE) continue;
+      const p = markPoint(mark);
+      if (!p) continue;
+      const active = storyHostSelectedMark === mark.id;
+      ctx.fillStyle = active ? '#ffe7a6' : 'rgba(255,214,120,.9)';
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - 9); ctx.lineTo(p.x + 7, p.y); ctx.lineTo(p.x, p.y + 9); ctx.lineTo(p.x - 7, p.y); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(40,30,10,.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + mark.facing * 14, p.y); ctx.stroke();
+      label(`◆ ${mark.name}`, p.x, p.y - 12, '#ffe7a6');
+    }
+    for (const frame of worldCharacterFrames) {
+      if (Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
+      const head = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z) + frame.height + 0.15, frame.z);
+      if (!head) continue;
+      const isSelected = frame.wc.id === storySelectedId;
+      label(`${frame.wc.name}${frame.blocks ? ' · blocks' : ''}`, head.x, head.y, isSelected ? '#ffffff' : '#c9d4ff');
+    }
+    ctx.restore();
+  }
+  let storyHostSelectedMark = null;
+  // A world character or mark under a tap (screen distance), for the editor.
+  function storyItemAt(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left, py = clientY - rect.top;
+    let best = null;
+    for (const mark of storyState.marks) {
+      const p = projectWorldPoint(mark.x, storyGroundY(mark.x, mark.depth) + 0.04, mark.depth);
+      const d = p ? Math.hypot(p.x - px, p.y - py) : Infinity;
+      if (d < 26 && (!best || d < best.d)) best = { kind: 'mark', id: mark.id, d };
+    }
+    for (const frame of worldCharacterFrames) {
+      const feet = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z), frame.z);
+      const head = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z) + frame.height, frame.z);
+      if (!feet || !head) continue;
+      const half = Math.max(18, Math.abs(head.y - feet.y) * 0.3);
+      if (px < feet.x - half || px > feet.x + half || py > feet.y + 10 || py < head.y - 10) continue;
+      const d = Math.abs(px - feet.x) + 4; // a mark exactly under the tap wins
+      if (!best || d < best.d) best = { kind: 'character', id: frame.wc.id, d };
+    }
+    return best;
+  }
+  window.SideScrollStoryHost = Object.freeze({
+    state: () => storyState,
+    // Live preview of an edit (not saved; the editor saves through SideScrollStory.save).
+    preview: next => setStoryState(next, true),
+    restartRoutes: restartStoryRoutes,
+    select: (kind, id) => { storySelectedId = kind === 'character' ? id : null; storyHostSelectedMark = kind === 'mark' ? id : null; },
+    active: () => !!(editMode && editorScope === 'story'),
+    viewX: () => camera.x,
+    playerX: () => character.x,
+    groundPointAt: (clientX, clientY) => groundPointFromClient(clientX, clientY),
+    itemAt: storyItemAt,
+    lookAt: x => { if (Number.isFinite(x)) { camera.x = x - character.screenOffsetX; previousCameraX = camera.x; } },
+    hint: message => { if (hintEl) { hintEl.textContent = message; hintEl.classList.remove('hidden'); } },
+    characters: () => {
+      const list = CharacterRegistry ? CharacterRegistry.list().filter(c => !c.hidden) : allCharacterVariants.map(id => ({ id }));
+      return list.filter(c => storyCharacterKnown(c.id)).map(c => ({ id: c.id, name: CharacterRegistry?.name(c.id) || characterVariantInfo(c.id)?.label || c.id,
+        family: characterRigForVariant(c.id) === QuadrupedRig ? 'quadruped' : 'biped' }));
+    },
+    animationsFor: id => GameCharacters?.animationsFor?.(id) || STORY_SLOTS.map(key => ({ key, name: key.charAt(0).toUpperCase() + key.slice(1), basedOn: key })),
+    walkSpeed: id => storyWalkSpeed(id)
+  });
 
   function nearestActionPushable() {
     if (carriedObject || interactionState || pushingObject || jumping) return null;
@@ -18771,6 +19020,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
 
     updateCounterweightMechanisms(dt);
+    updateWorldCharacters();
     updateCartRailAnimations(dt);
     updateCartPathPreview(dt);
     if (climbState) updateClimbState(dt);
@@ -18953,6 +19203,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         ? standingOnObject
         : null;
       camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY, groundedSupport);
+      camera.x = resolveWorldCharacterBlocking(camera.x, previousCameraX);
     }
 
     const cameraDelta = camera.x - previousCameraX;
@@ -19021,6 +19272,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const obj of midfill) drawObject(obj, view);
 
     drawRigCharacter(view, isWalking);
+    drawWorldCharacters(view);
 
     for (const obj of frontOccluders) drawObject(obj, view);
     drawPuzzleCartPathGhost(view);
@@ -19603,6 +19855,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(environmentScopeBtn, () => setEditorScope('environment'));
   bindEditorPress(terrainScopeBtn, () => setEditorScope('terrain'));
   bindEditorPress(puzzleScopeBtn, () => setEditorScope('puzzle'));
+  bindEditorPress(storyScopeBtn, () => setEditorScope('story'));
   bindEditorPress(puzzleSourceLibraryBtn, () => setPuzzleBrowserMode('library'));
   bindEditorPress(puzzleSourceSceneBtn, () => setPuzzleBrowserMode('scene'));
   puzzleSelect?.addEventListener('change', () => {
@@ -21145,6 +21398,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
               hintEl.classList.remove('hidden');
             }
           }
+        } else if (editorScope==='story' && gesture.kind==='pan') {
+          // Story scope: a tap places or selects a world character or mark
+          // (story-editor.js); scenery is never selected here.
+          window.dispatchEvent(new CustomEvent('sidescroll:story-tap',{detail:{clientX:e.clientX,clientY:e.clientY}}));
         } else if ((gesture.kind==='pan' || gesture.kind==='selected-object') && !gesture.explicitMove) {
           // Selection happens only on a clean tap/release. A drag can never
           // select a different object, which keeps panning and moving separate.

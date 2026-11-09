@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 8 November 2026 — Story: world characters and marks
+- New content keys `sidescroll.story.world-characters.v1` and `sidescroll.story.marks.v1` (Story area in `storage-catalogue.json`), written by the game editor's Story scope (`story-editor.js`, *Save story*). They publish with the Publish Lab **Story** area and travel in Project Backup (all `sidescroll.` keys). An empty list removes the key, so the device falls back to the built-in story content. Route progress is not saved (worked out from time since the route started).
+
 ## 7 November 2026 — Export tidy-up and automatic publishing
 - World Lab's *Export Complete Game* is retired: **Project Backup** is the full device backup and the **Publish Lab** publishes. World Lab keeps *Import older Complete Game file* for files exported before.
 - `baked-game-design.js` is retired: every key it supplied (asset behaviours/collisions/climb paths, scene edits, collectables, puzzle starts/library, camera) is in the built-in content.

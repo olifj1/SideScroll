@@ -32,7 +32,7 @@
       if(!candidate||!/^user-[a-z0-9-]{5,40}$/.test(candidate.id)||!['quadruped','biped'].includes(candidate.starter)||entries.has(candidate.id))continue;
       entries.set(candidate.id,{id:candidate.id,label:String(candidate.name||candidate.id).slice(0,42),
         family:candidate.starter,rigFamily:candidate.starter,setup:candidate.setup,
-        sparseClips:slotClips(candidate),legacyAtlasSource:candidate.legacyAtlasSource||null,
+        sparseClips:slotClips(candidate),record:candidate,legacyAtlasSource:candidate.legacyAtlasSource||null,
         art:typeof candidate.art==='string'?candidate.art:null});
     }
   }
@@ -70,6 +70,39 @@
     const family=registry?.find(id)?.family;
     return record?slotClips(record,key=>sharedClips[family]?.[key]):{};
   };
+  // Any one of a character's animations by its key (story world characters,
+  // docs/SEQUENCE_SYSTEM_DESIGN.md): the slot animations (idle, walk, run,
+  // jump) and the ones it made (clip-…). Original characters: only their own
+  // saved copies (the game falls back to the shared family set itself).
+  const familyOf=id=>entries.get(id)?.family||registry?.find(id)?.family||null;
+  const recordOf=id=>{
+    const library=entries.get(id);
+    if(library&&!library.original)return library.record;
+    return characterClips?.schema==='sidescroll.character-clips.v1'?characterClips.characters?.[id]||null:null;
+  };
+  function clipFor(id,key){
+    const record=recordOf(id);
+    const clip=record?.sparseClips?.[key]||record?.extraClips?.[key]?.clip||null;
+    return Array.isArray(clip?.keys)&&clip.keys.length?clip:null;
+  }
+  // The animation a slot plays for this character (its slot map, else the
+  // animation of the same name).
+  function slotAnimation(id,slot){
+    const map=recordOf(id)?.slotAnimations;
+    const key=map&&typeof map[slot]==='string'?map[slot]:null;
+    return key&&(clipFor(id,key)||SLOTS.includes(key))?key:slot;
+  }
+  // Every animation a character has, for pickers: [{key,name,basedOn}].
+  function animationsFor(id){
+    const record=recordOf(id),names=record?.animationNames||{};
+    const title=s=>s.charAt(0).toUpperCase()+s.slice(1);
+    const out=SLOTS.map(key=>({key,name:typeof names[key]==='string'&&names[key]?names[key]:title(key),basedOn:key}));
+    for(const [key,extra] of Object.entries(record?.extraClips||{})){
+      if(!/^clip-[a-z0-9-]{3,60}$/.test(key)||!Array.isArray(extra?.clip?.keys))continue;
+      out.push({key,name:String(extra.name||'Animation').slice(0,42),basedOn:SLOTS.includes(extra.basedOn)?extra.basedOn:'walk'});
+    }
+    return out;
+  }
   const prepared=new Map(), failures=new Map(), inFlight=new Map();
   const library=()=>[...entries.values()].filter(e=>!e.original);
   const list=()=>library().map(e=>({id:e.id,label:e.label,family:e.family,rigFamily:e.rigFamily,
@@ -278,5 +311,5 @@
     return rig.normalizedPose(rig.interpolatePose(a,b,t,before.name||name,travelB),Math.floor(f));
   }
   window.SideScrollGameCharacters=Object.freeze({list,find,ready,reason,load,poseParts,sampleBipedClip,
-    meshFor,originalMeshIds:()=>originalMeshIds.slice(),originalClips});
+    meshFor,originalMeshIds:()=>originalMeshIds.slice(),originalClips,clipFor,slotAnimation,animationsFor,familyOf});
 })();

@@ -13,7 +13,7 @@ by the game.
 
 **Decisions (8 Nov):** author in the game editor; side-on camera only (no angled
 shots); dialogue is a speech bubble, a version of the thought bubble that looks
-different (exact style to be decided); every sequence can be skipped; world
+different and closer to a subtitle (agreed 8 Nov); every sequence can be skipped; world
 characters can stand at any depth and block the player when they're on the path,
 with blocking switchable per character; triggers can change what an existing
 character is doing; World Lab shows triggers and other placed story items along the
@@ -193,7 +193,8 @@ Content keys publish with a new Publish Lab area **Story**; flags are play progr
 ---
 
 ## 6. Build order (each stage usable on its own)
-1. **World characters and marks** — place a character at any depth with a looping
+1. **World characters and marks** *(done 8 Nov: `story-world.js`, `story-editor.js`;
+   *visible when* is stored but waits for stage 2's flags)* — place a character at any depth with a looping
    animation (the father chopping wood), facing, scale, blocks the player
    (Auto / Always / Never), visible-when; marks; a route of moves between marks
    (walk A → B by time t, tagged animation); Story scope in the editor.
@@ -212,5 +213,6 @@ Content keys publish with a new Publish Lab area **Story**; flags are play progr
 ---
 
 ## 7. Still to decide
-- The speech bubble's look (and whether lines are text only, or with sound later).
-- Whether a blocking character can be jumped onto or pushed past (off for now).
+- The speech bubble's exact look (agreed: like the thought bubble, but subtitle-like),
+  and whether lines are text only, or with sound later.
+- *Decided 8 Nov:* a blocking character can't be walked, jumped or pushed past.
