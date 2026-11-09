@@ -412,7 +412,14 @@
       el('div', { class: 'sidescroll-story-add' }, typeSelect,
         el('button', { type: 'button', class: 'primary', onclick: () => { t.reactions.push(newReaction(pickType)); change(); } }, '+ Add')),
       el('div', { class: 'sidescroll-story-row' },
-        el('button', { type: 'button', onclick: () => { preview(); host.fire(t.id); host.hint(`${t.name}: fired (flags it sets are kept until Reset story progress)`); setTimeout(render, 50); } }, 'Fire now')),
+        el('button', { type: 'button', onclick: () => { preview(); host.fire(t.id); host.hint(`${t.name}: reactions played (it still fires when walked into; flags it sets are kept until Reset story progress)`); setTimeout(render, 50); } }, 'Fire now'),
+        el('button', { type: 'button', class: 'primary', onclick: () => {
+          preview(); placeMode = null;
+          host.testFrom(t.x0 - 2.5);
+          host.hint(t.kind === 'action' ? `Testing ${t.name}: story reset · walk right into the zone and press ${String(t.label || 'Action').toUpperCase()}${dirty ? ' · Story changes not saved yet' : ''}`
+            : `Testing ${t.name}: story reset · walk right into the zone${dirty ? ' · Story changes not saved yet' : ''}`);
+        } }, 'Test as player')),
+      el('small', { class: 'sidescroll-story-help', text: 'Test as player resets story progress (as a new player), puts Aureli just before the zone and leaves the editor: walk in. Fire now only plays the reactions here.' }),
       el('div', { class: 'sidescroll-story-row sidescroll-story-danger' },
         el('button', { type: 'button', onclick: () => {
           const copy = clone(t); copy.id = Story.newId('trg', new Set(draft.triggers.map(x => x.id))); copy.name = `${t.name} copy`;
@@ -453,6 +460,10 @@
       } }, 'Reset story progress'));
   }
 
+  function saveDraft() {
+    draft = clone(Story.save(draft)); dirty = false; preview(); render();
+  }
+
   // ---- Panel ----------------------------------------------------------------
   let statusEl = null;
   function updateStatus() {
@@ -479,9 +490,7 @@
           if (!confirm('Discard your Story changes since the last save?')) return;
           draft = clone(Story.load()); dirty = false; placeMode = null; select(null, null); preview();
         } }, 'Discard'),
-        el('button', { type: 'button', class: 'primary sidescroll-story-save', onclick: () => {
-          draft = clone(Story.save(draft)); dirty = false; preview(); host.hint('Story saved'); render();
-        } }, 'Save story')));
+        el('button', { type: 'button', class: 'primary sidescroll-story-save', onclick: () => { saveDraft(); host.hint('Story saved'); } }, 'Save story')));
     updateStatus();
     panel.scrollTop = scroll;
   }
@@ -491,5 +500,5 @@
     else { if (selected) host.select(selected.kind, selected.id); render(); }
   }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
-  window.SideScrollStoryEditor = Object.freeze({ dirty: () => dirty, draft: () => clone(draft) });
+  window.SideScrollStoryEditor = Object.freeze({ dirty: () => dirty, draft: () => clone(draft), save: saveDraft });
 })();

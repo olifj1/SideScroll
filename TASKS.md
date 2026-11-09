@@ -65,6 +65,7 @@ app and make a Project Backup.
 - [ ] **+ Add trigger**, tap the path: a dashed band appears with its name. Add reactions for a character: *Switch its animation*, *Turn to face the player* (0 s = from then on), *Play an animation once* (0.5 s later), *Say something*, *Set a flag* (e.g. `met-father`). **Save story**, **Done Editing**, walk into the band: it all plays in order; the line shows as a dark subtitle strip with the speaker's name.
 - [ ] Characters → another character → **Shown: While flag is set** `met-father`: it appears only after the trigger.
 - [ ] A second trigger set to *Presses Action in it* (button text *Talk*), *Only while flag is set*, with *Walk to a mark*: inside it the Action button reads TALK; pressing it makes the character walk to the mark. Close and reopen the app: the character is still at the mark, the first trigger doesn't fire again.
+- [ ] Trigger → **Test as player**: you leave the editor just before the zone with the story reset; walk in and it fires. **Fire now** plays it in the editor and walking in still fires it afterwards. Done Editing with unsaved Story changes asks to save.
 - [ ] Story progress (bottom of the Story panel) lists the flags; **Reset story progress** puts everything back as for a new player. Menu → Delete save (player mode) also resets it.
 
 **0ad. Story: world characters and marks (8 Nov)** — game → Edit → **Story**

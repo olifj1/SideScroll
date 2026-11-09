@@ -18111,8 +18111,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
   }
   const storyTriggerReady = t => !(t.once && storyProgress.fired[t.id]) && Story.conditionMet(t.condition, storyProgress.flags);
-  function fireStoryTrigger(t) {
-    if (t.once) { storyProgress.fired[t.id] = true; saveStoryProgress(); }
+  // test: the editor's Fire now — runs the reactions without using up a
+  // once-only trigger, so walking in still fires it afterwards.
+  function fireStoryTrigger(t, test = false) {
+    if (t.once && !test) { storyProgress.fired[t.id] = true; saveStoryProgress(); }
     const now = storyNow();
     for (const reaction of t.reactions) storyPending.push({ at: now + reaction.delay, reaction });
     storyPending.sort((a, b) => a.at - b.at);
@@ -18286,7 +18288,18 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     resetProgress: resetStoryProgress,
     progress: () => JSON.parse(JSON.stringify(storyProgress)),
     // Runs a trigger's reactions now (editor test), whatever its condition.
-    fire: id => { const t = storyState.triggers.find(x => x.id === id); if (t) fireStoryTrigger(t); return !!t; },
+    fire: id => { const t = storyState.triggers.find(x => x.id === id); if (t) fireStoryTrigger(t, true); return !!t; },
+    // Test as player: story progress back to a new player's, the player a
+    // little before x facing it, editing ended (the story draft stays live).
+    testFrom: x => {
+      if (!Number.isFinite(x)) return;
+      resetStoryProgress();
+      camera.x = x - character.screenOffsetX; previousCameraX = camera.x;
+      character.x = x; // now, so this frame's trigger check sees her new place
+      character.lastFacing = 1;
+      setEditMode(false);
+      storyInside.clear();
+    },
     select: (kind, id) => { storySelectedId = kind === 'character' ? id : null; storyHostSelectedMark = kind === 'mark' ? id : null;
       storyHostSelectedTrigger = kind === 'trigger' ? id : null; },
     active: () => !!(editMode && editorScope === 'story'),
@@ -19929,6 +19942,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(window.confirm('Save your near-side row changes?'))saveNearRows();
       else revertNearRows();
     }
+    // Story changes stay live (unsaved) when not saved here, until a reload.
+    if(window.SideScrollStoryEditor?.dirty()&&window.confirm('Save your Story changes?\n\nCancel keeps them in the game unsaved until the app is reloaded.'))
+      window.SideScrollStoryEditor.save();
     setEditMode(false);
   });
 
