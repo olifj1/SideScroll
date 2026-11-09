@@ -16,8 +16,15 @@
   'use strict';
   const CHARACTERS_KEY = 'sidescroll.story.world-characters.v1';
   const MARKS_KEY = 'sidescroll.story.marks.v1';
+  const TRIGGERS_KEY = 'sidescroll.story.triggers.v1';
+  // Play progress (each player's own, never published): story flags, triggers
+  // that have fired, and lasting changes triggers made to world characters.
+  const PROGRESS_KEY = 'sidescroll.player.story-progress.v1';
   const CHARACTERS_SCHEMA = 'sidescroll.story.world-characters.v1';
   const MARKS_SCHEMA = 'sidescroll.story.marks.v1';
+  const TRIGGERS_SCHEMA = 'sidescroll.story.triggers.v1';
+  const PROGRESS_SCHEMA = 'sidescroll.story-progress.v1';
+  const TRIGGER_ID = /^trg-[a-z0-9]{4,20}$/;
   const CHARACTER_ID = /^wc-[a-z0-9]{4,20}$/;
   const MARK_ID = /^mark-[a-z0-9]{4,20}$/;
   const ANIMATION_KEY = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -31,7 +38,25 @@
   const NEAR_DISTANCE = 15;
   const BLOCKS = Object.freeze(['auto', 'always', 'never']);
   const FACES = Object.freeze(['keep', 'left', 'right', 'mark']);
-  const MAX_CHARACTERS = 60, MAX_MARKS = 120, MAX_MOVES = 24;
+  const MAX_CHARACTERS = 60, MAX_MARKS = 120, MAX_MOVES = 24, MAX_TRIGGERS = 120, MAX_REACTIONS = 24;
+  // What a trigger can do (stage 2a). Character reactions name a world character.
+  const REACTIONS = Object.freeze({
+    'play-once': 'Play an animation once',
+    'set-animation': 'Switch its animation',
+    'start-route': 'Start its route',
+    'walk-to': 'Walk to a mark',
+    'face-player': 'Turn to face the player',
+    'say': 'Say something',
+    'flag': 'Set or clear a story flag'
+  });
+  // A story flag name: lower-case words joined by hyphens (met-father).
+  const flagName = v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  function normaliseCondition(raw) {
+    const flag = flagName(raw?.flag);
+    return flag ? { flag, when: raw.when === 'unset' ? 'unset' : 'set' } : null;
+  }
+  // A condition {flag, when} against a player's flags; no condition is always met.
+  const conditionMet = (condition, flags) => !condition?.flag || (!!flags?.[condition.flag] === (condition.when !== 'unset'));
 
   const finite = (v, fallback) => { const n = Number(v); return Number.isFinite(n) ? n : fallback; };
   const clampTo = (v, [lo, hi], fallback) => Math.min(hi, Math.max(lo, finite(v, fallback)));
@@ -80,10 +105,10 @@
       blocks: BLOCKS.includes(raw.blocks) ? raw.blocks : 'auto'
     };
     const moves = Array.isArray(raw.route?.moves) ? raw.route.moves.map(normaliseMove).filter(Boolean).slice(0, MAX_MOVES) : [];
-    if (moves.length) out.route = { loop: !!raw.route.loop, start: raw.route.start === 'near' ? 'near' : 'game', moves };
-    // Kept for stage 2 (story flags): show only while a flag is / isn't set.
-    if (raw.visible && typeof raw.visible.flag === 'string' && raw.visible.flag)
-      out.visible = { flag: text(raw.visible.flag, 60), when: raw.visible.when === 'unset' ? 'unset' : 'set' };
+    if (moves.length) out.route = { loop: !!raw.route.loop, start: ['near', 'trigger'].includes(raw.route.start) ? raw.route.start : 'game', moves };
+    // Shown only while a story flag is / isn't set.
+    const visible = normaliseCondition(raw.visible);
+    if (visible) out.visible = visible;
     return out;
   }
   function normaliseMark(raw, taken) {
@@ -92,6 +117,51 @@
     taken.add(id);
     return { id, name: text(raw.name, 40, 'Mark'), x: round(finite(raw.x, 0)),
       depth: round(clampTo(raw.depth, LIMITS.depth, 0)), facing: facing(raw.facing) };
+  }
+  function normaliseReaction(raw) {
+    if (!raw || typeof raw !== 'object' || !REACTIONS[raw.type]) return null;
+    const out = { type: raw.type, delay: round(clampTo(raw.delay, [0, 120], 0), 100) };
+    if (raw.type === 'flag') {
+      const flag = flagName(raw.flag);
+      if (!flag) return null;
+      return { ...out, flag, value: raw.value !== false };
+    }
+    const target = typeof raw.target === 'string' && CHARACTER_ID.test(raw.target) ? raw.target : null;
+    if (raw.type === 'say') {
+      const line = text(raw.text, 200);
+      if (!line) return null;
+      return { ...out, ...(target ? { target } : {}), text: line, seconds: round(clampTo(raw.seconds, [1, 30], 4), 10) };
+    }
+    if (!target) return null;
+    out.target = target;
+    if (raw.type === 'play-once') return { ...out, animation: animationKey(raw.animation, 'idle'), times: Math.round(clampTo(raw.times, [1, 10], 1)) };
+    if (raw.type === 'set-animation') return { ...out, animation: animationKey(raw.animation, 'idle') };
+    if (raw.type === 'walk-to') {
+      if (typeof raw.to !== 'string' || !MARK_ID.test(raw.to)) return null;
+      return { ...out, to: raw.to, animation: animationKey(raw.animation, 'walk'), face: FACES.includes(raw.face) ? raw.face : 'keep' };
+    }
+    if (raw.type === 'face-player') return { ...out, seconds: round(clampTo(raw.seconds, [0, 120], 0), 10) };
+    return out; // start-route
+  }
+  function normaliseTrigger(raw, taken) {
+    if (!raw || typeof raw !== 'object') return null;
+    const id = typeof raw.id === 'string' && TRIGGER_ID.test(raw.id) && !taken.has(raw.id) ? raw.id : newId('trg', taken);
+    taken.add(id);
+    let x0 = round(finite(raw.x0, 0)), x1 = round(finite(raw.x1, x0 + 2));
+    if (x1 < x0) [x0, x1] = [x1, x0];
+    if (x1 - x0 < 0.2) x1 = round(x0 + 0.2);
+    const out = { id, name: text(raw.name, 40, 'Trigger'), kind: raw.kind === 'action' ? 'action' : 'enter', x0, x1,
+      once: raw.once !== false,
+      reactions: (Array.isArray(raw.reactions) ? raw.reactions : []).map(normaliseReaction).filter(Boolean).slice(0, MAX_REACTIONS) };
+    if (out.kind === 'action') out.label = text(raw.label, 14, 'Talk');
+    const condition = normaliseCondition(raw.condition);
+    if (condition) out.condition = condition;
+    return out;
+  }
+  function normaliseTriggers(raw) {
+    const taken = new Set();
+    const list = Array.isArray(raw?.triggers) ? raw.triggers : [];
+    return list.slice(0, MAX_TRIGGERS).map(t => normaliseTrigger(t, taken)).filter(Boolean);
   }
   function normaliseCharacters(raw) {
     const taken = new Set();
@@ -105,20 +175,51 @@
   }
   // Both lists, from saved data (or the built-in content through project-defaults.js).
   function load() {
-    return { characters: normaliseCharacters(read(CHARACTERS_KEY)), marks: normaliseMarks(read(MARKS_KEY)) };
+    return { characters: normaliseCharacters(read(CHARACTERS_KEY)), marks: normaliseMarks(read(MARKS_KEY)),
+      triggers: normaliseTriggers(read(TRIGGERS_KEY)) };
   }
   // Writes both keys; an empty list removes the key (so a device without any
   // story content of its own falls back to the built-in content).
   function save(state) {
     const characters = normaliseCharacters({ characters: state?.characters });
     const marks = normaliseMarks({ marks: state?.marks });
+    const triggers = normaliseTriggers({ triggers: state?.triggers });
     const write = (key, value) => {
       if (value) localStorage.setItem(key, JSON.stringify(value));
       else localStorage.removeItem(key);
     };
     write(CHARACTERS_KEY, characters.length ? { schema: CHARACTERS_SCHEMA, characters } : null);
     write(MARKS_KEY, marks.length ? { schema: MARKS_SCHEMA, marks } : null);
-    return { characters, marks };
+    write(TRIGGERS_KEY, triggers.length ? { schema: TRIGGERS_SCHEMA, triggers } : null);
+    return { characters, marks, triggers };
+  }
+
+  // ---- Play progress -------------------------------------------------------
+  // {flags:{name:true}, fired:{triggerId:true}, characters:{wcId:{x, depth,
+  // facing, animation, stopped, routeStarted}}} — what this player's story has done.
+  function loadProgress() {
+    const raw = read(PROGRESS_KEY);
+    const out = { flags: {}, fired: {}, characters: {} };
+    for (const [k, v] of Object.entries(raw?.flags || {})) if (v && flagName(k) === k) out.flags[k] = true;
+    for (const [k, v] of Object.entries(raw?.fired || {})) if (v && TRIGGER_ID.test(k)) out.fired[k] = true;
+    for (const [k, v] of Object.entries(raw?.characters || {})) {
+      if (!CHARACTER_ID.test(k) || !v || typeof v !== 'object') continue;
+      const c = {};
+      if (Number.isFinite(Number(v.x))) c.x = round(Number(v.x));
+      if (Number.isFinite(Number(v.depth))) c.depth = round(clampTo(v.depth, LIMITS.depth, 0));
+      if (v.facing !== undefined) c.facing = facing(v.facing);
+      const a = animationKey(v.animation, null); if (a) c.animation = a;
+      if (v.stopped) c.stopped = true;
+      if (v.routeStarted) c.routeStarted = true;
+      out.characters[k] = c;
+    }
+    return out;
+  }
+  function saveProgress(progress) {
+    const empty = !Object.keys(progress?.flags || {}).length && !Object.keys(progress?.fired || {}).length
+      && !Object.keys(progress?.characters || {}).length;
+    if (empty) localStorage.removeItem(PROGRESS_KEY);
+    else localStorage.setItem(PROGRESS_KEY, JSON.stringify({ schema: PROGRESS_SCHEMA, ...progress }));
   }
 
   // ---- Routes -------------------------------------------------------------
@@ -202,7 +303,8 @@
     character.blocks === 'always' || (character.blocks === 'auto' && Math.abs(depth) <= PATH_BLOCK_DEPTH);
 
   window.SideScrollStory = Object.freeze({
-    CHARACTERS_KEY, MARKS_KEY, LIMITS, BLOCKS, FACES, NEAR_DISTANCE, PATH_BLOCK_DEPTH,
-    normaliseCharacters, normaliseMarks, load, save, newId, plan, stateAt, describeRoute, blocksPlayer
+    CHARACTERS_KEY, MARKS_KEY, TRIGGERS_KEY, PROGRESS_KEY, LIMITS, BLOCKS, FACES, NEAR_DISTANCE, PATH_BLOCK_DEPTH, REACTIONS,
+    normaliseCharacters, normaliseMarks, normaliseTriggers, load, save, loadProgress, saveProgress, flagName, conditionMet,
+    newId, plan, stateAt, describeRoute, blocksPlayer
   });
 })();

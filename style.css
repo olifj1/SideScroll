@@ -15600,3 +15600,15 @@ body[data-game-id="game-17"] .animlab-key-cell.landing{box-shadow:inset 0 -3px 0
 /* Four editor scopes (Story added 8 Nov 2026) on one row. */
 body[data-game-id="game-16"] .sidescroll-editor-scope-switch{grid-template-columns:repeat(4,minmax(0,1fr));}
 body[data-game-id="game-16"] .sidescroll-editor-scope-switch button{padding:0 2px!important;letter-spacing:-.01em;font-size:9.5px!important;overflow:hidden;white-space:nowrap;}
+.sidescroll-story-panel textarea{min-height:52px;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.25);color:inherit;font:600 12px/1.35 system-ui,sans-serif;resize:vertical;}
+.sidescroll-story-progress{padding:6px 8px;border-radius:9px;background:rgba(255,255,255,.04);}
+.sidescroll-story-progress summary{cursor:pointer;font-weight:700;font-size:11px;}
+.sidescroll-story-progress[open]{display:grid;gap:6px;}
+/* Story speech (story triggers' Say): a subtitle strip, unlike the thought bubble. */
+.sidescroll-story-speech{position:fixed;left:50%;bottom:max(96px,calc(env(safe-area-inset-bottom) + 92px));transform:translate(-50%,8px);z-index:19;
+  max-width:min(620px,calc(100vw - 48px));padding:9px 16px 10px;border-radius:12px;background:rgba(10,12,18,.78);color:#fff;
+  text-align:center;font:700 15px/1.3 system-ui,-apple-system,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,.6);
+  opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;}
+.sidescroll-story-speech.visible{opacity:1;transform:translate(-50%,0);}
+.sidescroll-story-speech b{display:block;margin-bottom:2px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#ffd678;}
+@media(max-height:430px){.sidescroll-story-speech{bottom:max(78px,calc(env(safe-area-inset-bottom) + 74px));font-size:14px;}}

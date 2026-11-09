@@ -233,6 +233,16 @@ the player) and keeps the player out of blocking ones. The editor's **Story** sc
 game through `window.SideScrollStoryHost` (preview, select, taps arrive as `sidescroll:story-tap`).
 A built-in slot name (idle/walk/run/jump) plays the character's animation for that slot
 (`GameCharacters.slotAnimation`); other keys are its own animations (`clipFor`).
+**Triggers** (stage 2a): `sidescroll.story.triggers.v1` (`{id trg-…, name, kind 'enter'|'action',
+label (Action button), x0, x1, once, condition?{flag, when 'set'|'unset'}, reactions:[{type
+(Story.REACTIONS: play-once, set-animation, start-route, walk-to, face-player, say, flag), delay,
+target (world character), …}]}`). The game's director (`updateStoryTriggers`, `fireStoryTrigger`,
+`runStoryReaction`, `storyCharacterState` in `sidescroll.js`) fires them outside edit mode;
+Action-button triggers come after climb / puzzle actions and before put down / push / pick up.
+Play progress `sidescroll.player.story-progress.v1` (`Story.loadProgress/saveProgress`): `flags`,
+`fired` (once-only triggers) and `characters[wc id]` lasting changes {x, depth, facing,
+animation, stopped (route ended), routeStarted}; play-once, face and speech are not saved.
+A world character's `visible` condition and route `start: 'trigger'` read it.
 
 **Near-side rows** (`near-rows.js`, `window.SideScrollNearRows`, loaded by play and
 world-lab): a biome profile's optional `nearRows` (`{enabled, rows:[3 × {on, depth,

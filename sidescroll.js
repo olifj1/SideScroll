@@ -17887,7 +17887,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // past, jumping included). story-editor.js edits them through
   // window.SideScrollStoryHost.
   const Story = window.SideScrollStory || null;
-  let storyState = Story ? Story.load() : { characters: [], marks: [] };
+  let storyState = Story ? Story.load() : { characters: [], marks: [], triggers: [] };
   let storyMarksById = new Map(storyState.marks.map(m => [m.id, m]));
   const storyNow = () => (performance.now ? performance.now() : Date.now()) / 1000;
   const storyClockStart = storyNow();
@@ -17903,7 +17903,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       jump: Number(QuadrupedRig?.JUMP_CYCLE_MS) || 1139 }
   };
   function setStoryState(next, restart = true) {
-    storyState = { characters: next?.characters || [], marks: next?.marks || [] };
+    storyState = { characters: next?.characters || [], marks: next?.marks || [], triggers: next?.triggers || [] };
     storyMarksById = new Map(storyState.marks.map(m => [m.id, m]));
     storyColliders.clear();
     if (restart) restartStoryRoutes();
@@ -17912,7 +17912,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function restartStoryRoutes() {
     storyRouteStarts.clear();
     const now = storyNow();
-    for (const wc of storyState.characters) if (wc.route?.start === 'game') storyRouteStarts.set(wc.id, now);
+    for (const wc of storyState.characters)
+      if (wc.route?.start === 'game' || (wc.route?.start === 'trigger' && storyProgress.characters[wc.id]?.routeStarted)) storyRouteStarts.set(wc.id, now);
   }
   function storyCharacterKnown(id) {
     return !!(GameCharacters?.find(id) || Rig.CHARACTER_VARIANTS?.[id]) && !!characterRigForVariant(id);
@@ -17920,7 +17921,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function storyRouteStart(wc, now) {
     if (!wc.route) return null;
     if (storyRouteStarts.has(wc.id)) return storyRouteStarts.get(wc.id);
-    if (wc.route.start === 'game') { storyRouteStarts.set(wc.id, storyClockStart); return storyClockStart; }
+    // A route started by a trigger (in an earlier session too) runs from the
+    // start of this one; otherwise it waits for its trigger.
+    if (wc.route.start === 'game' || (wc.route.start === 'trigger' && storyProgress.characters[wc.id]?.routeStarted)) {
+      storyRouteStarts.set(wc.id, storyClockStart); return storyClockStart;
+    }
+    if (wc.route.start === 'trigger') return null;
     if (Math.abs((character?.x ?? camera.x) - wc.x) <= Story.NEAR_DISTANCE) { storyRouteStarts.set(wc.id, now); return now; }
     return null;
   }
@@ -17953,11 +17959,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const wc of storyState.characters) {
       const id = wc.character;
       if (!storyCharacterKnown(id)) continue;
-      const start = storyRouteStart(wc, now);
-      const time = start === null ? 0 : now - start;
-      const state = Story.stateAt(wc, storyMarksById, storyWalkSpeed(id), time);
+      if (wc.visible && !Story.conditionMet(wc.visible, storyProgress.flags)) continue;
+      const state = storyCharacterState(wc, now);
       const scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(id) * wc.scale;
-      frames.push({ wc, id, state, time, now, scale, x: state.x, z: state.depth, facing: state.facing,
+      frames.push({ wc, id, state, now, scale, x: state.x, z: state.depth, facing: state.facing,
         blocks: Story.blocksPlayer(wc, state.depth), radius: storyCollider(id).radius * scale, height: storyCollider(id).height * scale });
     }
     worldCharacterFrames = frames;
@@ -17979,18 +17984,167 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const frames = { walk: characterFrames, run: runFrames, jump: jumpFrames }[resolved];
     return frames ? Rig.sampleFrames(frames, phase) : Rig.sampleFrames(characterFrames, 0.02);
   }
+  // Seconds one cycle of an animation takes for this world character.
+  function storyCycleSeconds(wc, rig, animation) {
+    const family = rig === QuadrupedRig ? 'quadruped' : 'biped';
+    const based = (GameCharacters?.animationsFor?.(wc.character) || []).find(a => a.key === animation)?.basedOn || animation;
+    return (STORY_CYCLE_MS[family][based] || 1050) / 1000 / Math.max(0.05, wc.speed);
+  }
   function storyPhase(frame, rig) {
-    const { wc, state, id } = frame;
+    const { wc, state } = frame;
+    if (Number.isFinite(state.phaseStart)) {
+      const cycle = storyCycleSeconds(wc, rig, state.animation);
+      return Math.min(0.999, ((frame.now - state.phaseStart) / cycle) % 1);
+    }
     if (state.moving) {
       const run = state.animation === 'run';
       const stride = (run ? Number(rig?.RUN_STRIDE_WORLD) || RUN_STRIDE : Number(rig?.WALK_STRIDE_WORLD) || WALK_STRIDE) * wc.scale;
       return ((state.distance / Math.max(0.01, stride)) % 1 + 1) % 1;
     }
-    const family = rig === QuadrupedRig ? 'quadruped' : 'biped';
-    const based = (GameCharacters?.animationsFor?.(id) || []).find(a => a.key === state.animation)?.basedOn || state.animation;
-    const cycle = (STORY_CYCLE_MS[family][based] || 1050) / 1000 / Math.max(0.05, wc.speed);
+    const cycle = storyCycleSeconds(wc, rig, state.animation);
     return ((frame.now / cycle + wc.offset) % 1 + 1) % 1;
   }
+  // ---- Story triggers and progress (stage 2a) ----------------------------
+  // A trigger fires when the player walks into its zone (enter) or presses
+  // Action in it (action), if its condition holds and, for once-only triggers,
+  // it hasn't fired for this player. Its reactions run after their delays.
+  // Lasting effects (flags, fired triggers, a character's new spot, animation
+  // or started route) are play progress; play-once, face and speech are not.
+  let storyProgress = Story ? Story.loadProgress() : { flags: {}, fired: {}, characters: {} };
+  const storyLive = new Map();   // world character id -> {once, walk, face} (this session)
+  let storyPending = [];         // reactions waiting for their delay: {at, reaction}
+  const storyInside = new Set(); // trigger ids the player is inside
+  function saveStoryProgress() { try { Story?.saveProgress(storyProgress); } catch (_) {} }
+  const storyLiveFor = id => { if (!storyLive.has(id)) storyLive.set(id, {}); return storyLive.get(id); };
+  const storySavedFor = id => (storyProgress.characters[id] ||= {});
+  function storyCharacterState(wc, now) {
+    const saved = storyProgress.characters[wc.id] || null, live = storyLive.get(wc.id) || null;
+    let state;
+    const start = !saved?.stopped ? storyRouteStart(wc, now) : null;
+    if (wc.route && !saved?.stopped && start !== null) state = Story.stateAt(wc, storyMarksById, storyWalkSpeed(wc.character), now - start);
+    else state = { x: saved?.x ?? wc.x, depth: saved?.depth ?? wc.depth, facing: saved?.facing ?? wc.facing,
+      animation: saved?.animation ?? wc.animation, moving: false, distance: 0, speed: 0 };
+    if (live?.walk) {
+      const w = live.walk, k = (now - w.t0) / Math.max(0.01, w.duration);
+      if (k >= 1) {
+        Object.assign(storySavedFor(wc.id), { x: w.to.x, depth: w.to.depth, facing: w.endFacing, stopped: true });
+        saveStoryProgress();
+        live.walk = null;
+        state = { ...state, x: w.to.x, depth: w.to.depth, facing: w.endFacing, moving: false };
+      } else {
+        state = { ...state, x: w.from.x + (w.to.x - w.from.x) * k, depth: w.from.depth + (w.to.depth - w.from.depth) * k,
+          facing: w.facing, animation: w.animation, moving: true, distance: w.speed * (now - w.t0), speed: w.speed };
+      }
+    }
+    if (live?.once && !state.moving) {
+      if (now < live.once.end) state = { ...state, animation: live.once.animation, phaseStart: live.once.start };
+      else live.once = null;
+    }
+    if (live?.face) {
+      if (live.face.until && now > live.face.until) live.face = null;
+      else if (!state.moving) state = { ...state, facing: character.x >= state.x ? 1 : -1 };
+    }
+    return state;
+  }
+  // Stop a character's route where it stands (a trigger now directs it).
+  function freezeStoryCharacter(wc) {
+    const state = storyCharacterState(wc, storyNow());
+    Object.assign(storySavedFor(wc.id), { x: Math.round(state.x * 1000) / 1000, depth: Math.round(state.depth * 1000) / 1000,
+      facing: state.facing, stopped: true });
+    if (state.moving && !storyLive.get(wc.id)?.walk) storySavedFor(wc.id).animation = wc.animation;
+    return state;
+  }
+  let storySpeechEl = null, storySpeechTimer = 0;
+  function showStorySpeech(name, text, seconds) {
+    if (!storySpeechEl) {
+      storySpeechEl = document.createElement('div');
+      storySpeechEl.className = 'sidescroll-story-speech';
+      storySpeechEl.setAttribute('aria-live', 'polite');
+      document.body.appendChild(storySpeechEl);
+    }
+    storySpeechEl.replaceChildren(...(name ? [Object.assign(document.createElement('b'), { textContent: name })] : []),
+      Object.assign(document.createElement('span'), { textContent: text }));
+    storySpeechEl.classList.add('visible');
+    clearTimeout(storySpeechTimer);
+    storySpeechTimer = setTimeout(() => storySpeechEl.classList.remove('visible'), seconds * 1000);
+  }
+  function runStoryReaction(r) {
+    const wc = r.target ? storyState.characters.find(c => c.id === r.target) : null;
+    const now = storyNow();
+    if (r.type === 'flag') {
+      if (r.value) storyProgress.flags[r.flag] = true; else delete storyProgress.flags[r.flag];
+      saveStoryProgress();
+      return;
+    }
+    if (r.type === 'say') { showStorySpeech(wc?.name || '', r.text, r.seconds); return; }
+    if (!wc || !storyCharacterKnown(wc.character)) return;
+    const live = storyLiveFor(wc.id), rig = characterRigForVariant(wc.character);
+    if (r.type === 'play-once') {
+      live.once = { animation: r.animation, start: now, end: now + storyCycleSeconds(wc, rig, r.animation) * r.times };
+    } else if (r.type === 'set-animation') {
+      if (wc.route) freezeStoryCharacter(wc);
+      storySavedFor(wc.id).animation = r.animation;
+      live.once = null;
+      saveStoryProgress();
+    } else if (r.type === 'start-route') {
+      if (!wc.route) return;
+      const saved = storySavedFor(wc.id);
+      for (const k of ['x', 'depth', 'facing', 'animation', 'stopped']) delete saved[k];
+      saved.routeStarted = true;
+      live.walk = null; live.once = null;
+      storyRouteStarts.set(wc.id, now);
+      saveStoryProgress();
+    } else if (r.type === 'walk-to') {
+      const mark = storyMarksById.get(r.to);
+      if (!mark) return;
+      const from = freezeStoryCharacter(wc);
+      const distance = Math.hypot(mark.x - from.x, mark.depth - from.depth);
+      const speed = Math.max(0.05, storyWalkSpeed(wc.character)(r.animation));
+      const facing = Math.abs(mark.x - from.x) > 0.001 ? (mark.x > from.x ? 1 : -1) : from.facing;
+      const endFacing = r.face === 'left' ? -1 : r.face === 'right' ? 1 : r.face === 'mark' ? mark.facing : facing;
+      live.once = null;
+      live.walk = { from: { x: from.x, depth: from.depth }, to: { x: mark.x, depth: mark.depth }, t0: now,
+        duration: distance / speed, speed, animation: r.animation, facing, endFacing };
+      saveStoryProgress();
+    } else if (r.type === 'face-player') {
+      live.face = { until: r.seconds > 0 ? now + r.seconds : 0 };
+    }
+  }
+  const storyTriggerReady = t => !(t.once && storyProgress.fired[t.id]) && Story.conditionMet(t.condition, storyProgress.flags);
+  function fireStoryTrigger(t) {
+    if (t.once) { storyProgress.fired[t.id] = true; saveStoryProgress(); }
+    const now = storyNow();
+    for (const reaction of t.reactions) storyPending.push({ at: now + reaction.delay, reaction });
+    storyPending.sort((a, b) => a.at - b.at);
+  }
+  const storyPlayerX = () => character.x + colliderWorld().offsetX;
+  function updateStoryTriggers() {
+    if (!Story) return;
+    const now = storyNow();
+    while (storyPending.length && storyPending[0].at <= now) runStoryReaction(storyPending.shift().reaction);
+    if (editMode || introLocked || !storyState.triggers.length) return;
+    const px = storyPlayerX();
+    for (const t of storyState.triggers) {
+      if (px < t.x0 || px > t.x1) { storyInside.delete(t.id); continue; }
+      if (storyInside.has(t.id)) continue;
+      storyInside.add(t.id);
+      if (t.kind === 'enter' && storyTriggerReady(t)) fireStoryTrigger(t);
+    }
+  }
+  // The Action-button trigger the player is standing in, if any.
+  function storyActionTrigger() {
+    if (!Story || editMode || carriedObject) return null;
+    const px = storyPlayerX();
+    return storyState.triggers.find(t => t.kind === 'action' && px >= t.x0 && px <= t.x1 && storyTriggerReady(t)) || null;
+  }
+  function resetStoryProgress() {
+    storyProgress = { flags: {}, fired: {}, characters: {} };
+    saveStoryProgress();
+    storyLive.clear(); storyPending = []; storyInside.clear();
+    restartStoryRoutes();
+    storySpeechEl?.classList.remove('visible');
+  }
+
   function drawWorldCharacters(view) {
     for (const frame of worldCharacterFrames) {
       if (Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
@@ -18050,6 +18204,28 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       ctx.stroke(); ctx.setLineDash([]);
     }
+    for (const t of storyState.triggers) {
+      if (t.x1 < camera.x - STORY_DRAW_RANGE || t.x0 > camera.x + STORY_DRAW_RANGE) continue;
+      const active = storyHostSelectedTrigger === t.id;
+      const near = [], far = [];
+      const steps = Math.max(2, Math.min(24, Math.ceil(t.x1 - t.x0)));
+      for (let i = 0; i <= steps; i++) {
+        const x = t.x0 + (t.x1 - t.x0) * i / steps;
+        const a = projectWorldPoint(x, storyGroundY(x, 0.9) + 0.03, 0.9), b = projectWorldPoint(x, storyGroundY(x, -0.9) + 0.03, -0.9);
+        if (a && b) { near.push(a); far.push(b); }
+      }
+      if (near.length < 2) continue;
+      ctx.beginPath();
+      near.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      for (let i = far.length - 1; i >= 0; i--) ctx.lineTo(far[i].x, far[i].y);
+      ctx.closePath();
+      ctx.fillStyle = t.kind === 'action' ? (active ? 'rgba(140,200,255,.34)' : 'rgba(140,200,255,.16)') : (active ? 'rgba(255,150,120,.34)' : 'rgba(255,150,120,.16)');
+      ctx.fill();
+      ctx.strokeStyle = t.kind === 'action' ? 'rgba(160,210,255,.9)' : 'rgba(255,170,140,.9)';
+      ctx.lineWidth = active ? 2.5 : 1.5; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+      const mid = near[Math.floor(near.length / 2)];
+      label(`⚑ ${t.name} · ${t.kind === 'action' ? 'Action' : 'Walk in'}${t.once ? '' : ' · every time'}`, mid.x, mid.y + 22, t.kind === 'action' ? '#d6ecff' : '#ffd9cc');
+    }
     for (const mark of storyState.marks) {
       if (Math.abs(mark.x - camera.x) > STORY_DRAW_RANGE) continue;
       const p = markPoint(mark);
@@ -18070,7 +18246,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     ctx.restore();
   }
-  let storyHostSelectedMark = null;
+  let storyHostSelectedMark = null, storyHostSelectedTrigger = null;
   // A world character or mark under a tap (screen distance), for the editor.
   function storyItemAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -18080,6 +18256,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const p = projectWorldPoint(mark.x, storyGroundY(mark.x, mark.depth) + 0.04, mark.depth);
       const d = p ? Math.hypot(p.x - px, p.y - py) : Infinity;
       if (d < 26 && (!best || d < best.d)) best = { kind: 'mark', id: mark.id, d };
+    }
+    if (!best) {
+      // A trigger zone: a tap on its band along the path.
+      for (const t of storyState.triggers) {
+        const a = projectWorldPoint(t.x0, storyGroundY(t.x0, 0) + 0.03, 0), b = projectWorldPoint(t.x1, storyGroundY(t.x1, 0) + 0.03, 0);
+        if (!a || !b || px < Math.min(a.x, b.x) || px > Math.max(a.x, b.x)) continue;
+        const y = a.y + (b.y - a.y) * ((px - a.x) / Math.max(1, b.x - a.x));
+        const d = Math.abs(py - y);
+        if (d < 30 && (!best || d + 30 < best.d)) best = { kind: 'trigger', id: t.id, d: d + 30 };
+      }
     }
     for (const frame of worldCharacterFrames) {
       const feet = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z), frame.z);
@@ -18097,7 +18283,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Live preview of an edit (not saved; the editor saves through SideScrollStory.save).
     preview: next => setStoryState(next, true),
     restartRoutes: restartStoryRoutes,
-    select: (kind, id) => { storySelectedId = kind === 'character' ? id : null; storyHostSelectedMark = kind === 'mark' ? id : null; },
+    resetProgress: resetStoryProgress,
+    progress: () => JSON.parse(JSON.stringify(storyProgress)),
+    // Runs a trigger's reactions now (editor test), whatever its condition.
+    fire: id => { const t = storyState.triggers.find(x => x.id === id); if (t) fireStoryTrigger(t); return !!t; },
+    select: (kind, id) => { storySelectedId = kind === 'character' ? id : null; storyHostSelectedMark = kind === 'mark' ? id : null;
+      storyHostSelectedTrigger = kind === 'trigger' ? id : null; },
     active: () => !!(editMode && editorScope === 'story'),
     viewX: () => camera.x,
     playerX: () => character.x,
@@ -18250,6 +18441,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (contextAction) {
       actionLabel.textContent = contextAction.label;
       actionBtn.classList.add(carriedObject ? 'carrying' : 'ready');
+      return;
+    }
+    const storyTrigger = storyActionTrigger();
+    if (storyTrigger) {
+      actionLabel.textContent = storyTrigger.label.toUpperCase();
+      actionBtn.classList.add('ready');
       return;
     }
     if (carriedObject) {
@@ -18904,6 +19101,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (climbTarget && startClimb(climbTarget)) return;
     const contextAction = nearestPuzzleContextAction();
     if (contextAction && performPuzzleContextAction(contextAction)) return;
+    const storyTrigger = storyActionTrigger();
+    if (storyTrigger) { fireStoryTrigger(storyTrigger); return; }
     if (carriedObject) { startDrop(); return; }
     const pushTarget = nearestActionPushable();
     if (pushTarget) { startPush(pushTarget); return; }
@@ -19021,6 +19220,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
     updateCounterweightMechanisms(dt);
     updateWorldCharacters();
+    updateStoryTriggers();
     updateCartRailAnimations(dt);
     updateCartPathPreview(dt);
     if (climbState) updateClimbState(dt);
@@ -19713,6 +19913,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     try { localStorage.removeItem(PLAYER_POSITION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PLAYER_PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PLAYER_INVENTORY_STORAGE_KEY); } catch (_) {}
+    try { if (Story) localStorage.removeItem(Story.PROGRESS_KEY); } catch (_) {}
     window.location.reload();
   });
 

@@ -23,7 +23,7 @@ content, your working copy (overrides published on your phone only), local only
 ### Story sequences (agreed 8 Nov)
 Design: `docs/SEQUENCE_SYSTEM_DESIGN.md` (world characters, marks and moves, triggers
 that play sequences or direct characters, story flags, World Lab story tracks).
-- [ ] **Stage 2 — Triggers that direct characters** (play once, switch behaviour, move to a mark, face the player), story flags (plus each world character's *visible when* flag, already in its data), routes that start from a trigger, and World Lab story tracks with details and a list view. *(Stage 1, world characters and marks, done 8 Nov.)*
+- [ ] **Stage 2b — World Lab story tracks:** rows along the journey for triggers, world characters and routes, marks, thought triggers and puzzles; tap an item for its details (small edits there); a list view in journey order with *Open in game*. *(Stage 1 done 8 Nov; stage 2a, triggers and story flags, done 9 Nov.)*
 - [ ] **Stage 3 — First sequences:** camera track with eases and blend back to gameplay, fades / letterbox / hide controls, New game trigger, Skip (the opening pan).
 - [ ] **Stage 4 — Actor tracks and speech bubbles** (bubble style still to decide).
 - [ ] **Stage 5 — Look track** (colour grade, vignette) and atmosphere zones.
@@ -60,6 +60,12 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0ae. Story: triggers and flags (9 Nov)** — game → Edit → **Story → Triggers**
+- [ ] **+ Add trigger**, tap the path: a dashed band appears with its name. Add reactions for a character: *Switch its animation*, *Turn to face the player* (0 s = from then on), *Play an animation once* (0.5 s later), *Say something*, *Set a flag* (e.g. `met-father`). **Save story**, **Done Editing**, walk into the band: it all plays in order; the line shows as a dark subtitle strip with the speaker's name.
+- [ ] Characters → another character → **Shown: While flag is set** `met-father`: it appears only after the trigger.
+- [ ] A second trigger set to *Presses Action in it* (button text *Talk*), *Only while flag is set*, with *Walk to a mark*: inside it the Action button reads TALK; pressing it makes the character walk to the mark. Close and reopen the app: the character is still at the mark, the first trigger doesn't fire again.
+- [ ] Story progress (bottom of the Story panel) lists the flags; **Reset story progress** puts everything back as for a new player. Menu → Delete save (player mode) also resets it.
 
 **0ad. Story: world characters and marks (8 Nov)** — game → Edit → **Story**
 - [ ] The scope row shows Environment · Terrain · Puzzle · Story on one line, readable.

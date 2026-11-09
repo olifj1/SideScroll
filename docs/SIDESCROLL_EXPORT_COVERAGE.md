@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## 9 November 2026 — Story triggers and progress
+- New content key `sidescroll.story.triggers.v1` (Story area; publishes with the Publish Lab Story area, travels in Project Backup).
+- New progress key `sidescroll.player.story-progress.v1` (flags, fired once-only triggers, lasting changes triggers made to world characters). Never published; in Project Backup like other `sidescroll.` keys; cleared by the game's Delete save and the Story editor's *Reset story progress*.
+
 ## 8 November 2026 — Story: world characters and marks
 - New content keys `sidescroll.story.world-characters.v1` and `sidescroll.story.marks.v1` (Story area in `storage-catalogue.json`), written by the game editor's Story scope (`story-editor.js`, *Save story*). They publish with the Publish Lab **Story** area and travel in Project Backup (all `sidescroll.` keys). An empty list removes the key, so the device falls back to the built-in story content. Route progress is not saved (worked out from time since the route started).
 

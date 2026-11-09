@@ -4,6 +4,18 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story stage 2a — triggers and story flags** (`docs/SEQUENCE_SYSTEM_DESIGN.md`): a
+  **Triggers** tab in the Story scope. A trigger is a zone along the path that fires
+  when the player walks in or presses Action in it (the button reads its label, e.g.
+  TALK), once per player or every time, optionally only while a story flag is / isn't
+  set. Its reactions run after their own delays: play an animation once, switch a
+  character's animation, start its route, walk to a mark, turn to face the player,
+  say a line (a subtitle strip with the speaker's name) and set / clear a flag. World
+  characters can be *Shown* only while a flag is / isn't set, and routes can start
+  *From a trigger*. Flags, fired triggers and lasting changes to characters are play
+  progress (`sidescroll.player.story-progress.v1`, cleared by Delete save and the
+  editor's **Reset story progress**); triggers are content
+  (`sidescroll.story.triggers.v1`, Story area). *Fire now* tests a trigger in the editor.
 - **Story stage 1 — world characters and marks** (`docs/SEQUENCE_SYSTEM_DESIGN.md`): a
   **Story** scope in the game editor places any character in the world at any depth,
   looping one of its animations (speed, start offset, size, facing), and builds
