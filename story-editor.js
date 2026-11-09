@@ -16,9 +16,10 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   let draft = clone(Story.load());
   let dirty = false;
-  let tab = 'characters';          // 'characters' | 'marks'
-  let selected = null;             // {kind:'character'|'mark', id}
-  let placeMode = null;            // {kind:'add-character', character} | {kind:'add-mark'} | {kind:'move', target:{kind,id}}
+  let tab = 'characters';          // 'characters' | 'marks' | 'triggers'
+  let selected = null;             // {kind:'character'|'mark'|'trigger', id}
+  let placeMode = null;            // {kind:'add-character', character} | {kind:'add-mark'} | {kind:'add-trigger'} | {kind:'move', target:{kind,id}}
+  const TAB_OF = { character: 'characters', mark: 'marks', trigger: 'triggers' };
   let pendingCharacter = null;     // chosen in the Add character picker
 
   const el = (tag, props = {}, ...children) => {
@@ -36,7 +37,10 @@
   const fmt = (n, d = 1) => Number(n).toFixed(d);
   const characterById = id => draft.characters.find(c => c.id === id) || null;
   const markById = id => draft.marks.find(m => m.id === id) || null;
-  const selectedItem = () => selected?.kind === 'character' ? characterById(selected.id) : selected?.kind === 'mark' ? markById(selected.id) : null;
+  const triggerById = id => draft.triggers.find(t => t.id === id) || null;
+  const itemOf = (kind, id) => kind === 'character' ? characterById(id) : kind === 'mark' ? markById(id) : kind === 'trigger' ? triggerById(id) : null;
+  const selectedItem = () => itemOf(selected?.kind, selected?.id);
+  const itemX = item => item ? (Number.isFinite(item.x) ? item.x : (item.x0 + item.x1) / 2) : NaN;
   const characterChoices = () => host.characters();
   const characterName = id => characterChoices().find(c => c.id === id)?.name || id;
   const animations = id => host.animationsFor(id);
@@ -44,7 +48,8 @@
 
   // Live preview of the draft (normalised exactly as it will be saved).
   function preview() {
-    host.preview({ characters: Story.normaliseCharacters({ characters: draft.characters }), marks: Story.normaliseMarks({ marks: draft.marks }) });
+    host.preview({ characters: Story.normaliseCharacters({ characters: draft.characters }), marks: Story.normaliseMarks({ marks: draft.marks }),
+      triggers: Story.normaliseTriggers({ triggers: draft.triggers }) });
   }
   function change(rerender = true) {
     dirty = true;
@@ -53,10 +58,10 @@
   }
   function select(kind, id, focus = false) {
     selected = kind && id ? { kind, id } : null;
-    if (kind) tab = kind === 'mark' ? 'marks' : 'characters';
+    if (kind) tab = TAB_OF[kind];
     host.select(selected?.kind || null, selected?.id || null);
     const item = selectedItem();
-    if (focus && item) host.lookAt(item.x);
+    if (focus && item) host.lookAt(itemX(item));
     render();
   }
   function setPlaceMode(mode, message) {
@@ -73,7 +78,7 @@
       const point = host.groundPointAt(clientX, clientY);
       if (!point) { host.hint('Tap on the ground'); return; }
       const depth = Math.max(Story.LIMITS.depth[0], Math.min(Story.LIMITS.depth[1], point.z));
-      const taken = new Set([...draft.characters.map(c => c.id), ...draft.marks.map(m => m.id)]);
+      const taken = new Set([...draft.characters.map(c => c.id), ...draft.marks.map(m => m.id), ...draft.triggers.map(t => t.id)]);
       if (placeMode.kind === 'add-character') {
         const id = Story.newId('wc', taken);
         const name = characterName(placeMode.character);
@@ -89,10 +94,18 @@
         placeMode = null;
         host.hint(`Placed ${name} · rename it below`);
         select('mark', id);
+      } else if (placeMode.kind === 'add-trigger') {
+        const id = Story.newId('trg', taken);
+        const name = `Trigger ${draft.triggers.length + 1}`;
+        draft.triggers.push({ id, name, kind: 'enter', x0: point.x - 1.5, x1: point.x + 1.5, once: true, reactions: [] });
+        placeMode = null;
+        host.hint(`Placed ${name} · add what it does below`);
+        select('trigger', id);
       } else if (placeMode.kind === 'move') {
         const target = placeMode.target;
-        const item = target.kind === 'mark' ? markById(target.id) : characterById(target.id);
-        if (item) { item.x = point.x; item.depth = depth; }
+        const item = itemOf(target.kind, target.id);
+        if (item && target.kind === 'trigger') { const w = item.x1 - item.x0; item.x0 = point.x - w / 2; item.x1 = point.x + w / 2; }
+        else if (item) { item.x = point.x; item.depth = depth; }
         placeMode = null;
         host.hint('Moved');
         select(target.kind, target.id);
@@ -201,10 +214,11 @@
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Blocks the player' }),
         segmented([['auto', 'Auto'], ['always', 'Always'], ['never', 'Never']], wc.blocks, v => { wc.blocks = v; change(); }),
         el('small', { text: 'Auto: blocks while it stands on the path. A blocking character can’t be walked or jumped past.' })),
+      conditionEditor('Shown', wc, 'visible', 'Always'),
       el('h4', { text: 'Route' }),
       route ? el('div', {},
         el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Starts' }),
-          segmented([['game', 'When play starts'], ['near', 'When the player comes near']], route.start || 'game', v => { route.start = v; change(); })),
+          segmented([['game', 'When play starts'], ['near', 'Player comes near'], ['trigger', 'From a trigger']], route.start || 'game', v => { route.start = v; change(); })),
         el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!route.loop, onchange: e => { route.loop = e.target.checked; change(); } }), 'Repeat (from the last mark back to the first move)'),
         route.moves.map(moveEditor)) : el('p', { class: 'sidescroll-story-help', text: 'No route: it stays where it is placed.' }),
       marks.length
@@ -218,8 +232,11 @@
           draft.characters.push(copy); select('character', copy.id); change();
         } }, 'Duplicate'),
         el('button', { type: 'button', onclick: () => {
-          if (!confirm(`Remove ${wc.name} from the world?`)) return;
-          draft.characters = draft.characters.filter(c => c.id !== wc.id); select(null, null); change();
+          const uses = draft.triggers.filter(t => t.reactions.some(r => r.target === wc.id)).length;
+          if (!confirm(`Remove ${wc.name} from the world?${uses ? ` Its reactions in ${uses} trigger(s) are removed too.` : ''}`)) return;
+          draft.characters = draft.characters.filter(c => c.id !== wc.id);
+          for (const t of draft.triggers) t.reactions = t.reactions.filter(r => r.target !== wc.id);
+          select(null, null); change();
         } }, 'Delete')));
   }
   function charactersTab() {
@@ -273,6 +290,169 @@
     ];
   }
 
+  // ---- Story flags -----------------------------------------------------------
+  // Every flag named anywhere in the story (for suggestions).
+  function knownFlags() {
+    const out = new Set(Object.keys(host.progress().flags || {}));
+    for (const c of draft.characters) if (c.visible?.flag) out.add(c.visible.flag);
+    for (const t of draft.triggers) {
+      if (t.condition?.flag) out.add(t.condition.flag);
+      for (const r of t.reactions) if (r.type === 'flag' && r.flag) out.add(r.flag);
+    }
+    return [...out].filter(Boolean).sort();
+  }
+  function flagInput(value, onSet) {
+    const input = el('input', { type: 'text', value: value || '', placeholder: 'flag name, e.g. met-father', list: 'sidescroll-story-flags', autocapitalize: 'none', spellcheck: 'false' });
+    input.addEventListener('change', () => { input.value = Story.flagName(input.value); onSet(input.value); });
+    return input;
+  }
+  // A {flag, when} condition at item[key]: "Always" (none) / while set / while not set.
+  function conditionEditor(label, item, key, noneLabel) {
+    const c = item[key];
+    const mode = c ? (c.when === 'unset' ? 'unset' : 'set') : 'none';
+    return el('div', { class: 'sidescroll-story-field' }, el('span', { text: label }),
+      segmented([['none', noneLabel], ['set', 'While flag is set'], ['unset', 'While flag is not set']], mode, v => {
+        if (v === 'none') delete item[key]; else item[key] = { flag: c?.flag || knownFlags()[0] || '', when: v };
+        change();
+      }),
+      c ? flagInput(c.flag, v => { c.flag = v; change(); }) : null,
+      c && !c.flag ? el('small', { text: 'Name a flag, or this is ignored.' }) : null);
+  }
+
+  // ---- Triggers ---------------------------------------------------------------
+  const REACTION_TYPES = Object.entries(Story.REACTIONS);
+  const CHARACTER_REACTIONS = ['play-once', 'set-animation', 'start-route', 'walk-to', 'face-player'];
+  function newReaction(type) {
+    const target = draft.characters[0]?.id || null;
+    const base = { type, delay: 0 };
+    if (type === 'flag') return { ...base, flag: knownFlags()[0] || 'met-father', value: true };
+    if (type === 'say') return { ...base, target, text: 'Hello!', seconds: 4 };
+    if (type === 'play-once') return { ...base, target, animation: 'idle', times: 1 };
+    if (type === 'set-animation') return { ...base, target, animation: 'idle' };
+    if (type === 'walk-to') return { ...base, target, to: draft.marks[0]?.id || null, animation: 'walk', face: 'keep' };
+    if (type === 'face-player') return { ...base, target, seconds: 3 };
+    return { ...base, target };
+  }
+  function reactionEditor(t, r, index) {
+    const list = t.reactions;
+    const charOptions = draft.characters.map(c => [c.id, c.name]);
+    const targetSelect = (allowNone = false) => select_([...(allowNone ? [['', 'No one (narrator)']] : []), ...charOptions,
+      ...(r.target && !characterById(r.target) ? [[r.target, '(removed character)']] : [])], r.target || '', v => { if (v) r.target = v; else delete r.target; change(); });
+    const target = characterById(r.target);
+    const anims = target ? animations(target.character).map(a => [a.key, a.name]) : [['idle', 'Idle'], ['walk', 'Walk']];
+    const num = (key, min, max, step, fallback) => {
+      const input = el('input', { type: 'number', min, max, step, value: r[key] ?? fallback, inputmode: 'decimal' });
+      input.addEventListener('change', () => { r[key] = Math.min(max, Math.max(min, Number(input.value) || 0)); change(); });
+      return input;
+    };
+    const rows = [];
+    if (CHARACTER_REACTIONS.includes(r.type)) rows.push(field('Character', targetSelect()));
+    if (r.type === 'play-once') rows.push(field('Animation', select_(anims, r.animation, v => { r.animation = v; change(); })),
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Times' }), el('div', { class: 'sidescroll-story-inline' }, num('times', 1, 10, 1, 1), 'then back to what it was doing')));
+    if (r.type === 'set-animation') rows.push(field('New animation', select_(anims, r.animation, v => { r.animation = v; change(); }), 'Stops its route where it is; kept for this player'));
+    if (r.type === 'start-route') rows.push(el('p', { class: 'sidescroll-story-help', text: target?.route ? 'Starts its route from the beginning (set the route to start "From a trigger").' : 'This character has no route yet.' }));
+    if (r.type === 'walk-to') rows.push(
+      field('To mark', select_(draft.marks.map(m => [m.id, m.name]), r.to || '', v => { r.to = v; change(); })),
+      field('Animation', select_(anims, r.animation, v => { r.animation = v; change(); })),
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Then face' }),
+        segmented([['keep', 'As walking'], ['left', 'Left'], ['right', 'Right'], ['mark', 'Mark']], r.face || 'keep', v => { r.face = v; change(); })));
+    if (r.type === 'face-player') rows.push(el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'For' }),
+      el('div', { class: 'sidescroll-story-inline' }, num('seconds', 0, 120, 0.5, 3), 's (0 = from then on)')));
+    if (r.type === 'say') {
+      const line = el('textarea', { rows: '2', maxlength: '200' });
+      line.value = r.text || '';
+      line.addEventListener('input', () => { r.text = line.value; change(false); });
+      rows.push(field('Who speaks', targetSelect(true)), field('Line', line),
+        el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Shown for' }), el('div', { class: 'sidescroll-story-inline' }, num('seconds', 1, 30, 0.5, 4), 's')));
+    }
+    if (r.type === 'flag') rows.push(field('Flag', flagInput(r.flag, v => { r.flag = v; change(); })),
+      segmented([['set', 'Set it'], ['clear', 'Clear it']], r.value === false ? 'clear' : 'set', v => { r.value = v === 'set'; change(); }));
+    return el('div', { class: 'sidescroll-story-move' },
+      el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `${index + 1}. ${Story.REACTIONS[r.type]}` }),
+        el('button', { type: 'button', disabled: index === 0, onclick: () => { list.splice(index - 1, 0, list.splice(index, 1)[0]); change(); } }, '↑'),
+        el('button', { type: 'button', onclick: () => { list.splice(index, 1); change(); } }, 'Remove')),
+      ...rows,
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Starts' }),
+        el('div', { class: 'sidescroll-story-inline' }, num('delay', 0, 120, 0.25, 0), 's after the trigger fires')));
+  }
+  function zoneControls(t) {
+    const edge = key => {
+      const input = el('input', { type: 'number', step: '0.1', value: Number(t[key]).toFixed(2), inputmode: 'decimal' });
+      input.addEventListener('change', () => { const n = Number(input.value); if (Number.isFinite(n)) { t[key] = n; if (t.x1 < t.x0) [t.x0, t.x1] = [t.x1, t.x0]; change(); } });
+      return input;
+    };
+    const shift = d => el('button', { type: 'button', onclick: () => { t.x0 += d; t.x1 += d; change(); } }, d > 0 ? `+${d}` : `−${-d}`);
+    const moving = placeMode?.kind === 'move' && placeMode.target.id === t.id;
+    return [
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: `Zone along the journey (${(t.x1 - t.x0).toFixed(1)} m wide)` }),
+        el('div', { class: 'sidescroll-story-inline' }, 'from', edge('x0'), 'to', edge('x1'), 'm')),
+      el('div', { class: 'sidescroll-story-row' }, shift(-1), shift(-0.25), shift(0.25), shift(1)),
+      el('div', { class: 'sidescroll-story-row' },
+        el('button', { type: 'button', class: moving ? 'active' : '', onclick: () => setPlaceMode(moving ? null : { kind: 'move', target: { kind: 'trigger', id: t.id } },
+          'Tap the ground where the zone should be centred') }, moving ? 'Cancel move' : 'Move by tap'),
+        el('button', { type: 'button', onclick: () => host.lookAt((t.x0 + t.x1) / 2) }, 'Show'),
+        el('button', { type: 'button', onclick: () => { const w = t.x1 - t.x0, x = host.playerX(); t.x0 = x - w / 2; t.x1 = x + w / 2; change(); } }, 'To view centre'))
+    ];
+  }
+  function triggerEditor(t) {
+    let pickType = 'play-once';
+    const typeSelect = select_(REACTION_TYPES, pickType, v => { pickType = v; });
+    const labelInput = t.kind === 'action' ? textInput(t, 'label', 14) : null;
+    return el('div', { class: 'sidescroll-story-editor' },
+      field('Name', textInput(t, 'name')),
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Fires when the player…' }),
+        segmented([['enter', 'Walks in'], ['action', 'Presses Action in it']], t.kind, v => { t.kind = v; if (v === 'action' && !t.label) t.label = 'Talk'; change(); })),
+      labelInput ? field('Action button reads', labelInput) : null,
+      ...zoneControls(t),
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Fires' }),
+        segmented([['once', 'Once per player'], ['every', 'Every time']], t.once === false ? 'every' : 'once', v => { t.once = v === 'once'; change(); })),
+      conditionEditor('Only', t, 'condition', 'Always'),
+      el('h4', { text: 'What happens' }),
+      t.reactions.length ? t.reactions.map((r, i) => reactionEditor(t, r, i)) : el('p', { class: 'sidescroll-story-help', text: 'Nothing yet: add reactions below.' }),
+      el('div', { class: 'sidescroll-story-add' }, typeSelect,
+        el('button', { type: 'button', class: 'primary', onclick: () => { t.reactions.push(newReaction(pickType)); change(); } }, '+ Add')),
+      el('div', { class: 'sidescroll-story-row' },
+        el('button', { type: 'button', onclick: () => { preview(); host.fire(t.id); host.hint(`${t.name}: fired (flags it sets are kept until Reset story progress)`); setTimeout(render, 50); } }, 'Fire now')),
+      el('div', { class: 'sidescroll-story-row sidescroll-story-danger' },
+        el('button', { type: 'button', onclick: () => {
+          const copy = clone(t); copy.id = Story.newId('trg', new Set(draft.triggers.map(x => x.id))); copy.name = `${t.name} copy`;
+          copy.x0 += (t.x1 - t.x0) + 1; copy.x1 += (t.x1 - t.x0) + 1;
+          draft.triggers.push(copy); select('trigger', copy.id); change();
+        } }, 'Duplicate'),
+        el('button', { type: 'button', onclick: () => {
+          if (!confirm(`Delete ${t.name}?`)) return;
+          draft.triggers = draft.triggers.filter(x => x.id !== t.id); select(null, null); change();
+        } }, 'Delete')));
+  }
+  function triggersTab() {
+    const adding = placeMode?.kind === 'add-trigger';
+    const item = selected?.kind === 'trigger' ? triggerById(selected.id) : null;
+    return [
+      el('p', { class: 'sidescroll-story-help', text: 'A trigger is a zone along the path. When the player walks in (or presses Action in it) its reactions run: characters react, speak, walk; flags record what happened. Triggers don\u2019t fire while editing: use Fire now, or Done Editing and walk in.' }),
+      el('div', { class: 'sidescroll-story-list' }, draft.triggers.length
+        ? [...draft.triggers].sort((a, b) => a.x0 - b.x0).map(t => el('button', { type: 'button', class: item?.id === t.id ? 'active' : '',
+          onclick: () => select('trigger', t.id, true) }, el('strong', { text: `⚑ ${t.name}` }),
+          el('small', { text: `${t.kind === 'action' ? 'Action' : 'Walk in'} · ${fmt(t.x0)}–${fmt(t.x1)} m · ${t.reactions.length} reaction${t.reactions.length === 1 ? '' : 's'}` })))
+        : el('p', { class: 'sidescroll-story-help', text: 'No triggers yet.' })),
+      el('button', { type: 'button', class: adding ? 'active' : 'primary',
+        onclick: () => setPlaceMode(adding ? null : { kind: 'add-trigger' }, 'Tap the path where the trigger should be') }, adding ? 'Cancel' : '+ Add trigger'),
+      item ? triggerEditor(item) : null
+    ];
+  }
+  // This device's story progress (flags, fired triggers), with a reset for testing.
+  function progressBox() {
+    const p = host.progress();
+    const flags = Object.keys(p.flags || {}), fired = Object.keys(p.fired || {});
+    return el('details', { class: 'sidescroll-story-progress' },
+      el('summary', {}, `Story progress on this device · ${flags.length} flag${flags.length === 1 ? '' : 's'} set`),
+      el('p', { class: 'sidescroll-story-help', text: flags.length ? `Flags: ${flags.join(', ')}` : 'No flags set.' }),
+      el('p', { class: 'sidescroll-story-help', text: fired.length ? `Fired once-only triggers: ${fired.map(id => triggerById(id)?.name || id).join(', ')}` : 'No once-only trigger has fired.' }),
+      el('button', { type: 'button', onclick: () => {
+        if (!confirm('Reset story progress? Flags, fired triggers and what triggers changed about characters are cleared, as for a new player.')) return;
+        host.resetProgress(); host.hint('Story progress reset'); render();
+      } }, 'Reset story progress'));
+  }
+
   // ---- Panel ----------------------------------------------------------------
   let statusEl = null;
   function updateStatus() {
@@ -288,9 +468,12 @@
     statusEl = el('span', { class: 'sidescroll-story-status' });
     panel.replaceChildren(
       el('div', { class: 'sidescroll-story-head' }, el('strong', { text: 'Story' }), statusEl),
-      el('p', { class: 'sidescroll-story-help', text: 'Characters placed in the world, and marks for them to walk between. Tap one in the view to select it; drag to look around.' }),
-      segmented([['characters', `Characters (${draft.characters.length})`], ['marks', `Marks (${draft.marks.length})`]], tab, v => { tab = v; placeMode = null; render(); }),
-      ...(tab === 'marks' ? marksTab() : charactersTab()),
+      el('p', { class: 'sidescroll-story-help', text: 'Characters placed in the world, marks for them to walk between, and triggers that make things happen. Tap one in the view to select it; drag to look around.' }),
+      segmented([['characters', `Characters (${draft.characters.length})`], ['marks', `Marks (${draft.marks.length})`],
+        ['triggers', `Triggers (${draft.triggers.length})`]], tab, v => { tab = v; placeMode = null; render(); }),
+      ...(tab === 'marks' ? marksTab() : tab === 'triggers' ? triggersTab() : charactersTab()),
+      el('datalist', { id: 'sidescroll-story-flags' }, knownFlags().map(f => el('option', { value: f }))),
+      progressBox(),
       el('div', { class: 'sidescroll-story-actions' },
         el('button', { type: 'button', class: 'sidescroll-story-discard', onclick: () => {
           if (!confirm('Discard your Story changes since the last save?')) return;

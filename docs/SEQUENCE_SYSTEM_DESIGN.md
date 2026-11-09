@@ -185,7 +185,7 @@ data (no copies); the composing of shots and moves stays in the game editor.
 | `sidescroll.story.sequences.v1` | content | sequences and their tracks |
 | `sidescroll.story.triggers.v1` | content | triggers and their reactions |
 | `sidescroll.story.look.v1` | content | atmosphere zones (stage 4) |
-| `sidescroll.player.story-flags.v1` | progress | each player's story flags |
+| `sidescroll.player.story-progress.v1` | progress | each player's story flags, fired triggers and lasting changes to world characters |
 
 Content keys publish with a new Publish Lab area **Story**; flags are play progress
 (never published). All go in Project Backup automatically (catalogue).
@@ -200,7 +200,9 @@ Content keys publish with a new Publish Lab area **Story**; flags are play progr
    (walk A → B by time t, tagged animation); Story scope in the editor.
 2. **Triggers that direct characters** (Enter area / Action → play once, switch
    behaviour, move to a mark, face the player), story flags, and **World Lab story
-   tracks** with details and the list view.
+   tracks** with details and the list view. *(2a — triggers, reactions (incl. a simple
+   Say line), flags, visible-when, routes from a trigger — done 9 Nov; 2b — World Lab
+   tracks — next.)*
 3. **First sequences** — camera track (keys, eases, relative-to-player, blend back to
    gameplay), fades and letterbox, hide/show controls, **New game** trigger, Skip.
    *Your opening pan that lands on Aureli.*
