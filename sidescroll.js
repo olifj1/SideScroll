@@ -10941,7 +10941,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const puzzleWorkspaceShown=!!(puzzleWorkspaceActive&&editMode&&!puzzleTestMode&&editorScope==='puzzle'&&puzzleBrowserMode==='scene'&&selectedPuzzleMarker());
     document.body.classList.toggle('sidescroll-puzzle-workspace-active',puzzleWorkspaceShown);
     if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':(puzzleWorkspaceShown?'PUZZLE EDIT':(terrainWorkspaceShown?'TERRAIN EDIT':'EDIT'));
-    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(terrainWorkspaceShown?'Terrain':(editorScope==='puzzle'?'Puzzle':(editorScope==='story'?'Story':'Environment'))));
+    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(terrainWorkspaceShown?'Terrain':(editorScope==='puzzle'?'Puzzle':(editorScope==='story'?'Sequences':'Environment'))));
     const session=groupSession?worldGroupEditSession:(puzzleSession?puzzleEditSession:(terrainSession?terrainEditSession:null));
     const dirty=!!session?.dirty;
     if(editorDrawerDirtyEl)editorDrawerDirtyEl.hidden=!dirty;
@@ -17888,21 +17888,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!crateDrawn && (carriedObject || interactionState)) drawCarriedCrate(view, facing, isQuadruped ? null : pose);
   }
 
-  // ---- Story: world characters (docs/SEQUENCE_SYSTEM_DESIGN.md, stage 1) ----
-  // Characters placed in the world (sidescroll.story.world-characters.v1) loop
-  // one of their animations or walk a route between marks
-  // (sidescroll.story.marks.v1). They are drawn with the player's drawing code
-  // at their own position, and those on the path block the player (no getting
-  // past, jumping included). story-editor.js edits them through
-  // window.SideScrollStoryHost.
-  const Story = window.SideScrollStory || null;
-  let storyState = Story ? Story.load() : { characters: [], marks: [], triggers: [] };
-  let storyMarksById = new Map(storyState.marks.map(m => [m.id, m]));
+  // ---- Sequences runtime (docs/SEQUENCE_SYSTEM_DESIGN.md) --------------------
+  // Placed sequences (sequence-data.js) put library characters, marks and zones
+  // in the world relative to their anchor; their logic lines run events from the
+  // events library, whose steps act on the components filling the event's roles.
+  // Characters are drawn with the player's drawing code at their own place, and
+  // blocking ones keep the player out. Lasting changes (where a character ended
+  // up, its animation, hidden, flags, fired once-only lines) are play progress.
+  // sequence-editor.js edits all of it through window.SideScrollSequenceHost.
+  const Seq = window.SideScrollSequences || null;
+  let seqState = { events: [], templates: [], placed: [] };
+  let seqEvents = new Map(), seqResolved = [];
   const storyNow = () => (performance.now ? performance.now() : Date.now()) / 1000;
-  const storyClockStart = storyNow();
-  const storyRouteStarts = new Map(); // world character id -> route start (s), this session
   const storyColliders = new Map();   // character id -> collider {radius, height} (rig units)
-  let storySelectedId = null;         // highlighted in the Story editor
+  let seqSelected = { placed: null, component: null }; // highlighted in the editor
   let worldCharacterFrames = [];      // this frame: position, facing, blocking
   const STORY_DRAW_RANGE = 34;
   const STORY_SLOTS = ['idle', 'walk', 'run', 'jump'];
@@ -17911,33 +17910,44 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     quadruped: { idle: 1400, walk: Number(QuadrupedRig?.WALK_CYCLE_MS) || 539, run: Number(QuadrupedRig?.RUN_CYCLE_MS) || 323,
       jump: Number(QuadrupedRig?.JUMP_CYCLE_MS) || 1139 }
   };
-  function setStoryState(next, restart = true) {
-    storyState = { characters: next?.characters || [], marks: next?.marks || [], triggers: next?.triggers || [] };
-    storyMarksById = new Map(storyState.marks.map(m => [m.id, m]));
+  let seqProgress = Seq ? Seq.loadProgress() : { flags: {}, fired: {}, components: {} };
+  const seqLive = new Map();        // "<placed>:<component>" -> {walk, once} (this session)
+  let seqRuns = [];                 // events running
+  const seqInside = new Set();      // zone keys the player is inside
+  const seqStarted = new Set();     // placed ids whose "sequence starts" lines have run
+  const seqFlagLatched = new Set(); // flag lines already fired for the current flag setting
+  const seqControlLocks = new Set();// runs that have taken control from the player
+  let seqRunSerial = 0;
+  const compKey = (placedId, compId) => `${placedId}:${compId}`;
+  function setSeqState(next) {
+    seqState = { events: next?.events || [], templates: next?.templates || [], placed: next?.placed || [] };
+    seqEvents = new Map(seqState.events.map(e => [e.id, e]));
+    seqResolved = seqState.placed.map(p => ({ p, body: Seq.bodyOf(seqState, p) }));
     storyColliders.clear();
-    if (restart) restartStoryRoutes();
   }
-  // Routes start again from now (editor: after a change, or Restart routes).
-  function restartStoryRoutes() {
-    storyRouteStarts.clear();
-    const now = storyNow();
-    for (const wc of storyState.characters)
-      if (wc.route?.start === 'game' || (wc.route?.start === 'trigger' && storyProgress.characters[wc.id]?.routeStarted)) storyRouteStarts.set(wc.id, now);
-  }
+  if (Seq) setSeqState(Seq.load());
+  const storyControlLocked = () => seqControlLocks.size > 0;
+  function saveStoryProgress() { try { Seq?.saveProgress(seqProgress); } catch (_) {} }
+  const seqLiveFor = key => { if (!seqLive.has(key)) seqLive.set(key, {}); return seqLive.get(key); };
+  const seqSavedFor = key => (seqProgress.components[key] ||= {});
   function storyCharacterKnown(id) {
     return !!(GameCharacters?.find(id) || Rig.CHARACTER_VARIANTS?.[id]) && !!characterRigForVariant(id);
   }
-  function storyRouteStart(wc, now) {
-    if (!wc.route) return null;
-    if (storyRouteStarts.has(wc.id)) return storyRouteStarts.get(wc.id);
-    // A route started by a trigger (in an earlier session too) runs from the
-    // start of this one; otherwise it waits for its trigger.
-    if (wc.route.start === 'game' || (wc.route.start === 'trigger' && storyProgress.characters[wc.id]?.routeStarted)) {
-      storyRouteStarts.set(wc.id, storyClockStart); return storyClockStart;
+  // Where a component stands now: its place in the sequence, then any lasting change.
+  function seqComponentPlace(p, c) {
+    const saved = seqProgress.components[compKey(p.id, c.id)] || null;
+    return { x: saved?.x ?? (p.x + c.dx), depth: saved?.depth ?? c.depth, facing: saved?.facing ?? c.facing,
+      animation: saved?.animation ?? c.animation, hidden: !!saved?.hidden };
+  }
+  const seqZoneSpan = (p, c) => ({ x0: p.x + c.dx - c.width / 2, x1: p.x + c.dx + c.width / 2 });
+  // A placed sequence's extent along the journey (anchor and every component).
+  function seqBounds(p, body) {
+    let x0 = p.x, x1 = p.x;
+    for (const c of body.components) {
+      const span = c.kind === 'zone' ? seqZoneSpan(p, c) : { x0: p.x + c.dx, x1: p.x + c.dx };
+      x0 = Math.min(x0, span.x0); x1 = Math.max(x1, span.x1);
     }
-    if (wc.route.start === 'trigger') return null;
-    if (Math.abs((character?.x ?? camera.x) - wc.x) <= Story.NEAR_DISTANCE) { storyRouteStarts.set(wc.id, now); return now; }
-    return null;
+    return { x0, x1 };
   }
   function storyWalkSpeed(id) {
     const motion = characterMotionSettings(id);
@@ -17962,24 +17972,48 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   // Positions of every world character this frame (before the player moves, so
   // blocking uses them, and drawing after).
+  // Positions of every sequence character this frame (before the player moves,
+  // so blocking uses them, and drawing after).
   function updateWorldCharacters() {
-    if (!Story || !storyState.characters.length) { worldCharacterFrames = []; return; }
+    if (!Seq || !seqResolved.length) { worldCharacterFrames = []; return; }
     const now = storyNow(), frames = [];
-    for (const wc of storyState.characters) {
-      const id = wc.character;
-      if (!storyCharacterKnown(id)) continue;
-      if (wc.visible && !Story.conditionMet(wc.visible, storyProgress.flags)) continue;
-      const state = storyCharacterState(wc, now);
-      const scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(id) * wc.scale;
-      frames.push({ wc, id, state, now, scale, x: state.x, z: state.depth, facing: state.facing,
-        blocks: Story.blocksPlayer(wc, state.depth), radius: storyCollider(id).radius * scale, height: storyCollider(id).height * scale });
+    for (const { p, body } of seqResolved) {
+      for (const c of body.components) {
+        if (c.kind !== 'character' || !storyCharacterKnown(c.character)) continue;
+        const key = compKey(p.id, c.id), place = seqComponentPlace(p, c);
+        if (place.hidden) continue;
+        let state = { x: place.x, depth: place.depth, facing: place.facing, animation: place.animation, moving: false, distance: 0 };
+        const live = seqLive.get(key);
+        if (live?.walk) {
+          const w = live.walk, k = (now - w.t0) / Math.max(0.01, w.duration);
+          if (k >= 1) {
+            Object.assign(seqSavedFor(key), { x: w.to.x, depth: w.to.depth, facing: w.facing });
+            saveStoryProgress();
+            live.walk = null;
+            state = { ...state, x: w.to.x, depth: w.to.depth, facing: w.facing };
+          } else {
+            state = { ...state, x: w.from.x + (w.to.x - w.from.x) * k, depth: w.from.depth + (w.to.depth - w.from.depth) * k,
+              facing: w.facing, animation: w.animation, moving: true, distance: w.speed * (now - w.t0) };
+          }
+        }
+        if (live?.once && !state.moving) {
+          if (now < live.once.end) state = { ...state, animation: live.once.animation, phaseStart: live.once.start };
+          else live.once = null;
+        }
+        const scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(c.character) * c.scale;
+        const blocks = c.blocks === 'always' || (c.blocks === 'auto' && Math.abs(state.depth) <= 1.0);
+        frames.push({ key, placed: p.id, component: c.id, name: c.name, id: c.character,
+          wc: { speed: 1, offset: 0, scale: c.scale, character: c.character }, state, now, scale,
+          x: state.x, z: state.depth, facing: state.facing, blocks,
+          radius: storyCollider(c.character).radius * scale, height: storyCollider(c.character).height * scale });
+      }
     }
     worldCharacterFrames = frames;
   }
-  // The pose of one of a character's animations (a built-in slot name plays the
-  // character's animation for that slot).
   function storyPose(id, rig, key, phase) {
-    const resolved = STORY_SLOTS.includes(key) ? (GameCharacters?.slotAnimation?.(id, key) || key) : key;
+    // An action slot (idle, walk, run, jump or a custom slot) plays this
+    // character's animation for that slot; a clip-… key is one of its own.
+    const resolved = key.startsWith('clip-') ? key : (GameCharacters?.slotAnimation?.(id, key) || key);
     const clip = GameCharacters?.clipFor?.(id, resolved) || null;
     if (rig === QuadrupedRig) {
       if (clip && QuadrupedRig.sampleSparseClip) return QuadrupedRig.sampleSparseClip(clip, phase);
@@ -18013,56 +18047,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const cycle = storyCycleSeconds(wc, rig, state.animation);
     return ((frame.now / cycle + wc.offset) % 1 + 1) % 1;
   }
-  // ---- Story triggers and progress (stage 2a) ----------------------------
-  // A trigger fires when the player walks into its zone (enter) or presses
-  // Action in it (action), if its condition holds and, for once-only triggers,
-  // it hasn't fired for this player. Its reactions run after their delays.
-  // Lasting effects (flags, fired triggers, a character's new spot, animation
-  // or started route) are play progress; play-once, face and speech are not.
-  let storyProgress = Story ? Story.loadProgress() : { flags: {}, fired: {}, characters: {} };
-  const storyLive = new Map();   // world character id -> {once, walk, face} (this session)
-  let storyPending = [];         // reactions waiting for their delay: {at, reaction}
-  const storyInside = new Set(); // trigger ids the player is inside
-  function saveStoryProgress() { try { Story?.saveProgress(storyProgress); } catch (_) {} }
-  const storyLiveFor = id => { if (!storyLive.has(id)) storyLive.set(id, {}); return storyLive.get(id); };
-  const storySavedFor = id => (storyProgress.characters[id] ||= {});
-  function storyCharacterState(wc, now) {
-    const saved = storyProgress.characters[wc.id] || null, live = storyLive.get(wc.id) || null;
-    let state;
-    const start = !saved?.stopped ? storyRouteStart(wc, now) : null;
-    if (wc.route && !saved?.stopped && start !== null) state = Story.stateAt(wc, storyMarksById, storyWalkSpeed(wc.character), now - start);
-    else state = { x: saved?.x ?? wc.x, depth: saved?.depth ?? wc.depth, facing: saved?.facing ?? wc.facing,
-      animation: saved?.animation ?? wc.animation, moving: false, distance: 0, speed: 0 };
-    if (live?.walk) {
-      const w = live.walk, k = (now - w.t0) / Math.max(0.01, w.duration);
-      if (k >= 1) {
-        Object.assign(storySavedFor(wc.id), { x: w.to.x, depth: w.to.depth, facing: w.endFacing, stopped: true });
-        saveStoryProgress();
-        live.walk = null;
-        state = { ...state, x: w.to.x, depth: w.to.depth, facing: w.endFacing, moving: false };
-      } else {
-        state = { ...state, x: w.from.x + (w.to.x - w.from.x) * k, depth: w.from.depth + (w.to.depth - w.from.depth) * k,
-          facing: w.facing, animation: w.animation, moving: true, distance: w.speed * (now - w.t0), speed: w.speed };
-      }
-    }
-    if (live?.once && !state.moving) {
-      if (now < live.once.end) state = { ...state, animation: live.once.animation, phaseStart: live.once.start };
-      else live.once = null;
-    }
-    if (live?.face) {
-      if (live.face.until && now > live.face.until) live.face = null;
-      else if (!state.moving) state = { ...state, facing: character.x >= state.x ? 1 : -1 };
-    }
-    return state;
-  }
-  // Stop a character's route where it stands (a trigger now directs it).
-  function freezeStoryCharacter(wc) {
-    const state = storyCharacterState(wc, storyNow());
-    Object.assign(storySavedFor(wc.id), { x: Math.round(state.x * 1000) / 1000, depth: Math.round(state.depth * 1000) / 1000,
-      facing: state.facing, stopped: true });
-    if (state.moving && !storyLive.get(wc.id)?.walk) storySavedFor(wc.id).animation = wc.animation;
-    return state;
-  }
   let storySpeechEl = null, storySpeechTimer = 0;
   function showStorySpeech(name, text, seconds) {
     if (!storySpeechEl) {
@@ -18077,86 +18061,178 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     clearTimeout(storySpeechTimer);
     storySpeechTimer = setTimeout(() => storySpeechEl.classList.remove('visible'), seconds * 1000);
   }
-  function runStoryReaction(r) {
-    const wc = r.target ? storyState.characters.find(c => c.id === r.target) : null;
-    const now = storyNow();
-    if (r.type === 'flag') {
-      if (r.value) storyProgress.flags[r.flag] = true; else delete storyProgress.flags[r.flag];
-      saveStoryProgress();
-      return;
-    }
-    if (r.type === 'say') { showStorySpeech(wc?.name || '', r.text, r.seconds); return; }
-    if (!wc || !storyCharacterKnown(wc.character)) return;
-    const live = storyLiveFor(wc.id), rig = characterRigForVariant(wc.character);
-    if (r.type === 'play-once') {
-      live.once = { animation: r.animation, start: now, end: now + storyCycleSeconds(wc, rig, r.animation) * r.times };
-    } else if (r.type === 'set-animation') {
-      if (wc.route) freezeStoryCharacter(wc);
-      storySavedFor(wc.id).animation = r.animation;
-      live.once = null;
-      saveStoryProgress();
-    } else if (r.type === 'start-route') {
-      if (!wc.route) return;
-      const saved = storySavedFor(wc.id);
-      for (const k of ['x', 'depth', 'facing', 'animation', 'stopped']) delete saved[k];
-      saved.routeStarted = true;
-      live.walk = null; live.once = null;
-      storyRouteStarts.set(wc.id, now);
-      saveStoryProgress();
-    } else if (r.type === 'walk-to') {
-      const mark = storyMarksById.get(r.to);
-      if (!mark) return;
-      const from = freezeStoryCharacter(wc);
-      const distance = Math.hypot(mark.x - from.x, mark.depth - from.depth);
-      const speed = Math.max(0.05, storyWalkSpeed(wc.character)(r.animation));
-      const facing = Math.abs(mark.x - from.x) > 0.001 ? (mark.x > from.x ? 1 : -1) : from.facing;
-      const endFacing = r.face === 'left' ? -1 : r.face === 'right' ? 1 : r.face === 'mark' ? mark.facing : facing;
-      live.once = null;
-      live.walk = { from: { x: from.x, depth: from.depth }, to: { x: mark.x, depth: mark.depth }, t0: now,
-        duration: distance / speed, speed, animation: r.animation, facing, endFacing };
-      saveStoryProgress();
-    } else if (r.type === 'face-player') {
-      live.face = { until: r.seconds > 0 ? now + r.seconds : 0 };
-    }
+  // ---- Logic and events --------------------------------------------------------
+  // A line fires when its When happens, if its condition holds and (once-only)
+  // it hasn't fired for this player. Its event runs as beats: a step runs after
+  // the previous beat, or with the previous step ("with"); a beat ends when all
+  // its steps have.
+  const seqLineKey = (p, l) => `${p.id}:${l.id}`;
+  const seqLineReady = (p, l) => !!seqEvents.get(l.event) && !(l.once && seqProgress.fired[seqLineKey(p, l)])
+    && Seq.conditionMet(l.condition, seqProgress.flags);
+  function seqFireLine(p, body, l, test = false) {
+    const event = seqEvents.get(l.event);
+    if (!event) return false;
+    if (l.once && !test) { seqProgress.fired[seqLineKey(p, l)] = true; saveStoryProgress(); }
+    seqRuns.push({ id: ++seqRunSerial, p, body, line: l, event, index: 0, active: [] });
+    return true;
   }
-  const storyTriggerReady = t => !(t.once && storyProgress.fired[t.id]) && Story.conditionMet(t.condition, storyProgress.flags);
-  // test: the editor's Fire now — runs the reactions without using up a
-  // once-only trigger, so walking in still fires it afterwards.
-  function fireStoryTrigger(t, test = false) {
-    if (t.once && !test) { storyProgress.fired[t.id] = true; saveStoryProgress(); }
-    const now = storyNow();
-    for (const reaction of t.reactions) storyPending.push({ at: now + reaction.delay, reaction });
-    storyPending.sort((a, b) => a.at - b.at);
+  // The component a role of a line's event is filled with.
+  function seqBound(run, roleId) {
+    const compId = run.line.roles[roleId];
+    return compId ? run.body.components.find(c => c.id === compId) || null : null;
+  }
+  function seqCharacterNow(run, comp) {
+    const key = compKey(run.p.id, comp.id);
+    return worldCharacterFrames.find(f => f.key === key) || null;
+  }
+  // Starts one step; returns the time it finishes (now = straight away).
+  function seqStartStep(run, step, now) {
+    const actor = step.actor ? seqBound(run, step.actor) : null;
+    const key = actor ? compKey(run.p.id, actor.id) : null;
+    switch (step.type) {
+      case 'move': {
+        const mark = step.to ? seqBound(run, step.to) : null;
+        if (!actor || !mark) return now;
+        const now_ = seqCharacterNow(run, actor);
+        const from = now_ ? { x: now_.x, depth: now_.z, facing: now_.facing } : seqComponentPlace(run.p, actor);
+        const to = seqComponentPlace(run.p, mark);
+        const distance = Math.hypot(to.x - from.x, to.depth - from.depth);
+        const speed = step.timing === 'time' ? distance / Math.max(0.1, step.seconds) : Math.max(0.05, storyWalkSpeed(actor.character)(step.animation));
+        const duration = step.timing === 'time' ? step.seconds : distance / speed;
+        const facing = Math.abs(to.x - from.x) > 0.001 ? (to.x > from.x ? 1 : -1) : (from.facing || 1);
+        const live = seqLiveFor(key);
+        live.once = null;
+        if (!(duration > 0.01)) { Object.assign(seqSavedFor(key), { x: to.x, depth: to.depth, facing }); saveStoryProgress(); return now; }
+        live.walk = { from: { x: from.x, depth: from.depth }, to: { x: to.x, depth: to.depth }, t0: now, duration, speed, animation: step.animation, facing };
+        return now + duration;
+      }
+      case 'animate': {
+        if (!actor) return now;
+        if (step.mode === 'loop') { seqSavedFor(key).animation = step.animation; seqLiveFor(key).once = null; saveStoryProgress(); return now; }
+        const end = now + storyCycleSeconds({ speed: 1, character: actor.character }, characterRigForVariant(actor.character), step.animation) * step.times;
+        seqLiveFor(key).once = { animation: step.animation, start: now, end };
+        return end;
+      }
+      case 'face': {
+        if (!actor) return now;
+        const at = seqCharacterNow(run, actor) || seqComponentPlace(run.p, actor);
+        let facing = step.toward === 'left' ? -1 : step.toward === 'right' ? 1 : (character.x >= at.x ? 1 : -1);
+        if (step.toward === 'character') {
+          const other = step.target ? seqBound(run, step.target) : null;
+          const ot = other ? (seqCharacterNow(run, other) || seqComponentPlace(run.p, other)) : null;
+          if (ot) facing = ot.x >= at.x ? 1 : -1;
+        }
+        seqSavedFor(key).facing = facing; saveStoryProgress();
+        return now;
+      }
+      case 'say': showStorySpeech(actor?.name || '', step.text, step.seconds); return now + step.seconds;
+      case 'think': showPuzzleThought(step.text, step.seconds * 1000); return now + step.seconds;
+      case 'wait': return now + step.seconds;
+      case 'flag':
+        if (step.flag) { if (step.value) seqProgress.flags[step.flag] = true; else delete seqProgress.flags[step.flag]; saveStoryProgress(); }
+        return now;
+      case 'show':
+        if (actor) { seqSavedFor(key).hidden = !step.visible; saveStoryProgress(); }
+        return now;
+      case 'control':
+        if (step.take) { seqControlLocks.add(run.id); setDriveAxis(0); keyLeft = false; keyRight = false; }
+        else seqControlLocks.delete(run.id);
+        return now;
+    }
+    return now;
+  }
+  const seqFinishedLines = [];
+  function advanceSequenceRuns(now) {
+    for (const run of seqRuns) {
+      run.active = run.active.filter(until => until > now);
+      while (!run.active.length && run.index < run.event.steps.length) {
+        // Start the next beat: this step and every following "with" step.
+        do {
+          const until = seqStartStep(run, run.event.steps[run.index], now);
+          if (until > now) run.active.push(until);
+          run.index += 1;
+        } while (run.index < run.event.steps.length && run.event.steps[run.index].with);
+      }
+      if (!run.active.length && run.index >= run.event.steps.length) {
+        run.done = true;
+        seqControlLocks.delete(run.id); // control always comes back when an event ends
+        seqFinishedLines.push({ p: run.p, line: run.line });
+      }
+    }
+    seqRuns = seqRuns.filter(run => !run.done);
   }
   const storyPlayerX = () => character.x + colliderWorld().offsetX;
   function updateStoryTriggers() {
-    if (!Story) return;
+    if (!Seq) return;
     const now = storyNow();
-    while (storyPending.length && storyPending[0].at <= now) runStoryReaction(storyPending.shift().reaction);
-    if (editLocked() || introLocked || !storyState.triggers.length) return;
-    // The player's body (not just her centre) touching the zone counts.
+    advanceSequenceRuns(now);
+    const finished = seqFinishedLines.splice(0);
+    if (editLocked() || introLocked || !seqResolved.length) return;
     const px = storyPlayerX(), r = colliderWorld().radius;
-    for (const t of storyState.triggers) {
-      if (px + r < t.x0 || px - r > t.x1) { storyInside.delete(t.id); continue; }
-      if (storyInside.has(t.id)) continue;
-      storyInside.add(t.id);
-      if (t.kind === 'enter' && storyTriggerReady(t)) fireStoryTrigger(t);
+    for (const { p, body } of seqResolved) {
+      const lines = body.logic;
+      if (!seqStarted.has(p.id)) {
+        seqStarted.add(p.id);
+        // Zones the player already stands in fire only once she has left them.
+        for (const c of body.components) if (c.kind === 'zone') {
+          const span = seqZoneSpan(p, c);
+          if (px + r >= span.x0 && px - r <= span.x1) seqInside.add(compKey(p.id, c.id));
+        }
+        for (const l of lines) if (l.when.type === 'load' && seqLineReady(p, l)) seqFireLine(p, body, l);
+      }
+      for (const c of body.components) {
+        if (c.kind !== 'zone') continue;
+        const span = seqZoneSpan(p, c), key = compKey(p.id, c.id);
+        if (px + r < span.x0 || px - r > span.x1) { seqInside.delete(key); continue; }
+        if (seqInside.has(key)) continue;
+        seqInside.add(key);
+        for (const l of lines) if (l.when.type === 'enter' && l.when.zone === c.id && seqLineReady(p, l)) seqFireLine(p, body, l);
+      }
+      for (const l of lines) {
+        if (l.when.type !== 'flag' || !l.when.flag) continue;
+        const key = seqLineKey(p, l), on = !!seqProgress.flags[l.when.flag];
+        if (!on) { seqFlagLatched.delete(key); continue; }
+        if (seqFlagLatched.has(key)) continue;
+        seqFlagLatched.add(key);
+        if (seqLineReady(p, l)) seqFireLine(p, body, l);
+      }
+      for (const done of finished) {
+        if (done.p.id !== p.id) continue;
+        for (const l of lines) if (l.when.type === 'finish' && l.when.line === done.line.id && seqLineReady(p, l)) seqFireLine(p, body, l);
+      }
     }
   }
-  // The Action-button trigger the player is standing in, if any.
+  // The Action-button line the player is standing in, if any: {label, fire}.
   function storyActionTrigger() {
-    if (!Story || editLocked() || carriedObject) return null;
+    if (!Seq || editLocked() || carriedObject || storyControlLocked()) return null;
     const px = storyPlayerX(), r = colliderWorld().radius;
-    return storyState.triggers.find(t => t.kind === 'action' && px + r >= t.x0 && px - r <= t.x1 && storyTriggerReady(t)) || null;
+    for (const { p, body } of seqResolved) {
+      for (const l of body.logic) {
+        if (l.when.type !== 'action' || !l.when.zone) continue;
+        const zone = body.components.find(c => c.id === l.when.zone);
+        if (!zone) continue;
+        const span = seqZoneSpan(p, zone);
+        if (px + r < span.x0 || px - r > span.x1 || !seqLineReady(p, l)) continue;
+        return { label: l.when.label || 'Talk', fire: () => seqFireLine(p, body, l) };
+      }
+    }
+    return null;
+  }
+  function fireStoryTrigger(trigger) { trigger?.fire?.(); }
+  // Zones the player stands in when play starts don't fire until she leaves them.
+  function markStoryZonesInside() {
+    seqInside.clear();
+    const px = storyPlayerX(), r = colliderWorld().radius;
+    for (const { p, body } of seqResolved) for (const c of body.components)
+      if (c.kind === 'zone') { const s = seqZoneSpan(p, c); if (px + r >= s.x0 && px - r <= s.x1) seqInside.add(compKey(p.id, c.id)); }
   }
   function resetStoryProgress() {
-    storyProgress = { flags: {}, fired: {}, characters: {} };
+    seqProgress = { flags: {}, fired: {}, components: {} };
     saveStoryProgress();
-    storyLive.clear(); storyPending = []; storyInside.clear();
-    restartStoryRoutes();
+    seqLive.clear(); seqRuns = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
+    seqFinishedLines.length = 0;
     storySpeechEl?.classList.remove('visible');
   }
-
   function drawWorldCharacters(view) {
     for (const frame of worldCharacterFrames) {
       if (Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
@@ -18168,7 +18244,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const body = { x: frame.x, y: storyGroundY(frame.x, frame.z) + (Number.isFinite(sole) ? sole : CHARACTER_SOLE_ART_LOCAL_OFFSET) * frame.scale,
         z: frame.z, scale: frame.scale, tint: character.tint, opacity: character.opacity,
         texture: textures[rigVariantTextureKey(artVariantFor(id))] || textures.rigAtlas,
-        highlight: editMode && editorScope === 'story' && storySelectedId === frame.wc.id ? 0.24 : 0 };
+        highlight: editMode && editorScope === 'story' && seqSelected.placed === frame.placed && seqSelected.component === frame.component ? 0.24 : 0 };
       const local = GameCharacters?.ready(id) || originalCharacterMeshes.get(id);
       if (local?.parts?.length) { drawLocalMeshCharacter(view, pose, frame.facing, local, null, body); continue; }
       const parts = rig === Rig ? Rig.partsForPose(pose, bipedRestRig(id)) : rig.partsForPose(pose);
@@ -18194,8 +18270,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return x - offset;
   }
   // Story editor overlay: marks, the selected character's route and names.
+  // Editor overlay (Sequences scope): every sequence's anchor and name; the open
+  // sequence's marks, zones and character names in full, the others faint.
   function drawStoryOverlay(ctx) {
-    if (!Story) return;
+    if (!Seq) return;
     ctx.save();
     ctx.font = '800 10px -apple-system, BlinkMacSystemFont, sans-serif';
     const label = (text, x, y, colour) => {
@@ -18203,121 +18281,104 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       ctx.fillStyle = 'rgba(20,24,44,.86)'; ctx.fillRect(x - tw / 2, y - 18, tw, 17);
       ctx.fillStyle = colour; ctx.fillText(text, x - tw / 2 + 6, y - 6);
     };
-    const selected = storySelectedId ? storyState.characters.find(c => c.id === storySelectedId) : null;
-    const markPoint = m => projectWorldPoint(m.x, storyGroundY(m.x, m.depth) + 0.04, m.depth);
-    if (selected?.route) {
-      ctx.strokeStyle = 'rgba(255,214,120,.85)'; ctx.lineWidth = 2; ctx.setLineDash([7, 5]);
-      ctx.beginPath();
-      const start = projectWorldPoint(selected.x, storyGroundY(selected.x, selected.depth) + 0.04, selected.depth);
-      if (start) ctx.moveTo(start.x, start.y);
-      for (const move of selected.route.moves) {
-        const mark = storyMarksById.get(move.to), p = mark && markPoint(mark);
-        if (p) ctx.lineTo(p.x, p.y);
+    for (const { p, body } of seqResolved) {
+      const b = seqBounds(p, body);
+      if (b.x1 < camera.x - STORY_DRAW_RANGE || b.x0 > camera.x + STORY_DRAW_RANGE) continue;
+      const open = seqSelected.placed === p.id;
+      ctx.globalAlpha = open || !seqSelected.placed ? 1 : 0.35;
+      // Anchor: a post with the sequence's name.
+      const foot = projectWorldPoint(p.x, storyGroundY(p.x, 0), 0), top = projectWorldPoint(p.x, storyGroundY(p.x, 0) + 2.2, 0);
+      if (foot && top) {
+        ctx.strokeStyle = open ? '#9ff0c8' : 'rgba(159,240,200,.8)'; ctx.lineWidth = open ? 3 : 2; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(foot.x, foot.y); ctx.lineTo(top.x, top.y); ctx.stroke();
+        ctx.beginPath(); ctx.arc(top.x, top.y, 5, 0, Math.PI * 2); ctx.fillStyle = '#9ff0c8'; ctx.fill();
+        label(`▣ ${p.name}`, top.x, top.y - 6, '#d9ffec');
       }
-      ctx.stroke(); ctx.setLineDash([]);
-    }
-    for (const t of storyState.triggers) {
-      if (t.x1 < camera.x - STORY_DRAW_RANGE || t.x0 > camera.x + STORY_DRAW_RANGE) continue;
-      const active = storyHostSelectedTrigger === t.id;
-      const near = [], far = [];
-      const steps = Math.max(2, Math.min(24, Math.ceil(t.x1 - t.x0)));
-      for (let i = 0; i <= steps; i++) {
-        const x = t.x0 + (t.x1 - t.x0) * i / steps;
-        const a = projectWorldPoint(x, storyGroundY(x, 0.9) + 0.03, 0.9), b = projectWorldPoint(x, storyGroundY(x, -0.9) + 0.03, -0.9);
-        if (a && b) { near.push(a); far.push(b); }
+      for (const c of body.components) {
+        const active = open && seqSelected.component === c.id;
+        if (c.kind === 'zone') {
+          const s = seqZoneSpan(p, c), near = [], far = [];
+          const steps = Math.max(2, Math.min(24, Math.ceil(s.x1 - s.x0)));
+          for (let i = 0; i <= steps; i++) {
+            const x = s.x0 + (s.x1 - s.x0) * i / steps;
+            const a = projectWorldPoint(x, storyGroundY(x, 0.9) + 0.03, 0.9), q = projectWorldPoint(x, storyGroundY(x, -0.9) + 0.03, -0.9);
+            if (a && q) { near.push(a); far.push(q); }
+          }
+          if (near.length < 2) continue;
+          ctx.beginPath();
+          near.forEach((pt, i) => (i ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y)));
+          for (let i = far.length - 1; i >= 0; i--) ctx.lineTo(far[i].x, far[i].y);
+          ctx.closePath();
+          ctx.fillStyle = active ? 'rgba(255,150,120,.36)' : 'rgba(255,150,120,.16)'; ctx.fill();
+          ctx.strokeStyle = 'rgba(255,170,140,.9)'; ctx.lineWidth = active ? 2.5 : 1.5; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+          if (open) { const mid = near[Math.floor(near.length / 2)]; label(`⚑ ${c.name}`, mid.x, mid.y + 22, '#ffd9cc'); }
+        } else if (c.kind === 'mark') {
+          const place = seqComponentPlace(p, c);
+          const pt = projectWorldPoint(place.x, storyGroundY(place.x, place.depth) + 0.04, place.depth);
+          if (!pt) continue;
+          ctx.fillStyle = active ? '#ffe7a6' : 'rgba(255,214,120,.9)';
+          ctx.beginPath(); ctx.moveTo(pt.x, pt.y - 9); ctx.lineTo(pt.x + 7, pt.y); ctx.lineTo(pt.x, pt.y + 9); ctx.lineTo(pt.x - 7, pt.y); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = 'rgba(40,30,10,.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x + place.facing * 14, pt.y); ctx.stroke();
+          if (open) label(`◆ ${c.name}`, pt.x, pt.y - 12, '#ffe7a6');
+        }
       }
-      if (near.length < 2) continue;
-      ctx.beginPath();
-      near.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-      for (let i = far.length - 1; i >= 0; i--) ctx.lineTo(far[i].x, far[i].y);
-      ctx.closePath();
-      ctx.fillStyle = t.kind === 'action' ? (active ? 'rgba(140,200,255,.34)' : 'rgba(140,200,255,.16)') : (active ? 'rgba(255,150,120,.34)' : 'rgba(255,150,120,.16)');
-      ctx.fill();
-      ctx.strokeStyle = t.kind === 'action' ? 'rgba(160,210,255,.9)' : 'rgba(255,170,140,.9)';
-      ctx.lineWidth = active ? 2.5 : 1.5; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
-      const mid = near[Math.floor(near.length / 2)];
-      label(`⚑ ${t.name} · ${t.kind === 'action' ? 'Action' : 'Walk in'}${t.once ? '' : ' · every time'}`, mid.x, mid.y + 22, t.kind === 'action' ? '#d6ecff' : '#ffd9cc');
+      if (open) for (const frame of worldCharacterFrames) {
+        if (frame.placed !== p.id) continue;
+        const head = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z) + frame.height + 0.15, frame.z);
+        if (head) label(`${frame.name}${frame.blocks ? ' · blocks' : ''}`, head.x, head.y, frame.component === seqSelected.component ? '#ffffff' : '#c9d4ff');
+      }
     }
-    for (const mark of storyState.marks) {
-      if (Math.abs(mark.x - camera.x) > STORY_DRAW_RANGE) continue;
-      const p = markPoint(mark);
-      if (!p) continue;
-      const active = storyHostSelectedMark === mark.id;
-      ctx.fillStyle = active ? '#ffe7a6' : 'rgba(255,214,120,.9)';
-      ctx.beginPath(); ctx.moveTo(p.x, p.y - 9); ctx.lineTo(p.x + 7, p.y); ctx.lineTo(p.x, p.y + 9); ctx.lineTo(p.x - 7, p.y); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(40,30,10,.9)'; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + mark.facing * 14, p.y); ctx.stroke();
-      label(`◆ ${mark.name}`, p.x, p.y - 12, '#ffe7a6');
-    }
-    for (const frame of worldCharacterFrames) {
-      if (Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
-      const head = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z) + frame.height + 0.15, frame.z);
-      if (!head) continue;
-      const isSelected = frame.wc.id === storySelectedId;
-      label(`${frame.wc.name}${frame.blocks ? ' · blocks' : ''}`, head.x, head.y, isSelected ? '#ffffff' : '#c9d4ff');
-    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
-  let storyHostSelectedMark = null, storyHostSelectedTrigger = null;
-  // A world character or mark under a tap (screen distance), for the editor.
+  // What is under a tap: a component of the open sequence, else a sequence's anchor.
   function storyItemAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const px = clientX - rect.left, py = clientY - rect.top;
     let best = null;
-    for (const mark of storyState.marks) {
-      const p = projectWorldPoint(mark.x, storyGroundY(mark.x, mark.depth) + 0.04, mark.depth);
-      const d = p ? Math.hypot(p.x - px, p.y - py) : Infinity;
-      if (d < 26 && (!best || d < best.d)) best = { kind: 'mark', id: mark.id, d };
-    }
-    if (!best) {
-      // A trigger zone: a tap on its band along the path.
-      for (const t of storyState.triggers) {
-        const a = projectWorldPoint(t.x0, storyGroundY(t.x0, 0) + 0.03, 0), b = projectWorldPoint(t.x1, storyGroundY(t.x1, 0) + 0.03, 0);
-        if (!a || !b || px < Math.min(a.x, b.x) || px > Math.max(a.x, b.x)) continue;
-        const y = a.y + (b.y - a.y) * ((px - a.x) / Math.max(1, b.x - a.x));
-        const d = Math.abs(py - y);
-        if (d < 30 && (!best || d + 30 < best.d)) best = { kind: 'trigger', id: t.id, d: d + 30 };
+    const consider = (d, hit) => { if (d < (best?.d ?? Infinity)) best = { ...hit, d }; };
+    for (const { p, body } of seqResolved) {
+      const open = seqSelected.placed === p.id;
+      const top = projectWorldPoint(p.x, storyGroundY(p.x, 0) + 2.2, 0), foot = projectWorldPoint(p.x, storyGroundY(p.x, 0), 0);
+      if (top && foot && Math.abs(px - top.x) < 22 && py > top.y - 30 && py < foot.y + 6) consider(Math.abs(px - top.x) + 6, { placed: p.id, component: null });
+      if (!open) continue;
+      for (const c of body.components) {
+        if (c.kind === 'mark') {
+          const place = seqComponentPlace(p, c), pt = projectWorldPoint(place.x, storyGroundY(place.x, place.depth) + 0.04, place.depth);
+          if (pt) { const d = Math.hypot(pt.x - px, pt.y - py); if (d < 26) consider(d, { placed: p.id, component: c.id }); }
+        } else if (c.kind === 'zone') {
+          const s = seqZoneSpan(p, c);
+          const a = projectWorldPoint(s.x0, storyGroundY(s.x0, 0) + 0.03, 0), b = projectWorldPoint(s.x1, storyGroundY(s.x1, 0) + 0.03, 0);
+          if (!a || !b || px < Math.min(a.x, b.x) || px > Math.max(a.x, b.x)) continue;
+          const y = a.y + (b.y - a.y) * ((px - a.x) / Math.max(1, b.x - a.x));
+          const d = Math.abs(py - y);
+          if (d < 30) consider(d + 30, { placed: p.id, component: c.id });
+        }
       }
-    }
-    for (const frame of worldCharacterFrames) {
-      const feet = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z), frame.z);
-      const head = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z) + frame.height, frame.z);
-      if (!feet || !head) continue;
-      const half = Math.max(18, Math.abs(head.y - feet.y) * 0.3);
-      if (px < feet.x - half || px > feet.x + half || py > feet.y + 10 || py < head.y - 10) continue;
-      const d = Math.abs(px - feet.x) + 4; // a mark exactly under the tap wins
-      if (!best || d < best.d) best = { kind: 'character', id: frame.wc.id, d };
+      for (const frame of worldCharacterFrames) {
+        if (frame.placed !== p.id || !open) continue;
+        const feet = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z), frame.z);
+        const head = projectWorldPoint(frame.x, storyGroundY(frame.x, frame.z) + frame.height, frame.z);
+        if (!feet || !head) continue;
+        const half = Math.max(18, Math.abs(head.y - feet.y) * 0.3);
+        if (px < feet.x - half || px > feet.x + half || py > feet.y + 10 || py < head.y - 10) continue;
+        consider(Math.abs(px - feet.x) + 4, { placed: p.id, component: frame.component });
+      }
     }
     return best;
   }
-  window.SideScrollStoryHost = Object.freeze({
-    state: () => storyState,
-    // Live preview of an edit (not saved; the editor saves through SideScrollStory.save).
-    preview: next => setStoryState(next, true),
-    restartRoutes: restartStoryRoutes,
-    resetProgress: resetStoryProgress,
-    progress: () => JSON.parse(JSON.stringify(storyProgress)),
-    // Runs a trigger's reactions now (editor test), whatever its condition.
-    fire: id => { const t = storyState.triggers.find(x => x.id === id); if (t) fireStoryTrigger(t, true); return !!t; },
-    // Test as player: story progress back to a new player's, the player a
-    // little before x facing it, editing ended (the story draft stays live).
-    // Play from x in the editor, story progress reset (a trigger's "Play from before it").
-    playFrom: x => {
-      if (!Number.isFinite(x)) return;
-      if (editorPlayTest) setEditorPlayTest(false);
-      resetStoryProgress();
-      placePlayerAt(x);
-      character.lastFacing = 1;
-      setEditorPlayTest(true);
-    },
-    playing: () => editorPlayTest,
-    select: (kind, id) => { storySelectedId = kind === 'character' ? id : null; storyHostSelectedMark = kind === 'mark' ? id : null;
-      storyHostSelectedTrigger = kind === 'trigger' ? id : null; },
+  window.SideScrollSequenceHost = Object.freeze({
+    state: () => seqState,
+    // Live preview of an edit (the editor saves through SideScrollSequences.save).
+    preview: next => { setSeqState(next); seqRuns = []; seqLive.clear(); seqControlLocks.clear(); seqStarted.clear(); },
+    select: (placed, component) => { seqSelected = { placed: placed || null, component: component || null }; },
     active: () => !!(editMode && editorScope === 'story'),
     viewX: () => camera.x,
     playerX: () => character.x,
     groundPointAt: (clientX, clientY) => groundPointFromClient(clientX, clientY),
     itemAt: storyItemAt,
+    bounds: placedId => { const r = seqResolved.find(x => x.p.id === placedId); return r ? seqBounds(r.p, r.body) : null; },
     lookAt: x => { if (Number.isFinite(x)) { camera.x = x - character.screenOffsetX; previousCameraX = camera.x; } },
     hint: message => { if (hintEl) { hintEl.textContent = message; hintEl.classList.remove('hidden'); } },
     characters: () => {
@@ -18326,7 +18387,23 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         family: characterRigForVariant(c.id) === QuadrupedRig ? 'quadruped' : 'biped' }));
     },
     animationsFor: id => GameCharacters?.animationsFor?.(id) || STORY_SLOTS.map(key => ({ key, name: key.charAt(0).toUpperCase() + key.slice(1), basedOn: key })),
-    walkSpeed: id => storyWalkSpeed(id)
+    progress: () => JSON.parse(JSON.stringify(seqProgress)),
+    resetProgress: resetStoryProgress,
+    // Runs a line's event now (editor test): its once-only state is left alone.
+    fireLine: (placedId, lineId) => {
+      const r = seqResolved.find(x => x.p.id === placedId), l = r?.body.logic.find(x => x.id === lineId);
+      return !!(r && l && seqFireLine(r.p, r.body, l, true));
+    },
+    // Play from x in the editor with story progress reset.
+    playFrom: x => {
+      if (!Number.isFinite(x)) return;
+      if (editorPlayTest) setEditorPlayTest(false);
+      resetStoryProgress();
+      placePlayerAt(x);
+      character.lastFacing = 1;
+      setEditorPlayTest(true);
+    },
+    playing: () => editorPlayTest
   });
 
   function nearestActionPushable() {
@@ -19119,7 +19196,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function performAction() {
-    if (introLocked || editLocked() || inventoryOpen || interactionState || autoDropStep || climbState) return;
+    if (introLocked || storyControlLocked() || editLocked() || inventoryOpen || interactionState || autoDropStep || climbState) return;
     if (pushingObject) { stopPush(); return; }
     const climbTarget = nearestActionClimbTarget();
     if (climbTarget && startClimb(climbTarget)) return;
@@ -19252,7 +19329,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
     const terrainWalkEdit=!!(editMode&&editorScope==='terrain'&&terrainEditSession);
-    const rawAxis = (introLocked || (editLocked()&&!terrainWalkEdit) || inventoryOpen || interactionState || autoDropStep || climbState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
+    const rawAxis = (introLocked || storyControlLocked() || (editLocked()&&!terrainWalkEdit) || inventoryOpen || interactionState || autoDropStep || climbState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
     const axisMag = Math.abs(rawAxis);
     const moveDir = axisMag > DRIVE_DEADZONE ? Math.sign(rawAxis) : 0;
 
@@ -19587,7 +19664,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function triggerJump(){
-    if (introLocked || editLocked() || inventoryOpen || jumping || jumpPrep || interactionState || pushingObject || climbState) return;
+    if (introLocked || storyControlLocked() || editLocked() || inventoryOpen || jumping || jumpPrep || interactionState || pushingObject || climbState) return;
     // Launch for this character's Jump height (gravity unchanged).
     const v = Math.sqrt(2 * JUMP_GRAVITY * (characterMotionSettings().jump || JUMP_VELOCITY * JUMP_VELOCITY / (2 * JUMP_GRAVITY)));
     const T = 2 * v / JUMP_GRAVITY, { L, M } = currentJumpTiming();
@@ -19937,7 +20014,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     try { localStorage.removeItem(PLAYER_POSITION_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PLAYER_PUZZLE_STATE_STORAGE_KEY); } catch (_) {}
     try { localStorage.removeItem(PLAYER_INVENTORY_STORAGE_KEY); } catch (_) {}
-    try { if (Story) localStorage.removeItem(Story.PROGRESS_KEY); } catch (_) {}
+    try { if (Seq) localStorage.removeItem(Seq.PROGRESS_KEY); } catch (_) {}
     window.location.reload();
   });
 
@@ -19963,12 +20040,6 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const support = editorSafeSupportAt(x + colliderWorld().offsetX, Infinity, 0);
     jumpOffset = support.offset; standingOnObject = support.obj || null;
     character.y = playSurfaceYAt(x) + jumpOffset;
-  }
-  // Zones the player stands in when play starts don't fire until she leaves them.
-  function markStoryZonesInside() {
-    storyInside.clear();
-    const px = storyPlayerX(), r = colliderWorld().radius;
-    for (const t of storyState.triggers) if (px + r >= t.x0 && px - r <= t.x1) storyInside.add(t.id);
   }
   function updateTestBar() {
     if (!testBar) return;
@@ -20034,8 +20105,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       else revertNearRows();
     }
     // Story changes stay live (unsaved) when not saved here, until a reload.
-    if(window.SideScrollStoryEditor?.dirty()&&window.confirm('Save your Story changes?\n\nCancel keeps them in the game unsaved until the app is reloaded.'))
-      window.SideScrollStoryEditor.save();
+    if(window.SideScrollSequenceEditor?.dirty()&&window.confirm('Save your Sequences changes?\n\nCancel keeps them in the game unsaved until the app is reloaded.'))
+      window.SideScrollSequenceEditor.save();
     setEditMode(false);
   });
 
@@ -21709,7 +21780,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           }
         } else if (editorScope==='story' && gesture.kind==='pan') {
           // Story scope: a tap places or selects a world character or mark
-          // (story-editor.js); scenery is never selected here.
+          // (sequence-editor.js); scenery is never selected here.
           window.dispatchEvent(new CustomEvent('sidescroll:story-tap',{detail:{clientX:e.clientX,clientY:e.clientY}}));
         } else if ((gesture.kind==='pan' || gesture.kind==='selected-object') && !gesture.explicitMove) {
           // Selection happens only on a clean tap/release. A drag can never
