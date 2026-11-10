@@ -415,11 +415,10 @@
         el('button', { type: 'button', onclick: () => { preview(); host.fire(t.id); host.hint(`${t.name}: reactions played (it still fires when walked into; flags it sets are kept until Reset story progress)`); setTimeout(render, 50); } }, 'Fire now'),
         el('button', { type: 'button', class: 'primary', onclick: () => {
           preview(); placeMode = null;
-          host.testFrom(t.x0 - 2.5);
-          host.hint(t.kind === 'action' ? `Testing ${t.name}: story reset · walk right into the zone and press ${String(t.label || 'Action').toUpperCase()}${dirty ? ' · Story changes not saved yet' : ''}`
-            : `Testing ${t.name}: story reset · walk right into the zone${dirty ? ' · Story changes not saved yet' : ''}`);
-        } }, 'Test as player')),
-      el('small', { class: 'sidescroll-story-help', text: 'Test as player resets story progress (as a new player), puts Aureli just before the zone and leaves the editor: walk in. Fire now only plays the reactions here.' }),
+          host.playFrom(t.x0 - 2.5);
+          host.hint(`Playing from before ${t.name} · story reset · walk right into it${t.kind === 'action' ? ` and press ${String(t.label || 'Action').toUpperCase()}` : ''} · ↺ Restart to try again · ■ Stop to edit`);
+        } }, 'Play from before it')),
+      el('small', { class: 'sidescroll-story-help', text: 'Play from before it: story reset, Aureli 2.5 m before the zone and ▶ Play on, still in the editor. The TEST bar (top right) is always there: ▶ Play / ■ Stop, ↺ Restart, Reset story. Fire now only plays the reactions.' }),
       el('div', { class: 'sidescroll-story-row sidescroll-story-danger' },
         el('button', { type: 'button', onclick: () => {
           const copy = clone(t); copy.id = Story.newId('trg', new Set(draft.triggers.map(x => x.id))); copy.name = `${t.name} copy`;

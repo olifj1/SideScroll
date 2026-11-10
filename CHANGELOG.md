@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Editor TEST bar and Play in the editor:** a TEST bar at the top right in every
+  editor scope: **▶ Play / ■ Stop** runs the game in place (the editor, guides and
+  zones stay; the drawer folds to its rail; game controls, physics, triggers,
+  Action and blocking work), **↺ Restart** returns the player to where Play began
+  with story progress reset, **Reset story** resets story progress. A trigger's
+  *Test as player* (which left the editor) became **Play from before it**. Triggers
+  now fire when the player's body touches the zone. Fixed: reopening the editor
+  could show the drawer scrolled down with the scope buttons out of view.
 - **Story triggers — testing:** each trigger has **Test as player** (resets story
   progress, puts the player 2.5 m before the zone and leaves the editor, so you walk
   in as a new player would). **Fire now** no longer uses up a once-only trigger.

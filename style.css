@@ -15612,3 +15612,18 @@ body[data-game-id="game-16"] .sidescroll-editor-scope-switch button{padding:0 2p
 .sidescroll-story-speech.visible{opacity:1;transform:translate(-50%,0);}
 .sidescroll-story-speech b{display:block;margin-bottom:2px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#ffd678;}
 @media(max-height:430px){.sidescroll-story-speech{bottom:max(78px,calc(env(safe-area-inset-bottom) + 74px));font-size:14px;}}
+/* Editor test bar (▶ Play in the editor, ↺ Restart, Reset story): top right, every scope. */
+.sidescroll-test-bar{position:fixed;z-index:1012;top:max(12px,calc(env(safe-area-inset-top) + 8px));right:max(12px,env(safe-area-inset-right));
+  display:flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:12px;background:rgba(14,20,24,.86);
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.25);color:#eef5f2;}
+.sidescroll-test-bar[hidden]{display:none!important;}
+.sidescroll-test-bar-label{font:900 9px/1 system-ui,sans-serif;letter-spacing:.12em;opacity:.6;}
+.sidescroll-test-bar button{min-height:34px;padding:0 12px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);
+  color:inherit;font:800 12px/1 system-ui,sans-serif;}
+.sidescroll-test-bar button[hidden]{display:none;}
+.sidescroll-test-bar #sidescroll-test-play{background:rgba(126,216,150,.24);border-color:rgba(126,216,150,.7);}
+.sidescroll-test-bar #sidescroll-test-play.active{background:rgba(255,120,110,.28);border-color:rgba(255,140,130,.75);}
+/* Playing in the editor: the game controls show over the editor. */
+body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-controls.sidescroll-controls-drive{display:block!important;z-index:1010!important;}
+body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-secondary-controls.sidescroll-left-actions{display:grid!important;z-index:1010!important;}
+body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-editor-controls{display:none!important;}

@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.54">
+  <link rel="stylesheet" href="style.css?v=1.1.56">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -717,6 +717,14 @@
             </button>
           </aside>
 
+        <!-- Editor test bar: always here while editing, in every scope. -->
+        <div class="sidescroll-test-bar" id="sidescroll-test-bar" role="toolbar" aria-label="Test" hidden>
+          <span class="sidescroll-test-bar-label">TEST</span>
+          <button id="sidescroll-test-play" type="button" aria-pressed="false">▶ Play</button>
+          <button id="sidescroll-test-restart" type="button" hidden>↺ Restart</button>
+          <button id="sidescroll-test-reset-story" type="button">Reset story</button>
+        </div>
+
         <div class="sidescroll-secondary-controls sidescroll-left-actions" id="sidescroll-secondary-controls" aria-label="Jump and action controls">
           <button class="sidescroll-control sidescroll-action sidescroll-jump-control" id="sidescroll-jump" type="button" aria-label="Jump">
             <span aria-hidden="true">↑</span><small>JUMP</small>
@@ -835,7 +843,7 @@
   <script src="character-game-runtime.js?v=1.1.53"></script>
   <script src="near-rows.js?v=1.1.46"></script>
   <script src="story-world.js?v=1.1.54"></script>
-  <script src="sidescroll.js?v=1.1.55"></script>
-  <script src="story-editor.js?v=1.1.55"></script>
+  <script src="sidescroll.js?v=1.1.56"></script>
+  <script src="story-editor.js?v=1.1.56"></script>
 </body>
 </html>

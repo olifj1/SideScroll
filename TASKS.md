@@ -65,7 +65,9 @@ app and make a Project Backup.
 - [ ] **+ Add trigger**, tap the path: a dashed band appears with its name. Add reactions for a character: *Switch its animation*, *Turn to face the player* (0 s = from then on), *Play an animation once* (0.5 s later), *Say something*, *Set a flag* (e.g. `met-father`). **Save story**, **Done Editing**, walk into the band: it all plays in order; the line shows as a dark subtitle strip with the speaker's name.
 - [ ] Characters → another character → **Shown: While flag is set** `met-father`: it appears only after the trigger.
 - [ ] A second trigger set to *Presses Action in it* (button text *Talk*), *Only while flag is set*, with *Walk to a mark*: inside it the Action button reads TALK; pressing it makes the character walk to the mark. Close and reopen the app: the character is still at the mark, the first trigger doesn't fire again.
-- [ ] Trigger → **Test as player**: you leave the editor just before the zone with the story reset; walk in and it fires. **Fire now** plays it in the editor and walking in still fires it afterwards. Done Editing with unsaved Story changes asks to save.
+- [ ] **TEST bar** (top right, every editor scope): **▶ Play** keeps the editor (zones, marks, labels stay; the drawer folds to its EDIT rail) and shows Jump / Action / the walk slider; walk into a trigger and it fires. **↺ Restart** puts Aureli back where Play began with the story reset; walk in again. **■ Stop** reopens the drawer as it was. Works the same from Environment, Terrain and Puzzle.
+- [ ] Trigger → **Play from before it**: Play starts 2.5 m before the zone, story reset, still in the editor. **Fire now** plays it in place and walking in still fires it afterwards. Done Editing with unsaved Story changes asks to save.
+- [ ] Scroll far down a Story panel, Done Editing, Menu → Edit: the drawer opens at the top with the scope buttons visible.
 - [ ] Story progress (bottom of the Story panel) lists the flags; **Reset story progress** puts everything back as for a new player. Menu → Delete save (player mode) also resets it.
 
 **0ad. Story: world characters and marks (8 Nov)** — game → Edit → **Story**
