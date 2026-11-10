@@ -32,8 +32,11 @@
     wait:    { label: 'Wait', help: 'waits a few seconds', roles: {} },
     flag:    { label: 'Flag', help: 'sets or clears a story flag', roles: {} },
     show:    { label: 'Show / Hide', help: 'a character appears or disappears', roles: { actor: 'character' } },
-    control: { label: 'Control', help: 'takes control from the player, or gives it back', roles: {} }
+    control: { label: 'Control', help: 'takes control from the player, or gives it back', roles: {} },
+    camera:  { label: 'Camera', help: 'frames a mark, a character or the player; or goes back to following the player', roles: { target: 'any' } },
+    screen:  { label: 'Screen', help: 'fades to / from black, letterbox bars in / out', roles: {} }
   });
+  const SCREEN_ACTIONS = Object.freeze({ 'fade-out': 'Fade to black', 'fade-in': 'Fade in from black', 'bars-in': 'Letterbox bars in', 'bars-out': 'Letterbox bars out' });
   const WHEN = Object.freeze({
     load: 'The sequence starts', enter: 'The player walks into a zone', action: 'The player presses Action in a zone',
     finish: 'Another line’s event finishes', flag: 'A story flag is set'
@@ -77,7 +80,7 @@
     const out = { type: raw.type, with: !!raw.with };
     for (const [field, kind] of Object.entries(def.roles)) {
       const role = raw[field];
-      if (typeof role === 'string' && roleKinds.get(role) === kind) out[field] = role;
+      if (typeof role === 'string' && (kind === 'any' ? roleKinds.has(role) : roleKinds.get(role) === kind)) out[field] = role;
     }
     switch (raw.type) {
       case 'move':
@@ -109,6 +112,21 @@
         break;
       case 'control':
         out.take = raw.take !== false;
+        break;
+      case 'camera':
+        // shot: frame the target (a placeholder, or the player when none) with
+        // offsets in metres; back: blend back to following the player.
+        out.mode = raw.mode === 'back' ? 'back' : 'shot';
+        out.side = round(clamp(raw.side, -20, 20, 0), 100);
+        out.height = round(clamp(raw.height, -5, 10, 0), 100);
+        out.distance = round(clamp(raw.distance, -8, 30, 0), 100);
+        out.tilt = round(clamp(raw.tilt, -4, 4, 0), 100);
+        out.seconds = round(clamp(raw.seconds, 0, 60, 2), 100);
+        out.ease = raw.ease === 'linear' ? 'linear' : 'smooth';
+        break;
+      case 'screen':
+        out.action = SCREEN_ACTIONS[raw.action] ? raw.action : 'fade-out';
+        out.seconds = round(clamp(raw.seconds, 0, 10, 1), 100);
         break;
     }
     return out;
@@ -231,7 +249,7 @@
   }
 
   window.SideScrollSequences = Object.freeze({
-    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH,
+    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS,
     normaliseEvents, normaliseSequences, normaliseBody, bodyOf, load, save, loadProgress, saveProgress,
     flagName, conditionMet, newId
   });

@@ -73,7 +73,13 @@ The player keeps control while a sequence plays, unless an event's steps take it
   - **Show / Hide** — a component appears or disappears.
   - **Control** — take control from the player, or give it back (also given back when
     the event ends, so a player is never left stuck).
-  - Later: **Camera**, **Fade**, **Letterbox**, **Look** (see *Later* below).
+  - **Camera** — *shot*: frame a placeholder (a mark placed where the shot centres, or a
+    character) or the player, shifted along the journey, raised, moved back and aimed
+    up / down, eased over N s and held; *back*: blend back to following the player.
+    Height follows the ground under the target. Released (back over 1 s) when the event ends.
+  - **Screen** — fade to / from black, letterbox bars in / out, over N s; cleared when the
+    event ends.
+  - Later: **Look** (colour grade, vignette, fog) and **Skip** (see *Later* below).
 - Events are game-wide: any sequence can run any event. Changing an event changes it
   everywhere it is used; its page lists where.
 
@@ -125,7 +131,8 @@ The 8–9 Nov keys (`sidescroll.story.world-characters.v1`, `…marks.v1`,
 3. **More components and streaming** — thoughts, dressing, random character picks,
    Active while; sequences load and unload by distance.
 4. **World Lab sequences track** — bounds, details, Open in game, Play from here.
-5. **Camera and look steps**, Sequence Lab, node graph view.
+5. **Camera and look steps** *(Camera and Screen — fade, letterbox — done 11 Nov; Look and
+   Skip next)*, Sequence Lab, node graph view.
 
 ## Later: camera and look steps (from the 8 Nov design)
 - **Camera** — side-on only (agreed): position along the path, height, distance, tilt,

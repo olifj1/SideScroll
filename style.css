@@ -15643,3 +15643,12 @@ body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-editor-controls
 .sidescroll-seq-role input{grid-column:1;grid-row:1 / span 2;}
 .sidescroll-seq-role .sidescroll-seq-kind{grid-column:2;grid-row:1;}
 .sidescroll-seq-role button{grid-column:2;grid-row:2;min-height:26px!important;}
+/* Sequence Screen steps: fade to black and letterbox bars (over the game, under the editor). */
+.sidescroll-seq-fade{position:fixed;inset:0;z-index:900;background:#000;opacity:0;pointer-events:none;transition:opacity 1s ease;}
+.sidescroll-seq-fade.on{opacity:1;}
+.sidescroll-seq-bars{position:fixed;inset:0;z-index:899;pointer-events:none;--seq-bars-time:1s;}
+.sidescroll-seq-bars i{position:absolute;left:0;right:0;height:11vh;background:#000;transition:transform var(--seq-bars-time) ease;}
+.sidescroll-seq-bars i:first-child{top:0;transform:translateY(-100%);}
+.sidescroll-seq-bars i:last-child{bottom:0;transform:translateY(100%);}
+.sidescroll-seq-bars.on i{transform:translateY(0);}
+body.sidescroll-seq-control #sidescroll-play-controls,body.sidescroll-seq-control #sidescroll-secondary-controls{opacity:.35;transition:opacity .3s ease;}

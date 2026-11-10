@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Sequence Camera and Screen steps.** *Camera → Frame a shot*: look at a placeholder
+  (a mark placed where the shot centres, or a character) or the player, with *Shift
+  along the journey*, *Raise*, *Move back* and *Aim up*, moving there over N s
+  (Smooth / Steady) and holding; *Back to the player* blends home. *Screen*: fade to /
+  from black, letterbox bars in / out. When the event ends the camera blends back,
+  fades and bars clear, and control returns, so nothing is left stuck. The on-screen
+  controls dim while a sequence holds control.
 - **Carried object collision follows the character's hands:** the carried log's
   collision box, drop point and resting position now use each biped's own standing
   carry pose (`carryHold()`), the same hands the drawn log follows, instead of a fixed

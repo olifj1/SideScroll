@@ -402,6 +402,28 @@
         rows.push(segmented([['take', 'Take control from the player'], ['give', 'Give control back']], s.take === false ? 'give' : 'take', v => { s.take = v === 'take'; change(); }),
           help('Control always comes back when the event ends.'));
         break;
+      case 'camera': {
+        s.mode ||= 'shot'; s.ease ||= 'smooth';
+        for (const [k, v] of Object.entries({ side: 0, height: 0, distance: 0, tilt: 0, seconds: 2 })) if (s[k] === undefined) s[k] = v;
+        rows.push(segmented([['shot', 'Frame a shot'], ['back', 'Back to the player']], s.mode, v => { s.mode = v; change(); }));
+        if (s.mode === 'shot') rows.push(
+          field('Look at', select_([['', 'The player'], ...e.roles.map(r => [r.id, `${r.name} (${Seq.ROLE_KINDS[r.kind].toLowerCase()} placeholder)`])], s.target, v => { if (v) s.target = v; else delete s.target; change(); }),
+            'Tip: add a mark where the shot should centre, and a mark placeholder for it here'),
+          slider(s, 'side', -20, 20, 0.1, 'Shift along the journey', 1, ' m'),
+          slider(s, 'height', -5, 10, 0.1, 'Raise the camera', 1, ' m'),
+          slider(s, 'distance', -8, 30, 0.1, 'Move back (− closer)', 1, ' m'),
+          slider(s, 'tilt', -4, 4, 0.05, 'Aim up (− down)', 2, ' m'));
+        rows.push(el('div', { class: 'sidescroll-story-inline' }, s.mode === 'shot' ? 'move there over' : 'blend back over', numberInput(s, 'seconds', 0, 60, 0.5, 2), 's'),
+          segmented([['smooth', 'Smooth'], ['linear', 'Steady']], s.ease, v => { s.ease = v; change(); }),
+          help(s.mode === 'shot' ? 'The camera holds the shot until the next Camera step; it goes back to the player when the event ends.' : 'Blends back to following the player.'));
+        break;
+      }
+      case 'screen':
+        s.action ||= 'fade-out'; if (s.seconds === undefined) s.seconds = 1;
+        rows.push(select_(Object.entries(Seq.SCREEN_ACTIONS), s.action, v => { s.action = v; change(); }),
+          el('div', { class: 'sidescroll-story-inline' }, 'over', numberInput(s, 'seconds', 0, 10, 0.25, 1), 's'),
+          help('A fade or the bars still on when the event ends are cleared.'));
+        break;
     }
     return el('div', { class: 'sidescroll-story-move' },
       el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `${index + 1}. ${def.label}` }),

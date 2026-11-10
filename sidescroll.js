@@ -18092,6 +18092,72 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     clearTimeout(storySpeechTimer);
     storySpeechTimer = setTimeout(() => storySpeechEl.classList.remove('visible'), seconds * 1000);
   }
+  // ---- Sequence camera and screen ---------------------------------------------
+  // A Camera step frames a target (a mark or character filling a placeholder,
+  // or the player) as a change to the normal view: the same side-on camera,
+  // moved along the journey (side), up (height), back (distance) and its aim
+  // raised (tilt). Height follows the ground under the target, as the follow
+  // camera does under the player. It eases from wherever the view is to the
+  // shot and holds; "back" eases back to the follow camera. When the event that
+  // owns the camera, a fade or the letterbox ends, they are released.
+  const SEQ_CAMERA_ZERO = Object.freeze({ dx: 0, dy: 0, dz: 0, dt: 0 });
+  let seqCamera = null; // {run, from, shot|null, t0, duration, ease}
+  let seqCameraNow = SEQ_CAMERA_ZERO;
+  function seqShotDeltas(shot) {
+    if (!shot) return SEQ_CAMERA_ZERO;
+    const tx = shot.targetX();
+    const ground = playSurfaceYAt(tx) - legacyPathGroundYAt(tx, pathZ);
+    return { dx: tx + shot.side - camera.x, dy: ground - cameraFollowOffset + shot.height, dz: shot.distance, dt: shot.tilt };
+  }
+  const seqEase = (ease, k) => ease === 'linear' ? k : k * k * (3 - 2 * k);
+  function updateSequenceCamera(now) {
+    if (!seqCamera) { seqCameraNow = SEQ_CAMERA_ZERO; return seqCameraNow; }
+    const k = seqCamera.duration > 0 ? Math.min(1, Math.max(0, (now - seqCamera.t0) / seqCamera.duration)) : 1;
+    const e = seqEase(seqCamera.ease, k), to = seqShotDeltas(seqCamera.shot), from = seqCamera.from;
+    seqCameraNow = { dx: from.dx + (to.dx - from.dx) * e, dy: from.dy + (to.dy - from.dy) * e,
+      dz: from.dz + (to.dz - from.dz) * e, dt: from.dt + (to.dt - from.dt) * e };
+    if (k >= 1 && !seqCamera.shot) seqCamera = null; // back with the player
+    return seqCameraNow;
+  }
+  function seqCameraTo(run, shot, seconds, ease = 'smooth') {
+    seqCamera = { run: run?.id ?? null, from: { ...seqCameraNow }, shot, t0: storyNow(), duration: Math.max(0, seconds), ease };
+  }
+  // Screen: a black fade and letterbox bars over the game (not over the editor).
+  let seqFadeEl = null, seqBarsEl = null;
+  const seqScreen = { fadeRun: null, barsRun: null, faded: false, bars: false };
+  function seqScreenEls() {
+    if (!seqFadeEl) {
+      seqFadeEl = Object.assign(document.createElement('div'), { className: 'sidescroll-seq-fade' });
+      seqBarsEl = Object.assign(document.createElement('div'), { className: 'sidescroll-seq-bars' });
+      seqBarsEl.append(document.createElement('i'), document.createElement('i'));
+      document.body.append(seqBarsEl, seqFadeEl);
+    }
+  }
+  function seqSetFade(on, seconds, run = null) {
+    seqScreenEls();
+    seqFadeEl.style.transitionDuration = `${Math.max(0, seconds)}s`;
+    seqFadeEl.classList.toggle('on', on);
+    void seqFadeEl.offsetWidth; // commit now, so a cut to black then a fade-in both show
+    seqScreen.faded = on; seqScreen.fadeRun = on ? run?.id ?? null : null;
+  }
+  function seqSetBars(on, seconds, run = null) {
+    seqScreenEls();
+    seqBarsEl.style.setProperty('--seq-bars-time', `${Math.max(0, seconds)}s`);
+    seqBarsEl.classList.toggle('on', on);
+    void seqBarsEl.offsetWidth;
+    seqScreen.bars = on; seqScreen.barsRun = on ? run?.id ?? null : null;
+  }
+  // Everything an event held is let go when it ends (or when runs are cleared).
+  function seqReleaseRun(runId) {
+    if (seqCamera && seqCamera.shot && (runId === null || seqCamera.run === runId)) seqCameraTo(null, null, 1);
+    if (seqScreen.faded && (runId === null || seqScreen.fadeRun === runId)) seqSetFade(false, 0.6);
+    if (seqScreen.bars && (runId === null || seqScreen.barsRun === runId)) seqSetBars(false, 0.6);
+  }
+  function seqResetScreen() {
+    seqCamera = null; seqCameraNow = SEQ_CAMERA_ZERO;
+    if (seqFadeEl) { seqSetFade(false, 0); seqSetBars(false, 0); }
+  }
+
   // ---- Logic and events --------------------------------------------------------
   // A line fires when its When happens, if its condition holds and (once-only)
   // it hasn't fired for this player. Its event runs as beats: a step runs after
@@ -18169,6 +18235,21 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         if (step.take) { seqControlLocks.add(run.id); setDriveAxis(0); keyLeft = false; keyRight = false; }
         else seqControlLocks.delete(run.id);
         return now;
+      case 'camera': {
+        if (step.mode === 'back') { seqCameraTo(run, null, step.seconds, step.ease); return now + step.seconds; }
+        const target = step.target ? seqBound(run, step.target) : null;
+        const targetX = !target ? () => character.x
+          : target.kind === 'character' ? () => (seqCharacterNow(run, target) || seqComponentPlace(run.p, target)).x
+          : () => seqComponentPlace(run.p, target).x;
+        seqCameraTo(run, { targetX, side: step.side, height: step.height, distance: step.distance, tilt: step.tilt }, step.seconds, step.ease);
+        return now + step.seconds;
+      }
+      case 'screen':
+        if (step.action === 'fade-out') seqSetFade(true, step.seconds, run);
+        else if (step.action === 'fade-in') seqSetFade(false, step.seconds, run);
+        else if (step.action === 'bars-in') seqSetBars(true, step.seconds, run);
+        else seqSetBars(false, step.seconds, run);
+        return now + step.seconds;
     }
     return now;
   }
@@ -18187,11 +18268,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (!run.active.length && run.index >= run.event.steps.length) {
         run.done = true;
         seqControlLocks.delete(run.id); // control always comes back when an event ends
+        seqReleaseRun(run.id);          // and so do the camera, a fade and the letterbox
         seqFinishedLines.push({ p: run.p, line: run.line });
       }
     }
     seqRuns = seqRuns.filter(run => !run.done);
+    // The on-screen controls dim while a sequence holds control.
+    const locked = seqControlLocks.size > 0;
+    if (locked !== seqControlShown) { seqControlShown = locked; document.body.classList.toggle('sidescroll-seq-control', locked); }
   }
+  let seqControlShown = false;
   const storyPlayerX = () => character.x + colliderWorld().offsetX;
   function updateStoryTriggers() {
     if (!Seq) return;
@@ -18262,6 +18348,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     saveStoryProgress();
     seqLive.clear(); seqRuns = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
     seqFinishedLines.length = 0;
+    seqResetScreen();
     storySpeechEl?.classList.remove('visible');
   }
   function drawWorldCharacters(view) {
@@ -18402,7 +18489,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   window.SideScrollSequenceHost = Object.freeze({
     state: () => seqState,
     // Live preview of an edit (the editor saves through SideScrollSequences.save).
-    preview: next => { setSeqState(next); seqRuns = []; seqLive.clear(); seqControlLocks.clear(); seqStarted.clear(); },
+    preview: next => { setSeqState(next); seqRuns = []; seqLive.clear(); seqControlLocks.clear(); seqStarted.clear(); seqResetScreen(); },
     select: (placed, component) => { seqSelected = { placed: placed || null, component: component || null }; },
     active: () => !!(editMode && editorScope === 'story'),
     viewX: () => camera.x,
@@ -19585,12 +19672,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     gl.clearColor(fogColor[0], fogColor[1], fogColor[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    const viewCameraX = camera.x + cameraNodeCurrentOffset.x;
-    const viewCameraY = camera.y + cameraNodeCurrentOffset.y;
-    const eye = [viewCameraX, viewCameraY, camera.z + cameraNodeCurrentOffset.z];
+    // A sequence Camera step (updateSequenceCamera) adds its own move on top.
+    const shot = updateSequenceCamera(storyNow());
+    const viewCameraX = camera.x + cameraNodeCurrentOffset.x + shot.dx;
+    const viewCameraY = camera.y + cameraNodeCurrentOffset.y + shot.dy;
+    const eye = [viewCameraX, viewCameraY, camera.z + cameraNodeCurrentOffset.z + shot.dz];
     // X/Y offsets pan the framing while preserving the normal camera tilt. Z
     // moves only the eye, acting as a local distance/zoom adjustment.
-    const target = [viewCameraX, camera.targetY + cameraNodeCurrentOffset.y, camera.targetZ];
+    const target = [viewCameraX, camera.targetY + cameraNodeCurrentOffset.y + shot.dy + shot.dt, camera.targetZ];
     const view = mat4LookAt(eye, target, [0, 1, 0]);
     currentViewMatrix = view;
 
