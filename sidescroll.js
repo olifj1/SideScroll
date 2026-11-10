@@ -8716,6 +8716,7 @@ document.addEventListener('keydown',event=>{
   let editorPlayTest = false;
   const editLocked = () => editMode && !editorPlayTest;
   let editorScope = 'environment';
+  let lastEditorScope = 'environment'; // the scope open when the editor was last closed
   let editorPuzzleMarkerId = null;
   let editorPuzzleLibraryGroupId = null;
   let scenePuzzleListSignature = '';
@@ -14843,8 +14844,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(!on&&!puzzleTestMode)puzzleWorkspaceActive=false;
     if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; puzzleTemplatePlaceMode=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; document.body.classList.remove('sidescroll-terrain-editing'); setQuickNavOpen(false); }
     if (!on && editorPlayTest) setEditorPlayTest(false);
+    // The drawer opens at its top (scope buttons in view): reset while it is
+    // still shown on the way out, and again once it is shown on the way in (a
+    // hidden panel ignores scrollTop).
+    if (!on && editMode) { lastEditorScope = editorScope; if (editorDrawerBody) editorDrawerBody.scrollTop = 0; }
     editMode = !!on;
-    if (editMode && editorDrawerBody) editorDrawerBody.scrollTop = 0;
+    if (editMode && editorDrawerBody) requestAnimationFrame(() => { editorDrawerBody.scrollTop = 0; });
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
     document.body.classList.toggle('sidescroll-editing', editMode);
@@ -20021,7 +20026,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(editBtn, () => {
     setStageMenuOpen(false);
     if (puzzleTestMode) backToPuzzleSetup();
-    else if (!editMode) { editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel(); }
+    else if (!editMode) {
+      editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel();
+      // Reopen on the scope last used (Terrain starts its own edit session, so not that one).
+      if (lastEditorScope === 'story' || lastEditorScope === 'puzzle') setEditorScope(lastEditorScope);
+    }
   });
   // ---- Editor test bar (top right while editing, every scope) --------------
   // ▶ Play runs the game in place (editor and guides stay; the drawer folds to

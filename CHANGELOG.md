@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Sequences editor clearer:** an event's roles are now **Placeholders** (with hint
+  text: "Name it, e.g. Exit"), steps ask for a "character / mark placeholder", and a
+  logic line says **Fill in the event's placeholders** with "Choose this sequence's
+  mark…". A logic line's *Run event* list has **+ New event…**, which makes the event
+  and opens it with *‹ Back to* the sequence. Fixed: reopening the editor could land
+  in Environment scrolled down; it now reopens on Sequences (or Puzzle) at the top.
 - **Sequences and events (steps 1–2 of `docs/SEQUENCE_SYSTEM_DESIGN.md`).** The game
   editor's **Sequences** scope (was Story) has two lists. **Events**: reusable chains
   of steps — Move, Animate, Face, Say, Think, Wait, Flag, Show / Hide, Control —

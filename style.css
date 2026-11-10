@@ -15637,3 +15637,9 @@ body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-editor-controls
 .sidescroll-story-panel button.hidden{visibility:hidden;}
 .sidescroll-story-panel button.danger{border-color:rgba(255,120,120,.5);}
 .sidescroll-story-note{display:grid;gap:6px;padding:8px;border-radius:9px;border:1px solid rgba(159,240,200,.35);background:rgba(159,240,200,.08);font-size:11px;}
+.sidescroll-seq-fill{display:grid;gap:2px;margin-top:4px;padding:6px 8px;border-left:3px solid rgba(159,240,200,.6);background:rgba(159,240,200,.06);border-radius:4px;}
+.sidescroll-seq-fill small{opacity:.7;font-size:10px;}
+.sidescroll-seq-role{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:6px;row-gap:2px;align-items:center;}
+.sidescroll-seq-role input{grid-column:1;grid-row:1 / span 2;}
+.sidescroll-seq-role .sidescroll-seq-kind{grid-column:2;grid-row:1;}
+.sidescroll-seq-role button{grid-column:2;grid-row:2;min-height:26px!important;}
