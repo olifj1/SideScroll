@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story triggers — testing:** each trigger has **Test as player** (resets story
+  progress, puts the player 2.5 m before the zone and leaves the editor, so you walk
+  in as a new player would). **Fire now** no longer uses up a once-only trigger.
+  Done Editing asks to save unsaved Story changes.
 - **Story stage 2a — triggers and story flags** (`docs/SEQUENCE_SYSTEM_DESIGN.md`): a
   **Triggers** tab in the Story scope. A trigger is a zone along the path that fires
   when the player walks in or presses Action in it (the button reads its label, e.g.
