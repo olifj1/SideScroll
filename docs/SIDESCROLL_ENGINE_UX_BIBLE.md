@@ -1596,3 +1596,8 @@ For future work, use capabilities to control feature visibility, rather than che
 - Static Reference is a per-character editor preference with legacy per-family fallback. Its drawing uses the editor camera/world view (not actor scale). Reference Scale/X/Y/Opacity must never mark character dirty.
 - Fit View and pinch zoom are view-only. Fit can zoom out for giant characters while preserving authored size. Neither resetting view nor switching stages is permission to rewrite the source reference, stored scale, rig, bone placement or inverse bind.
 - A future rig family can provide its own `POSE_CONTROL_DESIGNER.controls` contract; fallback lists remain strictly for old Biped and Fox pose codecs. Do not force non-quadruped rigs into front/rear leg assumptions.
+
+### Editor test bar (10 Nov 2026)
+- Controls for testing while editing live in one place: the **TEST bar** at the top right, shown in edit mode in every scope (▶ Play / ■ Stop, ↺ Restart, Reset story). New test controls go there, not inside one scope's panel.
+- **▶ Play** runs the game in the editor: the editor stays open (its drawer folds to the rail so the game controls are free and reopens on Stop), guides and zones stay drawn, and the game's rules apply (controls, physics, triggers, Action, blocking). Testing never throws the author out of the editor. Gameplay code checks `editLocked()` (editing and not playing), not `editMode`, for anything Play should allow.
+- Opening the editor or changing scope shows the drawer from its top, so the scope buttons are always in view.

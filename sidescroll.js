@@ -8711,6 +8711,10 @@ document.addEventListener('keydown',event=>{
   // performed during startup. Keep these declarations above that first call so
   // the game cannot hit a temporal-dead-zone error before the first frame.
   let editMode = false;
+  // Play in the editor (test bar ▶ Play): the game runs — controls, physics,
+  // triggers, Action — while the editor and its guides stay on screen.
+  let editorPlayTest = false;
+  const editLocked = () => editMode && !editorPlayTest;
   let editorScope = 'environment';
   let editorPuzzleMarkerId = null;
   let editorPuzzleLibraryGroupId = null;
@@ -9444,7 +9448,7 @@ document.addEventListener('keydown',event=>{
   }
 
   function nearestActionClimbTarget() {
-    if (climbState || carriedObject || interactionState || pushingObject || jumping || editMode || inventoryOpen) return null;
+    if (climbState || carriedObject || interactionState || pushingObject || jumping || editLocked() || inventoryOpen) return null;
     let best = null;
     const feetY = character.y;
     for (const obj of allSceneObjects()) {
@@ -13725,6 +13729,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(terrainEditSession&&scope!=='terrain'&&!requestLeaveTerrainEdit())return false;
 
     if(scope!=='puzzle')puzzleWorkspaceActive=false;
+    // Each scope opens at its top, so the scope buttons are always in view.
+    if(scope!==editorScope&&editorDrawerBody)editorDrawerBody.scrollTop=0;
     // Environment/Puzzle is only an editor filter. It must not change whether
     // the workshop stage is isolated or clear. Terrain is a first-class authoring
     // context whose normal navigation is walking the character through the world.
@@ -14836,7 +14842,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (on && carriedObject) dropCarriedImmediate();
     if(!on&&!puzzleTestMode)puzzleWorkspaceActive=false;
     if (!on) { collisionEditMode = false; collisionHandleIndex = -1; groundLineEditMode = false; transformEditMode = false; socketPlacementPiece = null; puzzleCartPathEditMode=false; puzzleCartPathHandle=null; puzzleCartPathPreviewPlaying=false; puzzleTemplatePlaceMode=false; worldGroupEditMode=false; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; document.body.classList.remove('sidescroll-terrain-editing'); setQuickNavOpen(false); }
+    if (!on && editorPlayTest) setEditorPlayTest(false);
     editMode = !!on;
+    if (editMode && editorDrawerBody) editorDrawerBody.scrollTop = 0;
     if (!editMode && !puzzleTestMode && puzzleWorkshopIsolated) savePuzzleWorkshopState(editorPuzzleMarkerId);
     if (editMode && !puzzleTestMode && !editorPuzzleMarkerId) editorScope = 'environment';
     document.body.classList.toggle('sidescroll-editing', editMode);
@@ -14893,6 +14901,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     updateEditorButtons();
     updatePuzzlePanel();
     updateEditorDrawerUi();
+    updateTestBar();
     return true;
   }
 
@@ -16581,7 +16590,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function nearestPuzzleContextAction() {
-    if (editMode || inventoryOpen || interactionState || jumping) return null;
+    if (editLocked() || inventoryOpen || interactionState || jumping) return null;
     const broken = nearestGameplayObject(isBrokenHandcart, 0.82);
     if (carriedObject && isReadyCartWheel(carriedObject) && broken?.obj) {
       return { type:'use-wheel', label:'USE', obj:broken.obj };
@@ -16727,7 +16736,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // A newly-entered Thought Trigger is allowed to interrupt an older thought.
     // showPuzzleThought() clears the previous timer and replaces its text, so the
     // player always sees the most recent contextual observation.
-    if (introLocked || editMode || inventoryOpen || interactionState) return;
+    if (introLocked || editLocked() || inventoryOpen || interactionState) return;
     const candidates=[];
     for (const obj of allSceneObjects()) {
       if (!obj || obj.deleted || obj.assetName !== 'thought-trigger' || !obj.thoughtText) continue;
@@ -18124,10 +18133,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!Story) return;
     const now = storyNow();
     while (storyPending.length && storyPending[0].at <= now) runStoryReaction(storyPending.shift().reaction);
-    if (editMode || introLocked || !storyState.triggers.length) return;
-    const px = storyPlayerX();
+    if (editLocked() || introLocked || !storyState.triggers.length) return;
+    // The player's body (not just her centre) touching the zone counts.
+    const px = storyPlayerX(), r = colliderWorld().radius;
     for (const t of storyState.triggers) {
-      if (px < t.x0 || px > t.x1) { storyInside.delete(t.id); continue; }
+      if (px + r < t.x0 || px - r > t.x1) { storyInside.delete(t.id); continue; }
       if (storyInside.has(t.id)) continue;
       storyInside.add(t.id);
       if (t.kind === 'enter' && storyTriggerReady(t)) fireStoryTrigger(t);
@@ -18135,9 +18145,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   // The Action-button trigger the player is standing in, if any.
   function storyActionTrigger() {
-    if (!Story || editMode || carriedObject) return null;
-    const px = storyPlayerX();
-    return storyState.triggers.find(t => t.kind === 'action' && px >= t.x0 && px <= t.x1 && storyTriggerReady(t)) || null;
+    if (!Story || editLocked() || carriedObject) return null;
+    const px = storyPlayerX(), r = colliderWorld().radius;
+    return storyState.triggers.find(t => t.kind === 'action' && px + r >= t.x0 && px - r <= t.x1 && storyTriggerReady(t)) || null;
   }
   function resetStoryProgress() {
     storyProgress = { flags: {}, fired: {}, characters: {} };
@@ -18291,15 +18301,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     fire: id => { const t = storyState.triggers.find(x => x.id === id); if (t) fireStoryTrigger(t, true); return !!t; },
     // Test as player: story progress back to a new player's, the player a
     // little before x facing it, editing ended (the story draft stays live).
-    testFrom: x => {
+    // Play from x in the editor, story progress reset (a trigger's "Play from before it").
+    playFrom: x => {
       if (!Number.isFinite(x)) return;
+      if (editorPlayTest) setEditorPlayTest(false);
       resetStoryProgress();
-      camera.x = x - character.screenOffsetX; previousCameraX = camera.x;
-      character.x = x; // now, so this frame's trigger check sees her new place
+      placePlayerAt(x);
       character.lastFacing = 1;
-      setEditMode(false);
-      storyInside.clear();
+      setEditorPlayTest(true);
     },
+    playing: () => editorPlayTest,
     select: (kind, id) => { storySelectedId = kind === 'character' ? id : null; storyHostSelectedMark = kind === 'mark' ? id : null;
       storyHostSelectedTrigger = kind === 'trigger' ? id : null; },
     active: () => !!(editMode && editorScope === 'story'),
@@ -19108,7 +19119,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function performAction() {
-    if (introLocked || editMode || inventoryOpen || interactionState || autoDropStep || climbState) return;
+    if (introLocked || editLocked() || inventoryOpen || interactionState || autoDropStep || climbState) return;
     if (pushingObject) { stopPush(); return; }
     const climbTarget = nearestActionClimbTarget();
     if (climbTarget && startClimb(climbTarget)) return;
@@ -19241,7 +19252,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const keyDir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
     const usingKeys = keyDir !== 0;
     const terrainWalkEdit=!!(editMode&&editorScope==='terrain'&&terrainEditSession);
-    const rawAxis = (introLocked || (editMode&&!terrainWalkEdit) || inventoryOpen || interactionState || autoDropStep || climbState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
+    const rawAxis = (introLocked || (editLocked()&&!terrainWalkEdit) || inventoryOpen || interactionState || autoDropStep || climbState) ? 0 : (usingKeys ? keyDir * (keyRun ? 1 : WALK_POINT) : driveAxis);
     const axisMag = Math.abs(rawAxis);
     const moveDir = axisMag > DRIVE_DEADZONE ? Math.sign(rawAxis) : 0;
 
@@ -19283,7 +19294,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     let airborneWorldY = character.y;
     if (jumpPrep) {
       // Anticipation: on the ground until the Jump animation's lift-off frame.
-      if (introLocked || editMode || inventoryOpen || interactionState || pushingObject || climbState || jumping) { jumpPrep = null; jumpPlan = null; }
+      if (introLocked || editLocked() || inventoryOpen || interactionState || pushingObject || climbState || jumping) { jumpPrep = null; jumpPlan = null; }
       else { jumpPrep.t += dt; if (jumpPrep.t >= jumpPlan.L * jumpPlan.tpf) { jumpPrep = null; launchJump(); } }
     }
     if (jumpRecover) {
@@ -19333,7 +19344,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const capsule = colliderWorld();
     const colliderXAfterMove = characterXAfterMove + capsule.offsetX;
     const terrainYAfterMove = playSurfaceYAt(characterXAfterMove);
-    if (editMode) {
+    if (editLocked()) {
       // Edit remains a free camera/workspace for horizontal collision, but the
       // character's vertical scale reference must use the same authored walk
       // surface as Play.  The old terrain-only reset here overwrote the support
@@ -19375,13 +19386,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         }
       }
     } else {
-      const support = editMode
+      const support = editLocked()
         ? editorSafeSupportAt(colliderXAfterMove, Infinity, moveDir)
         : walkableSupportAt(colliderXAfterMove, Infinity, moveDir);
       if (support) {
         const supportWorldY = terrainYAfterMove + support.offset;
         const deltaWorld = supportWorldY - previousCharacterWorldY;
-        const editorSnap = editMode && support.source === 'editor-fallback';
+        const editorSnap = editLocked() && support.source === 'editor-fallback';
         if (editorSnap || (deltaWorld <= capsule.stepUp + 0.025 && deltaWorld >= -capsule.stepDown)) {
           jumpOffset = support.offset;
           standingOnObject = support.obj;
@@ -19411,7 +19422,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // platform, but it must never finish a frame embedded in the platform side.
     // Resolve any such overlap even when the player has released the stick.
     const resolvedFeetWorldY = playSurfaceYAt(camera.x + character.screenOffsetX) + jumpOffset;
-    if (!editMode && !climbState) {
+    if (!editLocked() && !climbState) {
       const groundedSupport = !jumping && standingOnObject && isSupportSurfaceObject(standingOnObject)
         ? standingOnObject
         : null;
@@ -19576,7 +19587,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function triggerJump(){
-    if (introLocked || editMode || inventoryOpen || jumping || jumpPrep || interactionState || pushingObject || climbState) return;
+    if (introLocked || editLocked() || inventoryOpen || jumping || jumpPrep || interactionState || pushingObject || climbState) return;
     // Launch for this character's Jump height (gravity unchanged).
     const v = Math.sqrt(2 * JUMP_GRAVITY * (characterMotionSettings().jump || JUMP_VELOCITY * JUMP_VELOCITY / (2 * JUMP_GRAVITY)));
     const T = 2 * v / JUMP_GRAVITY, { L, M } = currentJumpTiming();
@@ -19935,6 +19946,86 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (puzzleTestMode) backToPuzzleSetup();
     else if (!editMode) { editorScope = 'environment'; setEditMode(true); buildAssetPalette(); updatePuzzlePanel(); }
   });
+  // ---- Editor test bar (top right while editing, every scope) --------------
+  // ▶ Play runs the game in place (editor and guides stay; the drawer folds to
+  // its rail so the controls are free); ↺ Restart puts the player back where
+  // Play began with story progress reset; Reset story resets story progress.
+  // var: setEditMode() may run (and call updateTestBar) before these lines.
+  var testBar = document.getElementById('sidescroll-test-bar');
+  var testPlayBtn = document.getElementById('sidescroll-test-play');
+  var testRestartBtn = document.getElementById('sidescroll-test-restart');
+  var testResetStoryBtn = document.getElementById('sidescroll-test-reset-story');
+  var editorPlayStartX = null, editorPlayDrawerWasCollapsed = false;
+  function placePlayerAt(x) {
+    camera.x = x - character.screenOffsetX; previousCameraX = camera.x;
+    character.x = x;
+    jumping = false; jumpTime = 0; jumpVelocity = 0; jumpPrep = null; jumpPlan = null; jumpRecover = null;
+    const support = editorSafeSupportAt(x + colliderWorld().offsetX, Infinity, 0);
+    jumpOffset = support.offset; standingOnObject = support.obj || null;
+    character.y = playSurfaceYAt(x) + jumpOffset;
+  }
+  // Zones the player stands in when play starts don't fire until she leaves them.
+  function markStoryZonesInside() {
+    storyInside.clear();
+    const px = storyPlayerX(), r = colliderWorld().radius;
+    for (const t of storyState.triggers) if (px + r >= t.x0 && px - r <= t.x1) storyInside.add(t.id);
+  }
+  function updateTestBar() {
+    if (!testBar) return;
+    testBar.hidden = !editMode || puzzleTestMode || PLAYER_MODE;
+    if (testPlayBtn) {
+      testPlayBtn.textContent = editorPlayTest ? '■ Stop' : '▶ Play';
+      testPlayBtn.classList.toggle('active', editorPlayTest);
+      testPlayBtn.setAttribute('aria-pressed', String(editorPlayTest));
+    }
+    if (testRestartBtn) testRestartBtn.hidden = !editorPlayTest;
+  }
+  function setEditorPlayTest(on) {
+    on = !!on && editMode && !puzzleTestMode;
+    if (on === editorPlayTest) { updateTestBar(); return; }
+    if (on) {
+      if (worldGroupEditSession || puzzleEditSession) {
+        hintEl.textContent = 'Save or Discard the current edit before playing'; hintEl.classList.remove('hidden');
+        return;
+      }
+      selectObject(null); addAssetType = null; updatePlacementModeUi(); setAssetPaletteOpen(false);
+      editorPlayStartX = character.x;
+      editorPlayDrawerWasCollapsed = editorDrawerCollapsed;
+      editorPlayTest = true;
+      markStoryZonesInside();
+      setEditorDrawerCollapsed(true);
+      hintEl.textContent = 'PLAYING IN THE EDITOR · walk, jump and use Action · ↺ Restart goes back to the start · ■ Stop to edit';
+      hintEl.classList.remove('hidden');
+    } else {
+      editorPlayTest = false;
+      setDriveAxis(0); keyLeft = false; keyRight = false; keyRun = false;
+      if (carriedObject || interactionState || pushingObject) { if (pushingObject) stopPush(true); }
+      placePlayerAt(character.x);
+      setEditorDrawerCollapsed(editorPlayDrawerWasCollapsed);
+    }
+    document.body.classList.toggle('sidescroll-edit-playing', editorPlayTest);
+    updateTestBar();
+    updateEditorButtons();
+  }
+  function restartEditorPlay() {
+    resetStoryProgress();
+    if (editorPlayTest && Number.isFinite(editorPlayStartX)) {
+      setDriveAxis(0);
+      placePlayerAt(editorPlayStartX);
+      character.lastFacing = 1;
+      markStoryZonesInside();
+    }
+    hintEl.textContent = editorPlayTest ? 'Restarted · story progress reset · back at the start' : 'Story progress reset';
+    hintEl.classList.remove('hidden');
+  }
+  bindEditorPress(testPlayBtn, () => setEditorPlayTest(!editorPlayTest));
+  bindEditorPress(testRestartBtn, restartEditorPlay);
+  bindEditorPress(testResetStoryBtn, () => {
+    resetStoryProgress();
+    if (editorPlayTest) markStoryZonesInside();
+    hintEl.textContent = 'Story progress reset (flags, fired triggers, characters)'; hintEl.classList.remove('hidden');
+  });
+
   bindEditorPress(editorDoneBtn, () => {
     if(worldGroupEditSession)return;
     if(puzzleWorkspaceActive&&!leavePuzzleWorkspace())return;
@@ -21065,6 +21156,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   canvas.addEventListener('pointerdown', e => {
     if (editMode && pointInsideEditorUi(e.clientX, e.clientY)) return;
+    if (editorPlayTest) return; // playing in the editor: the view follows the player
     canvas.setPointerCapture?.(e.pointerId);
     hideHint();
     if (editMode) {
@@ -21669,7 +21761,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (typingTarget) return;
 
     const key = e.key.toLowerCase();
-    if (editMode) {
+    if (editLocked()) {
       if (e.key === 'Escape') {
         if (inventoryOpen) { setInventoryOpen(false); return; }
         socketPlacementPiece = null; worldGroupMoveMode=false; worldGroupMemberMoveMode=false; worldGroupExclusionEditMode=false; worldGroupTemplatePlaceMode=false; selectObject(null); setAssetPaletteOpen(false, { clearPending:true }); updateAssetPaletteState(); renderWorldGroupTools({force:true});
@@ -21694,7 +21786,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   window.addEventListener('keyup', e => {
     const key = e.key.toLowerCase();
-    if (editMode) return;
+    if (editLocked()) return;
     if (e.key === 'ArrowLeft' || key === 'a') keyLeft = false;
     if (e.key === 'ArrowRight' || key === 'd') keyRight = false;
     if (e.key === 'Shift') keyRun = false;
