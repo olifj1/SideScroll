@@ -41,12 +41,12 @@
   const MAX_CHARACTERS = 60, MAX_MARKS = 120, MAX_MOVES = 24, MAX_TRIGGERS = 120, MAX_REACTIONS = 24;
   // What a trigger can do (stage 2a). Character reactions name a world character.
   const REACTIONS = Object.freeze({
-    'play-once': 'Play an animation once',
-    'set-animation': 'Switch its animation',
-    'start-route': 'Start its route',
-    'walk-to': 'Walk to a mark',
-    'face-player': 'Turn to face the player',
-    'say': 'Say something',
+    'walk-to': 'Character walks to a mark',
+    'start-route': 'Character starts its route',
+    'play-once': 'Character plays an animation once',
+    'set-animation': 'Character switches animation',
+    'face-player': 'Character turns to face the player',
+    'say': 'Someone says a line',
     'flag': 'Set or clear a story flag'
   });
   // A story flag name: lower-case words joined by hyphens (met-father).

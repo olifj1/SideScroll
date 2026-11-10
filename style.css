@@ -15627,3 +15627,6 @@ body[data-game-id="game-16"] .sidescroll-editor-scope-switch button{padding:0 2p
 body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-controls.sidescroll-controls-drive{display:block!important;z-index:1010!important;}
 body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-secondary-controls.sidescroll-left-actions{display:grid!important;z-index:1010!important;}
 body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-editor-controls{display:none!important;}
+.sidescroll-story-choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;}
+.sidescroll-story-choices button{min-height:36px;text-align:left;line-height:1.25;padding:4px 9px;}
+.sidescroll-story-warn{display:grid;gap:6px;padding:8px;border-radius:9px;border:1px solid rgba(255,190,90,.55);background:rgba(255,170,60,.12);font-size:11px;}

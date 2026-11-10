@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story: characters and triggers connected.** A world character's panel has *When
+  the player reaches a trigger*: every trigger reaction aimed at it, editable there
+  (mark, animation…), and *+ Add* to an existing trigger or a new trigger placed
+  just before it. A route set to start *From a trigger* shows which trigger starts
+  it, or warns that none does with a one-tap fix. Triggers list their reactions as
+  clear buttons (*+ Character walks to a mark*, *+ Character starts its route*, …)
+  instead of a menu plus *+ Add*.
 - **Editor TEST bar and Play in the editor:** a TEST bar at the top right in every
   editor scope: **▶ Play / ■ Stop** runs the game in place (the editor, guides and
   zones stay; the drawer folds to its rail; game controls, physics, triggers,

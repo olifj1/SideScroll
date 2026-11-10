@@ -243,6 +243,8 @@ Play progress `sidescroll.player.story-progress.v1` (`Story.loadProgress/savePro
 `fired` (once-only triggers) and `characters[wc id]` lasting changes {x, depth, facing,
 animation, stopped (route ended), routeStarted}; play-once, face and speech are not saved.
 A world character's `visible` condition and route `start: 'trigger'` read it.
+Reactions are stored only in triggers; the Story editor's character panel lists and edits the
+ones aimed at that character (`characterTriggers` / `routeStarters` in `story-editor.js`).
 **Editor TEST bar** (`#sidescroll-test-bar`, every scope): ▶ Play sets `editorPlayTest` — the game
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game
 controls). Gameplay code tests `editLocked()` (= editing and not playing) where Play must work;
