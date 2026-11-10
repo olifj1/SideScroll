@@ -51,8 +51,8 @@
     node.addEventListener('change', () => onPick(node.value));
     return node;
   }
-  function textInput(item, key, max = 40, after) {
-    const input = el('input', { type: 'text', value: item[key] ?? '', maxlength: max });
+  function textInput(item, key, max = 40, after, placeholder) {
+    const input = el('input', { type: 'text', value: item[key] ?? '', maxlength: max, placeholder });
     input.addEventListener('input', () => { item[key] = input.value; change(false); });
     input.addEventListener('change', () => { after?.(); render(); });
     return input;
@@ -112,7 +112,7 @@
     placeMode = null;
     view.page = page;
     if (page === 'sequence') { view.placed = id; view.component = extra.component || null; const p = placedById(id); if (p && extra.focus !== false) host.lookAt(p.x); }
-    if (page === 'event') view.event = id;
+    if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; }
     if (page === 'list' && extra.tab) view.tab = extra.tab;
     syncSelection();
     render();
@@ -251,10 +251,13 @@
     }
     const roleRows = (event?.roles || []).map(r => {
       const fits = body.components.filter(c => c.kind === r.kind);
-      return field(`${r.name} (${Seq.ROLE_KINDS[r.kind]})`, fits.length
-        ? select_([['', 'Choose…'], ...fits.map(c => [c.id, `${KIND_ICON[c.kind]} ${c.name}`])], l.roles?.[r.id], v => { (l.roles ||= {})[r.id] = v || undefined; if (!v) delete l.roles[r.id]; change(); })
-        : help(`Add a ${Seq.ROLE_KINDS[r.kind].toLowerCase()} to this sequence first.`));
+      const kind = Seq.ROLE_KINDS[r.kind].toLowerCase();
+      return field(`${r.name} →`, fits.length
+        ? select_([['', `Choose this sequence’s ${kind}…`], ...fits.map(c => [c.id, `${KIND_ICON[c.kind]} ${c.name}`])], l.roles?.[r.id], v => { (l.roles ||= {})[r.id] = v || undefined; if (!v) delete l.roles[r.id]; change(); })
+        : help(`Add a ${kind} to this sequence first (Components), then choose it here.`));
     });
+    if (roleRows.length) roleRows.unshift(el('div', { class: 'sidescroll-seq-fill' }, el('strong', { text: 'Fill in the event’s placeholders' }),
+      el('small', { text: 'Which of this sequence’s components each placeholder means here.' })));
     const c = l.condition;
     return el('div', { class: 'sidescroll-story-move' },
       el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `Line ${index + 1}` }),
@@ -263,8 +266,14 @@
         btn('Remove', () => { body.logic.splice(index, 1); change(); })),
       field('When', el('div', { class: 'sidescroll-seq-stack' }, ...whenRows)),
       field('Run event', el('div', { class: 'sidescroll-seq-stack' },
-        select_([['', 'Choose an event…'], ...draft.events.map(e => [e.id, `✦ ${e.name}`])], l.event, v => { l.event = v || null; change(); }),
-        event ? btn(`Open “${event.name}”`, () => open('event', event.id)) : null)),
+        select_([['', 'Choose an event…'], ...draft.events.map(e => [e.id, `✦ ${e.name}`]), ['__new', '+ New event…']], l.event, v => {
+          if (v !== '__new') { l.event = v || null; change(); return; }
+          // Make an event for this line and open it; "‹ Back" returns here.
+          const taken = takenIds(), id = Seq.newId('ev', taken);
+          draft.events.push({ id, name: `Event ${draft.events.length + 1}`, roles: [{ id: Seq.newId('r', taken), name: 'Actor', kind: 'character' }], steps: [] });
+          l.event = id; change(false); open('event', id, { returnTo: p.id });
+        }),
+        event ? btn(`Open “${event.name}”`, () => open('event', event.id, { returnTo: p.id })) : null)),
       ...roleRows,
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Only' }),
         segmented([['none', 'Always'], ['set', 'While flag is set'], ['unset', 'While flag is not set']], c ? c.when : 'none', v => {
@@ -343,31 +352,35 @@
   // ---- Event page -------------------------------------------------------------------
   function stepEditor(e, s, index) {
     const def = Seq.STEPS[s.type];
-    const roleSelect = (field_, kind, allowNone = false) => select_([...(allowNone ? [['', 'No one']] : [['', 'Choose…']]),
-      ...e.roles.filter(r => r.kind === kind).map(r => [r.id, r.name])], s[field_], v => { if (v) s[field_] = v; else delete s[field_]; change(); });
+    const roleSelect = (field_, kind, allowNone = false) => {
+      const fits = e.roles.filter(r => r.kind === kind);
+      if (!fits.length && !allowNone) return help(`Add a ${Seq.ROLE_KINDS[kind].toLowerCase()} placeholder above first.`);
+      return select_([...(allowNone ? [['', 'No one']] : [['', `Choose a ${Seq.ROLE_KINDS[kind].toLowerCase()} placeholder…`]]),
+        ...fits.map(r => [r.id, r.name])], s[field_], v => { if (v) s[field_] = v; else delete s[field_]; change(); });
+    };
     const rows = [];
     switch (s.type) {
       case 'move':
-        rows.push(field('Who', roleSelect('actor', 'character')), field('To mark', roleSelect('to', 'mark')),
+        rows.push(field('Who (character placeholder)', roleSelect('actor', 'character')), field('To (mark placeholder)', roleSelect('to', 'mark')),
           field('Using', select_(slotChoices(), s.animation, v => { s.animation = v; change(); }), 'An action slot: each character plays its own animation for it'),
           el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Timing' }),
             segmented([['speed', 'Its own speed'], ['time', 'Takes…']], s.timing, v => { s.timing = v; change(); }),
             s.timing === 'time' ? el('div', { class: 'sidescroll-story-inline' }, numberInput(s, 'seconds', 0.5, 600, 0.5, 5), 's') : null));
         break;
       case 'animate':
-        rows.push(field('Who', roleSelect('actor', 'character')), field('Animation', select_(slotChoices(), s.animation, v => { s.animation = v; change(); })),
+        rows.push(field('Who (character placeholder)', roleSelect('actor', 'character')), field('Animation', select_(slotChoices(), s.animation, v => { s.animation = v; change(); })),
           segmented([['once', 'Play once, then back'], ['loop', 'Switch to it (loop)']], s.mode, v => { s.mode = v; change(); }),
           s.mode === 'once' ? el('div', { class: 'sidescroll-story-inline' }, numberInput(s, 'times', 1, 10, 1, 1), 'times') : null);
         break;
       case 'face':
-        rows.push(field('Who', roleSelect('actor', 'character')),
+        rows.push(field('Who (character placeholder)', roleSelect('actor', 'character')),
           segmented([['player', 'The player'], ['left', 'Left'], ['right', 'Right'], ['character', 'Another character']], s.toward, v => { s.toward = v; change(); }),
-          s.toward === 'character' ? field('Which', roleSelect('target', 'character')) : null);
+          s.toward === 'character' ? field('Which (character placeholder)', roleSelect('target', 'character')) : null);
         break;
       case 'say': {
         const line = el('textarea', { rows: '2', maxlength: '200' }); line.value = s.text || '';
         line.addEventListener('input', () => { s.text = line.value; change(false); });
-        rows.push(field('Who', roleSelect('actor', 'character', true)), field('Line', line),
+        rows.push(field('Who (character placeholder)', roleSelect('actor', 'character', true)), field('Line', line),
           el('div', { class: 'sidescroll-story-inline' }, 'shown for', numberInput(s, 'seconds', 1, 30, 0.5, 3), 's'));
         break;
       }
@@ -383,7 +396,7 @@
           segmented([['set', 'Set it'], ['clear', 'Clear it']], s.value === false ? 'clear' : 'set', v => { s.value = v === 'set'; change(); }));
         break;
       case 'show':
-        rows.push(field('Who', roleSelect('actor', 'character')), segmented([['show', 'Show'], ['hide', 'Hide']], s.visible === false ? 'hide' : 'show', v => { s.visible = v === 'show'; change(); }));
+        rows.push(field('Who (character placeholder)', roleSelect('actor', 'character')), segmented([['show', 'Show'], ['hide', 'Hide']], s.visible === false ? 'hide' : 'show', v => { s.visible = v === 'show'; change(); }));
         break;
       case 'control':
         rows.push(segmented([['take', 'Take control from the player'], ['give', 'Give control back']], s.take === false ? 'give' : 'take', v => { s.take = v === 'take'; change(); }),
@@ -404,19 +417,21 @@
     const usedBy = [];
     for (const p of draft.placed) bodyOf(p).logic.forEach((l, i) => { if (l.event === e.id) usedBy.push({ p, i }); });
     return [
-      row(btn('‹ Events', () => open('list', null, { tab: 'events' }))),
-      field('Name', textInput(e, 'name', 40)),
-      section('Roles',
-        help('Who and where the steps act on. Each sequence line that runs this event fills them in from its components.'),
-        e.roles.map((r, i) => el('div', { class: 'sidescroll-story-add' }, textInput(r, 'name', 30),
-          el('span', { class: 'sidescroll-seq-kind', text: Seq.ROLE_KINDS[r.kind] }),
+      row(btn('‹ Events', () => open('list', null, { tab: 'events' })),
+        view.returnTo && placedById(view.returnTo) ? btn(`‹ Back to ${placedById(view.returnTo).name}`, () => open('sequence', view.returnTo, { focus: false }), 'primary') : null),
+      field('Name', textInput(e, 'name', 40, null, 'Name it, e.g. Greet and walk off')),
+      section('Placeholders',
+        help('Placeholders stand for the characters and marks this event acts on — you don’t choose real ones here. Give each a name (Actor, Exit…) and use it in the steps below. Each sequence that runs this event fills them in with its own character and mark (on its logic line).'),
+        e.roles.map((r, i) => el('div', { class: 'sidescroll-seq-role' },
+          textInput(r, 'name', 30, null, r.kind === 'mark' ? 'Name it, e.g. Exit or Hiding spot' : 'Name it, e.g. Actor or Friend'),
+          el('span', { class: 'sidescroll-seq-kind', text: `${Seq.ROLE_KINDS[r.kind]} placeholder` }),
           btn('Remove', () => {
             e.roles.splice(i, 1);
             for (const s of e.steps) for (const k of ['actor', 'to', 'target']) if (s[k] === r.id) delete s[k];
             change();
           }))),
-        row(btn('+ Character role', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'character') ? 'Other' : 'Actor', kind: 'character' }); change(); }, 'primary'),
-          btn('+ Mark role', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'mark') ? 'Place' : 'Exit', kind: 'mark' }); change(); }, 'primary'))),
+        row(btn('+ Character placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'character') ? 'Other' : 'Actor', kind: 'character' }); change(); }, 'primary'),
+          btn('+ Mark placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'mark') ? 'Place' : 'Exit', kind: 'mark' }); change(); }, 'primary'))),
       section('Steps',
         e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.'),
         el('div', { class: 'sidescroll-story-choices' }, Object.entries(Seq.STEPS).map(([type, def]) => btn(`+ ${def.label} — ${def.help}`, () => {

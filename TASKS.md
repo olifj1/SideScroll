@@ -63,6 +63,8 @@ app and make a Project Backup.
 
 **0af. Sequences and events (10 Nov)** — game → Edit → **Sequences** (the old Story tabs are gone; start fresh)
 - [ ] Scope row reads Environment · Terrain · Puzzle · Sequences on one line.
+- [ ] On a logic line, **Run event → + New event…** opens a new event; **+ Mark placeholder** (type a name in the box, e.g. *Exit*), add a **Move** step (Who = Actor, To = Exit), then **‹ Back to** your sequence: the line shows **Fill in the event's placeholders** — choose your character for Actor and your mark for Exit.
+- [ ] Scroll down a sequence, Done Editing, Menu → Edit: the editor reopens on **Sequences**, at the top.
 - [ ] **Events → + New event** (it has an *Actor* role) → **+ Mark role** (*Exit*) → steps **+ Face** (the player), **+ Say** (a line), **+ Control** (take), **+ Move** (Actor to Exit, Walk), **+ Control** (give back), **+ Flag** (`met-father`). Tick *At the same time as the step before* on one to see two run together.
 - [ ] **Sequences → + New sequence**, tap the ground: a green post with its name appears. **+ Character** (pick one) tap; **+ Mark** tap; **+ Zone** tap the path before the character. **+ Add line**: When *The player walks into a zone* (your zone) → Run your event → Actor = the character, Exit = the mark. **Save**.
 - [ ] **▶ Play from here**: walk into the zone — the character turns, speaks (subtitle strip), you can't move while it walks to the mark, then control returns. ↺ Restart (TEST bar) to try again. **Test now** on a line runs it without walking in.
