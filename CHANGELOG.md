@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Cutscene system design** (`docs/CUTSCENE_SYSTEM_DESIGN.md`, proposed): cutscenes
+  placed like puzzles, built from components and a sequence of *When → run event*
+  lines, with a game-wide events library using roles. Supersedes the story authoring
+  model of stages 1–2a; replaces the story stages in `TASKS.md`.
 - **Story: characters and triggers connected.** A world character's panel has *When
   the player reaches a trigger*: every trigger reaction aimed at it, editable there
   (mark, animation…), and *+ Add* to an existing trigger or a new trigger placed

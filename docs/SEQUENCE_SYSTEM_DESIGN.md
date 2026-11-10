@@ -1,5 +1,10 @@
 # Story sequences — design (agreed 8 Nov 2026)
 
+> **Authoring model superseded (10 Nov 2026) by `CUTSCENE_SYSTEM_DESIGN.md`:** world
+> characters, marks and triggers become components of cutscenes, and reactions become
+> reusable events run from a cutscene's sequence. The camera, look and screen ideas
+> below (sections 1.3, 4) still describe the later camera and look steps.
+
 Goal: drop short pieces of story between gameplay — an opening camera move that
 lands on Aureli and hands control over, the father chopping wood as she walks out,
 a scene that plays when she reaches a place — authored on the phone, with no code
