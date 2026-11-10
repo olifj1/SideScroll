@@ -61,6 +61,9 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ag. Carrying (11 Nov)** — Menu → Collision on
+- [ ] Character01 picks up a log: the blue carried box sits on the log in her arms (not below it). Walk up to a log on the floor: she gets right up to it, and Put Down stacks it on top. Same with Aureli.
+
 **0af. Sequences and events (10 Nov)** — game → Edit → **Sequences** (the old Story tabs are gone; start fresh)
 - [ ] Scope row reads Environment · Terrain · Puzzle · Sequences on one line.
 - [ ] On a logic line, **Run event → + New event…** opens a new event; **+ Mark placeholder** (type a name in the box, e.g. *Exit*), add a **Move** step (Who = Actor, To = Exit), then **‹ Back to** your sequence: the line shows **Fill in the event's placeholders** — choose your character for Actor and your mark for Exit.

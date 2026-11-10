@@ -15803,7 +15803,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
     ctx.setLineDash([]);
     ctx.font = '800 9px -apple-system,BlinkMacSystemFont,sans-serif';
-    const label = `COLLISION · cyan dashed = terrain · mint = walk surface · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${CARRY_BOTTOM.toFixed(2)} · stack search ${STACK_SEARCH_RADIUS.toFixed(2)} · socket ${SOCKET_SEARCH_RADIUS.toFixed(2)}`;
+    const label = `COLLISION · cyan dashed = terrain · mint = walk surface · stack ${STACK_ITEM_HEIGHT.toFixed(2)} · carry ${carryHold().bottom.toFixed(2)} · stack search ${STACK_SEARCH_RADIUS.toFixed(2)} · socket ${SOCKET_SEARCH_RADIUS.toFixed(2)}`;
     const tw = ctx.measureText(label).width + 16;
     const x = Math.max(8, (ctx.canvas.clientWidth - tw) * 0.5);
     const y = 48;
@@ -16795,6 +16795,30 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
 
+  // Where a carried object sits relative to the character's feet (world
+  // metres): the hands of its own standing carry pose for a biped (so a taller
+  // character with higher arms holds it higher), the fixed carry for others.
+  // The drawn object follows the animated hands; collision, drop points and
+  // the pose-less fallback use this steady hold, so they stay in step with it.
+  let carryHoldCache = null;
+  function carryHold(obj = carriedObject || interactionState?.object) {
+    const sy = obj ? obj.sy : 0.88;
+    const key = `${currentCharacterVariant}|${character.scale.toFixed(4)}|${sy}|${characterFrames.length}`;
+    if (carryHoldCache?.key === key) return carryHoldCache;
+    let hold = { forward: CARRY_FORWARD, bottom: CARRY_BOTTOM };
+    if (activeCharacterRig() === Rig) {
+      try {
+        const idle = bipedPoseForClip('idle', 0, Rig.sampleFrames(characterFrames, 0.02));
+        const g = Rig.geometry(poseForCarrying(idle, 1, 0), bipedRestRig());
+        const handX = ((g.aW.x + g.bW.x) * 0.5) * character.scale;
+        const handY = ((g.aW.y + g.bW.y) * 0.5) * character.scale;
+        if (Number.isFinite(handX) && Number.isFinite(handY)) hold = { forward: handX, bottom: handY - sy * 0.52 };
+      } catch (_) {}
+    }
+    carryHoldCache = { key, ...hold };
+    return carryHoldCache;
+  }
+
   function carriedCollisionRectAtRoot(rootX, clearanceHeight = jumpOffset, facing = character.lastFacing >= 0 ? 1 : -1, obj = carriedObject) {
     if (!obj) return null;
     const floorY = playSurfaceYAt(rootX) + Math.max(0, clearanceHeight);
@@ -16807,8 +16831,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       : Math.max(0.16, obj.collision?.height ?? crateHeight(obj));
     // Match the non-pose carry transform closely enough for gameplay collision;
     // animation bob is intentionally ignored so the collision stays stable.
-    const centreX = rootX + facing * CARRY_FORWARD;
-    const bottomY = floorY + characterSoleArtLocalOffset() * character.scale + CARRY_BOTTOM;
+    const hold = carryHold(obj);
+    const centreX = rootX + facing * hold.forward;
+    const bottomY = floorY + characterSoleArtLocalOffset() * character.scale + hold.bottom;
     return {
       minX: centreX - halfWidth,
       maxX: centreX + halfWidth,
@@ -17608,8 +17633,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const obj = carriedObject || interactionState?.object;
     const sx = obj ? obj.sx : 0.96;
     const sy = obj ? obj.sy : 0.88;
-    let x = character.x + facing * CARRY_FORWARD;
-    let y = characterRenderY() + CARRY_BOTTOM;
+    const hold = carryHold(obj);
+    let x = character.x + facing * hold.forward;
+    let y = characterRenderY() + hold.bottom;
 
     // Attach the carried crate to the actual animated hand position rather than
     // to a fixed world height.  That means the box inherits the same pelvis /
@@ -18840,7 +18866,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // cue. The previous 0.92m ground-drop point sat ~0.44m ahead of the log the
     // player could actually see, so the overlap percentage could say 43% while
     // the artwork appeared centred over the blue line.
-    const x = rootX + facing * CARRY_FORWARD;
+    const x = rootX + facing * carryHold().forward;
     const z = carriedObject.gameplayLayerLocked === false ? carriedObject.z : pathZ;
     let best = null;
     let bestOverlap = 0;

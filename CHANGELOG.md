@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Carried object collision follows the character's hands:** the carried log's
+  collision box, drop point and resting position now use each biped's own standing
+  carry pose (`carryHold()`), the same hands the drawn log follows, instead of a fixed
+  0.64 m / 0.48 m set for the original characters. Character01's box sits on the log
+  she holds (0.91 m), so she can walk up to a log on the floor; Aureli's is 0.77 m.
 - **Sequences editor clearer:** an event's roles are now **Placeholders** (with hint
   text: "Name it, e.g. Exit"), steps ask for a "character / mark placeholder", and a
   logic line says **Fill in the event's placeholders** with "Choose this sequence's
