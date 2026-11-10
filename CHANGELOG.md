@@ -4,6 +4,20 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Sequences and events (steps 1–2 of `docs/SEQUENCE_SYSTEM_DESIGN.md`).** The game
+  editor's **Sequences** scope (was Story) has two lists. **Events**: reusable chains
+  of steps — Move, Animate, Face, Say, Think, Wait, Flag, Show / Hide, Control —
+  written with roles (Actor, Exit); a step runs after the previous one or with it;
+  animations are action slots, so each character plays its own. **Sequences**:
+  placed like puzzles (an anchor post; unique, or a template placed as instances),
+  with components (library characters, marks, zones) and logic lines *When* (starts /
+  walks into a zone / presses Action / another line finishes / a flag is set) → *run
+  event* with its roles filled, *Only if* a flag, once or every time. Control steps
+  pause the player (always given back when the event ends). ▶ Play from here and
+  Test now on a line. New `sequence-data.js` / `sequence-editor.js`; content keys
+  `sidescroll.story.events.v1` and `sidescroll.story.sequences.v1` (Story area),
+  progress `sidescroll.player.story-progress.v2`. The 8–9 Nov world characters /
+  marks / triggers (`story-world.js`, `story-editor.js` and their keys) are retired.
 - **Sequence system design** (`docs/SEQUENCE_SYSTEM_DESIGN.md`, agreed 10 Nov):
   sequences placed like puzzles, built from components and a logic list of *When →
   run event* lines, with a game-wide events library using roles (steps include taking

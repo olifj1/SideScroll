@@ -15630,3 +15630,10 @@ body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-editor-controls
 .sidescroll-story-choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;}
 .sidescroll-story-choices button{min-height:36px;text-align:left;line-height:1.25;padding:4px 9px;}
 .sidescroll-story-warn{display:grid;gap:6px;padding:8px;border-radius:9px;border:1px solid rgba(255,190,90,.55);background:rgba(255,170,60,.12);font-size:11px;}
+/* Sequences editor (sequence-editor.js). */
+.sidescroll-seq-section{display:grid;gap:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.12);}
+.sidescroll-seq-stack{display:grid;gap:5px;}
+.sidescroll-seq-kind{align-self:center;font-size:10px;font-weight:800;opacity:.7;}
+.sidescroll-story-panel button.hidden{visibility:hidden;}
+.sidescroll-story-panel button.danger{border-color:rgba(255,120,120,.5);}
+.sidescroll-story-note{display:grid;gap:6px;padding:8px;border-radius:9px;border:1px solid rgba(159,240,200,.35);background:rgba(159,240,200,.08);font-size:11px;}

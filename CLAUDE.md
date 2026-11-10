@@ -206,7 +206,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle/story editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `story-world.js`, `sidescroll.js`, `story-editor.js` |
+| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `sidescroll.js`, `sequence-editor.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states | `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
@@ -218,33 +218,27 @@ Any new per-character storage must be added to `slicesFor()` there.
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 
-**Story — world characters and marks** (`story-world.js`, `window.SideScrollStory`;
-`story-editor.js`; design `docs/SEQUENCE_SYSTEM_DESIGN.md`, stage 1 done): content keys
-`sidescroll.story.world-characters.v1` (characters: `{id wc-…, name, character, x, depth (world z,
-+ nearer), facing, scale (× its own), animation, speed, offset, blocks 'auto'|'always'|'never',
-route?:{loop, start 'game'|'near', moves:[{to mark id, animation, timing 'speed'|'time', seconds,
-wait, face, arriveAnimation?}]}, visible? (flag, stage 2)}`) and `sidescroll.story.marks.v1`
-(`{id mark-…, name, x, depth, facing}`). Route positions come from `Story.stateAt(character,
-marks, walkSpeed, seconds)` — nothing about a route is saved while playing. The game
-(`updateWorldCharacters` / `drawWorldCharacters` / `resolveWorldCharacterBlocking` in
-`sidescroll.js`) draws them with the player's drawing code (`drawLocalMeshCharacter` and
-`drawRigPartWebGL` take a `body` {x, y, z, scale, tint, opacity, texture}; `playerBody()` is
-the player) and keeps the player out of blocking ones. The editor's **Story** scope talks to the
-game through `window.SideScrollStoryHost` (preview, select, taps arrive as `sidescroll:story-tap`).
-A built-in slot name (idle/walk/run/jump) plays the character's animation for that slot
-(`GameCharacters.slotAnimation`); other keys are its own animations (`clipFor`).
-**Triggers** (stage 2a): `sidescroll.story.triggers.v1` (`{id trg-…, name, kind 'enter'|'action',
-label (Action button), x0, x1, once, condition?{flag, when 'set'|'unset'}, reactions:[{type
-(Story.REACTIONS: play-once, set-animation, start-route, walk-to, face-player, say, flag), delay,
-target (world character), …}]}`). The game's director (`updateStoryTriggers`, `fireStoryTrigger`,
-`runStoryReaction`, `storyCharacterState` in `sidescroll.js`) fires them outside edit mode;
-Action-button triggers come after climb / puzzle actions and before put down / push / pick up.
-Play progress `sidescroll.player.story-progress.v1` (`Story.loadProgress/saveProgress`): `flags`,
-`fired` (once-only triggers) and `characters[wc id]` lasting changes {x, depth, facing,
-animation, stopped (route ended), routeStarted}; play-once, face and speech are not saved.
-A world character's `visible` condition and route `start: 'trigger'` read it.
-Reactions are stored only in triggers; the Story editor's character panel lists and edits the
-ones aimed at that character (`characterTriggers` / `routeStarters` in `story-editor.js`).
+**Sequences and events** (`sequence-data.js`, `window.SideScrollSequences`; `sequence-editor.js`;
+design `docs/SEQUENCE_SYSTEM_DESIGN.md`, steps 1–2 done). Content keys `sidescroll.story.events.v1`
+(`events:[{id ev-…, name, roles:[{id r-…, name, kind 'character'|'mark'}], steps:[{type
+(Seq.STEPS: move, animate, face, say, think, wait, flag, show, control), with (run with the
+previous step), actor/to/target (role ids), …}]}]`) and `sidescroll.story.sequences.v1`
+(`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
+body = `{components:[{id c-…, kind 'character'|'mark'|'zone', name, dx (from the anchor), depth,
+facing, character, animation (action slot), scale, blocks | width}], logic:[{id l-…, when:{type
+(Seq.WHEN: load, enter, action, finish, flag), zone, label, line, flag}, event, roles:{role id:
+component id}, condition?, once}]}`; `Seq.bodyOf` gives a placed sequence's body). Animations in
+events and components are **action slots**: each character plays its own animation for the slot.
+The game's runtime (`sidescroll.js`: `updateWorldCharacters`, `drawWorldCharacters`,
+`resolveWorldCharacterBlocking`, `updateStoryTriggers` → `seqFireLine` / `advanceSequenceRuns` /
+`seqStartStep`) draws sequence characters with the player's drawing code (`drawLocalMeshCharacter`
+and `drawRigPartWebGL` take a `body`), keeps the player out of blocking ones, fires lines outside
+edit mode (and in ▶ Play), runs events as beats, and `storyControlLocked()` pauses the player while
+a Control step holds it (released when the event ends). Progress `sidescroll.player.story-progress.v2`
+(`Seq.loadProgress/saveProgress`: flags, `fired["sq:l"]`, `components["sq:c"]` {x, depth, facing,
+animation, hidden}). The editor talks to the game through `window.SideScrollSequenceHost`; taps
+arrive as `sidescroll:story-tap`; the scope id is still `'story'`. Zones the player already stands
+in fire only once she has left them. The 8–9 Nov world characters / marks / triggers are retired.
 **Editor TEST bar** (`#sidescroll-test-bar`, every scope): ▶ Play sets `editorPlayTest` — the game
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game
 controls). Gameplay code tests `editLocked()` (= editing and not playing) where Play must work;

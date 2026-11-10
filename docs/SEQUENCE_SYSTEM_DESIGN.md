@@ -117,9 +117,9 @@ The 8–9 Nov keys (`sidescroll.story.world-characters.v1`, `…marks.v1`,
 `…triggers.v1`) are retired and marked stale.
 
 ## Build order (each step usable on its own)
-1. **Events** — the events library and its page (roles, steps), and the game running
-   an event's steps (reusing the existing runtime).
-2. **Sequences** — library, unique / template, anchor, components (characters, marks,
+1. **Events** *(done 10 Nov, with step 2)* — the events library and its page (roles,
+   steps), and the game running an event's steps (reusing the existing runtime).
+2. **Sequences** *(done 10 Nov)* — library, unique / template, anchor, components (characters, marks,
    zones), logic lines (When → Run with roles, Only if, Once), Play from here. Replaces
    the Story scope's Characters / Marks / Triggers tabs.
 3. **More components and streaming** — thoughts, dressing, random character picks,

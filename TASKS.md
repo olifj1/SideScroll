@@ -24,9 +24,7 @@ content, your working copy (overrides published on your phone only), local only
 Design: `docs/SEQUENCE_SYSTEM_DESIGN.md` — sequences placed like puzzles / world groups
 (anchor, bounds, components: library characters, marks, zones, thoughts, dressing),
 a logic list of *When → run event* lines, and a game-wide events library whose events
-use roles. Replaces the Story scope's Characters / Marks / Triggers tabs (start fresh).
-- [ ] **1 — Events:** events library + page (roles, steps incl. Control); the game runs an event's steps.
-- [ ] **2 — Sequences:** library, unique / template, anchor, components (characters, marks, zones), logic lines, Play from here; replaces the Story tabs.
+use roles. Steps 1–2 (events library, sequences with characters / marks / zones and logic) done 10 Nov.
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
 - [ ] **4 — World Lab sequences track:** bounds, details, Open in game, Play from here.
 - [ ] **5 — Camera and look steps** (opening pan, fades, letterbox, colour, Skip), Sequence Lab, node graph view.
@@ -63,24 +61,14 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
-**0ae. Story: triggers and flags (9 Nov)** — game → Edit → **Story → Triggers**
-- [ ] **+ Add trigger**, tap the path: a dashed band appears with its name. Add reactions for a character: *Switch its animation*, *Turn to face the player* (0 s = from then on), *Play an animation once* (0.5 s later), *Say something*, *Set a flag* (e.g. `met-father`). **Save story**, **Done Editing**, walk into the band: it all plays in order; the line shows as a dark subtitle strip with the speaker's name.
-- [ ] Characters → another character → **Shown: While flag is set** `met-father`: it appears only after the trigger.
-- [ ] A second trigger set to *Presses Action in it* (button text *Talk*), *Only while flag is set*, with *Walk to a mark*: inside it the Action button reads TALK; pressing it makes the character walk to the mark. Close and reopen the app: the character is still at the mark, the first trigger doesn't fire again.
-- [ ] Characters → Father → **When the player reaches a trigger** → Trigger *+ New trigger just before it*, It… *walks to a mark* → **+ Add**: a trigger *Before Father* appears 3–4 m before him with the reaction shown right there (pick the mark). ▶ Play, walk in: he walks to the mark.
-- [ ] A character with a route set to Starts **From a trigger** shows an orange note until a trigger starts it; **+ New trigger that starts it** adds one and the note becomes *Started by ⚑ …*.
-- [ ] **TEST bar** (top right, every editor scope): **▶ Play** keeps the editor (zones, marks, labels stay; the drawer folds to its EDIT rail) and shows Jump / Action / the walk slider; walk into a trigger and it fires. **↺ Restart** puts Aureli back where Play began with the story reset; walk in again. **■ Stop** reopens the drawer as it was. Works the same from Environment, Terrain and Puzzle.
-- [ ] Trigger → **Play from before it**: Play starts 2.5 m before the zone, story reset, still in the editor. **Fire now** plays it in place and walking in still fires it afterwards. Done Editing with unsaved Story changes asks to save.
-- [ ] Scroll far down a Story panel, Done Editing, Menu → Edit: the drawer opens at the top with the scope buttons visible.
-- [ ] Story progress (bottom of the Story panel) lists the flags; **Reset story progress** puts everything back as for a new player. Menu → Delete save (player mode) also resets it.
-
-**0ad. Story: world characters and marks (8 Nov)** — game → Edit → **Story**
-- [ ] The scope row shows Environment · Terrain · Puzzle · Story on one line, readable.
-- [ ] Characters tab: pick a character → **+ Add character** → tap the ground: it appears there (nearer the camera if you tap lower). Change Animation (e.g. a chop or idle), Size, Facing, Depth; tap it in the view to select it (it tints pink while selected).
-- [ ] Marks tab: add two marks. Back on the character: **+ Add move to a mark** twice (to each mark), one with *Takes… 20 s*; the yellow route line and the timeline list appear; it walks between them with its feet keeping to the ground; *Repeat* makes it go round.
-- [ ] **Save story**, Done Editing, close and reopen the app: the characters are still there and walking.
-- [ ] Play: walk into a character standing on the path (Blocks: Auto) — you can't walk or jump past; set it to *Never* and you walk through.
-- [ ] Publish Lab shows a **Story** area (New) to publish.
+**0af. Sequences and events (10 Nov)** — game → Edit → **Sequences** (the old Story tabs are gone; start fresh)
+- [ ] Scope row reads Environment · Terrain · Puzzle · Sequences on one line.
+- [ ] **Events → + New event** (it has an *Actor* role) → **+ Mark role** (*Exit*) → steps **+ Face** (the player), **+ Say** (a line), **+ Control** (take), **+ Move** (Actor to Exit, Walk), **+ Control** (give back), **+ Flag** (`met-father`). Tick *At the same time as the step before* on one to see two run together.
+- [ ] **Sequences → + New sequence**, tap the ground: a green post with its name appears. **+ Character** (pick one) tap; **+ Mark** tap; **+ Zone** tap the path before the character. **+ Add line**: When *The player walks into a zone* (your zone) → Run your event → Actor = the character, Exit = the mark. **Save**.
+- [ ] **▶ Play from here**: walk into the zone — the character turns, speaks (subtitle strip), you can't move while it walks to the mark, then control returns. ↺ Restart (TEST bar) to try again. **Test now** on a line runs it without walking in.
+- [ ] Sequence page → **Save as template**, then Sequences list → **+ Place** the template elsewhere: both copies behave the same; **Make unique** on one and change it: the other is unchanged.
+- [ ] TEST bar ▶ Play / ↺ Restart / Reset story / ■ Stop still work; Done Editing with unsaved changes asks to save; reopening the editor shows the drawer at the top.
+- [ ] Publish Lab → **Story** area (Sequences and events) shows as New.
 
 **0ac. Automatic publishing (7 Nov)** — first use
 - [ ] One-off: GitHub → repo **Settings → Actions → General → Workflow permissions** → *Read and write permissions* + *Allow GitHub Actions to create and approve pull requests* → Save.

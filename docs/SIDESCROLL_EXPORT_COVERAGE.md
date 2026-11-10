@@ -1,5 +1,10 @@
 # SideScroll — Export and Recovery Coverage
 
+## 10 November 2026 — Sequences and events
+- New content keys `sidescroll.story.events.v1` (events library) and `sidescroll.story.sequences.v1` (templates and placed sequences), Story area: published with the Publish Lab Story area, in Project Backup (all `sidescroll.` keys). Written by the game editor's Sequences scope (*Save*); empty libraries remove the key.
+- New progress key `sidescroll.player.story-progress.v2` (flags, fired once-only lines, lasting changes to sequence components). Never published; cleared by Delete save and the TEST bar's Reset story.
+- Retired (stale in the catalogue): `sidescroll.story.world-characters.v1`, `sidescroll.story.marks.v1`, `sidescroll.story.triggers.v1`, `sidescroll.player.story-progress.v1`.
+
 ## 9 November 2026 — Story triggers and progress
 - New content key `sidescroll.story.triggers.v1` (Story area; publishes with the Publish Lab Story area, travels in Project Backup).
 - New progress key `sidescroll.player.story-progress.v1` (flags, fired once-only triggers, lasting changes triggers made to world characters). Never published; in Project Backup like other `sidescroll.` keys; cleared by the game's Delete save and the Story editor's *Reset story progress*.
