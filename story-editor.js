@@ -220,12 +220,14 @@
         el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Starts' }),
           segmented([['game', 'When play starts'], ['near', 'Player comes near'], ['trigger', 'From a trigger']], route.start || 'game', v => { route.start = v; change(); })),
         el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!route.loop, onchange: e => { route.loop = e.target.checked; change(); } }), 'Repeat (from the last mark back to the first move)'),
+        route.start === 'trigger' ? routeStarters(wc) : null,
         route.moves.map(moveEditor)) : el('p', { class: 'sidescroll-story-help', text: 'No route: it stays where it is placed.' }),
       marks.length
         ? el('button', { type: 'button', onclick: () => { (wc.route ||= { loop: false, start: 'game', moves: [] }).moves.push({ to: marks[0].id, animation: 'walk', timing: 'speed', seconds: 10, wait: 0, face: 'keep' }); change(); } }, '+ Add move to a mark')
         : el('p', { class: 'sidescroll-story-help', text: 'Add marks (Marks tab) to give it somewhere to walk to.' }),
       route ? routeTimeline() : null,
       route ? el('button', { type: 'button', onclick: () => { host.restartRoutes(); host.hint('Routes restarted'); } }, 'Restart routes') : null,
+      ...characterTriggers(wc),
       el('div', { class: 'sidescroll-story-row sidescroll-story-danger' },
         el('button', { type: 'button', onclick: () => {
           const copy = clone(wc); copy.id = Story.newId('wc', new Set(draft.characters.map(c => c.id))); copy.name = `${wc.name} copy`; copy.x += 1.5;
@@ -319,11 +321,56 @@
       c && !c.flag ? el('small', { text: 'Name a flag, or this is ignored.' }) : null);
   }
 
+  // ---- A character's triggers (the same reactions, seen from the character) ----
+  // Triggers stay the one place reactions are stored; the character panel lists
+  // and edits the ones aimed at it, and adds new ones (to an existing trigger or
+  // a new trigger placed just before the character).
+  function reactionsFor(wc) {
+    const out = [];
+    for (const t of draft.triggers) t.reactions.forEach((r, i) => { if (r.target === wc.id) out.push({ t, r, i }); });
+    return out;
+  }
+  function addCharacterReaction(wc, type, triggerId) {
+    let t = triggerById(triggerId);
+    if (!t) {
+      const id = Story.newId('trg', new Set(draft.triggers.map(x => x.id)));
+      t = { id, name: `Before ${wc.name}`, kind: 'enter', x0: wc.x - 4, x1: wc.x - 3, once: true, reactions: [] };
+      draft.triggers.push(t);
+      host.hint(`Added trigger “${t.name}” 3–4 m before ${wc.name} · move it in the Triggers tab`);
+    }
+    t.reactions.push(newReaction(type, wc.id));
+    change();
+  }
+  function characterTriggers(wc) {
+    const linked = reactionsFor(wc);
+    let pickTrigger = '', pickType = wc.route?.start === 'trigger' && !linked.some(x => x.r.type === 'start-route') ? 'start-route' : 'walk-to';
+    return [
+      el('h4', { text: 'When the player reaches a trigger' }),
+      linked.length ? linked.map(({ t, r, i }) => reactionEditor(t, r, i, true))
+        : el('p', { class: 'sidescroll-story-help', text: 'No trigger directs this character yet. Choose a trigger (or a new one just before it) and what it does.' }),
+      el('div', { class: 'sidescroll-story-field' },
+        el('span', { text: 'Trigger' }),
+        select_([['', '+ New trigger just before it'], ...draft.triggers.map(t => [t.id, `⚑ ${t.name}`])], pickTrigger, v => { pickTrigger = v; }),
+        el('span', { text: 'It…' }),
+        select_(REACTION_TYPES.filter(([type]) => CHARACTER_REACTIONS.includes(type) || type === 'say')
+          .map(([type, label]) => [type, label.replace(/^Character /, '').replace('Someone says a line', 'says a line')]), pickType, v => { pickType = v; }),
+        el('button', { type: 'button', class: 'primary', onclick: () => addCharacterReaction(wc, pickType, pickTrigger) }, '+ Add'))
+    ];
+  }
+  // Route "From a trigger": which triggers start it.
+  function routeStarters(wc) {
+    const starters = reactionsFor(wc).filter(x => x.r.type === 'start-route');
+    return starters.length
+      ? el('p', { class: 'sidescroll-story-help', text: `Started by: ${starters.map(x => `⚑ ${x.t.name}`).join(', ')}` })
+      : el('div', { class: 'sidescroll-story-warn' },
+        el('span', { text: 'No trigger starts this route yet, so it never runs. Add one here, or pick an existing trigger with “starts its route” under When the player reaches a trigger.' }),
+        el('button', { type: 'button', class: 'primary', onclick: () => addCharacterReaction(wc, 'start-route', '') }, '+ New trigger that starts it'));
+  }
+
   // ---- Triggers ---------------------------------------------------------------
   const REACTION_TYPES = Object.entries(Story.REACTIONS);
   const CHARACTER_REACTIONS = ['play-once', 'set-animation', 'start-route', 'walk-to', 'face-player'];
-  function newReaction(type) {
-    const target = draft.characters[0]?.id || null;
+  function newReaction(type, target = draft.characters[0]?.id || null) {
     const base = { type, delay: 0 };
     if (type === 'flag') return { ...base, flag: knownFlags()[0] || 'met-father', value: true };
     if (type === 'say') return { ...base, target, text: 'Hello!', seconds: 4 };
@@ -333,7 +380,8 @@
     if (type === 'face-player') return { ...base, target, seconds: 3 };
     return { ...base, target };
   }
-  function reactionEditor(t, r, index) {
+  // fromCharacter: shown on a character's panel (its trigger named, no character picker).
+  function reactionEditor(t, r, index, fromCharacter = false) {
     const list = t.reactions;
     const charOptions = draft.characters.map(c => [c.id, c.name]);
     const targetSelect = (allowNone = false) => select_([...(allowNone ? [['', 'No one (narrator)']] : []), ...charOptions,
@@ -346,11 +394,13 @@
       return input;
     };
     const rows = [];
-    if (CHARACTER_REACTIONS.includes(r.type)) rows.push(field('Character', targetSelect()));
+    if (CHARACTER_REACTIONS.includes(r.type) && !fromCharacter) rows.push(field('Character', targetSelect()));
     if (r.type === 'play-once') rows.push(field('Animation', select_(anims, r.animation, v => { r.animation = v; change(); })),
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Times' }), el('div', { class: 'sidescroll-story-inline' }, num('times', 1, 10, 1, 1), 'then back to what it was doing')));
     if (r.type === 'set-animation') rows.push(field('New animation', select_(anims, r.animation, v => { r.animation = v; change(); }), 'Stops its route where it is; kept for this player'));
-    if (r.type === 'start-route') rows.push(el('p', { class: 'sidescroll-story-help', text: target?.route ? 'Starts its route from the beginning (set the route to start "From a trigger").' : 'This character has no route yet.' }));
+    if (r.type === 'start-route') rows.push(el('p', { class: 'sidescroll-story-help', text: !target?.route ? 'This character has no route yet: add moves to it (Characters → its Route).'
+      : target.route.start === 'trigger' ? 'Starts its route from the beginning.' : 'Starts its route from the beginning. Tip: set its route to Starts “From a trigger” so it waits for this.' }));
+    if (r.type === 'walk-to' && !draft.marks.length) rows.push(el('p', { class: 'sidescroll-story-help', text: 'No marks yet: add one in the Marks tab.' }));
     if (r.type === 'walk-to') rows.push(
       field('To mark', select_(draft.marks.map(m => [m.id, m.name]), r.to || '', v => { r.to = v; change(); })),
       field('Animation', select_(anims, r.animation, v => { r.animation = v; change(); })),
@@ -368,8 +418,9 @@
     if (r.type === 'flag') rows.push(field('Flag', flagInput(r.flag, v => { r.flag = v; change(); })),
       segmented([['set', 'Set it'], ['clear', 'Clear it']], r.value === false ? 'clear' : 'set', v => { r.value = v === 'set'; change(); }));
     return el('div', { class: 'sidescroll-story-move' },
-      el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `${index + 1}. ${Story.REACTIONS[r.type]}` }),
-        el('button', { type: 'button', disabled: index === 0, onclick: () => { list.splice(index - 1, 0, list.splice(index, 1)[0]); change(); } }, '↑'),
+      el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: fromCharacter ? `⚑ ${t.name} → ${Story.REACTIONS[r.type].replace(/^Character /, '')}` : `${index + 1}. ${Story.REACTIONS[r.type]}` }),
+        fromCharacter ? el('button', { type: 'button', onclick: () => select('trigger', t.id, true) }, 'Trigger') : null,
+        fromCharacter ? null : el('button', { type: 'button', disabled: index === 0, onclick: () => { list.splice(index - 1, 0, list.splice(index, 1)[0]); change(); } }, '↑'),
         el('button', { type: 'button', onclick: () => { list.splice(index, 1); change(); } }, 'Remove')),
       ...rows,
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Starts' }),
@@ -395,8 +446,6 @@
     ];
   }
   function triggerEditor(t) {
-    let pickType = 'play-once';
-    const typeSelect = select_(REACTION_TYPES, pickType, v => { pickType = v; });
     const labelInput = t.kind === 'action' ? textInput(t, 'label', 14) : null;
     return el('div', { class: 'sidescroll-story-editor' },
       field('Name', textInput(t, 'name')),
@@ -408,9 +457,10 @@
         segmented([['once', 'Once per player'], ['every', 'Every time']], t.once === false ? 'every' : 'once', v => { t.once = v === 'once'; change(); })),
       conditionEditor('Only', t, 'condition', 'Always'),
       el('h4', { text: 'What happens' }),
-      t.reactions.length ? t.reactions.map((r, i) => reactionEditor(t, r, i)) : el('p', { class: 'sidescroll-story-help', text: 'Nothing yet: add reactions below.' }),
-      el('div', { class: 'sidescroll-story-add' }, typeSelect,
-        el('button', { type: 'button', class: 'primary', onclick: () => { t.reactions.push(newReaction(pickType)); change(); } }, '+ Add')),
+      t.reactions.length ? t.reactions.map((r, i) => reactionEditor(t, r, i)) : el('p', { class: 'sidescroll-story-help', text: 'Nothing yet: add what happens below.' }),
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Add what happens' }),
+        el('div', { class: 'sidescroll-story-choices' }, REACTION_TYPES.map(([type, label]) =>
+          el('button', { type: 'button', onclick: () => { t.reactions.push(newReaction(type)); change(); } }, `+ ${label}`)))),
       el('div', { class: 'sidescroll-story-row' },
         el('button', { type: 'button', onclick: () => { preview(); host.fire(t.id); host.hint(`${t.name}: reactions played (it still fires when walked into; flags it sets are kept until Reset story progress)`); setTimeout(render, 50); } }, 'Fire now'),
         el('button', { type: 'button', class: 'primary', onclick: () => {
