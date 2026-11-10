@@ -1,225 +1,140 @@
-# Story sequences — design (agreed 8 Nov 2026)
+# Sequences — design (agreed 10 Nov 2026)
 
-> **Authoring model superseded (10 Nov 2026) by `CUTSCENE_SYSTEM_DESIGN.md`:** world
-> characters, marks and triggers become components of cutscenes, and reactions become
-> reusable events run from a cutscene's sequence. The camera, look and screen ideas
-> below (sections 1.3, 4) still describe the later camera and look steps.
+Story moments and world behaviour — the father who stops chopping and greets Aureli,
+a deer that sees her and bolts, the opening pan — are **sequences**: things placed in
+the world like puzzles and world groups, built from **components** and a **logic**
+list of *When → run event* lines, where each **event** comes from one game-wide
+library.
 
-Goal: drop short pieces of story between gameplay — an opening camera move that
-lands on Aureli and hands control over, the father chopping wood as she walks out,
-a scene that plays when she reaches a place — authored on the phone, with no code
-per scene, and seamless in and out of play.
+This replaces the earlier authoring model (8–9 Nov: world characters, marks and
+triggers, each with their own options and cross-links), which is retired — we start
+fresh. The game-side pieces built then are reused underneath: drawing a library
+character anywhere, walking between points with the feet matched to the speed,
+blocking, zones that fire, the subtitle speech strip, story flags, ▶ Play in the
+editor and the TEST bar.
 
-This builds on what exists: the game camera (follows the player along the path; a
-tuned height, distance and tilt), characters that play any Character Lab animation,
-action slots (Walk, Run, …), thought triggers and thought bubbles, fog. It is the
-same idea as the character system: a few data pieces, authored in the editor, read
-by the game.
+## Each system has one job
+| System | Its job | Where it lives |
+|---|---|---|
+| **Characters** | What a character *is* (art, rig, animations, collider). One of each for the whole game: one Father. | Character Lab (exists) |
+| **Events** | A reusable chain of steps written with **roles** — *"Greet and leave"*, *"Flee from the player"*. | Events library |
+| **Sequences** | What is placed where (components) and what happens when (logic). Unique, or a template placed as instances. | Sequences library, placed in the world |
+| **Story flags** | What has happened for this player. Set by steps, read by logic and sequences. | Play progress |
 
-**Decisions (8 Nov):** author in the game editor; side-on camera only (no angled
-shots); dialogue is a speech bubble, a version of the thought bubble that looks
-different and closer to a subtitle (agreed 8 Nov); every sequence can be skipped; world
-characters can stand at any depth and block the player when they're on the path,
-with blocking switchable per character; triggers can change what an existing
-character is doing; World Lab shows triggers and other placed story items along the
-journey with their details; characters move between marks with an animation tagged
-for the move (start at A at 0 s, walk to B by 60 s).
+Nothing else holds behaviour. A component only says what it is and where it stands; a
+character never knows which sequences use it; an event never knows where it is used.
 
----
+## Sequences
+- **Anchor** — x along the journey, like a puzzle marker. Components are placed
+  relative to it, so moving the anchor moves the whole sequence.
+- **Bounds** — the stretch its components and zones cover (worked out; shown in the
+  editor and World Lab), plus a preload distance for streaming.
+- **Components** — each has a name inside the sequence and a place:
+  - **Character** — a reference to a library character, *or* a random pick from a list
+    (person, deer, fox), chosen afresh each time a logic line runs. To always get the
+    same one, make a bespoke version that names it. Its standing animation, facing,
+    depth, blocks the player (Auto / Always / Never).
+  - **Mark** — a named spot (x, depth, facing).
+  - **Zone** — a stretch of path the player can walk into, or press Action in (with the
+    button's label).
+  - **Thought** — a thought-bubble line shown when the player comes near (today's
+    thought triggers, owned by the sequence).
+  - **Dressing** — assets from the asset list, as in a world group.
+- **Logic** — lines, in order:
+  - **When** — the sequence loads · the player walks into *zone* · presses Action in
+    *zone* · another line's event finishes · a flag is set.
+  - **Run** — an event from the library, each of its roles filled from this sequence's
+    components (*Actor* = Father, *Exit* = Woodpile).
+  - **Only if** (optional) — a flag is / isn't set. **Once** or **every time**.
+- **Active while** (optional) — the sequence exists only while a flag is / isn't set
+  (the intro's Father is gone once `intro-done` is set; the home sequence's Father
+  appears). The editor warns if two active sequences place the same character in
+  overlapping bounds.
+- **Unique or template** — as puzzles and world groups. A template is placed as
+  linked instances (each with its own anchor; components and logic shared); an
+  instance can be made unique.
 
-## 1. The pieces
+The player keeps control while a sequence plays, unless an event's steps take it away
+(see **Control** below).
 
-### 1.1 World characters (actors placed in the world)
-A character placed at a spot in the world, independent of the player:
-- **character** (any character from the registry), **position** (x along the
-  journey, **depth** — on the path or anywhere in front of / behind it — facing),
-  **scale** (default its own);
-- **behaviour**: what it does when nothing else is directing it (§1.3) — loop an
-  animation (chop wood, idle, sweep) with a speed and a start offset so two villagers
-  don't move in step, or walk a route of marks;
-- **blocks the player**: *Auto* (blocks when it stands within the path band, using its
-  own collider, like a solid object; doesn't when it's off the path), *Always* or
-  *Never* — so a character standing in the way can be walked through when a scene
-  needs it;
-- **visible when**: always, or only while a story flag is / isn't set (the father is
-  chopping wood until the Darkness, gone after).
+## Events
+- A **name**, its **roles** (each a kind: Character, Mark, Zone), and **steps** in
+  order. Each step runs *after the previous one* or *with the previous one*.
+- **Steps** (first set):
+  - **Move** — *role* walks / runs / any animation to *mark role* (or N m in a
+    direction), at its own speed or arriving after N s.
+  - **Animate** — *role* plays an animation once (N times) and goes back, or switches
+    to a new looping animation.
+  - **Face** — *role* faces the player / left / right / another role.
+  - **Say** — *role* (or no one) says a line, shown as the subtitle strip, for N s.
+  - **Think** — the player thinks a line (thought bubble).
+  - **Wait** — N s.
+  - **Flag** — set or clear a story flag.
+  - **Show / Hide** — a component appears or disappears.
+  - **Control** — take control from the player, or give it back (also given back when
+    the event ends, so a player is never left stuck).
+  - Later: **Camera**, **Fade**, **Letterbox**, **Look** (see *Later* below).
+- Events are game-wide: any sequence can run any event. Changing an event changes it
+  everywhere it is used; its page lists where.
 
-The game draws them like the player (same mesh or parts drawing, same held-item
-rules, same depth sorting as scenery), and only loads a character's art when a world
-character or sequence needs it.
+## Editing — one consistent pattern
+Everything is a **list → open → edit** page, and things are added only with
+**+ Add *thing*** choosing from a list. No option is hidden in another thing's menu,
+and each thing is edited in exactly one place.
+- In the game editor, the **Story** scope becomes **Sequences**, with two lists:
+  **Sequences** (templates and placed ones) and **Events**.
+- **Sequence page** — *Placement* (anchor, unique / template, active while),
+  *Components* (+ Add character / mark / zone / thought / dressing, each placed by tap
+  and shown in the world while the sequence is open), *Logic* (+ Add line: When → Run
+  event → fill its roles).
+- **Event page** — *Roles* (+ Add role) and *Steps* (+ Add step from the step list;
+  each step picks its roles from a list).
+- **Testing** — the TEST bar (▶ Play, ↺ Restart, Reset story) plus **Play from here**
+  on a sequence (Play starts just before its bounds, story reset). A **Sequence Lab**
+  page to test one in isolation comes later.
+- The lists are the source of truth; a **node graph** could later be another view of
+  the same logic and events.
 
-### 1.2 Marks and moves
-A **mark** is a named spot in the world (x, depth, facing) — *Father's block*,
-*Gate*, *Doorway*. Marks are placed in the editor and listed in World Lab; anything
-that moves a character refers to marks, so moving a mark moves every route through it.
+## Streaming
+Sequences stream like puzzles and world groups: within the preload distance of its
+bounds a sequence's data and its characters' artwork are loaded and its logic starts
+listening; once the player has passed it by the unload distance it is unloaded (its
+progress is kept). Only what is near stays loaded.
 
-A **move** takes a character from one mark to another:
-- **from / to** marks (from = wherever it stands, by default);
-- **timing**: *arrive at* a time (start at A at 0 s, reach B at 60 s — the speed
-  follows from the distance) or *at speed* (its normal walk speed);
-- **animation**: an action slot or animation tagged for the move — Walk by default,
-  Run, Sneak, Carry… The animation plays at a rate matched to the speed so the feet
-  don't slide (as the game already does for the player);
-- **on arrival**: face a direction, then play an animation (loop or once) or hold.
+## World Lab
+A **Sequences** track along the journey shows each placed sequence's bounds and name
+(instances marked). Tapping one shows its details — components, logic lines, flags it
+reads and sets — with **Open in game** and **Play from here**.
 
-The same move is used everywhere: in a world character's route (behaviour), in a
-trigger's reaction (§1.4) and as a clip on a sequence's actor track (§1.3).
-
-### 1.3 Sequences (timelines)
-A named timeline of a few seconds to a couple of minutes. Tracks:
-
-| Track | Keys / clips |
-|---|---|
-| **Camera** | Side-on shots: position along the path (world x), height, distance, tilt, field of view; each key has an ease (linear, ease in/out, hold). A key can be *relative to an actor* (frame Aureli wherever she stands). The last key can be **Gameplay camera**: blend back into the normal follow camera. |
-| **Actors** | One row per actor (the player or any character): **move** clips (§1.2, drawn as a bar from start time to arrival), face, play an animation for a time or once, appear / disappear. The player is just another actor while a sequence runs. |
-| **Look** | Fog colour and amount, colour grade (tint, brightness, saturation), vignette, fade to / from black — keyed and eased like the camera. |
-| **Screen** | Hide / show the controls, letterbox bars in / out, **speech bubbles** (attached to an actor, with text and timing) and thought bubbles. |
-| **Events** | At a time: set / clear a story flag, show / hide an object or world character, change a world character's behaviour, start / finish a puzzle state, play a sound (later), start another sequence. |
-
-A sequence ends either by **handing back** (camera blends to gameplay over ~1 s,
-controls fade in, the player stands where the sequence left her) or by leading
-straight into another sequence. World characters the sequence moved stay where it
-left them, doing what it last told them to.
-
-### 1.4 Triggers (what starts something)
-Placed in the world (shown in the editor like thought triggers, and in World Lab):
-- **New game** — fires once on a fresh start (the opening);
-- **Enter area** — the player walks into a zone (x range, optional depth);
-- **Action** — the player presses Action near a spot, object or character;
-- **After** — a story flag is set or a puzzle is solved (e.g. a short reveal when the
-  Stone Wall opens).
-
-A trigger does one or more **reactions**, in order or together:
-- **play a sequence** (the player loses control until it hands back);
-- **direct a character** without taking control: make an existing world character
-  react — play an animation once (looks up, waves) then go back to what it was doing,
-  switch to a new behaviour (stop chopping, sit down), make a move to a mark, turn to
-  face the player — and optionally show a speech bubble. The player keeps playing;
-- **set / clear a flag**, show / hide an object.
-
-Each trigger: **once** (default) or **every time**, an optional *only if* flag
-condition, and an optional delay.
-
-### 1.5 Story flags
-A small saved list of facts — `intro-seen`, `met-father`, `darkness-came` — set by
-sequence events, triggers (and later puzzle logic), read by triggers and world
-characters. Saved with play progress (each player has their own), so a sequence
-doesn't replay after a reload and the world remembers what has happened.
-
----
-
-## 2. How it fits with what's planned
-- **Puzzle logic** (in `TASKS.md` → Later) is *Event → Conditions → Actions*. Triggers
-  are events, flags are conditions, and reactions are actions. Build both on one small
-  model so puzzles and story share it (solving a puzzle can play a sequence; a
-  sequence can open a route).
-- **Actions and action paths (C5/C6)** stay later: sequences only need *play this
-  animation* and *move between marks*, which characters already support. Moves name
-  action slots, so a new slot (Sneak) works in moves as soon as a character has an
-  animation for it.
-- **Atmosphere**: the *Look* settings can also be placed as **atmosphere zones**
-  (the muted, misty "after" forest) that blend as you walk in — the same values, so
-  the post-process layer serves both.
-
----
-
-## 3. Authoring (phone-first)
-
-### 3.1 In the game editor — a **Story** scope
-Next to Environment / Terrain / Puzzle; shots are composed in the real world with the
-real camera and characters:
-- **World characters**: *Add character* → pick → place with a tap (depth by drag or
-  slider) → behaviour, speed, facing, blocks the player, visible-when.
-- **Marks**: *Add mark* at the tap point; name, facing; drag to move.
-- **Sequences**: a list (new, rename, duplicate, delete); opening one shows a
-  **timeline dock** at the bottom (like Character Lab's: scrub bar, play / pause,
-  the tracks as rows). *Key camera here* stores the current view (flown with the
-  existing camera controls); tapping a key edits it (ease, hold, relative to).
-  *Add move* on an actor row: pick the to-mark and the animation, drag the bar's end
-  to set the arrival time. **Preview** plays it in place; **Play from start** runs it
-  as the player would see it.
-- **Triggers**: *Add trigger* → type → place / size the zone → reactions → once /
-  every time, only-if flag.
-
-Saving uses the editor's normal Save / Discard (an edit session like world groups).
-
-### 3.2 In World Lab — **story tracks** along the journey
-World Lab already lays out the journey by world position. Under it, a set of
-**tracks** (rows that share its x axis and zoom), each switchable on / off:
-- **Triggers** — each a block spanning its zone (a tick for point triggers), labelled
-  with its type and what it does (*Enter area → Intro pan*, *Action → Father waves*);
-- **Characters** — world characters at their x, with their routes drawn as lines
-  between marks;
-- **Marks**, **Sequences** (where each is triggered, and the x range its camera
-  covers), and the things already placed by world position: thought triggers,
-  puzzles, atmosphere zones (stage 4).
-
-Tapping an item opens its **details** (type, zone, reactions, conditions, once / every
-time, flags it sets and reads) without going into the game; small edits (rename, move
-the zone, change once / every time, change a reaction's sequence) are made there.
-A **list view** shows the same items in journey order as a table, and *Open in game*
-jumps the editor to that spot. World Lab and the game editor edit the same stored
-data (no copies); the composing of shots and moves stays in the game editor.
-
----
-
-## 4. Running it in the game
-- While a sequence runs the player's input is ignored except **Skip**: shown after a
-  moment on every sequence (hold to skip, so a stray tap doesn't), and at once while
-  editing. Skipping jumps to the end state: flags set, characters at their final
-  marks and behaviours, camera handed back.
-- **Hand-back**: the camera eases from its last key into the follow camera, the
-  controls fade in, normal physics resumes from where she stands.
-- **Directed characters** (trigger reactions) run alongside play; the player keeps
-  control.
-- **Interrupted** (app closed mid-sequence): on the next launch the sequence is
-  treated as finished — the same end state as Skip — so the player is never stuck in
-  a half-played scene.
-- **Blocking**: a blocking world character is a solid box from its collider for the
-  player's movement (no pushing; jumping onto it is off by default).
-- **Performance**: world characters are drawn and updated only near the camera; each
-  extra on-screen character costs about one character's drawing.
-
----
-
-## 5. Storage (new keys, catalogued when built)
+## Storage (new keys, catalogued when built)
 | Key | Scope | Holds |
 |---|---|---|
-| `sidescroll.story.world-characters.v1` | content | placed world characters and their behaviours |
-| `sidescroll.story.marks.v1` | content | named marks |
-| `sidescroll.story.sequences.v1` | content | sequences and their tracks |
-| `sidescroll.story.triggers.v1` | content | triggers and their reactions |
-| `sidescroll.story.look.v1` | content | atmosphere zones (stage 4) |
-| `sidescroll.player.story-progress.v1` | progress | each player's story flags, fired triggers and lasting changes to world characters |
+| `sidescroll.story.events.v1` | content | the events library |
+| `sidescroll.story.sequences.v1` | content | sequence templates and placed sequences (anchor, components, logic) |
+| `sidescroll.player.story-progress.v1` | progress | flags, fired lines per placed sequence, lasting changes per component |
 
-Content keys publish with a new Publish Lab area **Story**; flags are play progress
-(never published). All go in Project Backup automatically (catalogue).
+The 8–9 Nov keys (`sidescroll.story.world-characters.v1`, `…marks.v1`,
+`…triggers.v1`) are retired and marked stale.
 
----
+## Build order (each step usable on its own)
+1. **Events** — the events library and its page (roles, steps), and the game running
+   an event's steps (reusing the existing runtime).
+2. **Sequences** — library, unique / template, anchor, components (characters, marks,
+   zones), logic lines (When → Run with roles, Only if, Once), Play from here. Replaces
+   the Story scope's Characters / Marks / Triggers tabs.
+3. **More components and streaming** — thoughts, dressing, random character picks,
+   Active while; sequences load and unload by distance.
+4. **World Lab sequences track** — bounds, details, Open in game, Play from here.
+5. **Camera and look steps**, Sequence Lab, node graph view.
 
-## 6. Build order (each stage usable on its own)
-1. **World characters and marks** *(done 8 Nov: `story-world.js`, `story-editor.js`;
-   *visible when* is stored but waits for stage 2's flags)* — place a character at any depth with a looping
-   animation (the father chopping wood), facing, scale, blocks the player
-   (Auto / Always / Never), visible-when; marks; a route of moves between marks
-   (walk A → B by time t, tagged animation); Story scope in the editor.
-2. **Triggers that direct characters** (Enter area / Action → play once, switch
-   behaviour, move to a mark, face the player), story flags, and **World Lab story
-   tracks** with details and the list view. *(2a — triggers, reactions (incl. a simple
-   Say line), flags, visible-when, routes from a trigger — done 9 Nov; 2b — World Lab
-   tracks — next.)*
-3. **First sequences** — camera track (keys, eases, relative-to-player, blend back to
-   gameplay), fades and letterbox, hide/show controls, **New game** trigger, Skip.
-   *Your opening pan that lands on Aureli.*
-4. **Actor tracks** (moves, face, animate, appear, the player as an actor) and
-   **speech bubbles**.
-5. **Look track** with a colour grade + vignette layer, and **atmosphere zones**.
-6. **Events and flags shared with puzzle logic** (After triggers, show/hide objects,
-   puzzle states, sequence chaining).
-
----
-
-## 7. Still to decide
-- The speech bubble's exact look (agreed: like the thought bubble, but subtitle-like),
-  and whether lines are text only, or with sound later.
-- *Decided 8 Nov:* a blocking character can't be walked, jumped or pushed past.
+## Later: camera and look steps (from the 8 Nov design)
+- **Camera** — side-on only (agreed): position along the path, height, distance, tilt,
+  field of view; eased keys (linear, ease in / out, hold); a key can frame a role
+  wherever it stands; the last can blend back into the normal follow camera.
+- **Look** — fog colour and amount, colour grade (tint, brightness, saturation),
+  vignette, fade to / from black; the same values as placeable atmosphere zones.
+- **Screen** — letterbox bars in / out, hide / show the controls.
+- **Skip** — every sequence that takes control can be skipped (hold to skip), jumping
+  to its end state; an interrupted one (app closed) counts as finished.
+- **Speech** — like the thought bubble but subtitle-style (in use); its exact look and
+  whether lines get sound are still to decide.

@@ -20,17 +20,16 @@ content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
 
-### Cutscenes (proposed 10 Nov — design for your review)
-Design: `docs/CUTSCENE_SYSTEM_DESIGN.md` — cutscenes placed like puzzles / world groups
+### Sequences (agreed 10 Nov)
+Design: `docs/SEQUENCE_SYSTEM_DESIGN.md` — sequences placed like puzzles / world groups
 (anchor, bounds, components: library characters, marks, zones, thoughts, dressing),
-a sequence of *When → run event* lines, and a game-wide events library whose events
+a logic list of *When → run event* lines, and a game-wide events library whose events
 use roles. Replaces the Story scope's Characters / Marks / Triggers tabs (start fresh).
-Answer its questions before step 1.
-- [ ] **1 — Events:** events library + editor (roles, steps); the game runs an event's steps.
-- [ ] **2 — Cutscenes:** library, unique / template, anchor, components (characters, marks, zones), sequence lines, Play from here; replaces the Story tabs.
-- [ ] **3 — More components and streaming:** thoughts, dressing, random character picks, Active while; load / unload by distance.
-- [ ] **4 — World Lab cutscene track:** bounds, details, Open in game, Play from here.
-- [ ] **5 — Camera and look steps** (opening pan, fades, letterbox, colour), Cutscene Lab, node graph view.
+- [ ] **1 — Events:** events library + page (roles, steps incl. Control); the game runs an event's steps.
+- [ ] **2 — Sequences:** library, unique / template, anchor, components (characters, marks, zones), logic lines, Play from here; replaces the Story tabs.
+- [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
+- [ ] **4 — World Lab sequences track:** bounds, details, Open in game, Play from here.
+- [ ] **5 — Camera and look steps** (opening pan, fades, letterbox, colour, Skip), Sequence Lab, node graph view.
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
 Design: `docs/CHARACTER_SYSTEM_DESIGN.md`. Every character is built the same
