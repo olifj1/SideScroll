@@ -61,6 +61,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0aj. Sequences editor layout (11 Nov)**
+- [ ] Open a sequence: a small **‹ Back** top left with its name; Components has **+ Character / + Mark / + Zone** across the top; **+ Character** shows a list of characters — pick one, then tap the ground. Each component row has a **×** on the right. Add several without scrolling to the bottom.
+- [ ] Logic **+ Add line** at the top; the new line scrolls into view. An event (from *Open* or *+ New event…*): **+ Add step** shows the list of steps; **‹ Back** returns to the sequence.
+
 **0ai. Blocked path (11 Nov)** — the full test: Edit → Sequences
 - [ ] Sequence *Blocked path*: **Zone** *Approach* on the path; **Character** *Guard* just past it on the path (Blocks: Auto, facing left); **Mark** *Aside* a step off the path (depth about −2.5); **Mark** *Shot* between them.
 - [ ] Event *Blocked and stepping aside* (placeholders Actor, Aside, Shot): Control take → Screen bars in → Camera frame *Shot*, Move back −2, over 1.5 s, **Keep after the event** → Face the player → Say "You can't pass… not yet." → **Wait for Action** (*Talk*) → Say "Very well." → Move Actor to Aside → Screen bars out → Control give back.
