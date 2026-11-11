@@ -18119,8 +18119,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (k >= 1 && !seqCamera.shot) seqCamera = null; // back with the player
     return seqCameraNow;
   }
-  function seqCameraTo(run, shot, seconds, ease = 'smooth') {
-    seqCamera = { run: run?.id ?? null, from: { ...seqCameraNow }, shot, t0: storyNow(), duration: Math.max(0, seconds), ease };
+  function seqCameraTo(run, shot, seconds, ease = 'smooth', keep = false) {
+    seqCamera = { run: run?.id ?? null, keep, from: { ...seqCameraNow }, shot, t0: storyNow(), duration: Math.max(0, seconds), ease };
   }
   // Screen: a black fade and letterbox bars over the game (not over the editor).
   let seqFadeEl = null, seqBarsEl = null;
@@ -18149,7 +18149,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   // Everything an event held is let go when it ends (or when runs are cleared).
   function seqReleaseRun(runId) {
-    if (seqCamera && seqCamera.shot && (runId === null || seqCamera.run === runId)) seqCameraTo(null, null, 1);
+    if (seqCamera && seqCamera.shot && !seqCamera.keep && (runId === null || seqCamera.run === runId)) seqCameraTo(null, null, 1);
     if (seqScreen.faded && (runId === null || seqScreen.fadeRun === runId)) seqSetFade(false, 0.6);
     if (seqScreen.bars && (runId === null || seqScreen.barsRun === runId)) seqSetBars(false, 0.6);
   }
@@ -18241,9 +18241,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         const targetX = !target ? () => character.x
           : target.kind === 'character' ? () => (seqCharacterNow(run, target) || seqComponentPlace(run.p, target)).x
           : () => seqComponentPlace(run.p, target).x;
-        seqCameraTo(run, { targetX, side: step.side, height: step.height, distance: step.distance, tilt: step.tilt }, step.seconds, step.ease);
+        seqCameraTo(run, { targetX, side: step.side, height: step.height, distance: step.distance, tilt: step.tilt }, step.seconds, step.ease, !!step.keep);
         return now + step.seconds;
       }
+      case 'prompt':
+        // Waits (even while control is taken) until the player presses Action.
+        run.prompt = { label: step.label || 'Talk' };
+        return Infinity;
       case 'screen':
         if (step.action === 'fade-out') seqSetFade(true, step.seconds, run);
         else if (step.action === 'fade-in') seqSetFade(false, step.seconds, run);
@@ -18274,10 +18278,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     seqRuns = seqRuns.filter(run => !run.done);
     // The on-screen controls dim while a sequence holds control.
-    const locked = seqControlLocks.size > 0;
+    const locked = seqControlLocks.size > 0, prompting = !!seqPromptRun();
     if (locked !== seqControlShown) { seqControlShown = locked; document.body.classList.toggle('sidescroll-seq-control', locked); }
+    if (prompting !== seqPromptShown) { seqPromptShown = prompting; document.body.classList.toggle('sidescroll-seq-prompt', prompting); }
   }
-  let seqControlShown = false;
+  let seqControlShown = false, seqPromptShown = false;
   const storyPlayerX = () => character.x + colliderWorld().offsetX;
   function updateStoryTriggers() {
     if (!Seq) return;
@@ -18300,7 +18305,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       for (const c of body.components) {
         if (c.kind !== 'zone') continue;
         const span = seqZoneSpan(p, c), key = compKey(p.id, c.id);
-        if (px + r < span.x0 || px - r > span.x1) { seqInside.delete(key); continue; }
+        if (px + r < span.x0 || px - r > span.x1) {
+          if (seqInside.delete(key)) for (const l of lines) if (l.when.type === 'leave' && l.when.zone === c.id && seqLineReady(p, l)) seqFireLine(p, body, l);
+          continue;
+        }
         if (seqInside.has(key)) continue;
         seqInside.add(key);
         for (const l of lines) if (l.when.type === 'enter' && l.when.zone === c.id && seqLineReady(p, l)) seqFireLine(p, body, l);
@@ -18321,7 +18329,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   // The Action-button line the player is standing in, if any: {label, fire}.
   function storyActionTrigger() {
-    if (!Seq || editLocked() || carriedObject || storyControlLocked()) return null;
+    if (!Seq || editLocked()) return null;
+    const waiting = seqPromptRun();
+    if (waiting) return { label: waiting.prompt.label, fire: () => answerSeqPrompt(waiting) };
+    if (carriedObject || storyControlLocked()) return null;
     const px = storyPlayerX(), r = colliderWorld().radius;
     for (const { p, body } of seqResolved) {
       for (const l of body.logic) {
@@ -18336,6 +18347,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return null;
   }
   function fireStoryTrigger(trigger) { trigger?.fire?.(); }
+  // An event waiting for Action (a Wait for Action step), if any.
+  function seqPromptRun() { return seqRuns.find(run => run.prompt) || null; }
+  function answerSeqPrompt(run) {
+    run.prompt = null;
+    run.active = run.active.filter(until => until !== Infinity);
+  }
   // Zones the player stands in when play starts don't fire until she leaves them.
   function markStoryZonesInside() {
     seqInside.clear();
@@ -18521,7 +18538,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       character.lastFacing = 1;
       setEditorPlayTest(true);
     },
-    playing: () => editorPlayTest
+    playing: () => editorPlayTest,
+    // Read-only test hooks: the camera's move from the follow view, and any event waiting for Action.
+    cameraShot: () => ({ ...seqCameraNow, keep: !!seqCamera?.keep, active: !!seqCamera }),
+    waitingFor: () => seqPromptRun()?.prompt?.label || null
   });
 
   function nearestActionPushable() {
@@ -18635,6 +18655,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function updateActionUI() {
     if (!actionBtn || !actionLabel) return;
     actionBtn.classList.remove('ready', 'carrying');
+    const waiting = !editLocked() ? seqPromptRun() : null;
+    if (waiting) {
+      actionLabel.textContent = waiting.prompt.label.toUpperCase();
+      actionBtn.classList.add('ready');
+      return;
+    }
     if (climbState) {
       actionLabel.textContent = 'CLIMBING';
       actionBtn.classList.add('ready');
@@ -19314,6 +19340,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   function performAction() {
+    if (seqPromptRun() && !editLocked()) { fireStoryTrigger(storyActionTrigger()); return; }
     if (introLocked || storyControlLocked() || editLocked() || inventoryOpen || interactionState || autoDropStep || climbState) return;
     if (pushingObject) { stopPush(); return; }
     const climbTarget = nearestActionClimbTarget();

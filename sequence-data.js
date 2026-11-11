@@ -34,11 +34,12 @@
     show:    { label: 'Show / Hide', help: 'a character appears or disappears', roles: { actor: 'character' } },
     control: { label: 'Control', help: 'takes control from the player, or gives it back', roles: {} },
     camera:  { label: 'Camera', help: 'frames a mark, a character or the player; or goes back to following the player', roles: { target: 'any' } },
-    screen:  { label: 'Screen', help: 'fades to / from black, letterbox bars in / out', roles: {} }
+    screen:  { label: 'Screen', help: 'fades to / from black, letterbox bars in / out', roles: {} },
+    prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} }
   });
   const SCREEN_ACTIONS = Object.freeze({ 'fade-out': 'Fade to black', 'fade-in': 'Fade in from black', 'bars-in': 'Letterbox bars in', 'bars-out': 'Letterbox bars out' });
   const WHEN = Object.freeze({
-    load: 'The sequence starts', enter: 'The player walks into a zone', action: 'The player presses Action in a zone',
+    load: 'The sequence starts', enter: 'The player walks into a zone', leave: 'The player leaves a zone', action: 'The player presses Action in a zone',
     finish: 'Another line’s event finishes', flag: 'A story flag is set'
   });
   const DEPTH = [-40, 10];
@@ -123,6 +124,11 @@
         out.tilt = round(clamp(raw.tilt, -4, 4, 0), 100);
         out.seconds = round(clamp(raw.seconds, 0, 60, 2), 100);
         out.ease = raw.ease === 'linear' ? 'linear' : 'smooth';
+        // keep: the shot stays after the event ends, until a later "back" step.
+        if (out.mode === 'shot' && raw.keep) out.keep = true;
+        break;
+      case 'prompt':
+        out.label = text(raw.label, 14, 'Talk');
         break;
       case 'screen':
         out.action = SCREEN_ACTIONS[raw.action] ? raw.action : 'fade-out';
@@ -170,7 +176,7 @@
     const id = idOr(raw.id, ID.line, 'l', taken);
     const type = WHEN[raw.when?.type] ? raw.when.type : 'enter';
     const when = { type };
-    if (type === 'enter' || type === 'action') {
+    if (type === 'enter' || type === 'leave' || type === 'action') {
       if (componentKinds.get(raw.when.zone) === 'zone') when.zone = raw.when.zone;
       if (type === 'action') when.label = text(raw.when.label, 14, 'Talk');
     } else if (type === 'finish') {

@@ -61,6 +61,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ai. Blocked path (11 Nov)** — the full test: Edit → Sequences
+- [ ] Sequence *Blocked path*: **Zone** *Approach* on the path; **Character** *Guard* just past it on the path (Blocks: Auto, facing left); **Mark** *Aside* a step off the path (depth about −2.5); **Mark** *Shot* between them.
+- [ ] Event *Blocked and stepping aside* (placeholders Actor, Aside, Shot): Control take → Screen bars in → Camera frame *Shot*, Move back −2, over 1.5 s, **Keep after the event** → Face the player → Say "You can't pass… not yet." → **Wait for Action** (*Talk*) → Say "Very well." → Move Actor to Aside → Screen bars out → Control give back.
+- [ ] Event *Camera back*: Camera Back to the player, 1.5 s.
+- [ ] Lines: When the player walks into *Approach* → Blocked and stepping aside (fill Actor = Guard, Aside, Shot), once; When the player **leaves** *Approach* → Camera back, every time.
+- [ ] ▶ Play: she stops, bars, the camera closes in, he speaks, the **TALK** button glows above the bar (everything else dim); press it: he steps aside, bars go, control returns, the camera stays close until she walks out of the zone, then returns.
+
 **0ah. Camera and screen steps (11 Nov)** — Edit → Sequences
 - [ ] Make an *Intro* sequence near the start with two marks (*Far*, ahead along the path; *Near*, by Aureli) and an event with two mark placeholders: **Control** take → **Screen** Fade to black (0 s) → **Screen** Letterbox bars in (tick *at the same time*) → **Camera** Frame a shot: Far, Raise 3, Move back 10, over 0 s → **Screen** Fade in (1.5 s) → **Camera** Near, over 4 s → **Wait** 1 s → **Camera** Back to the player (1.5 s) → **Screen** Bars out → **Control** give back. Logic line *When the sequence starts* → this event, placeholders filled. **Save**, then TEST bar **Reset story** and **▶ Play**: it plays from black, pans, returns; the controls are dim until it ends.
 - [ ] Take the last three steps away and play again: when the event ends the camera still returns, the bars go and control comes back.
