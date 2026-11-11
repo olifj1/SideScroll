@@ -240,7 +240,7 @@
     const event = eventById(l.event);
     const when = l.when ||= { type: 'enter' };
     const whenRows = [select_(Object.entries(Seq.WHEN), when.type, v => { l.when = { type: v }; change(); })];
-    if (when.type === 'enter' || when.type === 'action') {
+    if (when.type === 'enter' || when.type === 'leave' || when.type === 'action') {
       whenRows.push(zones.length ? select_([['', 'Choose a zone…'], ...zones.map(z => [z.id, `⚑ ${z.name}`])], when.zone, v => { when.zone = v || undefined; change(); })
         : help('Add a zone to this sequence first (Components).'));
       if (when.type === 'action') { when.label ||= 'Talk'; whenRows.push(field('Action button reads', textInput(when, 'label', 14))); }
@@ -415,9 +415,17 @@
           slider(s, 'tilt', -4, 4, 0.05, 'Aim up (− down)', 2, ' m'));
         rows.push(el('div', { class: 'sidescroll-story-inline' }, s.mode === 'shot' ? 'move there over' : 'blend back over', numberInput(s, 'seconds', 0, 60, 0.5, 2), 's'),
           segmented([['smooth', 'Smooth'], ['linear', 'Steady']], s.ease, v => { s.ease = v; change(); }),
-          help(s.mode === 'shot' ? 'The camera holds the shot until the next Camera step; it goes back to the player when the event ends.' : 'Blends back to following the player.'));
+          s.mode === 'shot' ? el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.keep, onchange: ev => { if (ev.target.checked) s.keep = true; else delete s.keep; change(); } }),
+            'Keep after the event (until a later “Back to the player” step)') : null,
+          help(s.mode === 'shot' ? (s.keep ? 'The shot stays when the event ends: bring it back with a Camera “Back to the player” step, e.g. on a line When the player leaves a zone.'
+            : 'The camera holds the shot until the next Camera step; it goes back to the player when the event ends.') : 'Blends back to following the player.'));
         break;
       }
+      case 'prompt':
+        s.label ||= 'Talk';
+        rows.push(field('Action button reads', textInput(s, 'label', 14, null, 'e.g. Talk, Ask, Give')),
+          help('The event pauses here until the player presses Action — even while control is taken. The button lights up with this label.'));
+        break;
       case 'screen':
         s.action ||= 'fade-out'; if (s.seconds === undefined) s.seconds = 1;
         rows.push(select_(Object.entries(Seq.SCREEN_ACTIONS), s.action, v => { s.action = v; change(); }),

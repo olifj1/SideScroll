@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Sequences: Wait for Action, leaving a zone, kept camera.** New step **Wait for
+  Action**: the event pauses until the player presses Action — even while control is
+  taken — and the button lights up with its label (*Talk*), above the letterbox. New
+  logic **When the player leaves a zone** (her whole body out of it). A Camera shot can
+  **Keep after the event**, until a later *Back to the player* step (e.g. on a leave line).
 - **Sequence Camera and Screen steps.** *Camera → Frame a shot*: look at a placeholder
   (a mark placed where the shot centres, or a character) or the player, with *Shift
   along the journey*, *Raise*, *Move back* and *Aim up*, moving there over N s

@@ -79,6 +79,10 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Height follows the ground under the target. Released (back over 1 s) when the event ends.
   - **Screen** — fade to / from black, letterbox bars in / out, over N s; cleared when the
     event ends.
+  - **Wait for Action** — the event waits until the player presses Action (even while
+    control is taken); the button shows the step's label. A Camera shot may **keep** after
+    its event ends, until a later *back* step. Logic can also start **when the player
+    leaves a zone** (added 11 Nov).
   - Later: **Look** (colour grade, vignette, fog) and **Skip** (see *Later* below).
 - Events are game-wide: any sequence can run any event. Changing an event changes it
   everywhere it is used; its page lists where.

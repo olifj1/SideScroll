@@ -15651,4 +15651,8 @@ body[data-game-id="game-16"].sidescroll-edit-playing .sidescroll-editor-controls
 .sidescroll-seq-bars i:first-child{top:0;transform:translateY(-100%);}
 .sidescroll-seq-bars i:last-child{bottom:0;transform:translateY(100%);}
 .sidescroll-seq-bars.on i{transform:translateY(0);}
-body.sidescroll-seq-control #sidescroll-play-controls,body.sidescroll-seq-control #sidescroll-secondary-controls{opacity:.35;transition:opacity .3s ease;}
+body.sidescroll-seq-control #sidescroll-play-controls,body.sidescroll-seq-control #sidescroll-jump,
+body.sidescroll-seq-control:not(.sidescroll-seq-prompt) #sidescroll-action{opacity:.35;transition:opacity .3s ease;}
+body.sidescroll-seq-prompt #sidescroll-action{opacity:1;box-shadow:0 0 0 3px rgba(255,214,120,.85),0 0 18px rgba(255,214,120,.55);}
+/* A Wait for Action step: the Action button sits above the letterbox bars. */
+body[data-game-id="game-16"].sidescroll-seq-prompt .sidescroll-secondary-controls.sidescroll-left-actions{z-index:905!important;}
