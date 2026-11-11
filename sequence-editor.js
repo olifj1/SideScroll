@@ -481,7 +481,10 @@
             for (const s of e.steps) for (const k of ['actor', 'to', 'target']) if (s[k] === r.id) delete s[k];
             change();
           }, `Remove ${r.name}`)))),
+      // Steps run in order and are added one after another, so their add
+      // button sits after the last step (the one exception to add-bars-on-top).
       section('Steps',
+        e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.'),
         addBar(btn('+ Add step', () => openChooser('steps', 'Add which step?', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, note: def.help })), type => {
           const def = Seq.STEPS[type];
           const actor = e.roles.find(r => r.kind === 'character')?.id, mark = e.roles.find(r => r.kind === 'mark')?.id;
@@ -490,8 +493,7 @@
           e.steps.push(Seq.normaliseEvents({ events: [{ ...e, steps: [s] }] })[0]?.steps[0] || s);
           reveal = `step-${e.steps.length - 1}`; change();
         }), 'primary')),
-        chooserBox('steps'),
-        e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.')),
+        chooserBox('steps')),
       section('Used by',
         usedBy.length ? usedBy.map(({ p, i }) => btn(`▣ ${p.name} · line ${i + 1}`, () => open('sequence', p.id))) : help('Not used by any sequence yet.')),
       row(btn('Duplicate', () => {

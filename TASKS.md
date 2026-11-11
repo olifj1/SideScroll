@@ -63,7 +63,7 @@ app and make a Project Backup.
 
 **0aj. Sequences editor layout (11 Nov)**
 - [ ] Open a sequence: a small **‹ Back** top left with its name; Components has **+ Character / + Mark / + Zone** across the top; **+ Character** shows a list of characters — pick one, then tap the ground. Each component row has a **×** on the right. Add several without scrolling to the bottom.
-- [ ] Logic **+ Add line** at the top; the new line scrolls into view. An event (from *Open* or *+ New event…*): **+ Add step** shows the list of steps; **‹ Back** returns to the sequence.
+- [ ] Logic **+ Add line** at the top; the new line scrolls into view. An event (from *Open* or *+ New event…*): **+ Add step** sits under the last step and shows the list of steps; **‹ Back** returns to the sequence.
 
 **0ai. Blocked path (11 Nov)** — the full test: Edit → Sequences
 - [ ] Sequence *Blocked path*: **Zone** *Approach* on the path; **Character** *Guard* just past it on the path (Blocks: Auto, facing left); **Mark** *Aside* a step off the path (depth about −2.5); **Mark** *Shot* between them.

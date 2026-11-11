@@ -1604,6 +1604,6 @@ For future work, use capabilities to control feature visibility, rather than che
 
 ### Editor panels: one list pattern (11 Nov 2026)
 - **Back:** inner pages have a small **‹ Back** at the top left of the panel, next to the page's name; it returns to where you came from (an event opened from a sequence goes back to that sequence). No full-width back buttons named after the list.
-- **Adding:** a section's add buttons sit at its **top**, at equal widths. When adding needs a choice (which character, which kind of step, which template), the button opens a short **choose-from-a-list** box rather than a dropdown beside it. The new item scrolls into view and opens.
+- **Adding:** a section's add buttons sit at its **top**, at equal widths — except a list of **steps in order** (an event's Steps), whose add button sits after the last step, where the next one goes. When adding needs a choice (which character, which kind of step, which template), the button opens a short **choose-from-a-list** box rather than a dropdown beside it. The new item scrolls into view and opens.
 - **Removing:** each row has a small **×** on its far right; no full-width Remove buttons inside an item's editor. (Deleting a whole sequence or event stays at the bottom of its page.)
 - First used in the Sequences editor (`sequence-editor.js`: `addBar`, `openChooser` / `chooserBox`, `xBtn`); apply it to other editor panels as they are reworked.
