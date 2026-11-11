@@ -1601,3 +1601,9 @@ For future work, use capabilities to control feature visibility, rather than che
 - Controls for testing while editing live in one place: the **TEST bar** at the top right, shown in edit mode in every scope (▶ Play / ■ Stop, ↺ Restart, Reset story). New test controls go there, not inside one scope's panel.
 - **▶ Play** runs the game in the editor: the editor stays open (its drawer folds to the rail so the game controls are free and reopens on Stop), guides and zones stay drawn, and the game's rules apply (controls, physics, triggers, Action, blocking). Testing never throws the author out of the editor. Gameplay code checks `editLocked()` (editing and not playing), not `editMode`, for anything Play should allow.
 - Opening the editor or changing scope shows the drawer from its top, so the scope buttons are always in view.
+
+### Editor panels: one list pattern (11 Nov 2026)
+- **Back:** inner pages have a small **‹ Back** at the top left of the panel, next to the page's name; it returns to where you came from (an event opened from a sequence goes back to that sequence). No full-width back buttons named after the list.
+- **Adding:** a section's add buttons sit at its **top**, at equal widths. When adding needs a choice (which character, which kind of step, which template), the button opens a short **choose-from-a-list** box rather than a dropdown beside it. The new item scrolls into view and opens.
+- **Removing:** each row has a small **×** on its far right; no full-width Remove buttons inside an item's editor. (Deleting a whole sequence or event stays at the bottom of its page.)
+- First used in the Sequences editor (`sequence-editor.js`: `addBar`, `openChooser` / `chooserBox`, `xBtn`); apply it to other editor panels as they are reworked.

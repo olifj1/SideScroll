@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Sequences editor tidy-up (one pattern):** a small **‹ Back** at the top left of each
+  inner page (returns to where you came from) with the page's name beside it; each
+  section's add buttons pinned at its top at equal widths (Components: + Character,
+  + Mark, + Zone; Logic: + Add line; Placeholders; Steps: + Add step; lists: + New
+  sequence, + Place a template, + New event); **+ Character**, **+ Add step** and
+  **+ Place a template** open a choose-from-a-list box; rows have a small **×** on the
+  right instead of Remove buttons; new items scroll into view. Recorded in the UX bible.
 - **Sequences: Wait for Action, leaving a zone, kept camera.** New step **Wait for
   Action**: the event pauses until the player presses Action — even while control is
   taken — and the button lights up with its label (*Talk*), above the letterbox. New

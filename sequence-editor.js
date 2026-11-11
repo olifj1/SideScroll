@@ -22,7 +22,7 @@
   // page: 'list' | 'sequence' | 'event'; tab (list page): 'sequences' | 'events'
   const view = { page: 'list', tab: 'sequences', placed: null, event: null, component: null };
   let placeMode = null; // {kind:'add', comp} | {kind:'anchor'} | {kind:'component', id}
-  let pendingCharacter = null, pendingTemplate = null;
+
 
   // ---- Small DOM helpers ----------------------------------------------------
   const el = (tag, props = {}, ...children) => {
@@ -69,6 +69,25 @@
     return el('label', { class: 'sidescroll-story-field sidescroll-story-slider' }, el('span', {}, label, ' ', out), input);
   }
   const section = (title, ...children) => el('section', { class: 'sidescroll-seq-section' }, el('h4', { text: title }), ...children);
+  // One editing pattern (see docs/SIDESCROLL_ENGINE_UX_BIBLE.md, Sequences editor):
+  // a section's add buttons sit at its top, equal widths; an add with a choice
+  // opens a short list to pick from; each row has a small × on its right.
+  const addBar = (...buttons) => el('div', { class: 'sidescroll-seq-addbar' }, ...buttons.filter(Boolean));
+  const xBtn = (onclick, label = 'Remove') => el('button', { type: 'button', class: 'sidescroll-seq-x', 'aria-label': label, title: label, onclick }, '×');
+  // The open "choose from a list" box: {key, title, options:[{value, label, note}], onPick}.
+  let chooser = null;
+  function openChooser(key, title, options, onPick) { chooser = { key, title, options, onPick }; render(); }
+  function chooserBox(key) {
+    if (chooser?.key !== key) return null;
+    const c = chooser;
+    return el('div', { class: 'sidescroll-seq-chooser' },
+      el('div', { class: 'sidescroll-seq-chooser-head' }, el('strong', { text: c.title }), xBtn(() => { chooser = null; render(); }, 'Close')),
+      c.options.length ? c.options.map(o => el('button', { type: 'button', onclick: () => { chooser = null; c.onPick(o.value); } },
+        el('strong', { text: o.label }), o.note ? el('small', { text: o.note }) : null))
+        : help('Nothing to choose yet.'));
+  }
+  // After a render, scroll a newly added item into view (data-reveal).
+  let reveal = null;
   const help = text => el('p', { class: 'sidescroll-story-help', text });
 
   // ---- Draft access -----------------------------------------------------------
@@ -109,7 +128,7 @@
   function change(rerender = true) { dirty = true; preview(); if (rerender) render(); else updateStatus(); }
   function syncSelection() { host.select(view.page === 'sequence' ? view.placed : null, view.page === 'sequence' ? view.component : null); }
   function open(page, id, extra = {}) {
-    placeMode = null;
+    placeMode = null; chooser = null;
     view.page = page;
     if (page === 'sequence') { view.placed = id; view.component = extra.component || null; const p = placedById(id); if (p && extra.focus !== false) host.lookAt(p.x); }
     if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; }
@@ -150,7 +169,7 @@
       if (placeMode.kind === 'add') {
         const comp = { ...placeMode.comp, id: Seq.newId('c', takenIds()), dx: point.x - p.x, depth: placeMode.comp.kind === 'zone' ? 0 : depth };
         body.components.push(comp);
-        view.component = comp.id;
+        view.component = comp.id; reveal = comp.id;
         host.hint(`Added ${comp.name}`);
       } else if (placeMode.kind === 'anchor') {
         p.x = point.x;
@@ -174,30 +193,29 @@
   function listPage() {
     const placed = [...draft.placed].sort((a, b) => a.x - b.x);
     const uses = id => draft.placed.reduce((n, p) => n + bodyOf(p).logic.filter(l => l.event === id).length, 0);
-    const placing = placeMode?.kind === 'new-sequence' || placeMode?.kind === 'place-template';
-    if (!pendingTemplate || !templateById(pendingTemplate)) pendingTemplate = draft.templates[0]?.id || null;
     return [
       segmented([['sequences', `Sequences (${draft.placed.length})`], ['events', `Events (${draft.events.length})`]], view.tab, v => { view.tab = v; placeMode = null; render(); }),
       ...(view.tab === 'sequences' ? [
+        addBar(btn(placeMode?.kind === 'new-sequence' ? 'Cancel' : '+ New sequence', () => setPlaceMode(placeMode?.kind === 'new-sequence' ? null : { kind: 'new-sequence' }, 'Tap the ground where the sequence goes'), placeMode?.kind === 'new-sequence' ? 'active' : 'primary'),
+          draft.templates.length ? btn(placeMode?.kind === 'place-template' ? 'Cancel' : '+ Place a template', () => placeMode?.kind === 'place-template' ? setPlaceMode(null)
+            : openChooser('templates', 'Place which template?', draft.templates.map(t => ({ value: t.id, label: `▣ ${t.name}`, note: `placed ${instancesOf(t.id).length}×` })),
+              id => setPlaceMode({ kind: 'place-template', template: id }, 'Tap the ground where it goes')), placeMode?.kind === 'place-template' ? 'active' : 'primary') : null),
+        chooserBox('templates'),
         help('Sequences placed in the world, in journey order. Tap one (here or its post in the view) to open it.'),
         el('div', { class: 'sidescroll-story-list' }, placed.length ? placed.map(p => el('button', { type: 'button', onclick: () => open('sequence', p.id) },
           el('strong', { text: `▣ ${p.name}` }),
           el('small', { text: `${fmt(p.x)} m · ${p.template ? `template ${templateById(p.template)?.name || ''}` : 'unique'} · ${bodyOf(p).logic.length} line${bodyOf(p).logic.length === 1 ? '' : 's'}` })))
-          : help('No sequences yet.')),
-        row(btn(placeMode?.kind === 'new-sequence' ? 'Cancel' : '+ New sequence', () => setPlaceMode(placeMode?.kind === 'new-sequence' ? null : { kind: 'new-sequence' }, 'Tap the ground where the sequence goes'), placing ? 'active' : 'primary')),
-        draft.templates.length ? el('div', { class: 'sidescroll-story-add' },
-          select_(draft.templates.map(t => [t.id, `Template: ${t.name} (${instancesOf(t.id).length} placed)`]), pendingTemplate, v => { pendingTemplate = v; }),
-          btn(placeMode?.kind === 'place-template' ? 'Cancel' : '+ Place', () => setPlaceMode(placeMode?.kind === 'place-template' ? null : { kind: 'place-template', template: pendingTemplate }, 'Tap the ground where it goes'), 'primary')) : null
+          : help('No sequences yet.'))
       ] : [
-        help('Events are reusable chains of steps, written with roles (Actor, Exit…) that each sequence fills in. Any sequence can run any event.'),
-        el('div', { class: 'sidescroll-story-list' }, draft.events.length ? [...draft.events].sort((a, b) => a.name.localeCompare(b.name)).map(e => el('button', { type: 'button', onclick: () => open('event', e.id) },
-          el('strong', { text: `✦ ${e.name}` }), el('small', { text: `${e.steps.length} step${e.steps.length === 1 ? '' : 's'} · used ${uses(e.id)}×` })))
-          : help('No events yet.')),
-        row(btn('+ New event', () => {
+        addBar(btn('+ New event', () => {
           const taken = takenIds(), id = Seq.newId('ev', taken), actor = Seq.newId('r', taken);
           draft.events.push({ id, name: `Event ${draft.events.length + 1}`, roles: [{ id: actor, name: 'Actor', kind: 'character' }], steps: [] });
           change(false); open('event', id);
-        }, 'primary'))
+        }, 'primary')),
+        help('Events are reusable chains of steps, written with placeholders (Actor, Exit…) that each sequence fills in. Any sequence can run any event.'),
+        el('div', { class: 'sidescroll-story-list' }, draft.events.length ? [...draft.events].sort((a, b) => a.name.localeCompare(b.name)).map(e => el('button', { type: 'button', onclick: () => open('event', e.id) },
+          el('strong', { text: `✦ ${e.name}` }), el('small', { text: `${e.steps.length} step${e.steps.length === 1 ? '' : 's'} · used ${uses(e.id)}×` })))
+          : help('No events yet.'))
       ]),
       progressBox()
     ];
@@ -226,13 +244,14 @@
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Blocks the player' }),
         segmented([['auto', 'Auto'], ['always', 'Always'], ['never', 'Never']], c.blocks, v => { c.blocks = v; change(); }),
         el('small', { text: 'Auto: blocks while it stands on the path; it can’t be walked or jumped past.' })));
-    parts.push(row(btn('Remove', () => {
-      if (!confirm(`Remove ${c.name}? Logic using it loses that part.`)) return;
-      body.components = body.components.filter(x => x.id !== c.id);
-      for (const l of body.logic) { for (const [r, id] of Object.entries(l.roles || {})) if (id === c.id) delete l.roles[r]; if (l.when?.zone === c.id) delete l.when.zone; }
-      view.component = null; syncSelection(); change();
-    }, 'danger')));
     return el('div', { class: 'sidescroll-story-editor' }, ...parts);
+  }
+  function removeComponent(body, c) {
+    if (!confirm(`Remove ${c.name}? Logic using it loses that part.`)) return;
+    body.components = body.components.filter(x => x.id !== c.id);
+    for (const l of body.logic) { for (const [r, id] of Object.entries(l.roles || {})) if (id === c.id) delete l.roles[r]; if (l.when?.zone === c.id) delete l.when.zone; }
+    if (view.component === c.id) view.component = null;
+    syncSelection(); change();
   }
   const lineName = (body, l) => `Line ${body.logic.indexOf(l) + 1}${eventById(l.event) ? `: ${eventById(l.event).name}` : ''}`;
   function lineEditor(p, body, l, index) {
@@ -259,11 +278,11 @@
     if (roleRows.length) roleRows.unshift(el('div', { class: 'sidescroll-seq-fill' }, el('strong', { text: 'Fill in the event’s placeholders' }),
       el('small', { text: 'Which of this sequence’s components each placeholder means here.' })));
     const c = l.condition;
-    return el('div', { class: 'sidescroll-story-move' },
+    return el('div', { class: 'sidescroll-story-move', 'data-reveal': l.id },
       el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `Line ${index + 1}` }),
         btn('Test now', () => { preview(); host.fireLine(p.id, l.id) ? host.hint('Running the event (once-only lines still fire in play)') : host.hint('Choose an event first'); }),
         btn('↑', () => { const list = body.logic; list.splice(index - 1, 0, list.splice(index, 1)[0]); change(); }, index === 0 ? 'hidden' : ''),
-        btn('Remove', () => { body.logic.splice(index, 1); change(); })),
+        xBtn(() => { if (confirm(`Remove line ${index + 1}?`)) { body.logic.splice(index, 1); change(); } }, 'Remove line')),
       field('When', el('div', { class: 'sidescroll-seq-stack' }, ...whenRows)),
       field('Run event', el('div', { class: 'sidescroll-seq-stack' },
         select_([['', 'Choose an event…'], ...draft.events.map(e => [e.id, `✦ ${e.name}`]), ['__new', '+ New event…']], l.event, v => {
@@ -292,13 +311,10 @@
     anchorX.addEventListener('change', () => { const n = Number(anchorX.value); if (Number.isFinite(n)) { p.x = n; change(); } });
     const nudge = d => btn(d > 0 ? `+${d}` : `−${-d}`, () => { p.x = Math.round((p.x + d) * 100) / 100; change(); });
     const comp = body.components.find(c => c.id === view.component) || null;
-    const adding = placeMode?.kind === 'add';
-    const choices = characterChoices();
-    if (!pendingCharacter || !choices.some(c => c.id === pendingCharacter)) pendingCharacter = choices[0]?.id || null;
-    const addComp = (kind, extra, message) => setPlaceMode({ kind: 'add', comp: { kind, ...extra } }, message);
+    const adding = placeMode?.kind === 'add' ? placeMode.comp : null;
+    const addComp = (kind, extra, message) => { chooser = null; setPlaceMode({ kind: 'add', comp: { kind, ...extra } }, message); };
     const count = kind => body.components.filter(c => c.kind === kind).length + 1;
     return [
-      row(btn('‹ Sequences', () => open('list', null, { tab: 'sequences' }))),
       field('Name', textInput(p, 'name', 40, () => { if (t) t.name = p.name; })),
       section('Placement',
         el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Anchor along the journey (m)' }),
@@ -325,27 +341,31 @@
             change(false); open('list', null, { tab: 'sequences' });
           }, 'danger'))),
       section('Components',
-        body.components.length ? el('div', { class: 'sidescroll-story-list' }, body.components.map(c => el('button', { type: 'button', class: c.id === view.component ? 'active' : '',
-          onclick: () => { view.component = view.component === c.id ? null : c.id; placeMode = null; syncSelection(); render(); } },
-          el('strong', { text: `${KIND_ICON[c.kind]} ${c.name}` }),
-          el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : `${fmt(p.x + c.dx)} m` }))))
+        addBar(
+          btn('+ Character', () => openChooser('characters', 'Add which character?', characterChoices().map(c => ({ value: c.id, label: `☺ ${c.name}`, note: c.family === 'quadruped' ? 'Quadruped' : 'Biped' })),
+            id => addComp('character', { name: characterName(id), character: id, animation: 'idle', scale: 1, blocks: 'auto', facing: 1 }, `Tap the ground where ${characterName(id)} stands`)), adding?.kind === 'character' ? 'active' : 'primary'),
+          btn('+ Mark', () => addComp('mark', { name: `Mark ${count('mark')}`, facing: 1 }, 'Tap the ground where the mark goes'), adding?.kind === 'mark' ? 'active' : 'primary'),
+          btn('+ Zone', () => addComp('zone', { name: `Zone ${count('zone')}`, width: 2 }, 'Tap the path where the zone goes'), adding?.kind === 'zone' ? 'active' : 'primary')),
+        chooserBox('characters'),
+        adding ? el('div', { class: 'sidescroll-story-note' }, el('span', { text: `Tap the ground in the view to place ${adding.name}.` }), btn('Cancel', () => setPlaceMode(null))) : null,
+        body.components.length ? el('div', { class: 'sidescroll-story-list' }, body.components.map(c => el('div', { class: 'sidescroll-seq-item', 'data-reveal': c.id },
+          el('button', { type: 'button', class: c.id === view.component ? 'active' : '',
+            onclick: () => { view.component = view.component === c.id ? null : c.id; placeMode = null; syncSelection(); render(); } },
+            el('strong', { text: `${KIND_ICON[c.kind]} ${c.name}` }),
+            el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : `${fmt(p.x + c.dx)} m` })),
+          xBtn(() => removeComponent(body, c), `Remove ${c.name}`))))
           : help('Nothing yet. Add characters, marks (spots to walk to) and zones (where the player sets things off).'),
-        comp ? componentEditor(p, body, comp) : null,
-        el('div', { class: 'sidescroll-story-add' },
-          select_(choices.map(c => [c.id, c.name]), pendingCharacter, v => { pendingCharacter = v; }),
-          btn('+ Character', () => adding ? setPlaceMode(null) : addComp('character', { name: characterName(pendingCharacter), character: pendingCharacter, animation: 'idle', scale: 1, blocks: 'auto', facing: 1 }, 'Tap the ground where it stands'), 'primary')),
-        row(btn('+ Mark', () => addComp('mark', { name: `Mark ${count('mark')}`, facing: 1 }, 'Tap the ground where the mark goes'), 'primary'),
-          btn('+ Zone', () => addComp('zone', { name: `Zone ${count('zone')}`, width: 2 }, 'Tap the path where the zone goes'), 'primary'),
-          adding ? btn('Cancel', () => setPlaceMode(null), 'active') : null)),
+        comp ? componentEditor(p, body, comp) : null),
       section('Logic',
-        help('Each line: when something happens, run an event, with its roles filled from these components.'),
-        body.logic.map((l, i) => lineEditor(p, body, l, i)),
-        row(btn('+ Add line', () => {
+        addBar(btn('+ Add line', () => {
           const zone = body.components.find(c => c.kind === 'zone');
-          body.logic.push({ id: Seq.newId('l', takenIds()), when: { type: zone ? 'enter' : 'load', ...(zone ? { zone: zone.id } : {}) }, event: draft.events[0]?.id || null, roles: {}, once: true });
-          change();
+          const id = Seq.newId('l', takenIds());
+          body.logic.push({ id, when: { type: zone ? 'enter' : 'load', ...(zone ? { zone: zone.id } : {}) }, event: draft.events[0]?.id || null, roles: {}, once: true });
+          reveal = id; change();
         }, 'primary')),
-        draft.events.length ? null : help('There are no events yet: make one in Events.'))
+        help('Each line: when something happens, run an event, with its placeholders filled from these components.'),
+        body.logic.map((l, i) => lineEditor(p, body, l, i)),
+        draft.events.length ? null : help('There are no events yet: make one with + New event… in a line’s Run event list.'))
     ];
   }
 
@@ -433,10 +453,10 @@
           help('A fade or the bars still on when the event ends are cleared.'));
         break;
     }
-    return el('div', { class: 'sidescroll-story-move' },
+    return el('div', { class: 'sidescroll-story-move', 'data-reveal': `step-${index}` },
       el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `${index + 1}. ${def.label}` }),
         btn('↑', () => { e.steps.splice(index - 1, 0, e.steps.splice(index, 1)[0]); change(); }, index === 0 ? 'hidden' : ''),
-        btn('Remove', () => { e.steps.splice(index, 1); change(); })),
+        xBtn(() => { e.steps.splice(index, 1); change(); }, 'Remove step')),
       ...rows,
       index > 0 ? el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.with, onchange: ev => { s.with = ev.target.checked; change(); } }),
         'At the same time as the step before') : null);
@@ -447,30 +467,31 @@
     const usedBy = [];
     for (const p of draft.placed) bodyOf(p).logic.forEach((l, i) => { if (l.event === e.id) usedBy.push({ p, i }); });
     return [
-      row(btn('‹ Events', () => open('list', null, { tab: 'events' })),
-        view.returnTo && placedById(view.returnTo) ? btn(`‹ Back to ${placedById(view.returnTo).name}`, () => open('sequence', view.returnTo, { focus: false }), 'primary') : null),
+      view.returnTo && placedById(view.returnTo) ? help(`Opened from the sequence “${placedById(view.returnTo).name}” — ‹ Back returns there.`) : null,
       field('Name', textInput(e, 'name', 40, null, 'Name it, e.g. Greet and walk off')),
       section('Placeholders',
         help('Placeholders stand for the characters and marks this event acts on — you don’t choose real ones here. Give each a name (Actor, Exit…) and use it in the steps below. Each sequence that runs this event fills them in with its own character and mark (on its logic line).'),
+        addBar(btn('+ Character placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'character') ? 'Other' : 'Actor', kind: 'character' }); change(); }, 'primary'),
+          btn('+ Mark placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'mark') ? 'Place' : 'Exit', kind: 'mark' }); change(); }, 'primary')),
         e.roles.map((r, i) => el('div', { class: 'sidescroll-seq-role' },
           textInput(r, 'name', 30, null, r.kind === 'mark' ? 'Name it, e.g. Exit or Hiding spot' : 'Name it, e.g. Actor or Friend'),
-          el('span', { class: 'sidescroll-seq-kind', text: `${Seq.ROLE_KINDS[r.kind]} placeholder` }),
-          btn('Remove', () => {
+          el('span', { class: 'sidescroll-seq-kind', text: `${Seq.ROLE_KINDS[r.kind]}` }),
+          xBtn(() => {
             e.roles.splice(i, 1);
             for (const s of e.steps) for (const k of ['actor', 'to', 'target']) if (s[k] === r.id) delete s[k];
             change();
-          }))),
-        row(btn('+ Character placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'character') ? 'Other' : 'Actor', kind: 'character' }); change(); }, 'primary'),
-          btn('+ Mark placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'mark') ? 'Place' : 'Exit', kind: 'mark' }); change(); }, 'primary'))),
+          }, `Remove ${r.name}`)))),
       section('Steps',
-        e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.'),
-        el('div', { class: 'sidescroll-story-choices' }, Object.entries(Seq.STEPS).map(([type, def]) => btn(`+ ${def.label} — ${def.help}`, () => {
+        addBar(btn('+ Add step', () => openChooser('steps', 'Add which step?', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, note: def.help })), type => {
+          const def = Seq.STEPS[type];
           const actor = e.roles.find(r => r.kind === 'character')?.id, mark = e.roles.find(r => r.kind === 'mark')?.id;
           const s = { type, ...(actor && Object.keys(def.roles).includes('actor') ? { actor } : {}), ...(type === 'move' && mark ? { to: mark } : {}) };
           if (type === 'flag') s.flag = knownFlags()[0] || 'met-father';
           e.steps.push(Seq.normaliseEvents({ events: [{ ...e, steps: [s] }] })[0]?.steps[0] || s);
-          change();
-        })))),
+          reveal = `step-${e.steps.length - 1}`; change();
+        }), 'primary')),
+        chooserBox('steps'),
+        e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.')),
       section('Used by',
         usedBy.length ? usedBy.map(({ p, i }) => btn(`▣ ${p.name} · line ${i + 1}`, () => open('sequence', p.id))) : help('Not used by any sequence yet.')),
       row(btn('Duplicate', () => {
@@ -506,8 +527,14 @@
     if (panel.hidden) return;
     statusEl = el('span', { class: 'sidescroll-story-status' });
     const page = view.page === 'sequence' ? sequencePage() : view.page === 'event' ? eventPage() : listPage();
+    // ‹ Back (inner pages): to the sequence an event was opened from, else the list.
+    const back = view.page === 'list' ? null : el('button', { type: 'button', class: 'sidescroll-seq-back', onclick: () => {
+      if (view.page === 'event' && view.returnTo && placedById(view.returnTo)) open('sequence', view.returnTo, { focus: false });
+      else open('list', null, { tab: view.page === 'event' ? 'events' : 'sequences' });
+    } }, '‹ Back');
     panel.replaceChildren(
-      el('div', { class: 'sidescroll-story-head' }, el('strong', { text: view.page === 'event' ? 'Event' : view.page === 'sequence' ? 'Sequence' : 'Sequences' }), statusEl),
+      el('div', { class: 'sidescroll-story-head' }, back,
+        el('strong', { text: view.page === 'event' ? (eventById(view.event)?.name || 'Event') : view.page === 'sequence' ? (placedById(view.placed)?.name || 'Sequence') : 'Sequences' }), statusEl),
       ...page,
       el('datalist', { id: 'sidescroll-seq-flags' }, knownFlags().map(f => el('option', { value: f }))),
       el('div', { class: 'sidescroll-story-actions' },
@@ -517,6 +544,11 @@
         }, 'sidescroll-story-discard'),
         btn('Save', () => { saveDraft(); host.hint('Sequences saved'); }, 'primary sidescroll-story-save')));
     updateStatus();
+    if (reveal) {
+      const target = panel.querySelector(`[data-reveal="${reveal}"]`);
+      reveal = null;
+      target?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
   new MutationObserver(() => {
     if (panel.hidden) { placeMode = null; host.select(null, null); }

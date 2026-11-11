@@ -15656,3 +15656,21 @@ body.sidescroll-seq-control:not(.sidescroll-seq-prompt) #sidescroll-action{opaci
 body.sidescroll-seq-prompt #sidescroll-action{opacity:1;box-shadow:0 0 0 3px rgba(255,214,120,.85),0 0 18px rgba(255,214,120,.55);}
 /* A Wait for Action step: the Action button sits above the letterbox bars. */
 body[data-game-id="game-16"].sidescroll-seq-prompt .sidescroll-secondary-controls.sidescroll-left-actions{z-index:905!important;}
+/* Sequences editor: one pattern — add bar at the top of a section (equal widths),
+   choose-from-a-list box, rows with a small × on the right, small ‹ Back on the left. */
+.sidescroll-seq-addbar{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;}
+.sidescroll-seq-addbar button{min-width:0;white-space:normal;line-height:1.15;}
+.sidescroll-seq-chooser{display:grid;gap:4px;padding:8px;border-radius:10px;border:1px solid rgba(255,214,120,.45);background:rgba(20,24,30,.92);}
+.sidescroll-seq-chooser-head{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;}
+.sidescroll-seq-chooser>button{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;}
+.sidescroll-seq-chooser>button small{font-weight:600;opacity:.65;font-size:10px;}
+.sidescroll-seq-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px;align-items:stretch;}
+.sidescroll-seq-item>button:first-child{display:flex;justify-content:space-between;align-items:center;gap:6px;text-align:left;min-width:0;}
+.sidescroll-story-panel button.sidescroll-seq-x{min-height:30px;min-width:30px;width:30px;padding:0;border-radius:8px;font-size:16px;line-height:1;opacity:.8;}
+.sidescroll-story-panel button.sidescroll-seq-x:hover{opacity:1;border-color:rgba(255,120,120,.6);}
+.sidescroll-story-head{justify-content:flex-start;}
+.sidescroll-story-head>strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sidescroll-story-panel button.sidescroll-seq-back{min-height:26px;padding:0 8px;font-size:10px;border-radius:7px;}
+.sidescroll-seq-role{grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:auto!important;}
+.sidescroll-seq-role input{grid-row:auto!important;}
+.sidescroll-seq-role .sidescroll-seq-kind,.sidescroll-seq-role button{grid-row:auto!important;grid-column:auto!important;}
