@@ -27,7 +27,7 @@ a logic list of *When → run event* lines, and a game-wide events library whose
 use roles. Steps 1–2 (events library, sequences with characters / marks / zones and logic) done 10 Nov.
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
 - [ ] **4 — World Lab sequences track:** bounds, details, Open in game, Play from here.
-- [ ] **5 — Camera and look steps** (opening pan, fades, letterbox, colour, Skip), Sequence Lab, node graph view.
+- [ ] **5 — Look steps** (colour grade, vignette, fog; atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov.)*
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
 Design: `docs/CHARACTER_SYSTEM_DESIGN.md`. Every character is built the same
@@ -60,6 +60,10 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0ah. Camera and screen steps (11 Nov)** — Edit → Sequences
+- [ ] Make an *Intro* sequence near the start with two marks (*Far*, ahead along the path; *Near*, by Aureli) and an event with two mark placeholders: **Control** take → **Screen** Fade to black (0 s) → **Screen** Letterbox bars in (tick *at the same time*) → **Camera** Frame a shot: Far, Raise 3, Move back 10, over 0 s → **Screen** Fade in (1.5 s) → **Camera** Near, over 4 s → **Wait** 1 s → **Camera** Back to the player (1.5 s) → **Screen** Bars out → **Control** give back. Logic line *When the sequence starts* → this event, placeholders filled. **Save**, then TEST bar **Reset story** and **▶ Play**: it plays from black, pans, returns; the controls are dim until it ends.
+- [ ] Take the last three steps away and play again: when the event ends the camera still returns, the bars go and control comes back.
 
 **0ag. Carrying (11 Nov)** — Menu → Collision on
 - [ ] Character01 picks up a log: the blue carried box sits on the log in her arms (not below it). Walk up to a log on the floor: she gets right up to it, and Put Down stacks it on top. Same with Aureli.
