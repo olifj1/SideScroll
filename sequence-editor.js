@@ -224,7 +224,7 @@
 
   // ---- Sequence page -------------------------------------------------------------
   const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑' };
-  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇' };
+  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚' };
   function componentEditor(p, body, c) {
     const moving = placeMode?.kind === 'component' && placeMode.id === c.id;
     const worldX = el('input', { type: 'number', step: '0.1', value: fmt(p.x + c.dx, 2), inputmode: 'decimal' });
@@ -447,6 +447,15 @@
             'Keep after the event (until a later “Back to the player” step)') : null,
           help(s.mode === 'shot' ? (s.keep ? 'The shot stays when the event ends: bring it back with a Camera “Back to the player” step, e.g. on a line When the player leaves a zone.'
             : 'The camera holds the shot until the next Camera step; it goes back to the player when the event ends.') : 'Blends back to following the player.'));
+        break;
+      }
+      case 'item': {
+        const items = host.items?.() || [];
+        s.item ||= items[0]?.id || 'forest-key'; if (s.count === undefined) s.count = 1; if (s.give === undefined) s.give = true;
+        rows.push(segmented([['give', 'Give the player'], ['take', 'Take from the player']], s.give === false ? 'take' : 'give', v => { s.give = v === 'give'; change(); }),
+          field('Item', select_(items.map(i => [i.id, i.label]), s.item, v => { s.item = v; change(); })),
+          el('div', { class: 'sidescroll-story-inline' }, numberInput(s, 'count', 1, 20, 1, 1), 'of them'),
+          help('Progress → Reset on this sequence takes back what it gave and gives back what it took.'));
         break;
       }
       case 'prompt':
