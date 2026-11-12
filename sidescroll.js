@@ -20443,7 +20443,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const items = progressItems();
     const all = make('div', 'sidescroll-progress-all');
     all.append(
-      button('Complete all', () => { if (!confirm('Complete every puzzle and sequence (end states, items given)?')) return; for (const it of items) progressComplete(it); after('Everything completed'); }),
+      button('Complete all', () => { if (!confirm('Complete every puzzle and sequence (end states, items given)?')) return; for (const it of items) progressComplete(it); after('Everything completed'); }, 'complete'),
       button('Reset all', () => { if (!confirm('Reset every puzzle and sequence and clear all story flags (items they gave are taken back)?')) return; for (const it of items) progressReset(it); resetStoryProgress(); after('Everything reset · a fresh start'); }, 'danger'));
     root.append(all);
     root.append(make('div', 'sidescroll-editor-asset-group', 'Puzzles and sequences, in journey order'));
@@ -20461,12 +20461,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         done = s.total > 0 && s.played === s.total;
         status = `${s.played} of ${s.total} played`;
       }
-      info.append(make('strong', '', `${it.kind === 'puzzle' ? '◇' : '▣'} ${it.name}`), make('small', '', `${it.x.toFixed(1)} m · ${status}`));
+      const kindLabel = it.kind === 'puzzle' ? 'Puzzle' : 'Sequence';
+      info.append(make('strong', '', it.name), make('small', '', `${kindLabel} · ${it.x.toFixed(1)} m · ${status}`));
       row.classList.toggle('done', !!done);
-      const go = button('Go', () => { camera.x = it.x - character.screenOffsetX; previousCameraX = camera.x; character.x = it.x; after(`At ${it.name}`); });
-      row.append(info, go,
-        button('Complete', () => { progressComplete(it); after(`${it.name}: completed`); }),
+      const actions = make('div', 'sidescroll-progress-actions');
+      actions.append(
+        button('Go', () => { camera.x = it.x - character.screenOffsetX; previousCameraX = camera.x; character.x = it.x; after(`At ${it.name}`); }),
+        button('Complete', () => { progressComplete(it); after(`${it.name}: completed`); }, 'complete'),
         button('Reset', () => { progressReset(it); after(`${it.name}: reset`); }, 'danger'));
+      row.append(info, actions);
       root.append(row);
     }
     root.append(make('div', 'sidescroll-editor-asset-group', 'Story flags (tap to set / clear)'));
