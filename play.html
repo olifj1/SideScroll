@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.64">
+  <link rel="stylesheet" href="style.css?v=1.1.66">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -216,10 +216,10 @@
               <button id="sidescroll-scope-environment" class="active" type="button">Environment</button>
               <button id="sidescroll-scope-terrain" type="button">Terrain</button>
               <button id="sidescroll-scope-puzzle" type="button">Puzzle</button>
-              <button id="sidescroll-scope-story" type="button">Sequences</button>
+              <button id="sidescroll-scope-story" type="button">Story</button>
             </div>
 
-            <!-- Sequences scope: sequences and events (sequence-editor.js, docs/SEQUENCE_SYSTEM_DESIGN.md) -->
+            <!-- Story scope: sequences and events (sequence-editor.js, docs/SEQUENCE_SYSTEM_DESIGN.md) -->
             <section class="sidescroll-story-panel" id="sidescroll-story-panel" hidden aria-label="Story editor"></section>
 
             <section class="sidescroll-terrain-workspace" id="sidescroll-section-panel" hidden aria-label="Terrain editor">
@@ -844,7 +844,7 @@
   <script src="near-rows.js?v=1.1.46"></script>
   <script src="action-slots.js?v=1.1.58"></script>
   <script src="sequence-data.js?v=1.1.62"></script>
-  <script src="sidescroll.js?v=1.1.63"></script>
-  <script src="sequence-editor.js?v=1.1.64"></script>
+  <script src="sidescroll.js?v=1.1.66"></script>
+  <script src="sequence-editor.js?v=1.1.66"></script>
 </body>
 </html>

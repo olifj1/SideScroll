@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story editor:** the editor tab is now **Story** (Sequences and Events inside it).
+  Pick-lists (+ Character, + Add step, + Place a template, Change character) open in
+  the asset browser's window on the right, like adding assets. A character component
+  can be **swapped** (Character → **Change…**): its place, animation and logic stay, and
+  its name follows if it hadn't been renamed.
+- **Sequences editor:** an event's **+ Add step** sits after the last step again (steps
+  are added one after another), the one exception to add buttons at the top.
 - **Sequences editor tidy-up (one pattern):** a small **‹ Back** at the top left of each
   inner page (returns to where you came from) with the page's name beside it; each
   section's add buttons pinned at its top at equal widths (Components: + Character,

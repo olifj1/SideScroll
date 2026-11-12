@@ -1,4 +1,4 @@
-/* SideScroll Sequences editor (game editor → Sequences scope).
+/* SideScroll Story editor (game editor → Story scope): sequences and events.
  * Design: docs/SEQUENCE_SYSTEM_DESIGN.md (agreed 10 Nov 2026).
  *
  * One pattern everywhere: a list → open → edit page; things are added only with
@@ -74,18 +74,19 @@
   // opens a short list to pick from; each row has a small × on its right.
   const addBar = (...buttons) => el('div', { class: 'sidescroll-seq-addbar' }, ...buttons.filter(Boolean));
   const xBtn = (onclick, label = 'Remove') => el('button', { type: 'button', class: 'sidescroll-seq-x', 'aria-label': label, title: label, onclick }, '×');
-  // The open "choose from a list" box: {key, title, options:[{value, label, note}], onPick}.
-  let chooser = null;
-  function openChooser(key, title, options, onPick) { chooser = { key, title, options, onPick }; render(); }
-  function chooserBox(key) {
-    if (chooser?.key !== key) return null;
-    const c = chooser;
-    return el('div', { class: 'sidescroll-seq-chooser' },
-      el('div', { class: 'sidescroll-seq-chooser-head' }, el('strong', { text: c.title }), xBtn(() => { chooser = null; render(); }, 'Close')),
-      c.options.length ? c.options.map(o => el('button', { type: 'button', onclick: () => { chooser = null; c.onPick(o.value); } },
-        el('strong', { text: o.label }), o.note ? el('small', { text: o.note }) : null))
-        : help('Nothing to choose yet.'));
+  // "Choose from a list" opens the asset browser's window on the right (the same
+  // picker the Environment and Puzzle editors use); tapping the same button again
+  // closes it. options: [{value, label, thumb, note}].
+  let chooserKey = null;
+  function openChooser(key, title, options, onPick, subtitle = 'Tap one to choose it') {
+    if (chooserKey === key && host.pickerOpen()) { host.closePicker(); chooserKey = null; return; }
+    chooserKey = key;
+    const groupLabel = { characters: 'Characters', swap: 'Characters', steps: 'Steps', templates: 'Templates' }[key] || 'Choose';
+    host.openPicker({ title, subtitle, groupLabel, choices: options.map(o => ({ label: o.label, thumb: o.thumb || '◇', description: o.note || '',
+      onSelect: () => { chooserKey = null; onPick(o.value); } })) });
   }
+  function closeChooser() { if (chooserKey) { host.closePicker(); chooserKey = null; } }
+  const chooserBox = () => null;
   // After a render, scroll a newly added item into view (data-reveal).
   let reveal = null;
   const help = text => el('p', { class: 'sidescroll-story-help', text });
@@ -128,7 +129,7 @@
   function change(rerender = true) { dirty = true; preview(); if (rerender) render(); else updateStatus(); }
   function syncSelection() { host.select(view.page === 'sequence' ? view.placed : null, view.page === 'sequence' ? view.component : null); }
   function open(page, id, extra = {}) {
-    placeMode = null; chooser = null;
+    placeMode = null; closeChooser();
     view.page = page;
     if (page === 'sequence') { view.placed = id; view.component = extra.component || null; const p = placedById(id); if (p && extra.focus !== false) host.lookAt(p.x); }
     if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; }
@@ -198,7 +199,7 @@
       ...(view.tab === 'sequences' ? [
         addBar(btn(placeMode?.kind === 'new-sequence' ? 'Cancel' : '+ New sequence', () => setPlaceMode(placeMode?.kind === 'new-sequence' ? null : { kind: 'new-sequence' }, 'Tap the ground where the sequence goes'), placeMode?.kind === 'new-sequence' ? 'active' : 'primary'),
           draft.templates.length ? btn(placeMode?.kind === 'place-template' ? 'Cancel' : '+ Place a template', () => placeMode?.kind === 'place-template' ? setPlaceMode(null)
-            : openChooser('templates', 'Place which template?', draft.templates.map(t => ({ value: t.id, label: `▣ ${t.name}`, note: `placed ${instancesOf(t.id).length}×` })),
+            : openChooser('templates', 'Place a template', draft.templates.map(t => ({ value: t.id, label: t.name, thumb: '▣', note: `placed ${instancesOf(t.id).length}×` })),
               id => setPlaceMode({ kind: 'place-template', template: id }, 'Tap the ground where it goes')), placeMode?.kind === 'place-template' ? 'active' : 'primary') : null),
         chooserBox('templates'),
         help('Sequences placed in the world, in journey order. Tap one (here or its post in the view) to open it.'),
@@ -223,6 +224,7 @@
 
   // ---- Sequence page -------------------------------------------------------------
   const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑' };
+  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇' };
   function componentEditor(p, body, c) {
     const moving = placeMode?.kind === 'component' && placeMode.id === c.id;
     const worldX = el('input', { type: 'number', step: '0.1', value: fmt(p.x + c.dx, 2), inputmode: 'decimal' });
@@ -238,7 +240,13 @@
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Facing' }), segmented([['-1', 'Left'], ['1', 'Right']], String(c.facing), v => { c.facing = Number(v); change(); })));
     if (c.kind === 'zone') parts.push(field('Width (m)', numberInput(c, 'width', 0.2, 40, 0.1, 2)));
     if (c.kind === 'character') parts.push(
-      field('Character', select_(characterChoices().map(x => [x.id, x.name]), c.character, v => { c.character = v; change(); })),
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Character' }),
+        el('div', { class: 'sidescroll-seq-item' }, el('div', { class: 'sidescroll-seq-current', text: characterName(c.character) }),
+          btn('Change…', () => openChooser('swap', `Swap ${c.name} for…`, characterChoices().filter(x => x.id !== c.character)
+            .map(x => ({ value: x.id, label: x.name, thumb: x.family === 'quadruped' ? '🐾' : '☺', note: x.family === 'quadruped' ? 'Quadruped' : 'Biped' })), id => {
+            if (c.name === characterName(c.character)) c.name = characterName(id); // an unrenamed component follows its character
+            c.character = id; change(); host.hint(`Swapped to ${characterName(id)} · its place, animation and logic stay`);
+          }, 'Its place, standing animation and logic stay the same')))),
       field('Standing animation', select_(slotChoices(), c.animation, v => { c.animation = v; change(); }), 'Loops until an event moves or animates it'),
       slider(c, 'scale', 0.3, 3, 0.01, 'Size (× its own)', 2),
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Blocks the player' }),
@@ -312,7 +320,7 @@
     const nudge = d => btn(d > 0 ? `+${d}` : `−${-d}`, () => { p.x = Math.round((p.x + d) * 100) / 100; change(); });
     const comp = body.components.find(c => c.id === view.component) || null;
     const adding = placeMode?.kind === 'add' ? placeMode.comp : null;
-    const addComp = (kind, extra, message) => { chooser = null; setPlaceMode({ kind: 'add', comp: { kind, ...extra } }, message); };
+    const addComp = (kind, extra, message) => { closeChooser(); setPlaceMode({ kind: 'add', comp: { kind, ...extra } }, message); };
     const count = kind => body.components.filter(c => c.kind === kind).length + 1;
     return [
       field('Name', textInput(p, 'name', 40, () => { if (t) t.name = p.name; })),
@@ -342,7 +350,7 @@
           }, 'danger'))),
       section('Components',
         addBar(
-          btn('+ Character', () => openChooser('characters', 'Add which character?', characterChoices().map(c => ({ value: c.id, label: `☺ ${c.name}`, note: c.family === 'quadruped' ? 'Quadruped' : 'Biped' })),
+          btn('+ Character', () => openChooser('characters', 'Add a character', characterChoices().map(c => ({ value: c.id, label: c.name, thumb: c.family === 'quadruped' ? '🐾' : '☺', note: c.family === 'quadruped' ? 'Quadruped' : 'Biped' })),
             id => addComp('character', { name: characterName(id), character: id, animation: 'idle', scale: 1, blocks: 'auto', facing: 1 }, `Tap the ground where ${characterName(id)} stands`)), adding?.kind === 'character' ? 'active' : 'primary'),
           btn('+ Mark', () => addComp('mark', { name: `Mark ${count('mark')}`, facing: 1 }, 'Tap the ground where the mark goes'), adding?.kind === 'mark' ? 'active' : 'primary'),
           btn('+ Zone', () => addComp('zone', { name: `Zone ${count('zone')}`, width: 2 }, 'Tap the path where the zone goes'), adding?.kind === 'zone' ? 'active' : 'primary')),
@@ -481,8 +489,11 @@
             for (const s of e.steps) for (const k of ['actor', 'to', 'target']) if (s[k] === r.id) delete s[k];
             change();
           }, `Remove ${r.name}`)))),
+      // Steps run in order and are added one after another, so their add
+      // button sits after the last step (the one exception to add-bars-on-top).
       section('Steps',
-        addBar(btn('+ Add step', () => openChooser('steps', 'Add which step?', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, note: def.help })), type => {
+        e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.'),
+        addBar(btn('+ Add step', () => openChooser('steps', 'Add a step', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, thumb: STEP_ICON[type] || '◇', note: def.help })), type => {
           const def = Seq.STEPS[type];
           const actor = e.roles.find(r => r.kind === 'character')?.id, mark = e.roles.find(r => r.kind === 'mark')?.id;
           const s = { type, ...(actor && Object.keys(def.roles).includes('actor') ? { actor } : {}), ...(type === 'move' && mark ? { to: mark } : {}) };
@@ -490,8 +501,7 @@
           e.steps.push(Seq.normaliseEvents({ events: [{ ...e, steps: [s] }] })[0]?.steps[0] || s);
           reveal = `step-${e.steps.length - 1}`; change();
         }), 'primary')),
-        chooserBox('steps'),
-        e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.')),
+        chooserBox('steps')),
       section('Used by',
         usedBy.length ? usedBy.map(({ p, i }) => btn(`▣ ${p.name} · line ${i + 1}`, () => open('sequence', p.id))) : help('Not used by any sequence yet.')),
       row(btn('Duplicate', () => {
@@ -534,15 +544,15 @@
     } }, '‹ Back');
     panel.replaceChildren(
       el('div', { class: 'sidescroll-story-head' }, back,
-        el('strong', { text: view.page === 'event' ? (eventById(view.event)?.name || 'Event') : view.page === 'sequence' ? (placedById(view.placed)?.name || 'Sequence') : 'Sequences' }), statusEl),
+        el('strong', { text: view.page === 'event' ? (eventById(view.event)?.name || 'Event') : view.page === 'sequence' ? (placedById(view.placed)?.name || 'Sequence') : 'Story' }), statusEl),
       ...page,
       el('datalist', { id: 'sidescroll-seq-flags' }, knownFlags().map(f => el('option', { value: f }))),
       el('div', { class: 'sidescroll-story-actions' },
         btn('Discard', () => {
-          if (!confirm('Discard your Sequences changes since the last save?')) return;
+          if (!confirm('Discard your Story changes since the last save?')) return;
           draft = clone(Seq.load()); dirty = false; placeMode = null; preview(); open('list');
         }, 'sidescroll-story-discard'),
-        btn('Save', () => { saveDraft(); host.hint('Sequences saved'); }, 'primary sidescroll-story-save')));
+        btn('Save', () => { saveDraft(); host.hint('Story saved'); }, 'primary sidescroll-story-save')));
     updateStatus();
     if (reveal) {
       const target = panel.querySelector(`[data-reveal="${reveal}"]`);
@@ -551,7 +561,7 @@
     }
   }
   new MutationObserver(() => {
-    if (panel.hidden) { placeMode = null; host.select(null, null); }
+    if (panel.hidden) { placeMode = null; closeChooser(); host.select(null, null); }
     else { syncSelection(); render(); }
   }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
