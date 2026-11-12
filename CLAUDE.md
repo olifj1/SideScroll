@@ -249,6 +249,13 @@ in fire only once she has left them. The 8–9 Nov world characters / marks / tr
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game
 controls). Gameplay code tests `editLocked()` (= editing and not playing) where Play must work;
 `editMode` alone still means "the editor is open". New test controls belong in this bar.
+**⚑ Progress** (TEST bar, `renderProgressWindow`, palette mode `'progress'`): puzzles and placed
+sequences by x with Go / Complete / Reset, flag chips, Complete all / Reset all. Puzzles:
+`progressCompletePuzzle` applies the **Solved State** (`sidescroll.puzzle-groups.solved.v1`, keyed
+like starts: `tpl:<group>` for instances, set by *Set Solved State*), marks solved, adds the reward;
+`progressResetPuzzle` reverses it. Sequences: `seqCompleteSequence` runs each line's steps instantly
+(moves land), `seqResetSequence` undoes its components, fired lines, flags, and items (given items
+carry inventory source `seq:<id>`; the **Item** step's takes are recorded in progress `taken`).
 
 **Near-side rows** (`near-rows.js`, `window.SideScrollNearRows`, loaded by play and
 world-lab): a biome profile's optional `nearRows` (`{enabled, rows:[3 × {on, depth,

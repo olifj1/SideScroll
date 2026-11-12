@@ -26,6 +26,7 @@ Design: `docs/SEQUENCE_SYSTEM_DESIGN.md` — sequences placed like puzzles / wor
 a logic list of *When → run event* lines, and a game-wide events library whose events
 use roles. Steps 1–2 (events library, sequences with characters / marks / zones and logic) done 10 Nov.
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
+- [ ] **Play from here:** complete every puzzle and sequence before a chosen point (via ⚑ Progress), then play from there. *(⚑ Progress, Solved State and the Item step done 12 Nov.)*
 - [ ] **4 — World Lab sequences track:** bounds, details, Open in game, Play from here.
 - [ ] **5 — Look steps** (colour grade, vignette, fog; atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov.)*
 
@@ -60,6 +61,12 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0al. Progress window, Solved State, Item step (12 Nov)**
+- [ ] Edit → TEST bar **⚑ Progress**: the right-hand window lists puzzles and sequences in journey order with their state. **Go** jumps there; **Complete** / **Reset** change the state and the row updates.
+- [ ] Puzzle editor: lay a puzzle out solved, tap **Set Solved State**, put it back to its start. In ⚑ Progress, **Complete** that puzzle: the pieces jump to the solved layout and its reward is in the inventory; **Reset**: back to the start, item gone.
+- [ ] An event with **Item → Give** forest key: run it, the key appears; ⚑ Progress → Reset the sequence removes it. **Item → Take** removes one; Reset gives it back.
+- [ ] Story flags show as chips; tapping one sets / clears it. **Complete all** then **Reset all** returns everything to the start.
 
 **0ak. Story tab, side pick-lists, swap a character (12 Nov)**
 - [ ] The editor tab reads **Story**. **+ Character** and **+ Add step** open the right-hand window (like Environment → assets); tapping a card picks it, × closes it.

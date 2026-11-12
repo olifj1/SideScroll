@@ -35,7 +35,8 @@
     control: { label: 'Control', help: 'takes control from the player, or gives it back', roles: {} },
     camera:  { label: 'Camera', help: 'frames a mark, a character or the player; or goes back to following the player', roles: { target: 'any' } },
     screen:  { label: 'Screen', help: 'fades to / from black, letterbox bars in / out', roles: {} },
-    prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} }
+    prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} },
+    item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} }
   });
   const SCREEN_ACTIONS = Object.freeze({ 'fade-out': 'Fade to black', 'fade-in': 'Fade in from black', 'bars-in': 'Letterbox bars in', 'bars-out': 'Letterbox bars out' });
   const WHEN = Object.freeze({
@@ -129,6 +130,12 @@
         break;
       case 'prompt':
         out.label = text(raw.label, 14, 'Talk');
+        break;
+      case 'item':
+        // Items given are tagged with the sequence (Progress → Reset takes them back).
+        out.item = text(raw.item, 60, 'forest-key');
+        out.count = Math.round(clamp(raw.count, 1, 20, 1));
+        out.give = raw.give !== false;
         break;
       case 'screen':
         out.action = SCREEN_ACTIONS[raw.action] ? raw.action : 'fade-out';
@@ -231,9 +238,16 @@
 
   // ---- Play progress -----------------------------------------------------------
   // {flags:{name:true}, fired:{"<placed id>:<line id>":true},
-  //  components:{"<placed id>:<component id>":{x, depth, facing, animation, hidden}}}
+  //  components:{"<placed id>:<component id>":{x, depth, facing, animation, hidden}},
+  //  taken:{"<placed id>":{item id: count}} — items its events took from the player}
   function loadProgress() {
-    const raw = read(PROGRESS_KEY), out = { flags: {}, fired: {}, components: {} };
+    const raw = read(PROGRESS_KEY), out = { flags: {}, fired: {}, components: {}, taken: {} };
+    for (const [k, v] of Object.entries(raw?.taken || {})) {
+      if (!/^sq-[a-z0-9]+$/.test(k) || !v || typeof v !== 'object') continue;
+      const items = {};
+      for (const [item, n] of Object.entries(v)) if (Number(n) > 0) items[text(item, 60)] = Math.round(Number(n));
+      if (Object.keys(items).length) out.taken[k] = items;
+    }
     for (const [k, v] of Object.entries(raw?.flags || {})) if (v && flagName(k) === k) out.flags[k] = true;
     for (const [k, v] of Object.entries(raw?.fired || {})) if (v && /^sq-[a-z0-9]+:l-[a-z0-9]+$/.test(k)) out.fired[k] = true;
     for (const [k, v] of Object.entries(raw?.components || {})) {
@@ -249,9 +263,10 @@
     return out;
   }
   function saveProgress(p) {
-    const empty = !Object.keys(p?.flags || {}).length && !Object.keys(p?.fired || {}).length && !Object.keys(p?.components || {}).length;
+    const empty = !Object.keys(p?.flags || {}).length && !Object.keys(p?.fired || {}).length && !Object.keys(p?.components || {}).length
+      && !Object.keys(p?.taken || {}).length;
     if (empty) localStorage.removeItem(PROGRESS_KEY);
-    else localStorage.setItem(PROGRESS_KEY, JSON.stringify({ schema: PROGRESS_KEY, flags: p.flags, fired: p.fired, components: p.components }));
+    else localStorage.setItem(PROGRESS_KEY, JSON.stringify({ schema: PROGRESS_KEY, flags: p.flags, fired: p.fired, components: p.components, taken: p.taken || {} }));
   }
 
   window.SideScrollSequences = Object.freeze({

@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## 12 November 2026 — Progress window, puzzle Solved State, Item step
+- New content keys `sidescroll.puzzle-groups.solved.v1` (Puzzles area; Puzzle Lab's own copy `sidescroll.puzzle-lab.solved.v1`): each puzzle's Solved State (keyed `tpl:<group>` for linked instances, else the marker id), written by *Set Solved State*. In Project Backup (all `sidescroll.` keys); published with the Puzzles area.
+- `sidescroll.player.story-progress.v2` gains `taken` ({sequence id: {item: count}}): items an Item step took, given back when the sequence is reset. Items a sequence gives carry the inventory source `seq:<sequence id>`.
+
 ## 10 November 2026 — Sequences and events
 - New content keys `sidescroll.story.events.v1` (events library) and `sidescroll.story.sequences.v1` (templates and placed sequences), Story area: published with the Publish Lab Story area, in Project Backup (all `sidescroll.` keys). Written by the game editor's Sequences scope (*Save*); empty libraries remove the key.
 - New progress key `sidescroll.player.story-progress.v2` (flags, fired once-only lines, lasting changes to sequence components). Never published; cleared by Delete save and the TEST bar's Reset story.

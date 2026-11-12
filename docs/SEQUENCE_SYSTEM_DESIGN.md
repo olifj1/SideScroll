@@ -83,6 +83,8 @@ The player keeps control while a sequence plays, unless an event's steps take it
     control is taken); the button shows the step's label. A Camera shot may **keep** after
     its event ends, until a later *back* step. Logic can also start **when the player
     leaves a zone** (added 11 Nov).
+  - **Item** — give the player an item (with a count), or take one (added 12 Nov). Items a
+    sequence gives are removed, and ones it took returned, when the sequence is reset.
   - Later: **Look** (colour grade, vignette, fog) and **Skip** (see *Later* below).
 - Events are game-wide: any sequence can run any event. Changing an event changes it
   everywhere it is used; its page lists where.
@@ -99,7 +101,8 @@ and each thing is edited in exactly one place.
   event → fill its roles).
 - **Event page** — *Roles* (+ Add role) and *Steps* (+ Add step from the step list;
   each step picks its roles from a list).
-- **Testing** — the TEST bar (▶ Play, ↺ Restart, Reset story) plus **Play from here**
+- **Testing** — the TEST bar (▶ Play, ↺ Restart, Reset story, **⚑ Progress**: complete or
+  reset any puzzle or sequence, toggle flags — added 12 Nov) plus **Play from here**
   on a sequence (Play starts just before its bounds, story reset). A **Sequence Lab**
   page to test one in isolation comes later.
 - The lists are the source of truth; a **node graph** could later be another view of

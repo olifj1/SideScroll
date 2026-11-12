@@ -8736,7 +8736,7 @@ document.addEventListener('keydown',event=>{
   var puzzleEditSession = null;
   let puzzleWorkspaceActive = false;
   let puzzleWorkspaceTab = 'contents';
-  let editorPalettePickerMode = null; // null | zone | logic | puzzle-template | group-template | story — shared right-side picker workflow
+  let editorPalettePickerMode = null; // null | zone | logic | puzzle-template | group-template | story | progress — shared right-side picker workflow
   let puzzleWorkspaceListSignature = '';
   let puzzleZoneListSignature = '';
   let puzzleNodeInspectorOpen = false;
@@ -14404,6 +14404,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     puzzlePanel.hidden = !visible;
     document.body.classList.toggle('sidescroll-puzzle-testing', puzzleTestMode);
     if (!visible) return;
+    updatePuzzleSolvedHelp();
 
     const testing = puzzleTestMode;
     // The legacy source-action bridge stays hidden during authoring because the
@@ -18244,6 +18245,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         seqCameraTo(run, { targetX, side: step.side, height: step.height, distance: step.distance, tilt: step.tilt }, step.seconds, step.ease, !!step.keep);
         return now + step.seconds;
       }
+      case 'item': {
+        if (!step.item || !INVENTORY_ITEM_DEFS[step.item]) return now;
+        if (step.give) addInventoryItem(step.item, step.count, seqItemSource(run.p.id));
+        else {
+          const n = Math.min(inventoryItemCount(step.item), step.count);
+          if (n > 0) {
+            removeInventoryItem(step.item, n);
+            const taken = ((seqProgress.taken ||= {})[run.p.id] ||= {});
+            taken[step.item] = (taken[step.item] || 0) + n;
+            saveStoryProgress();
+          }
+        }
+        return now;
+      }
       case 'prompt':
         // Waits (even while control is taken) until the player presses Action.
         run.prompt = { label: step.label || 'Talk' };
@@ -18360,8 +18375,84 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const { p, body } of seqResolved) for (const c of body.components)
       if (c.kind === 'zone') { const s = seqZoneSpan(p, c); if (px + r >= s.x0 && px - r <= s.x1) seqInside.add(compKey(p.id, c.id)); }
   }
+  // ---- Progress: complete or reset one sequence ----------------------------
+  const seqItemSource = placedId => `seq:${placedId}`;
+  // Removes every item tagged as coming from a source (a puzzle or a sequence).
+  function removeInventoryFromSource(sourceId) {
+    for (const [itemId, item] of Object.entries({ ...(inventoryState.items || {}) })) {
+      const count = Math.max(0, Number(item?.sources?.[sourceId]) || 0);
+      if (count > 0) removeInventoryItem(itemId, count, sourceId);
+    }
+  }
+  // Stops a sequence's running events and lets go of what they held.
+  function seqStopSequence(placedId) {
+    seqRuns = seqRuns.filter(run => {
+      if (run.p.id !== placedId) return true;
+      seqControlLocks.delete(run.id); seqReleaseRun(run.id);
+      return false;
+    });
+    for (const key of [...seqLive.keys()]) if (key.startsWith(`${placedId}:`)) seqLive.delete(key);
+  }
+  // The end state, at once: every line that can run does, its steps applied
+  // instantly (moves land, flags, show / hide, items, facing, new loops);
+  // waits, camera, screen, speech and control are skipped.
+  function seqCompleteSequence(placedId) {
+    const r = seqResolved.find(x => x.p.id === placedId);
+    if (!r) return false;
+    seqStopSequence(placedId);
+    const now = storyNow();
+    for (const l of r.body.logic) {
+      if (!seqLineReady(r.p, l)) continue;
+      if (l.once) seqProgress.fired[seqLineKey(r.p, l)] = true;
+      const run = { id: ++seqRunSerial, p: r.p, body: r.body, line: l, event: seqEvents.get(l.event), index: 0, active: [] };
+      for (const step of run.event.steps) {
+        if (step.type === 'move') {
+          const actor = step.actor ? seqBound(run, step.actor) : null, mark = step.to ? seqBound(run, step.to) : null;
+          if (!actor || !mark) continue;
+          const from = seqComponentPlace(r.p, actor), to = seqComponentPlace(r.p, mark);
+          const facing = Math.abs(to.x - from.x) > 0.001 ? (to.x > from.x ? 1 : -1) : from.facing;
+          Object.assign(seqSavedFor(compKey(r.p.id, actor.id)), { x: to.x, depth: to.depth, facing });
+        } else if (['flag', 'show', 'item', 'face'].includes(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
+          seqStartStep(run, step, now);
+        }
+      }
+      seqControlLocks.delete(run.id);
+    }
+    seqStarted.add(placedId);
+    saveStoryProgress();
+    return true;
+  }
+  // Back to the start: lines unplayed, components back where they stood, the
+  // flags its events set cleared, items it gave taken back and items it took
+  // given back.
+  function seqResetSequence(placedId) {
+    const r = seqResolved.find(x => x.p.id === placedId);
+    seqStopSequence(placedId);
+    const prefix = `${placedId}:`;
+    for (const key of Object.keys(seqProgress.components)) if (key.startsWith(prefix)) delete seqProgress.components[key];
+    for (const key of Object.keys(seqProgress.fired)) if (key.startsWith(prefix)) delete seqProgress.fired[key];
+    if (r) for (const l of r.body.logic) for (const step of seqEvents.get(l.event)?.steps || [])
+      if (step.type === 'flag' && step.value && step.flag) delete seqProgress.flags[step.flag];
+    removeInventoryFromSource(seqItemSource(placedId));
+    for (const [itemId, count] of Object.entries(seqProgress.taken?.[placedId] || {}))
+      if (INVENTORY_ITEM_DEFS[itemId]) addInventoryItem(itemId, count);
+    if (seqProgress.taken) delete seqProgress.taken[placedId];
+    seqStarted.delete(placedId);
+    for (const key of [...seqInside]) if (key.startsWith(prefix)) seqInside.delete(key);
+    for (const key of [...seqFlagLatched]) if (key.startsWith(prefix)) seqFlagLatched.delete(key);
+    saveStoryProgress();
+  }
+  // How far a placed sequence has got: once-only lines played / all of them.
+  function seqPlayedSummary(placedId) {
+    const r = seqResolved.find(x => x.p.id === placedId);
+    const once = r ? r.body.logic.filter(l => l.once && l.event) : [];
+    return { played: once.filter(l => seqProgress.fired[seqLineKey(r.p, l)]).length, total: once.length };
+  }
+
   function resetStoryProgress() {
-    seqProgress = { flags: {}, fired: {}, components: {} };
+    // Every sequence back to its start (items included), then all flags cleared.
+    for (const { p } of seqResolved) seqResetSequence(p.id);
+    seqProgress = { flags: {}, fired: {}, components: {}, taken: {} };
     saveStoryProgress();
     seqLive.clear(); seqRuns = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
     seqFinishedLines.length = 0;
@@ -18544,6 +18635,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     openPicker: config => openEditorChoicePicker({ ...config, mode: 'story' }),
     closePicker: () => { if (editorPalettePickerMode === 'story') setAssetPaletteOpen(false); },
     pickerOpen: () => editorPalettePickerMode === 'story' && !editorPalette?.hidden,
+    // Inventory items an Item step can give or take: [{id, label}].
+    items: () => Object.values(INVENTORY_ITEM_DEFS).map(d => ({ id: d.id, label: collectibleConfig(d.id)?.label || d.label || d.id })),
     // Read-only test hooks: the camera's move from the follow view, and any event waiting for Action.
     cameraShot: () => ({ ...seqCameraNow, keep: !!seqCamera?.keep, active: !!seqCamera }),
     waitingFor: () => seqPromptRun()?.prompt?.label || null
@@ -20252,6 +20345,160 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (editorPlayTest) markStoryZonesInside();
     hintEl.textContent = 'Story progress reset (flags, fired triggers, characters)'; hintEl.classList.remove('hidden');
   });
+
+  // ---- Puzzle Solved State ----------------------------------------------------
+  // The arrangement a puzzle has when solved (Puzzle editor → Set Solved State),
+  // captured like its Start State; Progress → Complete applies it. Template
+  // instances share their template's, standalone puzzles keep their own.
+  // var: updatePuzzlePanel (which shows the Solved State help) can run before these lines.
+  var PUZZLE_SOLVED_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.solved.v1' : 'sidescroll.puzzle-groups.solved.v1';
+  var puzzleSolvedState = (() => { try { return JSON.parse(localStorage.getItem(PUZZLE_SOLVED_STORAGE_KEY) || '{}') || {}; } catch (_) { return {}; } })();
+  var puzzleSolvedKey = marker => markerLinkMode(marker) === 'instance' ? `tpl:${marker.group}` : marker.id;
+  var puzzleSolvedFor = marker => (marker ? puzzleSolvedState[puzzleSolvedKey(marker)] || null : null);
+  function setPuzzleSolvedFromCurrent() {
+    const instance = authoringPuzzle() || selectedPuzzleInstance();
+    if (!instance) { hintEl.textContent = 'Select a puzzle first'; hintEl.classList.remove('hidden'); return; }
+    const snapshot = capturePuzzleStart(instance);
+    if (!snapshot) return;
+    puzzleSolvedState[puzzleSolvedKey(instance.marker)] = { ...deepCopy(snapshot), savedAt: Date.now() };
+    try { localStorage.setItem(PUZZLE_SOLVED_STORAGE_KEY, JSON.stringify(puzzleSolvedState)); } catch (_) {}
+    hintEl.textContent = `${instance.def?.label || 'Puzzle'}: Solved State saved${markerLinkMode(instance.marker) === 'instance' ? ' (for every placed copy of its template)' : ''} · Progress → Complete puts it like this`;
+    hintEl.classList.remove('hidden');
+    updatePuzzleSolvedHelp();
+  }
+  function updatePuzzleSolvedHelp() {
+    const el = document.getElementById('sidescroll-puzzle-solved-help');
+    if (!el || !puzzleSolvedState) return;
+    const instance = authoringPuzzle() || selectedPuzzleInstance();
+    if (el) el.textContent = puzzleSolvedFor(instance?.marker)
+      ? 'Saved. Set it again to replace it with the current setup. Progress → Complete puts the puzzle like this.'
+      : 'Arrange the puzzle as solved, then tap: Progress → Complete puts the puzzle like this.';
+  }
+  bindEditorPress(document.getElementById('sidescroll-puzzle-set-solved'), setPuzzleSolvedFromCurrent);
+
+  // ---- Progress: complete or reset one puzzle ----------------------------------
+  // Works on any placed puzzle: it is loaded if it isn't, and streaming unloads
+  // it again later (saving its state).
+  function progressPuzzleInstance(marker) {
+    return activePuzzleInstances.get(marker.id) || instantiatePuzzleGroup(marker);
+  }
+  function progressCompletePuzzle(marker) {
+    const instance = progressPuzzleInstance(marker);
+    if (!instance) return false;
+    const solved = puzzleSolvedFor(marker);
+    if (solved) applyPuzzleSnapshot(instance, solved, { persistRuntime: true, clearDirty: true });
+    instance.solved = true; instance.started = true;
+    const state = savedPuzzleFor(instance.id);
+    state.solved = true; state.started = true;
+    const reward = completionRewardFor(instance);
+    if (reward && !state.reward?.collected && addInventoryItem(reward.itemId, 1, instance.id))
+      state.reward = { itemId: reward.itemId, collected: true, collectedAt: Date.now() };
+    removePuzzleRewardObject(instance);
+    savePuzzleState(true);
+    return true;
+  }
+  function progressResetPuzzle(marker) {
+    const instance = progressPuzzleInstance(marker);
+    if (!instance) return false;
+    resetPuzzleReward(instance);
+    removePuzzleOwnedInventoryItems(instance);
+    applyPuzzleStart(instance, { persistRuntime: true });
+    instance.solved = false; instance.started = false;
+    const state = savedPuzzleFor(instance.id);
+    state.solved = false; state.started = false;
+    savePuzzleState(true);
+    return true;
+  }
+  const puzzleIsSolved = marker => !!(activePuzzleInstances.get(marker.id)?.solved ?? puzzleSavedState?.[marker.id]?.solved);
+
+  // ---- Progress window (TEST bar → ⚑ Progress) -------------------------------
+  // This device's play progress in the editor's right-hand window: puzzles and
+  // sequences in journey order (Complete / Reset / Go there), story flags (tap
+  // to set or clear), Complete all / Reset all.
+  const testProgressBtn = document.getElementById('sidescroll-test-progress');
+  function progressItems() {
+    const items = [];
+    for (const marker of scenePuzzleMarkers()) {
+      const def = markerDefinition(marker);
+      if (def) items.push({ kind: 'puzzle', id: marker.id, x: marker.x, marker, name: def.label || 'Puzzle' });
+    }
+    for (const { p } of seqResolved) items.push({ kind: 'sequence', id: p.id, x: p.x, name: p.name });
+    return items.sort((a, b) => a.x - b.x);
+  }
+  function progressComplete(item) { return item.kind === 'puzzle' ? progressCompletePuzzle(item.marker) : seqCompleteSequence(item.id); }
+  function progressReset(item) { if (item.kind === 'puzzle') progressResetPuzzle(item.marker); else seqResetSequence(item.id); }
+  function knownStoryFlags() {
+    const out = new Set(Object.keys(seqProgress.flags || {}));
+    for (const e of seqState.events) for (const st of e.steps) if (st.type === 'flag' && st.flag) out.add(st.flag);
+    for (const { body } of seqResolved) for (const l of body.logic) { if (l.condition?.flag) out.add(l.condition.flag); if (l.when?.flag) out.add(l.when.flag); }
+    return [...out].sort();
+  }
+  function renderProgressWindow() {
+    if (editorPalettePickerMode !== 'progress' || !editorAssetsEl) return;
+    const make = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+    const button = (label, onClick, cls = '') => { const b = make('button', cls, label); b.type = 'button'; b.addEventListener('click', onClick); return b; };
+    // Resetting a puzzle can close the right-hand window: show Progress again.
+    const after = message => { hintEl.textContent = message; hintEl.classList.remove('hidden'); renderInventory?.(); showProgressWindow(); };
+    const root = make('div', 'sidescroll-progress');
+    const items = progressItems();
+    const all = make('div', 'sidescroll-progress-all');
+    all.append(
+      button('Complete all', () => { if (!confirm('Complete every puzzle and sequence (end states, items given)?')) return; for (const it of items) progressComplete(it); after('Everything completed'); }),
+      button('Reset all', () => { if (!confirm('Reset every puzzle and sequence and clear all story flags (items they gave are taken back)?')) return; for (const it of items) progressReset(it); resetStoryProgress(); after('Everything reset · a fresh start'); }, 'danger'));
+    root.append(all);
+    root.append(make('div', 'sidescroll-editor-asset-group', 'Puzzles and sequences, in journey order'));
+    if (!items.length) root.append(make('p', 'sidescroll-progress-help', 'Nothing placed yet.'));
+    for (const it of items) {
+      const row = make('div', 'sidescroll-progress-row');
+      const info = make('div', 'sidescroll-progress-info');
+      let status, done;
+      if (it.kind === 'puzzle') {
+        done = puzzleIsSolved(it.marker);
+        status = done ? 'Solved' : 'Not solved';
+        if (!puzzleSolvedFor(it.marker)) status += ' · no Solved State';
+      } else {
+        const s = seqPlayedSummary(it.id);
+        done = s.total > 0 && s.played === s.total;
+        status = `${s.played} of ${s.total} played`;
+      }
+      info.append(make('strong', '', `${it.kind === 'puzzle' ? '◇' : '▣'} ${it.name}`), make('small', '', `${it.x.toFixed(1)} m · ${status}`));
+      row.classList.toggle('done', !!done);
+      const go = button('Go', () => { camera.x = it.x - character.screenOffsetX; previousCameraX = camera.x; character.x = it.x; after(`At ${it.name}`); });
+      row.append(info, go,
+        button('Complete', () => { progressComplete(it); after(`${it.name}: completed`); }),
+        button('Reset', () => { progressReset(it); after(`${it.name}: reset`); }, 'danger'));
+      root.append(row);
+    }
+    root.append(make('div', 'sidescroll-editor-asset-group', 'Story flags (tap to set / clear)'));
+    const flags = knownStoryFlags();
+    const chips = make('div', 'sidescroll-progress-flags');
+    if (!flags.length) root.append(make('p', 'sidescroll-progress-help', 'No story flags yet.'));
+    for (const f of flags) {
+      const on = !!seqProgress.flags[f];
+      chips.append(button(`${on ? '✓ ' : ''}${f}`, () => { if (on) delete seqProgress.flags[f]; else seqProgress.flags[f] = true; saveStoryProgress(); after(`${f}: ${on ? 'cleared' : 'set'}`); }, on ? 'on' : ''));
+    }
+    root.append(chips);
+    root.append(make('p', 'sidescroll-progress-help', 'Complete puts a puzzle in its Solved State (Puzzle editor → Set Solved State) and gives its reward; a sequence plays to its end at once. Reset puts it back to its start and takes back what it gave.'));
+    editorAssetsEl.replaceChildren(root);
+  }
+  function openProgressWindow() {
+    if (!editorPalette || !editorAssetsEl) return;
+    if (editorPalettePickerMode === 'progress' && !editorPalette.hidden) { setAssetPaletteOpen(false); return; }
+    showProgressWindow();
+  }
+  function showProgressWindow() {
+    editorPalettePickerMode = 'progress';
+    assetSetupName = null; collectibleSetupItemId = null; addAssetType = null;
+    updatePlacementModeUi();
+    if (assetSetupEl) assetSetupEl.hidden = true;
+    if (collectibleSetupEl) collectibleSetupEl.hidden = true;
+    editorAssetsEl.hidden = false; editorPalette.hidden = false;
+    document.body.classList.add('sidescroll-assets-open');
+    if (editorPaletteTitle) editorPaletteTitle.textContent = 'Progress';
+    if (editorPaletteSubtitle) editorPaletteSubtitle.textContent = 'This device’s play progress';
+    renderProgressWindow();
+  }
+  bindEditorPress(testProgressBtn, openProgressWindow);
 
   bindEditorPress(editorDoneBtn, () => {
     if(worldGroupEditSession)return;

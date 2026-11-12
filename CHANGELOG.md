@@ -4,6 +4,17 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **⚑ Progress (TEST bar):** opens the right-hand window listing every puzzle and
+  sequence in journey order, each with its state and **Go** / **Complete** / **Reset**,
+  plus the story flags (tap to set / clear) and **Complete all** / **Reset all**.
+  Completing a puzzle applies its Solved State, marks it solved and gives its reward;
+  resetting returns it to its Start State and removes its items. Completing a sequence
+  runs its lines' end results at once (moves land, flags, items, Show / Hide); resetting
+  undoes them, removing items it gave and returning ones it took. Reset story now resets
+  each sequence this way.
+- **Puzzle Set Solved State:** the Puzzle editor can store a puzzle's solved layout
+  (*Set Solved State*, next to Start State), used by ⚑ Progress → Complete.
+- **Event step Item:** gives the player an item (with a count) or takes one.
 - **Story editor:** the editor tab is now **Story** (Sequences and Events inside it).
   Pick-lists (+ Character, + Add step, + Place a template, Change character) open in
   the asset browser's window on the right, like adding assets. A character component

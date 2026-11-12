@@ -37,6 +37,7 @@
 
     "sidescroll.puzzle-groups.library.v1":               { "area": "Puzzles", "scope": "content", "lab": "Game editor", "what": "Puzzle and World Group templates" },
     "sidescroll.puzzle-groups.starts.v1":                { "area": "Puzzles", "scope": "content", "lab": "Game editor", "what": "Puzzle start states" },
+    "sidescroll.puzzle-groups.solved.v1":                { "area": "Puzzles", "scope": "content", "lab": "Game editor", "what": "Puzzle Solved States (Puzzle editor → Set Solved State; Progress → Complete applies them)" },
     "sidescroll.puzzle-groups.state.v1":                 { "area": "Puzzles", "scope": "content", "lab": "Game editor", "what": "Puzzle layout as last left in the editor" },
     "sidescroll.puzzle-groups.workshop.v1":              { "area": "Puzzles", "scope": "content", "lab": "Game editor", "what": "Puzzle workshop selection" },
     "sidescroll-puzzle-exclusions-v1":                   { "area": "Puzzles", "scope": "content", "lab": "Game editor", "what": "Procedural dressing exclusion zones" },
@@ -44,6 +45,7 @@
 
     "sidescroll.puzzle-lab.scene.v1":                    { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab test scene" },
     "sidescroll.puzzle-lab.starts.v1":                   { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab start states" },
+    "sidescroll.puzzle-lab.solved.v1":                   { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab Solved States" },
     "sidescroll.puzzle-lab.library.v1":                  { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab templates" },
     "sidescroll.puzzle-lab.workshop.v1":                 { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab workshop selection" },
     "sidescroll.puzzle-lab.terrain-sections.v1":         { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab terrain sections" },
