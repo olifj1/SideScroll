@@ -37,7 +37,7 @@
     Story: 'Sequences and events',
     Puzzles: 'Puzzle and World Group templates, starts, collectables',
     'Puzzle Lab': 'Puzzle Lab test scene and templates',
-    Assets: 'Asset behaviours, collisions, states, sockets',
+    Assets: 'Imported assets and their art; asset behaviours, collisions, states, sockets',
     Characters: 'Rig and animation templates, action slots',
     CharacterRoles: 'Default player and other roles; categories (which are playable)',
     Design: 'Design Lab document, Concept Lab boards'
@@ -53,6 +53,17 @@
     if (Defaults?.isBuiltIn?.(key)) return null;
     try { return localStorage.getItem(key); } catch (_) { return null; }
   }
+  // Imported assets: art on this phone (IndexedDB) and the same art published as a
+  // file count as the same when its size and byte count match.
+  const ASSET_LIBRARY_KEY = 'sidescroll.asset-library.v1';
+  const AssetLib = window.SideScrollAssetLibrary || null;
+  function assetLibraryCanon(raw) {
+    try {
+      const lib = JSON.parse(raw);
+      for (const e of lib?.assets || []) if (e?.art) e.art = { width: e.art.width, height: e.art.height, bytes: e.art.bytes };
+      return JSON.stringify(lib);
+    } catch (_) { return raw; }
+  }
   const canonical = raw => { try { return JSON.stringify(sortKeys(JSON.parse(raw))); } catch (_) { return String(raw); } };
   const sortKeys = v => v && typeof v === 'object' ? (Array.isArray(v) ? v.map(sortKeys)
     : Object.fromEntries(Object.keys(v).sort().map(k => [k, sortKeys(v[k])]))) : v;
@@ -67,6 +78,7 @@
     const pub = Object.prototype.hasOwnProperty.call(published, key) ? published[key] : null;
     if (own === null) return pub === null ? 'empty' : 'published';
     if (pub === null) return 'new';
+    if (key === ASSET_LIBRARY_KEY) return canonical(assetLibraryCanon(own)) === canonical(assetLibraryCanon(pub)) ? 'published' : 'changed';
     return canonical(own) === canonical(pub) ? 'published' : 'changed';
   }
 
@@ -162,6 +174,24 @@
       for (const c of characters) if (selected.characters.has(c.id)) chars.push(await Packages.exportCharacter(c.id, null));
       const pkg = { schema: PUBLISH_SCHEMA, app: 'SideScroll', exportedAt: new Date().toISOString(),
         areas: areas.filter(a => selected.areas.has(a.id)).map(a => a.id), storage, characters: chars };
+      // Imported assets' art on this phone travels with the package; the bake tool
+      // writes each to assets/ and points the asset at that file.
+      if (storage[ASSET_LIBRARY_KEY] && AssetLib) {
+        const missing = [];
+        pkg.assetArt = {};
+        for (const entry of AssetLib.list()) {
+          if (entry.art.kind !== 'indexeddb') continue;
+          const blob = await AssetLib.getArt(entry.art.id).catch(() => null);
+          if (!blob) { missing.push(entry.label); continue; }
+          pkg.assetArt[entry.art.id] = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || Error('Artwork could not be read'));
+            reader.readAsDataURL(blob);
+          });
+        }
+        if (missing.length) throw Error(`the artwork of ${missing.join(', ')} is not on this device. Publish from the device that imported it.`);
+      }
       if (selected.areas.has(ROLES_AREA)) pkg.registryShared = sharedLists({ roles: Registry.roles(), categories: Registry.categories() });
       const text = JSON.stringify(pkg);
       if (JSON.parse(text).schema !== PUBLISH_SCHEMA) throw Error('Package failed validation.');

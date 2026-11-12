@@ -1,5 +1,12 @@
 # SideScroll — Art Asset Pipeline Checklist
 
+**Getting a new asset into the game (since 12 Nov 2026):** make the PNG game-ready yourself
+(transparent background, cropped), then Asset Lab → **+ Import asset** → name, library,
+group, kind → height, floor line, collision, behaviour. It is placeable in the game editor
+straight away; Publish Lab → **Assets** publishes it (art and setup) for every device.
+Sections C–G below describe the older hand-processing route and still apply to art a
+Claude session adds directly.
+
 Read this before starting every new texture/image asset batch.
 
 ## A. Plan

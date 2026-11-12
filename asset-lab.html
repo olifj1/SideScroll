@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.0.147">
+  <link rel="stylesheet" href="style.css?v=1.1.69">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -23,6 +23,10 @@
 
     <aside class="assetlab-library" aria-label="Asset library">
       <div class="assetlab-panel-head"><small>LIBRARY</small><strong>Assets</strong></div>
+      <div class="assetlab-import-bar">
+        <button type="button" id="assetlab-import">+ Import asset</button>
+        <input type="file" id="assetlab-import-file" accept="image/png,.png" hidden>
+      </div>
       <div class="assetlab-filter-row">
         <button type="button" class="active" data-filter="all">All</button>
         <button type="button" data-filter="puzzle">Puzzle</button>
@@ -42,6 +46,39 @@
     </section>
 
     <aside class="assetlab-controls">
+      <section class="assetlab-control-section" id="assetlab-imported-section" hidden>
+        <div class="assetlab-control-heading"><small>IMPORTED</small><strong>Asset details</strong></div>
+        <label class="assetlab-select-row assetlab-text-row">
+          <span><strong>Name</strong><small>Shown in the game editor</small></span>
+          <input id="assetlab-imported-name" type="text" maxlength="80" autocomplete="off">
+        </label>
+        <label class="assetlab-select-row">
+          <span><strong>Library</strong><small>Which editor list it appears in</small></span>
+          <select id="assetlab-imported-scope">
+            <option value="environment">Environment</option>
+            <option value="puzzle">Puzzle</option>
+          </select>
+        </label>
+        <label class="assetlab-select-row assetlab-text-row">
+          <span><strong>Group</strong><small>Its heading in that list</small></span>
+          <input id="assetlab-imported-group" type="text" maxlength="48" list="assetlab-imported-groups" autocomplete="off">
+          <datalist id="assetlab-imported-groups"></datalist>
+        </label>
+        <label class="assetlab-select-row">
+          <span><strong>Kind</strong><small>How it is placed</small></span>
+          <select id="assetlab-imported-category">
+            <option value="dressing">Scenery · placed at any depth</option>
+            <option value="gameplay">Gameplay · placed on the path</option>
+          </select>
+        </label>
+        <p class="assetlab-note" id="assetlab-imported-info"></p>
+        <div class="assetlab-button-row">
+          <button type="button" id="assetlab-imported-replace">Replace Art</button>
+          <button type="button" id="assetlab-imported-delete" class="assetlab-danger">Delete Asset</button>
+        </div>
+        <input type="file" id="assetlab-imported-replace-file" accept="image/png,.png" hidden>
+        <p class="assetlab-note">Set its height and floor line below, then collision and behaviour. Changes save as you go; the game picks them up next time it opens.</p>
+      </section>
 
       <section class="assetlab-control-section" id="assetlab-state-section">
         <div class="assetlab-control-heading"><small>STATES</small><strong>Asset state</strong></div>
@@ -226,7 +263,8 @@
   <script src="asset-paths.js?v=1.1.28"></script>
   <script src="site-config.js?v=1.0.62"></script>
   <script src="core.js?v=1.0.62"></script>
-  <script src="asset-lab.js?v=1.0.100"></script>
+  <script src="asset-library.js?v=1.1.69"></script>
+  <script src="asset-lab.js?v=1.1.69"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>
 </html>

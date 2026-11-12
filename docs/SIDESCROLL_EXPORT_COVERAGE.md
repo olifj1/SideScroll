@@ -1,5 +1,10 @@
 # SideScroll — Export and Recovery Coverage
 
+## 12 November 2026 — Imported assets
+- New content key `sidescroll.asset-library.v1` (Assets area): imported assets (name, label, group, library, kind, starting height / floor line, art). Their height, collision, behaviour and states live in the existing Asset Lab keys under the asset's name.
+- Imported art is kept in IndexedDB (`sidescroll-animlab-art-v1` / `atlas-images`, ids `asset-art-…`), the store Character Lab uses, so **Project Backup** exports and restores it with the character artwork.
+- Publishing: Publish Lab's Assets area adds `assetArt` {art id: PNG data URL} to the package; `tools/bake_project.py` writes each to `assets/<asset name>-<hash>.png`, switches the entry to `{kind:'bundled', file}`, removes asset files nothing refers to, and notes assets still phone-only.
+
 ## 12 November 2026 — Progress window, puzzle Solved State, Item step
 - New content keys `sidescroll.puzzle-groups.solved.v1` (Puzzles area; Puzzle Lab's own copy `sidescroll.puzzle-lab.solved.v1`): each puzzle's Solved State (keyed `tpl:<group>` for linked instances, else the marker id), written by *Set Solved State*. In Project Backup (all `sidescroll.` keys); published with the Puzzles area.
 - `sidescroll.player.story-progress.v2` gains `taken` ({sequence id: {item: count}}): items an Item step took, given back when the sequence is reset. Items a sequence gives carry the inventory source `seq:<sequence id>`.

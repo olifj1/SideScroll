@@ -57,6 +57,9 @@ LIBRARY_KEY = 'sidescroll.animlab.character-library.v1'
 PUBLISHED_SCOPES = {'content', 'migration'}
 ROLES_AREA = 'CharacterRoles'  # Publish Lab area id for the registry's roles & categories
 CHARACTER_ID = re.compile(r'^(char-[1-3]|user-[a-z0-9-]{5,40})$')
+ASSET_LIBRARY_KEY = 'sidescroll.asset-library.v1'  # imported assets (asset-library.js)
+ASSET_NAME = re.compile(r'^asset-[a-z0-9]+-[a-z0-9]+$')
+ASSET_FILE = re.compile(r'^(asset-[a-z0-9]+-[a-z0-9]+)-[0-9a-f]{10}\.png$')
 EMPTY = {
     LIBRARY_KEY: lambda: {'schema': 'animlab.character-library.v1', 'entries': []},
     ATLAS_KEY: lambda: {'schema': 'animlab.atlas-map.v1', 'characters': {}},
@@ -226,6 +229,50 @@ def warn_phone_only_art(storage, report):
                                       'Export the character in Character Lab and bake that file too.')
 
 
+def publish_asset_art(storage, art_map, report):
+    """Move imported assets' IndexedDB art (carried in a publish package's
+    assetArt) into assets/<asset name>-<hash>.png and point each entry at it."""
+    lib = read_json(storage, ASSET_LIBRARY_KEY)
+    changed = False
+    for entry in lib.get('assets') or []:
+        art = entry.get('art') or {}
+        if art.get('kind') != 'indexeddb':
+            continue
+        name = entry.get('name', '')
+        if not ASSET_NAME.match(name):
+            sys.exit(f'Imported asset has an invalid name: {name!r}')
+        data = (art_map or {}).get(art.get('id'))
+        if not data:
+            continue
+        header, b64 = data.split(',', 1)
+        if header != 'data:image/png;base64':
+            sys.exit(f'{entry.get("label", name)}: artwork is not a PNG.')
+        png = base64.b64decode(b64)
+        file = f'{name}-{hashlib.sha256(png).hexdigest()[:10]}.png'
+        (ROOT / 'assets' / file).write_bytes(png)
+        entry['art'] = {'kind': 'bundled', 'file': file, 'width': art.get('width'), 'height': art.get('height'),
+                        'bytes': len(png), 'name': art.get('name', '')}
+        report['art'].append(f'{file} ({len(png):,} bytes) · {entry.get("label", name)}')
+        changed = True
+    if changed:
+        storage[ASSET_LIBRARY_KEY] = compact(lib)
+
+
+def tidy_asset_art(storage, report):
+    """Remove published asset art nothing refers to any more (replaced or deleted
+    assets), and note imported assets whose art is still only on a phone."""
+    entries = read_json(storage, ASSET_LIBRARY_KEY).get('assets') or []
+    used = {(e.get('art') or {}).get('file') for e in entries}
+    for path in (ROOT / 'assets').glob('asset-*.png'):
+        if ASSET_FILE.match(path.name) and path.name not in used:
+            path.unlink()
+            report['removed'].append(path.name)
+    for e in entries:
+        if (e.get('art') or {}).get('kind') == 'indexeddb':
+            report['warnings'].append(f'Imported asset "{e.get("label", e.get("name"))}": artwork is still phone-only. '
+                                      'Publish the Assets area from Publish Lab on the phone that imported it.')
+
+
 def rename_keys(storage, renamed):
     for old, new in renamed.items():
         if old in storage:
@@ -266,6 +313,7 @@ def main(paths):
         exported_at, storage, previous_characters = load_current()
     for pkg in publishes:
         bake_publish_areas(storage, pkg, catalogue, report)
+        publish_asset_art(storage, pkg.get('assetArt'), report)
     rename_keys(storage, renamed)
     for key in list(storage):
         storage[key] = migrate_raw(key, storage[key])
@@ -277,6 +325,7 @@ def main(paths):
     previous_characters = [dict(c, id=IDS.get(c.get('id'), c.get('id'))) for c in previous_characters]
     characters = [c for c in previous_characters if c['id'] not in {p['id'] for p in published}] + published
     warn_phone_only_art(storage, report)
+    tidy_asset_art(storage, report)
 
     data = {'schema': 'sidescroll.project-defaults.v1', 'exportedAt': exported_at,
             'characters': characters, 'renamedKeys': renamed, 'storage': dict(sorted(storage.items()))}

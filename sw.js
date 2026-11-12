@@ -42,6 +42,7 @@ const CORE_SHELL = [
   "./sidescroll.js",
   "./near-rows.js",
   "./sequence-data.js",
+  "./asset-library.js",
   "./sequence-editor.js",
   "./character-game-runtime.js",
   "./puzzle-groups.js",

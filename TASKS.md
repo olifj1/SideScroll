@@ -62,6 +62,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0am. Import an asset (12 Nov)** — needs a transparent PNG in Files (Photos may hand over a JPEG)
+- [ ] Asset Lab → **+ Import asset** → pick the PNG from Files: it appears at the bottom of the list (IMPORTED) and is selected; *Asset details* shows its name ready to type. Name it, choose Library / Group / Kind.
+- [ ] Set **Height** and **Floor line** with Player Reference on; add collision and a behaviour (e.g. Solid + Support Surface) if it needs one.
+- [ ] Open the game → Edit → **+ Add environment asset** (or the Puzzle list): it is under its group heading with its picture; place a few. Close and reopen the app: they are still there.
+- [ ] **Replace Art** with another PNG: placed copies change picture, keep their place. **Delete Asset** while placed: refused with where it is used.
+- [ ] Publish Lab: **Assets** shows New; Prepare package → upload to `publish/` → merge the Action's pull request. After it deploys, Publish Lab shows Assets as Published.
+
 **0al. Progress window, Solved State, Item step (12 Nov)**
 - [ ] ⚑ Progress looks like the other editor menus: light text, rows as cards with Go / Complete / Reset across the bottom, green edge on done ones.
 - [ ] Edit → TEST bar **⚑ Progress**: the right-hand window lists puzzles and sequences in journey order with their state. **Go** jumps there; **Complete** / **Reset** change the state and the row updates.
@@ -299,6 +306,7 @@ app and make a Project Backup.
 - [ ] **Carry pose per character:** the game's carry arms (`carryPose` in `biped-rig.js`) are one set of hand targets tuned for Hero 1, so Character01 holds things lower. Let each character set its carry (a *Carry* action slot with an animation, or carry hand targets in Quick Play next to the test box), used by the game and Quick Play. Pick-up/put-down reach likewise.
 - [ ] **Performance audit (game and Labs):** look for work repeated every frame that only needs doing when something changes, like the character-library re-parsing fixed on 4 Nov (`localStorage` reads + `JSON.parse` in per-frame paths, rebuilding lists/meshes/geometry that haven't changed, DOM updates during playback). Done so far: character-library parsing (4 Nov), per-item terrain re-grounding and asset behaviour merging (5 Nov). Next candidates: the number of draw calls (one per grass/rock item; batching dressing that shares a texture), and terrain lookups outside drawing (`terrainSparseNumberAt` still shows). Measure first (CPU-throttled profile while running), fix the largest, keep a short before/after table in the PR.
 - [ ] **Character Lab overlays follow the drawing method (view only, small):** the Display *Rigid Planes* button draws the rig's original cut-out frames whatever the drawing method, so on a Mesh character (the Fox) it outlines frames nothing uses. For Mesh characters, replace it with a *Mesh* overlay showing every piece's wireframe, deforming live with the pose (useful in Animate); Parts characters keep *Rigid Planes*. In Skin, change *Wireframe: On/Off* to *Off / Selected / All* (selected piece stays highlighted), like the Atlas tool's *Wireframes* choice. Nothing saved changes; the game is unaffected.
+- [ ] **Imported assets, next steps:** a **crop** option in Asset Lab; let World Lab biome profiles **scatter** imported dressing (they are placed by hand for now); then move the built-in asset list out of `sidescroll.js` / `asset-lab.js` into the same shared library, so built-in and imported assets are defined in one place.
 - [ ] **Atlas tools:** better topology editing (connect vertices, split/merge edge paths, delete triangle ranges, boundary shaping) and spline control-node editing.
 
 ## Later

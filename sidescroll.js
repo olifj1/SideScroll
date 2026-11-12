@@ -1885,7 +1885,11 @@
       image.src = assetPath(src);
     };
 
-    loadIntoTexture(url);
+    if (url && typeof url.then === 'function') {
+      // Imported art (asset-library.js): the URL arrives once the image is read
+      // from this device. Missing art stays transparent; Asset Lab reports it.
+      url.then(loadIntoTexture, error => { console.warn(`${label}:`, error?.message || error); finishVisualLoad(); });
+    } else loadIntoTexture(url);
     return tex;
   }
 
@@ -2323,6 +2327,21 @@
   textures['cart-wheel-ready'] = textures['handcart-wheel'];
   assetAspect['axle-pin'] = 2;
   textures['axle-pin'] = createImageTexture('axle-pin.png?v=1.0.62', 'axle-pin', null, 2);
+
+  // Imported assets (Asset Lab → + Import asset; asset-library.js). Each gets its
+  // texture now, filled when its art has been read from this device or assets/.
+  const AssetLib = window.SideScrollAssetLibrary || null;
+  const importedAssets = AssetLib ? AssetLib.list() : [];
+  for (const entry of importedAssets) {
+    assetAspect[entry.name] = AssetLib.aspect(entry);
+    textures[entry.name] = createImageTexture(AssetLib.artUrl(entry), entry.name, null, assetAspect[entry.name]);
+  }
+  // A placed copy of an imported asset that is not on this device draws nothing.
+  let emptyAssetTexture = null;
+  function missingAssetTexture() {
+    if (!emptyAssetTexture) emptyAssetTexture = createTexture(ctx => ctx.clearRect(0, 0, 4, 4), 4, 4, false);
+    return emptyAssetTexture;
+  }
 
   // Editor-only puzzle Thought Trigger. It is visible while authoring but
   // suppressed completely during play. Its activation radius is drawn in the
@@ -4016,7 +4035,7 @@ document.addEventListener('keydown',event=>{
     const layoutName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     const authored = Number(assetLayoutDefaults?.[layoutName]?.groundLine);
     if (Number.isFinite(authored)) return Rig.clamp(authored, 0, 1);
-    const value = ASSET_GROUND_LINE_DEFAULTS[layoutName];
+    const value = ASSET_GROUND_LINE_DEFAULTS[layoutName] ?? (AssetLib?.isImportedName(layoutName) ? editorAssetInfo.get(layoutName)?.defaultGroundLine : undefined);
     return Rig.clamp(Number.isFinite(value) ? value : 0, 0, 1);
   }
 
@@ -5063,7 +5082,7 @@ document.addEventListener('keydown',event=>{
     const obj = {
       id: opts.id || `proc-${++sceneIdCounter}`,
       mesh: billboardMesh,
-      texture: textures[type],
+      texture: textures[type] || (AssetLib?.isImportedName(type) ? missingAssetTexture() : undefined),
       uvScale: opts.uvScale || assetUv[type]?.scale || [1, 1],
       uvOffset: opts.uvOffset || assetUv[type]?.offset || [0, 0],
       x,
@@ -9743,6 +9762,19 @@ document.addEventListener('keydown',event=>{
       'ground07','ground08','ground09','ground10','ground11','ground12'
     ].map(name => ({ name, label: `GROUND ${Number(name.slice(-2))}`, category: 'dressing' }))}
   ];
+  // Imported assets join the library under their own headings (asset-library.js).
+  for (const entry of importedAssets) {
+    let group = editorAssetGroups.find(g => g.imported && g.scope === entry.scope && g.title === entry.group);
+    if (!group) {
+      group = { scope:entry.scope, title:entry.group, imported:true, items:[],
+        selectionKey:`imported-${entry.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        selectionLabel:entry.group.charAt(0) + entry.group.slice(1).toLowerCase() };
+      editorAssetGroups.push(group);
+    }
+    group.items.push({ name:entry.name, label:entry.label.toUpperCase(), category:entry.category,
+      gameplayType:entry.category === 'gameplay' ? 'prop' : null, defaultHeight:entry.height,
+      defaultGroundLine:entry.groundLine, imported:true, wrap:false });
+  }
   const editorAssetInfo = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, item])));
   const editorAssetScope = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, group.scope])));
   const editorAssetSelectionMeta = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, {
@@ -15246,7 +15278,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const group of editorAssetGroups) {
       const wantedScope = puzzleEnvironmentPlacementMode ? 'environment' : editorScope;
       if (group.scope !== wantedScope && group.scope !== 'both') continue;
-      const items = group.items.filter(info => puzzleEnvironmentPlacementMode || editorScope !== 'puzzle' || group.scope === 'both' || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name))
+      const items = group.items.filter(info => puzzleEnvironmentPlacementMode || editorScope !== 'puzzle' || group.scope === 'both' || info.imported || !allowedPuzzleAssets?.size || allowedPuzzleAssets.has(info.name))
         .filter(info => group.scope !== 'environment' || environmentAssetAvailableForBiome(info.name, character.x));
       if (!items.length) continue;
       const heading = document.createElement('div');
@@ -15262,7 +15294,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         const file = info.image || (name.startsWith('tree')
           ? `sidescroll-tree-${name.slice(-2)}.png`
           : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
-        if (file) {
+        if (info.imported) {
+          const thumb = document.createElement('span'), img = document.createElement('img'), label = document.createElement('small');
+          thumb.className = 'sidescroll-asset-thumb'; img.alt = ''; label.textContent = info.label;
+          thumb.append(img); btn.append(thumb, label);
+          AssetLib.artUrl(AssetLib.get(name)).then(url => { img.src = url; }).catch(() => { thumb.textContent = '?'; });
+        } else if (file) {
           const thumbVersion = name.startsWith('settlement-') ? '1.0.102' : (name.startsWith('mountain-') ? '1.0.83' : '1.0.62');
           btn.innerHTML = `<span class="sidescroll-asset-thumb"><img src="${assetPath(`${file}?v=${thumbVersion}`)}" alt="" loading="eager"></span><small>${info.label}</small>`;
         } else if (name === 'crate') {

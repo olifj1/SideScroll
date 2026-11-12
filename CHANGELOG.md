@@ -4,6 +4,15 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Asset Lab: + Import asset.** Pick a PNG (with its transparency already done) and it
+  becomes a game asset: give it a name, a library (Environment / Puzzle), a group heading
+  and a kind (scenery at any depth, or gameplay on the path), then set its height, floor
+  line, collision and behaviour with Asset Lab's usual controls. It appears in the game
+  editor's asset list straight away on that phone. **Replace Art** swaps the picture and
+  keeps the setup; **Delete Asset** is refused while a copy is placed. The art is used
+  exactly as imported (no clean-up). **Publishing:** Publish Lab's **Assets** area now
+  carries the imported art; the publish Action writes it to `assets/asset-…-<hash>.png`
+  so every device gets it (changed art gets a new file name, so it is never stale).
 - **⚑ Progress window restyled** to match the editor's other menus: light text, the
   editor's own buttons (capitals, soft fill), each row a card with its name and status on
   top and Go / Complete / Reset across the width; done rows have a green edge and status.

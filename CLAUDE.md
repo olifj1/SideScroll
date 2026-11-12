@@ -123,6 +123,23 @@ JSON exactly as the browser does (`js_json`). After changing either, run
 `node tools/test_migrations.js [exports…]` — it checks the two agree. Any page that
 loads `project-defaults.js` must load `saved-data-migrations.js` first.
 
+## Imported assets
+`asset-library.js` (`window.SideScrollAssetLibrary`, key `sidescroll.asset-library.v1`) is the
+list of assets the author imported in Asset Lab (**+ Import asset**): `{name 'asset-<time>-<rand>'
+(permanent; everything is keyed by it), label, group, scope 'environment'|'puzzle', category
+'dressing'|'gameplay', height, groundLine, art}`. Art is `{kind:'indexeddb', id 'asset-art-…'}` in
+Character Lab's image store (so Project Backup carries it) until published, then
+`{kind:'bundled', file 'asset-…-<hash>.png'}` in `assets/` (Publish Lab adds `assetArt` to the
+package; `bake_project.py` `publish_asset_art` / `tidy_asset_art`). Art is used exactly as
+imported — no trimming or clean-up. Height, floor line, collision, behaviours and states are
+Asset Lab's usual per-name stores. The game (`sidescroll.js`: `importedAssets`, after
+`editorAssetGroups`) adds them to the editor library under their group heading and creates
+their textures at start-up (`createImageTexture` accepts a promised URL); a placed copy whose
+asset is missing draws nothing (`missingAssetTexture`). Asset Lab refuses to delete an asset
+that any `sidescroll.` key still mentions (`usedIn`). Any page that lists or draws imported
+assets loads `asset-library.js` (play, asset-lab, publish-lab). The built-in assets are still
+listed separately in `sidescroll.js` (`editorAssetGroups`) and `asset-lab.js` (`ASSETS`).
+
 ## Character registry
 `character-registry.js` (`window.SideScrollCharacters`) is the one list of
 characters for Character Lab and the game: display names (library characters keep
@@ -208,7 +225,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `sidescroll.js`, `sequence-editor.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
-| `asset-lab.html` | Asset collision/states | `asset-lab.js` |
+| `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement | `world-lab.js` |
 | `design-lab.html` | Living game design doc | `design-lab.js`, `design-doc.json` |
