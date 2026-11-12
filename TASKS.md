@@ -63,6 +63,7 @@ step and move it to **Now** as a bug. Before starting: close/reopen the Home Scr
 app and make a Project Backup.
 
 **0al. Progress window, Solved State, Item step (12 Nov)**
+- [ ] ⚑ Progress looks like the other editor menus: light text, rows as cards with Go / Complete / Reset across the bottom, green edge on done ones.
 - [ ] Edit → TEST bar **⚑ Progress**: the right-hand window lists puzzles and sequences in journey order with their state. **Go** jumps there; **Complete** / **Reset** change the state and the row updates.
 - [ ] Puzzle editor: lay a puzzle out solved, tap **Set Solved State**, put it back to its start. In ⚑ Progress, **Complete** that puzzle: the pieces jump to the solved layout and its reward is in the inventory; **Reset**: back to the start, item gone.
 - [ ] An event with **Item → Give** forest key: run it, the key appears; ⚑ Progress → Reset the sequence removes it. **Item → Take** removes one; Reset gives it back.

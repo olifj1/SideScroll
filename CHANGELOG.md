@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **⚑ Progress window restyled** to match the editor's other menus: light text, the
+  editor's own buttons (capitals, soft fill), each row a card with its name and status on
+  top and Go / Complete / Reset across the width; done rows have a green edge and status.
 - **⚑ Progress (TEST bar):** opens the right-hand window listing every puzzle and
   sequence in journey order, each with its state and **Go** / **Complete** / **Reset**,
   plus the story flags (tap to set / clear) and **Complete all** / **Reset all**.
