@@ -242,8 +242,8 @@ stays until a Camera *back* step). A *Wait for Action* step (`prompt`) parks its
 is pressed (`seqPromptRun` / `answerSeqPrompt`; works while control is taken); logic `leave` lines
 fire when the player's body leaves a zone. Progress `sidescroll.player.story-progress.v2`
 (`Seq.loadProgress/saveProgress`: flags, `fired["sq:l"]`, `components["sq:c"]` {x, depth, facing,
-animation, hidden}). The editor talks to the game through `window.SideScrollSequenceHost`; taps
-arrive as `sidescroll:story-tap`; the scope id is still `'story'`. Zones the player already stands
+animation, hidden}). The editor (the **Story** tab) talks to the game through `window.SideScrollSequenceHost` (pick-lists use
+its `openPicker`, the asset browser's right-hand window); taps arrive as `sidescroll:story-tap`; the scope id is `'story'`. Zones the player already stands
 in fire only once she has left them. The 8–9 Nov world characters / marks / triggers are retired.
 **Editor TEST bar** (`#sidescroll-test-bar`, every scope): ▶ Play sets `editorPlayTest` — the game
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game

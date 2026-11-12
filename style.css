@@ -15674,3 +15674,4 @@ body[data-game-id="game-16"].sidescroll-seq-prompt .sidescroll-secondary-control
 .sidescroll-seq-role{grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:auto!important;}
 .sidescroll-seq-role input{grid-row:auto!important;}
 .sidescroll-seq-role .sidescroll-seq-kind,.sidescroll-seq-role button{grid-row:auto!important;grid-column:auto!important;}
+.sidescroll-seq-current{display:flex;align-items:center;min-height:32px;padding:0 10px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.18);font-weight:700;}

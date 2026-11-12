@@ -8736,7 +8736,7 @@ document.addEventListener('keydown',event=>{
   var puzzleEditSession = null;
   let puzzleWorkspaceActive = false;
   let puzzleWorkspaceTab = 'contents';
-  let editorPalettePickerMode = null; // null | zone | logic | puzzle-template | group-template — shared right-side picker workflow
+  let editorPalettePickerMode = null; // null | zone | logic | puzzle-template | group-template | story — shared right-side picker workflow
   let puzzleWorkspaceListSignature = '';
   let puzzleZoneListSignature = '';
   let puzzleNodeInspectorOpen = false;
@@ -10942,7 +10942,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const puzzleWorkspaceShown=!!(puzzleWorkspaceActive&&editMode&&!puzzleTestMode&&editorScope==='puzzle'&&puzzleBrowserMode==='scene'&&selectedPuzzleMarker());
     document.body.classList.toggle('sidescroll-puzzle-workspace-active',puzzleWorkspaceShown);
     if(editorDrawerContextEl)editorDrawerContextEl.textContent=groupSession?'WORLD GROUP':(puzzleWorkspaceShown?'PUZZLE EDIT':(terrainWorkspaceShown?'TERRAIN EDIT':'EDIT'));
-    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(terrainWorkspaceShown?'Terrain':(editorScope==='puzzle'?'Puzzle':(editorScope==='story'?'Sequences':'Environment'))));
+    if(editorDrawerTitleEl)editorDrawerTitleEl.textContent=group?.label||(puzzleWorkspaceShown?(markerDefinition(sessionPuzzleMarker||selectedPuzzleMarker())?.label||'Puzzle'):(terrainWorkspaceShown?'Terrain':(editorScope==='puzzle'?'Puzzle':(editorScope==='story'?'Story':'Environment'))));
     const session=groupSession?worldGroupEditSession:(puzzleSession?puzzleEditSession:(terrainSession?terrainEditSession:null));
     const dirty=!!session?.dirty;
     if(editorDrawerDirtyEl)editorDrawerDirtyEl.hidden=!dirty;
@@ -18539,6 +18539,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       setEditorPlayTest(true);
     },
     playing: () => editorPlayTest,
+    // The Story editor's pick-lists use the asset browser's right-side window
+    // (openEditorChoicePicker): {title, subtitle, groupLabel, choices:[{label, thumb, description, onSelect}]}.
+    openPicker: config => openEditorChoicePicker({ ...config, mode: 'story' }),
+    closePicker: () => { if (editorPalettePickerMode === 'story') setAssetPaletteOpen(false); },
+    pickerOpen: () => editorPalettePickerMode === 'story' && !editorPalette?.hidden,
     // Read-only test hooks: the camera's move from the follow view, and any event waiting for Action.
     cameraShot: () => ({ ...seqCameraNow, keep: !!seqCamera?.keep, active: !!seqCamera }),
     waitingFor: () => seqPromptRun()?.prompt?.label || null
@@ -20256,7 +20261,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       else revertNearRows();
     }
     // Story changes stay live (unsaved) when not saved here, until a reload.
-    if(window.SideScrollSequenceEditor?.dirty()&&window.confirm('Save your Sequences changes?\n\nCancel keeps them in the game unsaved until the app is reloaded.'))
+    if(window.SideScrollSequenceEditor?.dirty()&&window.confirm('Save your Story changes?\n\nCancel keeps them in the game unsaved until the app is reloaded.'))
       window.SideScrollSequenceEditor.save();
     setEditMode(false);
   });

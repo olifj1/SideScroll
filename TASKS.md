@@ -61,6 +61,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ak. Story tab, side pick-lists, swap a character (12 Nov)**
+- [ ] The editor tab reads **Story**. **+ Character** and **+ Add step** open the right-hand window (like Environment → assets); tapping a card picks it, × closes it.
+- [ ] Open a character component → **Character: … Change…** → pick another: it swaps in place, keeping its logic.
+
 **0aj. Sequences editor layout (11 Nov)**
 - [ ] Open a sequence: a small **‹ Back** top left with its name; Components has **+ Character / + Mark / + Zone** across the top; **+ Character** shows a list of characters — pick one, then tap the ground. Each component row has a **×** on the right. Add several without scrolling to the bottom.
 - [ ] Logic **+ Add line** at the top; the new line scrolls into view. An event (from *Open* or *+ New event…*): **+ Add step** sits under the last step and shows the list of steps; **‹ Back** returns to the sequence.
