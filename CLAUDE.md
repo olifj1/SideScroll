@@ -136,7 +136,9 @@ Asset Lab's usual per-name stores. The game (`sidescroll.js`: `importedAssets`, 
 `editorAssetGroups`) adds them to the editor library under their group heading and creates
 their textures at start-up (`createImageTexture` accepts a promised URL); a placed copy whose
 asset is missing draws nothing (`missingAssetTexture`). Asset Lab refuses to delete an asset
-that any `sidescroll.` key still mentions (`usedIn`). Any page that lists or draws imported
+that any `sidescroll.` key still mentions (`usedIn`). Replace Art with a different aspect calls
+`rescalePlaced(name, newAspect/oldAspect)`, which walks those keys and scales every placed copy's
+`sx` / `baseSx` / `width` and collision `halfWidth` (copies keep their height). Any page that lists or draws imported
 assets loads `asset-library.js` (play, asset-lab, publish-lab). The built-in assets are still
 listed separately in `sidescroll.js` (`editorAssetGroups`) and `asset-lab.js` (`ASSETS`).
 
