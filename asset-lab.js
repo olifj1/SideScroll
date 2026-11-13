@@ -1016,7 +1016,10 @@
       Lib.update(entry.name, { art });
       if (entry.art.kind === 'indexeddb') Lib.deleteArt(entry.art.id).catch(() => {});
       imageCache.delete(entry.name);
-      saveStateEl.textContent = 'Art replaced';
+      // A different shape: placed copies keep their height and take the new width.
+      const factor = (art.width / art.height) / (entry.art.width / entry.art.height);
+      const resized = Lib.rescalePlaced(entry.name, factor);
+      saveStateEl.textContent = resized ? `Art replaced · ${resized} placed cop${resized === 1 ? 'y' : 'ies'} reshaped` : 'Art replaced';
       showImported(entry.name);
     } catch (error) { alert(error?.message || 'That file could not be used.'); }
   });

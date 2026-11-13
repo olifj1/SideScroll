@@ -62,6 +62,9 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ao. Replace Art with a different shape (13 Nov)**
+- [ ] Place an imported asset a couple of times (one in a puzzle if you can), then Asset Lab → Replace Art with a PNG of different proportions: the top right says how many copies were reshaped; in the game they stand at the same height with the new width, not stretched.
+
 **0an. World Lab sequences, player start, texture info (13 Nov)**
 - [ ] World Lab: the **SEQUENCES** row shows your sequences as purple bars. Tap one: its components, logic and flags appear below. Tap it again and drag it, or type an Anchor X; open the game: the sequence (characters, zones) has moved. Undo puts it back.
 - [ ] World Lab: tap the green **START** flag, drag it (or type / *Set to the playhead*) and choose Facing. In the game: Menu → Delete save: you begin at the flag, facing that way.

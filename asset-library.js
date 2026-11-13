@@ -192,6 +192,35 @@
     }
     return found;
   }
+  // New art with a different shape: every placed copy (scene, puzzles, world groups,
+  // templates…) keeps its height and takes the new width. Widths are metres, so a
+  // copy's sx / baseSx / width and its collision half-width scale by `factor`
+  // (new aspect ÷ old aspect). Returns how many copies changed.
+  function rescalePlaced(name, factor) {
+    if (!Number.isFinite(factor) || factor <= 0 || Math.abs(factor - 1) < 0.002) return 0;
+    let count = 0;
+    const scale = node => {
+      if (Array.isArray(node)) { node.forEach(scale); return; }
+      if (!node || typeof node !== 'object') return;
+      if (node.assetName === name || node.asset === name) {
+        let changed = false;
+        for (const k of ['sx', 'baseSx', 'width']) if (typeof node[k] === 'number' && Number.isFinite(node[k])) { node[k] *= factor; changed = true; }
+        if (node.collision && typeof node.collision.halfWidth === 'number') node.collision.halfWidth *= factor;
+        if (changed) count++;
+      }
+      for (const value of Object.values(node)) if (value && typeof value === 'object') scale(value);
+    };
+    for (const key of usedIn(name)) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key));
+        const before = count;
+        scale(value);
+        if (count !== before) localStorage.setItem(key, JSON.stringify(value));
+      } catch (_) {}
+    }
+    return count;
+  }
+
   // Removes this asset's setup (height, collision, behaviours…) from Asset Lab's stores.
   function removeSetup(name) {
     for (const key of SETUP_KEYS) {
@@ -207,6 +236,6 @@
 
   window.SideScrollAssetLibrary = {
     KEY, list, get, add, update, remove, isImportedName, aspect,
-    putArt, getArt, deleteArt, artUrl, inspectFile, usedIn, removeSetup
+    putArt, getArt, deleteArt, artUrl, inspectFile, usedIn, removeSetup, rescalePlaced
   };
 })();

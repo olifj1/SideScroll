@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Replace Art handles a new shape:** if the new PNG's proportions differ (image
+  generators often change the canvas size), every placed copy — in the scene, puzzles,
+  world groups and templates — keeps its height and takes the new width, and its
+  collision narrows or widens with it. A different pixel size with the same shape changes
+  nothing (sizes are in metres). Asset Lab says how many copies it reshaped.
 - **World Lab: Sequences track.** Every placed story sequence shows as a bar over the
   stretch it covers (its components and zones). Tap it for its details (components with
   their positions, logic lines, flags it reads and sets) and an Anchor X box; tap again and
