@@ -62,6 +62,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ap. Group node editing, editor at the player start (13 Nov)**
+- [ ] Edit → Environment: tap the "Home Sweet Home" thought node inside HomeGroup01: its text box opens straight away (header GROUP NODE). Change the text, then Save the group; Done Editing; walk into it: the new thought shows.
+- [ ] With a START flag set in World Lab, open the game editor: the player stands at the flag, facing its way.
+
 **0ao. Replace Art with a different shape (13 Nov)**
 - [ ] Place an imported asset a couple of times (one in a puzzle if you can), then Asset Lab → Replace Art with a PNG of different proportions: the top right says how many copies were reshaped; in the game they stand at the same height with the new width, not stretched.
 
@@ -328,6 +332,7 @@ app and make a Project Backup.
 - **Undo everywhere:** shared transaction history for World Lab (plus Redo) and Asset Lab.
 - **Performance panel:** frame-time spikes, object/texture counts, rolling spike history; profile before changing renderer.
 - **Streaming:** global preload/unload distances for authored content; texture manager with reference counting and WebGL texture release.
+- **Texture memory and compressed textures (plan: `docs/TEXTURE_COMPRESSION_PLAN.md`):** today about 290 MB of textures are unpacked at start-up. First load only nearby textures (the streaming item above), then KTX2 / Basis Universal files (ASTC on iPhone, BC7 on desktop, about a quarter of the memory) encoded by a GitHub Action, PNGs kept as masters and fallback. Measure and compare quality on the phone before switching.
 - **Audio:** SFX beyond background music, after profiling a low-stall path on iPhone Safari.
 - **Store packaging:** iOS / Google Play / Steam wrap once gameplay length, performance and streaming are mature.
 

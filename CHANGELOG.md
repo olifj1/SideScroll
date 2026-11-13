@@ -4,6 +4,15 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Edit a thought or camera node inside a World Group with one tap:** tapping it in the
+  game editor opens the group for editing with that node selected and its settings
+  (text, radius, one shot) open, instead of only selecting the group. It saves with the
+  group as usual. The node editor now says whether the node belongs to a puzzle, a group or
+  the scene.
+- **The editor opens at the player start** (World Lab → START), facing its way, unless
+  World Lab sent it somewhere else.
+- **Plan written** for loading only nearby textures and GPU-compressed (KTX2 / Basis)
+  textures: `docs/TEXTURE_COMPRESSION_PLAN.md` (in TASKS → Later).
 - **Replace Art handles a new shape:** if the new PNG's proportions differ (image
   generators often change the canvas size), every placed copy — in the scene, puzzles,
   world groups and templates — keeps its height and takes the new width, and its
