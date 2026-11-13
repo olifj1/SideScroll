@@ -52,6 +52,7 @@
     "sidescroll.puzzle-lab.terrain-surfaces.v1":         { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab terrain surfaces" },
     "sidescroll.puzzle-lab.exclusions.v1":               { "area": "Puzzle Lab", "scope": "content", "lab": "Puzzle Lab", "what": "Puzzle Lab exclusion zones" },
 
+    "sidescroll.asset-library.v1":                       { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Imported assets (+ Import asset): name, group, library, kind, art (IndexedDB on the phone until published, then assets/asset-…png)" },
     "sidescroll.asset-behaviours.v1":                    { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Asset behaviours (push, climb...)" },
     "sidescroll.asset-climb-paths.v1":                   { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Climb paths" },
     "sidescroll.asset-collisions.v1":                    { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Collision shapes" },

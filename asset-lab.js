@@ -68,6 +68,22 @@
     ...Array.from({length:12},(_,i)=>({group:'ENVIRONMENT · GROUND',scope:'environment',name:`ground${String(i+1).padStart(2,'0')}`,label:`Ground ${i+1}`,image:`sidescroll-ground-${String(i+1).padStart(2,'0')}.png`,height:0.82,behaviour:{}}))
   ];
 
+  // Imported assets (Asset Lab → + Import asset; asset-library.js) follow the
+  // built-in ones, sorted by library and heading. They are set up like any other
+  // asset: everything below is keyed by the asset's permanent name.
+  const Lib = window.SideScrollAssetLibrary || null;
+  const importedAsset = entry => ({
+    group:`${entry.scope === 'puzzle' ? 'PUZZLE' : 'ENVIRONMENT'} · ${entry.group}`, scope:entry.scope,
+    name:entry.name, label:entry.label, imported:true, height:entry.height, groundLine:entry.groundLine, behaviour:{}
+  });
+  function syncImportedAssets() {
+    for (let i = ASSETS.length - 1; i >= 0; i--) if (ASSETS[i].imported) ASSETS.splice(i, 1);
+    const entries = (Lib?.list() || []).sort((a, b) => a.scope.localeCompare(b.scope) || a.group.localeCompare(b.group) || a.createdAt - b.createdAt);
+    ASSETS.push(...entries.map(importedAsset));
+  }
+  syncImportedAssets();
+  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
   const canvas = document.getElementById('assetlab-canvas');
   const ctx = canvas.getContext('2d');
   const listEl = document.getElementById('assetlab-asset-list');
@@ -261,6 +277,16 @@
     if (!asset) return null;
     const existing = imageCache.get(asset.name);
     if (existing) return existing;
+    if (asset.imported) {
+      const img = new Image();
+      img.onload = () => { resize(); renderPointEditor(); draw(); };
+      Lib.artUrl(Lib.get(asset.name)).then(url => {
+        img.src = url;
+        listEl.querySelector(`[data-asset="${asset.name}"] img`)?.setAttribute('src', url);
+      }).catch(() => { asset.artMissing = true; syncImportedSection(); });
+      imageCache.set(asset.name, img);
+      return img;
+    }
     if (asset.procedural) {
       const img=makeProceduralImage(asset);
       img.onload=()=>{resize();renderPointEditor();draw();};
@@ -801,10 +827,10 @@
         group=asset.group;
         const h=document.createElement('div');h.className='assetlab-group-label';h.textContent=group;listEl.appendChild(h);
       }
-      const row=document.createElement('button');row.type='button';row.className='assetlab-asset-row';row.classList.toggle('active',asset.name===state.asset.name);
+      const row=document.createElement('button');row.type='button';row.className='assetlab-asset-row';row.classList.toggle('active',asset.name===state.asset.name);row.dataset.asset=asset.name;
       const preview=ensureImage(asset);
-      const previewSrc=preview?.src || assetPath(asset.image || '');
-      row.innerHTML=`<img src="${previewSrc}" alt=""><span><strong>${asset.label}</strong><small>${effectiveBehaviour(asset).pushable?'PUSH · ':''}${effectiveBehaviour(asset).climbable?'CLIMB · ':''}${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
+      const previewSrc=preview?.src || (asset.imported ? '' : assetPath(asset.image || ''));
+      row.innerHTML=`<img src="${escapeHtml(previewSrc)}" alt=""><span><strong>${escapeHtml(asset.label)}</strong><small>${asset.imported?'IMPORTED · ':''}${effectiveBehaviour(asset).pushable?'PUSH · ':''}${effectiveBehaviour(asset).climbable?'CLIMB · ':''}${effectiveBehaviour(asset).supportSurface?'SUPPORT · ':''}${effectiveCollision(asset)?'COLLISION':'NO COLLISION'}</small></span>`;
       row.addEventListener('click',()=>selectAsset(asset,{keepView:state.pairMode&&isBridge(asset)}));
       listEl.appendChild(row);
     }
@@ -839,7 +865,142 @@
     updatePairUI();
     syncControls();
     buildList();
+    syncImportedSection();
   }
+
+  // --- Imported assets: + Import asset, details, Replace Art, Delete -------------
+  const importBtn = document.getElementById('assetlab-import');
+  const importFile = document.getElementById('assetlab-import-file');
+  const importedSection = document.getElementById('assetlab-imported-section');
+  const importedName = document.getElementById('assetlab-imported-name');
+  const importedScope = document.getElementById('assetlab-imported-scope');
+  const importedGroup = document.getElementById('assetlab-imported-group');
+  const importedGroups = document.getElementById('assetlab-imported-groups');
+  const importedCategory = document.getElementById('assetlab-imported-category');
+  const importedInfo = document.getElementById('assetlab-imported-info');
+  const importedReplace = document.getElementById('assetlab-imported-replace');
+  const importedReplaceFile = document.getElementById('assetlab-imported-replace-file');
+  const importedDelete = document.getElementById('assetlab-imported-delete');
+
+  function syncImportedSection() {
+    const entry = state.asset?.imported && Lib ? Lib.get(state.asset.name) : null;
+    importedSection.hidden = !entry;
+    if (!entry) return;
+    if (document.activeElement !== importedName) importedName.value = entry.label;
+    if (document.activeElement !== importedGroup) importedGroup.value = entry.group;
+    importedScope.value = entry.scope;
+    importedCategory.value = entry.category;
+    const groups = [...new Set(Lib.list().map(e => e.group))].sort();
+    importedGroups.replaceChildren(...groups.map(g => Object.assign(document.createElement('option'), { value:g })));
+    const art = entry.art;
+    const where = art.kind === 'bundled' ? 'published with the game' : 'on this device · Publish Lab → Assets publishes it';
+    importedInfo.textContent = `${art.width} × ${art.height} px · ${Math.max(1, Math.round(art.bytes / 1024))} KB · ${where}`
+      + (state.asset.artMissing ? ' · ⚠ its artwork is not on this device (it was imported on another one)' : '');
+  }
+
+  function showImported(name) {
+    const keep = state.panX || state.panY || state.viewScale !== 1;
+    syncImportedAssets();
+    const asset = assetByName(name) || ASSETS.find(a => a.imported) || ASSETS[0];
+    if (asset.imported && state.filter !== 'all' && state.filter !== asset.scope) {
+      state.filter = asset.scope;
+      filterButtons.forEach(b => b.classList.toggle('active', b.dataset.filter === state.filter));
+    }
+    selectAsset(asset, { keepView:keep && asset.name === state.asset?.name });
+    listEl.querySelector(`[data-asset="${asset.name}"]`)?.scrollIntoView({ block:'nearest' });
+  }
+
+  const prettyName = file => String(file || 'New asset').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()
+    .replace(/^./, c => c.toUpperCase()) || 'New asset';
+
+  async function readPickedArt(file) {
+    const info = await Lib.inspectFile(file);
+    if (!info.transparent && !confirm('This PNG has no transparent pixels, so it will show as a solid rectangle in the game. Use it anyway?')) return null;
+    const id = await Lib.putArt(file);
+    return { kind:'indexeddb', id, width:info.width, height:info.height, bytes:info.bytes, name:info.name };
+  }
+
+  importBtn?.addEventListener('click', () => { if (Lib) importFile.click(); });
+  importFile?.addEventListener('change', async () => {
+    const file = importFile.files?.[0];
+    importFile.value = '';
+    if (!file) return;
+    try {
+      const art = await readPickedArt(file);
+      if (!art) return;
+      const current = state.asset?.imported ? Lib.get(state.asset.name) : null;
+      const entry = Lib.add({
+        label:prettyName(file.name), group:current?.group || 'IMPORTED',
+        scope:state.filter === 'puzzle' ? 'puzzle' : (current?.scope || 'environment'),
+        category:current?.category || 'dressing', height:1, groundLine:0, art
+      });
+      showImported(entry.name);
+      saveStateEl.textContent = 'Imported';
+      importedSection.scrollIntoView({ block:'start', behavior:'smooth' });
+      importedName.focus();
+      importedName.select();
+    } catch (error) { alert(error?.message || 'That file could not be imported.'); }
+  });
+
+  importedName?.addEventListener('input', () => {
+    const label = importedName.value.trim();
+    if (!label || !state.asset?.imported) return;
+    Lib.update(state.asset.name, { label });
+    state.asset.label = label;
+    updatePairUI();
+    const row = listEl.querySelector(`[data-asset="${state.asset.name}"] strong`);
+    if (row) row.textContent = label;
+    saveStateEl.textContent = 'Saved';
+  });
+  importedName?.addEventListener('change', () => { if (!importedName.value.trim()) syncImportedSection(); });
+  for (const [input, field] of [[importedScope, 'scope'], [importedGroup, 'group'], [importedCategory, 'category']]) {
+    input?.addEventListener('change', () => {
+      if (!state.asset?.imported) return;
+      const value = input.value.trim();
+      if (!value) { syncImportedSection(); return; }
+      Lib.update(state.asset.name, { [field]:value });
+      saveStateEl.textContent = 'Saved';
+      showImported(state.asset.name);
+    });
+  }
+
+  importedReplace?.addEventListener('click', () => importedReplaceFile.click());
+  importedReplaceFile?.addEventListener('change', async () => {
+    const file = importedReplaceFile.files?.[0];
+    importedReplaceFile.value = '';
+    const entry = state.asset?.imported ? Lib.get(state.asset.name) : null;
+    if (!file || !entry) return;
+    try {
+      const art = await readPickedArt(file);
+      if (!art) return;
+      Lib.update(entry.name, { art });
+      if (entry.art.kind === 'indexeddb') Lib.deleteArt(entry.art.id).catch(() => {});
+      imageCache.delete(entry.name);
+      saveStateEl.textContent = 'Art replaced';
+      showImported(entry.name);
+    } catch (error) { alert(error?.message || 'That file could not be used.'); }
+  });
+
+  const USE_PLACES = [[/scene|environment|world-group/, 'the game scene or a world group'], [/puzzle/, 'a puzzle'], [/story|sequence/, 'a sequence']];
+  importedDelete?.addEventListener('click', () => {
+    const entry = state.asset?.imported ? Lib.get(state.asset.name) : null;
+    if (!entry) return;
+    const used = Lib.usedIn(entry.name);
+    if (used.length) {
+      const places = [...new Set(used.map(key => USE_PLACES.find(([re]) => re.test(key))?.[1] || key))];
+      alert(`“${entry.label}” is placed in ${places.join(', ')}. Remove its placed copies first, then delete it.`);
+      return;
+    }
+    if (!confirm(`Delete “${entry.label}”? Its artwork and its setup (height, collision, behaviour) are removed from this device.`)) return;
+    Lib.remove(entry.name);
+    Lib.removeSetup(entry.name);
+    for (const store of [behaviourStore, collisionStore, layoutStore, mechanismStore, socketStore, assetStateStore, climbPathStore]) delete store[entry.name];
+    if (entry.art.kind === 'indexeddb') Lib.deleteArt(entry.art.id).catch(() => {});
+    imageCache.delete(entry.name);
+    saveStateEl.textContent = 'Deleted';
+    showImported(null);
+  });
+  if (!Lib && importBtn) importBtn.hidden = true;
 
   function syncControls() {
     const h=effectiveHeight();
