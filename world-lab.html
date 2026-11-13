@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#11191d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="world-lab.css?v=1.0.140">
+  <link rel="stylesheet" href="world-lab.css?v=1.1.70">
   <title>World Lab · SideScroll</title>
 </head>
 <body>
@@ -65,6 +65,7 @@
             <div class="wl-rail-label wl-terrain-rail detail" data-terrain-detail="far-b">FAR STRIP B</div>
             <div class="wl-rail-label">PUZZLES</div>
             <div class="wl-rail-label">WORLD GROUPS</div>
+            <div class="wl-rail-label">SEQUENCES</div>
             <div class="wl-rail-label">WORLD ASSETS</div>
             <div class="wl-rail-label">LANDMARKS / STORY / CAMERA</div>
           </div>
@@ -80,8 +81,10 @@
               <div class="wl-track wl-terrain-track detail" data-terrain-detail="far-b" data-track="terrain-far-b"><div class="wl-track-content" id="wl-track-terrain-far-b"></div></div>
               <div class="wl-track puzzle-track" data-track="puzzle"><div class="wl-track-content" id="wl-track-puzzle"></div></div>
               <div class="wl-track world-group-track" data-track="world-groups"><div class="wl-track-content" id="wl-track-groups"></div></div>
+              <div class="wl-track sequence-track" data-track="sequences"><div class="wl-track-content" id="wl-track-sequences"></div></div>
               <div class="wl-track" data-track="dressing"><div class="wl-track-content" id="wl-track-dressing"></div></div>
               <div class="wl-track" data-track="other"><div class="wl-track-content" id="wl-track-other"></div></div>
+              <div class="wl-start-line" id="wl-start-line"><button class="wl-start-flag" id="wl-start-flag" type="button" aria-label="Player start"><span>START</span></button></div>
               <div class="wl-player-line" id="wl-player-line"><button class="wl-playhead" id="wl-playhead" type="button" aria-label="Drag playhead"><span>PLAY</span></button></div>
             </div>
           </div>
@@ -185,6 +188,8 @@
   <script src="asset-paths.js?v=1.1.28"></script>
   <script src="puzzle-groups.js?v=1.1.49"></script>
   <script src="near-rows.js?v=1.1.46"></script>
-  <script src="world-lab.js?v=1.1.52"></script>
+  <script src="asset-library.js?v=1.1.70"></script>
+  <script src="sequence-data.js?v=1.1.67"></script>
+  <script src="world-lab.js?v=1.1.70"></script>
 </body>
 </html>

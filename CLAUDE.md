@@ -227,7 +227,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
-| `world-lab.html` | Journey layout / placement | `world-lab.js` |
+| `world-lab.html` | Journey layout / placement; Sequences track; player start | `world-lab.js`, `sequence-data.js`, `asset-library.js` |
 | `design-lab.html` | Living game design doc | `design-lab.js`, `design-doc.json` |
 | `concept-lab.html` | Concept art boards | inline + `concept-lab-data.json` |
 | `publish-lab.html` | Status of each area/character vs published; publish package; Use published; My settings | `publish-lab.js`, `character-packages.js` (+ registry/templates/slots) |
@@ -273,6 +273,14 @@ like starts: `tpl:<group>` for instances, set by *Set Solved State*), marks solv
 `progressResetPuzzle` reverses it. Sequences: `seqCompleteSequence` runs each line's steps instantly
 (moves land), `seqResetSequence` undoes its components, fired lines, flags, and items (given items
 carry inventory source `seq:<id>`; the **Item** step's takes are recorded in progress `taken`).
+
+**World Lab sequences and player start:** the SEQUENCES track (`renderSequences`,
+`renderSequenceSelection`) draws each placed sequence over its components' extent and moves its
+anchor by drag or Anchor X, saving `sidescroll.story.sequences.v1` straight away (`saveSequenceX`,
+which also shifts this device's story-progress component positions by the same amount; Undo
+restores anchors). **Player start** (`sidescroll.world.player-start.v1`, content, World area:
+`{x, facing}`; World Lab's START flag) is where the game begins when the device has no saved
+position (`restorePlayerPosition`, player mode).
 
 **Near-side rows** (`near-rows.js`, `window.SideScrollNearRows`, loaded by play and
 world-lab): a biome profile's optional `nearRows` (`{enabled, rows:[3 × {on, depth,

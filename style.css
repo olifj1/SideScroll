@@ -15703,3 +15703,6 @@ body[data-game-id="game-16"].sidescroll-seq-prompt .sidescroll-secondary-control
 .assetlab-text-row input{width:100%;min-height:36px;border:1px solid rgba(235,243,240,.16);border-radius:9px;padding:0 10px;
   background:rgba(10,18,18,.55);color:#eef5f2;font:700 12px -apple-system,BlinkMacSystemFont,sans-serif;box-sizing:border-box;}
 #assetlab-imported-section{border-color:rgba(126,216,150,.4);}
+.assetlab-facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;margin:0 0 8px;font-size:10px;}
+.assetlab-facts dt{color:rgba(225,235,232,.55);font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:8.5px;align-self:center;}
+.assetlab-facts dd{margin:0;color:#eef5f2;font-weight:700;overflow-wrap:anywhere;}

@@ -279,7 +279,7 @@
     if (existing) return existing;
     if (asset.imported) {
       const img = new Image();
-      img.onload = () => { resize(); renderPointEditor(); draw(); };
+      img.onload = () => { resize(); renderPointEditor(); draw(); if (state.asset === asset) syncTextureFacts(); };
       Lib.artUrl(Lib.get(asset.name)).then(url => {
         img.src = url;
         listEl.querySelector(`[data-asset="${asset.name}"] img`)?.setAttribute('src', url);
@@ -294,7 +294,7 @@
       return img;
     }
     const img = new Image();
-    img.onload = () => { resize(); renderPointEditor(); draw(); };
+    img.onload = () => { resize(); renderPointEditor(); draw(); if (state.asset === asset) syncTextureFacts(); };
     img.src = assetPath(`${asset.image}?v=${VERSION}`);
     imageCache.set(asset.name,img);
     return img;
@@ -868,6 +868,46 @@
     syncImportedSection();
   }
 
+  // --- Texture: the image's size, file size and how dense it is in the game ------
+  const textureFactsEl = document.getElementById('assetlab-texture-facts');
+  const fileBytes = new Map();
+  function syncTextureFacts() {
+    if (!textureFactsEl) return;
+    const asset = state.asset;
+    const entry = asset?.imported && Lib ? Lib.get(asset.name) : null;
+    const img = imageCache.get(asset?.name);
+    const rows = [];
+    const add = (term, value) => rows.push([term, value]);
+    if (asset?.procedural) {
+      add('Image', 'Drawn by the game (no image file)');
+    } else {
+      const file = entry ? (entry.art.kind === 'bundled' ? entry.art.file : entry.art.name || 'imported PNG') : asset?.image || '';
+      add('File', file || '—');
+      const w = img?.naturalWidth || entry?.art.width || 0, h = img?.naturalHeight || entry?.art.height || 0;
+      if (w && h) {
+        add('Pixels', `${w} × ${h} px · ${((w * h) / 1e6).toFixed(2)} MP`);
+        add('Aspect', `${(w / h).toFixed(3)} (width ÷ height)`);
+        const metres = effectiveHeight();
+        add('In the game', `${(metres * w / h).toFixed(2)} m wide × ${metres.toFixed(2)} m tall`);
+        add('Density', `${Math.round(h / metres)} px per metre at this height`);
+        add('Memory', `about ${((w * h * 4) / 1048576).toFixed(1)} MB once loaded`);
+      } else add('Pixels', 'loading…');
+      let bytes = entry?.art.bytes ?? fileBytes.get(asset?.name);
+      if (bytes == null && asset?.image && !fileBytes.has(asset.name)) {
+        fileBytes.set(asset.name, undefined);
+        fetch(assetPath(`${asset.image}?v=${VERSION}`)).then(r => r.ok ? r.blob() : null).then(blob => {
+          if (blob) { fileBytes.set(asset.name, blob.size); if (state.asset === asset) syncTextureFacts(); }
+        }).catch(() => {});
+      }
+      if (bytes != null) add('File size', bytes >= 1048576 ? `${(bytes / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+      add('Source', entry ? (entry.art.kind === 'bundled' ? 'Imported · published with the game' : 'Imported · on this device only') : 'Built in');
+    }
+    textureFactsEl.replaceChildren(...rows.flatMap(([term, value]) => [
+      Object.assign(document.createElement('dt'), { textContent:term }),
+      Object.assign(document.createElement('dd'), { textContent:value })
+    ]));
+  }
+
   // --- Imported assets: + Import asset, details, Replace Art, Delete -------------
   const importBtn = document.getElementById('assetlab-import');
   const importFile = document.getElementById('assetlab-import-file');
@@ -1003,6 +1043,7 @@
   if (!Lib && importBtn) importBtn.hidden = true;
 
   function syncControls() {
+    syncTextureFacts();
     const h=effectiveHeight();
     const floor=effectiveGroundLine();
     const visual=effectiveVisual();
