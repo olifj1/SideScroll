@@ -128,3 +128,12 @@ body.wl-terrain-expanded .wl-terrain-track.detail{display:block}
 .wl-surface-band{background-position:center;background-repeat:repeat;background-size:88px 88px}
 .wl-surface-blend-preview{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}.wl-surface-blend-preview>div{min-width:0}.wl-surface-blend-preview small{display:block;margin-top:5px;color:var(--muted);font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:620px){.wl-surface-library{grid-template-columns:1fr}.wl-surface-preview-tile{height:64px}}
+/* Sequences track and the player start flag (13 Nov). */
+.wl-item.sequence{background:linear-gradient(180deg,rgba(150,120,210,.55),rgba(105,80,170,.45));border-color:rgba(200,180,255,.55)}
+.wl-item.sequence.selected{outline:2px solid #fff;outline-offset:1px}
+.wl-seq-list{margin:4px 0 10px;padding-left:18px;font-size:12px;line-height:1.5}
+.wl-start-line{position:absolute;top:34px;bottom:0;width:2px;background:rgba(126,216,150,.85);z-index:8;pointer-events:none}
+.wl-start-line.unset{background:rgba(126,216,150,.35)}
+.wl-start-flag{pointer-events:auto;position:absolute;top:30px;left:50%;transform:translateX(-50%);min-width:44px;height:22px;border:1px solid rgba(255,255,255,.6);border-radius:7px;background:#7ed896;color:#11261a;padding:0 6px;font-size:8px;font-weight:900;letter-spacing:.06em;box-shadow:0 4px 12px rgba(0,0,0,.35);touch-action:none;user-select:none;white-space:nowrap}
+.wl-start-line.unset .wl-start-flag{opacity:.6}
+.wl-start-flag.selected{outline:2px solid #fff;outline-offset:2px}

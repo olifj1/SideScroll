@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## 13 November 2026 — Player start; World Lab moves sequences
+- New content key `sidescroll.world.player-start.v1` (World area; `{x, facing}`): set by World Lab's START flag, read by the game when there is no saved player position. Publishes with the World area; in Project Backup.
+- World Lab now writes `sidescroll.story.sequences.v1` (a placed sequence's anchor `x`) and shifts the matching component positions in this device's `sidescroll.player.story-progress.v2`.
+
 ## 12 November 2026 — Imported assets
 - New content key `sidescroll.asset-library.v1` (Assets area): imported assets (name, label, group, library, kind, starting height / floor line, art). Their height, collision, behaviour and states live in the existing Asset Lab keys under the asset's name.
 - Imported art is kept in IndexedDB (`sidescroll-animlab-art-v1` / `atlas-images`, ids `asset-art-…`), the store Character Lab uses, so **Project Backup** exports and restores it with the character artwork.

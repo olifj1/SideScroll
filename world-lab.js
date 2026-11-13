@@ -18,6 +18,7 @@
     player:'sidescroll.player.position.v1',
     playerHints:'sidescroll-player-hints-v1',
     scene:'sidescroll.scene.v1',
+    playerStart:'sidescroll.world.player-start.v1',
     assetBehaviours:'sidescroll.asset-behaviours.v1',
     assetCollisions:'sidescroll.asset-collisions.v1',
     assetClimbPaths:'sidescroll.asset-climb-paths.v1',
@@ -38,6 +39,8 @@
     biomes:'sidescroll.biomes.v1',
     terrainSurfaces:'sidescroll.terrain-surfaces.v1'
   };
+  const Seq=window.SideScrollSequences||null;
+  const AssetLib=window.SideScrollAssetLibrary||null;
 
   const SECTION_LENGTH = 10;
   const RANGE_SNAP = 1;
@@ -149,6 +152,9 @@
     terrainLinkHeight:$('wl-link-height'),
     trackPuzzle:$('wl-track-puzzle'),
     trackGroups:$('wl-track-groups'),
+    trackSequences:$('wl-track-sequences'),
+    startLine:$('wl-start-line'),
+    startFlag:$('wl-start-flag'),
     trackDressing:$('wl-track-dressing'),
     trackOther:$('wl-track-other'),
     playerLine:$('wl-player-line'),
@@ -240,6 +246,7 @@
     });
     els.playFromHere.addEventListener('click',playFromHere);
     bindPlayheadDrag();
+    bindStartDrag();
 
     els.dataToggle.addEventListener('click',()=>{els.dataMenu.hidden?openDataMenu():closeDataMenu();});
     els.dataClose.addEventListener('click',closeDataMenu);
@@ -309,6 +316,9 @@
     state.scene = normaliseSceneState(loadJson(STORAGE.scene,{added:[],overrides:{},worldGroups:[],worldGroupTemplates:[]}));
     state.puzzles = buildPuzzleMarkers();
     state.worldGroups = buildWorldGroupEntries();
+    state.seqData = Seq ? Seq.load() : {events:[],templates:[],placed:[]};
+    state.sequences = buildSequenceEntries();
+    state.playerStart = loadPlayerStart();
 
     if(!Number.isFinite(state.playheadX)){
       const savedPlayer=loadJson(STORAGE.player,null);
@@ -322,7 +332,7 @@
     const groupMoveCount=Object.keys(state.groupMoves||{}).length;
     const transitionCount=state.biomes?.transitions?.length||0;
     const surfaceTransitionCount=state.terrainSurfaces?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${surfaceTransitionCount} surface blend${surfaceTransitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}${pendingCount||groupMoveCount?` · ${pendingCount+groupMoveCount} queued move${pendingCount+groupMoveCount===1?'':'s'}`:''}`;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${(state.sequences||[]).length} sequence${(state.sequences||[]).length===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${surfaceTransitionCount} surface blend${surfaceTransitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}${pendingCount||groupMoveCount?` · ${pendingCount+groupMoveCount} queued move${pendingCount+groupMoveCount===1?'':'s'}`:''}`;
     refreshBiomeLibraryUi();
     syncBiomeAddPreview();
     refreshTerrainSurfaceUi();
@@ -824,6 +834,9 @@
 
   function findWorldGroup(id){return state.worldGroups.find(group=>group.id===id)||null;}
 
+  // Imported assets (asset-library.js) are named by the author; built-in ones by their file name.
+  function assetLabel(name){return AssetLib?.get(name)?.label||name||'World asset';}
+
   function sceneDressingEntries(){
     // World ownership is independent of gameplay capability. A climbable rock,
     // ladder or other interactive environment asset still belongs on the World
@@ -833,7 +846,7 @@
       .map(item=>({
         kind:'scene-dressing',
         id:String(item.id||`scene-${item.assetName||'asset'}-${item.x}`),
-        label:item.assetName||'World asset',
+        label:assetLabel(item.assetName),
         x:Number(item.x),
         z:number(item.z,0),
         sx:Math.max(.1,Math.abs(number(item.sx,1))),
@@ -1091,6 +1104,8 @@
     renderSections();
     renderPuzzles();
     renderWorldGroups();
+    renderSequences();
+    renderPlayerStart();
     renderPlayhead();
     renderSelection();
   }
@@ -1449,6 +1464,150 @@
     }
   }
 
+  // ---- Sequences (sequence-data.js): placed story sequences along the journey ----
+  function buildSequenceEntries(){
+    if(!Seq)return [];
+    const data=state.seqData;
+    return data.placed.map(p=>{
+      const body=Seq.bodyOf(data,p);
+      let lo=Infinity,hi=-Infinity;
+      for(const c of body.components||[]){
+        const half=c.kind==='zone'?Math.max(.25,number(c.width,2)/2):.6;
+        lo=Math.min(lo,number(c.dx,0)-half);hi=Math.max(hi,number(c.dx,0)+half);
+      }
+      if(!Number.isFinite(lo)){lo=-1;hi=1;}
+      const template=p.template?data.templates.find(t=>t.id===p.template):null;
+      return{kind:'sequence',id:p.id,label:p.name||'Sequence',x:number(p.x,0),minLocal:lo,maxLocal:hi,minX:number(p.x,0)+lo,maxX:number(p.x,0)+hi,
+        template:template?.name||null,body};
+    });
+  }
+  function findSequence(id){return state.sequences.find(s=>s.id===id)||null;}
+  function saveSequenceX(id,x){
+    if(!Seq)return;
+    const data=Seq.load(),p=data.placed.find(item=>item.id===id);
+    if(!p)return;
+    const before=p.x;
+    p.x=round(number(x,p.x),2);
+    Seq.save(data);
+    // Characters this device's play progress has already moved stand at absolute
+    // positions: move them with their sequence.
+    const delta=p.x-before;
+    if(delta&&Seq.loadProgress){
+      const progress=Seq.loadProgress();let shifted=false;
+      for(const [key,value] of Object.entries(progress.components||{}))
+        if(key.startsWith(`${id}:`)&&Number.isFinite(value?.x)){value.x=round(value.x+delta,3);shifted=true;}
+      if(shifted)Seq.saveProgress(progress);
+    }
+    state.seqData=Seq.load();state.sequences=buildSequenceEntries();
+    toast(`${p.name||'Sequence'} moved to ${round(p.x,1)} m.`);
+  }
+  function renderSequences(){
+    if(!els.trackSequences)return;els.trackSequences.innerHTML='';
+    for(const seq of state.sequences){
+      const node=document.createElement('button');node.type='button';
+      node.className=`wl-item sequence range${isSelected('sequence',seq.id)?' selected':''}`;
+      node.dataset.kind='sequence';node.dataset.id=seq.id;
+      node.style.left=`${xToPx(seq.minX)}px`;node.style.width=`${Math.max(18,(seq.maxX-seq.minX)*state.scale)}px`;
+      node.textContent=seq.template?`${seq.label} · ${seq.template}`:seq.label;
+      node.title=`Sequence · ${seq.label} · anchor ${round(seq.x,1)} m · ${round(seq.minX,1)} → ${round(seq.maxX,1)} m`;
+      bindDraggable(node,{kind:'sequence',id:seq.id});
+      node.addEventListener('click',event=>{if(state.drag?.moved)return;select('sequence',seq.id);event.stopPropagation();});
+      els.trackSequences.appendChild(node);
+    }
+  }
+  function renderSequenceSelection(seq){
+    const data=state.seqData,events=new Map(data.events.map(e=>[e.id,e]));
+    const comps=seq.body.components||[],logic=seq.body.logic||[];
+    const compName=id=>comps.find(c=>c.id===id)?.name||'?';
+    const KIND={character:'Character',mark:'Mark',zone:'Zone'};
+    const whenText=w=>{
+      switch(w?.type){
+        case 'load':return'When the sequence loads';
+        case 'enter':return`When the player walks into ${compName(w.zone)}`;
+        case 'leave':return`When the player leaves ${compName(w.zone)}`;
+        case 'action':return`When Action is pressed in ${compName(w.zone)}${w.label?` (“${w.label}”)`:''}`;
+        case 'finish':return'When another line finishes';
+        case 'flag':return`When flag “${w.flag||'?'}” is set`;
+        default:return'When …';
+      }
+    };
+    const reads=new Set(),sets=new Set();
+    for(const line of logic){
+      if(line.when?.type==='flag'&&line.when.flag)reads.add(line.when.flag);
+      if(line.condition?.flag)reads.add(line.condition.flag);
+      for(const step of events.get(line.event)?.steps||[])if(step.type==='flag'&&step.flag)sets.add(step.flag);
+    }
+    const list=items=>items.length?`<ul class="wl-seq-list">${items.map(i=>`<li>${i}</li>`).join('')}</ul>`:'<p class="muted">None.</p>';
+    els.selection.innerHTML=`<h2>${escapeHtml(seq.label)}</h2>
+      <p class="muted">Sequence${seq.template?` · instance of template “${escapeHtml(seq.template)}”`:' · unique'} · covers ${round(seq.minX,1)} → ${round(seq.maxX,1)} m</p>
+      <div class="wl-selection-form"><label>Anchor X<input id="wl-seq-x" type="number" step="0.1" inputmode="decimal" value="${round(seq.x,2)}"></label></div>
+      <h3>Components</h3>${list(comps.map(c=>`${escapeHtml(KIND[c.kind]||c.kind)} · <strong>${escapeHtml(c.name||'')}</strong> · ${round(seq.x+number(c.dx,0),1)} m${c.kind==='zone'?` · ${round(number(c.width,2),1)} m wide`:''}`))}
+      <h3>Logic</h3>${list(logic.map(l=>`${escapeHtml(whenText(l.when))} → <strong>${escapeHtml(events.get(l.event)?.name||'no event')}</strong>${l.once?' · once':''}`))}
+      <p class="muted">Flags read: ${reads.size?[...reads].map(escapeHtml).join(', '):'none'} · flags set: ${sets.size?[...sets].map(escapeHtml).join(', '):'none'}</p>
+      <p class="muted">Drag the bar (tap it first) or type an anchor to move the whole sequence. Components and logic are edited in the game: Edit → Story.</p>
+      <div class="wl-actions"><button class="primary" id="wl-seq-open">Open in game</button><button id="wl-seq-playhead">Move playhead here</button></div>`;
+    $('wl-seq-x').addEventListener('change',e=>{const x=Number(e.target.value);if(!Number.isFinite(x))return;pushHistory('Move sequence');saveSequenceX(seq.id,x);render();});
+    $('wl-seq-open').addEventListener('click',()=>{location.href=`play.html?worldX=${encodeURIComponent(seq.x)}&from=world-lab`;});
+    $('wl-seq-playhead').addEventListener('click',()=>{state.playheadX=round(seq.minX-2,2);select('playhead','player');});
+  }
+
+  // ---- Player start: where a new game (or Delete save) begins ---------------------
+  function loadPlayerStart(){
+    const raw=loadJson(STORAGE.playerStart,null);
+    return raw&&Number.isFinite(Number(raw.x))?{x:Number(raw.x),facing:raw.facing===-1?-1:1}:null;
+  }
+  function savePlayerStart(start){
+    if(start&&Number.isFinite(Number(start.x)))saveJson(STORAGE.playerStart,{x:round(Number(start.x),2),facing:start.facing===-1?-1:1});
+    else localStorage.removeItem(STORAGE.playerStart);
+    state.playerStart=loadPlayerStart();
+  }
+  function renderPlayerStart(){
+    if(!els.startLine)return;
+    const x=state.playerStart?state.playerStart.x:0;
+    els.startLine.hidden=x<state.minX||x>state.maxX;
+    els.startLine.style.left=`${xToPx(x)}px`;
+    els.startLine.classList.toggle('unset',!state.playerStart);
+    els.startFlag.classList.toggle('selected',isSelected('player-start','start'));
+    els.startFlag.querySelector('span').textContent=state.playerStart?(state.playerStart.facing===-1?'◀ START':'START ▶'):'START';
+    els.startFlag.title=state.playerStart?`Player start · ${round(x,2)} m`:'Player start · not set (a new game starts at 0 m)';
+  }
+  function bindStartDrag(){
+    const node=els.startFlag;if(!node)return;
+    node.addEventListener('pointerdown',event=>{
+      if(event.button!==undefined&&event.button!==0)return;
+      if(!isSelected('player-start','start'))return;
+      event.preventDefault();event.stopPropagation();node.setPointerCapture?.(event.pointerId);
+      const startClient=event.clientX,startX=state.playerStart?state.playerStart.x:0;let moved=false;
+      const move=e=>{
+        const delta=(e.clientX-startClient)/state.scale;
+        if(!moved&&Math.abs(e.clientX-startClient)>3){moved=true;pushHistory('Move player start');}
+        if(!moved)return;
+        state.playerStart={x:round(startX+delta,2),facing:state.playerStart?.facing||1};
+        renderPlayerStart();renderSelection();
+      };
+      const end=()=>{
+        node.removeEventListener('pointermove',move);node.removeEventListener('pointerup',end);node.removeEventListener('pointercancel',end);
+        if(moved){savePlayerStart(state.playerStart);toast(`Player start set to ${round(state.playerStart.x,1)} m.`);render();}
+      };
+      node.addEventListener('pointermove',move);node.addEventListener('pointerup',end);node.addEventListener('pointercancel',end);
+    });
+    node.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();select('player-start','start');});
+  }
+  function renderPlayerStartSelection(){
+    const s=state.playerStart;
+    els.selection.innerHTML=`<h2>Player start</h2>
+      <p class="muted">Where a new game begins (and where Delete save goes back to). Players who have a save carry on from it. ${s?'':'Not set yet: a new game starts at 0 m facing right.'}</p>
+      <div class="wl-selection-form"><label>World X<input id="wl-start-x" type="number" step="0.1" inputmode="decimal" value="${s?round(s.x,2):0}"></label>
+      <label>Facing<select id="wl-start-facing"><option value="1"${s?.facing!==-1?' selected':''}>Right</option><option value="-1"${s?.facing===-1?' selected':''}>Left</option></select></label></div>
+      <p class="muted">Tap START, then drag it along the journey, or type a position.</p>
+      <div class="wl-actions"><button class="primary" id="wl-start-playhead">Set to the playhead (${round(number(state.playheadX,0),1)} m)</button>${s?'<button id="wl-start-clear">Clear</button>':''}</div>`;
+    const apply=(patch,label)=>{pushHistory(label);savePlayerStart({x:s?s.x:0,facing:s?.facing||1,...patch});render();};
+    $('wl-start-x').addEventListener('change',e=>{const x=Number(e.target.value);if(Number.isFinite(x))apply({x},'Move player start');});
+    $('wl-start-facing').addEventListener('change',e=>apply({facing:Number(e.target.value)},'Turn player start'));
+    $('wl-start-playhead').addEventListener('click',()=>apply({x:round(number(state.playheadX,0),2)},'Move player start'));
+    $('wl-start-clear')?.addEventListener('click',()=>{pushHistory('Clear player start');savePlayerStart(null);render();});
+  }
+
   function renderPlayhead(){
     const x=number(state.playheadX,0);
     els.playheadPosition.textContent=`${round(x,1)} m`;
@@ -1508,7 +1667,7 @@
       // First tap/release only selects. This deliberately leaves native timeline
       // panning untouched until a second gesture begins on the selected block.
       if(!isSelected(ref.kind,ref.id))return;
-      pushHistory(ref.kind==='puzzle'?'Move puzzle':(ref.kind==='world-group'?'Move World Group':'Move world element'));
+      pushHistory(ref.kind==='puzzle'?'Move puzzle':(ref.kind==='world-group'?'Move World Group':(ref.kind==='sequence'?'Move sequence':'Move world element')));
       event.preventDefault();event.stopPropagation();
       node.setPointerCapture?.(event.pointerId);
       const startClient=event.clientX;
@@ -1517,6 +1676,8 @@
         const p=findPuzzle(ref.id);startX=p.x;startEnd=null;
       }else if(ref.kind==='world-group'){
         const group=findWorldGroup(ref.id);startX=group.x;startEnd=null;
+      }else if(ref.kind==='sequence'){
+        startX=findSequence(ref.id).x;startEnd=null;
       }else{
         const item=findElement(ref.id);startX=number(item.startX,0);startEnd=number(item.endX,startX);
       }
@@ -1536,6 +1697,9 @@
             renderSections();
             renderSelection();
           }
+        }else if(ref.kind==='sequence'){
+          const seq=findSequence(ref.id);
+          if(seq){seq.x=round(startX+delta,2);seq.minX=seq.x+seq.minLocal;seq.maxX=seq.x+seq.maxLocal;node.style.left=`${xToPx(seq.minX)}px`;renderSelection();}
         }else if(ref.kind==='world-group'){
           const group=findWorldGroup(ref.id);
           if(group){group.x=round(startX+delta,3);group.minX=round(state.drag.startMin+delta,3);group.maxX=round(state.drag.startMax+delta,3);node.style.left=`${xToPx(group.minX)}px`;renderSelection();}
@@ -1567,6 +1731,8 @@
             const p=findPuzzle(ref.id);queuePuzzleMove(p.id,p.x);
           }else if(ref.kind==='world-group'){
             const group=findWorldGroup(ref.id);queueWorldGroupMove(group.id,group.x);
+          }else if(ref.kind==='sequence'){
+            const seq=findSequence(ref.id);saveSequenceX(seq.id,seq.x);
           }else saveElements();
         }
         state.drag=null;
@@ -1593,6 +1759,8 @@
     }
     if(state.selected.kind==='biome-profile')return renderBiomeProfileSelection(state.selected.id);
     if(state.selected.kind==='surface-transition'){const item=findSurfaceTransition(state.selected.id);if(!item){state.selected=null;return renderSelection();}return renderSurfaceTransitionSelection(item);}
+    if(state.selected.kind==='sequence'){const item=findSequence(state.selected.id);if(!item){state.selected=null;return renderSelection();}return renderSequenceSelection(item);}
+    if(state.selected.kind==='player-start')return renderPlayerStartSelection();
     if(state.selected.kind==='puzzle'){
       const p=findPuzzle(state.selected.id);
       if(!p){state.selected=null;return renderSelection();}
@@ -2049,7 +2217,7 @@
   function saveElements(){
     saveJson(STORAGE.elements,{version:1,updatedAt:Date.now(),elements:state.elements});
     const assetCount=sceneDressingEntries().length,groupCount=state.worldGroups.length,transitionCount=state.biomes?.transitions?.length||0,surfaceTransitionCount=state.terrainSurfaces?.transitions?.length||0;
-    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${surfaceTransitionCount} surface blend${surfaceTransitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}`;
+    els.status.textContent=`${state.puzzles.length} puzzles · ${groupCount} World Group${groupCount===1?'':'s'} · ${(state.sequences||[]).length} sequence${(state.sequences||[]).length===1?'':'s'} · ${transitionCount} biome/profile transition${transitionCount===1?'':'s'} · ${surfaceTransitionCount} surface blend${surfaceTransitionCount===1?'':'s'} · ${state.elements.filter(e=>TYPE_TRACK[e.type]!=='legacy').length} World Elements${assetCount?` · ${assetCount} standalone world asset${assetCount===1?'':'s'}`:''}`;
     syncUndoUi();
   }
 
@@ -2174,7 +2342,8 @@
     const category=item.raw?.category||'dressing';
     const gameplay=item.raw?.gameplayType||'none';
     const biomeOwner=biomeOwnerForAsset(item.raw?.assetName||item.label);
-    els.selection.innerHTML=`<h2>${escapeHtml(item.label)}</h2><p class="muted">World-owned placed asset · ${escapeHtml(item.id)}</p>
+    const imported=AssetLib?.isImportedName(item.raw?.assetName);
+    els.selection.innerHTML=`<h2>${escapeHtml(item.label)}</h2><p class="muted">Placed ${imported?'imported ':''}asset · not in a puzzle or World Group · copy ${escapeHtml(item.id)}</p>
       <div class="wl-selection-form"><label>World X<input readonly value="${round(item.x,3)} m"></label><label>Depth Z<input readonly value="${round(item.z,3)}"></label><label>Width<input readonly value="${round(item.sx,2)} m"></label><label>Height<input readonly value="${round(item.sy,2)} m"></label><label>Category<input readonly value="${escapeAttr(category)}"></label><label>Gameplay<input readonly value="${escapeAttr(gameplay)}"></label><label>Biome owner<input readonly value="${escapeAttr(biomeOwner===GLOBAL_BIOME_OWNER?'Global / Unbound':biomeLabel(biomeOwner))}"></label></div>
       <p class="muted">World ownership is determined separately from gameplay behaviour, so interactive environment assets such as climbable rocks appear here too. Transform it in the in-game editor.</p>
       <div class="wl-actions"><button class="primary" id="wl-scene-dressing-jump">Jump to Game</button><button id="wl-scene-dressing-playhead">Move playhead here</button></div>`;
@@ -2183,7 +2352,7 @@
   }
 
   function historySnapshot(label='World Lab change'){
-    return {label,elements:clone(state.elements),biomes:clone(state.biomes),terrainSurfaces:clone(state.terrainSurfaces),pending:clone(state.pending),groupMoves:clone(state.groupMoves),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
+    return {label,seqPlaced:clone(state.seqData?.placed),playerStart:clone(state.playerStart),elements:clone(state.elements),biomes:clone(state.biomes),terrainSurfaces:clone(state.terrainSurfaces),pending:clone(state.pending),groupMoves:clone(state.groupMoves),terrain:clone(state.terrain),playheadX:state.playheadX,selected:clone(state.selected)};
   }
   function pushHistory(label){
     state.history.push(historySnapshot(label));
@@ -2208,6 +2377,8 @@
     state.terrain=normaliseTerrainState(snap.terrain||{});
     state.playheadX=number(snap.playheadX,state.playheadX);
     state.selected=clone(snap.selected);
+    if(snap.seqPlaced&&Seq){const data=Seq.load();for(const p of data.placed){const old=snap.seqPlaced.find(o=>o.id===p.id);if(old)p.x=old.x;}Seq.save(data);}
+    if(snap.playerStart!==undefined)savePlayerStart(snap.playerStart);
     saveElements();
     saveBiomeState();
     saveTerrainSurfaceState();

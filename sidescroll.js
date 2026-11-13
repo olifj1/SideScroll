@@ -310,6 +310,7 @@
   };
 
   const PLAYER_POSITION_STORAGE_KEY = 'sidescroll.player.position.v1';
+  const PLAYER_START_STORAGE_KEY = 'sidescroll.world.player-start.v1'; // World Lab → START (content)
   const PLAYER_PUZZLE_STATE_STORAGE_KEY = 'sidescroll.player.puzzle-state.v1';
   const PLAYER_INVENTORY_STORAGE_KEY = 'sidescroll.player.inventory.v1';
   let playerSaveDeletionInProgress = false;
@@ -4035,7 +4036,7 @@ document.addEventListener('keydown',event=>{
     const layoutName = assetName === 'cart-wheel-ready' ? 'cart-wheel-loose' : assetName;
     const authored = Number(assetLayoutDefaults?.[layoutName]?.groundLine);
     if (Number.isFinite(authored)) return Rig.clamp(authored, 0, 1);
-    const value = ASSET_GROUND_LINE_DEFAULTS[layoutName] ?? (AssetLib?.isImportedName(layoutName) ? editorAssetInfo.get(layoutName)?.defaultGroundLine : undefined);
+    const value = ASSET_GROUND_LINE_DEFAULTS[layoutName] ?? importedAssets.find(entry => entry.name === layoutName)?.groundLine;
     return Rig.clamp(Number.isFinite(value) ? value : 0, 0, 1);
   }
 
@@ -9064,11 +9065,18 @@ document.addEventListener('keydown',event=>{
         localStorage.setItem(PLAYER_POSITION_STORAGE_KEY, JSON.stringify({ x:character.x, facing:character.lastFacing, savedAt:Date.now(), source:'world-lab' }));
         return;
       }
-      if (!saved || !Number.isFinite(saved.x)) return;
-      camera.x = saved.x - character.screenOffsetX;
+      // No save yet (a new game, or after Delete save): begin at the authored
+      // player start (World Lab → START), if there is one.
+      let from = saved && Number.isFinite(saved.x) ? saved : null;
+      if (!from) {
+        const start = JSON.parse(localStorage.getItem(PLAYER_START_STORAGE_KEY) || 'null');
+        if (start && Number.isFinite(Number(start.x))) from = { x:Number(start.x), facing:start.facing === -1 ? -1 : 1 };
+      }
+      if (!from) return;
+      camera.x = from.x - character.screenOffsetX;
       previousCameraX = camera.x;
-      character.x = saved.x;
-      character.lastFacing = saved.facing === -1 ? -1 : 1;
+      character.x = from.x;
+      character.lastFacing = from.facing === -1 ? -1 : 1;
       updatePuzzleStreaming(character.x);
       // Restore directly onto the real walk/support surface rather than first
       // drawing at terrain height and waiting for the gameplay loop to lift the

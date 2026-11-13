@@ -119,6 +119,7 @@
     "sidescroll.animlab.editor.selection.v1":            { "area": "Settings", "scope": "local", "lab": "Character Lab", "what": "Current selection (session storage)" },
     "sidescroll.puzzle-lab.ui.v1":                       { "area": "Settings", "scope": "local", "lab": "Puzzle Lab", "what": "Puzzle Lab panel state" },
 
+    "sidescroll.world.player-start.v1":                  { "area": "World", "scope": "content", "lab": "World Lab", "what": "Player start: where a new game begins (x, facing)" },
     "sidescroll.player.position.v1":                     { "area": "Progress", "scope": "progress", "lab": "Game", "what": "Player position" },
     "sidescroll.player.puzzle-state.v1":                 { "area": "Progress", "scope": "progress", "lab": "Game", "what": "Puzzle progress" },
     "sidescroll.player.inventory.v1":                    { "area": "Progress", "scope": "progress", "lab": "Game", "what": "Inventory" },

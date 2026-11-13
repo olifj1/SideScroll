@@ -27,7 +27,7 @@ a logic list of *When → run event* lines, and a game-wide events library whose
 use roles. Steps 1–2 (events library, sequences with characters / marks / zones and logic) done 10 Nov.
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
 - [ ] **Play from here:** complete every puzzle and sequence before a chosen point (via ⚑ Progress), then play from there. *(⚑ Progress, Solved State and the Item step done 12 Nov.)*
-- [ ] **4 — World Lab sequences track:** bounds, details, Open in game, Play from here.
+- [ ] **4 — World Lab sequences track:** *(track, details, drag / type to move, Open in game done 13 Nov)* still to do: show where each component stands within the bar, and a template's other instances.
 - [ ] **5 — Look steps** (colour grade, vignette, fog; atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov.)*
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
@@ -61,6 +61,12 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0an. World Lab sequences, player start, texture info (13 Nov)**
+- [ ] World Lab: the **SEQUENCES** row shows your sequences as purple bars. Tap one: its components, logic and flags appear below. Tap it again and drag it, or type an Anchor X; open the game: the sequence (characters, zones) has moved. Undo puts it back.
+- [ ] World Lab: tap the green **START** flag, drag it (or type / *Set to the playhead*) and choose Facing. In the game: Menu → Delete save: you begin at the flag, facing that way.
+- [ ] World Lab: an imported asset placed on its own shows its name in WORLD ASSETS.
+- [ ] Asset Lab: **Texture** (top of the right column) shows the pixel size, size in the game and px per metre; changing Height updates it.
 
 **0am. Import an asset (12 Nov)** — needs a transparent PNG in Files (Photos may hand over a JPEG)
 - [ ] Asset Lab → **+ Import asset** → pick the PNG from Files: it appears at the bottom of the list (IMPORTED) and is selected; *Asset details* shows its name ready to type. Name it, choose Library / Group / Kind.

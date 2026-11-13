@@ -137,7 +137,7 @@ The 8–9 Nov keys (`sidescroll.story.world-characters.v1`, `…marks.v1`,
    the Story scope's Characters / Marks / Triggers tabs.
 3. **More components and streaming** — thoughts, dressing, random character picks,
    Active while; sequences load and unload by distance.
-4. **World Lab sequences track** — bounds, details, Open in game, Play from here.
+4. **World Lab sequences track** *(done 13 Nov: bounds, details, drag / type to move, Open in game; Play from here via the playhead)* — bounds, details, Open in game, Play from here.
 5. **Camera and look steps** *(Camera and Screen — fade, letterbox — done 11 Nov; Look and
    Skip next)*, Sequence Lab, node graph view.
 

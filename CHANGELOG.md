@@ -4,6 +4,20 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **World Lab: Sequences track.** Every placed story sequence shows as a bar over the
+  stretch it covers (its components and zones). Tap it for its details (components with
+  their positions, logic lines, flags it reads and sets) and an Anchor X box; tap again and
+  drag to move the whole sequence (Undo works). Characters your play progress has already
+  moved go with it. *Open in game* and *Move playhead here* as for puzzles.
+- **Player start (World Lab → START flag):** where a new game, or Delete save, begins
+  (position and facing). Drag it, type a position or use *Set to the playhead*. Built-in
+  content (World area), so it publishes with the World area.
+- **Asset Lab: Texture section** for every asset: file, pixel size, aspect, size in the
+  game at its height, pixels per metre (with what the existing art uses for comparison),
+  memory once loaded, file size and where it comes from.
+- **World Lab shows imported assets by their name** (not their internal id).
+- **Fix:** the game could stop at start-up with a placed imported asset whose floor line
+  was never set in Asset Lab.
 - **Asset Lab: + Import asset.** Pick a PNG (with its transparency already done) and it
   becomes a game asset: give it a name, a library (Environment / Puzzle), a group heading
   and a kind (scenery at any depth, or gameplay on the path), then set its height, floor
