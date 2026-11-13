@@ -282,7 +282,8 @@ anchor by drag or Anchor X, saving `sidescroll.story.sequences.v1` straight away
 which also shifts this device's story-progress component positions by the same amount; Undo
 restores anchors). **Player start** (`sidescroll.world.player-start.v1`, content, World area:
 `{x, facing}`; World Lab's START flag) is where the game begins when the device has no saved
-position (`restorePlayerPosition`, player mode).
+position (`restorePlayerPosition`, player mode); the editor opens there too (`editorOpenStart`)
+unless World Lab sent a `worldX`.
 
 **Near-side rows** (`near-rows.js`, `window.SideScrollNearRows`, loaded by play and
 world-lab): a biome profile's optional `nearRows` (`{enabled, rows:[3 × {on, depth,
@@ -385,4 +386,5 @@ Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
 - `SIDESCROLL_EXPORT_COVERAGE.md` — what is persisted and exported, per lab.
 - `ART_ASSET_PIPELINE.md`, `SETTLEMENT_TEXTURE_PROCESSING_WORKFLOW.md` — art processing checklists.
 - `CONCEPT_ART_BRIEF.md` — brief for concept-art generation sessions.
+- `TEXTURE_COMPRESSION_PLAN.md` — parked plan: texture streaming, then KTX2 / Basis compressed textures.
 - `SETTLEMENT_STAGE1_SOURCE_AUDIT.md`, `TEXEL_AUDIT.md` — past art audits.

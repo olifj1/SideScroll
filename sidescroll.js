@@ -10069,8 +10069,18 @@ document.addEventListener('keydown',event=>{
 
   let lastTime = performance.now();
   let previousCameraX = camera.x;
-  if (!PLAYER_MODE && Number.isFinite(WORLD_LAB_JUMP_X)) {
-    character.x = WORLD_LAB_JUMP_X;
+  // The editor opens where World Lab sent it, else at the authored player start
+  // (World Lab → START), else at 0.
+  const editorOpenStart = (() => {
+    if (PLAYER_MODE || PUZZLE_LAB_MODE || Number.isFinite(WORLD_LAB_JUMP_X)) return null;
+    try {
+      const start = JSON.parse(localStorage.getItem(PLAYER_START_STORAGE_KEY) || 'null');
+      return start && Number.isFinite(Number(start.x)) ? { x:Number(start.x), facing:start.facing === -1 ? -1 : 1 } : null;
+    } catch (_) { return null; }
+  })();
+  if (editorOpenStart) character.lastFacing = editorOpenStart.facing;
+  if (!PLAYER_MODE && (Number.isFinite(WORLD_LAB_JUMP_X) || editorOpenStart)) {
+    character.x = Number.isFinite(WORLD_LAB_JUMP_X) ? WORLD_LAB_JUMP_X : editorOpenStart.x;
     character.y = playSurfaceYAt(character.x);
     camera.x = character.x - character.screenOffsetX;
     previousCameraX = camera.x;
@@ -12803,6 +12813,35 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return activePuzzleInstances.get(marker.id) || instantiatePuzzleGroup(marker);
   }
 
+  // A thought or camera node inside a World Group: a tap opens its settings straight
+  // away (the group's edit session, Contents, that node selected, Edit Node open),
+  // instead of only selecting the group. Its changes save with the group as usual.
+  function openGroupNodeAt(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left, py = clientY - rect.top;
+    let best = null;
+    for (const obj of allSceneObjects()) {
+      if (obj.deleted || !obj.worldGroupId || (obj.assetName !== 'thought-trigger' && obj.assetName !== 'camera-trigger')) continue;
+      const b = objectPickBounds(obj);
+      if (!b || px < b.left - 6 || px > b.right + 6 || py < b.top - 6 || py > b.bottom + 6) continue;
+      const d = Math.hypot(px - b.cx, py - b.cy);
+      if (!best || d < best.d) best = { obj, d };
+    }
+    const node = best?.obj;
+    const group = node ? worldGroupById(node.worldGroupId) : null;
+    if (!group || !beginWorldGroupEditSession(group)) return false;
+    if (worldGroupEditorTab !== 'contents') setWorldGroupEditorTab('contents');
+    selectObject(node, true, { keepPlacement:true });
+    worldGroupMemberMoveMode = false;
+    worldGroupNodeInspectorOpen = true;
+    renderWorldGroupEditor({ force:true });
+    setEditorDrawerCollapsed(true);
+    syncThoughtEditor(); syncCameraNodeEditor(); syncFocusedObjectEditorWorkspace();
+    hintEl.textContent = `Editing ${node.assetName === 'camera-trigger' ? 'camera node' : 'thought'} in ${group.label} · Save the group when you are done`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
   function editorObjectIsEditable(obj) {
     if (!obj || obj.deleted) return false;
     if (editorScope === 'terrain') return false;
@@ -14254,6 +14293,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(thoughtEditorEl) thoughtEditorEl.hidden=!active;
     if(!active)return;
     if(thoughtTextInput && document.activeElement!==thoughtTextInput) thoughtTextInput.value=selectedObject.thoughtText || '';
+    // Say where the node lives: a puzzle, a World Group, or the scene on its own.
+    const owner = selectedObject.puzzleInstanceId ? 'puzzle' : (selectedObject.worldGroupId ? 'group' : 'scene');
+    const ownerEl = document.getElementById('sidescroll-thought-owner'), noteEl = document.getElementById('sidescroll-thought-note');
+    if (ownerEl) ownerEl.textContent = owner === 'puzzle' ? 'PUZZLE NODE' : (owner === 'group' ? 'GROUP NODE' : 'WORLD NODE');
+    if (noteEl) noteEl.textContent = `Invisible in play. ${owner === 'puzzle' ? 'Moves with this puzzle and fires' : (owner === 'group' ? 'Moves with this World Group and fires' : 'Fires')} when the player enters the cyan radius.`;
     if(thoughtRadiusInput && document.activeElement!==thoughtRadiusInput) thoughtRadiusInput.value=String(Rig.clamp(Number(selectedObject.thoughtRadius)||1.4,.25,8));
     if(thoughtRadiusValue) thoughtRadiusValue.textContent=`${(Number(selectedObject.thoughtRadius)||1.4).toFixed(2)} m`;
     if(thoughtOnceBtn){
@@ -22236,9 +22280,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         } else if ((gesture.kind==='pan' || gesture.kind==='selected-object') && !gesture.explicitMove) {
           // Selection happens only on a clean tap/release. A drag can never
           // select a different object, which keeps panning and moving separate.
-          const candidates=pickSceneObjects(e.clientX,e.clientY).filter(editorObjectIsEditable);
-          const hit=nextTapCycleObject(candidates,e.clientX,e.clientY);
-          if(hit){
+          // A thought / camera node inside a World Group wins over scenery behind it.
+          const groupNodeOpened=editorScope==='environment'&&!worldGroupEditSession&&openGroupNodeAt(e.clientX,e.clientY);
+          const candidates=groupNodeOpened?[]:pickSceneObjects(e.clientX,e.clientY).filter(editorObjectIsEditable);
+          const hit=groupNodeOpened?null:nextTapCycleObject(candidates,e.clientX,e.clientY);
+          if(groupNodeOpened){
+            selectionTapCycle=null;
+          } else if(hit){
             selectObject(hit,true);
             selectionCycleInfo=cycleInfoFor(selectedObject,candidates);
             hintEl.textContent=candidates.length>1
