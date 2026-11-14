@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 14 November 2026 — Shader effects
+- Effect assets live in `sidescroll.asset-library.v1` like imported art, with `art: {kind:'effect', shader, width, height, params}` (no image file). They publish with the Assets area and travel in Project Backup; the bake tool leaves them as they are (nothing to write to `assets/`).
+
 ## 14 November 2026 — Looks
 - New content key `sidescroll.looks.v1` (World area): named fog + post sets. Publishes with the World area; in Project Backup (all `sidescroll.` keys). The existing `sidescroll.render.fog.v1` / `.post.v1` are the base look, unchanged.
 - `sidescroll.player.story-progress.v2` gains `look` ({id, by}): the look a Look step set, restored when a player reopens the game.

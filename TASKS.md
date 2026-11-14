@@ -31,8 +31,8 @@ black, then the light returns and she is alone in the silence. With control back
 into the cabin, packs what she can and sets off after him. (The cabin is the one already in
 the scene: she walks out of it and back in; no separate interior.)
 Stages (engine work in order; art and sound in parallel):
-- [ ] **1 — The player in steps:** Move (walk / run to a mark), Face and Animate can act on the player as well as on placed characters.
-- [ ] **2 — Darkness effect:** a swirling shadow drawn by a shader on a plane, placed as a sequence component (size, density, swirl speed, colour). An **Effect** step fades it in / out and grows / shrinks it over N s; Move steps move it; it can follow a character or the player. Characters "disappear" by a Hide while the darkness covers them, then the darkness fades.
+- [ ] **1 — The player does it herself** (agreed 14 Nov): she walks into zones and uses Inspect / Action, which fire events. Steps that move or animate the player only if needed later.
+- [ ] **2 — Darkness effect:** *(effect asset done 14 Nov: Asset Lab → + New effect, a Darkness whirlwind shader with live settings, placeable like any asset)* next: effects in sequences — placed as a component, an **Effect** step that animates its settings (opacity, size, swirl…) over N s, Move steps move it, and it can follow a character or the player. Characters "disappear" by a Hide while the darkness covers them, then the darkness fades.
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** a placed character can hold an asset in a hand (Father's axe), and a step gives / takes / drops it.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
@@ -80,6 +80,10 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0as. Darkness effect (14 Nov)**
+- [ ] Asset Lab → **+ New effect**: a Darkness whirlwind appears and swirls on the stage; *Effect* has Shape, Opacity, Swirl speed, Twist, Rise, Density, Edge softness, widths, Turbulence, colours and Flecks; each slider changes it live. Set Height to about 3 m.
+- [ ] Game editor → + Add environment asset → EFFECTS → place it: it swirls in the world (check it stays smooth on the phone, and with two or three placed).
 
 **0ar. Looks (14 Nov)**
 - [ ] Edit → Menu → **Looks**: *+ Save current as a new look*, name it (e.g. Cold and grey). Open **Post**: its header reads POST · COLD AND GREY; lower Saturation and add a blue tint. Looks → **Base look**: the normal colours come back (Base unchanged). Tap your look again: it returns.

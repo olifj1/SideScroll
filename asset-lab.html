@@ -25,6 +25,7 @@
       <div class="assetlab-panel-head"><small>LIBRARY</small><strong>Assets</strong></div>
       <div class="assetlab-import-bar">
         <button type="button" id="assetlab-import">+ Import asset</button>
+        <button type="button" id="assetlab-new-effect">+ New effect</button>
         <input type="file" id="assetlab-import-file" accept="image/png,.png" hidden>
       </div>
       <div class="assetlab-filter-row">
@@ -80,6 +81,12 @@
         <p class="assetlab-note">Set its height and floor line below, then collision and behaviour. Changes save as you go; the game picks them up next time it opens.</p>
       </section>
 
+      <section class="assetlab-control-section" id="assetlab-effect-section" hidden>
+        <div class="assetlab-control-heading"><small>EFFECT</small><strong id="assetlab-effect-title">Shader settings</strong></div>
+        <div id="assetlab-effect-controls" class="assetlab-effect-controls"></div>
+        <div class="assetlab-button-row"><button type="button" id="assetlab-effect-reset">Reset settings</button></div>
+        <p class="assetlab-note">A plane drawn by a shader, animated in the game. Set its height and floor line below as for any asset. These settings are what sequences will animate.</p>
+      </section>
       <section class="assetlab-control-section" id="assetlab-texture-section">
         <div class="assetlab-control-heading"><small>TEXTURE</small><strong>Image information</strong></div>
         <dl class="assetlab-facts" id="assetlab-texture-facts"></dl>
@@ -268,8 +275,9 @@
   <script src="asset-paths.js?v=1.1.28"></script>
   <script src="site-config.js?v=1.0.62"></script>
   <script src="core.js?v=1.0.62"></script>
-  <script src="asset-library.js?v=1.1.71"></script>
-  <script src="asset-lab.js?v=1.1.71"></script>
+  <script src="effects.js?v=1.1.75"></script>
+  <script src="asset-library.js?v=1.1.75"></script>
+  <script src="asset-lab.js?v=1.1.75"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>
 </html>

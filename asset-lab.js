@@ -277,6 +277,21 @@
     if (!asset) return null;
     const existing = imageCache.get(asset.name);
     if (existing) return existing;
+    if (asset.imported && Lib?.isEffect(Lib.get(asset.name))) {
+      // Shader effect: the shared effect canvas stands in for an image (animated by
+      // tickEffects); the list row gets a still frame.
+      const r = window.SideScrollEffects?.canvasRenderer();
+      const entry = Lib.get(asset.name);
+      Lib.artUrl(entry).then(url => listEl.querySelector(`[data-asset="${asset.name}"] img`)?.setAttribute('src', url)).catch(() => {});
+      if (!r) return null;
+      if (!('naturalWidth' in r.canvas && r.canvas.complete)) {
+        Object.defineProperty(r.canvas, 'naturalWidth', { get:() => r.canvas.width, configurable:true });
+        Object.defineProperty(r.canvas, 'naturalHeight', { get:() => r.canvas.height, configurable:true });
+        Object.defineProperty(r.canvas, 'complete', { get:() => true, configurable:true });
+      }
+      r.render(entry.art, performance.now() / 1000);
+      return r.canvas; // not cached: every effect shares this canvas
+    }
     if (asset.imported) {
       const img = new Image();
       img.onload = () => { resize(); renderPointEditor(); draw(); if (state.asset === asset) syncTextureFacts(); };
@@ -866,6 +881,7 @@
     syncControls();
     buildList();
     syncImportedSection();
+    syncEffectSection();
   }
 
   // --- Texture: the image's size, file size and how dense it is in the game ------
@@ -878,7 +894,13 @@
     const img = imageCache.get(asset?.name);
     const rows = [];
     const add = (term, value) => rows.push([term, value]);
-    if (asset?.procedural) {
+    if (entry?.art.kind === 'effect') {
+      add('Image', 'Shader effect (no image file)');
+      const metres = effectiveHeight(), aspect = entry.art.width / entry.art.height;
+      add('In the game', `${(metres * aspect).toFixed(2)} m wide × ${metres.toFixed(2)} m tall`);
+      add('Drawn at', `${Math.round(384 * aspect)} × 384 px, every frame while on screen`);
+      add('Memory', `about ${((Math.round(384 * aspect) * 384 * 4) / 1048576).toFixed(1)} MB per placed copy`);
+    } else if (asset?.procedural) {
       add('Image', 'Drawn by the game (no image file)');
     } else {
       const file = entry ? (entry.art.kind === 'bundled' ? entry.art.file : entry.art.name || 'imported PNG') : asset?.image || '';
@@ -1044,6 +1066,96 @@
     showImported(null);
   });
   if (!Lib && importBtn) importBtn.hidden = true;
+
+  // --- Shader effects: + New effect, settings, live preview -------------------------
+  const Effects = window.SideScrollEffects || null;
+  const newEffectBtn = document.getElementById('assetlab-new-effect');
+  const effectSection = document.getElementById('assetlab-effect-section');
+  const effectControls = document.getElementById('assetlab-effect-controls');
+  const rgbHex = c => '#' + c.map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+  const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+  const currentEffect = () => (state.asset?.imported && Lib?.isEffect(Lib.get(state.asset.name)) ? Lib.get(state.asset.name) : null);
+  let effectControlsFor = null;
+  function syncEffectSection() {
+    const entry = currentEffect();
+    if (effectSection) effectSection.hidden = !entry;
+    if (importedReplace) importedReplace.hidden = !!entry;
+    if (!entry || !Effects) { effectControlsFor = null; return; }
+    if (effectControlsFor === entry.name) return;
+    effectControlsFor = entry.name;
+    const def = Effects.SHADERS[entry.art.shader] || Effects.SHADERS.darkness;
+    document.getElementById('assetlab-effect-title').textContent = def.label;
+    const params = Effects.clean(entry.art.shader, entry.art.params);
+    const save = patch => {
+      const fresh = Lib.get(entry.name);
+      Lib.update(entry.name, { art:{ ...fresh.art, params:{ ...Effects.clean(fresh.art.shader, fresh.art.params), ...patch } } });
+      saveStateEl.textContent = 'Saved';
+    };
+    const rows = [];
+    // Shape: the plane's width ÷ height (placed copies keep their height, take the new width).
+    const shape = document.createElement('label'); shape.className = 'assetlab-range-row';
+    const shapeVal = document.createElement('small'); shapeVal.textContent = (entry.art.width / entry.art.height).toFixed(2);
+    const shapeIn = Object.assign(document.createElement('input'), { type:'range', min:'0.2', max:'2', step:'0.01', value:String(entry.art.width / entry.art.height) });
+    shape.append(Object.assign(document.createElement('span'), { innerHTML:'<strong>Shape</strong>' }), shapeIn);
+    shape.querySelector('span').append(shapeVal);
+    let shapeStart = null;
+    shapeIn.addEventListener('pointerdown', () => { shapeStart = Lib.get(entry.name).art.width / Lib.get(entry.name).art.height; });
+    shapeIn.addEventListener('input', () => {
+      const a = Number(shapeIn.value); shapeVal.textContent = a.toFixed(2);
+      const fresh = Lib.get(entry.name);
+      if (shapeStart == null) shapeStart = fresh.art.width / fresh.art.height;
+      Lib.update(entry.name, { art:{ ...fresh.art, width:Math.round(1000 * a), height:1000 } });
+      resize(); renderPointEditor(); syncTextureFacts();
+    });
+    shapeIn.addEventListener('change', () => {
+      if (shapeStart != null) Lib.rescalePlaced(entry.name, Number(shapeIn.value) / shapeStart);
+      shapeStart = null; saveStateEl.textContent = 'Saved';
+    });
+    rows.push(shape);
+    for (const p of def.params) {
+      const row = document.createElement('label'); row.className = 'assetlab-range-row';
+      const head = document.createElement('span'); const name = document.createElement('strong'); name.textContent = p.label;
+      const val = document.createElement('small'); head.append(name, val);
+      let input;
+      if (p.type === 'color') {
+        input = Object.assign(document.createElement('input'), { type:'color', value:rgbHex(params[p.key]) });
+        input.addEventListener('input', () => save({ [p.key]:hexRgb(input.value) }));
+      } else {
+        input = Object.assign(document.createElement('input'), { type:'range', min:String(p.min), max:String(p.max), step:String(p.step), value:String(params[p.key]) });
+        const show = () => { val.textContent = Number(input.value).toFixed(p.step < 0.01 ? 3 : 2); };
+        show();
+        input.addEventListener('input', () => { show(); save({ [p.key]:Number(input.value) }); });
+      }
+      row.append(head, input);
+      rows.push(row);
+    }
+    effectControls.replaceChildren(...rows);
+  }
+  document.getElementById('assetlab-effect-reset')?.addEventListener('click', () => {
+    const entry = currentEffect();
+    if (!entry || !confirm('Put every setting of this effect back to its default?')) return;
+    Lib.update(entry.name, { art:{ ...entry.art, params:Effects.defaults(entry.art.shader) } });
+    effectControlsFor = null; syncEffectSection();
+  });
+  newEffectBtn?.addEventListener('click', () => {
+    if (!Lib || !Effects) return;
+    const entry = Lib.add({
+      label:'Darkness whirlwind', group:'EFFECTS', scope:state.filter === 'puzzle' ? 'puzzle' : 'environment', category:'dressing',
+      height:3, groundLine:0, art:{ kind:'effect', shader:'darkness', width:600, height:1000, params:Effects.defaults('darkness') }
+    });
+    showImported(entry.name);
+    saveStateEl.textContent = 'Effect created';
+    importedSection.scrollIntoView({ block:'start', behavior:'smooth' });
+    importedName.focus(); importedName.select();
+  });
+  if (!Effects && newEffectBtn) newEffectBtn.hidden = true;
+  // The selected effect plays live on the stage.
+  function tickEffects() {
+    const entry = currentEffect();
+    if (entry && !document.hidden) { Effects?.canvasRenderer()?.render(Lib.get(entry.name).art, performance.now() / 1000); draw(); }
+    requestAnimationFrame(tickEffects);
+  }
+  requestAnimationFrame(tickEffects);
 
   function syncControls() {
     syncTextureFacts();

@@ -2343,6 +2343,49 @@
     assetAspect[entry.name] = AssetLib.aspect(entry);
     textures[entry.name] = createImageTexture(AssetLib.artUrl(entry), entry.name, null, assetAspect[entry.name]);
   }
+  // Shader effects (effects.js; Asset Lab → + New effect). Each visible placed copy is
+  // rendered into its own small texture every frame (before the scene), then drawn
+  // like any other asset. obj.effectParams (sequences, later) overrides its settings.
+  const Effects = window.SideScrollEffects || null;
+  const effectAssets = new Map(importedAssets.filter(e => e.art.kind === 'effect').map(e => [e.name, e]));
+  let effectRenderer = null;
+  const effectTargets = new WeakMap();
+  function effectTargetFor(obj, art) {
+    const h = 384, w = Math.max(16, Math.round(h * art.width / Math.max(1, art.height)));
+    let t = effectTargets.get(obj);
+    if (t && t.w === w && t.h === h) return t;
+    if (!t) t = { tex:gl.createTexture(), fb:gl.createFramebuffer(), w:0, h:0 };
+    t.w = w; t.h = h;
+    gl.bindTexture(gl.TEXTURE_2D, t.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
+    effectTargets.set(obj, t);
+    return t;
+  }
+  function renderEffectTextures(now) {
+    if (!effectAssets.size || !Effects) return;
+    if (!effectRenderer) {
+      try { effectRenderer = Effects.createRenderer(gl); } catch (error) { console.warn(error); effectAssets.clear(); return; }
+    }
+    const seconds = now / 1000;
+    for (const obj of allSceneObjects()) {
+      const entry = obj && !obj.deleted ? effectAssets.get(obj.assetName) : null;
+      if (!entry || Math.abs(obj.x - (camera.x + character.screenOffsetX)) > 45) continue;
+      const t = effectTargetFor(obj, entry.art);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+      gl.viewport(0, 0, t.w, t.h);
+      // Each copy runs on its own clock offset so neighbours don't swirl in step.
+      const offset = (String(obj.id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
+      effectRenderer.render(Effects.clean(entry.art.shader, { ...entry.art.params, ...(obj.effectParams || {}) }), seconds + offset, t.w / t.h);
+      obj.texture = t.tex;
+    }
+  }
+
   // A placed copy of an imported asset that is not on this device draws nothing.
   let emptyAssetTexture = null;
   function missingAssetTexture() {
@@ -20036,6 +20079,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     checkPuzzleCompletion(character.x);
     updatePuzzleRewards(now);
 
+    renderEffectTextures(now);
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(program);

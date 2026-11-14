@@ -142,6 +142,17 @@ that any `sidescroll.` key still mentions (`usedIn`). Replace Art with a differe
 assets loads `asset-library.js` (play, asset-lab, publish-lab). The built-in assets are still
 listed separately in `sidescroll.js` (`editorAssetGroups`) and `asset-lab.js` (`ASSETS`).
 
+**Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
+`art: {kind:'effect', shader:'darkness', width, height (the plane's shape), params}`; params are
+the shader's controls (`SHADERS[shader].params`: number ranges and [r,g,b] colours; `clean()`
+clamps them). Asset Lab: **+ New effect**, the *Effect* section (sliders; Shape rescales placed
+copies), the shared canvas renderer animates the stage (`tickEffects`); thumbnails are still
+frames (`thumbnail`, also what `artUrl` returns). The game (`renderEffectTextures`, called at the
+start of each frame before the scene framebuffer is bound) renders each visible copy into its own
+384-px-high texture with `createRenderer(gl)` and sets `obj.texture`, so the normal object path
+draws it; `obj.effectParams` overrides settings per copy (for sequences). New shaders: add a
+fragment shader + params to `SHADERS` and choose it in `createRenderer`.
+
 ## Character registry
 `character-registry.js` (`window.SideScrollCharacters`) is the one list of
 characters for Character Lab and the game: display names (library characters keep
