@@ -20,6 +20,25 @@ content, your working copy (overrides published on your phone only), local only
 (settings, progress, test state) — classified in `storage-catalogue.json`.
 - [ ] **Decide:** make the repository private? (GitHub Pages from a private repo needs a paid plan, and the site itself stays public; alternative is a private repo + Cloudflare Pages with login.)
 
+### Intro sequence (agreed 14 Nov — current focus)
+The opening, built with sequences. Aureli wakes in the cabin (birdsong, distant chopping),
+reads Father's note on the fireplace (food and water on the table, backpack mended), eats,
+inspects the backpack, and walks out to say good morning. Father stops chopping and they
+talk; then the sound falls away, the light dims and the colour drains. Deer and other
+animals run past; a darkness follows, catches the last animal, and both vanish. Father
+shouts her name, is wrapped in swirling shadow and is gone. A shadow covers Aureli, all goes
+black, then the light returns and she is alone in the silence. With control back, she walks
+into the cabin, packs what she can and sets off after him. (The cabin is the one already in
+the scene: she walks out of it and back in; no separate interior.)
+Stages (engine work in order; art and sound in parallel):
+- [ ] **1 — The player in steps:** Move (walk / run to a mark), Face and Animate can act on the player as well as on placed characters.
+- [ ] **2 — Darkness effect:** a swirling shadow drawn by a shader on a plane, placed as a sequence component (size, density, swirl speed, colour). An **Effect** step fades it in / out and grows / shrinks it over N s; Move steps move it; it can follow a character or the player. Characters "disappear" by a Hide while the darkness covers them, then the darkness fades.
+- [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
+- [ ] **4 — Held props for characters:** a placed character can hold an asset in a hand (Father's axe), and a step gives / takes / drops it.
+- [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
+- [ ] **Art and sound (parallel):** Father (biped parts sheet + Chop, Idle, Talk animations); deer (quadruped, Run) and variants (duplicates with different art / scale); other running animals; axe, woodpile, chopping block, note, food / water, backpack; sounds (birdsong, chopping, gasp, shadow).
+- [ ] **6 — Build the intro** in the Story editor (zones: note, table, backpack, door, Father; events with Say, Wait for Action, Look, Screen, Camera, Effect, Sound, Item steps), then tune with ▶ Play and Skip.
+
 ### Sequences (agreed 10 Nov)
 Design: `docs/SEQUENCE_SYSTEM_DESIGN.md` — sequences placed like puzzles / world groups
 (anchor, bounds, components: library characters, marks, zones, thoughts, dressing),
