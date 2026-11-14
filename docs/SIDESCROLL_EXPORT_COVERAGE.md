@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## 14 November 2026 — Looks
+- New content key `sidescroll.looks.v1` (World area): named fog + post sets. Publishes with the World area; in Project Backup (all `sidescroll.` keys). The existing `sidescroll.render.fog.v1` / `.post.v1` are the base look, unchanged.
+- `sidescroll.player.story-progress.v2` gains `look` ({id, by}): the look a Look step set, restored when a player reopens the game.
+
 ## 13 November 2026 — Player start; World Lab moves sequences
 - New content key `sidescroll.world.player-start.v1` (World area; `{x, facing}`): set by World Lab's START flag, read by the game when there is no saved player position. Publishes with the World area; in Project Backup.
 - World Lab now writes `sidescroll.story.sequences.v1` (a placed sequence's anchor `x`) and shifts the matching component positions in this device's `sidescroll.player.story-progress.v2`.

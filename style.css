@@ -15712,3 +15712,16 @@ body[data-game-id="game-16"] .sidescroll-environment-filter-chip{touch-action:ma
 body[data-game-id="game-16"] .sidescroll-environment-search{width:100%;box-sizing:border-box;min-height:36px;margin:0 0 6px;padding:0 12px;border-radius:10px;
   border:1px solid rgba(236,243,241,.2);background:rgba(7,13,17,.45);color:#eef5f2;font:700 13px -apple-system,BlinkMacSystemFont,sans-serif;}
 body[data-game-id="game-16"] .sidescroll-environment-search::placeholder{color:rgba(235,243,241,.5);}
+/* Looks panel (Menu → Looks). */
+body[data-game-id="game-16"] .sidescroll-looks-help{margin:0 0 8px;color:#b9cbc8;font-size:9px;line-height:1.4;}
+body[data-game-id="game-16"] .sidescroll-looks-list{display:grid;gap:5px;max-height:220px;overflow-y:auto;margin-bottom:8px;}
+body[data-game-id="game-16"] .sidescroll-looks-row{display:grid;gap:2px;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid rgba(237,244,244,.16);background:rgba(255,255,255,.05);color:#f2f7f8;}
+body[data-game-id="game-16"] .sidescroll-looks-row strong{font-size:11px;}
+body[data-game-id="game-16"] .sidescroll-looks-row small{font-size:8px;color:#9fb0ae;}
+body[data-game-id="game-16"] .sidescroll-looks-row.active{border-color:rgba(126,216,150,.75);background:rgba(126,216,150,.14);}
+body[data-game-id="game-16"] .sidescroll-looks-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+body[data-game-id="game-16"] .sidescroll-looks-actions button{min-height:32px;border:1px solid rgba(237,244,244,.18);border-radius:9px;background:rgba(255,255,255,.08);color:#f2f7f8;font-size:8px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;}
+body[data-game-id="game-16"] .sidescroll-looks-actions button:first-child{grid-column:1 / -1;border-color:rgba(126,216,150,.55);background:rgba(126,216,150,.14);}
+body[data-game-id="game-16"] .sidescroll-looks-actions button.danger{border-color:rgba(255,140,130,.5);}
+body[data-game-id="game-16"] .sidescroll-looks-actions button:disabled{opacity:.4;}
+body[data-game-id="game-16"] .sidescroll-look-editing{font-size:8px;color:#9fd8b0;letter-spacing:.06em;}

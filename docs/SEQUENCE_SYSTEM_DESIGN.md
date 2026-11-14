@@ -85,7 +85,9 @@ The player keeps control while a sequence plays, unless an event's steps take it
     leaves a zone** (added 11 Nov).
   - **Item** — give the player an item (with a count), or take one (added 12 Nov). Items a
     sequence gives are removed, and ones it took returned, when the sequence is reset.
-  - Later: **Look** (colour grade, vignette, fog) and **Skip** (see *Later* below).
+  - **Look** *(added 14 Nov)* — change the world to a saved look (named fog + post set, Menu →
+    Looks) or back to base, blended over N s; it stays until another Look step (kept in play
+    progress). Later: more look controls (grading, vignette, bloom) and **Skip** (see *Later*).
 - Events are game-wide: any sequence can run any event. Changing an event changes it
   everywhere it is used; its page lists where.
 

@@ -28,7 +28,7 @@ use roles. Steps 1–2 (events library, sequences with characters / marks / zone
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
 - [ ] **Play from here:** complete every puzzle and sequence before a chosen point (via ⚑ Progress), then play from there. *(⚑ Progress, Solved State and the Item step done 12 Nov.)*
 - [ ] **4 — World Lab sequences track:** *(track, details, drag / type to move, Open in game done 13 Nov)* still to do: show where each component stands within the bar, and a template's other instances.
-- [ ] **5 — Look steps** (colour grade, vignette, fog; atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov.)*
+- [ ] **5 — More look controls** (colour grading, vignette, bloom; looks per stretch of the journey, e.g. atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov; Looks (fog + post sets) and the Look step done 14 Nov.)*
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
 Design: `docs/CHARACTER_SYSTEM_DESIGN.md`. Every character is built the same
@@ -61,6 +61,10 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0ar. Looks (14 Nov)**
+- [ ] Edit → Menu → **Looks**: *+ Save current as a new look*, name it (e.g. Cold and grey). Open **Post**: its header reads POST · COLD AND GREY; lower Saturation and add a blue tint. Looks → **Base look**: the normal colours come back (Base unchanged). Tap your look again: it returns.
+- [ ] Story → an event with a **Look** step (Change to: your look, blend 2 s), on a sequence line: ▶ Play into it: the world fades to the look over 2 s. Close and reopen the game (player mode): still that look. TEST bar → Reset story: back to base.
 
 **0aq. Environment filter and search (14 Nov)**
 - [ ] Edit → Environment: the Select Filter chips sit on several lines; tap **Thought Nodes**: the list shows only thought nodes, each with what it says.
