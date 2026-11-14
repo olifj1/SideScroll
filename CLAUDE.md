@@ -285,6 +285,17 @@ restores anchors). **Player start** (`sidescroll.world.player-start.v1`, content
 position (`restorePlayerPosition`, player mode); the editor opens there too (`editorOpenStart`)
 unless World Lab sent a `worldX`.
 
+**Looks** (`looks.js`, `window.SideScrollLooks`, key `sidescroll.looks.v1`, World area):
+`{looks:[{id look-…, name, fog:{enabled, color, near, far, amount, curve}, post:{brightness,
+contrast, saturation, tintColor, tintAmount}}]}`. The saved Fog / Post settings are the **base
+look** (`baseFog` / `basePost`); `fogSettings` / `postSettings` are the live values the renderer
+reads. `setWorldLook(id|null, seconds)` blends the live values (`updateWorldLook` in `render`);
+while a look is active `saveFogSettings` / `savePostSettings` write into that look
+(`saveLiveLookEdit`), else into base. Menu → Looks (`syncLookUi`). Event step `look` (`{look,
+seconds}`) sets it and records `progress.look {id, by}` (applied on load in player mode;
+cleared by Reset story / that sequence's reset). New look parameters: add them to looks.js
+`clean…`, `copyFog` / `copyPost`, `writeLiveLook` and the blend in `updateWorldLook`.
+
 **Environment list and search** (`renderEnvironmentSelectionTools`): the Select Filter (chips
 from `environmentSelectionCategories`; items may carry their own `selectionKey`, e.g. Thought /
 Camera Nodes) limits scene taps and the list; `environmentSearchQuery` matches label, asset name,

@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Looks:** named sets of Fog and Post values (Menu → **Looks**): *+ Save current as a new
+  look*, tap a look to show it (the Fog and Post panels then edit that look; their headers
+  say which), Rename, Delete, and **Base look** (the world's normal Fog / Post settings).
+  New event step **Look**: changes the world to a look (or back to base), blended over N s;
+  it stays until another Look step changes it and is kept when the game is reopened
+  (story progress). Reset story, and Progress → Reset on the sequence that set it, return
+  to base. More controls (grading, vignette, bloom) can be added to looks later.
 - **Environment: find things in the scene.** The Select Filter chips wrap onto several
   lines (no sideways sliding), **Thought Nodes** and **Camera Nodes** are filters of their
   own, and the filter now narrows the Placed World Assets list too. A **search box** above

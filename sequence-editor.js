@@ -224,7 +224,7 @@
 
   // ---- Sequence page -------------------------------------------------------------
   const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑' };
-  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚' };
+  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑' };
   function componentEditor(p, body, c) {
     const moving = placeMode?.kind === 'component' && placeMode.id === c.id;
     const worldX = el('input', { type: 'number', step: '0.1', value: fmt(p.x + c.dx, 2), inputmode: 'decimal' });
@@ -456,6 +456,15 @@
           field('Item', select_(items.map(i => [i.id, i.label]), s.item, v => { s.item = v; change(); })),
           el('div', { class: 'sidescroll-story-inline' }, numberInput(s, 'count', 1, 20, 1, 1), 'of them'),
           help('Progress → Reset on this sequence takes back what it gave and gives back what it took.'));
+        break;
+      }
+      case 'look': {
+        const looks = host.looks?.() || [];
+        if (s.look === undefined) s.look = looks[0]?.id || ''; if (s.seconds === undefined) s.seconds = 2;
+        rows.push(field('Change to', select_([['', 'Base look (normal)'], ...looks.map(l => [l.id, l.name])], s.look || '', v => { s.look = v; change(); })),
+          el('div', { class: 'sidescroll-story-inline' }, 'blend over', numberInput(s, 'seconds', 0, 30, 0.5, 1), 's'),
+          help(looks.length ? 'Fog and colour change to the look and stay until another Look step changes them (kept when the game is reopened).'
+            : 'No looks yet: make them in Menu → Looks (set Fog and Post, then “Save current as a new look”).'));
         break;
       }
       case 'prompt':

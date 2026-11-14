@@ -36,7 +36,8 @@
     camera:  { label: 'Camera', help: 'frames a mark, a character or the player; or goes back to following the player', roles: { target: 'any' } },
     screen:  { label: 'Screen', help: 'fades to / from black, letterbox bars in / out', roles: {} },
     prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} },
-    item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} }
+    item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} },
+    look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
   });
   const SCREEN_ACTIONS = Object.freeze({ 'fade-out': 'Fade to black', 'fade-in': 'Fade in from black', 'bars-in': 'Letterbox bars in', 'bars-out': 'Letterbox bars out' });
   const WHEN = Object.freeze({
@@ -136,6 +137,12 @@
         out.item = text(raw.item, 60, 'forest-key');
         out.count = Math.round(clamp(raw.count, 1, 20, 1));
         out.give = raw.give !== false;
+        break;
+      case 'look':
+        // A saved look (Menu → Looks) or '' = the base look; blends over `seconds`.
+        // It stays until another Look step changes it (kept in play progress).
+        out.look = typeof raw.look === 'string' && /^look-[a-z0-9]{4,20}$/.test(raw.look) ? raw.look : '';
+        out.seconds = round(clamp(raw.seconds, 0, 30, 2), 100);
         break;
       case 'screen':
         out.action = SCREEN_ACTIONS[raw.action] ? raw.action : 'fade-out';
@@ -239,9 +246,11 @@
   // ---- Play progress -----------------------------------------------------------
   // {flags:{name:true}, fired:{"<placed id>:<line id>":true},
   //  components:{"<placed id>:<component id>":{x, depth, facing, animation, hidden}},
-  //  taken:{"<placed id>":{item id: count}} — items its events took from the player}
+  //  taken:{"<placed id>":{item id: count}} — items its events took from the player,
+  //  look:{id, by} — the look a Look step set (by = placed sequence id); none = base}
   function loadProgress() {
     const raw = read(PROGRESS_KEY), out = { flags: {}, fired: {}, components: {}, taken: {} };
+    if (raw?.look && /^look-[a-z0-9]{4,20}$/.test(raw.look.id || '')) out.look = { id: raw.look.id, by: /^sq-[a-z0-9]+$/.test(raw.look.by || '') ? raw.look.by : null };
     for (const [k, v] of Object.entries(raw?.taken || {})) {
       if (!/^sq-[a-z0-9]+$/.test(k) || !v || typeof v !== 'object') continue;
       const items = {};
@@ -264,9 +273,10 @@
   }
   function saveProgress(p) {
     const empty = !Object.keys(p?.flags || {}).length && !Object.keys(p?.fired || {}).length && !Object.keys(p?.components || {}).length
-      && !Object.keys(p?.taken || {}).length;
+      && !Object.keys(p?.taken || {}).length && !p?.look;
     if (empty) localStorage.removeItem(PROGRESS_KEY);
-    else localStorage.setItem(PROGRESS_KEY, JSON.stringify({ schema: PROGRESS_KEY, flags: p.flags, fired: p.fired, components: p.components, taken: p.taken || {} }));
+    else localStorage.setItem(PROGRESS_KEY, JSON.stringify({ schema: PROGRESS_KEY, flags: p.flags, fired: p.fired, components: p.components, taken: p.taken || {},
+      ...(p.look ? { look: p.look } : {}) }));
   }
 
   window.SideScrollSequences = Object.freeze({

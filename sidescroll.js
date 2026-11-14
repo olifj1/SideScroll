@@ -3749,7 +3749,59 @@ document.addEventListener('keydown',event=>{
   postSettings.saturation = clampNumber(postSettings.saturation, DEFAULT_POST.saturation, 0, 1.6);
   postSettings.tintAmount = clampNumber(postSettings.tintAmount, DEFAULT_POST.tintAmount, 0, 0.6);
 
+  // ---- Looks (looks.js): named fog + post sets ---------------------------------
+  // fogSettings / postSettings are the live values the renderer reads. The saved
+  // Fog / Post settings are the base look (baseFog / basePost); a look (Menu →
+  // Looks preview, or an event's Look step) replaces the live values, blended over
+  // its seconds. While a look is active the Fog / Post panels edit that look.
+  const Looks = window.SideScrollLooks || null;
+  const copyFog = f => ({ enabled:!!f.enabled, color:[...f.color], near:f.near, far:f.far, amount:f.amount, curve:f.curve });
+  const copyPost = p => ({ brightness:p.brightness, contrast:p.contrast, saturation:p.saturation, tintColor:[...p.tintColor], tintAmount:p.tintAmount });
+  let baseFog = copyFog(fogSettings), basePost = copyPost(postSettings);
+  let lookState = { id:null, from:null, to:null, t0:0, dur:0, done:true };
+  function lookTarget(id) {
+    const look = id && Looks ? Looks.get(id) : null;
+    return look ? { fog:copyFog(look.fog), post:copyPost(look.post) } : { fog:copyFog(baseFog), post:copyPost(basePost) };
+  }
+  function writeLiveLook(fog, post) {
+    fogSettings.enabled = fog.enabled; fogSettings.near = fog.near; fogSettings.far = fog.far;
+    fogSettings.amount = fog.amount; fogSettings.curve = fog.curve;
+    fogSettings.color.splice(0, 3, ...fog.color); // fogColor shares this array
+    postSettings.brightness = post.brightness; postSettings.contrast = post.contrast; postSettings.saturation = post.saturation;
+    postSettings.tintAmount = post.tintAmount; postSettings.tintColor.splice(0, 3, ...post.tintColor);
+  }
+  // Switch the world to a look (null = base), blending over `seconds`.
+  function setWorldLook(id, seconds = 0) {
+    const look = id && Looks ? Looks.get(id) : null;
+    const to = lookTarget(look ? id : null);
+    lookState = { id:look ? id : null, from:{ fog:copyFog(fogSettings), post:copyPost(postSettings) }, to, t0:performance.now(), dur:Math.max(0, seconds) * 1000, done:false };
+    if (!lookState.dur) { writeLiveLook(to.fog, to.post); lookState.done = true; }
+    syncLookUi();
+  }
+  function updateWorldLook(now) {
+    if (lookState.done || !lookState.to) return;
+    const t = Math.min(1, (now - lookState.t0) / Math.max(1, lookState.dur));
+    if (t >= 1) { writeLiveLook(lookState.to.fog, lookState.to.post); lookState.done = true; return; }
+    const e = t * t * (3 - 2 * t), mix = (a, b) => a + (b - a) * e, mixRgb = (a, b) => a.map((v, i) => mix(v, b[i]));
+    const a = lookState.from, b = lookState.to;
+    // Fog switched off counts as amount 0 while blending.
+    const amtA = a.fog.enabled ? a.fog.amount : 0, amtB = b.fog.enabled ? b.fog.amount : 0;
+    writeLiveLook(
+      { enabled:true, color:mixRgb(a.fog.color, b.fog.color), near:mix(a.fog.near, b.fog.near), far:mix(a.fog.far, b.fog.far), amount:mix(amtA, amtB), curve:mix(a.fog.curve, b.fog.curve) },
+      { brightness:mix(a.post.brightness, b.post.brightness), contrast:mix(a.post.contrast, b.post.contrast), saturation:mix(a.post.saturation, b.post.saturation),
+        tintColor:mixRgb(a.post.tintColor, b.post.tintColor), tintAmount:mix(a.post.tintAmount, b.post.tintAmount) });
+  }
+  // Fog / Post panel edits go to the active look, else to the base look.
+  function saveLiveLookEdit() {
+    if (!lookState.id || !Looks) return false;
+    lookState.done = true;
+    Looks.update(lookState.id, { fog:copyFog(fogSettings), post:copyPost(postSettings) });
+    return true;
+  }
+
   function saveFogSettings() {
+    if (saveLiveLookEdit()) return;
+    baseFog = copyFog(fogSettings);
     try {
       localStorage.setItem(RENDER_FOG_STORAGE_KEY, JSON.stringify({
         enabled:!!fogSettings.enabled,
@@ -3763,6 +3815,8 @@ document.addEventListener('keydown',event=>{
   }
 
   function savePostSettings() {
+    if (saveLiveLookEdit()) return;
+    basePost = copyPost(postSettings);
     try {
       localStorage.setItem(RENDER_POST_STORAGE_KEY, JSON.stringify({
         brightness:postSettings.brightness,
@@ -18126,6 +18180,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       jump: Number(QuadrupedRig?.JUMP_CYCLE_MS) || 1139 }
   };
   let seqProgress = Seq ? Seq.loadProgress() : { flags: {}, fired: {}, components: {} };
+  // A player's game carries on in the look its story last set.
+  if (PLAYER_MODE && seqProgress.look) setWorldLook(seqProgress.look.id, 0);
   const seqLive = new Map();        // "<placed>:<component>" -> {walk, once} (this session)
   let seqRuns = [];                 // events running
   const seqInside = new Set();      // zone keys the player is inside
@@ -18442,6 +18498,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         }
         return now;
       }
+      case 'look': {
+        // Lasts until another Look step changes it (kept in play progress).
+        setWorldLook(step.look || null, step.seconds);
+        if (step.look) seqProgress.look = { id:step.look, by:run.p.id }; else delete seqProgress.look;
+        saveStoryProgress();
+        return now + step.seconds;
+      }
       case 'prompt':
         // Waits (even while control is taken) until the player presses Action.
         run.prompt = { label: step.label || 'Talk' };
@@ -18595,7 +18658,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           const from = seqComponentPlace(r.p, actor), to = seqComponentPlace(r.p, mark);
           const facing = Math.abs(to.x - from.x) > 0.001 ? (to.x > from.x ? 1 : -1) : from.facing;
           Object.assign(seqSavedFor(compKey(r.p.id, actor.id)), { x: to.x, depth: to.depth, facing });
-        } else if (['flag', 'show', 'item', 'face'].includes(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
+        } else if (['flag', 'show', 'item', 'face', 'look'].includes(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
           seqStartStep(run, step, now);
         }
       }
@@ -18620,6 +18683,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const [itemId, count] of Object.entries(seqProgress.taken?.[placedId] || {}))
       if (INVENTORY_ITEM_DEFS[itemId]) addInventoryItem(itemId, count);
     if (seqProgress.taken) delete seqProgress.taken[placedId];
+    // A look this sequence set goes back to the base look.
+    if (seqProgress.look?.by === placedId) { delete seqProgress.look; setWorldLook(null, 0); }
     seqStarted.delete(placedId);
     for (const key of [...seqInside]) if (key.startsWith(prefix)) seqInside.delete(key);
     for (const key of [...seqFlagLatched]) if (key.startsWith(prefix)) seqFlagLatched.delete(key);
@@ -18640,6 +18705,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     seqLive.clear(); seqRuns = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
     seqFinishedLines.length = 0;
     seqResetScreen();
+    setWorldLook(null, 0);
     storySpeechEl?.classList.remove('visible');
   }
   function drawWorldCharacters(view) {
@@ -18819,6 +18885,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     closePicker: () => { if (editorPalettePickerMode === 'story') setAssetPaletteOpen(false); },
     pickerOpen: () => editorPalettePickerMode === 'story' && !editorPalette?.hidden,
     // Inventory items an Item step can give or take: [{id, label}].
+    looks: () => (Looks ? Looks.list() : []).map(l => ({ id: l.id, name: l.name })),
     items: () => Object.values(INVENTORY_ITEM_DEFS).map(d => ({ id: d.id, label: collectibleConfig(d.id)?.label || d.label || d.id })),
     // Read-only test hooks: the camera's move from the follow view, and any event waiting for Action.
     cameraShot: () => ({ ...seqCameraNow, keep: !!seqCamera?.keep, active: !!seqCamera }),
@@ -19731,6 +19798,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     renderFrameSerial+=1;
     resize();
     updatePuzzleStreaming(character?.x ?? camera.x);
+    updateWorldLook(now);
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
@@ -20337,6 +20405,59 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (postSaturationValue) postSaturationValue.textContent = postSettings.saturation.toFixed(2);
     if (postTintAmountValue) postTintAmountValue.textContent = postSettings.tintAmount.toFixed(2);
   }
+  // ---- Looks panel (Menu → Looks) -------------------------------------------------
+  // var: setWorldLook() can call syncLookUi() at start-up, before these lines run.
+  var looksBtn = document.getElementById('sidescroll-looks');
+  var looksPanel = document.getElementById('sidescroll-looks-panel');
+  var looksListEl = document.getElementById('sidescroll-looks-list');
+  function syncLookUi() {
+    const look = lookState.id && Looks ? Looks.get(lookState.id) : null;
+    for (const el of document.querySelectorAll('[data-look-editing]')) el.textContent = look ? `· ${look.name.toUpperCase()}` : '· BASE LOOK';
+    if (!looksListEl || looksPanel?.hidden) return;
+    const rows = [{ id:null, name:'Base look', note:'the world\u2019s Fog and Post settings' },
+      ...(Looks ? Looks.list() : []).map(l => ({ id:l.id, name:l.name, note:`fog ${l.fog.enabled ? l.fog.amount.toFixed(2) : 'off'} · saturation ${l.post.saturation.toFixed(2)}` }))];
+    looksListEl.replaceChildren(...rows.map(row => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sidescroll-looks-row' + ((row.id || null) === (lookState.id || null) ? ' active' : '');
+      const name = document.createElement('strong'); name.textContent = row.name;
+      const note = document.createElement('small'); note.textContent = row.note;
+      btn.append(name, note);
+      bindEditorPress(btn, () => { setWorldLook(row.id, 0.6); hintEl.textContent = `Showing ${row.name} · Fog and Post now edit it`; hintEl.classList.remove('hidden'); });
+      return btn;
+    }));
+    const hasLook = !!lookState.id;
+    for (const id of ['sidescroll-looks-rename', 'sidescroll-looks-delete']) { const b = document.getElementById(id); if (b) b.disabled = !hasLook; }
+  }
+  function setLooksPanelOpen(open) {
+    if (!looksPanel || !looksBtn) return;
+    looksPanel.hidden = !open;
+    looksBtn.setAttribute('aria-expanded', String(open));
+    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setFogPanelOpen(false); setPostPanelOpen(false); setSoundPanelOpen(false); syncLookUi(); }
+  }
+  bindEditorPress(looksBtn, () => setLooksPanelOpen(looksPanel?.hidden !== false));
+  bindEditorPress(document.getElementById('sidescroll-looks-close'), () => setLooksPanelOpen(false));
+  bindEditorPress(document.getElementById('sidescroll-looks-new'), () => {
+    if (!Looks) return;
+    const name = (window.prompt('Name the new look (it starts from what you see now)', 'Warm and friendly') || '').trim();
+    if (!name) return;
+    const made = Looks.add({ name, fog:copyFog(fogSettings), post:copyPost(postSettings) });
+    setWorldLook(made.id, 0);
+    hintEl.textContent = `Saved look ${made.name} · Fog and Post now edit it`; hintEl.classList.remove('hidden');
+  });
+  bindEditorPress(document.getElementById('sidescroll-looks-rename'), () => {
+    const look = lookState.id && Looks ? Looks.get(lookState.id) : null;
+    if (!look) return;
+    const name = (window.prompt('Rename this look', look.name) || '').trim();
+    if (name) { Looks.update(look.id, { name }); syncLookUi(); }
+  });
+  bindEditorPress(document.getElementById('sidescroll-looks-delete'), () => {
+    const look = lookState.id && Looks ? Looks.get(lookState.id) : null;
+    if (!look || !window.confirm(`Delete the look “${look.name}”? Look steps that use it will use the base look.`)) return;
+    Looks.remove(look.id);
+    setWorldLook(null, 0.6);
+  });
+
   function setPostPanelOpen(open) {
     if (!postPanel || !postBtn) return;
     postPanel.hidden = !open;
@@ -20346,6 +20467,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       setTerrainSectionPanelOpen(false);
       setFogPanelOpen(false);
       setSoundPanelOpen(false);
+      setLooksPanelOpen(false);
+      syncLookUi();
       syncPostUi();
     }
   }
@@ -20388,7 +20511,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!fogPanel || !fogBtn) return;
     fogPanel.hidden = !open;
     fogBtn.setAttribute('aria-expanded', String(open));
-    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setPostPanelOpen(false); setSoundPanelOpen(false); syncFogUi(); }
+    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setPostPanelOpen(false); setSoundPanelOpen(false); setLooksPanelOpen(false); syncLookUi(); syncFogUi(); }
   }
   bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
   bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));
