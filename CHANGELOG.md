@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Environment: find things in the scene.** The Select Filter chips wrap onto several
+  lines (no sideways sliding), **Thought Nodes** and **Camera Nodes** are filters of their
+  own, and the filter now narrows the Placed World Assets list too. A **search box** above
+  the list matches names, groups and what thoughts say; thought rows show their text. A
+  search also finds things **inside puzzles** (listed under *Inside puzzles*): tapping one
+  opens that puzzle for editing with it selected, and a node's settings open.
 - **Edit a thought or camera node inside a World Group with one tap:** tapping it in the
   game editor opens the group for editing with that node selected and its settings
   (text, radius, one shot) open, instead of only selecting the group. It saves with the

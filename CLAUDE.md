@@ -285,6 +285,13 @@ restores anchors). **Player start** (`sidescroll.world.player-start.v1`, content
 position (`restorePlayerPosition`, player mode); the editor opens there too (`editorOpenStart`)
 unless World Lab sent a `worldX`.
 
+**Environment list and search** (`renderEnvironmentSelectionTools`): the Select Filter (chips
+from `environmentSelectionCategories`; items may carry their own `selectionKey`, e.g. Thought /
+Camera Nodes) limits scene taps and the list; `environmentSearchQuery` matches label, asset name,
+group and thought text, and also lists puzzle contents (`puzzleSearchEntries`: live copies, else
+the Start State); `openPuzzleObject` moves the player there (puzzles stream by player x), opens
+the puzzle's edit session and selects the object (node settings open).
+
 **Near-side rows** (`near-rows.js`, `window.SideScrollNearRows`, loaded by play and
 world-lab): a biome profile's optional `nearRows` (`{enabled, rows:[3 × {on, depth,
 depthJitter, scale, scaleJitter, spacing, spacingJitter, textures}]}` in

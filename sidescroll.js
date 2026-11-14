@@ -548,6 +548,12 @@
   const environmentSelectionEl = document.getElementById('sidescroll-environment-selection');
   const environmentFilterRowEl = document.getElementById('sidescroll-environment-filter-row');
   const environmentSceneListEl = document.getElementById('sidescroll-environment-scene-list');
+  const environmentSearchEl = document.getElementById('sidescroll-environment-search');
+  environmentSearchEl?.addEventListener('input', () => {
+    environmentSearchQuery = environmentSearchEl.value;
+    sceneEnvironmentListSignature = '';
+    renderEnvironmentSelectionTools({ force:true });
+  });
   const environmentSceneEmptyEl = document.getElementById('sidescroll-environment-scene-empty');
   const environmentSceneCountEl = document.getElementById('sidescroll-environment-scene-count');
   const worldGroupCountEl = document.getElementById('sidescroll-world-group-count');
@@ -8742,6 +8748,7 @@ document.addEventListener('keydown',event=>{
   let scenePuzzleListSignature = '';
   let sceneEnvironmentListSignature = '';
   let environmentSelectionFilter = 'all';
+  let environmentSearchQuery = '';
   let selectionTapCycle = null;
   let selectedWorldGroupId = null;
   let worldGroupEditMode = false; // compatibility mirror for existing selection/direct-manipulation paths
@@ -9715,8 +9722,8 @@ document.addEventListener('keydown',event=>{
       { name:'axle-pin', label:'AXLE PIN', image:'axle-pin.png', category:'gameplay', gameplayType:'collectible', thumb:'✦', defaultHeight:0.72, gameplayLayerLocked:false }
     ]},
     { scope:'both', title: 'WORLD OBJECTS', selectionKey:'world-objects', selectionLabel:'World Objects', items: [
-      { name:'thought-trigger', label:'THOUGHT NODE', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true, wrap:false },
-      { name:'camera-trigger', label:'CAMERA NODE', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0, defaultCameraCurveStart:0, defaultCameraCurveEnd:0 }
+      { name:'thought-trigger', label:'THOUGHT NODE', selectionKey:'thought-nodes', selectionLabel:'Thought Nodes', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true, wrap:false },
+      { name:'camera-trigger', label:'CAMERA NODE', selectionKey:'camera-nodes', selectionLabel:'Camera Nodes', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0, defaultCameraCurveStart:0, defaultCameraCurveEnd:0 }
     ]},
     { scope:'environment', title: 'SETTLEMENT · BUILDINGS', selectionKey:'settlement-buildings', selectionLabel:'Settlement Buildings', items: [
       { name:'settlement-house-01', label:'HOUSE 01 · COTTAGE FRONT', image:'settlement-house-01.png', category:'dressing', defaultHeight:4.20, wrap:false },
@@ -9786,19 +9793,22 @@ document.addEventListener('keydown',event=>{
   const editorAssetInfo = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, item])));
   const editorAssetScope = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, group.scope])));
   const editorAssetSelectionMeta = new Map(editorAssetGroups.flatMap(group => group.items.map(item => [item.name, {
-    key:group.selectionKey || (group.scope === 'both' ? 'world-objects' : 'other'),
-    label:group.selectionLabel || group.title
+    key:item.selectionKey || group.selectionKey || (group.scope === 'both' ? 'world-objects' : 'other'),
+    label:item.selectionLabel || group.selectionLabel || group.title
   }])));
   const environmentSelectionCategories = (() => {
     const seen = new Set();
     const rows = [{ key:'all', label:'All' }];
     for (const group of editorAssetGroups) {
       if (group.scope !== 'environment' && group.scope !== 'both') continue;
-      const key = group.selectionKey || (group.scope === 'both' ? 'world-objects' : 'other');
-      const label = group.selectionLabel || group.title;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push({ key, label });
+      // Items may have their own filter (Thought Nodes, Camera Nodes).
+      for (const item of group.items) {
+        const key = item.selectionKey || group.selectionKey || (group.scope === 'both' ? 'world-objects' : 'other');
+        const label = item.selectionLabel || group.selectionLabel || group.title;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push({ key, label });
+      }
     }
     return rows;
   })();
@@ -10326,6 +10336,8 @@ document.addEventListener('keydown',event=>{
     return { left, right, top, bottom, width: right-left, height: bottom-top, cx:(left+right)*0.5, cy:(top+bottom)*0.5 };
   }
 
+  // Thought / camera nodes: invisible in play, drawn as small editor markers.
+  const isEditorNodeObject = obj => obj?.assetName === 'thought-trigger' || obj?.assetName === 'camera-trigger';
   function selectionCategoryForObject(obj) {
     return editorAssetSelectionMeta.get(obj?.assetName)?.key || 'other';
   }
@@ -10338,7 +10350,7 @@ document.addEventListener('keydown',event=>{
   function objectPickBounds(obj) {
     const bounds = objectScreenBounds(obj);
     if (!bounds) return null;
-    if (selectionCategoryForObject(obj) !== 'world-objects') return bounds;
+    if (!isEditorNodeObject(obj)) return bounds;
     // World Objects are invisible during play and are represented by editor
     // guides rather than artwork. Give their centre marker a generous fixed
     // screen-space hit target so dense foliage cannot make them impossible to
@@ -10361,7 +10373,7 @@ document.addEventListener('keydown',event=>{
       if (editMode && editorScope === 'environment' && !environmentObjectPassesSelectionFilter(obj)) continue;
       const b = objectPickBounds(obj);
       if (!b || b.right < -20 || b.left > rect.width + 20 || b.bottom < -20 || b.top > rect.height + 20) continue;
-      const pad = selectionCategoryForObject(obj) === 'world-objects' ? 4 : 7;
+      const pad = isEditorNodeObject(obj) ? 4 : 7;
       if (px < b.left-pad || px > b.right+pad || py < b.top-pad || py > b.bottom+pad) continue;
       const centreDist = Math.hypot(px-b.cx, py-b.cy);
       candidates.push({ obj, centreDist });
@@ -11855,7 +11867,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const hits=[];
     for(const obj of worldGroupMembers(group.id)){
       const b=objectPickBounds(obj);if(!b)continue;
-      const pad=selectionCategoryForObject(obj)==='world-objects'?5:8;
+      const pad=isEditorNodeObject(obj)?5:8;
       if(px<b.left-pad||px>b.right+pad||py<b.top-pad||py>b.bottom+pad)continue;
       hits.push({obj,dist:Math.hypot(px-b.cx,py-b.cy)});
     }
@@ -12701,12 +12713,23 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!environmentFilterRowEl || !environmentSceneListEl) return;
     renderWorldGroupTools({ force });
     const categoryOrder = new Map(environmentSelectionCategories.map((item,index) => [item.key,index]));
-    const objects = placedWorldEnvironmentObjects().slice().sort((a,b) => {
+    // The filter narrows the list as well as scene taps; the search box matches
+    // names, groups and what thoughts say (puzzle contents too, when searching).
+    const query = environmentSearchQuery.trim().toLowerCase();
+    const words = query ? query.split(/\s+/) : [];
+    const matches = parts => { const hay = parts.filter(Boolean).join(' ').toLowerCase(); return words.every(w => hay.includes(w)); };
+    const objects = placedWorldEnvironmentObjects().filter(obj =>
+      (environmentSelectionFilter === 'all' || selectionCategoryForObject(obj) === environmentSelectionFilter)
+      && (!words.length || matches([editorAssetInfo.get(obj.assetName)?.label, obj.assetName, worldGroupById(obj.worldGroupId)?.label, obj.thoughtText]))
+    ).sort((a,b) => {
       const ak = selectionCategoryForObject(a), bk = selectionCategoryForObject(b);
       if (ak !== bk) return (categoryOrder.get(ak) ?? 999) - (categoryOrder.get(bk) ?? 999);
       return (Number(a.x)||0) - (Number(b.x)||0);
     });
-    const signature = `${environmentSelectionFilter}|${selectedObject?.id || ''}|${selectedWorldGroupId||''}|` + objects.map(obj => `${obj.id}:${obj.assetName}:${obj.worldGroupId||''}:${Number(obj.x).toFixed(3)}:${Number(obj.z).toFixed(3)}`).join('|');
+    const puzzleHits = words.length ? puzzleSearchEntries().filter(entry =>
+      (environmentSelectionFilter === 'all' || (editorAssetSelectionMeta.get(entry.asset)?.key || 'other') === environmentSelectionFilter)
+      && matches([editorAssetInfo.get(entry.asset)?.label, entry.asset, entry.label, entry.text, 'puzzle'])) : [];
+    const signature = `${query}|${puzzleHits.length}|${environmentSelectionFilter}|${selectedObject?.id || ''}|${selectedWorldGroupId||''}|` + objects.map(obj => `${obj.id}:${obj.assetName}:${obj.worldGroupId||''}:${Number(obj.x).toFixed(3)}:${Number(obj.z).toFixed(3)}`).join('|');
     if (!force && signature === sceneEnvironmentListSignature) return;
     sceneEnvironmentListSignature = signature;
 
@@ -12742,8 +12765,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
 
     environmentSceneListEl.innerHTML = '';
-    if (environmentSceneCountEl) environmentSceneCountEl.textContent = `${objects.length} placed`;
-    if (environmentSceneEmptyEl) environmentSceneEmptyEl.hidden = objects.length > 0;
+    if (environmentSceneCountEl) environmentSceneCountEl.textContent = words.length || environmentSelectionFilter !== 'all'
+      ? `${objects.length + puzzleHits.length} found` : `${objects.length} placed`;
+    if (environmentSceneEmptyEl) {
+      environmentSceneEmptyEl.hidden = objects.length + puzzleHits.length > 0;
+      environmentSceneEmptyEl.textContent = words.length || environmentSelectionFilter !== 'all' ? 'Nothing matches.' : 'No manually placed world assets in this scene.';
+    }
     let lastKey = null;
     for (const obj of objects) {
       const meta = editorAssetSelectionMeta.get(obj.assetName) || { key:'other', label:'Other' };
@@ -12765,7 +12792,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       strong.textContent = editorAssetInfo.get(obj.assetName)?.label || obj.assetName;
       const small = document.createElement('small');
       const groupLabel = worldGroupById(obj.worldGroupId)?.label;
-      small.textContent = `${obj.category === 'gameplay' ? 'WORLD OBJECT' : 'ENVIRONMENT'}${groupLabel ? ` · ${groupLabel}` : ''}`;
+      small.textContent = obj.assetName === 'thought-trigger'
+        ? `“${obj.thoughtText || '…'}”${groupLabel ? ` · ${groupLabel}` : ''}`
+        : `${obj.category === 'gameplay' ? 'WORLD OBJECT' : 'ENVIRONMENT'}${groupLabel ? ` · ${groupLabel}` : ''}`;
       main.append(strong, small);
       const pos = document.createElement('span');
       pos.className = 'scene-puzzle-x';
@@ -12793,6 +12822,71 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       });
       environmentSceneListEl.appendChild(row);
     }
+    if (puzzleHits.length) {
+      const heading = document.createElement('div');
+      heading.className = 'sidescroll-environment-scene-group';
+      heading.textContent = 'Inside puzzles';
+      environmentSceneListEl.appendChild(heading);
+      for (const entry of puzzleHits.sort((a,b) => a.x - b.x)) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'sidescroll-environment-scene-row';
+        const main = document.createElement('span'); main.className = 'scene-puzzle-main';
+        const strong = document.createElement('strong'); strong.textContent = editorAssetInfo.get(entry.asset)?.label || entry.asset;
+        const small = document.createElement('small');
+        small.textContent = `${entry.asset === 'thought-trigger' ? `“${entry.text || '…'}” · ` : ''}PUZZLE · ${entry.label}`;
+        main.append(strong, small);
+        const pos = document.createElement('span'); pos.className = 'scene-puzzle-x'; pos.textContent = `x ${entry.x.toFixed(1)}`;
+        row.append(main, pos);
+        bindEditorPress(row, () => openPuzzleObject(entry));
+        environmentSceneListEl.appendChild(row);
+      }
+    }
+  }
+
+  // Everything inside each placed puzzle (live copies when the puzzle is loaded,
+  // otherwise its Start State), for the Environment search.
+  function puzzleSearchEntries() {
+    const rows = [];
+    for (const marker of allPuzzleMarkers()) {
+      const label = markerDefinition(marker)?.label || marker.group;
+      const live = activePuzzleInstances.get(marker.id);
+      if (live) {
+        for (const obj of live.objects || []) if (obj && !obj.deleted)
+          rows.push({ marker, label, objectId:obj.puzzleObjectId, asset:obj.assetName, text:obj.thoughtText || '', x:Number(obj.x) || 0 });
+      } else {
+        for (const [id, o] of Object.entries(puzzleStartFor(marker)?.objects || {})) if (o && !o.deleted)
+          rows.push({ marker, label, objectId:id, asset:o.asset, text:o.thoughtText || '', x:Number(marker.x) + (Number(o.x) || 0) });
+      }
+    }
+    return rows;
+  }
+
+  // Opens a puzzle object found by the search: the Puzzle scope, that puzzle's edit
+  // session, the object selected in Contents, and a node's settings open.
+  function openPuzzleObject(entry) {
+    if (worldGroupEditSession || puzzleEditSession) {
+      hintEl.textContent = 'Save or close the current edit first'; hintEl.classList.remove('hidden'); return;
+    }
+    // Stand the player there first: puzzles stream by the player's position, so a
+    // far-away puzzle would otherwise unload again on the next frame.
+    placePlayerAt(entry.x);
+    updatePuzzleStreaming(character.x);
+    setEditorScope('puzzle');
+    puzzleBrowserMode = 'scene';
+    choosePuzzleForEditing(entry.marker.id, false);
+    editSelectedScenePuzzle();
+    if (!puzzleEditSession) return;
+    const obj = activePuzzleInstances.get(entry.marker.id)?.objects?.find(o => o.puzzleObjectId === entry.objectId);
+    if (!obj) return;
+    focusObjectForAuthoring(obj);
+    if (isEditorNodeObject(obj)) {
+      puzzleNodeInspectorOpen = true;
+      syncThoughtEditor(); syncCameraNodeEditor(); syncFocusedObjectEditorWorkspace();
+    }
+    renderPuzzleWorkspaceV2({ force:true });
+    hintEl.textContent = `${editorAssetInfo.get(obj.assetName)?.label || obj.assetName} in ${entry.label} · Save the puzzle when you are done`;
+    hintEl.classList.remove('hidden');
   }
 
   function sortSceneCollections() {

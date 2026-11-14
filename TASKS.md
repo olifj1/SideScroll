@@ -62,6 +62,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0aq. Environment filter and search (14 Nov)**
+- [ ] Edit → Environment: the Select Filter chips sit on several lines; tap **Thought Nodes**: the list shows only thought nodes, each with what it says.
+- [ ] Type *wrong way* in the search box: "I think I'm going the wrong way" appears under *Inside puzzles* (Fallen Tree); tap it: the Fallen Tree puzzle opens for editing with that thought's settings open. Change it, Save the puzzle.
+
 **0ap. Group node editing, editor at the player start (13 Nov)**
 - [ ] Edit → Environment: tap the "Home Sweet Home" thought node inside HomeGroup01: its text box opens straight away (header GROUP NODE). Change the text, then Save the group; Done Editing; walk into it: the new thought shows.
 - [ ] With a START flag set in World Lab, open the game editor: the player stands at the flag, facing its way.
