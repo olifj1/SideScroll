@@ -60,7 +60,7 @@
   function assetLibraryCanon(raw) {
     try {
       const lib = JSON.parse(raw);
-      for (const e of lib?.assets || []) if (e?.art) e.art = { width: e.art.width, height: e.art.height, bytes: e.art.bytes };
+      for (const e of lib?.assets || []) if (e?.art && e.art.kind !== 'effect') e.art = { width: e.art.width, height: e.art.height, bytes: e.art.bytes };
       return JSON.stringify(lib);
     } catch (_) { return raw; }
   }

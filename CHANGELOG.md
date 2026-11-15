@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Shader effects — Darkness whirlwind.** Asset Lab → **+ New effect** makes an asset
+  drawn by a shader instead of an image: a dark twisting funnel of smoke with flecks
+  orbiting, drifting and spinning inside. Its settings (shape, opacity, swirl speed, twist,
+  rise, density, edge softness, width at base / top, turbulence, core / edge colours,
+  flecks amount / speed / size / colour) are live sliders, and it is set up and placed like
+  any asset (height, floor line, groups, publishing). In the game each visible copy is drawn
+  every frame. Animating the settings from sequences comes next.
 - **Looks:** named sets of Fog and Post values (Menu → **Looks**): *+ Save current as a new
   look*, tap a look to show it (the Fog and Post panels then edit that look; their headers
   say which), Rename, Delete, and **Base look** (the world's normal Fog / Post settings).

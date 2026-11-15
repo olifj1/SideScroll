@@ -39,6 +39,17 @@
       bytes: clampNum(art.bytes, 0, 1e9, 0), name: text(art.name, '', 120) };
     if (art.kind === 'indexeddb' && typeof art.id === 'string' && art.id) return { kind: 'indexeddb', id: art.id, ...base };
     if (art.kind === 'bundled' && typeof art.file === 'string' && /^[\w.-]+\.png$/.test(art.file)) return { kind: 'bundled', file: art.file, ...base };
+    // A shader effect (effects.js): width/height give the plane's shape; params are
+    // its controls (numbers and [r,g,b] colours), clamped by effects.js when drawn.
+    if (art.kind === 'effect' && /^[a-z]{3,20}$/.test(art.shader || '')) {
+      const params = {};
+      for (const [k, v] of Object.entries(art.params && typeof art.params === 'object' ? art.params : {}).slice(0, 40)) {
+        if (!/^[A-Za-z]{1,24}$/.test(k)) continue;
+        if (typeof v === 'number' && Number.isFinite(v)) params[k] = v;
+        else if (Array.isArray(v) && v.length === 3 && v.every(c => typeof c === 'number' && Number.isFinite(c))) params[k] = v.map(c => Math.min(1, Math.max(0, c)));
+      }
+      return { kind: 'effect', shader: art.shader, width: base.width, height: base.height, bytes: 0, name: '', params };
+    }
     return null;
   }
 
@@ -78,6 +89,7 @@
   const get = name => read().find(e => e.name === name) || null;
   const isImportedName = name => NAME_RE.test(String(name || ''));
   const aspect = entry => (entry?.art ? entry.art.width / Math.max(1, entry.art.height) : 1);
+  const isEffect = entry => entry?.art?.kind === 'effect';
   const newName = () => `asset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const newArtId = () => `asset-art-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -136,6 +148,8 @@
     const art = entry?.art;
     if (!art) return Promise.reject(Error('No artwork'));
     if (art.kind === 'bundled') return Promise.resolve(assetPath(art.file));
+    // An effect has no image: a still frame stands in (thumbnails, first frame).
+    if (art.kind === 'effect') return window.SideScrollEffects ? window.SideScrollEffects.thumbnail(art) : Promise.reject(Error('Effects unavailable'));
     if (!urlCache.has(art.id)) {
       urlCache.set(art.id, getArt(art.id).then(blob => {
         if (!blob) throw Error('This asset’s artwork is not on this device.');
@@ -235,7 +249,7 @@
   }
 
   window.SideScrollAssetLibrary = {
-    KEY, list, get, add, update, remove, isImportedName, aspect,
+    KEY, list, get, add, update, remove, isImportedName, aspect, isEffect,
     putArt, getArt, deleteArt, artUrl, inspectFile, usedIn, removeSetup, rescalePlaced
   };
 })();

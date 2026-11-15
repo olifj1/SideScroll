@@ -43,6 +43,7 @@ const CORE_SHELL = [
   "./near-rows.js",
   "./sequence-data.js",
   "./looks.js",
+  "./effects.js",
   "./asset-library.js",
   "./sequence-editor.js",
   "./character-game-runtime.js",
