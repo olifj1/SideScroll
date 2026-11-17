@@ -85,6 +85,9 @@ The player keeps control while a sequence plays, unless an event's steps take it
     leaves a zone** (added 11 Nov).
   - **Item** — give the player an item (with a count), or take one (added 12 Nov). Items a
     sequence gives are removed, and ones it took returned, when the sequence is reset.
+  - **Darkness / effect** *(added 17 Nov)* — attach an effect asset to a character: it blends
+    through the effect's states with times (from invisible), can hide the character while
+    covered, follows it (a hidden character keeps moving), and ends after its last state.
   - **Look** *(added 14 Nov)* — change the world to a saved look (named fog + post set, Menu →
     Looks) or back to base, blended over N s; it stays until another Look step (kept in play
     progress). Later: more look controls (grading, vignette, bloom) and **Skip** (see *Later*).

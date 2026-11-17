@@ -151,7 +151,13 @@ frames (`thumbnail`, also what `artUrl` returns). The game (`renderEffectTexture
 start of each frame before the scene framebuffer is bound) renders each visible copy into its own
 384-px-high texture with `createRenderer(gl)` and sets `obj.texture`, so the normal object path
 draws it; `obj.effectParams` overrides settings per copy (for sequences). New shaders: add a
-fragment shader + params to `SHADERS` and choose it in `createRenderer`.
+fragment shader + params to `SHADERS` and choose it in `createRenderer`. Effect **states**
+(`art.states: [{id st-…, name, params}]`, Asset Lab → States) are what the **Darkness / effect**
+event step (`effect`: `{actor, asset, delay, size, hideAt, keys:[{state 'gone'|st-…, seconds}]}`)
+blends between: `seqEffects` in sidescroll.js (`updateSeqEffects` after `updateWorldCharacters`,
+`drawSeqEffects` after the characters) attaches a transient object to the character's frame and
+hides it at `hideAt`. Hidden sequence characters still get a frame (`frame.hidden`) and keep
+moving; they are just not drawn or blocking.
 
 ## Character registry
 `character-registry.js` (`window.SideScrollCharacters`) is the one list of

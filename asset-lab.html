@@ -83,6 +83,15 @@
 
       <section class="assetlab-control-section" id="assetlab-effect-section" hidden>
         <div class="assetlab-control-heading"><small>EFFECT</small><strong id="assetlab-effect-title">Shader settings</strong></div>
+        <div class="assetlab-point-head"><strong>States</strong><small>saved sets of these settings</small></div>
+        <div id="assetlab-effect-states" class="assetlab-effect-states"></div>
+        <div class="assetlab-button-row">
+          <button type="button" id="assetlab-effect-state-save">Save as state</button>
+          <button type="button" id="assetlab-effect-state-update">Update state</button>
+          <button type="button" id="assetlab-effect-state-rename">Rename</button>
+          <button type="button" id="assetlab-effect-state-delete" class="assetlab-danger">Delete</button>
+        </div>
+        <p class="assetlab-note">States are what a Darkness step blends between (e.g. Grab, Cover, Dust). Tap one to load it into the sliders; change them, then Update state.</p>
         <div id="assetlab-effect-controls" class="assetlab-effect-controls"></div>
         <div class="assetlab-button-row"><button type="button" id="assetlab-effect-reset">Reset settings</button></div>
         <p class="assetlab-note">A plane drawn by a shader, animated in the game. Set its height and floor line below as for any asset. These settings are what sequences will animate.</p>
@@ -276,8 +285,8 @@
   <script src="site-config.js?v=1.0.62"></script>
   <script src="core.js?v=1.0.62"></script>
   <script src="effects.js?v=1.1.75"></script>
-  <script src="asset-library.js?v=1.1.75"></script>
-  <script src="asset-lab.js?v=1.1.75"></script>
+  <script src="asset-library.js?v=1.1.76"></script>
+  <script src="asset-lab.js?v=1.1.76"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>
 </html>

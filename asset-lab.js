@@ -1081,6 +1081,7 @@
     if (effectSection) effectSection.hidden = !entry;
     if (importedReplace) importedReplace.hidden = !!entry;
     if (!entry || !Effects) { effectControlsFor = null; return; }
+    renderEffectStates();
     if (effectControlsFor === entry.name) return;
     effectControlsFor = entry.name;
     const def = Effects.SHADERS[entry.art.shader] || Effects.SHADERS.darkness;
@@ -1131,6 +1132,53 @@
     }
     effectControls.replaceChildren(...rows);
   }
+  // Effect states: named copies of the settings a Darkness step blends between.
+  let effectStateSel = null;
+  const effectStatesEl = document.getElementById('assetlab-effect-states');
+  function renderEffectStates() {
+    const entry = currentEffect();
+    if (!effectStatesEl || !entry) return;
+    const states = entry.art.states || [];
+    if (effectStateSel && !states.some(st => st.id === effectStateSel)) effectStateSel = null;
+    effectStatesEl.replaceChildren(...(states.length ? states.map(st => {
+      const b = document.createElement('button'); b.type = 'button';
+      b.className = 'assetlab-effect-state' + (st.id === effectStateSel ? ' active' : '');
+      b.textContent = st.name;
+      b.addEventListener('click', () => {
+        effectStateSel = st.id;
+        const fresh = Lib.get(entry.name);
+        Lib.update(entry.name, { art:{ ...fresh.art, params:Effects.clean(fresh.art.shader, st.params) } });
+        effectControlsFor = null; syncEffectSection();
+        saveStateEl.textContent = `Showing ${st.name}`;
+      });
+      return b;
+    }) : [Object.assign(document.createElement('small'), { className:'assetlab-note', textContent:'No states yet.' })]));
+    for (const id of ['assetlab-effect-state-update', 'assetlab-effect-state-rename', 'assetlab-effect-state-delete'])
+      document.getElementById(id).disabled = !effectStateSel;
+  }
+  const newStateId = () => `st-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.slice(0, 23);
+  const editStates = fn => { const fresh = currentEffect(); if (!fresh) return; const states = fn([...(fresh.art.states || [])], fresh); Lib.update(fresh.name, { art:{ ...fresh.art, states } }); renderEffectStates(); saveStateEl.textContent = 'Saved'; };
+  document.getElementById('assetlab-effect-state-save')?.addEventListener('click', () => {
+    const entry = currentEffect(); if (!entry) return;
+    const name = (prompt('Name this state (e.g. Grab, Cover, Dust)', `State ${(entry.art.states || []).length + 1}`) || '').trim();
+    if (!name) return;
+    const id = newStateId();
+    editStates((states, fresh) => [...states, { id, name, params:Effects.clean(fresh.art.shader, fresh.art.params) }]);
+    effectStateSel = id; renderEffectStates();
+  });
+  document.getElementById('assetlab-effect-state-update')?.addEventListener('click', () =>
+    editStates((states, fresh) => states.map(st => st.id === effectStateSel ? { ...st, params:Effects.clean(fresh.art.shader, fresh.art.params) } : st)));
+  document.getElementById('assetlab-effect-state-rename')?.addEventListener('click', () => {
+    const st = (currentEffect()?.art.states || []).find(x => x.id === effectStateSel); if (!st) return;
+    const name = (prompt('Rename this state', st.name) || '').trim();
+    if (name) editStates(states => states.map(x => x.id === st.id ? { ...x, name } : x));
+  });
+  document.getElementById('assetlab-effect-state-delete')?.addEventListener('click', () => {
+    const st = (currentEffect()?.art.states || []).find(x => x.id === effectStateSel); if (!st) return;
+    if (!confirm(`Delete the state “${st.name}”? Darkness steps that use it will treat it as the effect's current settings.`)) return;
+    editStates(states => states.filter(x => x.id !== st.id)); effectStateSel = null; renderEffectStates();
+  });
+
   document.getElementById('assetlab-effect-reset')?.addEventListener('click', () => {
     const entry = currentEffect();
     if (!entry || !confirm('Put every setting of this effect back to its default?')) return;

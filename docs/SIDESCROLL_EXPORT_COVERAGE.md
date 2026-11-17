@@ -1,6 +1,7 @@
 # SideScroll — Export and Recovery Coverage
 
 ## 14 November 2026 — Shader effects
+- Effect states (17 Nov) are stored in the effect's `art.states`, so they travel with it.
 - Effect assets live in `sidescroll.asset-library.v1` like imported art, with `art: {kind:'effect', shader, width, height, params}` (no image file). They publish with the Assets area and travel in Project Backup; the bake tool leaves them as they are (nothing to write to `assets/`).
 
 ## 14 November 2026 — Looks

@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Darkness on a character (prototype).** Effects get **states** in Asset Lab (*Save as
+  state*, tap to load into the sliders, *Update state*, Rename, Delete). New event step
+  **Darkness / effect**: attaches an effect to a character (sized to its height, centred on
+  it, in front), starts invisible and blends through a list of states with times
+  (*Gone* = invisible), can hide the character N s in, and is removed when its last state is
+  done. A hidden character keeps moving along a Move it was making, so the dust travels on
+  after the animal has vanished. Progress → Complete leaves the character hidden.
 - **Shader effects — Darkness whirlwind.** Asset Lab → **+ New effect** makes an asset
   drawn by a shader instead of an image: a dark twisting funnel of smoke with flecks
   orbiting, drifting and spinning inside. Its settings (shape, opacity, swirl speed, twist,
