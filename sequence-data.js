@@ -37,6 +37,7 @@
     screen:  { label: 'Screen', help: 'fades to / from black, letterbox bars in / out', roles: {} },
     prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} },
     item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} },
+    effect:  { label: 'Darkness / effect', help: 'attaches an effect to a character, blends it through its states, and can hide the character while covered', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
   });
   const SCREEN_ACTIONS = Object.freeze({ 'fade-out': 'Fade to black', 'fade-in': 'Fade in from black', 'bars-in': 'Letterbox bars in', 'bars-out': 'Letterbox bars out' });
@@ -138,6 +139,19 @@
         out.count = Math.round(clamp(raw.count, 1, 20, 1));
         out.give = raw.give !== false;
         break;
+      case 'effect': {
+        // An effect asset (Asset Lab → + New effect) attached to the actor: it starts
+        // invisible, blends to each key's state over its seconds ('gone' = invisible),
+        // and the actor is hidden hideAt s after it starts (-1 = never).
+        out.asset = typeof raw.asset === 'string' && /^asset-[a-z0-9]+-[a-z0-9]+$/.test(raw.asset) ? raw.asset : '';
+        out.delay = round(clamp(raw.delay, 0, 30, 0), 100);
+        out.size = round(clamp(raw.size, 0.3, 4, 1.4), 100);
+        out.hideAt = round(clamp(raw.hideAt, -1, 60, -1), 100);
+        out.keys = (Array.isArray(raw.keys) ? raw.keys : []).slice(0, 12).map(k => ({
+          state: typeof k?.state === 'string' && /^(gone|st-[a-z0-9]{4,20})$/.test(k.state) ? k.state : 'gone',
+          seconds: round(clamp(k?.seconds, 0, 20, 0.5), 100) }));
+        break;
+      }
       case 'look':
         // A saved look (Menu → Looks) or '' = the base look; blends over `seconds`.
         // It stays until another Look step changes it (kept in play progress).

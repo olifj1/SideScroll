@@ -32,7 +32,7 @@ into the cabin, packs what she can and sets off after him. (The cabin is the one
 the scene: she walks out of it and back in; no separate interior.)
 Stages (engine work in order; art and sound in parallel):
 - [ ] **1 — The player does it herself** (agreed 14 Nov): she walks into zones and uses Inspect / Action, which fire events. Steps that move or animate the player only if needed later.
-- [ ] **2 — Darkness effect:** *(effect asset done 14 Nov: Asset Lab → + New effect, a Darkness whirlwind shader with live settings, placeable like any asset)* next: effects in sequences — placed as a component, an **Effect** step that animates its settings (opacity, size, swirl…) over N s, Move steps move it, and it can follow a character or the player. Characters "disappear" by a Hide while the darkness covers them, then the darkness fades.
+- [ ] **2 — Darkness effect:** *(effect asset done 14 Nov; effect states and the **Darkness / effect** step — attached to a character, blending through states, hiding it, the dust travelling on — prototype done 17 Nov)* still to do: make Asset Lab match the game (keep faint wisps in the game, effects don't clip what's behind them, a fog option per effect, a backdrop choice in Asset Lab); "start when it reaches a mark"; the player as a target.
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** a placed character can hold an asset in a hand (Father's axe), and a step gives / takes / drops it.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
@@ -80,6 +80,10 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0at. Darkness on a character (17 Nov)**
+- [ ] Asset Lab → your effect → set sliders and **Save as state** three times (e.g. *Grab*: narrow, fast; *Cover*: wide, dense; *Dust*: thin, slow, more flecks). Tap a state: the sliders load it; change one and **Update state**.
+- [ ] Story → a sequence with an animal character and a mark ahead of it; an event with **Move** (Animal runs to the mark) and **Darkness / effect** run *with* it (On: Animal; start after ~1 s; states Grab 0.25 s → Cover 0.3 s → Dust 0.7 s → Gone 1 s; Hide the character at 0.5 s). ▶ Play: the animal runs, the darkness grabs it, it vanishes, and the dust carries on along its path and fades.
 
 **0as. Darkness effect (14 Nov)**
 - [ ] Asset Lab → **+ New effect**: a Darkness whirlwind appears and swirls on the stage; *Effect* has Shape, Opacity, Swirl speed, Twist, Rise, Density, Edge softness, widths, Turbulence, colours and Flecks; each slider changes it live. Set Height to about 3 m.

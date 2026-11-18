@@ -2367,13 +2367,16 @@
     effectTargets.set(obj, t);
     return t;
   }
+  // Effects attached to characters by Darkness steps (seqEffects is declared with the
+  // story runtime, later in this file; frames only render once the script has run).
+  const seqEffectObjects = () => seqEffects.map(e => e.obj).filter(Boolean);
   function renderEffectTextures(now) {
     if (!effectAssets.size || !Effects) return;
     if (!effectRenderer) {
       try { effectRenderer = Effects.createRenderer(gl); } catch (error) { console.warn(error); effectAssets.clear(); return; }
     }
     const seconds = now / 1000;
-    for (const obj of allSceneObjects()) {
+    for (const obj of [...allSceneObjects(), ...seqEffectObjects()]) {
       const entry = obj && !obj.deleted ? effectAssets.get(obj.assetName) : null;
       if (!entry || Math.abs(obj.x - (camera.x + character.screenOffsetX)) > 45) continue;
       const t = effectTargetFor(obj, entry.art);
@@ -18295,7 +18298,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       for (const c of body.components) {
         if (c.kind !== 'character' || !storyCharacterKnown(c.character)) continue;
         const key = compKey(p.id, c.id), place = seqComponentPlace(p, c);
-        if (place.hidden) continue;
+        // A hidden character still moves (a Move it was making carries on), so an
+        // effect attached to it keeps travelling; it just isn't drawn or blocking.
         let state = { x: place.x, depth: place.depth, facing: place.facing, animation: place.animation, moving: false, distance: 0 };
         const live = seqLive.get(key);
         if (live?.walk) {
@@ -18316,13 +18320,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         }
         const scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(c.character) * c.scale;
         const blocks = c.blocks === 'always' || (c.blocks === 'auto' && Math.abs(state.depth) <= 1.0);
-        frames.push({ key, placed: p.id, component: c.id, name: c.name, id: c.character,
+        frames.push({ key, placed: p.id, component: c.id, name: c.name, id: c.character, hidden: !!place.hidden,
           wc: { speed: 1, offset: 0, scale: c.scale, character: c.character }, state, now, scale,
           x: state.x, z: state.depth, facing: state.facing, blocks,
           radius: storyCollider(c.character).radius * scale, height: storyCollider(c.character).height * scale });
       }
     }
     worldCharacterFrames = frames;
+    updateSeqEffects();
   }
   function storyPose(id, rig, key, phase) {
     // An action slot (idle, walk, run, jump or a custom slot) plays this
@@ -18465,6 +18470,66 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const key = compKey(run.p.id, comp.id);
     return worldCharacterFrames.find(f => f.key === key) || null;
   }
+  // ---- Darkness / effect steps -------------------------------------------------------
+  // An effect asset attached to a placed character. It starts invisible and blends to
+  // each key's state in turn ('gone' = that state with opacity 0); it follows the
+  // character every frame (a hidden character keeps moving, so the dust travels on),
+  // hides it hideAt s after the effect starts, and is removed when its keys are done.
+  let seqEffects = [];
+  function seqEffectState(entry, id) {
+    if (id === 'gone' || !Effects) return null;
+    const st = (entry.art.states || []).find(x => x.id === id);
+    return Effects.clean(entry.art.shader, st ? st.params : entry.art.params);
+  }
+  function seqEffectBlend(a, b, k) {
+    if (!a && !b) return null;
+    const from = a || { ...b, opacity:0 }, to = b || { ...a, opacity:0 }, out = {};
+    for (const key of Object.keys(to)) {
+      const x = from[key], y = to[key];
+      out[key] = Array.isArray(y) ? y.map((v, i) => (x?.[i] ?? v) + (v - (x?.[i] ?? v)) * k) : (Number(x ?? y) + (y - Number(x ?? y)) * k);
+    }
+    return out;
+  }
+  function seqEffectParamsAt(e, t) {
+    let prev = null, acc = 0;
+    for (const k of e.step.keys) {
+      const target = seqEffectState(e.entry, k.state);
+      if (t < acc + k.seconds) {
+        const f = k.seconds > 0 ? (t - acc) / k.seconds : 1;
+        return seqEffectBlend(prev, target, f * f * (3 - 2 * f));
+      }
+      acc += k.seconds; prev = target;
+    }
+    return prev;
+  }
+  function updateSeqEffects() {
+    if (!seqEffects.length) return;
+    const now = storyNow();
+    seqEffects = seqEffects.filter(e => {
+      const t = now - e.t0 - e.step.delay;
+      const total = e.step.keys.reduce((sum, k) => sum + k.seconds, 0);
+      if (t > total) return false;
+      if (!e.hidden && e.step.hideAt >= 0 && t >= e.step.hideAt) {
+        e.hidden = true;
+        seqSavedFor(e.key).hidden = true;
+        saveStoryProgress();
+      }
+      const frame = worldCharacterFrames.find(f => f.key === e.key);
+      const params = t >= 0 ? seqEffectParamsAt(e, t) : null;
+      if (!frame || !params || params.opacity <= 0.001) { e.obj = null; return true; }
+      // Sized to the character (its height × size), centred on it, slightly in front.
+      const h = Math.max(0.4, frame.height * e.step.size);
+      const aspect = e.entry.art.width / Math.max(1, e.entry.art.height);
+      e.obj ||= { id:`seqfx-${e.placed}-${e.key}-${e.t0}`, assetName:e.entry.name, mesh:billboardMesh, texture:missingAssetTexture(),
+        tint:[1, 1, 1], opacity:1, noFog:true, uvScale:[1, 1], uvOffset:[0, 0], sz:1 };
+      Object.assign(e.obj, { x:frame.x, y:storyGroundY(frame.x, frame.z) - h * 0.08, z:frame.z + 0.4, sx:h * aspect, sy:h, effectParams:params });
+      return true;
+    });
+  }
+  function drawSeqEffects(view) {
+    for (const e of seqEffects) if (e.obj) drawObject(e.obj, view, { force:true, x:e.obj.x, y:e.obj.y, z:e.obj.z, sx:e.obj.sx, sy:e.obj.sy });
+  }
+
   // Starts one step; returns the time it finishes (now = straight away).
   function seqStartStep(run, step, now) {
     const actor = step.actor ? seqBound(run, step.actor) : null;
@@ -18540,6 +18605,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           }
         }
         return now;
+      }
+      case 'effect': {
+        // Darkness / effect on a character: attached for the step's timeline.
+        const entry = effectAssets.get(step.asset);
+        if (!actor || !entry || !step.keys.length) return now;
+        seqEffects.push({ placed:run.p.id, key, entry, step, t0:now, hidden:false, obj:null });
+        return now + step.delay + step.keys.reduce((sum, k) => sum + k.seconds, 0);
       }
       case 'look': {
         // Lasts until another Look step changes it (kept in play progress).
@@ -18681,6 +18753,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       return false;
     });
     for (const key of [...seqLive.keys()]) if (key.startsWith(`${placedId}:`)) seqLive.delete(key);
+    seqEffects = seqEffects.filter(e => e.placed !== placedId);
   }
   // The end state, at once: every line that can run does, its steps applied
   // instantly (moves land, flags, show / hide, items, facing, new loops);
@@ -18701,6 +18774,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           const from = seqComponentPlace(r.p, actor), to = seqComponentPlace(r.p, mark);
           const facing = Math.abs(to.x - from.x) > 0.001 ? (to.x > from.x ? 1 : -1) : from.facing;
           Object.assign(seqSavedFor(compKey(r.p.id, actor.id)), { x: to.x, depth: to.depth, facing });
+        } else if (step.type === 'effect') {
+          // The end state of a Darkness step: the character it hides stays hidden.
+          const actor = step.actor ? seqBound(run, step.actor) : null;
+          if (actor && step.hideAt >= 0) seqSavedFor(compKey(r.p.id, actor.id)).hidden = true;
         } else if (['flag', 'show', 'item', 'face', 'look'].includes(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
           seqStartStep(run, step, now);
         }
@@ -18745,7 +18822,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const { p } of seqResolved) seqResetSequence(p.id);
     seqProgress = { flags: {}, fired: {}, components: {}, taken: {} };
     saveStoryProgress();
-    seqLive.clear(); seqRuns = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
+    seqLive.clear(); seqRuns = []; seqEffects = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
     seqFinishedLines.length = 0;
     seqResetScreen();
     setWorldLook(null, 0);
@@ -18753,7 +18830,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   function drawWorldCharacters(view) {
     for (const frame of worldCharacterFrames) {
-      if (Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
+      if (frame.hidden || Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
       const { id } = frame;
       if (GameCharacters?.find(id) && !GameCharacters.ready(id)) continue; // artwork still loading
       const rig = characterRigForVariant(id);
@@ -18778,7 +18855,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const before = previousX + offset;
     let x = cameraX + offset;
     for (const frame of worldCharacterFrames) {
-      if (!frame.blocks) continue;
+      if (!frame.blocks || frame.hidden) continue;
       const half = frame.radius + capsule.radius;
       const crossed = (before - frame.x) * (x - frame.x) < 0;
       if (!crossed && Math.abs(x - frame.x) >= half) continue;
@@ -18929,6 +19006,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     pickerOpen: () => editorPalettePickerMode === 'story' && !editorPalette?.hidden,
     // Inventory items an Item step can give or take: [{id, label}].
     looks: () => (Looks ? Looks.list() : []).map(l => ({ id: l.id, name: l.name })),
+    effects: () => [...effectAssets.values()].map(e => ({ id: e.name, name: e.label, states: (e.art.states || []).map(st => ({ id: st.id, name: st.name })) })),
     items: () => Object.values(INVENTORY_ITEM_DEFS).map(d => ({ id: d.id, label: collectibleConfig(d.id)?.label || d.label || d.id })),
     // Read-only test hooks: the camera's move from the follow view, and any event waiting for Action.
     cameraShot: () => ({ ...seqCameraNow, keep: !!seqCamera?.keep, active: !!seqCamera }),
@@ -20114,6 +20192,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
     drawRigCharacter(view, isWalking);
     drawWorldCharacters(view);
+    drawSeqEffects(view);
 
     for (const obj of frontOccluders) drawObject(obj, view);
     drawPuzzleCartPathGhost(view);

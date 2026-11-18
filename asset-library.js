@@ -33,6 +33,15 @@
   const clampNum = (v, lo, hi, fallback) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback; };
   const text = (v, fallback, max = 80) => { const s = String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max); return s || fallback; };
 
+  function cleanParams(src) {
+    const params = {};
+    for (const [k, v] of Object.entries(src && typeof src === 'object' ? src : {}).slice(0, 40)) {
+      if (!/^[A-Za-z]{1,24}$/.test(k)) continue;
+      if (typeof v === 'number' && Number.isFinite(v)) params[k] = v;
+      else if (Array.isArray(v) && v.length === 3 && v.every(c => typeof c === 'number' && Number.isFinite(c))) params[k] = v.map(c => Math.min(1, Math.max(0, c)));
+    }
+    return params;
+  }
   function cleanArt(art) {
     if (!art || typeof art !== 'object') return null;
     const base = { width: clampNum(art.width, 1, 16384, 1), height: clampNum(art.height, 1, 16384, 1),
@@ -42,13 +51,13 @@
     // A shader effect (effects.js): width/height give the plane's shape; params are
     // its controls (numbers and [r,g,b] colours), clamped by effects.js when drawn.
     if (art.kind === 'effect' && /^[a-z]{3,20}$/.test(art.shader || '')) {
-      const params = {};
-      for (const [k, v] of Object.entries(art.params && typeof art.params === 'object' ? art.params : {}).slice(0, 40)) {
-        if (!/^[A-Za-z]{1,24}$/.test(k)) continue;
-        if (typeof v === 'number' && Number.isFinite(v)) params[k] = v;
-        else if (Array.isArray(v) && v.length === 3 && v.every(c => typeof c === 'number' && Number.isFinite(c))) params[k] = v.map(c => Math.min(1, Math.max(0, c)));
-      }
-      return { kind: 'effect', shader: art.shader, width: base.width, height: base.height, bytes: 0, name: '', params };
+      const params = cleanParams(art.params);
+      // Named states (Asset Lab → Effect states): full sets of params a Darkness
+      // step blends between.
+      const states = (Array.isArray(art.states) ? art.states : []).slice(0, 12)
+        .filter(st => st && /^st-[a-z0-9]{4,20}$/.test(st.id || ''))
+        .map(st => ({ id: st.id, name: String(st.name || 'State').replace(/\s+/g, ' ').trim().slice(0, 30) || 'State', params: cleanParams(st.params) }));
+      return { kind: 'effect', shader: art.shader, width: base.width, height: base.height, bytes: 0, name: '', params, states };
     }
     return null;
   }
