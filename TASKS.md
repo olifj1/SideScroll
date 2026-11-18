@@ -81,6 +81,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0au. Asset Lab layout (18 Nov)**
+- [ ] Asset Lab: the library shows **+ Add ▾** (tap: Import image asset / New darkness effect) and a **Show** dropdown; pick *Trees*: only trees are listed. The list has more room than before.
+- [ ] **Hide panel ›** folds the right-hand settings to a thin rail and the asset view widens; **‹** brings it back; close and reopen Asset Lab: it stays as you left it.
+
 **0at. Darkness on a character (17 Nov)**
 - [ ] Asset Lab → your effect → set sliders and **Save as state** three times (e.g. *Grab*: narrow, fast; *Cover*: wide, dense; *Dust*: thin, slow, more flecks). Tap a state: the sliders load it; change one and **Update state**.
 - [ ] Story → a sequence with an animal character and a mark ahead of it; an event with **Move** (Animal runs to the mark) and **Darkness / effect** run *with* it (On: Animal; start after ~1 s; states Grab 0.25 s → Cover 0.3 s → Dust 0.7 s → Gone 1 s; Hide the character at 0.5 s). ▶ Play: the animal runs, the darkness grabs it, it vanishes, and the dust carries on along its path and fades.
