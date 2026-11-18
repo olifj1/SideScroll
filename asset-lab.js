@@ -124,7 +124,28 @@
   const fitBtn = document.getElementById('assetlab-fit');
   const referenceBtn = document.getElementById('assetlab-reference');
   const pairBtn = document.getElementById('assetlab-pair');
-  const filterButtons = [...document.querySelectorAll('[data-filter]')];
+  // Show: one filter (all, a library, imported, effects, or a group heading).
+  const filterSelect = document.getElementById('assetlab-filter');
+  function assetMatchesFilter(a, f = state.filter) {
+    if (!f || f === 'all') return true;
+    if (f === 'puzzle' || f === 'environment') return a.scope === f;
+    if (f === 'imported') return !!a.imported;
+    if (f === 'effects') return !!a.imported && !!Lib?.isEffect(Lib.get(a.name));
+    if (f.startsWith('group:')) return a.group === f.slice(6);
+    return true;
+  }
+  function renderFilterOptions() {
+    if (!filterSelect) return;
+    const opt = (value, label) => Object.assign(document.createElement('option'), { value, textContent:label });
+    const groups = [...new Set(ASSETS.map(a => a.group))];
+    const groupBox = Object.assign(document.createElement('optgroup'), { label:'Groups' });
+    groupBox.append(...groups.map(g => opt(`group:${g}`, g.charAt(0) + g.slice(1).toLowerCase())));
+    filterSelect.replaceChildren(opt('all', 'All assets'), opt('puzzle', 'Puzzle assets'), opt('environment', 'Environment assets'),
+      opt('imported', 'Imported'), opt('effects', 'Effects'), groupBox);
+    if (![...filterSelect.options].some(o => o.value === state.filter)) state.filter = 'all';
+    filterSelect.value = state.filter;
+  }
+  const filterButtons = []; // kept for older code paths; the Show select replaced the buttons
   const counterweightSection = document.getElementById('assetlab-counterweight-section');
   const pivotXInput = document.getElementById('assetlab-pivot-x');
   const pivotYInput = document.getElementById('assetlab-pivot-y');
@@ -837,7 +858,7 @@
   function buildList() {
     listEl.innerHTML='';
     let group='';
-    for (const asset of ASSETS.filter(a=>state.filter==='all' || a.scope===state.filter)) {
+    for (const asset of ASSETS.filter(a=>assetMatchesFilter(a))) {
       if (asset.group!==group) {
         group=asset.group;
         const h=document.createElement('div');h.className='assetlab-group-label';h.textContent=group;listEl.appendChild(h);
@@ -964,10 +985,8 @@
     const keep = state.panX || state.panY || state.viewScale !== 1;
     syncImportedAssets();
     const asset = assetByName(name) || ASSETS.find(a => a.imported) || ASSETS[0];
-    if (asset.imported && state.filter !== 'all' && state.filter !== asset.scope) {
-      state.filter = asset.scope;
-      filterButtons.forEach(b => b.classList.toggle('active', b.dataset.filter === state.filter));
-    }
+    renderFilterOptions();
+    if (asset.imported && !assetMatchesFilter(asset)) { state.filter = 'all'; if (filterSelect) filterSelect.value = 'all'; }
     selectAsset(asset, { keepView:keep && asset.name === state.asset?.name });
     listEl.querySelector(`[data-asset="${asset.name}"]`)?.scrollIntoView({ block:'nearest' });
   }
@@ -2279,10 +2298,28 @@
     });
   }
 
-  filterButtons.forEach(button=>button.addEventListener('click',()=>{
-    state.filter=button.dataset.filter; filterButtons.forEach(b=>b.classList.toggle('active',b===button));
-    const candidate=state.filter==='all' ? ASSETS[0] : ASSETS.find(a=>a.scope===state.filter); if(candidate)selectAsset(candidate); else buildList();
-  }));
+  filterSelect?.addEventListener('change',()=>{
+    state.filter=filterSelect.value;
+    if(assetMatchesFilter(state.asset)){buildList();return;}
+    const candidate=ASSETS.find(a=>assetMatchesFilter(a)); if(candidate)selectAsset(candidate); else buildList();
+  });
+  // + Add: one button, a short menu of ways to add an asset (more can join it later).
+  const addBtn=document.getElementById('assetlab-add'), addMenu=document.getElementById('assetlab-add-menu');
+  const setAddMenu=open=>{if(!addMenu)return;addMenu.hidden=!open;addBtn?.setAttribute('aria-expanded',String(open));};
+  addBtn?.addEventListener('click',event=>{event.stopPropagation();setAddMenu(addMenu.hidden);});
+  addMenu?.addEventListener('click',()=>setAddMenu(false));
+  document.addEventListener('click',event=>{if(addMenu&&!addMenu.hidden&&!event.target.closest('.assetlab-add'))setAddMenu(false);});
+  // The settings panel folds away to give the stage room (remembered on this device).
+  const shellEl=document.querySelector('.assetlab-shell'), panelToggle=document.getElementById('assetlab-controls-toggle');
+  const PANEL_KEY='sidescroll.asset-lab.panel-collapsed.v1';
+  function setPanelCollapsed(collapsed){
+    shellEl?.classList.toggle('controls-collapsed',collapsed);
+    if(panelToggle){panelToggle.textContent=collapsed?'‹':'Hide panel ›';panelToggle.title=collapsed?'Show the settings panel':'Hide the settings panel';panelToggle.setAttribute('aria-expanded',String(!collapsed));}
+    try{collapsed?localStorage.setItem(PANEL_KEY,'1'):localStorage.removeItem(PANEL_KEY);}catch(_){}
+    requestAnimationFrame(()=>{resize();draw();});
+  }
+  panelToggle?.addEventListener('click',()=>setPanelCollapsed(!shellEl?.classList.contains('controls-collapsed')));
+  try{if(localStorage.getItem(PANEL_KEY)==='1')setPanelCollapsed(true);}catch(_){}
   window.addEventListener('resize',resize,{passive:true});
   window.addEventListener('orientationchange',settleViewport,{passive:true});
   window.visualViewport?.addEventListener('resize',resize,{passive:true});
@@ -2292,7 +2329,7 @@
 
   ensureCartStates();
   ASSETS.slice(0,2).forEach(ensureImage);
-  filterButtons.forEach(button => button.classList.toggle('active', button.dataset.filter === state.filter));
+  renderFilterOptions();
   buildList();
   selectAsset(state.asset);
   settleViewport();

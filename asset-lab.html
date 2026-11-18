@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.70">
+  <link rel="stylesheet" href="style.css?v=1.1.77">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -23,16 +23,15 @@
 
     <aside class="assetlab-library" aria-label="Asset library">
       <div class="assetlab-panel-head"><small>LIBRARY</small><strong>Assets</strong></div>
-      <div class="assetlab-import-bar">
-        <button type="button" id="assetlab-import">+ Import asset</button>
-        <button type="button" id="assetlab-new-effect">+ New effect</button>
+      <div class="assetlab-add">
+        <button type="button" id="assetlab-add" aria-haspopup="true" aria-expanded="false">+ Add ▾</button>
+        <div class="assetlab-add-menu" id="assetlab-add-menu" hidden>
+          <button type="button" id="assetlab-import"><strong>Import image asset</strong><small>A PNG with transparency</small></button>
+          <button type="button" id="assetlab-new-effect"><strong>New darkness effect</strong><small>A swirling shader plane</small></button>
+        </div>
         <input type="file" id="assetlab-import-file" accept="image/png,.png" hidden>
       </div>
-      <div class="assetlab-filter-row">
-        <button type="button" class="active" data-filter="all">All</button>
-        <button type="button" data-filter="puzzle">Puzzle</button>
-        <button type="button" data-filter="environment">Environment</button>
-      </div>
+      <label class="assetlab-filter-select"><span>Show</span><select id="assetlab-filter" aria-label="Show assets"></select></label>
       <div class="assetlab-asset-list" id="assetlab-asset-list"></div>
     </aside>
 
@@ -47,6 +46,7 @@
     </section>
 
     <aside class="assetlab-controls">
+      <button type="button" class="assetlab-controls-toggle" id="assetlab-controls-toggle" aria-expanded="true" title="Hide the settings panel">Hide panel ›</button>
       <section class="assetlab-control-section" id="assetlab-imported-section" hidden>
         <div class="assetlab-control-heading"><small>IMPORTED</small><strong>Asset details</strong></div>
         <label class="assetlab-select-row assetlab-text-row">
@@ -286,7 +286,7 @@
   <script src="core.js?v=1.0.62"></script>
   <script src="effects.js?v=1.1.75"></script>
   <script src="asset-library.js?v=1.1.76"></script>
-  <script src="asset-lab.js?v=1.1.76"></script>
+  <script src="asset-lab.js?v=1.1.77"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>
 </html>

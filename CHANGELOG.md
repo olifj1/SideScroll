@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Asset Lab tidy-up for the phone:** one **+ Add ▾** button (Import image asset, New
+  darkness effect; more can join it later) instead of two big buttons; the three filter
+  buttons are now a **Show** dropdown with more choices (Puzzle / Environment assets,
+  Imported, Effects, and every group, e.g. Trees, Cliffs, Settlement roofs); the settings
+  panel is a little narrower and folds away with **Hide panel ›** to a thin rail (‹ brings it
+  back; remembered on this device), so the asset view gets the room.
 - **Darkness on a character (prototype).** Effects get **states** in Asset Lab (*Save as
   state*, tap to load into the sliders, *Update state*, Rename, Delete). New event step
   **Darkness / effect**: attaches an effect to a character (sized to its height, centred on
