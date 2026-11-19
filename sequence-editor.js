@@ -439,7 +439,7 @@
             'Tip: add a mark where the shot should centre, and a mark placeholder for it here'),
           slider(s, 'side', -20, 20, 0.1, 'Shift along the journey', 1, ' m'),
           slider(s, 'height', -5, 10, 0.1, 'Raise the camera', 1, ' m'),
-          slider(s, 'distance', -8, 30, 0.1, 'Move back (− closer)', 1, ' m'),
+          slider(s, 'distance', -20, 30, 0.1, 'Move back (− closer)', 1, ' m'),
           slider(s, 'tilt', -4, 4, 0.05, 'Aim up (− down)', 2, ' m'));
         // Cut = instant (0 s); Move / Blend = over some seconds.
         const cut = Number(s.seconds) === 0;

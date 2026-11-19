@@ -18929,8 +18929,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       x0 = Math.min(x0, nx); x1 = Math.max(x1, nx); y0 = Math.min(y0, ny); y1 = Math.max(y1, ny);
     }
     if (x1 < -1 || x0 > 1 || y1 < -1 || y0 > 1 || x1 - x0 < 0.01 || y1 - y0 < 0.01) return;
-    const w = Math.max(16, Math.min(640, Math.round((x1 - x0) * 0.5 * canvas.width)));
-    const ht = Math.max(16, Math.min(640, Math.round((y1 - y0) * 0.5 * canvas.height)));
+    const w = Math.max(16, Math.min(1024, Math.round((x1 - x0) * 0.5 * canvas.width)));
+    const ht = Math.max(16, Math.min(1024, Math.round((y1 - y0) * 0.5 * canvas.height)));
     const t = charFxTarget(w, ht);
     // Draw just this character, framed to fill the image (projection squeezed to the box).
     const a = 2 / (x1 - x0), c = 2 / (y1 - y0);
@@ -18949,9 +18949,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.disable(gl.DEPTH_TEST);
+    // Depth-tested at the character's own depth (not written), like a billboard at its
+    // middle, so scenery standing in front of it still covers it.
+    const mid = mat4TransformPoint(view, frame.x, g + (body.bottom + body.top) / 2, frame.z, 1);
+    const mc = mat4TransformPoint(projection, mid[0], mid[1], mid[2], mid[3]);
+    const depth = Math.max(-1, Math.min(1, mc[2] / mc[3]));
+    gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
-    t.renderer.render(fx.params, storyNow(), t.tex, [x0, y0, x1, y1], ((x1 - x0) * canvas.width) / ((y1 - y0) * canvas.height), bodyY);
+    t.renderer.render(fx.params, storyNow(), t.tex, [x0, y0, x1, y1], ((x1 - x0) * canvas.width) / ((y1 - y0) * canvas.height), bodyY, depth);
     gl.useProgram(program);
     gl.enableVertexAttribArray(loc.pos);
     gl.enableVertexAttribArray(loc.uv);
@@ -19102,7 +19107,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const round2 = v => Math.round(v * 100) / 100;
     const clampShot = () => {
       shot.side = Rig.clamp(round2(shot.side), -20, 20); shot.height = Rig.clamp(round2(shot.height), -5, 10);
-      shot.distance = Rig.clamp(round2(shot.distance), -8, 30); shot.tilt = Rig.clamp(round2(shot.tilt), -4, 4);
+      shot.distance = Rig.clamp(round2(shot.distance), -20, 30); shot.tilt = Rig.clamp(round2(shot.tilt), -4, 4);
     };
     const report = () => { clampShot(); readout.textContent = `along ${shot.side.toFixed(1)} m · up ${shot.height.toFixed(1)} m · back ${shot.distance.toFixed(1)} m · aim ${shot.tilt.toFixed(2)}`; onChange?.({ side:shot.side, height:shot.height, distance:shot.distance, tilt:shot.tilt }); };
     // Overlay: captures the gestures over the game view.
