@@ -123,7 +123,7 @@
         out.mode = raw.mode === 'back' ? 'back' : 'shot';
         out.side = round(clamp(raw.side, -20, 20, 0), 100);
         out.height = round(clamp(raw.height, -5, 10, 0), 100);
-        out.distance = round(clamp(raw.distance, -8, 30, 0), 100);
+        out.distance = round(clamp(raw.distance, -20, 30, 0), 100);
         out.tilt = round(clamp(raw.tilt, -4, 4, 0), 100);
         out.seconds = round(clamp(raw.seconds, 0, 60, 2), 100);
         out.ease = raw.ease === 'linear' ? 'linear' : 'smooth';

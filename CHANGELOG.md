@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Dissolve fixes and closer camera shots.** A dissolving character standing further back
+  than the path is now covered by the scenery in front of it, as it is when not dissolving
+  (the effect image is drawn at the character's own depth), and stays sharp close up. A
+  Camera step's *Move back (− closer)* now goes to −20 m (was −8), so a shot can pass the
+  path and frame a character further back on its own (lower *Height* too; Frame it allows
+  the same range).
 - **Character effects — Dissolve.** Asset Lab → **+ Add ▾ → New character effect** makes an
   effect that works on the character itself rather than a plane: the character is drawn into
   its own image, then drawn back through the effect, so it breaks apart from the feet up (or

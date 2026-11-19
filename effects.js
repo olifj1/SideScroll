@@ -187,8 +187,9 @@ void main(){
   const DISSOLVE_VERTEX = `
 attribute vec2 aPos;
 uniform vec4 uRect;
+uniform float uDepth; // the character's depth (NDC z), so scenery in front still covers it
 varying vec2 vUv;
-void main(){ vUv = aPos; gl_Position = vec4(mix(uRect.xy, uRect.zw, aPos), 0.0, 1.0); }`;
+void main(){ vUv = aPos; gl_Position = vec4(mix(uRect.xy, uRect.zw, aPos), uDepth, 1.0); }`;
 
   const DISSOLVE_FRAGMENT = `
 precision highp float;
@@ -260,10 +261,10 @@ void main(){
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]), gl.STATIC_DRAW);
     const u = {};
-    for (const name of ['uRect', 'uChar', 'uTime', 'uProgress', 'uScale', 'uSweep', 'uEdge', 'uGlow', 'uDarken', 'uDrift', 'uFlecks', 'uFleckSize', 'uRise', 'uAspect', 'uEdgeColor', 'uDarkColor', 'uFleckColor', 'uBody'])
+    for (const name of ['uRect', 'uChar', 'uTime', 'uProgress', 'uScale', 'uSweep', 'uEdge', 'uGlow', 'uDarken', 'uDrift', 'uFlecks', 'uFleckSize', 'uRise', 'uAspect', 'uEdgeColor', 'uDarkColor', 'uFleckColor', 'uBody', 'uDepth'])
       u[name] = gl.getUniformLocation(program, name);
     return {
-      render(p, time, texture, rect, aspect, body) {
+      render(p, time, texture, rect, aspect, body, depth = 0) {
         gl.useProgram(program);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.enableVertexAttribArray(0);
@@ -277,6 +278,7 @@ void main(){
         gl.uniform1f(u.uDarken, p.darken); gl.uniform1f(u.uDrift, p.drift); gl.uniform1f(u.uFlecks, p.flecks);
         gl.uniform1f(u.uFleckSize, p.fleckSize); gl.uniform1f(u.uRise, p.rise); gl.uniform1f(u.uAspect, aspect || 1);
         gl.uniform2f(u.uBody, body ? body[0] : 0, body ? body[1] : 1);
+        gl.uniform1f(u.uDepth, depth);
         gl.uniform3fv(u.uEdgeColor, p.edgeColor); gl.uniform3fv(u.uDarkColor, p.darkColor); gl.uniform3fv(u.uFleckColor, p.fleckColor);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }

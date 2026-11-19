@@ -81,6 +81,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ax. Dissolve behind scenery; closer shots (19 Nov)**
+- [ ] The fox set further back than the path, dissolving: ferns and plants in front of it still cover it (as when it isn't dissolving).
+- [ ] A Camera step on the fox with *Move back* about −14 and *Height* about −1.8 (or 📷 Frame it, pinching in): the view passes the path and shows the fox close up; the dissolve stays sharp.
+
 **0aw. Character effect: Dissolve (19 Nov)**
 - [ ] Asset Lab → **+ Add ▾ → New character effect**: the stage shows the fox half dissolved, with a glowing edge and flecks. Move **Dissolve** from 0 to 1: it breaks up from the feet and is gone at 1; *From feet ↔ head* below 0 makes it go from the head down. Save two states, e.g. *Half* (0.5) and *Most* (0.8).
 - [ ] Story → an event with **Effect on a character** on an animal: effect Dissolve; states Half 1 s → Most 1 s → Gone 1 s. ▶ Play: the animal dissolves in place (or while running a Move run *with* it) and stays gone. Check it is smooth on the phone and the animal sits exactly where it did before (no jump when the effect starts).
