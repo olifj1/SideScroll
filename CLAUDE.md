@@ -143,7 +143,7 @@ assets loads `asset-library.js` (play, asset-lab, publish-lab). The built-in ass
 listed separately in `sidescroll.js` (`editorAssetGroups`) and `asset-lab.js` (`ASSETS`).
 
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
-`art: {kind:'effect', shader:'darkness', width, height (the plane's shape), params}`; params are
+`art: {kind:'effect', shader:'darkness'|'dissolve', width, height (the plane's shape), params}`; params are
 the shader's controls (`SHADERS[shader].params`: number ranges and [r,g,b] colours; `clean()`
 clamps them). Asset Lab: **+ New effect**, the *Effect* section (sliders; Shape rescales placed
 copies), the shared canvas renderer animates the stage (`tickEffects`); thumbnails are still
@@ -152,12 +152,20 @@ start of each frame before the scene framebuffer is bound) renders each visible 
 384-px-high texture with `createRenderer(gl)` and sets `obj.texture`, so the normal object path
 draws it; `obj.effectParams` overrides settings per copy (for sequences). New shaders: add a
 fragment shader + params to `SHADERS` and choose it in `createRenderer`. Effect **states**
-(`art.states: [{id st-…, name, params}]`, Asset Lab → States) are what the **Darkness / effect**
+(`art.states: [{id st-…, name, params}]`, Asset Lab → States) are what the **Effect on a character**
 event step (`effect`: `{actor, asset, delay, size, hideAt, keys:[{state 'gone'|st-…, seconds}]}`)
 blends between: `seqEffects` in sidescroll.js (`updateSeqEffects` after `updateWorldCharacters`,
 `drawSeqEffects` after the characters) attaches a transient object to the character's frame and
 hides it at `hideAt`. Hidden sequence characters still get a frame (`frame.hidden`) and keep
 moving; they are just not drawn or blocking.
+**Character effects** (`SHADERS[s].target: 'character'`; today `dissolve`): no plane. The step's
+blended params go in `seqCharacterEffects` (key → {entry, params}) and `drawWorldCharacters` calls
+`drawDissolvedCharacter`, which draws that character (`drawStoryCharacter`) into `charFx`'s
+framebuffer with `projection` squeezed to its screen box, then draws the image back through
+`createDissolveRenderer` (`uBody` = feet/head in the image, measured from the image's alpha by
+`measureCharFxBody`, since colliders are only rough). Each shader's `start` / `gone` params are
+what a step blends from / to for *Gone*; a character effect that ends gone hides the character.
+Asset Lab previews character effects on `quadruped-reference.png`.
 
 ## Character registry
 `character-registry.js` (`window.SideScrollCharacters`) is the one list of

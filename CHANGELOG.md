@@ -4,6 +4,15 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Character effects — Dissolve.** Asset Lab → **+ Add ▾ → New character effect** makes an
+  effect that works on the character itself rather than a plane: the character is drawn into
+  its own image, then drawn back through the effect, so it breaks apart from the feet up (or
+  the head down) along a noisy edge that glows, darkens as it goes, smears upward and sheds
+  flecks that rise and fade. Sliders: Dissolve (0 whole … 1 gone), From feet ↔ head, Noise
+  size, Edge width / glow / colour, Darken / colour, Drift, Flecks amount / size / rise /
+  colour; the Asset Lab stage previews it on the fox. Save states as before (e.g. *Half*).
+  The event step is now **Effect on a character**: choose the Dissolve effect and blend through
+  its states (*Gone* = fully dissolved); a character that ends fully dissolved stays hidden.
 - **Camera steps: Cut and Frame it.** A Camera step now chooses **Cut to it** (instant) or
   **Move there** over N s (Back to the player: *Cut back* / *Blend back*). **📷 Frame it**
   looks through the shot in the game, on the character or mark the step looks at (through

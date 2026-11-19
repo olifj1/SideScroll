@@ -478,9 +478,9 @@
         if (s.delay === undefined) s.delay = 0; if (s.size === undefined) s.size = 1.4; if (s.hideAt === undefined) s.hideAt = -1;
         s.keys ||= [];
         const fx = effects.find(e => e.id === s.asset);
-        const states = [['gone', 'Gone (invisible)'], ...(fx?.states || []).map(st => [st.id, st.name])];
+        const states = [['gone', fx?.character ? 'Gone (fully dissolved)' : 'Gone (invisible)'], ...(fx?.states || []).map(st => [st.id, st.name])];
         rows.push(field('On (character placeholder)', roleSelect('actor', 'character')),
-          field('Effect', select_(effects.length ? effects.map(e => [e.id, e.name]) : [['', 'No effects yet']], s.asset || '', v => { s.asset = v; change(); })),
+          field('Effect', select_(effects.length ? effects.map(e => [e.id, `${e.name}${e.character ? ' (character effect)' : ''}`]) : [['', 'No effects yet']], s.asset || '', v => { s.asset = v; change(); })),
           el('div', { class: 'sidescroll-story-inline' }, 'start after', numberInput(s, 'delay', 0, 30, 0.1, 0), 's · size', numberInput(s, 'size', 0.3, 4, 0.1, 1.4), '× its height'));
         s.keys.forEach((k, i) => rows.push(el('div', { class: 'sidescroll-story-inline sidescroll-fx-key' },
           `${i + 1}.`, select_(states, k.state, v => { k.state = v; change(); }), 'over', numberInput(k, 'seconds', 0, 20, 0.05, 0.5), 's',
@@ -488,6 +488,7 @@
         rows.push(btn('+ Add state', () => { s.keys.push({ state: fx?.states?.[0]?.id || 'gone', seconds: 0.5 }); change(); }),
           segmented([['keep', 'Keep the character'], ['hide', 'Hide the character']], s.hideAt >= 0 ? 'hide' : 'keep', v => { s.hideAt = v === 'hide' ? 0.5 : -1; change(); }));
         if (s.hideAt >= 0) rows.push(el('div', { class: 'sidescroll-story-inline' }, 'hide it', numberInput(s, 'hideAt', 0, 60, 0.05, 0.5), 's after the effect starts'));
+        if (fx?.character) rows.push(help('A character effect works on the character itself: it starts whole and blends through its states; if it ends fully dissolved (Gone, or Dissolve at 1) the character stays hidden. It keeps moving while it dissolves.'));
         rows.push(help(fx ? (fx.states?.length ? 'The effect starts invisible and blends to each state in turn; it follows the character (a hidden character keeps moving, so the dust travels on), then disappears when the last state is done. Run this step “with” a Move step to catch a running animal. For a long, low animal widen the effect (Asset Lab → Shape) or raise the size.'
           : 'This effect has no states yet: in Asset Lab, set its sliders and tap “Save as state” (e.g. Grab, Cover, Dust).') : 'Make an effect first: Asset Lab → + New effect.'));
         break;

@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 19 November 2026 — Character effects
+- No new keys: a character effect (Dissolve) is an effect asset with `art.shader: 'dissolve'` in `sidescroll.asset-library.v1`, publishing and backing up like the darkness effect. A character it dissolves completely is recorded as `hidden` in its story-progress component, as the Effect step's *hide* already was.
+
 ## 14 November 2026 — Shader effects
 - Effect states (17 Nov) are stored in the effect's `art.states`, so they travel with it.
 - Effect assets live in `sidescroll.asset-library.v1` like imported art, with `art: {kind:'effect', shader, width, height, params}` (no image file). They publish with the Assets area and travel in Project Backup; the bake tool leaves them as they are (nothing to write to `assets/`).

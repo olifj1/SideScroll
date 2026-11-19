@@ -90,6 +90,9 @@ The player keeps control while a sequence plays, unless an event's steps take it
   - **Darkness / effect** *(added 17 Nov)* — attach an effect asset to a character: it blends
     through the effect's states with times (from invisible), can hide the character while
     covered, follows it (a hidden character keeps moving), and ends after its last state.
+    Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
+    as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
+    character that ends fully dissolved stays hidden.
   - **Look** *(added 14 Nov)* — change the world to a saved look (named fog + post set, Menu →
     Looks) or back to base, blended over N s; it stays until another Look step (kept in play
     progress). Later: more look controls (grading, vignette, bloom) and **Skip** (see *Later*).
