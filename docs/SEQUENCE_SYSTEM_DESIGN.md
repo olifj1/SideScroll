@@ -77,6 +77,8 @@ The player keeps control while a sequence plays, unless an event's steps take it
     character) or the player, shifted along the journey, raised, moved back and aimed
     up / down, eased over N s and held; *back*: blend back to following the player.
     Height follows the ground under the target. Released (back over 1 s) when the event ends.
+    *(19 Nov)* **Cut** (instant) or move over N s; **Frame it** sets the shot by looking through
+    it in the game (drag / pinch / aim).
   - **Screen** — fade to / from black, letterbox bars in / out, over N s; cleared when the
     event ends.
   - **Wait for Action** — the event waits until the player presses Action (even while

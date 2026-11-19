@@ -81,6 +81,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0av. Camera Cut and Frame it (19 Nov)**
+- [ ] Story → open your event from its sequence (the logic line's *Open*) → a Camera step → **Cut to it**: ▶ Play: the view jumps to the shot instantly.
+- [ ] **📷 Frame it**: the view looks at the character; drag with one finger (the world follows it), pinch to move closer / further, Aim to tilt; **Done**: the sliders show the new values; ▶ Play shows that framing. **Cancel** leaves the old values.
+
 **0au. Asset Lab layout (18 Nov)**
 - [ ] Asset Lab: the library shows **+ Add ▾** (tap: Import image asset / New darkness effect) and a **Show** dropdown; pick *Trees*: only trees are listed. The list has more room than before.
 - [ ] **Hide panel ›** folds the right-hand settings to a thin rail and the asset view widens; **‹** brings it back; close and reopen Asset Lab: it stays as you left it.
