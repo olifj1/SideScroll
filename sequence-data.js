@@ -37,7 +37,7 @@
     screen:  { label: 'Screen', help: 'fades to / from black, letterbox bars in / out', roles: {} },
     prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} },
     item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} },
-    effect:  { label: 'Darkness / effect', help: 'attaches an effect to a character, blends it through its states, and can hide the character while covered', roles: { actor: 'character' } },
+    effect:  { label: 'Effect on a character', help: 'a darkness wrapping a character, or a character effect such as Dissolve; blends through its states and can hide the character', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
   });
   const SCREEN_ACTIONS = Object.freeze({ 'fade-out': 'Fade to black', 'fade-in': 'Fade in from black', 'bars-in': 'Letterbox bars in', 'bars-out': 'Letterbox bars out' });

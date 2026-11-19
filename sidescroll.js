@@ -9879,6 +9879,7 @@ document.addEventListener('keydown',event=>{
   ];
   // Imported assets join the library under their own headings (asset-library.js).
   for (const entry of importedAssets) {
+    if (Effects?.isCharacterEffect(entry.art)) continue; // used by Effect steps, not placed
     let group = editorAssetGroups.find(g => g.imported && g.scope === entry.scope && g.title === entry.group);
     if (!group) {
       group = { scope:entry.scope, title:entry.group, imported:true, items:[],
@@ -18481,9 +18482,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const st = (entry.art.states || []).find(x => x.id === id);
     return Effects.clean(entry.art.shader, st ? st.params : entry.art.params);
   }
-  function seqEffectBlend(a, b, k) {
-    if (!a && !b) return null;
-    const from = a || { ...b, opacity:0 }, to = b || { ...a, opacity:0 }, out = {};
+  // 'Gone' and the starting point depend on the shader (darkness: invisible;
+  // dissolve: whole at the start, fully dissolved when gone).
+  function seqEffectBlend(a, b, k, entry) {
+    const def = Effects?.SHADERS[entry?.art.shader] || {};
+    if (!a && !b) {
+      if (def.target !== 'character') return null;
+      a = Effects.clean(entry.art.shader, entry.art.params); // start → gone with its own settings
+    }
+    const from = a || { ...b, ...(def.start || { opacity:0 }) }, to = b || { ...a, ...(def.gone || { opacity:0 }) }, out = {};
     for (const key of Object.keys(to)) {
       const x = from[key], y = to[key];
       out[key] = Array.isArray(y) ? y.map((v, i) => (x?.[i] ?? v) + (v - (x?.[i] ?? v)) * k) : (Number(x ?? y) + (y - Number(x ?? y)) * k);
@@ -18496,19 +18503,31 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const target = seqEffectState(e.entry, k.state);
       if (t < acc + k.seconds) {
         const f = k.seconds > 0 ? (t - acc) / k.seconds : 1;
-        return seqEffectBlend(prev, target, f * f * (3 - 2 * f));
+        return seqEffectBlend(prev, target, f * f * (3 - 2 * f), e.entry);
       }
       acc += k.seconds; prev = target;
+    }
+    // Ended on Gone: the shader's gone state (darkness: null = nothing drawn).
+    if (!prev && e.step.keys.length && Effects?.isCharacterEffect(e.entry.art)) {
+      const def = Effects.SHADERS[e.entry.art.shader];
+      return { ...Effects.defaults(e.entry.art.shader), ...def.gone };
     }
     return prev;
   }
   function updateSeqEffects() {
+    seqCharacterEffects.clear();
     if (!seqEffects.length) return;
     const now = storyNow();
     seqEffects = seqEffects.filter(e => {
       const t = now - e.t0 - e.step.delay;
       const total = e.step.keys.reduce((sum, k) => sum + k.seconds, 0);
-      if (t > total) return false;
+      const onCharacter = !!Effects?.isCharacterEffect(e.entry.art);
+      if (t > total) {
+        // A character effect that ends fully dissolved leaves the character gone.
+        const end = seqEffectParamsAt(e, total);
+        if (onCharacter && (!end || end.progress >= 0.99) && !e.hidden) { e.hidden = true; seqSavedFor(e.key).hidden = true; saveStoryProgress(); }
+        return false;
+      }
       if (!e.hidden && e.step.hideAt >= 0 && t >= e.step.hideAt) {
         e.hidden = true;
         seqSavedFor(e.key).hidden = true;
@@ -18516,6 +18535,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       const frame = worldCharacterFrames.find(f => f.key === e.key);
       const params = t >= 0 ? seqEffectParamsAt(e, t) : null;
+      if (onCharacter) { e.obj = null; if (params) seqCharacterEffects.set(e.key, { entry:e.entry, params }); return true; }
       if (!frame || !params || params.opacity <= 0.001) { e.obj = null; return true; }
       // Sized to the character (its height × size), centred on it, slightly in front.
       const h = Math.max(0.4, frame.height * e.step.size);
@@ -18831,8 +18851,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function drawWorldCharacters(view) {
     for (const frame of worldCharacterFrames) {
       if (frame.hidden || Math.abs(frame.x - camera.x) > STORY_DRAW_RANGE) continue;
+      if (GameCharacters?.find(frame.id) && !GameCharacters.ready(frame.id)) continue; // artwork still loading
+      const dissolve = seqCharacterEffects.get(frame.key);
+      if (dissolve) drawDissolvedCharacter(frame, view, dissolve);
+      else drawStoryCharacter(frame, view);
+    }
+  }
+  function drawStoryCharacter(frame, view) {
+    {
       const { id } = frame;
-      if (GameCharacters?.find(id) && !GameCharacters.ready(id)) continue; // artwork still loading
       const rig = characterRigForVariant(id);
       const pose = storyPose(id, rig, frame.state.animation, storyPhase(frame, rig));
       const sole = Number(characterVariantInfo(id)?.soleArtOffset);
@@ -18841,10 +18868,95 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         texture: textures[rigVariantTextureKey(artVariantFor(id))] || textures.rigAtlas,
         highlight: editMode && editorScope === 'story' && seqSelected.placed === frame.placed && seqSelected.component === frame.component ? 0.24 : 0 };
       const local = GameCharacters?.ready(id) || originalCharacterMeshes.get(id);
-      if (local?.parts?.length) { drawLocalMeshCharacter(view, pose, frame.facing, local, null, body); continue; }
+      if (local?.parts?.length) { drawLocalMeshCharacter(view, pose, frame.facing, local, null, body); return; }
       const parts = rig === Rig ? Rig.partsForPose(pose, bipedRestRig(id)) : rig.partsForPose(pose);
       for (const part of parts) drawRigPartWebGL(part, view, frame.facing, rig, body);
     }
+  }
+  // ---- Character effects (Dissolve): the character drawn into its own image, then
+  // drawn back through the effect shader at the same point in the draw order ------
+  const seqCharacterEffects = new Map(); // character key → {entry, params} (this frame)
+  let charFx = null; // { fb, tex, depth, w, h, renderer }
+  const mat4Mul = (a, b) => { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = v; } return o; };
+  function charFxTarget(w, h) {
+    if (!charFx) {
+      charFx = { fb:gl.createFramebuffer(), tex:gl.createTexture(), depth:gl.createRenderbuffer(), w:0, h:0, renderer:Effects.createDissolveRenderer(gl) };
+    }
+    if (charFx.w !== w || charFx.h !== h) {
+      charFx.w = w; charFx.h = h;
+      gl.bindTexture(gl.TEXTURE_2D, charFx.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, charFx.depth);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, charFx.fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, charFx.tex, 0);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, charFx.depth);
+    }
+    return charFx;
+  }
+  // The drawn body's height above the ground (metres), measured from the captured
+  // image now and then — colliders are only rough — so the sweep runs feet to head.
+  const charFxBodies = new Map(); // character key → { bottom, top, at }
+  function measureCharFxBody(frame, w, ht, boxBottom, boxHeight) {
+    const known = charFxBodies.get(frame.key), now = storyNow();
+    if (known && now - known.at < 1.5) return known;
+    const px = new Uint8Array(w * ht * 4);
+    gl.readPixels(0, 0, w, ht, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let lo = -1, hi = -1;
+    for (let y = 0; y < ht; y++) {
+      const row = y * w * 4;
+      for (let x = 0; x < w; x += 2) if (px[row + x * 4 + 3] > 25) { if (lo < 0) lo = y; hi = y; break; }
+    }
+    const body = lo < 0 ? { bottom: 0, top: frame.height, at: now }
+      : { bottom: boxBottom + (lo / ht) * boxHeight, top: boxBottom + ((hi + 1) / ht) * boxHeight, at: now };
+    charFxBodies.set(frame.key, body);
+    return body;
+  }
+  function drawDissolvedCharacter(frame, view, fx) {
+    // The character's screen box (room above for drift and flecks), in clip space.
+    // Not clamped to the screen, so the image always maps to the same world box.
+    const h = Math.max(0.4, frame.height), half = Math.max(h * 0.9, frame.radius * 3.2);
+    const g = storyGroundY(frame.x, frame.z), boxBottom = -0.2, boxHeight = h * 1.5 + 0.2;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [wx, wy] of [[frame.x - half, g + boxBottom], [frame.x + half, g + boxBottom], [frame.x - half, g + boxBottom + boxHeight], [frame.x + half, g + boxBottom + boxHeight]]) {
+      const v = mat4TransformPoint(view, wx, wy, frame.z, 1), c = mat4TransformPoint(projection, v[0], v[1], v[2], v[3]);
+      if (!(c[3] > 0)) { drawStoryCharacter(frame, view); return; }
+      const nx = c[0] / c[3], ny = c[1] / c[3];
+      x0 = Math.min(x0, nx); x1 = Math.max(x1, nx); y0 = Math.min(y0, ny); y1 = Math.max(y1, ny);
+    }
+    if (x1 < -1 || x0 > 1 || y1 < -1 || y0 > 1 || x1 - x0 < 0.01 || y1 - y0 < 0.01) return;
+    const w = Math.max(16, Math.min(640, Math.round((x1 - x0) * 0.5 * canvas.width)));
+    const ht = Math.max(16, Math.min(640, Math.round((y1 - y0) * 0.5 * canvas.height)));
+    const t = charFxTarget(w, ht);
+    // Draw just this character, framed to fill the image (projection squeezed to the box).
+    const a = 2 / (x1 - x0), c = 2 / (y1 - y0);
+    const squeeze = [a, 0, 0, 0, 0, c, 0, 0, 0, 0, 1, 0, -(x1 + x0) / (x1 - x0), -(y1 + y0) / (y1 - y0), 0, 1];
+    const saved = projection;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+    gl.viewport(0, 0, w, ht);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // premultiplied, correct alpha
+    projection = mat4Mul(squeeze, saved);
+    try { drawStoryCharacter(frame, view); } finally { projection = saved; }
+    const body = measureCharFxBody(frame, w, ht, boxBottom, boxHeight);
+    const bodyY = [(body.bottom - boxBottom) / boxHeight, (body.top - boxBottom) / boxHeight];
+    // Back to the scene: draw the image through the effect.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    t.renderer.render(fx.params, storyNow(), t.tex, [x0, y0, x1, y1], ((x1 - x0) * canvas.width) / ((y1 - y0) * canvas.height), bodyY);
+    gl.useProgram(program);
+    gl.enableVertexAttribArray(loc.pos);
+    gl.enableVertexAttribArray(loc.uv);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
   }
   // Keep the player's body out of every blocking world character, whichever
   // side she came from (a character walking into her pushes her along).
@@ -19092,7 +19204,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     pickerOpen: () => editorPalettePickerMode === 'story' && !editorPalette?.hidden,
     // Inventory items an Item step can give or take: [{id, label}].
     looks: () => (Looks ? Looks.list() : []).map(l => ({ id: l.id, name: l.name })),
-    effects: () => [...effectAssets.values()].map(e => ({ id: e.name, name: e.label, states: (e.art.states || []).map(st => ({ id: st.id, name: st.name })) })),
+    effects: () => [...effectAssets.values()].map(e => ({ id: e.name, name: e.label, character: !!Effects?.isCharacterEffect(e.art), states: (e.art.states || []).map(st => ({ id: st.id, name: st.name })) })),
     items: () => Object.values(INVENTORY_ITEM_DEFS).map(d => ({ id: d.id, label: collectibleConfig(d.id)?.label || d.label || d.id })),
     // Read-only test hooks: the camera's move from the follow view, and any event waiting for Action.
     cameraShot: () => ({ ...seqCameraNow, keep: !!seqCamera?.keep, active: !!seqCamera }),

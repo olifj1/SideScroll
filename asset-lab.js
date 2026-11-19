@@ -1131,7 +1131,9 @@
       if (shapeStart != null) Lib.rescalePlaced(entry.name, Number(shapeIn.value) / shapeStart);
       shapeStart = null; saveStateEl.textContent = 'Saved';
     });
-    rows.push(shape);
+    // A character effect takes the character's shape: no Shape control.
+    if (def.target !== 'character') rows.push(shape);
+    else rows.push(Object.assign(document.createElement('p'), { className:'assetlab-note', textContent:'Previewed on a sample character. In the game it draws on whichever character an Effect step puts it on; Dissolve 0 = whole, 1 = gone.' }));
     for (const p of def.params) {
       const row = document.createElement('label'); row.className = 'assetlab-range-row';
       const head = document.createElement('span'); const name = document.createElement('strong'); name.textContent = p.label;
@@ -1204,17 +1206,21 @@
     Lib.update(entry.name, { art:{ ...entry.art, params:Effects.defaults(entry.art.shader) } });
     effectControlsFor = null; syncEffectSection();
   });
-  newEffectBtn?.addEventListener('click', () => {
+  function newEffect(shader) {
     if (!Lib || !Effects) return;
+    const character = Effects.SHADERS[shader]?.target === 'character';
     const entry = Lib.add({
-      label:'Darkness whirlwind', group:'EFFECTS', scope:state.filter === 'puzzle' ? 'puzzle' : 'environment', category:'dressing',
-      height:3, groundLine:0, art:{ kind:'effect', shader:'darkness', width:600, height:1000, params:Effects.defaults('darkness') }
+      label:character ? 'Dissolve' : 'Darkness whirlwind', group:character ? 'CHARACTER EFFECTS' : 'EFFECTS',
+      scope:state.filter === 'puzzle' ? 'puzzle' : 'environment', category:'dressing',
+      height:3, groundLine:0, art:{ kind:'effect', shader, width:character ? 1000 : 600, height:1000, params:Effects.defaults(shader) }
     });
     showImported(entry.name);
     saveStateEl.textContent = 'Effect created';
     importedSection.scrollIntoView({ block:'start', behavior:'smooth' });
     importedName.focus(); importedName.select();
-  });
+  }
+  newEffectBtn?.addEventListener('click', () => newEffect('darkness'));
+  document.getElementById('assetlab-new-dissolve')?.addEventListener('click', () => newEffect('dissolve'));
   if (!Effects && newEffectBtn) newEffectBtn.hidden = true;
   // The selected effect plays live on the stage.
   function tickEffects() {

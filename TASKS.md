@@ -32,7 +32,7 @@ into the cabin, packs what she can and sets off after him. (The cabin is the one
 the scene: she walks out of it and back in; no separate interior.)
 Stages (engine work in order; art and sound in parallel):
 - [ ] **1 — The player does it herself** (agreed 14 Nov): she walks into zones and uses Inspect / Action, which fire events. Steps that move or animate the player only if needed later.
-- [ ] **2 — Darkness effect:** *(effect asset done 14 Nov; effect states and the **Darkness / effect** step — attached to a character, blending through states, hiding it, the dust travelling on — prototype done 17 Nov)* still to do: make Asset Lab match the game (keep faint wisps in the game, effects don't clip what's behind them, a fog option per effect, a backdrop choice in Asset Lab); "start when it reaches a mark"; the player as a target.
+- [ ] **2 — Darkness effect:** *(effect asset done 14 Nov; effect states and the **Darkness / effect** step — attached to a character, blending through states, hiding it, the dust travelling on — prototype done 17 Nov; a second kind, **character effects** (Dissolve: the character itself breaks up, no plane), 19 Nov)* still to do: make Asset Lab match the game (keep faint wisps in the game, effects don't clip what's behind them, a fog option per effect, a backdrop choice in Asset Lab); "start when it reaches a mark"; the player as a target.
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** a placed character can hold an asset in a hand (Father's axe), and a step gives / takes / drops it.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
@@ -80,6 +80,10 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0aw. Character effect: Dissolve (19 Nov)**
+- [ ] Asset Lab → **+ Add ▾ → New character effect**: the stage shows the fox half dissolved, with a glowing edge and flecks. Move **Dissolve** from 0 to 1: it breaks up from the feet and is gone at 1; *From feet ↔ head* below 0 makes it go from the head down. Save two states, e.g. *Half* (0.5) and *Most* (0.8).
+- [ ] Story → an event with **Effect on a character** on an animal: effect Dissolve; states Half 1 s → Most 1 s → Gone 1 s. ▶ Play: the animal dissolves in place (or while running a Move run *with* it) and stays gone. Check it is smooth on the phone and the animal sits exactly where it did before (no jump when the effect starts).
 
 **0av. Camera Cut and Frame it (19 Nov)**
 - [ ] Story → open your event from its sequence (the logic line's *Open*) → a Camera step → **Cut to it**: ▶ Play: the view jumps to the shot instantly.

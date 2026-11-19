@@ -29,7 +29,29 @@
     { key:'fleckSize',  label:'Fleck size',     min:0.004, max:0.06, step:0.001, value:0.03 },
     { key:'fleckColor', label:'Fleck colour',   type:'color', value:[0.74, 0.7, 0.86] }
   ];
-  const SHADERS = { darkness: { label:'Darkness whirlwind', params:DARKNESS_PARAMS } };
+  // Dissolve: a character effect. The game draws the character into its own image
+  // and draws that image back through this shader, so the character itself breaks up.
+  const DISSOLVE_PARAMS = [
+    { key:'progress',   label:'Dissolve',       min:0,    max:1,   step:0.01, value:0.5 },
+    { key:'sweep',      label:'From feet ↔ head', min:-1, max:1,   step:0.05, value:0.6 },
+    { key:'scale',      label:'Pattern size',   min:2,    max:30,  step:0.5,  value:9 },
+    { key:'edge',       label:'Edge width',     min:0,    max:0.3, step:0.005, value:0.08 },
+    { key:'glow',       label:'Edge brightness', min:0,   max:3,   step:0.05, value:1.2 },
+    { key:'edgeColor',  label:'Edge colour',    type:'color', value:[0.32, 0.22, 0.5] },
+    { key:'darken',     label:'Darken as it goes', min:0, max:1,   step:0.01, value:0.5 },
+    { key:'darkColor',  label:'Dark colour',    type:'color', value:[0.05, 0.04, 0.08] },
+    { key:'drift',      label:'Drift upward',   min:0,    max:1,   step:0.01, value:0.4 },
+    { key:'flecks',     label:'Flecks',         min:0,    max:1,   step:0.01, value:0.6 },
+    { key:'fleckSize',  label:'Fleck size',     min:0.5,  max:3,   step:0.05, value:1 },
+    { key:'rise',       label:'Fleck rise',     min:0,    max:2,   step:0.05, value:1 },
+    { key:'fleckColor', label:'Fleck colour',   type:'color', value:[0.7, 0.65, 0.85] }
+  ];
+  // target: what it draws on ('plane' = its own plane; 'character' = a character).
+  // start / gone: what the first state blends from, and what 'Gone' means.
+  const SHADERS = {
+    darkness: { label:'Darkness whirlwind', target:'plane', params:DARKNESS_PARAMS, start:{ opacity:0 }, gone:{ opacity:0 } },
+    dissolve: { label:'Dissolve (character)', target:'character', params:DISSOLVE_PARAMS, start:{ progress:0 }, gone:{ progress:1 } }
+  };
 
   function defaults(shader = 'darkness') {
     const out = {};
@@ -162,6 +184,105 @@ void main(){
     };
   }
 
+  const DISSOLVE_VERTEX = `
+attribute vec2 aPos;
+uniform vec4 uRect;
+varying vec2 vUv;
+void main(){ vUv = aPos; gl_Position = vec4(mix(uRect.xy, uRect.zw, aPos), 0.0, 1.0); }`;
+
+  const DISSOLVE_FRAGMENT = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uChar;
+uniform float uTime, uProgress, uScale, uSweep, uEdge, uGlow, uDarken, uDrift, uFlecks, uFleckSize, uRise, uAspect;
+uniform vec3 uEdgeColor, uDarkColor, uFleckColor;
+uniform vec2 uBody; // the character's feet and head height in the image (0..1)
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){
+  vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p){
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; }
+  return v;
+}
+// When each point goes: noise, swept from the feet up (sweep > 0) or the head down.
+float field(vec2 uv){
+  float n = fbm(uv * vec2(uAspect, 1.0) * uScale);
+  float y = clamp((uv.y - uBody.x) / max(uBody.y - uBody.x, 0.01), 0.0, 1.0);
+  float s = uSweep >= 0.0 ? y : 1.0 - y;
+  return mix(n, s, abs(uSweep) * 0.85);
+}
+// The character image is premultiplied (drawn with blending); unpremultiply it.
+vec4 straight(vec2 uv){ vec4 c = texture2D(uChar, uv); return c.a > 0.001 ? vec4(c.rgb / c.a, c.a) : vec4(0.0); }
+void main(){
+  float cut = mix(-uEdge - 0.03, 1.03, uProgress);
+  float f = field(vUv);
+  // Near the edge the body smears upward.
+  float near = 1.0 - smoothstep(cut, cut + 0.25, f);
+  vec4 c = straight(vUv - vec2(0.0, uDrift * 0.12 * near * uProgress));
+  float keep = smoothstep(cut, cut + 0.015, f);
+  float edge = keep * (1.0 - smoothstep(cut, cut + max(uEdge, 0.0001), f));
+  vec3 col = mix(c.rgb, uDarkColor, uDarken * uProgress);
+  col = mix(col, uEdgeColor * uGlow, clamp(edge, 0.0, 1.0) * step(0.0001, uEdge));
+  float alpha = c.a * keep;
+  // Flecks: cells of the body break off as the edge passes them, rise and fade.
+  vec2 cell = vec2(1.0 / (24.0 * uAspect), 1.0 / 24.0) * uFleckSize;
+  vec2 here = floor(vUv / cell);
+  float fl = 0.0;
+  for (int k = 0; k < 8; k++) {
+    vec2 oc = here - vec2(0.0, float(k));
+    float r = hash(oc);
+    if (r > uFlecks) continue;
+    vec2 ouv = (oc + 0.5) * cell;
+    float age = cut - field(ouv);
+    if (age <= 0.0) continue;
+    if (texture2D(uChar, ouv).a < 0.4) continue;
+    vec2 pos = ouv + vec2((hash(oc + 3.1) - 0.5) * cell.x * 2.0 + sin(uTime * 2.0 + r * 6.28) * cell.x * 0.5, age * uRise * 0.6);
+    float m = 1.0 - smoothstep(0.15, 0.4, length((vUv - pos) / cell));
+    fl = max(fl, m * (1.0 - clamp(age * uRise * 2.0, 0.0, 1.0)));
+  }
+  col = mix(col, uFleckColor, fl);
+  gl_FragColor = vec4(col, max(alpha, fl));
+}`;
+
+  // Draws a character image (premultiplied texture) through the dissolve shader into
+  // rect (NDC x0, y0, x1, y1). Output is straight alpha; the caller sets blending.
+  function createDissolveRenderer(gl) {
+    const program = gl.createProgram();
+    gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, DISSOLVE_VERTEX));
+    gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, DISSOLVE_FRAGMENT));
+    gl.bindAttribLocation(program, 0, 'aPos');
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw Error('Dissolve program: ' + gl.getProgramInfoLog(program));
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]), gl.STATIC_DRAW);
+    const u = {};
+    for (const name of ['uRect', 'uChar', 'uTime', 'uProgress', 'uScale', 'uSweep', 'uEdge', 'uGlow', 'uDarken', 'uDrift', 'uFlecks', 'uFleckSize', 'uRise', 'uAspect', 'uEdgeColor', 'uDarkColor', 'uFleckColor', 'uBody'])
+      u[name] = gl.getUniformLocation(program, name);
+    return {
+      render(p, time, texture, rect, aspect, body) {
+        gl.useProgram(program);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(u.uChar, 0);
+        gl.uniform4f(u.uRect, rect[0], rect[1], rect[2], rect[3]);
+        gl.uniform1f(u.uTime, time); gl.uniform1f(u.uProgress, p.progress); gl.uniform1f(u.uScale, p.scale);
+        gl.uniform1f(u.uSweep, p.sweep); gl.uniform1f(u.uEdge, p.edge); gl.uniform1f(u.uGlow, p.glow);
+        gl.uniform1f(u.uDarken, p.darken); gl.uniform1f(u.uDrift, p.drift); gl.uniform1f(u.uFlecks, p.flecks);
+        gl.uniform1f(u.uFleckSize, p.fleckSize); gl.uniform1f(u.uRise, p.rise); gl.uniform1f(u.uAspect, aspect || 1);
+        gl.uniform2f(u.uBody, body ? body[0] : 0, body ? body[1] : 1);
+        gl.uniform3fv(u.uEdgeColor, p.edgeColor); gl.uniform3fv(u.uDarkColor, p.darkColor); gl.uniform3fv(u.uFleckColor, p.fleckColor);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+    };
+  }
+
   // A standalone canvas renderer (Asset Lab preview, thumbnails). One shared
   // WebGL context, resized per use, so pages never hold many contexts.
   let shared = null;
@@ -171,9 +292,42 @@ void main(){
     const gl = canvas.getContext('webgl', { premultipliedAlpha:false, preserveDrawingBuffer:true, alpha:true });
     if (!gl) return null;
     const renderer = createRenderer(gl);
+    let dissolver = null, sample = null, sampleAspect = 2;
+    // A sample character for previewing character effects (the fox, side on).
+    function loadSample() {
+      if (sample) return;
+      sample = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, sample);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+      const img = new Image();
+      img.onload = () => {
+        sampleAspect = img.naturalWidth / img.naturalHeight;
+        gl.bindTexture(gl.TEXTURE_2D, sample);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        thumbs.clear();
+      };
+      img.src = (window.SideScrollAssetPath || (u => u))('quadruped-reference.png');
+    }
     shared = {
       canvas,
       render(art, time) {
+        if ((SHADERS[art.shader] || {}).target === 'character') {
+          loadSample();
+          dissolver ||= createDissolveRenderer(gl);
+          const h = 384, w = Math.round(h * sampleAspect);
+          if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.viewport(0, 0, w, h);
+          gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
+          dissolver.render(clean(art.shader, art.params), time, sample, [-1, -1, 1, 1], sampleAspect);
+          return canvas;
+        }
         const h = 384, w = Math.max(16, Math.round(h * (art.width / Math.max(1, art.height))));
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -197,5 +351,6 @@ void main(){
     return Promise.resolve(url);
   }
 
-  window.SideScrollEffects = { SHADERS, defaults, clean, createRenderer, canvasRenderer, thumbnail };
+  const isCharacterEffect = art => (SHADERS[art?.shader] || {}).target === 'character';
+  window.SideScrollEffects = { SHADERS, defaults, clean, createRenderer, createDissolveRenderer, canvasRenderer, thumbnail, isCharacterEffect };
 })();
