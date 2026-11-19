@@ -441,8 +441,20 @@
           slider(s, 'height', -5, 10, 0.1, 'Raise the camera', 1, ' m'),
           slider(s, 'distance', -8, 30, 0.1, 'Move back (− closer)', 1, ' m'),
           slider(s, 'tilt', -4, 4, 0.05, 'Aim up (− down)', 2, ' m'));
-        rows.push(el('div', { class: 'sidescroll-story-inline' }, s.mode === 'shot' ? 'move there over' : 'blend back over', numberInput(s, 'seconds', 0, 60, 0.5, 2), 's'),
-          segmented([['smooth', 'Smooth'], ['linear', 'Steady']], s.ease, v => { s.ease = v; change(); }),
+        // Cut = instant (0 s); Move / Blend = over some seconds.
+        const cut = Number(s.seconds) === 0;
+        rows.push(segmented([['cut', s.mode === 'shot' ? 'Cut to it' : 'Cut back'], ['move', s.mode === 'shot' ? 'Move there' : 'Blend back']], cut ? 'cut' : 'move',
+          v => { if (v === 'cut') { if (Number(s.seconds) > 0) s.lastSeconds = s.seconds; s.seconds = 0; } else { s.seconds = s.lastSeconds || 2; delete s.lastSeconds; } change(); }));
+        if (!cut) rows.push(el('div', { class: 'sidescroll-story-inline' }, 'over', numberInput(s, 'seconds', 0.1, 60, 0.5, 2), 's'),
+          segmented([['smooth', 'Smooth'], ['linear', 'Steady']], s.ease, v => { s.ease = v; change(); }));
+        // Frame it: look through the shot in the game and drag / pinch to set it.
+        if (s.mode === 'shot') rows.push(btn('📷 Frame it', () => {
+          const ok = host.frameShot?.({ eventId: e.id, placedId: view.returnTo || null, step: { ...s },
+            onChange: v => { Object.assign(s, v); dirty = true; updateStatus(); },
+            onDone: () => change() });
+          if (!ok) host.hint('Framing is not available here');
+        }, 'sidescroll-frame-it'));
+        rows.push(
           s.mode === 'shot' ? el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.keep, onchange: ev => { if (ev.target.checked) s.keep = true; else delete s.keep; change(); } }),
             'Keep after the event (until a later “Back to the player” step)') : null,
           help(s.mode === 'shot' ? (s.keep ? 'The shot stays when the event ends: bring it back with a Camera “Back to the player” step, e.g. on a line When the player leaves a zone.'

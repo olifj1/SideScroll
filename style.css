@@ -15758,3 +15758,17 @@ body[data-game-id="game-16"] .sidescroll-look-editing{font-size:8px;color:#9fd8b
 @media(max-width:760px) and (orientation:landscape){
   .assetlab-shell.controls-collapsed{grid-template-columns:calc(150px + env(safe-area-inset-left)) minmax(0,1fr) calc(40px + env(safe-area-inset-right)) !important;}
 }
+/* Camera step frame mode (Story → Camera → Frame it). */
+.sidescroll-frame-overlay{position:fixed;inset:0;z-index:950;touch-action:none;cursor:grab;
+  box-shadow:inset 0 0 0 3px rgba(255,214,120,.65);}
+.sidescroll-frame-bar{position:fixed;z-index:960;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 8px;align-items:center;width:min(560px,calc(100vw - 24px));
+  padding:10px 12px;border-radius:14px;border:1px solid rgba(255,214,120,.55);background:rgba(7,13,17,.92);color:#eef3f1;
+  font:700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 10px 26px rgba(0,0,0,.4);}
+.sidescroll-frame-bar strong{grid-column:1 / -1;font-size:10px;letter-spacing:.08em;color:#ffd678;}
+.sidescroll-frame-bar small{grid-column:1 / -1;color:#b9cbc8;font-size:10px;}
+.sidescroll-frame-aim{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;font-size:9px;text-transform:uppercase;letter-spacing:.06em;}
+.sidescroll-frame-bar button{min-height:34px;padding:0 14px;border-radius:9px;border:1px solid rgba(238,243,241,.2);background:rgba(255,255,255,.07);color:#eef3f1;
+  font:900 10px -apple-system,BlinkMacSystemFont,sans-serif;text-transform:uppercase;letter-spacing:.06em;}
+.sidescroll-frame-bar button.primary{border-color:rgba(126,216,150,.6);background:rgba(126,216,150,.18);}
+.sidescroll-story-panel button.sidescroll-frame-it{border-color:rgba(255,214,120,.55);background:rgba(255,214,120,.12);}

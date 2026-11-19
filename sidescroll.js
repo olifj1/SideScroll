@@ -18963,7 +18963,93 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     return best;
   }
+  // ---- Frame mode for a Camera step (Story editor → Frame it) -----------------------
+  // Shows the shot live (a held, instant shot), with the editor folded away; one
+  // finger drags the framing (along the journey / up and down), two fingers pinch to
+  // move the camera closer or further; the bar has Aim and Done / Cancel. Values go
+  // back to the editor through onChange; the shot is released on Done / Cancel.
+  let seqFraming = null;
+  function seqFrameShot({ eventId, placedId, step, onChange, onDone }) {
+    if (seqFraming) seqFraming.finish(false);
+    // Resolve the step's target through a sequence line that runs this event: the
+    // sequence the event was opened from first, else any; no target = the player.
+    const lines = [];
+    for (const r of seqResolved) for (const l of r.body.logic) if (l.event === eventId) lines.push({ r, l });
+    lines.sort((a, b) => (b.r.p.id === placedId) - (a.r.p.id === placedId));
+    const ctx = lines[0] || null;
+    const run = ctx ? { p:ctx.r.p, body:ctx.r.body, line:ctx.l } : null;
+    const target = run && step.target ? seqBound(run, step.target) : null;
+    const targetX = !target ? () => character.x
+      : target.kind === 'character' ? () => (seqCharacterNow(run, target) || seqComponentPlace(run.p, target)).x
+      : () => seqComponentPlace(run.p, target).x;
+    const shot = { targetX, side:step.side || 0, height:step.height || 0, distance:step.distance || 0, tilt:step.tilt || 0 };
+    const before = { side:shot.side, height:shot.height, distance:shot.distance, tilt:shot.tilt };
+    const drawerWasCollapsed = editorDrawerCollapsed;
+    setEditorDrawerCollapsed(true);
+    seqCameraTo(null, shot, 0, 'smooth', true);
+    const round2 = v => Math.round(v * 100) / 100;
+    const clampShot = () => {
+      shot.side = Rig.clamp(round2(shot.side), -20, 20); shot.height = Rig.clamp(round2(shot.height), -5, 10);
+      shot.distance = Rig.clamp(round2(shot.distance), -8, 30); shot.tilt = Rig.clamp(round2(shot.tilt), -4, 4);
+    };
+    const report = () => { clampShot(); readout.textContent = `along ${shot.side.toFixed(1)} m · up ${shot.height.toFixed(1)} m · back ${shot.distance.toFixed(1)} m · aim ${shot.tilt.toFixed(2)}`; onChange?.({ side:shot.side, height:shot.height, distance:shot.distance, tilt:shot.tilt }); };
+    // Overlay: captures the gestures over the game view.
+    const overlay = Object.assign(document.createElement('div'), { className:'sidescroll-frame-overlay' });
+    const bar = Object.assign(document.createElement('div'), { className:'sidescroll-frame-bar' });
+    const title = Object.assign(document.createElement('strong'), { textContent:`FRAMING${target ? ` · ${target.name}` : ' · the player'}${ctx ? '' : ' (no sequence runs this event yet)'}` });
+    const readout = document.createElement('small');
+    const aim = Object.assign(document.createElement('input'), { type:'range', min:'-4', max:'4', step:'0.05', value:String(shot.tilt) });
+    aim.addEventListener('input', () => { shot.tilt = Number(aim.value); report(); });
+    const mk = (label, cls, fn) => { const b = Object.assign(document.createElement('button'), { type:'button', textContent:label, className:cls }); b.addEventListener('click', fn); return b; };
+    const aimRow = Object.assign(document.createElement('label'), { className:'sidescroll-frame-aim' });
+    aimRow.append(Object.assign(document.createElement('span'), { textContent:'Aim' }), aim);
+    bar.append(title, readout, aimRow, mk('Cancel', '', () => finish(false)), mk('Done', 'primary', () => finish(true)));
+    document.body.append(overlay, bar);
+    const pointers = new Map();
+    let last = null;
+    const metresPerPixel = () => {
+      const dist = Math.max(2, camera.z + shot.distance - camera.targetZ);
+      return (2 * dist * Math.tan((31 * Math.PI / 180) / 2)) / Math.max(1, canvas.clientHeight || canvas.height);
+    };
+    const snapshot = () => {
+      const pts = [...pointers.values()];
+      if (pts.length >= 2) return { pinch:Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), x:(pts[0].x + pts[1].x) / 2, y:(pts[0].y + pts[1].y) / 2 };
+      return pts[0] ? { x:pts[0].x, y:pts[0].y } : null;
+    };
+    overlay.addEventListener('pointerdown', ev => { overlay.setPointerCapture?.(ev.pointerId); pointers.set(ev.pointerId, { x:ev.clientX, y:ev.clientY }); last = snapshot(); ev.preventDefault(); });
+    overlay.addEventListener('pointermove', ev => {
+      if (!pointers.has(ev.pointerId)) return;
+      pointers.set(ev.pointerId, { x:ev.clientX, y:ev.clientY });
+      const now = snapshot();
+      if (!now || !last) { last = now; return; }
+      const mpp = metresPerPixel();
+      if (now.pinch && last.pinch) shot.distance -= (now.pinch - last.pinch) * mpp * 1.5;  // spread = closer
+      else if (!now.pinch && !last.pinch) { shot.side -= (now.x - last.x) * mpp; shot.height += (now.y - last.y) * mpp; } // the world follows the finger
+      last = now;
+      report();
+      ev.preventDefault();
+    });
+    const lift = ev => { pointers.delete(ev.pointerId); last = snapshot(); };
+    overlay.addEventListener('pointerup', lift);
+    overlay.addEventListener('pointercancel', lift);
+    overlay.addEventListener('wheel', ev => { shot.distance += ev.deltaY * 0.01; report(); ev.preventDefault(); }, { passive:false });
+    function finish(keep) {
+      overlay.remove(); bar.remove();
+      seqCameraTo(null, null, 0);
+      setEditorDrawerCollapsed(drawerWasCollapsed);
+      if (!keep) { Object.assign(shot, before); onChange?.({ ...before }); }
+      seqFraming = null;
+      onDone?.(keep);
+    }
+    seqFraming = { finish };
+    report();
+    hintEl.textContent = 'Framing · drag to move the view, pinch (or scroll) to move closer / further, Aim to tilt · Done keeps it';
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+
   window.SideScrollSequenceHost = Object.freeze({
+    frameShot: seqFrameShot,
     state: () => seqState,
     // Live preview of an edit (the editor saves through SideScrollSequences.save).
     preview: next => { setSeqState(next); seqRuns = []; seqLive.clear(); seqControlLocks.clear(); seqStarted.clear(); seqResetScreen(); },

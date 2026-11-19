@@ -273,7 +273,9 @@ edit mode (and in ▶ Play), runs events as beats, and `storyControlLocked()` pa
 a Control step holds it (released when the event ends). Camera steps set `seqCamera` (a shot
 eases from the current view: deltas dx/dy/dz/dt added to the view in `render`, height following
 the ground under the target via `legacyPathGroundYAt`); Screen steps drive `.sidescroll-seq-fade` /
-`.sidescroll-seq-bars`; `seqReleaseRun` lets go of camera, fade and bars when the owning event ends (a shot with `keep`
+`.sidescroll-seq-bars` (a Camera step with 0 s is a cut; the editor's **Frame it** calls
+`host.frameShot` → `seqFrameShot`: a held shot plus a gesture overlay, values back through
+`onChange`, released on Done / Cancel); `seqReleaseRun` lets go of camera, fade and bars when the owning event ends (a shot with `keep`
 stays until a Camera *back* step). A *Wait for Action* step (`prompt`) parks its run until Action
 is pressed (`seqPromptRun` / `answerSeqPrompt`; works while control is taken); logic `leave` lines
 fire when the player's body leaves a zone. Progress `sidescroll.player.story-progress.v2`

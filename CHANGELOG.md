@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Camera steps: Cut and Frame it.** A Camera step now chooses **Cut to it** (instant) or
+  **Move there** over N s (Back to the player: *Cut back* / *Blend back*). **📷 Frame it**
+  looks through the shot in the game, on the character or mark the step looks at (through
+  the sequence the event was opened from): drag to move the framing, pinch (or scroll) to
+  move closer / further, *Aim* to tilt, then **Done** writes the values into the step
+  (**Cancel** leaves them). The sliders stay for fine-tuning.
 - **Asset Lab tidy-up for the phone:** one **+ Add ▾** button (Import image asset, New
   darkness effect; more can join it later) instead of two big buttons; the three filter
   buttons are now a **Show** dropdown with more choices (Puzzle / Environment assets,
