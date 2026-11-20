@@ -161,10 +161,13 @@ moving; they are just not drawn or blocking.
 **Character effects** (`SHADERS[s].target: 'character'`; today `dissolve`): no plane. The step's
 blended params go in `seqCharacterEffects` (key → {entry, params}) and `drawWorldCharacters` calls
 `drawDissolvedCharacter`, which draws that character (`drawStoryCharacter`) into `charFx`'s
-framebuffer with `projection` squeezed to its screen box, then draws the image back through
+framebuffer with `projection` squeezed to its screen box (sized from how tall the character was
+last drawn, props included — `storyDrawnTop`, noted by `drawStoryCharacter` — or its collider if
+taller; colliders are only rough), then draws the image back through
 `createDissolveRenderer` (`uBody` = feet/head in the image, measured from the image's alpha by
 `measureCharFxBody`, since colliders are only rough; `uDepth` = the character's middle in NDC z, drawn depth-tested without writing, so scenery in front still covers it). Each shader's `start` / `gone` params are
-what a step blends from / to for *Gone*; a character effect that ends gone hides the character.
+what a step blends from / to for *Gone*; a character effect that ends gone hides the character
+(that same frame too: `hideStoryFrameNow`, so it never flashes back for a frame).
 Asset Lab previews character effects on `quadruped-reference.png`, or on a real character:
 *Preview on* / *Holding* / *Pose* (sessionStorage `sidescroll.assetlab.effect-preview`) —
 `character-preview.js` (`window.SideScrollCharacterPreview`) draws any character — Mesh ones (two- or
