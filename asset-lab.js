@@ -295,6 +295,7 @@
   }
 
   let effectPreviewSample = null; // set below (character effect preview)
+  let effectPreviewSize = null;   // {name, metres, aspect, ground} of the character drawn for it
   function ensureImage(asset) {
     if (!asset) return null;
     const existing = imageCache.get(asset.name);
@@ -1100,6 +1101,7 @@
   const previewProp = document.getElementById('assetlab-effect-preview-prop');
   const previewPose = document.getElementById('assetlab-effect-preview-pose');
   const previewNote = document.getElementById('assetlab-effect-preview-note');
+  // character: '' until chosen (then the first character), 'sample' = the picture.
   const preview = (() => { try { return { character:'', prop:'', pose:'idle', ...JSON.parse(sessionStorage.getItem(PREVIEW_KEY) || '{}') }; } catch (_) { return { character:'', prop:'', pose:'idle' }; } })();
   let previewDrawer = null, previewSig = '';
   const savePreview = () => { try { sessionStorage.setItem(PREVIEW_KEY, JSON.stringify(preview)); } catch (_) {} };
@@ -1109,30 +1111,41 @@
     if (previewEl) previewEl.hidden = !show;
     if (!show) return;
     const chars = CharPreview.characters();
-    if (preview.character && !chars.some(c => c.id === preview.character)) preview.character = '';
-    const holds = preview.character ? CharPreview.holdsOf(preview.character) : [];
-    const anims = preview.character ? CharPreview.animations(preview.character) : [];
+    if (preview.character !== 'sample' && !chars.some(c => c.id === preview.character)) preview.character = chars[0]?.id || 'sample';
+    const real = preview.character !== 'sample';
+    const holds = real ? CharPreview.holdsOf(preview.character) : [];
+    const anims = real ? CharPreview.animations(preview.character) : [];
     const sig = JSON.stringify([chars, holds, anims.map(a => a.key)]);
     if (sig !== previewSig) {
       previewSig = sig;
-      previewChar.replaceChildren(new Option('Sample picture (fox)', ''), ...chars.map(c => new Option(c.name, c.id)));
+      previewChar.replaceChildren(...chars.map(c => new Option(c.name, c.id)), new Option('Sample picture (not to scale)', 'sample'));
       previewProp.replaceChildren(new Option(holds.length ? 'Nothing' : 'Nothing (no props set up)', ''), ...holds.map(n => new Option(CharPreview.propLabel(n), n)));
       previewPose.replaceChildren(new Option('Standing still', ''), ...anims.map(a => new Option(a.name, a.key)));
     }
     previewChar.value = preview.character;
     previewProp.value = holds.includes(preview.prop) ? preview.prop : '';
     previewPose.value = anims.some(a => a.key === preview.pose) ? preview.pose : '';
-    previewProp.disabled = previewPose.disabled = !preview.character;
-    previewNote.textContent = preview.character && !holds.length
-      ? 'Props: give this character a grip in Character Lab → Props (and Save) to see it holding one here.'
-      : 'Only the preview: the effect works on any character in the game.';
+    previewProp.disabled = !real || !holds.length;
+    previewPose.disabled = !real;
+    const reason = real ? CharPreview.reasonOf(preview.character) : null;
+    previewNote.textContent = reason ? `This character can’t be drawn here: ${reason}`
+      : real && !holds.length && window.SideScrollProps?.FAMILIES?.[window.SideScrollCharacters?.find?.(preview.character)?.family]
+      ? 'Shown at its game size. Props: give it a grip in Character Lab → Props (and Save) to see it holding one here.'
+      : real ? 'Shown at its game size beside the player reference. Only the preview: the effect works on any character in the game.'
+      : 'The sample picture is not to scale.';
   }
   previewChar?.addEventListener('change', () => { preview.character = previewChar.value; preview.prop = ''; savePreview(); syncPreviewControls(); });
   previewProp?.addEventListener('change', () => { preview.prop = previewProp.value; savePreview(); });
   previewPose?.addEventListener('change', () => { preview.pose = previewPose.value; savePreview(); });
   // The drawn character for this frame, or null (sample picture).
   function previewSample(art, time) {
-    if (!preview.character || !CharPreview || !Effects?.isCharacterEffect(art)) return null;
+    const sample = drawPreviewCharacter(art, time);
+    const entry = currentEffect();
+    effectPreviewSize = sample && entry ? { name:entry.name, metres:sample.metres, aspect:sample.aspect, ground:sample.ground } : null;
+    return sample;
+  }
+  function drawPreviewCharacter(art, time) {
+    if (!preview.character || preview.character === 'sample' || !CharPreview || !Effects?.isCharacterEffect(art)) return null;
     const r = Effects.canvasRenderer();
     if (!r?.gl) return null;
     try {
@@ -1732,13 +1745,13 @@
     const assets=displayAssets();
     assets.forEach(ensureImage);
     const gapM=state.pairMode?0.72:0;
-    const metrics=assets.map(asset=>({
-      asset,
-      image:ensureImage(asset),
-      assetH:effectiveHeight(asset),
-      assetW:assetWorldWidth(asset),
-      floor:effectiveGroundLine(asset)
-    }));
+    const metrics=assets.map(asset=>{
+      const image=ensureImage(asset);
+      // A character effect previewed on a character: drawn at that character's game size.
+      const fx=effectPreviewSize?.name===asset.name?effectPreviewSize:null;
+      return fx?{asset,image,assetH:fx.metres,assetW:fx.metres*fx.aspect,floor:fx.ground}
+        :{asset,image,assetH:effectiveHeight(asset),assetW:assetWorldWidth(asset),floor:effectiveGroundLine(asset)};
+    });
     const totalAssetW=metrics.reduce((sum,m)=>sum+m.assetW,0)+gapM*Math.max(0,metrics.length-1);
     const maxAbove=Math.max(...metrics.map(m=>(1-m.floor)*m.assetH),state.showReference?2.70:1,1);
     const maxBelow=Math.max(...metrics.map(m=>m.floor*m.assetH),1);

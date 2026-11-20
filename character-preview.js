@@ -7,26 +7,58 @@
  * WebGL context. effects.js then draws that texture through the effect, the way
  * the game does with drawDissolvedCharacter.
  *
- * Bipeds drawn as a Mesh only (library characters, and original characters
- * whose drawing method is Mesh); the others keep the sample picture.
+ * Every character: those drawn as a Mesh (two- or four-legged; library and
+ * original) from their mesh, and original two-legged characters still drawn
+ * with parts (Aureli, Hero 2) through the rig's own canvas drawing. Each result
+ * carries its size in metres at game scale (2.31 × the character's scale), so
+ * Asset Lab draws it beside the player reference as it will be in the game.
  */
 (() => {
   'use strict';
   const Chars = window.SideScrollGameCharacters, Rig = window.GameHubWalkRig, Props = window.SideScrollProps;
+  const QRig = window.SideScrollQuadrupedRig || null;
   const Registry = window.SideScrollCharacters, AssetLib = window.SideScrollAssetLibrary;
   const assetPath = window.SideScrollAssetPath || (url => url);
   if (!Chars || !Rig) return;
 
-  // Characters it can draw: [{id, name}].
-  function characters() {
-    const out = [];
-    for (const c of Chars.list()) if (c.family === 'biped') out.push({ id: c.id, name: Registry?.name?.(c.id) || c.label || c.id });
-    for (const id of Chars.originalMeshIds?.() || []) if (Chars.familyOf?.(id) === 'biped') out.push({ id, name: Registry?.name?.(id) || id });
-    return out;
+  const BASE_SCALE = 2.31, SOLE_OFFSET = 0.087; // as the game (BASE_CHARACTER_SCALE, CHARACTER_SOLE_ART_LOCAL_OFFSET)
+  const read = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; } };
+  const setupMap = read('sidescroll.animlab.setup.v1') || {};
+  const sharedClips = read('sidescroll.animlab.sparse.clips.v1')?.families || {};
+  const isOriginal = id => !!Rig.CHARACTER_VARIANTS?.[id];
+  const familyOf = id => Chars.familyOf?.(id) || Registry?.find?.(id)?.family || Rig.CHARACTER_VARIANTS?.[id]?.rigType || null;
+  const rigFor = id => (familyOf(id) === 'quadruped' ? QRig : Rig);
+  // How it is drawn: 'mesh' (its own mesh) | 'parts' (original two-legged, atlas parts) | null.
+  function methodOf(id) {
+    if (Chars.find?.(id) || (Chars.originalMeshIds?.() || []).includes(id)) return rigFor(id) ? 'mesh' : null;
+    return isOriginal(id) && familyOf(id) === 'biped' ? 'parts' : null;
   }
+  // Characters it can draw, in the registry's order: [{id, name}].
+  function characters() {
+    const ids = Registry?.list ? Registry.list().filter(c => !c.hidden).map(c => c.id) : [...Object.keys(Rig.CHARACTER_VARIANTS || {}), ...Chars.list().map(c => c.id)];
+    return ids.filter(id => methodOf(id)).map(id => ({ id, name: Registry?.name?.(id) || Chars.find?.(id)?.label || id }));
+  }
+  // The game's scale for a character (characterScaleMultiplier in sidescroll.js).
+  function scaleOf(id) {
+    const custom = Chars.find?.(id)?.setup;
+    const quadruped = familyOf(id) === 'quadruped';
+    const current = !(isOriginal(id) && quadruped) || !QRig?.isCurrentBaseline || QRig.isCurrentBaseline(setupMap[id]?.baselineId);
+    const raw = custom ? Number(custom.scale) : (current ? Number(setupMap[id]?.scale) : NaN);
+    const value = Number.isFinite(raw) ? raw : (quadruped ? Number(QRig?.DEFAULT_SCALE) || 1.71 : 1);
+    return Math.max(0.2, Math.min(5, value));
+  }
+  // How far the game lifts it off the ground (rig units): library characters 0,
+  // original ones their variant's sole offset (characterVariantInfo in sidescroll.js).
+  const soleOf = id => {
+    if (Chars.find?.(id)) return 0;
+    const v = Number(Rig.CHARACTER_VARIANTS?.[id]?.soleArtOffset);
+    return Number.isFinite(v) ? v : SOLE_OFFSET;
+  };
+  const reasonOf = id => Chars.reason?.(id) || null;
   const animations = id => Chars.animationsFor?.(id) || [];
-  // The props it has a grip for (Character Lab → Props): asset names.
-  const holdsOf = id => Object.keys((Chars.find?.(id) || Chars.meshFor(id))?.setup?.holds || {});
+  // The props it has a grip for (Character Lab → Props): asset names (two-legged only).
+  const setupOf = id => (Chars.find?.(id) || Chars.meshFor(id))?.setup || setupMap[id] || null;
+  const holdsOf = id => (Props?.FAMILIES?.[familyOf(id)] ? Object.keys(setupOf(id)?.holds || {}) : []);
   const propLabel = name => Props?.BUILT_IN.find(a => a.name === name)?.label || AssetLib?.get?.(name)?.label || name;
 
   function create(gl) {
@@ -88,20 +120,36 @@
       gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.tex, 0);
     }
-    function poseFor(id, data, animation, phase) {
-      const clip = animation ? Chars.clipFor?.(id, animation) : null;
+    // As the game's storyPose: the character's own clip for the slot, else the
+    // shared family clip (original characters), else the built-in frames.
+    function poseFor(id, animation, phase, restRig) {
+      const key = animation ? (animation.startsWith('clip-') ? animation : (Chars.slotAnimation?.(id, animation) || animation)) : '';
+      const clip = (key && Chars.clipFor?.(id, key)) || (key && isOriginal(id) ? sharedClips[familyOf(id)]?.[key] : null) || null;
+      if (familyOf(id) === 'quadruped') {
+        if (clip && QRig.sampleSparseClip) return QRig.sampleSparseClip(clip, phase);
+        return QRig.sampleFrames(QRig.IDLE_FRAMES, key ? phase : 0);
+      }
       const pose = clip ? Chars.sampleBipedClip({ family: 'biped', sparseClips: { a: clip } }, 'a', phase, Rig) : null;
-      return pose || Rig.restPose(data.setup.rig);
+      return pose || (restRig ? Rig.restPose(restRig) : Rig.sampleFrames(Rig.DEFAULT_FRAMES, 0.02));
     }
-    // The character's height (rig units), measured once from its rest pose.
-    function heightOf(id, data) {
+    // Its height (rig units), measured once from its idle / rest pose.
+    function heightOf(id, measure) {
       if (heights.has(id)) return heights.get(id);
-      Chars.poseParts(data, Rig.restPose(data.setup.rig), Rig);
-      let top = 0;
-      for (const part of data.parts) for (let i = 1; i < part.buffer.length; i += 5) top = Math.max(top, part.buffer[i]);
-      const h = top > 0.05 ? top : 0.8;
+      const h = Math.max(0.2, measure());
       heights.set(id, h);
       return h;
+    }
+    // The framing box (rig units): room above for drifting flecks; the ground
+    // (rig y = −sole, as the game lifts characters by their sole offset) near the bottom.
+    function boxFor(id, H) {
+      const ground = -soleOf(id), long = familyOf(id) === 'quadruped';
+      const halfW = long ? 0.95 * H : 0.75 * H;
+      return { x0: -halfW, x1: halfW, y0: ground - 0.08 * H, y1: ground + 1.45 * H };
+    }
+    function result(id, box, top, texture) {
+      const hUnits = box.y1 - box.y0, aspect = (box.x1 - box.x0) / hUnits, k = BASE_SCALE * scaleOf(id);
+      return { texture, aspect, body: [(-soleOf(id) - box.y0) / hUnits, (Math.max(top, 0.1) - box.y0) / hUnits],
+        metres: hUnits * k, ground: (-soleOf(id) - box.y0) / hUnits };
     }
     function drawTriangles(texture, vertices, indices) {
       gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -133,18 +181,21 @@
     // prop (asset name or '')}. Returns {texture, aspect, body:[feet, head] as
     // 0..1 of the image height}, or null while it is still loading / can't be drawn.
     function render(id, opts = {}) {
+      const method = methodOf(id);
+      if (method === 'parts') return renderParts(id, opts);
+      if (method !== 'mesh') return null;
       const data = Chars.meshFor(id);
       if (!data) {
-        if (!loading.has(id)) { loading.add(id); Chars.load(id).catch(() => {}).finally(() => loading.delete(id)); }
+        if (!loading.has(id) && !reasonOf(id)) { loading.add(id); Chars.load(id).catch(() => {}).finally(() => loading.delete(id)); }
         return null;
       }
-      const H = heightOf(id, data);
-      const pose = poseFor(id, data, opts.animation, opts.phase || 0);
-      Chars.poseParts(data, pose, Rig);
-      let top = 0;
-      for (const part of data.parts) for (let i = 1; i < part.buffer.length; i += 5) top = Math.max(top, part.buffer[i]);
-      // Framed like the game's dissolve box: room above for drifting flecks.
-      const x0 = -0.75 * H, x1 = 0.75 * H, y0 = -0.08 * H, y1 = 1.45 * H;
+      const rig = rigFor(id), biped = rig === Rig;
+      const topOf = () => { let top = -Infinity; for (const part of data.parts) for (let i = 1; i < part.buffer.length; i += 5) top = Math.max(top, part.buffer[i]); return top; };
+      const H = heightOf(id, () => { Chars.poseParts(data, poseFor(id, 'idle', 0, biped ? data.setup.rig : null), rig); return topOf() + soleOf(id); });
+      const pose = poseFor(id, opts.animation, opts.phase || 0, biped ? data.setup.rig : null);
+      Chars.poseParts(data, pose, rig);
+      const top = topOf();
+      const box = boxFor(id, H), { x0, x1, y0, y1 } = box;
       const aspect = (x1 - x0) / (y1 - y0), ht = 512, wd = Math.round(ht * aspect);
       ensureTarget(wd, ht);
       gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
@@ -159,7 +210,7 @@
       gl.enableVertexAttribArray(aPos); gl.enableVertexAttribArray(aUv);
       // The prop goes among the parts where its grip's layer says (as in the game).
       const props = [];
-      if (opts.prop && Props) {
+      if (opts.prop && Props && biped) {
         let geometry = null;
         try { geometry = Rig.geometry(pose, data.setup.rig); } catch (_) {}
         const hold = Props.holdFor(data.setup, opts.prop, 0.8, data.setup?.scale);
@@ -173,10 +224,64 @@
       for (const p of props) if (p.at >= data.parts.length) p.draw();
       gl.disableVertexAttribArray(aPos); gl.disableVertexAttribArray(aUv);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      return { texture: target.tex, aspect, body: [(0 - y0) / (y1 - y0), (Math.max(top, 0.1) - y0) / (y1 - y0)] };
+      return result(id, box, top, target.tex);
+    }
+
+    // Original two-legged characters drawn with atlas parts: the rig's own canvas
+    // drawing (as Character Lab) into a 2D canvas, then into a texture.
+    const partsCanvas = document.createElement('canvas'), partsCtx = partsCanvas.getContext('2d');
+    const partsTex = gl.createTexture(), atlases = new Map();
+    function atlasFor(id) {
+      if (atlases.has(id)) return atlases.get(id);
+      const img = new Image();
+      img.src = assetPath(Rig.atlasImageUrl(id));
+      atlases.set(id, img);
+      return img;
+    }
+    function renderParts(id, opts) {
+      const atlas = atlasFor(id);
+      if (!atlas.complete || !atlas.naturalWidth) return null;
+      const restRig = setupMap[id]?.rig || Rig.DEFAULT_REST_RIG;
+      const H = heightOf(id, () => {
+        let top = 0;
+        for (const p of Rig.partsForPose(poseFor(id, 'idle', 0, restRig), restRig)) top = Math.max(top, p.a.y, p.b.y);
+        return top * 1.12 + soleOf(id); // parts reach a little past their joints
+      });
+      const box = boxFor(id, H), hUnits = box.y1 - box.y0;
+      const ht = 512, wd = Math.round(ht * (box.x1 - box.x0) / hUnits), ppu = ht / hUnits;
+      if (partsCanvas.width !== wd || partsCanvas.height !== ht) { partsCanvas.width = wd; partsCanvas.height = ht; }
+      partsCtx.clearRect(0, 0, wd, ht);
+      const view = { cx: -box.x0 * ppu, groundY: box.y1 * ppu, scale: ppu, flipX: 1 };
+      const pose = poseFor(id, opts.animation, opts.phase || 0, restRig);
+      const heldItems = [];
+      if (opts.prop && Props) {
+        let geometry = null;
+        try { geometry = Rig.geometry(pose, restRig); } catch (_) {}
+        const setup = setupOf(id), hold = Props.holdFor(setup, opts.prop, 0.8, scaleOf(id)), rec = propImage(opts.prop);
+        if (geometry && rec.ready) heldItems.push({ layer: Props.layerFor(hold), draw: () => {
+          const at = Props.place(geometry, hold);
+          if (!at) return;
+          const hPx = at.size * ppu, wPx = hPx * rec.aspect;
+          partsCtx.save();
+          partsCtx.translate(view.cx + at.x * ppu, view.groundY - at.y * ppu); partsCtx.rotate(-at.angle); if (at.flip) partsCtx.scale(-1, 1);
+          partsCtx.drawImage(rec.img, -wPx / 2, -hPx / 2, wPx, hPx);
+          partsCtx.restore();
+        } });
+      }
+      const parts = Rig.drawCanvas(partsCtx, atlas, pose, view, { restRig, heldItems });
+      let top = 0;
+      for (const p of parts || []) top = Math.max(top, p.a.y, p.b.y);
+      gl.bindTexture(gl.TEXTURE_2D, partsTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); // the effect expects a premultiplied image
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, partsCanvas);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return result(id, box, top * 1.12, partsTex);
     }
     return { render };
   }
 
-  window.SideScrollCharacterPreview = Object.freeze({ characters, animations, holdsOf, propLabel, create });
+  window.SideScrollCharacterPreview = Object.freeze({ characters, animations, holdsOf, propLabel, reasonOf, create });
 })();

@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Asset Lab character effect preview: every character, at game scale.** *Preview on* now lists
+  every character (Aureli and Hero 2 drawn with their parts, the Fox and the other four-legged
+  characters, as well as the Mesh two-legged ones) and opens on a real character rather than the
+  fox picture (still at the end of the list, marked *not to scale*). The character is drawn at its
+  game size (2.31 × its scale) with its feet on the ground line, so it compares properly with the
+  player reference.
 - **Asset Lab: preview a character effect on a real character.** A character effect (Dissolve)
   now has *Preview on* (the fox picture or any character drawn as a Mesh, e.g. Father),
   *Holding* (one of that character's props from Character Lab → Props) and *Pose* (standing

@@ -82,6 +82,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ba. Dissolve preview: all characters, true size (20 Nov)**
+- [ ] Asset Lab → Dissolve: *Preview on* lists all your characters (Aureli, Hero 2, Fox, New01, Character01–03) and opens on Aureli, not the fox picture.
+- [ ] Each one stands on the ground line at its game size: Aureli about the player reference's height, the Fox clearly smaller, Father a little taller.
+- [ ] Four-legged characters play their animations under *Pose*; *Holding* is greyed out for them (only two-legged characters hold props).
+- [ ] *Sample picture (not to scale)* at the bottom still shows the old fox picture.
+
 **0az. Dissolve preview on a character (20 Nov)**
 - [ ] Asset Lab → your **Dissolve** effect: under EFFECT there are *Preview on*, *Holding* and *Pose*. Choose Father (Character03): the stage shows him instead of the fox (if the effect's settings are fully dissolved, drag *Progress* down to see him).
 - [ ] *Holding* lists the props you set up for him in Character Lab → Props (after Save); choose one: he holds it on the stage and it dissolves with him.
