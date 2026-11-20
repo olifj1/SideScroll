@@ -167,10 +167,12 @@ framebuffer with `projection` squeezed to its screen box, then draws the image b
 what a step blends from / to for *Gone*; a character effect that ends gone hides the character.
 Asset Lab previews character effects on `quadruped-reference.png`, or on a real character:
 *Preview on* / *Holding* / *Pose* (sessionStorage `sidescroll.assetlab.effect-preview`) —
-`character-preview.js` (`window.SideScrollCharacterPreview`) draws a Mesh biped (library or original,
-via `character-game-runtime.js` `load` / `poseParts`), posed by one of its animations and holding one
-of its props, into a texture on the effect renderer's context (`canvasRenderer().gl`), and
-`render(art, time, sample)` dissolves that instead of the picture.
+`character-preview.js` (`window.SideScrollCharacterPreview`) draws any character — Mesh ones (two- or
+four-legged, via `character-game-runtime.js` `load` / `poseParts`) and parts-drawn originals (the rig's
+`drawCanvas` into a 2D canvas) — posed as the game's `storyPose` would, holding one of its props, into a
+texture on the effect renderer's context (`canvasRenderer().gl`); `render(art, time, sample)` dissolves
+that instead of the picture. The sample carries `metres` / `ground` (2.31 × the game's scale, the game's
+sole lift: 0 for library characters), and Asset Lab's `computeRender` draws the effect at that size.
 
 ## Character registry
 `character-registry.js` (`window.SideScrollCharacters`) is the one list of
