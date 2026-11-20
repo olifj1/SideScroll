@@ -4,13 +4,13 @@ The single task list. Open work only: when something is done, delete it here and
 add a line to `CHANGELOG.md`. Detail and history for older items:
 `docs/archive/SIDESCROLL_TASKS.md` (search for the version number shown).
 
-Last reviewed: 30 October 2026 (character system agreed).
+Last reviewed: 20 November 2026 (intro sequence is the current focus).
 
 ---
 
 ## Now
-Proposed order: characters C1c, C2, C3 → Publish Lab (step 3) →
-characters C4–C6. Clean-up items are small and slot in between.
+Current focus: the **intro sequence** (its stages below, in order). Then the character
+work (C1c, skin workflow, C4–C6). Clean-up items are small and slot in between.
 
 ### Publishing workflow (agreed 30 Oct)
 Author on the phone, then publish chosen content into the game for every player.
@@ -31,8 +31,8 @@ black, then the light returns and she is alone in the silence. With control back
 into the cabin, packs what she can and sets off after him. (The cabin is the one already in
 the scene: she walks out of it and back in; no separate interior.)
 Stages (engine work in order; art and sound in parallel):
-- [ ] **1 — The player does it herself** (agreed 14 Nov): she walks into zones and uses Inspect / Action, which fire events. Steps that move or animate the player only if needed later.
-- [ ] **2 — Darkness effect:** *(effect asset done 14 Nov; effect states and the **Darkness / effect** step — attached to a character, blending through states, hiding it, the dust travelling on — prototype done 17 Nov; a second kind, **character effects** (Dissolve: the character itself breaks up, no plane), 19 Nov)* still to do: make Asset Lab match the game (keep faint wisps in the game, effects don't clip what's behind them, a fog option per effect, a backdrop choice in Asset Lab); "start when it reaches a mark"; the player as a target.
+- **1 — The player does it herself** (decided 14 Nov, nothing to build): she walks into zones and uses Inspect / Action, which fire events. Steps that move or animate the player only if needed later.
+- [ ] **2 — Darkness effect:** *(effect asset done 14 Nov; effect states and the **Effect on a character** step (was *Darkness / effect*) — attached to a character, blending through states, hiding it, the dust travelling on — prototype done 17 Nov; a second kind, **character effects** (Dissolve: the character itself breaks up, no plane), 19 Nov)* still to do: make Asset Lab match the game (keep faint wisps in the game, effects don't clip what's behind them, a fog option per effect, a backdrop choice in Asset Lab); "start when it reaches a mark"; the player as a target. Dissolve: its default edge colour is violet, which the art brief avoids ("no purple magic") — consider a dark ink / smoke default; noise looks coarse close up (raise Noise size) — maybe scale it to the body's size.
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** a placed character can hold an asset in a hand (Father's axe), and a step gives / takes / drops it.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
@@ -49,7 +49,7 @@ use roles. Steps 1–2 (events library, sequences with characters / marks / zone
 - [ ] **4 — World Lab sequences track:** *(track, details, drag / type to move, Open in game done 13 Nov)* still to do: show where each component stands within the bar, and a template's other instances.
 - [ ] **5 — More look controls** (colour grading, vignette, bloom; looks per stretch of the journey, e.g. atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov; Looks (fog + post sets) and the Look step done 14 Nov.)*
 
-### Characters: templates, actions and abilities (agreed 30 Oct — top priority)
+### Characters: templates, actions and abilities (agreed 30 Oct — next after the intro)
 Design: `docs/CHARACTER_SYSTEM_DESIGN.md`. Every character is built the same
 way: rig and animations are shared templates (instances) or unique copies; atlas,
 mesh parts and skin are the character's own; abilities come from a shared list.
