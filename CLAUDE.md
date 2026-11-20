@@ -145,7 +145,7 @@ listed separately in `sidescroll.js` (`editorAssetGroups`) and `asset-lab.js` (`
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
 `art: {kind:'effect', shader:'darkness'|'dissolve', width, height (the plane's shape), params}`; params are
 the shader's controls (`SHADERS[shader].params`: number ranges and [r,g,b] colours; `clean()`
-clamps them). Asset Lab: **+ New effect**, the *Effect* section (sliders; Shape rescales placed
+clamps them). Asset Lab: **+ Add ▾ → New darkness effect** (or **New character effect**), the *Effect* section (sliders; Shape rescales placed
 copies), the shared canvas renderer animates the stage (`tickEffects`); thumbnails are still
 frames (`thumbnail`, also what `artUrl` returns). The game (`renderEffectTextures`, called at the
 start of each frame before the scene framebuffer is bound) renders each visible copy into its own
@@ -265,7 +265,8 @@ Any new per-character storage must be added to `slicesFor()` there.
 **Sequences and events** (`sequence-data.js`, `window.SideScrollSequences`; `sequence-editor.js`;
 design `docs/SEQUENCE_SYSTEM_DESIGN.md`, steps 1–2 done). Content keys `sidescroll.story.events.v1`
 (`events:[{id ev-…, name, roles:[{id r-…, name, kind 'character'|'mark'}], steps:[{type
-(Seq.STEPS: move, animate, face, say, think, wait, flag, show, control), with (run with the
+(Seq.STEPS: move, animate, face, say, think, wait, flag, show, control, camera, screen, prompt, item,
+effect, look), with (run with the
 previous step), actor/to/target (role ids), …}]}]`) and `sidescroll.story.sequences.v1`
 (`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
 body = `{components:[{id c-…, kind 'character'|'mark'|'zone', name, dx (from the anchor), depth,
@@ -283,7 +284,7 @@ eases from the current view: deltas dx/dy/dz/dt added to the view in `render`, h
 the ground under the target via `legacyPathGroundYAt`); Screen steps drive `.sidescroll-seq-fade` /
 `.sidescroll-seq-bars` (a Camera step with 0 s is a cut; the editor's **Frame it** calls
 `host.frameShot` → `seqFrameShot`: a held shot plus a gesture overlay, values back through
-`onChange`, released on Done / Cancel); `seqReleaseRun` lets go of camera, fade and bars when the owning event ends (a shot with `keep`
+`onChange`, released on Done / Cancel; shot `distance` −20…30 m, negative = closer, so a shot can pass the path); `seqReleaseRun` lets go of camera, fade and bars when the owning event ends (a shot with `keep`
 stays until a Camera *back* step). A *Wait for Action* step (`prompt`) parks its run until Action
 is pressed (`seqPromptRun` / `answerSeqPrompt`; works while control is taken); logic `leave` lines
 fire when the player's body leaves a zone. Progress `sidescroll.player.story-progress.v2`
@@ -431,5 +432,6 @@ Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
 - `SIDESCROLL_EXPORT_COVERAGE.md` — what is persisted and exported, per lab.
 - `ART_ASSET_PIPELINE.md`, `SETTLEMENT_TEXTURE_PROCESSING_WORKFLOW.md` — art processing checklists.
 - `CONCEPT_ART_BRIEF.md` — brief for concept-art generation sessions.
+- `ART_GEN_PROMPT.md` — the short style prompt to paste into an image generator for new game assets (with reference images).
 - `TEXTURE_COMPRESSION_PLAN.md` — parked plan: texture streaming, then KTX2 / Basis compressed textures.
 - `SETTLEMENT_STAGE1_SOURCE_AUDIT.md`, `TEXEL_AUDIT.md` — past art audits.
