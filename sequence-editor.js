@@ -81,6 +81,15 @@
   function openChooser(key, title, options, onPick, subtitle = 'Tap one to choose it') {
     if (chooserKey === key && host.pickerOpen()) { host.closePicker(); chooserKey = null; return; }
     chooserKey = key;
+    // The timeline covers the editor: step aside while the list is open.
+    if (timeline.open) {
+      timeline.picking = true; timeline.root?.classList.add('picking');
+      clearInterval(timeline.pickTimer);
+      timeline.pickTimer = setInterval(() => {
+        if (host.pickerOpen()) return;
+        clearInterval(timeline.pickTimer); timeline.picking = false; timeline.root?.classList.remove('picking');
+      }, 250);
+    }
     const groupLabel = { characters: 'Characters', swap: 'Characters', steps: 'Steps', templates: 'Templates' }[key] || 'Choose';
     host.openPicker({ title, subtitle, groupLabel, choices: options.map(o => ({ label: o.label, thumb: o.thumb || '◇', description: o.note || '',
       onSelect: () => { chooserKey = null; onPick(o.value); } })) });
@@ -132,7 +141,7 @@
     placeMode = null; closeChooser();
     view.page = page;
     if (page === 'sequence') { view.placed = id; view.component = extra.component || null; const p = placedById(id); if (p && extra.focus !== false) host.lookAt(p.x); }
-    if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; }
+    if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; view.openStep = null; }
     if (page === 'list' && extra.tab) view.tab = extra.tab;
     syncSelection();
     render();
@@ -225,6 +234,94 @@
   // ---- Sequence page -------------------------------------------------------------
   const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑' };
   const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺', prop: '⚒' };
+
+  // ---- Steps: timing, summaries, beats, moving (step list and timeline) --------
+  // A beat is a step and the "at the same time" steps after it; the next beat
+  // starts when everything in it has finished (except "don't wait" steps).
+  const STEP_KIND = { say: 'speech', think: 'speech', camera: 'view', screen: 'view', look: 'view',
+    move: 'actor', animate: 'actor', face: 'actor', show: 'actor', effect: 'actor', prop: 'actor' }; // else 'logic'
+  const roleName = (e, id) => (id === Seq.PLAYER ? 'Player' : e.roles.find(r => r.id === id)?.name || '…');
+  const clip = (text, n = 34) => (String(text || '').length > n ? `${String(text).slice(0, n - 1)}…` : String(text || ''));
+  // How long a step takes: {seconds, approx (a guess: own walking speed, an
+  // animation's length), open (waits for the player)}.
+  function stepTiming(s) {
+    switch (s.type) {
+      case 'say': case 'think': case 'wait': case 'look': case 'screen': return { seconds: s.seconds };
+      case 'camera': return { seconds: s.seconds };
+      case 'move': return s.timing === 'time' ? { seconds: s.seconds } : { seconds: 3, approx: true };
+      case 'animate': return s.mode === 'loop' ? { seconds: 0 } : { seconds: 1.2 * (s.times || 1), approx: true };
+      case 'face': return { seconds: 0.3 };
+      case 'effect': return { seconds: (s.delay || 0) + (s.keys || []).reduce((t, k) => t + k.seconds, 0) };
+      case 'prompt': return { seconds: 2, open: true };
+      default: return { seconds: 0 };
+    }
+  }
+  const timingLabel = t => (t.open ? 'until Action' : t.seconds ? `${t.approx ? '~' : ''}${fmt(t.seconds, t.seconds % 1 ? 1 : 0)} s` : 'instant');
+  function stepSummary(e, s) {
+    const who = roleName(e, s.actor);
+    switch (s.type) {
+      case 'move': return `${who} ${s.animation === 'run' ? 'runs' : 'walks'} to ${roleName(e, s.to)}`;
+      case 'animate': return `${who} · ${s.animation}${s.mode === 'loop' ? ' (loop)' : ''}`;
+      case 'face': return `${who} faces ${s.toward === 'character' ? roleName(e, s.target) : s.toward}`;
+      case 'say': return `${s.actor ? `${who}: ` : ''}“${clip(s.text)}”`;
+      case 'think': return `Thinks “${clip(s.text)}”`;
+      case 'wait': return `Wait ${fmt(s.seconds, s.seconds % 1 ? 1 : 0)} s`;
+      case 'flag': return `${s.value ? 'Set' : 'Clear'} ${s.flag}`;
+      case 'show': return `${who} ${s.visible ? 'appears' : 'disappears'}`;
+      case 'control': return s.take ? 'Take control' : 'Give control back';
+      case 'camera': return s.mode === 'back' ? 'Camera back' : `Camera → ${s.target ? roleName(e, s.target) : 'player'}`;
+      case 'screen': return Seq.SCREEN_ACTIONS[s.action] || s.action;
+      case 'prompt': return `Wait for Action “${s.label}”`;
+      case 'item': return `${s.give ? 'Give' : 'Take'} ${s.count > 1 ? `${s.count} × ` : ''}${s.item}`;
+      case 'effect': return `${(host.effects?.() || []).find(x => x.id === s.asset)?.name || 'Effect'} on ${who}`;
+      case 'look': return `Look: ${(host.looks?.() || []).find(x => x.id === s.look)?.name || 'base look'}`;
+      case 'prop': return `${who} · ${(Seq.PROP_ACTIONS[s.action] || '').toLowerCase()} ${clip((host.props?.() || []).find(x => x.id === s.asset)?.name || s.asset || '…', 18)}`;
+      default: return Seq.STEPS[s.type]?.label || s.type;
+    }
+  }
+  // [[step index, …], …] — each beat's steps.
+  function beatsOf(steps) {
+    const beats = [];
+    steps.forEach((s, i) => { if (!beats.length || !s.with || i === 0) beats.push([i]); else beats[beats.length - 1].push(i); });
+    return beats;
+  }
+  // Takes step `from` out of its beat; a beat it led keeps the rest together.
+  function detachStep(steps, from) {
+    const s = steps[from];
+    if (!s.with && steps[from + 1]?.with) steps[from + 1].with = false;
+    steps.splice(from, 1);
+    return s;
+  }
+  // Timeline drop: {join: step} (run with that step's beat) | {before: step} (its
+  // own beat just before that one) | {end: true}. Returns the step's new index.
+  function moveStep(e, from, target) {
+    const steps = e.steps, s = steps[from];
+    if (target.join === s || target.before === s) return from;
+    detachStep(steps, from);
+    let at = steps.length;
+    if (target.join) {
+      const beat = beatsOf(steps).find(b => b.includes(steps.indexOf(target.join)));
+      at = beat ? beat[beat.length - 1] + 1 : steps.length;
+      s.with = true;
+    } else if (target.before) {
+      at = Math.max(0, steps.indexOf(target.before));
+      s.with = false;
+    } else s.with = false;
+    steps.splice(at, 0, s);
+    if (steps[0]) steps[0].with = false;
+    return at;
+  }
+  // Step list drag: to position `to` (0…length, before the step there), keeping
+  // its "at the same time" setting (it joins whatever is before it there).
+  function moveStepTo(e, from, to) {
+    const steps = e.steps;
+    if (to === from || to === from + 1) return from;
+    const s = detachStep(steps, from);
+    const at = to > from ? to - 1 : to;
+    steps.splice(at, 0, s);
+    if (steps[0]) steps[0].with = false;
+    return at;
+  }
   function componentEditor(p, body, c) {
     const moving = placeMode?.kind === 'component' && placeMode.id === c.id;
     const worldX = el('input', { type: 'number', step: '0.1', value: fmt(p.x + c.dx, 2), inputmode: 'decimal' });
@@ -397,7 +494,8 @@
   }
 
   // ---- Event page -------------------------------------------------------------------
-  function stepEditor(e, s, index) {
+  // opts.onFold: the title folds it back to its one-line row (step list).
+  function stepEditor(e, s, index, opts = {}) {
     const def = Seq.STEPS[s.type];
     const roleSelect = (field_, kind, allowNone = false) => {
       const fits = e.roles.filter(r => r.kind === kind);
@@ -548,7 +646,9 @@
         break;
     }
     return el('div', { class: 'sidescroll-story-move', 'data-reveal': `step-${index}` },
-      el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `${index + 1}. ${def.label}` }),
+      el('div', { class: 'sidescroll-story-move-head' },
+        opts.onFold ? el('button', { type: 'button', class: 'sidescroll-seq-fold', onclick: opts.onFold, 'aria-label': 'Fold this step' }, `▾ ${index + 1}. ${def.label}`)
+          : el('strong', { text: `${index + 1}. ${def.label}` }),
         btn('↑', () => { e.steps.splice(index - 1, 0, e.steps.splice(index, 1)[0]); change(); }, index === 0 ? 'hidden' : ''),
         xBtn(() => { e.steps.splice(index, 1); change(); }, 'Remove step')),
       ...rows,
@@ -556,6 +656,231 @@
         'At the same time as the step before') : null,
       el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.background, onchange: ev => { if (ev.target.checked) s.background = true; else delete s.background; change(); } }),
         'Don’t wait for it to finish (the next steps go on while it runs)'));
+  }
+  // A folded step: one line (tap to open), ⋮⋮ drags it to a new place.
+  function stepRow(e, s, i) {
+    const t = stepTiming(s);
+    return el('div', { class: `sidescroll-seq-steprow kind-${STEP_KIND[s.type] || 'logic'}${s.with && i > 0 ? ' with' : ''}`, 'data-step': i, 'data-reveal': `step-${i}` },
+      el('span', { class: 'sidescroll-seq-handle', 'aria-label': `Drag to move step ${i + 1}`, title: 'Drag to move', onpointerdown: ev => startListDrag(ev, e, i) }, '⋮⋮'),
+      el('button', { type: 'button', class: 'sidescroll-seq-steprow-open', onclick: () => { view.openStep = i; reveal = `step-${i}`; render(); } },
+        el('span', { class: 'sidescroll-seq-steprow-n', text: `${i + 1}` }),
+        el('span', { class: 'sidescroll-seq-steprow-icon', text: STEP_ICON[s.type] || '◇' }),
+        el('span', { class: 'sidescroll-seq-steprow-text', text: stepSummary(e, s) }),
+        s.background ? el('span', { class: 'sidescroll-seq-chip runs-on', text: '↷', title: 'Doesn’t wait for it to finish' }) : null,
+        el('span', { class: 'sidescroll-seq-chip', text: timingLabel(t) })));
+  }
+  let listDrag = null;
+  function startListDrag(ev, e, from) {
+    const list = ev.target.closest('.sidescroll-seq-steps');
+    if (!list || listDrag) return;
+    ev.preventDefault();
+    const rows = [...list.children];
+    const line = el('div', { class: 'sidescroll-seq-dropline' });
+    list.append(line);
+    rows[from]?.classList.add('dragging');
+    listDrag = { e, from, to: from, rows, line, id: ev.pointerId };
+    const place = y => {
+      let to = rows.length;
+      for (let k = 0; k < rows.length; k++) { const r = rows[k].getBoundingClientRect(); if (y < r.top + r.height / 2) { to = k; break; } }
+      listDrag.to = to;
+      const lr = list.getBoundingClientRect(), ref = rows[Math.min(to, rows.length - 1)].getBoundingClientRect();
+      line.style.top = `${(to < rows.length ? ref.top : ref.bottom) - lr.top - 2}px`;
+    };
+    place(ev.clientY);
+    const move = m => { if (m.pointerId !== listDrag?.id) return; m.preventDefault(); place(m.clientY); };
+    const end = u => {
+      if (u.pointerId !== listDrag?.id) return;
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+      const d = listDrag; listDrag = null; d.line.remove(); d.rows[d.from]?.classList.remove('dragging');
+      if (u.type === 'pointercancel') return;
+      const wasOpen = view.openStep === d.from;
+      const at = moveStepTo(d.e, d.from, d.to);
+      if (at !== d.from) { view.openStep = wasOpen ? at : null; reveal = `step-${at}`; change(); }
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+  }
+  // ---- Event timeline (⤢ Timeline): the event's steps laid out in time ---------
+  // Blocks are steps (length = how long they take); steps that start together
+  // stack; "don't wait" steps run on (dashed) under the next ones. Drag a block by
+  // ⋮⋮ (or press and hold it) onto another block to run with it, or between two
+  // moments to make it its own beat there; tap a block to edit it on the right.
+  const timeline = { open: false, pps: 44, selected: null, selObj: null, root: null, scroll: null };
+  const TL = { lane: 46, top: 30, minW: 74, instantGap: 0.4, pad: 16 };
+  function timelineLayout(e) {
+    const beats = beatsOf(e.steps), items = [], starts = [];
+    let t = 0;
+    beats.forEach((beat, k) => {
+      let end = t;
+      starts.push(t);
+      for (const i of beat) {
+        const s = e.steps[i], timing = stepTiming(s);
+        items.push({ i, s, beat: k, start: t, timing });
+        if (!s.background) end = Math.max(end, t + timing.seconds);
+      }
+      t = end > t ? end : t + TL.instantGap; // instant beats still take a little room
+    });
+    // Lanes: first free lane by drawn extent, so nothing overlaps.
+    const lanes = [];
+    for (const it of items) {
+      it.x = TL.pad + it.start * timeline.pps;
+      it.w = Math.max(TL.minW, it.timing.seconds * timeline.pps);
+      let lane = lanes.findIndex(end => end <= it.x + 0.5);
+      if (lane < 0) { lane = lanes.length; lanes.push(0); }
+      lanes[lane] = it.x + it.w + 4;
+      it.lane = lane;
+    }
+    const width = Math.max(...items.map(it => it.x + it.w), TL.pad + t * timeline.pps) + 140;
+    return { items, starts, total: t, width, lanes: Math.max(1, lanes.length) };
+  }
+  function openTimeline() {
+    timeline.open = true; timeline.selected = null; timeline.selObj = null; timeline.scroll = null;
+    document.body.classList.add('sidescroll-tl-open');
+    renderTimeline();
+  }
+  function closeTimeline() {
+    timeline.open = false; closeChooser();
+    timeline.root?.remove(); timeline.root = null;
+    document.body.classList.remove('sidescroll-tl-open');
+    render();
+  }
+  function renderTimeline() {
+    const e = view.page === 'event' ? eventById(view.event) : null;
+    if (!timeline.open || !e) { if (timeline.open) closeTimeline(); return; }
+    const old = timeline.root;
+    const keep = old ? { left: old.querySelector('.sidescroll-tl-scroll')?.scrollLeft || 0, top: old.querySelector('.sidescroll-tl-scroll')?.scrollTop || 0,
+      sheet: old.querySelector('.sidescroll-tl-sheet-body')?.scrollTop || 0 } : null;
+    // The sheet follows its step when it moves (↑, drag) and closes if it is removed.
+    if (timeline.selObj && e.steps[timeline.selected] !== timeline.selObj) {
+      const at = e.steps.indexOf(timeline.selObj);
+      timeline.selected = at >= 0 ? at : null;
+    }
+    if (timeline.selected != null && !e.steps[timeline.selected]) timeline.selected = null;
+    timeline.selObj = timeline.selected != null ? e.steps[timeline.selected] : null;
+    const L = timelineLayout(e), pps = timeline.pps;
+    const height = TL.top + L.lanes * TL.lane + 30;
+    // Ruler: a tick a second, labels every 1/2/5 s depending on zoom.
+    const every = pps >= 36 ? 1 : pps >= 18 ? 2 : 5;
+    const ruler = [];
+    for (let sec = 0; sec <= Math.ceil(L.total) + 3; sec++) ruler.push(el('div', { class: `sidescroll-tl-tick${sec % every ? ' minor' : ''}`, style: `left:${TL.pad + sec * pps}px` }, sec % every ? null : `${sec}s`));
+    const beatLines = L.starts.map((t, k) => el('div', { class: 'sidescroll-tl-beat', style: `left:${TL.pad + t * pps}px;height:${height}px` }, el('span', { text: `${k + 1}` })));
+    const blocks = L.items.map(it => {
+      const s = it.s, t = it.timing, kind = STEP_KIND[s.type] || 'logic';
+      return el('div', { class: `sidescroll-tl-block kind-${kind}${s.background ? ' runs-on' : ''}${t.approx || t.open ? ' approx' : ''}${!t.seconds ? ' instant' : ''}${timeline.selected === it.i ? ' selected' : ''}`,
+        'data-i': it.i, style: `left:${it.x}px;top:${TL.top + it.lane * TL.lane}px;width:${it.w}px` },
+        el('span', { class: 'sidescroll-tl-grip', 'aria-label': `Drag step ${it.i + 1}` }, '⋮⋮'),
+        el('span', { class: 'sidescroll-tl-text' }, el('b', { text: `${STEP_ICON[s.type] || '◇'} ${it.i + 1}` }), ` ${stepSummary(e, s)}`),
+        el('small', { text: `${timingLabel(t)}${s.background ? ' · runs on' : ''}` }));
+    });
+    const content = el('div', { class: 'sidescroll-tl-content', style: `width:${L.width}px;height:${height}px` }, ...beatLines, ...ruler, ...blocks,
+      el('div', { class: 'sidescroll-tl-endmark', style: `left:${TL.pad + L.total * pps}px;height:${height}px` }, el('span', { text: `${fmt(L.total, 1)} s` })));
+    const scroller = el('div', { class: 'sidescroll-tl-scroll' }, content);
+    const sel = timeline.selected != null ? e.steps[timeline.selected] : null;
+    const sheet = sel ? el('aside', { class: 'sidescroll-tl-sheet' },
+      el('div', { class: 'sidescroll-tl-sheet-head' }, el('strong', { text: `Step ${timeline.selected + 1}` }),
+        btn('Duplicate', () => { const copy = clone(sel); copy.with = true; e.steps.splice(timeline.selected + 1, 0, copy); timeline.selected += 1; timeline.selObj = copy; change(); }),
+        btn('Done', () => { timeline.selected = null; timeline.selObj = null; renderTimeline(); }, 'primary')),
+      el('div', { class: 'sidescroll-tl-sheet-body' }, stepEditor(e, sel, timeline.selected))) : null;
+    const status = el('span', { class: `sidescroll-tl-status${dirty ? ' dirty' : ''}`, text: dirty ? 'Unsaved' : 'Saved' });
+    const root = el('div', { class: `sidescroll-tl${sheet ? ' has-sheet' : ''}`, role: 'dialog', 'aria-label': `${e.name} timeline` },
+      el('div', { class: 'sidescroll-tl-head' },
+        btn('‹ Close', closeTimeline),
+        el('strong', { text: `${e.name} · ${fmt(L.total, 1)} s` }),
+        el('span', { class: 'sidescroll-tl-zoom' },
+          btn('−', () => { timeline.pps = Math.max(10, timeline.pps / 1.4); renderTimeline(); }),
+          btn('+', () => { timeline.pps = Math.min(200, timeline.pps * 1.4); renderTimeline(); })),
+        btn('+ Step', () => addStepChooser(e)),
+        status,
+        btn('Save', () => { saveDraft(); host.hint('Story saved'); }, `primary${dirty ? '' : ' quiet'}`)),
+      el('p', { class: 'sidescroll-tl-help', text: 'Tap a step to edit it. Drag ⋮⋮ (or press and hold a step) onto another step to run them together, or between two moments to give it its own moment. ~ = a guess (own walking speed, animation length).' }),
+      el('div', { class: 'sidescroll-tl-main' }, scroller, sheet));
+    if (old) old.replaceWith(root); else document.body.append(root);
+    if (timeline.picking) root.classList.add('picking');
+    timeline.root = root;
+    if (keep) { scroller.scrollLeft = keep.left; scroller.scrollTop = keep.top; const sb = root.querySelector('.sidescroll-tl-sheet-body'); if (sb) sb.scrollTop = keep.sheet; }
+    bindTimelineDrag(e, scroller, content, L);
+  }
+  function bindTimelineDrag(e, scroller, content, L) {
+    let press = null;
+    const blockAt = (x, y, except) => L.items.find(it => it.i !== except && x >= it.x && x <= it.x + it.w && y >= TL.top + it.lane * TL.lane - 4 && y <= TL.top + it.lane * TL.lane + TL.lane - 2);
+    const local = ev => { const r = content.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+    function target(pt, from) {
+      const hit = blockAt(pt.x, pt.y, from);
+      if (hit) return { join: e.steps[hit.i], x: hit.x, hit };
+      // Nearest moment boundary: before a beat, or the end.
+      const bounds = L.starts.map((t, k) => ({ x: TL.pad + t * timeline.pps, k })).concat([{ x: TL.pad + L.total * timeline.pps, k: L.starts.length }]);
+      const b = bounds.reduce((best, c) => (Math.abs(c.x - pt.x) < Math.abs(best.x - pt.x) ? c : best), bounds[0]);
+      const leader = b.k < L.starts.length ? e.steps[beatsOf(e.steps)[b.k][0]] : null;
+      return leader ? { before: leader, x: b.x } : { end: true, x: b.x };
+    }
+    function startDrag() {
+      const node = content.querySelector(`.sidescroll-tl-block[data-i="${press.i}"]`);
+      if (!node) return;
+      press.dragging = true;
+      press.ghost = node.cloneNode(true); press.ghost.classList.add('ghost');
+      press.marker = el('div', { class: 'sidescroll-tl-drop' });
+      node.classList.add('dragging');
+      content.append(press.ghost, press.marker);
+      navigator.vibrate?.(12);
+      dragTo(press.last);
+    }
+    function dragTo(ev) {
+      const pt = local(ev), r = scroller.getBoundingClientRect();
+      press.ghost.style.left = `${pt.x - press.offX}px`; press.ghost.style.top = `${pt.y - press.offY}px`;
+      press.target = target(pt, press.i);
+      content.querySelectorAll('.sidescroll-tl-block.drop-join').forEach(n => n.classList.remove('drop-join'));
+      if (press.target.join) { content.querySelector(`.sidescroll-tl-block[data-i="${press.target.hit.i}"]`)?.classList.add('drop-join'); press.marker.hidden = true; }
+      else { press.marker.hidden = false; press.marker.style.left = `${press.target.x - 2}px`; press.marker.style.height = `${content.offsetHeight}px`; }
+      // Scroll along when dragging near an edge.
+      if (ev.clientX > r.right - 36) scroller.scrollLeft += 12; else if (ev.clientX < r.left + 36) scroller.scrollLeft -= 12;
+    }
+    function finish(ev, cancelled) {
+      const p = press; press = null;
+      clearTimeout(p?.timer);
+      if (!p) return;
+      if (p.dragging) {
+        p.ghost.remove(); p.marker.remove();
+        if (cancelled || !p.target) { renderTimeline(); return; }
+        const wasSel = timeline.selected === p.i;
+        const at = moveStep(e, p.i, p.target);
+        if (wasSel) { timeline.selected = at; timeline.selObj = e.steps[at]; }
+        view.openStep = null;
+        change();
+        return;
+      }
+      if (!cancelled && !p.moved) { timeline.selected = p.i; timeline.selObj = e.steps[p.i]; renderTimeline(); }
+    }
+    content.addEventListener('pointerdown', ev => {
+      const node = ev.target.closest('.sidescroll-tl-block');
+      if (!node || press) return;
+      const i = Number(node.dataset.i), pt = local(ev), it = L.items.find(x => x.i === i);
+      press = { i, id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, last: ev, moved: false, dragging: false,
+        offX: pt.x - it.x, offY: pt.y - (TL.top + it.lane * TL.lane) };
+      if (ev.target.closest('.sidescroll-tl-grip')) { ev.preventDefault(); try { content.setPointerCapture(ev.pointerId); } catch (_) {} startDrag(); }
+      else press.timer = setTimeout(() => { if (press && !press.moved) { try { content.setPointerCapture(press.id); } catch (_) {} startDrag(); } }, 380);
+    });
+    content.addEventListener('pointermove', ev => {
+      if (!press || ev.pointerId !== press.id) return;
+      press.last = ev;
+      if (press.dragging) { ev.preventDefault(); dragTo(ev); return; }
+      if (Math.hypot(ev.clientX - press.x0, ev.clientY - press.y0) > 8) { press.moved = true; clearTimeout(press.timer); }
+    });
+    content.addEventListener('pointerup', ev => { if (press && ev.pointerId === press.id) finish(ev, false); });
+    content.addEventListener('pointercancel', ev => { if (press && ev.pointerId === press.id) finish(ev, true); });
+    // Once a drag has started, the finger moves the block, not the view.
+    scroller.addEventListener('touchmove', ev => { if (press?.dragging) ev.preventDefault(); }, { passive: false });
+  }
+  function addStepChooser(e) {
+    openChooser('steps', 'Add a step', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, thumb: STEP_ICON[type] || '◇', note: def.help })), type => {
+          const def = Seq.STEPS[type];
+          const actor = e.roles.find(r => r.kind === 'character')?.id, mark = e.roles.find(r => r.kind === 'mark')?.id;
+          const s = { type, ...(actor && Object.keys(def.roles).includes('actor') ? { actor } : {}), ...(type === 'move' && mark ? { to: mark } : {}) };
+          if (type === 'flag') s.flag = knownFlags()[0] || 'met-father';
+          e.steps.push(Seq.normaliseEvents({ events: [{ ...e, steps: [s] }] })[0]?.steps[0] || s);
+          view.openStep = e.steps.length - 1;
+          if (timeline.open) { timeline.selected = e.steps.length - 1; timeline.selObj = e.steps[timeline.selected]; }
+          reveal = `step-${e.steps.length - 1}`; change();
+        });
   }
   function eventPage() {
     const e = eventById(view.event);
@@ -580,16 +905,12 @@
       // Steps run in order and are added one after another, so their add
       // button sits after the last step (the one exception to add-bars-on-top).
       section('Steps',
-        e.steps.length > 1 ? help('Each step waits until the ones before it have finished. “At the same time as the step before” starts it together with that one; “Don’t wait for it to finish” lets the next steps go on while it runs (e.g. lines spoken during a long dissolve).') : null,
-        e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.'),
-        addBar(btn('+ Add step', () => openChooser('steps', 'Add a step', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, thumb: STEP_ICON[type] || '◇', note: def.help })), type => {
-          const def = Seq.STEPS[type];
-          const actor = e.roles.find(r => r.kind === 'character')?.id, mark = e.roles.find(r => r.kind === 'mark')?.id;
-          const s = { type, ...(actor && Object.keys(def.roles).includes('actor') ? { actor } : {}), ...(type === 'move' && mark ? { to: mark } : {}) };
-          if (type === 'flag') s.flag = knownFlags()[0] || 'met-father';
-          e.steps.push(Seq.normaliseEvents({ events: [{ ...e, steps: [s] }] })[0]?.steps[0] || s);
-          reveal = `step-${e.steps.length - 1}`; change();
-        }), 'primary')),
+        e.steps.length ? addBar(btn('⤢ Timeline', () => openTimeline(), 'primary')) : null,
+        e.steps.length > 1 ? help('Each step waits until the ones before it have finished. “At the same time as the step before” starts it together with that one; “Don’t wait for it to finish” lets the next steps go on while it runs (e.g. lines spoken during a long dissolve). Tap a step to open it; drag ⋮⋮ to reorder.') : null,
+        e.steps.length ? el('div', { class: 'sidescroll-seq-steps' }, e.steps.map((s, i) => view.openStep === i
+          ? stepEditor(e, s, i, { onFold: () => { view.openStep = null; render(); } })
+          : stepRow(e, s, i))) : help('No steps yet.'),
+        addBar(btn('+ Add step', () => addStepChooser(e), 'primary')),
         chooserBox('steps')),
       section('Used by',
         usedBy.length ? usedBy.map(({ p, i }) => btn(`▣ ${p.name} · line ${i + 1}`, () => open('sequence', p.id))) : help('Not used by any sequence yet.')),
@@ -643,6 +964,7 @@
         }, 'sidescroll-story-discard'),
         btn('Save', () => { saveDraft(); host.hint('Story saved'); }, 'primary sidescroll-story-save')));
     updateStatus();
+    if (timeline.open) renderTimeline();
     if (reveal) {
       const target = panel.querySelector(`[data-reveal="${reveal}"]`);
       reveal = null;
@@ -650,7 +972,7 @@
     }
   }
   new MutationObserver(() => {
-    if (panel.hidden) { placeMode = null; closeChooser(); host.select(null, null); }
+    if (panel.hidden) { placeMode = null; closeChooser(); host.select(null, null); if (timeline.open) closeTimeline(); }
     else { syncSelection(); render(); }
   }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
