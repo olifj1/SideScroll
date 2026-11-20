@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Fix: character dissolve cut off the head and flashed at the end.** The dissolve's image was
+  framed from the character's collider, which can be much shorter than its art (Father's collider
+  is about half his drawn height), so the top of the head was cut off. It is now framed from how
+  tall the character is actually drawn, prop in hand included. And when a dissolve finished (or
+  reached *Hide at*), the character was drawn once more without the effect for a single frame
+  before disappearing; it now disappears straight away.
 - **Asset Lab character effect preview: every character, at game scale.** *Preview on* now lists
   every character (Aureli and Hero 2 drawn with their parts, the Fox and the other four-legged
   characters, as well as the Mesh two-legged ones) and opens on a real character rather than the

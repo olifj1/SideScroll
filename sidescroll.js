@@ -18530,12 +18530,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         // A character effect that ends fully dissolved leaves the character gone.
         const end = seqEffectParamsAt(e, total);
         if (onCharacter && (!end || end.progress >= 0.99) && !e.hidden) { e.hidden = true; seqSavedFor(e.key).hidden = true; saveStoryProgress(); }
+        // This frame's character list was built before the hide: hide it now too,
+        // or it is drawn once without the effect (a flash).
+        if (e.hidden) hideStoryFrameNow(e.key);
         return false;
       }
       if (!e.hidden && e.step.hideAt >= 0 && t >= e.step.hideAt) {
         e.hidden = true;
         seqSavedFor(e.key).hidden = true;
         saveStoryProgress();
+        hideStoryFrameNow(e.key);
       }
       const frame = worldCharacterFrames.find(f => f.key === e.key);
       const params = t >= 0 ? seqEffectParamsAt(e, t) : null;
@@ -18549,6 +18553,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       Object.assign(e.obj, { x:frame.x, y:storyGroundY(frame.x, frame.z) - h * 0.08, z:frame.z + 0.4, sx:h * aspect, sy:h, effectParams:params });
       return true;
     });
+  }
+  function hideStoryFrameNow(key) {
+    const frame = worldCharacterFrames.find(f => f.key === key);
+    if (frame) frame.hidden = true;
   }
   function drawSeqEffects(view) {
     for (const e of seqEffects) if (e.obj) drawObject(e.obj, view, { force:true, x:e.obj.x, y:e.obj.y, z:e.obj.z, sx:e.obj.sx, sy:e.obj.sy });
@@ -18887,12 +18895,32 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         highlight: editMode && editorScope === 'story' && seqSelected.placed === frame.placed && seqSelected.component === frame.component ? 0.24 : 0 };
       const local = GameCharacters?.ready(id) || originalCharacterMeshes.get(id);
       const held = rig === Rig ? storyHeldProps(frame, pose, body, view) : [];
-      if (local?.parts?.length) { drawLocalMeshCharacter(view, pose, frame.facing, local, held.length ? held : null, body); return; }
+      const ground = storyGroundY(frame.x, frame.z);
+      if (local?.parts?.length) {
+        drawLocalMeshCharacter(view, pose, frame.facing, local, held.length ? held : null, body);
+        let top = -Infinity;
+        for (const part of local.parts) if (part.buffer) for (let i = 1; i < part.buffer.length; i += 5) top = Math.max(top, part.buffer[i]);
+        noteStoryDrawnTop(frame, body.y - ground + top * body.scale, held);
+        return;
+      }
       const parts = rig === Rig ? Rig.partsForPose(pose, bipedRestRig(id)) : rig.partsForPose(pose);
       for (const h of held) if (h.layer === 'back') h.draw(null);
       for (const part of parts) drawRigPartWebGL(part, view, frame.facing, rig, body);
       for (const h of held) if (h.layer !== 'back') h.draw(null);
+      let top = -Infinity;
+      for (const part of parts) top = Math.max(top, part.a?.y ?? -Infinity, part.b?.y ?? -Infinity);
+      noteStoryDrawnTop(frame, body.y - ground + top * 1.12 * body.scale, held); // parts reach a little past their joints
     }
+  }
+  // How tall each story character is drawn (metres above its ground, props in
+  // hand included), from its last drawing: a character effect frames this, not
+  // the collider, which is only rough (a short collider cut heads off).
+  const storyDrawnTop = new Map(); // frame key → metres
+  function noteStoryDrawnTop(frame, top, held) {
+    if (!Number.isFinite(top)) return;
+    const ground = storyGroundY(frame.x, frame.z);
+    for (const h of held || []) if (h.top != null) top = Math.max(top, h.top - ground);
+    storyDrawnTop.set(frame.key, top);
   }
   // ---- Props held by story characters (character-props.js) --------------------
   // A component holds the assets in its `holding` list (play progress may change
@@ -18920,7 +18948,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const tr = { x: body.x + at.x * body.scale * f, y: body.y + at.y * body.scale, z: body.z + CHARACTER_GAMEPLAY_Z_BIAS,
         rot: f > 0 ? at.angle : -at.angle, flip: f > 0 ? at.flip : !at.flip, w, h };
       seqPropLast.set(`${frame.key}|${name}`, tr);
-      out.push({ layer: Props.layerFor(hold), draw: z => drawPropAt(view, name, texture, { ...tr, z: z ?? tr.z }, body.opacity, body.tint) });
+      out.push({ layer: Props.layerFor(hold), top: tr.y + Math.max(w, h) / 2,
+        draw: z => drawPropAt(view, name, texture, { ...tr, z: z ?? tr.z }, body.opacity, body.tint) });
     }
     return out;
   }
@@ -19019,7 +19048,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function drawDissolvedCharacter(frame, view, fx) {
     // The character's screen box (room above for drift and flecks), in clip space.
     // Not clamped to the screen, so the image always maps to the same world box.
-    const h = Math.max(0.4, frame.height), half = Math.max(h * 0.9, frame.radius * 3.2);
+    const h = Math.max(0.4, frame.height, storyDrawnTop.get(frame.key) || 0), half = Math.max(h * 0.9, frame.radius * 3.2);
     const g = storyGroundY(frame.x, frame.z), boxBottom = -0.2, boxHeight = h * 1.5 + 0.2;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const [wx, wy] of [[frame.x - half, g + boxBottom], [frame.x + half, g + boxBottom], [frame.x - half, g + boxBottom + boxHeight], [frame.x + half, g + boxBottom + boxHeight]]) {

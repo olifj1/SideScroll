@@ -82,6 +82,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bb. Dissolve: whole head, no flash (20 Nov)**
+- [ ] Game → your *Taken* test: walk into the zone. Father dissolves from the feet up with his **whole head** visible (nothing cut off at the top), also as the close camera shot moves in.
+- [ ] When the dissolve finishes he is gone for good: no flash of him back for an instant.
+- [ ] ⚑ Progress → Reset on *Taken*, walk in again: same result. If he holds a prop (Holds → + Prop), it dissolves with him and is not cut off either.
+
 **0ba. Dissolve preview: all characters, true size (20 Nov)**
 - [ ] Asset Lab → Dissolve: *Preview on* lists all your characters (Aureli, Hero 2, Fox, New01, Character01–03) and opens on Aureli, not the fox picture.
 - [ ] Each one stands on the ground line at its game size: Aureli about the player reference's height, the Fox clearly smaller, Father a little taller.
