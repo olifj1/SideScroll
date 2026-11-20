@@ -41,6 +41,7 @@
     prop:    { label: 'Prop', help: 'a character takes an asset in its hand (Father\u2019s axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
   });
+  const PLAYER = 'player'; // Say: the player speaks (the character being played)
   const PROP_ACTIONS = Object.freeze({ give: 'Hold it', take: 'Put it away', drop: 'Drop it' });
   // An asset name (built-in or imported): what a character holds.
   const PROP_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -88,10 +89,15 @@
     const def = STEPS[raw?.type];
     if (!def) return null;
     const out = { type: raw.type, with: !!raw.with };
+    // Don't wait for it: the event carries on with the next step while this one
+    // runs (it still ends only when this has finished too).
+    if (raw.background) out.background = true;
     for (const [field, kind] of Object.entries(def.roles)) {
       const role = raw[field];
       if (typeof role === 'string' && (kind === 'any' ? roleKinds.has(role) : roleKinds.get(role) === kind)) out[field] = role;
     }
+    // A line can also be the player's own (no placeholder).
+    if (raw.type === 'say' && raw.actor === PLAYER) out.actor = PLAYER;
     switch (raw.type) {
       case 'move':
         out.animation = animationKey(raw.animation, 'walk');
@@ -318,7 +324,7 @@
   }
 
   window.SideScrollSequences = Object.freeze({
-    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS,
+    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER,
     normaliseEvents, normaliseSequences, normaliseBody, bodyOf, load, save, loadProgress, saveProgress,
     flagName, conditionMet, newId
   });
