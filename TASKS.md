@@ -60,6 +60,7 @@ mesh parts and skin are the character's own; abilities come from a shared list.
 - [ ] **C4 — New Character flow:** name → rig → atlas → mesh parts → skin → animations (instance / copy each) → abilities → play-test in the lab → save → in game.
 - [ ] **C5 — Actions and abilities:** one shared ability list, editable in Character Lab and Asset Lab; **create new actions** (name, button label, animation slot) and assign them to characters; rig templates give default abilities; the game only offers actions a character has. Asset behaviours (carryable, pushable, climbable) become "this asset offers action X". First real actions: Climb as an editable Biped clip (keep current climb paths/speed), Pick Up / Put Down / Carry (grasp/release markers driving existing interaction timing). **Builds on the action slots (Settings → Action slots):** an action = a slot plus its button label and game behaviour; slots added in Settings start as "not hooked up yet" and get their behaviour here (or from an action path, C6); a character with no animation in a slot doesn't have that action.
 - [ ] **C6 — Action paths:** generalise the climb path into an action path (action name, button label, bound animation, character follows the path), bound to an asset in Asset Lab or placed as a stand-alone node in the world and shown in World Lab. Example: *Crawl* through a gap. Design together with Environment Animation Path and Puzzle Logic (Later). An action path names an **action slot**, so one path works for every character with an animation in that slot.
+- [ ] **Story node graph:** a sequence's logic as nodes and arrows (zones / Action / flags / finished events → events → flags), loops included; each event box opens its ⤢ Timeline. Later a **Choice** step (a fork at the end of an event).
 - [ ] **Props — next steps** (design: `docs/CHARACTER_SYSTEM_DESIGN.md` → Props): the **player** picks up and uses items with the same grips (an asset offers *Pick up*, a held item offers actions such as *Chop*; fits C5); the far hand following a two-handed grip; more attachment points (back, belt, a quadruped's mouth); Character Lab's Props list shows only a few built-in assets (plus every imported one) — list all built-in assets if needed.
 - [ ] **Character packages for templates:** exports carry (or reference) linked templates; importing a shared template lists the characters it affects. *(with C2/C3)*
 
@@ -81,6 +82,13 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bd. Event timeline and folded steps (20 Nov)**
+- [ ] Story → Events → *Taken*: each step is one line (summary, length, ↷ for "don't wait"; steps at the same time are indented). Tap one: it opens; tap its ▾ title: it folds.
+- [ ] Drag a step by ⋮⋮ up or down the list: a yellow line shows where it lands; it moves there. Undo still works.
+- [ ] **⤢ Timeline**: the event fills the screen, time left to right; the dissolve is a long dashed block with the lines over it. − / + zoom; swipe scrolls both ways.
+- [ ] Drag a block by ⋮⋮ onto another block: they now start together. Drag one between two moments (yellow line): it gets its own moment. Press and hold a block (no ⋮⋮) and drag: same. A plain swipe on a block still scrolls.
+- [ ] Tap a block: its settings open on the right; changes show on the timeline. **+ Step** opens the step list (the timeline steps aside) and comes back with the new step open. **Save** / **‹ Close** work.
 
 **0bc. Lines during the dissolve; the player speaks (20 Nov)**
 - [ ] Story → Events → *Taken*: on the **Effect** step tick *Don’t wait for it to finish*. Keep the Wait 3 s step *at the same time* as it, then Father’s Say step (not at the same time).

@@ -1,5 +1,12 @@
 # SideScroll Engine & UX Bible
 
+## Story: timelines inside events, graphs between them (20 Nov 2026)
+- An event is a straight line of beats; it is edited as a list or a **timeline** (time left to
+  right). Branching, loops and choices live between events (a sequence's logic), whose view is a
+  node graph. Don't add branching inside an event.
+- Reordering on the phone: a ⋮⋮ grip drags at once; press-and-hold drags anywhere else, so plain
+  swipes still scroll. Edits made in the timeline are the same draft as the list (Save / Discard).
+
 ## Props: one grip per character per asset (20 Nov 2026)
 - Anything a character holds is drawn through one list of held things (`[{layer, draw}]`), placed
   among its parts by `heldItemIndex` — the same in Character Lab and the game. New held things

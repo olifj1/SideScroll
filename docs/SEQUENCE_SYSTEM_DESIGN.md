@@ -93,6 +93,12 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
     as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
     character that ends fully dissolved stays hidden.
+  - *(20 Nov)* **Editing long events:** steps fold to one-line rows with ⋮⋮ to drag; **⤢ Timeline**
+    shows the event in time (blocks per step, stacked when they start together, "don't wait"
+    steps running on) with drag to reorder / join and tap to edit. Events stay straight lines;
+    branching and loops belong *between* events in a sequence's logic, which gets a node-graph
+    view next (each event box opening its timeline). A mid-conversation **Choice** would end an
+    event and fork in that graph.
   - *(20 Nov)* Any step can be marked **Don't wait for it to finish**: the next steps start while
     it runs (lines spoken during a long dissolve); the event still ends — and gives back control
     and the camera — only when it has finished. A **Say** step's speaker can be **the player**.

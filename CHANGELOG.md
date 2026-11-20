@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story: event timeline and a tidier step list.** An event's steps now fold to one line each
+  (tap to open, drag ⋮⋮ to reorder). **⤢ Timeline** opens the event full screen with time running
+  left to right. Each step is a block as long as it takes, steps that start together stack, and
+  "don't wait" steps run on dashed under the next ones. Drag a block (by ⋮⋮ or press and hold) onto
+  another to run them together, or between two moments to give it its own; tap a block to edit it
+  beside the timeline. You can add steps and Save from there too.
 - **Story: lines during a long step, and the player can speak.** Any event step can be ticked
   **Don't wait for it to finish**, so the next steps carry on while it runs. For example, the
   dissolve plays while Father and Aureli speak, and the event still holds control and the camera
