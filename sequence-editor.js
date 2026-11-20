@@ -224,7 +224,7 @@
 
   // ---- Sequence page -------------------------------------------------------------
   const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑' };
-  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺' };
+  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺', prop: '⚒' };
   function componentEditor(p, body, c) {
     const moving = placeMode?.kind === 'component' && placeMode.id === c.id;
     const worldX = el('input', { type: 'number', step: '0.1', value: fmt(p.x + c.dx, 2), inputmode: 'decimal' });
@@ -249,10 +249,29 @@
           }, 'Its place, standing animation and logic stay the same')))),
       field('Standing animation', select_(slotChoices(), c.animation, v => { c.animation = v; change(); }), 'Loops until an event moves or animates it'),
       slider(c, 'scale', 0.3, 3, 0.01, 'Size (× its own)', 2),
+      holdsField(c),
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Blocks the player' }),
         segmented([['auto', 'Auto'], ['always', 'Always'], ['never', 'Never']], c.blocks, v => { c.blocks = v; change(); }),
         el('small', { text: 'Auto: blocks while it stands on the path; it can’t be walked or jumped past.' })));
     return el('div', { class: 'sidescroll-story-editor' }, ...parts);
+  }
+  // Props a character holds from the start (a Prop step can change it while playing).
+  const propChoices = () => host.props?.() || [];
+  const propLabel = id => propChoices().find(x => x.id === id)?.name || id;
+  function chooseProp(key, title, onPick) {
+    openChooser(key, title, propChoices().map(x => ({ value: x.id, label: x.name, thumb: x.held ? '⚒' : '◇',
+      note: x.held ? `${x.group} · hold set up in Character Lab` : x.group })), onPick,
+      'How it is held (hand, place, angle, size) is set per character in Character Lab → Props');
+  }
+  function holdsField(c) {
+    const holding = c.holding || [];
+    return el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Holds' }),
+      holding.map((name, i) => el('div', { class: 'sidescroll-seq-item' }, el('div', { class: 'sidescroll-seq-current', text: `⚒ ${propLabel(name)}` }),
+        xBtn(() => { holding.splice(i, 1); if (holding.length) c.holding = holding; else delete c.holding; change(); }, `Stop holding ${propLabel(name)}`))),
+      holding.length < 4 ? btn('+ Prop', () => chooseProp('holds', `${c.name} holds…`, name => {
+        c.holding = [...new Set([...holding, name])]; change(); host.hint(`${c.name} holds ${propLabel(name)} · set the grip in Character Lab → Props`);
+      })) : null,
+      el('small', { text: 'Held from the start. Hand, place, angle and size: Character Lab → Props.' }));
   }
   function removeComponent(body, c) {
     if (!confirm(`Remove ${c.name}? Logic using it loses that part.`)) return;
@@ -491,6 +510,18 @@
         if (fx?.character) rows.push(help('A character effect works on the character itself: it starts whole and blends through its states; if it ends fully dissolved (Gone, or Dissolve at 1) the character stays hidden. It keeps moving while it dissolves.'));
         rows.push(help(fx ? (fx.states?.length ? 'The effect starts invisible and blends to each state in turn; it follows the character (a hidden character keeps moving, so the dust travels on), then disappears when the last state is done. Run this step “with” a Move step to catch a running animal. For a long, low animal widen the effect (Asset Lab → Shape) or raise the size.'
           : 'This effect has no states yet: in Asset Lab, set its sliders and tap “Save as state” (e.g. Grab, Cover, Dust).') : 'Make an effect first: Asset Lab → + New effect.'));
+        break;
+      }
+      case 'prop': {
+        s.action ||= 'give';
+        rows.push(field('Who (character placeholder)', roleSelect('actor', 'character')),
+          segmented(Object.entries(Seq.PROP_ACTIONS), s.action, v => { s.action = v; change(); }),
+          el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Prop' }),
+            el('div', { class: 'sidescroll-seq-item' }, el('div', { class: 'sidescroll-seq-current', text: s.asset ? `⚒ ${propLabel(s.asset)}` : 'None chosen' }),
+              btn(s.asset ? 'Change…' : 'Choose…', () => chooseProp(`prop-${index}`, 'Which prop?', name => { s.asset = name; change(); })))),
+          help(s.action === 'give' ? 'The character takes it in hand, held as its hold in Character Lab → Props says (it follows the hand in every animation).'
+            : s.action === 'take' ? 'The character stops holding it (it is put away).'
+            : 'It falls from the hand and lies on the ground there. Progress → Reset on this sequence puts it back.'));
         break;
       }
       case 'look': {

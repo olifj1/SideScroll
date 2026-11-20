@@ -97,6 +97,20 @@ Action slots built 31 Oct (C3b, `action-slots.js`): one project-wide list of nam
   climbable…) and climb paths. These become "this asset offers action X", matched
   against the character's abilities.
 
+### Props: holding assets (built 20 Nov 2026, story characters first)
+- **Any asset can be held.** How a character holds one is its **grip** for that asset
+  (`setup.holds[asset]`: hand, offset along / across the hand, angle, size, mirror, draw
+  layer), set in Character Lab → **Props** against the rest pose or any animation. The prop
+  follows the hand bone, so animations (Chop) swing it. Grips belong to the character (a
+  different character holding the same axe has its own grip).
+- **Who holds what is not a character setting**: today a sequence component's *Holds* and
+  the Prop event step (hold / put away / drop). Shared code: `character-props.js`.
+- **Next (planned, same data):** the player picks up and uses items — an asset offers
+  *Pick up* (C5: "this asset offers action X"), the player then holds it with its grip and
+  the item can offer actions (e.g. *Chop* plays the slot and acts on a target). Two-handed
+  holds (the far hand following the prop), more attachment points (back, belt, a
+  quadruped's mouth) and sounds on animation frames build on the same grips.
+
 ## 4. Action paths (generalised climb path)
 The climb path becomes a general **action path**: a path with an action name, a
 button label, an animation bound to it, and the character following the path

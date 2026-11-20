@@ -236,6 +236,27 @@ Save) and asks *Edit template / Make unique* on the first edit of a linked clip 
 *Use updated / Keep previous* when its template changed. Settings lists animation
 templates (rename; remove when nothing follows them).
 
+## Props (held assets)
+`character-props.js` (`window.SideScrollProps`; loaded by play and walk-lab): any asset can be
+held. A character's **grip** for an asset is `setup.holds[asset name]` = `{hand 'near'|'far', x, y
+(prop centre from the wrist, along / across the wrist→hand bone, rig units), angle (°, from the
+hand bone), size (height, rig units; metres = × 2.31 × setup scale), flip, layer 'hand'|'front'|
+'back'|'part:…'}` (`place(geometry, hold)` → centre / angle in character space; `holdFor` gives a
+default grip when none is saved). Saved with the setup (Save), so packages, publishing and backup
+carry it. Character Lab → **Props** stage (`anim-lab-props.js`, setupTool `'props'`, bipeds):
+add a prop (built-in `Props.BUILT_IN` + imported assets), Move / Turn / Size on the viewport pad,
+numbers, Mirror, hand, *Drawn*; preview in any animation (`core.setSetupPoseProvider`) and
+optionally in Animate / Play (`core.setPropItemsProvider` → items drawn among the parts). Held
+things are drawn among a character's parts as a list `[{layer, draw}]` (`heldItems` in
+`GameHubWalkRig.drawCanvas`, the Skin mesh renderer and the game's `drawLocalMeshCharacter`, each
+placed by `heldItemIndex`). Game: a sequence character component's `holding` (asset names) and
+the **Prop** step (`{actor, action 'give'|'take'|'drop', asset}`) decide what is held;
+`storyHeldProps` draws each with `drawPropAt` (centred billboard, follows the hand); a drop
+(`seqDropProp`) falls and lies on the ground (progress `components["sq:c"].dropped`, drawn by
+`drawSeqDroppedProps`); progress `holding` overrides the component's. Story editor: component
+*Holds*, Prop step, picker from `host.props()`. Player pick-up / use is the planned next step
+(`docs/CHARACTER_SYSTEM_DESIGN.md` → Props).
+
 ## Character packages
 `character-packages.js` exports one character or all characters to a file and
 imports them. A package holds the character's raw saved pieces ("slices", used
@@ -250,8 +271,8 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `sidescroll.js`, `sequence-editor.js` |
-| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, animate) | `walk-lab.js`, `anim-lab-*.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
+| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
+| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `asset-lab.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement; Sequences track; player start | `world-lab.js`, `sequence-data.js`, `asset-library.js` |
@@ -266,11 +287,11 @@ Any new per-character storage must be added to `slicesFor()` there.
 design `docs/SEQUENCE_SYSTEM_DESIGN.md`, steps 1–2 done). Content keys `sidescroll.story.events.v1`
 (`events:[{id ev-…, name, roles:[{id r-…, name, kind 'character'|'mark'}], steps:[{type
 (Seq.STEPS: move, animate, face, say, think, wait, flag, show, control, camera, screen, prompt, item,
-effect, look), with (run with the
+effect, look, prop), with (run with the
 previous step), actor/to/target (role ids), …}]}]`) and `sidescroll.story.sequences.v1`
 (`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
 body = `{components:[{id c-…, kind 'character'|'mark'|'zone', name, dx (from the anchor), depth,
-facing, character, animation (action slot), scale, blocks | width}], logic:[{id l-…, when:{type
+facing, character, animation (action slot), scale, blocks, holding? | width}], logic:[{id l-…, when:{type
 (Seq.WHEN: load, enter, action, finish, flag), zone, label, line, flag}, event, roles:{role id:
 component id}, condition?, once}]}`; `Seq.bodyOf` gives a placed sequence's body). Animations in
 events and components are **action slots**: each character plays its own animation for the slot.

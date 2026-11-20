@@ -1,5 +1,13 @@
 # SideScroll Engine & UX Bible
 
+## Props: one grip per character per asset (20 Nov 2026)
+- Anything a character holds is drawn through one list of held things (`[{layer, draw}]`), placed
+  among its parts by `heldItemIndex` — the same in Character Lab and the game. New held things
+  (player items, tools) join that list instead of adding their own draw path.
+- A grip belongs to the character (`setup.holds`), not the asset; *who* holds *what* belongs to
+  whatever gives it (a sequence today, the player's actions later). Placement is edited with the
+  viewport pad and number boxes, never by dragging in the view (phone-first, as Parts).
+
 ## v1.1.18 — Skin Joint Fit remains a *single opt-in step*
 
 Do not change the accepted rectangular binary weighting model while testing joint seams. Add **Joint Fit: On/Off** inside the existing Skin bone-influence controls instead of another skinning workspace. Rest-linked sequential bones must calculate **one common** mitred boundary using their authored rest joint angle, rather than each side having an independently moved square cap. Remain 100%/0% ownership, with at most one bone controlling each vertex and unclaimed vertices staying at rest; no automatic blending, smoothing or posed-frame reassignment. A connected cap stays anchored to the joint: explain that Local X size/offset controls free ends while Local Y scale affects the shared mitre width. Allow Undo/Redo, Save/Discard, explicit opt-in and a reliable Off comparison with previously saved independent rectangles. When posed, guide shape moves rigidly with its selected bone, as do vertices; it is not dynamically fitted again using posed anatomy. Preserve original Fox and never alter the asset/source mesh. Do not proceed to Stage 2 soften without iPhone validation.

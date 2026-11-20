@@ -1,5 +1,10 @@
 # SideScroll — Export and Recovery Coverage
 
+## 20 November 2026 — Props (held assets)
+- No new keys. A character's grips are `setup.holds` (`{<asset name>: {hand, x, y, angle, size, flip, layer}}`, `character-props.js`): original characters in `sidescroll.animlab.setup.v1[id]`, library characters in their library entry's `setup`. Written only when the character has at least one prop; travels with the setup in character packages, publish packages and Project Backup; no migration.
+- A sequence character's starting props are `holding` (asset names) on its component in `sidescroll.story.sequences.v1` (Story area). What a Prop step changed is play progress (`sidescroll.player.story-progress.v2` → `components["sq:c"].holding` / `.dropped`), not content; a sequence's Reset clears it.
+- Character Lab's Props view choices (selected prop, pose, *Show in Animate and Play*) are in sessionStorage only.
+
 ## 19 November 2026 — Character effects
 - No new keys: a character effect (Dissolve) is an effect asset with `art.shader: 'dissolve'` in `sidescroll.asset-library.v1`, publishing and backing up like the darkness effect. A character it dissolves completely is recorded as `hidden` in its story-progress component, as the Effect step's *hide* already was.
 

@@ -1861,7 +1861,8 @@
   function render(args){
     const s=renderState(),parts=inventory(s);if(!parts||!s.rig?.RIG_DESIGNER||!parts.length)return false;
     useRig(s.rig);
-    if(s.mode==='setup'&&s.setupTool!=='skin')return false;
+    // Setup draws the posed mesh in Skin and Props (Props: rest pose or an animation).
+    if(s.mode==='setup'&&s.setupTool!=='skin'&&s.setupTool!=='props')return false;
     const sources=sourceMap(s),skinMode=s.mode==='setup'&&s.setupTool==='skin';
     const pose=skinMode&&preview==='rest'?null:skinMode?(core.evaluateClip?.(preview,phase,s.family)||args.pose):args.pose;
     const bindGeom=bindingGeometry(s.setup?.skinBindRig||s.setup?.rig||rig.DEFAULT_REST_RIG);
@@ -1889,19 +1890,25 @@
       drawList.push({item,mesh,image,points,binding,selected});
     }
     const useGpu=core.getOverlay?.('gpu')!==false;
-    // Quick Play's held test box goes between the parts (behind the near arm by
-    // default), so draw the parts in two passes around it.
+    // Held things (Quick Play's test box, props) go between the parts (the box
+    // behind the near arm by default), so draw the parts in passes around them.
     const Biped=window.GameHubWalkRig;
-    const heldAt=args.drawHeld&&s.family==='biped'&&Biped?.heldItemIndex
-      ?Biped.heldItemIndex(drawList,args.heldLayer,e=>e.item.id,e=>Biped.weightsAreNearArm(e.binding?.weights)):-1;
-    const passes=heldAt>=0?[drawList.slice(0,heldAt),drawList.slice(heldAt)]:[drawList];
+    const held=s.family==='biped'&&Biped?.heldItemIndex
+      ?(args.heldItems||(args.drawHeld?[{layer:args.heldLayer,draw:args.drawHeld}]:[]))
+        .map(item=>({draw:item.draw,at:Biped.heldItemIndex(drawList,item.layer,e=>e.item.id,e=>Biped.weightsAreNearArm(e.binding?.weights))}))
+      :[];
+    const cuts=[...new Set(held.map(h=>h.at))].sort((a,b)=>a-b);
+    const passes=[];let from=0;
+    for(const cut of cuts){passes.push({list:drawList.slice(from,cut)});passes.push({held:held.filter(h=>h.at===cut)});from=cut;}
+    passes.push({list:drawList.slice(from)});
     let gpuDrew=true;
-    passes.forEach((list,k)=>{
-      if(k===1)args.drawHeld();
-      const drewOnGpu=useGpu&&gpuDrawMeshes(ctx,list,counts);
-      if(!drewOnGpu)for(const e of list)rasterTriangles(ctx,e.image,e.mesh,e.points,e.binding,pose,counts);
+    for(const pass of passes){
+      if(pass.held){for(const h of pass.held)h.draw();continue;}
+      if(!pass.list.length)continue;
+      const drewOnGpu=useGpu&&gpuDrawMeshes(ctx,pass.list,counts);
+      if(!drewOnGpu)for(const e of pass.list)rasterTriangles(ctx,e.image,e.mesh,e.points,e.binding,pose,counts);
       gpuDrew=gpuDrew&&drewOnGpu;
-    });
+    }
     meshMethod=gpuDrew?'GPU':'Canvas';
     for(const {mesh,points,binding,selected} of drawList){
       if(selected&&heatmap&&binding){

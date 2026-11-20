@@ -93,6 +93,10 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
     as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
     character that ends fully dissolved stays hidden.
+  - **Prop** *(added 20 Nov)* — *role* takes an asset in hand (*Hold it*), puts it away, or
+    *drops* it (it falls from the hand and lies on the ground; kept in play progress, cleared by
+    the sequence's Reset). How each character holds each asset is its grip from Character Lab →
+    Props; a character component can also **hold** props from the start (*Holds*).
   - **Look** *(added 14 Nov)* — change the world to a saved look (named fog + post set, Menu →
     Looks) or back to base, blended over N s; it stays until another Look step (kept in play
     progress). Later: more look controls (grading, vignette, bloom) and **Skip** (see *Later*).

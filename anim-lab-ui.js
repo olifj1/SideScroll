@@ -131,12 +131,13 @@
     parts: 'Arrange artwork. Skeleton stays fixed.',
     rig: 'Move joints without moving the artwork.',
     skin: 'Tune deforming regions and bone weights.',
+    props: 'Things it can hold: place each against the hand.',
     animate: 'Edit clips using the shared timeline.',
     play: 'Test this character’s working clips and movement.'
   };
   function update(s = core.getState()) {
     const stage = s.mode === 'setup'
-      ? ({atlas:'atlas',art:'parts',rig:'rig',skin:'skin'}[s.setupTool] || 'rig')
+      ? ({atlas:'atlas',art:'parts',rig:'rig',skin:'skin',props:'props'}[s.setupTool] || 'rig')
       : s.mode === 'play' ? 'play' : 'animate';
     // Atlas has its own image-space controls; the shared Character Display
     // belongs only to Parts/Rig/Skin/Animate/Play. Restore it on exit.
@@ -148,7 +149,8 @@
       const active = id === stage;
       btn.disabled = id === 'play' ? !caps.quickPlay :
         id === 'parts' ? !caps.authoring?.parts :
-        id === 'skin' ? !caps.authoring?.skin : false;
+        id === 'skin' ? !caps.authoring?.skin :
+        id === 'props' ? !window.SideScrollProps?.FAMILIES?.[s.family] : false;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-pressed', String(active));
       btn.setAttribute('aria-current', active ? 'step' : 'false');
