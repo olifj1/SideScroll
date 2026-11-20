@@ -82,6 +82,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0az. Dissolve preview on a character (20 Nov)**
+- [ ] Asset Lab → your **Dissolve** effect: under EFFECT there are *Preview on*, *Holding* and *Pose*. Choose Father (Character03): the stage shows him instead of the fox (if the effect's settings are fully dissolved, drag *Progress* down to see him).
+- [ ] *Holding* lists the props you set up for him in Character Lab → Props (after Save); choose one: he holds it on the stage and it dissolves with him.
+- [ ] *Pose* → Walk (or any animation): he plays it on the spot. Standing still: rest pose.
+- [ ] Back to *Sample picture (fox)*: the fox is back. Reload the page: your choice is still there (this session).
+
 **0ay. Props: Father holds something (20 Nov)**
 - [ ] Character Lab → Father (Character03) → **Props** (new button between Skin and Animate): *Add a prop* → Broken Branch (or your axe once imported): it appears at his near hand with a dashed outline.
 - [ ] Use the pad bottom-right: **Move** drags it, **Turn** turns it, **Size** grows / shrinks it, **Fine** slows them; the four number boxes match and can be typed into. **Mirror**, **Far hand** and *Drawn* change it as expected; Undo works.

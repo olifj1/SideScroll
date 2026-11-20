@@ -45,6 +45,7 @@ const CORE_SHELL = [
   "./character-props.js",
   "./looks.js",
   "./effects.js",
+  "./character-preview.js",
   "./asset-library.js",
   "./sequence-editor.js",
   "./character-game-runtime.js",
