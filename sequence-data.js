@@ -38,8 +38,14 @@
     prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} },
     item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} },
     effect:  { label: 'Effect on a character', help: 'a darkness wrapping a character, or a character effect such as Dissolve; blends through its states and can hide the character', roles: { actor: 'character' } },
+    prop:    { label: 'Prop', help: 'a character takes an asset in its hand (Father\u2019s axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
   });
+  const PROP_ACTIONS = Object.freeze({ give: 'Hold it', take: 'Put it away', drop: 'Drop it' });
+  // An asset name (built-in or imported): what a character holds.
+  const PROP_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
+  const propName = v => (typeof v === 'string' && PROP_NAME.test(v) ? v : '');
+  const MAX_HELD = 4, MAX_DROPPED = 20;
   const SCREEN_ACTIONS = Object.freeze({ 'fade-out': 'Fade to black', 'fade-in': 'Fade in from black', 'bars-in': 'Letterbox bars in', 'bars-out': 'Letterbox bars out' });
   const WHEN = Object.freeze({
     load: 'The sequence starts', enter: 'The player walks into a zone', leave: 'The player leaves a zone', action: 'The player presses Action in a zone',
@@ -152,6 +158,12 @@
           seconds: round(clamp(k?.seconds, 0, 20, 0.5), 100) }));
         break;
       }
+      case 'prop':
+        // Which asset, and whether the actor takes it in hand, puts it away or
+        // drops it (it falls and lies there; play progress keeps where).
+        out.asset = propName(raw.asset);
+        out.action = PROP_ACTIONS[raw.action] ? raw.action : 'give';
+        break;
       case 'look':
         // A saved look (Menu → Looks) or '' = the base look; blends over `seconds`.
         // It stays until another Look step changes it (kept in play progress).
@@ -193,6 +205,9 @@
       out.animation = animationKey(raw.animation, 'idle');
       out.scale = round(clamp(raw.scale, 0.3, 3, 1));
       out.blocks = ['auto', 'always', 'never'].includes(raw.blocks) ? raw.blocks : 'auto';
+      // Assets it holds from the start (hand and grip: Character Lab → Props).
+      const holding = [...new Set((Array.isArray(raw.holding) ? raw.holding : []).map(propName).filter(Boolean))].slice(0, MAX_HELD);
+      if (holding.length) out.holding = holding;
     } else if (raw.kind === 'zone') {
       out.width = round(clamp(raw.width, 0.2, 40, 2));
       out.depth = 0;
@@ -259,7 +274,8 @@
 
   // ---- Play progress -----------------------------------------------------------
   // {flags:{name:true}, fired:{"<placed id>:<line id>":true},
-  //  components:{"<placed id>:<component id>":{x, depth, facing, animation, hidden}},
+  //  components:{"<placed id>:<component id>":{x, depth, facing, animation, hidden,
+  //    holding:[asset], dropped:[{asset, x, z, rot, flip, w, h}]}} (props: Prop step),
   //  taken:{"<placed id>":{item id: count}} — items its events took from the player,
   //  look:{id, by} — the look a Look step set (by = placed sequence id); none = base}
   function loadProgress() {
@@ -281,6 +297,14 @@
       if (v.facing !== undefined) c.facing = facing(v.facing);
       const a = animationKey(v.animation, null); if (a) c.animation = a;
       if (v.hidden !== undefined) c.hidden = !!v.hidden;
+      // Props: what it holds now (a Prop step changed it) and what it dropped.
+      if (Array.isArray(v.holding)) c.holding = [...new Set(v.holding.map(propName).filter(Boolean))].slice(0, MAX_HELD);
+      if (Array.isArray(v.dropped)) {
+        const dropped = v.dropped.slice(0, MAX_DROPPED).filter(d => propName(d?.asset) && [d.x, d.z, d.rot, d.w, d.h].every(n => Number.isFinite(Number(n))))
+          .map(d => ({ asset: d.asset, x: round(Number(d.x)), z: round(clamp(d.z, DEPTH[0], DEPTH[1], 0)), rot: round(Number(d.rot)), flip: !!d.flip,
+            w: round(clamp(d.w, 0.01, 20, 1)), h: round(clamp(d.h, 0.01, 20, 1)) }));
+        if (dropped.length) c.dropped = dropped;
+      }
       out.components[k] = c;
     }
     return out;
@@ -294,7 +318,7 @@
   }
 
   window.SideScrollSequences = Object.freeze({
-    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS,
+    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS,
     normaliseEvents, normaliseSequences, normaliseBody, bodyOf, load, save, loadProgress, saveProgress,
     flagName, conditionMet, newId
   });

@@ -583,6 +583,9 @@
   let rigEditChoice = null;
   let rigEditListener = null;
 
+  const PropsLib = window.SideScrollProps || null;
+  // The Props stage (bipeds): a stage of Setup like Rig or Skin.
+  const propsStageFits = family => !!PropsLib?.FAMILIES?.[family];
   function defaultSetupFor(characterId) {
     const character = characterById(characterId);
     const adapter = adapters[character.family];
@@ -607,6 +610,8 @@
     const savedJump = quadrupedSetupCurrent && saved.jumpHeight != null ? Number(saved.jumpHeight) : NaN;
     setup.jumpHeight = clamp(Number.isFinite(savedJump) ? savedJump : DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
     setup.heldItemLayer = normaliseHeldItemLayer(quadrupedSetupCurrent ? saved.heldItemLayer : null);
+    // How it holds props (Props stage; character-props.js).
+    setup.holds = PropsLib ? PropsLib.normaliseHolds(saved.holds) : {};
     // Structural rest-rig data is character-definition data, not clip data and
     // not a duplicate field in the generic Setup storage. The editor receives a
     // working copy here; only explicit Save writes the rig family's own key.
@@ -1035,6 +1040,8 @@
   let playOverlaySnapshot = null;
   let playFrameProvider = null;
   let heldItemDrawer = null;
+  let propItemsProvider = null; // anim-lab-props.js: fn(args) → [{layer, draw()}]
+  let setupPoseProvider = null; // anim-lab-props.js: the pose shown in the Props stage
   let lastPlayFrame = null;
   let lastRenderedView = null;
   let interactionSnapshot = null;
@@ -1052,7 +1059,7 @@
       characterId:charId,
       clip:['idle','walk','run','jump'].includes(saved?.clip) ? saved.clip : 'walk',
       mode:saved?.mode === 'setup' ? 'setup' : saved?.mode === 'play' ? 'play' : 'animate',
-      setupTool:['rig','art','skin','atlas'].includes(saved?.setupTool) ? saved.setupTool : 'rig',
+      setupTool:['rig','art','skin','atlas','props'].includes(saved?.setupTool) ? saved.setupTool : 'rig',
       frame:Number.isInteger(saved?.frame) ? clamp(saved.frame,0,15) : 0
     };
   }
@@ -1061,6 +1068,7 @@
   if (!clipExists(selection.characterId, selection.clip)) selection.clip = 'walk';
   if (selection.mode === 'play' && !characterProfile(characterById(selection.characterId).family)?.quickPlay) selection.mode = 'animate';
   if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(selection.characterId).family])) selection.setupTool = 'rig';
+  if (selection.setupTool === 'props' && !propsStageFits(characterById(selection.characterId).family)) selection.setupTool = 'rig';
   let setupDraft = defaultSetupFor(selection.characterId);
   let checkpoint = null;
 
@@ -1220,6 +1228,7 @@
       setupDraft.runSpeed = clamp(Math.max(Number(value.runSpeed) || defaults.run, setupDraft.walkSpeed + .20), MOVE_RUN_SPEED_MIN, MOVE_RUN_SPEED_MAX);
       setupDraft.jumpHeight = clamp(Number(value.jumpHeight) || DEFAULT_JUMP_HEIGHT, JUMP_HEIGHT_MIN, JUMP_HEIGHT_MAX);
       setupDraft.heldItemLayer = normaliseHeldItemLayer(value.heldItemLayer);
+      setupDraft.holds = PropsLib ? PropsLib.normaliseHolds(value.holds) : {};
       if (adapter.normaliseRestRig) setupDraft.rig = adapter.normaliseRestRig(value.rig);
       if (artLayoutDescriptor(adapter)) setupDraft.artLayout = normaliseArtLayout(adapter,value.artLayout);
       if (supportsRestBinding(adapter)) setupDraft.skinTuning = normaliseSkinTuning(value.skinTuning);
@@ -1471,6 +1480,8 @@
         storedSetup.jumpHeight=clamp(Number(setupDraft.jumpHeight)||DEFAULT_JUMP_HEIGHT,JUMP_HEIGHT_MIN,JUMP_HEIGHT_MAX);
         // Only stored when changed, so characters that never set it stay as published.
         if (normaliseHeldItemLayer(setupDraft.heldItemLayer) !== 'auto') storedSetup.heldItemLayer=normaliseHeldItemLayer(setupDraft.heldItemLayer);
+        const holds = PropsLib ? PropsLib.normaliseHolds(setupDraft.holds) : {};
+        if (Object.keys(holds).length) storedSetup.holds = holds;
         if (character.family === 'quadruped') storedSetup.baselineId=QuadrupedRig.AUTHORING_BASELINE_ID || null;
         if (artLayoutDescriptor(adapter)) storedSetup.artLayout=normaliseArtLayout(adapter,setupDraft.artLayout);
         if (validRigLink(setupDraft.rigTemplate)) storedSetup.rigTemplate=clone(setupDraft.rigTemplate);
@@ -1615,6 +1626,7 @@
       if (!clipExists(id, selection.clip)) selection.clip = 'walk';
       setupDraft = defaultSetupFor(id);
       if (['art','skin'].includes(selection.setupTool) && !artLayoutDescriptor(adapters[characterById(id).family])) selection.setupTool = 'rig';
+      if (selection.setupTool === 'props' && !propsStageFits(characterById(id).family)) selection.setupTool = 'rig';
       selection.frame = 0; playPhase = 0; playing = false;
       fitView(false); saveEditorSelection(); resetCheckpoint(); draw(); notify();
     });
@@ -1909,8 +1921,9 @@
   function navigateAuthorStage(stage) {
     if (stage === 'animate') { switchMode('animate'); return true; }
     if (stage === 'play') { if (!characterProfile()?.quickPlay) return false; switchMode('play'); return true; }
-    const tool = {atlas:'atlas',parts:'art',rig:'rig',skin:'skin'}[stage];
-    if (!tool || (tool !== 'rig' && tool !== 'atlas' && !supportsRestBinding(currentAdapter()))) return false;
+    const tool = {atlas:'atlas',parts:'art',rig:'rig',skin:'skin',props:'props'}[stage];
+    if (tool === 'props' && !propsStageFits(currentCharacter().family)) return false;
+    if (!tool || (tool !== 'rig' && tool !== 'atlas' && tool !== 'props' && !supportsRestBinding(currentAdapter()))) return false;
     const enter = () => {
       const wasSetup = selection.mode === 'setup';
       const wasPlay = selection.mode === 'play';
@@ -2051,14 +2064,14 @@
     const restRig = setupDraft.rig || displayRestRig(adapter);
     if (artRenderers.size) {
       const args={ctx,canvas,character,adapter,pose,view:sv,alpha,atlas,restRig,setup:setupDraft,project,
-        drawHeld:adapter.id==='biped'?held?.draw:null,heldLayer:held?.layer};
+        heldItems:adapter.id==='biped'?held?.items:null};
       for (const renderer of artRenderers.values()) {
         try { if (renderer(args) === true) return; }
         catch (err) { console.error('[Anim Lab] Art renderer failed.',err); }
       }
     }
     if (!atlas) return; // no original art fallback for custom image-only assembly
-    if (adapter.id === 'biped' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha,restRig,drawHeld:held?.draw,heldLayer:held?.layer});
+    if (adapter.id === 'biped' && typeof BipedRig.drawCanvas === 'function') BipedRig.drawCanvas(ctx,atlas,pose,sv,{alpha,restRig,heldItems:held?.items});
     else adapter.rig.partsForPose(pose,restRig).forEach(part => drawPart(adapter.rig,atlas,part,sv,alpha));
   }
 
@@ -2235,6 +2248,10 @@
         : (playing?evaluateSparsePose(displaySparseClip(),playPhase*16,currentCharacter().family):currentPose());
     if(interactivePose && interactivePoseFrame===selection.frame && selection.mode==='animate' && !playing)
       pose=interactivePose;
+    // Props stage: the props module may show the character in an animation.
+    if(selection.mode==='setup'&&selection.setupTool==='props'&&typeof setupPoseProvider==='function'){
+      try{const p=setupPoseProvider();if(p)pose=adapter.normalise(p,0);}catch(err){console.error('[Anim Lab] Props pose failed.',err);}
+    }
     if (selection.mode==='animate' && adapter.id==='quadruped' && selection.clip==='jump') {
       pose = clampJumpPoseToRealGround(pose,phase);
     }
@@ -2259,13 +2276,17 @@
     drawReference(gridView);
     // Quick Play's held test box goes among the character's parts (drawHeld,
     // called once by the art renderer at the right place), else on top.
-    let heldDone=false;
-    const held=selection.mode==='play'&&typeof heldItemDrawer==='function'?{
-      layer:normaliseHeldItemLayer(setupDraft?.heldItemLayer),
-      draw:()=>{if(heldDone)return;heldDone=true;
-        try{heldItemDrawer({ctx,canvas,pose,adapter,view:sv,gridView,restRig:setupDraft?.rig||displayRestRig(adapter),setup:setupDraft});}
-        catch(err){console.error('[Anim Lab] Held item drawer failed.',err);}}
-    }:null;
+    // Props shown on the character (anim-lab-props.js) go among its parts too.
+    const heldArgs={ctx,canvas,pose,adapter,view:sv,gridView,restRig:setupDraft?.rig||displayRestRig(adapter),setup:setupDraft,mode:selection.mode,setupTool:selection.setupTool};
+    const heldItems=[];
+    const onceOnly=(draw,label)=>{let done=false;return()=>{if(done)return;done=true;try{draw();}catch(err){console.error(`[Anim Lab] ${label} drawer failed.`,err);}};};
+    if(selection.mode==='play'&&typeof heldItemDrawer==='function')
+      heldItems.push({layer:normaliseHeldItemLayer(setupDraft?.heldItemLayer),draw:onceOnly(()=>heldItemDrawer(heldArgs),'Held item')});
+    if(typeof propItemsProvider==='function'){
+      try{for(const item of propItemsProvider(heldArgs)||[])heldItems.push({layer:item.layer,draw:onceOnly(item.draw,'Prop')});}
+      catch(err){console.error('[Anim Lab] Props failed.',err);}
+    }
+    const held=heldItems.length?{items:heldItems,draw:()=>{for(const item of heldItems)item.draw();}}:null;
     if(overlays.art) drawRigArt(character,adapter,pose,sv,.99*artOpacity,held);
     if(held) held.draw();
     if(overlays.planes) drawPlanes(adapter,pose,sv);
@@ -2775,8 +2796,9 @@
     setRigEditChoice:choice=>{rigEditChoice=['template','unique'].includes(choice)?choice:null;},
     undo,
     setSetupTool:id=>{
-      const next=['art','skin','atlas'].includes(id)?id:'rig';
-      if(next!=='rig'&&next!=='atlas'&&!supportsRestBinding(currentAdapter()))return false;
+      const next=['art','skin','atlas','props'].includes(id)?id:'rig';
+      if(next==='props'&&!propsStageFits(currentCharacter().family))return false;
+      if(next!=='rig'&&next!=='atlas'&&next!=='props'&&!supportsRestBinding(currentAdapter()))return false;
       if(selection.setupTool===next)return true;
       selection.setupTool=next;saveEditorSelection();draw();updateUi();notify();return true;
     },
@@ -2837,6 +2859,12 @@
     setPlayFrameProvider:fn=>{playFrameProvider=typeof fn==='function'?fn:null;lastPlayFrame=null;draw();},
     // Quick Play's held test box: fn({ctx,pose,view,gridView,restRig,setup}).
     setHeldItemDrawer:fn=>{heldItemDrawer=typeof fn==='function'?fn:null;},
+    // Props (anim-lab-props.js): items to draw among the parts, and the pose
+    // the Props stage shows (null = rest pose).
+    setPropItemsProvider:fn=>{propItemsProvider=typeof fn==='function'?fn:null;draw();},
+    setSetupPoseProvider:fn=>{setupPoseProvider=typeof fn==='function'?fn:null;draw();},
+    drawPlaybackFrame:()=>draw(true),
+    project:(pt,view)=>project(pt,view),
     redraw:()=>{draw();notify();},
     refreshSessionUI:()=>updateUi(),
     redrawOnly:()=>draw(),

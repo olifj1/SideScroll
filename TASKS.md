@@ -4,7 +4,7 @@ The single task list. Open work only: when something is done, delete it here and
 add a line to `CHANGELOG.md`. Detail and history for older items:
 `docs/archive/SIDESCROLL_TASKS.md` (search for the version number shown).
 
-Last reviewed: 20 November 2026 (intro sequence is the current focus).
+Last reviewed: 20 November 2026 (intro sequence is the current focus; props for characters added).
 
 ---
 
@@ -34,7 +34,7 @@ Stages (engine work in order; art and sound in parallel):
 - **1 — The player does it herself** (decided 14 Nov, nothing to build): she walks into zones and uses Inspect / Action, which fire events. Steps that move or animate the player only if needed later.
 - [ ] **2 — Darkness effect:** *(effect asset done 14 Nov; effect states and the **Effect on a character** step (was *Darkness / effect*) — attached to a character, blending through states, hiding it, the dust travelling on — prototype done 17 Nov; a second kind, **character effects** (Dissolve: the character itself breaks up, no plane), 19 Nov)* still to do: make Asset Lab match the game (keep faint wisps in the game, effects don't clip what's behind them, a fog option per effect, a backdrop choice in Asset Lab); "start when it reaches a mark"; the player as a target. Dissolve: its default edge colour is violet, which the art brief avoids ("no purple magic") — consider a dark ink / smoke default; noise looks coarse close up (raise Noise size) — maybe scale it to the body's size.
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
-- [ ] **4 — Held props for characters:** a placed character can hold an asset in a hand (Father's axe), and a step gives / takes / drops it.
+- [ ] **4 — Held props for characters:** *(done 20 Nov: Character Lab → Props grips, a component's Holds, the Prop step — hold / put away / drop)* still to do: import the axe and set Father's grip; check it through his Chop animation once that exists.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
 - [ ] **Art and sound (parallel):** Father (biped parts sheet + Chop, Idle, Talk animations); deer (quadruped, Run) and variants (duplicates with different art / scale); other running animals; axe, woodpile, chopping block, note, food / water, backpack; sounds (birdsong, chopping, gasp, shadow).
 - [ ] **6 — Build the intro** in the Story editor (zones: note, table, backpack, door, Father; events with Say, Wait for Action, Look, Screen, Camera, Effect, Sound, Item steps), then tune with ▶ Play and Skip.
@@ -60,6 +60,7 @@ mesh parts and skin are the character's own; abilities come from a shared list.
 - [ ] **C4 — New Character flow:** name → rig → atlas → mesh parts → skin → animations (instance / copy each) → abilities → play-test in the lab → save → in game.
 - [ ] **C5 — Actions and abilities:** one shared ability list, editable in Character Lab and Asset Lab; **create new actions** (name, button label, animation slot) and assign them to characters; rig templates give default abilities; the game only offers actions a character has. Asset behaviours (carryable, pushable, climbable) become "this asset offers action X". First real actions: Climb as an editable Biped clip (keep current climb paths/speed), Pick Up / Put Down / Carry (grasp/release markers driving existing interaction timing). **Builds on the action slots (Settings → Action slots):** an action = a slot plus its button label and game behaviour; slots added in Settings start as "not hooked up yet" and get their behaviour here (or from an action path, C6); a character with no animation in a slot doesn't have that action.
 - [ ] **C6 — Action paths:** generalise the climb path into an action path (action name, button label, bound animation, character follows the path), bound to an asset in Asset Lab or placed as a stand-alone node in the world and shown in World Lab. Example: *Crawl* through a gap. Design together with Environment Animation Path and Puzzle Logic (Later). An action path names an **action slot**, so one path works for every character with an animation in that slot.
+- [ ] **Props — next steps** (design: `docs/CHARACTER_SYSTEM_DESIGN.md` → Props): the **player** picks up and uses items with the same grips (an asset offers *Pick up*, a held item offers actions such as *Chop*; fits C5); the far hand following a two-handed grip; more attachment points (back, belt, a quadruped's mouth); Character Lab's Props list shows only a few built-in assets (plus every imported one) — list all built-in assets if needed.
 - [ ] **Character packages for templates:** exports carry (or reference) linked templates; importing a shared template lists the characters it affects. *(with C2/C3)*
 
 ### Repo clean-up
@@ -80,6 +81,14 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0ay. Props: Father holds something (20 Nov)**
+- [ ] Character Lab → Father (Character03) → **Props** (new button between Skin and Animate): *Add a prop* → Broken Branch (or your axe once imported): it appears at his near hand with a dashed outline.
+- [ ] Use the pad bottom-right: **Move** drags it, **Turn** turns it, **Size** grows / shrinks it, **Fine** slows them; the four number boxes match and can be typed into. **Mirror**, **Far hand** and *Drawn* change it as expected; Undo works.
+- [ ] *Try it in an animation*: pick WalkFather → **▶ Play**: he walks with it in his hand and it swings with the arm. Tick *Show it in Animate and Play too*, open Animate and Play: it is still in his hand.
+- [ ] **Save**, close and reopen Character Lab: the prop and its grip are still there.
+- [ ] Game editor → Story → a sequence with Father → his component → *Holds* → **+ Prop** → choose it: he holds it in the game exactly as in Character Lab (facing left too).
+- [ ] An event with a **Prop** step on him: *Drop it* → ▶ Play: it falls from his hand and lies on the ground. ⚑ Progress → Reset on that sequence: it is back in his hand. Try *Put it away* and *Hold it* too.
 
 **0ax. Dissolve behind scenery; closer shots (19 Nov)**
 - [ ] The fox set further back than the path, dissolving: ferns and plants in front of it still cover it (as when it isn't dissolving).

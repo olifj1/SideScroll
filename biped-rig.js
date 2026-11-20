@@ -818,13 +818,15 @@ function atlasImageUrl(id = DEFAULT_CHARACTER_VARIANT) {
     ctx.drawImage(atlas,r.x,r.y,r.w,r.h,-p0.x,-p0.y,r.w,r.h); ctx.restore();
   }
 
-  // opts.drawHeld (Character Lab's Quick Play test box): draws a held item
-  // among the parts, where opts.heldLayer says (see heldItemIndex).
+  // opts.heldItems [{layer, draw()}] (Character Lab: Quick Play's test box,
+  // props): each drawn among the parts where its layer says (heldItemIndex).
+  // opts.drawHeld / opts.heldLayer: one item (older callers).
   function drawCanvas(ctx,atlas,pose,view,opts={}){
     const parts=partsForPose(pose,opts.restRig);
-    const at=opts.drawHeld?heldItemIndex(parts,opts.heldLayer,p=>p.name,isNearArmPartName):-1;
-    parts.forEach((part,i)=>{if(i===at)opts.drawHeld();drawPartCanvas(ctx,atlas,part,view,opts);});
-    if(at===parts.length)opts.drawHeld();
+    const items=(opts.heldItems||(opts.drawHeld?[{layer:opts.heldLayer,draw:opts.drawHeld}]:[]))
+      .map(item=>({draw:item.draw,at:heldItemIndex(parts,item.layer,p=>p.name,isNearArmPartName)}));
+    parts.forEach((part,i)=>{for(const item of items)if(item.at===i)item.draw();drawPartCanvas(ctx,atlas,part,view,opts);});
+    for(const item of items)if(item.at>=parts.length)item.draw();
     return parts;
   }
 

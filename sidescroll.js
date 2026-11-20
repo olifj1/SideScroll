@@ -18056,15 +18056,18 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return (local?.setup || savedCharacterSetups()?.[id])?.heldItemLayer || 'auto';
   }
   // drawHeld(z), if given, draws a carried object just before the first near-arm
-  // part (or after every part when there is none).
+  // part (or after every part when there is none). It may also be a list of
+  // held things [{layer, draw(z)}] (props: SideScrollProps), each placed by its
+  // own layer (Rig.heldItemIndex).
   function drawLocalMeshCharacter(view,pose,facing,data,drawHeld=null,body=playerBody()){
     GameCharacters.poseParts(data,pose,data.family==='biped'?Rig:QuadrupedRig);
     const partZ=i=>body.z+CHARACTER_GAMEPLAY_Z_BIAS+(i-10)*.0009;
-    let held=drawHeld,topZ=-Infinity;
-    const heldAt=held&&data.family==='biped'?Rig.heldItemIndex(data.parts,heldItemLayer(),p=>p.id,isNearArmPart):Infinity;
+    let topZ=-Infinity;
+    const items=!drawHeld?[]:typeof drawHeld==='function'?[{layer:heldItemLayer(),draw:drawHeld}]:drawHeld.slice();
+    for(const item of items)item.at=data.family==='biped'?Rig.heldItemIndex(data.parts,item.layer,p=>p.id,isNearArmPart):Infinity;
     for(let i=0;i<data.parts.length;i++){
       const part=data.parts[i];
-      if(held&&i>=heldAt){held(partZ(i)-.00045);held=null;}
+      for(const item of items)if(!item.done&&i>=item.at){item.done=true;item.draw(partZ(i)-.00045);}
       if(!part.mesh)continue;
       topZ=Math.max(topZ,partZ(i));
       bindMesh(part.mesh);
@@ -18088,7 +18091,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       gl.uniform2f(loc.uvOffset,0,0);
       gl.drawElements(gl.TRIANGLES,part.mesh.count,gl.UNSIGNED_SHORT,0);
     }
-    if(held)held(Number.isFinite(topZ)?topZ+.00045:null);
+    for(const item of items)if(!item.done){item.done=true;item.draw(Number.isFinite(topZ)?topZ+.00045:null);}
   }
 
   // Biped pose cross-fade (2 Nov 2026): when the pose source changes (standing,
@@ -18213,6 +18216,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // up, its animation, hidden, flags, fired once-only lines) are play progress.
   // sequence-editor.js edits all of it through window.SideScrollSequenceHost.
   const Seq = window.SideScrollSequences || null;
+  const Props = window.SideScrollProps || null;
   let seqState = { events: [], templates: [], placed: [] };
   let seqEvents = new Map(), seqResolved = [];
   const storyNow = () => (performance.now ? performance.now() : Date.now()) / 1000;
@@ -18255,7 +18259,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function seqComponentPlace(p, c) {
     const saved = seqProgress.components[compKey(p.id, c.id)] || null;
     return { x: saved?.x ?? (p.x + c.dx), depth: saved?.depth ?? c.depth, facing: saved?.facing ?? c.facing,
-      animation: saved?.animation ?? c.animation, hidden: !!saved?.hidden };
+      animation: saved?.animation ?? c.animation, hidden: !!saved?.hidden, holding: saved?.holding ?? c.holding ?? [] };
   }
   const seqZoneSpan = (p, c) => ({ x0: p.x + c.dx - c.width / 2, x1: p.x + c.dx + c.width / 2 });
   // A placed sequence's extent along the journey (anchor and every component).
@@ -18321,7 +18325,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         }
         const scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(c.character) * c.scale;
         const blocks = c.blocks === 'always' || (c.blocks === 'auto' && Math.abs(state.depth) <= 1.0);
-        frames.push({ key, placed: p.id, component: c.id, name: c.name, id: c.character, hidden: !!place.hidden,
+        frames.push({ key, placed: p.id, component: c.id, name: c.name, id: c.character, hidden: !!place.hidden, holding: place.holding,
           wc: { speed: 1, offset: 0, scale: c.scale, character: c.character }, state, now, scale,
           x: state.x, z: state.depth, facing: state.facing, blocks,
           radius: storyCollider(c.character).radius * scale, height: storyCollider(c.character).height * scale });
@@ -18633,6 +18637,18 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         seqEffects.push({ placed:run.p.id, key, entry, step, t0:now, hidden:false, obj:null });
         return now + step.delay + step.keys.reduce((sum, k) => sum + k.seconds, 0);
       }
+      case 'prop': {
+        // Give: the character holds the asset (its hold from Character Lab);
+        // Take away: it stops holding it; Drop: it falls and lies on the ground.
+        if (!actor || !step.asset) return now;
+        const holding = (seqComponentPlace(run.p, actor).holding || []).filter(n => n !== step.asset);
+        if (step.action === 'give') holding.push(step.asset);
+        else if (step.action === 'drop' && (seqComponentPlace(run.p, actor).holding || []).includes(step.asset))
+          seqDropProp(key, step.asset, seqCharacterNow(run, actor) || (p => ({ x: p.x, z: p.depth, facing: p.facing }))(seqComponentPlace(run.p, actor)), !!run.instant);
+        seqSavedFor(key).holding = holding;
+        saveStoryProgress();
+        return now;
+      }
       case 'look': {
         // Lasts until another Look step changes it (kept in play progress).
         setWorldLook(step.look || null, step.seconds);
@@ -18774,6 +18790,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     });
     for (const key of [...seqLive.keys()]) if (key.startsWith(`${placedId}:`)) seqLive.delete(key);
     seqEffects = seqEffects.filter(e => e.placed !== placedId);
+    seqPropFalls = seqPropFalls.filter(f => !f.key.startsWith(`${placedId}:`));
   }
   // The end state, at once: every line that can run does, its steps applied
   // instantly (moves land, flags, show / hide, items, facing, new loops);
@@ -18786,7 +18803,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const l of r.body.logic) {
       if (!seqLineReady(r.p, l)) continue;
       if (l.once) seqProgress.fired[seqLineKey(r.p, l)] = true;
-      const run = { id: ++seqRunSerial, p: r.p, body: r.body, line: l, event: seqEvents.get(l.event), index: 0, active: [] };
+      const run = { id: ++seqRunSerial, p: r.p, body: r.body, line: l, event: seqEvents.get(l.event), index: 0, active: [], instant: true };
       for (const step of run.event.steps) {
         if (step.type === 'move') {
           const actor = step.actor ? seqBound(run, step.actor) : null, mark = step.to ? seqBound(run, step.to) : null;
@@ -18798,7 +18815,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           // The end state of a Darkness step: the character it hides stays hidden.
           const actor = step.actor ? seqBound(run, step.actor) : null;
           if (actor && step.hideAt >= 0) seqSavedFor(compKey(r.p.id, actor.id)).hidden = true;
-        } else if (['flag', 'show', 'item', 'face', 'look'].includes(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
+        } else if (['flag', 'show', 'item', 'face', 'look', 'prop'].includes(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
           seqStartStep(run, step, now);
         }
       }
@@ -18842,7 +18859,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const { p } of seqResolved) seqResetSequence(p.id);
     seqProgress = { flags: {}, fired: {}, components: {}, taken: {} };
     saveStoryProgress();
-    seqLive.clear(); seqRuns = []; seqEffects = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
+    seqLive.clear(); seqRuns = []; seqEffects = []; seqPropFalls = []; seqInside.clear(); seqStarted.clear(); seqFlagLatched.clear(); seqControlLocks.clear();
     seqFinishedLines.length = 0;
     seqResetScreen();
     setWorldLook(null, 0);
@@ -18856,6 +18873,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (dissolve) drawDissolvedCharacter(frame, view, dissolve);
       else drawStoryCharacter(frame, view);
     }
+    drawSeqDroppedProps(view);
   }
   function drawStoryCharacter(frame, view) {
     {
@@ -18868,9 +18886,91 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         texture: textures[rigVariantTextureKey(artVariantFor(id))] || textures.rigAtlas,
         highlight: editMode && editorScope === 'story' && seqSelected.placed === frame.placed && seqSelected.component === frame.component ? 0.24 : 0 };
       const local = GameCharacters?.ready(id) || originalCharacterMeshes.get(id);
-      if (local?.parts?.length) { drawLocalMeshCharacter(view, pose, frame.facing, local, null, body); return; }
+      const held = rig === Rig ? storyHeldProps(frame, pose, body, view) : [];
+      if (local?.parts?.length) { drawLocalMeshCharacter(view, pose, frame.facing, local, held.length ? held : null, body); return; }
       const parts = rig === Rig ? Rig.partsForPose(pose, bipedRestRig(id)) : rig.partsForPose(pose);
+      for (const h of held) if (h.layer === 'back') h.draw(null);
       for (const part of parts) drawRigPartWebGL(part, view, frame.facing, rig, body);
+      for (const h of held) if (h.layer !== 'back') h.draw(null);
+    }
+  }
+  // ---- Props held by story characters (character-props.js) --------------------
+  // A component holds the assets in its `holding` list (play progress may change
+  // it: the Prop step); each is drawn where the character's hold for it says,
+  // following the hand through every animation.
+  const characterSetupFor = id => (GameCharacters?.ready(id) || originalCharacterMeshes.get(id))?.setup || savedCharacterSetups()?.[id] || null;
+  const seqPropLast = new Map(); // "<component key>|<asset>" → its last drawn world transform (for drops)
+  function propTexture(name) {
+    return textures[name] || (AssetLib?.isImportedName(name) ? missingAssetTexture() : null);
+  }
+  function propHeightOf(name) { try { return defaultAssetHeight(name); } catch (_) { return 0.8; } }
+  function storyHeldProps(frame, pose, body, view) {
+    const holding = frame.holding;
+    if (!Props || !holding?.length) return [];
+    let geometry = null;
+    try { geometry = Rig.geometry(pose, bipedRestRig(frame.id)); } catch (_) { return []; }
+    const setup = characterSetupFor(frame.id), mult = characterScaleMultiplier(frame.id);
+    const out = [];
+    for (const name of holding) {
+      const texture = propTexture(name);
+      if (!texture) continue;
+      const hold = Props.holdFor(setup, name, propHeightOf(name), mult), at = Props.place(geometry, hold);
+      if (!at) continue;
+      const f = frame.facing < 0 ? -1 : 1, h = at.size * body.scale, w = h * (assetAspect[name] || 1);
+      const tr = { x: body.x + at.x * body.scale * f, y: body.y + at.y * body.scale, z: body.z + CHARACTER_GAMEPLAY_Z_BIAS,
+        rot: f > 0 ? at.angle : -at.angle, flip: f > 0 ? at.flip : !at.flip, w, h };
+      seqPropLast.set(`${frame.key}|${name}`, tr);
+      out.push({ layer: Props.layerFor(hold), draw: z => drawPropAt(view, name, texture, { ...tr, z: z ?? tr.z }, body.opacity, body.tint) });
+    }
+    return out;
+  }
+  // A prop picture centred at (x, y), turned rot, w × h metres.
+  function drawPropAt(view, name, texture, tr, opacity = 1, tint = null) {
+    const obj = { id: `prop-${name}`, assetName: name, mesh: centredBillboardMesh, texture,
+      uvScale: assetUv[name]?.scale || [1, 1], uvOffset: assetUv[name]?.offset || [0, 0],
+      x: tr.x, y: tr.y, z: tr.z, sx: tr.w, sy: tr.h, sz: 1, flip: tr.flip, runtimeRotation: tr.rot,
+      opacity, shade: 1, tint: tint || [1, 1, 1], layer: 'character' };
+    drawObject(obj, view, { force: true, x: tr.x, y: tr.y, z: tr.z, sx: tr.w, sy: tr.h, mesh: centredBillboardMesh });
+  }
+  // Props a character dropped (Prop step → Drop): they fall and lie on the ground
+  // where they landed (play progress `dropped` on the component that dropped them).
+  let seqPropFalls = []; // {key, index, from, t0, duration}
+  const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
+  function seqDropProp(key, name, frame, instant) {
+    const saved = seqSavedFor(key);
+    const last = seqPropLast.get(`${key}|${name}`);
+    const h = last?.h || propHeightOf(name), w = last?.w || h * (assetAspect[name] || 1);
+    const x = last?.x ?? ((frame?.x ?? 0) + (frame?.facing || 1) * 0.35), z = frame?.z ?? last?.z ?? pathZ;
+    const rot = last?.rot ?? 0;
+    // Lying down: the picture's long side along the ground, the nearer way round.
+    const tall = h > w, choices = tall ? [Math.PI / 2, -Math.PI / 2] : [0, Math.PI];
+    const rest = choices.reduce((best, c) => Math.abs(wrapAngle(rot - c)) < Math.abs(wrapAngle(rot - best)) ? c : best, choices[0]);
+    const drop = { asset: name, x: Math.round(x * 1000) / 1000, z: Math.round(z * 1000) / 1000, rot: Math.round(rest * 1000) / 1000, flip: !!last?.flip,
+      w: Math.round(w * 1000) / 1000, h: Math.round(h * 1000) / 1000 };
+    (saved.dropped ||= []).push(drop);
+    if (!instant && last) seqPropFalls.push({ key, index: saved.dropped.length - 1, from: last, t0: storyNow(), duration: 0.45 });
+  }
+  function droppedRestY(d) {
+    const extent = Math.abs(Math.sin(d.rot)) > 0.5 ? d.w : d.h; // its height while lying
+    return storyGroundY(d.x, d.z) + extent / 2;
+  }
+  function drawSeqDroppedProps(view) {
+    const now = storyNow();
+    seqPropFalls = seqPropFalls.filter(f => now - f.t0 < f.duration);
+    for (const [key, saved] of Object.entries(seqProgress.components)) {
+      if (!saved?.dropped?.length) continue;
+      saved.dropped.forEach((d, i) => {
+        if (Math.abs(d.x - camera.x) > STORY_DRAW_RANGE) return;
+        const texture = propTexture(d.asset);
+        if (!texture) return;
+        const restY = droppedRestY(d);
+        const fall = seqPropFalls.find(f => f.key === key && f.index === i);
+        if (fall) {
+          const k = Math.min(1, (now - fall.t0) / fall.duration), e = k * k;
+          drawPropAt(view, d.asset, texture, { x: fall.from.x + (d.x - fall.from.x) * k, y: fall.from.y + (restY - fall.from.y) * e,
+            z: fall.from.z + (d.z + CHARACTER_GAMEPLAY_Z_BIAS - fall.from.z) * k, rot: fall.from.rot + wrapAngle(d.rot - fall.from.rot) * k, flip: d.flip, w: d.w, h: d.h });
+        } else drawPropAt(view, d.asset, texture, { x: d.x, y: restY, z: d.z + CHARACTER_GAMEPLAY_Z_BIAS, rot: d.rot, flip: d.flip, w: d.w, h: d.h });
+      });
     }
   }
   // ---- Character effects (Dissolve): the character drawn into its own image, then
@@ -19211,6 +19311,22 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     looks: () => (Looks ? Looks.list() : []).map(l => ({ id: l.id, name: l.name })),
     effects: () => [...effectAssets.values()].map(e => ({ id: e.name, name: e.label, character: !!Effects?.isCharacterEffect(e.art), states: (e.art.states || []).map(st => ({ id: st.id, name: st.name })) })),
     items: () => Object.values(INVENTORY_ITEM_DEFS).map(d => ({ id: d.id, label: collectibleConfig(d.id)?.label || d.label || d.id })),
+    // Assets a character can hold (Prop step, a component's "Holds"): every
+    // asset with a picture; `held` = some character has a hold set up for it
+    // in Character Lab → Props (listed first). [{id, name, group, held}].
+    props: () => {
+      const held = new Set();
+      for (const id of new Set([...(CharacterRegistry ? CharacterRegistry.list().map(c => c.id) : []), ...Object.keys(savedCharacterSetups() || {})]))
+        for (const name of Object.keys(characterSetupFor(id)?.holds || {})) held.add(name);
+      const title = s => String(s || '').toLowerCase().replace(/(^|[\s·(-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+      const seen = new Set(), out = [];
+      for (const group of editorAssetGroups) for (const item of group.items) {
+        if (seen.has(item.name) || !textures[item.name] || effectAssets.has(item.name) || item.name === 'thought-trigger' || item.name === 'camera-trigger') continue;
+        seen.add(item.name);
+        out.push({ id: item.name, name: AssetLib?.get(item.name)?.label || title(item.label || item.name), group: title(group.title), held: held.has(item.name) });
+      }
+      return out.sort((a, b) => (b.held - a.held));
+    },
     // Read-only test hooks: the camera's move from the follow view, and any event waiting for Action.
     cameraShot: () => ({ ...seqCameraNow, keep: !!seqCamera?.keep, active: !!seqCamera }),
     waitingFor: () => seqPromptRun()?.prompt?.label || null
