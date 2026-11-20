@@ -294,6 +294,7 @@
     const img=new Image(); img.src=c.toDataURL('image/png'); return img;
   }
 
+  let effectPreviewSample = null; // set below (character effect preview)
   function ensureImage(asset) {
     if (!asset) return null;
     const existing = imageCache.get(asset.name);
@@ -310,7 +311,8 @@
         Object.defineProperty(r.canvas, 'naturalHeight', { get:() => r.canvas.height, configurable:true });
         Object.defineProperty(r.canvas, 'complete', { get:() => true, configurable:true });
       }
-      r.render(entry.art, performance.now() / 1000);
+      const t = performance.now() / 1000;
+      r.render(entry.art, t, effectPreviewSample?.(entry.art, t) || null); // a character effect may preview on a real character
       return r.canvas; // not cached: every effect shares this canvas
     }
     if (asset.imported) {
@@ -1088,6 +1090,58 @@
 
   // --- Shader effects: + New effect, settings, live preview -------------------------
   const Effects = window.SideScrollEffects || null;
+  // ---- Character effects: preview on a real character (character-preview.js) ----
+  // A drawn character (posed, animated, holding one of its props) stands in for
+  // the sample picture. Preview only; remembered for this session.
+  const CharPreview = window.SideScrollCharacterPreview || null;
+  const PREVIEW_KEY = 'sidescroll.assetlab.effect-preview'; // sessionStorage {character, prop, pose}
+  const previewEl = document.getElementById('assetlab-effect-preview');
+  const previewChar = document.getElementById('assetlab-effect-preview-character');
+  const previewProp = document.getElementById('assetlab-effect-preview-prop');
+  const previewPose = document.getElementById('assetlab-effect-preview-pose');
+  const previewNote = document.getElementById('assetlab-effect-preview-note');
+  const preview = (() => { try { return { character:'', prop:'', pose:'idle', ...JSON.parse(sessionStorage.getItem(PREVIEW_KEY) || '{}') }; } catch (_) { return { character:'', prop:'', pose:'idle' }; } })();
+  let previewDrawer = null, previewSig = '';
+  const savePreview = () => { try { sessionStorage.setItem(PREVIEW_KEY, JSON.stringify(preview)); } catch (_) {} };
+  function syncPreviewControls() {
+    const entry = currentEffect();
+    const show = !!(entry && CharPreview && Effects?.isCharacterEffect(entry.art));
+    if (previewEl) previewEl.hidden = !show;
+    if (!show) return;
+    const chars = CharPreview.characters();
+    if (preview.character && !chars.some(c => c.id === preview.character)) preview.character = '';
+    const holds = preview.character ? CharPreview.holdsOf(preview.character) : [];
+    const anims = preview.character ? CharPreview.animations(preview.character) : [];
+    const sig = JSON.stringify([chars, holds, anims.map(a => a.key)]);
+    if (sig !== previewSig) {
+      previewSig = sig;
+      previewChar.replaceChildren(new Option('Sample picture (fox)', ''), ...chars.map(c => new Option(c.name, c.id)));
+      previewProp.replaceChildren(new Option(holds.length ? 'Nothing' : 'Nothing (no props set up)', ''), ...holds.map(n => new Option(CharPreview.propLabel(n), n)));
+      previewPose.replaceChildren(new Option('Standing still', ''), ...anims.map(a => new Option(a.name, a.key)));
+    }
+    previewChar.value = preview.character;
+    previewProp.value = holds.includes(preview.prop) ? preview.prop : '';
+    previewPose.value = anims.some(a => a.key === preview.pose) ? preview.pose : '';
+    previewProp.disabled = previewPose.disabled = !preview.character;
+    previewNote.textContent = preview.character && !holds.length
+      ? 'Props: give this character a grip in Character Lab → Props (and Save) to see it holding one here.'
+      : 'Only the preview: the effect works on any character in the game.';
+  }
+  previewChar?.addEventListener('change', () => { preview.character = previewChar.value; preview.prop = ''; savePreview(); syncPreviewControls(); });
+  previewProp?.addEventListener('change', () => { preview.prop = previewProp.value; savePreview(); });
+  previewPose?.addEventListener('change', () => { preview.pose = previewPose.value; savePreview(); });
+  // The drawn character for this frame, or null (sample picture).
+  function previewSample(art, time) {
+    if (!preview.character || !CharPreview || !Effects?.isCharacterEffect(art)) return null;
+    const r = Effects.canvasRenderer();
+    if (!r?.gl) return null;
+    try {
+      previewDrawer ||= CharPreview.create(r.gl);
+      const sample = previewDrawer.render(preview.character, { animation:preview.pose, phase:(time / 1.1) % 1, prop:previewProp.value || '' });
+      if (!sample) setTimeout(syncPreviewControls, 300); // still loading: its props / animations arrive with it
+      return sample;
+    } catch (err) { console.error('[Asset Lab] Character preview failed.', err); return null; }
+  }
   const newEffectBtn = document.getElementById('assetlab-new-effect');
   const effectSection = document.getElementById('assetlab-effect-section');
   const effectControls = document.getElementById('assetlab-effect-controls');
@@ -1099,6 +1153,7 @@
     const entry = currentEffect();
     if (effectSection) effectSection.hidden = !entry;
     if (importedReplace) importedReplace.hidden = !!entry;
+    syncPreviewControls();
     if (!entry || !Effects) { effectControlsFor = null; return; }
     renderEffectStates();
     if (effectControlsFor === entry.name) return;
@@ -1222,10 +1277,14 @@
   newEffectBtn?.addEventListener('click', () => newEffect('darkness'));
   document.getElementById('assetlab-new-dissolve')?.addEventListener('click', () => newEffect('dissolve'));
   if (!Effects && newEffectBtn) newEffectBtn.hidden = true;
+  effectPreviewSample = previewSample;
   // The selected effect plays live on the stage.
   function tickEffects() {
     const entry = currentEffect();
-    if (entry && !document.hidden) { Effects?.canvasRenderer()?.render(Lib.get(entry.name).art, performance.now() / 1000); draw(); }
+    if (entry && !document.hidden) {
+      const art = Lib.get(entry.name).art, time = performance.now() / 1000;
+      Effects?.canvasRenderer()?.render(art, time, previewSample(art, time)); draw();
+    }
     requestAnimationFrame(tickEffects);
   }
   requestAnimationFrame(tickEffects);

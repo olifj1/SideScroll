@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Asset Lab: preview a character effect on a real character.** A character effect (Dissolve)
+  now has *Preview on* (the fox picture or any character drawn as a Mesh, e.g. Father),
+  *Holding* (one of that character's props from Character Lab → Props) and *Pose* (standing
+  still or any of its animations, played). The character is drawn from its own mesh, so the
+  preview shows the dissolve on him and the prop in his hand, as in the game.
 - **Props: characters can hold things.** Any asset can be held. Character Lab has a new
   **Props** stage (bipeds): add a prop, then move, turn and size it against the hand with
   the viewport pad (or type the numbers), mirror it, choose the near or far hand and where

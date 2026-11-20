@@ -165,7 +165,12 @@ framebuffer with `projection` squeezed to its screen box, then draws the image b
 `createDissolveRenderer` (`uBody` = feet/head in the image, measured from the image's alpha by
 `measureCharFxBody`, since colliders are only rough; `uDepth` = the character's middle in NDC z, drawn depth-tested without writing, so scenery in front still covers it). Each shader's `start` / `gone` params are
 what a step blends from / to for *Gone*; a character effect that ends gone hides the character.
-Asset Lab previews character effects on `quadruped-reference.png`.
+Asset Lab previews character effects on `quadruped-reference.png`, or on a real character:
+*Preview on* / *Holding* / *Pose* (sessionStorage `sidescroll.assetlab.effect-preview`) —
+`character-preview.js` (`window.SideScrollCharacterPreview`) draws a Mesh biped (library or original,
+via `character-game-runtime.js` `load` / `poseParts`), posed by one of its animations and holding one
+of its props, into a texture on the effect renderer's context (`canvasRenderer().gl`), and
+`render(art, time, sample)` dissolves that instead of the picture.
 
 ## Character registry
 `character-registry.js` (`window.SideScrollCharacters`) is the one list of
@@ -273,7 +278,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
-| `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `asset-lab.js` |
+| `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement; Sequences track; player start | `world-lab.js`, `sequence-data.js`, `asset-library.js` |
 | `design-lab.html` | Living game design doc | `design-lab.js`, `design-doc.json` |

@@ -15788,3 +15788,9 @@ body[data-game-id="game-17"] .animlab-props-editor [data-props-hand]{grid-templa
 body[data-game-id="game-17"] .animlab-props-editor .animlab-props-modes{grid-template-columns:repeat(4,minmax(0,1fr));}
 body[data-game-id="game-17"] .animlab-props-editor .animlab-quickplay-actions{grid-template-columns:repeat(2,minmax(0,1fr));}
 body[data-game-id="game-17"] .animlab-props-editor .animlab-art-numeric-grid input{min-width:0;}
+
+/* Asset Lab → character effect preview (Preview on / Holding / Pose). */
+.assetlab-effect-preview{display:grid;gap:6px;margin:4px 0 10px;}
+.assetlab-effect-preview label{display:grid;grid-template-columns:86px minmax(0,1fr);align-items:center;gap:8px;font:700 12px/1.2 system-ui,-apple-system,sans-serif;color:#dce7e3;}
+.assetlab-effect-preview select{min-width:0;min-height:32px;padding:4px 6px;background:#172227;color:#e6efec;border:1px solid rgba(238,243,241,.2);border-radius:7px;font:600 12px/1.2 system-ui,-apple-system,sans-serif;}
+.assetlab-effect-preview select:disabled{opacity:.45;}

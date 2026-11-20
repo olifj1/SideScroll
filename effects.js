@@ -294,17 +294,17 @@ void main(){
     const gl = canvas.getContext('webgl', { premultipliedAlpha:false, preserveDrawingBuffer:true, alpha:true });
     if (!gl) return null;
     const renderer = createRenderer(gl);
-    let dissolver = null, sample = null, sampleAspect = 2;
+    let dissolver = null, sampleTex = null, sampleAspect = 2;
     // A sample character for previewing character effects (the fox, side on).
     function loadSample() {
-      if (sample) return;
-      sample = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, sample);
+      if (sampleTex) return;
+      sampleTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, sampleTex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
       const img = new Image();
       img.onload = () => {
         sampleAspect = img.naturalWidth / img.naturalHeight;
-        gl.bindTexture(gl.TEXTURE_2D, sample);
+        gl.bindTexture(gl.TEXTURE_2D, sampleTex);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
@@ -317,17 +317,22 @@ void main(){
     }
     shared = {
       canvas,
-      render(art, time) {
+      gl, // Asset Lab draws a real character on it (character-preview.js)
+      // sample (character effects): {texture, aspect, body:[feet, head]} drawn on
+      // this context — a real character; without it the sample picture.
+      render(art, time, sample = null) {
         if ((SHADERS[art.shader] || {}).target === 'character') {
-          loadSample();
+          if (!sample) loadSample();
           dissolver ||= createDissolveRenderer(gl);
-          const h = 384, w = Math.round(h * sampleAspect);
+          const aspect = sample ? sample.aspect : sampleAspect;
+          const h = sample ? 512 : 384, w = Math.round(h * aspect);
           if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
           gl.viewport(0, 0, w, h);
           gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
           gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-          dissolver.render(clean(art.shader, art.params), time, sample, [-1, -1, 1, 1], sampleAspect);
+          if (sample) dissolver.render(clean(art.shader, art.params), time, sample.texture, [-1, -1, 1, 1], aspect, sample.body);
+          else dissolver.render(clean(art.shader, art.params), time, sampleTex, [-1, -1, 1, 1], sampleAspect);
           return canvas;
         }
         const h = 384, w = Math.max(16, Math.round(h * (art.width / Math.max(1, art.height))));
