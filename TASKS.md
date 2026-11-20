@@ -82,6 +82,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bc. Lines during the dissolve; the player speaks (20 Nov)**
+- [ ] Story → Events → *Taken*: on the **Effect** step tick *Don’t wait for it to finish*. Keep the Wait 3 s step *at the same time* as it, then Father’s Say step (not at the same time).
+- [ ] Add a **Say** step with *Who* = **The player**, line “Father?”, then another Father line. Play it: the dissolve starts, after 3 s Father speaks, then Aureli, then Father, while he is still dissolving; the player’s line shows Aureli’s name.
+- [ ] Control and the camera come back only once the dissolve has finished (not straight after the last line). Older events without the tick behave as before.
+
 **0bb. Dissolve: whole head, no flash (20 Nov)**
 - [ ] Game → your *Taken* test: walk into the zone. Father dissolves from the feet up with his **whole head** visible (nothing cut off at the top), also as the close camera shot moves in.
 - [ ] When the dissolve finishes he is gone for good: no flash of him back for an instant.

@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story: lines during a long step, and the player can speak.** Any event step can be ticked
+  **Don't wait for it to finish**, so the next steps carry on while it runs. For example, the
+  dissolve plays while Father and Aureli speak, and the event still holds control and the camera
+  until the dissolve is done. A **Say** step's *Who* can now be **The player** (shown with the
+  played character's name).
 - **Fix: character dissolve cut off the head and flashed at the end.** The dissolve's image was
   framed from the character's collider, which can be much shorter than its art (Father's collider
   is about half his drawn height), so the top of the head was cut off. It is now framed from how

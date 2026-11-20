@@ -93,6 +93,9 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
     as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
     character that ends fully dissolved stays hidden.
+  - *(20 Nov)* Any step can be marked **Don't wait for it to finish**: the next steps start while
+    it runs (lines spoken during a long dissolve); the event still ends — and gives back control
+    and the camera — only when it has finished. A **Say** step's speaker can be **the player**.
   - **Prop** *(added 20 Nov)* — *role* takes an asset in hand (*Hold it*), puts it away, or
     *drops* it (it falls from the hand and lies on the ground; kept in play progress, cleared by
     the sequence's Reset). How each character holds each asset is its grip from Character Lab →

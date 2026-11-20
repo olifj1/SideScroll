@@ -427,7 +427,9 @@
       case 'say': {
         const line = el('textarea', { rows: '2', maxlength: '200' }); line.value = s.text || '';
         line.addEventListener('input', () => { s.text = line.value; change(false); });
-        rows.push(field('Who (character placeholder)', roleSelect('actor', 'character', true)), field('Line', line),
+        const speakers = [['', 'No one (no name shown)'], [Seq.PLAYER, 'The player (whoever is played)'], ...e.roles.filter(r => r.kind === 'character').map(r => [r.id, r.name])];
+        rows.push(field('Who', select_(speakers, s.actor || '', v => { if (v) s.actor = v; else delete s.actor; change(); }),
+          'A character placeholder, or the player'), field('Line', line),
           el('div', { class: 'sidescroll-story-inline' }, 'shown for', numberInput(s, 'seconds', 1, 30, 0.5, 3), 's'));
         break;
       }
@@ -551,7 +553,9 @@
         xBtn(() => { e.steps.splice(index, 1); change(); }, 'Remove step')),
       ...rows,
       index > 0 ? el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.with, onchange: ev => { s.with = ev.target.checked; change(); } }),
-        'At the same time as the step before') : null);
+        'At the same time as the step before') : null,
+      el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.background, onchange: ev => { if (ev.target.checked) s.background = true; else delete s.background; change(); } }),
+        'Don’t wait for it to finish (the next steps go on while it runs)'));
   }
   function eventPage() {
     const e = eventById(view.event);
@@ -576,6 +580,7 @@
       // Steps run in order and are added one after another, so their add
       // button sits after the last step (the one exception to add-bars-on-top).
       section('Steps',
+        e.steps.length > 1 ? help('Each step waits until the ones before it have finished. “At the same time as the step before” starts it together with that one; “Don’t wait for it to finish” lets the next steps go on while it runs (e.g. lines spoken during a long dissolve).') : null,
         e.steps.length ? e.steps.map((s, i) => stepEditor(e, s, i)) : help('No steps yet.'),
         addBar(btn('+ Add step', () => openChooser('steps', 'Add a step', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, thumb: STEP_ICON[type] || '◇', note: def.help })), type => {
           const def = Seq.STEPS[type];
