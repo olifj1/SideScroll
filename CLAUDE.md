@@ -298,7 +298,9 @@ design `docs/SEQUENCE_SYSTEM_DESIGN.md`, steps 1–2 done). Content keys `sidesc
 (`events:[{id ev-…, name, roles:[{id r-…, name, kind 'character'|'mark'}], steps:[{type
 (Seq.STEPS: move, animate, face, say, think, wait, flag, show, control, camera, screen, prompt, item,
 effect, look, prop), with (run with the
-previous step), actor/to/target (role ids), …}]}]`) and `sidescroll.story.sequences.v1`
+previous step), background (don't wait: the next beat starts while it runs; the run ends only when
+it has finished too — `run.background` in `advanceSequenceRuns`), actor/to/target (role ids; a
+Say step's actor may be `Seq.PLAYER` = the player, named by `storyPlayerName()`), …}]}]`) and `sidescroll.story.sequences.v1`
 (`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
 body = `{components:[{id c-…, kind 'character'|'mark'|'zone', name, dx (from the anchor), depth,
 facing, character, animation (action slot), scale, blocks, holding? | width}], logic:[{id l-…, when:{type
@@ -323,6 +325,16 @@ fire when the player's body leaves a zone. Progress `sidescroll.player.story-pro
 animation, hidden}). The editor (the **Story** tab) talks to the game through `window.SideScrollSequenceHost` (pick-lists use
 its `openPicker`, the asset browser's right-hand window); taps arrive as `sidescroll:story-tap`; the scope id is `'story'`. Zones the player already stands
 in fire only once she has left them. The 8–9 Nov world characters / marks / triggers are retired.
+**Event steps in the editor:** the Steps list shows each step folded to one line (`stepRow`:
+`stepSummary`, `stepTiming`; tap opens it — `view.openStep`; ⋮⋮ drags it, `moveStepTo`, keeping
+its *at the same time* setting). **⤢ Timeline** (`openTimeline` / `renderTimeline`, a full-screen
+layer on `document.body`, z 1005; hides itself while a pick-list is open) lays the steps out in
+time: beats from `beatsOf`, lengths from `stepTiming` (~ = guessed: own walking speed, animation
+length; *Wait for Action* open-ended; instant beats take 0.4 s of room), "don't wait" steps dashed,
+lanes packed so blocks never overlap. Drag a block by ⋮⋮ or press-and-hold onto another block →
+joins its beat, between beats → its own beat there (`moveStep`); tap → the step editor in a side
+sheet (`stepEditor`, which follows its step when it moves). A sequence-level node graph (triggers →
+events → flags, loops) is the planned next view.
 **Editor TEST bar** (`#sidescroll-test-bar`, every scope): ▶ Play sets `editorPlayTest` — the game
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game
 controls). Gameplay code tests `editLocked()` (= editing and not playing) where Play must work;

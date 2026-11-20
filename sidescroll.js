@@ -18459,6 +18459,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   const seqLineKey = (p, l) => `${p.id}:${l.id}`;
   const seqLineReady = (p, l) => !!seqEvents.get(l.event) && !(l.once && seqProgress.fired[seqLineKey(p, l)])
     && Seq.conditionMet(l.condition, seqProgress.flags);
+  // The player's name on a Say step's subtitle: the character being played.
+  const storyPlayerName = () => CharacterRegistry?.name?.(currentCharacterVariant) || '';
   function seqFireLine(p, body, l, test = false) {
     const event = seqEvents.get(l.event);
     if (!event) return false;
@@ -18602,7 +18604,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         seqSavedFor(key).facing = facing; saveStoryProgress();
         return now;
       }
-      case 'say': showStorySpeech(actor?.name || '', step.text, step.seconds); return now + step.seconds;
+      case 'say': showStorySpeech(step.actor === 'player' ? storyPlayerName() : (actor?.name || ''), step.text, step.seconds); return now + step.seconds;
       case 'think': showPuzzleThought(step.text, step.seconds * 1000); return now + step.seconds;
       case 'wait': return now + step.seconds;
       case 'flag':
@@ -18681,15 +18683,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function advanceSequenceRuns(now) {
     for (const run of seqRuns) {
       run.active = run.active.filter(until => until > now);
+      // Steps marked "don't wait" run on without holding up the next beat.
+      run.background = (run.background || []).filter(until => until > now);
       while (!run.active.length && run.index < run.event.steps.length) {
         // Start the next beat: this step and every following "with" step.
         do {
-          const until = seqStartStep(run, run.event.steps[run.index], now);
-          if (until > now) run.active.push(until);
+          const step = run.event.steps[run.index];
+          const until = seqStartStep(run, step, now);
+          if (until > now) (step.background ? run.background : run.active).push(until);
           run.index += 1;
         } while (run.index < run.event.steps.length && run.event.steps[run.index].with);
       }
-      if (!run.active.length && run.index >= run.event.steps.length) {
+      // The event ends once everything has finished, "don't wait" steps included,
+      // so control and the camera are held until then.
+      if (!run.active.length && !run.background.length && run.index >= run.event.steps.length) {
         run.done = true;
         seqControlLocks.delete(run.id); // control always comes back when an event ends
         seqReleaseRun(run.id);          // and so do the camera, a fade and the letterbox
