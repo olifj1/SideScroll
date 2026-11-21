@@ -18680,8 +18680,30 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return now;
   }
   const seqFinishedLines = [];
+  // A timed event's steps in the order they start (by time, then as listed).
+  const seqStepOrder = event => (event.timed ? event.steps.map((s, i) => [s, i]).sort((a, b) => (a[0].at || 0) - (b[0].at || 0) || a[1] - b[1]).map(x => x[0]) : event.steps);
+  // A timed event: a clock from its start; each step starts when the clock
+  // reaches its time. A Wait for Action step stops the clock until it is answered
+  // (steps already running carry on); the event ends once everything has finished.
+  function advanceTimedRun(run, now) {
+    if (!run.order) { run.order = seqStepOrder(run.event); run.t0 = now; run.paused = 0; run.pauseFrom = null; }
+    if (run.prompt) run.pauseFrom ??= now;
+    else if (run.pauseFrom != null) { run.paused += now - run.pauseFrom; run.pauseFrom = null; }
+    const clock = (run.pauseFrom ?? now) - run.t0 - run.paused;
+    run.active = run.active.filter(until => until > now);
+    while (!run.prompt && run.index < run.order.length && (run.order[run.index].at || 0) <= clock + 1e-6) {
+      const until = seqStartStep(run, run.order[run.index], now);
+      if (until > now) run.active.push(until);
+      run.index += 1;
+    }
+    return !run.active.length && run.index >= run.order.length;
+  }
   function advanceSequenceRuns(now) {
     for (const run of seqRuns) {
+      if (run.event.timed) {
+        if (advanceTimedRun(run, now)) seqEndRun(run);
+        continue;
+      }
       run.active = run.active.filter(until => until > now);
       // Steps marked "don't wait" run on without holding up the next beat.
       run.background = (run.background || []).filter(until => until > now);
@@ -18696,18 +18718,19 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       // The event ends once everything has finished, "don't wait" steps included,
       // so control and the camera are held until then.
-      if (!run.active.length && !run.background.length && run.index >= run.event.steps.length) {
-        run.done = true;
-        seqControlLocks.delete(run.id); // control always comes back when an event ends
-        seqReleaseRun(run.id);          // and so do the camera, a fade and the letterbox
-        seqFinishedLines.push({ p: run.p, line: run.line });
-      }
+      if (!run.active.length && !run.background.length && run.index >= run.event.steps.length) seqEndRun(run);
     }
     seqRuns = seqRuns.filter(run => !run.done);
     // The on-screen controls dim while a sequence holds control.
     const locked = seqControlLocks.size > 0, prompting = !!seqPromptRun();
     if (locked !== seqControlShown) { seqControlShown = locked; document.body.classList.toggle('sidescroll-seq-control', locked); }
     if (prompting !== seqPromptShown) { seqPromptShown = prompting; document.body.classList.toggle('sidescroll-seq-prompt', prompting); }
+  }
+  function seqEndRun(run) {
+    run.done = true;
+    seqControlLocks.delete(run.id); // control always comes back when an event ends
+    seqReleaseRun(run.id);          // and so do the camera, a fade and the letterbox
+    seqFinishedLines.push({ p: run.p, line: run.line });
   }
   let seqControlShown = false, seqPromptShown = false;
   const storyPlayerX = () => character.x + colliderWorld().offsetX;
@@ -18819,7 +18842,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (!seqLineReady(r.p, l)) continue;
       if (l.once) seqProgress.fired[seqLineKey(r.p, l)] = true;
       const run = { id: ++seqRunSerial, p: r.p, body: r.body, line: l, event: seqEvents.get(l.event), index: 0, active: [], instant: true };
-      for (const step of run.event.steps) {
+      for (const step of seqStepOrder(run.event)) {
         if (step.type === 'move') {
           const actor = step.actor ? seqBound(run, step.actor) : null, mark = step.to ? seqBound(run, step.to) : null;
           if (!actor || !mark) continue;

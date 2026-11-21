@@ -5,7 +5,11 @@
   right). Branching, loops and choices live between events (a sequence's logic), whose view is a
   node graph. Don't add branching inside an event.
 - Reordering on the phone: a ⋮⋮ grip drags at once; press-and-hold drags anywhere else, so plain
-  swipes still scroll. Edits made in the timeline are the same draft as the list (Save / Discard).
+  swipes still scroll; two fingers pinch-zoom. Edits made in the timeline are the same draft as the
+  list (Undo / Discard / Save).
+- Where a step sits on a timeline is when it happens (timed events). Never re-flow other steps
+  when one is moved; an occupied spot moves the dropped step to a free track instead.
+- Opening a row in a list keeps the row as its title and shows the details beneath it.
 
 ## Props: one grip per character per asset (20 Nov 2026)
 - Anything a character holds is drawn through one list of held things (`[{layer, draw}]`), placed

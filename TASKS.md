@@ -83,6 +83,14 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0be. Timed events, undo, pinch zoom (21 Nov)**
+- [ ] Story → *Taken* → ⤢ Timeline: **pinch** to zoom in and out (the time under your fingers stays put); − / + still work.
+- [ ] Drag Father’s line (⋮⋮ or press and hold) to about 4 s on an empty track: a yellow label shows the time and track; it lands exactly there and **nothing else moves**. The event is now timed (hint). Drop a block on top of another: it goes to the next free track.
+- [ ] Put “Father?” (player) at ~7 s and another Father line at ~10 s, all over the dissolve; Save; walk into the zone: each line comes at its time while he dissolves.
+- [ ] **↶ / ↷** in the timeline (and ↶ Undo in the panel) step back and forward through edits, including the first drag that made the event timed. **Discard** goes back to the saved version.
+- [ ] A *Wait for Action* step in a timed event: everything after it waits until Action is pressed; a dissolve already running carries on.
+- [ ] Step list: tap a step — its line stays and its settings open underneath (▾); tap the line again to close. Timed events show each step’s start time on the left; *Starts at / track* in the settings moves it.
+
 **0bd. Event timeline and folded steps (20 Nov)**
 - [ ] Story → Events → *Taken*: each step is one line (summary, length, ↷ for "don't wait"; steps at the same time are indented). Tap one: it opens; tap its ▾ title: it folds.
 - [ ] Drag a step by ⋮⋮ up or down the list: a yellow line shows where it lands; it moves there. Undo still works.

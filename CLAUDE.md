@@ -325,16 +325,21 @@ fire when the player's body leaves a zone. Progress `sidescroll.player.story-pro
 animation, hidden}). The editor (the **Story** tab) talks to the game through `window.SideScrollSequenceHost` (pick-lists use
 its `openPicker`, the asset browser's right-hand window); taps arrive as `sidescroll:story-tap`; the scope id is `'story'`. Zones the player already stands
 in fire only once she has left them. The 8–9 Nov world characters / marks / triggers are retired.
-**Event steps in the editor:** the Steps list shows each step folded to one line (`stepRow`:
-`stepSummary`, `stepTiming`; tap opens it — `view.openStep`; ⋮⋮ drags it, `moveStepTo`, keeping
-its *at the same time* setting). **⤢ Timeline** (`openTimeline` / `renderTimeline`, a full-screen
-layer on `document.body`, z 1005; hides itself while a pick-list is open) lays the steps out in
-time: beats from `beatsOf`, lengths from `stepTiming` (~ = guessed: own walking speed, animation
-length; *Wait for Action* open-ended; instant beats take 0.4 s of room), "don't wait" steps dashed,
-lanes packed so blocks never overlap. Drag a block by ⋮⋮ or press-and-hold onto another block →
-joins its beat, between beats → its own beat there (`moveStep`); tap → the step editor in a side
-sheet (`stepEditor`, which follows its step when it moves). A sequence-level node graph (triggers →
-events → flags, loops) is the planned next view.
+**Timed events** (`event.timed`): steps carry `at` (seconds from the event's start) and `track`
+(timeline row, 0…`Seq.MAX_TRACK`) instead of `with` / `background`; the game's `advanceTimedRun`
+keeps a clock per run and starts each step when it reaches `at` (`seqStepOrder`); a *Wait for
+Action* step stops the clock (`run.pauseFrom`) until answered; the run ends when every step has
+finished. Untimed events still run beat by beat. **Story editor:** steps are one-line rows
+(`stepRow`: `stepSummary`, `stepTiming`; timed events show the start time); tapping opens the
+step's details under its row (`stepEditor(…, {headless})`); ⋮⋮ drags rows in untimed events
+(`moveStepTo`). Undo / redo of the whole Story draft (`history`, snapshots; typing within 1 s is
+one step) in the panel and the timeline. **⤢ Timeline** (`openTimeline` / `renderTimeline`, a
+full-screen layer on `document.body`, z 1005, hidden while a pick-list is open): blocks at
+`timedPlacement(e)` (an untimed event shows where its steps start now); drag by ⋮⋮ or
+press-and-hold to any time / track (snap 0.1 s, magnet to other blocks' edges; `freeTrack` moves it
+off an occupied spot) — the first drag converts the event (`makeTimed`, undoable); tap → side sheet
+(`stepEditor`); pinch / ctrl + wheel zoom (`zoomTimeline`, keeps the time under the fingers);
+↶ ↷, Discard, Save. A sequence-level node graph (triggers → events → flags, loops) is planned next.
 **Editor TEST bar** (`#sidescroll-test-bar`, every scope): ▶ Play sets `editorPlayTest` — the game
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game
 controls). Gameplay code tests `editLocked()` (= editing and not playing) where Play must work;
