@@ -15860,8 +15860,8 @@ body.sidescroll-tl-open .sidescroll-tl.picking{display:none;}
 .sidescroll-tl-sheet .sidescroll-story-inline input{width:auto;min-width:56px;}
 /* Timed events: tracks, drag readout; list rows that open in place. */
 .sidescroll-tl-scroll{touch-action:pan-x pan-y;}
-.sidescroll-tl-track{position:absolute;left:0;height:44px;border-top:1px solid rgba(255,255,255,.06);background:linear-gradient(rgba(255,255,255,.025),rgba(255,255,255,0));pointer-events:none;}
-.sidescroll-tl-track span{position:sticky;left:2px;display:inline-block;margin:2px 0 0 2px;font-size:9px;font-weight:800;color:rgba(255,255,255,.3);}
+
+
 .sidescroll-tl-drop.snapped{background:#7fe0a0;}
 .sidescroll-tl-readout{position:absolute;z-index:6;padding:2px 6px;border-radius:6px;background:#ffd678;color:#1b1608;font-size:10px;font-weight:800;white-space:nowrap;pointer-events:none;}
 .sidescroll-tl button.quiet{opacity:.45;}
@@ -15872,3 +15872,31 @@ body.sidescroll-tl-open .sidescroll-tl.picking{display:none;}
 .sidescroll-seq-at{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#ffd678;}
 .sidescroll-seq-steps.timed .sidescroll-seq-steprow{grid-template-columns:38px minmax(0,1fr);}
 .sidescroll-story-undo.quiet{opacity:.5;}
+
+/* Story timeline by subject: a row per character / Player / Camera / Screen / Look / Game. */
+button.sidescroll-seq-steprow{display:flex;align-items:center;gap:6px;width:100%;min-height:36px;padding:4px 8px;color:#eef3f1;font:600 12px/1.25 system-ui,-apple-system,sans-serif;text-align:left;}
+button.sidescroll-seq-steprow .sidescroll-seq-steprow-text b{color:rgba(255,255,255,.6);font-weight:800;}
+.sidescroll-tl-block{height:34px;}
+.sidescroll-tl-row{position:absolute;left:0;box-sizing:border-box;border-top:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.015);}
+.sidescroll-tl-row.odd{background:rgba(255,255,255,.04);}
+.sidescroll-tl-empty{position:absolute;top:12px;font-size:10px;color:rgba(255,255,255,.22);pointer-events:none;}
+.sidescroll-tl-labels{position:absolute;top:0;left:0;width:92px;z-index:7;transform:translateX(var(--sx,0px));pointer-events:none;}
+.sidescroll-tl-rowlabel{position:absolute;left:0;width:92px;box-sizing:border-box;display:flex;align-items:flex-start;gap:4px;padding:10px 6px 0;border-top:1px solid rgba(255,255,255,.08);border-right:1px solid rgba(255,255,255,.14);background:#141d21;font-size:11px;font-weight:800;color:rgba(255,255,255,.8);overflow:hidden;}
+.sidescroll-tl-rowlabel span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.sidescroll-tl-rowlabel.role{color:#a6e6b8;}
+.sidescroll-tl-rowlabel b{flex:none;width:14px;text-align:center;}
+.sidescroll-tl .sidescroll-tl-addrole{position:absolute;left:4px;width:84px;min-height:28px;padding:2px 4px;font-size:11px;pointer-events:auto;}
+.sidescroll-tl-block.point{display:flex;align-items:center;gap:4px;padding:0 4px 0 0;border:0;background:none;}
+.sidescroll-tl-block.point .sidescroll-tl-text{color:rgba(255,255,255,.85);}
+.sidescroll-tl-diamond{flex:none;width:22px;height:34px;position:relative;}
+.sidescroll-tl-diamond::before{content:"";position:absolute;left:4px;top:10px;width:13px;height:13px;transform:rotate(45deg);border:2px solid #fff;border-radius:2px;background:var(--tl-kind);}
+.sidescroll-tl-block.point.selected{outline:0;}
+.sidescroll-tl-block.point.selected .sidescroll-tl-diamond::before{box-shadow:0 0 0 3px rgba(255,255,255,.7);}
+.sidescroll-tl-edge{position:absolute;top:0;right:-6px;width:16px;height:100%;cursor:ew-resize;touch-action:none;}
+.sidescroll-tl-edge::after{content:"";position:absolute;top:8px;bottom:8px;left:5px;width:4px;border-radius:2px;background:rgba(255,255,255,.55);}
+.sidescroll-tl-block.resizing{z-index:5;outline:2px solid #ffd678;}
+.sidescroll-tl button.danger{border-color:rgba(255,120,110,.5);color:#ffb0a8;}
+.sidescroll-tl-endmark,.sidescroll-tl-drop{top:22px;}
+.sidescroll-tl-ruler{position:absolute;top:0;left:0;height:22px;z-index:6;background:#121a1d;transform:translateY(var(--sy,0px));pointer-events:none;}
+.sidescroll-tl-labels::before{content:"";position:absolute;top:0;left:0;width:92px;height:22px;background:#141d21;transform:translateY(var(--sy,0px));}
+.sidescroll-tl-help{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

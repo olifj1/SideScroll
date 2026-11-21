@@ -47,6 +47,7 @@ use roles. Steps 1–2 (events library, sequences with characters / marks / zone
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
 - [ ] **Play from here:** complete every puzzle and sequence before a chosen point (via ⚑ Progress), then play from there. *(⚑ Progress, Solved State and the Item step done 12 Nov.)*
 - [ ] **4 — World Lab sequences track:** *(track, details, drag / type to move, Open in game done 13 Nov)* still to do: show where each component stands within the bar, and a template's other instances.
+- [ ] **Timeline, next stages** *(21 Nov: every event is a timeline with a row per subject, done)*: (2) dock the timeline under the game view with ▶ play and a playhead moving across; (3) scrub to any moment (the scene jumps there: positions, camera, dissolve, lines, bars, look) and edit while paused, replaying from the playhead — without touching play progress.
 - [ ] **5 — More look controls** (colour grading, vignette, bloom; looks per stretch of the journey, e.g. atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov; Looks (fog + post sets) and the Look step done 14 Nov.)*
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — next after the intro)
@@ -83,21 +84,16 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
-**0be. Timed events, undo, pinch zoom (21 Nov)**
-- [ ] Story → *Taken* → ⤢ Timeline: **pinch** to zoom in and out (the time under your fingers stays put); − / + still work.
-- [ ] Drag Father’s line (⋮⋮ or press and hold) to about 4 s on an empty track: a yellow label shows the time and track; it lands exactly there and **nothing else moves**. The event is now timed (hint). Drop a block on top of another: it goes to the next free track.
-- [ ] Put “Father?” (player) at ~7 s and another Father line at ~10 s, all over the dissolve; Save; walk into the zone: each line comes at its time while he dissolves.
-- [ ] **↶ / ↷** in the timeline (and ↶ Undo in the panel) step back and forward through edits, including the first drag that made the event timed. **Discard** goes back to the saved version.
-- [ ] A *Wait for Action* step in a timed event: everything after it waits until Action is pressed; a dissolve already running carries on.
-- [ ] Step list: tap a step — its line stays and its settings open underneath (▾); tap the line again to close. Timed events show each step’s start time on the left; *Starts at / track* in the settings moves it.
-
-**0bd. Event timeline and folded steps (20 Nov)**
-- [ ] Story → Events → *Taken*: each step is one line (summary, length, ↷ for "don't wait"; steps at the same time are indented). Tap one: it opens; tap its ▾ title: it folds.
-- [ ] Drag a step by ⋮⋮ up or down the list: a yellow line shows where it lands; it moves there. Undo still works.
-- [ ] **⤢ Timeline**: the event fills the screen, time left to right; the dissolve is a long dashed block with the lines over it. − / + zoom; swipe scrolls both ways.
-- [ ] Drag a block by ⋮⋮ onto another block: they now start together. Drag one between two moments (yellow line): it gets its own moment. Press and hold a block (no ⋮⋮) and drag: same. A plain swipe on a block still scrolls.
-- [ ] Tap a block: its settings open on the right; changes show on the timeline. **+ Step** opens the step list (the timeline steps aside) and comes back with the new step open. **Save** / **‹ Close** work.
-
+**0bf. Timeline-first events, a row per subject (21 Nov)** — replaces 0bd / 0be
+- [ ] Story → Events → *Taken*: the page shows a summary in time order (start time, row, what, length). Tap Father's line: the timeline opens on it with its settings on the right.
+- [ ] Rows down the left: **Father**, **Player**, **Camera**, **Screen**, **Look**, **Game**; they stay at the left edge while you scroll the time, and the seconds ruler stays at the top when you scroll down.
+- [ ] The event kept its timing when it was converted (dissolve, lines, camera and bars start where they did before).
+- [ ] Tap an empty spot on the **Player** row at about 5 s: a list (Say a line / Think) opens; choose Say: a line appears there, open on the right. Tap the **Camera** row: Frame a shot / Back to the player. Tap **Look**: a Look step is added straight away.
+- [ ] Drag the new line by ⋮⋮ (or press and hold) up to Father's row at about 8 s: the yellow label reads the time and *Father*; it lands there and its Who is now Father. Try dragging a camera block to another row: it stays on Camera ("stays on its row").
+- [ ] Drag a block's **right edge** (the small bar): the label shows its length; it changes when you let go (lines, waits, fades, looks, camera moves, walks — a walk then takes that long; the dissolve stretches its states).
+- [ ] Instant steps (take control, hold the axe, flags) are **diamonds**; drag and tap them the same way. Overlapping steps on one row get an extra line.
+- [ ] **+ Character** (bottom left) adds a character row; **+ Add** lists everything and puts it at the end. Sheet: **Duplicate**, **Remove**, **Done**. ↶ / ↷, pinch zoom, Discard and Save still work.
+- [ ] Save, then walk into the zone: everything happens at its time (the lines over the dissolve, Wait for Action still stops the clock).
 **0bc. Lines during the dissolve; the player speaks (20 Nov)**
 - [ ] Story → Events → *Taken*: on the **Effect** step tick *Don’t wait for it to finish*. Keep the Wait 3 s step *at the same time* as it, then Father’s Say step (not at the same time).
 - [ ] Add a **Say** step with *Who* = **The player**, line “Father?”, then another Father line. Play it: the dissolve starts, after 3 s Father speaks, then Aureli, then Father, while he is still dissolving; the player’s line shows Aureli’s name.

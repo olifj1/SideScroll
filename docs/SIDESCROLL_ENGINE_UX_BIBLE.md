@@ -1,14 +1,18 @@
 # SideScroll Engine & UX Bible
 
-## Story: timelines inside events, graphs between them (20 Nov 2026)
-- An event is a straight line of beats; it is edited as a list or a **timeline** (time left to
-  right). Branching, loops and choices live between events (a sequence's logic), whose view is a
-  node graph. Don't add branching inside an event.
-- Reordering on the phone: a ⋮⋮ grip drags at once; press-and-hold drags anywhere else, so plain
-  swipes still scroll; two fingers pinch-zoom. Edits made in the timeline are the same draft as the
-  list (Undo / Discard / Save).
-- Where a step sits on a timeline is when it happens (timed events). Never re-flow other steps
-  when one is moved; an occupied spot moves the dropped step to a free track instead.
+## Story: timelines inside events, graphs between them (20–21 Nov 2026)
+- An event is a straight line in time, made on its **timeline** (time left to right); the event
+  page only summarises it. Branching, loops and choices live between events (a sequence's logic),
+  whose view is a node graph. Don't add branching inside an event.
+- Timeline rows mean a subject (each character, Player, Camera, Screen, Look, Game), never a
+  number the author manages. A step's row follows from what it is about; overlaps on a row get
+  extra lines automatically. Dragging to another row only changes what that row means (who says
+  a line, which character acts); other steps stay on their row.
+- Where a step sits is when it happens. Never re-flow other steps when one is moved or resized.
+- Add where you want it: tapping an empty spot on a row offers that row's steps at that time.
+- On the phone: a ⋮⋮ grip (or a block's right edge) drags at once; press-and-hold drags anywhere
+  else, so plain swipes still scroll; two fingers pinch-zoom. Edits are one draft with the panel
+  (Undo / Discard / Save).
 - Opening a row in a list keeps the row as its title and shows the details beneath it.
 
 ## Props: one grip per character per asset (20 Nov 2026)
