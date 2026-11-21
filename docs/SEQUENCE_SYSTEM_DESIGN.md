@@ -93,6 +93,11 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
     as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
     character that ends fully dissolved stays hidden.
+  - *(21 Nov)* **Timed events:** an event can be *timed* — every step has its own start time and
+    timeline track and starts then, whatever else is running (lines at chosen moments of a
+    dissolve). *Wait for Action* stops the clock until pressed; walking at own speed no longer
+    holds later steps up. Events become timed when a step is first dragged on the ⤢ Timeline
+    (each keeps the time it already started at); untimed events still run beat by beat.
   - *(20 Nov)* **Editing long events:** steps fold to one-line rows with ⋮⋮ to drag; **⤢ Timeline**
     shows the event in time (blocks per step, stacked when they start together, "don't wait"
     steps running on) with drag to reorder / join and tap to edit. Events stay straight lines;

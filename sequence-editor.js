@@ -38,7 +38,7 @@
     return node;
   };
   const fmt = (n, d = 1) => Number(n).toFixed(d);
-  const btn = (label, onclick, cls = '') => el('button', { type: 'button', class: cls, onclick }, label);
+  const btn = (label, onclick, cls = '', title = '') => el('button', { type: 'button', class: cls, onclick, ...(title ? { title, 'aria-label': title } : {}) }, label);
   const field = (label, control, note) => el('label', { class: 'sidescroll-story-field' }, el('span', { text: label }), control, note ? el('small', { text: note }) : null);
   const row = (...children) => el('div', { class: 'sidescroll-story-row' }, ...children);
   function segmented(options, value, onPick) {
@@ -135,7 +135,31 @@
     return { events: Seq.normaliseEvents({ events: draft.events }), ...Seq.normaliseSequences({ templates: draft.templates, placed: draft.placed }) };
   }
   function preview() { host.preview(normalised()); }
-  function change(rerender = true) { dirty = true; preview(); if (rerender) render(); else updateStatus(); }
+  // ---- Undo / redo: snapshots of the draft (typing within a second is one step) ----
+  const history = { undo: [], redo: [], last: JSON.stringify(draft), typing: false, at: 0 };
+  function resetHistory() { history.undo = []; history.redo = []; history.last = JSON.stringify(draft); history.typing = false; }
+  function remember(typing) {
+    const now = JSON.stringify(draft);
+    if (now === history.last) return;
+    const t = performance.now();
+    if (!(typing && history.typing && t - history.at < 1000)) { history.undo.push(history.last); if (history.undo.length > 120) history.undo.shift(); }
+    history.redo = []; history.typing = typing; history.at = t; history.last = now;
+  }
+  function stepHistory(from, to) {
+    if (!from.length) return;
+    to.push(JSON.stringify(draft));
+    draft = JSON.parse(from.pop());
+    history.last = JSON.stringify(draft); history.typing = false;
+    dirty = true; placeMode = null; preview();
+    if (view.page === 'event' && !eventById(view.event)) open('list'); else render();
+  }
+  const undo = () => stepHistory(history.undo, history.redo), redo = () => stepHistory(history.redo, history.undo);
+  function discard() {
+    if (!confirm('Discard your Story changes since the last save?')) return false;
+    draft = clone(Seq.load()); dirty = false; placeMode = null; resetHistory(); preview();
+    return true;
+  }
+  function change(rerender = true) { remember(!rerender); dirty = true; preview(); if (rerender) render(); else updateStatus(); }
   function syncSelection() { host.select(view.page === 'sequence' ? view.placed : null, view.page === 'sequence' ? view.component : null); }
   function open(page, id, extra = {}) {
     placeMode = null; closeChooser();
@@ -291,25 +315,6 @@
     if (!s.with && steps[from + 1]?.with) steps[from + 1].with = false;
     steps.splice(from, 1);
     return s;
-  }
-  // Timeline drop: {join: step} (run with that step's beat) | {before: step} (its
-  // own beat just before that one) | {end: true}. Returns the step's new index.
-  function moveStep(e, from, target) {
-    const steps = e.steps, s = steps[from];
-    if (target.join === s || target.before === s) return from;
-    detachStep(steps, from);
-    let at = steps.length;
-    if (target.join) {
-      const beat = beatsOf(steps).find(b => b.includes(steps.indexOf(target.join)));
-      at = beat ? beat[beat.length - 1] + 1 : steps.length;
-      s.with = true;
-    } else if (target.before) {
-      at = Math.max(0, steps.indexOf(target.before));
-      s.with = false;
-    } else s.with = false;
-    steps.splice(at, 0, s);
-    if (steps[0]) steps[0].with = false;
-    return at;
   }
   // Step list drag: to position `to` (0…length, before the step there), keeping
   // its "at the same time" setting (it joins whatever is before it there).
@@ -645,25 +650,39 @@
           help('A fade or the bars still on when the event ends are cleared.'));
         break;
     }
-    return el('div', { class: 'sidescroll-story-move', 'data-reveal': `step-${index}` },
-      el('div', { class: 'sidescroll-story-move-head' },
-        opts.onFold ? el('button', { type: 'button', class: 'sidescroll-seq-fold', onclick: opts.onFold, 'aria-label': 'Fold this step' }, `▾ ${index + 1}. ${def.label}`)
-          : el('strong', { text: `${index + 1}. ${def.label}` }),
-        btn('↑', () => { e.steps.splice(index - 1, 0, e.steps.splice(index, 1)[0]); change(); }, index === 0 ? 'hidden' : ''),
-        xBtn(() => { e.steps.splice(index, 1); change(); }, 'Remove step')),
-      ...rows,
+    // When it runs: a time and track (timed events) or its place among the steps.
+    const timing = e.timed ? [
+      el('div', { class: 'sidescroll-story-inline' }, el('span', { text: 'Starts at' }),
+        el('input', { type: 'number', min: 0, max: 900, step: 0.1, value: fmt(s.at || 0, 2), inputmode: 'decimal',
+          onchange: ev => { const v = Number(ev.target.value); if (Number.isFinite(v)) { s.at = Math.max(0, Math.round(v * 20) / 20); sortTimed(e); change(); } } }), el('span', { text: 's · track' }),
+        el('input', { type: 'number', min: 1, max: Seq.MAX_TRACK + 1, step: 1, value: (s.track || 0) + 1, inputmode: 'numeric',
+          onchange: ev => { const v = Math.round(Number(ev.target.value)); if (Number.isFinite(v)) { s.track = Math.max(0, Math.min(Seq.MAX_TRACK, v - 1)); change(); } } })),
+      help(s.type === 'prompt' ? 'The clock stops here until the player presses Action; steps after it wait.' : 'It starts at this time whatever else is running (drag it on the ⤢ Timeline).')
+    ] : [
       index > 0 ? el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.with, onchange: ev => { s.with = ev.target.checked; change(); } }),
         'At the same time as the step before') : null,
       el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!s.background, onchange: ev => { if (ev.target.checked) s.background = true; else delete s.background; change(); } }),
-        'Don’t wait for it to finish (the next steps go on while it runs)'));
+        'Don’t wait for it to finish (the next steps go on while it runs)')
+    ];
+    const remove = () => { e.steps.splice(index, 1); if (view.openStep === index) view.openStep = null; change(); };
+    const up = !e.timed && index > 0 ? () => { e.steps.splice(index - 1, 0, e.steps.splice(index, 1)[0]); if (view.openStep === index) view.openStep = index - 1; change(); } : null;
+    // Headless: the details under a step's row in the list (the row is its title).
+    if (opts.headless) return el('div', { class: 'sidescroll-story-move sidescroll-seq-stepdetails' }, ...rows, ...timing,
+      el('div', { class: 'sidescroll-seq-stepactions' }, up ? btn('↑ Earlier', up) : null, btn('Remove step', remove)));
+    return el('div', { class: 'sidescroll-story-move', 'data-reveal': `step-${index}` },
+      el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `${index + 1}. ${def.label}` }),
+        up ? btn('↑', up) : null, xBtn(remove, 'Remove step')),
+      ...rows, ...timing);
   }
   // A folded step: one line (tap to open), ⋮⋮ drags it to a new place.
-  function stepRow(e, s, i) {
+  function stepRow(e, s, i, isOpen = false) {
     const t = stepTiming(s);
-    return el('div', { class: `sidescroll-seq-steprow kind-${STEP_KIND[s.type] || 'logic'}${s.with && i > 0 ? ' with' : ''}`, 'data-step': i, 'data-reveal': `step-${i}` },
-      el('span', { class: 'sidescroll-seq-handle', 'aria-label': `Drag to move step ${i + 1}`, title: 'Drag to move', onpointerdown: ev => startListDrag(ev, e, i) }, '⋮⋮'),
-      el('button', { type: 'button', class: 'sidescroll-seq-steprow-open', onclick: () => { view.openStep = i; reveal = `step-${i}`; render(); } },
-        el('span', { class: 'sidescroll-seq-steprow-n', text: `${i + 1}` }),
+    return el('div', { class: `sidescroll-seq-steprow kind-${STEP_KIND[s.type] || 'logic'}${s.with && i > 0 && !e.timed ? ' with' : ''}${isOpen ? ' open' : ''}`, 'data-step': i, 'data-reveal': `step-${i}` },
+      e.timed ? el('span', { class: 'sidescroll-seq-at', title: 'Starts at', text: `${fmt(s.at || 0, 1)}s` })
+        : el('span', { class: 'sidescroll-seq-handle', 'aria-label': `Drag to move step ${i + 1}`, title: 'Drag to move', onpointerdown: ev => startListDrag(ev, e, i) }, '⋮⋮'),
+      el('button', { type: 'button', class: 'sidescroll-seq-steprow-open', 'aria-expanded': String(isOpen),
+        onclick: () => { view.openStep = isOpen ? null : i; if (!isOpen) reveal = `step-${i}`; render(); } },
+        el('span', { class: 'sidescroll-seq-steprow-n', text: isOpen ? '▾' : `${i + 1}` }),
         el('span', { class: 'sidescroll-seq-steprow-icon', text: STEP_ICON[s.type] || '◇' }),
         el('span', { class: 'sidescroll-seq-steprow-text', text: stepSummary(e, s) }),
         s.background ? el('span', { class: 'sidescroll-seq-chip runs-on', text: '↷', title: 'Doesn’t wait for it to finish' }) : null,
@@ -700,57 +719,80 @@
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
   }
-  // ---- Event timeline (⤢ Timeline): the event's steps laid out in time ---------
-  // Blocks are steps (length = how long they take); steps that start together
-  // stack; "don't wait" steps run on (dashed) under the next ones. Drag a block by
-  // ⋮⋮ (or press and hold it) onto another block to run with it, or between two
-  // moments to make it its own beat there; tap a block to edit it on the right.
-  const timeline = { open: false, pps: 44, selected: null, selObj: null, root: null, scroll: null };
-  const TL = { lane: 46, top: 30, minW: 74, instantGap: 0.4, pad: 16 };
-  function timelineLayout(e) {
-    const beats = beatsOf(e.steps), items = [], starts = [];
+  // ---- Event timeline (⤢ Timeline): steps placed in time, one track per row ----
+  // In a timed event every step starts at its own time (`at`) on a track. An
+  // event that still runs step by step is shown where its steps would start; the
+  // first drag makes it timed (each step keeps that time; Undo puts it back).
+  // Drag a block (by ⋮⋮, or press and hold) to any time and track; tap to edit
+  // it on the right; pinch (or ctrl + wheel) to zoom.
+  const timeline = { open: false, pps: 44, selected: null, selObj: null, root: null, picking: false, pickTimer: 0, scrollTo: null };
+  const TL = { lane: 46, top: 26, minW: 74, pad: 16, snap: 0.1, magnet: 10 };
+  const openEnded = s => s.type === 'prompt';
+  // Seconds a step takes for placing others after it (open-ended: none).
+  const runSeconds = s => (openEnded(s) ? 0 : stepTiming(s).seconds);
+  // Where each step starts and which track it is on: its own (timed events) or,
+  // for an event that runs step by step, the time it would start at now.
+  function timedPlacement(e) {
+    if (e.timed) return e.steps.map(s => ({ at: s.at || 0, track: s.track || 0 }));
+    const out = [];
     let t = 0;
-    beats.forEach((beat, k) => {
+    for (const beat of beatsOf(e.steps)) {
       let end = t;
-      starts.push(t);
-      for (const i of beat) {
-        const s = e.steps[i], timing = stepTiming(s);
-        items.push({ i, s, beat: k, start: t, timing });
-        if (!s.background) end = Math.max(end, t + timing.seconds);
-      }
-      t = end > t ? end : t + TL.instantGap; // instant beats still take a little room
-    });
-    // Lanes: first free lane by drawn extent, so nothing overlaps.
-    const lanes = [];
-    for (const it of items) {
-      it.x = TL.pad + it.start * timeline.pps;
-      it.w = Math.max(TL.minW, it.timing.seconds * timeline.pps);
-      let lane = lanes.findIndex(end => end <= it.x + 0.5);
-      if (lane < 0) { lane = lanes.length; lanes.push(0); }
-      lanes[lane] = it.x + it.w + 4;
-      it.lane = lane;
+      for (const i of beat) { out[i] = { at: t }; if (!e.steps[i].background) end = Math.max(end, t + runSeconds(e.steps[i])); }
+      t = end;
     }
-    const width = Math.max(...items.map(it => it.x + it.w), TL.pad + t * timeline.pps) + 140;
-    return { items, starts, total: t, width, lanes: Math.max(1, lanes.length) };
+    // Tracks: the first row where it doesn't overlap anything (as drawn).
+    const ends = [], minSec = TL.minW / 44;
+    e.steps.map((s, i) => i).sort((a, b) => out[a].at - out[b].at || a - b).forEach(i => {
+      const at = out[i].at, until = at + Math.max(stepTiming(e.steps[i]).seconds, minSec);
+      let track = ends.findIndex(end => end <= at + 1e-6);
+      if (track < 0) { track = ends.length; ends.push(0); }
+      ends[track] = until; out[i].track = Math.min(track, Seq.MAX_TRACK);
+    });
+    return out;
   }
+  function makeTimed(e) {
+    if (e.timed) return;
+    const place = timedPlacement(e);
+    e.steps.forEach((s, i) => { s.at = Math.round(place[i].at * 20) / 20; s.track = place[i].track; delete s.with; delete s.background; });
+    e.timed = true;
+    sortTimed(e);
+    host.hint('This event is now timed: each step starts at its own time (Undo to go back)');
+  }
+  function sortTimed(e) {
+    if (!e.timed) return;
+    e.steps = e.steps.map((s, i) => [s, i]).sort((a, b) => (a[0].at || 0) - (b[0].at || 0) || (a[0].track || 0) - (b[0].track || 0) || a[1] - b[1]).map(x => x[0]);
+    e.steps.forEach(s => { s.with = false; });
+  }
+  const eventSeconds = (e, place = timedPlacement(e)) => Math.max(0, ...e.steps.map((s, i) => place[i].at + stepTiming(s).seconds));
   function openTimeline() {
-    timeline.open = true; timeline.selected = null; timeline.selObj = null; timeline.scroll = null;
+    timeline.open = true; timeline.selected = null; timeline.selObj = null; timeline.scrollTo = 0;
     document.body.classList.add('sidescroll-tl-open');
     renderTimeline();
   }
   function closeTimeline() {
-    timeline.open = false; closeChooser();
+    timeline.open = false; closeChooser(); clearInterval(timeline.pickTimer);
     timeline.root?.remove(); timeline.root = null;
     document.body.classList.remove('sidescroll-tl-open');
     render();
   }
+  function timelineLayout(e) {
+    const place = timedPlacement(e), pps = timeline.pps;
+    const items = e.steps.map((s, i) => {
+      const timing = stepTiming(s), at = place[i].at, track = place[i].track;
+      return { i, s, at, track, timing, x: TL.pad + at * pps, y: TL.top + track * TL.lane, w: Math.max(TL.minW, timing.seconds * pps) };
+    });
+    const total = eventSeconds(e, place);
+    const tracks = Math.min(Seq.MAX_TRACK + 1, Math.max(1, ...items.map(it => it.track + 1)) + 1); // one empty row to drop into
+    const width = Math.max(...items.map(it => it.x + it.w), TL.pad + total * pps) + 220;
+    return { items, total, tracks, width };
+  }
   function renderTimeline() {
     const e = view.page === 'event' ? eventById(view.event) : null;
     if (!timeline.open || !e) { if (timeline.open) closeTimeline(); return; }
-    const old = timeline.root;
-    const keep = old ? { left: old.querySelector('.sidescroll-tl-scroll')?.scrollLeft || 0, top: old.querySelector('.sidescroll-tl-scroll')?.scrollTop || 0,
-      sheet: old.querySelector('.sidescroll-tl-sheet-body')?.scrollTop || 0 } : null;
-    // The sheet follows its step when it moves (↑, drag) and closes if it is removed.
+    const old = timeline.root, oldScroll = old?.querySelector('.sidescroll-tl-scroll');
+    const keep = old ? { left: oldScroll?.scrollLeft || 0, top: oldScroll?.scrollTop || 0, sheet: old.querySelector('.sidescroll-tl-sheet-body')?.scrollTop || 0 } : null;
+    // The sheet follows its step when it moves and closes if it is removed.
     if (timeline.selObj && e.steps[timeline.selected] !== timeline.selObj) {
       const at = e.steps.indexOf(timeline.selObj);
       timeline.selected = at >= 0 ? at : null;
@@ -758,106 +800,141 @@
     if (timeline.selected != null && !e.steps[timeline.selected]) timeline.selected = null;
     timeline.selObj = timeline.selected != null ? e.steps[timeline.selected] : null;
     const L = timelineLayout(e), pps = timeline.pps;
-    const height = TL.top + L.lanes * TL.lane + 30;
-    // Ruler: a tick a second, labels every 1/2/5 s depending on zoom.
-    const every = pps >= 36 ? 1 : pps >= 18 ? 2 : 5;
+    const height = TL.top + L.tracks * TL.lane + 10;
+    const every = pps >= 36 ? 1 : pps >= 18 ? 2 : pps >= 8 ? 5 : 10;
     const ruler = [];
-    for (let sec = 0; sec <= Math.ceil(L.total) + 3; sec++) ruler.push(el('div', { class: `sidescroll-tl-tick${sec % every ? ' minor' : ''}`, style: `left:${TL.pad + sec * pps}px` }, sec % every ? null : `${sec}s`));
-    const beatLines = L.starts.map((t, k) => el('div', { class: 'sidescroll-tl-beat', style: `left:${TL.pad + t * pps}px;height:${height}px` }, el('span', { text: `${k + 1}` })));
+    for (let sec = 0; sec <= Math.ceil(L.width / pps); sec++) if (sec % every === 0 || pps >= 18)
+      ruler.push(el('div', { class: `sidescroll-tl-tick${sec % every ? ' minor' : ''}`, style: `left:${TL.pad + sec * pps}px` }, sec % every ? null : `${sec}s`));
+    const rows = Array.from({ length: L.tracks }, (_, k) => el('div', { class: 'sidescroll-tl-track', style: `top:${TL.top + k * TL.lane}px;width:${L.width}px` }, el('span', { text: `${k + 1}` })));
     const blocks = L.items.map(it => {
       const s = it.s, t = it.timing, kind = STEP_KIND[s.type] || 'logic';
-      return el('div', { class: `sidescroll-tl-block kind-${kind}${s.background ? ' runs-on' : ''}${t.approx || t.open ? ' approx' : ''}${!t.seconds ? ' instant' : ''}${timeline.selected === it.i ? ' selected' : ''}`,
-        'data-i': it.i, style: `left:${it.x}px;top:${TL.top + it.lane * TL.lane}px;width:${it.w}px` },
+      return el('div', { class: `sidescroll-tl-block kind-${kind}${s.background && !e.timed ? ' runs-on' : ''}${t.approx || t.open ? ' approx' : ''}${!t.seconds ? ' instant' : ''}${timeline.selected === it.i ? ' selected' : ''}`,
+        'data-i': it.i, style: `left:${it.x}px;top:${it.y}px;width:${it.w}px` },
         el('span', { class: 'sidescroll-tl-grip', 'aria-label': `Drag step ${it.i + 1}` }, '⋮⋮'),
-        el('span', { class: 'sidescroll-tl-text' }, el('b', { text: `${STEP_ICON[s.type] || '◇'} ${it.i + 1}` }), ` ${stepSummary(e, s)}`),
-        el('small', { text: `${timingLabel(t)}${s.background ? ' · runs on' : ''}` }));
+        el('span', { class: 'sidescroll-tl-text' }, el('b', { text: `${STEP_ICON[s.type] || '◇'}` }), ` ${stepSummary(e, s)}`),
+        el('small', { text: `${fmt(it.at, 1)} s · ${timingLabel(t)}` }));
     });
-    const content = el('div', { class: 'sidescroll-tl-content', style: `width:${L.width}px;height:${height}px` }, ...beatLines, ...ruler, ...blocks,
-      el('div', { class: 'sidescroll-tl-endmark', style: `left:${TL.pad + L.total * pps}px;height:${height}px` }, el('span', { text: `${fmt(L.total, 1)} s` })));
+    const content = el('div', { class: 'sidescroll-tl-content', style: `width:${L.width}px;height:${height}px` }, ...rows, ...ruler, ...blocks,
+      el('div', { class: 'sidescroll-tl-endmark', style: `left:${TL.pad + L.total * pps}px;height:${height}px` }, el('span', { text: `end ${fmt(L.total, 1)} s` })));
     const scroller = el('div', { class: 'sidescroll-tl-scroll' }, content);
     const sel = timeline.selected != null ? e.steps[timeline.selected] : null;
     const sheet = sel ? el('aside', { class: 'sidescroll-tl-sheet' },
-      el('div', { class: 'sidescroll-tl-sheet-head' }, el('strong', { text: `Step ${timeline.selected + 1}` }),
-        btn('Duplicate', () => { const copy = clone(sel); copy.with = true; e.steps.splice(timeline.selected + 1, 0, copy); timeline.selected += 1; timeline.selObj = copy; change(); }),
+      el('div', { class: 'sidescroll-tl-sheet-head' }, el('strong', { text: Seq.STEPS[sel.type]?.label || 'Step' }),
+        btn('Duplicate', () => {
+          makeTimed(e);
+          const copy = clone(sel); copy.at = Math.round(((sel.at || 0) + Math.max(0.5, stepTiming(sel).seconds)) * 20) / 20;
+          e.steps.push(copy); freeTrack(e, copy); sortTimed(e); timeline.selObj = copy; change();
+        }),
         btn('Done', () => { timeline.selected = null; timeline.selObj = null; renderTimeline(); }, 'primary')),
       el('div', { class: 'sidescroll-tl-sheet-body' }, stepEditor(e, sel, timeline.selected))) : null;
-    const status = el('span', { class: `sidescroll-tl-status${dirty ? ' dirty' : ''}`, text: dirty ? 'Unsaved' : 'Saved' });
     const root = el('div', { class: `sidescroll-tl${sheet ? ' has-sheet' : ''}`, role: 'dialog', 'aria-label': `${e.name} timeline` },
       el('div', { class: 'sidescroll-tl-head' },
         btn('‹ Close', closeTimeline),
         el('strong', { text: `${e.name} · ${fmt(L.total, 1)} s` }),
-        el('span', { class: 'sidescroll-tl-zoom' },
-          btn('−', () => { timeline.pps = Math.max(10, timeline.pps / 1.4); renderTimeline(); }),
-          btn('+', () => { timeline.pps = Math.min(200, timeline.pps * 1.4); renderTimeline(); })),
+        btn('↶', undo, history.undo.length ? '' : 'quiet', 'Undo'),
+        btn('↷', redo, history.redo.length ? '' : 'quiet', 'Redo'),
+        el('span', { class: 'sidescroll-tl-zoom' }, btn('−', () => zoomTimeline(1 / 1.4)), btn('+', () => zoomTimeline(1.4))),
         btn('+ Step', () => addStepChooser(e)),
-        status,
+        btn('Discard', () => { if (discard()) { closeTimeline(); open('list', null, { tab: 'events' }); } }, dirty ? '' : 'quiet'),
         btn('Save', () => { saveDraft(); host.hint('Story saved'); }, `primary${dirty ? '' : ' quiet'}`)),
-      el('p', { class: 'sidescroll-tl-help', text: 'Tap a step to edit it. Drag ⋮⋮ (or press and hold a step) onto another step to run them together, or between two moments to give it its own moment. ~ = a guess (own walking speed, animation length).' }),
+      el('p', { class: 'sidescroll-tl-help', text: e.timed
+        ? 'Each step starts at its own time. Drag ⋮⋮ (or press and hold) to move a step to any time and track; tap to edit; pinch to zoom. Wait for Action stops the clock until it is pressed.'
+        : 'Steps are shown where they start now. Drag one to place it freely: the event then becomes timed and every step starts at its own time. Tap to edit; pinch to zoom.' }),
       el('div', { class: 'sidescroll-tl-main' }, scroller, sheet));
     if (old) old.replaceWith(root); else document.body.append(root);
     if (timeline.picking) root.classList.add('picking');
     timeline.root = root;
-    if (keep) { scroller.scrollLeft = keep.left; scroller.scrollTop = keep.top; const sb = root.querySelector('.sidescroll-tl-sheet-body'); if (sb) sb.scrollTop = keep.sheet; }
-    bindTimelineDrag(e, scroller, content, L);
+    if (timeline.scrollTo != null) { scroller.scrollLeft = timeline.scrollTo; scroller.scrollTop = keep?.top || 0; timeline.scrollTo = null; }
+    else if (keep) { scroller.scrollLeft = keep.left; scroller.scrollTop = keep.top; }
+    if (keep) { const sb = root.querySelector('.sidescroll-tl-sheet-body'); if (sb) sb.scrollTop = keep.sheet; }
+    bindTimeline(e, scroller, content, L);
   }
-  function bindTimelineDrag(e, scroller, content, L) {
-    let press = null;
-    const blockAt = (x, y, except) => L.items.find(it => it.i !== except && x >= it.x && x <= it.x + it.w && y >= TL.top + it.lane * TL.lane - 4 && y <= TL.top + it.lane * TL.lane + TL.lane - 2);
+  // Zoom by a factor, keeping the time at `focusX` (px in the view) in place.
+  function zoomTimeline(factor, focusX = null) {
+    const sc = timeline.root?.querySelector('.sidescroll-tl-scroll');
+    const fx = focusX ?? (sc ? sc.clientWidth / 2 : 0);
+    const time = sc ? (sc.scrollLeft + fx - TL.pad) / timeline.pps : 0;
+    timeline.pps = Math.max(6, Math.min(240, timeline.pps * factor));
+    timeline.scrollTo = Math.max(0, TL.pad + time * timeline.pps - fx);
+    renderTimeline();
+  }
+  // Moves a timed step to the nearest track where it doesn't overlap another.
+  function freeTrack(e, s) {
+    const span = x => [x.at || 0, (x.at || 0) + Math.max(0.3, stepTiming(x).seconds)];
+    const [a0, a1] = span(s);
+    const busy = k => e.steps.some(o => o !== s && (o.track || 0) === k && (([b0, b1]) => a0 < b1 - 1e-6 && b0 < a1 - 1e-6)(span(o)));
+    const want = s.track || 0;
+    for (let d = 0; d <= Seq.MAX_TRACK; d++) for (const k of [want + d, want - d]) if (k >= 0 && k <= Seq.MAX_TRACK && !busy(k)) { s.track = k; return k !== want; }
+    return false;
+  }
+  function bindTimeline(e, scroller, content, L) {
+    let press = null, pinch = null;
     const local = ev => { const r = content.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
-    function target(pt, from) {
-      const hit = blockAt(pt.x, pt.y, from);
-      if (hit) return { join: e.steps[hit.i], x: hit.x, hit };
-      // Nearest moment boundary: before a beat, or the end.
-      const bounds = L.starts.map((t, k) => ({ x: TL.pad + t * timeline.pps, k })).concat([{ x: TL.pad + L.total * timeline.pps, k: L.starts.length }]);
-      const b = bounds.reduce((best, c) => (Math.abs(c.x - pt.x) < Math.abs(best.x - pt.x) ? c : best), bounds[0]);
-      const leader = b.k < L.starts.length ? e.steps[beatsOf(e.steps)[b.k][0]] : null;
-      return leader ? { before: leader, x: b.x } : { end: true, x: b.x };
+    // Where the dragged block's left edge lands: snapped to 0.1 s, and to other
+    // blocks' starts / ends when close.
+    function landing(pt) {
+      const left = pt.x - press.offX, top = pt.y - press.offY;
+      let at = Math.max(0, (left - TL.pad) / timeline.pps);
+      let best = null;
+      for (const it of L.items) if (it.i !== press.i) for (const t of [it.at, it.at + it.timing.seconds]) {
+        const d = Math.abs((t - at) * timeline.pps);
+        if (d <= TL.magnet && (!best || d < best.d)) best = { d, t };
+      }
+      at = best ? best.t : Math.round(at / TL.snap) * TL.snap;
+      const track = Math.max(0, Math.min(Seq.MAX_TRACK, Math.round((top - TL.top) / TL.lane)));
+      return { at: Math.round(at * 20) / 20, track, snapped: !!best };
     }
     function startDrag() {
       const node = content.querySelector(`.sidescroll-tl-block[data-i="${press.i}"]`);
       if (!node) return;
+      clearTimeout(press.timer);
       press.dragging = true;
       press.ghost = node.cloneNode(true); press.ghost.classList.add('ghost');
-      press.marker = el('div', { class: 'sidescroll-tl-drop' });
+      press.readout = el('div', { class: 'sidescroll-tl-readout' });
+      press.marker = el('div', { class: 'sidescroll-tl-drop', style: `height:${content.offsetHeight}px` });
       node.classList.add('dragging');
-      content.append(press.ghost, press.marker);
+      content.append(press.marker, press.ghost, press.readout);
       navigator.vibrate?.(12);
       dragTo(press.last);
     }
     function dragTo(ev) {
       const pt = local(ev), r = scroller.getBoundingClientRect();
-      press.ghost.style.left = `${pt.x - press.offX}px`; press.ghost.style.top = `${pt.y - press.offY}px`;
-      press.target = target(pt, press.i);
-      content.querySelectorAll('.sidescroll-tl-block.drop-join').forEach(n => n.classList.remove('drop-join'));
-      if (press.target.join) { content.querySelector(`.sidescroll-tl-block[data-i="${press.target.hit.i}"]`)?.classList.add('drop-join'); press.marker.hidden = true; }
-      else { press.marker.hidden = false; press.marker.style.left = `${press.target.x - 2}px`; press.marker.style.height = `${content.offsetHeight}px`; }
-      // Scroll along when dragging near an edge.
+      press.land = landing(pt);
+      const x = TL.pad + press.land.at * timeline.pps, y = TL.top + press.land.track * TL.lane;
+      press.ghost.style.left = `${x}px`; press.ghost.style.top = `${y}px`;
+      press.marker.style.left = `${x - 1}px`; press.marker.classList.toggle('snapped', press.land.snapped);
+      press.readout.textContent = `${fmt(press.land.at, 2)} s · track ${press.land.track + 1}`;
+      press.readout.style.left = `${x}px`; press.readout.style.top = `${Math.max(0, y - 20)}px`;
       if (ev.clientX > r.right - 36) scroller.scrollLeft += 12; else if (ev.clientX < r.left + 36) scroller.scrollLeft -= 12;
+      if (ev.clientY > r.bottom - 30) scroller.scrollTop += 10; else if (ev.clientY < r.top + 30) scroller.scrollTop -= 10;
     }
-    function finish(ev, cancelled) {
+    function finish(cancelled) {
       const p = press; press = null;
-      clearTimeout(p?.timer);
       if (!p) return;
+      clearTimeout(p.timer);
       if (p.dragging) {
-        p.ghost.remove(); p.marker.remove();
-        if (cancelled || !p.target) { renderTimeline(); return; }
-        const wasSel = timeline.selected === p.i;
-        const at = moveStep(e, p.i, p.target);
-        if (wasSel) { timeline.selected = at; timeline.selObj = e.steps[at]; }
+        p.ghost.remove(); p.marker.remove(); p.readout.remove();
+        if (cancelled || !p.land) { renderTimeline(); return; }
+        const s = e.steps[p.i];
+        makeTimed(e);
+        s.at = p.land.at; s.track = p.land.track;
+        const bumped = freeTrack(e, s);
+        sortTimed(e);
+        if (timeline.selObj === s || timeline.selected === p.i) timeline.selObj = s;
         view.openStep = null;
         change();
+        if (bumped) host.hint(`That spot was taken: it went on track ${s.track + 1}`);
         return;
       }
       if (!cancelled && !p.moved) { timeline.selected = p.i; timeline.selObj = e.steps[p.i]; renderTimeline(); }
     }
     content.addEventListener('pointerdown', ev => {
       const node = ev.target.closest('.sidescroll-tl-block');
-      if (!node || press) return;
+      if (!node || press || pinch) return;
       const i = Number(node.dataset.i), pt = local(ev), it = L.items.find(x => x.i === i);
-      press = { i, id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, last: ev, moved: false, dragging: false,
-        offX: pt.x - it.x, offY: pt.y - (TL.top + it.lane * TL.lane) };
+      press = { i, id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, last: ev, moved: false, dragging: false, offX: pt.x - it.x, offY: pt.y - it.y };
       if (ev.target.closest('.sidescroll-tl-grip')) { ev.preventDefault(); try { content.setPointerCapture(ev.pointerId); } catch (_) {} startDrag(); }
-      else press.timer = setTimeout(() => { if (press && !press.moved) { try { content.setPointerCapture(press.id); } catch (_) {} startDrag(); } }, 380);
+      else press.timer = setTimeout(() => { if (press && !press.moved && !pinch) { try { content.setPointerCapture(press.id); } catch (_) {} startDrag(); } }, 380);
     });
     content.addEventListener('pointermove', ev => {
       if (!press || ev.pointerId !== press.id) return;
@@ -865,10 +942,27 @@
       if (press.dragging) { ev.preventDefault(); dragTo(ev); return; }
       if (Math.hypot(ev.clientX - press.x0, ev.clientY - press.y0) > 8) { press.moved = true; clearTimeout(press.timer); }
     });
-    content.addEventListener('pointerup', ev => { if (press && ev.pointerId === press.id) finish(ev, false); });
-    content.addEventListener('pointercancel', ev => { if (press && ev.pointerId === press.id) finish(ev, true); });
-    // Once a drag has started, the finger moves the block, not the view.
-    scroller.addEventListener('touchmove', ev => { if (press?.dragging) ev.preventDefault(); }, { passive: false });
+    content.addEventListener('pointerup', ev => { if (press && ev.pointerId === press.id) finish(false); });
+    content.addEventListener('pointercancel', ev => { if (press && ev.pointerId === press.id) finish(true); });
+    // Pinch to zoom (two fingers); one finger scrolls; a drag moves the block, not the view.
+    const span = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    scroller.addEventListener('touchstart', ev => {
+      if (ev.touches.length !== 2 || press?.dragging) return;
+      if (press) { clearTimeout(press.timer); press = null; }
+      const r = scroller.getBoundingClientRect();
+      pinch = { d0: span(ev.touches), pps0: timeline.pps, fx: (ev.touches[0].clientX + ev.touches[1].clientX) / 2 - r.left, raf: 0 };
+      ev.preventDefault();
+    }, { passive: false });
+    scroller.addEventListener('touchmove', ev => {
+      if (press?.dragging) { ev.preventDefault(); return; }
+      if (!pinch || ev.touches.length !== 2) return;
+      ev.preventDefault();
+      const want = pinch.pps0 * span(ev.touches) / Math.max(10, pinch.d0);
+      if (pinch.raf) return;
+      pinch.raf = requestAnimationFrame(() => { const p = pinch; if (!p) return; p.raf = 0; const fx = p.fx; const f = want / timeline.pps; if (Math.abs(f - 1) > 0.01) { pinch = null; zoomTimeline(f, fx); } });
+    }, { passive: false });
+    scroller.addEventListener('touchend', ev => { if (ev.touches.length < 2) pinch = null; });
+    scroller.addEventListener('wheel', ev => { if (!ev.ctrlKey) return; ev.preventDefault(); const r = scroller.getBoundingClientRect(); zoomTimeline(Math.exp(-ev.deltaY * 0.01), ev.clientX - r.left); }, { passive: false });
   }
   function addStepChooser(e) {
     openChooser('steps', 'Add a step', Object.entries(Seq.STEPS).map(([type, def]) => ({ value: type, label: def.label, thumb: STEP_ICON[type] || '◇', note: def.help })), type => {
@@ -876,10 +970,14 @@
           const actor = e.roles.find(r => r.kind === 'character')?.id, mark = e.roles.find(r => r.kind === 'mark')?.id;
           const s = { type, ...(actor && Object.keys(def.roles).includes('actor') ? { actor } : {}), ...(type === 'move' && mark ? { to: mark } : {}) };
           if (type === 'flag') s.flag = knownFlags()[0] || 'met-father';
-          e.steps.push(Seq.normaliseEvents({ events: [{ ...e, steps: [s] }] })[0]?.steps[0] || s);
-          view.openStep = e.steps.length - 1;
-          if (timeline.open) { timeline.selected = e.steps.length - 1; timeline.selObj = e.steps[timeline.selected]; }
-          reveal = `step-${e.steps.length - 1}`; change();
+          // A timed event: the new step starts where the event ends now.
+          const end = e.timed ? Math.round(eventSeconds(e) * 20) / 20 : 0;
+          const added = Seq.normaliseEvents({ events: [{ ...e, steps: [s] }] })[0]?.steps[0] || s;
+          e.steps.push(added);
+          if (e.timed) { added.at = end; added.track = 0; freeTrack(e, added); sortTimed(e); }
+          view.openStep = e.steps.indexOf(added);
+          if (timeline.open) { timeline.selected = view.openStep; timeline.selObj = added; }
+          reveal = `step-${view.openStep}`; change();
         });
   }
   function eventPage() {
@@ -906,9 +1004,10 @@
       // button sits after the last step (the one exception to add-bars-on-top).
       section('Steps',
         e.steps.length ? addBar(btn('⤢ Timeline', () => openTimeline(), 'primary')) : null,
-        e.steps.length > 1 ? help('Each step waits until the ones before it have finished. “At the same time as the step before” starts it together with that one; “Don’t wait for it to finish” lets the next steps go on while it runs (e.g. lines spoken during a long dissolve). Tap a step to open it; drag ⋮⋮ to reorder.') : null,
-        e.steps.length ? el('div', { class: 'sidescroll-seq-steps' }, e.steps.map((s, i) => view.openStep === i
-          ? stepEditor(e, s, i, { onFold: () => { view.openStep = null; render(); } })
+        e.steps.length > 1 && e.timed ? help('Timed event: each step starts at its own time (shown on the left). Change times in a step or drag them on the ⤢ Timeline. Wait for Action stops the clock until it is pressed.') : null,
+        e.steps.length > 1 && !e.timed ? help('Each step waits until the ones before it have finished. “At the same time as the step before” starts it together with that one; “Don’t wait for it to finish” lets the next steps go on while it runs (e.g. lines spoken during a long dissolve). Tap a step to open it; drag ⋮⋮ to reorder.') : null,
+        e.steps.length ? el('div', { class: `sidescroll-seq-steps${e.timed ? ' timed' : ''}` }, e.steps.map((s, i) => view.openStep === i
+          ? el('div', { class: 'sidescroll-seq-stepitem open' }, stepRow(e, s, i, true), stepEditor(e, s, i, { headless: true }))
           : stepRow(e, s, i))) : help('No steps yet.'),
         addBar(btn('+ Add step', () => addStepChooser(e), 'primary')),
         chooserBox('steps')),
@@ -942,7 +1041,7 @@
     panel.querySelector('.sidescroll-story-save')?.toggleAttribute('disabled', !dirty);
     panel.querySelector('.sidescroll-story-discard')?.toggleAttribute('disabled', !dirty);
   }
-  function saveDraft() { draft = clone(Seq.save(draft)); dirty = false; preview(); render(); }
+  function saveDraft() { draft = clone(Seq.save(draft)); dirty = false; history.last = JSON.stringify(draft); preview(); render(); }
   function render() {
     if (panel.hidden) return;
     statusEl = el('span', { class: 'sidescroll-story-status' });
@@ -958,10 +1057,8 @@
       ...page,
       el('datalist', { id: 'sidescroll-seq-flags' }, knownFlags().map(f => el('option', { value: f }))),
       el('div', { class: 'sidescroll-story-actions' },
-        btn('Discard', () => {
-          if (!confirm('Discard your Story changes since the last save?')) return;
-          draft = clone(Seq.load()); dirty = false; placeMode = null; preview(); open('list');
-        }, 'sidescroll-story-discard'),
+        btn('↶ Undo', undo, `sidescroll-story-undo${history.undo.length ? '' : ' quiet'}`),
+        btn('Discard', () => { if (discard()) open('list'); }, 'sidescroll-story-discard'),
         btn('Save', () => { saveDraft(); host.hint('Story saved'); }, 'primary sidescroll-story-save')));
     updateStatus();
     if (timeline.open) renderTimeline();

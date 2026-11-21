@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story: timed events, undo, pinch zoom.** On the ⤢ Timeline a step now goes exactly where you
+  drop it, at any time and on any track, and starts then, whatever else is running. Nothing else
+  moves; a taken spot puts it on the next free track. The first drag turns the event into a
+  *timed* event, with every step keeping the time it already started at. *Wait for Action* stops
+  the clock until pressed. Steps can also be given a start time and track in their settings.
+  **Undo / Redo** for all Story edits (timeline and panel), **Discard** in the timeline, and
+  **pinch to zoom** the timeline. In the step list, opening a step keeps its line and shows the
+  settings underneath.
 - **Story: event timeline and a tidier step list.** An event's steps now fold to one line each
   (tap to open, drag ⋮⋮ to reorder). **⤢ Timeline** opens the event full screen with time running
   left to right. Each step is a block as long as it takes, steps that start together stack, and

@@ -41,6 +41,7 @@
     prop:    { label: 'Prop', help: 'a character takes an asset in its hand (Father\u2019s axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
   });
+  const MAX_TRACK = 15; // timeline rows of a timed event
   const PLAYER = 'player'; // Say: the player speaks (the character being played)
   const PROP_ACTIONS = Object.freeze({ give: 'Hold it', take: 'Put it away', drop: 'Drop it' });
   // An asset name (built-in or imported): what a character holds.
@@ -85,13 +86,20 @@
   const conditionMet = (condition, flags) => !condition?.flag || (!!flags?.[condition.flag] === (condition.when !== 'unset'));
 
   // ---- Events ----------------------------------------------------------------
-  function normaliseStep(raw, roleKinds) {
+  // timed: the event's steps start at their own times (`at`, seconds from the
+  // event's start; `track` = its row in the editor's timeline) instead of one
+  // beat after another (`with` / `background`).
+  function normaliseStep(raw, roleKinds, timed = false) {
     const def = STEPS[raw?.type];
     if (!def) return null;
     const out = { type: raw.type, with: !!raw.with };
     // Don't wait for it: the event carries on with the next step while this one
     // runs (it still ends only when this has finished too).
-    if (raw.background) out.background = true;
+    if (timed) {
+      out.with = false;
+      out.at = Math.round(clamp(raw.at, 0, 900, 0) * 20) / 20;
+      out.track = Math.round(clamp(raw.track, 0, MAX_TRACK, 0));
+    } else if (raw.background) out.background = true;
     for (const [field, kind] of Object.entries(def.roles)) {
       const role = raw[field];
       if (typeof role === 'string' && (kind === 'any' ? roleKinds.has(role) : roleKinds.get(role) === kind)) out[field] = role;
@@ -192,8 +200,9 @@
       roles.push({ id: idOr(r.id, ID.role, 'r', roleIds), name: text(r.name, 30, ROLE_KINDS[r.kind]), kind: r.kind });
     }
     const roleKinds = new Map(roles.map(r => [r.id, r.kind]));
-    const steps = (Array.isArray(raw.steps) ? raw.steps : []).slice(0, MAX.steps).map(s => normaliseStep(s, roleKinds)).filter(Boolean);
-    return { id, name: text(raw.name, 40, 'Event'), roles, steps };
+    const timed = raw.timed === true;
+    const steps = (Array.isArray(raw.steps) ? raw.steps : []).slice(0, MAX.steps).map(s => normaliseStep(s, roleKinds, timed)).filter(Boolean);
+    return { id, name: text(raw.name, 40, 'Event'), ...(timed ? { timed: true } : {}), roles, steps };
   }
   function normaliseEvents(raw) {
     const taken = new Set();
@@ -324,7 +333,7 @@
   }
 
   window.SideScrollSequences = Object.freeze({
-    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER,
+    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER, MAX_TRACK,
     normaliseEvents, normaliseSequences, normaliseBody, bodyOf, load, save, loadProgress, saveProgress,
     flagName, conditionMet, newId
   });
