@@ -298,7 +298,9 @@ design `docs/SEQUENCE_SYSTEM_DESIGN.md`, steps 1–2 done). Content keys `sidesc
 (`events:[{id ev-…, name, roles:[{id r-…, name, kind 'character'|'mark'}], steps:[{type
 (Seq.STEPS: move, animate, face, say, think, wait, flag, show, control, camera, screen, prompt, item,
 effect, look, prop), with (run with the
-previous step), actor/to/target (role ids), …}]}]`) and `sidescroll.story.sequences.v1`
+previous step), background (don't wait: the next beat starts while it runs; the run ends only when
+it has finished too — `run.background` in `advanceSequenceRuns`), actor/to/target (role ids; a
+Say step's actor may be `Seq.PLAYER` = the player, named by `storyPlayerName()`), …}]}]`) and `sidescroll.story.sequences.v1`
 (`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
 body = `{components:[{id c-…, kind 'character'|'mark'|'zone', name, dx (from the anchor), depth,
 facing, character, animation (action slot), scale, blocks, holding? | width}], logic:[{id l-…, when:{type
