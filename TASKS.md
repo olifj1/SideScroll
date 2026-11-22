@@ -84,6 +84,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bj. Timeline with the game: TEST bar, focus, opacity (22 Nov)**
+- [ ] With the timeline open (any size) the TEST bar stays at the top right and works (▶ Play, ■ Stop, ↺ Restart, Reset story, ⚑ Progress); at Full the timeline starts just below it.
+- [ ] ✎ (timeline focus): taps edit the timeline; the Jump / Action / move controls are hidden.
+- [ ] 🎮 (game focus): the timeline shows through and taps on it reach the game; Jump, Action and the move control sit on top and work; the timeline's top line (▶, sizes, ◐, ‹) and an open step panel still work.
+- [ ] ▶ on the timeline switches to 🎮 by itself: in a sequence that asks for Action you can press Action without collapsing anything; ■ returns to ✎. At Bar while playing, the bar sits just above the controls.
+- [ ] ◐ cycles 100 / 75 / 50 / 25 %: the timeline gets more see-through over the game; it is remembered when you close and reopen it.
+
 **0bi. Timeline docked with the game (22 Nov)**
 - [ ] Story → Events → *Taken* → *Open the timeline*: it opens at **Half** over the game (the game view itself does not change size or move) with the editor panel, TEST bar and Jump / Action controls out of the way.
 - [ ] ▁ ▄ █ switch Bar / Half / Full; tapping the handle on the top edge goes to the next size; dragging it up or down makes it bigger or smaller. The size is kept when you close and reopen it.

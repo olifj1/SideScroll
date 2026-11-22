@@ -15813,7 +15813,7 @@ body[data-game-id="game-17"] .animlab-props-editor .animlab-art-numeric-grid inp
 .sidescroll-seq-steprow.kind-view,.sidescroll-tl-block.kind-view{--tl-kind:#5aa6e0;}
 .sidescroll-seq-steprow.kind-actor,.sidescroll-tl-block.kind-actor{--tl-kind:#6cc488;}
 .sidescroll-seq-steprow.kind-logic,.sidescroll-tl-block.kind-logic{--tl-kind:#9a8fc4;}
-body.sidescroll-tl-open .sidescroll-test-bar{display:none!important;}
+
 body.sidescroll-tl-open .sidescroll-tl.picking{display:none;}
 .sidescroll-tl{position:fixed;inset:0;z-index:1005;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));background:#10171a;color:#eef3f1;font:12px/1.3 system-ui,-apple-system,sans-serif;}
 .sidescroll-tl-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
@@ -15904,7 +15904,7 @@ button.sidescroll-seq-steprow .sidescroll-seq-steprow-text b{color:rgba(255,255,
 button.sidescroll-seq-steprow{min-width:0;}
 
 /* Story timeline docked with the game: Bar / Half / Full, pushed aside to a tab. */
-body.sidescroll-tl-open #sidescroll-puzzle-panel,body.sidescroll-tl-open .sidescroll-editor-drawer-rail,body.sidescroll-tl-open #sidescroll-test-bar{visibility:hidden!important;pointer-events:none!important;}
+body.sidescroll-tl-open #sidescroll-puzzle-panel,body.sidescroll-tl-open .sidescroll-editor-drawer-rail{visibility:hidden!important;pointer-events:none!important;}
 .sidescroll-tl.aside{display:none;}
 .sidescroll-tl.size-half{top:auto;height:54vh;height:54dvh;}
 .sidescroll-tl.size-bar{top:auto;height:auto;}
@@ -15933,6 +15933,22 @@ body.sidescroll-tl-open #sidescroll-puzzle-panel,body.sidescroll-tl-open .sidesc
 .sidescroll-tl-rail b{font-size:24px;font-weight:500;line-height:1;}
 .sidescroll-tl-rail i{width:7px;height:7px;border-radius:50%;background:#e7b976;box-shadow:0 0 0 3px rgba(231,185,118,.13);}
 .sidescroll-tl-rail i[hidden]{display:none;}
-/* While the timeline is showing, the game's touch controls step out of its way (back when it is pushed aside). */
-body.sidescroll-tl-size-bar #sidescroll-secondary-controls,body.sidescroll-tl-size-bar #sidescroll-play-controls,body.sidescroll-tl-size-bar #sidescroll-editor-controls,
-body.sidescroll-tl-size-half #sidescroll-secondary-controls,body.sidescroll-tl-size-half #sidescroll-play-controls,body.sidescroll-tl-size-half #sidescroll-editor-controls{visibility:hidden!important;pointer-events:none!important;}
+
+/* Timeline with the game: the TEST bar stays (Full starts below it). Focus on the timeline
+   hides the game's touch controls under it; focus on the game lifts them above it, lets taps
+   through to the game (only the top line and the side sheet still work) and, at Bar size,
+   raises the bar above the controls. --tl-alpha (◐) sets how solid it is. */
+.sidescroll-tl.size-full{top:64px;border-radius:14px 14px 0 0;}
+.sidescroll-tl{background:rgba(16,23,26,calc(.97 * var(--tl-alpha,1)))!important;}
+.sidescroll-tl-main,.sidescroll-tl-mini,.sidescroll-tl-help{opacity:calc(.35 + .65 * var(--tl-alpha,1));}
+.sidescroll-tl:not(.size-full) .sidescroll-tl-sheet{top:64px;}
+.sidescroll-tl.focus-game{pointer-events:none;}
+.sidescroll-tl.focus-game .sidescroll-tl-head,.sidescroll-tl.focus-game .sidescroll-tl-handle,.sidescroll-tl.focus-game .sidescroll-tl-sheet{pointer-events:auto;}
+.sidescroll-tl.focus-game .sidescroll-tl-main{opacity:calc(.25 + .5 * var(--tl-alpha,1));}
+body.sidescroll-tl-open:not(.sidescroll-tl-focus-game) #sidescroll-secondary-controls,body.sidescroll-tl-open:not(.sidescroll-tl-focus-game) #sidescroll-play-controls,body.sidescroll-tl-open:not(.sidescroll-tl-focus-game) #sidescroll-editor-controls{visibility:hidden!important;pointer-events:none!important;}
+body.sidescroll-tl-focus-game #sidescroll-secondary-controls,body.sidescroll-tl-focus-game #sidescroll-play-controls{z-index:1007!important;}
+body.sidescroll-tl-focus-game.sidescroll-edit-playing .sidescroll-tl.size-bar{bottom:var(--tl-lift,72px);border-radius:14px;}
+.sidescroll-tl-focus{display:flex;gap:2px;flex:none;}
+.sidescroll-tl-focus button{width:34px;padding:0!important;font-size:13px!important;}
+.sidescroll-tl-focus button.on{background:rgba(120,200,255,.22);border-color:#78c8ff;}
+.sidescroll-tl button.sidescroll-tl-opacity{flex:none;padding:4px 7px;font-variant-numeric:tabular-nums;}

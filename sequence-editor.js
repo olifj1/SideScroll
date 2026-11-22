@@ -735,13 +735,28 @@
   // pushed aside (a tab at the right edge) last for the session.
   const TL_VIEW_KEY = 'sidescroll.story.timeline-view';
   const TL_SIZES = ['bar', 'half', 'full'];
+  // Focus: 'timeline' (taps edit the timeline) or 'game' (taps and the touch
+  // controls go to the game; the timeline shows through and only its top line
+  // works). Opacity: how solid the timeline is over the game.
+  const TL_OPACITY = [1, 0.75, 0.5, 0.25];
   const tlView = (() => {
-    try { const v = JSON.parse(sessionStorage.getItem(TL_VIEW_KEY) || '{}'); return { size: TL_SIZES.includes(v.size) ? v.size : 'half', aside: !!v.aside }; }
-    catch (_) { return { size: 'half', aside: false }; }
+    const base = { size: 'half', aside: false, focus: 'timeline', opacity: 1 };
+    try {
+      const v = JSON.parse(sessionStorage.getItem(TL_VIEW_KEY) || '{}');
+      return { size: TL_SIZES.includes(v.size) ? v.size : base.size, aside: !!v.aside,
+        focus: v.focus === 'game' ? 'game' : 'timeline', opacity: TL_OPACITY.includes(v.opacity) ? v.opacity : 1 };
+    } catch (_) { return base; }
   })();
   const timeline = { open: false, pps: 44, selected: null, selObj: null, root: null, picking: false, pickTimer: 0, scrollTo: null,
-    size: tlView.size, aside: false, playing: null, playT: 0, total: 0, raf: 0, rail: null };
-  function saveTlView() { try { sessionStorage.setItem(TL_VIEW_KEY, JSON.stringify({ size: timeline.size, aside: timeline.aside })); } catch (_) {} }
+    size: tlView.size, aside: false, focus: tlView.focus, opacity: tlView.opacity, focusBeforePlay: null, playing: null, playT: 0, total: 0, raf: 0, rail: null };
+  function saveTlView() {
+    try { sessionStorage.setItem(TL_VIEW_KEY, JSON.stringify({ size: timeline.size, aside: timeline.aside, focus: timeline.focus, opacity: timeline.opacity })); } catch (_) {}
+  }
+  function setTlFocus(focus) { timeline.focus = focus === 'game' ? 'game' : 'timeline'; timeline.focusBeforePlay = null; saveTlView(); renderTimeline(); }
+  function cycleTlOpacity() {
+    timeline.opacity = TL_OPACITY[(TL_OPACITY.indexOf(timeline.opacity) + 1) % TL_OPACITY.length];
+    saveTlView(); renderTimeline();
+  }
   function setTlSize(size) {
     if (!TL_SIZES.includes(size)) return;
     timeline.size = size; timeline.aside = false; saveTlView(); renderTimeline();
@@ -755,12 +770,15 @@
     const r = host.playEvent?.(e.id, view.returnTo || null);
     if (!r) { host.hint('No sequence runs this event yet: use it in a sequence’s logic to play it here'); return; }
     timeline.playing = r.placed; timeline.playT = 0;
+    // Playing hands the game the focus (Action, Jump, moving); stopping gives it back.
+    if (timeline.focus !== 'game') { timeline.focusBeforePlay = timeline.focus; timeline.focus = 'game'; }
     renderTimeline(); tickPlay();
   }
   function stopPlay() {
     cancelAnimationFrame(timeline.raf);
     if (timeline.playing) host.stopEvent?.(timeline.playing);
     timeline.playing = null;
+    if (timeline.focusBeforePlay) { timeline.focus = timeline.focusBeforePlay; timeline.focusBeforePlay = null; }
   }
   function tickPlay() {
     cancelAnimationFrame(timeline.raf);
@@ -856,7 +874,7 @@
     timeline.open = false; closeChooser(); clearInterval(timeline.pickTimer);
     timeline.root?.remove(); timeline.root = null;
     timeline.rail?.remove(); timeline.rail = null;
-    document.body.classList.remove('sidescroll-tl-open', ...TL_SIZES.map(k => `sidescroll-tl-size-${k}`));
+    document.body.classList.remove('sidescroll-tl-open', 'sidescroll-tl-focus-game', ...TL_SIZES.map(k => `sidescroll-tl-size-${k}`));
     render();
   }
   function timelineLayout(e) {
@@ -946,6 +964,11 @@
     const sizes = el('span', { class: 'sidescroll-tl-sizes' }, ...[['bar', '▁', 'Bar'], ['half', '▄', 'Half'], ['full', '█', 'Full screen']]
       .map(([k, icon, label]) => btn(icon, () => setTlSize(k), size === k ? 'on' : '', label)));
     const asideBtn = btn('‹', () => setTlAside(true), 'sidescroll-tl-collapse', 'Collapse the timeline');
+    const gameFocus = timeline.focus === 'game';
+    const focusSeg = el('span', { class: 'sidescroll-tl-focus' },
+      btn('🎮', () => setTlFocus('game'), gameFocus ? 'on' : '', 'Focus on the game (taps and controls go to the game)'),
+      btn('✎', () => setTlFocus('timeline'), gameFocus ? '' : 'on', 'Focus on the timeline (taps edit it)'));
+    const opacityBtn = btn(`◐ ${Math.round(timeline.opacity * 100)}%`, cycleTlOpacity, 'sidescroll-tl-opacity', 'How solid the timeline is over the game');
     const saveBtn = btn('Save', () => { saveDraft(); host.hint('Story saved'); }, `primary${dirty ? '' : ' quiet'}`);
     const handle = el('div', { class: 'sidescroll-tl-handle', role: 'button', 'aria-label': 'Drag or tap to resize the timeline; swipe left to collapse it' });
     // Bar: one line, with a strip of the whole event (a tick per step, a line per row).
@@ -958,26 +981,27 @@
           style: `left:${(it.at / span) * 100}%;width:${Math.max(0.6, (it.timing.seconds / span) * 100)}%;top:${2 + (rowIndex.get(it.row) || 0) * lane}px;height:${Math.max(2, lane - 1.5)}px`,
           onclick: () => { timeline.selected = it.i; timeline.selObj = it.s; renderTimeline(); } })),
         el('div', { class: 'sidescroll-tl-mini-head', style: `left:${Math.min(100, (t / span) * 100)}%` }));
-      body = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the timeline'), playBtn, clock, mini, dirty ? saveBtn : null, sizes, asideBtn)];
+      body = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the timeline'), playBtn, clock, mini, dirty ? saveBtn : null, focusSeg, opacityBtn, sizes, asideBtn)];
     } else {
       body = [
         el('div', { class: 'sidescroll-tl-head' },
-          btn('✕ Close', closeTimeline), playBtn, clock,
+          btn('✕', closeTimeline, '', 'Close the timeline'), playBtn, clock,
           el('strong', { text: e.name }),
           btn('↶', undo, history.undo.length ? '' : 'quiet', 'Undo'),
           btn('↷', redo, history.redo.length ? '' : 'quiet', 'Redo'),
-          full ? el('span', { class: 'sidescroll-tl-zoom' }, btn('−', () => zoomTimeline(1 / 1.4), '', 'Zoom out'), btn('+', () => zoomTimeline(1.4), '', 'Zoom in')) : null,
           btn('+ Add', () => addStepChooser(e)),
           btn('Discard', () => { if (discard()) { closeTimeline(); open('list', null, { tab: 'events' }); } }, dirty ? '' : 'quiet'),
-          saveBtn, sizes, asideBtn),
+          saveBtn, focusSeg, opacityBtn, sizes, asideBtn),
         full ? el('p', { class: 'sidescroll-tl-help', text: 'Tap a row to add there · drag ⋮⋮ or hold to move · drag an edge to change the length · tap to edit · pinch to zoom' }) : null,
         el('div', { class: 'sidescroll-tl-main' }, scroller, full ? sheet : null)];
       content.append(el('div', { class: 'sidescroll-tl-playhead', hidden: !timeline.playing && !t, style: `left:${PAD + t * pps}px;height:${L.height - 36}px` }));
     }
-    const root = el('div', { class: `sidescroll-tl size-${size}${timeline.aside ? ' aside' : ''}${sheet ? ' has-sheet' : ''}`, role: 'dialog', 'aria-label': `${e.name} timeline` },
+    const root = el('div', { class: `sidescroll-tl size-${size}${timeline.aside ? ' aside' : ''}${sheet ? ' has-sheet' : ''}${gameFocus ? ' focus-game' : ''}`,
+      role: 'dialog', 'aria-label': `${e.name} timeline`, style: `--tl-alpha:${timeline.opacity}` },
       handle, ...body, full ? null : sheet);
     document.body.classList.add('sidescroll-tl-open');
     for (const k of TL_SIZES) document.body.classList.toggle(`sidescroll-tl-size-${k}`, k === size && !timeline.aside);
+    document.body.classList.toggle('sidescroll-tl-focus-game', gameFocus && !timeline.aside);
     // Pushed aside: the same collapsed rail as the editor panel's, in the same
     // place (the panel's left edge and height); tap or swipe right to bring it back.
     if (!timeline.rail) {
