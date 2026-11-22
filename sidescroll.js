@@ -19037,6 +19037,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   const seqCharacterEffects = new Map(); // character key → {entry, params} (this frame)
   let charFx = null; // { fb, tex, depth, w, h, renderer }
   const mat4Mul = (a, b) => { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = v; } return o; };
+  let charFxCap = 0;
+  const charFxMaxSize = () => (charFxCap ||= Math.max(1024, Math.min(4096, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 1024, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || 1024)));
   function charFxTarget(w, h) {
     if (!charFx) {
       charFx = { fb:gl.createFramebuffer(), tex:gl.createTexture(), depth:gl.createRenderbuffer(), w:0, h:0, renderer:Effects.createDissolveRenderer(gl) };
@@ -19088,8 +19090,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       x0 = Math.min(x0, nx); x1 = Math.max(x1, nx); y0 = Math.min(y0, ny); y1 = Math.max(y1, ny);
     }
     if (x1 < -1 || x0 > 1 || y1 < -1 || y0 > 1 || x1 - x0 < 0.01 || y1 - y0 < 0.01) return;
-    const w = Math.max(16, Math.min(1024, Math.round((x1 - x0) * 0.5 * canvas.width)));
-    const ht = Math.max(16, Math.min(1024, Math.round((y1 - y0) * 0.5 * canvas.height)));
+    // Snap the box to whole screen pixels so the image maps 1:1 back onto the
+    // scene: otherwise the character is resampled (softer, shifted by part of a
+    // pixel) and visibly pops when the effect starts. Only a box larger than the
+    // GPU allows is scaled down.
+    const W = canvas.width, H = canvas.height, cap = charFxMaxSize();
+    const px0 = Math.floor((x0 + 1) * 0.5 * W), px1 = Math.max(px0 + 16, Math.ceil((x1 + 1) * 0.5 * W));
+    const py0 = Math.floor((y0 + 1) * 0.5 * H), py1 = Math.max(py0 + 16, Math.ceil((y1 + 1) * 0.5 * H));
+    x0 = (px0 / W) * 2 - 1; x1 = (px1 / W) * 2 - 1; y0 = (py0 / H) * 2 - 1; y1 = (py1 / H) * 2 - 1;
+    const w = Math.min(cap, px1 - px0), ht = Math.min(cap, py1 - py0);
     const t = charFxTarget(w, ht);
     // Draw just this character, framed to fill the image (projection squeezed to the box).
     const a = 2 / (x1 - x0), c = 2 / (y1 - y0);

@@ -84,6 +84,9 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bg. Dissolve start (22 Nov)**
+- [ ] Play *Taken* and watch Father as the dissolve starts (in the close-up shot): he should not pop, soften or shift by a pixel when it begins.
+
 **0bf. Timeline-first events, a row per subject (21 Nov)** — replaces 0bd / 0be
 - [ ] Story → Events → *Taken*: the page shows a summary in time order (start time, row, what, length). Tap Father's line: the timeline opens on it with its settings on the right.
 - [ ] Rows down the left: **Father**, **Player**, **Camera**, **Screen**, **Look**, **Game**; they stay at the left edge while you scroll the time, and the seconds ruler stays at the top when you scroll down.
