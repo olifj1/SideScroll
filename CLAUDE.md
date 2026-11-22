@@ -161,7 +161,7 @@ moving; they are just not drawn or blocking.
 **Character effects** (`SHADERS[s].target: 'character'`; today `dissolve`): no plane. The step's
 blended params go in `seqCharacterEffects` (key → {entry, params}) and `drawWorldCharacters` calls
 `drawDissolvedCharacter`, which draws that character (`drawStoryCharacter`) into `charFx`'s
-framebuffer with `projection` squeezed to its screen box (sized from how tall the character was
+framebuffer with `projection` squeezed to its screen box (snapped to whole scene pixels so it maps back 1:1 without resampling; up to `charFxMaxSize()`, 4096 px; sized from how tall the character was
 last drawn, props included — `storyDrawnTop`, noted by `drawStoryCharacter` — or its collider if
 taller; colliders are only rough), then draws the image back through
 `createDissolveRenderer` (`uBody` = feet/head in the image, measured from the image's alpha by

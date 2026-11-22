@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Fix: a small pop when a dissolve starts.** The character is drawn through the effect from a
+  picture of itself; that picture is now lined up with the screen's pixels (and may be up to
+  4096 px instead of 1024), so it no longer turns slightly softer and shifts when the effect begins,
+  even in close-ups.
 - **Story: the timeline is the event editor, with a row per subject.** Each event is now a
   timeline with a row for each character, then Player, Camera, Screen, Look and Game, so all of
   Father's lines sit on his row and all letterboxing on Screen. Where a step sits is when it
