@@ -5,10 +5,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 
 ## Unreleased
 - **Story: the timeline docks with the game.** Three sizes — **Bar** (a slim strip with ▶, the
-  clock and a strip of the whole event), **Half** (the game view sits above it) and **Full** —
-  chosen with ▁ ▄ █ or the handle on its top edge (tap for the next size, drag up / down), and
-  **⇥** (or a swipe right on the handle) pushes it aside to a TIMELINE tab on the right edge, like
-  the editor panel. **▶** plays the event in the game from its start (that sequence is reset and the
+  clock and a strip of the whole event), **Half** and **Full** —
+  chosen with ▁ ▄ █ or the handle on its top edge (tap for the next size, drag up / down); it
+  overlays the game, whose view never changes. **‹** (or a swipe left on the handle) collapses it
+  to the same rail as the editor panel's, in the same place (TIMELINE ›). **▶** plays the event in the game from its start (that sequence is reset and the
   player stands on its zone) with a playhead following its clock; ■ stops it. **📷 Frame it**
   pushes the timeline aside and brings it back after Done. A step's settings open at the right,
   over the game, at Bar and Half. While the timeline shows, the editor panel, the TEST bar and

@@ -857,7 +857,6 @@
     timeline.root?.remove(); timeline.root = null;
     timeline.rail?.remove(); timeline.rail = null;
     document.body.classList.remove('sidescroll-tl-open', ...TL_SIZES.map(k => `sidescroll-tl-size-${k}`));
-    timeline.shownSize = null; dispatchEvent(new Event('resize'));
     render();
   }
   function timelineLayout(e) {
@@ -946,9 +945,9 @@
     const clock = el('span', { class: 'sidescroll-tl-clock', text: `${fmt(t, 1)} / ${fmt(L.total, 1)} s` });
     const sizes = el('span', { class: 'sidescroll-tl-sizes' }, ...[['bar', '▁', 'Bar'], ['half', '▄', 'Half'], ['full', '█', 'Full screen']]
       .map(([k, icon, label]) => btn(icon, () => setTlSize(k), size === k ? 'on' : '', label)));
-    const asideBtn = btn('⇥', () => setTlAside(true), '', 'Push aside');
+    const asideBtn = btn('‹', () => setTlAside(true), 'sidescroll-tl-collapse', 'Collapse the timeline');
     const saveBtn = btn('Save', () => { saveDraft(); host.hint('Story saved'); }, `primary${dirty ? '' : ' quiet'}`);
-    const handle = el('div', { class: 'sidescroll-tl-handle', role: 'button', 'aria-label': 'Drag or tap to resize the timeline; swipe right to push it aside' });
+    const handle = el('div', { class: 'sidescroll-tl-handle', role: 'button', 'aria-label': 'Drag or tap to resize the timeline; swipe left to collapse it' });
     // Bar: one line, with a strip of the whole event (a tick per step, a line per row).
     let body;
     if (size === 'bar') {
@@ -959,11 +958,11 @@
           style: `left:${(it.at / span) * 100}%;width:${Math.max(0.6, (it.timing.seconds / span) * 100)}%;top:${2 + (rowIndex.get(it.row) || 0) * lane}px;height:${Math.max(2, lane - 1.5)}px`,
           onclick: () => { timeline.selected = it.i; timeline.selObj = it.s; renderTimeline(); } })),
         el('div', { class: 'sidescroll-tl-mini-head', style: `left:${Math.min(100, (t / span) * 100)}%` }));
-      body = [el('div', { class: 'sidescroll-tl-head' }, btn('‹', closeTimeline, '', 'Close the timeline'), playBtn, clock, mini, dirty ? saveBtn : null, sizes, asideBtn)];
+      body = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the timeline'), playBtn, clock, mini, dirty ? saveBtn : null, sizes, asideBtn)];
     } else {
       body = [
         el('div', { class: 'sidescroll-tl-head' },
-          btn('‹ Close', closeTimeline), playBtn, clock,
+          btn('✕ Close', closeTimeline), playBtn, clock,
           el('strong', { text: e.name }),
           btn('↶', undo, history.undo.length ? '' : 'quiet', 'Undo'),
           btn('↷', redo, history.redo.length ? '' : 'quiet', 'Redo'),
@@ -979,15 +978,21 @@
       handle, ...body, full ? null : sheet);
     document.body.classList.add('sidescroll-tl-open');
     for (const k of TL_SIZES) document.body.classList.toggle(`sidescroll-tl-size-${k}`, k === size && !timeline.aside);
-    // Pushed aside: a tab at the right edge brings it back.
+    // Pushed aside: the same collapsed rail as the editor panel's, in the same
+    // place (the panel's left edge and height); tap or swipe right to bring it back.
     if (!timeline.rail) {
-      timeline.rail = el('button', { type: 'button', class: 'sidescroll-tl-rail', 'aria-label': 'Show the timeline', onclick: () => setTlAside(false) },
-        el('span', { text: 'TIMELINE' }), el('b', { text: '‹' }), el('i'));
-      bindSwipe(timeline.rail, dx => { if (dx < 0) setTlAside(false); });
+      timeline.rail = el('button', { type: 'button', class: 'sidescroll-tl-rail', 'aria-label': 'Expand the timeline', onclick: () => setTlAside(false) },
+        el('span', { text: 'TIMELINE' }), el('b', { text: '›' }), el('i', { hidden: true }));
+      bindSwipe(timeline.rail, dx => { if (dx > 0) setTlAside(false); });
       document.body.append(timeline.rail);
     }
     timeline.rail.hidden = !timeline.aside;
-    timeline.rail.classList.toggle('playing', !!timeline.playing);
+    timeline.rail.querySelector('i').hidden = !dirty;
+    if (timeline.aside) {
+      const node = document.getElementById('sidescroll-puzzle-panel'), r = node?.getBoundingClientRect();
+      const box = r && r.height > 40 ? { left: r.left + node.clientLeft, top: r.top + node.clientTop, height: node.clientHeight } : { left: 10, top: 64, height: innerHeight - 74 };
+      Object.assign(timeline.rail.style, { left: `${box.left}px`, top: `${box.top}px`, height: `${box.height}px` });
+    }
     if (old) old.replaceWith(root); else document.body.append(root);
     if (timeline.picking) root.classList.add('picking');
     timeline.root = root;
@@ -999,14 +1004,8 @@
     scroller.addEventListener('scroll', pin, { passive: true }); pin();
     if (size !== 'bar') bindTimeline(e, scroller, content, L);
     bindHandle(handle);
-    // The game view fits above a half-size timeline (its canvas follows --tl-h).
-    requestAnimationFrame(() => {
-      if (timeline.root !== root) return;
-      const h = `${root.offsetHeight}px`, was = document.body.style.getPropertyValue('--tl-h'), sizeWas = timeline.shownSize;
-      document.body.style.setProperty('--tl-h', h);
-      timeline.shownSize = timeline.aside ? 'aside' : size;
-      if (was !== h || sizeWas !== timeline.shownSize) dispatchEvent(new Event('resize'));
-    });
+    // The timeline overlays the game (the view never changes); the side sheet sits above it.
+    requestAnimationFrame(() => { if (timeline.root === root) document.body.style.setProperty('--tl-h', `${root.offsetHeight}px`); });
   }
   // A horizontal swipe on `node` (≥ 42 px, mostly sideways) → onSwipe(dx).
   function bindSwipe(node, onSwipe) {
@@ -1020,7 +1019,7 @@
     node.addEventListener('pointercancel', () => { start = null; }, { passive: true });
   }
   // The top edge: tap for the next size up (bar → half → full → bar), drag up /
-  // down for bigger / smaller, swipe right to push it aside.
+  // down for bigger / smaller, swipe left to collapse it (like the editor panel).
   function bindHandle(node) {
     let start = null;
     node.addEventListener('pointerdown', ev => { start = { id: ev.pointerId, x: ev.clientX, y: ev.clientY }; try { node.setPointerCapture(ev.pointerId); } catch (_) {} ev.preventDefault(); });
@@ -1028,7 +1027,7 @@
       if (!start || ev.pointerId !== start.id) return;
       const dx = ev.clientX - start.x, dy = ev.clientY - start.y; start = null;
       const k = TL_SIZES.indexOf(timeline.size);
-      if (dx > 50 && Math.abs(dx) > Math.abs(dy)) setTlAside(true);
+      if (dx < -50 && Math.abs(dx) > Math.abs(dy)) setTlAside(true);
       else if (Math.abs(dy) < 12 && Math.abs(dx) < 12) setTlSize(TL_SIZES[(k + 1) % TL_SIZES.length]);
       else if (dy < -30) setTlSize(TL_SIZES[Math.min(TL_SIZES.length - 1, k + (dy < -innerHeight * 0.4 ? 2 : 1))]);
       else if (dy > 30) setTlSize(TL_SIZES[Math.max(0, k - (dy > innerHeight * 0.4 ? 2 : 1))]);

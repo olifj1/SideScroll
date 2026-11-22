@@ -15927,14 +15927,12 @@ body.sidescroll-tl-open #sidescroll-puzzle-panel,body.sidescroll-tl-open .sidesc
 .sidescroll-tl-mini-head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#ff6b5b;pointer-events:none;}
 .sidescroll-tl-playhead{position:absolute;top:0;width:2px;margin-left:-1px;background:#ff6b5b;z-index:6;pointer-events:none;box-shadow:0 0 6px rgba(255,107,91,.6);}
 .sidescroll-tl-playhead[hidden]{display:none;}
-.sidescroll-tl-rail{position:fixed;z-index:1005;right:0;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:1px solid rgba(255,255,255,.2);border-right:0;border-radius:12px 0 0 12px;background:rgba(16,23,26,.94);color:#eef3f1;touch-action:none;}
+.sidescroll-tl-rail{position:fixed;z-index:1005;width:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0;border:0;border-radius:13px;background:rgba(8,16,19,.91);color:#edf4f2;touch-action:none;}
 .sidescroll-tl-rail[hidden]{display:none!important;}
-.sidescroll-tl-rail span{writing-mode:vertical-rl;font-size:8px;font-weight:900;letter-spacing:.16em;}
-.sidescroll-tl-rail b{font-size:22px;font-weight:500;line-height:1;}
-.sidescroll-tl-rail i{display:none;width:7px;height:7px;border-radius:50%;background:#ff6b5b;}
-.sidescroll-tl-rail.playing i{display:block;}
+.sidescroll-tl-rail span{font-size:7px;font-weight:950;letter-spacing:.16em;writing-mode:vertical-rl;transform:rotate(180deg);}
+.sidescroll-tl-rail b{font-size:24px;font-weight:500;line-height:1;}
+.sidescroll-tl-rail i{width:7px;height:7px;border-radius:50%;background:#e7b976;box-shadow:0 0 0 3px rgba(231,185,118,.13);}
+.sidescroll-tl-rail i[hidden]{display:none;}
 /* While the timeline is showing, the game's touch controls step out of its way (back when it is pushed aside). */
 body.sidescroll-tl-size-bar #sidescroll-secondary-controls,body.sidescroll-tl-size-bar #sidescroll-play-controls,body.sidescroll-tl-size-bar #sidescroll-editor-controls,
 body.sidescroll-tl-size-half #sidescroll-secondary-controls,body.sidescroll-tl-size-half #sidescroll-play-controls,body.sidescroll-tl-size-half #sidescroll-editor-controls{visibility:hidden!important;pointer-events:none!important;}
-/* Half: the game view sits above the timeline instead of behind it. */
-body[data-game-id="game-16"].sidescroll-tl-size-half #sidescroll-canvas,body[data-game-id="game-16"].sidescroll-tl-size-half .sidescroll-editor-overlay{height:calc(100% - var(--tl-h,50vh) + 14px)!important;bottom:auto!important;}

@@ -343,10 +343,11 @@ steps (`isInstant`) are diamonds; tap → side sheet (`stepEditor`, Duplicate / 
 pinch / ctrl + wheel zoom (`zoomTimeline`); ↶ ↷ (`history`, snapshots of the whole Story draft;
 typing within 1 s is one step), + Add, + Character, Discard, Save. **Docked with the game:** sizes
 `timeline.size` 'bar' | 'half' | 'full' (▁ ▄ █, or the top-edge handle: `bindHandle`) and
-`timeline.aside` (⇥ / swipe right → the `.sidescroll-tl-rail` tab at the right edge), kept in
+`timeline.aside` (‹ / swipe left on the handle → `.sidescroll-tl-rail`, a copy of the editor panel's
+collapsed rail placed over the panel's box; tap or swipe right to expand), kept in
 sessionStorage `sidescroll.story.timeline-view`; body classes `sidescroll-tl-open` and
-`sidescroll-tl-size-<size>` (not while aside) hide the editor drawer, TEST bar and touch controls,
-and at Half the canvas is `calc(100% - var(--tl-h))` tall (a `resize` is dispatched when it changes).
+`sidescroll-tl-size-<size>` (not while aside) hide the editor drawer, TEST bar and touch controls.
+The timeline only overlays the game: the game view never changes size.
 Bar shows a strip of the whole event (`.sidescroll-tl-mini`: a line per row, tap = edit) instead of
 rows; at Bar / Half the side sheet is fixed at the right over the game. **▶** (`togglePlay`) →
 `host.playEvent(eventId, placedId)` (stops every sequence, resets the one whose line runs the event,
