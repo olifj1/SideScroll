@@ -341,8 +341,20 @@ to another row only where `canMoveTo` allows — a line changes speaker, a chara
 character — `putOnRow`); drag the right edge (`resizable` / `setLength`) to set a length; instant
 steps (`isInstant`) are diamonds; tap → side sheet (`stepEditor`, Duplicate / Remove / Done);
 pinch / ctrl + wheel zoom (`zoomTimeline`); ↶ ↷ (`history`, snapshots of the whole Story draft;
-typing within 1 s is one step), + Add, + Character, Discard, Save. Next: the timeline docked
-under the game with ▶ play and a playhead, then scrubbing; a sequence-level node graph later.
+typing within 1 s is one step), + Add, + Character, Discard, Save. **Docked with the game:** sizes
+`timeline.size` 'bar' | 'half' | 'full' (▁ ▄ █, or the top-edge handle: `bindHandle`) and
+`timeline.aside` (⇥ / swipe right → the `.sidescroll-tl-rail` tab at the right edge), kept in
+sessionStorage `sidescroll.story.timeline-view`; body classes `sidescroll-tl-open` and
+`sidescroll-tl-size-<size>` (not while aside) hide the editor drawer, TEST bar and touch controls,
+and at Half the canvas is `calc(100% - var(--tl-h))` tall (a `resize` is dispatched when it changes).
+Bar shows a strip of the whole event (`.sidescroll-tl-mini`: a line per row, tap = edit) instead of
+rows; at Bar / Half the side sheet is fixed at the right over the game. **▶** (`togglePlay`) →
+`host.playEvent(eventId, placedId)` (stops every sequence, resets the one whose line runs the event,
+turns on editor play if off — `timelinePlayStarted` — puts the player on the line's zone, fires the
+line); the playhead follows `host.eventClock(eventId)` (seconds into the run, paused while it
+waits for Action; null when it has ended — any edit reloads the story, which ends it); ■ →
+`host.stopEvent(placedId)`. **📷 Frame it** pushes the timeline aside and restores it on Done.
+Next: scrubbing (jump to *t* in an event) and editing while paused; a sequence-level node graph later.
 **Editor TEST bar** (`#sidescroll-test-bar`, every scope): ▶ Play sets `editorPlayTest` — the game
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game
 controls). Gameplay code tests `editLocked()` (= editing and not playing) where Play must work;

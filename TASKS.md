@@ -47,7 +47,7 @@ use roles. Steps 1–2 (events library, sequences with characters / marks / zone
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
 - [ ] **Play from here:** complete every puzzle and sequence before a chosen point (via ⚑ Progress), then play from there. *(⚑ Progress, Solved State and the Item step done 12 Nov.)*
 - [ ] **4 — World Lab sequences track:** *(track, details, drag / type to move, Open in game done 13 Nov)* still to do: show where each component stands within the bar, and a template's other instances.
-- [ ] **Timeline, next stages** *(21 Nov: every event is a timeline with a row per subject, done)*: (2) dock the timeline under the game view with ▶ play and a playhead moving across; (3) scrub to any moment (the scene jumps there: positions, camera, dissolve, lines, bars, look) and edit while paused, replaying from the playhead — without touching play progress.
+- [ ] **Timeline, next stages** *(21 Nov: every event is a timeline with a row per subject, done)*: (2) *(22 Nov, done: docked Bar / Half / Full, push aside, ▶ with a playhead)*; (3) scrub to any moment (the scene jumps there: positions, camera, dissolve, lines, bars, look) and edit while paused, replaying from the playhead — without touching play progress.
 - [ ] **5 — More look controls** (colour grading, vignette, bloom; looks per stretch of the journey, e.g. atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov; Looks (fog + post sets) and the Look step done 14 Nov.)*
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — next after the intro)
@@ -83,6 +83,15 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bi. Timeline docked with the game (22 Nov)**
+- [ ] Story → Events → *Taken* → *Open the timeline*: it opens at **Half**, with the whole scene above it (the game view shrinks to fit) and the editor panel, TEST bar and Jump / Action controls out of the way.
+- [ ] ▁ ▄ █ switch Bar / Half / Full; tapping the handle on the top edge goes to the next size; dragging it up or down makes it bigger or smaller. The size is kept when you close and reopen it.
+- [ ] **⇥** (or swiping right on the handle) pushes it aside: a TIMELINE tab on the right edge; tap it (or swipe left on it) to bring the timeline back.
+- [ ] **▶**: Aureli is placed on the zone and *Taken* plays from the start; the clock counts and the red playhead moves (the view follows it at Half / Full; the strip shows it at Bar). ■ stops it and editing returns. Press ▶ again: Father is back and it plays again.
+- [ ] At **Bar**, tap a coloured line in the strip: that step's settings open at the top right over the game; change its start time, then ▶ to see the difference.
+- [ ] Open the camera shot and press **📷 Frame it**: the timeline goes aside, you frame in the full game view; **Done** brings the timeline back at the same size with the shot saved to the step.
+- [ ] Close: the editor panel, TEST bar and controls come back; the game view is full height again.
 
 **0bh. Event page width (22 Nov)**
 - [ ] Story → Events → an event with a long line: the page fits the panel (placeholders, *Open the timeline*, the summary); long lines end in "…".

@@ -14,6 +14,10 @@
   else, so plain swipes still scroll; two fingers pinch-zoom. Edits are one draft with the panel
   (Undo / Discard / Save).
 - Opening a row in a list keeps the row as its title and shows the details beneath it.
+- Editors that need the game view (timeline, framing) dock with it instead of covering it:
+  Bar / Half / Full sizes, and push-aside to an edge tab like the editor panel. A tool that needs
+  the whole view (framing a shot) pushes the others aside and restores them when done. While a
+  docked editor shows, the game's touch controls step out of its way.
 
 ## Props: one grip per character per asset (20 Nov 2026)
 - Anything a character holds is drawn through one list of held things (`[{layer, draw}]`), placed

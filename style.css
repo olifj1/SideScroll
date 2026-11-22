@@ -15902,3 +15902,39 @@ button.sidescroll-seq-steprow .sidescroll-seq-steprow-text b{color:rgba(255,255,
 .sidescroll-tl-help{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sidescroll-seq-steps{grid-template-columns:minmax(0,1fr);}
 button.sidescroll-seq-steprow{min-width:0;}
+
+/* Story timeline docked with the game: Bar / Half / Full, pushed aside to a tab. */
+body.sidescroll-tl-open #sidescroll-puzzle-panel,body.sidescroll-tl-open .sidescroll-editor-drawer-rail,body.sidescroll-tl-open #sidescroll-test-bar{visibility:hidden!important;pointer-events:none!important;}
+.sidescroll-tl.aside{display:none;}
+.sidescroll-tl.size-half{top:auto;height:54vh;height:54dvh;}
+.sidescroll-tl.size-bar{top:auto;height:auto;}
+.sidescroll-tl:not(.size-full){padding-top:2px;border-top:1px solid rgba(255,255,255,.16);border-radius:14px 14px 0 0;box-shadow:0 -10px 26px rgba(0,0,0,.4);background:rgba(16,23,26,.97);}
+.sidescroll-tl.size-half .sidescroll-tl-main{margin-top:6px;}
+.sidescroll-tl-handle{align-self:center;flex:none;width:90px;height:16px;display:flex;align-items:center;justify-content:center;touch-action:none;cursor:ns-resize;}
+.sidescroll-tl-handle::after{content:"";width:46px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);}
+.sidescroll-tl.size-bar .sidescroll-tl-head{flex-wrap:nowrap;}
+.sidescroll-tl:not(.size-full) .sidescroll-tl-sheet{position:fixed;z-index:1006;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));bottom:calc(var(--tl-h,60px) + 8px);width:min(340px,44vw);background:#10171a;box-shadow:0 10px 30px rgba(0,0,0,.5);}
+.sidescroll-tl-clock{flex:none;min-width:78px;font-variant-numeric:tabular-nums;font-weight:700;color:rgba(255,255,255,.75);}
+.sidescroll-tl button.sidescroll-tl-play{width:40px;padding:0;font-size:14px;}
+.sidescroll-tl button.sidescroll-tl-play.on{background:rgba(255,107,91,.25);border-color:#ff6b5b;}
+.sidescroll-tl-sizes{display:flex;gap:2px;flex:none;}
+.sidescroll-tl-sizes button{width:30px;padding:0!important;font-size:12px!important;}
+.sidescroll-tl-sizes button.on{background:rgba(255,214,120,.22);border-color:#ffd678;color:#ffd678;}
+.sidescroll-tl-mini{position:relative;flex:1 1 200px;min-width:120px;height:34px;box-sizing:border-box;border:1px solid rgba(255,255,255,.12);border-radius:7px;background:rgba(0,0,0,.3);overflow:hidden;}
+.sidescroll-tl-mini-step{position:absolute;min-width:4px;border-radius:2px;background:var(--tl-kind);cursor:pointer;}
+.sidescroll-tl-mini-step.selected{outline:1px solid #fff;}
+.sidescroll-tl-mini-step.kind-speech{--tl-kind:#e8b84a;}.sidescroll-tl-mini-step.kind-view{--tl-kind:#5aa6e0;}.sidescroll-tl-mini-step.kind-actor{--tl-kind:#6cc488;}.sidescroll-tl-mini-step.kind-logic{--tl-kind:#9a8fc4;}
+.sidescroll-tl-mini-head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#ff6b5b;pointer-events:none;}
+.sidescroll-tl-playhead{position:absolute;top:0;width:2px;margin-left:-1px;background:#ff6b5b;z-index:6;pointer-events:none;box-shadow:0 0 6px rgba(255,107,91,.6);}
+.sidescroll-tl-playhead[hidden]{display:none;}
+.sidescroll-tl-rail{position:fixed;z-index:1005;right:0;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:1px solid rgba(255,255,255,.2);border-right:0;border-radius:12px 0 0 12px;background:rgba(16,23,26,.94);color:#eef3f1;touch-action:none;}
+.sidescroll-tl-rail[hidden]{display:none!important;}
+.sidescroll-tl-rail span{writing-mode:vertical-rl;font-size:8px;font-weight:900;letter-spacing:.16em;}
+.sidescroll-tl-rail b{font-size:22px;font-weight:500;line-height:1;}
+.sidescroll-tl-rail i{display:none;width:7px;height:7px;border-radius:50%;background:#ff6b5b;}
+.sidescroll-tl-rail.playing i{display:block;}
+/* While the timeline is showing, the game's touch controls step out of its way (back when it is pushed aside). */
+body.sidescroll-tl-size-bar #sidescroll-secondary-controls,body.sidescroll-tl-size-bar #sidescroll-play-controls,body.sidescroll-tl-size-bar #sidescroll-editor-controls,
+body.sidescroll-tl-size-half #sidescroll-secondary-controls,body.sidescroll-tl-size-half #sidescroll-play-controls,body.sidescroll-tl-size-half #sidescroll-editor-controls{visibility:hidden!important;pointer-events:none!important;}
+/* Half: the game view sits above the timeline instead of behind it. */
+body[data-game-id="game-16"].sidescroll-tl-size-half #sidescroll-canvas,body[data-game-id="game-16"].sidescroll-tl-size-half .sidescroll-editor-overlay{height:calc(100% - var(--tl-h,50vh) + 14px)!important;bottom:auto!important;}
