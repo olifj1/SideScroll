@@ -85,9 +85,9 @@ step and move it to **Now** as a bug. Before starting: close/reopen the Home Scr
 app and make a Project Backup.
 
 **0bi. Timeline docked with the game (22 Nov)**
-- [ ] Story → Events → *Taken* → *Open the timeline*: it opens at **Half**, with the whole scene above it (the game view shrinks to fit) and the editor panel, TEST bar and Jump / Action controls out of the way.
+- [ ] Story → Events → *Taken* → *Open the timeline*: it opens at **Half** over the game (the game view itself does not change size or move) with the editor panel, TEST bar and Jump / Action controls out of the way.
 - [ ] ▁ ▄ █ switch Bar / Half / Full; tapping the handle on the top edge goes to the next size; dragging it up or down makes it bigger or smaller. The size is kept when you close and reopen it.
-- [ ] **⇥** (or swiping right on the handle) pushes it aside: a TIMELINE tab on the right edge; tap it (or swipe left on it) to bring the timeline back.
+- [ ] **‹** (or swiping left on the handle) collapses it to a rail on the left that looks and sits exactly like the editor panel's collapsed rail (TIMELINE ›, a dot when there are unsaved changes); tap it (or swipe right on it) to bring the timeline back.
 - [ ] **▶**: Aureli is placed on the zone and *Taken* plays from the start; the clock counts and the red playhead moves (the view follows it at Half / Full; the strip shows it at Bar). ■ stops it and editing returns. Press ▶ again: Father is back and it plays again.
 - [ ] At **Bar**, tap a coloured line in the strip: that step's settings open at the top right over the game; change its start time, then ▶ to see the difference.
 - [ ] Open the camera shot and press **📷 Frame it**: the timeline goes aside, you frame in the full game view; **Done** brings the timeline back at the same size with the shot saved to the step.

@@ -93,8 +93,8 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
     as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
     character that ends fully dissolved stays hidden.
-  - *(22 Nov)* **Docked with the game:** the timeline has three sizes (a Bar strip, Half with the
-    game view above it, Full) and can be pushed aside to a tab like the editor panel. ▶ plays the
+  - *(22 Nov)* **Docked with the game:** the timeline has three sizes (a Bar strip, Half, Full)
+    overlaying the game (whose view never changes) and collapses to the editor panel's rail. ▶ plays the
     event in the game from its start (its sequence reset, the player on its zone) with a playhead
     following the event's clock; framing a shot pushes the timeline aside. Next: scrubbing.
   - *(21 Nov, later)* **The timeline is the event editor:** every event is a timeline (older ones
