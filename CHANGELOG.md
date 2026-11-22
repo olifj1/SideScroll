@@ -4,6 +4,15 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story: the timeline is the event editor, with a row per subject.** Each event is now a
+  timeline with a row for each character, then Player, Camera, Screen, Look and Game, so all of
+  Father's lines sit on his row and all letterboxing on Screen. Where a step sits is when it
+  starts. Tap an empty spot on a row to add something there; drag ⋮⋮ (or press and hold) to move
+  it in time or to another character (a line changes speaker); drag a block's right edge to
+  change how long it lasts; instant steps are diamonds; overlapping steps get an extra line.
+  The event page shows a summary in time order (tap a step to open the timeline on it). Events
+  saved step by step become timed on opening, keeping their timing (saved as such with the next
+  Save); numbered tracks are gone.
 - **Story: timed events, undo, pinch zoom.** On the ⤢ Timeline a step now goes exactly where you
   drop it, at any time and on any track, and starts then, whatever else is running. Nothing else
   moves; a taken spot puts it on the next free track. The first drag turns the event into a

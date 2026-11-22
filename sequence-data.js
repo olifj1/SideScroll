@@ -41,7 +41,6 @@
     prop:    { label: 'Prop', help: 'a character takes an asset in its hand (Father\u2019s axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
   });
-  const MAX_TRACK = 15; // timeline rows of a timed event
   const PLAYER = 'player'; // Say: the player speaks (the character being played)
   const PROP_ACTIONS = Object.freeze({ give: 'Hold it', take: 'Put it away', drop: 'Drop it' });
   // An asset name (built-in or imported): what a character holds.
@@ -87,8 +86,9 @@
 
   // ---- Events ----------------------------------------------------------------
   // timed: the event's steps start at their own times (`at`, seconds from the
-  // event's start; `track` = its row in the editor's timeline) instead of one
-  // beat after another (`with` / `background`).
+  // event's start) instead of one beat after another (`with` / `background`).
+  // The editor makes every event timed; its timeline rows follow from each
+  // step (who it is about), so nothing about rows is stored.
   function normaliseStep(raw, roleKinds, timed = false) {
     const def = STEPS[raw?.type];
     if (!def) return null;
@@ -98,7 +98,6 @@
     if (timed) {
       out.with = false;
       out.at = Math.round(clamp(raw.at, 0, 900, 0) * 20) / 20;
-      out.track = Math.round(clamp(raw.track, 0, MAX_TRACK, 0));
     } else if (raw.background) out.background = true;
     for (const [field, kind] of Object.entries(def.roles)) {
       const role = raw[field];
@@ -333,7 +332,7 @@
   }
 
   window.SideScrollSequences = Object.freeze({
-    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER, MAX_TRACK,
+    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER,
     normaliseEvents, normaliseSequences, normaliseBody, bodyOf, load, save, loadProgress, saveProgress,
     flagName, conditionMet, newId
   });

@@ -93,6 +93,14 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
     as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
     character that ends fully dissolved stays hidden.
+  - *(21 Nov, later)* **The timeline is the event editor:** every event is a timeline (older ones
+    are converted keeping their timing). Rows are by subject — each character, Player, Camera,
+    Screen, Look, Game — so a step's row follows from what it is about and is never arranged by
+    hand; overlaps get extra lines. Steps are added by tapping a row at a time, moved by dragging
+    (in time, or to another character: a line changes speaker), resized by their right edge;
+    instant steps are diamonds. The event page is a summary. Next: the timeline docked under the
+    game with ▶ play and a playhead, then scrubbing to any moment and editing while paused (a
+    preview that can jump to *t* seconds into an event without touching progress).
   - *(21 Nov)* **Timed events:** an event can be *timed* — every step has its own start time and
     timeline track and starts then, whatever else is running (lines at chosen moments of a
     dissolve). *Wait for Action* stops the clock until pressed; walking at own speed no longer
