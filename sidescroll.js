@@ -19333,6 +19333,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     return true;
   }
 
+  let timelinePlayStarted = false; // the timeline's ▶ turned on editor play
   window.SideScrollSequenceHost = Object.freeze({
     frameShot: seqFrameShot,
     state: () => seqState,
@@ -19370,6 +19371,37 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       setEditorPlayTest(true);
     },
     playing: () => editorPlayTest,
+    // Timeline ▶: runs an event from its start through a sequence line that uses
+    // it (the sequence it was opened from first). That sequence is reset first
+    // and the game plays (as ▶ Play), with the player on the line's zone.
+    playEvent: (eventId, placedId) => {
+      const lines = [];
+      for (const r of seqResolved) for (const l of r.body.logic) if (l.event === eventId) lines.push({ r, l });
+      lines.sort((a, b) => (b.r.p.id === placedId) - (a.r.p.id === placedId));
+      const ctx = lines[0];
+      if (!ctx) return null;
+      const { p, body } = ctx.r;
+      for (const r of seqResolved) seqStopSequence(r.p.id);
+      seqResetSequence(p.id);
+      if (!editorPlayTest) { setEditorPlayTest(true); if (!editorPlayTest) return null; timelinePlayStarted = true; }
+      const zone = ctx.l.when?.zone ? body.components.find(c => c.id === ctx.l.when.zone) : null;
+      if (zone) { placePlayerAt(p.x + zone.dx); seqInside.add(compKey(p.id, zone.id)); }
+      seqFireLine(p, body, ctx.l, true);
+      return { placed: p.id };
+    },
+    // Seconds into a running event (its clock stops while it waits for Action), or null.
+    eventClock: eventId => {
+      const run = seqRuns.find(r => !r.done && r.event.id === eventId);
+      if (!run) return null;
+      if (!run.event.timed || run.t0 == null) return 0;
+      const now = storyNow();
+      return Math.max(0, (run.pauseFrom ?? now) - run.t0 - run.paused);
+    },
+    stopEvent: placedId => {
+      if (placedId) seqStopSequence(placedId);
+      seqResetScreen();
+      if (timelinePlayStarted) { timelinePlayStarted = false; setEditorPlayTest(false); }
+    },
     // The Story editor's pick-lists use the asset browser's right-side window
     // (openEditorChoicePicker): {title, subtitle, groupLabel, choices:[{label, thumb, description, onSelect}]}.
     openPicker: config => openEditorChoicePicker({ ...config, mode: 'story' }),
@@ -21133,7 +21165,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       hintEl.textContent = 'PLAYING IN THE EDITOR · walk, jump and use Action · ↺ Restart goes back to the start · ■ Stop to edit';
       hintEl.classList.remove('hidden');
     } else {
-      editorPlayTest = false;
+      editorPlayTest = false; timelinePlayStarted = false;
       setDriveAxis(0); keyLeft = false; keyRight = false; keyRun = false;
       if (carriedObject || interactionState || pushingObject) { if (pushingObject) stopPush(true); }
       placePlayerAt(character.x);

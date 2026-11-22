@@ -119,6 +119,7 @@
     "sidescroll.animlab.atlas-view.v1":                  { "area": "Settings", "scope": "local", "lab": "Character Lab", "what": "Atlas background preference" },
     "sidescroll.animlab.atlas-wires.v1":                 { "area": "Settings", "scope": "local", "lab": "Character Lab", "what": "Atlas wireframe preference" },
     "sidescroll.animlab.editor.selection.v1":            { "area": "Settings", "scope": "local", "lab": "Character Lab", "what": "Current selection (session storage)" },
+    "sidescroll.story.timeline-view":                    { "area": "Settings", "scope": "local", "lab": "Game editor", "what": "Story timeline size (bar / half / full) and whether it is pushed aside (session storage)" },
     "sidescroll.puzzle-lab.ui.v1":                       { "area": "Settings", "scope": "local", "lab": "Puzzle Lab", "what": "Puzzle Lab panel state" },
 
     "sidescroll.world.player-start.v1":                  { "area": "World", "scope": "content", "lab": "World Lab", "what": "Player start: where a new game begins (x, facing)" },
