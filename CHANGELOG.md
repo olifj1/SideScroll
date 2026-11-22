@@ -4,6 +4,8 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Fix: an event page wider than the Story panel.** A long line in the step summary stretched the
+  whole page past the panel's right edge; summary rows now cut long text with "…".
 - **Fix: a small pop when a dissolve starts.** The character is drawn through the effect from a
   picture of itself; that picture is now lined up with the screen's pixels (and may be up to
   4096 px instead of 1024), so it no longer turns slightly softer and shifts when the effect begins,

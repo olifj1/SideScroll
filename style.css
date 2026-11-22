@@ -15900,3 +15900,5 @@ button.sidescroll-seq-steprow .sidescroll-seq-steprow-text b{color:rgba(255,255,
 .sidescroll-tl-ruler{position:absolute;top:0;left:0;height:22px;z-index:6;background:#121a1d;transform:translateY(var(--sy,0px));pointer-events:none;}
 .sidescroll-tl-labels::before{content:"";position:absolute;top:0;left:0;width:92px;height:22px;background:#141d21;transform:translateY(var(--sy,0px));}
 .sidescroll-tl-help{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sidescroll-seq-steps{grid-template-columns:minmax(0,1fr);}
+button.sidescroll-seq-steprow{min-width:0;}

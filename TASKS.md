@@ -84,6 +84,9 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bh. Event page width (22 Nov)**
+- [ ] Story → Events → an event with a long line: the page fits the panel (placeholders, *Open the timeline*, the summary); long lines end in "…".
+
 **0bg. Dissolve start (22 Nov)**
 - [ ] Play *Taken* and watch Father as the dissolve starts (in the close-up shot): he should not pop, soften or shift by a pixel when it begins.
 
