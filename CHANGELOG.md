@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Character Lab: scene objects can be any asset.** The list now has every built-in asset (puzzle
+  props, buildings, fences, rocks, trees, ground pieces…) under the same group headings as Asset
+  Lab, plus every imported one, at the height and floor line Asset Lab has saved for it. Asset
+  Lab's built-in list moved to `builtin-assets.js`, shared by both labs.
 - **Objects in sequences.** A sequence can hold **Objects** — any asset (built-in or imported)
   placed relative to it, so it moves with the sequence in World Lab: the chopping block, the
   logs, the note and food in the cabin. Settings: asset, size, lift above the ground, facing,

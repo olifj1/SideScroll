@@ -96,6 +96,7 @@ app and make a Project Backup.
 - [ ] Tick *Hidden at the start* on an object: in the editor it shows faintly; in ▶ Play it is invisible until an *Appears* step.
 
 **0bo. Scene objects in Character Lab (23 Nov)**
+- [ ] The asset list has every built-in asset under group headings (Puzzle · Bridge, Environment · Trees, …) plus *Imported*. Add a tree stump or fence: it stands at the size it is in the game. Asset Lab still lists and edits all its assets as before.
 - [ ] Character Lab → Father → Animate: **Scene objects** under Actions & animations. Pick an asset (e.g. the log or the chopping block once imported) and **Add**: it stands on the ground in front of him at game size.
 - [ ] Slide **Distance** and **Size**; **Behind / In front** swaps which side of him it is drawn; ✕ removes it; **Clear all**.
 - [ ] Switch to **Play**: the object stays put in the world as you walk past it. Reload the page: it is gone (nothing saved).
