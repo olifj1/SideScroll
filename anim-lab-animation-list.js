@@ -36,6 +36,38 @@
   const slotRows = host.querySelector('[data-slot-rows]'), animationRows = host.querySelector('[data-animation-rows]');
   const note = host.querySelector('[data-anim-note]');
   const button = id => host.querySelector(`[data-anim="${id}"]`);
+  // New: a name and where its first pose comes from (Idle by default).
+  const newDialog = document.createElement('dialog');
+  newDialog.className = 'animlab-parts-add-dialog animlab-new-animation-dialog';
+  newDialog.setAttribute('aria-label', 'New animation');
+  newDialog.innerHTML = `<form method="dialog" class="animlab-parts-add-content">
+    <div class="animlab-section-title">New animation</div>
+    <label class="animlab-new-animation-field">Name <input type="text" data-new-name maxlength="40"></label>
+    <label class="animlab-new-animation-field">Start from <select data-new-start></select></label>
+    <p>It starts as one key holding that pose; add keys from there.</p>
+    <div class="animlab-parts-add-actions"><button type="button" data-new-action="create">Create</button><button type="button" data-new-action="cancel">Cancel</button></div>
+  </form>`;
+  document.body.appendChild(newDialog);
+  const newName = newDialog.querySelector('[data-new-name]'), newStart = newDialog.querySelector('[data-new-start]');
+  function openNewDialog() {
+    newStart.replaceChildren(...(core.newAnimationStarts?.() || [{ value: 'current', label: 'The pose on screen now' }]).map(o => {
+      const option = document.createElement('option'); option.value = o.value; option.textContent = o.label; return option;
+    }));
+    newStart.value = newStart.querySelector('option[value="idle"]') ? 'idle' : newStart.options[0]?.value || 'current';
+    newName.value = 'New animation';
+    newDialog.showModal(); newName.select();
+  }
+  function createFromDialog() {
+    newDialog.close();
+    core.createAnimation('blank', newName.value, newStart.value);
+    signature = ''; render();
+  }
+  newDialog.addEventListener('click', event => {
+    const action = event.target.closest('[data-new-action]')?.dataset.newAction;
+    if (action === 'cancel') newDialog.close();
+    if (action === 'create') createFromDialog();
+  });
+  newName.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); createFromDialog(); } });
   let signature = '';
 
   function slotRow(slot, animations, locked) {
@@ -92,7 +124,7 @@
     const action = event.target.closest('[data-anim]')?.dataset.anim;
     if (!action) return;
     const s = core.getState(), current = core.animationList().find(a => a.key === s.clip);
-    if (action === 'new') { const name = window.prompt('Name for the new animation:', 'New animation'); if (name !== null) core.createAnimation('blank', name); }
+    if (action === 'new') { openNewDialog(); return; }
     if (action === 'duplicate') { const name = window.prompt('Name for the copy:', `${current?.name || 'Animation'} copy`); if (name !== null) core.createAnimation('duplicate', name); }
     if (action === 'rename' && current) { const name = window.prompt('Animation name:', current.name); if (name !== null) core.renameAnimation(current.key, name); }
     if (action === 'delete' && current && window.confirm(`Delete ${current.name}? This can't be undone.`)) core.deleteAnimation(current.key);

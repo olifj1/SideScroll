@@ -1652,12 +1652,36 @@
   const newClipKey = () => `clip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}`;
   // A new animation, not in a slot: a copy of the current one, or a blank one
   // holding the current frame's pose. It opens for editing.
-  function createAnimation(kind, name) {
+  // Where a new animation's first pose comes from: the character's Idle (the
+  // animation in its Idle slot), the pose on screen now, its rig's rest pose
+  // (bipeds) or the first pose of one of its animations.
+  function newAnimationStarts() {
+    const character = currentCharacter(), adapter = currentAdapter();
+    const starts = [{value:'idle', label:'Its Idle pose'}, {value:'current', label:'The pose on screen now'}];
+    if (adapter.restPose) starts.push({value:'rest', label:'Its rig’s rest pose (straight)'});
+    for (const a of animationList()) starts.push({value:`clip:${a.key}`, label:`First pose of ${a.name}`});
+    return starts;
+  }
+  function newAnimationStartPose(start) {
+    const character = currentCharacter(), adapter = currentAdapter(), bank = currentBank();
+    const first = key => { const frames = key && bank[key]; return frames?.length ? clone(frames[0]) : null; };
+    if (start === 'rest' && adapter.restPose) return clone(adapter.restPose(setupDraft.rig));
+    if (start === 'idle') return first(slotAnimation(character.id, 'idle') || 'idle') || first('idle') || clone(currentPose());
+    if (typeof start === 'string' && start.startsWith('clip:')) return first(start.slice(5)) || clone(currentPose());
+    return clone(currentPose());
+  }
+  function createAnimation(kind, name, start = 'current') {
     if (animationEditBlocked()) return null;
     const character = currentCharacter(), family = character.family, key = newClipKey();
-    const source = extraOf(character.id, selection.clip)?.basedOn || (clipNamesForFamily(family).includes(selection.clip) ? selection.clip : 'walk');
+    const startClip = start === 'idle' ? (slotAnimation(character.id, 'idle') || 'idle') : typeof start === 'string' && start.startsWith('clip:') ? start.slice(5) : selection.clip;
+    const builtIn = clipNamesForFamily(family);
+    const source = kind === 'blank' && start === 'idle' && builtIn.includes('idle') ? (extraOf(character.id, startClip)?.basedOn || 'idle')
+      : extraOf(character.id, startClip)?.basedOn || (builtIn.includes(startClip) ? startClip : 'walk');
+    // Two keys holding the start pose (a clip with fewer than two keys falls back
+    // to the built-in frames, which are made for the original heroes' rig).
+    const startPose = newAnimationStartPose(start);
     const clip = kind === 'blank'
-      ? normaliseSparseClip({source:'sparse-authored', keys:[{frame:0, name:'Pose', pose:currentPose()}]}, family, key, banks[family][source])
+      ? normaliseSparseClip({source:'sparse-authored', keys:[{frame:0, name:'Start', pose:startPose}, {frame:15, name:'End', pose:clone(startPose)}]}, family, key, banks[family][source])
       : normaliseSparseClip(clone(currentSparseClip()), family, key, currentFrames());
     const clean = safeCharacterName(name) || (kind === 'blank' ? 'New animation' : `${animationList().find(a => a.key === selection.clip)?.name || 'Animation'} copy`);
     updateSavedAnimations(character.id, ({extras}) => { extras[key] = {name:clean, basedOn:source, clip:clone(clip)}; });
@@ -2782,7 +2806,7 @@
     setRigEditListener:fn=>{rigEditListener=typeof fn==='function'?fn:null;},
     clipTemplateState,
     animationList:()=>clone(animationList()),
-    createAnimation,
+    createAnimation, newAnimationStarts,
     renameAnimation,
     deleteAnimation,
     setSlotAnimation,

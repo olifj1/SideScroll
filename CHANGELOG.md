@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Character Lab: new animations start from a pose you choose.** **New** opens a small dialog —
+  a name and **Start from**: its Idle pose (the default: the animation in its Idle slot), the
+  pose on screen now, its rig's rest pose, or the first pose of any of its animations. **Fix:** a
+  new animation used to be one key, and a clip with fewer than two keys was replaced by the
+  built-in generic frames (made for the original heroes' rig), so it came out hunched and
+  bent-legged on other characters; it now starts with two keys (first and last frame) holding
+  the chosen pose.
 - **Timeline fixes.** The red playhead can now be dragged anywhere along it to scrub (not only
   the seconds ruler). Collapsing the timeline to its rail brings the game's touch controls back,
   so walking into a trigger can be tested with the timeline out of the way.
