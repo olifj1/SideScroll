@@ -22,8 +22,8 @@
   function catalogue() {
     const imported = AssetLib ? AssetLib.list().filter(e => e.art?.kind !== 'effect') : [];
     return [
-      ...(Props?.BUILT_IN || []).map(a => ({ name: a.name, label: a.label, height: Number(a.height) || 1, groundLine: 1 })),
-      ...imported.map(e => ({ name: e.name, label: e.label || e.name, height: Number(e.height) || 1, groundLine: Number.isFinite(Number(e.groundLine)) ? Number(e.groundLine) : 1 }))
+      ...(Props?.BUILT_IN || []).map(a => ({ name: a.name, label: a.label, height: Number(a.height) || 1, groundLine: 0 })),
+      ...imported.map(e => ({ name: e.name, label: e.label || e.name, height: Number(e.height) || 1, groundLine: Number.isFinite(Number(e.groundLine)) ? Number(e.groundLine) : 0 }))
     ];
   }
   const images = new Map();
@@ -111,8 +111,8 @@
       const rec = imageFor(o);
       if (!rec.ready) continue;
       const h = o.height * o.size * ppw, w = h * rec.aspect;
-      // groundLine: where the ground meets the picture (1 = its bottom edge).
-      const below = (1 - Math.max(0, Math.min(1, o.groundLine))) * h;
+      // groundLine: where the ground meets the picture, 0–1 up from its bottom edge (0 = the bottom).
+      const below = Math.max(0, Math.min(1, o.groundLine)) * h;
       const left = grid.cx + (o.x - cx) * ppw - w / 2, top = grid.groundY - h + below;
       ctx.save(); ctx.drawImage(rec.img, left, top, w, h); ctx.restore();
     }
