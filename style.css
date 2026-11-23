@@ -15968,3 +15968,8 @@ body.sidescroll-story-paused .sidescroll-tl-clock{color:#ffd678;}
 /* Character Lab → New animation: name + where its first pose comes from. */
 .animlab-new-animation-field{display:grid;gap:4px;margin:8px 0;font-size:12px;font-weight:800;}
 .animlab-new-animation-field input,.animlab-new-animation-field select{min-height:38px;font:inherit;font-weight:600;}
+/* Character Lab Actions: on iPhone a <select> sizes itself to its longest option; keep it to its column. */
+body[data-game-id="game-17"] .animlab-slot-row select{width:100%;max-width:100%;text-overflow:ellipsis;}
+body[data-game-id="game-17"] .animlab-slot-row > span{min-width:0;overflow-wrap:anywhere;}
+body[data-game-id="game-17"] .animlab-animation-list,body[data-game-id="game-17"] .animlab-animation-rows,body[data-game-id="game-17"] .animlab-animation-row{min-width:0;max-width:100%;}
+body[data-game-id="game-17"] .animlab-animation-row span{min-width:0;overflow-wrap:anywhere;}

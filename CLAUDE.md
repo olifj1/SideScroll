@@ -365,7 +365,10 @@ rows; at Bar / Half the side sheet is fixed at the right over the game.
 animation phases, effects, the sequence camera, speech (`storySpeechUntil` / `updateStorySpeech`)
 and looks (`lookState.t0` in story ms) all read it, so they pause and seek with it; while paused
 the player can't move (`storyControlLocked`), Action is ignored and the follow camera holds.
-Think bubbles (puzzle thoughts, a timer) and CSS fades still run on wall time. Any new
+Think bubbles (puzzle thoughts, a timer) and CSS fades still run on wall time. **Animation
+blending:** `storyBlendedPose` (in `drawStoryCharacter`) eases a sequence character from the pose
+it was last drawn in to its new animation over `STORY_BLEND` (0.3 s of story time) via the rig's
+`interpolatePose`; `seqSeekEvent` clears `storyBlends`. Any new
 sequence timing must use `storyNow()`. TEST bar **❚❚ Pause / ▶ Resume** (`#sidescroll-test-pause`,
 while playing); editor play stopping, ↺ Restart and leaving edit mode unpause.
 **Transport, shared by the TEST bar and the timeline:** `host.transport(eventId)` → `{playing
