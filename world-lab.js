@@ -1519,7 +1519,7 @@
     const data=state.seqData,events=new Map(data.events.map(e=>[e.id,e]));
     const comps=seq.body.components||[],logic=seq.body.logic||[];
     const compName=id=>comps.find(c=>c.id===id)?.name||'?';
-    const KIND={character:'Character',mark:'Mark',zone:'Zone'};
+    const KIND={character:'Character',mark:'Mark',zone:'Zone',object:'Object'};
     const whenText=w=>{
       switch(w?.type){
         case 'load':return'When the sequence loads';

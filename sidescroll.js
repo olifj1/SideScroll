@@ -18273,7 +18273,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function seqComponentPlace(p, c) {
     const saved = seqProgress.components[compKey(p.id, c.id)] || null;
     return { x: saved?.x ?? (p.x + c.dx), depth: saved?.depth ?? c.depth, facing: saved?.facing ?? c.facing,
-      animation: saved?.animation ?? c.animation, hidden: !!saved?.hidden, holding: saved?.holding ?? c.holding ?? [] };
+      animation: saved?.animation ?? c.animation, hidden: saved?.hidden ?? !!c.startHidden, holding: saved?.holding ?? c.holding ?? [],
+      asset: saved?.asset ?? c.asset };
   }
   const seqZoneSpan = (p, c) => ({ x0: p.x + c.dx - c.width / 2, x1: p.x + c.dx + c.width / 2 });
   // A placed sequence's extent along the journey (anchor and every component).
@@ -18630,6 +18631,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       case 'show':
         if (actor) { seqSavedFor(key).hidden = !step.visible; saveStoryProgress(); }
         return now;
+      case 'object':
+        // An object component appears, disappears or changes to another asset (shown).
+        if (actor?.kind === 'object') {
+          const saved = seqSavedFor(key);
+          if (step.action === 'swap') { if (step.asset) saved.asset = step.asset; saved.hidden = false; }
+          else saved.hidden = step.action === 'hide';
+          saveStoryProgress();
+        }
+        return now;
       case 'control':
         if (step.take) { seqControlLocks.add(run.id); setDriveAxis(0); keyLeft = false; keyRight = false; }
         else seqControlLocks.delete(run.id);
@@ -18975,6 +18985,31 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       else drawStoryCharacter(frame, view);
     }
     drawSeqDroppedProps(view);
+    drawSeqObjects(view);
+  }
+  // Object components: an asset standing in a sequence at its place (moving with
+  // the sequence), its own height × Size, lifted by Lift, its floor line on the
+  // ground; Object steps show, hide or swap it (play progress `hidden` / `asset`).
+  // While editing (not playing) hidden ones show faintly so they can be found.
+  function drawSeqObjects(view) {
+    const ghost = editMode && !editorPlayTest;
+    for (const { p, body } of seqResolved) for (const c of body.components) {
+      if (c.kind !== 'object') continue;
+      const place = seqComponentPlace(p, c);
+      if (Math.abs(place.x - camera.x) > STORY_DRAW_RANGE || (place.hidden && !ghost)) continue;
+      const texture = propTexture(place.asset);
+      if (!texture) continue;
+      const h = propHeightOf(place.asset) * (c.size || 1), w = h * (assetAspect[place.asset] || 1);
+      const below = assetGroundLineDefault(place.asset) * h;
+      const y = storyGroundY(place.x, place.depth) + (c.lift || 0) + h / 2 - below;
+      drawPropAt(view, place.asset, texture, { x: place.x, y, z: place.depth + CHARACTER_GAMEPLAY_Z_BIAS, rot: 0, flip: place.facing < 0, w, h }, place.hidden ? 0.35 : 1);
+    }
+  }
+  // Where an object component is drawn on screen (editor labels and taps): its foot and top.
+  function seqObjectBox(p, c) {
+    const place = seqComponentPlace(p, c), h = propHeightOf(place.asset) * (c.size || 1);
+    const base = storyGroundY(place.x, place.depth) + (c.lift || 0) - assetGroundLineDefault(place.asset) * h;
+    return { foot: projectWorldPoint(place.x, base, place.depth), top: projectWorldPoint(place.x, base + h, place.depth), w: h * (assetAspect[place.asset] || 1) };
   }
   // When a sequence character's animation changes (a step, a walk starting or
   // ending, the event taking over from its looping animation) its pose blends
@@ -19284,6 +19319,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           ctx.strokeStyle = 'rgba(40,30,10,.9)'; ctx.lineWidth = 1.5; ctx.stroke();
           ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x + place.facing * 14, pt.y); ctx.stroke();
           if (open) label(`◆ ${c.name}`, pt.x, pt.y - 12, '#ffe7a6');
+        } else if (c.kind === 'object' && open) {
+          const box = seqObjectBox(p, c);
+          if (!box.foot || !box.top) continue;
+          if (active) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); const half = Math.max(14, Math.abs(box.top.y - box.foot.y) * (box.w / Math.max(0.01, propHeightOf(seqComponentPlace(p, c).asset) * (c.size || 1))) / 2);
+            ctx.strokeRect(box.foot.x - half, box.top.y, half * 2, box.foot.y - box.top.y); ctx.setLineDash([]); }
+          label(`▢ ${c.name}${seqComponentPlace(p, c).hidden ? ' · hidden' : ''}`, box.top.x, box.top.y - 4, '#e6f0ff');
         }
       }
       if (open) for (const frame of worldCharacterFrames) {
@@ -19310,6 +19351,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         if (c.kind === 'mark') {
           const place = seqComponentPlace(p, c), pt = projectWorldPoint(place.x, storyGroundY(place.x, place.depth) + 0.04, place.depth);
           if (pt) { const d = Math.hypot(pt.x - px, pt.y - py); if (d < 26) consider(d, { placed: p.id, component: c.id }); }
+        } else if (c.kind === 'object') {
+          const box = seqObjectBox(p, c);
+          if (box.foot && box.top) {
+            const half = Math.max(18, Math.abs(box.foot.y - box.top.y) * 0.4);
+            if (px > box.foot.x - half && px < box.foot.x + half && py < box.foot.y + 10 && py > box.top.y - 10) consider(Math.abs(px - box.foot.x) + 2, { placed: p.id, component: c.id });
+          }
         } else if (c.kind === 'zone') {
           const s = seqZoneSpan(p, c);
           const a = projectWorldPoint(s.x0, storyGroundY(s.x0, 0) + 0.03, 0), b = projectWorldPoint(s.x1, storyGroundY(s.x1, 0) + 0.03, 0);

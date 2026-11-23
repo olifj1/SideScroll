@@ -36,7 +36,7 @@ Stages (engine work in order; art and sound in parallel):
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** *(done 20 Nov: Character Lab → Props grips, a component's Holds, the Prop step — hold / put away / drop)* still to do: import the axe and set Father's grip; check it through his Chop animation once that exists.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
-- [ ] **7 — Objects in sequences** (agreed 23 Nov): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
+- [ ] **7 — Objects in sequences** (agreed 23 Nov; *done 23 Nov: Object components, object roles, the Object step — appear / disappear / change to; still to do: pick one up with Action, and the player taking it into the inventory, with stage 9*): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
 - [ ] **8 — Outfit parts** (agreed 23 Nov): parts and meshes a character can wear or not — Aureli's backpack, a cloak / coat. Skinned like any part, marked *Optional* in Character Lab, with a **Wear / Take off** event step and a saved state (she puts the backpack on when she packs).
 - [ ] **9 — Inventory:** a menu showing what you carry and a way to open it *(a basic inventory panel and Item step exist)*, then **inspect** an item and **combine** two (designed before building).
 - [x] **Scene objects in Character Lab** (23 Nov): stand any asset beside the character in Animate / Play to animate against (session only).
@@ -87,6 +87,13 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bp. Objects in sequences (23 Nov)**
+- [ ] Story → Sequences → *Taken* → Components → **+ Object**: pick an asset (e.g. a log). It stands on the ground beside the sequence at game size, labelled ▢. Its settings: Asset (Change…), Size, Lift, Facing, Depth, *Hidden at the start*.
+- [ ] World Lab: drag the *Taken* sequence along the track; back in the game the object has moved with it.
+- [ ] Events → *Taken* → Roles: add an **Object** role and map it to the log in the sequence's line. On the timeline it has its own ▢ row; tap the row to add *Disappears* / *Appears* / *Changes to…*.
+- [ ] Put *Disappears* at 2 s and press ▶: the log vanishes at 2 s; scrub back before 2 s and it is there again. Try *Changes to…* another asset.
+- [ ] Tick *Hidden at the start* on an object: in the editor it shows faintly; in ▶ Play it is invisible until an *Appears* step.
 
 **0bo. Scene objects in Character Lab (23 Nov)**
 - [ ] Character Lab → Father → Animate: **Scene objects** under Actions & animations. Pick an asset (e.g. the log or the chopping block once imported) and **Add**: it stands on the ground in front of him at game size.

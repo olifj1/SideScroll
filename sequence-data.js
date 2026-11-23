@@ -20,8 +20,10 @@
   const ID = { event: /^ev-[a-z0-9]{4,20}$/, role: /^r-[a-z0-9]{4,20}$/, template: /^sqt-[a-z0-9]{4,20}$/,
     placed: /^sq-[a-z0-9]{4,20}$/, component: /^c-[a-z0-9]{4,20}$/, line: /^l-[a-z0-9]{4,20}$/ };
   const ANIMATION_KEY = /^[a-z0-9][a-z0-9-]{0,63}$/;
-  const ROLE_KINDS = Object.freeze({ character: 'Character', mark: 'Mark' });
-  const COMPONENT_KINDS = Object.freeze({ character: 'Character', mark: 'Mark', zone: 'Zone' });
+  const ROLE_KINDS = Object.freeze({ character: 'Character', mark: 'Mark', object: 'Object' });
+  // object: any asset (built-in prop or imported picture) standing in the sequence
+  // — a chopping block, a note, the food — that events can show, hide or swap.
+  const COMPONENT_KINDS = Object.freeze({ character: 'Character', mark: 'Mark', zone: 'Zone', object: 'Object' });
   // Event steps. `roles` lists which fields name a role, and of which kind.
   const STEPS = Object.freeze({
     move:    { label: 'Move', help: 'walks / runs to a mark', roles: { actor: 'character', to: 'mark' } },
@@ -39,8 +41,10 @@
     item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} },
     effect:  { label: 'Effect on a character', help: 'a darkness wrapping a character, or a character effect such as Dissolve; blends through its states and can hide the character', roles: { actor: 'character' } },
     prop:    { label: 'Prop', help: 'a character takes an asset in its hand (Father\u2019s axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
-    look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} }
+    look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} },
+    object:  { label: 'Object', help: 'an object appears, disappears or changes to another asset (the note picked up, the food eaten)', roles: { actor: 'object' } }
   });
+  const OBJECT_ACTIONS = Object.freeze({ show: 'Appears', hide: 'Disappears', swap: 'Changes to…' });
   const PLAYER = 'player'; // Say: the player speaks (the character being played)
   const PROP_ACTIONS = Object.freeze({ give: 'Hold it', take: 'Put it away', drop: 'Drop it' });
   // An asset name (built-in or imported): what a character holds.
@@ -132,6 +136,10 @@
         break;
       case 'show':
         out.visible = raw.visible !== false;
+        break;
+      case 'object':
+        out.action = OBJECT_ACTIONS[raw.action] ? raw.action : 'hide';
+        if (out.action === 'swap') out.asset = propName(raw.asset);
         break;
       case 'control':
         out.take = raw.take !== false;
@@ -225,6 +233,12 @@
     } else if (raw.kind === 'zone') {
       out.width = round(clamp(raw.width, 0.2, 40, 2));
       out.depth = 0;
+    } else if (raw.kind === 'object') {
+      out.asset = propName(raw.asset);
+      if (!out.asset) return null;
+      out.size = round(clamp(raw.size, 0.1, 5, 1), 100);  // × the asset's game height
+      out.lift = round(clamp(raw.lift, 0, 10, 0), 100);   // metres above the ground (a note on the mantelpiece)
+      if (raw.startHidden) out.startHidden = true;        // hidden until an Object step shows it
     }
     return out;
   }
@@ -332,7 +346,7 @@
   }
 
   window.SideScrollSequences = Object.freeze({
-    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER,
+    EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, OBJECT_ACTIONS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER,
     normaliseEvents, normaliseSequences, normaliseBody, bodyOf, load, save, loadProgress, saveProgress,
     flagName, conditionMet, newId
   });

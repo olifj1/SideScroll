@@ -306,13 +306,13 @@ Any new per-character storage must be added to `slicesFor()` there.
 design `docs/SEQUENCE_SYSTEM_DESIGN.md`, steps 1–2 done). Content keys `sidescroll.story.events.v1`
 (`events:[{id ev-…, name, roles:[{id r-…, name, kind 'character'|'mark'}], steps:[{type
 (Seq.STEPS: move, animate, face, say, think, wait, flag, show, control, camera, screen, prompt, item,
-effect, look, prop), with (run with the
+effect, look, prop, object), with (run with the
 previous step), background (don't wait: the next beat starts while it runs; the run ends only when
 it has finished too — `run.background` in `advanceSequenceRuns`), actor/to/target (role ids; a
 Say step's actor may be `Seq.PLAYER` = the player, named by `storyPlayerName()`), …}]}]`) and `sidescroll.story.sequences.v1`
 (`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
-body = `{components:[{id c-…, kind 'character'|'mark'|'zone', name, dx (from the anchor), depth,
-facing, character, animation (action slot), scale, blocks, holding? | width}], logic:[{id l-…, when:{type
+body = `{components:[{id c-…, kind 'character'|'mark'|'zone'|'object', name, dx (from the anchor), depth,
+facing, character, animation (action slot), scale, blocks, holding? | width | asset, size, lift (m), startHidden}], logic:[{id l-…, when:{type
 (Seq.WHEN: load, enter, action, finish, flag), zone, label, line, flag}, event, roles:{role id:
 component id}, condition?, once}]}`; `Seq.bodyOf` gives a placed sequence's body). Animations in
 events and components are **action slots**: each character plays its own animation for the slot.
@@ -331,7 +331,10 @@ stays until a Camera *back* step). A *Wait for Action* step (`prompt`) parks its
 is pressed (`seqPromptRun` / `answerSeqPrompt`; works while control is taken); logic `leave` lines
 fire when the player's body leaves a zone. Progress `sidescroll.player.story-progress.v2`
 (`Seq.loadProgress/saveProgress`: flags, `fired["sq:l"]`, `components["sq:c"]` {x, depth, facing,
-animation, hidden}). The editor (the **Story** tab) talks to the game through `window.SideScrollSequenceHost` (pick-lists use
+animation, hidden, asset}). **Objects** (kind `object`, role kind `object`): any asset drawn by
+`drawSeqObjects` (after `drawSeqDroppedProps`; billboard at game height × size, floor line from
+`groundLine`, `seqObjectBox` for hit-tests and the editor outline; hidden ones faint while editing);
+the **Object** step (`{actor, action 'show'|'hide'|'swap', asset}`) sets progress `hidden` / `asset`. The editor (the **Story** tab) talks to the game through `window.SideScrollSequenceHost` (pick-lists use
 its `openPicker`, the asset browser's right-hand window); taps arrive as `sidescroll:story-tap`; the scope id is `'story'`. Zones the player already stands
 in fire only once she has left them. The 8–9 Nov world characters / marks / triggers are retired.
 **Timed events** (`event.timed`): steps carry `at` (seconds from the event's start) instead of
