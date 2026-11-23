@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story timeline and the game together.** The TEST bar (Play / Stop / Restart / Reset story /
+  Progress) stays while the timeline is open (Full now starts below it). A **focus** switch on the
+  timeline's top line — 🎮 game / ✎ timeline — says where taps go: with the game focused the
+  timeline lets taps through to the game, Jump / Action / moving sit on top of it (a Bar lifts
+  above them), and only its top line and the step panel still work. **▶** hands the game the
+  focus and ■ gives it back. **◐** sets how solid the timeline is (100 / 75 / 50 / 25 %).
+  The − / + zoom buttons are gone (pinch to zoom).
 - **Story: the timeline docks with the game.** Three sizes — **Bar** (a slim strip with ▶, the
   clock and a strip of the whole event), **Half** and **Full** —
   chosen with ▁ ▄ █ or the handle on its top edge (tap for the next size, drag up / down); it

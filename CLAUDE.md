@@ -345,9 +345,14 @@ typing within 1 s is one step), + Add, + Character, Discard, Save. **Docked with
 `timeline.size` 'bar' | 'half' | 'full' (▁ ▄ █, or the top-edge handle: `bindHandle`) and
 `timeline.aside` (‹ / swipe left on the handle → `.sidescroll-tl-rail`, a copy of the editor panel's
 collapsed rail placed over the panel's box; tap or swipe right to expand), kept in
-sessionStorage `sidescroll.story.timeline-view`; body classes `sidescroll-tl-open` and
-`sidescroll-tl-size-<size>` (not while aside) hide the editor drawer, TEST bar and touch controls.
-The timeline only overlays the game: the game view never changes size.
+sessionStorage `sidescroll.story.timeline-view` (with `focus` and `opacity`). Body class `sidescroll-tl-open`
+hides the editor drawer only: the TEST bar stays (z 1012; Full starts 64 px down, below it).
+**Focus** (🎮 / ✎, `timeline.focus`): on the timeline, the touch controls are hidden under it; on
+the game (`.focus-game`, body `sidescroll-tl-focus-game`) the timeline lets taps through (only its
+top line, handle and side sheet stay live), the controls sit above it, and a playing Bar is
+raised above them. ▶ gives the game the focus and ■ hands it back (`focusBeforePlay`). **◐**
+cycles `--tl-alpha` (100 / 75 / 50 / 25 %). The timeline only overlays the game: the game view
+never changes size.
 Bar shows a strip of the whole event (`.sidescroll-tl-mini`: a line per row, tap = edit) instead of
 rows; at Bar / Half the side sheet is fixed at the right over the game. **▶** (`togglePlay`) →
 `host.playEvent(eventId, placedId)` (stops every sequence, resets the one whose line runs the event,

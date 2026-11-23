@@ -16,7 +16,10 @@
 - Opening a row in a list keeps the row as its title and shows the details beneath it.
 - Editors that need the game view (timeline, framing) overlay it in sizes (Bar / Half / Full)
   and never resize or move the game view. Every editor that collapses uses the editor panel's
-  collapsed rail (same place, look and gestures: tap or swipe right to expand). A tool that needs
+  collapsed rail (same place, look and gestures: tap or swipe right to expand).
+- An overlaying editor never takes the TEST bar or the game's controls away: it has a focus
+  switch (game / editor) for where taps go and an opacity setting, and playing gives the game
+  the focus. A tool that needs
   the whole view (framing a shot) pushes the others aside and restores them when done. While a
   docked editor shows, the game's touch controls step out of its way.
 
