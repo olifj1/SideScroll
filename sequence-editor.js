@@ -929,7 +929,7 @@
     timeline.open = false; closeChooser(); clearInterval(timeline.pickTimer);
     timeline.root?.remove(); timeline.root = null;
     timeline.rail?.remove(); timeline.rail = null;
-    document.body.classList.remove('sidescroll-tl-open', 'sidescroll-tl-focus-game', ...TL_SIZES.map(k => `sidescroll-tl-size-${k}`));
+    document.body.classList.remove('sidescroll-tl-open', 'sidescroll-tl-shown', 'sidescroll-tl-focus-game', ...TL_SIZES.map(k => `sidescroll-tl-size-${k}`));
     render();
   }
   function timelineLayout(e) {
@@ -1061,6 +1061,7 @@
     document.body.classList.add('sidescroll-tl-open');
     for (const k of TL_SIZES) document.body.classList.toggle(`sidescroll-tl-size-${k}`, k === size && !timeline.aside);
     document.body.classList.toggle('sidescroll-tl-focus-game', gameFocus && !timeline.aside);
+    document.body.classList.toggle('sidescroll-tl-shown', !timeline.aside); // collapsed: the game's controls are back
     // Pushed aside: the same collapsed rail as the editor panel's, in the same
     // place (the panel's left edge and height); tap or swipe right to bring it back.
     if (!timeline.rail) {
@@ -1243,8 +1244,8 @@
     content.addEventListener('pointerdown', ev => {
       if (press || pinch || ev.target.closest('.sidescroll-tl-labels')) return;
       const node = ev.target.closest('.sidescroll-tl-block'), pt = local(ev);
-      // The ruler (it stays at the top): tap or drag to move the playhead and scrub.
-      if (!node && pt.y - scroller.scrollTop < TL.top && pt.x - scroller.scrollLeft > TL.label) {
+      // The ruler (it stays at the top) or the playhead itself: tap or drag to move it and scrub.
+      if (ev.target.closest('.sidescroll-tl-playhead') || (!node && pt.y - scroller.scrollTop < TL.top && pt.x - scroller.scrollLeft > TL.label)) {
         ev.preventDefault(); try { content.setPointerCapture(ev.pointerId); } catch (_) {}
         press = { mode: 'scrub', id: ev.pointerId };
         timeline.scrubbing = true; startScrub(); scrubTo((pt.x - PAD) / timeline.pps);

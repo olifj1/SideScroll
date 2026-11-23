@@ -15945,7 +15945,7 @@ body.sidescroll-tl-open #sidescroll-puzzle-panel,body.sidescroll-tl-open .sidesc
 .sidescroll-tl.focus-game{pointer-events:none;}
 .sidescroll-tl.focus-game .sidescroll-tl-head,.sidescroll-tl.focus-game .sidescroll-tl-handle,.sidescroll-tl.focus-game .sidescroll-tl-sheet{pointer-events:auto;}
 .sidescroll-tl.focus-game .sidescroll-tl-main{opacity:calc(.25 + .5 * var(--tl-alpha,1));}
-body.sidescroll-tl-open:not(.sidescroll-tl-focus-game) #sidescroll-secondary-controls,body.sidescroll-tl-open:not(.sidescroll-tl-focus-game) #sidescroll-play-controls,body.sidescroll-tl-open:not(.sidescroll-tl-focus-game) #sidescroll-editor-controls{visibility:hidden!important;pointer-events:none!important;}
+body.sidescroll-tl-shown:not(.sidescroll-tl-focus-game) #sidescroll-secondary-controls,body.sidescroll-tl-shown:not(.sidescroll-tl-focus-game) #sidescroll-play-controls,body.sidescroll-tl-shown:not(.sidescroll-tl-focus-game) #sidescroll-editor-controls{visibility:hidden!important;pointer-events:none!important;}
 body.sidescroll-tl-focus-game #sidescroll-secondary-controls,body.sidescroll-tl-focus-game #sidescroll-play-controls{z-index:1007!important;}
 body.sidescroll-tl-focus-game.sidescroll-edit-playing .sidescroll-tl.size-bar{bottom:var(--tl-lift,72px);border-radius:14px;}
 .sidescroll-tl-focus{display:flex;gap:2px;flex:none;}
@@ -15962,3 +15962,6 @@ body.sidescroll-tl-focus-game.sidescroll-edit-playing .sidescroll-tl.size-bar{bo
 body.sidescroll-story-paused .sidescroll-tl-clock{color:#ffd678;}
 .sidescroll-tl .sidescroll-tl-head{flex-wrap:nowrap;}
 .sidescroll-tl .sidescroll-tl-head > strong{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+/* The playhead can be grabbed anywhere along it (a wide, invisible hit strip). */
+.sidescroll-tl-playhead{pointer-events:auto;cursor:ew-resize;touch-action:none;}
+.sidescroll-tl-playhead::after{content:"";position:absolute;top:0;bottom:0;left:-11px;width:24px;}

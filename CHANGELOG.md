@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Timeline fixes.** The red playhead can now be dragged anywhere along it to scrub (not only
+  the seconds ruler). Collapsing the timeline to its rail brings the game's touch controls back,
+  so walking into a trigger can be tested with the timeline out of the way.
 - **Story: one transport for the TEST bar and the timeline, pause, and scrubbing.** The story now
   runs on its own clock, so it can **pause**: TEST bar **❚❚ Pause / ▶ Resume** (while playing) and the
   timeline's **▶ / ❚❚** are the same switch — walks, animations, the dissolve, the camera, speech and

@@ -346,7 +346,8 @@ typing within 1 s is one step), + Add, + Character, Discard, Save. **Docked with
 `timeline.aside` (‹ / swipe left on the handle → `.sidescroll-tl-rail`, a copy of the editor panel's
 collapsed rail placed over the panel's box; tap or swipe right to expand), kept in
 sessionStorage `sidescroll.story.timeline-view` (with `focus` and `opacity`). Body class `sidescroll-tl-open`
-hides the editor drawer only: the TEST bar stays (z 1012; Full starts 64 px down, below it).
+hides the editor drawer only: the TEST bar stays (z 1012; Full starts 64 px down, below it);
+`sidescroll-tl-shown` (open and not collapsed) is what hides the touch controls in timeline focus.
 **Focus** (🎮 / ✎, `timeline.focus`): on the timeline, the touch controls are hidden under it; on
 the game (`.focus-game`, body `sidescroll-tl-focus-game`) the timeline lets taps through (only its
 top line, handle and side sheet stay live), the controls sit above it, and a playing Bar is
@@ -369,7 +370,7 @@ polls it every frame (`syncTransport`), so its playhead, clock and ▶ / ❚❚ 
 it started (▶ here, TEST bar ▶ Play / ↺ Restart and walking into the zone, …), and focus follows
 the game (`followFocus`: playing → 🎮, paused or stopped → back). **▶** (`togglePlay`) resumes a paused
 run, or plays from the playhead (or the start) via `seekTo`; **❚❚** → `host.setPaused`; **⏮**
-(`toStart`) → seek 0, paused. **Scrubbing:** drag or tap the ruler (Half / Full) or the Bar's strip
+(`toStart`) → seek 0, paused. **Scrubbing:** drag or tap the ruler or the playhead itself (Half / Full) or the Bar's strip
 (`bindStripScrub`; a tap on a step's line still opens it) → `scrubTo` → `host.seekEvent(eventId,
 placedId, t)` = `seqSeekEvent` (stop every sequence, reset the one whose line runs the event, turn on
 editor play if off, player on the line's zone, fire the line paused, then advance the story clock
