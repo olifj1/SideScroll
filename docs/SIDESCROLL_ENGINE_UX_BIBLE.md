@@ -19,7 +19,10 @@
   collapsed rail (same place, look and gestures: tap or swipe right to expand).
 - An overlaying editor never takes the TEST bar or the game's controls away: it has a focus
   switch (game / editor) for where taps go and an opacity setting, and playing gives the game
-  the focus. A tool that needs
+  the focus.
+- One transport: play / pause / restart state lives in the game (editor play + the story clock);
+  every editor shows and drives that same state rather than keeping its own. Anything timed in a
+  sequence runs on the story clock so it pauses and scrubs with everything else. A tool that needs
   the whole view (framing a shot) pushes the others aside and restores them when done. While a
   docked editor shows, the game's touch controls step out of its way.
 

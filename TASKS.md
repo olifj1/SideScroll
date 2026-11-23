@@ -47,7 +47,7 @@ use roles. Steps 1–2 (events library, sequences with characters / marks / zone
 - [ ] **3 — More components and streaming:** thoughts, dressing, random character picks (per run), Active while; load / unload by distance.
 - [ ] **Play from here:** complete every puzzle and sequence before a chosen point (via ⚑ Progress), then play from there. *(⚑ Progress, Solved State and the Item step done 12 Nov.)*
 - [ ] **4 — World Lab sequences track:** *(track, details, drag / type to move, Open in game done 13 Nov)* still to do: show where each component stands within the bar, and a template's other instances.
-- [ ] **Timeline, next stages** *(21 Nov: every event is a timeline with a row per subject, done)*: (2) *(22 Nov, done: docked Bar / Half / Full, push aside, ▶ with a playhead)*; (3) scrub to any moment (the scene jumps there: positions, camera, dissolve, lines, bars, look) and edit while paused, replaying from the playhead — without touching play progress.
+- [ ] **Timeline, next stages** *(21 Nov: every event is a timeline with a row per subject, done)*: (2) *(22 Nov, done: docked Bar / Half / Full, push aside, ▶ with a playhead)*; (3) *(23 Nov, done: pause, scrubbing, edits replay at the playhead)* scrub to any moment (the scene jumps there: positions, camera, dissolve, lines, bars, look) and edit while paused, replaying from the playhead — without touching play progress.
 - [ ] **5 — More look controls** (colour grading, vignette, bloom; looks per stretch of the journey, e.g. atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov; Looks (fog + post sets) and the Look step done 14 Nov.)*
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — next after the intro)
@@ -83,6 +83,15 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bk. One transport, pause and scrubbing (23 Nov)**
+- [ ] Open *Taken*'s timeline and press **▶**: it plays; press **❚❚**: everything stops where it is (Father, the dissolve, the camera, a speech bubble), the clock stops and you can't move Aureli; **▶** carries on from the same moment (not from the start).
+- [ ] The TEST bar shows **❚❚ Pause / ▶ Resume** while playing and it is the same switch: pausing on either changes both.
+- [ ] TEST bar **■ Stop** / **↺ Restart** / **▶ Play** then walking into the zone: the timeline's playhead and clock follow the event whichever way it started.
+- [ ] **Scrub:** drag along the ruler (the seconds at the top) at Half or Full: the scene jumps to that moment (Father's dissolve, the camera shot, the line that is showing); let go: it stays paused there. Tap the ruler at 5 s: it jumps to 5 s. At Bar, drag along the strip; tapping a coloured line still opens that step.
+- [ ] While paused at a moment, move or resize a block: the scene updates at once at the same moment. Press ▶: it plays on from there.
+- [ ] **⏮**: back to 0 s, paused.
+- [ ] Stop playing (■ Stop) and leave the editor: the game runs normally (nothing left paused).
 
 **0bj. Timeline with the game: TEST bar, focus, opacity (22 Nov)**
 - [ ] With the timeline open (any size) the TEST bar stays at the top right and works (▶ Play, ■ Stop, ↺ Restart, Reset story, ⚑ Progress); at Full the timeline starts just below it.

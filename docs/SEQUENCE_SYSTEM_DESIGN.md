@@ -93,6 +93,11 @@ The player keeps control while a sequence plays, unless an event's steps take it
     Renamed **Effect on a character** (19 Nov) when character effects arrived: an effect such
     as **Dissolve** acts on the character's own image (it breaks up from the feet), and a
     character that ends fully dissolved stays hidden.
+  - *(23 Nov)* **One transport, pause, scrubbing:** the story runs on its own clock (`storyNow`),
+    which the editor can pause and move. The TEST bar and the timeline share one transport (▶ / ❚❚,
+    ⏮); the timeline follows its event however it started. Scrubbing shows an event at any moment by
+    resetting its sequence and fast-forwarding the story clock (Wait for Action answered on the
+    way); edits while paused replay to the playhead.
   - *(22 Nov)* **Docked with the game:** the timeline has three sizes (a Bar strip, Half, Full)
     overlaying the game (whose view never changes) and collapses to the editor panel's rail. ▶ plays the
     event in the game from its start (its sequence reset, the player on its zone) with a playhead

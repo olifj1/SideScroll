@@ -135,7 +135,7 @@
   function normalised() {
     return { events: Seq.normaliseEvents({ events: draft.events }), ...Seq.normaliseSequences({ templates: draft.templates, placed: draft.placed }) };
   }
-  function preview() { host.preview(normalised()); }
+  function preview() { host.preview(normalised()); replayAtPlayhead(); }
   // ---- Undo / redo: snapshots of the draft (typing within a second is one step) ----
   const history = { undo: [], redo: [], last: JSON.stringify(draft), typing: false, at: 0 };
   function resetHistory() { history.undo = []; history.redo = []; history.last = JSON.stringify(draft); history.typing = false; }
@@ -611,7 +611,7 @@
         if (s.mode === 'shot') rows.push(btn('📷 Frame it', () => {
           // The timeline is pushed aside while framing and comes back after.
           const wasAside = timeline.aside, inTimeline = timeline.open;
-          if (inTimeline) { stopPlay(); setTlAside(true); }
+          if (inTimeline) { host.setPaused?.(true); setTlAside(true); }
           const ok = host.frameShot?.({ eventId: e.id, placedId: view.returnTo || null, step: { ...s },
             onChange: v => { Object.assign(s, v); dirty = true; updateStatus(); },
             onDone: () => { if (inTimeline && timeline.open) timeline.aside = wasAside; change(); } });
@@ -762,35 +762,88 @@
     timeline.size = size; timeline.aside = false; saveTlView(); renderTimeline();
   }
   function setTlAside(aside) { timeline.aside = !!aside; saveTlView(); renderTimeline(); }
-  // ▶: the event plays in the game from its start (host.playEvent) and the
-  // playhead follows its clock; ■ (or any edit, which reloads the story) stops it.
-  function togglePlay(e) {
-    if (timeline.playing) { stopPlay(); renderTimeline(); return; }
-    preview();
-    const r = host.playEvent?.(e.id, view.returnTo || null);
-    if (!r) { host.hint('No sequence runs this event yet: use it in a sequence’s logic to play it here'); return; }
-    timeline.playing = r.placed; timeline.playT = 0;
-    // Playing hands the game the focus (Action, Jump, moving); stopping gives it back.
-    if (timeline.focus !== 'game') { timeline.focusBeforePlay = timeline.focus; timeline.focus = 'game'; }
-    renderTimeline(); tickPlay();
+  // Transport, shared with the TEST bar: host.transport(event) says whether
+  // editor play is on, whether the story is paused and where this event is (null
+  // when it isn't running, however it started: ▶ here, ▶ Play / ↺ Restart on the
+  // TEST bar and walking into its zone, …). ▶ plays from the playhead (or the
+  // start), ❚❚ pauses, ⏮ goes back to the start (paused); dragging on the ruler
+  // or the Bar's strip scrubs (host.seekEvent); an edit replays to the playhead.
+  const noTransport = { playing: false, paused: false, clock: null, prompt: false };
+  const transportNow = () => (view.event && host.transport?.(view.event)) || noTransport;
+  const gameRunning = tr => tr.playing && !tr.paused;
+  function seekTo(t, pause = null) {
+    const e = eventById(view.event);
+    if (!e) return false;
+    if (!host.seekEvent?.(e.id, view.returnTo || null, t)) { host.hint('No sequence runs this event yet: use it in a sequence’s logic to play it here'); return false; }
+    if (pause != null) host.setPaused?.(pause);
+    timeline.playT = t;
+    syncTransport();
+    return true;
   }
-  function stopPlay() {
-    cancelAnimationFrame(timeline.raf);
-    if (timeline.playing) host.stopEvent?.(timeline.playing);
-    timeline.playing = null;
-    if (timeline.focusBeforePlay) { timeline.focus = timeline.focusBeforePlay; timeline.focusBeforePlay = null; }
+  function togglePlay() {
+    const tr = transportNow();
+    if (tr.clock != null && tr.playing) { host.setPaused?.(!tr.paused); syncTransport(); return; }
+    timeline.seeking = true; preview(); timeline.seeking = false;
+    const from = timeline.playT > 0.05 && timeline.playT < timeline.total - 0.05 ? timeline.playT : 0;
+    seekTo(from, false);
   }
-  function tickPlay() {
+  function toStart() { timeline.seeking = true; preview(); timeline.seeking = false; seekTo(0, true); }
+  // After an edit (which reloads the story and ends the run) the event is shown
+  // again at the playhead, paused or playing as it was.
+  function replayAtPlayhead() {
+    if (!timeline.open || !timeline.live || timeline.seeking) return;
+    const e = eventById(view.event);
+    if (e) { host.seekEvent?.(e.id, view.returnTo || null, Math.min(timeline.playT, eventSeconds(e))); syncTransport(); }
+  }
+  // Scrubbing: the playhead follows at once; the scene catches up once a frame.
+  function scrubTo(t) {
+    timeline.playT = Math.max(0, Math.min(timeline.total, Math.round(t * 20) / 20));
+    placePlayhead();
+    if (timeline.scrubRaf) return;
+    timeline.scrubRaf = requestAnimationFrame(() => { timeline.scrubRaf = 0; if (timeline.open) seekTo(timeline.playT, true); });
+  }
+  function startScrub() {
+    const tr = transportNow();
+    timeline.scrubResume = gameRunning(tr) && tr.clock != null;
+    if (tr.playing) host.setPaused?.(true);
+    timeline.seeking = true; preview(); timeline.seeking = false;
+  }
+  function endScrub() {
+    if (timeline.scrubRaf) { cancelAnimationFrame(timeline.scrubRaf); timeline.scrubRaf = 0; seekTo(timeline.playT, true); }
+    if (timeline.scrubResume) host.setPaused?.(false);
+    timeline.scrubResume = false; syncTransport();
+  }
+  // Focus follows the game: playing (here or from the TEST bar) gives the game
+  // the focus; pausing or stopping hands it back to the timeline.
+  function followFocus(active) {
+    if (active && timeline.focus !== 'game') { timeline.focusBeforePlay = timeline.focus; timeline.focus = 'game'; saveTlView(); return true; }
+    if (!active && timeline.focusBeforePlay) { timeline.focus = timeline.focusBeforePlay; timeline.focusBeforePlay = null; saveTlView(); return true; }
+    return false;
+  }
+  // Once a frame while the timeline is open: the playhead, clock and ▶ / ❚❚ follow the game.
+  function syncTransport() {
+    const tr = transportNow(), running = tr.clock != null;
+    if (running && !timeline.scrubbing) timeline.playT = tr.clock;
+    const active = gameRunning(tr);
+    const changed = running !== timeline.live || tr.paused !== timeline.paused || tr.playing !== timeline.gamePlaying;
+    timeline.live = running; timeline.paused = tr.paused; timeline.gamePlaying = tr.playing;
+    if (changed && !timeline.scrubbing) { if (followFocus(active)) { renderTimeline(); return; } updateTransportUi(running && active); }
+    else if (changed) updateTransportUi(running && active);
+    placePlayhead();
+  }
+  function updateTransportUi(playing) {
+    const b = timeline.root?.querySelector('.sidescroll-tl-play');
+    if (b) { b.textContent = playing ? '❚❚' : '▶'; b.title = playing ? 'Pause' : 'Play the event in the game'; b.classList.toggle('on', playing); }
+    timeline.rail?.classList.toggle('playing', playing);
+    const ph = timeline.root?.querySelector('.sidescroll-tl-playhead');
+    if (ph) ph.hidden = !timeline.live && !timeline.playT;
+  }
+  function startTransportLoop() {
     cancelAnimationFrame(timeline.raf);
-    const step = () => {
-      if (!timeline.open || !timeline.playing) return;
-      const t = host.eventClock?.(view.event);
-      if (t == null) { stopPlay(); renderTimeline(); return; }
-      timeline.playT = t; placePlayhead();
-      timeline.raf = requestAnimationFrame(step);
-    };
+    const step = () => { if (!timeline.open) return; syncTransport(); timeline.raf = requestAnimationFrame(step); };
     timeline.raf = requestAnimationFrame(step);
   }
+  function stopTransportLoop() { cancelAnimationFrame(timeline.raf); timeline.raf = 0; }
   function placePlayhead() {
     const root = timeline.root;
     if (!root) return;
@@ -799,7 +852,7 @@
     if (ph) {
       ph.style.left = `${x}px`;
       const sc = root.querySelector('.sidescroll-tl-scroll');
-      if (sc && timeline.playing && (x > sc.scrollLeft + sc.clientWidth - 40 || x < sc.scrollLeft + TL.label + 10)) sc.scrollLeft = Math.max(0, x - TL.label - 60);
+      if (sc && timeline.live && !timeline.paused && !timeline.scrubbing && (x > sc.scrollLeft + sc.clientWidth - 40 || x < sc.scrollLeft + TL.label + 10)) sc.scrollLeft = Math.max(0, x - TL.label - 60);
     }
     const mh = root.querySelector('.sidescroll-tl-mini-head');
     if (mh) mh.style.left = `${Math.min(100, (t / Math.max(0.1, timeline.total)) * 100)}%`;
@@ -867,10 +920,12 @@
     timeline.open = true; timeline.aside = false; timeline.selObj = step; timeline.selected = step && e ? e.steps.indexOf(step) : null;
     timeline.scrollTo = step ? Math.max(0, PAD + (step.at || 0) * timeline.pps - 160) : 0;
     document.body.classList.add('sidescroll-tl-open');
+    timeline.live = false; timeline.paused = false; timeline.gamePlaying = false;
     renderTimeline();
+    startTransportLoop();
   }
   function closeTimeline() {
-    stopPlay();
+    stopTransportLoop();
     timeline.open = false; closeChooser(); clearInterval(timeline.pickTimer);
     timeline.root?.remove(); timeline.root = null;
     timeline.rail?.remove(); timeline.rail = null;
@@ -959,7 +1014,10 @@
     timeline.total = L.total;
     const size = timeline.size, full = size === 'full';
     const t = timeline.playT || 0;
-    const playBtn = btn(timeline.playing ? '■' : '▶', () => togglePlay(e), `sidescroll-tl-play${timeline.playing ? ' on' : ''}`, timeline.playing ? 'Stop' : 'Play the event in the game');
+    const isPlaying = timeline.live && timeline.gamePlaying && !timeline.paused;
+    const playBtn = el('span', { class: 'sidescroll-tl-transport' },
+      btn('⏮', toStart, '', 'Back to the start (paused)'),
+      btn(isPlaying ? '❚❚' : '▶', togglePlay, `sidescroll-tl-play${isPlaying ? ' on' : ''}`, isPlaying ? 'Pause' : 'Play the event in the game'));
     const clock = el('span', { class: 'sidescroll-tl-clock', text: `${fmt(t, 1)} / ${fmt(L.total, 1)} s` });
     const sizes = el('span', { class: 'sidescroll-tl-sizes' }, ...[['bar', '▁', 'Bar'], ['half', '▄', 'Half'], ['full', '█', 'Full screen']]
       .map(([k, icon, label]) => btn(icon, () => setTlSize(k), size === k ? 'on' : '', label)));
@@ -979,8 +1037,9 @@
         ...L.items.map(it => el('div', { class: `sidescroll-tl-mini-step kind-${STEP_KIND[it.s.type] || 'logic'}${timeline.selected === it.i ? ' selected' : ''}`,
           title: `${fmt(it.at, 1)} s · ${it.label}`,
           style: `left:${(it.at / span) * 100}%;width:${Math.max(0.6, (it.timing.seconds / span) * 100)}%;top:${2 + (rowIndex.get(it.row) || 0) * lane}px;height:${Math.max(2, lane - 1.5)}px`,
-          onclick: () => { timeline.selected = it.i; timeline.selObj = it.s; renderTimeline(); } })),
+          onclick: () => { if (timeline.stripScrubbed) return; timeline.selected = it.i; timeline.selObj = it.s; renderTimeline(); } })),
         el('div', { class: 'sidescroll-tl-mini-head', style: `left:${Math.min(100, (t / span) * 100)}%` }));
+      bindStripScrub(mini, span);
       body = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the timeline'), playBtn, clock, mini, dirty ? saveBtn : null, focusSeg, opacityBtn, sizes, asideBtn)];
     } else {
       body = [
@@ -994,7 +1053,7 @@
           saveBtn, focusSeg, opacityBtn, sizes, asideBtn),
         full ? el('p', { class: 'sidescroll-tl-help', text: 'Tap a row to add there · drag ⋮⋮ or hold to move · drag an edge to change the length · tap to edit · pinch to zoom' }) : null,
         el('div', { class: 'sidescroll-tl-main' }, scroller, full ? sheet : null)];
-      content.append(el('div', { class: 'sidescroll-tl-playhead', hidden: !timeline.playing && !t, style: `left:${PAD + t * pps}px;height:${L.height - 36}px` }));
+      content.append(el('div', { class: 'sidescroll-tl-playhead', hidden: !timeline.live && !t, style: `left:${PAD + t * pps}px;height:${L.height - 36}px` }));
     }
     const root = el('div', { class: `sidescroll-tl size-${size}${timeline.aside ? ' aside' : ''}${sheet ? ' has-sheet' : ''}${gameFocus ? ' focus-game' : ''}`,
       role: 'dialog', 'aria-label': `${e.name} timeline`, style: `--tl-alpha:${timeline.opacity}` },
@@ -1030,6 +1089,30 @@
     bindHandle(handle);
     // The timeline overlays the game (the view never changes); the side sheet sits above it.
     requestAnimationFrame(() => { if (timeline.root === root) document.body.style.setProperty('--tl-h', `${root.offsetHeight}px`); });
+  }
+  // Bar's strip: drag (or tap an empty spot) to move the playhead and scrub; a
+  // tap on a step's line opens it.
+  function bindStripScrub(mini, span) {
+    let start = null;
+    const at = ev => { const r = mini.getBoundingClientRect(); return Math.max(0, Math.min(1, (ev.clientX - r.left) / Math.max(1, r.width))) * span; };
+    mini.addEventListener('pointerdown', ev => {
+      start = { id: ev.pointerId, x: ev.clientX, onStep: !!ev.target.closest('.sidescroll-tl-mini-step'), scrubbing: false };
+      timeline.stripScrubbed = false;
+      if (!start.onStep) { try { mini.setPointerCapture(ev.pointerId); } catch (_) {} start.scrubbing = true; timeline.scrubbing = true; startScrub(); scrubTo(at(ev)); }
+    });
+    mini.addEventListener('pointermove', ev => {
+      if (!start || ev.pointerId !== start.id) return;
+      if (!start.scrubbing && Math.abs(ev.clientX - start.x) > 6) { try { mini.setPointerCapture(ev.pointerId); } catch (_) {} start.scrubbing = true; timeline.scrubbing = true; timeline.stripScrubbed = true; startScrub(); }
+      if (start.scrubbing) { ev.preventDefault(); scrubTo(at(ev)); }
+    });
+    const end = ev => {
+      if (!start || ev.pointerId !== start.id) return;
+      if (start.scrubbing) { timeline.scrubbing = false; endScrub(); }
+      start = null;
+      setTimeout(() => { timeline.stripScrubbed = false; }, 0);
+    };
+    mini.addEventListener('pointerup', end);
+    mini.addEventListener('pointercancel', end);
   }
   // A horizontal swipe on `node` (≥ 42 px, mostly sideways) → onSwipe(dx).
   function bindSwipe(node, onSwipe) {
@@ -1139,6 +1222,7 @@
       if (!p) return;
       clearTimeout(p.timer);
       if (p.mode === 'tap') { if (!cancelled && !p.moved) addAt(p.pt); return; }
+      if (p.mode === 'scrub') { timeline.scrubbing = false; endScrub(); return; }
       if (p.mode === 'resize') {
         p.readout.remove();
         if (cancelled || p.length == null) { renderTimeline(); return; }
@@ -1159,6 +1243,13 @@
     content.addEventListener('pointerdown', ev => {
       if (press || pinch || ev.target.closest('.sidescroll-tl-labels')) return;
       const node = ev.target.closest('.sidescroll-tl-block'), pt = local(ev);
+      // The ruler (it stays at the top): tap or drag to move the playhead and scrub.
+      if (!node && pt.y - scroller.scrollTop < TL.top && pt.x - scroller.scrollLeft > TL.label) {
+        ev.preventDefault(); try { content.setPointerCapture(ev.pointerId); } catch (_) {}
+        press = { mode: 'scrub', id: ev.pointerId };
+        timeline.scrubbing = true; startScrub(); scrubTo((pt.x - PAD) / timeline.pps);
+        return;
+      }
       if (!node) { press = { mode: 'tap', id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, pt, moved: false }; return; }
       const it = L.items.find(x => x.i === Number(node.dataset.i));
       press = { mode: 'move', it, node, id: ev.pointerId, x0: ev.clientX, y0: ev.clientY, last: ev, moved: false, dragging: false, offX: pt.x - it.x, offY: pt.y - it.y };
@@ -1172,6 +1263,7 @@
     content.addEventListener('pointermove', ev => {
       if (!press || ev.pointerId !== press.id) return;
       press.last = ev;
+      if (press.mode === 'scrub') { ev.preventDefault(); scrubTo((local(ev).x - PAD) / timeline.pps); edgeScroll(ev); return; }
       if (press.mode === 'resize') { ev.preventDefault(); resizeTo(ev); return; }
       if (press.dragging) { ev.preventDefault(); dragTo(ev); return; }
       if (Math.hypot(ev.clientX - press.x0, ev.clientY - press.y0) > 8) { press.moved = true; clearTimeout(press.timer); }

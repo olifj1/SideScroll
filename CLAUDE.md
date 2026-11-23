@@ -354,13 +354,31 @@ raised above them. ▶ gives the game the focus and ■ hands it back (`focusBef
 cycles `--tl-alpha` (100 / 75 / 50 / 25 %). The timeline only overlays the game: the game view
 never changes size.
 Bar shows a strip of the whole event (`.sidescroll-tl-mini`: a line per row, tap = edit) instead of
-rows; at Bar / Half the side sheet is fixed at the right over the game. **▶** (`togglePlay`) →
-`host.playEvent(eventId, placedId)` (stops every sequence, resets the one whose line runs the event,
-turns on editor play if off — `timelinePlayStarted` — puts the player on the line's zone, fires the
-line); the playhead follows `host.eventClock(eventId)` (seconds into the run, paused while it
-waits for Action; null when it has ended — any edit reloads the story, which ends it); ■ →
-`host.stopEvent(placedId)`. **📷 Frame it** pushes the timeline aside and restores it on Done.
-Next: scrubbing (jump to *t* in an event) and editing while paused; a sequence-level node graph later.
+rows; at Bar / Half the side sheet is fixed at the right over the game.
+**Story clock** (`storyNow()` in sidescroll.js): wall time, but `setStoryPaused(on)` freezes it
+(`storyPausedAt`; resuming shifts it by the pause, `storyClockShift`) and seeking moves it. Walks,
+animation phases, effects, the sequence camera, speech (`storySpeechUntil` / `updateStorySpeech`)
+and looks (`lookState.t0` in story ms) all read it, so they pause and seek with it; while paused
+the player can't move (`storyControlLocked`), Action is ignored and the follow camera holds.
+Think bubbles (puzzle thoughts, a timer) and CSS fades still run on wall time. Any new
+sequence timing must use `storyNow()`. TEST bar **❚❚ Pause / ▶ Resume** (`#sidescroll-test-pause`,
+while playing); editor play stopping, ↺ Restart and leaving edit mode unpause.
+**Transport, shared by the TEST bar and the timeline:** `host.transport(eventId)` → `{playing
+(editor play), paused, clock (seconds into the open event's run, or null), prompt}`; the timeline
+polls it every frame (`syncTransport`), so its playhead, clock and ▶ / ❚❚ follow the event however
+it started (▶ here, TEST bar ▶ Play / ↺ Restart and walking into the zone, …), and focus follows
+the game (`followFocus`: playing → 🎮, paused or stopped → back). **▶** (`togglePlay`) resumes a paused
+run, or plays from the playhead (or the start) via `seekTo`; **❚❚** → `host.setPaused`; **⏮**
+(`toStart`) → seek 0, paused. **Scrubbing:** drag or tap the ruler (Half / Full) or the Bar's strip
+(`bindStripScrub`; a tap on a step's line still opens it) → `scrubTo` → `host.seekEvent(eventId,
+placedId, t)` = `seqSeekEvent` (stop every sequence, reset the one whose line runs the event, turn on
+editor play if off, player on the line's zone, fire the line paused, then advance the story clock
+in 1/30 s ticks of the sequence updates until the event's clock (`seqEventClock`) reaches *t*,
+answering Wait for Action on the way; fades and bars land without their transitions); scrubbing
+lands paused and resumes if it was playing. **Edits replay to the playhead:** `preview()` calls
+`replayAtPlayhead` (paused or playing as before). `host.playEvent` = seek 0 then resume;
+`host.stopEvent` remains. **📷 Frame it** pauses and pushes the timeline aside, restoring it on Done.
+Next: a sequence-level node graph.
 **Editor TEST bar** (`#sidescroll-test-bar`, every scope): ▶ Play sets `editorPlayTest` — the game
 runs inside edit mode (`setEditorPlayTest`; body class `sidescroll-edit-playing` shows the game
 controls). Gameplay code tests `editLocked()` (= editing and not playing) where Play must work;

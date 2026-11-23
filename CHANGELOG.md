@@ -4,6 +4,17 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story: one transport for the TEST bar and the timeline, pause, and scrubbing.** The story now
+  runs on its own clock, so it can **pause**: TEST bar **❚❚ Pause / ▶ Resume** (while playing) and the
+  timeline's **▶ / ❚❚** are the same switch — walks, animations, the dissolve, the camera, speech and
+  looks stop where they are (the player can't move and the view holds) and carry on from there. The
+  timeline's playhead now follows its event however it started (▶ on the timeline, ▶ Play or ↺
+  Restart on the TEST bar and walking into the zone), and focus follows the game (playing → 🎮,
+  paused or stopped → ✎). **⏮** goes back to the start, paused. **Scrubbing:** drag or tap the ruler
+  (Half / Full) or the Bar's strip to show the event at that moment (the sequence is reset and fast-
+  forwarded, Wait for Action answered on the way); it lands paused, and resumes if it was playing.
+  **An edit while paused shows its result straight away** at the playhead. ▶ plays from the
+  playhead. (Think bubbles and screen fades don't pause yet.)
 - **Story timeline and the game together.** The TEST bar (Play / Stop / Restart / Reset story /
   Progress) stays while the timeline is open (Full now starts below it). A **focus** switch on the
   timeline's top line — 🎮 game / ✎ timeline — says where taps go: with the game focused the

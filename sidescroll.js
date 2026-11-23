@@ -3820,12 +3820,13 @@ document.addEventListener('keydown',event=>{
   function setWorldLook(id, seconds = 0) {
     const look = id && Looks ? Looks.get(id) : null;
     const to = lookTarget(look ? id : null);
-    lookState = { id:look ? id : null, from:{ fog:copyFog(fogSettings), post:copyPost(postSettings) }, to, t0:performance.now(), dur:Math.max(0, seconds) * 1000, done:false };
+    lookState = { id:look ? id : null, from:{ fog:copyFog(fogSettings), post:copyPost(postSettings) }, to, t0:storyNow() * 1000, dur:Math.max(0, seconds) * 1000, done:false };
     if (!lookState.dur) { writeLiveLook(to.fog, to.post); lookState.done = true; }
     syncLookUi();
   }
-  function updateWorldLook(now) {
+  function updateWorldLook() {
     if (lookState.done || !lookState.to) return;
+    const now = storyNow() * 1000; // pauses and seeks with the story
     const t = Math.min(1, (now - lookState.t0) / Math.max(1, lookState.dur));
     if (t >= 1) { writeLiveLook(lookState.to.fog, lookState.to.post); lookState.done = true; return; }
     const e = t * t * (3 - 2 * t), mix = (a, b) => a + (b - a) * e, mixRgb = (a, b) => a.map((v, i) => mix(v, b[i]));
@@ -18219,7 +18220,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   const Props = window.SideScrollProps || null;
   let seqState = { events: [], templates: [], placed: [] };
   let seqEvents = new Map(), seqResolved = [];
-  const storyNow = () => (performance.now ? performance.now() : Date.now()) / 1000;
+  // The story clock: wall time, except that the editor can pause it (❚❚) and
+  // move it (scrubbing the timeline). Everything a sequence does — walks,
+  // animations, effects, the camera, speech, looks — is worked out from it.
+  const storyWall = () => (performance.now ? performance.now() : Date.now()) / 1000;
+  let storyClockShift = 0, storyPausedAt = null;
+  const storyNow = () => storyPausedAt ?? (storyWall() - storyClockShift);
+  const storyPaused = () => storyPausedAt != null;
+  function setStoryPaused(on) {
+    if (on && storyPausedAt == null) storyPausedAt = storyNow();
+    else if (!on && storyPausedAt != null) { storyClockShift = storyWall() - storyPausedAt; storyPausedAt = null; }
+    else return;
+    document.body.classList.toggle('sidescroll-story-paused', storyPausedAt != null);
+    updateTestBar();
+  }
   const storyColliders = new Map();   // character id -> collider {radius, height} (rig units)
   let seqSelected = { placed: null, component: null }; // highlighted in the editor
   let worldCharacterFrames = [];      // this frame: position, facing, blocking
@@ -18248,7 +18262,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     storyColliders.clear();
   }
   if (Seq) setSeqState(Seq.load());
-  const storyControlLocked = () => seqControlLocks.size > 0;
+  const storyControlLocked = () => seqControlLocks.size > 0 || storyPaused();
   function saveStoryProgress() { try { Seq?.saveProgress(seqProgress); } catch (_) {} }
   const seqLiveFor = key => { if (!seqLive.has(key)) seqLive.set(key, {}); return seqLive.get(key); };
   const seqSavedFor = key => (seqProgress.components[key] ||= {});
@@ -18371,7 +18385,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const cycle = storyCycleSeconds(wc, rig, state.animation);
     return ((frame.now / cycle + wc.offset) % 1 + 1) % 1;
   }
-  let storySpeechEl = null, storySpeechTimer = 0;
+  let storySpeechEl = null, storySpeechUntil = 0;
   function showStorySpeech(name, text, seconds) {
     if (!storySpeechEl) {
       storySpeechEl = document.createElement('div');
@@ -18382,9 +18396,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     storySpeechEl.replaceChildren(...(name ? [Object.assign(document.createElement('b'), { textContent: name })] : []),
       Object.assign(document.createElement('span'), { textContent: text }));
     storySpeechEl.classList.add('visible');
-    clearTimeout(storySpeechTimer);
-    storySpeechTimer = setTimeout(() => storySpeechEl.classList.remove('visible'), seconds * 1000);
+    storySpeechUntil = storyNow() + seconds; // hidden by updateStorySpeech (pauses with the story)
   }
+  function updateStorySpeech() {
+    if (storySpeechEl?.classList.contains('visible') && storyNow() >= storySpeechUntil) storySpeechEl.classList.remove('visible');
+  }
+  function hideStorySpeech() { storySpeechUntil = 0; storySpeechEl?.classList.remove('visible'); }
   // ---- Sequence camera and screen ---------------------------------------------
   // A Camera step frames a target (a mark or character filling a placeholder,
   // or the player) as a change to the normal view: the same side-on camera,
@@ -18738,6 +18755,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!Seq) return;
     const now = storyNow();
     advanceSequenceRuns(now);
+    updateStorySpeech();
     const finished = seqFinishedLines.splice(0);
     if (editLocked() || introLocked || !seqResolved.length) return;
     const px = storyPlayerX(), r = colliderWorld().radius;
@@ -18779,7 +18797,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   // The Action-button line the player is standing in, if any: {label, fire}.
   function storyActionTrigger() {
-    if (!Seq || editLocked()) return null;
+    if (!Seq || editLocked() || storyPaused()) return null;
     const waiting = seqPromptRun();
     if (waiting) return { label: waiting.prompt.label, fire: () => answerSeqPrompt(waiting) };
     if (carriedObject || storyControlLocked()) return null;
@@ -18802,6 +18820,51 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function answerSeqPrompt(run) {
     run.prompt = null;
     run.active = run.active.filter(until => until !== Infinity);
+  }
+  // Seconds into a run's event (a timed event's clock, which stops while it waits for Action).
+  function seqEventClock(run) {
+    if (!run.event.timed || run.t0 == null) return 0;
+    return Math.max(0, (run.pauseFrom ?? storyNow()) - run.t0 - run.paused);
+  }
+  // Show an event as it is `t` seconds in: stop every sequence, reset the one
+  // whose line runs it (the given one first), turn on editor play, put the
+  // player on the line's zone, fire the line, then fast-forward the story clock
+  // in small steps (walks, effects, the camera, speech and looks are worked out
+  // from it; Wait for Action is answered on the way). Paused stays paused.
+  function seqSeekEvent(eventId, placedId, t) {
+    const lines = [];
+    for (const r of seqResolved) for (const l of r.body.logic) if (l.event === eventId) lines.push({ r, l });
+    lines.sort((a, b) => (b.r.p.id === placedId) - (a.r.p.id === placedId));
+    const ctx = lines[0];
+    if (!ctx) return null;
+    const { p, body } = ctx.r;
+    if (!editorPlayTest) { setEditorPlayTest(true); if (!editorPlayTest) return null; timelinePlayStarted = true; }
+    const wasPaused = storyPaused();
+    setStoryPaused(true);
+    for (const r of seqResolved) seqStopSequence(r.p.id);
+    seqResetSequence(p.id);
+    seqResetScreen(); hideStorySpeech();
+    const zone = ctx.l.when?.zone ? body.components.find(c => c.id === ctx.l.when.zone) : null;
+    if (zone) { placePlayerAt(p.x + zone.dx); seqInside.add(compKey(p.id, zone.id)); }
+    seqFireLine(p, body, ctx.l, true);
+    const run = seqRuns.find(r => !r.done && r.event.id === eventId);
+    const tick = () => { updateWorldCharacters(); advanceSequenceRuns(storyNow()); updateSequenceCamera(storyNow()); updateWorldLook(); updateStorySpeech(); };
+    tick();
+    const target = Math.max(0, t || 0), stepSize = 1 / 30;
+    for (let guard = 0; run && !run.done && guard < 40000; guard++) {
+      if (run.prompt) { if (seqEventClock(run) < target - 1e-4) answerSeqPrompt(run); else break; }
+      const left = target - seqEventClock(run);
+      if (left <= 1e-4) break;
+      storyPausedAt += Math.min(stepSize, left);
+      tick();
+    }
+    // Fades and bars land where they are now, without their CSS transitions.
+    if (seqFadeEl) {
+      seqFadeEl.style.transitionDuration = '0s'; seqBarsEl.style.setProperty('--seq-bars-time', '0s');
+      void seqFadeEl.offsetWidth;
+    }
+    if (!wasPaused) setStoryPaused(false);
+    return { placed: p.id };
   }
   // Zones the player stands in when play starts don't fire until she leaves them.
   function markStoryZonesInside() {
@@ -19374,29 +19437,24 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Timeline ▶: runs an event from its start through a sequence line that uses
     // it (the sequence it was opened from first). That sequence is reset first
     // and the game plays (as ▶ Play), with the player on the line's zone.
+    // Timeline ▶ from the start: seekEvent to 0, then the story clock runs.
     playEvent: (eventId, placedId) => {
-      const lines = [];
-      for (const r of seqResolved) for (const l of r.body.logic) if (l.event === eventId) lines.push({ r, l });
-      lines.sort((a, b) => (b.r.p.id === placedId) - (a.r.p.id === placedId));
-      const ctx = lines[0];
-      if (!ctx) return null;
-      const { p, body } = ctx.r;
-      for (const r of seqResolved) seqStopSequence(r.p.id);
-      seqResetSequence(p.id);
-      if (!editorPlayTest) { setEditorPlayTest(true); if (!editorPlayTest) return null; timelinePlayStarted = true; }
-      const zone = ctx.l.when?.zone ? body.components.find(c => c.id === ctx.l.when.zone) : null;
-      if (zone) { placePlayerAt(p.x + zone.dx); seqInside.add(compKey(p.id, zone.id)); }
-      seqFireLine(p, body, ctx.l, true);
-      return { placed: p.id };
+      const r = seqSeekEvent(eventId, placedId, 0);
+      if (r) setStoryPaused(false);
+      return r;
     },
+    // Scrubbing: the event as it is `t` seconds in (its sequence reset, the
+    // player on its zone, the story clock fast-forwarded); paused or playing as before.
+    seekEvent: (eventId, placedId, t) => seqSeekEvent(eventId, placedId, t),
     // Seconds into a running event (its clock stops while it waits for Action), or null.
-    eventClock: eventId => {
-      const run = seqRuns.find(r => !r.done && r.event.id === eventId);
-      if (!run) return null;
-      if (!run.event.timed || run.t0 == null) return 0;
-      const now = storyNow();
-      return Math.max(0, (run.pauseFrom ?? now) - run.t0 - run.paused);
+    eventClock: eventId => { const run = seqRuns.find(r => !r.done && r.event.id === eventId); return run ? seqEventClock(run) : null; },
+    // What the TEST bar and the timeline share: editor play, the story pause and
+    // where the event is (null: not running).
+    transport: eventId => {
+      const run = eventId ? seqRuns.find(r => !r.done && r.event.id === eventId) : null;
+      return { playing: editorPlayTest, paused: storyPaused(), clock: run ? seqEventClock(run) : null, prompt: !!run?.prompt };
     },
+    setPaused: on => { if (editorPlayTest || !on) setStoryPaused(!!on); },
     stopEvent: placedId => {
       if (placedId) seqStopSequence(placedId);
       seqResetScreen();
@@ -20338,7 +20396,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     renderFrameSerial+=1;
     resize();
     updatePuzzleStreaming(character?.x ?? camera.x);
-    updateWorldLook(now);
+    updateWorldLook();
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
@@ -20567,7 +20625,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     character.y = playSurfaceYAt(character.x) + jumpOffset;
     checkPuzzleRespawnVolumes();
     updateTerrainSectionUi(false);
-    updateCameraFollow(dt);
+    updateCameraFollow(storyPaused() ? 0 : dt); // the view holds still while the story is paused
     updateCameraNodeOffset(dt);
     if (cameraEditMode) updateCameraEditorUi();
     savePlayerPosition(false);
@@ -21128,6 +21186,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   var testBar = document.getElementById('sidescroll-test-bar');
   var testPlayBtn = document.getElementById('sidescroll-test-play');
   var testRestartBtn = document.getElementById('sidescroll-test-restart');
+  var testPauseBtn = document.getElementById('sidescroll-test-pause');
   var testResetStoryBtn = document.getElementById('sidescroll-test-reset-story');
   var editorPlayStartX = null, editorPlayDrawerWasCollapsed = false;
   function placePlayerAt(x) {
@@ -21147,6 +21206,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       testPlayBtn.setAttribute('aria-pressed', String(editorPlayTest));
     }
     if (testRestartBtn) testRestartBtn.hidden = !editorPlayTest;
+    if (testPauseBtn) {
+      testPauseBtn.hidden = !editorPlayTest;
+      testPauseBtn.textContent = storyPaused() ? '▶ Resume' : '❚❚ Pause';
+      testPauseBtn.classList.toggle('active', storyPaused());
+    }
   }
   function setEditorPlayTest(on) {
     on = !!on && editMode && !puzzleTestMode;
@@ -21166,6 +21230,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       hintEl.classList.remove('hidden');
     } else {
       editorPlayTest = false; timelinePlayStarted = false;
+      setStoryPaused(false);
       setDriveAxis(0); keyLeft = false; keyRight = false; keyRun = false;
       if (carriedObject || interactionState || pushingObject) { if (pushingObject) stopPush(true); }
       placePlayerAt(character.x);
@@ -21176,6 +21241,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     updateEditorButtons();
   }
   function restartEditorPlay() {
+    setStoryPaused(false);
     resetStoryProgress();
     if (editorPlayTest && Number.isFinite(editorPlayStartX)) {
       setDriveAxis(0);
@@ -21188,6 +21254,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
   bindEditorPress(testPlayBtn, () => setEditorPlayTest(!editorPlayTest));
   bindEditorPress(testRestartBtn, restartEditorPlay);
+  // Pause / Resume: the story clock (sequences, their characters, camera, speech,
+  // looks) stops and the player can't move; the timeline shows the same state.
+  bindEditorPress(testPauseBtn, () => setStoryPaused(!storyPaused()));
   bindEditorPress(testResetStoryBtn, () => {
     resetStoryProgress();
     if (editorPlayTest) markStoryZonesInside();
