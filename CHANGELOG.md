@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Character Lab: scene objects.** Animate and Play get a **Scene objects** section: stand any
+  asset (built-in props and every imported picture) on the ground beside the character at game
+  size to animate against — Distance, Size, Behind / In front, remove, Clear all. Session only:
+  nothing is saved. In Play they stay put in the world while the character walks.
 - **Story characters blend between animations.** When a sequence character's animation changes
   (its looping animation giving way to an event's Animate step, a walk starting or stopping) it
   now blends over 0.3 s from the pose it was in instead of popping. The blend runs on the story

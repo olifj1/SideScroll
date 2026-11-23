@@ -36,6 +36,10 @@ Stages (engine work in order; art and sound in parallel):
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** *(done 20 Nov: Character Lab → Props grips, a component's Holds, the Prop step — hold / put away / drop)* still to do: import the axe and set Father's grip; check it through his Chop animation once that exists.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
+- [ ] **7 — Objects in sequences** (agreed 23 Nov): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
+- [ ] **8 — Outfit parts** (agreed 23 Nov): parts and meshes a character can wear or not — Aureli's backpack, a cloak / coat. Skinned like any part, marked *Optional* in Character Lab, with a **Wear / Take off** event step and a saved state (she puts the backpack on when she packs).
+- [ ] **9 — Inventory:** a menu showing what you carry and a way to open it *(a basic inventory panel and Item step exist)*, then **inspect** an item and **combine** two (designed before building).
+- [x] **Scene objects in Character Lab** (23 Nov): stand any asset beside the character in Animate / Play to animate against (session only).
 - [ ] **Art and sound (parallel):** Father (biped parts sheet + Chop, Idle, Talk animations); deer (quadruped, Run) and variants (duplicates with different art / scale); other running animals; axe, woodpile, chopping block, note, food / water, backpack; sounds (birdsong, chopping, gasp, shadow).
 - [ ] **6 — Build the intro** in the Story editor (zones: note, table, backpack, door, Father; events with Say, Wait for Action, Look, Screen, Camera, Effect, Sound, Item steps), then tune with ▶ Play and Skip.
 
@@ -83,6 +87,11 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bo. Scene objects in Character Lab (23 Nov)**
+- [ ] Character Lab → Father → Animate: **Scene objects** under Actions & animations. Pick an asset (e.g. the log or the chopping block once imported) and **Add**: it stands on the ground in front of him at game size.
+- [ ] Slide **Distance** and **Size**; **Behind / In front** swaps which side of him it is drawn; ✕ removes it; **Clear all**.
+- [ ] Switch to **Play**: the object stays put in the world as you walk past it. Reload the page: it is gone (nothing saved).
 
 **0bn. Animation blending in sequences; Actions list width (23 Nov)**
 - [ ] Father loops his chop (component Animation: Chop); walk into the zone so the event's Animate step changes him to Idle: he eases into it over about a third of a second instead of popping.
@@ -452,6 +461,7 @@ app and make a Project Backup.
 ---
 
 ## Next
+- [ ] **Animation length** (polish, agreed 23 Nov): a Length (s) per animation in Character Lab, used by Character Lab, the game and sequences (today every clip is 16 key positions over its base clip's time: Idle 1.4 s, Walk 1.05 s, Run 0.65 s, Jump 0.94 s).
 - [ ] **Rows for the far side:** once near-side rows are settled on the phone, the same row model (depth ±, scale ±, spacing ±, textures) for the dressing beyond the path; later *strip* rows (a long, short grass texture repeated continuously along a row) when those textures exist.
 - [ ] **Carry pose per character:** the game's carry arms (`carryPose` in `biped-rig.js`) are one set of hand targets tuned for Hero 1, so Character01 holds things lower. Let each character set its carry (a *Carry* action slot with an animation, or carry hand targets in Quick Play next to the test box), used by the game and Quick Play. Pick-up/put-down reach likewise.
 - [ ] **Performance audit (game and Labs):** look for work repeated every frame that only needs doing when something changes, like the character-library re-parsing fixed on 4 Nov (`localStorage` reads + `JSON.parse` in per-frame paths, rebuilding lists/meshes/geometry that haven't changed, DOM updates during playback). Done so far: character-library parsing (4 Nov), per-item terrain re-grounding and asset behaviour merging (5 Nov). Next candidates: the number of draw calls (one per grass/rock item; batching dressing that shares a texture), and terrain lookups outside drawing (`terrainSparseNumberAt` still shows). Measure first (CPU-throttled profile while running), fix the largest, keep a short before/after table in the PR.

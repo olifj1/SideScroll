@@ -235,6 +235,11 @@ Biped keys may set only some controls (`key.channels`, from `GameHubWalkRig.KEY_
 absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampleSparse`
 in both Character Lab and the game; others keep the original whole-key path.
 `simplifySparse` is Key Pose Tools → Simplify keys.
+**Scene objects** (`anim-lab-scene-objects.js`, Animate and Play): any asset stood beside the
+character at game size (asset height × Size, its `groundLine` on the ground), Distance from the
+character (in Play, world metres from `AnimLabQuickPlay.state().x`), drawn behind (underlay
+renderer) or in front (plugin renderer); session only, nothing saved; test hook
+`window.AnimLabSceneObjects.list()`.
 **Quick Play test box** (`anim-lab-play.js`): game-sized boxes (0.96 × 0.68 m) to walk
 into, jump on, pick up, put down and stack — the body is the character's collider in world
 metres (collider × 2.31 × scale, as `colliderWorld()` in the game) — using the game's carry pose
@@ -286,7 +291,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
-| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
+| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement; Sequences track; player start | `world-lab.js`, `sequence-data.js`, `asset-library.js` |
