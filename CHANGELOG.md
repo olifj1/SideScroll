@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Objects in sequences.** A sequence can hold **Objects** — any asset (built-in or imported)
+  placed relative to it, so it moves with the sequence in World Lab: the chopping block, the
+  logs, the note and food in the cabin. Settings: asset, size, lift above the ground, facing,
+  *Hidden at the start*. Events get **object roles** (a row each on the timeline) and an
+  **Object** step: *Appears*, *Disappears* or *Changes to…* another asset (the bowl emptied, the
+  note taken). What happened is kept in play progress; the editor shows hidden objects faintly.
 - **Character Lab: scene objects.** Animate and Play get a **Scene objects** section: stand any
   asset (built-in props and every imported picture) on the ground beside the character at game
   size to animate against — Distance, Size, Behind / In front, remove, Clear all. Session only:

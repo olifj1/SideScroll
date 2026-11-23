@@ -257,14 +257,14 @@
   }
 
   // ---- Sequence page -------------------------------------------------------------
-  const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑' };
-  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺', prop: '⚒' };
+  const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑', object: '▢' };
+  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺', prop: '⚒', object: '▢' };
 
   // ---- Steps: timing, summaries, beats, moving (step list and timeline) --------
   // A beat is a step and the "at the same time" steps after it; the next beat
   // starts when everything in it has finished (except "don't wait" steps).
   const STEP_KIND = { say: 'speech', think: 'speech', camera: 'view', screen: 'view', look: 'view',
-    move: 'actor', animate: 'actor', face: 'actor', show: 'actor', effect: 'actor', prop: 'actor' }; // else 'logic'
+    move: 'actor', animate: 'actor', face: 'actor', show: 'actor', effect: 'actor', prop: 'actor', object: 'actor' }; // else 'logic'
   const roleName = (e, id) => (id === Seq.PLAYER ? 'Player' : e.roles.find(r => r.id === id)?.name || '…');
   const clip = (text, n = 34) => (String(text || '').length > n ? `${String(text).slice(0, n - 1)}…` : String(text || ''));
   // How long a step takes: {seconds, approx (a guess: own walking speed, an
@@ -301,9 +301,11 @@
       case 'effect': return `${(host.effects?.() || []).find(x => x.id === s.asset)?.name || 'Effect'} on ${who}`;
       case 'look': return `Look: ${(host.looks?.() || []).find(x => x.id === s.look)?.name || 'base look'}`;
       case 'prop': return `${who} · ${(Seq.PROP_ACTIONS[s.action] || '').toLowerCase()} ${clip((host.props?.() || []).find(x => x.id === s.asset)?.name || s.asset || '…', 18)}`;
+      case 'object': return `${who} ${objectActionText(s)}`;
       default: return Seq.STEPS[s.type]?.label || s.type;
     }
   }
+  const objectActionText = s => (s.action === 'swap' ? `changes to ${clip(propLabel(s.asset) || '…', 18)}` : s.action === 'show' ? 'appears' : 'disappears');
   // [[step index, …], …] — each beat's steps.
   function beatsOf(steps) {
     const beats = [];
@@ -319,7 +321,7 @@
   const ROW_OF_TYPE = { think: 'player', camera: 'camera', screen: 'screen', look: 'look' }; // else 'game'
   function rowKeyOf(s) {
     if (s.type === 'say') return s.actor === Seq.PLAYER ? 'player' : s.actor ? `role:${s.actor}` : 'screen';
-    if (CHAR_STEPS.includes(s.type)) return s.actor ? `role:${s.actor}` : 'role:?';
+    if (CHAR_STEPS.includes(s.type) || s.type === 'object') return s.actor ? `role:${s.actor}` : 'role:?';
     return ROW_OF_TYPE[s.type] || 'game';
   }
   // What tapping an empty spot on a row offers: [{type, label, preset}].
@@ -332,11 +334,15 @@
     shot: { type: 'camera', label: 'Frame a shot', preset: { mode: 'shot' } }, back: { type: 'camera', label: 'Back to the player', preset: { mode: 'back' } },
     screen: { type: 'screen', label: 'Fade / letterbox bars' }, look: { type: 'look', label: 'Change the look' },
     control: { type: 'control', label: 'Take / give control' }, prompt: { type: 'prompt', label: 'Wait for Action' },
-    flag: { type: 'flag', label: 'Set / clear a flag' }, item: { type: 'item', label: 'Give / take an item' }, wait: { type: 'wait', label: 'Wait (a gap)' }
+    flag: { type: 'flag', label: 'Set / clear a flag' },
+    objectShow: { type: 'object', label: 'Appears', preset: { action: 'show' } }, objectHide: { type: 'object', label: 'Disappears', preset: { action: 'hide' } },
+    objectSwap: { type: 'object', label: 'Changes to another asset', preset: { action: 'swap' } }, item: { type: 'item', label: 'Give / take an item' }, wait: { type: 'wait', label: 'Wait (a gap)' }
   };
   function timelineRows(e) {
     const rows = e.roles.filter(r => r.kind === 'character').map(r => ({ key: `role:${r.id}`, role: r.id, label: r.name, icon: '☺',
       adds: ['say', 'move', 'animate', 'face', 'effect', 'prop', 'show'] }));
+    // Object placeholders: a row each (appear / disappear / change).
+    for (const r of e.roles.filter(r => r.kind === 'object')) rows.push({ key: `role:${r.id}`, role: r.id, object: true, label: r.name, icon: '▢', adds: ['objectHide', 'objectShow', 'objectSwap'] });
     if (e.steps.some(s => rowKeyOf(s) === 'role:?')) rows.push({ key: 'role:?', label: 'No one chosen', icon: '?', adds: [] });
     rows.push({ key: 'player', label: 'Player', icon: '★', adds: ['playerSay', 'think'] },
       { key: 'camera', label: 'Camera', icon: '▣', adds: ['shot', 'back'] },
@@ -349,8 +355,9 @@
   // character step can change character; everything else stays on its row).
   function canMoveTo(s, row) {
     if (rowKeyOf(s) === row.key) return true;
-    if (s.type === 'say') return !!row.role || row.key === 'player' || row.key === 'screen';
-    return CHAR_STEPS.includes(s.type) && !!row.role;
+    if (s.type === 'say') return !!row.role && !row.object || row.key === 'player' || row.key === 'screen';
+    if (s.type === 'object') return !!row.object;
+    return CHAR_STEPS.includes(s.type) && !!row.role && !row.object;
   }
   function putOnRow(s, row) {
     if (rowKeyOf(s) === row.key) return;
@@ -377,6 +384,18 @@
     if (c.kind !== 'zone') parts.push(slider(c, 'depth', -15, 8, 0.05, 'Depth (0 = path centre, + nearer)', 2, ' m'),
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Facing' }), segmented([['-1', 'Left'], ['1', 'Right']], String(c.facing), v => { c.facing = Number(v); change(); })));
     if (c.kind === 'zone') parts.push(field('Width (m)', numberInput(c, 'width', 0.2, 40, 0.1, 2)));
+    if (c.kind === 'object') parts.push(
+      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Asset' }),
+        el('div', { class: 'sidescroll-seq-item' }, el('div', { class: 'sidescroll-seq-current', text: `▢ ${propLabel(c.asset)}` }),
+          btn('Change…', () => chooseAsset('object-asset', `${c.name} shows…`, name => {
+            if (c.name === propLabel(c.asset)) c.name = propLabel(name); // an unrenamed object follows its asset
+            c.asset = name; change();
+          })))),
+      slider(c, 'size', 0.1, 5, 0.01, 'Size (× its game height)', 2),
+      slider(c, 'lift', 0, 5, 0.01, 'Lift above the ground', 2, ' m'),
+      el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!c.startHidden, onchange: ev => { if (ev.target.checked) c.startHidden = true; else delete c.startHidden; change(); } }),
+        'Hidden at the start (an Object step shows it)'),
+      help('Events change it with an Object step: give the event an object placeholder and fill it with this object in a logic line.'));
     if (c.kind === 'character') parts.push(
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Character' }),
         el('div', { class: 'sidescroll-seq-item' }, el('div', { class: 'sidescroll-seq-current', text: characterName(c.character) }),
@@ -400,6 +419,9 @@
     openChooser(key, title, propChoices().map(x => ({ value: x.id, label: x.name, thumb: x.held ? '⚒' : '◇',
       note: x.held ? `${x.group} · hold set up in Character Lab` : x.group })), onPick,
       'How it is held (hand, place, angle, size) is set per character in Character Lab → Props');
+  }
+  function chooseAsset(key, title, onPick) {
+    openChooser(key, title, propChoices().map(x => ({ value: x.id, label: x.name, thumb: '▢', note: x.group })), onPick, 'Built-in props and every imported asset');
   }
   function holdsField(c) {
     const holding = c.holding || [];
@@ -510,16 +532,17 @@
           btn('+ Character', () => openChooser('characters', 'Add a character', characterChoices().map(c => ({ value: c.id, label: c.name, thumb: c.family === 'quadruped' ? '🐾' : '☺', note: c.family === 'quadruped' ? 'Quadruped' : 'Biped' })),
             id => addComp('character', { name: characterName(id), character: id, animation: 'idle', scale: 1, blocks: 'auto', facing: 1 }, `Tap the ground where ${characterName(id)} stands`)), adding?.kind === 'character' ? 'active' : 'primary'),
           btn('+ Mark', () => addComp('mark', { name: `Mark ${count('mark')}`, facing: 1 }, 'Tap the ground where the mark goes'), adding?.kind === 'mark' ? 'active' : 'primary'),
-          btn('+ Zone', () => addComp('zone', { name: `Zone ${count('zone')}`, width: 2 }, 'Tap the path where the zone goes'), adding?.kind === 'zone' ? 'active' : 'primary')),
+          btn('+ Zone', () => addComp('zone', { name: `Zone ${count('zone')}`, width: 2 }, 'Tap the path where the zone goes'), adding?.kind === 'zone' ? 'active' : 'primary'),
+          btn('+ Object', () => chooseAsset('characters', 'Add an object', name => addComp('object', { name: propLabel(name), asset: name, size: 1, lift: 0, facing: 1 }, `Tap the ground where ${propLabel(name)} stands`)), adding?.kind === 'object' ? 'active' : 'primary')),
         chooserBox('characters'),
         adding ? el('div', { class: 'sidescroll-story-note' }, el('span', { text: `Tap the ground in the view to place ${adding.name}.` }), btn('Cancel', () => setPlaceMode(null))) : null,
         body.components.length ? el('div', { class: 'sidescroll-story-list' }, body.components.map(c => el('div', { class: 'sidescroll-seq-item', 'data-reveal': c.id },
           el('button', { type: 'button', class: c.id === view.component ? 'active' : '',
             onclick: () => { view.component = view.component === c.id ? null : c.id; placeMode = null; syncSelection(); render(); } },
             el('strong', { text: `${KIND_ICON[c.kind]} ${c.name}` }),
-            el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : `${fmt(p.x + c.dx)} m` })),
+            el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : c.kind === 'object' ? `${propLabel(c.asset)}${c.startHidden ? ' · hidden at first' : ''}` : `${fmt(p.x + c.dx)} m` })),
           xBtn(() => removeComponent(body, c), `Remove ${c.name}`))))
-          : help('Nothing yet. Add characters, marks (spots to walk to) and zones (where the player sets things off).'),
+          : help('Nothing yet. Add characters, marks (spots to walk to), zones (where the player sets things off) and objects (any asset: a note, the food, a chopping block).'),
         comp ? componentEditor(p, body, comp) : null),
       section('Logic',
         addBar(btn('+ Add line', () => {
@@ -668,6 +691,17 @@
             : 'It falls from the hand and lies on the ground there. Progress → Reset on this sequence puts it back.'));
         break;
       }
+      case 'object':
+        s.action ||= 'hide';
+        rows.push(field('Which (object placeholder)', roleSelect('actor', 'object')),
+          segmented(Object.entries(Seq.OBJECT_ACTIONS), s.action, v => { s.action = v; change(); }),
+          s.action === 'swap' ? el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Changes to' }),
+            el('div', { class: 'sidescroll-seq-item' }, el('div', { class: 'sidescroll-seq-current', text: s.asset ? `▢ ${propLabel(s.asset)}` : 'None chosen' }),
+              btn(s.asset ? 'Change…' : 'Choose…', () => chooseAsset(`object-${index}`, 'Change to which asset?', name => { s.asset = name; change(); })))) : null,
+          help(s.action === 'show' ? 'It appears (set “Hidden at the start” on the object for things that appear later).'
+            : s.action === 'hide' ? 'It disappears (the note picked up, the food eaten). Progress → Reset on the sequence brings it back.'
+            : 'It shows another asset in its place (a full plate → an empty one, a log → split logs).'));
+        break;
       case 'look': {
         const looks = host.looks?.() || [];
         if (s.look === undefined) s.look = looks[0]?.id || ''; if (s.seconds === undefined) s.seconds = 2;
@@ -721,6 +755,7 @@
       case 'effect': return (host.effects?.() || []).find(x => x.id === s.asset)?.name || 'Effect';
       case 'prop': return `${Seq.PROP_ACTIONS[s.action] || ''}: ${clip((host.props?.() || []).find(x => x.id === s.asset)?.name || s.asset || '…', 18)}`;
       case 'camera': return s.mode === 'back' ? 'Back to the player' : `Shot on ${s.target ? roleName(e, s.target) : 'the player'}`;
+      case 'object': return objectActionText(s)[0].toUpperCase() + objectActionText(s).slice(1);
       default: return stepSummary(e, s);
     }
   }
@@ -1323,7 +1358,8 @@
       section('Placeholders',
         help('Placeholders stand for the characters and marks this event acts on — you don’t choose real ones here. Give each a name (Actor, Exit…) and use it in the steps below. Each sequence that runs this event fills them in with its own character and mark (on its logic line).'),
         addBar(btn('+ Character placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'character') ? 'Other' : 'Actor', kind: 'character' }); change(); }, 'primary'),
-          btn('+ Mark placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'mark') ? 'Place' : 'Exit', kind: 'mark' }); change(); }, 'primary')),
+          btn('+ Mark placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'mark') ? 'Place' : 'Exit', kind: 'mark' }); change(); }, 'primary'),
+          btn('+ Object placeholder', () => { e.roles.push({ id: Seq.newId('r', takenIds()), name: e.roles.some(r => r.kind === 'object') ? 'Other thing' : 'Thing', kind: 'object' }); change(); }, 'primary')),
         e.roles.map((r, i) => el('div', { class: 'sidescroll-seq-role' },
           textInput(r, 'name', 30, null, r.kind === 'mark' ? 'Name it, e.g. Exit or Hiding spot' : 'Name it, e.g. Actor or Friend'),
           el('span', { class: 'sidescroll-seq-kind', text: `${Seq.ROLE_KINDS[r.kind]}` }),

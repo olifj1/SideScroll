@@ -40,6 +40,10 @@ character never knows which sequences use it; an event never knows where it is u
   - **Thought** — a thought-bubble line shown when the player comes near (today's
     thought triggers, owned by the sequence).
   - **Dressing** — assets from the asset list, as in a world group.
+  - **Object** *(built 23 Nov)* — one asset (built-in or imported) standing at a place
+    in the sequence: size, lift, facing, *hidden at the start*. Events reach it through an
+    **object role**; the **Object** step makes it appear, disappear or change to another
+    asset (the note taken, the bowl emptied), remembered in play progress.
 - **Logic** — lines, in order:
   - **When** — the sequence loads · the player walks into *zone* · presses Action in
     *zone* · another line's event finishes · a flag is set.
