@@ -18843,7 +18843,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     setStoryPaused(true);
     for (const r of seqResolved) seqStopSequence(r.p.id);
     seqResetSequence(p.id);
-    seqResetScreen(); hideStorySpeech();
+    seqResetScreen(); hideStorySpeech(); storyBlends.clear();
     const zone = ctx.l.when?.zone ? body.components.find(c => c.id === ctx.l.when.zone) : null;
     if (zone) { placePlayerAt(p.x + zone.dx); seqInside.add(compKey(p.id, zone.id)); }
     seqFireLine(p, body, ctx.l, true);
@@ -18976,11 +18976,31 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     drawSeqDroppedProps(view);
   }
+  // When a sequence character's animation changes (a step, a walk starting or
+  // ending, the event taking over from its looping animation) its pose blends
+  // from the one it was last drawn in over STORY_BLEND seconds of story time,
+  // so it pauses and scrubs with the story. Seeking clears the memory.
+  const STORY_BLEND = 0.3;
+  const storyBlends = new Map(); // frame key → {anim, pose, from, t0}
+  function storyBlendedPose(frame, rig, pose) {
+    if (!pose) return pose;
+    const now = frame.now, b = storyBlends.get(frame.key);
+    if (!b || b.rig !== rig) { storyBlends.set(frame.key, { anim: frame.state.animation, rig, pose, from: null, t0: now }); return pose; }
+    if (b.anim !== frame.state.animation) { b.from = b.pose; b.t0 = now; b.anim = frame.state.animation; }
+    let out = pose;
+    if (b.from && rig?.interpolatePose) {
+      const k = (now - b.t0) / STORY_BLEND;
+      if (k >= 1 || k < 0) b.from = null;
+      else out = rig.interpolatePose(b.from, pose, k * k * (3 - 2 * k), pose.name, pose.travel);
+    }
+    b.pose = out;
+    return out;
+  }
   function drawStoryCharacter(frame, view) {
     {
       const { id } = frame;
       const rig = characterRigForVariant(id);
-      const pose = storyPose(id, rig, frame.state.animation, storyPhase(frame, rig));
+      const pose = storyBlendedPose(frame, rig, storyPose(id, rig, frame.state.animation, storyPhase(frame, rig)));
       const sole = Number(characterVariantInfo(id)?.soleArtOffset);
       const body = { x: frame.x, y: storyGroundY(frame.x, frame.z) + (Number.isFinite(sole) ? sole : CHARACTER_SOLE_ART_LOCAL_OFFSET) * frame.scale,
         z: frame.z, scale: frame.scale, tint: character.tint, opacity: character.opacity,

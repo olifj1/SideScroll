@@ -84,6 +84,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bn. Animation blending in sequences; Actions list width (23 Nov)**
+- [ ] Father loops his chop (component Animation: Chop); walk into the zone so the event's Animate step changes him to Idle: he eases into it over about a third of a second instead of popping.
+- [ ] Character Lab → Father → Animate: with a custom slot set to a long-named animation, the Actions list and its buttons stay inside the panel.
+
 **0bm. New animation start pose (23 Nov)**
 - [ ] Character Lab → Father → Animate → **New**: a dialog asks for a name and **Start from** (default *Its Idle pose*). Create: the new animation shows him standing exactly as in his Idle (not hunched), with keys on frames 1 and 16.
 - [ ] Try *Its rig's rest pose* (straight) and *First pose of …* another animation: each starts from that pose.

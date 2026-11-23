@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story characters blend between animations.** When a sequence character's animation changes
+  (its looping animation giving way to an event's Animate step, a walk starting or stopping) it
+  now blends over 0.3 s from the pose it was in instead of popping. The blend runs on the story
+  clock, so it pauses and scrubs with everything else.
+- **Fix: Character Lab's Actions list could run off the side** on iPhone once a slot had an
+  animation with a long name (a drop-down sized itself to its longest option).
 - **Character Lab: new animations start from a pose you choose.** **New** opens a small dialog —
   a name and **Start from**: its Idle pose (the default: the animation in its Idle slot), the
   pose on screen now, its rig's rest pose, or the first pose of any of its animations. **Fix:** a
