@@ -15952,3 +15952,13 @@ body.sidescroll-tl-focus-game.sidescroll-edit-playing .sidescroll-tl.size-bar{bo
 .sidescroll-tl-focus button{width:34px;padding:0!important;font-size:13px!important;}
 .sidescroll-tl-focus button.on{background:rgba(120,200,255,.22);border-color:#78c8ff;}
 .sidescroll-tl button.sidescroll-tl-opacity{flex:none;padding:4px 7px;font-variant-numeric:tabular-nums;}
+/* Timeline transport: ⏮ and ▶ / ❚❚; the ruler and the Bar's strip scrub (the playhead has a head on the ruler). */
+.sidescroll-tl-transport{display:flex;gap:4px;flex:none;}
+.sidescroll-tl-transport button{width:40px;padding:0!important;font-size:14px!important;}
+.sidescroll-tl-ruler{cursor:ew-resize;}
+.sidescroll-tl-playhead::before{content:"";position:absolute;top:0;left:-6px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #ff6b5b;transform:translateY(var(--sy,0px));}
+.sidescroll-tl-mini{cursor:ew-resize;touch-action:none;}
+.sidescroll-test-bar #sidescroll-test-pause.active{background:rgba(255,214,120,.22);border-color:#ffd678;color:#ffd678;}
+body.sidescroll-story-paused .sidescroll-tl-clock{color:#ffd678;}
+.sidescroll-tl .sidescroll-tl-head{flex-wrap:nowrap;}
+.sidescroll-tl .sidescroll-tl-head > strong{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
