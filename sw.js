@@ -72,6 +72,7 @@ const CORE_SHELL = [
   "./anim-lab-art-layout.js",
   "./anim-lab-play.js",
   "./anim-lab-props.js",
+  "./anim-lab-scene-objects.js",
   "./anim-lab-ui.js",
   "./anim-lab-atlas.js",
   "./anim-lab-assembly.js",
