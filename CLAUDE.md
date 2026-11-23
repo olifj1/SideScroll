@@ -225,7 +225,11 @@ key `clip-…`) and names (`animationNames`) sit next to its clips; the game and
 Play resolve a slot through the map (`slotClips` in `character-game-runtime.js`,
 `evaluateClip` in `walk-lab.js`). `anim-lab-animation-list.js` is the Animate list
 (Actions with an animation menu each; Animations with New, Duplicate, Rename,
-Delete), saved straight away. Bipeds have an `idle` slot (default: the standing pose
+Delete), saved straight away. **New** asks for a name and a start pose
+(`newAnimationStarts` / `newAnimationStartPose`: its Idle slot's first frame by default, the pose
+on screen, the rig's rest pose, or another animation's first frame) and creates two keys (frames 0
+and 15) holding it — `normaliseSparseClip` replaces any clip with fewer than two keys by the
+built-in frames. Bipeds have an `idle` slot (default: the standing pose
 the game always used).
 Biped keys may set only some controls (`key.channels`, from `GameHubWalkRig.KEY_CHANNELS`;
 absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampleSparse`

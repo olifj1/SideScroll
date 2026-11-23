@@ -84,6 +84,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bm. New animation start pose (23 Nov)**
+- [ ] Character Lab → Father → Animate → **New**: a dialog asks for a name and **Start from** (default *Its Idle pose*). Create: the new animation shows him standing exactly as in his Idle (not hunched), with keys on frames 1 and 16.
+- [ ] Try *Its rig's rest pose* (straight) and *First pose of …* another animation: each starts from that pose.
+
 **0bl. Playhead drag, controls when collapsed (23 Nov)**
 - [ ] Grab the red playhead line itself (anywhere down the timeline, not just the seconds ruler) and drag it: the scene scrubs with it.
 - [ ] Press ▶ Play on the TEST bar, then collapse the timeline (‹): Jump, Action and the move control are there, so you can walk into the trigger; the playhead still follows the event when you expand it again.

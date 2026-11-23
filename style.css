@@ -15965,3 +15965,6 @@ body.sidescroll-story-paused .sidescroll-tl-clock{color:#ffd678;}
 /* The playhead can be grabbed anywhere along it (a wide, invisible hit strip). */
 .sidescroll-tl-playhead{pointer-events:auto;cursor:ew-resize;touch-action:none;}
 .sidescroll-tl-playhead::after{content:"";position:absolute;top:0;bottom:0;left:-11px;width:24px;}
+/* Character Lab → New animation: name + where its first pose comes from. */
+.animlab-new-animation-field{display:grid;gap:4px;margin:8px 0;font-size:12px;font-weight:800;}
+.animlab-new-animation-field input,.animlab-new-animation-field select{min-height:38px;font:inherit;font-weight:600;}
