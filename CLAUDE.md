@@ -140,7 +140,9 @@ that any `sidescroll.` key still mentions (`usedIn`). Replace Art with a differe
 `rescalePlaced(name, newAspect/oldAspect)`, which walks those keys and scales every placed copy's
 `sx` / `baseSx` / `width` and collision `halfWidth` (copies keep their height). Any page that lists or draws imported
 assets loads `asset-library.js` (play, asset-lab, publish-lab). The built-in assets are still
-listed separately in `sidescroll.js` (`editorAssetGroups`) and `asset-lab.js` (`ASSETS`).
+listed separately in `sidescroll.js` (`editorAssetGroups`) and in `builtin-assets.js`
+(`window.SideScrollBuiltInAssets`: `list()` a fresh copy, `get(name)`; Asset Lab's `ASSETS` and
+Character Lab's scene objects).
 
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
 `art: {kind:'effect', shader:'darkness'|'dissolve', width, height (the plane's shape), params}`; params are
@@ -235,8 +237,10 @@ Biped keys may set only some controls (`key.channels`, from `GameHubWalkRig.KEY_
 absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampleSparse`
 in both Character Lab and the game; others keep the original whole-key path.
 `simplifySparse` is Key Pose Tools → Simplify keys.
-**Scene objects** (`anim-lab-scene-objects.js`, Animate and Play): any asset stood beside the
-character at game size (asset height × Size, its `groundLine` on the ground), Distance from the
+**Scene objects** (`anim-lab-scene-objects.js`, Animate and Play): any asset — every built-in one
+(`builtin-assets.js`, grouped as in Asset Lab) and every imported one — stood beside the
+character at game size (asset height × Size, its `groundLine` on the ground; both read through
+Asset Lab's `sidescroll.asset-layout.v1` overrides), Distance from the
 character (in Play, world metres from `AnimLabQuickPlay.state().x`), drawn behind (underlay
 renderer) or in front (plugin renderer); session only, nothing saved; test hook
 `window.AnimLabSceneObjects.list()`.
@@ -292,7 +296,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
-| `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
+| `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement; Sequences track; player start | `world-lab.js`, `sequence-data.js`, `asset-library.js` |
 | `design-lab.html` | Living game design doc | `design-lab.js`, `design-doc.json` |

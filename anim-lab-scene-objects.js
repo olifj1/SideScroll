@@ -1,5 +1,5 @@
 /* Character Lab · Scene objects (Animate and Play).
- * Any asset (the built-in props and every imported picture) can stand on the
+ * Any asset (every built-in asset, grouped as in Asset Lab, and every imported picture) can stand on the
  * ground next to the character at game size, to animate against — a chopping
  * block, a log, a doorway. Like the Quick Play test box they last only while
  * the page is open: nothing is saved with the character or the animation.
@@ -18,24 +18,38 @@
   if (!core?.registerUnderlayRenderer || !core.registerPluginRenderer || !anchor) return;
   const BASE_SCALE = 2.31; // world metres per rig unit at scale 1, as the game
 
-  // ---- What can be placed: built-in props + imported pictures ---------------------
+  // ---- What can be placed: every built-in asset + imported pictures ---------------
+  // Heights and floor lines as Asset Lab saved them (its per-name layout store wins
+  // over the defaults), so objects stand at the size the game draws them.
+  const BuiltIn = window.SideScrollBuiltInAssets;
+  const LAYOUT_KEY = 'sidescroll.asset-layout.v1';
+  function layoutStore() { try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}') || {}; } catch (_) { return {}; } }
+  const finite = (v, fallback) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : fallback);
+  let builtInList = null;
   function catalogue() {
+    const layout = layoutStore();
+    const sized = (a, group, image) => ({
+      name: a.name, label: a.label || a.name, group, image,
+      height: Math.min(12, Math.max(0.05, finite(layout[a.name]?.defaultHeight, finite(a.height, 1)))),
+      groundLine: Math.min(1, Math.max(0, finite(layout[a.name]?.groundLine, finite(a.groundLine, 0))))
+    });
+    builtInList = builtInList || (BuiltIn ? BuiltIn.list() : (Props?.BUILT_IN || []).map(a => ({ ...a, group: 'Props' })));
     const imported = AssetLib ? AssetLib.list().filter(e => e.art?.kind !== 'effect') : [];
     return [
-      ...(Props?.BUILT_IN || []).map(a => ({ name: a.name, label: a.label, height: Number(a.height) || 1, groundLine: 0 })),
-      ...imported.map(e => ({ name: e.name, label: e.label || e.name, height: Number(e.height) || 1, groundLine: Number.isFinite(Number(e.groundLine)) ? Number(e.groundLine) : 0 }))
+      ...imported.map(e => sized(e, !e.group || /^imported$/i.test(e.group) ? 'Imported' : `Imported · ${titleCase(e.group)}`, null)),
+      ...builtInList.map(a => sized(a, titleCase(a.group || 'Built in'), a.image))
     ];
   }
+  const titleCase = g => String(g).toLowerCase().replace(/(^|[\s·-])([a-z])/g, (m, sep, c) => sep + c.toUpperCase());
   const images = new Map();
   function imageFor(entry) {
     if (images.has(entry.name)) return images.get(entry.name);
     const rec = { img: new Image(), ready: false, aspect: 1 };
     images.set(entry.name, rec);
     rec.img.onload = () => { rec.ready = true; rec.aspect = rec.img.naturalWidth / Math.max(1, rec.img.naturalHeight); core.redrawOnly?.(); };
-    const builtIn = Props?.BUILT_IN?.find(a => a.name === entry.name);
     const imported = AssetLib?.get?.(entry.name);
-    if (builtIn) rec.img.src = assetPath(builtIn.image);
-    else if (imported) AssetLib.artUrl(imported).then(url => { if (url) rec.img.src = url; }).catch(() => {});
+    if (imported) AssetLib.artUrl(imported).then(url => { if (url) rec.img.src = url; }).catch(() => {});
+    else if (entry.image) rec.img.src = assetPath(entry.image);
     return rec;
   }
 
@@ -64,7 +78,14 @@
     if (sig === pickSig) return;
     pickSig = sig;
     const keep = pick.value;
-    pick.replaceChildren(...items.map(i => { const o = document.createElement('option'); o.value = i.name; o.textContent = i.label; return o; }));
+    // One heading per group, as in Asset Lab.
+    const groups = new Map();
+    for (const i of items) { if (!groups.has(i.group)) groups.set(i.group, []); groups.get(i.group).push(i); }
+    pick.replaceChildren(...[...groups].map(([group, entries]) => {
+      const g = document.createElement('optgroup'); g.label = group;
+      g.append(...entries.map(i => { const o = document.createElement('option'); o.value = i.name; o.textContent = i.label; return o; }));
+      return g;
+    }));
     if (items.some(i => i.name === keep)) pick.value = keep;
   }
   function row(o) {
@@ -94,7 +115,7 @@
     // A little in front of the character (and clear of any object already there).
     let x = characterX(s) + 0.8;
     while (objects.some(o => Math.abs(o.x - x) < 0.3)) x += 0.6;
-    objects.push({ id: nextId++, name: entry.name, label: entry.label, height: entry.height, groundLine: entry.groundLine, x: Math.round(x * 20) / 20, front: false, size: 1 });
+    objects.push({ id: nextId++, name: entry.name, label: entry.label, image: entry.image, height: entry.height, groundLine: entry.groundLine, x: Math.round(x * 20) / 20, front: false, size: 1 });
     imageFor(entry);
     renderList(); core.redrawOnly?.();
   });
