@@ -84,6 +84,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bl. Playhead drag, controls when collapsed (23 Nov)**
+- [ ] Grab the red playhead line itself (anywhere down the timeline, not just the seconds ruler) and drag it: the scene scrubs with it.
+- [ ] Press ▶ Play on the TEST bar, then collapse the timeline (‹): Jump, Action and the move control are there, so you can walk into the trigger; the playhead still follows the event when you expand it again.
+
 **0bk. One transport, pause and scrubbing (23 Nov)**
 - [ ] Open *Taken*'s timeline and press **▶**: it plays; press **❚❚**: everything stops where it is (Father, the dissolve, the camera, a speech bubble), the clock stops and you can't move Aureli; **▶** carries on from the same moment (not from the start).
 - [ ] The TEST bar shows **❚❚ Pause / ▶ Resume** while playing and it is the same switch: pausing on either changes both.
