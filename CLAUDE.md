@@ -144,6 +144,17 @@ listed separately in `sidescroll.js` (`editorAssetGroups`) and in `builtin-asset
 (`window.SideScrollBuiltInAssets`: `list()` a fresh copy, `get(name)`; Asset Lab's `ASSETS` and
 Character Lab's scene objects).
 
+**Asset interactions** (`asset-interactions.js`, `window.SideScrollInteractions`, key
+`sidescroll.asset-interactions.v1`, Assets area): what the player can do to an asset, per asset name —
+today `{inspect: {title, text, large}}`; later actions (collect, use…) sit beside `inspect`. Asset Lab →
+**Interactions** (`syncInteractions` / `saveInspect`). Game (`sidescroll.js`, before `performAction`):
+`nearestInspectable()` (placed copies via `allSceneObjects()` and visible sequence objects, within the
+player's radius + 0.45 m and 2.5 m of the path) draws the dot in `drawPlayerInteractionHints` and is
+tried in `performAction` after story Action lines; `openInspect` shows `.sidescroll-inspect` (made on
+first use; `.large` = the asset's picture via `assetPictureUrl`, sized to fit) and sets `inspectOpen`,
+which `storyControlLocked()` includes, so the player stands still; Action, Leave or Escape close it.
+Loaded by play and asset-lab.
+
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
 `art: {kind:'effect', shader:'darkness'|'dissolve', width, height (the plane's shape), params}`; params are
 the shader's controls (`SHADERS[shader].params`: number ranges and [r,g,b] colours; `clean()`
@@ -294,9 +305,9 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
+| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
-| `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
+| `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-interactions.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement; Sequences track; player start | `world-lab.js`, `sequence-data.js`, `asset-library.js` |
 | `design-lab.html` | Living game design doc | `design-lab.js`, `design-doc.json` |

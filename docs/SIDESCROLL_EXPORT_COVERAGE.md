@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 24 November 2026 — Asset interactions (Inspect)
+- New content key `sidescroll.asset-interactions.v1` (Assets area; `asset-interactions.js`): `{<asset name>: {inspect: {title, text, large}}}`, set in Asset Lab → Interactions. Publishes with the Assets area, is in Asset Lab's data export (an `Assets` catalogue key) and in Project Backup. Asset Lab's *Reset Asset Defaults* leaves it alone (it is written text, not a default). Nothing is saved when the player inspects.
+
 ## 20 November 2026 — Props (held assets)
 - No new keys. A character's grips are `setup.holds` (`{<asset name>: {hand, x, y, angle, size, flip, layer}}`, `character-props.js`): original characters in `sidescroll.animlab.setup.v1[id]`, library characters in their library entry's `setup`. Written only when the character has at least one prop; travels with the setup in character packages, publish packages and Project Backup; no migration.
 - A sequence character's starting props are `holding` (asset names) on its component in `sidescroll.story.sequences.v1` (Story area). What a Prop step changed is play progress (`sidescroll.player.story-progress.v2` → `components["sq:c"].holding` / `.dropped`), not content; a sequence's Reset clears it.

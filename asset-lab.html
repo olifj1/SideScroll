@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.82">
+  <link rel="stylesheet" href="style.css?v=1.1.100">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -268,6 +268,24 @@
         <div id="assetlab-behaviours" class="assetlab-behaviours"></div>
       </section>
 
+      <section class="assetlab-control-section assetlab-interactions" id="assetlab-interactions-section">
+        <div class="assetlab-control-heading"><small>INTERACTIONS</small><strong>What the player can do</strong></div>
+        <p class="assetlab-note">Placed copies with an action show the little dot when the player is near; Action does it. Every copy of this asset behaves the same.</p>
+        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-on" aria-pressed="false">Inspect</button></div>
+        <div id="assetlab-inspect-fields" hidden>
+          <label class="assetlab-select-row assetlab-text-row">
+            <span><strong>Title</strong><small>Blank = the asset's name</small></span>
+            <input id="assetlab-inspect-title" type="text" maxlength="80" autocomplete="off">
+          </label>
+          <label class="assetlab-select-row assetlab-text-row assetlab-textarea-row">
+            <span><strong>Text</strong><small>What she sees, or what it says</small></span>
+            <textarea id="assetlab-inspect-text" rows="4" maxlength="2000"></textarea>
+          </label>
+          <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-large" aria-pressed="false">Show large on screen</button></div>
+          <p class="assetlab-note">Show large puts the picture big on screen, sized to fit, with the text underneath and a Leave button: for a note to read or a thing to look at closely.</p>
+        </div>
+      </section>
+
       <section data-ss-lab="assets" class="assetlab-control-section" style="display:grid;gap:8px">
         <div class="assetlab-control-heading"><small>DATA</small><strong>Asset Lab backup</strong></div>
         <p class="assetlab-note">All saved asset behaviours, collisions, paths, sockets, layouts and mechanisms. Bundled texture pixels are not included.</p>
@@ -301,7 +319,8 @@
   <script src="asset-library.js?v=1.1.76"></script>
   <script src="character-preview.js?v=1.1.83"></script>
   <script src="builtin-assets.js?v=1.1.99"></script>
-  <script src="asset-lab.js?v=1.1.99"></script>
+  <script src="asset-interactions.js?v=1.1.100"></script>
+  <script src="asset-lab.js?v=1.1.100"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>
 </html>

@@ -856,6 +856,45 @@
     buildList();
     syncImportedSection();
     syncEffectSection();
+    syncInteractions();
+  }
+
+  // --- Interactions: what the player can do to this asset (asset-interactions.js) ---
+  const Interactions = window.SideScrollInteractions;
+  const inspectOnBtn = document.getElementById('assetlab-inspect-on');
+  const inspectFields = document.getElementById('assetlab-inspect-fields');
+  const inspectTitleEl = document.getElementById('assetlab-inspect-title');
+  const inspectTextEl = document.getElementById('assetlab-inspect-text');
+  const inspectLargeBtn = document.getElementById('assetlab-inspect-large');
+  function syncInteractions() {
+    const section = document.getElementById('assetlab-interactions-section');
+    const asset = state.asset;
+    const usable = !!(Interactions && asset && asset.art?.kind !== 'effect');
+    if (section) section.hidden = !usable;
+    if (!usable) return;
+    const inspect = Interactions.get(asset.name)?.inspect || null;
+    const on = !!inspect;
+    inspectOnBtn.classList.toggle('active', on); inspectOnBtn.setAttribute('aria-pressed', String(on));
+    inspectFields.hidden = !on;
+    inspectTitleEl.placeholder = asset.label || asset.name;
+    if (document.activeElement !== inspectTitleEl) inspectTitleEl.value = inspect?.title || '';
+    if (document.activeElement !== inspectTextEl) inspectTextEl.value = inspect?.text || '';
+    inspectLargeBtn.classList.toggle('active', !!inspect?.large); inspectLargeBtn.setAttribute('aria-pressed', String(!!inspect?.large));
+  }
+  function saveInspect(patch) {
+    const asset = state.asset;
+    if (!Interactions || !asset) return;
+    const entry = Interactions.get(asset.name) || {};
+    if (patch === null) delete entry.inspect;
+    else entry.inspect = { ...(entry.inspect || { title: '', text: '', large: false }), ...patch };
+    writeStore(Interactions.KEY, Interactions.set(asset.name, entry));
+    syncInteractions();
+  }
+  if (Interactions && inspectOnBtn) {
+    inspectOnBtn.addEventListener('click', () => saveInspect(Interactions.get(state.asset?.name)?.inspect ? null : {}));
+    inspectLargeBtn.addEventListener('click', () => saveInspect({ large: !Interactions.get(state.asset?.name)?.inspect?.large }));
+    inspectTitleEl.addEventListener('input', () => saveInspect({ title: inspectTitleEl.value }));
+    inspectTextEl.addEventListener('input', () => saveInspect({ text: inspectTextEl.value }));
   }
 
   // --- Texture: the image's size, file size and how dense it is in the game ------

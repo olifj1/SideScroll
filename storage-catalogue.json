@@ -58,6 +58,7 @@
     "sidescroll.asset-behaviours.v1":                    { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Asset behaviours (push, climb...)" },
     "sidescroll.asset-climb-paths.v1":                   { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Climb paths" },
     "sidescroll.asset-collisions.v1":                    { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Collision shapes" },
+    "sidescroll.asset-interactions.v1":                  { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "What the player can do to each asset (Inspect: title, text, show large)" },
     "sidescroll.asset-layout.v1":                        { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Asset layout" },
     "sidescroll.asset-mechanisms.v3":                    { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Mechanisms" },
     "sidescroll.asset-sockets.v1":                       { "area": "Assets", "scope": "content", "lab": "Asset Lab", "what": "Sockets" },

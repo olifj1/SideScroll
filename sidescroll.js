@@ -16180,6 +16180,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
     }
 
+    if (!carriedObject && !interactionState && !contextHintObject) {
+      const inspectable = nearestInspectable();
+      if (inspectable) dot(projectWorldPoint(inspectable.x, inspectable.y, inspectable.z), true);
+    }
+
     if (!carriedObject && !interactionState && !climbState) {
       const climbTarget=nearestActionClimbTarget();
       if(climbTarget){
@@ -18262,7 +18267,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     storyColliders.clear();
   }
   if (Seq) setSeqState(Seq.load());
-  const storyControlLocked = () => seqControlLocks.size > 0 || storyPaused();
+  let inspectOpen = null; // the Inspect view while it is open (asset interactions)
+  const storyControlLocked = () => seqControlLocks.size > 0 || storyPaused() || !!inspectOpen;
   function saveStoryProgress() { try { Seq?.saveProgress(seqProgress); } catch (_) {} }
   const seqLiveFor = key => { if (!seqLive.has(key)) seqLive.set(key, {}); return seqLive.get(key); };
   const seqSavedFor = key => (seqProgress.components[key] ||= {});
@@ -20352,7 +20358,108 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     recordObjectEdit(obj);
   }
 
+  // ---- Asset interactions (asset-interactions.js, set in Asset Lab): Inspect -------
+  // Any placed copy of an asset with an action, or a visible sequence object, shows
+  // the dot when the player is near; Action opens the Inspect view (title, text and,
+  // with Show large, the picture big on screen). Inspecting holds the player still.
+  const Interactions = window.SideScrollInteractions || null;
+  let assetInteractions = Interactions ? Interactions.load() : {};
+  const reloadInteractions = () => { if (Interactions) assetInteractions = Interactions.load(); };
+  window.addEventListener('storage', ev => { if (!ev.key || ev.key === Interactions?.KEY) reloadInteractions(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reloadInteractions(); });
+  const assetInspect = name => assetInteractions[name]?.inspect || null;
+  const INSPECT_REACH = 0.45, INSPECT_DEPTH = 2.5; // metres beyond the player's body; how far off the path
+  function nearestInspectable() {
+    if (!Interactions || carriedObject || interactionState || climbState || editLocked() || inspectOpen) return null;
+    const px = camera.x + character.screenOffsetX, reach = colliderWorld().radius + INSPECT_REACH;
+    let best = null, bestD = Infinity;
+    const consider = (asset, x, halfWidth, y, z) => {
+      if (Math.abs((z ?? pathZ) - pathZ) > INSPECT_DEPTH) return;
+      const d = Math.max(0, Math.abs(x - px) - halfWidth);
+      if (d <= reach && d < bestD) { bestD = d; best = { asset, x, y, z: z ?? pathZ }; }
+    };
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted || obj.hidden || !obj.assetName || !assetInspect(obj.assetName)) continue;
+      const sy = Number(obj.sy) || 1;
+      consider(obj.assetName, objectXNear(obj, px), Math.max(0.12, (Number(obj.sx) || 1) * 0.5), obj.y + Math.max(0.18, sy * 0.54), obj.z);
+    }
+    for (const { p, body } of seqResolved) for (const c of body.components) {
+      if (c.kind !== 'object') continue;
+      const place = seqComponentPlace(p, c);
+      if (place.hidden || !assetInspect(place.asset)) continue;
+      const h = propHeightOf(place.asset) * (c.size || 1), w = h * (assetAspect[place.asset] || 1);
+      const base = storyGroundY(place.x, place.depth) + (c.lift || 0) - assetGroundLineDefault(place.asset) * h;
+      consider(place.asset, place.x, Math.max(0.12, w * 0.5), base + h * 0.54, place.depth);
+    }
+    return best;
+  }
+  function assetDisplayName(name) {
+    const imported = AssetLib?.get?.(name);
+    if (imported) return imported.label || name;
+    for (const g of editorAssetGroups) for (const i of g.items) if (i.name === name) {
+      return String(i.label || name).toLowerCase().replace(/(^|[\s·(-])([a-z])/g, (m, sep, c) => sep + c.toUpperCase());
+    }
+    return name;
+  }
+  function assetPictureUrl(name) {
+    const imported = AssetLib?.get?.(name);
+    if (imported) return Promise.resolve(AssetLib.artUrl(imported)).catch(() => null);
+    for (const g of editorAssetGroups) for (const i of g.items) if (i.name === name) {
+      const file = i.image || (name.startsWith('tree') ? `sidescroll-tree-${name.slice(-2)}.png` : (name.startsWith('ground') ? `sidescroll-ground-${name.slice(-2)}.png` : null));
+      return Promise.resolve(file ? assetPath(file) : null);
+    }
+    return Promise.resolve(null);
+  }
+  let inspectEl = null;
+  function inspectView() {
+    if (inspectEl) return inspectEl;
+    inspectEl = document.createElement('div');
+    inspectEl.className = 'sidescroll-inspect';
+    inspectEl.hidden = true;
+    inspectEl.setAttribute('role', 'dialog');
+    inspectEl.setAttribute('aria-modal', 'true');
+    inspectEl.innerHTML = `<div class="sidescroll-inspect-card">
+      <div class="sidescroll-inspect-picture" hidden><img alt=""></div>
+      <strong class="sidescroll-inspect-title"></strong>
+      <p class="sidescroll-inspect-text"></p>
+      <div class="sidescroll-inspect-actions"><button type="button" data-inspect-leave>Leave</button></div>
+    </div>`;
+    inspectEl.querySelector('[data-inspect-leave]').addEventListener('click', ev => { ev.preventDefault(); closeInspect(); });
+    inspectEl.addEventListener('pointerdown', ev => ev.stopPropagation());
+    document.body.appendChild(inspectEl);
+    return inspectEl;
+  }
+  function openInspect(target) {
+    const cfg = assetInspect(target?.asset);
+    if (!cfg) return false;
+    const el = inspectView();
+    const picture = el.querySelector('.sidescroll-inspect-picture'), img = picture.querySelector('img');
+    el.classList.toggle('large', !!cfg.large);
+    el.querySelector('.sidescroll-inspect-title').textContent = cfg.title || assetDisplayName(target.asset);
+    const textEl = el.querySelector('.sidescroll-inspect-text');
+    textEl.textContent = cfg.text || '';
+    textEl.hidden = !cfg.text;
+    picture.hidden = !cfg.large;
+    img.removeAttribute('src');
+    const token = {};
+    inspectOpen = { asset: target.asset, token };
+    if (cfg.large) assetPictureUrl(target.asset).then(url => { if (url && inspectOpen?.token === token) img.src = url; });
+    el.hidden = false;
+    document.body.classList.add('sidescroll-inspect-open');
+    hintEl?.classList.add('hidden');
+    setTimeout(() => el.querySelector('[data-inspect-leave]')?.focus?.({ preventScroll: true }), 0);
+    return true;
+  }
+  function closeInspect() {
+    if (!inspectOpen) return;
+    inspectOpen = null;
+    if (inspectEl) inspectEl.hidden = true;
+    document.body.classList.remove('sidescroll-inspect-open');
+  }
+  window.addEventListener('keydown', ev => { if (inspectOpen && ev.key === 'Escape') { ev.preventDefault(); closeInspect(); } });
+
   function performAction() {
+    if (inspectOpen) { closeInspect(); return; }
     if (seqPromptRun() && !editLocked()) { fireStoryTrigger(storyActionTrigger()); return; }
     if (introLocked || storyControlLocked() || editLocked() || inventoryOpen || interactionState || autoDropStep || climbState) return;
     if (pushingObject) { stopPush(); return; }
@@ -20362,6 +20469,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (contextAction && performPuzzleContextAction(contextAction)) return;
     const storyTrigger = storyActionTrigger();
     if (storyTrigger) { fireStoryTrigger(storyTrigger); return; }
+    const inspectTarget = nearestInspectable();
+    if (inspectTarget && openInspect(inspectTarget)) return;
     if (carriedObject) { startDrop(); return; }
     const pushTarget = nearestActionPushable();
     if (pushTarget) { startPush(pushTarget); return; }
