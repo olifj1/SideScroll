@@ -441,6 +441,17 @@ like starts: `tpl:<group>` for instances, set by *Set Solved State*), marks solv
 `progressResetPuzzle` reverses it. Sequences: `seqCompleteSequence` runs each line's steps instantly
 (moves land), `seqResetSequence` undoes its components, fired lines, flags, and items (given items
 carry inventory source `seq:<id>`; the **Item** step's takes are recorded in progress `taken`).
+**Skip** (`seqSkip`, button `#sidescroll-seq-skip` made by `seqSkipButton`, top centre, z 1011): shown
+by `syncSeqSkip` (in `advanceSequenceRuns`) while `seqCanSkip()` — not `editLocked()`, not paused, and a
+run holds control (`seqControlLocks`); held for `SEQ_SKIP_HOLD_MS` (or Escape) → `seqFinishRunNow` on
+each such run: its characters' walks land, its effects end (`seqEffectEndsHidden`; effects carry `run`),
+its remaining steps go through **`seqApplyStepInstant`** (the one place a step's lasting result is
+defined — also used by `seqCompleteSequence` and recovery; with `run.instant` a Look is set without a
+blend and a dropped prop doesn't fall), fade / bars / camera cut back (a kept shot lands), then
+`seqEndRun(run, true)` (quiet: the skip fires its *finish* lines itself and skips those runs too).
+A Control *take* records progress `running["sq:l"]`; `seqEndRun` / `seqStopSequence` / preview clear it
+(`seqForgetRunning`). On the first unlocked `updateStoryTriggers`, `seqFinishInterrupted` applies the
+end state of any line still `running` (the game closed mid-event) and feeds them to the *finish* lines.
 
 **World Lab sequences and player start:** the SEQUENCES track (`renderSequences`,
 `renderSequenceSelection`) draws each placed sequence over its components' extent and moves its
@@ -515,7 +526,7 @@ Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
   what to check on the device, and add it to `TASKS.md` → Needs iPhone testing.
 
 ## Gotchas
-- `sidescroll.js` is ~21k lines and `style.css` ~15k; grep, don't read whole.
+- `sidescroll.js` is ~24k lines and `style.css` ~16k; grep, don't read whole.
 - `biped-rig.js` line 79 is an 821 KB base64 image — never print it.
 - Rigs: any rig with a `RIG_DESIGNER` (joints, bones, groups) and rest-rig functions
   works in the Rig Designer, Parts, Skin and game mesh drawing. The Biped

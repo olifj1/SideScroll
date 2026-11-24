@@ -15656,6 +15656,15 @@ body.sidescroll-seq-control:not(.sidescroll-seq-prompt) #sidescroll-action{opaci
 body.sidescroll-seq-prompt #sidescroll-action{opacity:1;box-shadow:0 0 0 3px rgba(255,214,120,.85),0 0 18px rgba(255,214,120,.55);}
 /* A Wait for Action step: the Action button sits above the letterbox bars. */
 body[data-game-id="game-16"].sidescroll-seq-prompt .sidescroll-secondary-controls.sidescroll-left-actions{z-index:905!important;}
+/* Skip (hold): top centre while an event holds control, over the fade and letterbox. */
+.sidescroll-seq-skip{position:fixed;z-index:1011;top:max(12px,calc(env(safe-area-inset-top) + 8px));left:50%;transform:translateX(-50%);
+  min-height:36px;padding:0 16px;border-radius:18px;border:1px solid rgba(255,255,255,.35);background:rgba(10,12,18,.62);color:#fff;
+  font:800 12px/1 system-ui,-apple-system,sans-serif;letter-spacing:.04em;overflow:hidden;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+.sidescroll-seq-skip[hidden]{display:none;}
+.sidescroll-seq-skip span{position:relative;}
+.sidescroll-seq-skip::before{content:"";position:absolute;inset:0;background:rgba(255,214,120,.45);transform:scaleX(0);transform-origin:left;}
+.sidescroll-seq-skip.holding::before{transform:scaleX(1);transition:transform var(--skip-hold,700ms) linear;}
 /* Sequences editor: one pattern — add bar at the top of a section (equal widths),
    choose-from-a-list box, rows with a small × on the right, small ‹ Back on the left. */
 .sidescroll-seq-addbar{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;}

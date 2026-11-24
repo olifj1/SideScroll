@@ -173,7 +173,7 @@ reads and sets — with **Open in game** and **Play from here**.
 |---|---|---|
 | `sidescroll.story.events.v1` | content | the events library |
 | `sidescroll.story.sequences.v1` | content | sequence templates and placed sequences (anchor, components, logic) |
-| `sidescroll.player.story-progress.v1` | progress | flags, fired lines per placed sequence, lasting changes per component |
+| `sidescroll.player.story-progress.v1` | progress | flags, fired lines per placed sequence, lasting changes per component (now `.v2`; also `running`: events holding control, for Skip on restart) |
 
 The 8–9 Nov keys (`sidescroll.story.world-characters.v1`, `…marks.v1`,
 `…triggers.v1`) are retired and marked stale.
@@ -187,8 +187,8 @@ The 8–9 Nov keys (`sidescroll.story.world-characters.v1`, `…marks.v1`,
 3. **More components and streaming** — thoughts, dressing, random character picks,
    Active while; sequences load and unload by distance.
 4. **World Lab sequences track** *(done 13 Nov: bounds, details, drag / type to move, Open in game; Play from here via the playhead)* — bounds, details, Open in game, Play from here.
-5. **Camera and look steps** *(Camera and Screen — fade, letterbox — done 11 Nov; Look and
-   Skip next)*, Sequence Lab, node graph view.
+5. **Camera and look steps** *(Camera and Screen — fade, letterbox — done 11 Nov; Look 14 Nov;
+   Skip 24 Nov)*, Sequence Lab, node graph view.
 
 ## Later: camera and look steps (from the 8 Nov design)
 - **Camera** — side-on only (agreed): position along the path, height, distance, tilt,
@@ -197,7 +197,10 @@ The 8–9 Nov keys (`sidescroll.story.world-characters.v1`, `…marks.v1`,
 - **Look** — fog colour and amount, colour grade (tint, brightness, saturation),
   vignette, fade to / from black; the same values as placeable atmosphere zones.
 - **Screen** — letterbox bars in / out, hide / show the controls.
-- **Skip** — every sequence that takes control can be skipped (hold to skip), jumping
-  to its end state; an interrupted one (app closed) counts as finished.
+- **Skip** *(built 24 Nov)* — every event that takes control can be skipped (hold Skip at the
+  top of the screen), jumping to its end state: what it is doing finishes at once, its later steps
+  apply instantly, and events chained after it in the same sequence (*When: an event finishes*)
+  are skipped too. An interrupted one (app closed while it held control) counts as finished: its
+  end state is applied on the next start and what follows it runs.
 - **Speech** — like the thought bubble but subtitle-style (in use); its exact look and
   whether lines get sound are still to decide.

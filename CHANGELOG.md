@@ -4,6 +4,15 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Skip.** While a story event has taken control, **Hold to skip ⏭** shows at the top of the
+  screen; hold it for about ¾ s (or hold Escape on a keyboard) and the event jumps to its end:
+  walks land, effects finish (a dissolved character stays gone), its remaining steps are applied
+  at once (flags, objects, items, looks, props, worn items), and the camera, black, letterbox and
+  line cut back so control returns straight away. Events that follow it in the same sequence (*When:
+  an event finishes*) are skipped with it. Works in the game and in the editor's ▶ Play (hidden while
+  paused). **If the game is closed while an event holds control**, the next start counts it as
+  finished: its end state is applied and what follows it runs. ⚑ Progress → **Complete** now uses the
+  same end state, so it also applies Object and Put on / Take off steps (it skipped them before).
 - **Wearing the bag.** Asset Lab → Interactions → **Wear**: picking the asset up puts it on her
   instead (its Inspect view says **Put on**); it never goes in the inventory. In Character Lab →
   Skin, any part can be given a **Worn item** — the bag cut into Aureli's atlas, skinned like
