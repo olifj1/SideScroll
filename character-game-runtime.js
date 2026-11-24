@@ -17,7 +17,9 @@
   // names one of its animations; with no entry the slot plays the animation of
   // the same name. `fallback` supplies an animation the character has no saved
   // copy of (original characters: the shared family set).
-  const SLOTS=['idle','walk','run','jump'];
+  // Climb (optional): no clip = the game's coded climbing.
+  const SLOTS=['idle','walk','run','jump','climb'];
+  const ANIMATIONS=['idle','walk','run','jump']; // the built-in animations every character has
   function slotClips(record,fallback=()=>undefined){
     const out={},map=record?.slotAnimations&&typeof record.slotAnimations==='object'?record.slotAnimations:{};
     for(const slot of SLOTS){
@@ -90,16 +92,16 @@
   function slotAnimation(id,slot){
     const map=recordOf(id)?.slotAnimations;
     const key=map&&typeof map[slot]==='string'?map[slot]:null;
-    return key&&(clipFor(id,key)||SLOTS.includes(key))?key:slot;
+    return key&&(clipFor(id,key)||ANIMATIONS.includes(key))?key:slot;
   }
   // Every animation a character has, for pickers: [{key,name,basedOn}].
   function animationsFor(id){
     const record=recordOf(id),names=record?.animationNames||{};
     const title=s=>s.charAt(0).toUpperCase()+s.slice(1);
-    const out=SLOTS.map(key=>({key,name:typeof names[key]==='string'&&names[key]?names[key]:title(key),basedOn:key}));
+    const out=ANIMATIONS.map(key=>({key,name:typeof names[key]==='string'&&names[key]?names[key]:title(key),basedOn:key}));
     for(const [key,extra] of Object.entries(record?.extraClips||{})){
       if(!/^clip-[a-z0-9-]{3,60}$/.test(key)||!Array.isArray(extra?.clip?.keys))continue;
-      out.push({key,name:String(extra.name||'Animation').slice(0,42),basedOn:SLOTS.includes(extra.basedOn)?extra.basedOn:'walk'});
+      out.push({key,name:String(extra.name||'Animation').slice(0,42),basedOn:ANIMATIONS.includes(extra.basedOn)?extra.basedOn:'walk'});
     }
     return out;
   }

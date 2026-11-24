@@ -818,6 +818,10 @@
   // name (the character's original), custom slots play nothing.
   const ActionSlots = window.SideScrollActionSlots || null;
   const BUILT_IN_SLOTS = ActionSlots?.BUILT_IN || ['idle','walk','run','jump'];
+  // Built-in slots that may play nothing (Climb: the game's coded climbing).
+  const OPTIONAL_SLOTS = ActionSlots?.OPTIONAL || [];
+  // The game climbs at CLIMB_SPEED m/s and plays a Climb animation once per CLIMB_CYCLE_WORLD m.
+  const CLIMB_CYCLE_WORLD = 0.92, CLIMB_SPEED = 1.45, CLIMB_CYCLE_MS = Math.round(CLIMB_CYCLE_WORLD / CLIMB_SPEED * 1000);
   function savedSlotMap(characterId) {
     const entry = libraryEntry(characterId);
     return (entry ? entry.slotAnimations : loadCharacterClips().characters[characterId]?.slotAnimations) || {};
@@ -831,7 +835,7 @@
   // Every action slot with the animation it plays for this character.
   function slotList(characterId = selection.characterId) {
     return (ActionSlots?.list() || BUILT_IN_SLOTS.map(id => ({id, name:titleCase(id), builtIn:true})))
-      .map(slot => ({id:slot.id, name:slot.name, builtIn:!!slot.builtIn, hookedUp:ActionSlots?.isHookedUp(slot.id) ?? true,
+      .map(slot => ({id:slot.id, name:slot.name, builtIn:!!slot.builtIn, optional:OPTIONAL_SLOTS.includes(slot.id), hookedUp:ActionSlots?.isHookedUp(slot.id) ?? true,
         animation:slotAnimation(characterId, slot.id)}));
   }
   // Every animation of a character (its originals, one per built-in slot name,
@@ -850,7 +854,9 @@
     || !!extraAnimations[characterId]?.some(x => x.key === key);
   const extraOf = (characterId, key) => extraAnimations[characterId]?.find(x => x.key === key) || null;
   // Playback length: the slot's, or the slot an extra was made from.
-  const clipDuration = () => currentAdapter().clipMs[selection.clip] || currentAdapter().clipMs[extraOf(selection.characterId, selection.clip)?.basedOn] || 1050;
+  // An animation in the Climb slot plays one cycle per CLIMB_CYCLE_WORLD climbed at the game's climb speed.
+  const clipDuration = () => (slotAnimation(selection.characterId, 'climb') === selection.clip && extraOf(selection.characterId, selection.clip) ? CLIMB_CYCLE_MS : 0)
+    || currentAdapter().clipMs[selection.clip] || currentAdapter().clipMs[extraOf(selection.characterId, selection.clip)?.basedOn] || 1050;
   // Change a character's saved animations in one write. The callback gets the
   // saved {clips, links, names, extras} objects (slot clips, template links by
   // slot, slot names, extra animations) to change in place.
@@ -1662,7 +1668,42 @@
     const starts = [{value:'idle', label:'Its Idle pose'}, {value:'current', label:'The pose on screen now'}];
     if (adapter.restPose) starts.push({value:'rest', label:'Its rig’s rest pose (straight)'});
     for (const a of animationList()) starts.push({value:`clip:${a.key}`, label:`First pose of ${a.name}`});
+    if (character.family === 'biped') starts.push({value:'climb', label:'Today’s climbing, converted (all keys; for Climb)'});
     return starts;
+  }
+  // ---- Climb (the game's coded climbing as keys) ---------------------------------
+  // The game climbs at CLIMB_SPEED along a climb path and plays a Climb animation
+  // one cycle per CLIMB_CYCLE_WORLD metres (backwards when climbing down). These
+  // keys reproduce its coded climbing (sidescroll.js poseForClimbing) on a vertical
+  // path at this character's scale: diagonal pairs of hands and feet hold, then
+  // reach, and a held limb moves down by exactly the distance climbed, so it stays
+  // put on the wall.
+  function convertedClimbKeys() {
+    const character = currentCharacter(), rig = BipedRig, restRig = setupDraft.rig;
+    const scale = 2.31 * Math.max(.05, Number(setupDraft.scale) || 1);
+    // The coded climbing starts from the shared biped walk's standing pose (as the game does).
+    const walk = banks.biped.walk;
+    const smooth = t => t * t * (3 - 2 * t), lerp = (a, b, t) => a + (b - a) * t;
+    const limb = (phase, shift, hold, ax, ay, away) => {
+      const u = ((phase + shift) % 1 + 1) % 1;
+      let along, swing = 0;
+      if (u < hold) along = -CLIMB_CYCLE_WORLD * u;
+      else { const t = smooth((u - hold) / Math.max(.001, 1 - hold)); along = lerp(-CLIMB_CYCLE_WORLD * hold, 0, t); swing = Math.sin(t * Math.PI); }
+      return { x: (ax - away * swing) / scale, y: (ay + along) / scale };
+    };
+    return Array.from({length:16}, (_, frame) => {
+      const phase = frame / 16, p = clone(rig.sampleFrames(walk, .02));
+      const weight = .5 - .5 * Math.cos(phase * Math.PI * 2);
+      p.planted = null; p.pelvisY = .480 - .025 * weight;
+      p.lean = (13.5 + 2.5 * Math.sin(phase * Math.PI * 2)) * Math.PI / 180;
+      p.hairAngle = (116 + 4 * weight) * Math.PI / 180; p.hairBend = (10 + 5 * weight) * Math.PI / 180; p.travel = phase;
+      const shoulder = rig.chestFor ? rig.chestFor(p.pelvisY, p.lean, restRig) : { x: Math.sin(p.lean) * rig.BODY.torso, y: p.pelvisY + Math.cos(p.lean) * rig.BODY.torso };
+      const hand = (t, prefix) => { p[`${prefix}HandX`] = t.x - shoulder.x; p[`${prefix}HandY`] = shoulder.y - t.y; };
+      const foot = (t, prefix, angle) => { p[`${prefix}FootX`] = t.x; p[`${prefix}FootLift`] = t.y; p[`${prefix}FootAngle`] = angle; };
+      hand(limb(phase, 0, .52, .46, 1.56, .10), 'a'); hand(limb(phase, .5, .52, .40, 1.50, .09), 'b');
+      foot(limb(phase, .5, .50, .13, .47, .12), 'a', -12 * Math.PI / 180); foot(limb(phase, 0, .50, -.04, .45, .11), 'b', 9 * Math.PI / 180);
+      return { frame, name: `Climb ${frame + 1}`, pose: p };
+    });
   }
   function newAnimationStartPose(start) {
     const character = currentCharacter(), adapter = currentAdapter(), bank = currentBank();
@@ -1681,8 +1722,11 @@
       : extraOf(character.id, startClip)?.basedOn || (builtIn.includes(startClip) ? startClip : 'walk');
     // Two keys holding the start pose (a clip with fewer than two keys falls back
     // to the built-in frames, which are made for the original heroes' rig).
-    const startPose = newAnimationStartPose(start);
-    const clip = kind === 'blank'
+    const climb = kind === 'blank' && start === 'climb' && family === 'biped';
+    const startPose = climb ? null : newAnimationStartPose(start);
+    const clip = climb
+      ? normaliseSparseClip({source:'sparse-authored', keys:convertedClimbKeys()}, family, key, banks[family].walk)
+      : kind === 'blank'
       ? normaliseSparseClip({source:'sparse-authored', keys:[{frame:0, name:'Start', pose:startPose}, {frame:15, name:'End', pose:clone(startPose)}]}, family, key, banks[family][source])
       : normaliseSparseClip(clone(currentSparseClip()), family, key, currentFrames());
     const clean = safeCharacterName(name) || (kind === 'blank' ? 'New animation' : `${animationList().find(a => a.key === selection.clip)?.name || 'Animation'} copy`);
@@ -1690,9 +1734,12 @@
     customSparseBanks[character.id][key] = clip;
     customSampleBanks[character.id][key] = compileSparseClip(clip, family);
     (extraAnimations[character.id] ||= []).push({key, name:clean, basedOn:source});
+    // Converted climbing goes straight into an empty Climb slot.
+    const intoClimb = climb && !slotAnimation(character.id, 'climb') && slotList().some(s => s.id === 'climb');
+    if (intoClimb) updateSavedAnimations(character.id, ({slotMap}) => { slotMap.climb = key; });
     selection.clip = key; selection.frame = 0; playPhase = 0; playing = false;
     saveEditorSelection(); resetCheckpoint();
-    hint.textContent = `${clean} created · not in a slot yet`;
+    hint.textContent = intoClimb ? `${clean} created · played for Climb` : `${clean} created · not in a slot yet`;
     draw(); updateUi(); notify();
     return key;
   }
@@ -1730,9 +1777,9 @@
     const character = currentCharacter();
     if (!slotList().some(s => s.id === slot)) return false;
     if (key !== null && !clipExists(character.id, key)) return false;
-    if (key === null && BUILT_IN_SLOTS.includes(slot)) return false;
+    if (key === null && BUILT_IN_SLOTS.includes(slot) && !OPTIONAL_SLOTS.includes(slot)) return false;
     updateSavedAnimations(character.id, ({slotMap}) => { slotMap[slot] = key; });
-    const name = key === null ? 'nothing' : animationList().find(a => a.key === key)?.name;
+    const name = key === null ? (OPTIONAL_SLOTS.includes(slot) ? 'the game’s own climbing' : 'nothing') : animationList().find(a => a.key === key)?.name;
     hint.textContent = `${slotList().find(s => s.id === slot)?.name} plays ${name} for ${character.label}`;
     draw(); notify();
     return true;

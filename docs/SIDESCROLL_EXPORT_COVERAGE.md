@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## 24 November 2026 — Climb animation
+- `sidescroll.action-slots.v1` gains a built-in `climb` slot (no migration: built-ins are added on load; saved orders get it after Jump).
+- A character's Climb animation is an ordinary created animation (`extraClips[clip-…]`) named by `slotAnimations.climb` in its library entry or in `sidescroll.animlab.character-clips.v1`; it travels with character packages, publishing and backup like any animation. No new key.
+
 ## 24 November 2026 — Fire effect
 - Imported-asset entries (`sidescroll.asset-library.v1`) may have `art.shader: 'fire'` with its own params. No new key or migration; published, exported and backed up like other effect assets (no art file).
 

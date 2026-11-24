@@ -17893,6 +17893,29 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     };
   }
 
+  // A character's own Climb animation (Character Lab: the Climb action slot), or
+  // null for the coded climbing below. It plays one cycle per climbed
+  // CLIMB_ANIM_CYCLE_WORLD (backwards when climbing down, so held hands and feet
+  // stay put), easing in from standing over the short step onto the path.
+  function climbClipFor(id = currentCharacterVariant) {
+    const clip = GameCharacters?.ready(id)?.sparseClips?.climb || GameCharacters?.originalClips?.(id)?.climb || null;
+    return Array.isArray(clip?.keys) && clip.keys.length >= 2 ? clip : null;
+  }
+  function climbClipPose(st, isQuadruped) {
+    const clip = st ? climbClipFor() : null;
+    if (!clip) return null;
+    const frame = climbAnimationMotionFrame(st);
+    const d = frame.phaseDistance / CLIMB_ANIM_CYCLE_WORLD;
+    const phase = ((st.mode === 'down' ? -d : d) % 1 + 1) % 1;
+    const rig = isQuadruped ? QuadrupedRig : Rig;
+    const pose = isQuadruped ? QuadrupedRig?.sampleSparseClip?.(clip, phase)
+      : GameCharacters?.sampleBipedClip({ family:'biped', sparseClips:{ climb:clip } }, 'climb', phase, Rig);
+    if (!pose) return null;
+    if (frame.entryBlend >= 1 || typeof rig?.interpolatePose !== 'function') return pose;
+    const standing = isQuadruped ? quadrupedPoseForClip('idle', 0, quadrupedIdleFrames) : bipedPoseForClip('idle', 0, Rig.sampleFrames(characterFrames, 0.02));
+    return rig.interpolatePose(standing, pose, frame.entryBlend, 'climb', Number(pose.travel) || 0);
+  }
+
   function poseForClimbing(st = climbState) {
     const p = Rig.sampleFrames(characterFrames, 0.02);
     const frame = climbAnimationMotionFrame(st);
@@ -18177,7 +18200,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const isQuadruped = charRig === QuadrupedRig;
     let pose;
 
-    if (climbState && !isQuadruped) {
+    if (climbState && (pose = climbClipPose(climbState, isQuadruped))) {
+      // The character's own Climb animation (Character Lab).
+    } else if (climbState && !isQuadruped) {
       pose = poseForClimbing(climbState);
     } else if (climbState && isQuadruped) {
       // First-pass quadruped climbing uses the run/scramble cycle. The movement and

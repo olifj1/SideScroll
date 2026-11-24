@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Climb is an animation you can edit.** Character Lab → Animate → Actions has a new built-in
+  **Climb** slot (after Jump). Left on *The game’s own climbing*, nothing changes. **New → Start from →
+  Today’s climbing, converted** makes a 16-key animation that reproduces the game's coded climb at the
+  character's scale and puts it in the Climb slot; edit it like any animation and Save. The game plays
+  a character's Climb animation by the distance climbed (one cycle per 0.92 m, backwards when
+  climbing down so held hands and feet stay put), easing in from standing. Ground Motion shows a
+  **moving wall** of rungs for Climb, so holds can be lined up. Four-legged characters can put any
+  animation in Climb too (otherwise they keep the old run cycle).
 - **Fire effect.** Asset Lab → **+ Add ▾ → New fire effect**: a plane with flames standing on its
   bottom edge (a hearth, campfire or torch) — several tongues of different heights that break off
   at the tips, hot core, glow, a little smoke and rising embers. Settings: flame height, width,

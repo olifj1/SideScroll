@@ -90,14 +90,17 @@
     const clip=String(st.clip||'');
     const slots=core.slotList?.()||[];
     const slot=slots.find(x=>x.builtIn&&x.animation===clip)?.id||(['walk','run','idle','jump'].includes(clip)?clip:'walk');
-    return slot==='walk'||slot==='run'?slot:null;
+    return slot==='walk'||slot==='run'||(slot==='climb'&&st.family==='biped')?slot:null;
   }
+  // Climb: the game climbs CLIMB_CYCLE_WORLD m per cycle of the Climb animation.
+  const CLIMB_CYCLE_WORLD=.92;
   // Bipeds: the distance Quick Play travels per cycle (walk/run speed × cycle
   // time), in rig units — so a planted foot stays on one marker.
   const BIPED_CYCLE_MS={walk:1050,run:650};
   function strideLocal(st=state()){
     if(st.family==='biped'){
       const gait=gaitOf(st);if(!gait)return 0;
+      if(gait==='climb')return CLIMB_CYCLE_WORLD/Math.max(.001,BASE_GAMEPLAY_SCALE*(Number(st.setup?.scale)||1));
       const walk=Number(st.setup?.walkSpeed)||1.15,run=Math.max(Number(st.setup?.runSpeed)||2.85,walk+.2);
       const speed=gait==='run'?run:walk;
       return speed*(BIPED_CYCLE_MS[gait]/1000)/Math.max(.001,BASE_GAMEPLAY_SCALE*(Number(st.setup?.scale)||1));
@@ -201,7 +204,10 @@
     }
     if(!prefs.showGround)return;
     const stride=strideLocal(st)*prefs.speed;
-    if(st.family==='biped'){drawBipedGround(ctx,canvas,view,project,phase,stride,base);return;}
+    if(st.family==='biped'){
+      if(gaitOf(st)==='climb'){drawClimbWall(ctx,canvas,view,project,phase,stride,base);return;}
+      drawBipedGround(ctx,canvas,view,project,phase,stride,base);return;
+    }
     const spacing=Math.max(.045,stride?stride/4:.07);
     const offset=(phase*stride)%spacing;
     ctx.save();
@@ -242,6 +248,29 @@
     ctx.restore();
   }
 
+  // Climb: a wall in front of the character that moves down as she climbs — a
+  // rung every 2.5 cm and a stronger one every 10 cm (rig units). A held hand or
+  // foot should stay on the same rung.
+  function drawClimbWall(ctx,canvas,view,project,phase,stride,base){
+    if(!stride)return;
+    const minor=.025,shift=(phase||0)*stride,x0=-.08,x1=.32;
+    const left=project({x:x0,y:0},view).x,right=project({x:x1,y:0},view).x;
+    const span=canvas.height/view.scale;
+    ctx.save();
+    ctx.fillStyle='rgba(73,102,99,.12)';ctx.fillRect(Math.min(left,right),0,Math.abs(right-left),canvas.height);
+    for(let y=Math.floor(-span/minor)*minor;y<=span*1.2;y+=minor){
+      const wy=y-(shift%minor),p=project({x:x0,y:wy},view);if(p.y<-20||p.y>canvas.height+20)continue;
+      const index=Math.round((wy+shift)/minor),major=index%4===0;
+      ctx.strokeStyle=major?'rgba(126,216,199,.75)':'rgba(238,243,241,.28)';
+      ctx.lineWidth=major?Math.max(1.4,view.scale*.002):Math.max(1,view.scale*.0012);
+      ctx.beginPath();ctx.moveTo(left,p.y);ctx.lineTo(major?right:Rig_lerp(left,right,.5),p.y);ctx.stroke();
+    }
+    ctx.strokeStyle='rgba(126,216,199,.4)';ctx.lineWidth=Math.max(1,view.scale*.0015);
+    ctx.beginPath();ctx.moveTo(0,base.y);ctx.lineTo(canvas.width,base.y);ctx.stroke();
+    ctx.restore();
+  }
+  const Rig_lerp=(a,b,t)=>a+(b-a)*t;
+
   function drawIkTargets({ctx,pose,adapter,view,project,restRig}){
     if(adapter.id!=='quadruped'||state().mode!=='animate')return;
     const g=adapter.rig.geometry(pose,restRig),activePrefix=selectedPrefix();
@@ -272,11 +301,13 @@
     if(locomotion){
       groundShow.classList.toggle('active',prefs.showGround);groundShow.setAttribute('aria-pressed',String(prefs.showGround));
       groundSpeed.value=String(prefs.speed);groundSpeedOut.textContent=`×${prefs.speed.toFixed(2)}`;
-      groundNote.textContent=st.family==='biped'
+      groundNote.textContent=st.family==='biped'&&gaitOf(st)==='climb'
+        ?'Editor-only moving wall for spotting hand and foot slip: it moves down as far as the game climbs in one cycle (0.92 m). A held hand or foot should stay on the same rung; a rung every 2.5 cm, a stronger one every 10 cm.'
+        :st.family==='biped'
         ?'Editor-only moving floor for spotting foot slip: it scrolls at the speed Quick Play walks or runs (Walk / Run speed × cycle time). A planted foot should stay over the same marker; a tick every 2.5 cm, a taller one every 10 cm.'
         :groundNoteQuadruped;
       if(st.family==='biped'){const gait=gaitOf(st),stride=strideLocal(st);
-        groundStatus.textContent=`${gait==='run'?'Run':'Walk'} · ${(stride*100).toFixed(1)} cm per cycle at Scale ${Number(st.setup?.scale||1).toFixed(2)} · display ×${prefs.speed.toFixed(2)}`;}
+        groundStatus.textContent=`${gait==='climb'?'Climb':gait==='run'?'Run':'Walk'} · ${(stride*100).toFixed(1)} cm per cycle at Scale ${Number(st.setup?.scale||1).toFixed(2)} · display ×${prefs.speed.toFixed(2)}`;}
     }
     if(!visible)return;
 

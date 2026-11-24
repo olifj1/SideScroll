@@ -120,7 +120,15 @@ a body bone instead (TASKS → Next → *Wearable props*).
   holds (the far hand following the prop), more attachment points (back, belt, a
   quadruped's mouth) and sounds on animation frames build on the same grips.
 
+### Climb animation (built 24 Nov 2026)
+Climb is a built-in action slot that may stay empty (the game's coded climbing plays). A character's
+Climb animation is a normal animation (made by converting the coded climb, then edited). The game owns
+the path, speed, getting on and off; the animation is only the pose, played by the distance climbed
+(0.92 m per cycle; reversed when climbing down) so held hands and feet stay put.
+
 ## 4. Action paths (generalised climb path)
+*(Agreed 24 Nov: next. A path has several points, so it can bend — into a gap and along a tunnel —
+and names an action slot; its animation plays by distance along the path as Climb does.)*
 The climb path becomes a general **action path**: a path with an action name, a
 button label, an animation bound to it, and the character following the path
 while it plays. Example: copy the climb setup, call it *Crawl*, move it to where
