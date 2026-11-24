@@ -4,7 +4,7 @@ The single task list. Open work only: when something is done, delete it here and
 add a line to `CHANGELOG.md`. Detail and history for older items:
 `docs/archive/SIDESCROLL_TASKS.md` (search for the version number shown).
 
-Last reviewed: 24 November 2026 (intro sequence is the current focus; objects, Inspect / Collect / Wear and the bag done this week).
+Last reviewed: 24 November 2026 (intro sequence is the current focus; objects, Inspect / Collect / Wear, the bag and Skip done this week).
 
 ---
 
@@ -35,7 +35,6 @@ Stages (engine work in order; art and sound in parallel):
 - [ ] **2 — Darkness effect:** *(effect asset done 14 Nov; effect states and the **Effect on a character** step (was *Darkness / effect*) — attached to a character, blending through states, hiding it, the dust travelling on — prototype done 17 Nov; a second kind, **character effects** (Dissolve: the character itself breaks up, no plane), 19 Nov)* still to do: make Asset Lab match the game (keep faint wisps in the game, effects don't clip what's behind them, a fog option per effect, a backdrop choice in Asset Lab); "start when it reaches a mark"; the player as a target. Dissolve: its default edge colour is violet, which the art brief avoids ("no purple magic") — consider a dark ink / smoke default; noise looks coarse close up (raise Noise size) — maybe scale it to the body's size.
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** *(done 20 Nov: Character Lab → Props grips, a component's Holds, the Prop step — hold / put away / drop)* still to do: import the axe and set Father's grip; check it through his Chop animation once that exists.
-- [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
 - [ ] **7 — Objects in sequences** (agreed 23 Nov; *done 23–24 Nov: Object components, object roles, the Object step — appear / disappear / change to; sequence objects take Asset Lab's Inspect / Collect / Wear like placed copies*; still to do, only when a case needs it: collision and Layer / Sort for sequence objects (static dressing is placed in the scene instead, agreed 23 Nov)): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
 - [ ] **8 — Outfit parts** (agreed 23 Nov; *done 24 Nov for the bag: Skin → Worn item, Asset Lab → Wear (Holds the inventory), Put on, the Wear step, saved state*) — still to do: a cloak / coat the same way once its art is in the atlas; worn parts on a sequence copy of the player follow the player's own worn state (fine while she is the only wearer; revisit if story characters need their own).
 - [ ] **9 — Inventory:** *(done 24 Nov: Inspect and Collect in Asset Lab, Pick up, any collectable asset in the inventory, tap to look again, story flags)* — still to do: **combine** two items (designed before building), *use* an item on something in the world, and a fuller inventory screen if the panel feels small.
@@ -52,7 +51,7 @@ use roles. Steps 1–2 (events library, sequences with characters / marks / zone
 - [ ] **Play from here:** complete every puzzle and sequence before a chosen point (via ⚑ Progress), then play from there. *(⚑ Progress, Solved State and the Item step done 12 Nov.)*
 - [ ] **4 — World Lab sequences track:** *(track, details, drag / type to move, Open in game done 13 Nov)* still to do: show where each component stands within the bar, and a template's other instances.
 - [ ] **Timeline, next stages** *(21 Nov: every event is a timeline with a row per subject, done)*: (2) *(22 Nov, done: docked Bar / Half / Full, push aside, ▶ with a playhead)*; (3) *(23 Nov, done: pause, scrubbing, edits replay at the playhead)* scrub to any moment (the scene jumps there: positions, camera, dissolve, lines, bars, look) and edit while paused, replaying from the playhead — without touching play progress.
-- [ ] **5 — More look controls** (colour grading, vignette, bloom; looks per stretch of the journey, e.g. atmosphere zones), **Skip** (hold to skip a sequence that has taken control), Sequence Lab, node graph view. *(Camera and Screen steps done 11 Nov; Looks (fog + post sets) and the Look step done 14 Nov.)*
+- [ ] **5 — More look controls** (colour grading, vignette, bloom; looks per stretch of the journey, e.g. atmosphere zones), Sequence Lab, node graph view. *(Skip done 24 Nov.)* *(Camera and Screen steps done 11 Nov; Looks (fog + post sets) and the Look step done 14 Nov.)*
 
 ### Characters: templates, actions and abilities (agreed 30 Oct — next after the intro)
 Design: `docs/CHARACTER_SYSTEM_DESIGN.md`. Every character is built the same
@@ -87,6 +86,15 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bt. Skip (24 Nov)** — e.g. your *Taken* sequence (any event with a *Take control* step)
+- [ ] Walk into the zone (or TEST bar ▶ Play then walk in): as soon as control is taken, **Hold to skip ⏭** appears at the top centre (on the letterbox bar if there is one).
+- [ ] A quick tap does nothing. Hold it: it fills in about ¾ s, then the event jumps to its end — Father is gone (dissolved), anyone walking stands at their mark, the bars, black and the line vanish at once, the camera cuts back to Aureli and you can move straight away. The button goes.
+- [ ] Anything the event sets still happens: flags (a *When: flag* line elsewhere fires), objects shown / hidden, items, the look it changes to.
+- [ ] An event that follows it in the same sequence (*When: an event finishes*) is skipped with it. One started by a flag shows Skip again if it takes control.
+- [ ] While paused (❚❚) Skip is hidden; it is back on ▶ Resume. It never shows while just editing.
+- [ ] **Closing mid-scene:** in the game (not the editor) start the event, then close the app (swipe it away) while control is taken. Reopen: the scene is in its finished state (Father gone, flags set), control is yours, and what follows it plays. ⚑ Progress → Reset on the sequence still brings everything back.
+- [ ] ⚑ Progress → **Complete** on a sequence now also applies its *Object* (appear / disappear / change) and *Put on / Take off* steps.
 
 **0bs. Wear the bag (24 Nov)**
 - [ ] Asset Lab → the hook bag → Interactions → **Wear**, tick **Holds the inventory**, set *Nothing to carry it in* and the flag `has-bag`.

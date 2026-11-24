@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 24 November 2026 — Skip
+- The progress key `sidescroll.player.story-progress.v2` gains an optional `running: {"<placed id>:<line id>": true}` — lines whose event has taken control (Control step) and not yet finished. It is cleared when the event ends, is skipped, or its sequence is stopped / reset; if the game closes first, the next start applies that event's end state and clears it. Progress scope (not published; in Project Backup). No migration: absent = nothing running. No new storage key.
+
 ## 24 November 2026 — Wear (outfit parts)
 - `sidescroll.asset-interactions.v1` entries gain `wear: {holdsInventory, refuse, flag?}`.
 - Parts-assembly instances (character setup, `artLayout.assembly.instances[]`) gain an optional `wornWith` (asset name), kept by walk-lab's setup cleaner; it travels with the character's setup (packages, publishing, backup).

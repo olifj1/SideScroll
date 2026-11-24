@@ -25,6 +25,11 @@
   sequence runs on the story clock so it pauses and scrubs with everything else. A tool that needs
   the whole view (framing a shot) pushes the others aside and restores them when done. While a
   docked editor shows, the game's touch controls step out of its way.
+- Every event that takes control can be skipped, and a skip means "its end state, now": each step
+  type defines its lasting result once, in `seqApplyStepInstant` (used by Skip, ⚑ Progress →
+  Complete and recovery after the game closed). A new step type that changes anything lasting
+  must add its instant result there; anything only seen while it runs (lines, waits, camera,
+  screen, sounds) leaves nothing.
 
 ## Props: one grip per character per asset (20 Nov 2026)
 - Anything a character holds is drawn through one list of held things (`[{layer, draw}]`), placed

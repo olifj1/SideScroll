@@ -311,7 +311,9 @@
   //  components:{"<placed id>:<component id>":{x, depth, facing, animation, hidden,
   //    holding:[asset], dropped:[{asset, x, z, rot, flip, w, h}]}} (props: Prop step),
   //  taken:{"<placed id>":{item id: count}} — items its events took from the player,
-  //  look:{id, by} — the look a Look step set (by = placed sequence id); none = base}
+  //  look:{id, by} — the look a Look step set (by = placed sequence id); none = base,
+  //  running:{"<placed id>:<line id>":true} — lines whose event has taken control and not
+  //    finished; if the game closes first, the next start finishes them (as a Skip)}
   function loadProgress() {
     const raw = read(PROGRESS_KEY), out = { flags: {}, fired: {}, components: {}, taken: {} };
     if (raw?.look && /^look-[a-z0-9]{4,20}$/.test(raw.look.id || '')) out.look = { id: raw.look.id, by: /^sq-[a-z0-9]+$/.test(raw.look.by || '') ? raw.look.by : null };
@@ -323,6 +325,7 @@
     }
     for (const [k, v] of Object.entries(raw?.flags || {})) if (v && flagName(k) === k) out.flags[k] = true;
     for (const [k, v] of Object.entries(raw?.fired || {})) if (v && /^sq-[a-z0-9]+:l-[a-z0-9]+$/.test(k)) out.fired[k] = true;
+    for (const [k, v] of Object.entries(raw?.running || {})) if (v && /^sq-[a-z0-9]+:l-[a-z0-9]+$/.test(k)) (out.running ||= {})[k] = true;
     for (const [k, v] of Object.entries(raw?.components || {})) {
       if (!/^sq-[a-z0-9]+:c-[a-z0-9]+$/.test(k) || !v || typeof v !== 'object') continue;
       const c = {};
@@ -345,10 +348,10 @@
   }
   function saveProgress(p) {
     const empty = !Object.keys(p?.flags || {}).length && !Object.keys(p?.fired || {}).length && !Object.keys(p?.components || {}).length
-      && !Object.keys(p?.taken || {}).length && !p?.look;
+      && !Object.keys(p?.taken || {}).length && !p?.look && !Object.keys(p?.running || {}).length;
     if (empty) localStorage.removeItem(PROGRESS_KEY);
     else localStorage.setItem(PROGRESS_KEY, JSON.stringify({ schema: PROGRESS_KEY, flags: p.flags, fired: p.fired, components: p.components, taken: p.taken || {},
-      ...(p.look ? { look: p.look } : {}) }));
+      ...(p.look ? { look: p.look } : {}), ...(Object.keys(p.running || {}).length ? { running: p.running } : {}) }));
   }
 
   window.SideScrollSequences = Object.freeze({

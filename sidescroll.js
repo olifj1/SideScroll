@@ -18685,8 +18685,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         if (step.asset) { setWorn(step.asset, step.action === 'off' ? null : `story:${run.p.id}`); if (step.action !== 'off') setInteractionFlag(assetWear(step.asset)?.flag); }
         return now;
       case 'control':
-        if (step.take) { seqControlLocks.add(run.id); setDriveAxis(0); keyLeft = false; keyRight = false; }
-        else seqControlLocks.delete(run.id);
+        if (step.take) {
+          seqControlLocks.add(run.id); setDriveAxis(0); keyLeft = false; keyRight = false;
+          // Remembered until the event ends: if the game closes first, the next start finishes it.
+          (seqProgress.running ||= {})[seqLineKey(run.p, run.line)] = true; saveStoryProgress();
+        } else seqControlLocks.delete(run.id);
         return now;
       case 'camera': {
         if (step.mode === 'back') { seqCameraTo(run, null, step.seconds, step.ease); return now + step.seconds; }
@@ -18715,7 +18718,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         // Darkness / effect on a character: attached for the step's timeline.
         const entry = effectAssets.get(step.asset);
         if (!actor || !entry || !step.keys.length) return now;
-        seqEffects.push({ placed:run.p.id, key, entry, step, t0:now, hidden:false, obj:null });
+        seqEffects.push({ placed:run.p.id, run:run.id, key, entry, step, t0:now, hidden:false, obj:null });
         return now + step.delay + step.keys.reduce((sum, k) => sum + k.seconds, 0);
       }
       case 'prop': {
@@ -18732,7 +18735,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       case 'look': {
         // Lasts until another Look step changes it (kept in play progress).
-        setWorldLook(step.look || null, step.seconds);
+        setWorldLook(step.look || null, run.instant ? 0 : step.seconds);
         if (step.look) seqProgress.look = { id:step.look, by:run.p.id }; else delete seqProgress.look;
         saveStoryProgress();
         return now + step.seconds;
@@ -18796,12 +18799,22 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const locked = seqControlLocks.size > 0, prompting = !!seqPromptRun();
     if (locked !== seqControlShown) { seqControlShown = locked; document.body.classList.toggle('sidescroll-seq-control', locked); }
     if (prompting !== seqPromptShown) { seqPromptShown = prompting; document.body.classList.toggle('sidescroll-seq-prompt', prompting); }
+    syncSeqSkip();
   }
-  function seqEndRun(run) {
+  function seqEndRun(run, quiet = false) {
     run.done = true;
     seqControlLocks.delete(run.id); // control always comes back when an event ends
     seqReleaseRun(run.id);          // and so do the camera, a fade and the letterbox
-    seqFinishedLines.push({ p: run.p, line: run.line });
+    seqForgetRunning(run.p.id, run.line.id);
+    if (!quiet) seqFinishedLines.push({ p: run.p, line: run.line }); // a skip fires what follows itself
+  }
+  function seqForgetRunning(placedId, lineId = null) {
+    if (!seqProgress.running) return;
+    const before = Object.keys(seqProgress.running).length;
+    for (const key of Object.keys(seqProgress.running))
+      if (lineId ? key === `${placedId}:${lineId}` : key.startsWith(`${placedId}:`)) delete seqProgress.running[key];
+    if (!Object.keys(seqProgress.running).length) delete seqProgress.running;
+    if (Object.keys(seqProgress.running || {}).length !== before) saveStoryProgress();
   }
   let seqControlShown = false, seqPromptShown = false;
   const storyPlayerX = () => character.x + colliderWorld().offsetX;
@@ -18812,6 +18825,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     updateStorySpeech();
     const finished = seqFinishedLines.splice(0);
     if (editLocked() || introLocked || !seqResolved.length) return;
+    // Events cut short by the game closing finish first; what follows them then runs.
+    if (!seqRecovered) finished.push(...seqFinishInterrupted());
     const px = storyPlayerX(), r = colliderWorld().radius;
     for (const { p, body } of seqResolved) {
       const lines = body.logic;
@@ -18946,10 +18961,36 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const key of [...seqLive.keys()]) if (key.startsWith(`${placedId}:`)) seqLive.delete(key);
     seqEffects = seqEffects.filter(e => e.placed !== placedId);
     seqPropFalls = seqPropFalls.filter(f => !f.key.startsWith(`${placedId}:`));
+    seqForgetRunning(placedId);
   }
-  // The end state, at once: every line that can run does, its steps applied
-  // instantly (moves land, flags, show / hide, items, facing, new loops);
-  // waits, camera, screen, speech and control are skipped.
+  // Does an Effect on a character step leave the character hidden at its end?
+  function seqEffectEndsHidden(step) {
+    if (step.hideAt >= 0) return true;
+    const entry = effectAssets.get(step.asset);
+    if (!entry || !Effects?.isCharacterEffect(entry.art) || !step.keys?.length) return false;
+    const total = step.keys.reduce((sum, k) => sum + k.seconds, 0);
+    const end = seqEffectParamsAt({ step, entry }, total);
+    return !end || end.progress >= 0.99;
+  }
+  // A step's lasting result, at once (Complete, Skip, an event cut short by the game
+  // closing): moves land, flags, show / hide, objects, items, facing, wear, looks, props,
+  // new loops, an effect's hide. Waits, lines, the camera, the screen and control leave nothing.
+  const SEQ_INSTANT_STEPS = new Set(['flag', 'show', 'item', 'face', 'look', 'prop', 'object', 'wear']);
+  function seqApplyStepInstant(run, step, now) {
+    if (step.type === 'move') {
+      const actor = step.actor ? seqBound(run, step.actor) : null, mark = step.to ? seqBound(run, step.to) : null;
+      if (!actor || !mark) return;
+      const from = seqComponentPlace(run.p, actor), to = seqComponentPlace(run.p, mark);
+      const facing = Math.abs(to.x - from.x) > 0.001 ? (to.x > from.x ? 1 : -1) : from.facing;
+      Object.assign(seqSavedFor(compKey(run.p.id, actor.id)), { x: to.x, depth: to.depth, facing });
+    } else if (step.type === 'effect') {
+      const actor = step.actor ? seqBound(run, step.actor) : null;
+      if (actor && seqEffectEndsHidden(step)) seqSavedFor(compKey(run.p.id, actor.id)).hidden = true;
+    } else if (SEQ_INSTANT_STEPS.has(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
+      seqStartStep(run, step, now);
+    }
+  }
+  // The end state, at once: every line that can run does, its steps applied instantly.
   function seqCompleteSequence(placedId) {
     const r = seqResolved.find(x => x.p.id === placedId);
     if (!r) return false;
@@ -18959,26 +19000,129 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (!seqLineReady(r.p, l)) continue;
       if (l.once) seqProgress.fired[seqLineKey(r.p, l)] = true;
       const run = { id: ++seqRunSerial, p: r.p, body: r.body, line: l, event: seqEvents.get(l.event), index: 0, active: [], instant: true };
-      for (const step of seqStepOrder(run.event)) {
-        if (step.type === 'move') {
-          const actor = step.actor ? seqBound(run, step.actor) : null, mark = step.to ? seqBound(run, step.to) : null;
-          if (!actor || !mark) continue;
-          const from = seqComponentPlace(r.p, actor), to = seqComponentPlace(r.p, mark);
-          const facing = Math.abs(to.x - from.x) > 0.001 ? (to.x > from.x ? 1 : -1) : from.facing;
-          Object.assign(seqSavedFor(compKey(r.p.id, actor.id)), { x: to.x, depth: to.depth, facing });
-        } else if (step.type === 'effect') {
-          // The end state of a Darkness step: the character it hides stays hidden.
-          const actor = step.actor ? seqBound(run, step.actor) : null;
-          if (actor && step.hideAt >= 0) seqSavedFor(compKey(r.p.id, actor.id)).hidden = true;
-        } else if (['flag', 'show', 'item', 'face', 'look', 'prop'].includes(step.type) || (step.type === 'animate' && step.mode === 'loop')) {
-          seqStartStep(run, step, now);
-        }
-      }
+      for (const step of seqStepOrder(run.event)) seqApplyStepInstant(run, step, now);
       seqControlLocks.delete(run.id);
     }
     seqStarted.add(placedId);
     saveStoryProgress();
     return true;
+  }
+  // ---- Skip --------------------------------------------------------------------
+  // An event that has taken control can be skipped (hold Skip): it jumps to its end.
+  // What it is doing finishes now (walks land, effects end, the camera and screen
+  // cut back), its steps still to come are applied instantly, and the events that
+  // follow it in the same sequence (When: an event finishes) are skipped with it.
+  // Events started some other way (a flag, a zone) run as usual; if one takes
+  // control, Skip shows again.
+  const seqSkippableRuns = () => seqRuns.filter(run => !run.done && seqControlLocks.has(run.id));
+  const seqCanSkip = () => !!Seq && !editLocked() && !storyPaused() && seqSkippableRuns().length > 0;
+  function seqFinishRunNow(run, now) {
+    run.instant = true; run.prompt = null;
+    // Walks and one-off animations of the characters it uses land where they end.
+    for (const compId of Object.values(run.line.roles || {})) {
+      const key = compKey(run.p.id, compId), live = seqLive.get(key);
+      if (live?.walk) { Object.assign(seqSavedFor(key), { x: live.walk.to.x, depth: live.walk.to.depth, facing: live.walk.facing }); live.walk = null; }
+      if (live) live.once = null;
+      seqPropFalls = seqPropFalls.filter(f => f.key !== key);
+    }
+    // Its effects end now (a character they leave hidden stays hidden).
+    seqEffects = seqEffects.filter(e => {
+      if (e.run !== run.id) return true;
+      if (!e.hidden && seqEffectEndsHidden(e.step)) seqSavedFor(e.key).hidden = true;
+      return false;
+    });
+    const order = run.event.timed ? (run.order || seqStepOrder(run.event)) : run.event.steps;
+    for (let i = run.index; i < order.length; i++) seqApplyStepInstant(run, order[i], now);
+    run.index = order.length;
+    // A look it was blending into lands at once.
+    if (order.some(st => st.type === 'look')) setWorldLook(seqProgress.look?.id || null, 0);
+    // The camera, a fade and the letterbox cut back rather than easing.
+    if (seqScreen.faded && seqScreen.fadeRun === run.id) seqSetFade(false, 0);
+    if (seqScreen.bars && seqScreen.barsRun === run.id) seqSetBars(false, 0);
+    const ownsCamera = seqCamera && seqCamera.run === run.id;
+    seqEndRun(run, true);
+    if (ownsCamera && seqCamera) {
+      if (seqCamera.shot && seqCamera.keep) seqCamera.duration = 0; // a kept shot stays, landed
+      else { seqCamera = null; seqCameraNow = SEQ_CAMERA_ZERO; }
+    }
+  }
+  function seqSkip() {
+    if (!seqCanSkip()) return 0;
+    const now = storyNow();
+    let queue = seqSkippableRuns(), count = 0;
+    for (let guard = 0; queue.length && guard < 50; guard++) {
+      const next = [];
+      for (const run of queue) {
+        seqFinishRunNow(run, now); count += 1;
+        for (const l of run.body.logic) {
+          if (l.when.type !== 'finish' || l.when.line !== run.line.id || !seqLineReady(run.p, l)) continue;
+          if (seqFireLine(run.p, run.body, l)) next.push(seqRuns[seqRuns.length - 1]);
+        }
+      }
+      queue = next;
+    }
+    seqRuns = seqRuns.filter(run => !run.done);
+    hideStorySpeech();
+    saveStoryProgress();
+    return count;
+  }
+  // Events that held control when the game closed count as finished: their steps are
+  // applied instantly on the next start (once, before any line fires) and the lines
+  // that follow them (When: an event finishes) run as usual. Returns those finishes.
+  let seqRecovered = false;
+  function seqFinishInterrupted() {
+    seqRecovered = true;
+    const keys = Object.keys(seqProgress.running || {}), done = [];
+    if (!keys.length) return done;
+    const now = storyNow();
+    for (const key of keys) {
+      const [placedId, lineId] = key.split(':');
+      const r = seqResolved.find(x => x.p.id === placedId), l = r?.body.logic.find(x => x.id === lineId);
+      const event = l && seqEvents.get(l.event);
+      if (!event) continue;
+      const run = { id: ++seqRunSerial, p: r.p, body: r.body, line: l, event, index: 0, active: [], instant: true };
+      for (const step of seqStepOrder(event)) seqApplyStepInstant(run, step, now);
+      done.push({ p: r.p, line: l });
+    }
+    delete seqProgress.running;
+    saveStoryProgress();
+    return done;
+  }
+  // The Skip button: shown while an event holds control; hold it (or Escape) to skip.
+  const SEQ_SKIP_HOLD_MS = 700;
+  let seqSkipEl = null, seqSkipShown = false, seqSkipTimer = 0;
+  function seqSkipButton() {
+    if (seqSkipEl) return seqSkipEl;
+    seqSkipEl = document.createElement('button');
+    seqSkipEl.type = 'button'; seqSkipEl.id = 'sidescroll-seq-skip'; seqSkipEl.className = 'sidescroll-seq-skip';
+    seqSkipEl.setAttribute('aria-label', 'Hold to skip');
+    seqSkipEl.style.setProperty('--skip-hold', `${SEQ_SKIP_HOLD_MS}ms`);
+    seqSkipEl.innerHTML = '<span>Hold to skip ⏭</span>';
+    seqSkipEl.hidden = true;
+    const start = e => { e?.preventDefault?.(); seqSkipHoldStart(); };
+    seqSkipEl.addEventListener('pointerdown', e => { try { seqSkipEl.setPointerCapture(e.pointerId); } catch (_) {} start(e); });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) seqSkipEl.addEventListener(type, seqSkipHoldEnd);
+    seqSkipEl.addEventListener('contextmenu', e => e.preventDefault());
+    document.body.appendChild(seqSkipEl);
+    return seqSkipEl;
+  }
+  function seqSkipHoldStart() {
+    if (seqSkipTimer || !seqCanSkip()) return;
+    seqSkipButton().classList.add('holding');
+    seqSkipTimer = setTimeout(() => { seqSkipTimer = 0; seqSkipEl.classList.remove('holding'); seqSkip(); }, SEQ_SKIP_HOLD_MS);
+  }
+  function seqSkipHoldEnd() {
+    if (seqSkipTimer) { clearTimeout(seqSkipTimer); seqSkipTimer = 0; }
+    seqSkipEl?.classList.remove('holding');
+  }
+  window.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.repeat && seqCanSkip()) seqSkipHoldStart(); });
+  window.addEventListener('keyup', e => { if (e.key === 'Escape') seqSkipHoldEnd(); });
+  function syncSeqSkip() {
+    const show = seqCanSkip();
+    if (show === seqSkipShown) return;
+    seqSkipShown = show;
+    if (!show) seqSkipHoldEnd();
+    seqSkipButton().hidden = !show;
   }
   // Back to the start: lines unplayed, components back where they stood, the
   // flags its events set cleared, items it gave taken back and items it took
@@ -19513,7 +19657,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     frameShot: seqFrameShot,
     state: () => seqState,
     // Live preview of an edit (the editor saves through SideScrollSequences.save).
-    preview: next => { setSeqState(next); seqRuns = []; seqLive.clear(); seqControlLocks.clear(); seqStarted.clear(); seqResetScreen(); },
+    preview: next => { setSeqState(next); seqRuns = []; seqLive.clear(); seqControlLocks.clear(); seqStarted.clear(); seqResetScreen(); if (seqProgress.running) { delete seqProgress.running; saveStoryProgress(); } },
     select: (placed, component) => { seqSelected = { placed: placed || null, component: component || null }; },
     active: () => !!(editMode && editorScope === 'story'),
     viewX: () => camera.x,
