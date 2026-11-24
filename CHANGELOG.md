@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Wearing the bag.** Asset Lab → Interactions → **Wear**: picking the asset up puts it on her
+  instead (its Inspect view says **Put on**); it never goes in the inventory. In Character Lab →
+  Skin, any part can be given a **Worn item** — the bag cut into Aureli's atlas, skinned like
+  any part — and in the game it shows only while she wears that asset. **Holds the inventory**:
+  until she wears such an asset nothing can be picked up (she says your line instead) and the
+  Items button is hidden. A **Put on / Take off** step on the timeline's Player row lets a story do
+  it. Worn state is saved with her progress; Progress → Reset all (or the sequence's Reset) undoes it.
 - **Collect and the inventory.** Asset Lab → Interactions now has **Collect** (name in the
   inventory, description). A collectable asset's Inspect view has **Pick up** beside Leave; one
   without Inspect is picked up straight away with Action. Picked up, it leaves the world (and stays

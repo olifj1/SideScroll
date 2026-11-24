@@ -42,7 +42,8 @@
     effect:  { label: 'Effect on a character', help: 'a darkness wrapping a character, or a character effect such as Dissolve; blends through its states and can hide the character', roles: { actor: 'character' } },
     prop:    { label: 'Prop', help: 'a character takes an asset in its hand (Father\u2019s axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} },
-    object:  { label: 'Object', help: 'an object appears, disappears or changes to another asset (the note picked up, the food eaten)', roles: { actor: 'object' } }
+    object:  { label: 'Object', help: 'an object appears, disappears or changes to another asset (the note picked up, the food eaten)', roles: { actor: 'object' } },
+    wear:    { label: 'Wear', help: 'the player puts on or takes off something she wears (the bag; Asset Lab → Wear)', roles: {} }
   });
   const OBJECT_ACTIONS = Object.freeze({ show: 'Appears', hide: 'Disappears', swap: 'Changes to…' });
   const PLAYER = 'player'; // Say: the player speaks (the character being played)
@@ -159,6 +160,11 @@
         break;
       case 'prompt':
         out.label = text(raw.label, 14, 'Talk');
+        break;
+      case 'wear':
+        // The player puts on / takes off a wearable asset (Progress → Reset on this sequence undoes it).
+        out.action = raw.action === 'off' ? 'off' : 'on';
+        out.asset = propName(raw.asset);
         break;
       case 'item':
         // Items given are tagged with the sequence (Progress → Reset takes them back).

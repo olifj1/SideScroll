@@ -16010,3 +16010,4 @@ body[data-game-id="game-16"] .sidescroll-inventory-item.openable .sidescroll-inv
 .assetlab-interactions .assetlab-interaction-fields{display:grid;gap:8px;margin-top:8px;}
 .assetlab-interactions .assetlab-interaction-fields[hidden]{display:none;}
 .assetlab-interactions .assetlab-interaction-fields + .assetlab-behaviours{margin-top:12px;}
+.assetlab-interactions [hidden]{display:none!important;}

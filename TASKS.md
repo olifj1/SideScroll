@@ -37,7 +37,7 @@ Stages (engine work in order; art and sound in parallel):
 - [ ] **4 — Held props for characters:** *(done 20 Nov: Character Lab → Props grips, a component's Holds, the Prop step — hold / put away / drop)* still to do: import the axe and set Father's grip; check it through his Chop animation once that exists.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
 - [ ] **7 — Objects in sequences** (agreed 23 Nov; *done 23 Nov: Object components, object roles, the Object step — appear / disappear / change to; still to do: pick one up with Action, and the player taking it into the inventory, with stage 9*): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
-- [ ] **8 — Outfit parts** (agreed 23 Nov): parts and meshes a character can wear or not — Aureli's backpack, a cloak / coat. Skinned like any part, marked *Optional* in Character Lab, with a **Wear / Take off** event step and a saved state (she puts the backpack on when she packs).
+- [ ] **8 — Outfit parts** (agreed 23 Nov; *done 24 Nov for the bag: Skin → Worn item, Asset Lab → Wear (Holds the inventory), Put on, the Wear step, saved state*) — still to do: a cloak / coat the same way once its art is in the atlas; worn parts on a sequence copy of the player follow the player's own worn state (fine while she is the only wearer; revisit if story characters need their own).
 - [ ] **9 — Inventory:** *(done 24 Nov: Inspect and Collect in Asset Lab, Pick up, any collectable asset in the inventory, tap to look again, story flags)* — still to do: **combine** two items (designed before building), *use* an item on something in the world, and a fuller inventory screen if the panel feels small.
 - [x] **Scene objects in Character Lab** (23 Nov): stand any asset beside the character in Animate / Play to animate against (session only).
 - [ ] **Art and sound (parallel):** Father (biped parts sheet + Chop, Idle, Talk animations); deer (quadruped, Run) and variants (duplicates with different art / scale); other running animals; axe, woodpile, chopping block, note, food / water, backpack; sounds (birdsong, chopping, gasp, shadow).
@@ -87,6 +87,14 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bs. Wear the bag (24 Nov)**
+- [ ] Asset Lab → the hook bag → Interactions → **Wear**, tick **Holds the inventory**, set *Nothing to carry it in* and the flag `has-bag`.
+- [ ] Character Lab → Aureli → Skin: select the bag part → **Worn item** → the hook bag. Save. (It still shows in Character Lab.)
+- [ ] Game, fresh progress (Progress → Reset all): no bag on her and no Items button. Try the note: its view says your "nothing to carry it in" line and has no Pick up; the apple says it too.
+- [ ] Walk to the bag on the hook: Action (or the view's **Put on**) — it leaves the hook and appears on her, skinned, moving with her; the Items button appears. Now the note and apple can be picked up.
+- [ ] Close and reopen: still wearing it. Reset all: bag back on the hook, off her, Items hidden.
+- [ ] Story: Player row → **Put on (the bag…)** / **Take off** steps work; that sequence's Reset takes it off again.
 
 **0br. Collect (24 Nov)**
 - [ ] Asset Lab → *FathersNote* → Interactions: tap **Collect**, give it a name and description; set Inspect's *Sets story flag* to `read-note`.
@@ -485,6 +493,7 @@ app and make a Project Backup.
 ---
 
 ## Next
+- [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).
 - [ ] **Animation length** (polish, agreed 23 Nov): a Length (s) per animation in Character Lab, used by Character Lab, the game and sequences (today every clip is 16 key positions over its base clip's time: Idle 1.4 s, Walk 1.05 s, Run 0.65 s, Jump 0.94 s).
 - [ ] **Rows for the far side:** once near-side rows are settled on the phone, the same row model (depth ±, scale ±, spacing ±, textures) for the dressing beyond the path; later *strip* rows (a long, short grass texture repeated continuously along a row) when those textures exist.
 - [ ] **Carry pose per character:** the game's carry arms (`carryPose` in `biped-rig.js`) are one set of hand targets tuned for Hero 1, so Character01 holds things lower. Let each character set its carry (a *Carry* action slot with an animation, or carry hand targets in Quick Play next to the test box), used by the game and Quick Play. Pick-up/put-down reach likewise.

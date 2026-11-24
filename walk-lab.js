@@ -419,6 +419,8 @@
           scaleX:number(candidate.scaleX,1,.05,8),scaleY:number(candidate.scaleY,1,.05,8),
           pivotX:number(candidate.pivotX,0,-2,2),pivotY:number(candidate.pivotY,0,-2,2),
           boneTarget:String(candidate.boneTarget||'').slice(0,60),
+          // A part shown only while the player wears this asset (Skin → Worn item).
+          ...(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/.test(String(candidate.wornWith||''))?{wornWith:String(candidate.wornWith)}:{}),
           ...(candidate.skinBinding&&typeof candidate.skinBinding==='object'&&
              candidate.skinBinding.schema==='animlab.skin-binding.v1'?{
             skinBinding:(()=>{

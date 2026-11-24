@@ -1,5 +1,11 @@
 # SideScroll — Export and Recovery Coverage
 
+## 24 November 2026 — Wear (outfit parts)
+- `sidescroll.asset-interactions.v1` entries gain `wear: {holdsInventory, refuse, flag?}`.
+- Parts-assembly instances (character setup, `artLayout.assembly.instances[]`) gain an optional `wornWith` (asset name), kept by walk-lab's setup cleaner; it travels with the character's setup (packages, publishing, backup).
+- The progress key `sidescroll.player.collected.v1` / `sidescroll.collected.v1` gains `worn: {asset: source}` (a placed object id, `seq:<sequence id>` or `story:<sequence id>`). Reset all clears it; a sequence's Reset clears what it put on.
+- New event step `wear` `{action 'on'|'off', asset}` in `sidescroll.story.events.v1` (no migration: new type).
+
 ## 24 November 2026 — Collect (picked-up assets, inventory)
 - `sidescroll.asset-interactions.v1` entries gain `collect: {label, description, flag?}` and `inspect.flag` (no migration: absent = not collectable / no flag).
 - New progress keys `sidescroll.player.collected.v1` (player mode) and `sidescroll.collected.v1` (editor testing): `{objects: {placed object id: asset name}}` — placed copies the player picked up. Progress scope, so not published; in Project Backup. Progress → Reset all clears it and takes those items back (inventory source `collect:<object id>`).

@@ -1081,6 +1081,8 @@
     <div class="animlab-skin-assembly-parts" aria-label="Skin parts list"></div>
     <section class="animlab-skin-edit-box" aria-label="Edit selected part binding">
       <div class="animlab-section-title">Edit selected part</div>
+      <label class="animlab-skin-group-select animlab-skin-worn">Worn item <select data-skin-worn aria-label="Show this part only while the player wears an item"></select></label>
+      <p class="animlab-skin-note" data-worn-note>A part for something she can wear (the bag): in the game it shows only while she wears that asset. Assets listed here have <strong>Wear</strong> set in Asset Lab → Interactions.</p>
       <p class="animlab-skin-note">Tap the bones this part should follow (or start from a preset), then <strong>Bind to these bones</strong>: each bone takes its own section. Auto-bind all picks bones for every part.</p>
       <label class="animlab-skin-group-select">Preset <select data-skin-group></select></label>
       <div class="animlab-skin-use" data-skin-use aria-label="Bones this part follows"></div>
@@ -1348,6 +1350,7 @@
     if(document.activeElement!==blendInput)blendInput.value=String(Number(binding?.blend)||0);
     blendInput.parentElement.querySelector('output').textContent=blendText(Number(blendInput.value));
     renderPin(binding,canWeight);
+    renderWorn(item);
     const jointDigest=jointIds.join('|');
     if(jointSelect.dataset.signature!==jointDigest){
       jointSelect.dataset.signature=jointDigest;jointSelect.replaceChildren();
@@ -1424,6 +1427,34 @@
       if(button.dataset.preview==='phase')button.textContent=`Phase: ${Math.round(phase*100)}%`;
     }
   }
+  // Worn item (asset-interactions.js Wear): the part shows in the game only while
+  // the player wears that asset. Stored on the instance as wornWith (asset name).
+  const wornSelect=panel.querySelector('[data-skin-worn]');
+  function wearableAssets(){
+    const all=window.SideScrollInteractions?.load()||{},lib=window.SideScrollAssetLibrary;
+    return Object.keys(all).filter(name=>all[name].wear).map(name=>({name,label:lib?.get?.(name)?.label||name}));
+  }
+  function renderWorn(item){
+    const current=item?.wornWith||'',list=wearableAssets();
+    if(current&&!list.some(a=>a.name===current))list.push({name:current,label:`${window.SideScrollAssetLibrary?.get?.(current)?.label||current} (no Wear set)`});
+    const signature=list.map(a=>a.name+a.label).join('|');
+    if(wornSelect.dataset.signature!==signature){
+      wornSelect.dataset.signature=signature;
+      wornSelect.replaceChildren(...[{name:'',label:'Always shown'},...list].map(a=>{const o=document.createElement('option');o.value=a.name;o.textContent=a.label;return o;}));
+    }
+    if(document.activeElement!==wornSelect)wornSelect.value=current;
+    wornSelect.disabled=!item||lockedParts.has(item.id);
+  }
+  wornSelect.addEventListener('change',()=>{
+    const item=selectedItem(state());if(!item||lockedParts.has(item.id))return;
+    const value=wornSelect.value;
+    core.edit('setup',value?`Worn with ${wornSelect.selectedOptions[0]?.textContent||value}`:'Part always shown',setup=>{
+      const target=setup.artLayout?.assembly?.instances?.find(p=>p.id===item.id);
+      if(target){if(value)target.wornWith=value;else delete target.wornWith;}
+      return setup;
+    });
+    refresh();core.redrawOnly?.();
+  });
   function commitBinding(id,binding,description){
     const item=selectedItem(state());if(item?.id!==id||lockedParts.has(id))return;
     core.edit('setup',description,setup=>{
