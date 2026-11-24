@@ -861,40 +861,50 @@
 
   // --- Interactions: what the player can do to this asset (asset-interactions.js) ---
   const Interactions = window.SideScrollInteractions;
-  const inspectOnBtn = document.getElementById('assetlab-inspect-on');
-  const inspectFields = document.getElementById('assetlab-inspect-fields');
-  const inspectTitleEl = document.getElementById('assetlab-inspect-title');
-  const inspectTextEl = document.getElementById('assetlab-inspect-text');
-  const inspectLargeBtn = document.getElementById('assetlab-inspect-large');
+  const $ = id => document.getElementById(id);
+  const inspectOnBtn = $('assetlab-inspect-on'), inspectFields = $('assetlab-inspect-fields');
+  const inspectTitleEl = $('assetlab-inspect-title'), inspectTextEl = $('assetlab-inspect-text');
+  const inspectLargeBtn = $('assetlab-inspect-large'), inspectFlagEl = $('assetlab-inspect-flag');
+  const collectOnBtn = $('assetlab-collect-on'), collectFields = $('assetlab-collect-fields');
+  const collectLabelEl = $('assetlab-collect-label'), collectDescEl = $('assetlab-collect-description'), collectFlagEl = $('assetlab-collect-flag');
+  const pressed = (btn, on) => { btn.classList.toggle('active', !!on); btn.setAttribute('aria-pressed', String(!!on)); };
+  const fill = (el, v) => { if (document.activeElement !== el) el.value = v || ''; };
   function syncInteractions() {
-    const section = document.getElementById('assetlab-interactions-section');
+    const section = $('assetlab-interactions-section');
     const asset = state.asset;
     const usable = !!(Interactions && asset && asset.art?.kind !== 'effect');
     if (section) section.hidden = !usable;
     if (!usable) return;
-    const inspect = Interactions.get(asset.name)?.inspect || null;
-    const on = !!inspect;
-    inspectOnBtn.classList.toggle('active', on); inspectOnBtn.setAttribute('aria-pressed', String(on));
-    inspectFields.hidden = !on;
+    const entry = Interactions.get(asset.name) || {}, inspect = entry.inspect || null, collect = entry.collect || null;
+    pressed(inspectOnBtn, inspect); inspectFields.hidden = !inspect;
     inspectTitleEl.placeholder = asset.label || asset.name;
-    if (document.activeElement !== inspectTitleEl) inspectTitleEl.value = inspect?.title || '';
-    if (document.activeElement !== inspectTextEl) inspectTextEl.value = inspect?.text || '';
-    inspectLargeBtn.classList.toggle('active', !!inspect?.large); inspectLargeBtn.setAttribute('aria-pressed', String(!!inspect?.large));
+    fill(inspectTitleEl, inspect?.title); fill(inspectTextEl, inspect?.text); fill(inspectFlagEl, inspect?.flag);
+    pressed(inspectLargeBtn, inspect?.large);
+    pressed(collectOnBtn, collect); collectFields.hidden = !collect;
+    collectLabelEl.placeholder = asset.label || asset.name;
+    fill(collectLabelEl, collect?.label); fill(collectDescEl, collect?.description); fill(collectFlagEl, collect?.flag);
   }
-  function saveInspect(patch) {
+  // patch null = turn the action off; otherwise merge into it (turning it on).
+  function saveAction(action, patch) {
     const asset = state.asset;
     if (!Interactions || !asset) return;
     const entry = Interactions.get(asset.name) || {};
-    if (patch === null) delete entry.inspect;
-    else entry.inspect = { ...(entry.inspect || { title: '', text: '', large: false }), ...patch };
+    if (patch === null) delete entry[action];
+    else entry[action] = { ...(entry[action] || {}), ...patch };
     writeStore(Interactions.KEY, Interactions.set(asset.name, entry));
     syncInteractions();
   }
+  const current = action => Interactions?.get(state.asset?.name)?.[action] || null;
   if (Interactions && inspectOnBtn) {
-    inspectOnBtn.addEventListener('click', () => saveInspect(Interactions.get(state.asset?.name)?.inspect ? null : {}));
-    inspectLargeBtn.addEventListener('click', () => saveInspect({ large: !Interactions.get(state.asset?.name)?.inspect?.large }));
-    inspectTitleEl.addEventListener('input', () => saveInspect({ title: inspectTitleEl.value }));
-    inspectTextEl.addEventListener('input', () => saveInspect({ text: inspectTextEl.value }));
+    inspectOnBtn.addEventListener('click', () => saveAction('inspect', current('inspect') ? null : {}));
+    inspectLargeBtn.addEventListener('click', () => saveAction('inspect', { large: !current('inspect')?.large }));
+    inspectTitleEl.addEventListener('input', () => saveAction('inspect', { title: inspectTitleEl.value }));
+    inspectTextEl.addEventListener('input', () => saveAction('inspect', { text: inspectTextEl.value }));
+    inspectFlagEl.addEventListener('change', () => { saveAction('inspect', { flag: inspectFlagEl.value }); fill(inspectFlagEl, current('inspect')?.flag); inspectFlagEl.value = current('inspect')?.flag || ''; });
+    collectOnBtn.addEventListener('click', () => saveAction('collect', current('collect') ? null : {}));
+    collectLabelEl.addEventListener('input', () => saveAction('collect', { label: collectLabelEl.value }));
+    collectDescEl.addEventListener('input', () => saveAction('collect', { description: collectDescEl.value }));
+    collectFlagEl.addEventListener('change', () => { saveAction('collect', { flag: collectFlagEl.value }); collectFlagEl.value = current('collect')?.flag || ''; });
   }
 
   // --- Texture: the image's size, file size and how dense it is in the game ------

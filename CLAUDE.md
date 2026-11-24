@@ -146,14 +146,25 @@ Character Lab's scene objects).
 
 **Asset interactions** (`asset-interactions.js`, `window.SideScrollInteractions`, key
 `sidescroll.asset-interactions.v1`, Assets area): what the player can do to an asset, per asset name —
-today `{inspect: {title, text, large}}`; later actions (collect, use…) sit beside `inspect`. Asset Lab →
-**Interactions** (`syncInteractions` / `saveInspect`). Game (`sidescroll.js`, before `performAction`):
-`nearestInspectable()` (placed copies via `allSceneObjects()` and visible sequence objects, within the
-player's radius + 0.45 m and 2.5 m of the path) draws the dot in `drawPlayerInteractionHints` and is
-tried in `performAction` after story Action lines; `openInspect` shows `.sidescroll-inspect` (made on
-first use; `.large` = the asset's picture via `assetPictureUrl`, sized to fit) and sets `inspectOpen`,
-which `storyControlLocked()` includes, so the player stands still; Action, Leave or Escape close it.
-Loaded by play and asset-lab.
+`{inspect: {title, text, large, flag?}, collect: {label, description, flag?}}`; later actions (use…) sit
+beside them. Asset Lab → **Interactions** (`syncInteractions` / `saveAction`). Game (`sidescroll.js`):
+`assetInteractions` / `assetInspect` / `assetCollect` are read beside `INVENTORY_ITEM_DEFS` (reloaded on
+`storage` / visibility); `nearestInspectable()` (placed copies via `allSceneObjects()` and visible
+sequence objects with either action, within the player's radius + 0.45 m and 2.5 m of the path) draws
+the dot and is tried in `performAction` after story Action lines: `openInspect` if it has Inspect, else
+`collectTarget` straight away. The Inspect view (`.sidescroll-inspect`, `.large` = the asset's picture via
+`assetPictureUrl`) has **Pick up** when collectable; from the inventory (`fromInventory`) it always shows
+the picture, with Close. `inspectOpen` is part of `storyControlLocked()`. **Collect:** `inventoryDef(id)`
+= a built-in item or a collectable asset (id = asset name), so `addInventoryItem`, the Item step and the
+story editor's item list take any collectable; inventory cards for them are buttons that reopen the view.
+A picked-up placed copy is recorded in progress `sidescroll.player.collected.v1` (`sidescroll.collected.v1`
+outside player mode) `{objects: {object id: asset}}` with inventory source `collect:<id>`;
+`syncCollectedObjects()` (each frame, after `updatePuzzleRewards`) takes such copies out of the scene
+lists while not `editLocked()` and puts scene copies back while editing (puzzle copies are rebuilt when
+they stream). A sequence object picked up is hidden in its story progress, with source `seq:<id>`, so
+that sequence's Reset gives it back. Progress → Reset all calls `resetCollected()`. Flags: Inspect /
+Collect `flag` is set in story progress when inspected / picked up (`setInteractionFlag`) and listed by
+both flag pickers. Loaded by play and asset-lab.
 
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
 `art: {kind:'effect', shader:'darkness'|'dissolve', width, height (the plane's shape), params}`; params are

@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Collect and the inventory.** Asset Lab → Interactions now has **Collect** (name in the
+  inventory, description). A collectable asset's Inspect view has **Pick up** beside Leave; one
+  without Inspect is picked up straight away with Action. Picked up, it leaves the world (and stays
+  gone; it is back while you edit the scene) and goes in the inventory with its own picture; tap it
+  there to look at it again, large. Inspect and Collect can each **set a story flag** (e.g.
+  `read-note`), so a sequence line set to *When: flag* can react. Item steps and the story editor's
+  item list take collectable assets too. Progress → Reset all puts picked-up things back.
 - **Inspect.** Asset Lab has a new **Interactions** section: tick **Inspect** on any asset and
   give it a title, some text and, if you like, **Show large on screen**. In the game every placed
   copy of that asset (and any sequence object using it) shows the little dot when Aureli is near;

@@ -38,8 +38,7 @@ Stages (engine work in order; art and sound in parallel):
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
 - [ ] **7 — Objects in sequences** (agreed 23 Nov; *done 23 Nov: Object components, object roles, the Object step — appear / disappear / change to; still to do: pick one up with Action, and the player taking it into the inventory, with stage 9*): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
 - [ ] **8 — Outfit parts** (agreed 23 Nov): parts and meshes a character can wear or not — Aureli's backpack, a cloak / coat. Skinned like any part, marked *Optional* in Character Lab, with a **Wear / Take off** event step and a saved state (she puts the backpack on when she packs).
-- [ ] **Interactions — collect** (agreed 24 Nov; Inspect done 24 Nov): Asset Lab → Interactions → **Collect** (inventory name, description); **Pick up** in the Inspect view and as an action of its own (a choice when an asset has both); a collected copy leaves the scene and is remembered (player progress); the inventory takes any collectable asset (its picture, name, description) instead of the two hard-coded items; tapping an item reopens its Inspect view; inspecting / collecting sets a story flag (`inspected:` / `collected:` + asset) so a sequence line can react.
-- [ ] **9 — Inventory:** a menu showing what you carry and a way to open it *(a basic inventory panel and Item step exist)*, then **inspect** an item and **combine** two (designed before building).
+- [ ] **9 — Inventory:** *(done 24 Nov: Inspect and Collect in Asset Lab, Pick up, any collectable asset in the inventory, tap to look again, story flags)* — still to do: **combine** two items (designed before building), *use* an item on something in the world, and a fuller inventory screen if the panel feels small.
 - [x] **Scene objects in Character Lab** (23 Nov): stand any asset beside the character in Animate / Play to animate against (session only).
 - [ ] **Art and sound (parallel):** Father (biped parts sheet + Chop, Idle, Talk animations); deer (quadruped, Run) and variants (duplicates with different art / scale); other running animals; axe, woodpile, chopping block, note, food / water, backpack; sounds (birdsong, chopping, gasp, shadow).
 - [ ] **6 — Build the intro** in the Story editor (zones: note, table, backpack, door, Father; events with Say, Wait for Action, Look, Screen, Camera, Effect, Sound, Item steps), then tune with ▶ Play and Skip.
@@ -88,6 +87,15 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0br. Collect (24 Nov)**
+- [ ] Asset Lab → *FathersNote* → Interactions: tap **Collect**, give it a name and description; set Inspect's *Sets story flag* to `read-note`.
+- [ ] *Apple*: Collect only (no Inspect), flag `took-apple`.
+- [ ] Game: the note's view now has **Pick up** and **Leave**. Pick up: the note disappears and the Items count goes up. The apple is picked up straight away with Action ("Picked up Apple").
+- [ ] Items: both show with their pictures; tap the note → it opens large with Close.
+- [ ] Close the game and reopen: the note and apple are still gone and still in Items.
+- [ ] Editor: the picked-up note is back on the mantel while editing; ▶ Play hides it again. TEST bar → ⚑ Progress → Reset all brings it back and takes it out of Items.
+- [ ] Story: a sequence line *When: flag* → `read-note` is offered in the flag list and fires after reading the note.
 
 **0bq. Inspect (24 Nov)**
 - [ ] Asset Lab → pick *FathersNote* → **Interactions** → tap **Inspect**: Title, Text and *Show large on screen* appear. Give it a title and the note's words, and turn on Show large.

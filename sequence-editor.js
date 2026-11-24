@@ -123,6 +123,8 @@
     for (const e of draft.events) for (const s of e.steps) if (s.type === 'flag' && s.flag) out.add(s.flag);
     for (const b of [...draft.templates.map(t => t.body), ...draft.placed.map(p => p.body).filter(Boolean)])
       for (const l of b.logic) { if (l.condition?.flag) out.add(l.condition.flag); if (l.when?.flag) out.add(l.when.flag); }
+    // Flags set by inspecting / picking up assets (Asset Lab → Interactions).
+    for (const entry of Object.values(window.SideScrollInteractions?.load() || {})) for (const a of Object.values(entry)) if (a?.flag) out.add(a.flag);
     return [...out].filter(Boolean).sort();
   }
   function flagInput(value, onSet) {

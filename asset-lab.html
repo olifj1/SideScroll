@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.100">
+  <link rel="stylesheet" href="style.css?v=1.1.101">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -272,7 +272,7 @@
         <div class="assetlab-control-heading"><small>INTERACTIONS</small><strong>What the player can do</strong></div>
         <p class="assetlab-note">Placed copies with an action show the little dot when the player is near; Action does it. Every copy of this asset behaves the same.</p>
         <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-on" aria-pressed="false">Inspect</button></div>
-        <div id="assetlab-inspect-fields" hidden>
+        <div id="assetlab-inspect-fields" class="assetlab-interaction-fields" hidden>
           <label class="assetlab-select-row assetlab-text-row">
             <span><strong>Title</strong><small>Blank = the asset's name</small></span>
             <input id="assetlab-inspect-title" type="text" maxlength="80" autocomplete="off">
@@ -282,7 +282,27 @@
             <textarea id="assetlab-inspect-text" rows="4" maxlength="2000"></textarea>
           </label>
           <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-large" aria-pressed="false">Show large on screen</button></div>
-          <p class="assetlab-note">Show large puts the picture big on screen, sized to fit, with the text underneath and a Leave button: for a note to read or a thing to look at closely.</p>
+          <label class="assetlab-select-row assetlab-text-row">
+            <span><strong>Sets story flag</strong><small>When inspected (optional)</small></span>
+            <input id="assetlab-inspect-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. read-note">
+          </label>
+          <p class="assetlab-note">Show large puts the picture big on screen, sized to fit, with the text underneath: for a note to read or a thing to look at closely. If it is also collectable, the view has Pick up as well as Leave.</p>
+        </div>
+        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-collect-on" aria-pressed="false">Collect</button></div>
+        <div id="assetlab-collect-fields" class="assetlab-interaction-fields" hidden>
+          <label class="assetlab-select-row assetlab-text-row">
+            <span><strong>Name in inventory</strong><small>Blank = the asset's name</small></span>
+            <input id="assetlab-collect-label" type="text" maxlength="60" autocomplete="off">
+          </label>
+          <label class="assetlab-select-row assetlab-text-row assetlab-textarea-row">
+            <span><strong>Description</strong><small>Shown in the inventory</small></span>
+            <textarea id="assetlab-collect-description" rows="2" maxlength="400"></textarea>
+          </label>
+          <label class="assetlab-select-row assetlab-text-row">
+            <span><strong>Sets story flag</strong><small>When picked up (optional)</small></span>
+            <input id="assetlab-collect-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. took-bread">
+          </label>
+          <p class="assetlab-note">Picked up, it leaves the world and goes in the inventory; tap it there to look at it again. Without Inspect, Action picks it up straight away.</p>
         </div>
       </section>
 
@@ -319,8 +339,8 @@
   <script src="asset-library.js?v=1.1.76"></script>
   <script src="character-preview.js?v=1.1.83"></script>
   <script src="builtin-assets.js?v=1.1.99"></script>
-  <script src="asset-interactions.js?v=1.1.100"></script>
-  <script src="asset-lab.js?v=1.1.100"></script>
+  <script src="asset-interactions.js?v=1.1.101"></script>
+  <script src="asset-lab.js?v=1.1.101"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>
 </html>

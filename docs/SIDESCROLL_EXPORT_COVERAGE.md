@@ -1,5 +1,11 @@
 # SideScroll — Export and Recovery Coverage
 
+## 24 November 2026 — Collect (picked-up assets, inventory)
+- `sidescroll.asset-interactions.v1` entries gain `collect: {label, description, flag?}` and `inspect.flag` (no migration: absent = not collectable / no flag).
+- New progress keys `sidescroll.player.collected.v1` (player mode) and `sidescroll.collected.v1` (editor testing): `{objects: {placed object id: asset name}}` — placed copies the player picked up. Progress scope, so not published; in Project Backup. Progress → Reset all clears it and takes those items back (inventory source `collect:<object id>`).
+- The inventory (`sidescroll.player.inventory.v1`) can now hold any collectable asset, keyed by asset name. A picked-up sequence object is `hidden` in its story-progress component, with inventory source `seq:<sequence id>`, as Item steps already were.
+- Flags set by inspecting / picking up are ordinary story flags in `sidescroll.player.story-progress.v2`.
+
 ## 24 November 2026 — Asset interactions (Inspect)
 - New content key `sidescroll.asset-interactions.v1` (Assets area; `asset-interactions.js`): `{<asset name>: {inspect: {title, text, large}}}`, set in Asset Lab → Interactions. Publishes with the Assets area, is in Asset Lab's data export (an `Assets` catalogue key) and in Project Backup. Asset Lab's *Reset Asset Defaults* leaves it alone (it is written text, not a default). Nothing is saved when the player inspects.
 
