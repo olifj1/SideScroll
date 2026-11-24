@@ -87,6 +87,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bu. Fire effect (24 Nov)**
+- [ ] Asset Lab → **+ Add ▾ → New fire effect**: a fire burns on the stage. Drag each slider (Flame height, Width, Speed, Flicker, Tongues, Lean, Soft base, colours, Glow, Smoke, Embers): it changes live. Set Height so it suits the fireplace (about 0.6–0.8 m).
+- [ ] Game → Edit → **+ Add environment asset → EFFECTS → Fire**: place it in the cabin's fireplace (in front of the painted fire). It flickers smoothly on the phone; with two or three placed it is still smooth.
+- [ ] It sits behind things in front of it (the hearth's stones if it is placed behind them) like any asset.
+- [ ] Optional: Save as state *Low* (small, slow) and use an **Effect on a character** step with the fire to see it blend in and out.
+
 **0bt. Skip (24 Nov)** — e.g. your *Taken* sequence (any event with a *Take control* step)
 - [ ] Walk into the zone (or TEST bar ▶ Play then walk in): as soon as control is taken, **Hold to skip ⏭** appears at the top centre (on the letterbox bar if there is one).
 - [ ] A quick tap does nothing. Hold it: it fills in about ¾ s, then the event jumps to its end — Father is gone (dissolved), anyone walking stands at their mark, the bars, black and the line vanish at once, the camera cuts back to Aureli and you can move straight away. The button goes.

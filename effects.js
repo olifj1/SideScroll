@@ -7,7 +7,10 @@
  * draws it like any other asset, so fog, depth and placement behave the same.
  *
  * Shaders: 'darkness' — a dark whirlwind: a twisting funnel of smoke with flecks
- * floating, orbiting and spinning inside it.
+ * floating, orbiting and spinning inside it. 'fire' — flames rising from the bottom
+ * of the plane (tongues that break off, a hot core, glow, smoke and embers).
+ * 'dissolve' — a character effect (no plane; see createDissolveRenderer).
+ * Plane shaders other than darkness read each setting as a uniform named p_<key>.
  */
 (function () {
   'use strict';
@@ -46,10 +49,31 @@
     { key:'rise',       label:'Fleck rise',     min:0,    max:2,   step:0.05, value:1 },
     { key:'fleckColor', label:'Fleck colour',   type:'color', value:[0.7, 0.65, 0.85] }
   ];
+  // Fire: flames standing on the bottom edge of the plane (a hearth, a campfire, a torch).
+  const FIRE_PARAMS = [
+    { key:'opacity',    label:'Opacity',        min:0,    max:1,    step:0.01,  value:1 },
+    { key:'height',     label:'Flame height',   min:0.1,  max:1,    step:0.01,  value:0.7 },
+    { key:'width',      label:'Width at base',  min:0.05, max:1,    step:0.01,  value:0.6 },
+    { key:'speed',      label:'Speed',          min:0,    max:4,    step:0.05,  value:1.2 },
+    { key:'flicker',    label:'Flicker',        min:0,    max:2,    step:0.05,  value:1 },
+    { key:'tongues',    label:'Tongues',        min:1,    max:8,    step:0.1,   value:3 },
+    { key:'lean',       label:'Lean (wind)',    min:-1,   max:1,    step:0.01,  value:0 },
+    { key:'bed',        label:'Soft base',      min:0,    max:0.4,  step:0.01,  value:0.04 },
+    { key:'coreColor',  label:'Core colour',    type:'color', value:[1.0, 0.92, 0.62] },
+    { key:'midColor',   label:'Flame colour',   type:'color', value:[1.0, 0.56, 0.14] },
+    { key:'edgeColor',  label:'Edge colour',    type:'color', value:[0.78, 0.2, 0.05] },
+    { key:'glow',       label:'Glow',           min:0,    max:1,    step:0.01,  value:0.35 },
+    { key:'smoke',      label:'Smoke',          min:0,    max:1,    step:0.01,  value:0.15 },
+    { key:'smokeColor', label:'Smoke colour',   type:'color', value:[0.22, 0.2, 0.2] },
+    { key:'embers',     label:'Embers',         min:0,    max:1,    step:0.01,  value:0.45 },
+    { key:'emberSize',  label:'Ember size',     min:0.002, max:0.03, step:0.001, value:0.009 },
+    { key:'emberColor', label:'Ember colour',   type:'color', value:[1.0, 0.7, 0.3] }
+  ];
   // target: what it draws on ('plane' = its own plane; 'character' = a character).
   // start / gone: what the first state blends from, and what 'Gone' means.
   const SHADERS = {
     darkness: { label:'Darkness whirlwind', target:'plane', params:DARKNESS_PARAMS, start:{ opacity:0 }, gone:{ opacity:0 } },
+    fire:     { label:'Fire', target:'plane', params:FIRE_PARAMS, start:{ opacity:0 }, gone:{ opacity:0 } },
     dissolve: { label:'Dissolve (character)', target:'character', params:DISSOLVE_PARAMS, start:{ progress:0 }, gone:{ progress:1 } }
   };
 
@@ -138,6 +162,85 @@ void main(){
   gl_FragColor = vec4(col, alpha * uOpacity);
 }`;
 
+  const FIRE_FRAGMENT = `
+precision highp float;
+varying vec2 vUv;
+uniform float uTime, uAspect;
+uniform float p_opacity, p_height, p_width, p_speed, p_flicker, p_tongues, p_lean, p_bed, p_glow, p_smoke, p_embers, p_emberSize;
+uniform vec3 p_coreColor, p_midColor, p_edgeColor, p_smokeColor, p_emberColor;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){
+  vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p){
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; }
+  return v;
+}
+// Straight alpha "a over b".
+vec4 over(vec4 a, vec4 b){
+  float o = a.a + b.a * (1.0 - a.a);
+  return o > 0.0001 ? vec4((a.rgb * a.a + b.rgb * b.a * (1.0 - a.a)) / o, o) : vec4(0.0);
+}
+void main(){
+  float y = vUv.y, x = vUv.x * 2.0 - 1.0;
+  float t = uTime * p_speed;
+  float hy = y / max(p_height, 0.05);           // 0 at the base, 1 at the flame tips
+  // Wind leans the upper flames; a slow sway keeps it alive.
+  float sway = (fbm(vec2(y * 1.5, uTime * 0.4)) - 0.5) * 0.3 * p_flicker;
+  float xs = x - (p_lean * 0.6 + sway) * hy * hy;
+  // Noise rising through the flames: it cuts the tongues and lets pieces break off.
+  vec2 q = vec2(xs * p_tongues * max(uAspect, 0.2), y * 3.2 - t * 1.6);
+  float n1 = fbm(q);
+  float n2 = fbm(q * 2.1 + vec2(4.3, -t * 0.9));
+  float xd = xs + (n1 - 0.5) * 0.3 * p_flicker * hy;
+  // Separate tongues across the width, each reaching its own (slowly changing) height;
+  // the middle ones reach highest.
+  float tongue = noise(vec2(xd * p_tongues * 1.4 + 3.0, t * 0.45)) * 0.65 + noise(vec2(xd * p_tongues * 3.1 + 8.0, t * 0.9)) * 0.35;
+  float across = abs(xd) / max(p_width, 0.01);
+  float reach = mix(0.15, 1.15, tongue * tongue * (3.0 - 2.0 * tongue)) * (1.0 - 0.6 * across * across);
+  float halfw = max(p_width, 0.01) * (1.0 - 0.6 * min(hy, 1.0));
+  float heat = (1.0 - hy / max(reach, 0.08)) * 1.0 - pow(abs(xd) / max(halfw, 0.01), 1.6) * 0.75;
+  heat += (n2 - 0.5) * 0.8 * p_flicker + (n1 - 0.5) * 0.45;
+  heat *= smoothstep(0.0, max(p_bed, 0.001), y);
+  float a = smoothstep(0.04, 0.3, heat);
+  // Hotter inside and low down; redder at the edges and towards the tips.
+  float hot = heat * (1.15 - 0.45 * min(hy, 1.2));
+  vec3 col = mix(p_edgeColor, p_midColor, smoothstep(0.08, 0.36, hot));
+  col = mix(col, p_coreColor, smoothstep(0.42, 0.85, hot));
+  vec4 flame = vec4(col, a);
+  // Smoke curling up off the tips.
+  float sy = smoothstep(p_height * 0.55, p_height * 1.05, y);
+  float sw = max(p_width, 0.05) * (0.5 + 0.9 * (y - p_height * 0.55));
+  float sn = fbm(vec2(xs * 3.0 * max(uAspect, 0.2), y * 4.0 - t * 0.7) + 2.0);
+  float sm = sy * (1.0 - smoothstep(sw * 0.4, sw, abs(xs - (sn - 0.5) * 0.3))) * smoothstep(0.35, 0.75, sn) * p_smoke * 0.75;
+  vec4 smoke = vec4(p_smokeColor, sm);
+  // A soft glow round the base of the fire.
+  float g = exp(-pow(x / max(p_width * 1.3, 0.05), 2.0) * 1.6 - pow((y - p_height * 0.2) / max(p_height * 0.75, 0.05), 2.0) * 2.2);
+  float flick = 0.85 + 0.15 * noise(vec2(uTime * 3.0 * max(p_speed, 0.2), 1.7));
+  vec4 glow = vec4(p_midColor, g * p_glow * 0.55 * flick);
+  // Embers: sparks rising from the bed, drifting and fading.
+  float ea = 0.0;
+  for (int i = 0; i < 28; i++) {
+    float fi = float(i);
+    if (fi >= p_embers * 28.0) break;
+    float h1 = hash(vec2(fi, 2.3)), h2 = hash(vec2(fi, 8.9)), h3 = hash(vec2(fi, 5.1));
+    float life = fract(h2 + uTime * (0.18 + 0.22 * h3) * (0.5 + p_speed * 0.5));
+    float ey = life * (0.4 + 0.6 * h1);
+    float ex = (h1 * 2.0 - 1.0) * p_width * 0.6 + sin(uTime * (1.5 + h3 * 2.0) + fi) * 0.05 * life + p_lean * 0.5 * ey;
+    vec2 d = vec2((x - ex) * uAspect * 0.5, y - ey);
+    float size = p_emberSize * (0.6 + 0.8 * h3);
+    float m = 1.0 - smoothstep(size * 0.3, size, length(d * vec2(1.0, 0.7)));
+    ea = max(ea, m * (1.0 - life) * smoothstep(0.0, 0.08, life));
+  }
+  vec4 ember = vec4(p_emberColor, ea);
+  vec4 o = over(ember, over(flame, over(smoke, glow)));
+  // Never a hard edge at the plane's sides or top.
+  o.a *= smoothstep(1.0, 0.9, abs(x)) * smoothstep(1.0, 0.92, y);
+  gl_FragColor = vec4(o.rgb, o.a * p_opacity);
+}`;
+
   function compile(gl, type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -146,30 +249,63 @@ void main(){
     return s;
   }
 
-  // A renderer in an existing WebGL context. The caller binds the target framebuffer
-  // and viewport; render() draws one full-target triangle and leaves blending off.
-  function createRenderer(gl) {
+  function link(gl, fragment, what) {
     const program = gl.createProgram();
     gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX));
-    gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, DARKNESS_FRAGMENT));
+    gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, fragment));
     gl.bindAttribLocation(program, 0, 'aPos');
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw Error('Effect program: ' + gl.getProgramInfoLog(program));
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw Error(what + ' program: ' + gl.getProgramInfoLog(program));
+    return program;
+  }
+  // Plane shaders that read their settings as p_<key> uniforms.
+  const PLANE_FRAGMENTS = { fire: FIRE_FRAGMENT };
+  // A renderer in an existing WebGL context. The caller binds the target framebuffer
+  // and viewport; render() draws one full-target triangle and leaves blending off.
+  // render(params, time, aspect, shader): shader is the art's shader (default darkness);
+  // each shader's program is built the first time it is drawn.
+  function createRenderer(gl) {
+    const program = link(gl, DARKNESS_FRAGMENT, 'Effect');
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     const u = {};
     for (const name of ['uTime', 'uOpacity', 'uSpeed', 'uTwist', 'uRise', 'uDensity', 'uSoft', 'uBase', 'uTop', 'uTurb', 'uFlecks', 'uFleckSpeed', 'uFleckSize', 'uAspect', 'uCore', 'uEdge', 'uFleckColor'])
       u[name] = gl.getUniformLocation(program, name);
+    const others = new Map(); // shader -> {program, uTime, uAspect, params:[[param, location]]}
+    function other(shader) {
+      if (others.has(shader)) return others.get(shader);
+      const prog = link(gl, PLANE_FRAGMENTS[shader], 'Effect ' + shader);
+      const entry = { program:prog, uTime:gl.getUniformLocation(prog, 'uTime'), uAspect:gl.getUniformLocation(prog, 'uAspect'),
+        params:SHADERS[shader].params.map(p => [p, gl.getUniformLocation(prog, 'p_' + p.key)]) };
+      others.set(shader, entry);
+      return entry;
+    }
+    function draw() {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
     return {
-      render(params, time, aspect) {
+      render(params, time, aspect, shader = 'darkness') {
         const p = params;
+        if (PLANE_FRAGMENTS[shader]) {
+          const o = other(shader);
+          gl.useProgram(o.program);
+          gl.uniform1f(o.uTime, time);
+          gl.uniform1f(o.uAspect, aspect || 0.6);
+          for (const [def, loc] of o.params) {
+            if (def.type === 'color') gl.uniform3fv(loc, p[def.key]); else gl.uniform1f(loc, p[def.key]);
+          }
+          draw();
+          return;
+        }
         gl.useProgram(program);
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
-        gl.disable(gl.DEPTH_TEST);
-        gl.disable(gl.BLEND);
         gl.uniform1f(u.uTime, time);
         gl.uniform1f(u.uOpacity, p.opacity); gl.uniform1f(u.uSpeed, p.speed); gl.uniform1f(u.uTwist, p.twist);
         gl.uniform1f(u.uRise, p.rise); gl.uniform1f(u.uDensity, p.density); gl.uniform1f(u.uSoft, p.softness);
@@ -177,9 +313,7 @@ void main(){
         gl.uniform1f(u.uFlecks, p.flecks); gl.uniform1f(u.uFleckSpeed, p.fleckSpeed); gl.uniform1f(u.uFleckSize, p.fleckSize);
         gl.uniform1f(u.uAspect, aspect || 0.6);
         gl.uniform3fv(u.uCore, p.coreColor); gl.uniform3fv(u.uEdge, p.edgeColor); gl.uniform3fv(u.uFleckColor, p.fleckColor);
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        draw();
       }
     };
   }
@@ -339,7 +473,7 @@ void main(){
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, w, h);
-        renderer.render(clean(art.shader, art.params), time, w / h);
+        renderer.render(clean(art.shader, art.params), time, w / h, art.shader);
         return canvas;
       }
     };
