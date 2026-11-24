@@ -2384,7 +2384,7 @@
       gl.viewport(0, 0, t.w, t.h);
       // Each copy runs on its own clock offset so neighbours don't swirl in step.
       const offset = (String(obj.id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
-      effectRenderer.render(Effects.clean(entry.art.shader, { ...entry.art.params, ...(obj.effectParams || {}) }), seconds + offset, t.w / t.h);
+      effectRenderer.render(Effects.clean(entry.art.shader, { ...entry.art.params, ...(obj.effectParams || {}) }), seconds + offset, t.w / t.h, entry.art.shader);
       obj.texture = t.tex;
     }
   }

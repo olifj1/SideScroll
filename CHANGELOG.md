@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Fire effect.** Asset Lab → **+ Add ▾ → New fire effect**: a plane with flames standing on its
+  bottom edge (a hearth, campfire or torch) — several tongues of different heights that break off
+  at the tips, hot core, glow, a little smoke and rising embers. Settings: flame height, width,
+  speed, flicker, tongues, lean (wind), soft base, three flame colours, glow, smoke, embers. Place
+  it like any asset; it can have states, and the **Effect on a character** step can attach it to a
+  character (blending from nothing, *Gone* fades it out).
 - **Skip.** While a story event has taken control, **Hold to skip ⏭** shows at the top of the
   screen; hold it for about ¾ s (or hold Escape on a keyboard) and the event jumps to its end:
   walks land, effects finish (a dissolved character stays gone), its remaining steps are applied

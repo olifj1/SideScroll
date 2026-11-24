@@ -176,15 +176,18 @@ Event step `wear` (`{action 'on'|'off', asset}`, Player row) → `setWorn` with 
 and walk-lab (the Worn item list).
 
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
-`art: {kind:'effect', shader:'darkness'|'dissolve', width, height (the plane's shape), params}`; params are
+`art: {kind:'effect', shader:'darkness'|'fire'|'dissolve', width, height (the plane's shape), params}`; params are
 the shader's controls (`SHADERS[shader].params`: number ranges and [r,g,b] colours; `clean()`
-clamps them). Asset Lab: **+ Add ▾ → New darkness effect** (or **New character effect**), the *Effect* section (sliders; Shape rescales placed
+clamps them). Asset Lab: **+ Add ▾ → New darkness effect** (or **New fire effect**, **New character effect**), the *Effect* section (sliders; Shape rescales placed
 copies), the shared canvas renderer animates the stage (`tickEffects`); thumbnails are still
 frames (`thumbnail`, also what `artUrl` returns). The game (`renderEffectTextures`, called at the
 start of each frame before the scene framebuffer is bound) renders each visible copy into its own
 384-px-high texture with `createRenderer(gl)` and sets `obj.texture`, so the normal object path
-draws it; `obj.effectParams` overrides settings per copy (for sequences). New shaders: add a
-fragment shader + params to `SHADERS` and choose it in `createRenderer`. Effect **states**
+draws it; `obj.effectParams` overrides settings per copy (for sequences). `render(params, time, aspect,
+shader)`; **Fire** (`FIRE_FRAGMENT`, flames on the plane's bottom edge) is the first of the generic plane
+shaders: listed in `PLANE_FRAGMENTS`, its program built on first use, each param passed as uniform
+`p_<key>` (colours vec3). New plane shaders: add a fragment shader with `p_` uniforms + params to
+`SHADERS` and `PLANE_FRAGMENTS` (Asset Lab builds the sliders from the params; add a **+ Add** button). Effect **states**
 (`art.states: [{id st-…, name, params}]`, Asset Lab → States) are what the **Effect on a character**
 event step (`effect`: `{actor, asset, delay, size, hideAt, keys:[{state 'gone'|st-…, seconds}]}`)
 blends between: `seqEffects` in sidescroll.js (`updateSeqEffects` after `updateWorldCharacters`,
