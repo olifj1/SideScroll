@@ -4,7 +4,7 @@ The single task list. Open work only: when something is done, delete it here and
 add a line to `CHANGELOG.md`. Detail and history for older items:
 `docs/archive/SIDESCROLL_TASKS.md` (search for the version number shown).
 
-Last reviewed: 20 November 2026 (intro sequence is the current focus; props for characters added).
+Last reviewed: 24 November 2026 (intro sequence is the current focus; objects, Inspect / Collect / Wear and the bag done this week).
 
 ---
 
@@ -36,10 +36,10 @@ Stages (engine work in order; art and sound in parallel):
 - [ ] **3 — Sound:** looping ambience (birdsong, distant chopping) and one-off sounds; a **Sound** step to play, stop or fade them ("the sounds fall away"); sound files in `assets/`. Later: sounds attached to animation frames (axe hits on the swing).
 - [ ] **4 — Held props for characters:** *(done 20 Nov: Character Lab → Props grips, a component's Holds, the Prop step — hold / put away / drop)* still to do: import the axe and set Father's grip; check it through his Chop animation once that exists.
 - [ ] **5 — Skip:** hold to skip a sequence that has taken control (needed for replaying the intro while building it).
-- [ ] **7 — Objects in sequences** (agreed 23 Nov; *done 23 Nov: Object components, object roles, the Object step — appear / disappear / change to; still to do: pick one up with Action, and the player taking it into the inventory, with stage 9*): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
+- [ ] **7 — Objects in sequences** (agreed 23 Nov; *done 23–24 Nov: Object components, object roles, the Object step — appear / disappear / change to; sequence objects take Asset Lab's Inspect / Collect / Wear like placed copies*; still to do, only when a case needs it: collision and Layer / Sort for sequence objects (static dressing is placed in the scene instead, agreed 23 Nov)): an **Object** component — any asset placed relative to the sequence (moves with it in World Lab), with event steps to show / hide / swap it (the chopping block, logs, the woodpile, the note and food in the cabin).
 - [ ] **8 — Outfit parts** (agreed 23 Nov; *done 24 Nov for the bag: Skin → Worn item, Asset Lab → Wear (Holds the inventory), Put on, the Wear step, saved state*) — still to do: a cloak / coat the same way once its art is in the atlas; worn parts on a sequence copy of the player follow the player's own worn state (fine while she is the only wearer; revisit if story characters need their own).
 - [ ] **9 — Inventory:** *(done 24 Nov: Inspect and Collect in Asset Lab, Pick up, any collectable asset in the inventory, tap to look again, story flags)* — still to do: **combine** two items (designed before building), *use* an item on something in the world, and a fuller inventory screen if the panel feels small.
-- [x] **Scene objects in Character Lab** (23 Nov): stand any asset beside the character in Animate / Play to animate against (session only).
+- [ ] **Aureli's far leg (author, 24 Nov):** in the 24 Nov 20:22 package LegFar carries LegNear's skin (group Near leg, the near bones), so she walks with one leg. Character Lab → Skin → LegFar → Far leg + far bones → bind → Save, then re-export before publishing (the bag part in that package is fine: Worn item = the hook bag).
 - [ ] **Art and sound (parallel):** Father (biped parts sheet + Chop, Idle, Talk animations); deer (quadruped, Run) and variants (duplicates with different art / scale); other running animals; axe, woodpile, chopping block, note, food / water, backpack; sounds (birdsong, chopping, gasp, shadow).
 - [ ] **6 — Build the intro** in the Story editor (zones: note, table, backpack, door, Father; events with Say, Wait for Action, Look, Screen, Camera, Effect, Sound, Item steps), then tune with ▶ Play and Skip.
 
