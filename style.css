@@ -16004,3 +16004,9 @@ body[data-game-id="game-17"] .animlab-scene-row-head button{min-height:28px;padd
 .sidescroll-inspect-actions{display:flex;gap:10px;justify-content:center;}
 .sidescroll-inspect-actions button{min-width:110px;min-height:42px;padding:0 18px;border:1px solid rgba(247,238,207,.5);border-radius:21px;
   background:rgba(247,238,207,.12);color:#f7eecf;font:800 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;text-transform:uppercase;}
+/* Inventory: collected assets are buttons (tap to look again). */
+body[data-game-id="game-16"] .sidescroll-inventory-item.openable{display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;}
+body[data-game-id="game-16"] .sidescroll-inventory-item.openable .sidescroll-inventory-thumb img{width:100%;height:100%;max-width:none;object-fit:contain;padding:6px;box-sizing:border-box;}
+.assetlab-interactions .assetlab-interaction-fields{display:grid;gap:8px;margin-top:8px;}
+.assetlab-interactions .assetlab-interaction-fields[hidden]{display:none;}
+.assetlab-interactions .assetlab-interaction-fields + .assetlab-behaviours{margin-top:12px;}

@@ -5794,6 +5794,15 @@ document.addEventListener('keydown',event=>{
   const PUZZLE_WORKSHOP_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.workshop.v1' : 'sidescroll.puzzle-groups.workshop.v1';
   const PUZZLE_EDIT_RECOVERY_STORAGE_KEY = PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.edit-recovery.v1' : 'sidescroll.puzzle-groups.edit-recovery.v1';
   const INVENTORY_STORAGE_KEY = PLAYER_MODE ? PLAYER_INVENTORY_STORAGE_KEY : (PUZZLE_LAB_MODE ? 'sidescroll.puzzle-lab.inventory.v1' : 'sidescroll.inventory.v1');
+  // Asset interactions (asset-interactions.js, set in Asset Lab): what the player can do
+  // to an asset — Inspect, Collect. Read here so the inventory knows collectable assets.
+  const Interactions = window.SideScrollInteractions || null;
+  let assetInteractions = Interactions ? Interactions.load() : {};
+  const reloadInteractions = () => { if (Interactions) { assetInteractions = Interactions.load(); renderInventory(); } };
+  window.addEventListener('storage', ev => { if (!ev.key || ev.key === Interactions?.KEY) reloadInteractions(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reloadInteractions(); });
+  const assetInspect = name => assetInteractions[name]?.inspect || null;
+  const assetCollect = name => assetInteractions[name]?.collect || null;
   const INVENTORY_ITEM_DEFS = {
     'forest-key': {
       id:'forest-key',
@@ -5809,6 +5818,14 @@ document.addEventListener('keydown',event=>{
       description:'A sturdy pin that looks like it belongs to a wheel.'
     }
   };
+  // An inventory item: a built-in one above, or any asset marked Collect in Asset Lab
+  // (its id is the asset name; name and description from Asset Lab).
+  function inventoryDef(itemId) {
+    if (INVENTORY_ITEM_DEFS[itemId]) return INVENTORY_ITEM_DEFS[itemId];
+    const c = assetCollect(itemId);
+    if (!c) return null;
+    return { id:itemId, label:c.label || assetDisplayName(itemId), asset:itemId, description:c.description || '', collectable:true };
+  }
   const COLLECTIBLE_SETUP_STORAGE_KEY = 'sidescroll.collectibles.setup.v1';
   const COLLECTIBLE_DEFAULTS = {
     'forest-key': { label:'Forest Key', scale:1, spin:true },
@@ -7165,7 +7182,7 @@ document.addEventListener('keydown',event=>{
   }
 
   function addInventoryItem(itemId, count = 1, sourceId = null) {
-    if (!INVENTORY_ITEM_DEFS[itemId]) return false;
+    if (!inventoryDef(itemId)) return false;
     inventoryState.items ||= {};
     const amount = Math.max(1, Number(count) || 1);
     const current = inventoryState.items[itemId] || { count:0, firstCollectedAt:Date.now() };
@@ -7233,12 +7250,26 @@ document.addEventListener('keydown',event=>{
     const entries = Object.entries(inventoryState.items || {}).filter(([,state]) => (Number(state?.count) || 0) > 0);
     inventoryEmptyEl.hidden = entries.length > 0;
     for (const [itemId, state] of entries) {
-      const def = INVENTORY_ITEM_DEFS[itemId] || { label:itemId, description:'Collected item.' };
-      const cfg = collectibleConfig(itemId);
-      const card = document.createElement('div');
+      const def = inventoryDef(itemId) || { label:itemId, description:'Collected item.' };
+      const label = def.collectable ? def.label : (collectibleConfig(itemId).label || def.label);
+      const card = document.createElement(def.collectable ? 'button' : 'div');
       card.className = 'sidescroll-inventory-item';
       card.dataset.itemId = itemId;
-      card.innerHTML = `${inventoryThumbMarkup(def)}<span class="sidescroll-inventory-item-copy"><strong>${cfg.label || def.label}</strong><small>${def.description || ''}</small></span><b class="sidescroll-inventory-qty">×${Math.max(1, Number(state.count) || 1)}</b>`;
+      if (def.collectable) {
+        // Collected assets: their own picture; tap to look at it again.
+        card.type = 'button';
+        card.classList.add('openable');
+        const thumb = document.createElement('span'), img = document.createElement('img');
+        thumb.className = 'sidescroll-inventory-thumb'; img.alt = ''; thumb.append(img);
+        assetPictureUrl(itemId).then(url => { if (url) img.src = url; });
+        const copy = document.createElement('span'), name = document.createElement('strong'), desc = document.createElement('small'), qty = document.createElement('b');
+        copy.className = 'sidescroll-inventory-item-copy'; name.textContent = label; desc.textContent = def.description || '';
+        qty.className = 'sidescroll-inventory-qty'; qty.textContent = `×${Math.max(1, Number(state.count) || 1)}`;
+        copy.append(name, desc); card.append(thumb, copy, qty);
+        card.addEventListener('click', ev => { ev.preventDefault(); openInspect({ asset:itemId, fromInventory:true }); });
+      } else {
+        card.innerHTML = `${inventoryThumbMarkup(def)}<span class="sidescroll-inventory-item-copy"><strong>${label}</strong><small>${def.description || ''}</small></span><b class="sidescroll-inventory-qty">×${Math.max(1, Number(state.count) || 1)}</b>`;
+      }
       inventoryListEl.appendChild(card);
     }
   }
@@ -18660,7 +18691,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         return now + step.seconds;
       }
       case 'item': {
-        if (!step.item || !INVENTORY_ITEM_DEFS[step.item]) return now;
+        if (!step.item || !inventoryDef(step.item)) return now;
         if (step.give) addInventoryItem(step.item, step.count, seqItemSource(run.p.id));
         else {
           const n = Math.min(inventoryItemCount(step.item), step.count);
@@ -18955,7 +18986,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (step.type === 'flag' && step.value && step.flag) delete seqProgress.flags[step.flag];
     removeInventoryFromSource(seqItemSource(placedId));
     for (const [itemId, count] of Object.entries(seqProgress.taken?.[placedId] || {}))
-      if (INVENTORY_ITEM_DEFS[itemId]) addInventoryItem(itemId, count);
+      if (inventoryDef(itemId)) addInventoryItem(itemId, count);
     if (seqProgress.taken) delete seqProgress.taken[placedId];
     // A look this sequence set goes back to the base look.
     if (seqProgress.look?.by === placedId) { delete seqProgress.look; setWorldLook(null, 0); }
@@ -19541,7 +19572,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     // Inventory items an Item step can give or take: [{id, label}].
     looks: () => (Looks ? Looks.list() : []).map(l => ({ id: l.id, name: l.name })),
     effects: () => [...effectAssets.values()].map(e => ({ id: e.name, name: e.label, character: !!Effects?.isCharacterEffect(e.art), states: (e.art.states || []).map(st => ({ id: st.id, name: st.name })) })),
-    items: () => Object.values(INVENTORY_ITEM_DEFS).map(d => ({ id: d.id, label: collectibleConfig(d.id)?.label || d.label || d.id })),
+    items: () => [...Object.values(INVENTORY_ITEM_DEFS).map(d => ({ id: d.id, label: collectibleConfig(d.id)?.label || d.label || d.id })),
+      ...Object.keys(assetInteractions).filter(name => assetCollect(name)).map(name => ({ id: name, label: inventoryDef(name).label }))],
     // Assets a character can hold (Prop step, a component's "Holds"): every
     // asset with a picture; `held` = some character has a hold set up for it
     // in Character Lab → Props (listed first). [{id, name, group, held}].
@@ -20362,41 +20394,111 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // Any placed copy of an asset with an action, or a visible sequence object, shows
   // the dot when the player is near; Action opens the Inspect view (title, text and,
   // with Show large, the picture big on screen). Inspecting holds the player still.
-  const Interactions = window.SideScrollInteractions || null;
-  let assetInteractions = Interactions ? Interactions.load() : {};
-  const reloadInteractions = () => { if (Interactions) assetInteractions = Interactions.load(); };
-  window.addEventListener('storage', ev => { if (!ev.key || ev.key === Interactions?.KEY) reloadInteractions(); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) reloadInteractions(); });
-  const assetInspect = name => assetInteractions[name]?.inspect || null;
   const INSPECT_REACH = 0.45, INSPECT_DEPTH = 2.5; // metres beyond the player's body; how far off the path
+  const assetHasAction = name => !!(assetInspect(name) || assetCollect(name));
+  // The nearest thing the player can inspect or pick up: {asset, x, y, z, obj?} for a
+  // placed copy, {…, seq:{p, c}} for a sequence object.
   function nearestInspectable() {
     if (!Interactions || carriedObject || interactionState || climbState || editLocked() || inspectOpen) return null;
     const px = camera.x + character.screenOffsetX, reach = colliderWorld().radius + INSPECT_REACH;
     let best = null, bestD = Infinity;
-    const consider = (asset, x, halfWidth, y, z) => {
-      if (Math.abs((z ?? pathZ) - pathZ) > INSPECT_DEPTH) return;
-      const d = Math.max(0, Math.abs(x - px) - halfWidth);
-      if (d <= reach && d < bestD) { bestD = d; best = { asset, x, y, z: z ?? pathZ }; }
+    const consider = (target, halfWidth) => {
+      if (Math.abs((target.z ?? pathZ) - pathZ) > INSPECT_DEPTH) return;
+      const d = Math.max(0, Math.abs(target.x - px) - halfWidth);
+      if (d <= reach && d < bestD) { bestD = d; best = target; }
     };
     for (const obj of allSceneObjects()) {
-      if (!obj || obj.deleted || obj.hidden || !obj.assetName || !assetInspect(obj.assetName)) continue;
+      if (!obj || obj.deleted || obj.hidden || !obj.assetName || !assetHasAction(obj.assetName)) continue;
       const sy = Number(obj.sy) || 1;
-      consider(obj.assetName, objectXNear(obj, px), Math.max(0.12, (Number(obj.sx) || 1) * 0.5), obj.y + Math.max(0.18, sy * 0.54), obj.z);
+      consider({ asset: obj.assetName, x: objectXNear(obj, px), y: obj.y + Math.max(0.18, sy * 0.54), z: obj.z ?? pathZ, obj }, Math.max(0.12, (Number(obj.sx) || 1) * 0.5));
     }
     for (const { p, body } of seqResolved) for (const c of body.components) {
       if (c.kind !== 'object') continue;
       const place = seqComponentPlace(p, c);
-      if (place.hidden || !assetInspect(place.asset)) continue;
+      if (place.hidden || !assetHasAction(place.asset)) continue;
       const h = propHeightOf(place.asset) * (c.size || 1), w = h * (assetAspect[place.asset] || 1);
       const base = storyGroundY(place.x, place.depth) + (c.lift || 0) - assetGroundLineDefault(place.asset) * h;
-      consider(place.asset, place.x, Math.max(0.12, w * 0.5), base + h * 0.54, place.depth);
+      consider({ asset: place.asset, x: place.x, y: base + h * 0.54, z: place.depth, seq: { p, c } }, Math.max(0.12, w * 0.5));
     }
     return best;
+  }
+  // Interactions may set a story flag (Asset Lab: "Sets story flag").
+  function setInteractionFlag(flag) {
+    const f = Seq?.flagName ? Seq.flagName(flag) : '';
+    if (!f || seqProgress.flags[f]) return;
+    seqProgress.flags[f] = true;
+    saveStoryProgress();
+  }
+
+  // ---- Collected placed copies (progress) ---------------------------------------
+  // {objects: {placed object id: asset name}}. A collected copy is taken out of the
+  // scene while playing; while editing (not ▶ Play) it is back so it can be edited.
+  const COLLECTED_STORAGE_KEY = PLAYER_MODE ? 'sidescroll.player.collected.v1' : 'sidescroll.collected.v1';
+  let collectedState = (() => {
+    try { const raw = JSON.parse(localStorage.getItem(COLLECTED_STORAGE_KEY) || 'null'); if (raw && typeof raw.objects === 'object') return { objects: { ...raw.objects } }; } catch (_) {}
+    return { objects: {} };
+  })();
+  const collectedAway = new Map(); // object id → {obj, list} taken out of the scene lists
+  const collectSource = id => `collect:${id}`;
+  function saveCollected() { if (puzzleTestMode) return; try { localStorage.setItem(COLLECTED_STORAGE_KEY, JSON.stringify(collectedState)); } catch (_) {} }
+  function syncCollectedObjects() {
+    const away = !editLocked();
+    if (away && Object.keys(collectedState.objects).length) {
+      let changed = false;
+      for (const list of [backdrop, midfill, frontOccluders]) {
+        for (let i = list.length - 1; i >= 0; i--) {
+          const obj = list[i];
+          if (!obj?.id || !collectedState.objects[obj.id]) continue;
+          list.splice(i, 1);
+          // Puzzle-owned copies are rebuilt when their puzzle streams in, so only scene copies are kept to put back.
+          if (!obj.puzzleInstanceId) collectedAway.set(obj.id, { obj, list });
+          changed = true;
+        }
+      }
+      if (changed) sortSceneCollections();
+    }
+    if (collectedAway.size && (!away || [...collectedAway.keys()].some(id => !collectedState.objects[id]))) {
+      for (const [id, { obj, list }] of [...collectedAway]) {
+        if (away && collectedState.objects[id]) continue;
+        if (!obj.deleted && !list.includes(obj)) list.push(obj);
+        collectedAway.delete(id);
+      }
+      sortSceneCollections();
+    }
+  }
+  // Pick up: the copy leaves the world and goes in the inventory.
+  function collectTarget(target) {
+    const c = assetCollect(target?.asset);
+    if (!c) return false;
+    if (target.seq) {
+      const { p, c: comp } = target.seq;
+      if (!addInventoryItem(target.asset, 1, seqItemSource(p.id))) return false;
+      seqSavedFor(compKey(p.id, comp.id)).hidden = true;
+      saveStoryProgress();
+    } else if (target.obj?.id) {
+      if (!addInventoryItem(target.asset, 1, collectSource(target.obj.id))) return false;
+      collectedState.objects[target.obj.id] = target.asset;
+      saveCollected();
+      syncCollectedObjects();
+    } else return false;
+    setInteractionFlag(c.flag);
+    hintEl.textContent = `Picked up ${inventoryDef(target.asset)?.label || target.asset}`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+  // Progress → Reset all: every collected copy back where it was, its item taken back.
+  function resetCollected() {
+    for (const id of Object.keys(collectedState.objects)) removeInventoryFromSource(collectSource(id));
+    collectedState = { objects: {} };
+    saveCollected();
+    syncCollectedObjects();
   }
   function assetDisplayName(name) {
     const imported = AssetLib?.get?.(name);
     if (imported) return imported.label || name;
-    for (const g of editorAssetGroups) for (const i of g.items) if (i.name === name) {
+    let groups = [];
+    try { groups = editorAssetGroups; } catch (_) { groups = []; }
+    for (const g of groups) for (const i of g.items) if (i.name === name) {
       return String(i.label || name).toLowerCase().replace(/(^|[\s·(-])([a-z])/g, (m, sep, c) => sep + c.toUpperCase());
     }
     return name;
@@ -20422,32 +20524,47 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       <div class="sidescroll-inspect-picture" hidden><img alt=""></div>
       <strong class="sidescroll-inspect-title"></strong>
       <p class="sidescroll-inspect-text"></p>
-      <div class="sidescroll-inspect-actions"><button type="button" data-inspect-leave>Leave</button></div>
+      <div class="sidescroll-inspect-actions"><button type="button" data-inspect-take hidden>Pick up</button><button type="button" data-inspect-leave>Leave</button></div>
     </div>`;
     inspectEl.querySelector('[data-inspect-leave]').addEventListener('click', ev => { ev.preventDefault(); closeInspect(); });
+    inspectEl.querySelector('[data-inspect-take]').addEventListener('click', ev => {
+      ev.preventDefault();
+      const target = inspectOpen?.target;
+      closeInspect();
+      if (target) collectTarget(target);
+    });
     inspectEl.addEventListener('pointerdown', ev => ev.stopPropagation());
     document.body.appendChild(inspectEl);
     return inspectEl;
   }
+  // The Inspect view: for a thing in the world (title, text, picture when Show large,
+  // Pick up when collectable) or an inventory item (always its picture; Close).
   function openInspect(target) {
-    const cfg = assetInspect(target?.asset);
-    if (!cfg) return false;
+    const inspect = assetInspect(target?.asset), collect = assetCollect(target?.asset);
+    if (!inspect && !(target?.fromInventory && collect)) return false;
     const el = inspectView();
+    const fromInventory = !!target.fromInventory;
+    const large = fromInventory || !!inspect?.large;
     const picture = el.querySelector('.sidescroll-inspect-picture'), img = picture.querySelector('img');
-    el.classList.toggle('large', !!cfg.large);
-    el.querySelector('.sidescroll-inspect-title').textContent = cfg.title || assetDisplayName(target.asset);
+    el.classList.toggle('large', large);
+    el.querySelector('.sidescroll-inspect-title').textContent = inspect?.title || (collect?.label) || assetDisplayName(target.asset);
+    const body = inspect?.text || (fromInventory ? collect?.description : '') || '';
     const textEl = el.querySelector('.sidescroll-inspect-text');
-    textEl.textContent = cfg.text || '';
-    textEl.hidden = !cfg.text;
-    picture.hidden = !cfg.large;
+    textEl.textContent = body;
+    textEl.hidden = !body;
+    picture.hidden = !large;
     img.removeAttribute('src');
+    const takeBtn = el.querySelector('[data-inspect-take]');
+    takeBtn.hidden = fromInventory || !collect;
+    el.querySelector('[data-inspect-leave]').textContent = fromInventory ? 'Close' : 'Leave';
     const token = {};
-    inspectOpen = { asset: target.asset, token };
-    if (cfg.large) assetPictureUrl(target.asset).then(url => { if (url && inspectOpen?.token === token) img.src = url; });
+    inspectOpen = { asset: target.asset, token, target: fromInventory ? null : target };
+    if (large) assetPictureUrl(target.asset).then(url => { if (url && inspectOpen?.token === token) img.src = url; });
     el.hidden = false;
     document.body.classList.add('sidescroll-inspect-open');
     hintEl?.classList.add('hidden');
-    setTimeout(() => el.querySelector('[data-inspect-leave]')?.focus?.({ preventScroll: true }), 0);
+    if (!fromInventory) setInteractionFlag(inspect?.flag);
+    setTimeout(() => (takeBtn.hidden ? el.querySelector('[data-inspect-leave]') : takeBtn)?.focus?.({ preventScroll: true }), 0);
     return true;
   }
   function closeInspect() {
@@ -20469,8 +20586,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (contextAction && performPuzzleContextAction(contextAction)) return;
     const storyTrigger = storyActionTrigger();
     if (storyTrigger) { fireStoryTrigger(storyTrigger); return; }
+    // Inspect (with Pick up in the view when collectable), or pick up straight away.
     const inspectTarget = nearestInspectable();
-    if (inspectTarget && openInspect(inspectTarget)) return;
+    if (inspectTarget && (openInspect(inspectTarget) || collectTarget(inspectTarget))) return;
     if (carriedObject) { startDrop(); return; }
     const pushTarget = nearestActionPushable();
     if (pushTarget) { startPush(pushTarget); return; }
@@ -20809,6 +20927,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     updateBiomeDatasetStreaming(character.x);
     checkPuzzleCompletion(character.x);
     updatePuzzleRewards(now);
+    syncCollectedObjects();
 
     renderEffectTextures(now);
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
@@ -21524,6 +21643,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const out = new Set(Object.keys(seqProgress.flags || {}));
     for (const e of seqState.events) for (const st of e.steps) if (st.type === 'flag' && st.flag) out.add(st.flag);
     for (const { body } of seqResolved) for (const l of body.logic) { if (l.condition?.flag) out.add(l.condition.flag); if (l.when?.flag) out.add(l.when.flag); }
+    for (const entry of Object.values(assetInteractions)) for (const a of Object.values(entry)) if (a?.flag) out.add(a.flag);
     return [...out].sort();
   }
   function renderProgressWindow() {
@@ -21537,7 +21657,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const all = make('div', 'sidescroll-progress-all');
     all.append(
       button('Complete all', () => { if (!confirm('Complete every puzzle and sequence (end states, items given)?')) return; for (const it of items) progressComplete(it); after('Everything completed'); }, 'complete'),
-      button('Reset all', () => { if (!confirm('Reset every puzzle and sequence and clear all story flags (items they gave are taken back)?')) return; for (const it of items) progressReset(it); resetStoryProgress(); after('Everything reset · a fresh start'); }, 'danger'));
+      button('Reset all', () => { if (!confirm('Reset every puzzle and sequence and clear all story flags (items they gave are taken back)?')) return; for (const it of items) progressReset(it); resetStoryProgress(); resetCollected(); after('Everything reset · a fresh start'); }, 'danger'));
     root.append(all);
     root.append(make('div', 'sidescroll-editor-asset-group', 'Puzzles and sequences, in journey order'));
     if (!items.length) root.append(make('p', 'sidescroll-progress-help', 'Nothing placed yet.'));
