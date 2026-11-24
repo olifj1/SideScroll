@@ -184,7 +184,7 @@
       Array.isArray(binding.weights)&&binding.weights.length===verts.length;
     // No silent rebind: invalid/missing bindings render at rest and are reported.
     const weights=validBinding?binding.weights.map(row=>Array.isArray(row)?row.filter(p=>Array.isArray(p)&&Number.isInteger(p[0])&&finite(p[1])&&p[1]>0).slice(0,4):[]):null;
-    return {id:item.id,label:String(item.label||mesh.name||item.id),rest,vertices:verts,
+    return {id:item.id,label:String(item.label||mesh.name||item.id),wornWith:typeof item.wornWith==='string'&&item.wornWith?item.wornWith:null,rest,vertices:verts,
       indices:new Uint16Array(indices),weights,mode:binding?.envelopeMode||'',
       image,sourceKey,texture:null,buffer:new Float32Array(verts.length*5),mesh:null,
       warning:validBinding?null:`${item.label||item.id}: missing/stale Skin bind (rest pose shown)`};

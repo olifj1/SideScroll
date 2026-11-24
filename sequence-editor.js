@@ -260,7 +260,7 @@
 
   // ---- Sequence page -------------------------------------------------------------
   const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑', object: '▢' };
-  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺', prop: '⚒', object: '▢' };
+  const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺', prop: '⚒', object: '▢', wear: '◒' };
 
   // ---- Steps: timing, summaries, beats, moving (step list and timeline) --------
   // A beat is a step and the "at the same time" steps after it; the next beat
@@ -299,6 +299,7 @@
       case 'camera': return s.mode === 'back' ? 'Camera back' : `Camera → ${s.target ? roleName(e, s.target) : 'player'}`;
       case 'screen': return Seq.SCREEN_ACTIONS[s.action] || s.action;
       case 'prompt': return `Wait for Action “${s.label}”`;
+      case 'wear': return `${s.action === 'off' ? 'Take off' : 'Put on'} ${propLabel(s.asset) || '…'}`;
       case 'item': return `${s.give ? 'Give' : 'Take'} ${s.count > 1 ? `${s.count} × ` : ''}${s.item}`;
       case 'effect': return `${(host.effects?.() || []).find(x => x.id === s.asset)?.name || 'Effect'} on ${who}`;
       case 'look': return `Look: ${(host.looks?.() || []).find(x => x.id === s.look)?.name || 'base look'}`;
@@ -320,7 +321,7 @@
   // Game (control, flags, items, Wait for Action, waits). A step's row follows
   // from what it is, so rows never need arranging.
   const CHAR_STEPS = ['say', 'move', 'animate', 'face', 'show', 'effect', 'prop'];
-  const ROW_OF_TYPE = { think: 'player', camera: 'camera', screen: 'screen', look: 'look' }; // else 'game'
+  const ROW_OF_TYPE = { think: 'player', wear: 'player', camera: 'camera', screen: 'screen', look: 'look' }; // else 'game'
   function rowKeyOf(s) {
     if (s.type === 'say') return s.actor === Seq.PLAYER ? 'player' : s.actor ? `role:${s.actor}` : 'screen';
     if (CHAR_STEPS.includes(s.type) || s.type === 'object') return s.actor ? `role:${s.actor}` : 'role:?';
@@ -338,7 +339,8 @@
     control: { type: 'control', label: 'Take / give control' }, prompt: { type: 'prompt', label: 'Wait for Action' },
     flag: { type: 'flag', label: 'Set / clear a flag' },
     objectShow: { type: 'object', label: 'Appears', preset: { action: 'show' } }, objectHide: { type: 'object', label: 'Disappears', preset: { action: 'hide' } },
-    objectSwap: { type: 'object', label: 'Changes to another asset', preset: { action: 'swap' } }, item: { type: 'item', label: 'Give / take an item' }, wait: { type: 'wait', label: 'Wait (a gap)' }
+    objectSwap: { type: 'object', label: 'Changes to another asset', preset: { action: 'swap' } }, item: { type: 'item', label: 'Give / take an item' },
+    wearOn: { type: 'wear', label: 'Put on (the bag…)', preset: { action: 'on' } }, wearOff: { type: 'wear', label: 'Take off', preset: { action: 'off' } }, wait: { type: 'wait', label: 'Wait (a gap)' }
   };
   function timelineRows(e) {
     const rows = e.roles.filter(r => r.kind === 'character').map(r => ({ key: `role:${r.id}`, role: r.id, label: r.name, icon: '☺',
@@ -346,7 +348,7 @@
     // Object placeholders: a row each (appear / disappear / change).
     for (const r of e.roles.filter(r => r.kind === 'object')) rows.push({ key: `role:${r.id}`, role: r.id, object: true, label: r.name, icon: '▢', adds: ['objectHide', 'objectShow', 'objectSwap'] });
     if (e.steps.some(s => rowKeyOf(s) === 'role:?')) rows.push({ key: 'role:?', label: 'No one chosen', icon: '?', adds: [] });
-    rows.push({ key: 'player', label: 'Player', icon: '★', adds: ['playerSay', 'think'] },
+    rows.push({ key: 'player', label: 'Player', icon: '★', adds: ['playerSay', 'think', 'wearOn', 'wearOff'] },
       { key: 'camera', label: 'Camera', icon: '▣', adds: ['shot', 'back'] },
       { key: 'screen', label: 'Screen', icon: '▬', adds: ['screen', 'caption'] },
       { key: 'look', label: 'Look', icon: '◑', adds: ['look'] },
@@ -647,6 +649,18 @@
             'Keep after the event (until a later “Back to the player” step)') : null,
           help(s.mode === 'shot' ? (s.keep ? 'The shot stays when the event ends: bring it back with a Camera “Back to the player” step, e.g. on a line When the player leaves a zone.'
             : 'The camera holds the shot until the next Camera step; it goes back to the player when the event ends.') : 'Blends back to following the player.'));
+        break;
+      }
+      case 'wear': {
+        // Wearables: assets with Wear set in Asset Lab → Interactions.
+        const all = window.SideScrollInteractions?.load() || {};
+        const wearables = Object.keys(all).filter(n => all[n].wear);
+        if (!s.asset && wearables.length) s.asset = wearables[0];
+        rows.push(segmented([['on', 'Put on'], ['off', 'Take off']], s.action === 'off' ? 'off' : 'on', v => { s.action = v; change(); }),
+          wearables.length
+            ? field('Item', select_(wearables.map(n => [n, propLabel(n)]).concat(s.asset && !wearables.includes(s.asset) ? [[s.asset, `${propLabel(s.asset)} (no Wear set)`]] : []), s.asset, v => { s.asset = v; change(); }))
+            : help('Nothing can be worn yet: set Wear on an asset in Asset Lab → Interactions.'),
+          help('The player shows the parts marked with it (Character Lab → Skin → Worn item). Progress → Reset on this sequence takes it off again.'));
         break;
       }
       case 'item': {

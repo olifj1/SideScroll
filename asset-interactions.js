@@ -1,10 +1,15 @@
 /* SideScroll · asset interactions (what the player can do to an asset)
  * Per asset name, in sidescroll.asset-interactions.v1 (content, Assets area):
- *   { [asset name]: { inspect: { title, text, large, flag }, collect: { label, description, flag } } }
+ *   { [asset name]: { inspect: { title, text, large, flag }, collect: { label, description, flag },
+ *                     wear: { holdsInventory, refuse, flag } } }
  * Inspect: Action near any placed copy (or sequence object) of the asset shows
  * the title and text; `large` shows the asset's picture big on screen (a note to
  * read). Collect: it can be picked up (Pick up in the Inspect view, or straight
  * away when it has no Inspect) into the inventory as an item named `label`.
+ * Wear: picking it up puts it on the player instead (a character part marked with
+ * this asset in Character Lab → Skin → Worn item shows while it is worn); never in
+ * the inventory. `holdsInventory`: while any such asset exists, nothing can be
+ * collected until one is worn (`refuse` is what she says).
  * `flag`: a story flag set when it is inspected / picked up (sequence lines can
  * react). Later actions (use…) are further keys beside these.
  * Asset Lab edits it (Interactions section); the game reads it.
@@ -12,7 +17,7 @@
 (() => {
   'use strict';
   const KEY = 'sidescroll.asset-interactions.v1';
-  const ACTIONS = Object.freeze({ inspect: 'Inspect', collect: 'Collect' });
+  const ACTIONS = Object.freeze({ inspect: 'Inspect', collect: 'Collect', wear: 'Wear' });
   // Story flags as sequence-data.js names them.
   const flagName = v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   const NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
@@ -30,6 +35,12 @@
     const flag = flagName(raw.flag); if (flag) out.flag = flag;
     return out;
   }
+  function cleanWear(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const out = { holdsInventory: !!raw.holdsInventory, refuse: text(raw.refuse, 120).trim() };
+    const flag = flagName(raw.flag); if (flag) out.flag = flag;
+    return out;
+  }
   function cleanEntry(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const out = {};
@@ -37,6 +48,8 @@
     if (inspect) out.inspect = inspect;
     const collect = cleanCollect(raw.collect);
     if (collect) out.collect = collect;
+    const wear = cleanWear(raw.wear);
+    if (wear) out.wear = wear;
     return Object.keys(out).length ? out : null;
   }
   function load() {

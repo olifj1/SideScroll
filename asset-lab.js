@@ -867,6 +867,8 @@
   const inspectLargeBtn = $('assetlab-inspect-large'), inspectFlagEl = $('assetlab-inspect-flag');
   const collectOnBtn = $('assetlab-collect-on'), collectFields = $('assetlab-collect-fields');
   const collectLabelEl = $('assetlab-collect-label'), collectDescEl = $('assetlab-collect-description'), collectFlagEl = $('assetlab-collect-flag');
+  const wearOnBtn = $('assetlab-wear-on'), wearFields = $('assetlab-wear-fields'), wearHoldsBtn = $('assetlab-wear-holds');
+  const wearRefuseEl = $('assetlab-wear-refuse'), wearRefuseRow = $('assetlab-wear-refuse-row'), wearFlagEl = $('assetlab-wear-flag');
   const pressed = (btn, on) => { btn.classList.toggle('active', !!on); btn.setAttribute('aria-pressed', String(!!on)); };
   const fill = (el, v) => { if (document.activeElement !== el) el.value = v || ''; };
   function syncInteractions() {
@@ -883,6 +885,10 @@
     pressed(collectOnBtn, collect); collectFields.hidden = !collect;
     collectLabelEl.placeholder = asset.label || asset.name;
     fill(collectLabelEl, collect?.label); fill(collectDescEl, collect?.description); fill(collectFlagEl, collect?.flag);
+    const wear = entry.wear || null;
+    pressed(wearOnBtn, wear); wearFields.hidden = !wear;
+    pressed(wearHoldsBtn, wear?.holdsInventory); wearRefuseRow.hidden = !wear?.holdsInventory;
+    fill(wearRefuseEl, wear?.refuse); fill(wearFlagEl, wear?.flag);
   }
   // patch null = turn the action off; otherwise merge into it (turning it on).
   function saveAction(action, patch) {
@@ -905,6 +911,10 @@
     collectLabelEl.addEventListener('input', () => saveAction('collect', { label: collectLabelEl.value }));
     collectDescEl.addEventListener('input', () => saveAction('collect', { description: collectDescEl.value }));
     collectFlagEl.addEventListener('change', () => { saveAction('collect', { flag: collectFlagEl.value }); collectFlagEl.value = current('collect')?.flag || ''; });
+    wearOnBtn.addEventListener('click', () => saveAction('wear', current('wear') ? null : {}));
+    wearHoldsBtn.addEventListener('click', () => saveAction('wear', { holdsInventory: !current('wear')?.holdsInventory }));
+    wearRefuseEl.addEventListener('input', () => saveAction('wear', { refuse: wearRefuseEl.value }));
+    wearFlagEl.addEventListener('change', () => { saveAction('wear', { flag: wearFlagEl.value }); wearFlagEl.value = current('wear')?.flag || ''; });
   }
 
   // --- Texture: the image's size, file size and how dense it is in the game ------

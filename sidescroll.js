@@ -5803,6 +5803,7 @@ document.addEventListener('keydown',event=>{
   document.addEventListener('visibilitychange', () => { if (!document.hidden) reloadInteractions(); });
   const assetInspect = name => assetInteractions[name]?.inspect || null;
   const assetCollect = name => assetInteractions[name]?.collect || null;
+  const assetWear = name => assetInteractions[name]?.wear || null;
   const INVENTORY_ITEM_DEFS = {
     'forest-key': {
       id:'forest-key',
@@ -7244,6 +7245,7 @@ document.addEventListener('keydown',event=>{
 
   function renderInventory() {
     const total = inventoryTotalCount();
+    try { syncInventoryAvailable(); } catch (_) {} // (not yet defined during start-up)
     if (inventoryCountEl) inventoryCountEl.textContent = String(total);
     if (!inventoryListEl || !inventoryEmptyEl) return;
     inventoryListEl.innerHTML = '';
@@ -18106,6 +18108,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const part=data.parts[i];
       for(const item of items)if(!item.done&&i>=item.at){item.done=true;item.draw(partZ(i)-.00045);}
       if(!part.mesh)continue;
+      if(part.wornWith&&!isWorn(part.wornWith))continue; // a worn item's part (the bag): only while worn
       topZ=Math.max(topZ,partZ(i));
       bindMesh(part.mesh);
       gl.bufferSubData(gl.ARRAY_BUFFER,0,part.buffer);
@@ -18677,6 +18680,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           saveStoryProgress();
         }
         return now;
+      case 'wear':
+        // The player puts on / takes off a wearable asset (Asset Lab → Wear).
+        if (step.asset) { setWorn(step.asset, step.action === 'off' ? null : `story:${run.p.id}`); if (step.action !== 'off') setInteractionFlag(assetWear(step.asset)?.flag); }
+        return now;
       case 'control':
         if (step.take) { seqControlLocks.add(run.id); setDriveAxis(0); keyLeft = false; keyRight = false; }
         else seqControlLocks.delete(run.id);
@@ -18981,6 +18988,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     seqStopSequence(placedId);
     const prefix = `${placedId}:`;
     for (const key of Object.keys(seqProgress.components)) if (key.startsWith(prefix)) delete seqProgress.components[key];
+    for (const [name, source] of Object.entries(collectedState.worn || {})) if (source === `seq:${placedId}` || source === `story:${placedId}`) setWorn(name, null);
     for (const key of Object.keys(seqProgress.fired)) if (key.startsWith(prefix)) delete seqProgress.fired[key];
     if (r) for (const l of r.body.logic) for (const step of seqEvents.get(l.event)?.steps || [])
       if (step.type === 'flag' && step.value && step.flag) delete seqProgress.flags[step.flag];
@@ -20395,7 +20403,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // the dot when the player is near; Action opens the Inspect view (title, text and,
   // with Show large, the picture big on screen). Inspecting holds the player still.
   const INSPECT_REACH = 0.45, INSPECT_DEPTH = 2.5; // metres beyond the player's body; how far off the path
-  const assetHasAction = name => !!(assetInspect(name) || assetCollect(name));
+  const assetHasAction = name => !!(assetInspect(name) || assetCollect(name) || assetWear(name));
   // The nearest thing the player can inspect or pick up: {asset, x, y, z, obj?} for a
   // placed copy, {…, seq:{p, c}} for a sequence object.
   function nearestInspectable() {
@@ -20431,12 +20439,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   }
 
   // ---- Collected placed copies (progress) ---------------------------------------
-  // {objects: {placed object id: asset name}}. A collected copy is taken out of the
+  // {objects: {placed object id: asset name}, worn: {asset name: where it came from —
+  // a placed object id, 'seq:<sequence id>' or 'story:<sequence id>'}}. A collected copy is taken out of the
   // scene while playing; while editing (not ▶ Play) it is back so it can be edited.
   const COLLECTED_STORAGE_KEY = PLAYER_MODE ? 'sidescroll.player.collected.v1' : 'sidescroll.collected.v1';
   let collectedState = (() => {
-    try { const raw = JSON.parse(localStorage.getItem(COLLECTED_STORAGE_KEY) || 'null'); if (raw && typeof raw.objects === 'object') return { objects: { ...raw.objects } }; } catch (_) {}
-    return { objects: {} };
+    try {
+      const raw = JSON.parse(localStorage.getItem(COLLECTED_STORAGE_KEY) || 'null');
+      if (raw && typeof raw.objects === 'object') return { objects: { ...raw.objects }, worn: raw.worn && typeof raw.worn === 'object' ? { ...raw.worn } : {} };
+    } catch (_) {}
+    return { objects: {}, worn: {} };
   })();
   const collectedAway = new Map(); // object id → {obj, list} taken out of the scene lists
   const collectSource = id => `collect:${id}`;
@@ -20466,10 +20478,62 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       sortSceneCollections();
     }
   }
-  // Pick up: the copy leaves the world and goes in the inventory.
+  // ---- Wearing (Asset Lab → Wear) and the inventory gate ---------------------------
+  // A worn asset shows the player's parts marked with it (Character Lab → Skin → Worn
+  // item; GameCharacters part.wornWith). While any wearable "holds the inventory",
+  // nothing can be picked up until one of them is worn.
+  const isWorn = name => !!collectedState.worn?.[name];
+  const inventoryContainers = () => Object.keys(assetInteractions).filter(name => assetWear(name)?.holdsInventory);
+  function canCarry() {
+    const containers = inventoryContainers();
+    return !containers.length || containers.some(isWorn);
+  }
+  function carryRefusal() {
+    const containers = inventoryContainers();
+    return containers.map(name => assetWear(name)?.refuse).find(Boolean) || "I've nothing to carry that in.";
+  }
+  // The Items button shows once she can carry things (or already holds something).
+  function syncInventoryAvailable() {
+    if (!inventoryBtn) return;
+    const show = canCarry() || inventoryTotalCount() > 0;
+    inventoryBtn.hidden = !show;
+    if (!show && inventoryOpen) setInventoryOpen(false);
+  }
+  function setWorn(name, source) {
+    if (!name) return;
+    collectedState.worn ||= {};
+    if (source) collectedState.worn[name] = source; else delete collectedState.worn[name];
+    saveCollected();
+    syncInventoryAvailable();
+  }
+  function wearTarget(target) {
+    const w = assetWear(target?.asset);
+    if (!w) return false;
+    if (target.seq) {
+      const { p, c: comp } = target.seq;
+      seqSavedFor(compKey(p.id, comp.id)).hidden = true;
+      saveStoryProgress();
+      setWorn(target.asset, `seq:${p.id}`);
+    } else if (target.obj?.id) {
+      collectedState.objects[target.obj.id] = target.asset;
+      setWorn(target.asset, target.obj.id);
+      syncCollectedObjects();
+    } else return false;
+    setInteractionFlag(w.flag);
+    hintEl.textContent = `Put on ${assetDisplayName(target.asset)}`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+  // Pick up: the copy leaves the world and goes in the inventory (or is put on).
   function collectTarget(target) {
+    if (assetWear(target?.asset)) return wearTarget(target);
     const c = assetCollect(target?.asset);
     if (!c) return false;
+    if (!canCarry()) {
+      hintEl.textContent = carryRefusal();
+      hintEl.classList.remove('hidden');
+      return true;
+    }
     if (target.seq) {
       const { p, c: comp } = target.seq;
       if (!addInventoryItem(target.asset, 1, seqItemSource(p.id))) return false;
@@ -20489,10 +20553,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // Progress → Reset all: every collected copy back where it was, its item taken back.
   function resetCollected() {
     for (const id of Object.keys(collectedState.objects)) removeInventoryFromSource(collectSource(id));
-    collectedState = { objects: {} };
+    collectedState = { objects: {}, worn: {} };
     saveCollected();
     syncCollectedObjects();
-  }
+    syncInventoryAvailable();
+  }  syncInventoryAvailable();
+
   function assetDisplayName(name) {
     const imported = AssetLib?.get?.(name);
     if (imported) return imported.label || name;
@@ -20541,7 +20607,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // Pick up when collectable) or an inventory item (always its picture; Close).
   function openInspect(target) {
     const inspect = assetInspect(target?.asset), collect = assetCollect(target?.asset);
-    if (!inspect && !(target?.fromInventory && collect)) return false;
+    if (!inspect && !(target?.fromInventory && collect)) return false; // no Inspect: picked up / put on straight away
     const el = inspectView();
     const fromInventory = !!target.fromInventory;
     const large = fromInventory || !!inspect?.large;
@@ -20555,7 +20621,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     picture.hidden = !large;
     img.removeAttribute('src');
     const takeBtn = el.querySelector('[data-inspect-take]');
-    takeBtn.hidden = fromInventory || !collect;
+    const wear = assetWear(target.asset);
+    // Wear: Put on. Collect: Pick up, unless there is nothing to carry it in yet.
+    const blocked = !wear && collect && !canCarry();
+    takeBtn.hidden = fromInventory || !(wear || collect) || blocked;
+    takeBtn.textContent = wear ? 'Put on' : 'Pick up';
+    if (blocked && !fromInventory) { textEl.textContent = body ? `${body}\n\n${carryRefusal()}` : carryRefusal(); textEl.hidden = false; }
     el.querySelector('[data-inspect-leave]').textContent = fromInventory ? 'Close' : 'Leave';
     const token = {};
     inspectOpen = { asset: target.asset, token, target: fromInventory ? null : target };

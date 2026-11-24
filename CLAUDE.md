@@ -146,8 +146,8 @@ Character Lab's scene objects).
 
 **Asset interactions** (`asset-interactions.js`, `window.SideScrollInteractions`, key
 `sidescroll.asset-interactions.v1`, Assets area): what the player can do to an asset, per asset name —
-`{inspect: {title, text, large, flag?}, collect: {label, description, flag?}}`; later actions (use…) sit
-beside them. Asset Lab → **Interactions** (`syncInteractions` / `saveAction`). Game (`sidescroll.js`):
+`{inspect: {title, text, large, flag?}, collect: {label, description, flag?}, wear: {holdsInventory,
+refuse, flag?}}`; later actions (use…) sit beside them. Asset Lab → **Interactions** (`syncInteractions` / `saveAction`). Game (`sidescroll.js`):
 `assetInteractions` / `assetInspect` / `assetCollect` are read beside `INVENTORY_ITEM_DEFS` (reloaded on
 `storage` / visibility); `nearestInspectable()` (placed copies via `allSceneObjects()` and visible
 sequence objects with either action, within the player's radius + 0.45 m and 2.5 m of the path) draws
@@ -164,7 +164,16 @@ lists while not `editLocked()` and puts scene copies back while editing (puzzle 
 they stream). A sequence object picked up is hidden in its story progress, with source `seq:<id>`, so
 that sequence's Reset gives it back. Progress → Reset all calls `resetCollected()`. Flags: Inspect /
 Collect `flag` is set in story progress when inspected / picked up (`setInteractionFlag`) and listed by
-both flag pickers. Loaded by play and asset-lab.
+both flag pickers. **Wear** (wins over Collect; the view's button says *Put on*): `wearTarget` takes the copy
+out like a collect but records `collectedState.worn[asset] = source` (same key) instead of an inventory
+item; parts whose assembly instance has `wornWith` (Character Lab → Skin → **Worn item**, kept by
+walk-lab's setup cleaner, copied to `part.wornWith` by `character-game-runtime.js` `makePart`) are skipped
+in `drawLocalMeshCharacter` unless `isWorn(asset)` (player's state, also for sequence copies). While any
+asset has `wear.holdsInventory`, `canCarry()` is false until one is worn: collecting says `refuse`, the
+view hides Pick up, and `syncInventoryAvailable()` hides the Items button (unless items are already held).
+Event step `wear` (`{action 'on'|'off', asset}`, Player row) → `setWorn` with source `story:<sequence id>`;
+`seqResetSequence` takes off what that sequence put on; Reset all clears `worn`. Loaded by play, asset-lab
+and walk-lab (the Worn item list).
 
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
 `art: {kind:'effect', shader:'darkness'|'dissolve', width, height (the plane's shape), params}`; params are
@@ -332,7 +341,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 design `docs/SEQUENCE_SYSTEM_DESIGN.md`, steps 1–2 done). Content keys `sidescroll.story.events.v1`
 (`events:[{id ev-…, name, roles:[{id r-…, name, kind 'character'|'mark'}], steps:[{type
 (Seq.STEPS: move, animate, face, say, think, wait, flag, show, control, camera, screen, prompt, item,
-effect, look, prop, object), with (run with the
+effect, look, prop, object, wear), with (run with the
 previous step), background (don't wait: the next beat starts while it runs; the run ends only when
 it has finished too — `run.background` in `advanceSequenceRuns`), actor/to/target (role ids; a
 Say step's actor may be `Seq.PLAYER` = the player, named by `storyPlayerName()`), …}]}]`) and `sidescroll.story.sequences.v1`
