@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Inspect.** Asset Lab has a new **Interactions** section: tick **Inspect** on any asset and
+  give it a title, some text and, if you like, **Show large on screen**. In the game every placed
+  copy of that asset (and any sequence object using it) shows the little dot when Aureli is near;
+  Action opens the Inspect view: the text in a small card, or with Show large the picture big on
+  screen with the text under it, and **Leave**. Aureli stands still while it is open. Picking up
+  and the inventory follow next.
 - **Character Lab: scene objects can be any asset.** The list now has every built-in asset (puzzle
   props, buildings, fences, rocks, trees, ground pieces…) under the same group headings as Asset
   Lab, plus every imported one, at the height and floor line Asset Lab has saved for it. Asset
