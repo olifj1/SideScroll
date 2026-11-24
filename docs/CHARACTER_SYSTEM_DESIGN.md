@@ -97,6 +97,15 @@ Action slots built 31 Oct (C3b, `action-slots.js`): one project-wide list of nam
   climbable…) and climb paths. These become "this asset offers action X", matched
   against the character's abilities.
 
+### Worn parts (built 24 Nov 2026)
+Something a character wears that must bend with her (the bag; later a cloak) is an ordinary
+skinned part cut into her atlas, given a **Worn item** in Character Lab → Skin: the asset that
+stands for it in the world (the bag on its hook, with **Wear** set in Asset Lab → Interactions).
+The game draws that part only while the player wears the asset; picking the world copy up
+(*Put on*) or a story **Wear** step puts it on. A wearable can **hold the inventory**: until one is
+worn nothing can be picked up. Rigid wearables (hats, satchels) are planned as props anchored to
+a body bone instead (TASKS → Next → *Wearable props*).
+
 ### Props: holding assets (built 20 Nov 2026, story characters first)
 - **Any asset can be held.** How a character holds one is its **grip** for that asset
   (`setup.holds[asset]`: hand, offset along / across the hand, angle, size, mirror, draw
