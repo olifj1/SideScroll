@@ -43,6 +43,7 @@
               <button id="sidescroll-sections" class="sidescroll-tools-item" type="button" aria-expanded="false">Terrain</button>
               <button id="sidescroll-fog" class="sidescroll-tools-item" type="button" aria-expanded="false">Fog</button>
               <button id="sidescroll-post" class="sidescroll-tools-item" type="button" aria-expanded="false">Post</button>
+              <button id="sidescroll-light" class="sidescroll-tools-item" type="button" aria-expanded="false">Light</button>
               <button id="sidescroll-looks" class="sidescroll-tools-item" type="button" aria-expanded="false">Looks</button>
               <button id="sidescroll-collision-view" class="sidescroll-tools-item" type="button" aria-pressed="false">Collision</button>
               <button id="sidescroll-player-hints" class="sidescroll-tools-item" type="button" aria-pressed="true">Hints on</button>
@@ -95,6 +96,14 @@
             <label><span>TINT MIX <b id="sidescroll-post-tint-amount-value">0.00</b></span><input id="sidescroll-post-tint-amount" type="range" min="0" max="0.60" step="0.01" value="0"></label>
             <div class="sidescroll-post-future">Bloom reserved for a later pass.</div>
             <button id="sidescroll-post-reset" type="button">RESET</button>
+          </aside>
+
+          <aside class="sidescroll-post-panel sidescroll-light-panel" id="sidescroll-light-panel" hidden aria-label="Light editor">
+            <div class="sidescroll-post-head"><strong>LIGHT <small class="sidescroll-look-editing" data-look-editing>· BASE LOOK</small></strong><button id="sidescroll-light-close" type="button" aria-label="Close light editor">×</button></div>
+            <label><span>COLOUR</span><input id="sidescroll-light-colour" type="color" value="#ffffff"></label>
+            <label><span>STRENGTH <b id="sidescroll-light-strength-value">100%</b></span><input id="sidescroll-light-strength" type="range" min="0" max="1.5" step="0.01" value="1"></label>
+            <div class="sidescroll-post-future">Lights everything evenly before fog. White at 100% = as painted.</div>
+            <button id="sidescroll-light-reset" type="button">RESET</button>
           </aside>
 
           <aside class="sidescroll-post-panel sidescroll-looks-panel" id="sidescroll-looks-panel" hidden aria-label="Looks">
@@ -866,10 +875,10 @@
   <script src="sequence-data.js?v=1.1.103"></script>
   <script src="asset-interactions.js?v=1.1.102"></script>
   <script src="character-props.js?v=1.1.81"></script>
-  <script src="looks.js?v=1.1.74"></script>
+  <script src="looks.js?v=1.1.110"></script>
   <script src="effects.js?v=1.1.104"></script>
   <script src="asset-library.js?v=1.1.76"></script>
-  <script src="sidescroll.js?v=1.1.105"></script>
+  <script src="sidescroll.js?v=1.1.110"></script>
   <script src="sequence-editor.js?v=1.1.102"></script>
 </body>
 </html>

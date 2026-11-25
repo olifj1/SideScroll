@@ -32,6 +32,7 @@
     "sidescroll.world-elements.v1":                      { "area": "World", "scope": "content", "lab": "World Lab", "what": "Journey elements" },
     "sidescroll.render.fog.v1":                          { "area": "World", "scope": "content", "lab": "Game editor", "what": "Fog look" },
     "sidescroll.render.post.v1":                         { "area": "World", "scope": "content", "lab": "Game editor", "what": "Post-processing look" },
+    "sidescroll.render.light.v1":                        { "area": "World", "scope": "content", "lab": "Game editor", "what": "Global light of the base look (colour, strength)" },
     "sidescroll.looks.v1":                               { "area": "World", "scope": "content", "lab": "Game editor", "what": "Looks: named fog + post sets (Menu → Looks), switched by the Look event step" },
     "sidescroll-camera-tune-v1":                         { "area": "World", "scope": "content", "lab": "Game editor", "what": "Camera framing" },
     "sidescroll-camera-follow-v1":                       { "area": "World", "scope": "content", "lab": "Game editor", "what": "Camera follow amount" },

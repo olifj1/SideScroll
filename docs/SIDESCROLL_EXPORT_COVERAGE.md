@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## 25 November 2026 — Global light
+- New content key `sidescroll.render.light.v1` (World area, Game editor → Menu → Light): `{color:[r,g,b], strength}` of the base look. Published with the World area and carried by Project Backup like Fog / Post; absent = white × 1 (as painted).
+- `sidescroll.looks.v1`: each look gains `light: {color, strength}`; looks without it read as white × 1. No migration.
+
 ## 25 November 2026 — Animation library and manager
 - No new keys or formats. Picking a library animation for a character writes an extra animation with `link: {id, mode:'instance', revision}` into that character's saved animations (library entry or `sidescroll.animlab.character-clips.v1`) — the same shape *Use this template* on a created animation already wrote, so packages, publishing and backup carry it unchanged.
 

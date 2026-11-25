@@ -87,6 +87,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bz. Global light (25 Nov)** — game editor
+- [ ] Menu → **Light**: a panel like Post with COLOUR and STRENGTH. Lower the strength: the whole scene (trees, cabin, Aureli, the fire effect, the sky) darkens evenly; pick a blue colour for moonlight. 100 % white looks exactly as before.
+- [ ] The far fog keeps its colour: set a dark blue fog in **Fog** for a full night. 
+- [ ] **Looks → New** while it's dark saves the light with the look; switch between looks (the light blends with the fog and post); a story **Look** step to the night look fades the light down over its seconds.
+- [ ] While a look is showing, the Light panel header says its name and edits that look; Base look edits the world's own light. Close and reopen the game: both are kept.
+- [ ] Player mode (the game from the splash): no Light button in Menu; a published night look still shows.
+
 **0by. Character Lab speed (25 Nov)**
 - [ ] Open Character Lab: it should load as quickly as it did a few days ago, and ▶ playing an animation, scrubbing frames and dragging handles should feel smooth again (as before the animation library change).
 - [ ] The animation library still behaves: Add to library on an animation, pick it for another character, rename it in the Animation manager — each shows straight away.
@@ -535,6 +542,7 @@ app and make a Project Backup.
 ---
 
 ## Next
+- [ ] **Lighting, next steps (agreed 25 Nov; start simple and add):** point lights — a placeable **Light** (Asset Lab → + Add → New light: colour, radius, strength, flicker) and a **Light** setting on any asset (e.g. a lantern; position on the picture), up to 8 nearest the camera, brightening what's near them; then **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
 - [ ] **Falling leaves effect** (idea, 24 Nov): a plane effect (like Fire) with leaves drifting down and spinning, for life in the forest — leaf colours, amount, size, fall speed, wind / sway; maybe a variant for single leaves dropping now and then. Possibly placed along the near side of the path or as a "region" overlay.
 - [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).
 - [ ] **Animation length** (polish, agreed 23 Nov): a Length (s) per animation in Character Lab, used by Character Lab, the game and sequences (today every clip is 16 key positions over its base clip's time: Idle 1.4 s, Walk 1.05 s, Run 0.65 s, Jump 0.94 s).

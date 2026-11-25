@@ -498,9 +498,14 @@ unless World Lab sent a `worldX`.
 
 **Looks** (`looks.js`, `window.SideScrollLooks`, key `sidescroll.looks.v1`, World area):
 `{looks:[{id look-…, name, fog:{enabled, color, near, far, amount, curve}, post:{brightness,
-contrast, saturation, tintColor, tintAmount}}]}`. The saved Fog / Post settings are the **base
-look** (`baseFog` / `basePost`); `fogSettings` / `postSettings` are the live values the renderer
-reads. `setWorldLook(id|null, seconds)` blends the live values (`updateWorldLook` in `render`);
+contrast, saturation, tintColor, tintAmount}, light:{color, strength}}]}`. The saved Fog / Post /
+Light settings are the **base look** (`baseFog` / `basePost` / `baseLight`); `fogSettings` /
+`postSettings` / `lightSettings` are the live values the renderer reads. **Global light** (Menu →
+**Light**, key `sidescroll.render.light.v1`, `DEFAULT_LIGHT` white × 1, strength 0–1.5): the scene
+shader's `uLight` (= `lightRgb`, colour × strength, refreshed by `syncLightRgb`) multiplies every
+object's colour before fog (`tex.rgb * uTint * uLight`), uploaded next to `uFogColor` at each draw
+setup; `saveLightSettings` writes the active look or the base. `liveLook()` is the live {fog, post,
+light}; looks saved before light have none (`cleanLight` → white 1). `setWorldLook(id|null, seconds)` blends the live values (`updateWorldLook` in `render`);
 while a look is active `saveFogSettings` / `savePostSettings` write into that look
 (`saveLiveLookEdit`), else into base. Menu → Looks (`syncLookUi`). Event step `look` (`{look,
 seconds}`) sets it and records `progress.look {id, by}` (applied on load in player mode;
