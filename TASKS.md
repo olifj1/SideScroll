@@ -87,6 +87,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0cb. Point lights slider (25 Nov)**
+- [ ] Menu → **Light → Point lights**: dragging it dims / brightens every placed Light together; 0 % turns them off. It is kept after a reload.
+- [ ] Save a night look with Point lights 100 % and a day look with 0 %: a Look step (or Menu → Looks) from night to day fades the lights out along with the global light.
+
 **0ca. Point lights (25 Nov)** — game editor
 - [ ] Edit → **+ Add → WORLD OBJECTS → Light**: place it in the cabin (e.g. in front of the fireplace, at about knee height). A glowing marker shows while editing; it disappears when you press Done Editing or ▶ Play… and in player mode.
 - [ ] Selecting the light opens the **Light** panel (where the Thought / Camera Node panels go): Colour, Strength, Radius, Flicker, Flicker speed change the light live, and the dashed circle shows its reach. × closes it; the settings are kept after Done Editing and a reload. Inside a puzzle or World Group edit, Undo undoes a slider change.

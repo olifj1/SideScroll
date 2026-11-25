@@ -2435,13 +2435,13 @@
         const entry = lightAssets.get(obj.assetName); // older lights made in Asset Lab
         if (entry && Effects) p = Effects.clean('light', { ...entry.art.params, ...(obj.effectParams || {}) });
       }
-      if (!p || p.strength <= 0) continue;
+      if (!p || p.strength <= 0 || !(lightSettings.points > 0)) continue;
       const offset = (String(obj.id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
       const t = (seconds + offset) * p.flickerSpeed;
       const flicker = 1 - p.flicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 6.2831) * Math.sin(t * 2.3 + 1.7));
       const x = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
       const y = objectYAtDrawX(obj, x) + (Number(obj.sy) || 0) * 0.5; // the marker's centre
-      found.push({ d:Math.abs(x - cx), x, y, z:Number(obj.z) || 0, r:p.radius, rgb:p.color.map(c => c * p.strength * flicker) });
+      found.push({ d:Math.abs(x - cx), x, y, z:Number(obj.z) || 0, r:p.radius, rgb:p.color.map(c => c * p.strength * lightSettings.points * flicker) });
     }
     found.sort((a, b) => a.d - b.d);
     for (const l of found.slice(0, POINT_LIGHTS_MAX)) {
@@ -3857,7 +3857,7 @@ document.addEventListener('keydown',event=>{
   // Global light (Menu → Light): colour × strength multiplies every object before
   // fog — scenery, characters, effects, the sky. White at strength 1 = as painted.
   const RENDER_LIGHT_STORAGE_KEY = 'sidescroll.render.light.v1';
-  const DEFAULT_LIGHT = { color:[1,1,1], strength:1.0 };
+  const DEFAULT_LIGHT = { color:[1,1,1], strength:1.0, points:1.0 }; // points: scale for every Light node
 
   function clampNumber(value, fallback, min, max) {
     const n = Number(value);
@@ -3900,6 +3900,7 @@ document.addEventListener('keydown',event=>{
 
   const lightSettings = loadRenderSettings(RENDER_LIGHT_STORAGE_KEY, DEFAULT_LIGHT, 'color');
   lightSettings.strength = clampNumber(lightSettings.strength, DEFAULT_LIGHT.strength, 0, 1.5);
+  lightSettings.points = clampNumber(lightSettings.points, DEFAULT_LIGHT.points, 0, 2);
   // What the shader gets (uLight): colour × strength, kept up to date by syncLightRgb().
   const lightRgb = [1, 1, 1];
   function syncLightRgb() { for (let i = 0; i < 3; i++) lightRgb[i] = lightSettings.color[i] * lightSettings.strength; }
@@ -3913,7 +3914,8 @@ document.addEventListener('keydown',event=>{
   const Looks = window.SideScrollLooks || null;
   const copyFog = f => ({ enabled:!!f.enabled, color:[...f.color], near:f.near, far:f.far, amount:f.amount, curve:f.curve });
   const copyPost = p => ({ brightness:p.brightness, contrast:p.contrast, saturation:p.saturation, tintColor:[...p.tintColor], tintAmount:p.tintAmount });
-  const copyLight = l => ({ color:[...(l?.color || DEFAULT_LIGHT.color)], strength:Number.isFinite(l?.strength) ? l.strength : DEFAULT_LIGHT.strength });
+  const copyLight = l => ({ color:[...(l?.color || DEFAULT_LIGHT.color)], strength:Number.isFinite(l?.strength) ? l.strength : DEFAULT_LIGHT.strength,
+    points:Number.isFinite(l?.points) ? l.points : DEFAULT_LIGHT.points });
   let baseFog = copyFog(fogSettings), basePost = copyPost(postSettings), baseLight = copyLight(lightSettings);
   const liveLook = () => ({ fog:copyFog(fogSettings), post:copyPost(postSettings), light:copyLight(lightSettings) });
   let lookState = { id:null, from:null, to:null, t0:0, dur:0, done:true };
@@ -3928,7 +3930,7 @@ document.addEventListener('keydown',event=>{
     fogSettings.color.splice(0, 3, ...fog.color); // fogColor shares this array
     postSettings.brightness = post.brightness; postSettings.contrast = post.contrast; postSettings.saturation = post.saturation;
     postSettings.tintAmount = post.tintAmount; postSettings.tintColor.splice(0, 3, ...post.tintColor);
-    if (light) { lightSettings.strength = light.strength; lightSettings.color.splice(0, 3, ...light.color); syncLightRgb(); }
+    if (light) { lightSettings.strength = light.strength; lightSettings.points = Number.isFinite(light.points) ? light.points : DEFAULT_LIGHT.points; lightSettings.color.splice(0, 3, ...light.color); syncLightRgb(); }
   }
   // Switch the world to a look (null = base), blending over `seconds`.
   function setWorldLook(id, seconds = 0) {
@@ -3951,7 +3953,7 @@ document.addEventListener('keydown',event=>{
       { enabled:true, color:mixRgb(a.fog.color, b.fog.color), near:mix(a.fog.near, b.fog.near), far:mix(a.fog.far, b.fog.far), amount:mix(amtA, amtB), curve:mix(a.fog.curve, b.fog.curve) },
       { brightness:mix(a.post.brightness, b.post.brightness), contrast:mix(a.post.contrast, b.post.contrast), saturation:mix(a.post.saturation, b.post.saturation),
         tintColor:mixRgb(a.post.tintColor, b.post.tintColor), tintAmount:mix(a.post.tintAmount, b.post.tintAmount) },
-      { color:mixRgb(a.light.color, b.light.color), strength:mix(a.light.strength, b.light.strength) });
+      { color:mixRgb(a.light.color, b.light.color), strength:mix(a.light.strength, b.light.strength), points:mix(a.light.points, b.light.points) });
   }
   // Fog / Post panel edits go to the active look, else to the base look.
   function saveLiveLookEdit() {
@@ -3965,7 +3967,7 @@ document.addEventListener('keydown',event=>{
     if (saveLiveLookEdit()) return;
     baseLight = copyLight(lightSettings);
     try {
-      localStorage.setItem(RENDER_LIGHT_STORAGE_KEY, JSON.stringify({ color:[...lightSettings.color], strength:lightSettings.strength }));
+      localStorage.setItem(RENDER_LIGHT_STORAGE_KEY, JSON.stringify({ color:[...lightSettings.color], strength:lightSettings.strength, points:lightSettings.points }));
     } catch (_) {}
   }
 
@@ -21809,10 +21811,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   const lightColourInput = document.getElementById('sidescroll-light-colour');
   const lightStrengthInput = document.getElementById('sidescroll-light-strength');
   const lightStrengthValue = document.getElementById('sidescroll-light-strength-value');
+  const lightPointsInput = document.getElementById('sidescroll-light-points');
+  const lightPointsValue = document.getElementById('sidescroll-light-points-value');
   function syncLightUi() {
     if (lightColourInput) lightColourInput.value = postRgbToHex(lightSettings.color);
     if (lightStrengthInput) lightStrengthInput.value = String(lightSettings.strength);
     if (lightStrengthValue) lightStrengthValue.textContent = `${Math.round(lightSettings.strength * 100)}%`;
+    if (lightPointsInput) lightPointsInput.value = String(lightSettings.points);
+    if (lightPointsValue) lightPointsValue.textContent = `${Math.round(lightSettings.points * 100)}%`;
   }
   function setLightPanelOpen(open) {
     if (!lightPanel || !lightBtn) return;
@@ -21827,8 +21833,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   bindEditorPress(document.getElementById('sidescroll-light-close'), () => setLightPanelOpen(false));
   lightColourInput?.addEventListener('input', () => { lightSettings.color.splice(0, 3, ...postHexToRgb(lightColourInput.value)); saveLightSettings(); syncLightUi(); });
   lightStrengthInput?.addEventListener('input', () => { lightSettings.strength = Number(lightStrengthInput.value); saveLightSettings(); syncLightUi(); });
+  lightPointsInput?.addEventListener('input', () => { lightSettings.points = Number(lightPointsInput.value); saveLightSettings(); syncLightUi(); });
   bindEditorPress(document.getElementById('sidescroll-light-reset'), () => {
-    lightSettings.strength = DEFAULT_LIGHT.strength; lightSettings.color.splice(0, 3, ...DEFAULT_LIGHT.color);
+    lightSettings.strength = DEFAULT_LIGHT.strength; lightSettings.points = DEFAULT_LIGHT.points; lightSettings.color.splice(0, 3, ...DEFAULT_LIGHT.color);
     saveLightSettings(); syncLightUi();
   });
   syncLightUi();
