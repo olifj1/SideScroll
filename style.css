@@ -14205,6 +14205,20 @@ body[data-game-id="game-17"] .animlab-anim-manager button[aria-pressed="true"]{b
 .animlab-anim-manager-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:58%;}
 .animlab-anim-manager-actions .animlab-library-action{min-height:34px;padding:0 10px;font-size:12px;}
 .animlab-manage-animations{width:100%;margin-top:6px;}
+.animlab-anim-manager-section{margin:16px 0 6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7ed8c7;}
+.animlab-anim-manager-card{margin:10px 0;padding:8px 10px;border:1px solid rgba(238,243,241,.1);border-radius:12px;background:rgba(255,255,255,.025);}
+.animlab-anim-manager-card-head{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:2px 0 6px;}
+.animlab-anim-manager-card-head>strong{font-size:15px;}
+.animlab-anim-manager-slot{display:grid;grid-template-columns:minmax(84px,22%) 1fr 64px auto;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(238,243,241,.06);}
+.animlab-anim-manager-slot-name{font-size:13px;font-weight:700;}
+.animlab-anim-manager-slot-name small{display:block;font-size:10px;font-weight:600;opacity:.6;}
+.animlab-anim-manager-slot select{min-height:34px;width:100%;min-width:0;border-radius:8px;border:1px solid rgba(238,243,241,.2);background:#1d2627;color:#eef3f1;font:inherit;font-size:13px;padding:0 8px;}
+.animlab-anim-manager-status{font-size:11px;opacity:.7;white-space:nowrap;}
+.animlab-anim-manager-slot .animlab-library-action,.animlab-anim-manager-user .animlab-library-action{min-height:34px;padding:0 10px;font-size:12px;}
+.animlab-anim-manager-user{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(238,243,241,.06);font-size:13px;}
+.animlab-anim-manager-user>span{flex:1;min-width:0;}
+.animlab-anim-manager-empty{margin:2px 0 4px;font-size:12px;opacity:.6;}
+.animlab-anim-manager-card-head .animlab-anim-manager-actions{max-width:none;}
 body[data-game-id="game-17"] .animlab-key-all span{font-size:11px;opacity:.75;}
 body[data-game-id="game-17"] .animlab-key-all[aria-pressed="true"]{border-color:rgba(255,190,90,.85);background:rgba(255,170,60,.18);}
 body[data-game-id="game-17"] .animlab-key-all[aria-pressed="true"] span{opacity:1;}
