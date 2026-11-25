@@ -1179,6 +1179,52 @@
     setCurrentSparseClip(clipData);
   }
 
+  // ---- All keys (offset) -------------------------------------------------------
+  // While on, an edit to the current key's pose (handle drag, slider, number) is
+  // also added to every other key of the animation: each number that changed
+  // moves by the same amount on every key (as offsetting a whole track in a 3D
+  // package). One Undo step. Session only; off on load.
+  let offsetAllKeys = false;
+  function poseDeltas(before, after, path = [], out = []) {
+    if (typeof after === 'number' && typeof before === 'number') {
+      const d = after - before;
+      if (Number.isFinite(d) && Math.abs(d) > 1e-9) out.push([path, d]);
+    } else if (after && before && typeof after === 'object' && typeof before === 'object') {
+      for (const k of Object.keys(after)) if (k in before) poseDeltas(before[k], after[k], [...path, k], out);
+    }
+    return out;
+  }
+  function offsetOtherKeys(beforePose, frame) {
+    if (!offsetAllKeys) return 0;
+    const family = currentCharacter().family;
+    const clipData = clone(currentSparseClip());
+    const afterPose = evaluateSparsePose(clipData, frame, family, {resolveContacts:false});
+    const deltas = poseDeltas(beforePose, afterPose);
+    if (!deltas.length) return 0;
+    let moved = 0;
+    for (const key of clipData.keys) {
+      if (key.frame === frame || !key.pose) continue;
+      for (const [path, d] of deltas) {
+        let o = key.pose;
+        for (let i = 0; i < path.length - 1 && o; i++) o = o[path[i]];
+        const leaf = path[path.length - 1];
+        if (o && typeof o[leaf] === 'number') o[leaf] += d;
+      }
+      moved += 1;
+    }
+    if (!moved) return 0;
+    clipData.source = 'sparse-authored';
+    setCurrentSparseClip(clipData);
+    return moved;
+  }
+  function setOffsetAllKeys(on) {
+    offsetAllKeys = !!on;
+    hint.textContent = offsetAllKeys
+      ? 'All keys is on: what you move on this key moves every key by the same amount.'
+      : 'All keys is off: edits change this key only.';
+    updateUi(); notify();
+  }
+
   function snapshotContext() {
     return {
       characterId:selection.characterId,
@@ -1309,7 +1355,8 @@
     if(finalPose){
       // The track has not been changed during the drag: compile it once.
       upsertCurrentKey(tx.frame,finalPose,tx.keyName);
-      pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),tx.label,tx.frame);
+      const moved = offsetOtherKeys(tx.before, tx.frame);
+      pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),moved ? `${tx.label} (all keys)` : tx.label,tx.frame);
       notifyClipEdit(tx.beforeClip);
     }
     draw();notify();
@@ -1348,7 +1395,8 @@
         try { rigEditListener(tx.label); } catch (err) { console.error('[Anim Lab] Rig edit listener failed.', err); }
       }
     } else {
-      pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),tx.label,tx.frame);
+      const moved = offsetOtherKeys(tx.before, tx.frame);
+      pushHistory('sparseClip',tx.beforeClip,clone(currentSparseClip()),moved ? `${tx.label} (all keys)` : tx.label,tx.frame);
       notifyClipEdit(tx.beforeClip);
     }
     draw(); notify();
@@ -2843,8 +2891,9 @@
       clip:selection.clip, mode:selection.mode, setupTool:selection.setupTool, frame:selection.frame, phase:playing?playPhase:selection.frame/16, playing, dirty:isDirty(),
       pose:clone(selection.mode==='play'&&lastPlayFrame?.pose?lastPlayFrame.pose:currentPose()), setup:clone(setupDraft), overlays:clone(overlays),
       sparseClip:clone(currentSparseClip()), preview:previewApplies()?{label:conversionPreview.label,candidate:clone(conversionPreview.candidate)}:null,
-      rig:currentAdapter().rig, adapterId:currentAdapter().id
+      rig:currentAdapter().rig, adapterId:currentAdapter().id, offsetAllKeys
     }),
+    setOffsetAllKeys,
     getDefaultPose:() => clone(currentAdapter().defaultPose(selection.clip,selection.frame)),
     navigateAuthorStage,
     choose,

@@ -87,6 +87,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0bw. All keys (25 Nov)** — Character Lab → Aureli → Animate (e.g. her Climb)
+- [ ] Key Pose Tools → tap **All keys**: it turns amber (*On · edits move all 16 keys…*) and the key lane's keys get an amber outline.
+- [ ] Drag the body (root) up a little on one key, let go, then step through the other keys: each is higher by the same amount, and ▶ plays the same motion, just higher. **Undo** once puts every key back.
+- [ ] Also try a hand handle and a slider: the same change lands on every key.
+- [ ] Tap **All keys** again (off): an edit changes only the current key. Reopen Character Lab: it starts off.
+
 **0bv. Climb animation (24 Nov)** — Character Lab → Aureli
 - [ ] Animate → Actions lists **Climb** after Jump, set to *The game’s own climbing*. In the game, climbing (Action at a climb rock) looks exactly as before.
 - [ ] **New** → *Start from* → **Today’s climbing, converted** (the name becomes *Climb*) → Create: a 16-key animation opens and the Climb row now plays it. ▶ plays it: arms and legs reach in diagonal pairs.

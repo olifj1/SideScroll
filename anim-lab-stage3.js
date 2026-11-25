@@ -56,6 +56,9 @@
       <button id="animlab-key-paste" type="button">Paste</button>
       <button id="animlab-key-mirror" type="button">Mirror Key</button>
     </div>
+    <button id="animlab-key-all" class="animlab-key-all" type="button" aria-pressed="false" title="When on, moving or changing anything on this key moves every key by the same amount">
+      <strong>All keys</strong><span id="animlab-key-all-note">Off · edits change this key only</span>
+    </button>
 
     <div class="animlab-key-tools animlab-key-tools-cycle">
       <button id="animlab-key-left" type="button">Move ←</button>
@@ -155,6 +158,8 @@
   const copyBtn = $('animlab-key-copy');
   const pasteBtn = $('animlab-key-paste');
   const mirrorBtn = $('animlab-key-mirror');
+  const allKeysBtn = $('animlab-key-all'), allKeysNote = $('animlab-key-all-note');
+  allKeysBtn.addEventListener('click',()=>core.setOffsetAllKeys?.(!state().offsetAllKeys));
   const leftBtn = $('animlab-key-left');
   const rightBtn = $('animlab-key-right');
   const phaseLeftBtn = $('animlab-phase-left');
@@ -451,6 +456,11 @@
     }
 
     const keys=keysFor(st), key=keyAt(st.frame,st), preview=!!st.preview;
+    const all=!!st.offsetAllKeys;
+    allKeysBtn.setAttribute('aria-pressed',String(all));
+    allKeysBtn.disabled=preview;
+    allKeysNote.textContent=all?`On · edits move all ${keys.length} keys by the same amount`:'Off · edits change this key only';
+    trackHost.classList.toggle('all-keys',all);
     const keyMap=new Map(keys.map(k=>[k.frame,k]));
     for(const button of frameButtons){
       const frame=Number(button.dataset.frame), marker=keyMap.get(frame), current=frame===st.frame;
