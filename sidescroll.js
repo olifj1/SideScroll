@@ -515,6 +515,21 @@
   const cameraNodeCurveEndInput = document.getElementById('sidescroll-camera-node-curve-end');
   const cameraNodeCurveEndValue = document.getElementById('sidescroll-camera-node-curve-end-value');
   const cameraNodeEditorCloseBtn = document.getElementById('sidescroll-camera-node-close');
+  const lightNodeEditorEl = document.getElementById('sidescroll-light-node-editor');
+  const lightNodeCloseBtn = document.getElementById('sidescroll-light-node-close');
+  const lightNodeInputs = {
+    colour: document.getElementById('sidescroll-light-node-colour'),
+    strength: document.getElementById('sidescroll-light-node-strength'),
+    radius: document.getElementById('sidescroll-light-node-radius'),
+    flicker: document.getElementById('sidescroll-light-node-flicker'),
+    flickerSpeed: document.getElementById('sidescroll-light-node-speed')
+  };
+  const lightNodeValues = {
+    strength: document.getElementById('sidescroll-light-node-strength-value'),
+    radius: document.getElementById('sidescroll-light-node-radius-value'),
+    flicker: document.getElementById('sidescroll-light-node-flicker-value'),
+    flickerSpeed: document.getElementById('sidescroll-light-node-speed-value')
+  };
   const collectibleNameInput = document.getElementById('sidescroll-collectible-name');
   const collectibleScaleInput = document.getElementById('sidescroll-collectible-scale');
   const collectibleScaleValueEl = document.getElementById('sidescroll-collectible-scale-value');
@@ -801,7 +816,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, thoughtEditorEl, cameraNodeEditorEl, cameraEditorPanel, quickNavPanel, stageMenuPanel, soundPanel, sectionPanel, fogPanel, postPanel, document.getElementById('sidescroll-light-panel'), inventoryPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, thoughtEditorEl, cameraNodeEditorEl, lightNodeEditorEl, cameraEditorPanel, quickNavPanel, stageMenuPanel, soundPanel, sectionPanel, fogPanel, postPanel, document.getElementById('sidescroll-light-panel'), inventoryPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -2394,16 +2409,33 @@
   // is only a marker while editing (hidden in play, like Thought Nodes). Every frame
   // the 8 nearest the camera are sent to the scene shader (uploadPointLights).
   const lightAssets = new Map([...effectAssets].filter(([, e]) => Effects?.isLight?.(e.art)));
+  // The built-in Light node (Edit → + Add → World Objects → Light): its settings
+  // live on each placed copy (obj.pointLight) and are edited in the Light node panel.
+  const DEFAULT_POINT_LIGHT = { color:[1.0, 0.78, 0.45], strength:1.2, radius:4, flicker:0, flickerSpeed:3 };
+  function cleanPointLight(v) {
+    if (!v || typeof v !== 'object') return null;
+    const n = (x, lo, hi, f) => { const k = Number(x); return Number.isFinite(k) ? Math.min(hi, Math.max(lo, k)) : f; };
+    const d = { color:[1.0, 0.78, 0.45], strength:1.2, radius:4, flickerSpeed:3 };
+    const c = Array.isArray(v.color) && v.color.length >= 3 ? v.color.slice(0, 3).map((x, i) => n(x, 0, 1, d.color[i])) : d.color;
+    return { color:c, strength:n(v.strength, 0, 3, d.strength), radius:n(v.radius, 0.5, 20, d.radius),
+      flicker:n(v.flicker, 0, 1, 0), flickerSpeed:n(v.flickerSpeed, 0.2, 8, d.flickerSpeed) };
+  }
+  // Only Light nodes carry the field, so no other object's saved data changes.
+  function pointLightField(src) { const p = cleanPointLight(src?.pointLight); return p ? { pointLight:p } : {}; }
   const POINT_LIGHTS_MAX = 8, pointPosData = new Float32Array(POINT_LIGHTS_MAX * 4), pointColData = new Float32Array(POINT_LIGHTS_MAX * 4);
   let pointLightCount = 0;
   function collectPointLights(now) {
     pointLightCount = 0;
-    if (!lightAssets.size) return;
     const cx = camera.x + character.screenOffsetX, seconds = now / 1000, found = [];
     for (const obj of allSceneObjects()) {
-      const entry = obj && !obj.deleted ? lightAssets.get(obj.assetName) : null;
-      if (!entry || Math.abs(obj.x - cx) > 45) continue;
-      const p = Effects.clean('light', { ...entry.art.params, ...(obj.effectParams || {}) });
+      if (!obj || obj.deleted || Math.abs(obj.x - cx) > 45) continue;
+      let p = null;
+      if (obj.assetName === 'light-node') p = cleanPointLight(obj.pointLight) || cleanPointLight(DEFAULT_POINT_LIGHT);
+      else {
+        const entry = lightAssets.get(obj.assetName); // older lights made in Asset Lab
+        if (entry && Effects) p = Effects.clean('light', { ...entry.art.params, ...(obj.effectParams || {}) });
+      }
+      if (!p || p.strength <= 0) continue;
       const offset = (String(obj.id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
       const t = (seconds + offset) * p.flickerSpeed;
       const flicker = 1 - p.flicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 6.2831) * Math.sin(t * 2.3 + 1.7));
@@ -2474,6 +2506,17 @@
   // contributes a render-space camera offset while the player is inside its
   // authored radius. Keeping it out of gameplay transforms means it can never
   // move the player/collision root by accident.
+  assetAspect['light-node'] = 1;
+  textures['light-node'] = createTexture((ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.translate(w * 0.5, h * 0.5);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w * .46);
+    g.addColorStop(0, 'rgba(255,226,150,.85)'); g.addColorStop(.45, 'rgba(255,200,110,.30)'); g.addColorStop(1, 'rgba(255,190,90,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, w * .46, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ffd88a'; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.arc(0, 0, w * .30, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#fff6dc'; ctx.beginPath(); ctx.arc(0, 0, w * .12, 0, Math.PI * 2); ctx.fill();
+  }, 256, 256, false);
   assetAspect['camera-trigger'] = 1;
   textures['camera-trigger'] = createTexture((ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
@@ -4415,6 +4458,7 @@ document.addEventListener('keydown',event=>{
     'mountain-grass-02': { followSurfaceNormal:true },
     'mountain-grass-03': { followSurfaceNormal:true },
     'thought-trigger': {},
+    'light-node': {},
     'bridge-left': { solid:true, supportSurface:true, socketHost:true },
     'bridge-right': { solid:true, supportSurface:true, socketHost:true },
     'counterweight-plank': { solid:true, carryable:true, placeable:true, supportSurface:true, socketPiece:true },
@@ -5330,7 +5374,7 @@ document.addEventListener('keydown',event=>{
       thoughtText: typeof opts.thoughtText === 'string' ? opts.thoughtText : '',
       thoughtRadius: Rig.clamp(Number(opts.thoughtRadius) || 1.4, 0.25, 8),
       thoughtOnce: opts.thoughtOnce !== false,
-      cameraNodeRadius: Rig.clamp(Number(opts.cameraNodeRadius) || 4.0, 0.5, 20),
+      ...pointLightField(opts), cameraNodeRadius: Rig.clamp(Number(opts.cameraNodeRadius) || 4.0, 0.5, 20),
       cameraNodeOffsetX: Rig.clamp(Number(opts.cameraNodeOffsetX) || 0, -8, 8),
       cameraNodeOffsetY: Rig.clamp(Number(opts.cameraNodeOffsetY) || 0, -5, 5),
       cameraNodeOffsetZ: Rig.clamp(Number(opts.cameraNodeOffsetZ) || 0, -8, 8),
@@ -7415,7 +7459,7 @@ document.addEventListener('keydown',event=>{
         thoughtText: typeof prop.thoughtText === 'string' ? prop.thoughtText : '',
         thoughtRadius: Rig.clamp(Number(prop.thoughtRadius) || 1.4, 0.25, 8),
         thoughtOnce: prop.thoughtOnce !== false,
-        cameraNodeRadius:Rig.clamp(Number(prop.cameraNodeRadius)||4,.5,20),
+        ...pointLightField(prop), cameraNodeRadius:Rig.clamp(Number(prop.cameraNodeRadius)||4,.5,20),
         cameraNodeOffsetX:Number(prop.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(prop.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(prop.cameraNodeOffsetZ)||0,
         cameraNodeCurveStart:cameraNodeCurveSetting(prop.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(prop.cameraNodeCurveEnd)
       };
@@ -7664,7 +7708,7 @@ document.addEventListener('keydown',event=>{
         thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '',
         thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
         thoughtOnce:obj.thoughtOnce !== false,
-        cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
+        ...pointLightField(obj), cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
         cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
@@ -7798,7 +7842,7 @@ document.addEventListener('keydown',event=>{
           thoughtText:state.thoughtText ?? prop?.thoughtText ?? '',
           thoughtRadius:state.thoughtRadius ?? prop?.thoughtRadius ?? 1.4,
           thoughtOnce:state.thoughtOnce ?? prop?.thoughtOnce ?? true,
-          cameraNodeRadius:state.cameraNodeRadius ?? prop?.cameraNodeRadius ?? 4.0,
+          ...pointLightField({pointLight: state.pointLight ?? prop?.pointLight}), cameraNodeRadius:state.cameraNodeRadius ?? prop?.cameraNodeRadius ?? 4.0,
           cameraNodeOffsetX:state.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? 0,
           cameraNodeOffsetY:state.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? 0,
           cameraNodeOffsetZ:state.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? 0,
@@ -7857,6 +7901,7 @@ document.addEventListener('keydown',event=>{
       obj.thoughtRadius = Rig.clamp(Number(state.thoughtRadius ?? prop?.thoughtRadius ?? obj.thoughtRadius) || 1.4,0.25,8);
       obj.thoughtOnce = (state.thoughtOnce ?? prop?.thoughtOnce ?? obj.thoughtOnce) !== false;
       obj.cameraNodeRadius = Rig.clamp(Number(state.cameraNodeRadius ?? prop?.cameraNodeRadius ?? obj.cameraNodeRadius) || 4,.5,20);
+      { const pl = cleanPointLight(state.pointLight ?? prop?.pointLight ?? obj.pointLight); if (pl) obj.pointLight = pl; else delete obj.pointLight; }
       obj.cameraNodeOffsetX = Number(state.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? obj.cameraNodeOffsetX) || 0;
       obj.cameraNodeOffsetY = Number(state.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? obj.cameraNodeOffsetY) || 0;
       obj.cameraNodeOffsetZ = Number(state.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? obj.cameraNodeOffsetZ) || 0;
@@ -7907,7 +7952,7 @@ document.addEventListener('keydown',event=>{
         sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
         runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0,
       thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
-      cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
+      ...pointLightField(obj), cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
       cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
       cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
@@ -7955,7 +8000,7 @@ document.addEventListener('keydown',event=>{
       sockets:Array.isArray(obj.sockets) ? obj.sockets.map(socket => ({ ...socket })) : [], socketedTo:obj.socketedTo ? { ...obj.socketedTo } : null,
       runtimeRotation:Number(obj.runtimeRotation)||0, cartRailLocked:!!obj.cartRailLocked, wheelRotation:Number(obj.wheelRotation)||0,
       thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
-      cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
+      ...pointLightField(obj), cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
       cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
       cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
     };
@@ -8099,7 +8144,7 @@ document.addEventListener('keydown',event=>{
         thoughtText:prior?.thoughtText ?? startState?.thoughtText ?? prop?.thoughtText ?? '',
         thoughtRadius:prior?.thoughtRadius ?? startState?.thoughtRadius ?? prop?.thoughtRadius ?? 1.4,
         thoughtOnce:prior?.thoughtOnce ?? startState?.thoughtOnce ?? prop?.thoughtOnce ?? true,
-        cameraNodeRadius:prior?.cameraNodeRadius ?? startState?.cameraNodeRadius ?? prop?.cameraNodeRadius ?? 4.0,
+        ...pointLightField({pointLight: prior?.pointLight ?? startState?.pointLight ?? prop?.pointLight}), cameraNodeRadius:prior?.cameraNodeRadius ?? startState?.cameraNodeRadius ?? prop?.cameraNodeRadius ?? 4.0,
         cameraNodeOffsetX:prior?.cameraNodeOffsetX ?? startState?.cameraNodeOffsetX ?? prop?.cameraNodeOffsetX ?? 0,
         cameraNodeOffsetY:prior?.cameraNodeOffsetY ?? startState?.cameraNodeOffsetY ?? prop?.cameraNodeOffsetY ?? 0,
         cameraNodeOffsetZ:prior?.cameraNodeOffsetZ ?? startState?.cameraNodeOffsetZ ?? prop?.cameraNodeOffsetZ ?? 0,
@@ -8524,7 +8569,7 @@ document.addEventListener('keydown',event=>{
         worldGroupId:obj.worldGroupId || null,
         puzzleInstanceId:obj.puzzleInstanceId || null, puzzleObjectId:obj.puzzleObjectId || null, deleted: !!obj.deleted,
         thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '', thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8), thoughtOnce:obj.thoughtOnce !== false,
-        cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
+        ...pointLightField(obj), cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20), cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
         cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
@@ -8576,7 +8621,7 @@ document.addEventListener('keydown',event=>{
       gameplayLayerLocked: restoredLocked, freePlacement:restoredFreePlacement, wrap:false,
       worldGroupId:saved.worldGroupId || null,
       thoughtText:saved.thoughtText || '', thoughtRadius:saved.thoughtRadius, thoughtOnce:saved.thoughtOnce !== false,
-      cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
+      ...pointLightField(saved), cameraNodeRadius:saved.cameraNodeRadius, cameraNodeOffsetX:saved.cameraNodeOffsetX,
       cameraNodeOffsetY:saved.cameraNodeOffsetY, cameraNodeOffsetZ:saved.cameraNodeOffsetZ,
       cameraNodeCurveStart:saved.cameraNodeCurveStart, cameraNodeCurveEnd:saved.cameraNodeCurveEnd
     });
@@ -9937,6 +9982,7 @@ document.addEventListener('keydown',event=>{
     ]},
     { scope:'both', title: 'WORLD OBJECTS', selectionKey:'world-objects', selectionLabel:'World Objects', items: [
       { name:'thought-trigger', label:'THOUGHT NODE', selectionKey:'thought-nodes', selectionLabel:'Thought Nodes', category:'gameplay', gameplayType:'thought-trigger', thumb:'T', defaultHeight:0.52, gameplayLayerLocked:false, defaultThoughtText:'Enter thought text…', defaultThoughtRadius:1.4, defaultThoughtOnce:true, wrap:false },
+      { name:'light-node', label:'LIGHT', selectionKey:'lights', selectionLabel:'Lights', category:'gameplay', gameplayType:'light', thumb:'☀', defaultHeight:0.5, gameplayLayerLocked:true, wrap:false, defaultPointLight:DEFAULT_POINT_LIGHT },
       { name:'camera-trigger', label:'CAMERA NODE', selectionKey:'camera-nodes', selectionLabel:'Camera Nodes', category:'gameplay', gameplayType:'camera-trigger', thumb:'C', defaultHeight:0.52, gameplayLayerLocked:true, wrap:false, defaultCameraRadius:4.0, defaultCameraOffsetX:0, defaultCameraOffsetY:0, defaultCameraOffsetZ:0, defaultCameraCurveStart:0, defaultCameraCurveEnd:0 }
     ]},
     { scope:'environment', title: 'SETTLEMENT · BUILDINGS', selectionKey:'settlement-buildings', selectionLabel:'Settlement Buildings', items: [
@@ -10552,7 +10598,7 @@ document.addEventListener('keydown',event=>{
   }
 
   // Thought / camera nodes: invisible in play, drawn as small editor markers.
-  const isEditorNodeObject = obj => obj?.assetName === 'thought-trigger' || obj?.assetName === 'camera-trigger';
+  const isEditorNodeObject = obj => obj?.assetName === 'thought-trigger' || obj?.assetName === 'camera-trigger' || obj?.assetName === 'light-node';
   function selectionCategoryForObject(obj) {
     return editorAssetSelectionMeta.get(obj?.assetName)?.key || 'other';
   }
@@ -11254,6 +11300,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(!obj)return'Asset';
     if(obj.assetName==='thought-trigger')return'Thought Node';
     if(obj.assetName==='camera-trigger')return'Camera Node';
+    if(obj.assetName==='light-node')return'Light';
     if(objectHasBehaviour(obj,'socketPiece'))return'Socket Piece';
     if(objectHasBehaviour(obj,'socketHost'))return'Socket Host';
     return editorAssetInfo.get(obj.assetName)?.label||obj.assetName||'Puzzle Asset';
@@ -11688,7 +11735,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const child=selectedPuzzleWorkspaceChild();
     if(puzzleChildInspectorEl)puzzleChildInspectorEl.hidden=!child;
     if(child){
-      const node=child.assetName==='thought-trigger'||child.assetName==='camera-trigger';
+      const node=isEditorNodeObject(child);
       const socketPiece=objectHasBehaviour(child,'socketPiece');
       const assetManagedSocket=socketPiece&&pieceUsesAssetSocket(child.assetName);
       const authoredSocket=socketPiece&&instance?socketForPiece(instance,child):null;
@@ -11698,7 +11745,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if(puzzleChildPositionBtn)puzzleChildPositionBtn.disabled=false;
       if(puzzleChildPlacementBtn)puzzleChildPlacementBtn.textContent=objectUsesFreePlacement(child)?'Use Ground Placement':'Use Free Placement';
       if(puzzleChildCollisionBtn){puzzleChildCollisionBtn.hidden=node;puzzleChildCollisionBtn.disabled=node;puzzleChildCollisionBtn.classList.toggle('active',!!(child.collision&&collisionEditMode));puzzleChildCollisionBtn.textContent=collisionEditMode?'Finish Collision':'Collision';}
-      if(puzzleChildNodeEditBtn){puzzleChildNodeEditBtn.hidden=!node;puzzleChildNodeEditBtn.textContent=child.assetName==='camera-trigger'?'Camera Node Settings':'Thought Node Settings';}
+      if(puzzleChildNodeEditBtn){puzzleChildNodeEditBtn.hidden=!node;puzzleChildNodeEditBtn.textContent=child.assetName==='camera-trigger'?'Camera Node Settings':child.assetName==='light-node'?'Light Settings':'Thought Node Settings';}
       if(puzzleChildSocketBtn){puzzleChildSocketBtn.hidden=!socketPiece||assetManagedSocket;puzzleChildSocketBtn.textContent=authoredSocket?'Move Socket':'Set Socket';}
       if(puzzleChildSocketClearBtn)puzzleChildSocketClearBtn.hidden=!socketPiece||assetManagedSocket||!authoredSocket;
     }
@@ -11843,6 +11890,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(!obj)return'Asset';
     if(obj.assetName==='thought-trigger')return'Thought';
     if(obj.assetName==='camera-trigger')return'Camera';
+    if(obj.assetName==='light-node')return'Light';
     return editorAssetInfo.get(obj.assetName)?.label||obj.assetName||'Asset';
   }
 
@@ -11914,8 +11962,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(!group)return;
     selectedWorldGroupId=group.id;worldGroupEditMode=true;
     const members=worldGroupMembers(group.id).slice().sort((a,b)=>{
-      const ta=a.assetName==='thought-trigger'?1:a.assetName==='camera-trigger'?2:0;
-      const tb=b.assetName==='thought-trigger'?1:b.assetName==='camera-trigger'?2:0;
+      const ta=a.assetName==='thought-trigger'?1:a.assetName==='camera-trigger'?2:a.assetName==='light-node'?3:0;
+      const tb=b.assetName==='thought-trigger'?1:b.assetName==='camera-trigger'?2:b.assetName==='light-node'?3:0;
       return ta-tb||(Number(a.x)||0)-(Number(b.x)||0)||String(a.id).localeCompare(String(b.id));
     });
     const zones=worldGroupExclusions(group);
@@ -11943,11 +11991,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(worldGroupChildInspectorEl)worldGroupChildInspectorEl.hidden=!child;
     if(child){
       if(worldGroupChildNameEl)worldGroupChildNameEl.textContent=worldGroupMemberTypeLabel(child);
-      if(worldGroupChildTypeEl)worldGroupChildTypeEl.textContent=child.assetName==='thought-trigger'?'Thought Node':child.assetName==='camera-trigger'?'Camera Node':'Group member';
+      if(worldGroupChildTypeEl)worldGroupChildTypeEl.textContent=child.assetName==='thought-trigger'?'Thought Node':child.assetName==='camera-trigger'?'Camera Node':child.assetName==='light-node'?'Light':'Group member';
       if(worldGroupChildPlacementEl)worldGroupChildPlacementEl.textContent=`${worldGroupMemberPlacementLabel(child)} · x ${Number(child.x).toFixed(2)} · z ${Number(child.z).toFixed(2)}`;
       if(worldGroupChildPlacementToggleBtn)worldGroupChildPlacementToggleBtn.textContent=objectUsesFreePlacement(child)?'Use Ground':'Make Free';
-      if(worldGroupChildCollisionBtn){worldGroupChildCollisionBtn.disabled=child.assetName==='thought-trigger'||child.assetName==='camera-trigger';worldGroupChildCollisionBtn.classList.toggle('active',collisionEditMode);worldGroupChildCollisionBtn.textContent=collisionEditMode?'Finish Collision':'Collision';}
-      if(worldGroupChildNodeEditBtn){const node=child.assetName==='thought-trigger'||child.assetName==='camera-trigger';worldGroupChildNodeEditBtn.hidden=!node;worldGroupChildNodeEditBtn.textContent=child.assetName==='camera-trigger'?'Edit Camera Node':'Edit Thought';}
+      if(worldGroupChildCollisionBtn){worldGroupChildCollisionBtn.disabled=isEditorNodeObject(child);worldGroupChildCollisionBtn.classList.toggle('active',collisionEditMode);worldGroupChildCollisionBtn.textContent=collisionEditMode?'Finish Collision':'Collision';}
+      if(worldGroupChildNodeEditBtn){const node=isEditorNodeObject(child);worldGroupChildNodeEditBtn.hidden=!node;worldGroupChildNodeEditBtn.textContent=child.assetName==='camera-trigger'?'Edit Camera Node':child.assetName==='light-node'?'Edit Light':'Edit Thought';}
     }
     if(worldGroupExclusionCountEl)worldGroupExclusionCountEl.textContent=`${zones.length} ${zones.length===1?'zone':'zones'}`;
     if(worldGroupExclusionEmptyEl)worldGroupExclusionEmptyEl.hidden=zones.length>0;
@@ -12559,7 +12607,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       thoughtText:typeof obj.thoughtText==='string'?obj.thoughtText:'',
       thoughtRadius:Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8),
       thoughtOnce:obj.thoughtOnce!==false,
-      cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
+      ...pointLightField(obj), cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
       cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0,
       cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0,
       cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
@@ -12713,7 +12761,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       collision,collisionOverride:!!member.collisionOverride,
       worldGroupId:group.id,wrap:false,
       thoughtText:member.thoughtText||'',thoughtRadius:member.thoughtRadius,thoughtOnce:member.thoughtOnce!==false,
-      cameraNodeRadius:member.cameraNodeRadius,cameraNodeOffsetX:member.cameraNodeOffsetX,
+      ...pointLightField(member), cameraNodeRadius:member.cameraNodeRadius,cameraNodeOffsetX:member.cameraNodeOffsetX,
       cameraNodeOffsetY:member.cameraNodeOffsetY,cameraNodeOffsetZ:member.cameraNodeOffsetZ,
       cameraNodeCurveStart:cameraNodeCurveSetting(member.cameraNodeCurveStart),
       cameraNodeCurveEnd:cameraNodeCurveSetting(member.cameraNodeCurveEnd)
@@ -13130,7 +13178,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const px = clientX - rect.left, py = clientY - rect.top;
     let best = null;
     for (const obj of allSceneObjects()) {
-      if (obj.deleted || !obj.worldGroupId || (obj.assetName !== 'thought-trigger' && obj.assetName !== 'camera-trigger')) continue;
+      if (obj.deleted || !obj.worldGroupId || !isEditorNodeObject(obj)) continue;
       const b = objectPickBounds(obj);
       if (!b || px < b.left - 6 || px > b.right + 6 || py < b.top - 6 || py > b.bottom + 6) continue;
       const d = Math.hypot(px - b.cx, py - b.cy);
@@ -13146,7 +13194,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     renderWorldGroupEditor({ force:true });
     setEditorDrawerCollapsed(true);
     syncThoughtEditor(); syncCameraNodeEditor(); syncFocusedObjectEditorWorkspace();
-    hintEl.textContent = `Editing ${node.assetName === 'camera-trigger' ? 'camera node' : 'thought'} in ${group.label} · Save the group when you are done`;
+    hintEl.textContent = `Editing ${node.assetName === 'camera-trigger' ? 'camera node' : node.assetName === 'light-node' ? 'light' : 'thought'} in ${group.label} · Save the group when you are done`;
     hintEl.classList.remove('hidden');
     return true;
   }
@@ -13878,7 +13926,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         thoughtText:typeof obj.thoughtText === 'string' ? obj.thoughtText : '',
         thoughtRadius:Rig.clamp(Number(obj.thoughtRadius) || 1.4,0.25,8),
         thoughtOnce:obj.thoughtOnce !== false,
-        cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
+        ...pointLightField(obj), cameraNodeRadius:Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20),
         cameraNodeOffsetX:Number(obj.cameraNodeOffsetX)||0, cameraNodeOffsetY:Number(obj.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(obj.cameraNodeOffsetZ)||0,
         cameraNodeCurveStart:cameraNodeCurveSetting(obj.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(obj.cameraNodeCurveEnd)
       };
@@ -13906,7 +13954,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       gameplayType:obj.gameplayType,
       collision:cloneCollision(obj.collision),
       thoughtText:obj.thoughtText || null, thoughtRadius:Number(obj.thoughtRadius)||null, thoughtOnce:obj.thoughtOnce !== false,
-      cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
+      ...pointLightField(obj), cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
       cameraNodeOffsetX:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetX)||0 : null,
       cameraNodeOffsetY:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetY)||0 : null,
       cameraNodeOffsetZ:obj.assetName==='camera-trigger' ? Number(obj.cameraNodeOffsetZ)||0 : null,
@@ -13995,7 +14043,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       thoughtText:obj.assetName==='thought-trigger' ? (obj.thoughtText || '') : null,
       thoughtRadius:obj.assetName==='thought-trigger' ? Rig.clamp(Number(obj.thoughtRadius)||1.4,.25,8) : null,
       thoughtOnce:obj.assetName==='thought-trigger' ? obj.thoughtOnce !== false : null,
-      cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
+      ...pointLightField(obj), cameraNodeRadius:obj.assetName==='camera-trigger' ? Rig.clamp(Number(obj.cameraNodeRadius)||4,.5,20) : null,
       cameraNodeOffsetX:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetX)||0) : null,
       cameraNodeOffsetY:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetY)||0) : null,
       cameraNodeOffsetZ:obj.assetName==='camera-trigger' ? (Number(obj.cameraNodeOffsetZ)||0) : null,
@@ -14630,7 +14678,28 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function selectedIsCameraTrigger(){ return !!selectedObject && !selectedObject.deleted && selectedObject.assetName === 'camera-trigger'; }
 
+  function selectedIsLightNode(){ return !!selectedObject && !selectedObject.deleted && selectedObject.assetName === 'light-node'; }
+  const lightHex = rgb => '#' + rgb.map(c => Math.round(Rig.clamp(c, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
+  const hexLight = hex => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return null; const v = parseInt(m[1], 16); return [(v >> 16) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255]; };
+  function lightNodeLabel(key, v) { return key === 'radius' ? `${v.toFixed(1)} m` : key === 'flickerSpeed' ? v.toFixed(1) : v.toFixed(2); }
+  function syncLightNodeEditor(){
+    const active=!!(editMode && selectedIsLightNode() && focusedNodeInspectorAllowed());
+    if(lightNodeEditorEl) lightNodeEditorEl.hidden=!active;
+    if(!active)return;
+    const p=cleanPointLight(selectedObject.pointLight)||cleanPointLight(DEFAULT_POINT_LIGHT);
+    if(lightNodeInputs.colour && document.activeElement!==lightNodeInputs.colour) lightNodeInputs.colour.value=lightHex(p.color);
+    for(const key of ['strength','radius','flicker','flickerSpeed']){
+      const input=lightNodeInputs[key]; if(input && document.activeElement!==input) input.value=String(p[key]);
+      if(lightNodeValues[key]) lightNodeValues[key].textContent=lightNodeLabel(key,p[key]);
+    }
+    if(lightNodeCloseBtn){
+      const back=!!((puzzleEditSession&&puzzleNodeInspectorOpen)||(worldGroupEditSession&&worldGroupNodeInspectorOpen));
+      lightNodeCloseBtn.textContent=back?'‹ Back':'×';
+    }
+  }
+
   function syncCameraNodeEditor(){
+    syncLightNodeEditor();
     const active=!!(editMode && selectedIsCameraTrigger() && focusedNodeInspectorAllowed());
     if(cameraNodeEditorEl) cameraNodeEditorEl.hidden=!active;
     if(!active)return;
@@ -14751,11 +14820,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // CSS and the focused editor occupies the same left-hand workspace. Closing
   // the focused editor clears the selection and the parent panel returns.
   function syncFocusedObjectEditorWorkspace(){
-    const nodeSelected=selectedIsThoughtTrigger() || selectedIsCameraTrigger();
+    const nodeSelected=selectedIsThoughtTrigger() || selectedIsCameraTrigger() || selectedIsLightNode();
     const focused = !!(editMode && nodeSelected && focusedNodeInspectorAllowed());
     document.body.classList.toggle('sidescroll-focused-object-editor', focused);
     if(thoughtEditorEl) thoughtEditorEl.classList.toggle('sidescroll-workspace-replacement', focused && selectedIsThoughtTrigger());
     if(cameraNodeEditorEl) cameraNodeEditorEl.classList.toggle('sidescroll-workspace-replacement', focused && selectedIsCameraTrigger());
+    if(lightNodeEditorEl) lightNodeEditorEl.classList.toggle('sidescroll-workspace-replacement', focused && selectedIsLightNode());
   }
 
   function selectObject(obj, preserveCycle = false, options = {}) {
@@ -15350,7 +15420,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       worldGroupId:(!puzzleInstance && worldGroupEditSession && worldGroupById(worldGroupEditSession.groupId)) ? worldGroupEditSession.groupId : null,
       wrap:false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       thoughtText: info.defaultThoughtText || '', thoughtRadius: info.defaultThoughtRadius || 1.4, thoughtOnce: info.defaultThoughtOnce !== false,
-      cameraNodeRadius: info.defaultCameraRadius || 4.0, cameraNodeOffsetX: info.defaultCameraOffsetX || 0,
+      ...(info.defaultPointLight ? { pointLight: cleanPointLight(info.defaultPointLight) } : {}), cameraNodeRadius: info.defaultCameraRadius || 4.0, cameraNodeOffsetX: info.defaultCameraOffsetX || 0,
       cameraNodeOffsetY: info.defaultCameraOffsetY || 0, cameraNodeOffsetZ: info.defaultCameraOffsetZ || 0,
       cameraNodeCurveStart: cameraNodeCurveSetting(info.defaultCameraCurveStart), cameraNodeCurveEnd: cameraNodeCurveSetting(info.defaultCameraCurveEnd)
     });
@@ -15394,7 +15464,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       wrap:false, puzzleInstanceId:puzzleInstance?.id || null, puzzleObjectId,
       sockets:Array.isArray(selectedObject.sockets) ? selectedObject.sockets.map(socket => ({ ...socket })) : [], socketedTo:null,
       thoughtText:selectedObject.thoughtText || '', thoughtRadius:selectedObject.thoughtRadius || 1.4, thoughtOnce:selectedObject.thoughtOnce !== false,
-      cameraNodeRadius:selectedObject.cameraNodeRadius || 4.0, cameraNodeOffsetX:Number(selectedObject.cameraNodeOffsetX)||0,
+      ...pointLightField(selectedObject), cameraNodeRadius:selectedObject.cameraNodeRadius || 4.0, cameraNodeOffsetX:Number(selectedObject.cameraNodeOffsetX)||0,
       cameraNodeOffsetY:Number(selectedObject.cameraNodeOffsetY)||0, cameraNodeOffsetZ:Number(selectedObject.cameraNodeOffsetZ)||0,
       cameraNodeCurveStart:cameraNodeCurveSetting(selectedObject.cameraNodeCurveStart), cameraNodeCurveEnd:cameraNodeCurveSetting(selectedObject.cameraNodeCurveEnd)
     });
@@ -16558,6 +16628,23 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const tw=ctx.measureText(label).width+12;
       ctx.fillStyle='rgba(15,42,40,.88)';ctx.fillRect(centre.x-tw*.5,centre.y-r-23,tw,18);
       ctx.fillStyle='#dffff9';ctx.fillText(label,centre.x-tw*.5+6,centre.y-r-10);
+      ctx.restore();
+    }
+
+    // Light nodes: the editor shows how far each light reaches, in its colour.
+    for(const obj of allSceneObjects()){
+      if(!obj || obj.deleted || obj.assetName!=='light-node')continue;
+      const p=cleanPointLight(obj.pointLight)||cleanPointLight(DEFAULT_POINT_LIGHT);
+      const wy=objectFloorWorldY(obj)+(Number(obj.sy)||0)*0.5;
+      const centre=projectWorldPoint(objectXNear(obj,camera.x),wy,obj.z);
+      const edge=projectWorldPoint(objectXNear(obj,camera.x)+p.radius,wy,obj.z);
+      if(!centre||!edge)continue;
+      const r=Math.max(14,Math.abs(edge.x-centre.x)), sel=obj===selectedObject;
+      const rgb=p.color.map(c=>Math.round(c*255)).join(',');
+      ctx.save();
+      ctx.strokeStyle=`rgba(${rgb},${sel?.95:.45})`;ctx.fillStyle=`rgba(${rgb},${sel?.08:.03})`;
+      ctx.lineWidth=sel?2.5:1.5;ctx.setLineDash([7,5]);
+      ctx.beginPath();ctx.arc(centre.x,centre.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
       ctx.restore();
     }
 
@@ -17748,7 +17835,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
-    if (!extra?.force && (obj.assetName === 'thought-trigger' || obj.assetName === 'camera-trigger' || lightAssets.has(obj.assetName)) && (!editMode || puzzleTestMode)) return;
+    if (!extra?.force && (obj.assetName === 'thought-trigger' || obj.assetName === 'camera-trigger' || obj.assetName === 'light-node' || lightAssets.has(obj.assetName)) && (!editMode || puzzleTestMode)) return;
     const baseDrawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
     if (!extra?.force && !proceduralBiomeVisibleAt(obj, baseDrawX)) return;
     const visual = !extra?.force ? assetVisualTransform(obj.assetName,obj.assetState) : { offsetX:0, offsetY:0, rotationDeg:0 };
@@ -19845,7 +19932,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const title = s => String(s || '').toLowerCase().replace(/(^|[\s·(-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
       const seen = new Set(), out = [];
       for (const group of editorAssetGroups) for (const item of group.items) {
-        if (seen.has(item.name) || !textures[item.name] || effectAssets.has(item.name) || item.name === 'thought-trigger' || item.name === 'camera-trigger') continue;
+        if (seen.has(item.name) || !textures[item.name] || effectAssets.has(item.name) || item.name === 'thought-trigger' || item.name === 'camera-trigger' || item.name === 'light-node') continue;
         seen.add(item.name);
         out.push({ id: item.name, name: AssetLib?.get(item.name)?.label || title(item.label || item.name), group: title(group.title), held: held.has(item.name) });
       }
@@ -22428,15 +22515,15 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     renderPuzzleWorkspaceV2({force:true});
   });
   bindEditorPress(puzzleChildCollisionBtn,()=>{
-    const child=selectedPuzzleWorkspaceChild();if(!child||child.assetName==='thought-trigger'||child.assetName==='camera-trigger')return;
+    const child=selectedPuzzleWorkspaceChild();if(!child||isEditorNodeObject(child))return;
     runEditorTransaction(child.collision?'Edit collision':'Add collision',toggleSelectedCollision);
     renderPuzzleWorkspaceV2({force:true});
   });
   bindEditorPress(puzzleChildNodeEditBtn,()=>{
-    const child=selectedPuzzleWorkspaceChild();if(!child||(child.assetName!=='thought-trigger'&&child.assetName!=='camera-trigger'))return;
+    const child=selectedPuzzleWorkspaceChild();if(!child||!isEditorNodeObject(child))return;
     puzzleNodeInspectorOpen=true;
     syncThoughtEditor();syncCameraNodeEditor();syncFocusedObjectEditorWorkspace();
-    hintEl.textContent=child.assetName==='camera-trigger'?'Camera Node settings · Back returns to Puzzle Contents':'Thought Node settings · Back returns to Puzzle Contents';
+    hintEl.textContent=child.assetName==='camera-trigger'?'Camera Node settings · Back returns to Puzzle Contents':child.assetName==='light-node'?'Light settings · Back returns to Puzzle Contents':'Thought Node settings · Back returns to Puzzle Contents';
     hintEl.classList.remove('hidden');
   });
   bindEditorPress(puzzleChildSocketBtn,()=>{
@@ -22598,6 +22685,26 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if(puzzleEditSession&&puzzleNodeInspectorOpen){puzzleNodeInspectorOpen=false;syncCameraNodeEditor();syncFocusedObjectEditorWorkspace();renderPuzzleWorkspaceV2({force:true});return;}
     selectObject(null);
   });
+  // Light node panel: every change is live (collectPointLights reads obj.pointLight
+  // each frame); the change event records one Undo step.
+  bindEditorPress(lightNodeCloseBtn,()=>{
+    if(puzzleEditSession&&puzzleNodeInspectorOpen){puzzleNodeInspectorOpen=false;syncCameraNodeEditor();syncFocusedObjectEditorWorkspace();renderPuzzleWorkspaceV2({force:true});return;}
+    if(worldGroupEditSession&&worldGroupNodeInspectorOpen){worldGroupNodeInspectorOpen=false;syncCameraNodeEditor();syncFocusedObjectEditorWorkspace();renderWorldGroupEditor({force:true});return;}
+    selectObject(null);
+  });
+  for(const [key,input] of Object.entries(lightNodeInputs)){
+    if(!input)continue;
+    input.addEventListener('pointerdown',e=>e.stopPropagation(),{passive:true});
+    input.addEventListener('input',()=>{
+      if(!selectedIsLightNode())return;
+      const p=cleanPointLight(selectedObject.pointLight)||cleanPointLight(DEFAULT_POINT_LIGHT);
+      if(key==='colour'){const c=hexLight(input.value);if(c)p.color=c;}
+      else p[key]=Number(input.value);
+      selectedObject.pointLight=cleanPointLight(p);
+      if(lightNodeValues[key])lightNodeValues[key].textContent=lightNodeLabel(key,selectedObject.pointLight[key]);
+    });
+    input.addEventListener('change',()=>{if(selectedIsLightNode())recordObjectEdit(selectedObject);});
+  }
   const bindCameraNodeRange=(input,valueEl,key,min,max,decimals=1)=>{
     if(!input)return;
     input.addEventListener('pointerdown',e=>e.stopPropagation(),{passive:true});

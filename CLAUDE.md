@@ -504,11 +504,17 @@ Light settings are the **base look** (`baseFog` / `basePost` / `baseLight`); `fo
 **Light**, key `sidescroll.render.light.v1`, `DEFAULT_LIGHT` white × 1, strength 0–1.5): the scene
 shader's `uLight` (= `lightRgb`, colour × strength, refreshed by `syncLightRgb`) multiplies every
 object's colour before fog (`tex.rgb * uTint * uLight`), uploaded next to `uFogColor` at each draw
-setup; `saveLightSettings` writes the active look or the base. **Point lights:** a Light effect
-(`SHADERS.light`, target `'light'`, `Effects.isLight`; params colour, strength, radius m, flicker,
-flickerSpeed; `LIGHT_FRAGMENT` is only its marker) placed like any asset; `lightAssets` in sidescroll.js;
-its marker is hidden in play like Thought Nodes (`drawObject`, and `renderEffectTextures` skips it).
-`collectPointLights` (each frame, after `renderEffectTextures`) takes the 8 copies nearest the camera
+setup; `saveLightSettings` writes the active look or the base. **Point lights:** the built-in **Light** node
+(`light-node`, editor library → WORLD OBJECTS, an editor node like Thought / Camera Nodes:
+`isEditorNodeObject`, hidden in play in `drawObject`). Each placed copy keeps its own
+`obj.pointLight` `{color, strength 0–3, radius 0.5–20 m, flicker 0–1, flickerSpeed}` (`cleanPointLight`;
+carried by `pointLightField(src)` on every save / copy / puzzle / World Group path beside the camera-node
+fields — a new path that copies node fields must carry it too). Selecting one opens the Light panel
+(`#sidescroll-light-node-editor`, `syncLightNodeEditor`, called from `syncCameraNodeEditor`; inputs live,
+`change` = `recordObjectEdit`); the editor overlay draws its reach circle. Older lights made in Asset Lab
+(effect entries with `SHADERS.light`, `Effects.isLight`, `lightAssets`) still light the scene; Asset Lab
+no longer offers *New light*.
+`collectPointLights` (each frame, after `renderEffectTextures`) takes the 8 lights nearest the camera
 (position = the marker's centre, flicker applied) and `uploadPointLights` sets `uPointPos[8]` (xyz +
 radius) / `uPointCol[8]` / `uPointCount` once per frame after `gl.useProgram(program)`; the shader adds
 `colour × (1 − d/r)²` (world distance via `vWorld`) to `uLight`. `liveLook()` is the live {fog, post,
