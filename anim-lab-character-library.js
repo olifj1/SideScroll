@@ -109,9 +109,10 @@
         <strong>Rig templates</strong>
         <small class="animlab-library-footnote">Named rigs characters link to. Create one with Rig → Save as template. A template can be removed when no character uses it.</small>
         <div id="animlab-library-rig-templates"></div>
-        <strong>Animation templates</strong>
-        <small class="animlab-library-footnote">Named animations characters can follow. Create one in Animate → Save as template. Built-in ones always stay; others can be removed when no character follows them.</small>
-        <div id="animlab-library-animation-templates"></div>
+        <strong>Animations</strong>
+        <small class="animlab-library-footnote">Every animation in one place: the shared Library (by body type), each character's own, who uses what, rename, add to the library, remove unused ones.</small>
+        <button type="button" class="animlab-library-action" data-open-animation-manager>Open the Animation manager…</button>
+        <div id="animlab-library-animation-templates" hidden></div>
       </div>
     </section>`;
   document.body.appendChild(settings);
@@ -134,6 +135,7 @@
   const templatesList=settings.querySelector('#animlab-library-rig-templates');
   const slotsList=settings.querySelector('#animlab-library-action-slots');
   const animTemplatesList=settings.querySelector('#animlab-library-animation-templates');
+  settings.querySelector('[data-open-animation-manager]')?.addEventListener('click',()=>window.AnimLabAnimationManager?.open());
   const animTemplates=window.SideScrollAnimationTemplates||null;
   const actionSlots=window.SideScrollActionSlots||null;
   const rigTemplates=window.SideScrollRigTemplates||null;
@@ -272,7 +274,7 @@
       slotsList.appendChild(row);
     });
     animTemplatesList.replaceChildren();
-    for(const t of (animTemplates?.list()||[]).filter(t=>t.clip)){
+    for(const t of []){
       const row=document.createElement('div');row.className='animlab-library-organise-row';
       const label=document.createElement('span');label.textContent=`${t.name} · ${t.family==='quadruped'?'Quadruped':'Biped'}${t.builtIn?' · built in':''}`;
       const button=(text,data,disabled)=>{const b=document.createElement('button');b.type='button';b.className='animlab-library-action';

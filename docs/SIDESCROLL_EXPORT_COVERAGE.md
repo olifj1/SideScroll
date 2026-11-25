@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 25 November 2026 — Animation library and manager
+- No new keys or formats. Picking a library animation for a character writes an extra animation with `link: {id, mode:'instance', revision}` into that character's saved animations (library entry or `sidescroll.animlab.character-clips.v1`) — the same shape *Use this template* on a created animation already wrote, so packages, publishing and backup carry it unchanged.
+
 ## 24 November 2026 — Climb animation
 - `sidescroll.action-slots.v1` gains a built-in `climb` slot (no migration: built-ins are added on load; saved orders get it after Jump).
 - A character's Climb animation is an ordinary created animation (`extraClips[clip-…]`) named by `slotAnimations.climb` in its library entry or in `sidescroll.animlab.character-clips.v1`; it travels with character packages, publishing and backup like any animation. No new key.

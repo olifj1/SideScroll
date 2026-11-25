@@ -6,6 +6,9 @@
  *    uses them. Add or rename slots in Settings.
  *  - Animations: the character's own animations (tap one to edit it), with New,
  *    Duplicate, Rename and Delete.
+ *  Each action's menu also lists the Library (shared animations of this body
+ *  type): picking one gives the character that animation, linked, and plays it
+ *  for the action. Manage animations opens the Animation manager.
  * Slot choices and list changes are saved straight away (walk-lab.js);
  * editing an animation's keys uses Save as before.
  */
@@ -31,6 +34,7 @@
       <button type="button" class="animlab-library-action" data-anim="rename">Rename</button>
       <button type="button" class="animlab-library-action" data-anim="delete">Delete</button>
     </div>
+    <button type="button" class="animlab-library-action animlab-manage-animations" data-anim="manage">Manage animations…</button>
     <p class="animlab-setup-note" data-anim-note></p>`;
   clipRow.insertAdjacentElement('afterend', host);
   const slotRows = host.querySelector('[data-slot-rows]'), animationRows = host.querySelector('[data-animation-rows]');
@@ -44,18 +48,28 @@
     <div class="animlab-section-title">New animation</div>
     <label class="animlab-new-animation-field">Name <input type="text" data-new-name maxlength="40"></label>
     <label class="animlab-new-animation-field">Start from <select data-new-start></select></label>
-    <p>It starts as one key holding that pose; add keys from there.</p>
+    <p data-new-help>It starts as one key holding that pose; add keys from there.</p>
     <div class="animlab-parts-add-actions"><button type="button" data-new-action="create">Create</button><button type="button" data-new-action="cancel">Cancel</button></div>
   </form>`;
   document.body.appendChild(newDialog);
   const newName = newDialog.querySelector('[data-new-name]'), newStart = newDialog.querySelector('[data-new-start]');
   function openNewDialog() {
     newStart.replaceChildren(...(core.newAnimationStarts?.() || [{ value: 'current', label: 'The pose on screen now' }]).map(o => {
-      const option = document.createElement('option'); option.value = o.value; option.textContent = o.label; return option;
+      const option = document.createElement('option'); option.value = o.value; option.textContent = o.label;
+      if (o.value.startsWith('library:')) option.dataset.name = o.label.replace(/^Library: /, '').replace(/ \(all keys.*$/, '');
+      return option;
     }));
     newStart.value = newStart.querySelector('option[value="idle"]') ? 'idle' : newStart.options[0]?.value || 'current';
     newName.value = 'New animation';
-    newStart.onchange = () => { if (newStart.value === 'climb' && newName.value === 'New animation') newName.value = 'Climb'; };
+    const help = newDialog.querySelector('[data-new-help]');
+    newStart.onchange = () => {
+      const opt = newStart.selectedOptions[0];
+      if (newStart.value === 'climb' && newName.value === 'New animation') newName.value = 'Climb';
+      if (newStart.value.startsWith('library:') && (newName.value === 'New animation' || newName.dataset.auto === '1')) { newName.value = opt.dataset.name || newName.value; newName.dataset.auto = '1'; }
+      help.textContent = newStart.value.startsWith('library:') ? 'A copy of every key of that library animation, as this character’s own (changes to it stay here).'
+        : newStart.value === 'climb' ? 'Every key of the game’s climbing, ready to edit.' : 'It starts as one key holding that pose; add keys from there.';
+    };
+    newName.dataset.auto = ''; newStart.onchange();
     newDialog.showModal(); newName.select();
   }
   function createFromDialog() {
@@ -81,7 +95,16 @@
     select.dataset.slotId = slot.id; select.disabled = locked;
     select.setAttribute('aria-label', `Animation for ${slot.name}`);
     const options = [...(slot.builtIn && !slot.optional ? [] : [['', slot.optional ? 'The game’s own climbing' : '— none —']]), ...animations.map(a => [a.key, a.name])];
-    for (const [value, label] of options) { const o = document.createElement('option'); o.value = value; o.textContent = label; select.appendChild(o); }
+    const own = document.createElement('optgroup'); own.label = 'This character';
+    for (const [value, label] of options) { const o = document.createElement('option'); o.value = value; o.textContent = label; own.appendChild(o); }
+    select.appendChild(own);
+    // Library animations the character doesn't have yet (ones it has are listed above).
+    const library = (core.libraryAnimations?.() || []).filter(t => !animations.some(a => a.library === t.id));
+    if (library.length) {
+      const group = document.createElement('optgroup'); group.label = 'Library (shared)';
+      for (const t of library) { const o = document.createElement('option'); o.value = `lib:${t.id}`; o.textContent = `${t.name} ⧉`; group.appendChild(o); }
+      select.appendChild(group);
+    }
     select.value = slot.animation || '';
     row.append(name, select);
     return row;
@@ -97,7 +120,7 @@
   function render() {
     const s = core.getState(), animations = core.animationList(), slots = core.slotList();
     const locked = s.mode === 'play';
-    const digest = JSON.stringify([s.characterId, s.clip, locked, animations, slots]);
+    const digest = JSON.stringify([s.characterId, s.clip, locked, animations, slots, core.libraryAnimations?.()]);
     if (digest !== signature) {
       signature = digest;
       slotRows.replaceChildren(...slots.map(slot => slotRow(slot, animations, locked)));
@@ -117,7 +140,11 @@
 
   host.addEventListener('change', event => {
     const select = event.target.closest('select[data-slot-id]');
-    if (select) { core.setSlotAnimation(select.dataset.slotId, select.value || null); signature = ''; render(); }
+    if (select) {
+      if (select.value.startsWith('lib:')) core.addLibraryAnimation(select.value.slice(4), select.dataset.slotId);
+      else core.setSlotAnimation(select.dataset.slotId, select.value || null);
+      signature = ''; render();
+    }
   });
   host.addEventListener('click', event => {
     const pickRow = event.target.closest('[data-clip-key]');
@@ -126,6 +153,7 @@
     if (!action) return;
     const s = core.getState(), current = core.animationList().find(a => a.key === s.clip);
     if (action === 'new') { openNewDialog(); return; }
+    if (action === 'manage') { window.AnimLabAnimationManager?.open(); return; }
     if (action === 'duplicate') { const name = window.prompt('Name for the copy:', `${current?.name || 'Animation'} copy`); if (name !== null) core.createAnimation('duplicate', name); }
     if (action === 'rename' && current) { const name = window.prompt('Animation name:', current.name); if (name !== null) core.renameAnimation(current.key, name); }
     if (action === 'delete' && current && window.confirm(`Delete ${current.name}? This can't be undone.`)) core.deleteAnimation(current.key);

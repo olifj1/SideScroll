@@ -59,7 +59,7 @@ way: rig and animations are shared templates (instances) or unique copies; atlas
 mesh parts and skin are the character's own; abilities come from a shared list.
 - [ ] **C1c — remaining:** Parts drawing for characters made from imported artwork, and Mesh for bipeds (both need the Parts assembly to draw rigidly / a biped Skin). *(The original characters' neutral internal IDs moved into C2, which migrates the same saved data.)*
 - [ ] **Skin workflow — fewer steps (your UX decision first):** today Skin is part → bone group → bone → joint → sliders. Ideas: show the bone group as a label decided by the part (changing it moves to Advanced, as it rebinds); one row of joint buttons (Socket · Knee · Wrist · Paw) instead of separate bone and joint pickers, with the bone picker kept for per-vertex weights; remember the joint when switching parts (compare near/far legs in one tap). No tapping small things in the viewport (phone-first: small targets are hard to hit).
-- [ ] **Template follow-ups:** importing a character whose rig or animation template already exists on the device keeps the device's version today — offer to replace it, listing the characters that follow it.
+- [ ] **Template follow-ups:** importing a character whose rig template or library animation already exists on the device keeps the device's version today — offer to replace it, listing the characters that follow it.
 - [ ] **C2c — Rest of the generic skeleton engine:** body plans defined entirely as data (a bird, a snake) so a new rig needs no code — bones, IK chains and animation channels as data; Biped and Quadruped then become two such definitions. *(Done 1 Nov: the Biped got an editable rest rig, and Parts, Skin and game mesh drawing work for any rig with a RIG_DESIGNER.)*
 - [ ] **C4 — New Character flow:** name → rig → atlas → mesh parts → skin → animations (instance / copy each) → abilities → play-test in the lab → save → in game.
 - [ ] **C5 — Actions and abilities:** one shared ability list, editable in Character Lab and Asset Lab; **create new actions** (name, button label, animation slot) and assign them to characters; rig templates give default abilities; the game only offers actions a character has. Asset behaviours (carryable, pushable, climbable) become "this asset offers action X". First real actions: Pick Up / Put Down / Carry (grasp/release markers driving existing interaction timing). **Builds on the action slots (Settings → Action slots):** an action = a slot plus its button label and game behaviour; slots added in Settings start as "not hooked up yet" and get their behaviour here (or from an action path, C6); a character with no animation in a slot doesn't have that action. *(Climb as an editable animation done 24 Nov: the Climb action slot.)*
@@ -86,6 +86,14 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0bx. Animation library and manager (25 Nov)** — Character Lab
+- [ ] Aureli → Animate → open her Climb → under the list, **This animation** says whether it's shared or *Aureli's own*. Type a name (e.g. *Climb*) → **Add to library**: it now says *⧉ Climb is shared from the library*.
+- [ ] Open **Father** → Animate → the **Climb** menu shows his own animations, then **Library (shared)** with *Climb ⧉*. Pick it: he gets a *Climb* animation, the Climb row plays it, and the box says *also used by Aureli*.
+- [ ] Change a key on Father's Climb: it asks **Change Climb for everyone?** — *Change for everyone* (Save, then open Aureli: she's offered the update) or *Make it Father's own* (Aureli unaffected).
+- [ ] **New** → *Start from* lists *Library: …* entries: picking one makes a full copy as the character's own (the name fills in).
+- [ ] **Manage animations…** (under the animation buttons, and Settings → Animations): Two-legged / Four-legged; **Library** tab lists each shared animation with who uses it for what; Give to (open character), Rename, Remove (only when unused, not built-in). **By character** lists every character's animations with ⧉ Library / Own and what plays them; Open jumps to it in Animate; Rename; Add to library.
+- [ ] Nothing changed in the game: each character still plays the same animations.
 
 **0bw. All keys (25 Nov)** — Character Lab → Aureli → Animate (e.g. her Climb)
 - [ ] Key Pose Tools → tap **All keys**: it turns amber (*On · edits move all 16 keys…*) and the key lane's keys get an amber outline.
