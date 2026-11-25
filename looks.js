@@ -9,7 +9,8 @@
  *   sidescroll.looks.v1 = { looks: [{ id 'look-…', name,
  *     fog:  { enabled, color:[r,g,b], near, far, amount, curve },
  *     post: { brightness, contrast, saturation, tintColor:[r,g,b], tintAmount },
- *     light: { color:[r,g,b], strength } }] }   (light: the global light, 25 Nov;
+ *     light: { color:[r,g,b], strength, points } }] }   (light: the global light, 25 Nov;
+ *     points = scale for every placed Light node, 0–2, default 1;
  *     looks saved before it have none and get white at full strength = unchanged)
  *
  * Values are clamped to the same ranges as the Fog and Post panels.
@@ -38,7 +39,8 @@
   }
   function cleanLight(l) {
     l = l && typeof l === 'object' ? l : {};
-    return { color: rgb(l.color, DEFAULT_LIGHT.color), strength: num(l.strength, 0, 1.5, DEFAULT_LIGHT.strength) };
+    return { color: rgb(l.color, DEFAULT_LIGHT.color), strength: num(l.strength, 0, 1.5, DEFAULT_LIGHT.strength),
+      points: num(l.points, 0, 2, 1) };
   }
   function clean(look) {
     if (!look || typeof look !== 'object' || !ID.test(look.id || '')) return null;

@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 25 November 2026 — Point lights slider
+- `sidescroll.render.light.v1` and each look's `light` gain `points` (0–2, scale for every point light); absent = 1. No migration.
+
 ## 25 November 2026 — Point lights
 - A light is the built-in `light-node` placed in the game editor; each placed copy saves `pointLight: {color, strength, radius, flicker, flickerSpeed}` in its scene / puzzle / World Group object record (only Light nodes carry the field). No new key or migration; published, exported and backed up with the scene, puzzles and groups.
 - Lights made earlier in Asset Lab (imported-asset entries with `art: {kind:'effect', shader:'light', params}`) keep working.

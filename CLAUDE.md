@@ -501,7 +501,8 @@ unless World Lab sent a `worldX`.
 contrast, saturation, tintColor, tintAmount}, light:{color, strength}}]}`. The saved Fog / Post /
 Light settings are the **base look** (`baseFog` / `basePost` / `baseLight`); `fogSettings` /
 `postSettings` / `lightSettings` are the live values the renderer reads. **Global light** (Menu →
-**Light**, key `sidescroll.render.light.v1`, `DEFAULT_LIGHT` white × 1, strength 0–1.5): the scene
+**Light**, key `sidescroll.render.light.v1`, `DEFAULT_LIGHT` white × 1, strength 0–1.5, `points` 0–2 =
+scale for every point light, applied in `collectPointLights`, blended with looks): the scene
 shader's `uLight` (= `lightRgb`, colour × strength, refreshed by `syncLightRgb`) multiplies every
 object's colour before fog (`tex.rgb * uTint * uLight`), uploaded next to `uFogColor` at each draw
 setup; `saveLightSettings` writes the active look or the base. **Point lights:** the built-in **Light** node

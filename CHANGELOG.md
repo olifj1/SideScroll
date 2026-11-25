@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Point lights fade with the look.** Menu → **Light** has a **Point lights** slider (0–200 %, default
+  100 %) that scales every placed Light at once — 0 % turns them all off. It is part of the base look
+  and of every Look, so a Look step from night to day fades the lights out along with the global light.
 - **Lighting, step 2: point lights.** Game → Edit → **+ Add → WORLD OBJECTS → Light** places a light
   in the world (a glowing marker while editing, hidden in play). Select it and the **Light** panel opens
   beside the game: **colour**, **strength**, **radius** (m), **flicker** and **flicker speed**, all live,
