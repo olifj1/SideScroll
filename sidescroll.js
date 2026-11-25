@@ -902,11 +902,13 @@
     varying vec2 vUV;
     varying float vDepth;
     varying float vWorldX;
+    varying vec3 vWorld;
     void main() {
       vec4 worldPos = uModel * vec4(aPosition, 1.0);
       vec4 viewPos = uView * worldPos;
       vUV = aUV * uUvScale + uUvOffset;
       vWorldX = worldPos.x;
+      vWorld = worldPos.xyz;
       vDepth = max(0.0, -viewPos.z);
       gl_Position = uProjection * viewPos;
     }
@@ -921,6 +923,11 @@
     uniform float uSurfaceBlendEnd;
     uniform vec3 uTint;
     uniform vec3 uLight; // global light: colour × strength (1,1,1 = unlit as painted)
+    // Point lights (placed Light effects), up to 8 nearest the camera:
+    // uPointPos = world xyz + radius, uPointCol = colour × strength (flicker applied).
+    uniform vec4 uPointPos[8];
+    uniform vec4 uPointCol[8];
+    uniform float uPointCount;
     uniform vec3 uFogColor;
     uniform float uFogNear;
     uniform float uFogFar;
@@ -932,6 +939,7 @@
     varying vec2 vUV;
     varying float vDepth;
     varying float vWorldX;
+    varying vec3 vWorld;
     void main() {
       vec4 tex = texture2D(uTexture, vUV);
       if (uSurfaceBlendEnabled > 0.5) {
@@ -943,7 +951,13 @@
       if (alpha < 0.045) discard;
       float fogT = smoothstep(uFogNear, uFogFar, vDepth);
       float fog = pow(fogT, uFogCurve) * uFogAmount;
-      vec3 base = tex.rgb * uTint * uLight;
+      vec3 light = uLight;
+      for (int i = 0; i < 8; i++) {
+        if (float(i) >= uPointCount) break;
+        float reach = 1.0 - clamp(distance(vWorld, uPointPos[i].xyz) / max(uPointPos[i].w, 0.01), 0.0, 1.0);
+        light += uPointCol[i].rgb * reach * reach;
+      }
+      vec3 base = tex.rgb * uTint * light;
       base = mix(base, uHighlightColor, clamp(uHighlight, 0.0, 1.0) * 0.72);
       vec3 rgb = mix(base, uFogColor, fog * (1.0 - uHighlight * 0.72));
       gl_FragColor = vec4(clamp(rgb, 0.0, 1.0), alpha);
@@ -1024,6 +1038,9 @@
     surfaceBlendEnd: gl.getUniformLocation(program, 'uSurfaceBlendEnd'),
     tint: gl.getUniformLocation(program, 'uTint'),
     light: gl.getUniformLocation(program, 'uLight'),
+    pointPos: gl.getUniformLocation(program, 'uPointPos'),
+    pointCol: gl.getUniformLocation(program, 'uPointCol'),
+    pointCount: gl.getUniformLocation(program, 'uPointCount'),
     fogColor: gl.getUniformLocation(program, 'uFogColor'),
     fogNear: gl.getUniformLocation(program, 'uFogNear'),
     fogFar: gl.getUniformLocation(program, 'uFogFar'),
@@ -2372,6 +2389,42 @@
   // Effects attached to characters by Darkness steps (seqEffects is declared with the
   // story runtime, later in this file; frames only render once the script has run).
   const seqEffectObjects = () => seqEffects.map(e => e.obj).filter(Boolean);
+  // ---- Point lights (placed Light effects) ---------------------------------------
+  // Each placed copy of a Light effect lights everything within its radius; its plane
+  // is only a marker while editing (hidden in play, like Thought Nodes). Every frame
+  // the 8 nearest the camera are sent to the scene shader (uploadPointLights).
+  const lightAssets = new Map([...effectAssets].filter(([, e]) => Effects?.isLight?.(e.art)));
+  const POINT_LIGHTS_MAX = 8, pointPosData = new Float32Array(POINT_LIGHTS_MAX * 4), pointColData = new Float32Array(POINT_LIGHTS_MAX * 4);
+  let pointLightCount = 0;
+  function collectPointLights(now) {
+    pointLightCount = 0;
+    if (!lightAssets.size) return;
+    const cx = camera.x + character.screenOffsetX, seconds = now / 1000, found = [];
+    for (const obj of allSceneObjects()) {
+      const entry = obj && !obj.deleted ? lightAssets.get(obj.assetName) : null;
+      if (!entry || Math.abs(obj.x - cx) > 45) continue;
+      const p = Effects.clean('light', { ...entry.art.params, ...(obj.effectParams || {}) });
+      const offset = (String(obj.id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
+      const t = (seconds + offset) * p.flickerSpeed;
+      const flicker = 1 - p.flicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 6.2831) * Math.sin(t * 2.3 + 1.7));
+      const x = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
+      const y = objectYAtDrawX(obj, x) + (Number(obj.sy) || 0) * 0.5; // the marker's centre
+      found.push({ d:Math.abs(x - cx), x, y, z:Number(obj.z) || 0, r:p.radius, rgb:p.color.map(c => c * p.strength * flicker) });
+    }
+    found.sort((a, b) => a.d - b.d);
+    for (const l of found.slice(0, POINT_LIGHTS_MAX)) {
+      const i = pointLightCount++;
+      pointPosData.set([l.x, l.y, l.z, l.r], i * 4);
+      pointColData.set([l.rgb[0], l.rgb[1], l.rgb[2], 1], i * 4);
+    }
+  }
+  // Uniforms keep their values per program, so once per frame (program in use) is enough.
+  function uploadPointLights() {
+    gl.uniform4fv(loc.pointPos, pointPosData);
+    gl.uniform4fv(loc.pointCol, pointColData);
+    gl.uniform1f(loc.pointCount, pointLightCount);
+  }
+
   function renderEffectTextures(now) {
     if (!effectAssets.size || !Effects) return;
     if (!effectRenderer) {
@@ -2381,6 +2434,7 @@
     for (const obj of [...allSceneObjects(), ...seqEffectObjects()]) {
       const entry = obj && !obj.deleted ? effectAssets.get(obj.assetName) : null;
       if (!entry || Math.abs(obj.x - (camera.x + character.screenOffsetX)) > 45) continue;
+      if (lightAssets.has(obj.assetName) && (!editMode || puzzleTestMode)) continue; // marker hidden in play
       const t = effectTargetFor(obj, entry.art);
       gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
       gl.viewport(0, 0, t.w, t.h);
@@ -17694,7 +17748,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   function drawObject(obj, view, extra = null) {
     if (obj.deleted || (obj.carried && !extra?.force)) return;
-    if (!extra?.force && (obj.assetName === 'thought-trigger' || obj.assetName === 'camera-trigger') && (!editMode || puzzleTestMode)) return;
+    if (!extra?.force && (obj.assetName === 'thought-trigger' || obj.assetName === 'camera-trigger' || lightAssets.has(obj.assetName)) && (!editMode || puzzleTestMode)) return;
     const baseDrawX = extra?.x ?? (obj.wrap ? wrapX(obj.x, camera.x) : obj.x);
     if (!extra?.force && !proceduralBiomeVisibleAt(obj, baseDrawX)) return;
     const visual = !extra?.force ? assetVisualTransform(obj.assetName,obj.assetState) : { offsetX:0, offsetY:0, rotationDeg:0 };
@@ -21200,9 +21254,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     syncCollectedObjects();
 
     renderEffectTextures(now);
+    collectPointLights(now);
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(program);
+    uploadPointLights();
     gl.enableVertexAttribArray(loc.pos);
     gl.enableVertexAttribArray(loc.uv);
     gl.enable(gl.DEPTH_TEST);

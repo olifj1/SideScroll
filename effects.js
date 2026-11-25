@@ -9,6 +9,8 @@
  * Shaders: 'darkness' — a dark whirlwind: a twisting funnel of smoke with flecks
  * floating, orbiting and spinning inside it. 'fire' — flames rising from the bottom
  * of the plane (tongues that break off, a hot core, glow, smoke and embers).
+ * 'light' — a point light (target 'light'): the game lights everything within its
+ * radius from where it is placed; its plane is only a marker while editing.
  * 'dissolve' — a character effect (no plane; see createDissolveRenderer).
  * Plane shaders other than darkness read each setting as a uniform named p_<key>.
  */
@@ -69,11 +71,22 @@
     { key:'emberSize',  label:'Ember size',     min:0.002, max:0.03, step:0.001, value:0.009 },
     { key:'emberColor', label:'Ember colour',   type:'color', value:[1.0, 0.7, 0.3] }
   ];
-  // target: what it draws on ('plane' = its own plane; 'character' = a character).
+  // Light: a point light. The game adds colour × strength to everything within the
+  // radius (metres, fading to nothing at the edge), on top of the global light.
+  const LIGHT_PARAMS = [
+    { key:'color',        label:'Colour',        type:'color', value:[1.0, 0.78, 0.45] },
+    { key:'strength',     label:'Strength',      min:0,   max:3,  step:0.01, value:1.2 },
+    { key:'radius',       label:'Radius (m)',    min:0.5, max:20, step:0.1,  value:4 },
+    { key:'flicker',      label:'Flicker',       min:0,   max:1,  step:0.01, value:0 },
+    { key:'flickerSpeed', label:'Flicker speed', min:0.2, max:8,  step:0.1,  value:3 }
+  ];
+  // target: what it draws on ('plane' = its own plane; 'character' = a character;
+  // 'light' = lights the scene, its plane only an editor marker).
   // start / gone: what the first state blends from, and what 'Gone' means.
   const SHADERS = {
     darkness: { label:'Darkness whirlwind', target:'plane', params:DARKNESS_PARAMS, start:{ opacity:0 }, gone:{ opacity:0 } },
     fire:     { label:'Fire', target:'plane', params:FIRE_PARAMS, start:{ opacity:0 }, gone:{ opacity:0 } },
+    light:    { label:'Light', target:'light', params:LIGHT_PARAMS, start:{ strength:0 }, gone:{ strength:0 } },
     dissolve: { label:'Dissolve (character)', target:'character', params:DISSOLVE_PARAMS, start:{ progress:0 }, gone:{ progress:1 } }
   };
 
@@ -259,7 +272,24 @@ void main(){
     return program;
   }
   // Plane shaders that read their settings as p_<key> uniforms.
-  const PLANE_FRAGMENTS = { fire: FIRE_FRAGMENT };
+  // The light's marker (Asset Lab stage, thumbnail, the editor): a glow in its colour,
+  // its size following strength, flickering as the light does.
+  const LIGHT_FRAGMENT = `
+precision highp float;
+varying vec2 vUv;
+uniform float uTime, uAspect;
+uniform float p_strength, p_radius, p_flicker, p_flickerSpeed;
+uniform vec3 p_color;
+void main(){
+  vec2 d = (vUv - 0.5) * vec2(max(uAspect, 0.2), 1.0) * 2.0;
+  float r = length(d);
+  float f = 1.0 - p_flicker * 0.5 * (0.5 + 0.5 * sin(uTime * p_flickerSpeed * 6.2831) * sin(uTime * p_flickerSpeed * 2.3 + 1.7));
+  float glow = exp(-r * r * 3.0) * clamp(p_strength * f / 1.5, 0.15, 1.0);
+  float core = smoothstep(0.16, 0.0, r);
+  vec3 col = mix(p_color, vec3(1.0), core * 0.8);
+  gl_FragColor = vec4(col, clamp(glow + core, 0.0, 1.0));
+}`;
+  const PLANE_FRAGMENTS = { fire: FIRE_FRAGMENT, light: LIGHT_FRAGMENT };
   // A renderer in an existing WebGL context. The caller binds the target framebuffer
   // and viewport; render() draws one full-target triangle and leaves blending off.
   // render(params, time, aspect, shader): shader is the art's shader (default darkness);
@@ -493,5 +523,6 @@ void main(){
   }
 
   const isCharacterEffect = art => (SHADERS[art?.shader] || {}).target === 'character';
-  window.SideScrollEffects = { SHADERS, defaults, clean, createRenderer, createDissolveRenderer, canvasRenderer, thumbnail, isCharacterEffect };
+  const isLight = art => (SHADERS[art?.shader] || {}).target === 'light';
+  window.SideScrollEffects = { SHADERS, defaults, clean, createRenderer, createDissolveRenderer, canvasRenderer, thumbnail, isCharacterEffect, isLight };
 })();

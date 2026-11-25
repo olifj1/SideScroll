@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Lighting, step 2: point lights.** Asset Lab → **+ Add ▾ → New light** makes a light (group
+  LIGHTS): **colour**, **strength**, **radius** (m), **flicker** and **flicker speed**. Place it in the
+  game editor like any asset (it shows as a glowing marker while editing and is hidden in play); it
+  lights everything within its radius — scenery, characters, effects — fading to nothing at the edge,
+  added on top of the global light (so it shows best at night). The 8 lights nearest the camera are
+  used. Light states work too (Asset Lab → States). No shadows; light passes through walls.
 - **Lighting, step 1: global light.** Menu → **Light** (beside Fog and Post): a **colour** and a
   **strength** (0–150 %) that light everything evenly — scenery, characters, effects and the sky —
   before fog is added, so a night is a dim blue light with its own fog colour. White at 100 % is the
