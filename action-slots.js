@@ -1,6 +1,7 @@
 /* SideScroll action slots (C3b). One project-wide list of named slots that a
- * character's animations are assigned to: Idle, Walk, Run and Jump are built in
- * and played by the game; slots the author adds (Crawl, Sniff…) are data until
+ * character's animations are assigned to: Idle, Walk, Run, Jump and Climb are
+ * built in and played by the game (Climb may be left empty: the game's coded
+ * climbing then plays — OPTIONAL); slots the author adds (Crawl, Sniff…) are data until
  * something uses them — game code (C5 actions) or an action path placed in the
  * scene (C6). Each character maps slots to its own animations
  * (slotAnimations: { slotId: animationKey | null }); with no entry a built-in
@@ -12,7 +13,9 @@
   'use strict';
   const KEY = 'sidescroll.action-slots.v1';
   const SCHEMA = 'sidescroll.action-slots.v1';
-  const BUILT_IN = Object.freeze(['idle', 'walk', 'run', 'jump']);
+  const BUILT_IN = Object.freeze(['idle', 'walk', 'run', 'jump', 'climb']);
+  // Built-in slots that may play no animation: the game has its own behaviour.
+  const OPTIONAL = Object.freeze(['climb']);
   const has = (obj, key) => !!obj && Object.prototype.hasOwnProperty.call(obj, key);
   const cleanName = value => String(value || '').trim().replace(/[\u0000-\u001f\u007f<>]/g, '').slice(0, 42);
   const titleCase = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -29,9 +32,15 @@
       if (BUILT_IN.includes(id)) { if (name) store.slots[id].name = name; continue; }
       if (SLOT_ID.test(id) && name) store.slots[id] = { id, name, builtIn: false };
     }
-    // Built-in slots the saved order doesn't place yet come first.
+    // Built-in slots the saved order doesn't place yet go straight after the
+    // built-in slot before them (Climb, added later, lands after Jump).
     const order = Array.isArray(raw.order) ? raw.order.filter(id => has(store.slots, id)) : [];
-    store.order = [...new Set([...BUILT_IN.filter(id => !order.includes(id)), ...order, ...Object.keys(store.slots)])];
+    BUILT_IN.forEach((id, i) => {
+      if (order.includes(id)) return;
+      const before = BUILT_IN.slice(0, i).reverse().find(x => order.includes(x));
+      order.splice(before ? order.indexOf(before) + 1 : 0, 0, id);
+    });
+    store.order = [...new Set([...order, ...Object.keys(store.slots)])];
     return store;
   }
   function save(store) {
@@ -79,5 +88,5 @@
     return true;
   }
 
-  window.SideScrollActionSlots = Object.freeze({ KEY, BUILT_IN, SLOT_ID, list, get, isHookedUp, add, rename, remove, move });
+  window.SideScrollActionSlots = Object.freeze({ KEY, BUILT_IN, OPTIONAL, SLOT_ID, list, get, isHookedUp, add, rename, remove, move });
 })();

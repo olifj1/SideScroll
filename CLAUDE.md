@@ -253,7 +253,9 @@ shared family set, which is also where the built-in templates *Biped walk* etc. 
 from). Without saved links, original characters are instances of their family's
 built-in templates (the heroes share the Biped set), library characters unique.
 **Action slots** (`action-slots.js`, key `sidescroll.action-slots.v1`) are one
-project-wide list: Idle/Walk/Run/Jump built in (played by the game), others added in
+project-wide list: Idle/Walk/Run/Jump/Climb built in (played by the game; `OPTIONAL` = Climb, which may
+play nothing: then the game's coded climbing `poseForClimbing`; a missing built-in slot is inserted
+after the built-in before it in a saved order), others added in
 Settings ("not hooked up yet" until C5 code or a C6 action path uses them). Each
 character maps slots to its animations (`slotAnimations`; no entry = a built-in slot
 plays the animation of the same name). Animations the character made (`extraClips`,
@@ -271,6 +273,15 @@ Biped keys may set only some controls (`key.channels`, from `GameHubWalkRig.KEY_
 absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampleSparse`
 in both Character Lab and the game; others keep the original whole-key path.
 `simplifySparse` is Key Pose Tools → Simplify keys.
+**Climb animation:** `character-game-runtime.js` `slotClips` includes `climb` (no clip unless the slot
+map names one; `ANIMATIONS` is the four built-in animations). The game (`climbClipFor` / `climbClipPose`
+in sidescroll.js, tried first in `drawRigCharacter` while `climbState`) samples it at phase = distance
+along the climb path / `CLIMB_ANIM_CYCLE_WORLD` (0.92 m; negated going down), blended from standing over
+the entry. Character Lab: **New → Today's climbing, converted** (`newAnimationStarts` value `'climb'`,
+bipeds) builds 16 keys with `convertedClimbKeys()` (the coded climb's maths on a vertical path at the
+setup's scale, from the shared biped walk's standing pose) and fills an empty Climb slot; `clipDuration`
+of the Climb slot's animation is `CLIMB_CYCLE_MS` (0.92 m at 1.45 m/s); `anim-lab-stage4.js` Ground Motion
+treats Climb as a gait and draws `drawClimbWall`. Slanted climb paths play the same (vertical) animation.
 **Scene objects** (`anim-lab-scene-objects.js`, Animate and Play): any asset — every built-in one
 (`builtin-assets.js`, grouped as in Asset Lab) and every imported one — stood beside the
 character at game size (asset height × Size, its `groundLine` on the ground; both read through

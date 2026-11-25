@@ -55,6 +55,7 @@
     }));
     newStart.value = newStart.querySelector('option[value="idle"]') ? 'idle' : newStart.options[0]?.value || 'current';
     newName.value = 'New animation';
+    newStart.onchange = () => { if (newStart.value === 'climb' && newName.value === 'New animation') newName.value = 'Climb'; };
     newDialog.showModal(); newName.select();
   }
   function createFromDialog() {
@@ -79,7 +80,7 @@
     const select = document.createElement('select');
     select.dataset.slotId = slot.id; select.disabled = locked;
     select.setAttribute('aria-label', `Animation for ${slot.name}`);
-    const options = [...(slot.builtIn ? [] : [['', '— none —']]), ...animations.map(a => [a.key, a.name])];
+    const options = [...(slot.builtIn && !slot.optional ? [] : [['', slot.optional ? 'The game’s own climbing' : '— none —']]), ...animations.map(a => [a.key, a.name])];
     for (const [value, label] of options) { const o = document.createElement('option'); o.value = value; o.textContent = label; select.appendChild(o); }
     select.value = slot.animation || '';
     row.append(name, select);
