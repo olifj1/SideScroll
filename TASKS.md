@@ -87,6 +87,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0by. Character Lab speed (25 Nov)**
+- [ ] Open Character Lab: it should load as quickly as it did a few days ago, and ▶ playing an animation, scrubbing frames and dragging handles should feel smooth again (as before the animation library change).
+- [ ] The animation library still behaves: Add to library on an animation, pick it for another character, rename it in the Animation manager — each shows straight away.
+
 **0bx. Animation library and manager (25 Nov)** — Character Lab
 - [ ] Aureli → Animate → open her Climb → under the list, **This animation** says whether it's shared or *Aureli's own*. Type a name (e.g. *Climb*) → **Add to library**: it now says *⧉ Climb is shared from the library*.
 - [ ] Open **Father** → Animate → the **Climb** menu shows his own animations, then **Library (shared)** with *Climb ⧉*. Pick it: he gets a *Climb* animation, the Climb row plays it, and the box says *also used by Aureli*.

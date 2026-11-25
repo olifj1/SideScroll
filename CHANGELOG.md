@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Character Lab is fast again.** The animation library work made Character Lab slow to load (≈2.8 s
+  headless, was 1 s) and choppy (each update ≈145 ms, was 40 ms): every library lookup re-read and
+  re-parsed the whole animation-template store, rebuilding the built-in sets and copying every clip,
+  and the *This animation* box asks once per animation per character on every update. The store is
+  now parsed once and re-read only when its saved text changes (`animation-templates.js` `read`), so
+  loading is back to ≈1 s and an update takes ≈26 ms. Nothing saved changes.
 - **Animation manager, reorganised.** **Characters** tab: every character with all its action slots
   and the animation in each — a menu per slot lists every animation it could play (the character's
   own, then the Library) to swap it on the spot, with *⧉ shared* / *own* beside it and **Go to**.
