@@ -245,7 +245,9 @@ only if missing (never overwrite a shared one).
 ## Animation templates
 `animation-templates.js` (`window.SideScrollAnimationTemplates`, key
 `sidescroll.animation-templates.v1`): named clips per rig family and slot, the same
-model as rig templates. Every character keeps its **own saved copy** of each clip —
+model as rig templates. `list()` / `get()` share one parsed store until the saved text changes (`read`;
+Character Lab asks per animation per character on every update) — never change what they return;
+changes go through `load()` (fresh) and `save()`. Every character keeps its **own saved copy** of each clip —
 original characters in `sidescroll.animlab.character-clips.v1` (`characters[id]` =
 `{sparseClips, links}`), library characters in their entry (`sparseClips`,
 `animationLinks`) — and the game plays only that (a slot with no saved copy plays the

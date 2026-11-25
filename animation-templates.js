@@ -36,9 +36,23 @@
     }
     return out;
   }
-  function load() {
+  // Reading the store parses every saved clip and rebuilds the built-in ones, and
+  // Character Lab asks for templates many times per update (a link per animation
+  // per character), so reads share one parsed copy until the saved text changes
+  // (`read`; also catches writes by other code, e.g. character imports). Changes
+  // start from a fresh copy (`load`) and save() drops the shared one. Callers
+  // must not change what list() / get() return (they clone clips before use).
+  let cachedText = null, cachedStore = null;
+  function read() {
+    const text = localStorage.getItem(KEY);
+    if (cachedStore && text === cachedText) return cachedStore;
+    cachedStore = build(text); cachedText = text;
+    return cachedStore;
+  }
+  const load = () => build(localStorage.getItem(KEY));
+  function build(text) {
     let raw = null;
-    try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) {}
+    try { raw = JSON.parse(text || 'null'); } catch (_) {}
     const store = { schema: SCHEMA, templates: builtIns() };
     store.order = Object.keys(store.templates);
     if (raw?.schema !== SCHEMA || !raw.templates || typeof raw.templates !== 'object') return store;
@@ -59,10 +73,11 @@
       if (!t.clip) continue;
       templates[id] = { name: t.name, family: t.family, slot: t.slot, clip: t.clip, revision: t.revision, updatedAt: t.updatedAt || '' };
     }
+    cachedStore = null; cachedText = null;
     localStorage.setItem(KEY, JSON.stringify({ schema: SCHEMA, templates, order: store.order.filter(id => templates[id]) }));
   }
-  const list = (family, slot) => { const s = load(); return s.order.map(id => s.templates[id]).filter(t => (!family || t.family === family) && (!slot || t.slot === slot)); };
-  const get = id => load().templates[id] || null;
+  const list = (family, slot) => { const s = read(); return s.order.map(id => s.templates[id]).filter(t => (!family || t.family === family) && (!slot || t.slot === slot)); };
+  const get = id => read().templates[id] || null;
 
   // character: { id, family, library }; links: the character's saved links.
   function defaultLink(character, slot) {
