@@ -843,9 +843,11 @@
   function animationList(characterId = selection.characterId) {
     const character = characterById(characterId), names = savedAnimationNames(characterId), slots = slotList(characterId);
     const usedBy = key => slots.filter(slot => slot.animation === key).map(slot => slot.name);
+    // library: the library animation it is linked to (follows), if any.
+    const linked = key => { const link = clipLinkFor(character, key); return link?.mode === 'instance' && AnimationTemplates?.get(link.id) ? link.id : null; };
     return [
-      ...clipNamesForFamily(character.family).map(key => ({key, name:names[key] || titleCase(key), original:true, slots:usedBy(key)})),
-      ...(extraAnimations[characterId] || []).map(x => ({key:x.key, name:x.name, original:false, basedOn:x.basedOn, slots:usedBy(x.key)}))
+      ...clipNamesForFamily(character.family).map(key => ({key, name:names[key] || titleCase(key), original:true, slots:usedBy(key), library:linked(key)})),
+      ...(extraAnimations[characterId] || []).map(x => ({key:x.key, name:x.name, original:false, basedOn:x.basedOn, slots:usedBy(x.key), library:linked(x.key)}))
     ];
   }
   // The current animation's display name.
@@ -1717,6 +1719,7 @@
     if (adapter.restPose) starts.push({value:'rest', label:'Its rig’s rest pose (straight)'});
     for (const a of animationList()) starts.push({value:`clip:${a.key}`, label:`First pose of ${a.name}`});
     if (character.family === 'biped') starts.push({value:'climb', label:'Today’s climbing, converted (all keys; for Climb)'});
+    for (const t of libraryAnimations(character.id)) starts.push({value:`library:${t.id}`, label:`Library: ${t.name} (all keys, as ${character.label}’s own)`});
     return starts;
   }
   // ---- Climb (the game's coded climbing as keys) ---------------------------------
@@ -1771,14 +1774,20 @@
     // Two keys holding the start pose (a clip with fewer than two keys falls back
     // to the built-in frames, which are made for the original heroes' rig).
     const climb = kind === 'blank' && start === 'climb' && family === 'biped';
-    const startPose = climb ? null : newAnimationStartPose(start);
-    const clip = climb
+    // A whole library animation as the start: the character's own copy, "started from" it.
+    const fromLibrary = kind === 'blank' && typeof start === 'string' && start.startsWith('library:') ? AnimationTemplates?.get(start.slice(8)) : null;
+    if (fromLibrary && (!fromLibrary.clip || fromLibrary.family !== family)) return null;
+    const startPose = climb || fromLibrary ? null : newAnimationStartPose(start);
+    const clip = fromLibrary
+      ? normaliseSparseClip(clone(fromLibrary.clip), family, key, banks[family][source])
+      : climb
       ? normaliseSparseClip({source:'sparse-authored', keys:convertedClimbKeys()}, family, key, banks[family].walk)
       : kind === 'blank'
       ? normaliseSparseClip({source:'sparse-authored', keys:[{frame:0, name:'Start', pose:startPose}, {frame:15, name:'End', pose:clone(startPose)}]}, family, key, banks[family][source])
       : normaliseSparseClip(clone(currentSparseClip()), family, key, currentFrames());
     const clean = safeCharacterName(name) || (kind === 'blank' ? 'New animation' : `${animationList().find(a => a.key === selection.clip)?.name || 'Animation'} copy`);
-    updateSavedAnimations(character.id, ({extras}) => { extras[key] = {name:clean, basedOn:source, clip:clone(clip)}; });
+    updateSavedAnimations(character.id, ({extras}) => { extras[key] = {name:clean, basedOn:source, clip:clone(clip),
+      ...(fromLibrary ? {link:{id:fromLibrary.id, mode:'unique', revision:fromLibrary.revision}} : {})}; });
     customSparseBanks[character.id][key] = clip;
     customSampleBanks[character.id][key] = compileSparseClip(clip, family);
     (extraAnimations[character.id] ||= []).push({key, name:clean, basedOn:source});
@@ -1852,9 +1861,110 @@
   }
   // Characters (other than one) whose animation for some slot is an instance of a template.
   function clipTemplateUsers(templateId, exceptId) {
-    return CHARACTERS.filter(c => c.id !== exceptId && characterVisible(c.id) && clipNamesForFamily(c.family)
-      .some(slot => { const link = clipLinkFor(c, slot); return link?.mode === 'instance' && link.id === templateId; }))
-      .map(c => c.label);
+    return libraryUsers(templateId).filter(u => u.characterId !== exceptId).map(u => u.character)
+      .filter((name, i, all) => all.indexOf(name) === i);
+  }
+  // ---- Animation library (25 Nov 2026) ----------------------------------------
+  // The library is the animation templates of a rig family (animation-templates.js):
+  // shared animations any character of that family can use. Picking one for an
+  // action gives the character that animation, linked (editing it can change it
+  // for everyone, or make it the character's own); New can also start from one as
+  // the character's own copy. The Animation manager lists everything.
+  const libraryAnimations = (characterId = selection.characterId) =>
+    (AnimationTemplates?.list(characterById(characterId).family) || []).filter(t => t.clip)
+      .map(t => ({id:t.id, name:t.name, builtIn:!!t.builtIn}));
+  // Every character animation linked to a library animation: {characterId, character, key, animation, slots}.
+  function libraryUsers(templateId) {
+    const out = [];
+    for (const c of CHARACTERS) {
+      if (!characterVisible(c.id) || !customSparseBanks[c.id]) continue;
+      for (const a of animationList(c.id)) {
+        const link = clipLinkFor(c, a.key);
+        if (link?.mode === 'instance' && link.id === templateId) out.push({characterId:c.id, character:c.label, key:a.key, animation:a.name, slots:a.slots});
+      }
+    }
+    return out;
+  }
+  function uniqueAnimationName(characterId, name) {
+    const taken = new Set(animationList(characterId).map(a => a.name.toLowerCase()));
+    let clean = safeCharacterName(name) || 'Animation', n = 2;
+    const base = clean;
+    while (taken.has(clean.toLowerCase())) clean = `${base} ${n++}`;
+    return clean;
+  }
+  // Give the current character a library animation (linked), or reuse the one it
+  // already has linked to it; with a slot, that slot plays it. Saved straight away.
+  function addLibraryAnimation(templateId, slot = null) {
+    if (animationEditBlocked()) return null;
+    const character = currentCharacter(), template = AnimationTemplates?.get(templateId);
+    if (!template?.clip || template.family !== character.family) return null;
+    let key = libraryUsers(templateId).find(u => u.characterId === character.id)?.key || null;
+    const added = !key;
+    if (added) {
+      key = newClipKey();
+      const builtIn = clipNamesForFamily(character.family), basedOn = builtIn.includes(template.slot) ? template.slot : 'walk';
+      const clip = normaliseSparseClip(clone(template.clip), character.family, key, banks[character.family][basedOn]);
+      const name = uniqueAnimationName(character.id, template.name);
+      updateSavedAnimations(character.id, ({extras}) => { extras[key] = {name, basedOn, clip:clone(clip), link:{id:template.id, mode:'instance', revision:template.revision}}; });
+      customSparseBanks[character.id][key] = clip;
+      customSampleBanks[character.id][key] = compileSparseClip(clip, character.family);
+      (extraAnimations[character.id] ||= []).push({key, name, basedOn});
+    }
+    if (slot && slotList().some(s => s.id === slot)) updateSavedAnimations(character.id, ({slotMap}) => { slotMap[slot] = key; });
+    selection.clip = key; selection.frame = 0; playPhase = 0; playing = false;
+    saveEditorSelection(); resetCheckpoint();
+    const slotName = slot ? slotList().find(s => s.id === slot)?.name : null;
+    hint.textContent = `${template.name} ${added ? 'added from the library' : 'is already ' + character.label + '’s (from the library)'}${slotName ? ` · played for ${slotName}` : ''}`;
+    draw(); updateUi(); notify();
+    return key;
+  }
+  // Rename any character's animation (saved straight away).
+  function renameCharacterAnimation(characterId, key, name) {
+    if (characterId === selection.characterId) return renameAnimation(key, name);
+    const clean = safeCharacterName(name), extra = extraOf(characterId, key);
+    if (!clean || !clipExists(characterId, key)) return false;
+    updateSavedAnimations(characterId, ({names, extras}) => {
+      if (extra) extras[key] = {...(extras[key] || {name:extra.name, basedOn:extra.basedOn, clip:clone(customSparseBanks[characterId][key])}), name:clean};
+      else names[key] = clean;
+    });
+    if (extra) extra.name = clean;
+    notify();
+    return true;
+  }
+  // Put any character's saved animation in the library (it then follows it).
+  function addAnimationToLibrary(characterId, key, name) {
+    const character = characterById(characterId);
+    if (!character || !clipExists(characterId, key)) return null;
+    if (characterId === selection.characterId && key === selection.clip) return saveClipAsTemplate(name);
+    const extra = extraOf(characterId, key), slot = extra ? (extra.basedOn || 'walk') : key;
+    const template = AnimationTemplates?.create(name, character.family, slot, clone(customSparseBanks[characterId][key]));
+    if (!template) return null;
+    writeClipLink(characterId, key, {id:template.id, mode:'instance', revision:template.revision});
+    notify();
+    return template.id;
+  }
+  // Everything for the Animation manager.
+  function animationManagerData() {
+    const library = (AnimationTemplates?.list() || []).filter(t => t.clip).map(t => ({id:t.id, name:t.name, family:t.family, builtIn:!!t.builtIn,
+      users:libraryUsers(t.id), removable:AnimationTemplates.canRemove(t.id)}));
+    const characters = CHARACTERS.filter(c => characterVisible(c.id) && customSparseBanks[c.id]).map(c => ({id:c.id, name:c.label, family:c.family,
+      current:c.id === selection.characterId,
+      animations:animationList(c.id).map(a => {
+        const link = clipLinkFor(c, a.key), t = link && AnimationTemplates?.get(link.id);
+        return {key:a.key, name:a.name, original:a.original, slots:a.slots,
+          status:!t ? 'own' : link.mode === 'instance' ? 'linked' : 'started', library:t ? {id:t.id, name:t.name} : null};
+      })}));
+    return {library, characters, dirty:isDirty(), mode:selection.mode};
+  }
+  // Open any character's animation in Animate (asks Save / Discard first if needed).
+  function openAnimation(characterId, key) {
+    if (!clipExists(characterId, key)) return false;
+    return guardNavigation(() => {
+      if (characterId !== selection.characterId) switchCharacter(characterId);
+      if (selection.mode !== 'animate') switchMode('animate');
+      switchClip(key);
+      draw(); updateUi(); notify();
+    });
   }
   function clipTemplateState() {
     if (!AnimationTemplates) return null;
@@ -2910,6 +3020,9 @@
     setSlotAnimation,
     slotList:()=>clone(slotList()),
     selectClip:name=>switchClip(name),
+    libraryAnimations, addLibraryAnimation, animationManagerData, renameCharacterAnimation, addAnimationToLibrary, openAnimation,
+    removeLibraryAnimation:id=>{const ok=!!AnimationTemplates?.remove(id);if(ok)notify();return ok;},
+    renameLibraryAnimation:(id,name)=>{const ok=!!AnimationTemplates?.rename(id,name);if(ok)notify();return ok;},
     useClipTemplate,
     makeClipUnique,
     saveClipAsTemplate,

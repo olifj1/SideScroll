@@ -4,6 +4,18 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Animation library and Animation manager (Character Lab).** Animation templates are now the
+  **Library**: shared animations per body type (two-legged / four-legged). Every action menu in
+  Animate lists the character's own animations and then **Library (shared)** — picking a library
+  animation gives the character that animation, linked, and plays it for the action in one step (no
+  more "Use this template" replacing whatever was open). **New → Start from** can take a whole library
+  animation as the character's own copy. The box under the list now says plainly whether the open
+  animation is shared (and who else uses it) or the character's own, with **Add to library** and
+  **Make it <name>'s own**; editing a shared one asks *Change for everyone?* or *Make it own*.
+  **Manage animations…** (Animate, and Settings) opens the **Animation manager**: Library tab (every
+  shared animation, who uses it for which action; Give to the open character, Rename, Remove when
+  unused) and By character tab (every character's animations, shared or own, what plays them; Open,
+  Rename, Add to library). Saved data unchanged.
 - **All keys (Character Lab → Animate → Key Pose Tools).** A toggle: while it is on, whatever you
   move or change on the current key (a handle in the viewport, a slider or a number) moves **every
   key** of the animation by the same amount — e.g. raise the body 10 cm on one key and it is 10 cm

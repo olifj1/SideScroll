@@ -14185,6 +14185,26 @@ body[data-game-id="game-17"] .animlab-key-tools-cycle{padding-top:1px;}
 /* All keys (offset every key by the same amount): a toggle, and the key lane turns amber while on. */
 body[data-game-id="game-17"] .animlab-key-all{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 2px;padding:8px 10px;border-radius:10px;border:1px solid rgba(238,243,241,.18);background:rgba(255,255,255,.04);color:inherit;text-align:left;font:inherit;}
 body[data-game-id="game-17"] .animlab-key-all strong{font-size:12px;letter-spacing:.04em;white-space:nowrap;}
+/* Animation manager (Character Lab): a full-screen list of every animation. */
+.animlab-anim-manager{width:min(760px,100vw);max-width:100vw;height:min(92vh,100%);max-height:100dvh;margin:auto;padding:0;border:1px solid rgba(238,243,241,.16);border-radius:14px;background:#151c1d;color:#eef3f1;}
+.animlab-anim-manager::backdrop{background:rgba(5,8,9,.6);}
+.animlab-anim-manager[open]{display:flex;flex-direction:column;}
+.animlab-anim-manager-head{display:flex;align-items:center;gap:10px;padding:12px 14px 8px;padding-top:max(12px,env(safe-area-inset-top));}
+.animlab-anim-manager-head>strong{font-size:16px;margin-right:auto;}
+.animlab-anim-manager-head .animlab-segmented{min-width:220px;}
+.animlab-anim-manager-tabs{margin:0 14px;}
+body[data-game-id="game-17"] .animlab-anim-manager button[aria-pressed="true"]{background:rgba(126,216,199,.28)!important;border-color:rgba(126,216,199,.85)!important;color:#fff!important;}
+.animlab-anim-manager>.animlab-setup-note{margin:8px 14px 4px;}
+.animlab-anim-manager-body{flex:1;overflow:auto;padding:4px 14px max(14px,env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;}
+.animlab-anim-manager-character{margin:14px 0 4px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7ed8c7;}
+.animlab-anim-manager-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(238,243,241,.08);}
+.animlab-anim-manager-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.animlab-anim-manager-text strong{font-size:14px;}
+.animlab-anim-manager-text span{font-size:12px;opacity:.72;}
+.animlab-anim-manager-badge{margin-left:6px;padding:1px 6px;border-radius:8px;background:rgba(238,243,241,.12);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:none;color:#eef3f1;}
+.animlab-anim-manager-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:58%;}
+.animlab-anim-manager-actions .animlab-library-action{min-height:34px;padding:0 10px;font-size:12px;}
+.animlab-manage-animations{width:100%;margin-top:6px;}
 body[data-game-id="game-17"] .animlab-key-all span{font-size:11px;opacity:.75;}
 body[data-game-id="game-17"] .animlab-key-all[aria-pressed="true"]{border-color:rgba(255,190,90,.85);background:rgba(255,170,60,.18);}
 body[data-game-id="game-17"] .animlab-key-all[aria-pressed="true"] span{opacity:1;}

@@ -31,6 +31,13 @@
   must add its instant result there; anything only seen while it runs (lines, waits, camera,
   screen, sounds) leaves nothing.
 
+## Animation library (25 Nov 2026)
+- Shared animations are called the **Library** in the UI (the data is still animation templates). Picking
+  is adding: a library animation is offered wherever an animation is chosen (each action menu, New →
+  Start from), never only as "replace the open animation". Every character animation states plainly
+  whether it is shared (⧉, who else uses it) or the character's own. One place lists everything: the
+  **Animation manager** (Library / By character, per body type). Rig templates keep the word "template".
+
 ## Props: one grip per character per asset (20 Nov 2026)
 - Anything a character holds is drawn through one list of held things (`[{layer, draw}]`), placed
   among its parts by `heldItemIndex` — the same in Character Lab and the game. New held things

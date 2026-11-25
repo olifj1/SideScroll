@@ -62,6 +62,7 @@ const CORE_SHELL = [
   "./action-slots.js",
   "./anim-lab-animation-templates.js",
   "./anim-lab-animation-list.js",
+  "./anim-lab-animation-manager.js",
   "./character-packages.js",
   "./anim-lab-character-library.js",
   "./anim-lab-stage2.js",

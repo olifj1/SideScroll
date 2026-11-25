@@ -300,12 +300,23 @@ metres (collider × 2.31 × scale, as `colliderWorld()` in the game) — using t
 held item is drawn among its parts (`GameHubWalkRig.heldItemIndex`); the game and
 Character Lab both use it (Character Lab: `core.setHeldItemDrawer`, the Skin module draws
 the parts in two passes around it). `window.AnimLabQuickPlay.state()` is a read-only test hook.
-`anim-lab-animation-templates.js` is the Animate *Animation template* box (Use this
-template, Make unique, Save as template; links of created animations live in
-`extraClips[key].link`; a chosen template waits in walk-lab's `pendingClipLinks` until
-Save) and asks *Edit template / Make unique* on the first edit of a linked clip and
-*Use updated / Keep previous* when its template changed. Settings lists animation
-templates (rename; remove when nothing follows them).
+**Animation library (UI name for animation templates, 25 Nov):** shared animations per rig family.
+Each action menu (`anim-lab-animation-list.js`) lists the character's animations, then an optgroup
+*Library (shared)* (`core.libraryAnimations()`, ones it doesn't already follow; value `lib:<id>`) →
+`addLibraryAnimation(id, slot)`: reuses the character's animation already linked to it, else creates an
+extra `{name, basedOn, clip, link:{id, mode:'instance', revision}}`, and sets the slot. `animationList`
+items carry `library` (linked template id). **New** start `library:<id>` = a full copy, link mode
+`unique` ("started from"). `anim-lab-animation-templates.js` is the **This animation** box (status, *Use
+library update*, *Make it <name>'s own* = `makeClipUnique`, *Add to library* = `saveClipAsTemplate`;
+links of created animations live in `extraClips[key].link`; a pending link waits in `pendingClipLinks`
+until Save) and asks *Change for everyone / Make it own* on the first edit of a linked clip and *Use
+updated / Keep previous* when its library animation changed. **Animation manager**
+(`anim-lab-animation-manager.js`, `window.AnimLabAnimationManager.open()`; from Animate → *Manage
+animations…* and Settings → Animations) reads `core.animationManagerData()` (library with
+`libraryUsers`, every character's animations with status linked / started / own) and calls
+`addLibraryAnimation`, `renameLibraryAnimation`, `removeLibraryAnimation`, `renameCharacterAnimation`,
+`addAnimationToLibrary(characterId, key, name)`, `openAnimation(characterId, key)` (guarded by Save /
+Discard).
 
 ## Props (held assets)
 `character-props.js` (`window.SideScrollProps`; loaded by play and walk-lab): any asset can be
@@ -343,7 +354,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
 | `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
-| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
+| `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects, animation manager) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-interactions.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
 | `world-lab.html` | Journey layout / placement; Sequences track; player start | `world-lab.js`, `sequence-data.js`, `asset-library.js` |
