@@ -313,10 +313,14 @@ until Save) and asks *Change for everyone / Make it own* on the first edit of a 
 updated / Keep previous* when its library animation changed. **Animation manager**
 (`anim-lab-animation-manager.js`, `window.AnimLabAnimationManager.open()`; from Animate → *Manage
 animations…* and Settings → Animations) reads `core.animationManagerData()` (library with
-`libraryUsers`, every character's animations with status linked / started / own) and calls
-`addLibraryAnimation`, `renameLibraryAnimation`, `removeLibraryAnimation`, `renameCharacterAnimation`,
-`addAnimationToLibrary(characterId, key, name)`, `openAnimation(characterId, key)` (guarded by Save /
-Discard).
+`libraryUsers`; every character with `slots`, `choices` {own, library} and its animations with status
+linked / started / own and `deletable`). Tabs: **Characters** (slots with a menu each →
+`setSlotAnimationFor` / `addLibraryAnimationFor`, Go to) and **Animations & library** (library: users with
+Go to / `makeAnimationOwn`, `renameLibraryAnimation`, `duplicateLibraryAnimation`, `removeLibraryAnimation`;
+own: `renameCharacterAnimation`, `duplicateCharacterAnimation`, `addAnimationToLibrary`,
+`deleteCharacterAnimation`). These work on any character (`addExtraClip` writes another character's saved
+animations directly; the open one goes through the usual paths). `openAnimation(characterId, key)` is
+guarded by Save / Discard.
 
 ## Props (held assets)
 `character-props.js` (`window.SideScrollProps`; loaded by play and walk-lab): any asset can be

@@ -92,7 +92,9 @@ app and make a Project Backup.
 - [ ] Open **Father** → Animate → the **Climb** menu shows his own animations, then **Library (shared)** with *Climb ⧉*. Pick it: he gets a *Climb* animation, the Climb row plays it, and the box says *also used by Aureli*.
 - [ ] Change a key on Father's Climb: it asks **Change Climb for everyone?** — *Change for everyone* (Save, then open Aureli: she's offered the update) or *Make it Father's own* (Aureli unaffected).
 - [ ] **New** → *Start from* lists *Library: …* entries: picking one makes a full copy as the character's own (the name fills in).
-- [ ] **Manage animations…** (under the animation buttons, and Settings → Animations): Two-legged / Four-legged; **Library** tab lists each shared animation with who uses it for what; Give to (open character), Rename, Remove (only when unused, not built-in). **By character** lists every character's animations with ⧉ Library / Own and what plays them; Open jumps to it in Animate; Rename; Add to library.
+- [ ] **Manage animations…** (under the animation buttons, and Settings → Animations) → **Characters** tab: every character (Two-legged / Four-legged) with all its action slots and the animation in each. Change Father's Climb from the menu to *Climb ⧉* (Library group) without opening him: it shows *⧉ shared*. **Go to** opens that animation in Animate.
+- [ ] **Animations & library** tab: each library animation lists the characters using it, each with **Go to** and **Make it …'s own** (try it on Father's Climb: it moves down to *Characters' own*). Rename / Duplicate on a library animation; Delete only when no one uses it (built-in ones never).
+- [ ] Characters' own animations: Rename, Duplicate (a "… copy" appears), Add to library (it moves up to the Library, still used by that character), Delete (asks first; greyed out for built-in ones and ones Idle / Walk / Run / Jump / Climb play).
 - [ ] Nothing changed in the game: each character still plays the same animations.
 
 **0bw. All keys (25 Nov)** — Character Lab → Aureli → Animate (e.g. her Climb)

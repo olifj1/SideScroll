@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Animation manager, reorganised.** **Characters** tab: every character with all its action slots
+  and the animation in each — a menu per slot lists every animation it could play (the character's
+  own, then the Library) to swap it on the spot, with *⧉ shared* / *own* beside it and **Go to**.
+  Works for any character, not only the open one. **Animations & library** tab is where animations
+  are managed: each Library (shared) animation with every character using it (**Go to**, **Make it
+  <name>'s own**) and Rename / Duplicate / Delete (when unused, not built in); then every character's
+  own animations with Go to / Rename / Duplicate / Add to library / Delete.
 - **Animation library and Animation manager (Character Lab).** Animation templates are now the
   **Library**: shared animations per body type (two-legged / four-legged). Every action menu in
   Animate lists the character's own animations and then **Library (shared)** — picking a library
