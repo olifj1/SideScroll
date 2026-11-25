@@ -16062,3 +16062,7 @@ body[data-game-id="game-16"] .sidescroll-inventory-item.openable .sidescroll-inv
 .assetlab-interactions .assetlab-interaction-fields[hidden]{display:none;}
 .assetlab-interactions .assetlab-interaction-fields + .assetlab-behaviours{margin-top:12px;}
 .assetlab-interactions [hidden]{display:none!important;}
+
+/* Light node panel (in-game editor) */
+body[data-game-id="game-16"] .sidescroll-light-node-colour{grid-template-columns:1fr 64px;align-items:center;}
+body[data-game-id="game-16"] .sidescroll-light-node-colour input{width:64px;height:28px;padding:0;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:none;}
