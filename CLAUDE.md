@@ -176,9 +176,9 @@ Event step `wear` (`{action 'on'|'off', asset}`, Player row) → `setWorn` with 
 and walk-lab (the Worn item list).
 
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
-`art: {kind:'effect', shader:'darkness'|'fire'|'dissolve', width, height (the plane's shape), params}`; params are
+`art: {kind:'effect', shader:'darkness'|'fire'|'light'|'dissolve', width, height (the plane's shape), params}`; params are
 the shader's controls (`SHADERS[shader].params`: number ranges and [r,g,b] colours; `clean()`
-clamps them). Asset Lab: **+ Add ▾ → New darkness effect** (or **New fire effect**, **New character effect**), the *Effect* section (sliders; Shape rescales placed
+clamps them). Asset Lab: **+ Add ▾ → New darkness effect** (or **New light**, **New fire effect**, **New character effect**), the *Effect* section (sliders; Shape rescales placed
 copies), the shared canvas renderer animates the stage (`tickEffects`); thumbnails are still
 frames (`thumbnail`, also what `artUrl` returns). The game (`renderEffectTextures`, called at the
 start of each frame before the scene framebuffer is bound) renders each visible copy into its own
@@ -504,7 +504,14 @@ Light settings are the **base look** (`baseFog` / `basePost` / `baseLight`); `fo
 **Light**, key `sidescroll.render.light.v1`, `DEFAULT_LIGHT` white × 1, strength 0–1.5): the scene
 shader's `uLight` (= `lightRgb`, colour × strength, refreshed by `syncLightRgb`) multiplies every
 object's colour before fog (`tex.rgb * uTint * uLight`), uploaded next to `uFogColor` at each draw
-setup; `saveLightSettings` writes the active look or the base. `liveLook()` is the live {fog, post,
+setup; `saveLightSettings` writes the active look or the base. **Point lights:** a Light effect
+(`SHADERS.light`, target `'light'`, `Effects.isLight`; params colour, strength, radius m, flicker,
+flickerSpeed; `LIGHT_FRAGMENT` is only its marker) placed like any asset; `lightAssets` in sidescroll.js;
+its marker is hidden in play like Thought Nodes (`drawObject`, and `renderEffectTextures` skips it).
+`collectPointLights` (each frame, after `renderEffectTextures`) takes the 8 copies nearest the camera
+(position = the marker's centre, flicker applied) and `uploadPointLights` sets `uPointPos[8]` (xyz +
+radius) / `uPointCol[8]` / `uPointCount` once per frame after `gl.useProgram(program)`; the shader adds
+`colour × (1 − d/r)²` (world distance via `vWorld`) to `uLight`. `liveLook()` is the live {fog, post,
 light}; looks saved before light have none (`cleanLight` → white 1). `setWorldLook(id|null, seconds)` blends the live values (`updateWorldLook` in `render`);
 while a look is active `saveFogSettings` / `savePostSettings` write into that look
 (`saveLiveLookEdit`), else into base. Menu → Looks (`syncLookUi`). Event step `look` (`{look,

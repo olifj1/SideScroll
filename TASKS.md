@@ -87,6 +87,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ca. Point lights (25 Nov)**
+- [ ] Asset Lab → **+ Add ▾ → New light**: a warm glow on the stage; the sliders (Colour, Strength, Radius, Flicker, Flicker speed) change it live.
+- [ ] Game → Edit → **+ Add environment asset → LIGHTS → Light**: place it in the cabin (e.g. in front of the fireplace, at about knee height). The marker shows while editing; it disappears when you press Done Editing or ▶ Play… and in player mode.
+- [ ] Set the **Light** menu (global) to about 30 % blue: around the placed light, the floor, walls, fireplace and Aureli walking past are lit warmly, fading out over its radius; elsewhere stays dark.
+- [ ] Bigger Radius / Strength lights more; Flicker makes it waver like a flame. With 2–3 lights placed the game stays smooth.
+- [ ] Note: light goes through walls and has no shadows; a light placed under the floor still lights the floor from below.
+
 **0bz. Global light (25 Nov)** — game editor
 - [ ] Menu → **Light**: a panel like Post with COLOUR and STRENGTH. Lower the strength: the whole scene (trees, cabin, Aureli, the fire effect, the sky) darkens evenly; pick a blue colour for moonlight. 100 % white looks exactly as before.
 - [ ] The far fog keeps its colour: set a dark blue fog in **Fog** for a full night. 
@@ -542,7 +549,7 @@ app and make a Project Backup.
 ---
 
 ## Next
-- [ ] **Lighting, next steps (agreed 25 Nov; start simple and add):** point lights — a placeable **Light** (Asset Lab → + Add → New light: colour, radius, strength, flicker) and a **Light** setting on any asset (e.g. a lantern; position on the picture), up to 8 nearest the camera, brightening what's near them; then **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
+- [ ] **Lighting, next steps (agreed 25 Nov; start simple and add; placeable point lights done 25 Nov):** a **Light** setting on any asset (e.g. a lantern; position on the picture); then **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
 - [ ] **Falling leaves effect** (idea, 24 Nov): a plane effect (like Fire) with leaves drifting down and spinning, for life in the forest — leaf colours, amount, size, fall speed, wind / sway; maybe a variant for single leaves dropping now and then. Possibly placed along the near side of the path or as a "region" overlay.
 - [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).
 - [ ] **Animation length** (polish, agreed 23 Nov): a Length (s) per animation in Character Lab, used by Character Lab, the game and sequences (today every clip is 16 key positions over its base clip's time: Idle 1.4 s, Walk 1.05 s, Run 0.65 s, Jump 0.94 s).

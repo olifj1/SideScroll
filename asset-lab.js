@@ -1285,11 +1285,12 @@
   });
   function newEffect(shader) {
     if (!Lib || !Effects) return;
-    const character = Effects.SHADERS[shader]?.target === 'character', fire = shader === 'fire';
+    const character = Effects.SHADERS[shader]?.target === 'character', fire = shader === 'fire', light = shader === 'light';
     const entry = Lib.add({
-      label:character ? 'Dissolve' : fire ? 'Fire' : 'Darkness whirlwind', group:character ? 'CHARACTER EFFECTS' : 'EFFECTS',
+      label:character ? 'Dissolve' : fire ? 'Fire' : light ? 'Light' : 'Darkness whirlwind', group:character ? 'CHARACTER EFFECTS' : light ? 'LIGHTS' : 'EFFECTS',
       scope:state.filter === 'puzzle' ? 'puzzle' : 'environment', category:'dressing',
-      height:fire ? 1.2 : 3, groundLine:0, art:{ kind:'effect', shader, width:character ? 1000 : fire ? 800 : 600, height:1000, params:Effects.defaults(shader) }
+      height:fire ? 1.2 : light ? 0.5 : 3, groundLine:0,
+      art:{ kind:'effect', shader, width:character || light ? 1000 : fire ? 800 : 600, height:1000, params:Effects.defaults(shader) }
     });
     showImported(entry.name);
     saveStateEl.textContent = 'Effect created';
@@ -1299,6 +1300,7 @@
   newEffectBtn?.addEventListener('click', () => newEffect('darkness'));
   document.getElementById('assetlab-new-dissolve')?.addEventListener('click', () => newEffect('dissolve'));
   document.getElementById('assetlab-new-fire')?.addEventListener('click', () => newEffect('fire'));
+  document.getElementById('assetlab-new-light')?.addEventListener('click', () => newEffect('light'));
   if (!Effects && newEffectBtn) newEffectBtn.hidden = true;
   effectPreviewSample = previewSample;
   // The selected effect plays live on the stage.

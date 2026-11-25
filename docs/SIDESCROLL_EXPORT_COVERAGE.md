@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 25 November 2026 — Point lights
+- A light is an imported-asset entry in `sidescroll.asset-library.v1` with `art: {kind:'effect', shader:'light', params:{color, strength, radius, flicker, flickerSpeed}}` (no art file); placed copies are ordinary scene objects. No new key or migration; published, exported and backed up like other effect assets.
+
 ## 25 November 2026 — Global light
 - New content key `sidescroll.render.light.v1` (World area, Game editor → Menu → Light): `{color:[r,g,b], strength}` of the base look. Published with the World area and carried by Project Backup like Fog / Post; absent = white × 1 (as painted).
 - `sidescroll.looks.v1`: each look gains `light: {color, strength}`; looks without it read as white × 1. No migration.
