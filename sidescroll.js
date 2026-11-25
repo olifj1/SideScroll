@@ -801,7 +801,7 @@
   const editorSocketBtn = document.getElementById('sidescroll-editor-socket');
   const editorSocketClearBtn = document.getElementById('sidescroll-editor-socket-clear');
   const editorDeleteBtn = document.getElementById('sidescroll-editor-delete');
-  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, thoughtEditorEl, cameraNodeEditorEl, cameraEditorPanel, quickNavPanel, stageMenuPanel, soundPanel, sectionPanel, fogPanel, postPanel, inventoryPanel].filter(el => el && !el.hidden);
+  const editorUiElements = () => [puzzlePanel, editorPalette, editorControls, transformEditor, groundLineEditor, thoughtEditorEl, cameraNodeEditorEl, cameraEditorPanel, quickNavPanel, stageMenuPanel, soundPanel, sectionPanel, fogPanel, postPanel, document.getElementById('sidescroll-light-panel'), inventoryPanel].filter(el => el && !el.hidden);
 
   function pointInsideElement(el, clientX, clientY) {
     if (!el || el.hidden) return false;
@@ -920,6 +920,7 @@
     uniform float uSurfaceBlendStart;
     uniform float uSurfaceBlendEnd;
     uniform vec3 uTint;
+    uniform vec3 uLight; // global light: colour × strength (1,1,1 = unlit as painted)
     uniform vec3 uFogColor;
     uniform float uFogNear;
     uniform float uFogFar;
@@ -942,7 +943,7 @@
       if (alpha < 0.045) discard;
       float fogT = smoothstep(uFogNear, uFogFar, vDepth);
       float fog = pow(fogT, uFogCurve) * uFogAmount;
-      vec3 base = tex.rgb * uTint;
+      vec3 base = tex.rgb * uTint * uLight;
       base = mix(base, uHighlightColor, clamp(uHighlight, 0.0, 1.0) * 0.72);
       vec3 rgb = mix(base, uFogColor, fog * (1.0 - uHighlight * 0.72));
       gl_FragColor = vec4(clamp(rgb, 0.0, 1.0), alpha);
@@ -1022,6 +1023,7 @@
     surfaceBlendStart: gl.getUniformLocation(program, 'uSurfaceBlendStart'),
     surfaceBlendEnd: gl.getUniformLocation(program, 'uSurfaceBlendEnd'),
     tint: gl.getUniformLocation(program, 'uTint'),
+    light: gl.getUniformLocation(program, 'uLight'),
     fogColor: gl.getUniformLocation(program, 'uFogColor'),
     fogNear: gl.getUniformLocation(program, 'uFogNear'),
     fogFar: gl.getUniformLocation(program, 'uFogFar'),
@@ -3755,6 +3757,10 @@ document.addEventListener('keydown',event=>{
   const DEFAULT_POST = { brightness:1.0, contrast:1.0, saturation:1.0, tintColor:[1,1,1], tintAmount:0.0 };
   const RENDER_FOG_STORAGE_KEY = 'sidescroll.render.fog.v1';
   const RENDER_POST_STORAGE_KEY = 'sidescroll.render.post.v1';
+  // Global light (Menu → Light): colour × strength multiplies every object before
+  // fog — scenery, characters, effects, the sky. White at strength 1 = as painted.
+  const RENDER_LIGHT_STORAGE_KEY = 'sidescroll.render.light.v1';
+  const DEFAULT_LIGHT = { color:[1,1,1], strength:1.0 };
 
   function clampNumber(value, fallback, min, max) {
     const n = Number(value);
@@ -3795,6 +3801,13 @@ document.addEventListener('keydown',event=>{
   postSettings.saturation = clampNumber(postSettings.saturation, DEFAULT_POST.saturation, 0, 1.6);
   postSettings.tintAmount = clampNumber(postSettings.tintAmount, DEFAULT_POST.tintAmount, 0, 0.6);
 
+  const lightSettings = loadRenderSettings(RENDER_LIGHT_STORAGE_KEY, DEFAULT_LIGHT, 'color');
+  lightSettings.strength = clampNumber(lightSettings.strength, DEFAULT_LIGHT.strength, 0, 1.5);
+  // What the shader gets (uLight): colour × strength, kept up to date by syncLightRgb().
+  const lightRgb = [1, 1, 1];
+  function syncLightRgb() { for (let i = 0; i < 3; i++) lightRgb[i] = lightSettings.color[i] * lightSettings.strength; }
+  syncLightRgb();
+
   // ---- Looks (looks.js): named fog + post sets ---------------------------------
   // fogSettings / postSettings are the live values the renderer reads. The saved
   // Fog / Post settings are the base look (baseFog / basePost); a look (Menu →
@@ -3803,32 +3816,36 @@ document.addEventListener('keydown',event=>{
   const Looks = window.SideScrollLooks || null;
   const copyFog = f => ({ enabled:!!f.enabled, color:[...f.color], near:f.near, far:f.far, amount:f.amount, curve:f.curve });
   const copyPost = p => ({ brightness:p.brightness, contrast:p.contrast, saturation:p.saturation, tintColor:[...p.tintColor], tintAmount:p.tintAmount });
-  let baseFog = copyFog(fogSettings), basePost = copyPost(postSettings);
+  const copyLight = l => ({ color:[...(l?.color || DEFAULT_LIGHT.color)], strength:Number.isFinite(l?.strength) ? l.strength : DEFAULT_LIGHT.strength });
+  let baseFog = copyFog(fogSettings), basePost = copyPost(postSettings), baseLight = copyLight(lightSettings);
+  const liveLook = () => ({ fog:copyFog(fogSettings), post:copyPost(postSettings), light:copyLight(lightSettings) });
   let lookState = { id:null, from:null, to:null, t0:0, dur:0, done:true };
   function lookTarget(id) {
     const look = id && Looks ? Looks.get(id) : null;
-    return look ? { fog:copyFog(look.fog), post:copyPost(look.post) } : { fog:copyFog(baseFog), post:copyPost(basePost) };
+    return look ? { fog:copyFog(look.fog), post:copyPost(look.post), light:copyLight(look.light) }
+      : { fog:copyFog(baseFog), post:copyPost(basePost), light:copyLight(baseLight) };
   }
-  function writeLiveLook(fog, post) {
+  function writeLiveLook(fog, post, light) {
     fogSettings.enabled = fog.enabled; fogSettings.near = fog.near; fogSettings.far = fog.far;
     fogSettings.amount = fog.amount; fogSettings.curve = fog.curve;
     fogSettings.color.splice(0, 3, ...fog.color); // fogColor shares this array
     postSettings.brightness = post.brightness; postSettings.contrast = post.contrast; postSettings.saturation = post.saturation;
     postSettings.tintAmount = post.tintAmount; postSettings.tintColor.splice(0, 3, ...post.tintColor);
+    if (light) { lightSettings.strength = light.strength; lightSettings.color.splice(0, 3, ...light.color); syncLightRgb(); }
   }
   // Switch the world to a look (null = base), blending over `seconds`.
   function setWorldLook(id, seconds = 0) {
     const look = id && Looks ? Looks.get(id) : null;
     const to = lookTarget(look ? id : null);
-    lookState = { id:look ? id : null, from:{ fog:copyFog(fogSettings), post:copyPost(postSettings) }, to, t0:storyNow() * 1000, dur:Math.max(0, seconds) * 1000, done:false };
-    if (!lookState.dur) { writeLiveLook(to.fog, to.post); lookState.done = true; }
+    lookState = { id:look ? id : null, from:liveLook(), to, t0:storyNow() * 1000, dur:Math.max(0, seconds) * 1000, done:false };
+    if (!lookState.dur) { writeLiveLook(to.fog, to.post, to.light); lookState.done = true; }
     syncLookUi();
   }
   function updateWorldLook() {
     if (lookState.done || !lookState.to) return;
     const now = storyNow() * 1000; // pauses and seeks with the story
     const t = Math.min(1, (now - lookState.t0) / Math.max(1, lookState.dur));
-    if (t >= 1) { writeLiveLook(lookState.to.fog, lookState.to.post); lookState.done = true; return; }
+    if (t >= 1) { writeLiveLook(lookState.to.fog, lookState.to.post, lookState.to.light); lookState.done = true; return; }
     const e = t * t * (3 - 2 * t), mix = (a, b) => a + (b - a) * e, mixRgb = (a, b) => a.map((v, i) => mix(v, b[i]));
     const a = lookState.from, b = lookState.to;
     // Fog switched off counts as amount 0 while blending.
@@ -3836,14 +3853,23 @@ document.addEventListener('keydown',event=>{
     writeLiveLook(
       { enabled:true, color:mixRgb(a.fog.color, b.fog.color), near:mix(a.fog.near, b.fog.near), far:mix(a.fog.far, b.fog.far), amount:mix(amtA, amtB), curve:mix(a.fog.curve, b.fog.curve) },
       { brightness:mix(a.post.brightness, b.post.brightness), contrast:mix(a.post.contrast, b.post.contrast), saturation:mix(a.post.saturation, b.post.saturation),
-        tintColor:mixRgb(a.post.tintColor, b.post.tintColor), tintAmount:mix(a.post.tintAmount, b.post.tintAmount) });
+        tintColor:mixRgb(a.post.tintColor, b.post.tintColor), tintAmount:mix(a.post.tintAmount, b.post.tintAmount) },
+      { color:mixRgb(a.light.color, b.light.color), strength:mix(a.light.strength, b.light.strength) });
   }
   // Fog / Post panel edits go to the active look, else to the base look.
   function saveLiveLookEdit() {
     if (!lookState.id || !Looks) return false;
     lookState.done = true;
-    Looks.update(lookState.id, { fog:copyFog(fogSettings), post:copyPost(postSettings) });
+    Looks.update(lookState.id, liveLook());
     return true;
+  }
+  function saveLightSettings() {
+    syncLightRgb();
+    if (saveLiveLookEdit()) return;
+    baseLight = copyLight(lightSettings);
+    try {
+      localStorage.setItem(RENDER_LIGHT_STORAGE_KEY, JSON.stringify({ color:[...lightSettings.color], strength:lightSettings.strength }));
+    } catch (_) {}
   }
 
   function saveFogSettings() {
@@ -17655,6 +17681,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     gl.uniform1f(loc.highlight, 0);
     gl.uniform3f(loc.highlightColor, 0, 0, 0);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
+    gl.uniform3f(loc.light, lightRgb[0], lightRgb[1], lightRgb[2]);
     gl.uniform1f(loc.fogNear, fogSettings.near);
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.08 : (shadow.fogAmount ?? (0.28 * fogSettings.amount))) : 0);
@@ -17723,6 +17750,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     gl.uniform1f(loc.highlight, selectedHighlight);
     gl.uniform3f(loc.highlightColor, 1.0, 0.18, 0.48);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
+    gl.uniform3f(loc.light, lightRgb[0], lightRgb[1], lightRgb[2]);
     gl.uniform1f(loc.fogNear, fogSettings.near);
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, (!fogSettings.enabled || obj.noFog) ? 0 : (debugDepth ? 0.22 : fogSettings.amount));
@@ -18092,6 +18120,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     gl.uniform1f(loc.highlight, body.highlight || 0);
     gl.uniform3f(loc.highlightColor, 1.0, 0.18, 0.48);
     gl.uniform3f(loc.fogColor, fogColor[0], fogColor[1], fogColor[2]);
+    gl.uniform3f(loc.light, lightRgb[0], lightRgb[1], lightRgb[2]);
     gl.uniform1f(loc.fogNear, fogSettings.near);
     gl.uniform1f(loc.fogFar, fogSettings.far);
     gl.uniform1f(loc.fogAmount, fogSettings.enabled ? (debugDepth ? 0.22 : fogSettings.amount) : 0);
@@ -18145,6 +18174,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       gl.uniform1f(loc.highlight,body.highlight||0);
       gl.uniform3f(loc.highlightColor,1,.18,.48);
       gl.uniform3f(loc.fogColor,fogColor[0],fogColor[1],fogColor[2]);
+      gl.uniform3f(loc.light,lightRgb[0],lightRgb[1],lightRgb[2]);
       gl.uniform1f(loc.fogNear,fogSettings.near);
       gl.uniform1f(loc.fogFar,fogSettings.far);
       gl.uniform1f(loc.fogAmount,fogSettings.enabled?(debugDepth?.22:fogSettings.amount):0);
@@ -21447,6 +21477,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       setStageMenuOpen(false);
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);
+      setLightPanelOpen?.(false);
       setSoundPanelOpen?.(false);
       setInventoryOpen?.(false);
       if(cameraEditMode){cameraEditMode=false;updateCameraEditorUi();}
@@ -21474,6 +21505,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
       setFogPanelOpen?.(false);
       setPostPanelOpen?.(false);
+      setLightPanelOpen?.(false);
       setSoundPanelOpen?.(false);
       setInventoryOpen?.(false);
     }
@@ -21502,6 +21534,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       setTerrainSectionPanelOpen(false);
       setFogPanelOpen(false);
       setPostPanelOpen(false);
+      setLightPanelOpen(false);
       setInventoryOpen(false);
       if (cameraEditMode) { cameraEditMode = false; updateCameraEditorUi(); }
       syncSoundUi();
@@ -21549,8 +21582,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const look = lookState.id && Looks ? Looks.get(lookState.id) : null;
     for (const el of document.querySelectorAll('[data-look-editing]')) el.textContent = look ? `· ${look.name.toUpperCase()}` : '· BASE LOOK';
     if (!looksListEl || looksPanel?.hidden) return;
-    const rows = [{ id:null, name:'Base look', note:'the world\u2019s Fog and Post settings' },
-      ...(Looks ? Looks.list() : []).map(l => ({ id:l.id, name:l.name, note:`fog ${l.fog.enabled ? l.fog.amount.toFixed(2) : 'off'} · saturation ${l.post.saturation.toFixed(2)}` }))];
+    const rows = [{ id:null, name:'Base look', note:'the world\u2019s Fog, Post and Light settings' },
+      ...(Looks ? Looks.list() : []).map(l => ({ id:l.id, name:l.name, note:`fog ${l.fog.enabled ? l.fog.amount.toFixed(2) : 'off'} · light ${Math.round(l.light.strength * 100)}% · saturation ${l.post.saturation.toFixed(2)}` }))];
     looksListEl.replaceChildren(...rows.map(row => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -21558,7 +21591,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const name = document.createElement('strong'); name.textContent = row.name;
       const note = document.createElement('small'); note.textContent = row.note;
       btn.append(name, note);
-      bindEditorPress(btn, () => { setWorldLook(row.id, 0.6); hintEl.textContent = `Showing ${row.name} · Fog and Post now edit it`; hintEl.classList.remove('hidden'); });
+      bindEditorPress(btn, () => { setWorldLook(row.id, 0.6); hintEl.textContent = `Showing ${row.name} · Fog, Post and Light now edit it`; hintEl.classList.remove('hidden'); });
       return btn;
     }));
     const hasLook = !!lookState.id;
@@ -21568,7 +21601,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!looksPanel || !looksBtn) return;
     looksPanel.hidden = !open;
     looksBtn.setAttribute('aria-expanded', String(open));
-    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setFogPanelOpen(false); setPostPanelOpen(false); setSoundPanelOpen(false); syncLookUi(); }
+    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setFogPanelOpen(false); setPostPanelOpen(false); setLightPanelOpen(false); setSoundPanelOpen(false); syncLookUi(); }
   }
   bindEditorPress(looksBtn, () => setLooksPanelOpen(looksPanel?.hidden !== false));
   bindEditorPress(document.getElementById('sidescroll-looks-close'), () => setLooksPanelOpen(false));
@@ -21576,9 +21609,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!Looks) return;
     const name = (window.prompt('Name the new look (it starts from what you see now)', 'Warm and friendly') || '').trim();
     if (!name) return;
-    const made = Looks.add({ name, fog:copyFog(fogSettings), post:copyPost(postSettings) });
+    const made = Looks.add({ name, ...liveLook() });
     setWorldLook(made.id, 0);
-    hintEl.textContent = `Saved look ${made.name} · Fog and Post now edit it`; hintEl.classList.remove('hidden');
+    hintEl.textContent = `Saved look ${made.name} · Fog, Post and Light now edit it`; hintEl.classList.remove('hidden');
   });
   bindEditorPress(document.getElementById('sidescroll-looks-rename'), () => {
     const look = lookState.id && Looks ? Looks.get(lookState.id) : null;
@@ -21601,6 +21634,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       setStageMenuOpen(false);
       setTerrainSectionPanelOpen(false);
       setFogPanelOpen(false);
+      setLightPanelOpen(false);
       setSoundPanelOpen(false);
       setLooksPanelOpen(false);
       syncLookUi();
@@ -21625,6 +21659,37 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   });
   syncPostUi();
 
+  // ---- Light panel (Menu → Light): the global light --------------------------------
+  // var: syncLightUi() can run from writeLiveLook-driven UI before these lines.
+  var lightBtn = document.getElementById('sidescroll-light');
+  var lightPanel = document.getElementById('sidescroll-light-panel');
+  const lightColourInput = document.getElementById('sidescroll-light-colour');
+  const lightStrengthInput = document.getElementById('sidescroll-light-strength');
+  const lightStrengthValue = document.getElementById('sidescroll-light-strength-value');
+  function syncLightUi() {
+    if (lightColourInput) lightColourInput.value = postRgbToHex(lightSettings.color);
+    if (lightStrengthInput) lightStrengthInput.value = String(lightSettings.strength);
+    if (lightStrengthValue) lightStrengthValue.textContent = `${Math.round(lightSettings.strength * 100)}%`;
+  }
+  function setLightPanelOpen(open) {
+    if (!lightPanel || !lightBtn) return;
+    lightPanel.hidden = !open;
+    lightBtn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setFogPanelOpen(false); setPostPanelOpen(false);
+      setSoundPanelOpen(false); setLooksPanelOpen(false); syncLookUi(); syncLightUi();
+    }
+  }
+  bindEditorPress(lightBtn, () => setLightPanelOpen(lightPanel?.hidden !== false));
+  bindEditorPress(document.getElementById('sidescroll-light-close'), () => setLightPanelOpen(false));
+  lightColourInput?.addEventListener('input', () => { lightSettings.color.splice(0, 3, ...postHexToRgb(lightColourInput.value)); saveLightSettings(); syncLightUi(); });
+  lightStrengthInput?.addEventListener('input', () => { lightSettings.strength = Number(lightStrengthInput.value); saveLightSettings(); syncLightUi(); });
+  bindEditorPress(document.getElementById('sidescroll-light-reset'), () => {
+    lightSettings.strength = DEFAULT_LIGHT.strength; lightSettings.color.splice(0, 3, ...DEFAULT_LIGHT.color);
+    saveLightSettings(); syncLightUi();
+  });
+  syncLightUi();
+
   function fogHexToRgb(hex) {
     const n = parseInt(String(hex).replace('#',''), 16);
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
@@ -21646,7 +21711,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!fogPanel || !fogBtn) return;
     fogPanel.hidden = !open;
     fogBtn.setAttribute('aria-expanded', String(open));
-    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setPostPanelOpen(false); setSoundPanelOpen(false); setLooksPanelOpen(false); syncLookUi(); syncFogUi(); }
+    if (open) { setStageMenuOpen(false); setTerrainSectionPanelOpen(false); setPostPanelOpen(false); setLightPanelOpen(false); setSoundPanelOpen(false); setLooksPanelOpen(false); syncLookUi(); syncFogUi(); }
   }
   bindEditorPress(fogBtn, () => setFogPanelOpen(fogPanel?.hidden !== false));
   bindEditorPress(fogCloseBtn, () => setFogPanelOpen(false));
@@ -23048,6 +23113,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       setQuickNavOpen(false);
       setFogPanelOpen(false);
       setPostPanelOpen(false);
+      setLightPanelOpen(false);
       setSoundPanelOpen(false);
       setInventoryOpen(false);
       hintEl.textContent = 'CAMERA · smooth height follow · height · depth · tilt';
@@ -23832,7 +23898,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     document.body.classList.add('sidescroll-player-mode');
     // Player mode should feel like the game, not the authoring tool. Keep only
     // the useful player actions in Menu: Change character, Sound, and Delete save.
-    [cameraEditorBtn, debugBtn, sectionBtn, fogBtn, postBtn, collisionViewBtn, playerHintsBtn, quickNavBtn, editBtn].forEach(btn => {
+    [cameraEditorBtn, debugBtn, sectionBtn, fogBtn, postBtn, lightBtn, collisionViewBtn, playerHintsBtn, quickNavBtn, editBtn].forEach(btn => {
       if (btn) btn.hidden = true;
     });
     if (deleteSaveBtn) deleteSaveBtn.hidden = false;

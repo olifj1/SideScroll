@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Lighting, step 1: global light.** Menu → **Light** (beside Fog and Post): a **colour** and a
+  **strength** (0–150 %) that light everything evenly — scenery, characters, effects and the sky —
+  before fog is added, so a night is a dim blue light with its own fog colour. White at 100 % is the
+  game as painted (the default; nothing changes until you use it). Like Fog and Post it is part of
+  the **base look** and of every **Look** (new looks save it; Look steps blend it; older looks get
+  white 100 %); while a look is showing, the Light panel edits that look.
 - **Character Lab is fast again.** The animation library work made Character Lab slow to load (≈2.8 s
   headless, was 1 s) and choppy (each update ≈145 ms, was 40 ms): every library lookup re-read and
   re-parsed the whole animation-template store, rebuilding the built-in sets and copying every clip,
