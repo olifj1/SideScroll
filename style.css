@@ -14182,6 +14182,14 @@ body[data-game-id="game-17"] .animlab-key-tools button{
 }
 body[data-game-id="game-17"] .animlab-key-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;}
 body[data-game-id="game-17"] .animlab-key-tools-cycle{padding-top:1px;}
+/* All keys (offset every key by the same amount): a toggle, and the key lane turns amber while on. */
+body[data-game-id="game-17"] .animlab-key-all{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 2px;padding:8px 10px;border-radius:10px;border:1px solid rgba(238,243,241,.18);background:rgba(255,255,255,.04);color:inherit;text-align:left;font:inherit;}
+body[data-game-id="game-17"] .animlab-key-all strong{font-size:12px;letter-spacing:.04em;white-space:nowrap;}
+body[data-game-id="game-17"] .animlab-key-all span{font-size:11px;opacity:.75;}
+body[data-game-id="game-17"] .animlab-key-all[aria-pressed="true"]{border-color:rgba(255,190,90,.85);background:rgba(255,170,60,.18);}
+body[data-game-id="game-17"] .animlab-key-all[aria-pressed="true"] span{opacity:1;}
+body[data-game-id="game-17"] .all-keys .has-key{box-shadow:inset 0 0 0 2px rgba(255,190,90,.9);}
+
 body[data-game-id="game-17"] .animlab-convert-box{display:grid;gap:5px;padding:6px;border:1px solid rgba(111,143,137,.25);border-radius:10px;background:rgba(111,143,137,.06);}
 body[data-game-id="game-17"] .animlab-convert-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:7px;color:#53605f;}
 body[data-game-id="game-17"] .animlab-convert-head strong{font-size:7px;letter-spacing:.035em;text-transform:uppercase;}

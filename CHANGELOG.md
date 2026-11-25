@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **All keys (Character Lab → Animate → Key Pose Tools).** A toggle: while it is on, whatever you
+  move or change on the current key (a handle in the viewport, a slider or a number) moves **every
+  key** of the animation by the same amount — e.g. raise the body 10 cm on one key and it is 10 cm
+  higher on all of them. Each control keeps its own motion; only the change is added. One Undo
+  step. The key lane is outlined in amber while it is on; it is off each time Character Lab opens.
 - **Climb is an animation you can edit.** Character Lab → Animate → Actions has a new built-in
   **Climb** slot (after Jump). Left on *The game’s own climbing*, nothing changes. **New → Start from →
   Today’s climbing, converted** makes a 16-key animation that reproduces the game's coded climb at the

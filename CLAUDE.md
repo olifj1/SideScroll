@@ -272,7 +272,10 @@ the game always used).
 Biped keys may set only some controls (`key.channels`, from `GameHubWalkRig.KEY_CHANNELS`;
 absent = all): such clips, and Smooth ones, are sampled by `GameHubWalkRig.sampleSparse`
 in both Character Lab and the game; others keep the original whole-key path.
-`simplifySparse` is Key Pose Tools → Simplify keys.
+`simplifySparse` is Key Pose Tools → Simplify keys. **All keys** (Key Pose Tools toggle, `setOffsetAllKeys`,
+session only): `commitPoseDrag` / `commitTransaction` call `offsetOtherKeys(tx.before, frame)`, which adds
+every numeric change of the edited frame's pose (`poseDeltas`, nested fields too) to every other key, as
+one Undo step.
 **Climb animation:** `character-game-runtime.js` `slotClips` includes `climb` (no clip unless the slot
 map names one; `ANIMATIONS` is the four built-in animations). The game (`climbClipFor` / `climbClipPose`
 in sidescroll.js, tried first in `drawRigCharacter` while `climbState`) samples it at phase = distance
