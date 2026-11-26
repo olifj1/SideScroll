@@ -14471,7 +14471,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     hintEl.classList.remove('hidden');
   }
 
-  function moveSelectedTransformAxis(axis, value) {
+  // opts.live (the move pad, while dragging): move without saving or rebuilding lists; the
+  // caller saves once at the end (movePadCommit).
+  function moveSelectedTransformAxis(axis, value, opts = {}) {
     if (!Number.isFinite(Number(value))) return;
     const group=selectedLockedWorldGroupForEditor();
     if(group && (!selectedObject || selectedObject.deleted)){
@@ -14481,8 +14483,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const z=axis==='z'?next:(Number(group.z)||pathZ);
       if(moveWorldGroupTo(group,{x,z})){
         syncTransformEditor();
-        renderWorldGroupTools({force:true});
-        renderEnvironmentSelectionTools({force:true});
+        if(!opts.live){
+          renderWorldGroupTools({force:true});
+          renderEnvironmentSelectionTools({force:true});
+        }
       }
       return;
     }
@@ -14514,9 +14518,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     moveObjectToCorrectCollection(obj);
     sortSceneCollections();
-    recordObjectEdit(obj);
+    if (!opts.live) recordObjectEdit(obj);
     syncTransformEditor();
-    updatePuzzleObjectList();
+    if (!opts.live) updatePuzzleObjectList();
   }
 
   function nudgeSelectedTransformAxis(axis, direction) {
@@ -14532,6 +14536,146 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const current = axis === 'x' ? selectedObject.x : (axis === 'z' ? selectedObject.z : objectFloorWorldY(selectedObject));
     moveSelectedTransformAxis(axis, current + step);
   }
+
+  // ---- Move pad (editor screen zones step 2, 26 Nov) -------------------------------------
+  // A trackpad in the bottom right (above the toolbar) that moves the selected object — or the
+  // selected locked World Group — relative to where it is: X·Y = along the journey and up/down
+  // (height; makes the object Free, as Position's Y does), X·Depth = along and nearer/further.
+  // Live while dragging (moveSelectedTransformAxis live), saved once when the finger lifts.
+  const MOVE_PAD_KEY = 'sidescroll.editor.move-pad';
+  const MOVE_PAD_M_PER_PX = 0.02, MOVE_PAD_FINE_M_PER_PX = 0.004, MOVE_PAD_DEAD_PX = 8;
+  const movePadEl = document.getElementById('sidescroll-move-pad');
+  const movePadSurface = document.getElementById('sidescroll-move-pad-surface');
+  const movePadBtn = document.getElementById('sidescroll-editor-pad');
+  const movePadFineBtn = document.getElementById('sidescroll-move-pad-fine');
+  const movePadGroundBtn = document.getElementById('sidescroll-move-pad-ground');
+  const movePadReadout = document.getElementById('sidescroll-move-pad-readout');
+  const movePadHLabel = document.getElementById('sidescroll-move-pad-h');
+  const movePadVLabel = document.getElementById('sidescroll-move-pad-v');
+  let movePadOpen = false;
+  let movePadPrefs = (() => { try { const v = JSON.parse(sessionStorage.getItem(MOVE_PAD_KEY) || '{}'); return { mode: v.mode === 'xz' ? 'xz' : 'xy', fine: !!v.fine }; } catch (_) { return { mode:'xy', fine:false }; } })();
+  let movePadDrag = null;
+  const saveMovePadPrefs = () => { try { sessionStorage.setItem(MOVE_PAD_KEY, JSON.stringify(movePadPrefs)); } catch (_) {} };
+  function movePadTarget() {
+    if (selectedObject && !selectedObject.deleted) return { object:selectedObject };
+    const group = selectedLockedWorldGroupForEditor();
+    return group ? { group } : null;
+  }
+  function movePadAvailable() {
+    return !!(editMode && !puzzleTestMode && !editorPlayTest && editorControls && !editorControls.hidden
+      && movePadTarget() && !collisionEditMode && !socketPlacementPiece);
+  }
+  function movePadReadoutText() {
+    const t = movePadTarget(); if (!t) return '';
+    const f = v => (Number(v) || 0).toFixed(2);
+    if (t.group) return `x ${f(t.group.x)}  z ${f(t.group.z ?? pathZ)}`;
+    return `x ${f(t.object.x)}  y ${f(objectFloorWorldY(t.object))}  z ${f(t.object.z)}`;
+  }
+  function syncMovePad() {
+    const available = movePadAvailable();
+    if (movePadBtn) {
+      movePadBtn.hidden = !(editMode && movePadTarget() && !collisionEditMode && !socketPlacementPiece);
+      movePadBtn.classList.toggle('active', movePadOpen && available);
+    }
+    const show = movePadOpen && available;
+    if (movePadEl) movePadEl.hidden = !show;
+    document.body.classList.toggle('ss-pad-open', show);
+    if (!show) return;
+    const t = movePadTarget();
+    const depthLocked = !!(t.object && t.object.category === 'gameplay' && t.object.gameplayLayerLocked);
+    for (const b of movePadEl.querySelectorAll('[data-pad-mode]')) {
+      const on = b.dataset.padMode === movePadPrefs.mode;
+      b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    if (movePadFineBtn) { movePadFineBtn.classList.toggle('active', movePadPrefs.fine); movePadFineBtn.setAttribute('aria-pressed', movePadPrefs.fine ? 'true' : 'false'); }
+    if (movePadHLabel) movePadHLabel.textContent = '← X →';
+    if (movePadVLabel) movePadVLabel.textContent = movePadPrefs.mode === 'xz'
+      ? (depthLocked ? 'DEPTH LOCKED (GAME LAYER)' : '↑ FURTHER · NEARER ↓')
+      : (t.group ? 'GROUPS MOVE IN X·DEPTH' : '↑ UP · DOWN ↓');
+    if (movePadGroundBtn) {
+      movePadGroundBtn.textContent = t.group ? 'TO PATH' : 'TO GROUND';
+      movePadGroundBtn.disabled = !!(t.object && !objectUsesFreePlacement(t.object));
+    }
+    if (movePadReadout) movePadReadout.textContent = movePadReadoutText();
+  }
+  function setMovePadOpen(open) {
+    movePadOpen = !!open;
+    if (!movePadOpen) movePadDrag = null;
+    syncMovePad();
+    if (movePadOpen) { hintEl.textContent = 'Move pad · drag on the pad to move the selection; X·Y or X·Depth; Fine for small steps'; hintEl.classList.remove('hidden'); }
+    window.SideScrollEditorLayout?.refresh?.();
+  }
+  function movePadApply() {
+    const d = movePadDrag; if (!d) return;
+    d.frame = 0;
+    const t = movePadTarget(); if (!t) { d.dx = d.dy = 0; return; }
+    const k = movePadPrefs.fine ? MOVE_PAD_FINE_M_PER_PX : MOVE_PAD_M_PER_PX;
+    const dx = d.dx, dy = d.dy; d.dx = d.dy = 0;
+    // A small vertical wobble at the start of a sideways drag must not lift the object.
+    if (!d.vertical) { d.vy += dy; if (Math.abs(d.vy) >= MOVE_PAD_DEAD_PX) d.vertical = true; }
+    const vMove = d.vertical ? -dy * k : 0; // up on the pad = positive
+    if (dx) {
+      const x = t.group ? (Number(t.group.x) || 0) : t.object.x;
+      moveSelectedTransformAxis('x', x + dx * k, { live:true });
+      d.moved = true;
+    }
+    if (vMove) {
+      if (movePadPrefs.mode === 'xz') {
+        const z = t.group ? (Number(t.group.z) || pathZ) : t.object.z;
+        moveSelectedTransformAxis('z', z - vMove, { live:true }); // up = further away (smaller z)
+        d.moved = true;
+      } else if (t.object) {
+        moveSelectedTransformAxis('y', objectFloorWorldY(t.object) + vMove, { live:true });
+        d.moved = true;
+      }
+    }
+    if (movePadReadout) movePadReadout.textContent = movePadReadoutText();
+  }
+  function movePadCommit() {
+    const d = movePadDrag; movePadDrag = null;
+    if (!d) return;
+    if (d.frame) { cancelAnimationFrame(d.frame); movePadDrag = d; movePadApply(); movePadDrag = null; }
+    if (!d.moved) { if (d.tx && editorTransaction) { editorTransaction = null; } return; }
+    const t = movePadTarget();
+    if (t?.object) { recordObjectEdit(t.object); updatePuzzleObjectList(); }
+    else if (t?.group) { renderWorldGroupTools({force:true}); renderEnvironmentSelectionTools({force:true}); }
+    if (d.tx && editorTransaction) commitEditorTransaction();
+    syncTransformEditor();
+    syncMovePad();
+  }
+  if (movePadSurface) {
+    movePadSurface.addEventListener('pointerdown', e => {
+      if (!movePadAvailable()) return;
+      e.preventDefault(); e.stopPropagation();
+      try { movePadSurface.setPointerCapture(e.pointerId); } catch (_) {}
+      // In a puzzle / World Group edit, the whole drag is one Undo step.
+      const tx = beginEditorTransaction('Move pad');
+      movePadDrag = { id:e.pointerId, x:e.clientX, y:e.clientY, dx:0, dy:0, vy:0, vertical:false, moved:false, frame:0, tx };
+      movePadSurface.classList.add('dragging');
+    });
+    movePadSurface.addEventListener('pointermove', e => {
+      const d = movePadDrag; if (!d || e.pointerId !== d.id) return;
+      e.preventDefault();
+      d.dx += e.clientX - d.x; d.dy += e.clientY - d.y; d.x = e.clientX; d.y = e.clientY;
+      if (!d.frame) d.frame = requestAnimationFrame(movePadApply);
+    });
+    const end = e => { if (movePadDrag && e.pointerId === movePadDrag.id) { movePadSurface.classList.remove('dragging'); movePadCommit(); } };
+    movePadSurface.addEventListener('pointerup', end);
+    movePadSurface.addEventListener('pointercancel', end);
+    movePadSurface.addEventListener('lostpointercapture', end);
+  }
+  movePadEl?.addEventListener('pointerdown', e => e.stopPropagation());
+  for (const b of movePadEl?.querySelectorAll('[data-pad-mode]') || []) {
+    bindEditorPress(b, () => { movePadPrefs.mode = b.dataset.padMode === 'xz' ? 'xz' : 'xy'; saveMovePadPrefs(); syncMovePad(); });
+  }
+  bindEditorPress(movePadFineBtn, () => { movePadPrefs.fine = !movePadPrefs.fine; saveMovePadPrefs(); syncMovePad(); });
+  bindEditorPress(movePadGroundBtn, () => {
+    const t = movePadTarget(); if (!t) return;
+    if (t.group) snapSelectedFloorToWalk(); else setSelectedFreePlacement(false);
+    syncMovePad();
+  });
+  bindEditorPress(document.getElementById('sidescroll-move-pad-close'), () => setMovePadOpen(false));
+  bindEditorPress(movePadBtn, () => setMovePadOpen(!movePadOpen));
 
   function snapSelectedFloorToWalk() {
     const group=selectedLockedWorldGroupForEditor();
@@ -14818,6 +14962,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     syncThoughtEditor();
     syncCameraNodeEditor();
     syncFocusedObjectEditorWorkspace();
+    syncMovePad();
   }
 
   // Thought / Camera nodes are drill-in editors. Keep only one authoring panel

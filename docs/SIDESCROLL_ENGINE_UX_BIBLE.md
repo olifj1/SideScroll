@@ -20,6 +20,11 @@ the end of `style.css`).
   clearLeft()`).
 - **No system pop-ups over the scene for live edits** (iPhone's colour picker covers
   everything): controls that preview live stay in the panel (coming: an in-panel colour picker).
+- **Movement lives bottom right:** the move pad sits above the toolbar at the right edge
+  (relative drags, X·Y / X·Depth, Fine). It moves live and saves once at the end of a drag
+  (`moveSelectedTransformAxis(…, {live:true})`, then one `recordObjectEdit`).
+- **The toolbar never scrolls:** buttons look like the panels; whatever doesn't fit goes behind
+  **More** (least-used first, Delete last), which opens a second row above.
 - **Planned:** while placing or moving, the dock tucks to a tab on the edge and comes back
   when you tap it or finish.
 

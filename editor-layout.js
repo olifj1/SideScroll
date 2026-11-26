@@ -27,6 +27,70 @@
   const shown = el => !!el && el.isConnected && !el.hidden && getComputedStyle(el).display !== 'none';
   const setClass = (el, name, on) => { if (el.classList.contains(name) !== on) el.classList.toggle(name, on); };
 
+  // ---- Object toolbar: one row; what doesn't fit goes behind More (a second row above) ----
+  const BAR_ID = 'sidescroll-editor-controls';
+  // First to move behind More when the row is too narrow (least used first); the rest go from the end.
+  const OVERFLOW_FIRST = [
+    'sidescroll-editor-collision-use-asset', 'sidescroll-editor-collision-save-asset', 'sidescroll-editor-collision-remove',
+    'sidescroll-editor-socket-clear', 'sidescroll-editor-game-layer', 'sidescroll-editor-ground-line',
+    'sidescroll-editor-collision', 'sidescroll-editor-duplicate', 'sidescroll-editor-flip'
+  ];
+  let moreOpen = false;
+  let moreBtn = null;
+  function ensureMore(bar) {
+    if (moreBtn && moreBtn.isConnected) return moreBtn;
+    moreBtn = document.createElement('button');
+    moreBtn.type = 'button'; moreBtn.id = 'sidescroll-editor-more'; moreBtn.className = 'sidescroll-editor-tool sidescroll-editor-more';
+    moreBtn.innerHTML = '<span>⋯</span><small>MORE</small>';
+    moreBtn.hidden = true;
+    const toggle = e => { e.preventDefault(); e.stopPropagation(); moreOpen = !moreOpen; fitToolbar(); };
+    moreBtn.addEventListener('pointerdown', e => e.stopPropagation());
+    moreBtn.addEventListener('click', toggle);
+    bar.appendChild(moreBtn);
+    // Using a tool from the second row closes it.
+    bar.addEventListener('click', e => {
+      const tool = e.target.closest?.('.sidescroll-editor-tool');
+      if (tool && tool !== moreBtn && tool.classList.contains('ss-overflowed') && moreOpen) { moreOpen = false; requestAnimationFrame(fitToolbar); }
+    });
+    return moreBtn;
+  }
+  function fitToolbar() {
+    const bar = byId(BAR_ID); if (!bar) return;
+    const more = ensureMore(bar);
+    const tools = [...bar.querySelectorAll('.sidescroll-editor-tool')].filter(t => t !== more && !t.hidden);
+    for (const t of bar.querySelectorAll('.ss-overflowed')) t.classList.remove('ss-overflowed');
+    if (bar.hidden || !tools.length) { more.hidden = true; setClass(bar, 'ss-more-open', false); return; }
+    const gap = parseFloat(getComputedStyle(bar).columnGap) || 5;
+    const w = t => (t.getBoundingClientRect().width || 58) + gap;
+    const room = bar.clientWidth;
+    let total = tools.reduce((n, t) => n + w(t), 0);
+    const out = [];
+    if (total > room) {
+      total += w(more.hidden ? tools[0] : more);
+      const del = byId('sidescroll-editor-delete');
+      const order = [...OVERFLOW_FIRST.map(byId).filter(t => t && tools.includes(t)),
+        ...tools.slice().reverse().filter(t => t !== del), ...(tools.includes(del) ? [del] : [])];
+      for (const t of order) {
+        if (total <= room) break;
+        if (out.includes(t)) continue;
+        out.push(t); total -= w(t);
+      }
+    }
+    for (const t of out) t.classList.add('ss-overflowed');
+    more.hidden = !out.length;
+    // Estimates can be a few px out (padding, gaps): measure the real row and move more if needed.
+    if (out.length && !moreOpen) {
+      const del = byId('sidescroll-editor-delete');
+      const rest = [...OVERFLOW_FIRST.map(byId).filter(t => t && tools.includes(t)),
+        ...tools.slice().reverse().filter(t => t !== del), ...(tools.includes(del) ? [del] : [])].filter(t => !out.includes(t));
+      while (bar.scrollWidth > bar.clientWidth + 1 && rest.length > 1) { const t = rest.shift(); out.push(t); t.classList.add('ss-overflowed'); }
+    }
+    if (!out.length) moreOpen = false;
+    setClass(more, 'active', moreOpen);
+    const label = more.querySelector('small'); if (label) label.textContent = moreOpen ? 'LESS' : `MORE (${out.length})`;
+    setClass(bar, 'ss-more-open', moreOpen && !!out.length);
+  }
+
   let order = []; // docked panels that are showing, oldest first; the last one is on top
   let top = null;
   let scheduled = false;
@@ -57,6 +121,7 @@
       dockRight = right;
       document.documentElement.style.setProperty('--ss-dock-right', `${right}px`);
     }
+    fitToolbar();
   }
   let dockRight = -1;
 
@@ -67,6 +132,8 @@
       if (el) mo.observe(el, { attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
     }
     mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    const bar = byId(BAR_ID);
+    if (bar) mo.observe(bar, { attributes: true, subtree: true, attributeFilter: ['hidden'] });
     addEventListener('resize', schedule);
     addEventListener('orientationchange', schedule);
     // The drawer's width can change without an attribute change (collapse animation).
