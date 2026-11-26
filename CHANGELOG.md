@@ -4,6 +4,14 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Move pad and a new toolbar (editor screen zones step 2).** Select something and tap **Move pad**:
+  a trackpad appears in the bottom right, above the toolbar. Drag on it to move the selection from where
+  it is — **X·Y** (along the journey and up/down; up makes it Free) or **X·Depth** (along and
+  nearer/further; locked on the game layer) — with **Fine** for small steps and **To ground** / **To
+  path**; it moves live and saves when you lift your finger (one Undo step in puzzle / group edits).
+  Works for a selected World Group too (X·Depth). The object toolbar now matches the panels (dark,
+  teal edge, bold white labels, larger text), and tools that don't fit wait behind **More** (a second
+  row above).
 - **Editor screen zones (step 1).** On the phone the scene stays visible: every panel you edit in
   — the asset browser, Position, Floor line, Thought / Camera / Light node panels and Menu → Light,
   Fog, Post, Looks, Sound, Camera, Go to — now opens in one dock on the left (about a third of the

@@ -10,7 +10,7 @@
   <script>{const q=new URLSearchParams(location.search);if(q.get('mode')==='player'&&q.get('from')!=='world-lab')document.documentElement.classList.add('ss-player-launch');}</script>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.115">
+  <link rel="stylesheet" href="style.css?v=1.1.116">
   <title>SideScroll</title>
 </head>
 <body class="modular-game ss-standalone-game" data-game-id="game-16">
@@ -783,6 +783,7 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-down" type="button"><span>−</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-scale-up" type="button"><span>＋</span><small>SCALE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-ground-line" type="button"><span>⌁</span><small>FLOOR LINE</small></button>
+          <button class="sidescroll-editor-tool" id="sidescroll-editor-pad" type="button"><span>✛</span><small>MOVE PAD</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-transform" type="button"><span>↕</span><small>POSITION</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-move" type="button" hidden><span>✥</span><small>MOVE</small></button>
           <button class="sidescroll-editor-tool" id="sidescroll-editor-game-layer" type="button"><span>↔</span><small>GAME LAYER</small></button>
@@ -796,6 +797,25 @@
           <button class="sidescroll-editor-tool" id="sidescroll-editor-socket" type="button"><span>◎</span><small>SET SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-socket-clear" type="button"><span>⊘</span><small>CLEAR SOCKET</small></button>
           <button class="sidescroll-editor-tool danger" id="sidescroll-editor-delete" type="button"><span>×</span><small>DELETE</small></button>
+        </div>
+
+        <div class="sidescroll-move-pad" id="sidescroll-move-pad" hidden aria-label="Move pad">
+          <div class="sidescroll-move-pad-head">
+            <div class="sidescroll-move-pad-modes" role="group" aria-label="What the pad moves">
+              <button type="button" data-pad-mode="xy" aria-pressed="true">X·Y</button>
+              <button type="button" data-pad-mode="xz" aria-pressed="false">X·DEPTH</button>
+            </div>
+            <button type="button" id="sidescroll-move-pad-close" aria-label="Close move pad">×</button>
+          </div>
+          <div class="sidescroll-move-pad-surface" id="sidescroll-move-pad-surface" aria-label="Drag to move the selected object">
+            <span class="sidescroll-move-pad-axis h" id="sidescroll-move-pad-h">X</span>
+            <span class="sidescroll-move-pad-axis v" id="sidescroll-move-pad-v">Y</span>
+            <span class="sidescroll-move-pad-readout" id="sidescroll-move-pad-readout"></span>
+          </div>
+          <div class="sidescroll-move-pad-foot">
+            <button type="button" id="sidescroll-move-pad-fine" aria-pressed="false">FINE</button>
+            <button type="button" id="sidescroll-move-pad-ground">TO GROUND</button>
+          </div>
         </div>
 
         <div class="sidescroll-thought-editor" id="sidescroll-thought-editor" hidden aria-label="Thought trigger editor">
@@ -892,8 +912,8 @@
   <script src="looks.js?v=1.1.113"></script>
   <script src="effects.js?v=1.1.111"></script>
   <script src="asset-library.js?v=1.1.76"></script>
-  <script src="sidescroll.js?v=1.1.115"></script>
+  <script src="sidescroll.js?v=1.1.117"></script>
   <script src="sequence-editor.js?v=1.1.115"></script>
-  <script src="editor-layout.js?v=1.1.115"></script>
+  <script src="editor-layout.js?v=1.1.116"></script>
 </body>
 </html>

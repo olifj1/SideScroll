@@ -374,7 +374,13 @@ Screen zones): every panel you edit in opens in one **dock** on the left (`DOCK_
 of `style.css` keyed by panel id; `--ss-dock-w`, `--ss-top`): the last one opened is on top (`ss-dock-top`),
 the others stay open but hidden (`ss-dock-under`), the editor drawer is always the bottom. `--ss-dock-right`
 (the top panel's right edge) places the object toolbar and status line; `clearLeft()` keeps canvas labels
-off the dock. New panels go in `DOCK_IDS`, never on the right.
+off the dock. New panels go in `DOCK_IDS`, never on the right. The object toolbar never scrolls:
+`fitToolbar()` (same file) moves tools that don't fit behind a **More** button (`OVERFLOW_FIRST`, then from
+the end, Delete last; `ss-overflowed`, a second row above when open). **Move pad** (`#sidescroll-move-pad`,
+sidescroll.js `setMovePadOpen` / `syncMovePad` from `updateEditorButtons`): relative drags of the selected
+object or locked World Group, X·Y / X·Depth, Fine (sessionStorage `sidescroll.editor.move-pad`), through
+`moveSelectedTransformAxis(axis, value, {live:true})` per frame and one `recordObjectEdit` when the drag
+ends (`movePadCommit`).
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 
