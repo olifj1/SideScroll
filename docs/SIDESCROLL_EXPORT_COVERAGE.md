@@ -1,5 +1,9 @@
 # SideScroll — Export and Recovery Coverage
 
+## 26 November 2026 — Hold
+- `sidescroll.asset-interactions.v1` entries gain `hold: {flag}` (content, Assets area).
+- Progress `sidescroll.player.collected.v1` / `sidescroll.collected.v1` gain `held: {asset, from}` and `dropped: [{id, asset, x, y, z, flip}]` (older saves: none). Progress is not published; Project Backup carries it as before.
+
 ## 26 November 2026 — Asset lights
 - `sidescroll.asset-interactions.v1` entries gain `light: {color, strength, radius, flicker, flickerSpeed, u, v}` (Asset Lab → Light). Same key, Assets area: published, exported and backed up as before. No migration.
 

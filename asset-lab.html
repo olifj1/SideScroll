@@ -319,6 +319,14 @@
           </label>
           <p class="assetlab-note">Holds the inventory: until she wears it (or another asset with this on), she can't pick anything up and the Items button stays hidden.</p>
         </div>
+        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-hold-on" aria-pressed="false">Hold (carry in hand)</button></div>
+        <div id="assetlab-hold-fields" class="assetlab-interaction-fields" hidden>
+          <label class="assetlab-select-row assetlab-text-row">
+            <span><strong>Sets story flag</strong><small>When picked up (optional)</small></span>
+            <input id="assetlab-hold-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. has-lantern">
+          </label>
+          <p class="assetlab-note">She carries it in her hand (not the bag) with the grip set in Character Lab → Props; Action puts it down on the floor in front of her. One thing at a time: no box while she holds it. If it also has Inspect, Pick up is in the Inspect view. Wear wins over Hold, Hold over Collect.</p>
+        </div>
       </section>
 
       <section class="assetlab-control-section assetlab-asset-light" id="assetlab-light-section">
@@ -391,8 +399,8 @@
   <script src="asset-library.js?v=1.1.76"></script>
   <script src="character-preview.js?v=1.1.83"></script>
   <script src="builtin-assets.js?v=1.1.99"></script>
-  <script src="asset-interactions.js?v=1.1.121"></script>
-  <script src="asset-lab.js?v=1.1.121"></script>
+  <script src="asset-interactions.js?v=1.1.122"></script>
+  <script src="asset-lab.js?v=1.1.122"></script>
   <script src="colour-picker.js?v=1.1.121"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>

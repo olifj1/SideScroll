@@ -870,6 +870,7 @@
   const collectLabelEl = $('assetlab-collect-label'), collectDescEl = $('assetlab-collect-description'), collectFlagEl = $('assetlab-collect-flag');
   const wearOnBtn = $('assetlab-wear-on'), wearFields = $('assetlab-wear-fields'), wearHoldsBtn = $('assetlab-wear-holds');
   const wearRefuseEl = $('assetlab-wear-refuse'), wearRefuseRow = $('assetlab-wear-refuse-row'), wearFlagEl = $('assetlab-wear-flag');
+  const holdOnBtn = $('assetlab-hold-on'), holdFields = $('assetlab-hold-fields'), holdFlagEl = $('assetlab-hold-flag');
   const pressed = (btn, on) => { btn.classList.toggle('active', !!on); btn.setAttribute('aria-pressed', String(!!on)); };
   const fill = (el, v) => { if (document.activeElement !== el) el.value = v || ''; };
   function syncInteractions() {
@@ -886,6 +887,8 @@
     pressed(collectOnBtn, collect); collectFields.hidden = !collect;
     collectLabelEl.placeholder = asset.label || asset.name;
     fill(collectLabelEl, collect?.label); fill(collectDescEl, collect?.description); fill(collectFlagEl, collect?.flag);
+    const hold = entry.hold || null;
+    pressed(holdOnBtn, hold); holdFields.hidden = !hold; fill(holdFlagEl, hold?.flag);
     const wear = entry.wear || null;
     pressed(wearOnBtn, wear); wearFields.hidden = !wear;
     pressed(wearHoldsBtn, wear?.holdsInventory); wearRefuseRow.hidden = !wear?.holdsInventory;
@@ -916,6 +919,8 @@
     wearHoldsBtn.addEventListener('click', () => saveAction('wear', { holdsInventory: !current('wear')?.holdsInventory }));
     wearRefuseEl.addEventListener('input', () => saveAction('wear', { refuse: wearRefuseEl.value }));
     wearFlagEl.addEventListener('change', () => { saveAction('wear', { flag: wearFlagEl.value }); wearFlagEl.value = current('wear')?.flag || ''; });
+    holdOnBtn.addEventListener('click', () => saveAction('hold', current('hold') ? null : {}));
+    holdFlagEl.addEventListener('change', () => { saveAction('hold', { flag: holdFlagEl.value }); holdFlagEl.value = current('hold')?.flag || ''; });
   }
 
   // --- Light: this asset glows (asset-interactions.js `light`) ------------------
