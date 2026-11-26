@@ -4,9 +4,16 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Editor screen zones (step 1).** On the phone the scene stays visible: every panel you edit in
+  — the asset browser, Position, Floor line, Thought / Camera / Light node panels and Menu → Light,
+  Fog, Post, Looks, Sound, Camera, Go to — now opens in one dock on the left (about a third of the
+  screen), one at a time: a panel opened on top of another goes back to it when closed. The object
+  toolbar is one slim row to the right of the dock; the placing card is short; labels stay clear of
+  the dock and the TEST bar. Fixed a stray "null" in the Story tab. Rules in the UX bible → Screen zones.
 - **Point lights fade with the look.** Menu → **Light** has a **Point lights** slider (0–200 %, default
   100 %) that scales every placed Light at once — 0 % turns them all off. It is part of the base look
-  and of every Look, so a Look step from night to day fades the lights out along with the global light.
+  and of every Look, so a Look step from night to day fades the lights out along with the global light. At 0 % the
+  game skips point lights entirely (no per-frame search for them, no shader work).
 - **Lighting, step 2: point lights.** Game → Edit → **+ Add → WORLD OBJECTS → Light** places a light
   in the world (a glowing marker while editing, hidden in play). Select it and the **Light** panel opens
   beside the game: **colour**, **strength**, **radius** (m), **flicker** and **flicker speed**, all live,

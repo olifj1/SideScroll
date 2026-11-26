@@ -359,7 +359,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js` |
+| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js`, `editor-layout.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects, animation manager) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-interactions.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
@@ -368,6 +368,13 @@ Any new per-character storage must be added to `slicesFor()` there.
 | `concept-lab.html` | Concept art boards | inline + `concept-lab-data.json` |
 | `publish-lab.html` | Status of each area/character vs published; publish package; Use published; My settings | `publish-lab.js`, `character-packages.js` (+ registry/templates/slots) |
 | `project-snapshot.html` | Backup / restore of all local data | `project-snapshot.js`, `project-restore.js` |
+
+**Editor screen zones** (`editor-layout.js`, `window.SideScrollEditorLayout`; rules in the UX bible →
+Screen zones): every panel you edit in opens in one **dock** on the left (`DOCK_IDS`, CSS block at the end
+of `style.css` keyed by panel id; `--ss-dock-w`, `--ss-top`): the last one opened is on top (`ss-dock-top`),
+the others stay open but hidden (`ss-dock-under`), the editor drawer is always the bottom. `--ss-dock-right`
+(the top panel's right edge) places the object toolbar and status line; `clearLeft()` keeps canvas labels
+off the dock. New panels go in `DOCK_IDS`, never on the right.
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 

@@ -2426,6 +2426,9 @@
   let pointLightCount = 0;
   function collectPointLights(now) {
     pointLightCount = 0;
+    // Point lights at 0 % (Light panel / a look): no lights at all — no scan, and the
+    // shader's light loop stops at once (uPointCount 0).
+    if (!(lightSettings.points > 0)) return;
     const cx = camera.x + character.screenOffsetX, seconds = now / 1000, found = [];
     for (const obj of allSceneObjects()) {
       if (!obj || obj.deleted || Math.abs(obj.x - cx) > 45) continue;
@@ -2435,7 +2438,7 @@
         const entry = lightAssets.get(obj.assetName); // older lights made in Asset Lab
         if (entry && Effects) p = Effects.clean('light', { ...entry.art.params, ...(obj.effectParams || {}) });
       }
-      if (!p || p.strength <= 0 || !(lightSettings.points > 0)) continue;
+      if (!p || p.strength <= 0) continue;
       const offset = (String(obj.id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
       const t = (seconds + offset) * p.flickerSpeed;
       const flicker = 1 - p.flicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 6.2831) * Math.sin(t * 2.3 + 1.7));
@@ -13407,6 +13410,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     quickNavPanel.hidden = !next;
     quickNavBtn.setAttribute('aria-expanded', String(next));
     if (next) {
+      setStageMenuOpen(false); // the Menu list closes as the panel opens in the dock
       setAssetPaletteOpen(false);
       cameraEditMode = false;
       updateCameraEditorUi();
@@ -16714,8 +16718,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         const label = `${selectedObject.assetName}${layerLabel}${depthLabel}${placementLabel}${membershipLabel}  x ${selectedObject.x.toFixed(1)}  y ${objectFloorWorldY(selectedObject).toFixed(1)}  z ${selectedObject.z.toFixed(1)}`;
         ctx.font = '700 10px -apple-system, BlinkMacSystemFont, sans-serif';
         const tw = ctx.measureText(label).width + 14;
-        const lx = Math.max(4, Math.min(w-tw-4, b.left));
-        const ly = Math.max(42, b.top-25);
+        const clearLeft = (window.SideScrollEditorLayout?.clearLeft?.() || 0) + 6; // never under the dock
+        const lx = Math.max(Math.max(4, clearLeft), Math.min(w-tw-4, b.left));
+        const ly = Math.max(64, b.top-25); // below the top strip (Home / Menu / TEST bar)
         ctx.fillRect(lx, ly, tw, 19);
         ctx.fillStyle = '#f2f7f6';
         ctx.fillText(label, lx+7, ly+13);
