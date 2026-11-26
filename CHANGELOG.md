@@ -4,6 +4,10 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **The dock tucks away (editor screen zones step 4).** While you place assets or use the move pad,
+  the left panel slides off the edge and leaves a small **PANEL** tab, so nearly the whole screen is
+  scene. Tap the tab to bring the panel back (e.g. for Done Placing); your next tap in the scene or on
+  the pad tucks it again. Finishing placing or closing the pad brings it back for good.
 - **In-panel colour picker (editor screen zones step 3).** Colour boxes in the game (Menu → Light,
   Fog, Post tint and the Light node panel) no longer open iPhone's full-screen picker: tapping the
   swatch opens a small picker inside the panel — hue, saturation and brightness bars, your recent
