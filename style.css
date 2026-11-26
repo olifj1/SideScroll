@@ -16230,3 +16230,26 @@ body[data-game-id="game-16"] .ss-cp-done{
   height:30px;min-height:0;padding:0 14px;border-radius:9px;border:1px solid #8ddfd2;background:rgba(70,160,146,.34);
   color:#bff6ec;font:800 10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;
 }
+
+/* Tucked dock (zones step 4): while placing or using the move pad the dock slides off the left edge
+   (editor-layout.js `ss-dock-tucked`) and a tab brings it back. */
+body[data-game-id="game-16"] :is(#sidescroll-puzzle-panel,#sidescroll-editor-palette,#sidescroll-transform-editor,#sidescroll-ground-line-editor,
+  #sidescroll-thought-editor,#sidescroll-camera-node-editor,#sidescroll-light-node-editor,#sidescroll-camera-editor,#sidescroll-quick-nav-panel,
+  #sidescroll-light-panel,#sidescroll-fog-panel,#sidescroll-post-panel,#sidescroll-looks-panel,#sidescroll-sound-panel){
+  transition:left .22s ease, opacity .22s ease, width .2s ease!important;
+}
+body[data-game-id="game-16"].ss-dock-tucked.ss-dock-tucked.ss-dock-tucked.ss-dock-tucked :is(#sidescroll-puzzle-panel,#sidescroll-editor-palette,#sidescroll-transform-editor,#sidescroll-ground-line-editor,
+  #sidescroll-thought-editor,#sidescroll-camera-node-editor,#sidescroll-light-node-editor,#sidescroll-camera-editor,#sidescroll-quick-nav-panel,
+  #sidescroll-light-panel,#sidescroll-fog-panel,#sidescroll-post-panel,#sidescroll-looks-panel,#sidescroll-sound-panel){
+  left:calc(-1 * var(--ss-dock-w) - 24px)!important;opacity:0!important;pointer-events:none!important;
+}
+body[data-game-id="game-16"] .ss-dock-tab{
+  position:fixed;left:0;top:calc(var(--ss-top) + 40px);z-index:1009;width:34px;height:96px;padding:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  border-radius:0 12px 12px 0;border:1px solid rgba(121,241,223,.30);border-left:0;background:rgba(16,29,31,.94);color:#eef8f6;
+  box-shadow:0 6px 18px rgba(0,0,0,.28);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  padding-left:env(safe-area-inset-left);box-sizing:content-box;
+}
+body[data-game-id="game-16"] .ss-dock-tab[hidden]{display:none!important;}
+body[data-game-id="game-16"] .ss-dock-tab span{font-size:20px;line-height:1;color:#8ddfd2;font-weight:800;}
+body[data-game-id="game-16"] .ss-dock-tab small{writing-mode:vertical-rl;transform:rotate(180deg);font:800 8px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.14em;color:#d9ebe7;}

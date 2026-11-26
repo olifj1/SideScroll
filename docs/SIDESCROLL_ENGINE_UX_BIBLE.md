@@ -26,8 +26,9 @@ the end of `style.css`).
   (`moveSelectedTransformAxis(…, {live:true})`, then one `recordObjectEdit`).
 - **The toolbar never scrolls:** buttons look like the panels; whatever doesn't fit goes behind
   **More** (least-used first, Delete last), which opens a second row above.
-- **Planned:** while placing or moving, the dock tucks to a tab on the edge and comes back
-  when you tap it or finish.
+- **Tuck while working in the scene:** while placing or using the move pad the dock slides
+  off the left edge and leaves a PANEL tab (`ss-dock-tucked`); the tab brings it back, the next
+  tap in the scene or on the pad tucks it again, finishing brings it back for good.
 
 ## Story: timelines inside events, graphs between them (20–21 Nov 2026)
 - An event is a straight line in time, made on its **timeline** (time left to right); the event

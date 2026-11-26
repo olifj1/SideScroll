@@ -87,6 +87,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0cf. Dock tucks away (26 Nov)** — game editor
+- [ ] + Add Environment Asset → pick an asset: the left panel slides away and a **PANEL** tab sits on the left edge; the toolbar / status line start next to the tab.
+- [ ] Tap PANEL: the placing card comes back (Change Asset / Done Placing). Tap the scene to place another: the card tucks away again. Done Placing: the panel comes back and the tab goes.
+- [ ] Select something → Move pad: the panel tucks away; PANEL brings it back (e.g. the Light settings); dragging on the pad tucks it again; × on the pad brings it back for good.
+- [ ] Nothing tucks in puzzle test mode or with the story timeline open.
+
 **0ce. In-panel colour picker (26 Nov)** — game, Menu panels and Light node
 - [ ] Menu → Light → tap the colour swatch: no iPhone picker; a small picker opens inside the panel (hue, saturation, brightness bars, hex box, Done). Dragging a bar changes the scene's light live; the panel and the scene stay visible.
 - [ ] Done (or closing the panel) closes it; the colour is kept after a reload. Recent colours appear as small squares next time; tapping one uses it.
@@ -573,7 +579,7 @@ app and make a Project Backup.
 ---
 
 ## Next
-- [ ] **Editor screen zones, next steps (agreed 26 Nov; steps 1–3 and the toolbar's More done):** decide whether dragging on the scene should still move things now that the move pad exists. (4) **tuck the dock** to an edge tab while placing or using the move pad; tap the tab or finish to bring it back.
+- [ ] **Editor screen zones, last decision (steps 1–4 done 26 Nov):** decide whether dragging on the scene should still move things now that the move pad exists, once the pad has been used for a while.
 - [ ] **Lighting, next steps (agreed 25 Nov; start simple and add; placeable point lights done 25 Nov):** a **Light** setting on any asset (e.g. a lantern; position on the picture); then **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
 - [ ] **Falling leaves effect** (idea, 24 Nov): a plane effect (like Fire) with leaves drifting down and spinning, for life in the forest — leaf colours, amount, size, fall speed, wind / sway; maybe a variant for single leaves dropping now and then. Possibly placed along the near side of the path or as a "region" overlay.
 - [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).

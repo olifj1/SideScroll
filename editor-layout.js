@@ -91,6 +91,39 @@
     setClass(bar, 'ss-more-open', moreOpen && !!out.length);
   }
 
+  // ---- Tuck (zones step 4): while placing or using the move pad the dock slides off the left
+  // edge, leaving a tab. Tap the tab to bring it back (a peek); the next tap in the scene or on the
+  // pad tucks it again. Finishing placing / closing the pad ends it. ----
+  const TAB_ID = 'sidescroll-dock-tab';
+  let tuckWanted = false; // placing or move pad open
+  let peek = false;       // the author brought the dock back while tuck is wanted
+  let tab = null;
+  function ensureTab() {
+    if (tab && tab.isConnected) return tab;
+    tab = document.createElement('button');
+    tab.type = 'button'; tab.id = TAB_ID; tab.className = 'ss-dock-tab'; tab.hidden = true;
+    tab.setAttribute('aria-label', 'Show the panel');
+    tab.innerHTML = '<span aria-hidden="true">›</span><small>PANEL</small>';
+    tab.addEventListener('pointerdown', e => e.stopPropagation());
+    tab.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); peek = true; schedule(); });
+    document.body.appendChild(tab);
+    return tab;
+  }
+  function tuckState() {
+    const b = document.body.classList;
+    const wanted = !b.contains('sidescroll-puzzle-testing') && !b.contains('sidescroll-tl-open')
+      && (b.contains('sidescroll-placement-mode') || b.contains('ss-pad-open'));
+    if (wanted && !tuckWanted) peek = false; // a new placing / pad session starts tucked
+    tuckWanted = wanted;
+    return wanted && !peek;
+  }
+  // A tap in the scene or on the pad while peeking tucks the dock again.
+  document.addEventListener('pointerdown', e => {
+    if (!tuckWanted || !peek) return;
+    const t = e.target;
+    if (t?.closest?.('#sidescroll-canvas, #sidescroll-editor-overlay, #sidescroll-move-pad-surface')) { peek = false; schedule(); }
+  }, true);
+
   let order = []; // docked panels that are showing, oldest first; the last one is on top
   let top = null;
   let scheduled = false;
@@ -115,8 +148,13 @@
       setClass(el, 'ss-dock-top', id === top);
     }
     setClass(document.body, 'ss-dock-swapped', !!top && top !== BASE_ID);
-    const r = top ? byId(top).getBoundingClientRect() : null;
-    const right = r && r.width > 0 ? Math.round(r.right) : 0;
+    const tucked = !!top && tuckState();
+    setClass(document.body, 'ss-dock-tucked', tucked);
+    const t = ensureTab(); if (t.hidden === tucked) t.hidden = !tucked;
+    // Tucked: the scene starts at the tab. Otherwise at the top panel's right edge (once it has
+    // slid in: transitionend schedules another sync).
+    const r = tucked ? t.getBoundingClientRect() : top ? byId(top).getBoundingClientRect() : null;
+    const right = r && r.width > 0 && r.right > 0 ? Math.round(r.right) : 0;
     if (right !== dockRight) {
       dockRight = right;
       document.documentElement.style.setProperty('--ss-dock-right', `${right}px`);
@@ -136,8 +174,12 @@
     if (bar) mo.observe(bar, { attributes: true, subtree: true, attributeFilter: ['hidden'] });
     addEventListener('resize', schedule);
     addEventListener('orientationchange', schedule);
-    // The drawer's width can change without an attribute change (collapse animation).
-    byId(BASE_ID)?.addEventListener('transitionend', schedule);
+    // The drawer's width can change without an attribute change (collapse animation), and the
+    // dock slides when it tucks: re-measure when any of them finishes moving.
+    document.addEventListener('transitionend', e => {
+      const id = e.target?.id;
+      if (id && (id === BASE_ID || DOCK_IDS.includes(id))) schedule();
+    });
     sync();
   }
 
@@ -146,6 +188,10 @@
     clearLeft: () => Math.max(0, dockRight),
     /** Id of the panel on top of the dock (or null). */
     top: () => top,
+    /** True while the dock is tucked off the left edge. */
+    tucked: () => document.body.classList.contains('ss-dock-tucked'),
+    /** Bring the dock back while placing / using the pad (as the tab does). */
+    peek: () => { peek = true; schedule(); },
     refresh: schedule
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch, { once: true });
