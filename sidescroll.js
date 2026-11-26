@@ -5951,6 +5951,7 @@ document.addEventListener('keydown',event=>{
   const assetInspect = name => assetInteractions[name]?.inspect || null;
   const assetCollect = name => assetInteractions[name]?.collect || null;
   const assetWear = name => assetInteractions[name]?.wear || null;
+  const assetHold = name => assetInteractions[name]?.hold || null;
   const INVENTORY_ITEM_DEFS = {
     'forest-key': {
       id:'forest-key',
@@ -18592,12 +18593,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
     const facing = character.lastFacing >= 0 ? 1 : -1;
     const local=GameCharacters?.ready(currentCharacterVariant)||originalCharacterMeshes.get(currentCharacterVariant);
+    const heldProps = isQuadruped ? [] : playerHeldItems(pose, view); // Hold: the prop in her hand
     if(local?.parts?.length){
       // Painter order, as with the original parts: body, carried object, near arm.
       const holding=carriedObject||interactionState;
-      drawLocalMeshCharacter(view,pose,facing,local,holding?z=>{meshCarryZ=z;drawCarriedCrate(view,facing,isQuadruped?null:pose);meshCarryZ=null;}:null);
+      drawLocalMeshCharacter(view,pose,facing,local,holding?z=>{meshCarryZ=z;drawCarriedCrate(view,facing,isQuadruped?null:pose);meshCarryZ=null;}:(heldProps.length?heldProps:null));
       return;
     }
+    for (const h of heldProps) if (h.layer === 'back') h.draw(null);
     const parts = charRig === Rig ? charRig.partsForPose(pose, bipedRestRig()) : charRig.partsForPose(pose);
     let crateDrawn = false;
     const body = playerBody();
@@ -18611,6 +18614,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       drawRigPartWebGL(part, view, facing, charRig, body);
     }
     if (!crateDrawn && (carriedObject || interactionState)) drawCarriedCrate(view, facing, isQuadruped ? null : pose);
+    for (const h of heldProps) if (h.layer !== 'back') h.draw(null);
   }
 
   // ---- Sequences runtime (docs/SEQUENCE_SYSTEM_DESIGN.md) --------------------
@@ -19541,6 +19545,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     drawSeqDroppedProps(view);
     drawSeqObjects(view);
+    drawPlayerDroppedProps(view);
   }
   // Object components: an asset standing in a sequence at its place (moving with
   // the sequence), its own height × Size, lifted by Lift, its floor line on the
@@ -19663,7 +19668,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       x: tr.x, y: tr.y, z: tr.z, sx: tr.w, sy: tr.h, sz: 1, flip: tr.flip, runtimeRotation: tr.rot,
       opacity, shade: 1, tint: tint || [1, 1, 1], layer: 'character' };
     drawObject(obj, view, { force: true, x: tr.x, y: tr.y, z: tr.z, sx: tr.w, sy: tr.h, mesh: centredBillboardMesh });
-    if (opacity >= 1) notePropLight(name, tr); // faint editor ghosts don't light
+    if (opacity >= 0.9) notePropLight(name, tr); // faint editor ghosts (0.35) don't light
   }
   // Props a character dropped (Prop step → Drop): they fall and lie on the ground
   // where they landed (play progress `dropped` on the component that dropped them).
@@ -20262,6 +20267,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (storyTrigger) {
       actionLabel.textContent = storyTrigger.label.toUpperCase();
       actionBtn.classList.add('ready');
+      return;
+    }
+    if (playerHeldName() && !(nearestInspectable() && assetInspect(nearestInspectable().asset))) {
+      actionLabel.textContent = 'PUT DOWN';
+      actionBtn.classList.add('carrying');
       return;
     }
     if (carriedObject) {
@@ -20914,7 +20924,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // the dot when the player is near; Action opens the Inspect view (title, text and,
   // with Show large, the picture big on screen). Inspecting holds the player still.
   const INSPECT_REACH = 0.45, INSPECT_DEPTH = 2.5; // metres beyond the player's body; how far off the path
-  const assetHasAction = name => !!(assetInspect(name) || assetCollect(name) || assetWear(name));
+  const assetHasAction = name => !!(assetInspect(name) || assetCollect(name) || assetWear(name) || assetHold(name));
   // The nearest thing the player can inspect or pick up: {asset, x, y, z, obj?} for a
   // placed copy, {…, seq:{p, c}} for a sequence object.
   function nearestInspectable() {
@@ -20939,6 +20949,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const base = storyGroundY(place.x, place.depth) + (c.lift || 0) - assetGroundLineDefault(place.asset) * h;
       consider({ asset: place.asset, x: place.x, y: base + h * 0.54, z: place.depth, seq: { p, c } }, Math.max(0.12, w * 0.5));
     }
+    for (const drop of collectedState.dropped) { // things she put down (Hold)
+      if (!assetHasAction(drop.asset)) continue;
+      const h = propHeightOf(drop.asset), w = h * (assetAspect[drop.asset] || 1);
+      consider({ asset: drop.asset, x: drop.x, y: (Number.isFinite(drop.y) ? drop.y : storyGroundY(drop.x, drop.z)) + h * 0.5, z: drop.z, drop }, Math.max(0.12, w * 0.5));
+    }
     return best;
   }
   // Interactions may set a story flag (Asset Lab: "Sets story flag").
@@ -20951,15 +20966,19 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
 
   // ---- Collected placed copies (progress) ---------------------------------------
   // {objects: {placed object id: asset name}, worn: {asset name: where it came from —
-  // a placed object id, 'seq:<sequence id>' or 'story:<sequence id>'}}. A collected copy is taken out of the
+  // a placed object id, 'seq:<sequence id>' or 'story:<sequence id>'}, held: {asset, from} | null
+  // (Hold: in her hand), dropped: [{id, asset, x, z, flip}] (held things she put down)}. A collected copy is taken out of the
   // scene while playing; while editing (not ▶ Play) it is back so it can be edited.
   const COLLECTED_STORAGE_KEY = PLAYER_MODE ? 'sidescroll.player.collected.v1' : 'sidescroll.collected.v1';
   let collectedState = (() => {
     try {
       const raw = JSON.parse(localStorage.getItem(COLLECTED_STORAGE_KEY) || 'null');
-      if (raw && typeof raw.objects === 'object') return { objects: { ...raw.objects }, worn: raw.worn && typeof raw.worn === 'object' ? { ...raw.worn } : {} };
+      if (raw && typeof raw.objects === 'object') return { objects: { ...raw.objects }, worn: raw.worn && typeof raw.worn === 'object' ? { ...raw.worn } : {},
+        held: raw.held && typeof raw.held.asset === 'string' ? { asset: raw.held.asset, from: String(raw.held.from || '') } : null,
+        dropped: Array.isArray(raw.dropped) ? raw.dropped.filter(d => d && typeof d.asset === 'string' && Number.isFinite(d.x) && Number.isFinite(d.z))
+          .map(d => ({ id: String(d.id || ''), asset: d.asset, x: d.x, ...(Number.isFinite(d.y) ? { y: d.y } : {}), z: d.z, flip: !!d.flip })) : [] };
     } catch (_) {}
-    return { objects: {}, worn: {} };
+    return { objects: {}, worn: {}, held: null, dropped: [] };
   })();
   const collectedAway = new Map(); // object id → {obj, list} taken out of the scene lists
   const collectSource = id => `collect:${id}`;
@@ -21038,6 +21057,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // Pick up: the copy leaves the world and goes in the inventory (or is put on).
   function collectTarget(target) {
     if (assetWear(target?.asset)) return wearTarget(target);
+    if (assetHold(target?.asset)) return holdTarget(target);
     const c = assetCollect(target?.asset);
     if (!c) return false;
     if (!canCarry()) {
@@ -21061,10 +21081,65 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     hintEl.classList.remove('hidden');
     return true;
   }
+  // ---- Hold (Asset Lab → Hold): carried in her hand, put down on the floor -----------
+  // One thing at a time, not the inventory. A placed copy picked up is taken out of the
+  // scene like a collected one; putting it down leaves it standing on the floor in
+  // front of her (progress `dropped`), where it can be picked up again. Biped only.
+  const playerHeldName = () => (!editLocked() && collectedState.held?.asset) || null;
+  const handsFullText = () => carriedObject ? 'My hands are full.' : `I'm already carrying the ${assetDisplayName(collectedState.held?.asset || '').toLowerCase()}.`;
+  function holdTarget(target) {
+    const h = assetHold(target?.asset);
+    if (!h) return false;
+    const say = text => { hintEl.textContent = text; hintEl.classList.remove('hidden'); return true; };
+    if (activeCharacterRig() !== Rig) return say("I can't carry that.");
+    if (collectedState.held || carriedObject || interactionState) return say(handsFullText());
+    if (target.drop) {
+      collectedState.dropped = collectedState.dropped.filter(d => d !== target.drop);
+      collectedState.held = { asset: target.asset, from: target.drop.id || 'drop' };
+    } else if (target.obj?.id) {
+      collectedState.objects[target.obj.id] = target.asset;
+      collectedState.held = { asset: target.asset, from: target.obj.id };
+      syncCollectedObjects();
+    } else return say("I can't take that.");
+    saveCollected();
+    setInteractionFlag(h.flag);
+    return say(`Picked up ${assetDisplayName(target.asset)}`);
+  }
+  function putDownHeld() {
+    const name = collectedState.held?.asset; if (!name || jumping) return false;
+    const facing = character.lastFacing >= 0 ? 1 : -1, x = camera.x + character.screenOffsetX + facing * 0.35;
+    collectedState.dropped.push({ id: `d-${Date.now().toString(36)}`, asset: name,
+      x: Math.round(x * 1000) / 1000, y: Math.round((Number(character.y) || 0) * 1000) / 1000, // the floor she stands on (a deck, not the terrain under it)
+      z: Math.round((Number(character.z) || pathZ) * 1000) / 1000, flip: facing < 0 });
+    collectedState.held = null;
+    saveCollected();
+    hintEl.textContent = `Put down ${assetDisplayName(name)}`;
+    hintEl.classList.remove('hidden');
+    return true;
+  }
+  // Things she put down stand on the floor (drawn through drawPropAt, so a lantern glows).
+  function drawPlayerDroppedProps(view) {
+    if (editLocked() || !collectedState.dropped.length) return;
+    for (const d of collectedState.dropped) {
+      if (Math.abs(d.x - camera.x) > STORY_DRAW_RANGE) continue;
+      const texture = propTexture(d.asset); if (!texture) continue;
+      const h = propHeightOf(d.asset), w = h * (assetAspect[d.asset] || 1);
+      const y = (Number.isFinite(d.y) ? d.y : storyGroundY(d.x, d.z)) + h / 2 - assetGroundLineDefault(d.asset) * h;
+      drawPropAt(view, d.asset, texture, { x: d.x, y, z: d.z + CHARACTER_GAMEPLAY_Z_BIAS, rot: 0, flip: d.flip, w, h });
+    }
+  }
+  // The prop in her hand, placed by her grip (the same code as story characters).
+  function playerHeldItems(pose, view) {
+    const name = playerHeldName();
+    if (!name || activeCharacterRig() !== Rig) return [];
+    const facing = character.lastFacing >= 0 ? 1 : -1;
+    return storyHeldProps({ holding: [name], facing, id: currentCharacterVariant, key: 'player' }, pose, playerBody(), view);
+  }
+
   // Progress → Reset all: every collected copy back where it was, its item taken back.
   function resetCollected() {
     for (const id of Object.keys(collectedState.objects)) removeInventoryFromSource(collectSource(id));
-    collectedState = { objects: {}, worn: {} };
+    collectedState = { objects: {}, worn: {}, held: null, dropped: [] };
     saveCollected();
     syncCollectedObjects();
     syncInventoryAvailable();
@@ -21132,12 +21207,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     picture.hidden = !large;
     img.removeAttribute('src');
     const takeBtn = el.querySelector('[data-inspect-take]');
-    const wear = assetWear(target.asset);
-    // Wear: Put on. Collect: Pick up, unless there is nothing to carry it in yet.
-    const blocked = !wear && collect && !canCarry();
-    takeBtn.hidden = fromInventory || !(wear || collect) || blocked;
+    const wear = assetWear(target.asset), hold = !wear && assetHold(target.asset);
+    // Wear: Put on. Hold: Pick up, unless her hands are full. Collect: Pick up, unless there is nothing to carry it in yet.
+    const blockedText = hold ? ((collectedState.held || carriedObject) ? handsFullText() : '') : (!wear && collect && !canCarry() ? carryRefusal() : '');
+    takeBtn.hidden = fromInventory || !(wear || hold || collect) || !!blockedText;
     takeBtn.textContent = wear ? 'Put on' : 'Pick up';
-    if (blocked && !fromInventory) { textEl.textContent = body ? `${body}\n\n${carryRefusal()}` : carryRefusal(); textEl.hidden = false; }
+    if (blockedText && !fromInventory) { textEl.textContent = body ? `${body}\n\n${blockedText}` : blockedText; textEl.hidden = false; }
     el.querySelector('[data-inspect-leave]').textContent = fromInventory ? 'Close' : 'Leave';
     const token = {};
     inspectOpen = { asset: target.asset, token, target: fromInventory ? null : target };
@@ -21170,6 +21245,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (storyTrigger) { fireStoryTrigger(storyTrigger); return; }
     // Inspect (with Pick up in the view when collectable), or pick up straight away.
     const inspectTarget = nearestInspectable();
+    if (playerHeldName()) {
+      // Holding something (Hold): she can still look at things; otherwise Action puts it down.
+      if (inspectTarget && assetInspect(inspectTarget.asset) && openInspect(inspectTarget)) return;
+      putDownHeld(); return;
+    }
     if (inspectTarget && (openInspect(inspectTarget) || collectTarget(inspectTarget))) return;
     if (carriedObject) { startDrop(); return; }
     const pushTarget = nearestActionPushable();

@@ -12,6 +12,9 @@
  * collected until one is worn (`refuse` is what she says).
  * `flag`: a story flag set when it is inspected / picked up (sequence lines can
  * react). Later actions (use…) are further keys beside these.
+ * Hold (26 Nov): `hold: { flag }` — she picks it up into her hand (Pick up in the Inspect view, or
+ * straight away) and carries it, drawn with her grip from Character Lab → Props; Action puts it down
+ * on the floor in front of her. One thing at a time (no box while holding); not the inventory.
  * Light (26 Nov, not an action — what the asset *is*): `light: { color [r,g,b] 0–1, strength 0–3,
  * radius m, flicker 0–1, flickerSpeed, u, v }` makes every copy glow like a placed Light node, from
  * the point (u across, v up, 0–1) on its picture: placed copies, sequence objects, dropped props and
@@ -21,7 +24,7 @@
 (() => {
   'use strict';
   const KEY = 'sidescroll.asset-interactions.v1';
-  const ACTIONS = Object.freeze({ inspect: 'Inspect', collect: 'Collect', wear: 'Wear' });
+  const ACTIONS = Object.freeze({ inspect: 'Inspect', collect: 'Collect', wear: 'Wear', hold: 'Hold' });
   // Story flags as sequence-data.js names them.
   const flagName = v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   const NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
@@ -45,6 +48,12 @@
     const flag = flagName(raw.flag); if (flag) out.flag = flag;
     return out;
   }
+  function cleanHold(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const out = {};
+    const flag = flagName(raw.flag); if (flag) out.flag = flag;
+    return out;
+  }
   const LIGHT_DEFAULT = Object.freeze({ color: [1, 0.78, 0.45], strength: 1.2, radius: 4, flicker: 0.15, flickerSpeed: 3, u: 0.5, v: 0.5 });
   function cleanLight(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -64,6 +73,8 @@
     if (collect) out.collect = collect;
     const wear = cleanWear(raw.wear);
     if (wear) out.wear = wear;
+    const hold = cleanHold(raw.hold);
+    if (hold) out.hold = hold;
     const light = cleanLight(raw.light);
     if (light) out.light = light;
     return Object.keys(out).length ? out : null;

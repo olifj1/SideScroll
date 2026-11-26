@@ -4,6 +4,13 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Hold: carry a prop in her hand (lantern step 2).** Asset Lab → Interactions → **Hold (carry in
+  hand)**. In the game, Action (or Pick up in the Inspect view) puts the placed copy in her hand,
+  drawn with her grip from Character Lab → Props, so it follows the hand through walk, run, jump and
+  climb; a lantern with a light glows as she carries it. Action puts it down on the floor in front of
+  her (it stands there, glowing, and can be picked up again). One thing at a time: no box while
+  holding, and holding something says her hands are full. Not the inventory. Saved in progress;
+  Progress → Reset all puts it back where it started. Two-legged characters only for now.
 - **Assets can give light.** Asset Lab → **Light → Gives light**: colour, strength, reach, flicker and
   the point on the picture the light comes from (a cross and its reach drawn on the stage). Every copy
   then glows like a placed Light — placed in the scene, as a story object, dropped, and (next) held in a

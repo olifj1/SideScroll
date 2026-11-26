@@ -87,6 +87,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ch. Hold a prop (26 Nov)** — Asset Lab and game
+- [ ] Asset Lab → the lantern → Interactions → **Hold (carry in hand)** (and Gives light). Place it on the building in the game editor.
+- [ ] Play: walk up to it, Action (or Inspect → Pick up): it is in her hand, placed by her grip (Character Lab → Props; set one there if it sits wrong), glowing as she walks, runs, jumps and climbs. The Action button says PUT DOWN.
+- [ ] Action: it stands on the floor in front of her (on a deck too, not under it), still glowing; walk back and Action picks it up again.
+- [ ] While holding it, Action near a box puts the lantern down (no box pick-up); while carrying a box, the lantern's Inspect says her hands are full. Near something with Inspect, Action still opens it (Leave, then step away to put the lantern down).
+- [ ] Close and reopen the game: she is still holding it (or it is still where she put it). Progress → Reset all: it is back on its hook.
+
 **0cg. Assets give light (26 Nov)** — Asset Lab and game
 - [ ] Asset Lab → pick an asset (e.g. a lantern) → **Gives light**: a glow, a white cross and a dashed reach circle appear on the picture. Across / Up move the cross; Reach changes the circle; Colour opens the small in-panel picker (also for effect colours).
 - [ ] In the game, every placed copy of that asset lights its surroundings from the cross (dim Menu → Light to see it), flickering if Flicker is up; Point lights at 0 % turns it off.
@@ -585,7 +592,7 @@ app and make a Project Backup.
 
 ## Next
 - [ ] **Editor screen zones, last decision (steps 1–4 done 26 Nov):** decide whether dragging on the scene should still move things now that the move pad exists, once the pad has been used for a while.
-- [ ] **Carryable lantern (agreed 26 Nov; asset light done):** (2) **Hold** — an interaction beside Collect / Wear: Pick up (Inspect or Action), held in her hand with her grip from Character Lab → Props, Action puts it down on the floor where she stands; one thing at a time (no box while holding); she can climb holding it (one arm); separate from the inventory; saved in progress, Reset / Skip aware. (3) **Arm layers** — an animation marked as a layer drives only the controls it keys (e.g. the holding arm) over walk / run / idle / climb; each asset's Hold names its layer; later the box carry can move onto it.
+- [ ] **Carryable lantern (agreed 26 Nov; asset light and Hold done; story objects can't be held yet):** (3) **Arm layers** — an animation marked as a layer drives only the controls it keys (e.g. the holding arm) over walk / run / idle / climb; each asset's Hold names its layer; later the box carry can move onto it.
 - [ ] **Lighting, next steps (agreed 25 Nov; start simple and add; placeable point lights and asset lights done):** **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
 - [ ] **Falling leaves effect** (idea, 24 Nov): a plane effect (like Fire) with leaves drifting down and spinning, for life in the forest — leaf colours, amount, size, fall speed, wind / sway; maybe a variant for single leaves dropping now and then. Possibly placed along the near side of the path or as a "region" overlay.
 - [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).

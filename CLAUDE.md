@@ -174,6 +174,14 @@ view hides Pick up, and `syncInventoryAvailable()` hides the Items button (unles
 Event step `wear` (`{action 'on'|'off', asset}`, Player row) → `setWorn` with source `story:<sequence id>`;
 `seqResetSequence` takes off what that sequence put on; Reset all clears `worn`. Loaded by play, asset-lab
 and walk-lab (the Worn item list).
+**Hold** (same store, `hold: {flag}`; Asset Lab → Interactions → Hold): Wear wins over Hold, Hold over Collect
+(`collectTarget` → `holdTarget`). The placed copy leaves the scene like a collected one; progress (same
+collected key) `held: {asset, from}` and `dropped: [{id, asset, x, y (her floor), z, flip}]`. The player
+draws it through `playerHeldItems` → `storyHeldProps` (her grip, `Props.holdFor`), in `drawRigCharacter`
+(mesh and parts paths); `putDownHeld` (Action while holding, unless an Inspect is in reach; not mid-jump);
+`drawPlayerDroppedProps` stands put-down things on the floor and `nearestInspectable` offers them again
+(`target.drop`). One thing at a time (`handsFullText`; box pick-up is never reached while holding).
+Biped only; not while `editLocked()`; `resetCollected` clears held and dropped.
 **Asset light** (same store, `light: {color, strength, radius, flicker, flickerSpeed, u, v}`; `cleanLight`,
 `LIGHT_DEFAULT`; Asset Lab → **Light**, `syncAssetLight` / `saveAssetLight`, stage marker `drawAssetLight`):
 in the game `collectPointLights` adds a light for every placed copy (point `u` across / `v` up the picture,
