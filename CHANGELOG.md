@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **In-panel colour picker (editor screen zones step 3).** Colour boxes in the game (Menu → Light,
+  Fog, Post tint and the Light node panel) no longer open iPhone's full-screen picker: tapping the
+  swatch opens a small picker inside the panel — hue, saturation and brightness bars, your recent
+  colours, a hex box and Done — so the scene stays in view and changes as you drag. The move pad's
+  depth lock now says *turn off Game Layer*.
 - **Move pad and a new toolbar (editor screen zones step 2).** Select something and tap **Move pad**:
   a trackpad appears in the bottom right, above the toolbar. Drag on it to move the selection from where
   it is — **X·Y** (along the journey and up/down; up makes it Free) or **X·Depth** (along and
