@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.120">
+  <link rel="stylesheet" href="style.css?v=1.1.121">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -321,6 +321,43 @@
         </div>
       </section>
 
+      <section class="assetlab-control-section assetlab-asset-light" id="assetlab-light-section">
+        <div class="assetlab-control-heading"><small>LIGHT</small><strong>Gives light</strong></div>
+        <p class="assetlab-note">Every copy of this asset glows like a placed Light: hanging on a wall, in a story, dropped on the floor or held in a hand. The cross on the picture is where the light comes from; the dashed circle is how far it reaches.</p>
+        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-light-on" aria-pressed="false">Gives light</button></div>
+        <div id="assetlab-light-fields" class="assetlab-interaction-fields" hidden>
+          <label class="assetlab-select-row assetlab-text-row">
+            <span><strong>Colour</strong><small>Warm for a flame</small></span>
+            <input id="assetlab-light-colour" type="color" value="#ffc773">
+          </label>
+        <label class="assetlab-range-row">
+          <span><strong>Strength</strong><small id="assetlab-light-strength-value"></small></span>
+          <input id="assetlab-light-strength" type="range" min="0" max="3" step="0.05" value="1.2">
+        </label>
+        <label class="assetlab-range-row">
+          <span><strong>Reach</strong><small id="assetlab-light-radius-value"></small></span>
+          <input id="assetlab-light-radius" type="range" min="0.5" max="20" step="0.1" value="4">
+        </label>
+        <label class="assetlab-range-row">
+          <span><strong>Flicker</strong><small id="assetlab-light-flicker-value"></small></span>
+          <input id="assetlab-light-flicker" type="range" min="0" max="1" step="0.01" value="0.15">
+        </label>
+        <label class="assetlab-range-row">
+          <span><strong>Flicker speed</strong><small id="assetlab-light-speed-value"></small></span>
+          <input id="assetlab-light-speed" type="range" min="0.2" max="8" step="0.1" value="3">
+        </label>
+        <label class="assetlab-range-row">
+          <span><strong>Across the picture</strong><small id="assetlab-light-u-value"></small></span>
+          <input id="assetlab-light-u" type="range" min="0" max="100" step="1" value="50">
+        </label>
+        <label class="assetlab-range-row">
+          <span><strong>Up the picture</strong><small id="assetlab-light-v-value"></small></span>
+          <input id="assetlab-light-v" type="range" min="0" max="100" step="1" value="50">
+        </label>
+          <p class="assetlab-note">Point lights in the game's Menu → Light scale all lights together (so a day look can turn them off).</p>
+        </div>
+      </section>
+
       <section data-ss-lab="assets" class="assetlab-control-section" style="display:grid;gap:8px">
         <div class="assetlab-control-heading"><small>DATA</small><strong>Asset Lab backup</strong></div>
         <p class="assetlab-note">All saved asset behaviours, collisions, paths, sockets, layouts and mechanisms. Bundled texture pixels are not included.</p>
@@ -354,8 +391,9 @@
   <script src="asset-library.js?v=1.1.76"></script>
   <script src="character-preview.js?v=1.1.83"></script>
   <script src="builtin-assets.js?v=1.1.99"></script>
-  <script src="asset-interactions.js?v=1.1.102"></script>
-  <script src="asset-lab.js?v=1.1.111"></script>
+  <script src="asset-interactions.js?v=1.1.121"></script>
+  <script src="asset-lab.js?v=1.1.121"></script>
+  <script src="colour-picker.js?v=1.1.121"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>
 </html>

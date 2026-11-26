@@ -174,6 +174,11 @@ view hides Pick up, and `syncInventoryAvailable()` hides the Items button (unles
 Event step `wear` (`{action 'on'|'off', asset}`, Player row) → `setWorn` with source `story:<sequence id>`;
 `seqResetSequence` takes off what that sequence put on; Reset all clears `worn`. Loaded by play, asset-lab
 and walk-lab (the Worn item list).
+**Asset light** (same store, `light: {color, strength, radius, flicker, flickerSpeed, u, v}`; `cleanLight`,
+`LIGHT_DEFAULT`; Asset Lab → **Light**, `syncAssetLight` / `saveAssetLight`, stage marker `drawAssetLight`):
+in the game `collectPointLights` adds a light for every placed copy (point `u` across / `v` up the picture,
+mirrored when flipped) and for props drawn by `drawPropAt` (`notePropLight` → used the next frame:
+sequence objects, dropped and held props; faint editor ghosts don't light).
 
 **Shader effects** (`effects.js`, `window.SideScrollEffects`): an imported-asset entry with
 `art: {kind:'effect', shader:'darkness'|'fire'|'light'|'dissolve', width, height (the plane's shape), params}`; params are

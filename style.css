@@ -16200,33 +16200,33 @@ body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) 
 
 /* In-panel colour picker (zones step 3; colour-picker.js): a swatch in place of iPhone's picker,
    opening a small picker under its row inside the panel. */
-body[data-game-id="game-16"] input.ss-colour-native{display:none!important;}
-body[data-game-id="game-16"] .ss-colour-swatch{
+:is(body[data-game-id="game-16"],body.ss-asset-lab) input.ss-colour-native{display:none!important;}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-colour-swatch{
   width:64px;height:28px;min-width:64px;padding:0;border-radius:8px;border:1px solid rgba(255,255,255,.38);
   box-shadow:inset 0 0 0 2px rgba(16,29,31,.55);cursor:pointer;justify-self:end;align-self:center;
 }
-body[data-game-id="game-16"] .ss-colour-swatch.open{border-color:#8ddfd2;box-shadow:inset 0 0 0 2px rgba(16,29,31,.55),0 0 0 2px rgba(141,223,210,.45);}
-body[data-game-id="game-16"] .ss-colour-picker{
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-colour-swatch.open{border-color:#8ddfd2;box-shadow:inset 0 0 0 2px rgba(16,29,31,.55),0 0 0 2px rgba(141,223,210,.45);}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-colour-picker{
   display:flex;flex-direction:column;gap:9px;margin:2px 0 8px;padding:10px;border-radius:12px;
   background:rgba(255,255,255,.04);border:1px solid rgba(121,241,223,.24);color:#eef8f6;touch-action:none;
 }
-body[data-game-id="game-16"] .ss-colour-picker[hidden]{display:none!important;}
-body[data-game-id="game-16"] .ss-cp-bar{position:relative;height:24px;border-radius:12px;border:1px solid rgba(255,255,255,.22);touch-action:none;cursor:pointer;}
-body[data-game-id="game-16"] .ss-cp-hue{background:linear-gradient(90deg,#f00,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00);}
-body[data-game-id="game-16"] .ss-cp-bar i{
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-colour-picker[hidden]{display:none!important;}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-bar{position:relative;height:24px;border-radius:12px;border:1px solid rgba(255,255,255,.22);touch-action:none;cursor:pointer;}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-hue{background:linear-gradient(90deg,#f00,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00);}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-bar i{
   position:absolute;top:-4px;width:14px;height:30px;margin-left:-7px;border-radius:8px;border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,.5);pointer-events:none;background:transparent;
 }
-body[data-game-id="game-16"] .ss-cp-bar.dragging i{transform:scaleY(1.12);}
-body[data-game-id="game-16"] .ss-cp-recent{display:flex;flex-wrap:wrap;gap:6px;}
-body[data-game-id="game-16"] .ss-cp-recent[hidden]{display:none;}
-body[data-game-id="game-16"] .ss-cp-recent button{width:26px;height:26px;min-height:0;padding:0;border-radius:7px;border:1px solid rgba(255,255,255,.35);}
-body[data-game-id="game-16"] .ss-cp-foot{display:grid;grid-template-columns:1fr auto;gap:8px;}
-body[data-game-id="game-16"] .ss-cp-hex{
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-bar.dragging i{transform:scaleY(1.12);}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-recent{display:flex;flex-wrap:wrap;gap:6px;}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-recent[hidden]{display:none;}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-recent button{width:26px;height:26px;min-height:0;padding:0;border-radius:7px;border:1px solid rgba(255,255,255,.35);}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-foot{display:grid;grid-template-columns:1fr auto;gap:8px;}
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-hex{
   min-width:0;height:30px;padding:0 9px;border-radius:9px;border:1px solid rgba(121,241,223,.24);background:rgba(0,0,0,.25);
   color:#eef8f6;font:700 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.06em;
 }
-body[data-game-id="game-16"] .ss-cp-done{
+:is(body[data-game-id="game-16"],body.ss-asset-lab) .ss-cp-done{
   height:30px;min-height:0;padding:0 14px;border-radius:9px;border:1px solid #8ddfd2;background:rgba(70,160,146,.34);
   color:#bff6ec;font:800 10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.08em;
 }

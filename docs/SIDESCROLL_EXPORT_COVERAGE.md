@@ -1,5 +1,8 @@
 # SideScroll — Export and Recovery Coverage
 
+## 26 November 2026 — Asset lights
+- `sidescroll.asset-interactions.v1` entries gain `light: {color, strength, radius, flicker, flickerSpeed, u, v}` (Asset Lab → Light). Same key, Assets area: published, exported and backed up as before. No migration.
+
 ## 25 November 2026 — Point lights slider
 - `sidescroll.render.light.v1` and each look's `light` gain `points` (0–2, scale for every point light); absent = 1. No migration.
 

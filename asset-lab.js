@@ -857,6 +857,7 @@
     syncImportedSection();
     syncEffectSection();
     syncInteractions();
+    syncAssetLight();
   }
 
   // --- Interactions: what the player can do to this asset (asset-interactions.js) ---
@@ -915,6 +916,65 @@
     wearHoldsBtn.addEventListener('click', () => saveAction('wear', { holdsInventory: !current('wear')?.holdsInventory }));
     wearRefuseEl.addEventListener('input', () => saveAction('wear', { refuse: wearRefuseEl.value }));
     wearFlagEl.addEventListener('change', () => { saveAction('wear', { flag: wearFlagEl.value }); wearFlagEl.value = current('wear')?.flag || ''; });
+  }
+
+  // --- Light: this asset glows (asset-interactions.js `light`) ------------------
+  const lightOnBtn = $('assetlab-light-on'), lightFields = $('assetlab-light-fields'), lightColourEl = $('assetlab-light-colour');
+  const LIGHT_SLIDERS = { strength:'strength', radius:'radius', flicker:'flicker', speed:'flickerSpeed', u:'u', v:'v' };
+  const lightLabel = (key, v) => key === 'radius' ? `${v.toFixed(1)} m` : (key === 'u' || key === 'v') ? `${Math.round(v * 100)}%` : key === 'speed' ? v.toFixed(1) : v.toFixed(2);
+  const toHex = rgb => '#' + rgb.map(c => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, '0')).join('');
+  const fromHex = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
+  const assetLight = () => Interactions?.get(state.asset?.name)?.light || null;
+  function syncAssetLight() {
+    const section = $('assetlab-light-section');
+    const asset = state.asset;
+    const usable = !!(Interactions && asset && !(asset.art?.kind === 'effect' && asset.art.shader === 'light'));
+    if (section) section.hidden = !usable;
+    if (!usable) return;
+    const light = assetLight();
+    pressed(lightOnBtn, light); lightFields.hidden = !light;
+    if (!light) return;
+    if (lightColourEl) lightColourEl.value = toHex(light.color);
+    for (const [key, field] of Object.entries(LIGHT_SLIDERS)) {
+      const input = $(`assetlab-light-${key}`), out = $(`assetlab-light-${key}-value`);
+      const v = light[field];
+      if (input && document.activeElement !== input) input.value = String((key === 'u' || key === 'v') ? Math.round(v * 100) : v);
+      if (out) out.textContent = lightLabel(key, v);
+    }
+  }
+  function saveAssetLight(patch) {
+    const asset = state.asset; if (!Interactions || !asset) return;
+    const entry = Interactions.get(asset.name) || {};
+    if (patch === null) delete entry.light;
+    else entry.light = Interactions.cleanLight({ ...(entry.light || Interactions.LIGHT_DEFAULT), ...patch });
+    writeStore(Interactions.KEY, Interactions.set(asset.name, entry));
+    syncAssetLight();
+    draw();
+  }
+  if (Interactions && lightOnBtn) {
+    lightOnBtn.addEventListener('click', () => saveAssetLight(assetLight() ? null : {}));
+    lightColourEl?.addEventListener('input', () => { const c = fromHex(lightColourEl.value); if (c) saveAssetLight({ color: c }); });
+    for (const [key, field] of Object.entries(LIGHT_SLIDERS)) {
+      const input = $(`assetlab-light-${key}`);
+      input?.addEventListener('input', () => { const v = Number(input.value); saveAssetLight({ [field]: (key === 'u' || key === 'v') ? v / 100 : v }); });
+    }
+  }
+  // The cross (where the light comes from) and its reach on the stage.
+  function drawAssetLight(r) {
+    const light = assetLight(); if (!light) return;
+    const ar = r?.assetRenders?.[state.asset.name]; if (!ar) return;
+    const flip = !!effectiveVisual(state.asset).flip;
+    const x = ar.drawX + (flip ? 1 - light.u : light.u) * ar.drawW, y = ar.drawY + (1 - light.v) * ar.drawH;
+    const rgb = light.color.map(c => Math.round(c * 255)).join(',');
+    ctx.save();
+    const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(8, light.radius * r.ppm));
+    g.addColorStop(0, `rgba(${rgb},${Math.min(.55, .18 * light.strength)})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, Math.max(8, light.radius * r.ppm), 0, Math.PI * 2); ctx.fill();
+    ctx.setLineDash([7, 5]); ctx.strokeStyle = `rgba(${rgb},.8)`; ctx.lineWidth = 1.5; ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x - 11, y); ctx.lineTo(x + 11, y); ctx.moveTo(x, y - 11); ctx.lineTo(x, y + 11); ctx.stroke();
+    ctx.fillStyle = `rgb(${rgb})`; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 
   // --- Texture: the image's size, file size and how dense it is in the game ------
@@ -1229,6 +1289,8 @@
       rows.push(row);
     }
     effectControls.replaceChildren(...rows);
+    // Colours use the in-panel picker (colour-picker.js), not iPhone's full-screen one.
+    for (const input of effectControls.querySelectorAll('input[type="color"]')) window.SideScrollColourPicker?.attach(input);
   }
   // Effect states: named copies of the settings a Darkness step blends between.
   let effectStateSel = null;
@@ -2006,6 +2068,7 @@
     drawAssetSockets(r);
     for(const asset of r.assets) drawCollision(r,asset,asset.name===state.asset.name);
     for(const asset of r.assets) drawClimbPaths(r,asset,asset.name===state.asset.name);
+    drawAssetLight(r);
 
     ctx.save(); ctx.fillStyle='rgba(238,243,241,.45)'; ctx.font='700 11px -apple-system,BlinkMacSystemFont,sans-serif'; const metres=Math.max(1,Math.floor(100/r.ppm)); const px=metres*r.ppm; const x=18,y=r.h-22; ctx.fillRect(x,y,px,2); ctx.fillText(`${metres} m`,x,y-7); ctx.restore();
   }
