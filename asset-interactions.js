@@ -12,7 +12,8 @@
  * collected until one is worn (`refuse` is what she says).
  * `flag`: a story flag set when it is inspected / picked up (sequence lines can
  * react). Later actions (use…) are further keys beside these.
- * Hold (26 Nov): `hold: { flag }` — she picks it up into her hand (Pick up in the Inspect view, or
+ * Hold (26 Nov): `hold: { flag, layer }` — `layer`: an action slot (slot-…) whose animation, per
+ * character, drives her holding arm over whatever else she is doing (the arm pose); she picks it up into her hand (Pick up in the Inspect view, or
  * straight away) and carries it, drawn with her grip from Character Lab → Props; Action puts it down
  * on the floor in front of her. One thing at a time (no box while holding); not the inventory.
  * Light (26 Nov, not an action — what the asset *is*): `light: { color [r,g,b] 0–1, strength 0–3,
@@ -51,6 +52,7 @@
   function cleanHold(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const out = {};
+    if (/^slot-[a-z0-9-]{3,60}$/.test(String(raw.layer || ''))) out.layer = raw.layer;
     const flag = flagName(raw.flag); if (flag) out.flag = flag;
     return out;
   }

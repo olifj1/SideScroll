@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Arm pose for held props (lantern step 3).** Asset Lab → Hold → **Arm pose** picks an action slot
+  (make one in Character Lab → Settings → Actions, e.g. *Hold lantern*, and give each character an
+  animation for it). While she holds that prop, her animation for the slot drives the holding arm (the
+  hand her grip uses) on top of whatever else she's doing — idle, walk, run, jump or climb — blending in
+  and out over a quarter of a second. A slot used by a Hold now shows as *in the game* in Character Lab.
 - **Hold: carry a prop in her hand (lantern step 2).** Asset Lab → Interactions → **Hold (carry in
   hand)**. In the game, Action (or Pick up in the Inspect view) puts the placed copy in her hand,
   drawn with her grip from Character Lab → Props, so it follows the hand through walk, run, jump and

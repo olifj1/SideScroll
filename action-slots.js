@@ -50,8 +50,13 @@
   }
   const list = () => { const s = load(); return s.order.map(id => s.slots[id]); };
   const get = id => load().slots[id] || null;
-  // Built-in slots are played by the game today; others wait for C5 / C6.
-  const isHookedUp = id => BUILT_IN.includes(id);
+  // Built-in slots are played by the game; a custom slot is in the game once an asset's Hold
+  // uses it as its arm pose (asset-interactions.js); others wait for C5 / C6.
+  function isHookedUp(id) {
+    if (BUILT_IN.includes(id)) return true;
+    const all = window.SideScrollInteractions?.load?.() || {};
+    return Object.values(all).some(entry => entry?.hold?.layer === id);
+  }
 
   function add(name) {
     const clean = cleanName(name);

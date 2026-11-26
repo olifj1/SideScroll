@@ -181,7 +181,12 @@ draws it through `playerHeldItems` → `storyHeldProps` (her grip, `Props.holdFo
 (mesh and parts paths); `putDownHeld` (Action while holding, unless an Inspect is in reach; not mid-jump);
 `drawPlayerDroppedProps` stands put-down things on the floor and `nearestInspectable` offers them again
 (`target.drop`). One thing at a time (`handsFullText`; box pick-up is never reached while holding).
-Biped only; not while `editLocked()`; `resetCollected` clears held and dropped.
+Biped only; not while `editLocked()`; `resetCollected` clears held and dropped. **Arm pose:** `hold.layer` (a
+custom action slot) → `applyHoldLayer(pose)` in `drawRigCharacter` (after the base / climb pose, before
+push / carry): the character's animation for that slot (`GameCharacters.slotAnimation` / `clipFor` /
+`sampleBipedClip`, looping on its own clock) replaces the holding hand's channels (grip hand near → `aHand*`,
+far → `bHand*`), blended over `HOLD_LAYER_BLEND`; no animation for the slot = unchanged. `ActionSlots.isHookedUp`
+counts a slot used by any Hold.
 **Asset light** (same store, `light: {color, strength, radius, flicker, flickerSpeed, u, v}`; `cleanLight`,
 `LIGHT_DEFAULT`; Asset Lab → **Light**, `syncAssetLight` / `saveAssetLight`, stage marker `drawAssetLight`):
 in the game `collectPointLights` adds a light for every placed copy (point `u` across / `v` up the picture,

@@ -18570,6 +18570,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       pose = isQuadruped ? quadrupedPoseForClip('idle',idlePhase,quadrupedIdleFrames) : bipedPoseForClip('idle',idlePhase,charRig.sampleFrames(characterFrames, 0.02));
     }
     if (!isQuadruped && !climbState) pose = keepFeetAboveGround(crossfadeBipedPose(pose, currentJumpFrame() !== null ? 'jump' : (isWalking ? 'move' : 'idle')));
+    if (!isQuadruped) pose = applyHoldLayer(pose); // Hold → arm pose: the holding arm, over walk / run / jump / climb
 
     // Carry/push poses are biped-specific. Gameplay interaction remains
     // available to the quadruped test character, but its locomotion rig is not bent
@@ -21134,6 +21135,42 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (!name || activeCharacterRig() !== Rig) return [];
     const facing = character.lastFacing >= 0 ? 1 : -1;
     return storyHeldProps({ holding: [name], facing, id: currentCharacterVariant, key: 'player' }, pose, playerBody(), view);
+  }
+
+  // ---- Arm layer (Hold → Arm pose, an action slot) --------------------------------
+  // While she holds something whose Hold names an action slot, her animation for that slot
+  // (Character Lab: assign one to the slot) drives the holding arm — the hand her grip uses
+  // (near: a…, far: b…) — over whatever else she is doing. It loops on its own clock and
+  // blends in / out over HOLD_LAYER_BLEND seconds. No animation for the slot: nothing changes.
+  const HOLD_LAYER_BLEND = 0.25;
+  const HAND_CHANNELS = { near: ['aHandX', 'aHandY', 'aHandAngle'], far: ['bHandX', 'bHandY', 'bHandAngle'] };
+  let holdLayerAmount = 0, holdLayerClock = 0, holdLayerLast = null;
+  function holdLayerSample(now) {
+    const name = playerHeldName(), slot = name ? assetHold(name)?.layer : null;
+    if (!slot || !GameCharacters?.clipFor) return null;
+    const id = currentCharacterVariant;
+    const key = GameCharacters.slotAnimation?.(id, slot) || slot;
+    const clip = GameCharacters.clipFor(id, key);
+    if (!clip) return null;
+    const based = (GameCharacters.animationsFor?.(id) || []).find(a => a.key === key)?.basedOn || 'idle';
+    const cycle = (STORY_CYCLE_MS.biped[based] || 1400) / 1000;
+    const sample = GameCharacters.sampleBipedClip({ family: 'biped', sparseClips: { [key]: clip } }, key, ((now / cycle) % 1 + 1) % 1, Rig);
+    if (!sample) return null;
+    const hold = Props?.holdFor?.(characterSetupFor(id), name, propHeightOf(name), characterScaleMultiplier(id));
+    return { sample, channels: HAND_CHANNELS[hold?.hand === 'far' ? 'far' : 'near'] };
+  }
+  function applyHoldLayer(pose) {
+    const now = (performance.now ? performance.now() : Date.now()) / 1000;
+    const dt = holdLayerLast == null ? 0 : Math.min(0.1, Math.max(0, now - holdLayerLast)); holdLayerLast = now;
+    const target = holdLayerSample(now);
+    if (target) holdLayerClock = target;
+    holdLayerAmount = Rig.clamp(holdLayerAmount + (target ? dt : -dt) / HOLD_LAYER_BLEND, 0, 1);
+    if (!target && holdLayerAmount <= 0) holdLayerClock = 0;
+    const use = target || holdLayerClock;
+    if (!use || !pose || holdLayerAmount <= 0) return pose;
+    const t = smooth01(holdLayerAmount), out = { ...pose };
+    for (const c of use.channels) { const a = Number(pose[c]) || 0, b = Number(use.sample[c]) || 0; out[c] = a + (b - a) * t; }
+    return out;
   }
 
   // Progress → Reset all: every collected copy back where it was, its item taken back.
