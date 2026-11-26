@@ -121,6 +121,7 @@
     "sidescroll.animlab.atlas-view.v1":                  { "area": "Settings", "scope": "local", "lab": "Character Lab", "what": "Atlas background preference" },
     "sidescroll.animlab.atlas-wires.v1":                 { "area": "Settings", "scope": "local", "lab": "Character Lab", "what": "Atlas wireframe preference" },
     "sidescroll.animlab.editor.selection.v1":            { "area": "Settings", "scope": "local", "lab": "Character Lab", "what": "Current selection (session storage)" },
+    "sidescroll.editor.recent-colours":                  { "area": "Settings", "scope": "local", "lab": "Game editor", "what": "The last 8 colours picked in the in-panel colour picker (this device)" },
     "sidescroll.editor.move-pad":                        { "area": "Settings", "scope": "local", "lab": "Game editor", "what": "Move pad mode (X·Y or X·Depth) and Fine (session storage)" },
     "sidescroll.story.timeline-view":                    { "area": "Settings", "scope": "local", "lab": "Game editor", "what": "Story timeline size (bar / half / full), collapsed or not, focus (game / timeline) and opacity (session storage)" },
     "sidescroll.puzzle-lab.ui.v1":                       { "area": "Settings", "scope": "local", "lab": "Puzzle Lab", "what": "Puzzle Lab panel state" },

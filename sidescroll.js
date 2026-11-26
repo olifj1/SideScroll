@@ -14590,7 +14590,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     if (movePadFineBtn) { movePadFineBtn.classList.toggle('active', movePadPrefs.fine); movePadFineBtn.setAttribute('aria-pressed', movePadPrefs.fine ? 'true' : 'false'); }
     if (movePadHLabel) movePadHLabel.textContent = '← X →';
     if (movePadVLabel) movePadVLabel.textContent = movePadPrefs.mode === 'xz'
-      ? (depthLocked ? 'DEPTH LOCKED (GAME LAYER)' : '↑ FURTHER · NEARER ↓')
+      ? (depthLocked ? 'DEPTH LOCKED · TURN OFF GAME LAYER' : '↑ FURTHER · NEARER ↓')
       : (t.group ? 'GROUPS MOVE IN X·DEPTH' : '↑ UP · DOWN ↓');
     if (movePadGroundBtn) {
       movePadGroundBtn.textContent = t.group ? 'TO PATH' : 'TO GROUND';

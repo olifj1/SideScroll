@@ -359,7 +359,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js`, `editor-layout.js` |
+| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js`, `editor-layout.js`, `colour-picker.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects, animation manager) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-interactions.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
@@ -380,7 +380,12 @@ the end, Delete last; `ss-overflowed`, a second row above when open). **Move pad
 sidescroll.js `setMovePadOpen` / `syncMovePad` from `updateEditorButtons`): relative drags of the selected
 object or locked World Group, X·Y / X·Depth, Fine (sessionStorage `sidescroll.editor.move-pad`), through
 `moveSelectedTransformAxis(axis, value, {live:true})` per frame and one `recordObjectEdit` when the drag
-ends (`movePadCommit`).
+ends (`movePadCommit`). **Colour picker** (`colour-picker.js`, `window.SideScrollColourPicker`): every
+`input[type=color]` on the game page gets a swatch and an inline picker under its row (hue / saturation /
+brightness bars, recent colours in localStorage `sidescroll.editor.recent-colours`, hex, Done) instead of
+iPhone's full-screen one. The input keeps the value: the picker fires `input` (once a frame while
+dragging) and `change` (on release); values set by code reach the swatch through a per-input `value`
+setter, ignored while a bar is held. New colour fields need nothing extra.
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 

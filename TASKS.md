@@ -87,6 +87,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ce. In-panel colour picker (26 Nov)** — game, Menu panels and Light node
+- [ ] Menu → Light → tap the colour swatch: no iPhone picker; a small picker opens inside the panel (hue, saturation, brightness bars, hex box, Done). Dragging a bar changes the scene's light live; the panel and the scene stay visible.
+- [ ] Done (or closing the panel) closes it; the colour is kept after a reload. Recent colours appear as small squares next time; tapping one uses it.
+- [ ] The same in Fog (colour), Post (tint) and on a selected Light node; for the Light node the new colour is kept after Done Editing and a reload.
+- [ ] Tapping the word COLOUR in a row opens the same picker (not iPhone's). Typing a hex value (e.g. FFAA33) works.
+
 **0cd. Move pad and toolbar (26 Nov)** — game editor
 - [ ] The object toolbar looks like the panels (dark, teal edge, white bold labels) and is easy to read. If the tools don't fit, the last button is **More (n)**; it opens a second row above, and using a tool there closes it.
 - [ ] Select the Light by the fireplace → **Move pad**: a pad in the bottom right above the toolbar. **X·Y**: drag left/right moves it along, up/down lifts / lowers it (a small wobble at the start of a sideways drag doesn't lift it). **X·Depth** says *depth locked* for the light. **Fine** moves it slowly. **To ground** puts it back on the floor. Position's numbers follow while you drag.
@@ -567,7 +573,7 @@ app and make a Project Backup.
 ---
 
 ## Next
-- [ ] **Editor screen zones, next steps (agreed 26 Nov; steps 1–2 and the toolbar's More done):** decide whether dragging on the scene should still move things now that the move pad exists. (3) an **in-panel colour picker** (hue bar, brightness, recent colours) for Light, light nodes, Fog and Post, instead of iPhone's full-screen one. (4) **tuck the dock** to an edge tab while placing or using the move pad; tap the tab or finish to bring it back.
+- [ ] **Editor screen zones, next steps (agreed 26 Nov; steps 1–3 and the toolbar's More done):** decide whether dragging on the scene should still move things now that the move pad exists. (4) **tuck the dock** to an edge tab while placing or using the move pad; tap the tab or finish to bring it back.
 - [ ] **Lighting, next steps (agreed 25 Nov; start simple and add; placeable point lights done 25 Nov):** a **Light** setting on any asset (e.g. a lantern; position on the picture); then **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
 - [ ] **Falling leaves effect** (idea, 24 Nov): a plane effect (like Fire) with leaves drifting down and spinning, for life in the forest — leaf colours, amount, size, fall speed, wind / sway; maybe a variant for single leaves dropping now and then. Possibly placed along the near side of the path or as a "region" overlay.
 - [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).

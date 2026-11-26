@@ -19,7 +19,8 @@ the end of `style.css`).
 - **Labels in the scene stay clear of the dock and the top strip** (`SideScrollEditorLayout.
   clearLeft()`).
 - **No system pop-ups over the scene for live edits** (iPhone's colour picker covers
-  everything): controls that preview live stay in the panel (coming: an in-panel colour picker).
+  everything): controls that preview live stay in the panel. Colours use the in-panel picker
+  (`colour-picker.js`, attached to every `input[type=color]` on the game page).
 - **Movement lives bottom right:** the move pad sits above the toolbar at the right edge
   (relative drags, X·Y / X·Depth, Fine). It moves live and saves once at the end of a drag
   (`moveSelectedTransformAxis(…, {live:true})`, then one `recordObjectEdit`).
