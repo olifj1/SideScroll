@@ -2424,28 +2424,46 @@
   function pointLightField(src) { const p = cleanPointLight(src?.pointLight); return p ? { pointLight:p } : {}; }
   const POINT_LIGHTS_MAX = 8, pointPosData = new Float32Array(POINT_LIGHTS_MAX * 4), pointColData = new Float32Array(POINT_LIGHTS_MAX * 4);
   let pointLightCount = 0;
+  // Props drawn with an asset light (sequence objects, dropped and held props) note their light
+  // here as they are drawn; the next frame's collectPointLights uses them (a frame late is fine).
+  let propLightsDrawn = [], propLightsLast = [];
+  function notePropLight(name, tr) {
+    const light = assetInteractions?.[name]?.light; if (!light) return;
+    const sx = tr.flip ? -1 : 1, lx = (light.u - 0.5) * tr.w * sx, ly = (light.v - 0.5) * tr.h;
+    const c = Math.cos(tr.rot || 0), s = Math.sin(tr.rot || 0);
+    propLightsDrawn.push({ id: `prop-${name}-${propLightsDrawn.length}`, light, x: tr.x + lx * c - ly * s, y: tr.y + lx * s + ly * c, z: tr.z });
+  }
   function collectPointLights(now) {
     pointLightCount = 0;
+    propLightsLast = propLightsDrawn; propLightsDrawn = [];
     // Point lights at 0 % (Light panel / a look): no lights at all — no scan, and the
     // shader's light loop stops at once (uPointCount 0).
     if (!(lightSettings.points > 0)) return;
     const cx = camera.x + character.screenOffsetX, seconds = now / 1000, found = [];
-    for (const obj of allSceneObjects()) {
-      if (!obj || obj.deleted || Math.abs(obj.x - cx) > 45) continue;
-      let p = null;
-      if (obj.assetName === 'light-node') p = cleanPointLight(obj.pointLight) || cleanPointLight(DEFAULT_POINT_LIGHT);
-      else {
-        const entry = lightAssets.get(obj.assetName); // older lights made in Asset Lab
-        if (entry && Effects) p = Effects.clean('light', { ...entry.art.params, ...(obj.effectParams || {}) });
-      }
-      if (!p || p.strength <= 0) continue;
-      const offset = (String(obj.id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
+    const add = (id, p, x, y, z) => {
+      if (!p || p.strength <= 0) return;
+      const offset = (String(id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)) / 97;
       const t = (seconds + offset) * p.flickerSpeed;
       const flicker = 1 - p.flicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 6.2831) * Math.sin(t * 2.3 + 1.7));
+      found.push({ d:Math.abs(x - cx), x, y, z, r:p.radius, rgb:p.color.map(c => c * p.strength * lightSettings.points * flicker) });
+    };
+    for (const obj of allSceneObjects()) {
+      if (!obj || obj.deleted || Math.abs(obj.x - cx) > 45) continue;
       const x = obj.wrap ? wrapX(obj.x, camera.x) : obj.x;
-      const y = objectYAtDrawX(obj, x) + (Number(obj.sy) || 0) * 0.5; // the marker's centre
-      found.push({ d:Math.abs(x - cx), x, y, z:Number(obj.z) || 0, r:p.radius, rgb:p.color.map(c => c * p.strength * lightSettings.points * flicker) });
+      if (obj.assetName === 'light-node') {
+        add(obj.id, cleanPointLight(obj.pointLight) || cleanPointLight(DEFAULT_POINT_LIGHT), x, objectYAtDrawX(obj, x) + (Number(obj.sy) || 0) * 0.5, Number(obj.z) || 0); // the marker's centre
+        continue;
+      }
+      const own = assetInteractions?.[obj.assetName]?.light; // Asset Lab → Light: from a point on the picture
+      if (own) {
+        const sx = Number(obj.sx) || 0, sy = Number(obj.sy) || 0;
+        add(obj.id, own, x + (own.u - 0.5) * sx * (obj.flip ? -1 : 1), objectYAtDrawX(obj, x) + own.v * sy, Number(obj.z) || 0);
+        continue;
+      }
+      const entry = lightAssets.get(obj.assetName); // older lights made in Asset Lab
+      if (entry && Effects) add(obj.id, Effects.clean('light', { ...entry.art.params, ...(obj.effectParams || {}) }), x, objectYAtDrawX(obj, x) + (Number(obj.sy) || 0) * 0.5, Number(obj.z) || 0);
     }
+    for (const l of propLightsLast) if (Math.abs(l.x - cx) <= 45) add(l.id, l.light, l.x, l.y, l.z);
     found.sort((a, b) => a.d - b.d);
     for (const l of found.slice(0, POINT_LIGHTS_MAX)) {
       const i = pointLightCount++;
@@ -19645,6 +19663,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       x: tr.x, y: tr.y, z: tr.z, sx: tr.w, sy: tr.h, sz: 1, flip: tr.flip, runtimeRotation: tr.rot,
       opacity, shade: 1, tint: tint || [1, 1, 1], layer: 'character' };
     drawObject(obj, view, { force: true, x: tr.x, y: tr.y, z: tr.z, sx: tr.w, sy: tr.h, mesh: centredBillboardMesh });
+    if (opacity >= 1) notePropLight(name, tr); // faint editor ghosts don't light
   }
   // Props a character dropped (Prop step → Drop): they fall and lie on the ground
   // where they landed (play progress `dropped` on the component that dropped them).

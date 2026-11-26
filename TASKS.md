@@ -87,6 +87,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0cg. Assets give light (26 Nov)** — Asset Lab and game
+- [ ] Asset Lab → pick an asset (e.g. a lantern) → **Gives light**: a glow, a white cross and a dashed reach circle appear on the picture. Across / Up move the cross; Reach changes the circle; Colour opens the small in-panel picker (also for effect colours).
+- [ ] In the game, every placed copy of that asset lights its surroundings from the cross (dim Menu → Light to see it), flickering if Flicker is up; Point lights at 0 % turns it off.
+- [ ] A flipped copy lights from the mirrored point. Turning Gives light off in Asset Lab stops the light (after returning to the game).
+
 **0cf. Dock tucks away (26 Nov)** — game editor
 - [ ] + Add Environment Asset → pick an asset: the left panel slides away and a **PANEL** tab sits on the left edge; the toolbar / status line start next to the tab.
 - [ ] Tap PANEL: the placing card comes back (Change Asset / Done Placing). Tap the scene to place another: the card tucks away again. Done Placing: the panel comes back and the tab goes.
@@ -580,7 +585,8 @@ app and make a Project Backup.
 
 ## Next
 - [ ] **Editor screen zones, last decision (steps 1–4 done 26 Nov):** decide whether dragging on the scene should still move things now that the move pad exists, once the pad has been used for a while.
-- [ ] **Lighting, next steps (agreed 25 Nov; start simple and add; placeable point lights done 25 Nov):** a **Light** setting on any asset (e.g. a lantern; position on the picture); then **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
+- [ ] **Carryable lantern (agreed 26 Nov; asset light done):** (2) **Hold** — an interaction beside Collect / Wear: Pick up (Inspect or Action), held in her hand with her grip from Character Lab → Props, Action puts it down on the floor where she stands; one thing at a time (no box while holding); she can climb holding it (one arm); separate from the inventory; saved in progress, Reset / Skip aware. (3) **Arm layers** — an animation marked as a layer drives only the controls it keys (e.g. the holding arm) over walk / run / idle / climb; each asset's Hold names its layer; later the box carry can move onto it.
+- [ ] **Lighting, next steps (agreed 25 Nov; start simple and add; placeable point lights and asset lights done):** **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
 - [ ] **Falling leaves effect** (idea, 24 Nov): a plane effect (like Fire) with leaves drifting down and spinning, for life in the forest — leaf colours, amount, size, fall speed, wind / sway; maybe a variant for single leaves dropping now and then. Possibly placed along the near side of the path or as a "region" overlay.
 - [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).
 - [ ] **Animation length** (polish, agreed 23 Nov): a Length (s) per animation in Character Lab, used by Character Lab, the game and sequences (today every clip is 16 key positions over its base clip's time: Idle 1.4 s, Walk 1.05 s, Run 0.65 s, Jump 0.94 s).

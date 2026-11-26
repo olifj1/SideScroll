@@ -12,6 +12,10 @@
  * collected until one is worn (`refuse` is what she says).
  * `flag`: a story flag set when it is inspected / picked up (sequence lines can
  * react). Later actions (use…) are further keys beside these.
+ * Light (26 Nov, not an action — what the asset *is*): `light: { color [r,g,b] 0–1, strength 0–3,
+ * radius m, flicker 0–1, flickerSpeed, u, v }` makes every copy glow like a placed Light node, from
+ * the point (u across, v up, 0–1) on its picture: placed copies, sequence objects, dropped props and
+ * props held in a hand.
  * Asset Lab edits it (Interactions section); the game reads it.
  */
 (() => {
@@ -41,6 +45,16 @@
     const flag = flagName(raw.flag); if (flag) out.flag = flag;
     return out;
   }
+  const LIGHT_DEFAULT = Object.freeze({ color: [1, 0.78, 0.45], strength: 1.2, radius: 4, flicker: 0.15, flickerSpeed: 3, u: 0.5, v: 0.5 });
+  function cleanLight(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const n = (x, lo, hi, f) => { const k = Number(x); return Number.isFinite(k) ? Math.min(hi, Math.max(lo, k)) : f; };
+    const d = LIGHT_DEFAULT;
+    const color = Array.isArray(raw.color) && raw.color.length >= 3 ? raw.color.slice(0, 3).map((c, i) => n(c, 0, 1, d.color[i])) : [...d.color];
+    return { color, strength: n(raw.strength, 0, 3, d.strength), radius: n(raw.radius, 0.5, 20, d.radius),
+      flicker: n(raw.flicker, 0, 1, d.flicker), flickerSpeed: n(raw.flickerSpeed, 0.2, 8, d.flickerSpeed),
+      u: n(raw.u, 0, 1, d.u), v: n(raw.v, 0, 1, d.v) };
+  }
   function cleanEntry(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const out = {};
@@ -50,6 +64,8 @@
     if (collect) out.collect = collect;
     const wear = cleanWear(raw.wear);
     if (wear) out.wear = wear;
+    const light = cleanLight(raw.light);
+    if (light) out.light = light;
     return Object.keys(out).length ? out : null;
   }
   function load() {
@@ -72,5 +88,5 @@
     try { localStorage.setItem(KEY, JSON.stringify(all)); } catch (_) {}
     return all;
   }
-  window.SideScrollInteractions = Object.freeze({ KEY, ACTIONS, load, get, set, cleanEntry, flagName });
+  window.SideScrollInteractions = Object.freeze({ KEY, ACTIONS, LIGHT_DEFAULT, load, get, set, cleanEntry, cleanLight, flagName });
 })();

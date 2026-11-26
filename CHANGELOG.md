@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Assets can give light.** Asset Lab → **Light → Gives light**: colour, strength, reach, flicker and
+  the point on the picture the light comes from (a cross and its reach drawn on the stage). Every copy
+  then glows like a placed Light — placed in the scene, as a story object, dropped, and (next) held in a
+  hand — and fades with Menu → Light → Point lights. Asset Lab's colour fields use the in-panel picker
+  too. First step of the carryable lantern.
 - **The dock tucks away (editor screen zones step 4).** While you place assets or use the move pad,
   the left panel slides off the edge and leaves a small **PANEL** tab, so nearly the whole screen is
   scene. Tap the tab to bring the panel back (e.g. for Done Placing); your next tap in the scene or on
