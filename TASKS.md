@@ -87,6 +87,13 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0cc. Editor screen zones (26 Nov)** — game editor and Menu, phone in landscape
+- [ ] Edit: the drawer is narrower (about a third of the screen). Environment / Terrain / Puzzle / Story tabs read in full; the Story tab no longer shows a stray "null".
+- [ ] **+ Add Environment Asset**: the asset browser opens *in the drawer's place* (left), not on the right; × brings the drawer back. Pick Light: the placing card is short (name on its own line, Change Asset / Done Placing below) and the scene behind it is clear.
+- [ ] Select a placed Light: its panel fills the left; the toolbar is one row of small buttons to its right, nothing hidden behind the panel. **Position** opens on top of the Light panel (same place); ‹ Back / × returns to the Light panel. The name label over the object never sits under the TEST bar or the panel.
+- [ ] Menu → Light / Fog / Post / Looks / Sound / Camera / Go to, in play and in edit: each opens on the left, the Menu list closes, and the right side of the scene stays clear.
+- [ ] World Group: Edit Group → select a member → Position: still opens in the drawer's place with ‹ Back. Puzzle and Story tabs, the story timeline and its pick-lists still work.
+
 **0cb. Point lights slider (25 Nov)**
 - [ ] Menu → **Light → Point lights**: dragging it dims / brightens every placed Light together; 0 % turns them off. It is kept after a reload.
 - [ ] Save a night look with Point lights 100 % and a day look with 0 %: a Look step (or Menu → Looks) from night to day fades the lights out along with the global light.
@@ -553,6 +560,7 @@ app and make a Project Backup.
 ---
 
 ## Next
+- [ ] **Editor screen zones, next steps (agreed 26 Nov; step 1 done):** (2) a **move pad** in the bottom right, like Asset Lab's — drag to move the selected object relative to where it is, a switch between **X·Y** (screen) and **X·Depth**, *Fine* for small moves, *Snap to ground*; the dock tucks away while it is up (on-screen dragging stays for now; decide whether to keep it once the pad is in). (3) an **in-panel colour picker** (hue bar, brightness, recent colours) for Light, light nodes, Fog and Post, instead of iPhone's full-screen one. (4) **tuck the dock** to an edge tab while placing or moving; tap the tab or finish to bring it back. (5) a **More** button on the object toolbar for rarely used tools if the row overflows.
 - [ ] **Lighting, next steps (agreed 25 Nov; start simple and add; placeable point lights done 25 Nov):** a **Light** setting on any asset (e.g. a lantern; position on the picture); then **Fire gives light** (flickering with the flames), a per-Look **Local lights** amount (lanterns only glow at night; per-light *Always on*), and maybe a story **Light** step (switch one on / off). No shadows; light passes through walls (keep radii sensible).
 - [ ] **Falling leaves effect** (idea, 24 Nov): a plane effect (like Fire) with leaves drifting down and spinning, for life in the forest — leaf colours, amount, size, fall speed, wind / sway; maybe a variant for single leaves dropping now and then. Possibly placed along the near side of the path or as a "region" overlay.
 - [ ] **Wearable props (attached assets)** (agreed 24 Nov): wear an asset rigidly on a body bone instead of skinning it into the atlas — the Props system with a bone anchor (back, chest, hips, head) instead of a hand, placed in Character Lab → Props, layered among the parts. Uses the same asset as the one in the world (no atlas work); for hats, swords, satchels. Skinned *Worn item* parts stay for things that must bend (the bag, a cloak).

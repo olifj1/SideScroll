@@ -1,5 +1,28 @@
 # SideScroll Engine & UX Bible
 
+## Screen zones: one dock, a clear scene (26 Nov 2026)
+We author on a phone in landscape, so the scene is the scarcest thing on screen. Every editor
+and Menu panel follows these rules (code: `editor-layout.js`, CSS block *Editor screen zones* at
+the end of `style.css`).
+- **Zones.** Top strip: Home / Menu on the left, the TEST bar on the right. **The dock:** one
+  rectangle on the left (`--ss-dock-w`, at most about a third of the width; the editor drawer's
+  place). **The scene:** everything else. The selected object's toolbar is one slim row along
+  the bottom of the scene, from the dock's edge to the right edge. The bottom right is kept for
+  movement controls (the move pad, next).
+- **One panel at a time, in the dock.** Anything you edit in — asset browser, Position, Floor
+  line, Thought / Camera / Light node, Light, Fog, Post, Looks, Sound, Camera, Go to — opens in
+  the dock. Opening one while another is showing puts it on top; closing it brings back the
+  one underneath (the drawer is always at the bottom). Never a panel on the right while
+  editing, and never two panels side by side. A new panel goes in `DOCK_IDS`.
+- **Size to the content when the content is small** (the placing card), so the scene behind
+  shows; long panels scroll inside the dock.
+- **Labels in the scene stay clear of the dock and the top strip** (`SideScrollEditorLayout.
+  clearLeft()`).
+- **No system pop-ups over the scene for live edits** (iPhone's colour picker covers
+  everything): controls that preview live stay in the panel (coming: an in-panel colour picker).
+- **Planned:** while placing or moving, the dock tucks to a tab on the edge and comes back
+  when you tap it or finish.
+
 ## Story: timelines inside events, graphs between them (20–21 Nov 2026)
 - An event is a straight line in time, made on its **timeline** (time left to right); the event
   page only summarises it. Branching, loops and choices live between events (a sequence's logic),

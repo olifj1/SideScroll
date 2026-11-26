@@ -96,7 +96,7 @@
       onSelect: () => { chooserKey = null; onPick(o.value); } })) });
   }
   function closeChooser() { if (chooserKey) { host.closePicker(); chooserKey = null; } }
-  const chooserBox = () => null;
+  const chooserBox = () => ''; // '' not null: some lists are append()ed directly, which would print "null"
   // After a render, scroll a newly added item into view (data-reveal).
   let reveal = null;
   const help = text => el('p', { class: 'sidescroll-story-help', text });

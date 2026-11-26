@@ -16066,3 +16066,71 @@ body[data-game-id="game-16"] .sidescroll-inventory-item.openable .sidescroll-inv
 /* Light node panel (in-game editor) */
 body[data-game-id="game-16"] .sidescroll-light-node-colour{grid-template-columns:1fr 64px;align-items:center;}
 body[data-game-id="game-16"] .sidescroll-light-node-colour input{width:64px;height:28px;padding:0;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:none;}
+
+/* ==========================================================================
+   Editor screen zones (26 Nov 2026) — the authoritative layout. Rules:
+   docs/SIDESCROLL_ENGINE_UX_BIBLE.md → Screen zones; stacking in editor-layout.js.
+   Selectors use the panels' ids so this block wins over the older layers above.
+   ========================================================================== */
+html{
+  --ss-top:max(42px,calc(env(safe-area-inset-top) + 40px));
+  --ss-edge-l:max(8px,env(safe-area-inset-left));
+  --ss-edge-r:max(8px,env(safe-area-inset-right));
+  --ss-edge-b:max(8px,env(safe-area-inset-bottom));
+  --ss-dock-w:clamp(270px,34vw,360px);
+  --ss-dock-right:0px;
+}
+/* The dock: every panel you edit in sits in one place on the left. */
+body[data-game-id="game-16"] :is(#sidescroll-editor-palette,#sidescroll-transform-editor,#sidescroll-ground-line-editor,
+  #sidescroll-thought-editor,#sidescroll-camera-node-editor,#sidescroll-light-node-editor,#sidescroll-camera-editor,
+  #sidescroll-quick-nav-panel,#sidescroll-light-panel,#sidescroll-fog-panel,#sidescroll-post-panel,#sidescroll-looks-panel,
+  #sidescroll-sound-panel).ss-docked:not([hidden]){
+  position:fixed!important;left:var(--ss-edge-l)!important;right:auto!important;top:var(--ss-top)!important;
+  bottom:var(--ss-edge-b)!important;width:var(--ss-dock-w)!important;max-width:none!important;height:auto!important;
+  max-height:none!important;min-height:0!important;margin:0!important;transform:none!important;box-sizing:border-box!important;
+  z-index:1006!important;
+}
+body[data-game-id="game-16"] :is(#sidescroll-transform-editor,#sidescroll-ground-line-editor,#sidescroll-thought-editor,
+  #sidescroll-camera-node-editor,#sidescroll-light-node-editor,#sidescroll-camera-editor,#sidescroll-quick-nav-panel,
+  #sidescroll-light-panel,#sidescroll-fog-panel,#sidescroll-post-panel,#sidescroll-looks-panel,#sidescroll-sound-panel).ss-docked:not([hidden]){
+  overflow-x:hidden!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  background:rgba(9,17,20,.96)!important;
+}
+body[data-game-id="game-16"] :is(#sidescroll-transform-editor,#sidescroll-thought-editor,#sidescroll-camera-node-editor,
+  #sidescroll-light-node-editor,#sidescroll-ground-line-editor).ss-docked p{display:block!important;}
+body[data-game-id="game-16"] .ss-docked.ss-dock-top{z-index:1008!important;}
+/* The drawer is the bottom of the dock and has the dock's size. */
+body[data-game-id="game-16"]:not(.sidescroll-puzzle-testing) #sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed){
+  left:var(--ss-edge-l)!important;top:var(--ss-top)!important;bottom:var(--ss-edge-b)!important;width:var(--ss-dock-w)!important;
+  min-width:0!important;max-width:none!important;right:auto!important;transform:none!important;
+}
+/* Panels underneath the top one keep their state but are not drawn. */
+body[data-game-id="game-16"] .ss-dock-under{visibility:hidden!important;pointer-events:none!important;}
+/* The selected object's toolbar: one slim row from the dock's edge to the right edge. */
+body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) #sidescroll-editor-controls{
+  position:fixed!important;left:calc(max(var(--ss-edge-l),var(--ss-dock-right)) + 8px)!important;right:var(--ss-edge-r)!important;
+  bottom:var(--ss-edge-b)!important;top:auto!important;width:auto!important;max-width:none!important;height:46px!important;
+  transform:none!important;gap:5px!important;padding:0 2px!important;justify-content:flex-start!important;
+}
+body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) #sidescroll-editor-controls .sidescroll-editor-tool{
+  flex:0 0 54px!important;width:54px!important;min-width:54px!important;height:46px!important;padding:2px!important;border-radius:10px!important;
+}
+body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) #sidescroll-editor-controls .sidescroll-editor-tool span{font-size:16px!important;line-height:17px!important;}
+body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) #sidescroll-editor-controls .sidescroll-editor-tool small{font-size:6.5px!important;letter-spacing:.03em!important;line-height:1.1!important;white-space:normal!important;text-align:center;}
+/* The status line sits in the scene's free area, above the toolbar, on one line. */
+body[data-game-id="game-16"].sidescroll-editing #sidescroll-hint{
+  left:calc(max(var(--ss-edge-l),var(--ss-dock-right)) + 8px)!important;right:auto!important;transform:none!important;
+  max-width:calc(100vw - max(var(--ss-edge-l),var(--ss-dock-right)) - 24px)!important;bottom:calc(var(--ss-edge-b) + 54px)!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+/* Placing: the dock is only as tall as the placing card; the asset's name gets its own line. */
+body[data-game-id="game-16"].sidescroll-placement-mode:not(.sidescroll-puzzle-testing) #sidescroll-puzzle-panel.sidescroll-editor-drawer:not(.sidescroll-drawer-collapsed){
+  bottom:auto!important;height:auto!important;max-height:calc(100vh - var(--ss-top) - var(--ss-edge-b))!important;
+}
+body[data-game-id="game-16"] #sidescroll-placement-strip:not([hidden]){display:flex!important;flex-wrap:wrap!important;gap:8px!important;}
+body[data-game-id="game-16"] #sidescroll-placement-strip .sidescroll-placement-status{flex:1 1 100%!important;min-width:0!important;display:flex!important;align-items:center!important;gap:8px!important;}
+body[data-game-id="game-16"] #sidescroll-placement-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:none!important;}
+body[data-game-id="game-16"] #sidescroll-placement-strip .sidescroll-placement-actions{flex:1 1 100%!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
+/* Scope tabs fit the narrower dock. */
+body[data-game-id="game-16"] #sidescroll-editor-scope-switch{grid-template-columns:1.45fr 1fr 1fr 1fr!important;gap:5px!important;}
+body[data-game-id="game-16"] #sidescroll-editor-scope-switch button{font-size:9px!important;letter-spacing:.02em!important;padding-left:2px!important;padding-right:2px!important;min-width:0!important;overflow:hidden;text-overflow:ellipsis;}

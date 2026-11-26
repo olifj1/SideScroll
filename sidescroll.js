@@ -13410,6 +13410,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     quickNavPanel.hidden = !next;
     quickNavBtn.setAttribute('aria-expanded', String(next));
     if (next) {
+      setStageMenuOpen(false); // the Menu list closes as the panel opens in the dock
       setAssetPaletteOpen(false);
       cameraEditMode = false;
       updateCameraEditorUi();
@@ -16717,8 +16718,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         const label = `${selectedObject.assetName}${layerLabel}${depthLabel}${placementLabel}${membershipLabel}  x ${selectedObject.x.toFixed(1)}  y ${objectFloorWorldY(selectedObject).toFixed(1)}  z ${selectedObject.z.toFixed(1)}`;
         ctx.font = '700 10px -apple-system, BlinkMacSystemFont, sans-serif';
         const tw = ctx.measureText(label).width + 14;
-        const lx = Math.max(4, Math.min(w-tw-4, b.left));
-        const ly = Math.max(42, b.top-25);
+        const clearLeft = (window.SideScrollEditorLayout?.clearLeft?.() || 0) + 6; // never under the dock
+        const lx = Math.max(Math.max(4, clearLeft), Math.min(w-tw-4, b.left));
+        const ly = Math.max(64, b.top-25); // below the top strip (Home / Menu / TEST bar)
         ctx.fillRect(lx, ly, tw, 19);
         ctx.fillStyle = '#f2f7f6';
         ctx.fillText(label, lx+7, ly+13);
