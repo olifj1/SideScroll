@@ -870,7 +870,16 @@
   const collectLabelEl = $('assetlab-collect-label'), collectDescEl = $('assetlab-collect-description'), collectFlagEl = $('assetlab-collect-flag');
   const wearOnBtn = $('assetlab-wear-on'), wearFields = $('assetlab-wear-fields'), wearHoldsBtn = $('assetlab-wear-holds');
   const wearRefuseEl = $('assetlab-wear-refuse'), wearRefuseRow = $('assetlab-wear-refuse-row'), wearFlagEl = $('assetlab-wear-flag');
-  const holdOnBtn = $('assetlab-hold-on'), holdFields = $('assetlab-hold-fields'), holdFlagEl = $('assetlab-hold-flag');
+  const holdOnBtn = $('assetlab-hold-on'), holdFields = $('assetlab-hold-fields'), holdFlagEl = $('assetlab-hold-flag'), holdLayerEl = $('assetlab-hold-layer');
+  // Arm pose: the project's own action slots (Character Lab → Settings → Actions).
+  function fillHoldLayers(current) {
+    if (!holdLayerEl) return;
+    const slots = (window.SideScrollActionSlots?.list?.() || []).filter(s => !s.builtIn);
+    const opts = [['', 'None (her animation as it is)'], ...slots.map(s => [s.id, s.name])];
+    if (current && !slots.some(s => s.id === current)) opts.push([current, 'Missing slot']);
+    holdLayerEl.replaceChildren(...opts.map(([v, t]) => Object.assign(document.createElement('option'), { value: v, textContent: t })));
+    holdLayerEl.value = current || '';
+  }
   const pressed = (btn, on) => { btn.classList.toggle('active', !!on); btn.setAttribute('aria-pressed', String(!!on)); };
   const fill = (el, v) => { if (document.activeElement !== el) el.value = v || ''; };
   function syncInteractions() {
@@ -889,6 +898,7 @@
     fill(collectLabelEl, collect?.label); fill(collectDescEl, collect?.description); fill(collectFlagEl, collect?.flag);
     const hold = entry.hold || null;
     pressed(holdOnBtn, hold); holdFields.hidden = !hold; fill(holdFlagEl, hold?.flag);
+    if (hold && document.activeElement !== holdLayerEl) fillHoldLayers(hold.layer);
     const wear = entry.wear || null;
     pressed(wearOnBtn, wear); wearFields.hidden = !wear;
     pressed(wearHoldsBtn, wear?.holdsInventory); wearRefuseRow.hidden = !wear?.holdsInventory;
@@ -921,6 +931,7 @@
     wearFlagEl.addEventListener('change', () => { saveAction('wear', { flag: wearFlagEl.value }); wearFlagEl.value = current('wear')?.flag || ''; });
     holdOnBtn.addEventListener('click', () => saveAction('hold', current('hold') ? null : {}));
     holdFlagEl.addEventListener('change', () => { saveAction('hold', { flag: holdFlagEl.value }); holdFlagEl.value = current('hold')?.flag || ''; });
+    holdLayerEl?.addEventListener('change', () => saveAction('hold', { layer: holdLayerEl.value || null }));
   }
 
   // --- Light: this asset glows (asset-interactions.js `light`) ------------------

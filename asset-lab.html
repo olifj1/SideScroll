@@ -325,6 +325,10 @@
             <span><strong>Sets story flag</strong><small>When picked up (optional)</small></span>
             <input id="assetlab-hold-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. has-lantern">
           </label>
+          <label class="assetlab-select-row">
+            <span><strong>Arm pose</strong><small>An action slot: each character's animation for it drives the holding arm</small></span>
+            <select id="assetlab-hold-layer"></select>
+          </label>
           <p class="assetlab-note">She carries it in her hand (not the bag) with the grip set in Character Lab → Props; Action puts it down on the floor in front of her. One thing at a time: no box while she holds it. If it also has Inspect, Pick up is in the Inspect view. Wear wins over Hold, Hold over Collect.</p>
         </div>
       </section>
@@ -399,8 +403,9 @@
   <script src="asset-library.js?v=1.1.76"></script>
   <script src="character-preview.js?v=1.1.83"></script>
   <script src="builtin-assets.js?v=1.1.99"></script>
-  <script src="asset-interactions.js?v=1.1.122"></script>
-  <script src="asset-lab.js?v=1.1.122"></script>
+  <script src="action-slots.js?v=1.1.123"></script>
+  <script src="asset-interactions.js?v=1.1.123"></script>
+  <script src="asset-lab.js?v=1.1.123"></script>
   <script src="colour-picker.js?v=1.1.121"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>

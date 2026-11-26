@@ -116,7 +116,11 @@ a body bone instead (TASKS → Next → *Wearable props*).
   different character holding the same axe has its own grip).
 - **Who holds what is not a character setting**: today a sequence component's *Holds* and
   the Prop event step (hold / put away / drop). Shared code: `character-props.js`.
-- **Next (planned, same data):** the player picks up and uses items — an asset offers
+- **The player holds props (built 26 Nov):** an asset with **Hold** (Asset Lab → Interactions) is picked
+  up into her hand with her grip, put down on the floor with Action, one at a time, separate from the
+  inventory. Its **Arm pose** is an action slot: each character's animation for that slot drives the
+  holding arm (that hand's controls) on top of every other animation — the first *layered* animation.
+- **Next (planned, same data):** the player uses items — an asset offers
   *Pick up* (C5: "this asset offers action X"), the player then holds it with its grip and
   the item can offer actions (e.g. *Chop* plays the slot and acts on a target). Two-handed
   holds (the far hand following the prop), more attachment points (back, belt, a
