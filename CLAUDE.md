@@ -693,7 +693,7 @@ Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
 ## Docs index (`docs/`)
 - `SIDESCROLL_ENGINE_UX_BIBLE.md` — architecture and UX rules (authoritative).
 - `CHARACTER_SYSTEM_DESIGN.md` — **agreed target** for characters: templates (instance / unique copy), actions, abilities, action paths. Read before any Character Lab work.
-- `STORY_EDITOR_UX_PLAN.md` — **proposed** (27 Nov) review and staged plan for the sequence page, Asset Lab interactions and an ⓘ Info system.
+- `STORY_EDITOR_UX_PLAN.md` — staged plan (27 Nov) for the Story editor: stages 1–2 done (tidy page, ⓘ Info, restructure); stage 3, the **sequence flow view** (a sequence as nodes in order of action, events opening their timelines), agreed and designed there; 4–6 proposed.
 - `SEQUENCE_SYSTEM_DESIGN.md` — **agreed target** (10 Nov) for story and world behaviour: sequences placed like puzzles (components + logic of *When → run event*), a game-wide events library with roles. The 8–9 Nov world characters / marks / triggers model is retired.
 - `SIDESCROLL_CHARACTER_AUTHORING.md` — Character Lab / rig / skin / animation system.
 - `SIDESCROLL_EXPORT_COVERAGE.md` — what is persisted and exported, per lab.

@@ -15,9 +15,12 @@ work (C1c, skin workflow, C4–C6). Clean-up items are small and slot in between
 ### Story editor and interactions UX (proposed 27 Nov — awaiting go-ahead per stage)
 Plan: `docs/STORY_EDITOR_UX_PLAN.md`. Start each stage in a fresh session from that doc. *(Stage 1, the tidy
 sequence page and the ⓘ Info system, and stage 2, the restructured sequence page, done 27 Nov.)*
-3. Asset Lab → Interactions: Inspect + one *When taken* choice (can't / bag / hand / worn).
-4. Flags overview (where each flag is set and read).
-5. Story map (sequence-level node graph).
+3. **Sequence flow view** (agreed 27 Nov, the main ask): a sequence's logic as nodes in order of action,
+   each event a box that opens its ⤢ Timeline, loops as return arrows; docked like the timeline. Phases
+   3a read-only, 3b live during play, 3c editing. Design: the plan → *Sequence flow view*.
+4. Asset Lab → Interactions: Inspect + one *When taken* choice (can't / bag / hand / worn).
+5. Flags overview (where each flag is set and read).
+6. Story map (sequences along the journey with the flag links between them).
 
 ### Publishing workflow (agreed 30 Oct)
 Author on the phone, then publish chosen content into the game for every player.
@@ -71,7 +74,7 @@ mesh parts and skin are the character's own; abilities come from a shared list.
 - [ ] **C4 — New Character flow:** name → rig → atlas → mesh parts → skin → animations (instance / copy each) → abilities → play-test in the lab → save → in game.
 - [ ] **C5 — Actions and abilities:** one shared ability list, editable in Character Lab and Asset Lab; **create new actions** (name, button label, animation slot) and assign them to characters; rig templates give default abilities; the game only offers actions a character has. Asset behaviours (carryable, pushable, climbable) become "this asset offers action X". First real actions: Pick Up / Put Down / Carry (grasp/release markers driving existing interaction timing). **Builds on the action slots (Settings → Action slots):** an action = a slot plus its button label and game behaviour; slots added in Settings start as "not hooked up yet" and get their behaviour here (or from an action path, C6); a character with no animation in a slot doesn't have that action. *(Climb as an editable animation done 24 Nov: the Climb action slot.)*
 - [ ] **C6 — Action paths (next, agreed 24 Nov):** generalise the climb path into an action path — action name, button label, the **action slot** it plays (so one path works for every character with an animation in that slot), and **several points** (bends: crawl into a gap and along a low tunnel; today's two-point climb paths keep working) — bound to an asset in Asset Lab or placed as a stand-alone path in the world and shown in World Lab. Example: *Crawl* through a gap. Design together with Environment Animation Path and Puzzle Logic (Later). *(Stage A, the Climb animation, done 24 Nov.)*
-- [ ] **Story node graph:** a sequence's logic as nodes and arrows (zones / Action / flags / finished events → events → flags), loops included; each event box opens its ⤢ Timeline. Later a **Choice** step (a fork at the end of an event).
+- [ ] **Story node graph:** now stage 3 of the Story editor plan (*Sequence flow view*, above). Later a **Choice** step (a fork at the end of an event).
 - [ ] **Props — next steps** (design: `docs/CHARACTER_SYSTEM_DESIGN.md` → Props): the **player** picks up and uses items with the same grips (an asset offers *Pick up*, a held item offers actions such as *Chop*; fits C5); the far hand following a two-handed grip; more attachment points (back, belt, a quadruped's mouth); Character Lab's Props list shows only a few built-in assets (plus every imported one) — list all built-in assets if needed.
 - [ ] **Character packages for templates:** exports carry (or reference) linked templates; importing a shared template lists the characters it affects. *(with C2/C3)*
 
