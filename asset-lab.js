@@ -875,7 +875,7 @@
   function fillHoldLayers(current) {
     if (!holdLayerEl) return;
     const slots = (window.SideScrollActionSlots?.list?.() || []).filter(s => !s.builtIn);
-    const opts = [['', 'None (her animation as it is)'], ...slots.map(s => [s.id, s.name])];
+    const opts = [['', 'None (the character’s own animation)'], ...slots.map(s => [s.id, s.name])];
     if (current && !slots.some(s => s.id === current)) opts.push([current, 'Missing slot']);
     holdLayerEl.replaceChildren(...opts.map(([v, t]) => Object.assign(document.createElement('option'), { value: v, textContent: t })));
     holdLayerEl.value = current || '';

@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.126">
+  <link rel="stylesheet" href="style.css?v=1.1.128">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -279,7 +279,7 @@
             <input id="assetlab-inspect-title" type="text" maxlength="80" autocomplete="off">
           </label>
           <label class="assetlab-select-row assetlab-text-row assetlab-textarea-row">
-            <span><strong>Text</strong><small>What she sees, or what it says</small></span>
+            <span><strong>Text</strong><small>What the player sees, or what it says</small></span>
             <textarea id="assetlab-inspect-text" rows="4" maxlength="2000"></textarea>
           </label>
           <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-large" aria-pressed="false">Show large on screen</button></div>
@@ -307,17 +307,17 @@
         </div>
         <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-wear-on" aria-pressed="false">Wear</button></div>
         <div id="assetlab-wear-fields" class="assetlab-interaction-fields" hidden>
-          <p class="assetlab-note">Picked up, she puts it on instead of carrying it: it leaves the world, and the character's part marked with this asset (Character Lab → Skin → <em>Worn item</em>) shows on her. It never goes in the inventory. Wear wins over Collect.</p>
+          <p class="assetlab-note">Picked up, the player puts it on instead of carrying it: it leaves the world, and the character's part marked with this asset (Character Lab → Skin → <em>Worn item</em>) shows on the player. It never goes in the inventory. Wear wins over Collect.</p>
           <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-wear-holds" aria-pressed="false">Holds the inventory</button></div>
           <label class="assetlab-select-row assetlab-text-row" id="assetlab-wear-refuse-row">
-            <span><strong>Nothing to carry it in</strong><small>What she says before it's worn</small></span>
+            <span><strong>Nothing to carry it in</strong><small>What the player says before it's worn</small></span>
             <input id="assetlab-wear-refuse" type="text" maxlength="120" autocomplete="off" placeholder="I've nothing to carry that in.">
           </label>
           <label class="assetlab-select-row assetlab-text-row">
             <span><strong>Sets story flag</strong><small>When put on (optional)</small></span>
             <input id="assetlab-wear-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. has-bag">
           </label>
-          <p class="assetlab-note">Holds the inventory: until she wears it (or another asset with this on), she can't pick anything up and the Items button stays hidden.</p>
+          <p class="assetlab-note">Holds the inventory: until the player wears it (or another asset with this on), nothing can be picked up and the Items button stays hidden.</p>
         </div>
         <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-hold-on" aria-pressed="false">Hold (carry in hand)</button></div>
         <div id="assetlab-hold-fields" class="assetlab-interaction-fields" hidden>
@@ -329,7 +329,7 @@
             <span><strong>Arm pose</strong><small>An action slot: each character's animation for it drives the holding arm</small></span>
             <select id="assetlab-hold-layer"></select>
           </label>
-          <p class="assetlab-note">She carries it in her hand (not the bag) with the grip set in Character Lab → Props; Action puts it down on the floor in front of her. One thing at a time: no box while she holds it. If it also has Inspect, Pick up is in the Inspect view. Wear wins over Hold, Hold over Collect.</p>
+          <p class="assetlab-note">The player carries it in hand (not the bag) with the grip set in Character Lab → Props; Action puts it down on the floor in front of the player. One thing at a time: no box while holding it. If it also has Inspect, Pick up is in the Inspect view. Wear wins over Hold, Hold over Collect.</p>
         </div>
       </section>
 
@@ -405,7 +405,7 @@
   <script src="builtin-assets.js?v=1.1.99"></script>
   <script src="action-slots.js?v=1.1.123"></script>
   <script src="asset-interactions.js?v=1.1.123"></script>
-  <script src="asset-lab.js?v=1.1.123"></script>
+  <script src="asset-lab.js?v=1.1.128"></script>
   <script src="colour-picker.js?v=1.1.121"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>

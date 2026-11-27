@@ -13,9 +13,8 @@ Current focus: the **intro sequence** (its stages below, in order). Then the cha
 work (C1c, skin workflow, C4–C6). Clean-up items are small and slot in between.
 
 ### Story editor and interactions UX (proposed 27 Nov — awaiting go-ahead per stage)
-Plan: `docs/STORY_EDITOR_UX_PLAN.md`. Start each stage in a fresh session from that doc.
-1. Tidy the sequence page: add buttons wrap; full-height collapsible component list, name-only
-   rows; ⓘ Info system (`editor-help.js`) replacing inline help; neutral wording (no she / her).
+Plan: `docs/STORY_EDITOR_UX_PLAN.md`. Start each stage in a fresh session from that doc. *(Stage 1, the tidy
+sequence page and the ⓘ Info system, done 27 Nov.)*
 2. Restructure the sequence page: header + ⋯ menu; component / line editors as their own page;
    logic lines as sentence cards; event placeholders fill themselves.
 3. Asset Lab → Interactions: Inspect + one *When taken* choice (can't / bag / hand / worn).
@@ -96,6 +95,16 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0cl. Tidy Story tab and ⓘ Info (27 Nov)** — Story editor, phone in landscape
+- [ ] Open a sequence: + Character / + Mark / + Zone sit on one row and + Object / + Barrier on a second, the words full size. Event page: the three *+ … placeholder* buttons sit side by side, each label on two lines.
+- [ ] Components: each row is just the icon and name, all the same height, no grey detail; with many components the list just gets longer (the drawer scrolls, never a little box inside it).
+- [ ] Tap **▾ COMPONENTS · n**: the list and its add buttons fold away (▸); tap again: back. Same for Logic. Open another sequence, or leave the Story tab and come back: still folded.
+- [ ] Tap the small gold **i** next to COMPONENTS: a dark card with a gold left edge drops in under the title. Tap the i again: it closes. Open it again and tap the × on the card, then the scene, then another button in the drawer: each closes it. The i should be easy to hit with a thumb (it reacts slightly outside its circle).
+- [ ] No grey explanation paragraphs left: open a Character (i on Standing animation, Holds, Blocks the player), a Barrier (i on Blocks; the field reads *The player thinks (on walking into it)*), an Object (i on *Hidden at the start*, which doesn't tick the box, and on *Can be taken*; *Until then the player thinks*). Logic → *Fill in the event's placeholders* has an i.
+- [ ] An event's timeline → tap a Camera / Screen / Look / Wait for Action / Prop / Object / Effect step: the side sheet's title has an i with that step's explanation; *Starts at* has one too. Typing in the sheet doesn't throw the open card away for good (it may close when you tap a field).
+- [ ] An event opened from a sequence's *Open “…”*: the back button reads *‹ <sequence name>* and returns there.
+- [ ] Nowhere in the Story tab, Asset Lab → Interactions or Character Lab → Skin → Worn item says she / her.
 
 **0ck. Barriers and multi-flag conditions (27 Nov)** — Story editor
 - [ ] A sequence Object → **Rotate**: the slider turns it about its centre as you drag (+ = clockwise) and it stays turned after Save and in ▶ Play.
