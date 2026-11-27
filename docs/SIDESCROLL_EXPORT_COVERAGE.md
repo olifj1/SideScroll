@@ -64,7 +64,7 @@
 
 ## 13 November 2026 — Player start; World Lab moves sequences
 - New content key `sidescroll.world.player-start.v1` (World area; `{x, facing}`): set by World Lab's START flag, read by the game when there is no saved player position. Publishes with the World area; in Project Backup.
-- `sidescroll.story.sequences.v1` components may be kind `barrier` (`dx`, `active` condition, `say`), and conditions may list several flags (`flags`, `match`). Object components may carry `takeWhen` (condition) and `notYet`. Same key and area; no new storage.
+- `sidescroll.story.sequences.v1` components may be kind `barrier` (`dx`, `active` condition, `say`), and conditions may list several flags (`flags`, `match`). Object components may carry `takeWhen` (condition), `notYet` and `rotate` (°). Same key and area; no new storage.
 - World Lab now writes `sidescroll.story.sequences.v1` (a placed sequence's anchor `x`) and shifts the matching component positions in this device's `sidescroll.player.story-progress.v2`.
 
 ## 12 November 2026 — Imported assets

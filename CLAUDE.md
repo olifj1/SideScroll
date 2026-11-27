@@ -422,15 +422,17 @@ previous step), background (don't wait: the next beat starts while it runs; the 
 it has finished too — `run.background` in `advanceSequenceRuns`), actor/to/target (role ids; a
 Say step's actor may be `Seq.PLAYER` = the player, named by `storyPlayerName()`), …}]}]`) and `sidescroll.story.sequences.v1`
 (`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
-body = `{components:[{id c-…, kind 'character'|'mark'|'zone'|'object', name, dx (from the anchor), depth,
-facing, character, animation (action slot), scale, blocks, holding? | width | asset, size, lift (m), rotate (°, + clockwise), startHidden}], logic:[{id l-…, when:{type
+body = `{components:[{id c-…, kind 'character'|'mark'|'zone'|'object'|'barrier', name, dx (from the anchor), depth,
+facing, character, animation (action slot), scale, blocks, holding? | width | asset, size, lift (m), rotate (°, + clockwise), startHidden, takeWhen?, notYet? | active?, say?}], logic:[{id l-…, when:{type
 (Seq.WHEN: load, enter, action, finish, flag), zone, label, line, flag}, event, roles:{role id:
 component id}, condition?, once}]}`; `Seq.bodyOf` gives a placed sequence's body). A **condition**
 (a line's `condition`, a barrier's `active`) is `{flag, when 'set'|'unset'}` or, for several flags,
 `{flags:[…], match 'all'|'any', when}` (`Seq.normaliseCondition` / `conditionMet` / `conditionFlags`;
-unset + any = "until all are set"). **Barrier** components (kind `barrier`, `dx`, `active?`, `say?`)
-are invisible walls (an Object component's `takeWhen` condition + `notYet` text gate taking it: `seqTakeRefusal`, checked in `openInspect` and `collectTarget`); barriers: `resolveSequenceBarriers` (after `resolveWorldCharacterBlocking`) keeps the player
-on her side while `active` holds and shows `say` as a thought (throttled 4 s). Editor: `conditionField`. Animations in
+unset + any = "until all are set"; editor: `conditionField`). **Barrier** components (kind `barrier`, `dx`,
+`active?`, `say?`) are invisible walls: `resolveSequenceBarriers` (after `resolveWorldCharacterBlocking`) keeps
+the player on their side while `active` holds and shows `say` as a thought (throttled 4 s). An **Object**
+component's `takeWhen` condition and `notYet` text gate picking it up / putting it on (`seqTakeRefusal`,
+checked in `openInspect` and `collectTarget`). Animations in
 events and components are **action slots**: each character plays its own animation for the slot.
 The game's runtime (`sidescroll.js`: `updateWorldCharacters`, `drawWorldCharacters`,
 `resolveWorldCharacterBlocking`, `updateStoryTriggers` → `seqFireLine` / `advanceSequenceRuns` /
