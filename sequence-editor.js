@@ -123,7 +123,7 @@
     for (const e of draft.events) for (const s of e.steps) if (s.type === 'flag' && s.flag) out.add(s.flag);
     for (const b of [...draft.templates.map(t => t.body), ...draft.placed.map(p => p.body).filter(Boolean)])
       { for (const l of b.logic) { for (const f of Seq.conditionFlags(l.condition)) out.add(f); if (l.when?.flag) out.add(l.when.flag); }
-        for (const c of b.components) if (c.kind === 'barrier') for (const f of Seq.conditionFlags(c.active)) out.add(f); }
+        for (const c of b.components) for (const f of [...Seq.conditionFlags(c.active), ...Seq.conditionFlags(c.takeWhen)]) out.add(f); }
     // Flags set by inspecting / picking up assets (Asset Lab → Interactions).
     for (const entry of Object.values(window.SideScrollInteractions?.load() || {})) for (const a of Object.values(entry)) if (a?.flag) out.add(a.flag);
     return [...out].filter(Boolean).sort();
@@ -438,7 +438,10 @@
       slider(c, 'lift', 0, 5, 0.01, 'Lift above the ground', 2, ' m'),
       el('label', { class: 'sidescroll-story-check' }, el('input', { type: 'checkbox', checked: !!c.startHidden, onchange: ev => { if (ev.target.checked) c.startHidden = true; else delete c.startHidden; change(); } }),
         'Hidden at the start (an Object step shows it)'),
-      help('Events change it with an Object step: give the event an object placeholder and fill it with this object in a logic line.'));
+      help('Events change it with an Object step: give the event an object placeholder and fill it with this object in a logic line.'),
+      conditionField(c, 'takeWhen', 'Can be taken', ['Always', 'While flag is set', 'While flag is not set']),
+      ...(c.takeWhen ? [field('Until then she thinks', textInput(c, 'notYet', 160)),
+        help('For an asset she can pick up or put on (Asset Lab → Interactions). Until the condition holds, Inspect still shows it but without Pick up, and adds this line (or she just thinks it).')] : []));
     if (c.kind === 'character') parts.push(
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Character' }),
         el('div', { class: 'sidescroll-seq-item' }, el('div', { class: 'sidescroll-seq-current', text: characterName(c.character) }),
@@ -580,7 +583,7 @@
           el('button', { type: 'button', class: c.id === view.component ? 'active' : '',
             onclick: () => { view.component = view.component === c.id ? null : c.id; placeMode = null; syncSelection(); render(); } },
             el('strong', { text: `${KIND_ICON[c.kind]} ${c.name}` }),
-            el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : c.kind === 'barrier' ? barrierSummary(c) : c.kind === 'object' ? `${propLabel(c.asset)}${c.startHidden ? ' · hidden at first' : ''}` : `${fmt(p.x + c.dx)} m` })),
+            el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : c.kind === 'barrier' ? barrierSummary(c) : c.kind === 'object' ? `${propLabel(c.asset)}${c.startHidden ? ' · hidden at first' : ''}${c.takeWhen ? ' · taken later' : ''}` : `${fmt(p.x + c.dx)} m` })),
           xBtn(() => removeComponent(body, c), `Remove ${c.name}`))))
           : help('Nothing yet. Add characters, marks (spots to walk to), zones (where the player sets things off), objects (any asset: a note, the food, a chopping block) and barriers (invisible walls that hold her back until a flag is set).'),
         comp ? componentEditor(p, body, comp) : null),

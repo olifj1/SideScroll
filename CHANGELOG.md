@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Objects that can be taken later (sequences).** A sequence Object has **Can be taken** (always / while
+  flags are set / while not set) and *Until then she thinks*. Until then, Inspect shows it without Pick up /
+  Put on and adds that line; without Inspect she just thinks it. E.g. a broken bag on a hook, taken once
+  Father sets `bag-fixed`.
+- **Thought bubbles keep their size in editor ▶ Play** (they were stretched to fill the screen).
 - **Barriers and conditions on several flags (sequences).** Story → **+ Barrier** places an invisible
   wall on the path that stops the player while its *Blocks* condition holds (always, while flags are set,
   or until they are set), with an optional thought when she walks into it. A line's *Only* and a barrier's
