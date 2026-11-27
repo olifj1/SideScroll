@@ -423,7 +423,7 @@ it has finished too — `run.background` in `advanceSequenceRuns`), actor/to/tar
 Say step's actor may be `Seq.PLAYER` = the player, named by `storyPlayerName()`), …}]}]`) and `sidescroll.story.sequences.v1`
 (`{templates:[{id sqt-…, name, body}], placed:[{id sq-…, name, x (anchor), template | body}]}`,
 body = `{components:[{id c-…, kind 'character'|'mark'|'zone'|'object', name, dx (from the anchor), depth,
-facing, character, animation (action slot), scale, blocks, holding? | width | asset, size, lift (m), startHidden}], logic:[{id l-…, when:{type
+facing, character, animation (action slot), scale, blocks, holding? | width | asset, size, lift (m), rotate (°, + clockwise), startHidden}], logic:[{id l-…, when:{type
 (Seq.WHEN: load, enter, action, finish, flag), zone, label, line, flag}, event, roles:{role id:
 component id}, condition?, once}]}`; `Seq.bodyOf` gives a placed sequence's body). A **condition**
 (a line's `condition`, a barrier's `active`) is `{flag, when 'set'|'unset'}` or, for several flags,
