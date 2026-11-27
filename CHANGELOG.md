@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Frame it clears the screen.** While framing a story camera shot, the editor panel tucks behind the
+  PANEL tab and the Jump / Action / movement controls hide, so the shot is all you see. PANEL brings the
+  panel back; the framing bar's new **Controls** button brings the controls back. Done / Cancel restore both.
 - **Arm pose for held props (lantern step 3).** Asset Lab → Hold → **Arm pose** picks an action slot
   (make one in Character Lab → Settings → Actions, e.g. *Hold lantern*, and give each character an
   animation for it). While she holds that prop, her animation for the slot drives the holding arm (the

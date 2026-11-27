@@ -404,7 +404,9 @@ brightness bars, recent colours in localStorage `sidescroll.editor.recent-colour
 iPhone's full-screen one. The input keeps the value: the picker fires `input` (once a frame while
 dragging) and `change` (on release); values set by code reach the swatch through a per-input `value`
 setter, ignored while a bar is held. New colour fields need nothing extra. **Tuck:** while the body has
-`sidescroll-placement-mode` or `ss-pad-open` (not in puzzle testing or with the story timeline open),
+`sidescroll-placement-mode` or `ss-pad-open` (not in puzzle testing or with the story timeline open), or
+`ss-framing` (Frame it, `seqFrameShot`: also hides the touch controls unless `ss-framing-controls`, the
+framing bar's Controls button),
 `editor-layout.js` adds `ss-dock-tucked` (the dock slides off the left edge) and shows `#sidescroll-dock-tab`;
 the tab sets a peek (dock back), a tap on the canvas or pad surface clears it; `--ss-dock-right` is then the
 tab's edge. Other modes that need the whole scene can join `tuckState()`.

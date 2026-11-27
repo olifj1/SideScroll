@@ -111,8 +111,9 @@
   }
   function tuckState() {
     const b = document.body.classList;
-    const wanted = !b.contains('sidescroll-puzzle-testing') && !b.contains('sidescroll-tl-open')
-      && (b.contains('sidescroll-placement-mode') || b.contains('ss-pad-open'));
+    // Frame it (story camera) tucks it too, even with the timeline open.
+    const wanted = !b.contains('sidescroll-puzzle-testing') && (b.contains('ss-framing')
+      || (!b.contains('sidescroll-tl-open') && (b.contains('sidescroll-placement-mode') || b.contains('ss-pad-open'))));
     if (wanted && !tuckWanted) peek = false; // a new placing / pad session starts tucked
     tuckWanted = wanted;
     return wanted && !peek;
@@ -121,7 +122,7 @@
   document.addEventListener('pointerdown', e => {
     if (!tuckWanted || !peek) return;
     const t = e.target;
-    if (t?.closest?.('#sidescroll-canvas, #sidescroll-editor-overlay, #sidescroll-move-pad-surface')) { peek = false; schedule(); }
+    if (t?.closest?.('#sidescroll-canvas, #sidescroll-editor-overlay, #sidescroll-move-pad-surface, .sidescroll-frame-overlay')) { peek = false; schedule(); }
   }, true);
 
   let order = []; // docked panels that are showing, oldest first; the last one is on top

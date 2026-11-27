@@ -87,6 +87,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0cj. Frame it clears the screen (27 Nov)** — Story editor
+- [ ] Timeline → a Camera step → 📷 Frame it: the left panel slides away (PANEL tab on the left edge) and Jump / Action / the movement slider disappear; drag / pinch frame the shot as before.
+- [ ] **Controls** on the framing bar brings the controls back (and hides them again); PANEL brings the panel back; a drag on the view tucks the panel again.
+- [ ] Done / Cancel: panel, timeline and controls are as they were.
+
 **0ci. Arm pose for the lantern (26 Nov)** — Character Lab, Asset Lab, game
 - [ ] Character Lab → Settings → Actions: add **Hold lantern**. Animate: New animation (e.g. from Idle) → pose the arm that holds the lantern (her grip's hand in Props) up and forward; assign it to Hold lantern. Settings now says Hold lantern is *in the game* once the lantern uses it.
 - [ ] Asset Lab → the lantern → Hold → **Arm pose: Hold lantern**.

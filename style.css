@@ -16253,3 +16253,13 @@ body[data-game-id="game-16"] .ss-dock-tab{
 body[data-game-id="game-16"] .ss-dock-tab[hidden]{display:none!important;}
 body[data-game-id="game-16"] .ss-dock-tab span{font-size:20px;line-height:1;color:#8ddfd2;font-weight:800;}
 body[data-game-id="game-16"] .ss-dock-tab small{writing-mode:vertical-rl;transform:rotate(180deg);font:800 8px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.14em;color:#d9ebe7;}
+
+/* Frame it (story camera): the touch controls and the timeline's rail step aside; the framing bar's
+   Controls button brings the controls back (ss-framing-controls). The dock tucks (editor-layout.js). */
+body[data-game-id="game-16"].ss-framing:not(.ss-framing-controls) :is(#sidescroll-secondary-controls,#sidescroll-play-controls){
+  display:none!important;
+}
+body[data-game-id="game-16"].ss-framing:not(.ss-framing-controls) .sidescroll-tl-rail{opacity:.35;}
+body[data-game-id="game-16"].ss-framing.ss-framing-controls :is(#sidescroll-secondary-controls,#sidescroll-play-controls){z-index:1013!important;}
+body[data-game-id="game-16"] .sidescroll-frame-bar .sidescroll-frame-controls.active{background:rgba(70,160,146,.34);border-color:#8ddfd2;color:#bff6ec;}
+body[data-game-id="game-16"].ss-framing .ss-dock-tab{z-index:1015;}
