@@ -2005,5 +2005,7 @@
     else { syncSelection(); render(); }
   }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
-  window.SideScrollSequenceEditor = Object.freeze({ dirty: () => dirty, draft: () => clone(draft), save: saveDraft, view: () => ({ ...view }) });
+  window.SideScrollSequenceEditor = Object.freeze({ dirty: () => dirty, draft: () => clone(draft), save: saveDraft, view: () => ({ ...view }),
+    // The ⚑ Progress window's “Where each flag is used…”: the Flags page (optionally on one flag).
+    openFlags: flag => { if (timeline.open) closeTimeline(); open('list', null, { tab: 'flags', flag: flag || null }); } });
 })();

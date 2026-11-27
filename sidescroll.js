@@ -22503,6 +22503,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       root.append(row);
     }
     root.append(make('div', 'sidescroll-editor-asset-group', 'Story flags (tap to set / clear)'));
+    // Where each flag is set and read: the Story tab's Flags page (Story editor, stage 5).
+    if (window.SideScrollSequenceEditor?.openFlags) root.append(button('Where each flag is used…', () => {
+      setAssetPaletteOpen(false);
+      if (editorPlayTest) setEditorPlayTest(false);
+      document.getElementById('sidescroll-scope-story')?.click();
+      window.SideScrollSequenceEditor.openFlags();
+    }, 'sidescroll-progress-flagsmap'));
     const flags = knownStoryFlags();
     const chips = make('div', 'sidescroll-progress-flags');
     if (!flags.length) root.append(make('p', 'sidescroll-progress-help', 'No story flags yet.'));

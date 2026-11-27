@@ -147,7 +147,9 @@ Character Lab's scene objects).
 **Asset interactions** (`asset-interactions.js`, `window.SideScrollInteractions`, key
 `sidescroll.asset-interactions.v1`, Assets area): what the player can do to an asset, per asset name —
 `{inspect: {title, text, large, flag?}, collect: {label, description, flag?}, wear: {holdsInventory,
-refuse, flag?}}`; later actions (use…) sit beside them. Asset Lab → **Interactions** (`syncInteractions` / `saveAction`). Game (`sidescroll.js`):
+refuse, flag?}}`; later actions (use…) sit beside them. Asset Lab → **Interactions** (`syncInteractions` / `saveAction`;
+Inspect + one *When taken* choice `chooseTake('none'|'collect'|'hold'|'wear')`, which writes only that action, carries its
+flag over and removes the other two; older data with several shows the winner, Wear > Hold > Collect, and a note). Game (`sidescroll.js`):
 `assetInteractions` / `assetInspect` / `assetCollect` are read beside `INVENTORY_ITEM_DEFS` (reloaded on
 `storage` / visibility); `nearestInspectable()` (placed copies via `allSceneObjects()` and visible
 sequence objects with either action, within the player's radius + 0.45 m and 2.5 m of the path) draws
@@ -377,7 +379,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `editor-help.js`, `sequence-editor.js`, `editor-layout.js`, `colour-picker.js` |
+| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `editor-help.js`, `story-flow.js`, `sequence-editor.js`, `editor-layout.js`, `colour-picker.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects, animation manager) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-interactions.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
@@ -425,6 +427,17 @@ then Components (rows → `componentPage`) and Logic (sentence cards from `lineS
 `view.returnLine`). `autoFill(body, line)` fills an empty placeholder with the same-named or only component of
 its kind (run when a line's event is chosen, a component is added, and on opening a sequence or line page via
 `autoFillSequence`, with a hint); it never changes a chosen one. A tap on a component in the scene opens its page.
+**Flow view, story map, flags** (stages 3, 5, 6): `story-flow.js` (`window.SideScrollStoryFlow`, pure) builds
+`sequenceGraph(body, ctx)` (nodes: trigger / event = one per logic line / flag / wait; edges run, sets, clears, when,
+finish, only, waits), `layout(graph)` (columns = longest path over the ranking edges, back edges found by a DFS from
+the roots become loop arrows under the rows; rows = threads, roots ordered start → zones along the path),
+`flagIndex(story, ctx)` (flag → sets [Flag steps with `runIn` lines, interactions] / reads [when, only, barrier, take])
+and `storyGraph` (placed sequences + flag links). The timeline's layer has `timeline.mode` 'event' | 'flow' | 'map'
+(`renderFlow` / `renderMap`, shared shell `mountLayer` / `afterMount` / `layerChrome`); event box → `flowToEvent`
+(`timeline.flowReturn` gives the timeline ‹ Flow); panel pages close the layer (`flowToPanel`). 3b: `host.flowState(placedId)`
+→ {playing, paused, runs:[{line, clock}], flags, fired} polled by `syncFlowLive` each frame. 3c: `flowAddLine(p, when)`.
+Story tab → **Flags** (`flagsPage`; `view.flag` focuses one); ⚑ Progress → *Where each flag is used…* →
+`SideScrollSequenceEditor.openFlags()`. Nothing here is stored (zoom is in memory).
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 
@@ -693,7 +706,7 @@ Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
 ## Docs index (`docs/`)
 - `SIDESCROLL_ENGINE_UX_BIBLE.md` — architecture and UX rules (authoritative).
 - `CHARACTER_SYSTEM_DESIGN.md` — **agreed target** for characters: templates (instance / unique copy), actions, abilities, action paths. Read before any Character Lab work.
-- `STORY_EDITOR_UX_PLAN.md` — staged plan (27 Nov) for the Story editor: stages 1–2 done (tidy page, ⓘ Info, restructure); stage 3, the **sequence flow view** (a sequence as nodes in order of action, events opening their timelines), agreed and designed there; 4–6 proposed.
+- `STORY_EDITOR_UX_PLAN.md` — staged plan (27 Nov) for the Story editor: 1 tidy page + ⓘ Info, 2 restructure, 3 the **sequence flow view** (design there), 4 Asset Lab interactions, 5 flags overview, 6 story map — all built.
 - `SEQUENCE_SYSTEM_DESIGN.md` — **agreed target** (10 Nov) for story and world behaviour: sequences placed like puzzles (components + logic of *When → run event*), a game-wide events library with roles. The 8–9 Nov world characters / marks / triggers model is retired.
 - `SIDESCROLL_CHARACTER_AUTHORING.md` — Character Lab / rig / skin / animation system.
 - `SIDESCROLL_EXPORT_COVERAGE.md` — what is persisted and exported, per lab.

@@ -2,7 +2,10 @@
 
 Stage 1 **done** (27 Nov: wrapping add buttons, full-height foldable name-only component list, ⓘ Info in
 `editor-help.js`, neutral wording). Stage 2 **done** (27 Nov: header + ⋯, component and line pages, sentence
-lines, placeholders that fill themselves). Stage 3, the **sequence flow view**, agreed 27 Nov (design below); stages 4–6 proposed, **not yet agreed**. Covers the Story tab's sequence page, Asset Lab → Interactions,
+lines, placeholders that fill themselves). Stages 3–6 **built** 27 Nov in one PR for a single review (the user asked for every stage before feedback): the
+**sequence flow view** (3a–3c, design below), Asset Lab → Interactions, the flags overview and the story map.
+As built: 3c adds lines with **+** buttons (on triggers, event boxes and flags) rather than by dragging from a box;
+Inspect keeps its own flag beside the one *When taken* flag; the story map is a mode of the same docked layer. Covers the Story tab's sequence page, Asset Lab → Interactions,
 and a shared Info (ⓘ) system. Each stage is a separate PR; get the user's go-ahead per stage.
 
 ## What's wrong today

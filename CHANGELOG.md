@@ -4,6 +4,17 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Sequence flow view.** ⤢ Flow on a sequence shows it as nodes in the order things happen: what the
+  player does → one box per logic line (its event, length and a strip of its timeline) → the flags it sets
+  → the lines those set off; loops are return arrows, *only while* and things waiting for a flag dashed.
+  Docked over the game like the timeline (same sizes, focus, opacity). Tap an event box for its timeline
+  (‹ Flow back), ✎ for its line, + to add a line after a trigger, event or flag (its event chosen there).
+  Live during ▶ Play: the running event glows with its playhead, flags light up, fired lines dim.
+- **Flags overview.** Story tab → Flags: every flag with what sets it and what waits for it, each a link;
+  also from ⚑ Progress → *Where each flag is used…*.
+- **Story map.** Sequences → ⤢ Story map: every sequence along the journey, linked by the flags between them.
+- **Asset Lab → Interactions** is Inspect plus one *When taken* choice (Can't / Into the bag / In the hand /
+  Worn) with one *Sets story flag*; explanations behind ⓘ. Saved data format unchanged.
 - **Story tab, sequence page restructured.** A header with the name, **▶ Play** and **⋯** (anchor, move,
   show, template, delete). Tapping a component or a logic line opens it as its own page (‹ Back names the
   sequence; an event opened from a line goes back to that line). Logic lines read as sentences, e.g.

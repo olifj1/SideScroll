@@ -21,6 +21,12 @@ Agreed from `docs/STORY_EDITOR_UX_PLAN.md` (stage 1, first applied to the Story 
   where it returns to), never inline under the list. A list row that stands for a rule reads as a
   **sentence** (a sequence's logic line: *When the player enters Cabin door → Father leaves (Father, Door)*),
   with anything still to choose in amber.
+- **Each kind of thing gets the view that fits it** (27 Nov): an event runs in time → a timeline; a sequence
+  happens in an order (zones along the path, then what they set off) → a flow laid out in order of action,
+  loops as return arrows; the whole story → a map along the journey linked by flags. All three are views of
+  the same saved logic (nothing extra stored) and share one docked layer (sizes, focus, opacity, collapse).
+- **One choice, not overlapping switches:** where the game applies only one of several options (taking an
+  asset: bag / hand / worn), the editor offers one choice and writes only that one.
 - **Fill in what is obvious:** a placeholder with exactly one fitting choice (or one of the same name) fills
   itself, with a hint saying so; a choice the author made is never changed.
 
