@@ -12,6 +12,16 @@ Last reviewed: 24 November 2026 (intro sequence is the current focus; objects, I
 Current focus: the **intro sequence** (its stages below, in order). Then the character
 work (C1c, skin workflow, C4–C6). Clean-up items are small and slot in between.
 
+### Story editor and interactions UX (proposed 27 Nov — awaiting go-ahead per stage)
+Plan: `docs/STORY_EDITOR_UX_PLAN.md`. Start each stage in a fresh session from that doc.
+1. Tidy the sequence page: add buttons wrap; full-height collapsible component list, name-only
+   rows; ⓘ Info system (`editor-help.js`) replacing inline help; neutral wording (no she / her).
+2. Restructure the sequence page: header + ⋯ menu; component / line editors as their own page;
+   logic lines as sentence cards; event placeholders fill themselves.
+3. Asset Lab → Interactions: Inspect + one *When taken* choice (can't / bag / hand / worn).
+4. Flags overview (where each flag is set and read).
+5. Story map (sequence-level node graph).
+
 ### Publishing workflow (agreed 30 Oct)
 Author on the phone, then publish chosen content into the game for every player.
 Publishing: Publish Lab → package → upload it to `publish/` on github.com → the
