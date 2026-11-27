@@ -15,10 +15,11 @@
     'story.progress': { title: 'Story progress', text: 'Reset story (TEST bar, top right) clears flags, fired lines and what events changed, as for a new player.' },
 
     // ---- Sequence page ----
+    'seq.more': { title: 'More', text: 'Moving the sequence (by tap, by the numbers or to the view’s centre), Show, saving it as a template and deleting it.' },
     'seq.template': { title: 'Template', text: 'This sequence is a placed copy of a template: changes to its components and logic change every placed copy. Make unique gives this one its own.' },
     'seq.components': { title: 'Components', text: 'What this sequence uses: characters, marks (spots to walk to), zones (where the player sets things off), objects (any asset: a note, the food, a chopping block) and barriers (invisible walls that hold the player back until a flag is set). Tap one to edit it.' },
-    'seq.logic': { title: 'Logic', text: 'Each line says: when something happens, run an event, with the event’s placeholders filled from this sequence’s components.' },
-    'seq.fill': { title: 'Fill in the event’s placeholders', text: 'Which of this sequence’s components each of the event’s placeholders means here.' },
+    'seq.logic': { title: 'Logic', text: 'Each line reads as a sentence: when something happens → the event it runs, with its placeholders filled by this sequence’s components (in brackets). Anything still to choose shows in amber. Tap a line to edit it.' },
+    'seq.fill': { title: 'Fill in the event’s placeholders', text: 'Which of this sequence’s components each of the event’s placeholders means here. An empty placeholder fills itself with the component of the same name (Actor ↔ a character called Actor), or with the only component of its kind; a choice you made is never changed.' },
 
     // ---- Components ----
     'comp.barrier': { title: 'Barrier', text: 'An invisible wall across the path: the player can’t walk past it while this holds, e.g. “While flag packed is not set”. In the editor it shows as a red dashed wall (faint when it isn’t blocking now).' },

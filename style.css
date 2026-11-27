@@ -16293,3 +16293,18 @@ button.ss-help-x,.sidescroll-story-panel button.ss-help-x,.sidescroll-tl button.
 .sidescroll-story-list{max-height:none;overflow:visible;}
 .sidescroll-seq-item>button:first-child{min-height:34px;}
 .sidescroll-seq-item>button:first-child strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* ---- Sequence page, stage 2: header + ⋯, sentence lines, own pages for components and lines ---- */
+.sidescroll-seq-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;}
+.sidescroll-story-panel .sidescroll-seq-header input[type=text]{min-height:34px;font-size:13px;font-weight:700;}
+.sidescroll-story-panel button.sidescroll-seq-more{min-width:38px;padding:0 8px;font-size:16px;letter-spacing:.05em;}
+.sidescroll-seq-menu{display:grid;gap:7px;padding:8px;border:1px solid rgba(255,214,120,.35);border-radius:9px;background:rgba(0,0,0,.28);}
+.sidescroll-seq-item>button:first-child .sidescroll-seq-go{flex:none;opacity:.55;font-size:15px;}
+.sidescroll-story-panel .sidescroll-seq-item>button.sidescroll-seq-line{justify-content:flex-start;align-items:flex-start;gap:8px;padding:7px 9px;min-height:40px;font-weight:500;line-height:1.35;white-space:normal;}
+.sidescroll-seq-num{flex:none;min-width:18px;height:18px;border-radius:9px;background:rgba(255,214,120,.22);color:#ffd678;font:700 10px/18px system-ui,sans-serif;text-align:center;}
+.sidescroll-seq-sentence{margin:0;font:500 12px/1.4 system-ui,-apple-system,sans-serif;text-align:left;overflow-wrap:anywhere;}
+.sidescroll-seq-sentence b{font-weight:700;}
+.sidescroll-seq-sentence .missing{color:#ffc35a;font-weight:700;}
+p.sidescroll-seq-sentence{padding:7px 9px;border-radius:8px;background:rgba(255,255,255,.05);}
+.sidescroll-seq-menu .sidescroll-story-nudge{display:grid;grid-template-columns:auto auto minmax(4.5em,1fr) auto auto;gap:4px;}
+.sidescroll-story-panel .sidescroll-seq-menu .sidescroll-story-nudge button{min-width:0;padding:0 7px;}
+.sidescroll-story-panel .sidescroll-seq-menu .sidescroll-story-nudge input[type=number]{width:auto;min-width:0;padding:0 4px;text-align:center;}

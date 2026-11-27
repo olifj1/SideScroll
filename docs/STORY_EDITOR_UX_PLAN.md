@@ -1,7 +1,8 @@
 # Story editor and interactions: UX review and plan (27 Nov)
 
 Stage 1 **done** (27 Nov: wrapping add buttons, full-height foldable name-only component list, ⓘ Info in
-`editor-help.js`, neutral wording); stages 2–5 proposed, **not yet agreed**. Covers the Story tab's sequence page, Asset Lab → Interactions,
+`editor-help.js`, neutral wording). Stage 2 **done** (27 Nov: header + ⋯, component and line pages, sentence
+lines, placeholders that fill themselves). Stages 3–5 proposed, **not yet agreed**. Covers the Story tab's sequence page, Asset Lab → Interactions,
 and a shared Info (ⓘ) system. Each stage is a separate PR; get the user's go-ahead per stage.
 
 ## What's wrong today

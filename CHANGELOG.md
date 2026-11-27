@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story tab, sequence page restructured.** A header with the name, **▶ Play** and **⋯** (anchor, move,
+  show, template, delete). Tapping a component or a logic line opens it as its own page (‹ Back names the
+  sequence; an event opened from a line goes back to that line). Logic lines read as sentences, e.g.
+  *When the player enters Zone 1 → Taken (Father)*, with anything still to choose in amber. Event
+  placeholders fill themselves with the same-named or only component of their kind (never replacing a
+  choice). New lines start with no event chosen.
 - **Tidier Story tab, ⓘ Info.** The sequence page's add buttons wrap three to a row instead of squeezing
   into one; the component list is full height (no inner scroll), with name-only rows, and Components and
   Logic fold (▾ / ▸). The Story editor's grey explanation paragraphs moved behind small **ⓘ** buttons

@@ -418,6 +418,13 @@ label / field / h4 it sits in); one card at a time; a card left open reopens aft
 editor uses it through `info(id)`, `fieldI`, `sectionI`, `foldSection` (Components / Logic fold, sessionStorage
 `sidescroll.story.folded`) and `stepHelpId(step)` (the ⓘ in the timeline sheet's header). New explanations
 go in the dictionary, never as inline paragraphs; `help()` is only for empty states and "do this first" lines.
+**Story editor pages** (stage 2): `view.page` 'list' | 'sequence' | 'component' | 'line' | 'event'. The sequence
+page is a header (name, ▶ Play, ⋯ = `seqMenuOpen`: anchor, Move by tap, Show, To view centre, template, delete),
+then Components (rows → `componentPage`) and Logic (sentence cards from `lineSentence` → `linePage` /
+`lineEditor`). ‹ Back names its target (component / line → sequence; an event opened from a line →
+`view.returnLine`). `autoFill(body, line)` fills an empty placeholder with the same-named or only component of
+its kind (run when a line's event is chosen, a component is added, and on opening a sequence or line page via
+`autoFillSequence`, with a hint); it never changes a chosen one. A tap on a component in the scene opens its page.
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 

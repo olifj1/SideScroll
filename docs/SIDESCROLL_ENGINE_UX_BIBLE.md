@@ -15,6 +15,14 @@ Agreed from `docs/STORY_EDITOR_UX_PLAN.md` (stage 1, first applied to the Story 
   Inline lines stay only for empty states ("No steps yet.") and for "do this first" warnings that stand
   where a control would be.
 - **Neutral wording:** "the player", never "she" / "her" / a character's name, in labels, help and notes.
+- **Most-used first** (stage 2): a page opens with what the thing *is and does*; where it sits and rare
+  actions (move, template, delete) go behind a **⋯** button in its header.
+- **One thing open at a time:** tapping a row opens its editor as the panel's **next page** (‹ Back names
+  where it returns to), never inline under the list. A list row that stands for a rule reads as a
+  **sentence** (a sequence's logic line: *When the player enters Cabin door → Father leaves (Father, Door)*),
+  with anything still to choose in amber.
+- **Fill in what is obvious:** a placeholder with exactly one fitting choice (or one of the same name) fills
+  itself, with a hint saying so; a choice the author made is never changed.
 
 ## Screen zones: one dock, a clear scene (26 Nov 2026)
 We author on a phone in landscape, so the scene is the scarcest thing on screen. Every editor

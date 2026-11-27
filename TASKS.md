@@ -14,9 +14,7 @@ work (C1c, skin workflow, C4–C6). Clean-up items are small and slot in between
 
 ### Story editor and interactions UX (proposed 27 Nov — awaiting go-ahead per stage)
 Plan: `docs/STORY_EDITOR_UX_PLAN.md`. Start each stage in a fresh session from that doc. *(Stage 1, the tidy
-sequence page and the ⓘ Info system, done 27 Nov.)*
-2. Restructure the sequence page: header + ⋯ menu; component / line editors as their own page;
-   logic lines as sentence cards; event placeholders fill themselves.
+sequence page and the ⓘ Info system, and stage 2, the restructured sequence page, done 27 Nov.)*
 3. Asset Lab → Interactions: Inspect + one *When taken* choice (can't / bag / hand / worn).
 4. Flags overview (where each flag is set and read).
 5. Story map (sequence-level node graph).
@@ -95,6 +93,16 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0cm. Sequence page restructured (27 Nov)** — Story editor, phone in landscape
+- [ ] Open a sequence: the top row is its name (a text box), **▶ Play** and **⋯**; the panel title says *Sequence*. ▶ Play plays from just before it, as before.
+- [ ] **⋯** opens a box: Anchor (−1 −0.1 [number] +0.1 +1, the number readable), Move by tap, Show, To view centre, Save as template (or Make unique), Delete sequence. ⋯ again closes it.
+- [ ] Tap a component row (it ends in ›): it opens on its own page titled with its icon and name, ‹ *sequence name* top left goes back. Move by tap still works from there. × on a row still removes it.
+- [ ] With the sequence open, tap a character, mark, zone or object in the scene: its page opens.
+- [ ] Logic: each line is a numbered sentence, e.g. *When the player enters Zone 1 → Taken (Father)*; anything not chosen yet (no event, an empty placeholder, no zone) is amber. Tap one: its page has the sentence at the top, Test now, ↑ Earlier / ↓ Later, then When / Run event / placeholders / Only / Fires. Changing a field updates the sentence.
+- [ ] **+ Add line** opens the new line's page straight away with *choose an event*. Pick an event: placeholders that match a component by name, or have only one component of their kind, fill themselves and a hint says *Filled Actor → Father*. Undo takes it back. A placeholder you chose yourself is never changed.
+- [ ] Add a mark called the same as an event's mark placeholder (e.g. *Exit*): the line using that event fills it (hint).
+- [ ] On a line, *Open “event”*: the event's back button reads *‹ Line n* and returns to that line. On an event page, *Used by → ▣ … · line n* opens that line.
 
 **0cl. Tidy Story tab and ⓘ Info (27 Nov)** — Story editor, phone in landscape
 - [ ] Open a sequence: + Character / + Mark / + Zone sit on one row and + Object / + Barrier on a second, the words full size. Event page: the three *+ … placeholder* buttons sit side by side, each label on two lines.
