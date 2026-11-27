@@ -16137,7 +16137,7 @@ body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) 
 body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) #sidescroll-editor-controls .sidescroll-editor-tool:active{transform:scale(.96);}
 body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) #sidescroll-editor-controls{height:50px!important;background:none!important;border:0!important;box-shadow:none!important;}
 /* The status line sits in the scene's free area, above the toolbar, on one line. */
-body[data-game-id="game-16"].sidescroll-editing #sidescroll-hint{
+body[data-game-id="game-16"].sidescroll-editing #sidescroll-hint:not(.puzzle-thought){
   left:calc(max(var(--ss-edge-l),var(--ss-dock-right)) + 8px)!important;right:auto!important;transform:none!important;
   max-width:calc(100vw - max(var(--ss-edge-l),var(--ss-dock-right)) - 24px)!important;bottom:calc(var(--ss-edge-b) + 54px)!important;
   white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
@@ -16185,7 +16185,7 @@ body[data-game-id="game-16"] .sidescroll-move-pad-axis.h{left:50%;bottom:6px;tra
 body[data-game-id="game-16"] .sidescroll-move-pad-axis.v{left:6px;top:6px;right:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 body[data-game-id="game-16"] .sidescroll-move-pad-readout{position:absolute;right:7px;top:50%;transform:translateY(-130%);font:700 8.5px/1 ui-monospace,Menlo,monospace;color:#eef8f6;opacity:.85;pointer-events:none;}
 body[data-game-id="game-16"] .sidescroll-move-pad-foot{display:grid;grid-template-columns:1fr 1.4fr;gap:6px;}
-body[data-game-id="game-16"].sidescroll-editing.ss-pad-open #sidescroll-hint{max-width:calc(100vw - max(var(--ss-edge-l),var(--ss-dock-right)) - 232px)!important;}
+body[data-game-id="game-16"].sidescroll-editing.ss-pad-open #sidescroll-hint:not(.puzzle-thought){max-width:calc(100vw - max(var(--ss-edge-l),var(--ss-dock-right)) - 232px)!important;}
 /* Toolbar overflow: tools that don't fit wait behind MORE; open, they form a second row above. */
 body[data-game-id="game-16"].sidescroll-editing:not(.sidescroll-puzzle-testing) #sidescroll-editor-controls{overflow:visible!important;flex-wrap:nowrap!important;align-items:flex-end!important;}
 body[data-game-id="game-16"].sidescroll-editing #sidescroll-editor-controls .sidescroll-editor-tool.ss-overflowed.ss-overflowed{display:none!important;}
