@@ -122,10 +122,37 @@
     const out = new Set(Object.keys(host.progress().flags || {}));
     for (const e of draft.events) for (const s of e.steps) if (s.type === 'flag' && s.flag) out.add(s.flag);
     for (const b of [...draft.templates.map(t => t.body), ...draft.placed.map(p => p.body).filter(Boolean)])
-      for (const l of b.logic) { if (l.condition?.flag) out.add(l.condition.flag); if (l.when?.flag) out.add(l.when.flag); }
+      { for (const l of b.logic) { for (const f of Seq.conditionFlags(l.condition)) out.add(f); if (l.when?.flag) out.add(l.when.flag); }
+        for (const c of b.components) if (c.kind === 'barrier') for (const f of Seq.conditionFlags(c.active)) out.add(f); }
     // Flags set by inspecting / picking up assets (Asset Lab → Interactions).
     for (const entry of Object.values(window.SideScrollInteractions?.load() || {})) for (const a of Object.values(entry)) if (a?.flag) out.add(a.flag);
     return [...out].filter(Boolean).sort();
+  }
+  // A condition on story flags (a line's Only, a barrier's Blocks): Always / while set / while not
+  // set, one or more flags, and with several: all of them or any of them (Seq.normaliseCondition).
+  function conditionField(owner, key, title, labels) {
+    const c = owner[key], flags = c ? Seq.conditionFlags(c) : [];
+    const write = (list, when, match) => {
+      if (!when) delete owner[key];
+      // Several flags: "set" defaults to all of them; "not set" to *any* not set (= until all are set).
+      else owner[key] = list.length > 1 ? { flags: list, match: match === 'any' || match === 'all' ? match : (when === 'unset' ? 'any' : 'all'), when } : { flag: list[0] || '', when };
+      change();
+    };
+    const parts = [el('span', { text: title }),
+      segmented([['none', labels[0]], ['set', labels[1]], ['unset', labels[2]]], c ? c.when : 'none', v => {
+        if (v === 'none') write([], null); else write(flags.length ? flags : [knownFlags()[0] || ''], v, c?.match);
+      })];
+    if (c) {
+      flags.forEach((f, i) => parts.push(el('div', { class: 'sidescroll-seq-flagrow' },
+        flagInput(f, v => { const list = [...flags]; list[i] = v; write(list, c.when, c.match); }),
+        flags.length > 1 ? xBtn(() => write(flags.filter((_, j) => j !== i), c.when, c.match), 'Remove this flag') : null)));
+      // Worded by what it means: with "not set", any-not-set = until all of them are set.
+      if (flags.length > 1) parts.push(c.when === 'unset'
+        ? segmented([['any', 'Until all of them are set'], ['all', 'Until any of them is set']], c.match === 'all' ? 'all' : 'any', v => write(flags, c.when, v))
+        : segmented([['all', 'All of them'], ['any', 'Any of them']], c.match === 'any' ? 'any' : 'all', v => write(flags, c.when, v)));
+      if (flags.length < 12) parts.push(btn('+ Another flag', () => write([...flags, ''], c.when, c.match)));
+    }
+    return el('div', { class: 'sidescroll-story-field sidescroll-seq-condition' }, ...parts);
   }
   function flagInput(value, onSet) {
     const input = el('input', { type: 'text', value: value || '', placeholder: 'flag name, e.g. met-father', list: 'sidescroll-seq-flags', autocapitalize: 'none', spellcheck: 'false' });
@@ -204,7 +231,7 @@
       if (!p) { placeMode = null; render(); return; }
       const body = bodyOf(p);
       if (placeMode.kind === 'add') {
-        const comp = { ...placeMode.comp, id: Seq.newId('c', takenIds()), dx: point.x - p.x, depth: placeMode.comp.kind === 'zone' ? 0 : depth };
+        const comp = { ...placeMode.comp, id: Seq.newId('c', takenIds()), dx: point.x - p.x, depth: ['zone', 'barrier'].includes(placeMode.comp.kind) ? 0 : depth };
         body.components.push(comp);
         view.component = comp.id; reveal = comp.id;
         host.hint(`Added ${comp.name}`);
@@ -213,7 +240,7 @@
         host.hint('Sequence moved (its components move with it)');
       } else if (placeMode.kind === 'component') {
         const comp = body.components.find(c => c.id === placeMode.id);
-        if (comp) { comp.dx = point.x - p.x; if (comp.kind !== 'zone') comp.depth = depth; }
+        if (comp) { comp.dx = point.x - p.x; if (!['zone', 'barrier'].includes(comp.kind)) comp.depth = depth; }
         host.hint('Moved');
       }
       placeMode = null;
@@ -259,7 +286,7 @@
   }
 
   // ---- Sequence page -------------------------------------------------------------
-  const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑', object: '▢' };
+  const KIND_ICON = { character: '☺', mark: '◆', zone: '⚑', object: '▢', barrier: '▮' };
   const STEP_ICON = { move: '→', animate: '↻', face: '⇆', say: '❝', think: '☁', wait: '⏱', flag: '⚑', show: '◐', control: '✋', camera: '▣', screen: '▬', prompt: '◇', item: '✚', look: '◑', effect: '✺', prop: '⚒', object: '▢', wear: '◒' };
 
   // ---- Steps: timing, summaries, beats, moving (step list and timeline) --------
@@ -374,6 +401,14 @@
   // opening the editor, each step keeping the time it starts at now (a walk at
   // its own speed gets an estimated length; drag its edge to change it).
   function timeAll(d) { for (const e of d.events) makeTimed(e); return d; }
+  function barrierSummary(c) {
+    const flags = Seq.conditionFlags(c.active).filter(Boolean);
+    if (!c.active || !flags.length) return 'Always blocks';
+    const list = flags.join(', ');
+    if (flags.length === 1) return `Blocks while ${list} is ${c.active.when === 'unset' ? 'not set' : 'set'}`;
+    if (c.active.when === 'unset') return c.active.match === 'all' ? `Blocks until any of ${list} is set` : `Blocks until ${list} are all set`;
+    return c.active.match === 'any' ? `Blocks while any of ${list} is set` : `Blocks while ${list} are all set`;
+  }
   function componentEditor(p, body, c) {
     const moving = placeMode?.kind === 'component' && placeMode.id === c.id;
     const worldX = el('input', { type: 'number', step: '0.1', value: fmt(p.x + c.dx, 2), inputmode: 'decimal' });
@@ -385,7 +420,11 @@
         el('div', { class: 'sidescroll-story-nudge' }, nudge(-1), nudge(-0.1), worldX, nudge(0.1), nudge(1))),
       row(btn(moving ? 'Cancel move' : 'Move by tap', () => setPlaceMode(moving ? null : { kind: 'component', id: c.id }, 'Tap the ground where it goes'), moving ? 'active' : ''))
     ];
-    if (c.kind !== 'zone') parts.push(slider(c, 'depth', -15, 8, 0.05, 'Depth (0 = path centre, + nearer)', 2, ' m'),
+    if (c.kind === 'barrier') parts.push(
+      conditionField(c, 'active', 'Blocks', ['Always', 'While flag is set', 'While flag is not set']),
+      help('An invisible wall across the path: she can’t walk past it while this holds, e.g. “While flag packed is not set”. Shown as a red dashed wall in the editor (faint when it isn’t blocking now).'),
+      field('She thinks (when she walks into it)', textInput(c, 'say', 120)));
+    if (c.kind !== 'zone' && c.kind !== 'barrier') parts.push(slider(c, 'depth', -15, 8, 0.05, 'Depth (0 = path centre, + nearer)', 2, ' m'),
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Facing' }), segmented([['-1', 'Left'], ['1', 'Right']], String(c.facing), v => { c.facing = Number(v); change(); })));
     if (c.kind === 'zone') parts.push(field('Width (m)', numberInput(c, 'width', 0.2, 40, 0.1, 2)));
     if (c.kind === 'object') parts.push(
@@ -485,11 +524,7 @@
         }),
         event ? btn(`Open “${event.name}”`, () => open('event', event.id, { returnTo: p.id })) : null)),
       ...roleRows,
-      el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Only' }),
-        segmented([['none', 'Always'], ['set', 'While flag is set'], ['unset', 'While flag is not set']], c ? c.when : 'none', v => {
-          if (v === 'none') delete l.condition; else l.condition = { flag: c?.flag || knownFlags()[0] || '', when: v }; change();
-        }),
-        c ? flagInput(c.flag, v => { c.flag = v; change(); }) : null),
+      conditionField(l, 'condition', 'Only', ['Always', 'While flag is set', 'While flag is not set']),
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Fires' }),
         segmented([['once', 'Once per player'], ['every', 'Every time']], l.once === false ? 'every' : 'once', v => { l.once = v === 'once'; change(); })));
   }
@@ -537,16 +572,17 @@
             id => addComp('character', { name: characterName(id), character: id, animation: 'idle', scale: 1, blocks: 'auto', facing: 1 }, `Tap the ground where ${characterName(id)} stands`)), adding?.kind === 'character' ? 'active' : 'primary'),
           btn('+ Mark', () => addComp('mark', { name: `Mark ${count('mark')}`, facing: 1 }, 'Tap the ground where the mark goes'), adding?.kind === 'mark' ? 'active' : 'primary'),
           btn('+ Zone', () => addComp('zone', { name: `Zone ${count('zone')}`, width: 2 }, 'Tap the path where the zone goes'), adding?.kind === 'zone' ? 'active' : 'primary'),
-          btn('+ Object', () => chooseAsset('characters', 'Add an object', name => addComp('object', { name: propLabel(name), asset: name, size: 1, lift: 0, facing: 1 }, `Tap the ground where ${propLabel(name)} stands`)), adding?.kind === 'object' ? 'active' : 'primary')),
+          btn('+ Object', () => chooseAsset('characters', 'Add an object', name => addComp('object', { name: propLabel(name), asset: name, size: 1, lift: 0, facing: 1 }, `Tap the ground where ${propLabel(name)} stands`)), adding?.kind === 'object' ? 'active' : 'primary'),
+          btn('+ Barrier', () => addComp('barrier', { name: `Barrier ${count('barrier')}` }, 'Tap the path where the barrier goes'), adding?.kind === 'barrier' ? 'active' : 'primary')),
         chooserBox('characters'),
         adding ? el('div', { class: 'sidescroll-story-note' }, el('span', { text: `Tap the ground in the view to place ${adding.name}.` }), btn('Cancel', () => setPlaceMode(null))) : null,
         body.components.length ? el('div', { class: 'sidescroll-story-list' }, body.components.map(c => el('div', { class: 'sidescroll-seq-item', 'data-reveal': c.id },
           el('button', { type: 'button', class: c.id === view.component ? 'active' : '',
             onclick: () => { view.component = view.component === c.id ? null : c.id; placeMode = null; syncSelection(); render(); } },
             el('strong', { text: `${KIND_ICON[c.kind]} ${c.name}` }),
-            el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : c.kind === 'object' ? `${propLabel(c.asset)}${c.startHidden ? ' · hidden at first' : ''}` : `${fmt(p.x + c.dx)} m` })),
+            el('small', { text: c.kind === 'character' ? characterName(c.character) : c.kind === 'zone' ? `${fmt(c.width)} m wide` : c.kind === 'barrier' ? barrierSummary(c) : c.kind === 'object' ? `${propLabel(c.asset)}${c.startHidden ? ' · hidden at first' : ''}` : `${fmt(p.x + c.dx)} m` })),
           xBtn(() => removeComponent(body, c), `Remove ${c.name}`))))
-          : help('Nothing yet. Add characters, marks (spots to walk to), zones (where the player sets things off) and objects (any asset: a note, the food, a chopping block).'),
+          : help('Nothing yet. Add characters, marks (spots to walk to), zones (where the player sets things off), objects (any asset: a note, the food, a chopping block) and barriers (invisible walls that hold her back until a flag is set).'),
         comp ? componentEditor(p, body, comp) : null),
       section('Logic',
         addBar(btn('+ Add line', () => {

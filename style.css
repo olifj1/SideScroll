@@ -16263,3 +16263,6 @@ body[data-game-id="game-16"].ss-framing:not(.ss-framing-controls) .sidescroll-tl
 body[data-game-id="game-16"].ss-framing.ss-framing-controls :is(#sidescroll-secondary-controls,#sidescroll-play-controls){z-index:1013!important;}
 body[data-game-id="game-16"] .sidescroll-frame-bar .sidescroll-frame-controls.active{background:rgba(70,160,146,.34);border-color:#8ddfd2;color:#bff6ec;}
 body[data-game-id="game-16"].ss-framing .ss-dock-tab{z-index:1015;}
+/* Story editor: flag conditions with several flags (lines' Only, barriers' Blocks). */
+.sidescroll-seq-condition .sidescroll-seq-flagrow{display:flex;gap:6px;align-items:center;}
+.sidescroll-seq-condition .sidescroll-seq-flagrow input{flex:1 1 auto;min-width:0;}

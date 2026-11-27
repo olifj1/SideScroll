@@ -425,7 +425,12 @@ Say step's actor may be `Seq.PLAYER` = the player, named by `storyPlayerName()`)
 body = `{components:[{id c-…, kind 'character'|'mark'|'zone'|'object', name, dx (from the anchor), depth,
 facing, character, animation (action slot), scale, blocks, holding? | width | asset, size, lift (m), startHidden}], logic:[{id l-…, when:{type
 (Seq.WHEN: load, enter, action, finish, flag), zone, label, line, flag}, event, roles:{role id:
-component id}, condition?, once}]}`; `Seq.bodyOf` gives a placed sequence's body). Animations in
+component id}, condition?, once}]}`; `Seq.bodyOf` gives a placed sequence's body). A **condition**
+(a line's `condition`, a barrier's `active`) is `{flag, when 'set'|'unset'}` or, for several flags,
+`{flags:[…], match 'all'|'any', when}` (`Seq.normaliseCondition` / `conditionMet` / `conditionFlags`;
+unset + any = "until all are set"). **Barrier** components (kind `barrier`, `dx`, `active?`, `say?`)
+are invisible walls: `resolveSequenceBarriers` (after `resolveWorldCharacterBlocking`) keeps the player
+on her side while `active` holds and shows `say` as a thought (throttled 4 s). Editor: `conditionField`. Animations in
 events and components are **action slots**: each character plays its own animation for the slot.
 The game's runtime (`sidescroll.js`: `updateWorldCharacters`, `drawWorldCharacters`,
 `resolveWorldCharacterBlocking`, `updateStoryTriggers` → `seqFireLine` / `advanceSequenceRuns` /

@@ -87,6 +87,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0ck. Barriers and multi-flag conditions (27 Nov)** — Story editor
+- [ ] In a sequence, **+ Barrier**, tap the path just outside the cabin door: a red dashed wall appears. Set *Blocks* → *While flag is not set*, flags `apple` and `bread` with **+ Another flag**, choose *Until all of them are set*, and a thought ("I should pack first."). Save.
+- [ ] ▶ Play and walk into it: she stops at the wall and thinks the line (not more than once every few seconds). With only one flag set (⚑ Progress or a Collect flag) she is still stopped; with both, she walks through and the wall shows "open now" (faint).
+- [ ] A second sequence's line with *Only* → *While flag is set* on `apple` + `bread`, *All of them*: it fires only after both are set.
+
 **0cj. Frame it clears the screen (27 Nov)** — Story editor
 - [ ] Timeline → a Camera step → 📷 Frame it: the left panel slides away (PANEL tab on the left edge) and Jump / Action / the movement slider disappear; drag / pinch frame the shot as before.
 - [ ] **Controls** on the framing bar brings the controls back (and hides them again); PANEL brings the panel back; a drag on the view tucks the panel again.
