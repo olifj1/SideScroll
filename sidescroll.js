@@ -21111,8 +21111,16 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     hintEl.classList.remove('hidden');
     return true;
   }
+  // A sequence object's "Can be taken" condition: '' when it can be taken, else what she thinks.
+  function seqTakeRefusal(target) {
+    const comp = target?.seq?.c;
+    if (!comp?.takeWhen || Seq.conditionMet(comp.takeWhen, seqProgress.flags)) return '';
+    return comp.notYet || "I can't take that yet.";
+  }
   // Pick up: the copy leaves the world and goes in the inventory (or is put on).
   function collectTarget(target) {
+    const notYet = seqTakeRefusal(target);
+    if (notYet && (assetWear(target.asset) || assetHold(target.asset) || assetCollect(target.asset))) { showPuzzleThought(notYet, 3200); return true; }
     if (assetWear(target?.asset)) return wearTarget(target);
     if (assetHold(target?.asset)) return holdTarget(target);
     const c = assetCollect(target?.asset);
@@ -21302,7 +21310,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const takeBtn = el.querySelector('[data-inspect-take]');
     const wear = assetWear(target.asset), hold = !wear && assetHold(target.asset);
     // Wear: Put on. Hold: Pick up, unless her hands are full. Collect: Pick up, unless there is nothing to carry it in yet.
-    const blockedText = hold ? ((collectedState.held || carriedObject) ? handsFullText() : '') : (!wear && collect && !canCarry() ? carryRefusal() : '');
+    const blockedText = (wear || hold || collect) && seqTakeRefusal(target) || (hold ? ((collectedState.held || carriedObject) ? handsFullText() : '') : (!wear && collect && !canCarry() ? carryRefusal() : ''));
     takeBtn.hidden = fromInventory || !(wear || hold || collect) || !!blockedText;
     takeBtn.textContent = wear ? 'Put on' : 'Pick up';
     if (blockedText && !fromInventory) { textEl.textContent = body ? `${body}\n\n${blockedText}` : blockedText; textEl.hidden = false; }
@@ -22442,7 +22450,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     for (const e of seqState.events) for (const st of e.steps) if (st.type === 'flag' && st.flag) out.add(st.flag);
     for (const { body } of seqResolved) {
       for (const l of body.logic) { for (const f of Seq.conditionFlags(l.condition)) out.add(f); if (l.when?.flag) out.add(l.when.flag); }
-      for (const c of body.components) if (c.kind === 'barrier') for (const f of Seq.conditionFlags(c.active)) out.add(f);
+      for (const c of body.components) for (const f of [...Seq.conditionFlags(c.active), ...Seq.conditionFlags(c.takeWhen)]) out.add(f);
     }
     for (const entry of Object.values(assetInteractions)) for (const a of Object.values(entry)) if (a?.flag) out.add(a.flag);
     return [...out].sort();
