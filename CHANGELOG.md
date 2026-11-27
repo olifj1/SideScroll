@@ -4,6 +4,12 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Tidier Story tab, ⓘ Info.** The sequence page's add buttons wrap three to a row instead of squeezing
+  into one; the component list is full height (no inner scroll), with name-only rows, and Components and
+  Logic fold (▾ / ▸). The Story editor's grey explanation paragraphs moved behind small **ⓘ** buttons
+  (`editor-help.js`, one dictionary for every editor's explanations): tap for a card under the row. Wording
+  is neutral everywhere ("the player", not she / her), also in Asset Lab and Character Lab notes. An event
+  opened from a sequence shows that sequence's name on its ‹ Back button.
 - **Rotate for sequence objects.** A sequence Object has a **Rotate** slider (−180…180°, about its centre, + = clockwise).
 - **Objects that can be taken later (sequences).** A sequence Object has **Can be taken** (always / while
   flags are set / while not set) and *Until then she thinks*. Until then, Inspect shows it without Pick up /

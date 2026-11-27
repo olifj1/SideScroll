@@ -377,7 +377,7 @@ Any new per-character storage must be added to `slicesFor()` there.
 | Page | Purpose | Main scripts |
 |---|---|---|
 | `index.html` | Splash/launcher, preloads game assets | `project-defaults-data.js`, `project-defaults.js`, `asset-paths.js`, `site-config.js`, `core.js`, `audio.js`, `home.js` |
-| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `sequence-editor.js`, `editor-layout.js`, `colour-picker.js` |
+| `play.html` | The game + in-game scene/puzzle/sequences editor (`?mode=player` = play only) | `biped-rig.js`, `quadruped-baseline.js`, `quadruped-rig.js`, `puzzle-groups.js`, `character-game-runtime.js`, `near-rows.js`, `action-slots.js`, `sequence-data.js`, `asset-interactions.js`, `character-props.js`, `sidescroll.js`, `editor-help.js`, `sequence-editor.js`, `editor-layout.js`, `colour-picker.js` |
 | `walk-lab.html` | Character Lab (atlas, parts, rig, skin, props, animate, scene objects, animation manager) | `walk-lab.js`, `anim-lab-*.js`, `asset-library.js`, `character-props.js`, `rig-templates.js`, `animation-templates.js`, `action-slots.js`, `character-packages.js` (export/import, see below) |
 | `asset-lab.html` | Asset collision/states; **+ Import asset** | `asset-library.js`, `builtin-assets.js`, `asset-interactions.js`, `asset-lab.js`, `effects.js`; for the character effect preview `biped-rig.js`, `character-game-runtime.js`, `character-props.js`, `character-preview.js` |
 | `puzzle-lab.html` | Reusable puzzle groups | `puzzle-lab.js`, `puzzle-groups.js` |
@@ -410,6 +410,14 @@ framing bar's Controls button),
 `editor-layout.js` adds `ss-dock-tucked` (the dock slides off the left edge) and shows `#sidescroll-dock-tab`;
 the tab sets a peek (dock back), a tap on the canvas or pad surface clears it; `--ss-dock-right` is then the
 tab's edge. Other modes that need the whole scene can join `tuckState()`.
+
+**ⓘ Info** (`editor-help.js`, `window.SideScrollHelp`; rules in the UX bible → Editor panels: tidy lists
+and ⓘ Info): every editor explanation is one entry in its `TEXTS` dictionary (neutral wording: "the player");
+`SideScrollHelp.button(id)` makes the ⓘ, which opens a card after the nearest `[data-help-anchor]` (else the
+label / field / h4 it sits in); one card at a time; a card left open reopens after a panel re-render. The Story
+editor uses it through `info(id)`, `fieldI`, `sectionI`, `foldSection` (Components / Logic fold, sessionStorage
+`sidescroll.story.folded`) and `stepHelpId(step)` (the ⓘ in the timeline sheet's header). New explanations
+go in the dictionary, never as inline paragraphs; `help()` is only for empty states and "do this first" lines.
 
 `sw.js` is the service worker. `style.css` is shared by index/play/walk-lab/asset-lab.
 

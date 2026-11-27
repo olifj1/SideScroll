@@ -1,5 +1,21 @@
 # SideScroll Engine & UX Bible
 
+## Editor panels: tidy lists and ⓘ Info (27 Nov 2026)
+Agreed from `docs/STORY_EDITOR_UX_PLAN.md` (stage 1, first applied to the Story tab). For every editor panel:
+- **Lists are full height:** uniform rows (name only, with an optional very short right-hand detail), never
+  a scroll area inside the panel. Long sections **fold** (▾ open / ▸ folded, the count in the title); what is
+  folded is kept for the session.
+- **Add buttons wrap** onto as many rows as needed (about three per row at the drawer's width), never
+  shrinking their text; a long label wraps inside its button.
+- **Explanations live behind ⓘ**, never as inline paragraphs: `editor-help.js` (`window.SideScrollHelp`)
+  holds every text in one dictionary `{id: {title, text}}`; `SideScrollHelp.button(id)` is a small ⓘ
+  (drawn 22 px, tappable over 32 px) next to a section title or field label. Tapping it opens a card under
+  that row, inside the panel (the nearest `[data-help-anchor]`, else the label / field / heading it sits
+  in); one card at a time; ⓘ again, × or a tap anywhere else closes it. Labels and placeholders stay short.
+  Inline lines stay only for empty states ("No steps yet.") and for "do this first" warnings that stand
+  where a control would be.
+- **Neutral wording:** "the player", never "she" / "her" / a character's name, in labels, help and notes.
+
 ## Screen zones: one dock, a clear scene (26 Nov 2026)
 We author on a phone in landscape, so the scene is the scarcest thing on screen. Every editor
 and Menu panel follows these rules (code: `editor-layout.js`, CSS block *Editor screen zones* at
@@ -1682,7 +1698,7 @@ For future work, use capabilities to control feature visibility, rather than che
 - **Back:** inner pages have a small **‹ Back** at the top left of the panel, next to the page's name; it returns to where you came from (an event opened from a sequence goes back to that sequence). No full-width back buttons named after the list.
 - **Choosing:** a choice of things to add (characters, steps, templates…) opens in the editor's **right-hand window**, the same one the asset browser uses (`openEditorChoicePicker`), never a list squeezed into the panel.
 - **Right-hand window content** sets its own light text (the window does not) and uses the editor's button look: capitals, soft fill, `rgb(234,241,239)` text; green tint for complete / set, red for reset / remove.
-- **Adding:** a section's add buttons sit at its **top**, at equal widths — except a list of **steps in order** (an event's Steps), whose add button sits after the last step, where the next one goes. When adding needs a choice (which character, which kind of step, which template), the button opens a short **choose-from-a-list** box rather than a dropdown beside it. The new item scrolls into view and opens.
+- **Adding:** a section's add buttons sit at its **top**, at equal widths, wrapping onto more rows when they don't fit (27 Nov) — except a list of **steps in order** (an event's Steps), whose add button sits after the last step, where the next one goes. When adding needs a choice (which character, which kind of step, which template), the button opens a short **choose-from-a-list** box rather than a dropdown beside it. The new item scrolls into view and opens.
 - **Removing:** each row has a small **×** on its far right; no full-width Remove buttons inside an item's editor. (Deleting a whole sequence or event stays at the bottom of its page.)
 - First used in the Sequences editor (`sequence-editor.js`: `addBar`, `openChooser` / `chooserBox`, `xBtn`); apply it to other editor panels as they are reworked.
 - **When add options or filters grow** (18 Nov 2026), fold them into **one** control rather than a row of buttons: a single **+ Add ▾** button opening a short menu, and a **Show** dropdown for filters, so the list keeps its space on a phone. Side panels with many settings can **fold to a thin rail** (‹ to reopen) to give the main view room. First used in Asset Lab.

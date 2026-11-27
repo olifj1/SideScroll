@@ -49,6 +49,7 @@ const CORE_SHELL = [
   "./asset-library.js",
   "./builtin-assets.js",
   "./asset-interactions.js",
+  "./editor-help.js",
   "./sequence-editor.js",
   "./editor-layout.js",
   "./colour-picker.js",

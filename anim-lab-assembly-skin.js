@@ -1082,7 +1082,7 @@
     <section class="animlab-skin-edit-box" aria-label="Edit selected part binding">
       <div class="animlab-section-title">Edit selected part</div>
       <label class="animlab-skin-group-select animlab-skin-worn">Worn item <select data-skin-worn aria-label="Show this part only while the player wears an item"></select></label>
-      <p class="animlab-skin-note" data-worn-note>A part for something she can wear (the bag): in the game it shows only while she wears that asset. Assets listed here have <strong>Wear</strong> set in Asset Lab → Interactions.</p>
+      <p class="animlab-skin-note" data-worn-note>A part for something the player can wear (the bag): in the game it shows only while the player wears that asset. Assets listed here have <strong>Wear</strong> set in Asset Lab → Interactions.</p>
       <p class="animlab-skin-note">Tap the bones this part should follow (or start from a preset), then <strong>Bind to these bones</strong>: each bone takes its own section. Auto-bind all picks bones for every part.</p>
       <label class="animlab-skin-group-select">Preset <select data-skin-group></select></label>
       <div class="animlab-skin-use" data-skin-use aria-label="Bones this part follows"></div>

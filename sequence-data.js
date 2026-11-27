@@ -40,10 +40,10 @@
     prompt:  { label: 'Wait for Action', help: 'waits until the player presses Action (the button shows your label)', roles: {} },
     item:    { label: 'Item', help: 'gives the player an item, or takes one', roles: {} },
     effect:  { label: 'Effect on a character', help: 'a darkness wrapping a character, or a character effect such as Dissolve; blends through its states and can hide the character', roles: { actor: 'character' } },
-    prop:    { label: 'Prop', help: 'a character takes an asset in its hand (Father\u2019s axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
+    prop:    { label: 'Prop', help: 'a character takes an asset in its hand (an axe), puts it away or drops it on the ground', roles: { actor: 'character' } },
     look:    { label: 'Look', help: 'changes the world\u2019s look (fog and colour) to a saved look, or back to the base look', roles: {} },
     object:  { label: 'Object', help: 'an object appears, disappears or changes to another asset (the note picked up, the food eaten)', roles: { actor: 'object' } },
-    wear:    { label: 'Wear', help: 'the player puts on or takes off something she wears (the bag; Asset Lab → Wear)', roles: {} }
+    wear:    { label: 'Wear', help: 'the player puts on or takes off something worn (the bag; Asset Lab → Wear)', roles: {} }
   });
   const OBJECT_ACTIONS = Object.freeze({ show: 'Appears', hide: 'Disappears', swap: 'Changes to…' });
   const PLAYER = 'player'; // Say: the player speaks (the character being played)
@@ -253,7 +253,7 @@
       out.depth = 0;
     } else if (raw.kind === 'barrier') {
       // An invisible wall across the path: the player can't walk through it while `active` is met
-      // (none = always); `say` is what she thinks when she walks into it.
+      // (none = always); `say` is what the player thinks on walking into it.
       out.depth = 0;
       const active = normaliseCondition(raw.active);
       if (active) out.active = active;
@@ -268,7 +268,7 @@
       if (raw.startHidden) out.startHidden = true;        // hidden until an Object step shows it
       const takeWhen = normaliseCondition(raw.takeWhen);    // can only be picked up / put on while this holds
       if (takeWhen) out.takeWhen = takeWhen;
-      const notYet = text(raw.notYet, 160); if (notYet) out.notYet = notYet; // what she thinks until then
+      const notYet = text(raw.notYet, 160); if (notYet) out.notYet = notYet; // what the player thinks until then
     }
     return out;
   }
