@@ -54,6 +54,14 @@
     'step.at': { title: 'Starts at', text: 'It starts at this time, whatever else is running.' },
     'step.at.prompt': { title: 'Starts at', text: 'The clock stops here until the player presses Action; everything after it waits.' },
 
+    // ---- Asset Lab ----
+    'asset.interactions': { title: 'Interactions', text: 'Placed copies with an action show the little dot when the player is near; Action does it. Every copy of this asset behaves the same.' },
+    'asset.inspect': { title: 'Inspect', text: 'Action opens a view with the title and text. If it can also be taken, the view has Pick up (or Put on) as well as Leave. Without Inspect, Action takes it straight away.' },
+    'asset.inspect.large': { title: 'Show large on screen', text: 'Puts the picture big on screen, sized to fit, with the text underneath: for a note to read or a thing to look at closely.' },
+    'asset.take': { title: 'When taken', text: 'One choice: it can’t be taken; it goes into the bag (the inventory; tap it there to look again); the player carries it in hand (the grip from Character Lab → Props; Action puts it down; one thing at a time); or the player puts it on (the part marked with it in Character Lab → Skin → Worn item shows; it never goes in the bag). Taken, it leaves the world. In the hand: Arm pose is an action slot whose animation drives the holding arm.' },
+    'asset.wear.holds': { title: 'Holds the inventory', text: 'Until the player wears it (or another asset with this on), nothing can be picked up and the Items button stays hidden; trying says the line below.' },
+    'asset.light': { title: 'Gives light', text: 'Every copy of this asset glows like a placed Light: hanging on a wall, in a story, dropped on the floor or held in a hand. The cross on the picture is where the light comes from; the dashed circle is how far it reaches.' },
+
     // ---- Event page ----
     'event.placeholders': { title: 'Placeholders', text: 'Placeholders stand for the characters, marks and objects this event acts on; you don’t choose real ones here. Give each a name (Actor, Exit…) and use it in the steps. Each sequence that runs this event fills them in with its own components, on its logic line.' },
     'event.timeline': { title: 'Timeline', text: 'The steps in time order. Tap one to open the timeline on it. Wait for Action stops the clock until it is pressed.' }
