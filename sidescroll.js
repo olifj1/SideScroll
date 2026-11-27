@@ -19963,6 +19963,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const before = { side:shot.side, height:shot.height, distance:shot.distance, tilt:shot.tilt };
     const drawerWasCollapsed = editorDrawerCollapsed;
     setEditorDrawerCollapsed(true);
+    // The view is the point here: the dock tucks behind its PANEL tab (editor-layout.js) and the
+    // touch controls hide; the bar's Controls button brings them back.
+    document.body.classList.add('ss-framing');
+    document.body.classList.remove('ss-framing-controls');
     seqCameraTo(null, shot, 0, 'smooth', true);
     const round2 = v => Math.round(v * 100) / 100;
     const clampShot = () => {
@@ -19980,7 +19984,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     const mk = (label, cls, fn) => { const b = Object.assign(document.createElement('button'), { type:'button', textContent:label, className:cls }); b.addEventListener('click', fn); return b; };
     const aimRow = Object.assign(document.createElement('label'), { className:'sidescroll-frame-aim' });
     aimRow.append(Object.assign(document.createElement('span'), { textContent:'Aim' }), aim);
-    bar.append(title, readout, aimRow, mk('Cancel', '', () => finish(false)), mk('Done', 'primary', () => finish(true)));
+    const controlsBtn = mk('Controls', 'sidescroll-frame-controls', () => {
+      const on = document.body.classList.toggle('ss-framing-controls');
+      controlsBtn.classList.toggle('active', on); controlsBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    controlsBtn.setAttribute('aria-pressed', 'false');
+    bar.append(title, readout, aimRow, controlsBtn, mk('Cancel', '', () => finish(false)), mk('Done', 'primary', () => finish(true)));
     document.body.append(overlay, bar);
     const pointers = new Map();
     let last = null;
@@ -20012,6 +20021,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     overlay.addEventListener('wheel', ev => { shot.distance += ev.deltaY * 0.01; report(); ev.preventDefault(); }, { passive:false });
     function finish(keep) {
       overlay.remove(); bar.remove();
+      document.body.classList.remove('ss-framing', 'ss-framing-controls');
       seqCameraTo(null, null, 0);
       setEditorDrawerCollapsed(drawerWasCollapsed);
       if (!keep) { Object.assign(shot, before); onChange?.({ ...before }); }
