@@ -19563,7 +19563,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const h = propHeightOf(place.asset) * (c.size || 1), w = h * (assetAspect[place.asset] || 1);
       const below = assetGroundLineDefault(place.asset) * h;
       const y = storyGroundY(place.x, place.depth) + (c.lift || 0) + h / 2 - below;
-      drawPropAt(view, place.asset, texture, { x: place.x, y, z: place.depth + CHARACTER_GAMEPLAY_Z_BIAS, rot: 0, flip: place.facing < 0, w, h }, place.hidden ? 0.35 : 1);
+      drawPropAt(view, place.asset, texture, { x: place.x, y, z: place.depth + CHARACTER_GAMEPLAY_Z_BIAS, rot: -(c.rotate || 0) * Math.PI / 180, flip: place.facing < 0, w, h }, place.hidden ? 0.35 : 1);
     }
   }
   // Where an object component is drawn on screen (editor labels and taps): its foot and top.

@@ -264,6 +264,7 @@
       if (!out.asset) return null;
       out.size = round(clamp(raw.size, 0.1, 5, 1), 100);  // × the asset's game height
       out.lift = round(clamp(raw.lift, 0, 10, 0), 100);   // metres above the ground (a note on the mantelpiece)
+      out.rotate = round(clamp(raw.rotate, -180, 180, 0), 10); // degrees about its centre, + = clockwise
       if (raw.startHidden) out.startHidden = true;        // hidden until an Object step shows it
       const takeWhen = normaliseCondition(raw.takeWhen);    // can only be picked up / put on while this holds
       if (takeWhen) out.takeWhen = takeWhen;

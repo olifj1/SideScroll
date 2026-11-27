@@ -4,6 +4,7 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Rotate for sequence objects.** A sequence Object has a **Rotate** slider (−180…180°, about its centre, + = clockwise).
 - **Objects that can be taken later (sequences).** A sequence Object has **Can be taken** (always / while
   flags are set / while not set) and *Until then she thinks*. Until then, Inspect shows it without Pick up /
   Put on and adds that line; without Inspect she just thinks it. E.g. a broken bag on a hook, taken once
