@@ -19829,6 +19829,35 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     return x - offset;
   }
+  // Sequence barriers: an invisible wall across the path at the component's x while its
+  // `active` condition is met (none = always). She stays on the side she came from; walking
+  // into it shows its thought (`say`), at most every few seconds.
+  const seqBarrierThought = new Map();
+  const seqBarrierActive = c => Seq.conditionMet(c.active, seqProgress.flags);
+  function resolveSequenceBarriers(cameraX, previousX) {
+    if (!Seq || !seqResolved.length) return cameraX;
+    const capsule = colliderWorld();
+    const offset = character.screenOffsetX + capsule.offsetX, half = capsule.radius + 0.02;
+    const before = previousX + offset;
+    let x = cameraX + offset;
+    for (const { p, body } of seqResolved) {
+      for (const c of body.components) {
+        if (c.kind !== 'barrier') continue;
+        const bx = p.x + c.dx;
+        if (Math.abs(bx - x) > 6 || !seqBarrierActive(c)) continue;
+        const crossed = (before - bx) * (x - bx) < 0;
+        if (!crossed && Math.abs(x - bx) >= half) continue;
+        const side = before < bx - 0.001 ? -1 : (before > bx + 0.001 ? 1 : (x <= bx ? -1 : 1));
+        const pushed = Math.abs((bx + side * half) - x) > 0.0005 && Math.sign(x - before) === -side;
+        x = bx + side * half;
+        if (pushed && c.say) {
+          const key = `${p.id}:${c.id}`, now = performance.now();
+          if (now - (seqBarrierThought.get(key) || 0) > 4000) { seqBarrierThought.set(key, now); showPuzzleThought(c.say, 2600); }
+        }
+      }
+    }
+    return x - offset;
+  }
   // Story editor overlay: marks, the selected character's route and names.
   // Editor overlay (Sequences scope): every sequence's anchor and name; the open
   // sequence's marks, zones and character names in full, the others faint.
@@ -19872,6 +19901,20 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           ctx.fillStyle = active ? 'rgba(255,150,120,.36)' : 'rgba(255,150,120,.16)'; ctx.fill();
           ctx.strokeStyle = 'rgba(255,170,140,.9)'; ctx.lineWidth = active ? 2.5 : 1.5; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
           if (open) { const mid = near[Math.floor(near.length / 2)]; label(`⚑ ${c.name}`, mid.x, mid.y + 22, '#ffd9cc'); }
+        } else if (c.kind === 'barrier') {
+          // A dashed wall across the path; faint while its condition isn't met (not blocking now).
+          const bx = p.x + c.dx, on = seqBarrierActive(c);
+          const g0 = storyGroundY(bx, 0.9), g1 = storyGroundY(bx, -0.9);
+          const a = projectWorldPoint(bx, g0, 0.9), b = projectWorldPoint(bx, g1, -0.9);
+          const at = projectWorldPoint(bx, g0 + 2.2, 0.9), bt = projectWorldPoint(bx, g1 + 2.2, -0.9);
+          if (!a || !b || !at || !bt) continue;
+          ctx.save();
+          ctx.globalAlpha *= on ? 1 : 0.45;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(bt.x, bt.y); ctx.lineTo(at.x, at.y); ctx.closePath();
+          ctx.fillStyle = active ? 'rgba(255,90,110,.30)' : 'rgba(255,90,110,.14)'; ctx.fill();
+          ctx.strokeStyle = 'rgba(255,120,140,.95)'; ctx.lineWidth = active ? 3 : 2; ctx.setLineDash([7, 5]); ctx.stroke(); ctx.setLineDash([]);
+          ctx.restore();
+          if (open) label(`▮ ${c.name}${on ? '' : ' · open now'}`, (at.x + bt.x) / 2, (at.y + bt.y) / 2 - 4, '#ffd0d8');
         } else if (c.kind === 'mark') {
           const place = seqComponentPlace(p, c);
           const pt = projectWorldPoint(place.x, storyGroundY(place.x, place.depth) + 0.04, place.depth);
@@ -19926,6 +19969,9 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           const y = a.y + (b.y - a.y) * ((px - a.x) / Math.max(1, b.x - a.x));
           const d = Math.abs(py - y);
           if (d < 30) consider(d + 30, { placed: p.id, component: c.id });
+        } else if (c.kind === 'barrier') {
+          const bx = p.x + c.dx, foot = projectWorldPoint(bx, storyGroundY(bx, 0), 0), top = projectWorldPoint(bx, storyGroundY(bx, 0) + 2.2, 0);
+          if (foot && top && Math.abs(px - foot.x) < 24 && py > top.y - 10 && py < foot.y + 10) consider(Math.abs(px - foot.x) + 4, { placed: p.id, component: c.id });
         }
       }
       for (const frame of worldCharacterFrames) {
@@ -21600,6 +21646,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         : null;
       camera.x = resolveStaticBodyPenetration(camera.x, resolvedFeetWorldY, groundedSupport);
       camera.x = resolveWorldCharacterBlocking(camera.x, previousCameraX);
+      camera.x = resolveSequenceBarriers(camera.x, previousCameraX);
     }
 
     const cameraDelta = camera.x - previousCameraX;
@@ -22393,7 +22440,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   function knownStoryFlags() {
     const out = new Set(Object.keys(seqProgress.flags || {}));
     for (const e of seqState.events) for (const st of e.steps) if (st.type === 'flag' && st.flag) out.add(st.flag);
-    for (const { body } of seqResolved) for (const l of body.logic) { if (l.condition?.flag) out.add(l.condition.flag); if (l.when?.flag) out.add(l.when.flag); }
+    for (const { body } of seqResolved) {
+      for (const l of body.logic) { for (const f of Seq.conditionFlags(l.condition)) out.add(f); if (l.when?.flag) out.add(l.when.flag); }
+      for (const c of body.components) if (c.kind === 'barrier') for (const f of Seq.conditionFlags(c.active)) out.add(f);
+    }
     for (const entry of Object.values(assetInteractions)) for (const a of Object.values(entry)) if (a?.flag) out.add(a.flag);
     return [...out].sort();
   }

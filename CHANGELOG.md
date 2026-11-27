@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Barriers and conditions on several flags (sequences).** Story → **+ Barrier** places an invisible
+  wall on the path that stops the player while its *Blocks* condition holds (always, while flags are set,
+  or until they are set), with an optional thought when she walks into it. A line's *Only* and a barrier's
+  *Blocks* can now name several flags: *all of them* or *any of them* (for "until", *until all are set* /
+  *until any is set*). Older single-flag conditions are unchanged.
 - **Frame it clears the screen.** While framing a story camera shot, the editor panel tucks behind the
   PANEL tab and the Jump / Action / movement controls hide, so the shot is all you see. PANEL brings the
   panel back; the framing bar's new **Controls** button brings the controls back. Done / Cancel restore both.

@@ -23,7 +23,7 @@
   const ROLE_KINDS = Object.freeze({ character: 'Character', mark: 'Mark', object: 'Object' });
   // object: any asset (built-in prop or imported picture) standing in the sequence
   // — a chopping block, a note, the food — that events can show, hide or swap.
-  const COMPONENT_KINDS = Object.freeze({ character: 'Character', mark: 'Mark', zone: 'Zone', object: 'Object' });
+  const COMPONENT_KINDS = Object.freeze({ character: 'Character', mark: 'Mark', zone: 'Zone', object: 'Object', barrier: 'Barrier' });
   // Event steps. `roles` lists which fields name a role, and of which kind.
   const STEPS = Object.freeze({
     move:    { label: 'Move', help: 'walks / runs to a mark', roles: { actor: 'character', to: 'mark' } },
@@ -82,12 +82,24 @@
     taken.add(id);
     return id;
   };
+  // A condition on story flags: {flag, when} (one flag, the original form) or, for several,
+  // {flags:[…], match 'all'|'any', when}; when 'set' | 'unset'.
   function normaliseCondition(raw) {
-    const flag = flagName(raw?.flag);
-    return flag ? { flag, when: raw.when === 'unset' ? 'unset' : 'set' } : null;
+    if (!raw || typeof raw !== 'object') return null;
+    const when = raw.when === 'unset' ? 'unset' : 'set';
+    const list = [...new Set((Array.isArray(raw.flags) ? raw.flags : [raw.flag]).map(flagName).filter(Boolean))].slice(0, 12);
+    if (!list.length) return null;
+    if (list.length === 1) return { flag: list[0], when };
+    return { flags: list, match: raw.match === 'any' ? 'any' : 'all', when };
   }
-  // {flag, when} against a player's flags; no condition is always met.
-  const conditionMet = (condition, flags) => !condition?.flag || (!!flags?.[condition.flag] === (condition.when !== 'unset'));
+  const conditionFlags = condition => Array.isArray(condition?.flags) ? condition.flags : (condition?.flag ? [condition.flag] : []);
+  // Against a player's flags; no condition is always met.
+  function conditionMet(condition, flags) {
+    const list = conditionFlags(condition);
+    if (!list.length) return true;
+    const want = condition.when !== 'unset', ok = f => !!flags?.[f] === want;
+    return condition.match === 'any' ? list.some(ok) : list.every(ok);
+  }
 
   // ---- Events ----------------------------------------------------------------
   // timed: the event's steps start at their own times (`at`, seconds from the
@@ -239,6 +251,14 @@
     } else if (raw.kind === 'zone') {
       out.width = round(clamp(raw.width, 0.2, 40, 2));
       out.depth = 0;
+    } else if (raw.kind === 'barrier') {
+      // An invisible wall across the path: the player can't walk through it while `active` is met
+      // (none = always); `say` is what she thinks when she walks into it.
+      out.depth = 0;
+      const active = normaliseCondition(raw.active);
+      if (active) out.active = active;
+      const say = text(raw.say, 120);
+      if (say) out.say = say;
     } else if (raw.kind === 'object') {
       out.asset = propName(raw.asset);
       if (!out.asset) return null;
@@ -357,6 +377,6 @@
   window.SideScrollSequences = Object.freeze({
     EVENTS_KEY, SEQUENCES_KEY, PROGRESS_KEY, ROLE_KINDS, COMPONENT_KINDS, STEPS, OBJECT_ACTIONS, WHEN, DEPTH, SCREEN_ACTIONS, PROP_ACTIONS, PLAYER,
     normaliseEvents, normaliseSequences, normaliseBody, bodyOf, load, save, loadProgress, saveProgress,
-    flagName, conditionMet, newId
+    flagName, conditionMet, conditionFlags, normaliseCondition, newId
   });
 })();

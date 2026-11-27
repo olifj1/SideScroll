@@ -61,6 +61,8 @@ character never knows which sequences use it; an event never knows where it is u
 The player keeps control while a sequence plays, unless an event's steps take it away
 (see **Control** below).
 
+- **Barriers** (27 Nov): a component kind `barrier` — an invisible wall at `dx` that blocks the player while its `active` condition holds, with an optional thought `say`. Conditions (line `condition`, barrier `active`) may name several flags: `{flags, match 'all'|'any', when}`; one flag stays `{flag, when}`.
+
 ## Events
 - A **name**, its **roles** (each a kind: Character, Mark, Zone), and **steps** in
   order. Each step runs *after the previous one* or *with the previous one*.
