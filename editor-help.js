@@ -12,6 +12,9 @@
     // ---- Story tab: lists ----
     'list.sequences': { title: 'Sequences', text: 'Sequences placed in the world, in journey order. Tap one here, or its post in the view, to open it.' },
     'list.events': { title: 'Events', text: 'Reusable chains of steps, written with placeholders (Actor, Exit…) that each sequence fills in. Any sequence can run any event.' },
+    'list.flags': { title: 'Flags', text: 'Every story flag: what sets it (a Flag step in an event, and which sequences run that event; or inspecting / taking an asset) and what waits for it (lines, barriers, objects). Tap one to go there. “set now” is this device’s progress.' },
+    'flow.view': { title: 'Flow', text: 'This sequence in the order things happen: what the player does (left) sets off events (one box per logic line), which set flags, which set off more. Arrows that go back are loops; dashed ones are “only while” and things waiting for a flag. Tap an event to open its timeline (✎ edits its line), a trigger for its zone, a flag for where else it’s used. + adds a line that runs after it. While playing, the running event glows and set flags light up.' },
+    'flow.map': { title: 'Story map', text: 'Every sequence along the journey, left to right. An arrow is a flag one sequence sets and another waits for: above when it leads further along the path, below when it leads back. Tap a sequence for its flow.' },
     'story.progress': { title: 'Story progress', text: 'Reset story (TEST bar, top right) clears flags, fired lines and what events changed, as for a new player.' },
 
     // ---- Sequence page ----

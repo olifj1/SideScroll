@@ -226,6 +226,7 @@
     if (page === 'line') { if (extra.placed) view.placed = extra.placed; view.line = id; view.component = null; autoFillSequence(placedById(view.placed)); }
     if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; view.returnLine = extra.returnLine || null; if (draft.events.find(x => x.id === id)) makeTimed(eventById(id)); }
     if (page === 'list' && extra.tab) view.tab = extra.tab;
+    if (page === 'list') { view.flag = extra.flag || null; if (view.flag) reveal = `flag:${view.flag}`; }
     syncSelection();
     render();
     panel.closest('.sidescroll-editor-drawer-body, #sidescroll-editor-drawer-body')?.scrollTo?.({ top: 0 });
@@ -289,13 +290,14 @@
     const placed = [...draft.placed].sort((a, b) => a.x - b.x);
     const uses = id => draft.placed.reduce((n, p) => n + bodyOf(p).logic.filter(l => l.event === id).length, 0);
     return [
-      segmented([['sequences', `Sequences (${draft.placed.length})`], ['events', `Events (${draft.events.length})`]], view.tab, v => { view.tab = v; placeMode = null; render(); }),
-      ...(view.tab === 'sequences' ? [
+      segmented([['sequences', `Sequences (${draft.placed.length})`], ['events', `Events (${draft.events.length})`], ['flags', `Flags (${knownFlags().length})`]], view.tab, v => { view.tab = v; view.flag = null; placeMode = null; render(); }),
+      ...(view.tab === 'flags' ? flagsPage() : view.tab === 'sequences' ? [
         addBar(btn(placeMode?.kind === 'new-sequence' ? 'Cancel' : '+ New sequence', () => setPlaceMode(placeMode?.kind === 'new-sequence' ? null : { kind: 'new-sequence' }, 'Tap the ground where the sequence goes'), placeMode?.kind === 'new-sequence' ? 'active' : 'primary'),
           draft.templates.length ? btn(placeMode?.kind === 'place-template' ? 'Cancel' : '+ Place a template', () => placeMode?.kind === 'place-template' ? setPlaceMode(null)
             : openChooser('templates', 'Place a template', draft.templates.map(t => ({ value: t.id, label: t.name, thumb: '▣', note: `placed ${instancesOf(t.id).length}×` })),
               id => setPlaceMode({ kind: 'place-template', template: id }, 'Tap the ground where it goes')), placeMode?.kind === 'place-template' ? 'active' : 'primary') : null),
         chooserBox('templates'),
+        placed.length ? btn('⤢ Story map', openMap, 'sidescroll-seq-mapbtn', 'Every sequence along the journey, with the flags that link them') : null,
         el('h4', { class: 'sidescroll-seq-sechead', 'data-help-anchor': '' }, el('span', { text: 'In journey order' }), info('list.sequences')),
         el('div', { class: 'sidescroll-story-list' }, placed.length ? placed.map(p => el('button', { type: 'button', onclick: () => open('sequence', p.id) },
           el('strong', { text: `▣ ${p.name}` }),
@@ -313,6 +315,53 @@
           : help('No events yet.'))
       ]),
       progressBox()
+    ];
+  }
+
+  // ---- Flags overview (stage 5): every flag, where it is set and where it is read -------------
+  function flagsPage() {
+    const index = Flow ? Flow.flagIndex(storyForIndex(), { interactions: interactionsNow(), bodyOf }) : new Map();
+    const names = knownFlags(), progress = host.progress().flags || {};
+    const assetLabel = name => propLabel(name) || name;
+    const ACTION = { inspect: 'Inspect', collect: 'Pick up', hold: 'Hold', wear: 'Put on' };
+    const linkBtn = (text, fn, cls = '') => el('button', { type: 'button', class: `sidescroll-flag-link ${cls}`, onclick: fn }, text);
+    const lineOf = (pid, lid) => { const p = placedById(pid), b = p && bodyOf(p); const i = b ? b.logic.findIndex(l => l.id === lid) : -1; return { p, i }; };
+    const card = f => {
+      const v = index.get(f) || { sets: [], reads: [], orphan: 'never set' };
+      const sets = v.sets.map(s => {
+        if (s.type === 'interaction') return el('div', { class: 'sidescroll-flag-row' }, el('span', { text: `▢ ${assetLabel(s.asset)} · ${ACTION[s.action] || s.action}` }),
+          el('small', { text: 'Asset Lab → Interactions' }));
+        const e = eventById(s.event);
+        return el('div', { class: 'sidescroll-flag-row' },
+          linkBtn(`✦ ${e?.name || '…'} · ${s.value ? 'sets' : 'clears'}`, () => { open('event', s.event); openTimeline(e?.steps[s.step] || null); }),
+          s.runIn.length ? el('small', {}, 'run by ', ...s.runIn.flatMap((r, k) => { const { p, i } = lineOf(r.placed, r.line);
+            return p ? [k ? ', ' : '', linkBtn(`${p.name} · line ${i + 1}`, () => open('line', r.line, { placed: r.placed }), 'small')] : []; }))
+            : el('small', { class: 'warn', text: 'no sequence runs this event' }));
+      });
+      const READ = { when: 'When it is set', only: 'Only while', barrier: 'Barrier', take: 'Can be taken' };
+      const reads = v.reads.map(r => {
+        const p = placedById(r.placed);
+        if (!p) return null;
+        if (r.type === 'when' || r.type === 'only') {
+          const { i } = lineOf(r.placed, r.line);
+          return el('div', { class: 'sidescroll-flag-row' }, linkBtn(`▣ ${p.name} · line ${i + 1}`, () => open('line', r.line, { placed: r.placed })),
+            el('small', { text: r.type === 'only' && r.unset ? 'only while not set' : READ[r.type] }));
+        }
+        const c = bodyOf(p).components.find(x => x.id === r.component);
+        return el('div', { class: 'sidescroll-flag-row' }, linkBtn(`▣ ${p.name} · ${KIND_ICON[c?.kind] || ''} ${c?.name || '…'}`, () => open('component', r.component, { placed: r.placed })),
+          el('small', { text: READ[r.type] }));
+      });
+      return el('div', { class: `sidescroll-flag-card${view.flag === f ? ' focus' : ''}`, 'data-reveal': `flag:${f}` },
+        el('div', { class: 'sidescroll-flag-head' }, el('strong', { text: `⚑ ${f}` }),
+          el('span', { class: `sidescroll-flag-state${progress[f] ? ' on' : ''}`, text: progress[f] ? 'set now' : 'not set' }),
+          v.orphan ? el('span', { class: 'sidescroll-flag-warn', text: v.orphan }) : null),
+        el('div', { class: 'sidescroll-flag-cols' },
+          el('div', {}, el('span', { class: 'sidescroll-flag-sub', text: 'Set by' }), ...(sets.length ? sets : [el('small', { class: 'warn', text: 'nothing sets it' })])),
+          el('div', {}, el('span', { class: 'sidescroll-flag-sub', text: 'Read by' }), ...(reads.filter(Boolean).length ? reads : [el('small', { text: 'nothing waits for it' })]))));
+    };
+    return [
+      el('h4', { class: 'sidescroll-seq-sechead', 'data-help-anchor': '' }, el('span', { text: 'Every story flag' }), info('list.flags')),
+      names.length ? el('div', { class: 'sidescroll-flag-list' }, names.map(card)) : help('No flags yet: a Flag step in an event sets one.')
     ];
   }
 
@@ -667,6 +716,7 @@
     }
     return [
       el('div', { class: 'sidescroll-seq-header' }, nameInput,
+        btn('⤢ Flow', () => openFlow(p.id), 'sidescroll-seq-flow', 'This sequence as a flow: what sets each event off, and what it leads to'),
         btn('▶ Play', () => {
           preview(); placeMode = null;
           const b = host.bounds(p.id); host.playFrom((b ? b.x0 : p.x) - 2.5);
@@ -932,7 +982,10 @@
     } catch (_) { return base; }
   })();
   const timeline = { open: false, pps: 44, selected: null, selObj: null, root: null, picking: false, pickTimer: 0, scrollTo: null,
-    size: tlView.size, aside: false, focus: tlView.focus, opacity: tlView.opacity, focusBeforePlay: null, playing: null, playT: 0, total: 0, raf: 0, rail: null };
+    size: tlView.size, aside: false, focus: tlView.focus, opacity: tlView.opacity, focusBeforePlay: null, playing: null, playT: 0, total: 0, raf: 0, rail: null,
+    // mode: 'event' (an event's timeline), 'flow' (a sequence as nodes) or 'map' (every sequence); flowReturn: the
+    // sequence whose flow an event's timeline was opened from (its head gets ‹ Flow).
+    mode: 'event', flowReturn: null, flowZoom: 1, mapZoom: 1, liveSig: '' };
   function saveTlView() {
     try { sessionStorage.setItem(TL_VIEW_KEY, JSON.stringify({ size: timeline.size, aside: timeline.aside, focus: timeline.focus, opacity: timeline.opacity })); } catch (_) {}
   }
@@ -1024,7 +1077,7 @@
   }
   function startTransportLoop() {
     cancelAnimationFrame(timeline.raf);
-    const step = () => { if (!timeline.open) return; syncTransport(); timeline.raf = requestAnimationFrame(step); };
+    const step = () => { if (!timeline.open) return; if (timeline.mode === 'flow') syncFlowLive(); else if (timeline.mode === 'event') syncTransport(); timeline.raf = requestAnimationFrame(step); };
     timeline.raf = requestAnimationFrame(step);
   }
   function stopTransportLoop() { cancelAnimationFrame(timeline.raf); timeline.raf = 0; }
@@ -1110,7 +1163,7 @@
   }
   function closeTimeline() {
     stopTransportLoop();
-    timeline.open = false; closeChooser(); clearInterval(timeline.pickTimer);
+    timeline.open = false; timeline.mode = 'event'; timeline.flowReturn = null; closeChooser(); clearInterval(timeline.pickTimer);
     timeline.root?.remove(); timeline.root = null;
     timeline.rail?.remove(); timeline.rail = null;
     document.body.classList.remove('sidescroll-tl-open', 'sidescroll-tl-shown', 'sidescroll-tl-focus-game', ...TL_SIZES.map(k => `sidescroll-tl-size-${k}`));
@@ -1142,6 +1195,8 @@
     return { rows, items, total, width, height: y + 40 };
   }
   function renderTimeline() {
+    if (timeline.mode === 'flow') return renderFlow();
+    if (timeline.mode === 'map') return renderMap();
     const e = view.page === 'event' ? eventById(view.event) : null;
     if (!timeline.open || !e) { if (timeline.open) closeTimeline(); return; }
     makeTimed(e);
@@ -1225,11 +1280,11 @@
           onclick: () => { if (timeline.stripScrubbed) return; timeline.selected = it.i; timeline.selObj = it.s; renderTimeline(); } })),
         el('div', { class: 'sidescroll-tl-mini-head', style: `left:${Math.min(100, (t / span) * 100)}%` }));
       bindStripScrub(mini, span);
-      body = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the timeline'), playBtn, clock, mini, dirty ? saveBtn : null, focusSeg, opacityBtn, sizes, asideBtn)];
+      body = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the timeline'), flowBackBtn(), playBtn, clock, mini, dirty ? saveBtn : null, focusSeg, opacityBtn, sizes, asideBtn)];
     } else {
       body = [
         el('div', { class: 'sidescroll-tl-head' },
-          btn('✕', closeTimeline, '', 'Close the timeline'), playBtn, clock,
+          btn('✕', closeTimeline, '', 'Close the timeline'), flowBackBtn(), playBtn, clock,
           el('strong', { text: e.name }),
           btn('↶', undo, history.undo.length ? '' : 'quiet', 'Undo'),
           btn('↷', redo, history.redo.length ? '' : 'quiet', 'Redo'),
@@ -1243,26 +1298,7 @@
     const root = el('div', { class: `sidescroll-tl size-${size}${timeline.aside ? ' aside' : ''}${sheet ? ' has-sheet' : ''}${gameFocus ? ' focus-game' : ''}`,
       role: 'dialog', 'aria-label': `${e.name} timeline`, style: `--tl-alpha:${timeline.opacity}` },
       handle, ...body, full ? null : sheet);
-    document.body.classList.add('sidescroll-tl-open');
-    for (const k of TL_SIZES) document.body.classList.toggle(`sidescroll-tl-size-${k}`, k === size && !timeline.aside);
-    document.body.classList.toggle('sidescroll-tl-focus-game', gameFocus && !timeline.aside);
-    document.body.classList.toggle('sidescroll-tl-shown', !timeline.aside); // collapsed: the game's controls are back
-    // Pushed aside: the same collapsed rail as the editor panel's, in the same
-    // place (the panel's left edge and height); tap or swipe right to bring it back.
-    if (!timeline.rail) {
-      timeline.rail = el('button', { type: 'button', class: 'sidescroll-tl-rail', 'aria-label': 'Expand the timeline', onclick: () => setTlAside(false) },
-        el('span', { text: 'TIMELINE' }), el('b', { text: '›' }), el('i', { hidden: true }));
-      bindSwipe(timeline.rail, dx => { if (dx > 0) setTlAside(false); });
-      document.body.append(timeline.rail);
-    }
-    timeline.rail.hidden = !timeline.aside;
-    timeline.rail.querySelector('i').hidden = !dirty;
-    if (timeline.aside) {
-      const node = document.getElementById('sidescroll-puzzle-panel'), r = node?.getBoundingClientRect();
-      const box = r && r.height > 40 ? { left: r.left + node.clientLeft, top: r.top + node.clientTop, height: node.clientHeight } : { left: 10, top: 64, height: innerHeight - 74 };
-      Object.assign(timeline.rail.style, { left: `${box.left}px`, top: `${box.top}px`, height: `${box.height}px` });
-    }
-    if (old) old.replaceWith(root); else document.body.append(root);
+    mountLayer(root, old, 'TIMELINE');
     if (timeline.picking) root.classList.add('picking');
     timeline.root = root;
     if (timeline.scrollTo != null) { scroller.scrollLeft = timeline.scrollTo; scroller.scrollTop = keep?.top || 0; timeline.scrollTo = null; }
@@ -1272,8 +1308,37 @@
     const pin = () => { content.style.setProperty('--sx', `${scroller.scrollLeft}px`); content.style.setProperty('--sy', `${scroller.scrollTop}px`); };
     scroller.addEventListener('scroll', pin, { passive: true }); pin();
     if (size !== 'bar') bindTimeline(e, scroller, content, L);
+    afterMount(root, handle);
+  }
+  // Shared by the timeline, the flow and the story map: body classes for the size and focus,
+  // the collapsed rail (in the editor panel's place), and swapping the layer in.
+  function mountLayer(root, old, railText) {
+    const size = timeline.size, gameFocus = timeline.focus === 'game';
+    document.body.classList.add('sidescroll-tl-open');
+    for (const k of TL_SIZES) document.body.classList.toggle(`sidescroll-tl-size-${k}`, k === size && !timeline.aside);
+    document.body.classList.toggle('sidescroll-tl-focus-game', gameFocus && !timeline.aside);
+    document.body.classList.toggle('sidescroll-tl-shown', !timeline.aside); // collapsed: the game's controls are back
+    // Pushed aside: the same collapsed rail as the editor panel's, in the same
+    // place (the panel's left edge and height); tap or swipe right to bring it back.
+    if (!timeline.rail) {
+      timeline.rail = el('button', { type: 'button', class: 'sidescroll-tl-rail', 'aria-label': 'Expand', onclick: () => setTlAside(false) },
+        el('span', { text: railText }), el('b', { text: '›' }), el('i', { hidden: true }));
+      bindSwipe(timeline.rail, dx => { if (dx > 0) setTlAside(false); });
+      document.body.append(timeline.rail);
+    }
+    timeline.rail.querySelector('span').textContent = railText;
+    timeline.rail.hidden = !timeline.aside;
+    timeline.rail.querySelector('i').hidden = !dirty;
+    if (timeline.aside) {
+      const node = document.getElementById('sidescroll-puzzle-panel'), r = node?.getBoundingClientRect();
+      const box = r && r.height > 40 ? { left: r.left + node.clientLeft, top: r.top + node.clientTop, height: node.clientHeight } : { left: 10, top: 64, height: innerHeight - 74 };
+      Object.assign(timeline.rail.style, { left: `${box.left}px`, top: `${box.top}px`, height: `${box.height}px` });
+    }
+    if (old) old.replaceWith(root); else document.body.append(root);
+  }
+  function afterMount(root, handle) {
     bindHandle(handle);
-    // The timeline overlays the game (the view never changes); the side sheet sits above it.
+    // The layer overlays the game (the view never changes); the side sheet sits above it.
     requestAnimationFrame(() => { if (timeline.root === root) document.body.style.setProperty('--tl-h', `${root.offsetHeight}px`); });
   }
   // Bar's strip: drag (or tap an empty spot) to move the playhead and scrub; a
@@ -1328,6 +1393,333 @@
     node.addEventListener('pointercancel', () => { start = null; });
   }
   // Zoom by a factor, keeping the time at `focusX` (px in the view) in place.
+  // ---- Sequence flow view (stage 3) and story map (stage 6) ---------------------------------
+  // The same docked layer as the timeline (sizes, aside, focus, opacity), in another mode. Both are
+  // views of the saved logic, worked out by story-flow.js: nothing about them is stored.
+  const Flow = window.SideScrollStoryFlow;
+  const storyForIndex = () => ({ events: draft.events, templates: draft.templates, placed: draft.placed });
+  const interactionsNow = () => window.SideScrollInteractions?.load?.() || {};
+  function flowBackBtn() {
+    const p = timeline.flowReturn && placedById(timeline.flowReturn);
+    return p ? btn('‹ Flow', () => openFlow(p.id), 'sidescroll-tl-flowback', `Back to the flow of ${p.name}`) : null;
+  }
+  function openFlow(placedId) {
+    const p = placedById(placedId);
+    if (!Flow || !p) return;
+    const wasOpen = timeline.open;
+    timeline.mode = 'flow'; timeline.flowReturn = null; timeline.liveSig = '';
+    if (view.page !== 'sequence' || view.placed !== p.id) open('sequence', p.id, { focus: !wasOpen });
+    timeline.open = true; timeline.aside = false; timeline.selected = null; timeline.selObj = null;
+    document.body.classList.add('sidescroll-tl-open');
+    renderTimeline();
+    startTransportLoop();
+  }
+  function openMap() {
+    if (!Flow) return;
+    timeline.mode = 'map'; timeline.flowReturn = null;
+    if (view.page !== 'list') open('list', null, { tab: 'sequences' });
+    timeline.open = true; timeline.aside = false;
+    document.body.classList.add('sidescroll-tl-open');
+    renderTimeline();
+    stopTransportLoop();
+  }
+  // From the flow to an event's timeline (and back with ‹ Flow).
+  function flowToEvent(p, lineId, eventId) {
+    timeline.mode = 'event';
+    open('event', eventId, { returnTo: p.id, returnLine: lineId });
+    timeline.flowReturn = p.id;
+    openTimeline();
+  }
+  // From the flow to a page of the editor panel (the layer closes; ⤢ Flow reopens it).
+  function flowToPanel(fn) { closeTimeline(); fn(); }
+  // An event's timeline as a strip: a bar per step, a line per row (as the timeline's Bar).
+  function eventStrip(e) {
+    if (!e || !e.steps.length) return el('div', { class: 'ss-flow-strip empty' });
+    const place = timedPlacement(e), span = Math.max(0.1, eventSeconds(e, place));
+    const rows = timelineRows(e), idx = new Map(rows.map((r, k) => [r.key, k])), lane = 14 / Math.max(1, rows.length);
+    return el('div', { class: 'ss-flow-strip', 'data-seconds': String(span) },
+      ...e.steps.map((s, i) => el('i', { class: `kind-${STEP_KIND[s.type] || 'logic'}`,
+        style: `left:${(place[i].at / span) * 100}%;width:${Math.max(1.5, (stepTiming(s).seconds / span) * 100)}%;top:${(idx.get(rowKeyOf(s)) || 0) * lane}px;height:${Math.max(1.5, lane - 1)}px` })),
+      el('b', { class: 'ss-flow-head', hidden: true }));
+  }
+  const TRIGGER_TEXT = {
+    load: () => ['▶', 'Sequence starts', 'when it loads'],
+    enter: n => ['⚑', `Enters ${n.zoneName || '…'}`, n.x != null ? `at ${fmt(n.x, 1)} m` : 'choose a zone'],
+    leave: n => ['⚑', `Leaves ${n.zoneName || '…'}`, n.x != null ? `at ${fmt(n.x, 1)} m` : 'choose a zone'],
+    action: n => ['☝', `Presses ${n.label}`, n.zoneName ? `in ${n.zoneName}` : 'choose a zone'],
+    inspect: n => ['◉', `Inspects ${n.zoneName}`, 'object'],
+    collect: n => ['✚', `Picks up ${n.zoneName}`, 'object'],
+    hold: n => ['✋', `Holds ${n.zoneName}`, 'object'],
+    wear: n => ['◍', `Puts on ${n.zoneName}`, 'object']
+  };
+  // The When a new line gets when added from a trigger.
+  const whenFromTrigger = n => (n.when === 'load' ? { type: 'load' } : ['enter', 'leave'].includes(n.when) ? { type: n.when, zone: n.zone || undefined }
+    : n.when === 'action' ? { type: 'action', zone: n.zone || undefined, label: n.label } : null);
+  // 3c: add a line from the flow; the event is chosen straight away (or a new one made).
+  function flowAddLine(p, when, title) {
+    const body = bodyOf(p);
+    openChooser('flow-add', title, [...draft.events.map(e => ({ value: e.id, label: e.name, thumb: '✦', note: `${e.steps.length} step${e.steps.length === 1 ? '' : 's'}` })),
+      { value: '__new', label: '+ New event', thumb: '+', note: 'Make it on its timeline' }], v => {
+      const taken = takenIds(), id = Seq.newId('l', taken);
+      const line = { id, when: clone(when), event: null, roles: {}, once: true };
+      body.logic.push(line);
+      if (v === '__new') {
+        const eid = Seq.newId('ev', taken);
+        draft.events.push({ id: eid, name: `Event ${draft.events.length + 1}`, roles: [{ id: Seq.newId('r', taken), name: 'Actor', kind: 'character' }], steps: [] });
+        line.event = eid; autoFill(body, line); change(false); flowToEvent(p, id, eid); return;
+      }
+      line.event = v;
+      const filled = autoFill(body, line);
+      change(false); renderTimeline();
+      host.hint(`Added line ${body.logic.length}${filled.length ? ` · filled ${filled.map(([r, c]) => `${r} → ${c}`).join(', ')}` : ''}`);
+    }, 'It runs when this happens');
+  }
+  function flowNodeEl(p, body, n, box, z) {
+    const style = `left:${box.x * z}px;top:${box.y * z}px;width:${box.w * z}px;height:${box.h * z}px;--z:${z}`;
+    const plus = (title, fn) => el('button', { type: 'button', class: 'ss-flow-plus', title, 'aria-label': title, onclick: ev => { ev.stopPropagation(); fn(); } }, '+');
+    if (n.kind === 'trigger') {
+      const [icon, title, sub] = (TRIGGER_TEXT[n.when] || TRIGGER_TEXT.load)(n);
+      const when = whenFromTrigger(n);
+      return el('div', { class: 'ss-flow-node kind-trigger', 'data-node': n.id, style },
+        el('button', { type: 'button', class: 'ss-flow-body', onclick: () => {
+          const c = n.zone && body.components.find(x => x.id === n.zone);
+          if (c) flowToPanel(() => open('component', c.id, { placed: p.id }));
+          else { const l = body.logic.find(x => (x.when?.type || 'load') === 'load'); if (l) flowToPanel(() => open('line', l.id, { placed: p.id })); }
+        } }, el('b', { text: `${icon} ${title}` }), el('small', { text: sub })),
+        when ? plus('Add a line that runs when this happens', () => flowAddLine(p, when, `${title}: run which event?`)) : null);
+    }
+    if (n.kind === 'event') {
+      const e = eventById(n.event), l = body.logic.find(x => x.id === n.line);
+      const sec = e ? eventSeconds(e) : 0;
+      return el('div', { class: `ss-flow-node kind-event${n.missing ? ' missing' : ''}`, 'data-node': n.id, 'data-line': n.line, 'data-seconds': String(sec), style },
+        el('button', { type: 'button', class: 'ss-flow-body', title: e ? `Open the timeline of “${e.name}”` : 'Choose an event', onclick: () => {
+          if (e) flowToEvent(p, n.line, e.id); else flowToPanel(() => open('line', n.line, { placed: p.id }));
+        } },
+          el('b', { class: e ? '' : 'missing', text: e ? `✦ ${e.name}` : 'choose an event' }),
+          el('small', { text: `Line ${n.index + 1}${e ? ` · ${fmt(sec, 1)} s` : ''}${n.every ? ' · every time' : ''}${n.missing && e ? ' · fill in' : ''}` }),
+          eventStrip(e)),
+        el('button', { type: 'button', class: 'ss-flow-edit', title: `Edit line ${n.index + 1}`, 'aria-label': `Edit line ${n.index + 1}`, onclick: ev => { ev.stopPropagation(); flowToPanel(() => open('line', l.id, { placed: p.id })); } }, '✎'),
+        plus(`Add a line that runs when line ${n.index + 1} finishes`, () => flowAddLine(p, { type: 'finish', line: n.line }, `After line ${n.index + 1}: run which event?`)));
+    }
+    if (n.kind === 'flag') {
+      const sub = n.setHere ? `set here${n.elsewhere ? ' · also elsewhere' : ''}${n.readElsewhere ? ' · read elsewhere' : ''}` : `set elsewhere${n.readElsewhere ? ' · read elsewhere' : ''}`;
+      return el('div', { class: `ss-flow-node kind-flag${n.setHere ? '' : ' external'}`, 'data-node': n.id, 'data-flag': n.flag, style },
+        el('button', { type: 'button', class: 'ss-flow-body', title: `Where ${n.flag} is set and read`, onclick: () => flowToPanel(() => open('list', null, { tab: 'flags', flag: n.flag })) },
+          el('b', { text: `⚑ ${n.flag}` }), el('small', { text: sub })),
+        plus(`Add a line that runs when ${n.flag} is set`, () => flowAddLine(p, { type: 'flag', flag: n.flag }, `When ${n.flag} is set: run which event?`)));
+    }
+    // A barrier or object waiting for a flag.
+    return el('div', { class: 'ss-flow-node kind-wait', 'data-node': n.id, style },
+      el('button', { type: 'button', class: 'ss-flow-body', onclick: () => flowToPanel(() => open('component', n.component, { placed: p.id })) },
+        el('b', { text: `${n.what === 'barrier' ? '▮' : '▢'} ${n.name}` }), el('small', { text: n.what === 'barrier' ? 'blocks until…' : 'can be taken when…' })));
+  }
+  // Arrows in one SVG under the boxes; dashed = "only while" / waits for; loops = return arrows.
+  function flowArrows(paths, w, h, z) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'ss-flow-svg'); svg.setAttribute('width', w * z); svg.setAttribute('height', h * z);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const defs = document.createElementNS(NS, 'defs');
+    for (const k of ['solid', 'dash', 'clear', 'loop']) {
+      const m = document.createElementNS(NS, 'marker');
+      Object.entries({ id: `ss-flow-${k}`, viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' }).forEach(([a, v]) => m.setAttribute(a, v));
+      const path = document.createElementNS(NS, 'path'); path.setAttribute('d', 'M1 1L9 5L1 9z'); path.setAttribute('class', `ss-flow-tip ${k}`);
+      m.append(path); defs.append(m);
+    }
+    svg.append(defs);
+    for (const a of paths) {
+      const kind = a.kind === 'only' || a.kind === 'waits' ? 'dash' : a.kind === 'clears' ? 'clear' : a.loop ? 'loop' : 'solid';
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', a.d); path.setAttribute('class', `ss-flow-edge ${kind} e-${a.kind}`);
+      path.setAttribute('data-from', a.from); path.setAttribute('data-to', a.to);
+      path.setAttribute('marker-end', `url(#ss-flow-${kind})`);
+      svg.append(path);
+    }
+    return svg;
+  }
+  function flowGraphFor(p) {
+    const body = bodyOf(p), index = Flow.flagIndex(storyForIndex(), { interactions: interactionsNow(), bodyOf });
+    const mine = new Set(body.components.filter(c => c.kind === 'object').map(c => c.asset));
+    const g = Flow.sequenceGraph(body, { events: draft.events, interactions: interactionsNow(), x: c => p.x + (c.dx || 0),
+      readElsewhere: f => (index.get(f)?.reads || []).some(r => r.placed !== p.id),
+      setElsewhere: f => (index.get(f)?.sets || []).some(s => (s.type === 'interaction' ? !mine.has(s.asset) : s.runIn.some(r => r.placed !== p.id))) });
+    return { body, g, L: Flow.layout(g) };
+  }
+  function layerChrome(size) {
+    const gameFocus = timeline.focus === 'game';
+    return {
+      gameFocus,
+      sizes: el('span', { class: 'sidescroll-tl-sizes' }, ...[['bar', '▁', 'Bar'], ['half', '▄', 'Half'], ['full', '█', 'Full screen']]
+        .map(([k, icon, label]) => btn(icon, () => setTlSize(k), size === k ? 'on' : '', label))),
+      asideBtn: btn('‹', () => setTlAside(true), 'sidescroll-tl-collapse', 'Collapse'),
+      focusSeg: el('span', { class: 'sidescroll-tl-focus' },
+        btn('🎮', () => setTlFocus('game'), gameFocus ? 'on' : '', 'Focus on the game (taps and controls go to the game)'),
+        btn('✎', () => setTlFocus('timeline'), gameFocus ? '' : 'on', 'Focus on the view (taps go to it)')),
+      opacityBtn: btn(`◐ ${Math.round(timeline.opacity * 100)}%`, cycleTlOpacity, 'sidescroll-tl-opacity', 'How solid it is over the game'),
+      saveBtn: dirty ? btn('Save', () => { saveDraft(); host.hint('Story saved'); renderTimeline(); }, 'primary') : null,
+      handle: el('div', { class: 'sidescroll-tl-handle', role: 'button', 'aria-label': 'Drag or tap to resize; swipe left to collapse' })
+    };
+  }
+  // Pan by scrolling (native); pinch or ctrl + wheel, or − / +, zoom.
+  function bindZoom(scroller, key) {
+    const setZoom = (z, fx = scroller.clientWidth / 2, fy = scroller.clientHeight / 2) => {
+      const old = timeline[key], nz = Math.max(0.4, Math.min(1.8, Math.round(z * 100) / 100));
+      if (nz === old) return;
+      const sx = (scroller.scrollLeft + fx) / old, sy = (scroller.scrollTop + fy) / old;
+      timeline[key] = nz; timeline.zoomScroll = { left: sx * nz - fx, top: sy * nz - fy };
+      renderTimeline();
+    };
+    scroller.addEventListener('wheel', ev => {
+      if (!ev.ctrlKey) return;
+      ev.preventDefault();
+      const r = scroller.getBoundingClientRect();
+      setZoom(timeline[key] * Math.exp(-ev.deltaY * 0.01), ev.clientX - r.left, ev.clientY - r.top);
+    }, { passive: false });
+    let pinch = null;
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    scroller.addEventListener('touchstart', ev => { if (ev.touches.length === 2) pinch = { d0: dist(ev.touches), z0: timeline[key] }; }, { passive: true });
+    scroller.addEventListener('touchmove', ev => {
+      if (!pinch || ev.touches.length !== 2) return;
+      ev.preventDefault();
+      const z = pinch.z0 * dist(ev.touches) / Math.max(10, pinch.d0);
+      const content = scroller.firstElementChild;
+      if (content) content.style.transform = `scale(${z / timeline[key]})`;
+      pinch.z = z;
+    }, { passive: false });
+    scroller.addEventListener('touchend', () => { if (pinch?.z) setZoom(pinch.z); pinch = null; });
+    return setZoom;
+  }
+  function restoreScroll(scroller, keep) {
+    if (timeline.zoomScroll) { scroller.scrollLeft = timeline.zoomScroll.left; scroller.scrollTop = timeline.zoomScroll.top; timeline.zoomScroll = null; }
+    else if (keep) { scroller.scrollLeft = keep.left; scroller.scrollTop = keep.top; }
+  }
+  function renderFlow() {
+    const p = placedById(view.placed);
+    if (!timeline.open || !p || !inSequence()) { if (timeline.open) closeTimeline(); return; }
+    const old = timeline.root, oldScroll = old?.querySelector('.ss-flow-scroll');
+    const keep = oldScroll ? { left: oldScroll.scrollLeft, top: oldScroll.scrollTop } : null;
+    const { body, g, L } = flowGraphFor(p), z = timeline.flowZoom, size = timeline.size;
+    const C = layerChrome(size);
+    const events = g.nodes.filter(n => n.kind === 'event').sort((a, b) => L.pos.get(a.id).col - L.pos.get(b.id).col || L.pos.get(a.id).row - L.pos.get(b.id).row);
+    const playBtn = btn('▶ Play', () => {
+      preview(); placeMode = null;
+      const b = host.bounds(p.id); host.playFrom((b ? b.x0 : p.x) - 2.5);
+      host.hint(`Playing from before ${p.name} · story reset`);
+    }, 'ss-flow-play', 'Play from here');
+    const title = el('strong', { text: `${p.name} · flow` });
+    let bodyEls;
+    if (size === 'bar') {
+      // Bar: the event boxes as chips, in order of action.
+      bodyEls = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the flow'), playBtn,
+        el('div', { class: 'ss-flow-chips' }, ...(events.length ? events.map(n => el('button', { type: 'button', class: `ss-flow-chip${n.missing ? ' missing' : ''}`, 'data-node': n.id, 'data-line': n.line,
+          onclick: () => (n.event ? flowToEvent(p, n.line, n.event) : flowToPanel(() => open('line', n.line, { placed: p.id }))) },
+          `${n.index + 1} ✦ ${clip(n.name || 'choose an event', 18)}`)) : [el('span', { class: 'ss-flow-none', text: 'No logic lines yet' })])),
+        C.saveBtn, C.focusSeg, C.opacityBtn, C.sizes, C.asideBtn)];
+    } else {
+      const nodes = g.nodes.map(n => flowNodeEl(p, body, n, L.pos.get(n.id), z));
+      const content = el('div', { class: 'ss-flow-content', style: `width:${L.width * z}px;height:${L.height * z}px` }, flowArrows(L.paths, L.width, L.height, z), ...nodes);
+      const empty = g.nodes.length ? null : el('div', { class: 'ss-flow-empty' }, el('p', { text: 'No logic lines yet.' }),
+        btn('+ Add a line when the sequence starts', () => flowAddLine(p, { type: 'load' }, 'When the sequence starts: run which event?'), 'primary'));
+      bodyEls = [
+        el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the flow'), playBtn, title,
+          el('span', { class: 'ss-flow-live', hidden: true }),
+          btn('−', () => timeline.flowSetZoom?.(timeline.flowZoom / 1.25), '', 'Zoom out'), btn('+', () => timeline.flowSetZoom?.(timeline.flowZoom * 1.25), '', 'Zoom in'),
+          btn('↶', undo, history.undo.length ? '' : 'quiet', 'Undo'), C.saveBtn, info('flow.view'), C.focusSeg, C.opacityBtn, C.sizes, C.asideBtn),
+        el('div', { class: 'ss-flow-scroll' }, empty || content)];
+    }
+    const root = el('div', { class: `sidescroll-tl ss-flow size-${size}${timeline.aside ? ' aside' : ''}${C.gameFocus ? ' focus-game' : ''}`,
+      role: 'dialog', 'aria-label': `${p.name} flow`, style: `--tl-alpha:${timeline.opacity}` }, C.handle, ...bodyEls);
+    mountLayer(root, old, 'FLOW');
+    if (timeline.picking) root.classList.add('picking');
+    timeline.root = root; timeline.liveSig = '';
+    const scroller = root.querySelector('.ss-flow-scroll');
+    if (scroller) { timeline.flowSetZoom = bindZoom(scroller, 'flowZoom'); restoreScroll(scroller, keep); }
+    afterMount(root, C.handle);
+    syncFlowLive();
+  }
+  // 3b: while the game runs, the running event's box glows with its playhead, set flags light
+  // up and once-only lines that have fired dim (host.flowState, polled each frame).
+  function syncFlowLive() {
+    const p = placedById(view.placed), root = timeline.root;
+    if (!p || !root || !host.flowState) return;
+    const st = host.flowState(p.id);
+    const sig = JSON.stringify([st.playing, st.paused, st.runs.map(r => r.line), Object.keys(st.flags).sort(), Object.keys(st.fired).sort()]);
+    for (const r of st.runs) {
+      const node = root.querySelector(`.ss-flow-node[data-line="${r.line}"]`), head = node?.querySelector('.ss-flow-head');
+      const sec = Number(node?.dataset.seconds) || 0;
+      if (head) { head.hidden = false; head.style.left = `${Math.min(100, sec ? (r.clock / sec) * 100 : 0)}%`; }
+    }
+    if (sig === timeline.liveSig) return;
+    timeline.liveSig = sig;
+    const running = new Set(st.runs.map(r => r.line));
+    root.querySelectorAll('[data-line]').forEach(node => {
+      node.classList.toggle('running', running.has(node.dataset.line));
+      node.classList.toggle('fired', !!st.fired[node.dataset.line] && !running.has(node.dataset.line));
+      if (!running.has(node.dataset.line)) { const h = node.querySelector('.ss-flow-head'); if (h) h.hidden = true; }
+    });
+    root.querySelectorAll('[data-flag]').forEach(node => node.classList.toggle('on', !!st.flags[node.dataset.flag]));
+    root.querySelectorAll('.ss-flow-edge').forEach(path => path.classList.toggle('hot', running.has(path.getAttribute('data-from')?.slice(2))));
+    const live = root.querySelector('.ss-flow-live');
+    if (live) { live.hidden = !st.playing; live.textContent = st.paused ? '❚❚ Paused' : `● Playing${st.runs.length ? ` · ${st.runs.length} running` : ''}`; }
+    if (followFocus(st.playing && !st.paused)) renderTimeline();
+  }
+
+  // ---- Story map (stage 6): every sequence along the journey, linked by flags ----------------
+  function renderMap() {
+    if (!timeline.open) return;
+    const old = timeline.root, oldScroll = old?.querySelector('.ss-flow-scroll');
+    const keep = oldScroll ? { left: oldScroll.scrollLeft, top: oldScroll.scrollTop } : null;
+    const G = Flow.storyGraph(storyForIndex(), { interactions: interactionsNow(), bodyOf });
+    const size = timeline.size, C = layerChrome(size), z = timeline.mapZoom;
+    const W = 170, H = 64, GAP = 70, PADX = 24;
+    const count = G.nodes.length, idx = new Map(G.nodes.map((n, i) => [n.id, i]));
+    // Forward links (later along the path) arc above the row, backward ones below.
+    const fw = G.edges.filter(e => idx.get(e.to) > idx.get(e.from)), bw = G.edges.filter(e => idx.get(e.to) < idx.get(e.from));
+    const span = e => Math.abs(idx.get(e.to) - idx.get(e.from));
+    const above = 34 + 30 * Math.min(6, Math.max(0, ...fw.map(span))), below = 34 + 30 * Math.min(6, Math.max(0, ...bw.map(span)));
+    const rowY = above + 10, width = PADX * 2 + count * W + Math.max(0, count - 1) * GAP, height = rowY + H + below + 10;
+    const xOf = i => PADX + i * (W + GAP);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'ss-flow-svg'); svg.setAttribute('width', width * z); svg.setAttribute('height', height * z); svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.innerHTML = '<defs><marker id="ss-map-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" class="ss-flow-tip solid"/></marker></defs>';
+    const labels = [];
+    G.edges.forEach((e, k) => {
+      const a = idx.get(e.from), b = idx.get(e.to), up = b > a, n = span(e);
+      const x1 = xOf(a) + W / 2 + (up ? 12 : -12), x2 = xOf(b) + W / 2 + (up ? -12 : 12);
+      const y = up ? rowY : rowY + H, lift = (up ? -1 : 1) * Math.min(above - 14, 26 + 26 * Math.min(6, n) + (k % 3) * 4);
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', `M${x1} ${y} C${x1} ${y + lift} ${x2} ${y + lift} ${x2} ${y}`);
+      path.setAttribute('class', `ss-flow-edge solid${up ? '' : ' back'}`); path.setAttribute('marker-end', 'url(#ss-map-tip)');
+      svg.append(path);
+      labels.push(el('span', { class: 'ss-map-label', style: `left:${((x1 + x2) / 2) * z}px;top:${(y + lift * 0.75) * z}px`, text: `⚑ ${e.flags.join(', ')}` }));
+    });
+    const boxes = G.nodes.map((n, i) => el('button', { type: 'button', class: 'ss-flow-node kind-seq', 'data-node': n.id,
+      style: `left:${xOf(i) * z}px;top:${rowY * z}px;width:${W * z}px;height:${H * z}px;--z:${z}`, onclick: () => openFlow(n.placed) },
+      el('b', { text: `▣ ${n.name}` }), el('small', { text: `at ${fmt(n.x, 1)} m · ${n.lines} line${n.lines === 1 ? '' : 's'}` })));
+    const loose = G.loose.length ? el('p', { class: 'ss-map-loose' }, 'Waited for but never set by a sequence: ',
+      ...G.loose.flatMap((f, i) => [i ? ', ' : '', el('button', { type: 'button', onclick: () => flowToPanel(() => open('list', null, { tab: 'flags', flag: f })) }, `⚑ ${f}`)])) : null;
+    let bodyEls;
+    if (size === 'bar') {
+      bodyEls = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the story map'),
+        el('div', { class: 'ss-flow-chips' }, ...G.nodes.map(n => el('button', { type: 'button', class: 'ss-flow-chip', onclick: () => openFlow(n.placed) }, `▣ ${clip(n.name, 18)}`))),
+        C.focusSeg, C.opacityBtn, C.sizes, C.asideBtn)];
+    } else {
+      const content = el('div', { class: 'ss-flow-content', style: `width:${width * z}px;height:${height * z}px` }, svg, ...boxes, ...labels);
+      bodyEls = [el('div', { class: 'sidescroll-tl-head' }, btn('✕', closeTimeline, '', 'Close the story map'), el('strong', { text: 'Story map' }),
+        btn('−', () => timeline.mapSetZoom?.(timeline.mapZoom / 1.25), '', 'Zoom out'), btn('+', () => timeline.mapSetZoom?.(timeline.mapZoom * 1.25), '', 'Zoom in'),
+        info('flow.map'), C.focusSeg, C.opacityBtn, C.sizes, C.asideBtn),
+        el('div', { class: 'ss-flow-scroll' }, count ? content : el('div', { class: 'ss-flow-empty' }, el('p', { text: 'No sequences yet.' }))), loose];
+    }
+    const root = el('div', { class: `sidescroll-tl ss-flow ss-map size-${size}${timeline.aside ? ' aside' : ''}${C.gameFocus ? ' focus-game' : ''}`,
+      role: 'dialog', 'aria-label': 'Story map', style: `--tl-alpha:${timeline.opacity}` }, C.handle, ...bodyEls);
+    mountLayer(root, old, 'STORY MAP');
+    timeline.root = root;
+    const scroller = root.querySelector('.ss-flow-scroll');
+    if (scroller) { timeline.mapSetZoom = bindZoom(scroller, 'mapZoom'); restoreScroll(scroller, keep); }
+    afterMount(root, C.handle);
+  }
+
   function zoomTimeline(factor, focusX = null) {
     const sc = timeline.root?.querySelector('.sidescroll-tl-scroll');
     const fx = focusX ?? (sc ? sc.clientWidth / 2 : 0);

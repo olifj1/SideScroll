@@ -20139,6 +20139,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       const run = eventId ? seqRuns.find(r => !r.done && r.event.id === eventId) : null;
       return { playing: editorPlayTest, paused: storyPaused(), clock: run ? seqEventClock(run) : null, prompt: !!run?.prompt };
     },
+    // The Story editor's flow view (live): editor play, the pause, this sequence's running lines
+    // with their event clocks, the flags set now and its once-only lines that have fired.
+    flowState: placedId => {
+      const prefix = `${placedId}:`, fired = {};
+      for (const [k, v] of Object.entries(seqProgress.fired || {})) if (v && k.startsWith(prefix)) fired[k.slice(prefix.length)] = true;
+      return { playing: editorPlayTest, paused: storyPaused(), flags: { ...(seqProgress.flags || {}) }, fired,
+        runs: seqRuns.filter(r => !r.done && r.p.id === placedId).map(r => ({ line: r.line.id, clock: seqEventClock(r) })) };
+    },
     setPaused: on => { if (editorPlayTest || !on) setStoryPaused(!!on); },
     stopEvent: placedId => {
       if (placedId) seqStopSequence(placedId);
