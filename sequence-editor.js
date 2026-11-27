@@ -21,7 +21,9 @@
   let draft = clone(Seq.load());
   let dirty = false;
   // page: 'list' | 'sequence' | 'event'; tab (list page): 'sequences' | 'events'
-  const view = { page: 'list', tab: 'sequences', placed: null, event: null, component: null };
+  // page: also 'component' / 'line' (a sequence's component or logic line on its own page).
+  const view = { page: 'list', tab: 'sequences', placed: null, event: null, component: null, line: null, returnTo: null, returnLine: null };
+  let seqMenuOpen = false; // the sequence page's ⋯ menu
   let placeMode = null; // {kind:'add', comp} | {kind:'anchor'} | {kind:'component', id}
 
 
@@ -208,12 +210,21 @@
     return true;
   }
   function change(rerender = true) { remember(!rerender); dirty = true; preview(); if (rerender) render(); else updateStatus(); }
-  function syncSelection() { host.select(view.page === 'sequence' ? view.placed : null, view.page === 'sequence' ? view.component : null); }
+  const inSequence = () => ['sequence', 'component', 'line'].includes(view.page);
+  function syncSelection() { host.select(inSequence() ? view.placed : null, view.page === 'component' ? view.component : null); }
   function open(page, id, extra = {}) {
     placeMode = null; closeChooser();
     view.page = page;
-    if (page === 'sequence') { view.placed = id; view.component = extra.component || null; const p = placedById(id); if (p && extra.focus !== false) host.lookAt(p.x); }
-    if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; if (draft.events.find(x => x.id === id)) makeTimed(eventById(id)); }
+    if (page !== 'sequence') seqMenuOpen = false;
+    if (page === 'sequence') {
+      if (view.placed !== id) seqMenuOpen = false;
+      view.placed = id; view.component = null; view.line = null;
+      const p = placedById(id); if (p && extra.focus !== false) host.lookAt(p.x);
+      autoFillSequence(p);
+    }
+    if (page === 'component') { if (extra.placed) view.placed = extra.placed; view.component = id; view.line = null; }
+    if (page === 'line') { if (extra.placed) view.placed = extra.placed; view.line = id; view.component = null; autoFillSequence(placedById(view.placed)); }
+    if (page === 'event') { view.event = id; view.returnTo = extra.returnTo || null; view.returnLine = extra.returnLine || null; if (draft.events.find(x => x.id === id)) makeTimed(eventById(id)); }
     if (page === 'list' && extra.tab) view.tab = extra.tab;
     syncSelection();
     render();
@@ -251,8 +262,10 @@
       if (placeMode.kind === 'add') {
         const comp = { ...placeMode.comp, id: Seq.newId('c', takenIds()), dx: point.x - p.x, depth: ['zone', 'barrier'].includes(placeMode.comp.kind) ? 0 : depth };
         body.components.push(comp);
-        view.component = comp.id; reveal = comp.id;
-        host.hint(`Added ${comp.name}`);
+        reveal = comp.id;
+        // A new component may be what a line's placeholder was waiting for.
+        const filled = body.logic.flatMap(l => autoFill(body, l));
+        host.hint(`Added ${comp.name}${filled.length ? ` · filled ${filled.map(([r]) => r).join(', ')}` : ''}`);
       } else if (placeMode.kind === 'anchor') {
         p.x = point.x;
         host.hint('Sequence moved (its components move with it)');
@@ -267,7 +280,7 @@
       return;
     }
     const hit = host.itemAt(clientX, clientY);
-    if (hit?.component) open('sequence', hit.placed, { component: hit.component, focus: false });
+    if (hit?.component) open('component', hit.component, { placed: hit.placed });
     else if (hit?.placed) open('sequence', hit.placed, { focus: false });
   });
 
@@ -489,10 +502,74 @@
     if (!confirm(`Remove ${c.name}? Logic using it loses that part.`)) return;
     body.components = body.components.filter(x => x.id !== c.id);
     for (const l of body.logic) { for (const [r, id] of Object.entries(l.roles || {})) if (id === c.id) delete l.roles[r]; if (l.when?.zone === c.id) delete l.when.zone; }
-    if (view.component === c.id) view.component = null;
+    if (view.component === c.id) { view.component = null; if (view.page === 'component') view.page = 'sequence'; }
     syncSelection(); change();
   }
   const lineName = (body, l) => `Line ${body.logic.indexOf(l) + 1}${eventById(l.event) ? `: ${eventById(l.event).name}` : ''}`;
+
+  // ---- Placeholders fill themselves ------------------------------------------------
+  // An empty placeholder takes this sequence's component of the same kind with the same
+  // name (Actor ↔ a character called Actor), or the only component of that kind. Nothing
+  // already chosen is ever changed. Returns [[placeholder, component], …] filled.
+  function autoFill(body, l) {
+    const e = eventById(l.event), filled = [];
+    if (!e) return filled;
+    for (const r of e.roles) {
+      const have = l.roles?.[r.id];
+      if (have && body.components.some(c => c.id === have)) continue;
+      const fits = body.components.filter(c => c.kind === r.kind);
+      const key = v => String(v || '').trim().toLowerCase();
+      const pick = fits.find(c => key(c.name) === key(r.name)) || (fits.length === 1 ? fits[0] : null);
+      if (pick) { (l.roles ||= {})[r.id] = pick.id; filled.push([r.name, pick.name]); }
+    }
+    return filled;
+  }
+  // Fill every line of a sequence; saved like any edit (one Undo step), with a hint.
+  function autoFillSequence(p) {
+    if (!p) return;
+    const body = bodyOf(p), filled = body.logic.flatMap(l => autoFill(body, l));
+    if (!filled.length) return;
+    remember(false); dirty = true; preview();
+    host.hint(`Filled ${filled.map(([r, c]) => `${r} → ${c}`).join(', ')}`);
+  }
+
+  // ---- A logic line as a sentence ----------------------------------------------------
+  // "When the player enters Cabin door · only while bag-fixed is set → Father leaves (Father, Door)"
+  function conditionText(c) {
+    const flags = Seq.conditionFlags(c).filter(Boolean);
+    if (!c || !flags.length) return '';
+    const list = flags.join(', ');
+    if (flags.length === 1) return `only while ${list} is ${c.when === 'unset' ? 'not set' : 'set'}`;
+    if (c.when === 'unset') return c.match === 'all' ? `only until any of ${list} is set` : `only until ${list} are all set`;
+    return c.match === 'any' ? `only while any of ${list} is set` : `only while ${list} are all set`;
+  }
+  function whenText(body, l) {
+    const w = l.when || { type: 'load' };
+    const comp = id => body.components.find(c => c.id === id)?.name;
+    const zone = comp(w.zone);
+    const name = v => el('b', { class: v ? '' : 'missing', text: v || '…' });
+    switch (w.type) {
+      case 'enter': return ['When the player enters ', name(zone)];
+      case 'leave': return ['When the player leaves ', name(zone)];
+      case 'action': return [`When the player presses ${w.label || 'Action'} in `, name(zone)];
+      case 'finish': { const other = body.logic.find(x => x.id === w.line); return ['When ', name(other ? `line ${body.logic.indexOf(other) + 1}` : ''), ' finishes']; }
+      case 'flag': return ['When ', name(w.flag), ' is set'];
+      default: return ['When the sequence starts'];
+    }
+  }
+  function lineSentence(body, l) {
+    const e = eventById(l.event), cond = conditionText(l.condition);
+    const roles = (e?.roles || []).map(r => {
+      const c = body.components.find(x => x.id === l.roles?.[r.id]);
+      return c ? el('span', { text: c.name }) : el('span', { class: 'missing', text: `? ${r.name}` });
+    });
+    return [...whenText(body, l), cond ? ` · ${cond}` : '', ' → ',
+      e ? el('b', { text: e.name }) : el('b', { class: 'missing', text: 'choose an event' }),
+      roles.length ? [' (', roles.flatMap((x, i) => (i ? [', ', x] : [x])), ')'] : '',
+      l.once === false ? ' · every time' : ''].flat(3);
+  }
+
+  // ---- Line page ---------------------------------------------------------------------
   function lineEditor(p, body, l, index) {
     const zones = body.components.filter(c => c.kind === 'zone');
     const event = eventById(l.event);
@@ -516,65 +593,89 @@
     });
     if (roleRows.length) roleRows.unshift(el('div', { class: 'sidescroll-seq-fill sidescroll-seq-label', 'data-help-anchor': '' },
       el('strong', { text: 'Fill in the event’s placeholders' }), info('seq.fill')));
-    const c = l.condition;
-    return el('div', { class: 'sidescroll-story-move', 'data-reveal': l.id },
-      el('div', { class: 'sidescroll-story-move-head' }, el('strong', { text: `Line ${index + 1}` }),
-        btn('Test now', () => { preview(); host.fireLine(p.id, l.id) ? host.hint('Running the event (once-only lines still fire in play)') : host.hint('Choose an event first'); }),
-        btn('↑', () => { const list = body.logic; list.splice(index - 1, 0, list.splice(index, 1)[0]); change(); }, index === 0 ? 'hidden' : ''),
-        xBtn(() => { if (confirm(`Remove line ${index + 1}?`)) { body.logic.splice(index, 1); change(); } }, 'Remove line')),
+    const move = d => { const list = body.logic, to = index + d; if (to < 0 || to >= list.length) return; list.splice(to, 0, list.splice(index, 1)[0]); change(); };
+    return el('div', { class: 'sidescroll-story-editor' },
+      el('p', { class: 'sidescroll-seq-sentence' }, ...lineSentence(body, l)),
+      row(btn('Test now', () => { preview(); host.fireLine(p.id, l.id) ? host.hint('Running the event (once-only lines still fire in play)') : host.hint('Choose an event first'); }),
+        btn('↑ Earlier', () => move(-1), index === 0 ? 'hidden' : ''), btn('↓ Later', () => move(1), index === body.logic.length - 1 ? 'hidden' : '')),
       field('When', el('div', { class: 'sidescroll-seq-stack' }, ...whenRows)),
       field('Run event', el('div', { class: 'sidescroll-seq-stack' },
         select_([['', 'Choose an event…'], ...draft.events.map(e => [e.id, `✦ ${e.name}`]), ['__new', '+ New event…']], l.event, v => {
-          if (v !== '__new') { l.event = v || null; change(); return; }
-          // Make an event for this line and open it; "‹ Back" returns here.
+          if (v !== '__new') {
+            l.event = v || null;
+            const filled = autoFill(body, l);
+            change();
+            if (filled.length) host.hint(`Filled ${filled.map(([r, c]) => `${r} → ${c}`).join(', ')}`);
+            return;
+          }
+          // Make an event for this line and open it; "‹ Back" returns to this line.
           const taken = takenIds(), id = Seq.newId('ev', taken);
           draft.events.push({ id, name: `Event ${draft.events.length + 1}`, roles: [{ id: Seq.newId('r', taken), name: 'Actor', kind: 'character' }], steps: [] });
-          l.event = id; change(false); open('event', id, { returnTo: p.id });
+          l.event = id; change(false); open('event', id, { returnTo: p.id, returnLine: l.id });
         }),
-        event ? btn(`Open “${event.name}”`, () => open('event', event.id, { returnTo: p.id })) : null)),
+        event ? btn(`Open “${event.name}”`, () => open('event', event.id, { returnTo: p.id, returnLine: l.id })) : null)),
       ...roleRows,
       conditionField(l, 'condition', 'Only', ['Always', 'While flag is set', 'While flag is not set']),
       el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Fires' }),
         segmented([['once', 'Once per player'], ['every', 'Every time']], l.once === false ? 'every' : 'once', v => { l.once = v === 'once'; change(); })));
   }
+  function linePage() {
+    const p = placedById(view.placed), body = p && bodyOf(p), l = body?.logic.find(x => x.id === view.line);
+    if (!l) { view.page = p ? 'sequence' : 'list'; return p ? sequencePage() : listPage(); }
+    return [lineEditor(p, body, l, body.logic.indexOf(l))];
+  }
+  function componentPage() {
+    const p = placedById(view.placed), body = p && bodyOf(p), c = body?.components.find(x => x.id === view.component);
+    if (!c) { view.page = p ? 'sequence' : 'list'; return p ? sequencePage() : listPage(); }
+    return [componentEditor(p, body, c)];
+  }
+
+  // ---- Sequence page -------------------------------------------------------------------
+  // Header (name, ▶ Play from here, ⋯ for the rare things), then Components and Logic.
   function sequencePage() {
     const p = placedById(view.placed);
     if (!p) { view.page = 'list'; return listPage(); }
     const body = bodyOf(p), t = p.template ? templateById(p.template) : null;
     const moving = placeMode?.kind === 'anchor';
-    const anchorX = el('input', { type: 'number', step: '0.1', value: fmt(p.x, 2), inputmode: 'decimal' });
-    anchorX.addEventListener('change', () => { const n = Number(anchorX.value); if (Number.isFinite(n)) { p.x = n; change(); } });
-    const nudge = d => btn(d > 0 ? `+${d}` : `−${-d}`, () => { p.x = Math.round((p.x + d) * 100) / 100; change(); });
-    const comp = body.components.find(c => c.id === view.component) || null;
     const adding = placeMode?.kind === 'add' ? placeMode.comp : null;
     const addComp = (kind, extra, message) => { closeChooser(); setPlaceMode({ kind: 'add', comp: { kind, ...extra } }, message); };
     const count = kind => body.components.filter(c => c.kind === kind).length + 1;
-    return [
-      field('Name', textInput(p, 'name', 40, () => { if (t) t.name = p.name; })),
-      section('Placement',
-        el('div', { class: 'sidescroll-story-field' }, el('span', { text: 'Anchor along the journey (m)' }),
+    const nameInput = textInput(p, 'name', 40, () => { if (t) t.name = p.name; }, 'Sequence name');
+    nameInput.setAttribute('aria-label', 'Sequence name');
+    let menu = null;
+    if (seqMenuOpen || moving) {
+      const anchorX = el('input', { type: 'number', step: '0.1', value: fmt(p.x, 2), inputmode: 'decimal' });
+      anchorX.addEventListener('change', () => { const n = Number(anchorX.value); if (Number.isFinite(n)) { p.x = n; change(); } });
+      const nudge = d => btn(d > 0 ? `+${d}` : `−${-d}`, () => { p.x = Math.round((p.x + d) * 100) / 100; change(); });
+      menu = el('div', { class: 'sidescroll-seq-menu' },
+        el('div', { class: 'sidescroll-story-field' }, el('span', { class: 'sidescroll-seq-label', 'data-help-anchor': '' }, 'Anchor along the journey (m)', info('seq.more')),
           el('div', { class: 'sidescroll-story-nudge' }, nudge(-1), nudge(-0.1), anchorX, nudge(0.1), nudge(1))),
         row(btn(moving ? 'Cancel move' : 'Move by tap', () => setPlaceMode(moving ? null : { kind: 'anchor' }, 'Tap the ground where the sequence goes'), moving ? 'active' : ''),
           btn('Show', () => host.lookAt(p.x)), btn('To view centre', () => { p.x = Math.round(host.playerX() * 100) / 100; change(); })),
-        t ? el('div', { class: 'sidescroll-story-note', 'data-help-anchor': '' },
-          el('span', { class: 'sidescroll-seq-label' }, `Template “${t.name}” · placed ${instancesOf(t.id).length}×`, info('seq.template')),
-          btn('Make unique', () => { p.body = clone(t.body); delete p.template; change(); host.hint('Now unique: its own components and logic'); }))
-          : row(btn('Save as template', () => {
+        row(t ? btn('Make unique', () => { p.body = clone(t.body); delete p.template; seqMenuOpen = false; change(); host.hint('Now unique: its own components and logic'); })
+          : btn('Save as template', () => {
             const id = Seq.newId('sqt', takenIds());
             draft.templates.push({ id, name: p.name, body: p.body || { components: [], logic: [] } });
-            p.template = id; delete p.body; change(); host.hint('Saved as a template · place more copies from the Sequences list');
-          })),
-        row(btn('▶ Play from here', () => {
-          preview(); placeMode = null;
-          const b = host.bounds(p.id); host.playFrom((b ? b.x0 : p.x) - 2.5);
-          host.hint(`Playing from before ${p.name} · story reset · ↺ Restart to try again · ■ Stop to edit`);
-        }, 'primary'),
-          btn('Delete', () => {
+            p.template = id; delete p.body; seqMenuOpen = false; change(); host.hint('Saved as a template · place more copies from the Sequences list');
+          }),
+          btn('Delete sequence', () => {
             if (!confirm(`Delete the sequence “${p.name}”?`)) return;
             draft.placed = draft.placed.filter(x => x.id !== p.id);
             if (t && !instancesOf(t.id).length && confirm(`“${t.name}” is no longer placed anywhere. Delete the template too?`)) draft.templates = draft.templates.filter(x => x.id !== t.id);
-            change(false); open('list', null, { tab: 'sequences' });
-          }, 'danger'))),
+            seqMenuOpen = false; change(false); open('list', null, { tab: 'sequences' });
+          }, 'danger')));
+    }
+    return [
+      el('div', { class: 'sidescroll-seq-header' }, nameInput,
+        btn('▶ Play', () => {
+          preview(); placeMode = null;
+          const b = host.bounds(p.id); host.playFrom((b ? b.x0 : p.x) - 2.5);
+          host.hint(`Playing from before ${p.name} · story reset · ↺ Restart to try again · ■ Stop to edit`);
+        }, 'primary', 'Play from here'),
+        btn('⋯', () => { seqMenuOpen = !seqMenuOpen; if (!seqMenuOpen && moving) placeMode = null; render(); }, `sidescroll-seq-more${menu ? ' active' : ''}`, 'Move, template, delete')),
+      menu,
+      t ? el('div', { class: 'sidescroll-story-note', 'data-help-anchor': '' },
+        el('span', { class: 'sidescroll-seq-label' }, `Template “${t.name}” · placed ${instancesOf(t.id).length}×`, info('seq.template'))) : null,
       foldSection('components', 'Components', 'seq.components', body.components.length,
         addBar(
           btn('+ Character', () => openChooser('characters', 'Add a character', characterChoices().map(c => ({ value: c.id, label: c.name, thumb: c.family === 'quadruped' ? '🐾' : '☺', note: c.family === 'quadruped' ? 'Quadruped' : 'Biped' })),
@@ -586,21 +687,23 @@
         chooserBox('characters'),
         adding ? el('div', { class: 'sidescroll-story-note' }, el('span', { text: `Tap the ground in the view to place ${adding.name}.` }), btn('Cancel', () => setPlaceMode(null))) : null,
         body.components.length ? el('div', { class: 'sidescroll-story-list' }, body.components.map(c => el('div', { class: 'sidescroll-seq-item', 'data-reveal': c.id },
-          el('button', { type: 'button', class: c.id === view.component ? 'active' : '',
-            onclick: () => { view.component = view.component === c.id ? null : c.id; placeMode = null; syncSelection(); render(); } },
-            // Name only: every row the same height (details are in its editor).
-            el('strong', { text: `${KIND_ICON[c.kind]} ${c.name}` })),
+          // Name only: every row the same height; tap opens its own page.
+          el('button', { type: 'button', class: c.id === view.component ? 'active' : '', onclick: () => open('component', c.id) },
+            el('strong', { text: `${KIND_ICON[c.kind]} ${c.name}` }), el('span', { class: 'sidescroll-seq-go', 'aria-hidden': 'true', text: '›' })),
           xBtn(() => removeComponent(body, c), `Remove ${c.name}`))))
-          : help('No components yet.'),
-        comp ? componentEditor(p, body, comp) : null),
+          : help('No components yet.')),
       foldSection('logic', 'Logic', 'seq.logic', body.logic.length,
         addBar(btn('+ Add line', () => {
           const zone = body.components.find(c => c.kind === 'zone');
           const id = Seq.newId('l', takenIds());
-          body.logic.push({ id, when: { type: zone ? 'enter' : 'load', ...(zone ? { zone: zone.id } : {}) }, event: draft.events[0]?.id || null, roles: {}, once: true });
-          reveal = id; change();
+          body.logic.push({ id, when: { type: zone ? 'enter' : 'load', ...(zone ? { zone: zone.id } : {}) }, event: null, roles: {}, once: true });
+          change(false); open('line', id);
         }, 'primary')),
-        body.logic.map((l, i) => lineEditor(p, body, l, i)),
+        body.logic.length ? el('div', { class: 'sidescroll-story-list' }, body.logic.map((l, i) => el('div', { class: 'sidescroll-seq-item', 'data-reveal': l.id },
+          el('button', { type: 'button', class: 'sidescroll-seq-line', onclick: () => open('line', l.id) },
+            el('span', { class: 'sidescroll-seq-num', text: String(i + 1) }), el('span', { class: 'sidescroll-seq-sentence' }, ...lineSentence(body, l))),
+          xBtn(() => { if (confirm(`Remove line ${i + 1}?`)) { body.logic.splice(i, 1); change(); } }, `Remove line ${i + 1}`))))
+          : help('No lines yet.'),
         draft.events.length ? null : help('No events yet: choose + New event… in a line’s Run event.'))
     ];
   }
@@ -1435,7 +1538,7 @@
         e.steps.length ? help(`${e.steps.length} step${e.steps.length === 1 ? '' : 's'} · ${fmt(eventSeconds(e), 1)} s`) : null,
         e.steps.length ? el('div', { class: 'sidescroll-seq-steps timed' }, e.steps.map((s, i) => summaryRow(e, s, i))) : help('No steps yet.')),
       section('Used by',
-        usedBy.length ? usedBy.map(({ p, i }) => btn(`▣ ${p.name} · line ${i + 1}`, () => open('sequence', p.id))) : help('Not used by any sequence yet.')),
+        usedBy.length ? usedBy.map(({ p, i }) => btn(`▣ ${p.name} · line ${i + 1}`, () => open('line', bodyOf(p).logic[i].id, { placed: p.id }))) : help('Not used by any sequence yet.')),
       row(btn('Duplicate', () => {
         const copy = clone(e); copy.id = Seq.newId('ev', takenIds()); copy.name = `${e.name} copy`;
         draft.events.push(copy); change(false); open('event', copy.id);
@@ -1467,16 +1570,28 @@
   function render() {
     if (panel.hidden) return;
     statusEl = el('span', { class: 'sidescroll-story-status' });
-    const page = view.page === 'sequence' ? sequencePage() : view.page === 'event' ? eventPage() : listPage();
-    // ‹ Back (inner pages): to the sequence an event was opened from, else the list.
-    const back = view.page === 'list' ? null : el('button', { type: 'button', class: 'sidescroll-seq-back', onclick: () => {
-      if (view.page === 'event' && view.returnTo && placedById(view.returnTo)) open('sequence', view.returnTo, { focus: false });
-      else open('list', null, { tab: view.page === 'event' ? 'events' : 'sequences' });
-    } }, view.page === 'event' && view.returnTo && placedById(view.returnTo) ? `‹ ${clip(placedById(view.returnTo).name, 16)}` : '‹ Back');
-    if (back && view.page === 'event' && view.returnTo && placedById(view.returnTo)) back.title = `Back to the sequence “${placedById(view.returnTo).name}”`;
+    const pages = { sequence: sequencePage, component: componentPage, line: linePage, event: eventPage };
+    const page = (pages[view.page] || listPage)();
+    // ‹ Back (inner pages) names where it goes: a component or line → its sequence; an event
+    // opened from a line → that line (else its sequence); anything else → the list.
+    const p = placedById(view.placed), retP = placedById(view.returnTo);
+    const retLine = retP && view.returnLine ? bodyOf(retP).logic.find(l => l.id === view.returnLine) : null;
+    let target = null;
+    if ((view.page === 'component' || view.page === 'line') && p) target = { label: p.name, go: () => open('sequence', p.id, { focus: false }) };
+    else if (view.page === 'event' && retLine) target = { label: `Line ${bodyOf(retP).logic.indexOf(retLine) + 1}`, go: () => open('line', retLine.id, { placed: retP.id }) };
+    else if (view.page === 'event' && retP) target = { label: retP.name, go: () => open('sequence', retP.id, { focus: false }) };
+    const back = view.page === 'list' ? null : el('button', { type: 'button', class: 'sidescroll-seq-back',
+      title: target ? `Back to ${target.label}` : 'Back to the list',
+      onclick: () => (target ? target.go() : open('list', null, { tab: view.page === 'event' ? 'events' : 'sequences' })) }, target ? `‹ ${clip(target.label, 16)}` : '‹ Back');
+    const comp = p && bodyOf(p).components.find(c => c.id === view.component);
+    const lineIndex = p && view.line ? bodyOf(p).logic.findIndex(l => l.id === view.line) : -1;
+    const title = view.page === 'event' ? (eventById(view.event)?.name || 'Event')
+      : view.page === 'sequence' ? 'Sequence' // its name is the header's box
+      : view.page === 'component' ? (comp ? `${KIND_ICON[comp.kind]} ${comp.name}` : 'Component')
+      : view.page === 'line' ? `Line ${lineIndex + 1}` : 'Story';
     panel.replaceChildren(
       el('div', { class: 'sidescroll-story-head' }, back,
-        el('strong', { text: view.page === 'event' ? (eventById(view.event)?.name || 'Event') : view.page === 'sequence' ? (placedById(view.placed)?.name || 'Sequence') : 'Story' }), statusEl),
+        el('strong', { text: title }), statusEl),
       ...page,
       el('datalist', { id: 'sidescroll-seq-flags' }, knownFlags().map(f => el('option', { value: f }))),
       el('div', { class: 'sidescroll-story-actions' },
