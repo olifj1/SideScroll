@@ -4,6 +4,11 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Story animation timing is exact.** A looping Animate step now starts its animation from the
+  beginning at the step's time (it used to pick up wherever the game's clock was), a custom action slot
+  plays at the same speed as in Character Lab (it fell back to 1.05 s a cycle), and Let go places the prop
+  where the hand is at the step's own time rather than on the last frame drawn. The same event now
+  leaves the axe in the same place every time.
 - **Prop step → Let go.** A character can let go of what it holds and leave it exactly where the hand
   was, at the same height and angle (an axe left in the chopping block), instead of putting it away or
   dropping it. Kept in play progress; the sequence's Reset puts it back.

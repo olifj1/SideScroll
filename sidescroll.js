@@ -18749,6 +18749,8 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
           if (now < live.once.end) state = { ...state, animation: live.once.animation, phaseStart: live.once.start };
           else live.once = null;
         }
+        if (!state.moving && !Number.isFinite(state.phaseStart) && live?.loopFrom?.animation === state.animation && now >= live.loopFrom.start)
+          state = { ...state, phaseStart: live.loopFrom.start };
         const scale = BASE_CHARACTER_SCALE * characterScaleMultiplier(c.character) * c.scale;
         const blocks = c.blocks === 'always' || (c.blocks === 'auto' && Math.abs(state.depth) <= 1.0);
         frames.push({ key, placed: p.id, component: c.id, name: c.name, id: c.character, hidden: !!place.hidden, holding: place.holding,
@@ -18780,7 +18782,10 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // Seconds one cycle of an animation takes for this world character.
   function storyCycleSeconds(wc, rig, animation) {
     const family = rig === QuadrupedRig ? 'quadruped' : 'biped';
-    const based = (GameCharacters?.animationsFor?.(wc.character) || []).find(a => a.key === animation)?.basedOn || animation;
+    // An action slot plays the character's animation for it (slotAnimation), timed like the built-in
+    // animation it was made from, as Character Lab plays it (a custom slot used to fall back to 1.05 s).
+    const key = String(animation || '').startsWith('clip-') ? animation : (GameCharacters?.slotAnimation?.(wc.character, animation) || animation);
+    const based = (GameCharacters?.animationsFor?.(wc.character) || []).find(a => a.key === key)?.basedOn || key;
     return (STORY_CYCLE_MS[family][based] || 1050) / 1000 / Math.max(0.05, wc.speed);
   }
   function storyPhase(frame, rig) {
@@ -19016,7 +19021,13 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
       }
       case 'animate': {
         if (!actor) return now;
-        if (step.mode === 'loop') { seqSavedFor(key).animation = step.animation; seqLiveFor(key).once = null; saveStoryProgress(); return now; }
+        if (step.mode === 'loop') {
+          seqSavedFor(key).animation = step.animation;
+          // It starts from its first frame at the step's time (not wherever the game's clock is in
+          // its cycle), so the same moment of an event always shows the same pose (Let go timing).
+          Object.assign(seqLiveFor(key), { once: null, loopFrom: { animation: step.animation, start: seqStepTime(run, step, now) } });
+          saveStoryProgress(); return now;
+        }
         const end = now + storyCycleSeconds({ speed: 1, character: actor.character }, characterRigForVariant(actor.character), step.animation) * step.times;
         seqLiveFor(key).once = { animation: step.animation, start: now, end };
         return end;
@@ -19099,8 +19110,11 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         if (!actor || !step.asset) return now;
         const holding = (seqComponentPlace(run.p, actor).holding || []).filter(n => n !== step.asset);
         if (step.action === 'give') holding.push(step.asset);
-        else if ((step.action === 'drop' || step.action === 'release') && (seqComponentPlace(run.p, actor).holding || []).includes(step.asset))
+        else if ((step.action === 'drop' || step.action === 'release') && (seqComponentPlace(run.p, actor).holding || []).includes(step.asset)) {
+          // Let go: where the hand is at the step's own time (not the last frame drawn).
+          if (step.action === 'release') { const at = seqPropPlaceAt(key, step.asset, seqStepTime(run, step, now)); if (at) seqPropLast.set(`${key}|${step.asset}`, at); }
           seqDropProp(key, step.asset, seqCharacterNow(run, actor) || (p => ({ x: p.x, z: p.depth, facing: p.facing }))(seqComponentPlace(run.p, actor)), !!run.instant, step.action === 'release');
+        }
         seqSavedFor(key).holding = holding;
         saveStoryProgress();
         return now;
@@ -19131,6 +19145,12 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // A timed event: a clock from its start; each step starts when the clock
   // reaches its time. A Wait for Action step stops the clock until it is answered
   // (steps already running carry on); the event ends once everything has finished.
+  // When a timed step was due (the run's start + its pauses + the step's time), which can be a
+  // little before the frame that starts it: steps that must land on an exact pose (a loop's first
+  // frame, Let go) use this, so the result never depends on the frame rate. Beats and instant
+  // runs (Skip / Complete) use now.
+  const seqStepTime = (run, step, now) => (run && !run.instant && step && Number.isFinite(step.at) && Number.isFinite(run.t0)
+    ? Math.max(now - 0.5, Math.min(now, run.t0 + (run.paused || 0) + step.at)) : now);
   function advanceTimedRun(run, now) {
     if (!run.order) { run.order = seqStepOrder(run.event); run.t0 = now; run.paused = 0; run.pauseFrom = null; }
     if (run.prompt) run.pauseFrom ??= now;
@@ -19592,6 +19612,37 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
     }
     b.pose = out;
     return out;
+  }
+  // A story character's pose at time t without touching the blend state (storyBlendedPose
+  // records what was drawn; this only reads it).
+  function storyPoseAt(frame, rig, t) {
+    const f = { ...frame, now: t };
+    const pose = storyPose(frame.id, rig, frame.state.animation, storyPhase(f, rig));
+    const b = storyBlends.get(frame.key);
+    if (pose && b?.from && b.anim === frame.state.animation && rig?.interpolatePose) {
+      const k = (t - b.t0) / STORY_BLEND;
+      if (k >= 0 && k < 1) return rig.interpolatePose(b.from, pose, k * k * (3 - 2 * k), pose.name, pose.travel);
+    }
+    return pose;
+  }
+  // Where a held prop is at time t: the same placing as drawing (storyHeldProps), for one prop.
+  function storyBodyOf(frame) {
+    const sole = Number(characterVariantInfo(frame.id)?.soleArtOffset);
+    return { x: frame.x, y: storyGroundY(frame.x, frame.z) + (Number.isFinite(sole) ? sole : CHARACTER_SOLE_ART_LOCAL_OFFSET) * frame.scale,
+      z: frame.z, scale: frame.scale, tint: character.tint, opacity: character.opacity };
+  }
+  function seqPropPlaceAt(key, name, t) {
+    const frame = worldCharacterFrames.find(f => f.key === key);
+    if (!frame || frame.state?.moving) return null;
+    const rig = characterRigForVariant(frame.id);
+    if (rig !== Rig) return null;
+    const pose = storyPoseAt(frame, rig, t);
+    if (!pose) return null;
+    const keep = seqPropLast.get(`${key}|${name}`);
+    storyHeldProps({ ...frame, now: t, holding: [name] }, pose, storyBodyOf(frame), null);
+    const at = seqPropLast.get(`${key}|${name}`);
+    if (keep) seqPropLast.set(`${key}|${name}`, keep); else seqPropLast.delete(`${key}|${name}`);
+    return at && at !== keep ? at : null;
   }
   function drawStoryCharacter(frame, view) {
     {
