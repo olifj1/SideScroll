@@ -636,7 +636,13 @@ Save/Revert). World Lab's `normaliseBiomeState` must keep `nearRows`.
    not a find-and-replace.
 3. **Design Lab merge rule.** On load, Design Lab only adds *missing IDs* from
    `design-doc.json`; it never overwrites an existing ID. To get new design
-   content to an existing user, add a new entry with a new stable ID.
+   content to an existing user, add a new entry with a new stable ID. A full
+   rewrite bumps the document's `schemaVersion` (now 2, rewritten 28 Nov 2026):
+   the device's older copy is then replaced and kept in `sidescroll-design-doc-previous`,
+   and Publish Lab / `bake_project.py` won't publish an older-layout copy. Entries use
+   status `DECIDED`/`IDEA`/`OPEN` and `implementation` `YES`/`PARTLY`/`NOT YET`/''
+   ("in the game?"); write each idea once, in plain words. The document is game
+   design only: engine and workflow notes belong in `docs/`.
 4. **Service worker / caching.** `sw.js` has one cache name (`CACHE`). **Do not
    change it for normal releases**: a new name deletes every cached file on
    players' devices and forces a full (~70 MB) re-download, which is what made the

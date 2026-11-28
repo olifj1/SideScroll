@@ -92,6 +92,12 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0cq. Design Lab rewrite (28 Nov)** — Design Lab
+- [ ] Open Design Lab: the status line says *New design document · your previous copy is kept in backups*, and the front page shows 9 numbered sections.
+- [ ] Read it through; tell Claude anything missing, wrong or still hard to follow.
+- [ ] Contents, search (e.g. *fox*), *See also* links and the cards under each section all open the right entry; Edit shows Status and *In the game?* menus.
+- [ ] Publish Lab → Design shows as published (nothing to publish) until you edit the document.
+
 **0cp. Exact story animation timing (28 Nov)** — FatherGoesToTown
 - [ ] Play the event several times (TEST bar ▶ Play / ↺ Restart, and from the timeline): the wood chop starts from the beginning of its swing every time and the axe ends up in exactly the same place each time.
 - [ ] The chop in the game is the same speed as in Character Lab (it was about a third faster before), so retime the Let go once: scrub the timeline to the moment the axe head is in the block and move the Let go step there (the bottom of the swing is about 0.7–1.2 s after the chop's Animate step); move the Idle step to just after it.

@@ -147,6 +147,7 @@
     "sidescroll.world-lab.pending-world-group-moves.v1": { "area": "Working state", "scope": "transient", "lab": "World Lab", "what": "World Group moves waiting to apply in game" },
 
     "sidescroll.animlab.legacy.samples.backup.v1":       { "area": "Characters", "scope": "backup", "lab": "Character Lab", "what": "Backup of legacy animation samples" },
+    "sidescroll-design-doc-previous":                    { "area": "Design", "scope": "backup", "lab": "Design Lab", "what": "This device's design document from before the 28 Nov 2026 rewrite, kept when Design Lab replaced it" },
     "sidescroll-design-doc-working-v1":                  { "area": "Design", "scope": "backup", "lab": "Design Lab", "what": "Previous design doc layout, kept on upgrade" },
 
     "gamehub.sidescroll.scene.v2":                       { "area": "Unused", "scope": "stale", "lab": "-", "what": "Old GameHub scene key" },

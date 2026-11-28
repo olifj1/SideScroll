@@ -86,6 +86,22 @@ def load_current():
     return data.get('exportedAt'), dict(data.get('storage', {})), list(data.get('characters', []))
 
 
+def write_design_doc(doc, report):
+    """Writes the Design Lab document to design-doc.json, unless it is in an older
+    layout (schemaVersion) than the one already published: a device that has not
+    opened Design Lab since a rewrite still holds the old document."""
+    doc.pop('workingUpdated', None)
+    try:
+        current = json.loads((ROOT / 'design-doc.json').read_text(encoding='utf-8')).get('schemaVersion', 1)
+    except (OSError, ValueError):
+        current = 0
+    if (doc.get('schemaVersion') or 1) < current:
+        report['skipped'].append((DESIGN_DOC_KEY, f'older design document layout (schema {doc.get("schemaVersion") or 1} < {current}), not published'))
+        return
+    (ROOT / 'design-doc.json').write_text(json.dumps(doc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    report['design'] = True
+
+
 def bake_publish_areas(storage, pkg, catalogue, report):
     """Whole content keys from a Publish Lab package, on top of the built-in content."""
     for key, value in sorted((pkg.get('storage') or {}).items()):
@@ -93,10 +109,7 @@ def bake_publish_areas(storage, pkg, catalogue, report):
         if info is None:
             report['unknown'].append(key)
         elif key == DESIGN_DOC_KEY:
-            doc = json.loads(value) if isinstance(value, str) else value
-            doc.pop('workingUpdated', None)
-            (ROOT / 'design-doc.json').write_text(json.dumps(doc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-            report['design'] = True
+            write_design_doc(json.loads(value) if isinstance(value, str) else value, report)
         elif info['scope'] not in PUBLISHED_SCOPES:
             sys.exit(f'Publish package contains {key}, which is not published content ({info["scope"]}).')
         else:
@@ -126,10 +139,7 @@ def bake_snapshot(snapshot, catalogue, report):
             report['unknown'].append(key)
         elif key == DESIGN_DOC_KEY:
             report['skipped'].append((key, 'written to design-doc.json instead'))
-            doc = json.loads(value) if isinstance(value, str) else value
-            doc.pop('workingUpdated', None)
-            (ROOT / 'design-doc.json').write_text(json.dumps(doc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-            report['design'] = True
+            write_design_doc(json.loads(value) if isinstance(value, str) else value, report)
         elif info['scope'] not in PUBLISHED_SCOPES:
             report['skipped'].append((key, info['scope']))
         else:

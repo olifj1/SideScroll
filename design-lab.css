@@ -70,9 +70,8 @@ button { border:0; }
 .dl-tree-depth-2 .dl-tree-link { padding-left:34px; font-size:12px; }
 .dl-tree-status { width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:#87928c; }
 .dl-tree-status[data-status="OPEN"] { background:#c9a15e; }
-.dl-tree-status[data-status="PROPOSED"] { background:#788eaa; }
-.dl-tree-status[data-status="LOCKED"] { background:#6f9a7c; }
-.dl-tree-status[data-status="RETIRED"] { background:#8b6d70; }
+.dl-tree-status[data-status="IDEA"] { background:#788eaa; }
+.dl-tree-status[data-status="DECIDED"] { background:#6f9a7c; }
 .dl-tree-empty { color:#87938e; padding:14px; font-size:13px; }
 .dl-sidebar-foot { display:flex; justify-content:space-between; gap:10px; padding:10px 14px calc(10px + var(--safe-bottom)); border-top:1px solid var(--line); color:#7f8b86; font-size:11px; }
 .dl-main { flex:1 1 auto; min-width:0; min-height:0; overflow:auto; background:var(--paper); color:var(--ink); -webkit-overflow-scrolling:touch; }
@@ -90,9 +89,15 @@ button { border:0; }
 .dl-meta { display:flex; flex-wrap:wrap; gap:7px; margin:14px 0 24px; }
 .dl-badge { display:inline-flex; align-items:center; min-height:26px; padding:0 9px; border-radius:999px; border:1px solid var(--paper-line); background:rgba(255,255,255,.42); color:#51605b; font-size:11px; font-weight:800; letter-spacing:.03em; }
 .dl-badge.status-OPEN { background:#f2e4c5; }
-.dl-badge.status-PROPOSED { background:#dce4ed; }
-.dl-badge.status-LOCKED { background:#dbe7dc; }
-.dl-badge.status-RETIRED { background:#eadbdc; }
+.dl-badge.status-IDEA { background:#dce4ed; }
+.dl-badge.status-DECIDED { background:#dbe7dc; }
+.dl-badge.dl-built { background:transparent; border-style:dashed; font-weight:700; }
+.dl-legend { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin:16px 0 22px; }
+.dl-legend small { color:#6c7672; margin-left:4px; }
+.dl-num { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; margin-right:9px; border-radius:50%; background:var(--ink); color:#e9e5dc; font-size:12px; vertical-align:1px; }
+.dl-overview-card em { display:block; margin-top:9px; font-style:normal; font-size:12px; color:#7d8682; line-height:1.4; }
+.dl-child-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+.dl-child-meta .dl-badge { min-height:22px; font-size:10px; }
 .dl-body-copy { border-top:1px solid var(--paper-line); padding-top:20px; }
 .dl-related { margin-top:34px; padding-top:18px; border-top:1px solid var(--paper-line); }
 .dl-related strong { display:block; margin-bottom:9px; }

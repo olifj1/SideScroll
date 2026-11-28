@@ -72,7 +72,11 @@
     if (key === DESIGN_KEY) {
       if (own === null) return 'published';
       if (!designDoc) return 'changed';
-      try { const doc = JSON.parse(own); delete doc.workingUpdated; return canonical(JSON.stringify(doc)) === canonical(JSON.stringify(designDoc)) ? 'published' : 'changed'; }
+      try {
+        const doc = JSON.parse(own); delete doc.workingUpdated;
+        // An older layout than the published one is replaced by Design Lab on its next open: nothing to publish.
+        if ((doc.schemaVersion || 1) < (designDoc.schemaVersion || 1)) return 'published';
+        return canonical(JSON.stringify(doc)) === canonical(JSON.stringify(designDoc)) ? 'published' : 'changed'; }
       catch (_) { return 'changed'; }
     }
     const pub = Object.prototype.hasOwnProperty.call(published, key) ? published[key] : null;

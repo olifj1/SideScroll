@@ -1,12 +1,23 @@
 (() => {
   'use strict';
 
-  const VERSION = '1.0.99';
+  const VERSION = '2.0';
   const STORAGE_KEY = 'sidescroll-design-doc-working-v2';
   const LEGACY_STORAGE_KEY = 'sidescroll-design-doc-working-v1';
+  // When the bundled document's layout (schemaVersion) is newer, the device's copy is
+  // replaced by it; the old copy is kept here (Project Backup carries it).
+  const PREVIOUS_KEY = 'sidescroll-design-doc-previous';
   const BUNDLED_URL = `design-doc.json?v=${VERSION}`;
-  const VALID_STATUSES = ['CURRENT', 'LOCKED', 'PROPOSED', 'OPEN', 'RETIRED'];
-  const VALID_IMPLEMENTATION = ['CURRENT', 'PARTIAL', 'NEEDED', 'N/A'];
+  // Plain statuses. Older documents' statuses are shown as the nearest of these.
+  const STATUS_LABELS = { DECIDED: 'Decided', IDEA: 'Idea', OPEN: 'Open question' };
+  const VALID_STATUSES = Object.keys(STATUS_LABELS);
+  const OLD_STATUS = { CURRENT: 'DECIDED', LOCKED: 'DECIDED', PROPOSED: 'IDEA', RETIRED: 'IDEA' };
+  // "In the game?" — blank when it doesn't apply.
+  const BUILT_LABELS = { YES: 'In the game', PARTLY: 'Partly in the game', 'NOT YET': 'Not in the game yet' };
+  const VALID_IMPLEMENTATION = ['', ...Object.keys(BUILT_LABELS)];
+  const OLD_BUILT = { CURRENT: 'YES', PARTIAL: 'PARTLY', NEEDED: 'NOT YET' };
+  const statusOf = s => VALID_STATUSES.includes(s?.status) ? s.status : (OLD_STATUS[s?.status] || 'IDEA');
+  const builtOf = s => BUILT_LABELS[s?.implementation] ? s.implementation : (OLD_BUILT[s?.implementation] || '');
 
   const els = {
     sidebar: document.getElementById('dl-sidebar'),
@@ -143,14 +154,23 @@
     els.data?.setAttribute('aria-expanded', 'false');
   }
 
-  function statusBadge(status) {
-    const safe = VALID_STATUSES.includes(status) ? status : 'CURRENT';
-    return `<span class="dl-badge status-${safe}">${escapeHtml(safe)}</span>`;
+  function statusBadge(section) {
+    const status = statusOf(section);
+    return `<span class="dl-badge status-${status.replace(/\s/g, '-')}">${escapeHtml(STATUS_LABELS[status])}</span>`;
   }
 
-  function implementationBadge(value) {
-    if (!value || value === 'N/A') return '';
-    return `<span class="dl-badge">ENGINE · ${escapeHtml(value)}</span>`;
+  function implementationBadge(section) {
+    const built = builtOf(section);
+    return built ? `<span class="dl-badge dl-built built-${built.replace(/\s/g, '-')}">${escapeHtml(BUILT_LABELS[built])}</span>` : '';
+  }
+
+  // One line of plain text from an entry's body, for contents cards.
+  function summaryOf(section, max = 150) {
+    const text = String(section.body || '').split('\n').map(l => l.trim())
+      .filter(l => l && !/^#{1,3}\s/.test(l)).join(' ')
+      .replace(/\*\*|`|\[\[|\]\]/g, '').replace(/^[-*\d.)\s]+/, '').replace(/\s+/g, ' ').trim();
+    const first = text.match(/^.*?[.!?](\s|$)/)?.[0]?.trim() || text;
+    return first.length > max ? `${first.slice(0, max - 1).trim()}…` : first;
   }
 
   function inlineMarkup(text) {
@@ -235,7 +255,7 @@
         <div class="dl-tree-row dl-tree-depth-${Math.min(depth,2)}">
           <span class="dl-tree-toggle placeholder"></span>
           <button class="dl-tree-link${selectedId === section.id ? ' active' : ''}" type="button" data-open-id="${escapeHtml(section.id)}">
-            <span class="dl-tree-status" data-status="${escapeHtml(section.status)}"></span><span>${escapeHtml(section.title)}</span>
+            <span class="dl-tree-status" data-status="${escapeHtml(statusOf(section))}"></span><span>${escapeHtml(section.title)}</span>
           </button>
         </div>`).join('') : '<div class="dl-tree-empty">No matching design entries.</div>';
       return;
@@ -248,7 +268,7 @@
         <div class="dl-tree-row">
           ${hasChildren ? `<button class="dl-tree-toggle" type="button" data-toggle-id="${escapeHtml(section.id)}" aria-label="${isCollapsed ? 'Expand' : 'Collapse'} ${escapeHtml(section.title)}">${isCollapsed ? '›' : '⌄'}</button>` : '<span class="dl-tree-toggle placeholder"></span>'}
           <button class="dl-tree-link${selectedId === section.id ? ' active' : ''}" type="button" data-open-id="${escapeHtml(section.id)}">
-            <span class="dl-tree-status" data-status="${escapeHtml(section.status)}"></span><span>${escapeHtml(section.title)}</span>
+            <span class="dl-tree-status" data-status="${escapeHtml(statusOf(section))}"></span><span>${escapeHtml(section.title)}</span>
           </button>
         </div>
         ${hasChildren && !isCollapsed ? renderNodes(section.children, depth + 1) : ''}
@@ -258,42 +278,27 @@
   }
 
   function renderOverview() {
-    const all = walkSections().map(entry => entry.section);
-    const counts = VALID_STATUSES.reduce((acc, status) => (acc[status] = all.filter(s => s.status === status).length, acc), {});
-    const openCount = counts.OPEN || 0;
     els.document.innerHTML = `
-      <p class="dl-kicker">${escapeHtml(doc.project)} · GDD ${escapeHtml(doc.documentVersion)}</p>
+      <p class="dl-kicker">${escapeHtml(doc.project)} · Design Lab</p>
       <h1>${escapeHtml(doc.title)}</h1>
       <p class="dl-overview-lead">${escapeHtml(doc.description)}</p>
-      <div class="dl-meta">
-        <span class="dl-badge">BASELINE · ${escapeHtml(doc.baselineBuild)}</span>
-        <span class="dl-badge">UPDATED · ${escapeHtml(doc.updated)}</span>
-      </div>
-      <div class="dl-stat-grid">
-        <div class="dl-stat"><b>${all.length}</b><span>Entries</span></div>
-        <div class="dl-stat"><b>${doc.sections.length}</b><span>Main sections</span></div>
-        <div class="dl-stat"><b>${openCount}</b><span>Open decisions</span></div>
-        <div class="dl-stat"><b>${all.filter(s => s.implementation === 'NEEDED').length}</b><span>Engine needs</span></div>
-      </div>
-      <h2>Contents</h2>
+      <p class="dl-legend"><span class="dl-badge status-DECIDED">Decided</span><span class="dl-badge status-IDEA">Idea</span><span class="dl-badge status-OPEN">Open question</span><small>Updated ${escapeHtml(doc.updated)}</small></p>
       <div class="dl-overview-list">
-        ${doc.sections.map(section => `<button class="dl-overview-card" type="button" data-open-id="${escapeHtml(section.id)}"><strong>${escapeHtml(section.title)}</strong><small>${escapeHtml((section.body || '').replace(/[#*\n]/g,' ').replace(/\s+/g,' ').slice(0,110))}${(section.body || '').length > 110 ? '…' : ''}</small></button>`).join('')}
+        ${doc.sections.map((section, i) => `<button class="dl-overview-card" type="button" data-open-id="${escapeHtml(section.id)}"><strong><span class="dl-num">${i + 1}</span>${escapeHtml(section.title)}</strong><small>${escapeHtml(summaryOf(section))}</small>${section.children?.length ? `<em>${section.children.map(c => escapeHtml(c.title)).join(' · ')}</em>` : ''}</button>`).join('')}
       </div>`;
     els.edit.hidden = true;
   }
 
   function renderSection(section) {
     const trail = breadcrumbsFor(section.id);
-    const tags = (section.tags || []).map(tag => `<span class="dl-badge">#${escapeHtml(tag)}</span>`).join('');
     const related = (section.related || []).map(id => findEntry(id)?.section).filter(Boolean);
     els.document.innerHTML = `
       <div class="dl-breadcrumbs"><button type="button" data-open-id="__contents__">Overview</button>${trail.map((item, i) => `${i ? '<span>/</span>' : '<span>/</span>'}<button type="button" data-open-id="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}</div>
-      <p class="dl-kicker">Design document entry</p>
       <h1>${escapeHtml(section.title)}</h1>
-      <div class="dl-meta">${statusBadge(section.status)}${implementationBadge(section.implementation)}${tags}</div>
+      <div class="dl-meta">${statusBadge(section)}${implementationBadge(section)}</div>
       <div class="dl-body-copy">${markdownToHtml(section.body)}</div>
-      ${related.length ? `<div class="dl-related"><strong>Related entries</strong><div class="dl-related-links">${related.map(item => `<button type="button" data-open-id="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}</div></div>` : ''}
-      ${section.children?.length ? `<div class="dl-children"><h2>In this section</h2>${section.children.map(child => `<button class="dl-child-card" type="button" data-open-id="${escapeHtml(child.id)}"><strong>${escapeHtml(child.title)}</strong><small>${escapeHtml(child.status)}${child.implementation && child.implementation !== 'N/A' ? ` · engine ${escapeHtml(child.implementation.toLowerCase())}` : ''}</small></button>`).join('')}</div>` : ''}`;
+      ${related.length ? `<div class="dl-related"><strong>See also</strong><div class="dl-related-links">${related.map(item => `<button type="button" data-open-id="${escapeHtml(item.id)}">${escapeHtml(item.title)}</button>`).join('')}</div></div>` : ''}
+      ${section.children?.length ? `<div class="dl-children"><h2>In this section</h2>${section.children.map(child => `<button class="dl-child-card" type="button" data-open-id="${escapeHtml(child.id)}"><strong>${escapeHtml(child.title)}</strong><small>${escapeHtml(summaryOf(child, 110))}</small><span class="dl-child-meta">${statusBadge(child)}${implementationBadge(child)}</span></button>`).join('')}</div>` : ''}`;
     els.edit.hidden = false;
     els.edit.textContent = 'Edit';
   }
@@ -307,7 +312,7 @@
       if (!entry) { selectedId = '__contents__'; renderOverview(); }
       else renderSection(entry.section);
     }
-    if (els.docVersion) els.docVersion.textContent = `GDD ${doc.documentVersion}`;
+    if (els.docVersion) els.docVersion.textContent = `Version ${doc.documentVersion}`;
     if (els.buildVersion) els.buildVersion.textContent = `Build ${doc.baselineBuild}`;
     els.main.scrollTop = 0;
   }
@@ -323,7 +328,7 @@
     section.title = document.getElementById('dl-edit-title').value.trim() || 'Untitled section';
     section.status = document.getElementById('dl-edit-status').value;
     section.implementation = document.getElementById('dl-edit-implementation').value;
-    section.tags = document.getElementById('dl-edit-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+    section.tags ||= [];
     section.body = document.getElementById('dl-edit-body').value;
   }
 
@@ -339,10 +344,9 @@
       <div class="dl-edit-form">
         <div class="dl-field"><label for="dl-edit-title">Title</label><input id="dl-edit-title" value="${escapeHtml(section.title)}"></div>
         <div class="dl-edit-row">
-          <div class="dl-field"><label for="dl-edit-status">Design status</label><select id="dl-edit-status">${VALID_STATUSES.map(v => `<option${section.status === v ? ' selected' : ''}>${v}</option>`).join('')}</select></div>
-          <div class="dl-field"><label for="dl-edit-implementation">Engine support</label><select id="dl-edit-implementation">${VALID_IMPLEMENTATION.map(v => `<option${section.implementation === v ? ' selected' : ''}>${v}</option>`).join('')}</select></div>
+          <div class="dl-field"><label for="dl-edit-status">Status</label><select id="dl-edit-status">${VALID_STATUSES.map(v => `<option value="${v}"${statusOf(section) === v ? ' selected' : ''}>${STATUS_LABELS[v]}</option>`).join('')}</select></div>
+          <div class="dl-field"><label for="dl-edit-implementation">In the game?</label><select id="dl-edit-implementation">${VALID_IMPLEMENTATION.map(v => `<option value="${escapeHtml(v)}"${builtOf(section) === v ? ' selected' : ''}>${v ? BUILT_LABELS[v] : 'Doesn’t apply'}</option>`).join('')}</select></div>
         </div>
-        <div class="dl-field"><label for="dl-edit-tags">Tags · comma separated</label><input id="dl-edit-tags" value="${escapeHtml((section.tags || []).join(', '))}"></div>
         <div class="dl-field">
           <label for="dl-edit-body">Document text</label>
           <div class="dl-formatbar">
@@ -367,7 +371,7 @@
       </div>`;
 
     const sync = () => { setSectionFromForm(section); scheduleSave(); renderTree(); };
-    ['dl-edit-title','dl-edit-status','dl-edit-implementation','dl-edit-tags','dl-edit-body'].forEach(id => document.getElementById(id)?.addEventListener('input', sync));
+    ['dl-edit-title','dl-edit-status','dl-edit-implementation','dl-edit-body'].forEach(id => document.getElementById(id)?.addEventListener('input', sync));
     document.getElementById('dl-edit-save')?.addEventListener('click', () => exitEdit(true));
     document.getElementById('dl-edit-cancel')?.addEventListener('click', () => exitEdit(false));
     document.getElementById('dl-add-child')?.addEventListener('click', () => { sync(); addSection(section.id); });
@@ -416,7 +420,7 @@
   }
 
   function addSection(parentId) {
-    const section = { id: uniqueId('new-section'), title:'New section', status:'OPEN', implementation:'N/A', tags:[], body:'Add design notes here.', children:[], related:[] };
+    const section = { id: uniqueId('new-section'), title:'New section', status:'IDEA', implementation:'', tags:[], body:'Add design notes here.', children:[], related:[] };
     if (parentId) {
       const parent = findEntry(parentId)?.section;
       if (!parent) return;
@@ -491,7 +495,7 @@
   async function importDoc(file) {
     try {
       const parsed = JSON.parse(await file.text());
-      if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.sections)) throw new Error('Unsupported design data');
+      if (!parsed || parsed.schemaVersion !== bundledDoc.schemaVersion || !Array.isArray(parsed.sections)) throw new Error('Unsupported design data');
       if (!confirm(`Replace the working Design Lab document with “${parsed.title || file.name}”?`)) return;
       doc = parsed;
       selectedId = '__contents__';
@@ -569,10 +573,17 @@
         if (added) saveNow(`${added} new design ${added === 1 ? 'entry' : 'entries'} added`);
         else if (els.saveState) els.saveState.textContent = 'Working document loaded';
       } else {
+        // A different layout: the bundled document replaces this device's copy, which
+        // is kept under PREVIOUS_KEY (never overwritten once kept) for Project Backup.
+        let kept = false;
+        if (working && Array.isArray(working.sections)) {
+          try {
+            if (localStorage.getItem(PREVIOUS_KEY) === null) localStorage.setItem(PREVIOUS_KEY, JSON.stringify(working));
+            kept = true;
+          } catch (_) {}
+        }
         doc = clone(bundledDoc);
-        let legacy = null;
-        try { legacy = localStorage.getItem(LEGACY_STORAGE_KEY); } catch (_) {}
-        saveNow(legacy ? 'New GDD layout ready · previous local document preserved' : 'Bundled document ready');
+        saveNow(kept ? 'New design document · your previous copy is kept in backups' : 'Bundled document ready');
       }
       render();
       if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
