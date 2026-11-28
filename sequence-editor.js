@@ -1891,7 +1891,7 @@
       case 'wear': return 'step.wear';
       case 'item': return 'step.item';
       case 'effect': return (host.effects?.() || []).find(x => x.id === s.asset)?.character ? 'step.effect.character' : 'step.effect';
-      case 'prop': return `step.prop.${['give', 'take', 'drop'].includes(s.action) ? s.action : 'give'}`;
+      case 'prop': return `step.prop.${['give', 'take', 'drop', 'release'].includes(s.action) ? s.action : 'give'}`;
       case 'object': return `step.object.${['show', 'hide', 'swap'].includes(s.action) ? s.action : 'hide'}`;
       case 'look': return 'step.look';
       case 'prompt': return 'step.prompt';

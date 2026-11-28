@@ -45,6 +45,7 @@
     'step.prop.give': { title: 'Hold it', text: 'The character takes it in hand, held as its grip in Character Lab → Props says (it follows the hand in every animation).' },
     'step.prop.take': { title: 'Put it away', text: 'The character stops holding it (it is put away).' },
     'step.prop.drop': { title: 'Drop it', text: 'It falls from the hand and lies on the ground there. Progress → Reset on this sequence puts it back.' },
+    'step.prop.release': { title: 'Let go', text: 'The character lets go and it stays exactly where the hand left it, at the same height and angle: an axe left in a chopping block, a lantern hung on a hook. Time it with the animation so the hand is where the thing should stay. Progress → Reset on this sequence puts it back.' },
     'step.object.show': { title: 'Appears', text: 'It appears. Set “Hidden at the start” on the object for things that appear later.' },
     'step.object.hide': { title: 'Disappears', text: 'It disappears (the note picked up, the food eaten). Progress → Reset on the sequence brings it back.' },
     'step.object.swap': { title: 'Changes to', text: 'It shows another asset in its place (a full plate → an empty one, a log → split logs).' },

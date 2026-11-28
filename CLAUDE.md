@@ -358,10 +358,11 @@ optionally in Animate / Play (`core.setPropItemsProvider` → items drawn among 
 things are drawn among a character's parts as a list `[{layer, draw}]` (`heldItems` in
 `GameHubWalkRig.drawCanvas`, the Skin mesh renderer and the game's `drawLocalMeshCharacter`, each
 placed by `heldItemIndex`). Game: a sequence character component's `holding` (asset names) and
-the **Prop** step (`{actor, action 'give'|'take'|'drop', asset}`) decide what is held;
+the **Prop** step (`{actor, action 'give'|'take'|'drop'|'release', asset}`) decide what is held;
 `storyHeldProps` draws each with `drawPropAt` (centred billboard, follows the hand); a drop
 (`seqDropProp`) falls and lies on the ground (progress `components["sq:c"].dropped`, drawn by
-`drawSeqDroppedProps`); progress `holding` overrides the component's. Story editor: component
+`drawSeqDroppedProps`); **Let go** (`release`) records it where it was last drawn in the hand (`seqPropLast`) with
+`stay: {y, z}` and no fall, so it stays put (an axe left in a block); skipped before it was ever drawn = a drop; progress `holding` overrides the component's. Story editor: component
 *Holds*, Prop step, picker from `host.props()`. Player pick-up / use is the planned next step
 (`docs/CHARACTER_SYSTEM_DESIGN.md` → Props).
 

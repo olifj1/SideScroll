@@ -47,7 +47,7 @@
   });
   const OBJECT_ACTIONS = Object.freeze({ show: 'Appears', hide: 'Disappears', swap: 'Changes to…' });
   const PLAYER = 'player'; // Say: the player speaks (the character being played)
-  const PROP_ACTIONS = Object.freeze({ give: 'Hold it', take: 'Put it away', drop: 'Drop it' });
+  const PROP_ACTIONS = Object.freeze({ give: 'Hold it', take: 'Put it away', drop: 'Drop it', release: 'Let go' });
   // An asset name (built-in or imported): what a character holds.
   const PROP_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
   const propName = v => (typeof v === 'string' && PROP_NAME.test(v) ? v : '');
@@ -198,8 +198,9 @@
         break;
       }
       case 'prop':
-        // Which asset, and whether the actor takes it in hand, puts it away or
-        // drops it (it falls and lies there; play progress keeps where).
+        // Which asset, and whether the actor takes it in hand, puts it away, drops it (it
+        // falls and lies there) or lets go (it stays where the hand left it); play progress
+        // keeps where.
         out.asset = propName(raw.asset);
         out.action = PROP_ACTIONS[raw.action] ? raw.action : 'give';
         break;
@@ -333,7 +334,7 @@
   // ---- Play progress -----------------------------------------------------------
   // {flags:{name:true}, fired:{"<placed id>:<line id>":true},
   //  components:{"<placed id>:<component id>":{x, depth, facing, animation, hidden,
-  //    holding:[asset], dropped:[{asset, x, z, rot, flip, w, h}]}} (props: Prop step),
+  //    holding:[asset], dropped:[{asset, x, z, rot, flip, w, h, stay?:{y, z}}]}} (props: Prop step; stay = Let go),
   //  taken:{"<placed id>":{item id: count}} — items its events took from the player,
   //  look:{id, by} — the look a Look step set (by = placed sequence id); none = base,
   //  running:{"<placed id>:<line id>":true} — lines whose event has taken control and not
@@ -363,7 +364,9 @@
       if (Array.isArray(v.dropped)) {
         const dropped = v.dropped.slice(0, MAX_DROPPED).filter(d => propName(d?.asset) && [d.x, d.z, d.rot, d.w, d.h].every(n => Number.isFinite(Number(n))))
           .map(d => ({ asset: d.asset, x: round(Number(d.x)), z: round(clamp(d.z, DEPTH[0], DEPTH[1], 0)), rot: round(Number(d.rot)), flip: !!d.flip,
-            w: round(clamp(d.w, 0.01, 20, 1)), h: round(clamp(d.h, 0.01, 20, 1)) }));
+            w: round(clamp(d.w, 0.01, 20, 1)), h: round(clamp(d.h, 0.01, 20, 1)),
+            // Let go: where it was left in the hand (height and drawn depth), so it stays put.
+            ...(d.stay && Number.isFinite(Number(d.stay.y)) && Number.isFinite(Number(d.stay.z)) ? { stay: { y: round(Number(d.stay.y)), z: round(Number(d.stay.z)) } } : {}) }));
         if (dropped.length) c.dropped = dropped;
       }
       out.components[k] = c;
