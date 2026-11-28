@@ -19093,13 +19093,14 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         return now + step.delay + step.keys.reduce((sum, k) => sum + k.seconds, 0);
       }
       case 'prop': {
-        // Give: the character holds the asset (its hold from Character Lab);
-        // Take away: it stops holding it; Drop: it falls and lies on the ground.
+        // Give: the character holds the asset (its hold from Character Lab); Take away: it
+        // stops holding it; Drop: it falls and lies on the ground; Let go: it stays where
+        // the hand left it.
         if (!actor || !step.asset) return now;
         const holding = (seqComponentPlace(run.p, actor).holding || []).filter(n => n !== step.asset);
         if (step.action === 'give') holding.push(step.asset);
-        else if (step.action === 'drop' && (seqComponentPlace(run.p, actor).holding || []).includes(step.asset))
-          seqDropProp(key, step.asset, seqCharacterNow(run, actor) || (p => ({ x: p.x, z: p.depth, facing: p.facing }))(seqComponentPlace(run.p, actor)), !!run.instant);
+        else if ((step.action === 'drop' || step.action === 'release') && (seqComponentPlace(run.p, actor).holding || []).includes(step.asset))
+          seqDropProp(key, step.asset, seqCharacterNow(run, actor) || (p => ({ x: p.x, z: p.depth, facing: p.facing }))(seqComponentPlace(run.p, actor)), !!run.instant, step.action === 'release');
         seqSavedFor(key).holding = holding;
         saveStoryProgress();
         return now;
@@ -19675,9 +19676,17 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
   // where they landed (play progress `dropped` on the component that dropped them).
   let seqPropFalls = []; // {key, index, from, t0, duration}
   const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
-  function seqDropProp(key, name, frame, instant) {
+  function seqDropProp(key, name, frame, instant, stay = false) {
     const saved = seqSavedFor(key);
     const last = seqPropLast.get(`${key}|${name}`);
+    // Let go: it stays exactly where it was last drawn in the hand (height, depth and angle
+    // too). Without a last drawn place (skipped before it was ever seen) it is dropped.
+    if (stay && last) {
+      const r = v => Math.round(v * 1000) / 1000;
+      (saved.dropped ||= []).push({ asset: name, x: r(last.x), z: r((frame?.z ?? last.z - CHARACTER_GAMEPLAY_Z_BIAS)), rot: r(last.rot), flip: !!last.flip,
+        w: r(last.w), h: r(last.h), stay: { y: r(last.y), z: r(last.z) } });
+      return;
+    }
     const h = last?.h || propHeightOf(name), w = last?.w || h * (assetAspect[name] || 1);
     const x = last?.x ?? ((frame?.x ?? 0) + (frame?.facing || 1) * 0.35), z = frame?.z ?? last?.z ?? pathZ;
     const rot = last?.rot ?? 0;
@@ -19702,6 +19711,7 @@ OK restores the draft. Cancel discards the recovery draft and opens the last sav
         if (Math.abs(d.x - camera.x) > STORY_DRAW_RANGE) return;
         const texture = propTexture(d.asset);
         if (!texture) return;
+        if (d.stay) { drawPropAt(view, d.asset, texture, { x: d.x, y: d.stay.y, z: d.stay.z, rot: d.rot, flip: d.flip, w: d.w, h: d.h }); return; }
         const restY = droppedRestY(d);
         const fall = seqPropFalls.find(f => f.key === key && f.index === i);
         if (fall) {

@@ -92,6 +92,10 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0co. Prop step → Let go (28 Nov)** — Story editor
+- [ ] An event's timeline → a Prop step: the choices read *Hold it · Put it away · Drop it · Let go*; ⓘ in the sheet's title explains Let go.
+- [ ] Father's sequence: at the end of a chop, a Prop step *Let go: Axe* (timed so his hand is at the block): the axe stays in the block at its angle as he walks off; nothing falls. Leave and come back (or close and reopen the app in player mode): still there. Progress → Reset on the sequence: gone, back in his hand at the start. Holding Skip during it: the axe still ends up in the block.
+
 **0cn. Flow view, flags, story map, Asset Lab interactions (27 Nov)** — phone in landscape
 - [ ] Story tab → a sequence → **⤢ Flow** (top row: name; then ⤢ Flow · ▶ Play · ⋯): a layer over the game like the timeline, same ▁ ▄ █ sizes, ‹ collapse, 🎮 / ✎ and ◐. Grey boxes on the left are what the player does (*Sequence starts*, *Enters Zone 1 · at −13 m*, *Presses Talk*), purple boxes are events (one per logic line: name, *Line n · length*, a strip of its timeline), green pills are flags, dashed boxes are barriers / objects waiting for a flag. Order goes left to right in the order things happen; a line that waits for an earlier thing loops back with a purple arrow; dashed arrows = *only while* / *waits for*; a red arrow = clears a flag.
 - [ ] Nothing overlaps; drag to pan; pinch (or − / +) to zoom; the arrows never cut through a box.

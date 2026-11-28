@@ -4,6 +4,9 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Prop step → Let go.** A character can let go of what it holds and leave it exactly where the hand
+  was, at the same height and angle (an axe left in the chopping block), instead of putting it away or
+  dropping it. Kept in play progress; the sequence's Reset puts it back.
 - **Sequence flow view.** ⤢ Flow on a sequence shows it as nodes in the order things happen: what the
   player does → one box per logic line (its event, length and a strip of its timeline) → the flags it sets
   → the lines those set off; loops are return arrows, *only while* and things waiting for a flag dashed.
