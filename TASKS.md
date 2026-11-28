@@ -12,12 +12,10 @@ Last reviewed: 24 November 2026 (intro sequence is the current focus; objects, I
 Current focus: the **intro sequence** (its stages below, in order). Then the character
 work (C1c, skin workflow, C4–C6). Clean-up items are small and slot in between.
 
-### Story editor and interactions UX (proposed 27 Nov — awaiting go-ahead per stage)
-Plan: `docs/STORY_EDITOR_UX_PLAN.md`. Start each stage in a fresh session from that doc. *(Stage 1, the tidy
-sequence page and the ⓘ Info system, and stage 2, the restructured sequence page, done 27 Nov.)*
-3. Asset Lab → Interactions: Inspect + one *When taken* choice (can't / bag / hand / worn).
-4. Flags overview (where each flag is set and read).
-5. Story map (sequence-level node graph).
+### Story editor and interactions UX (27 Nov — all six stages built, awaiting the user's review)
+Plan: `docs/STORY_EDITOR_UX_PLAN.md`. Stages 1–6 are built (1–2 merged; 3–6 in one PR for a single review).
+- [ ] **Review the whole system on the iPhone** (0cl, 0cm, 0cn below) and collect the small issues in one list.
+- [ ] Later: a **Choice** step (a fork at the end of an event, shown as a branch in the flow).
 
 ### Publishing workflow (agreed 30 Oct)
 Author on the phone, then publish chosen content into the game for every player.
@@ -71,7 +69,7 @@ mesh parts and skin are the character's own; abilities come from a shared list.
 - [ ] **C4 — New Character flow:** name → rig → atlas → mesh parts → skin → animations (instance / copy each) → abilities → play-test in the lab → save → in game.
 - [ ] **C5 — Actions and abilities:** one shared ability list, editable in Character Lab and Asset Lab; **create new actions** (name, button label, animation slot) and assign them to characters; rig templates give default abilities; the game only offers actions a character has. Asset behaviours (carryable, pushable, climbable) become "this asset offers action X". First real actions: Pick Up / Put Down / Carry (grasp/release markers driving existing interaction timing). **Builds on the action slots (Settings → Action slots):** an action = a slot plus its button label and game behaviour; slots added in Settings start as "not hooked up yet" and get their behaviour here (or from an action path, C6); a character with no animation in a slot doesn't have that action. *(Climb as an editable animation done 24 Nov: the Climb action slot.)*
 - [ ] **C6 — Action paths (next, agreed 24 Nov):** generalise the climb path into an action path — action name, button label, the **action slot** it plays (so one path works for every character with an animation in that slot), and **several points** (bends: crawl into a gap and along a low tunnel; today's two-point climb paths keep working) — bound to an asset in Asset Lab or placed as a stand-alone path in the world and shown in World Lab. Example: *Crawl* through a gap. Design together with Environment Animation Path and Puzzle Logic (Later). *(Stage A, the Climb animation, done 24 Nov.)*
-- [ ] **Story node graph:** a sequence's logic as nodes and arrows (zones / Action / flags / finished events → events → flags), loops included; each event box opens its ⤢ Timeline. Later a **Choice** step (a fork at the end of an event).
+- [ ] **Story node graph:** now stage 3 of the Story editor plan (*Sequence flow view*, above). Later a **Choice** step (a fork at the end of an event).
 - [ ] **Props — next steps** (design: `docs/CHARACTER_SYSTEM_DESIGN.md` → Props): the **player** picks up and uses items with the same grips (an asset offers *Pick up*, a held item offers actions such as *Chop*; fits C5); the far hand following a two-handed grip; more attachment points (back, belt, a quadruped's mouth); Character Lab's Props list shows only a few built-in assets (plus every imported one) — list all built-in assets if needed.
 - [ ] **Character packages for templates:** exports carry (or reference) linked templates; importing a shared template lists the characters it affects. *(with C2/C3)*
 
@@ -93,6 +91,17 @@ Changes checked only in desktop/headless browsers, as one walkthrough (1 Nov). T
 or delete steps once confirmed on the phone; if one fails, tell Claude the section and
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
+
+**0cn. Flow view, flags, story map, Asset Lab interactions (27 Nov)** — phone in landscape
+- [ ] Story tab → a sequence → **⤢ Flow** (top row: name; then ⤢ Flow · ▶ Play · ⋯): a layer over the game like the timeline, same ▁ ▄ █ sizes, ‹ collapse, 🎮 / ✎ and ◐. Grey boxes on the left are what the player does (*Sequence starts*, *Enters Zone 1 · at −13 m*, *Presses Talk*), purple boxes are events (one per logic line: name, *Line n · length*, a strip of its timeline), green pills are flags, dashed boxes are barriers / objects waiting for a flag. Order goes left to right in the order things happen; a line that waits for an earlier thing loops back with a purple arrow; dashed arrows = *only while* / *waits for*; a red arrow = clears a flag.
+- [ ] Nothing overlaps; drag to pan; pinch (or − / +) to zoom; the arrows never cut through a box.
+- [ ] Tap an event box: its timeline opens, with **‹ Flow** top left back to the flow. ✎ on a box: the line's page. A grey box with a zone: that zone's page. A flag: the Flags page on that flag. ⤢ Flow on the sequence page brings the flow back.
+- [ ] **+** on a grey box, an event box (*after it finishes*) or a flag (*when it is set*): a list of events (and *+ New event*) opens; pick one: a new line appears in the flow, placeholders filled where obvious (hint). ↶ in the flow takes it back. *+ New event* opens the new event's timeline (‹ Flow returns).
+- [ ] ▶ Play in the flow: the game plays from before the sequence, the flow hands the game the focus, *● Playing* shows, the running event's box glows gold with a moving line in its strip, flags light up green with ✓ as they are set, once-only lines dim once they have run. ❚❚ on the TEST bar: *❚❚ Paused*.
+- [ ] Bar size: the flow becomes a row of event chips in order; tap one for its timeline.
+- [ ] Story tab → **Flags** tab: one card per flag: *set now* / *not set*, a warning *never set* / *never read*, **Set by** (event · sets / clears, *run by Sequence · line n*; or an asset's Inspect / take) and **Read by** (lines, barriers, objects); every link goes there. ⚑ Progress → **Where each flag is used…** opens this page.
+- [ ] Sequences tab → **⤢ Story map**: every sequence left to right along the journey; a green ⚑ label on an arrow = a flag one sets and another waits for (above: further along the path; below, purple: back along it). Tap a sequence: its flow. Flags waited for but never set are listed under it.
+- [ ] Asset Lab → an asset → Interactions: **Inspect** (with its own flag), then **When taken**: *Can't be taken · Into the bag · In the hand · Worn* (2 × 2), only the chosen one's options below it, and one *Sets story flag*. Switching keeps the flag. ⓘ beside Interactions, Inspect, Show large, When taken, Holds the inventory and Light; no grey notes left. An asset set up before with two of them shows the one the game uses and an amber *Also set from before…* line until you choose again. Picking up / wearing / holding still works in the game as before.
 
 **0cm. Sequence page restructured (27 Nov)** — Story editor, phone in landscape
 - [ ] Open a sequence: the top row is its name (a text box), **▶ Play** and **⋯**; the panel title says *Sequence*. ▶ Play plays from just before it, as before.

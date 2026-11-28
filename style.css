@@ -16308,3 +16308,83 @@ p.sidescroll-seq-sentence{padding:7px 9px;border-radius:8px;background:rgba(255,
 .sidescroll-seq-menu .sidescroll-story-nudge{display:grid;grid-template-columns:auto auto minmax(4.5em,1fr) auto auto;gap:4px;}
 .sidescroll-story-panel .sidescroll-seq-menu .sidescroll-story-nudge button{min-width:0;padding:0 7px;}
 .sidescroll-story-panel .sidescroll-seq-menu .sidescroll-story-nudge input[type=number]{width:auto;min-width:0;padding:0 4px;text-align:center;}
+/* ---- Sequence flow view (stage 3) and story map (stage 6): the timeline's layer in another mode ---- */
+.ss-flow-scroll{position:relative;flex:1;min-height:0;margin-top:6px;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(0,0,0,.22);opacity:calc(.35 + .65 * var(--tl-alpha,1));}
+.ss-flow-content{position:relative;transform-origin:0 0;}
+.ss-flow-svg{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;}
+.ss-flow-edge{fill:none;stroke:rgba(225,232,229,.55);stroke-width:1.6;}
+.ss-flow-edge.dash{stroke:rgba(225,232,229,.42);stroke-dasharray:5 4;}
+.ss-flow-edge.clear{stroke:#e08a7a;}
+.ss-flow-edge.loop,.ss-flow-edge.back{stroke:#b4a6e6;}
+.ss-flow-edge.hot{stroke:#ffd678;stroke-width:2.4;}
+.ss-flow-tip{fill:rgba(225,232,229,.7);}
+.ss-flow-tip.dash{fill:rgba(225,232,229,.5);}.ss-flow-tip.clear{fill:#e08a7a;}.ss-flow-tip.loop{fill:#b4a6e6;}
+.ss-flow-node{position:absolute;box-sizing:border-box;border-radius:calc(9px * var(--z,1));border:1px solid rgba(255,255,255,.22);background:#1d2a2e;color:#eef3f1;}
+.sidescroll-tl .ss-flow-node button.ss-flow-body,.ss-flow-node.kind-seq{all:unset;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:calc(2px * var(--z,1));width:100%;height:100%;padding:calc(5px * var(--z,1)) calc(9px * var(--z,1));cursor:pointer;overflow:hidden;}
+.ss-flow-node.kind-seq{position:absolute;border-radius:calc(9px * var(--z,1));border:1px solid rgba(120,200,170,.6);background:#173129;}
+.ss-flow-node b{display:block;font:700 calc(12px * var(--z,1))/1.2 system-ui,-apple-system,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ss-flow-node small{display:block;font:500 calc(10.5px * var(--z,1))/1.2 system-ui,-apple-system,sans-serif;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ss-flow-node.kind-trigger{background:#262b2d;border-color:rgba(230,230,225,.32);}
+.ss-flow-node.kind-event{background:#272140;border-color:rgba(170,152,240,.7);}
+.ss-flow-node.kind-event.missing{border-color:#ffc35a;border-style:dashed;}
+.ss-flow-node b.missing{color:#ffc35a;}
+.ss-flow-node.kind-flag{background:#13302c;border-color:rgba(90,202,165,.7);border-radius:calc(20px * var(--z,1));}
+.ss-flow-node.kind-flag.external{border-style:dashed;background:#152523;}
+.ss-flow-node.kind-wait{background:#24262a;border-style:dashed;border-color:rgba(230,230,225,.4);}
+.ss-flow-node.running{box-shadow:0 0 0 2px #ffd678,0 0 14px rgba(255,214,120,.55);}
+.ss-flow-node.fired:not(.running){opacity:.55;}
+.ss-flow-node.kind-flag.on{background:#1f6a55;border-color:#7be0bc;border-style:solid;}
+.ss-flow-node.kind-flag.on b::after{content:' ✓';}
+.ss-flow-strip{position:relative;height:calc(14px * var(--z,1));margin-top:calc(3px * var(--z,1));border-radius:3px;background:rgba(0,0,0,.35);overflow:hidden;}
+.ss-flow-strip i{position:absolute;border-radius:1px;background:#9a8fc4;}
+.ss-flow-strip i.kind-speech{background:#e8b84a;}.ss-flow-strip i.kind-view{background:#5aa6e0;}.ss-flow-strip i.kind-actor{background:#6cc488;}
+.ss-flow-head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#ffd678;}
+.ss-flow-head[hidden]{display:none;}
+.sidescroll-tl .ss-flow-node button.ss-flow-plus,.sidescroll-tl .ss-flow-node button.ss-flow-edit{position:absolute;min-height:0;min-width:0;width:24px;height:24px;padding:0;border-radius:12px;border:1px solid rgba(255,214,120,.75);background:#2b2a1c;color:#ffd678;font:700 15px/22px system-ui,sans-serif;text-align:center;z-index:2;}
+.sidescroll-tl .ss-flow-node button.ss-flow-plus{right:-13px;top:50%;margin-top:-12px;}
+.sidescroll-tl .ss-flow-node button.ss-flow-edit{right:-10px;top:-10px;width:22px;height:22px;font-size:11px;line-height:20px;border-color:rgba(255,255,255,.4);background:#22282b;color:#e8eeec;}
+.ss-flow-plus::before,.ss-flow-edit::before{content:'';position:absolute;inset:-6px;}
+.ss-flow-chips{display:flex;gap:5px;flex:1 1 200px;min-width:120px;overflow-x:auto;}
+.sidescroll-tl button.ss-flow-chip{flex:none;min-height:32px;padding:0 9px;border-radius:8px;border:1px solid rgba(170,152,240,.7);background:#272140;color:#eef3f1;font:600 12px/1 system-ui,sans-serif;white-space:nowrap;}
+.sidescroll-tl button.ss-flow-chip.missing{border-color:#ffc35a;border-style:dashed;}
+.sidescroll-tl button.ss-flow-chip.running{box-shadow:0 0 0 2px #ffd678;}
+.ss-flow-none{font:500 12px system-ui,sans-serif;opacity:.7;}
+.ss-flow-live{font:700 12px system-ui,sans-serif;color:#ffd678;}
+.ss-flow-live[hidden]{display:none;}
+.ss-flow-empty{display:grid;justify-items:start;gap:8px;padding:16px;font:500 13px system-ui,sans-serif;}
+.ss-flow-empty p{margin:0;}
+.ss-map-label{position:absolute;transform:translate(-50%,-50%);padding:1px 6px;border-radius:9px;background:#13302c;border:1px solid rgba(90,202,165,.6);color:#dff5ec;font:600 11px/16px system-ui,sans-serif;white-space:nowrap;pointer-events:none;}
+.ss-map-loose{margin:6px 2px 0;font:500 12px/1.5 system-ui,sans-serif;color:#ffc35a;}
+.sidescroll-tl .ss-map-loose button{all:unset;cursor:pointer;text-decoration:underline;}
+.sidescroll-tl button.sidescroll-tl-flowback{border-color:rgba(170,152,240,.7);}
+/* Sequence page header: name on its own row, then ⤢ Flow · ▶ Play · ⋯. */
+.sidescroll-seq-header{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;}
+.sidescroll-seq-header>input{grid-column:1 / -1;}
+.sidescroll-story-panel button.sidescroll-seq-mapbtn{width:100%;min-height:34px;}
+/* Flags overview (stage 5). */
+.sidescroll-flag-list{display:grid;gap:7px;}
+.sidescroll-flag-card{display:grid;gap:5px;padding:7px 8px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(255,255,255,.04);}
+.sidescroll-flag-card.focus{border-color:#ffd678;box-shadow:0 0 0 1px #ffd678;}
+.sidescroll-flag-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.sidescroll-flag-head strong{font:700 13px system-ui,sans-serif;}
+.sidescroll-flag-state{padding:1px 7px;border-radius:9px;background:rgba(255,255,255,.08);font:600 10.5px/16px system-ui,sans-serif;opacity:.8;}
+.sidescroll-flag-state.on{background:#1f6a55;opacity:1;}
+.sidescroll-flag-warn{padding:1px 7px;border-radius:9px;background:rgba(255,195,90,.16);color:#ffc35a;font:600 10.5px/16px system-ui,sans-serif;}
+.sidescroll-flag-cols{display:grid;gap:5px;}
+.sidescroll-flag-sub{display:block;font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;opacity:.65;}
+.sidescroll-flag-row{display:grid;gap:1px;margin:2px 0;}
+.sidescroll-flag-row small,.sidescroll-flag-cols small{font:500 11px/1.35 system-ui,sans-serif;opacity:.75;}
+.sidescroll-flag-cols small.warn{color:#ffc35a;opacity:1;}
+.sidescroll-story-panel button.sidescroll-flag-link{min-height:30px;justify-content:flex-start;text-align:left;padding:2px 8px;font:600 12px/1.3 system-ui,sans-serif;white-space:normal;}
+.sidescroll-story-panel button.sidescroll-flag-link.small{display:inline;min-height:0;padding:0 2px;border:0;background:transparent;text-decoration:underline;font:inherit;}
+.sidescroll-tl button.ss-flow-play{white-space:nowrap;min-width:0;padding:0 10px;}
+/* Asset Lab → Interactions (stage 4): ⓘ beside headings and switches; When taken is one choice. */
+.assetlab-behaviours[data-help]{flex-direction:row;align-items:center;}
+.assetlab-behaviours[data-help]>.assetlab-behaviour{flex:1;}
+.assetlab-control-heading[data-help]{position:relative;padding-right:34px;}
+.assetlab-control-heading[data-help]>.ss-help-btn{position:absolute;right:0;top:50%;transform:translateY(-50%);margin:0;}
+.assetlab-take-head{display:flex;align-items:center;gap:6px;margin:12px 0 5px;font:800 12px/1.2 system-ui,-apple-system,sans-serif;color:#eef3f1;}
+.assetlab-take-choice{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.assetlab-take-choice .assetlab-behaviour{min-height:40px;display:flex;justify-content:center;text-align:center;font-weight:800;}
+.assetlab-take-mixed{color:#ffc35a;}
+.assetlab-interactions .ss-help-card{margin:4px 0;}

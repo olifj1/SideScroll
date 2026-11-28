@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#172026">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.1.129">
+  <link rel="stylesheet" href="style.css?v=1.1.130">
   <title>Asset Lab · SideScroll</title>
 </head>
 <body class="ss-asset-lab">
@@ -270,9 +270,8 @@
       </section>
 
       <section class="assetlab-control-section assetlab-interactions" id="assetlab-interactions-section">
-        <div class="assetlab-control-heading"><small>INTERACTIONS</small><strong>What the player can do</strong></div>
-        <p class="assetlab-note">Placed copies with an action show the little dot when the player is near; Action does it. Every copy of this asset behaves the same.</p>
-        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-on" aria-pressed="false">Inspect</button></div>
+        <div class="assetlab-control-heading" data-help-anchor data-help="asset.interactions"><small>INTERACTIONS</small><strong>What the player can do</strong></div>
+        <div class="assetlab-behaviours" data-help-anchor data-help="asset.inspect"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-on" aria-pressed="false">Inspect</button></div>
         <div id="assetlab-inspect-fields" class="assetlab-interaction-fields" hidden>
           <label class="assetlab-select-row assetlab-text-row">
             <span><strong>Title</strong><small>Blank = the asset's name</small></span>
@@ -282,14 +281,20 @@
             <span><strong>Text</strong><small>What the player sees, or what it says</small></span>
             <textarea id="assetlab-inspect-text" rows="4" maxlength="2000"></textarea>
           </label>
-          <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-large" aria-pressed="false">Show large on screen</button></div>
+          <div class="assetlab-behaviours" data-help-anchor data-help="asset.inspect.large"><button type="button" class="assetlab-behaviour" id="assetlab-inspect-large" aria-pressed="false">Show large on screen</button></div>
           <label class="assetlab-select-row assetlab-text-row">
             <span><strong>Sets story flag</strong><small>When inspected (optional)</small></span>
             <input id="assetlab-inspect-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. read-note">
           </label>
-          <p class="assetlab-note">Show large puts the picture big on screen, sized to fit, with the text underneath: for a note to read or a thing to look at closely. If it is also collectable, the view has Pick up as well as Leave.</p>
         </div>
-        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-collect-on" aria-pressed="false">Collect</button></div>
+        <div class="assetlab-take-head" data-help-anchor data-help="asset.take"><strong>When taken</strong></div>
+        <div class="assetlab-behaviours assetlab-take-choice" id="assetlab-take-choice" role="group" aria-label="When taken">
+          <button type="button" class="assetlab-behaviour" data-take="none" aria-pressed="false">Can't be taken</button>
+          <button type="button" class="assetlab-behaviour" data-take="collect" aria-pressed="false">Into the bag</button>
+          <button type="button" class="assetlab-behaviour" data-take="hold" aria-pressed="false">In the hand</button>
+          <button type="button" class="assetlab-behaviour" data-take="wear" aria-pressed="false">Worn</button>
+        </div>
+        <p class="assetlab-note assetlab-take-mixed" id="assetlab-take-mixed" hidden></p>
         <div id="assetlab-collect-fields" class="assetlab-interaction-fields" hidden>
           <label class="assetlab-select-row assetlab-text-row">
             <span><strong>Name in inventory</strong><small>Blank = the asset's name</small></span>
@@ -299,43 +304,28 @@
             <span><strong>Description</strong><small>Shown in the inventory</small></span>
             <textarea id="assetlab-collect-description" rows="2" maxlength="400"></textarea>
           </label>
-          <label class="assetlab-select-row assetlab-text-row">
-            <span><strong>Sets story flag</strong><small>When picked up (optional)</small></span>
-            <input id="assetlab-collect-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. took-bread">
-          </label>
-          <p class="assetlab-note">Picked up, it leaves the world and goes in the inventory; tap it there to look at it again. Without Inspect, Action picks it up straight away.</p>
         </div>
-        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-wear-on" aria-pressed="false">Wear</button></div>
-        <div id="assetlab-wear-fields" class="assetlab-interaction-fields" hidden>
-          <p class="assetlab-note">Picked up, the player puts it on instead of carrying it: it leaves the world, and the character's part marked with this asset (Character Lab → Skin → <em>Worn item</em>) shows on the player. It never goes in the inventory. Wear wins over Collect.</p>
-          <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-wear-holds" aria-pressed="false">Holds the inventory</button></div>
-          <label class="assetlab-select-row assetlab-text-row" id="assetlab-wear-refuse-row">
-            <span><strong>Nothing to carry it in</strong><small>What the player says before it's worn</small></span>
-            <input id="assetlab-wear-refuse" type="text" maxlength="120" autocomplete="off" placeholder="I've nothing to carry that in.">
-          </label>
-          <label class="assetlab-select-row assetlab-text-row">
-            <span><strong>Sets story flag</strong><small>When put on (optional)</small></span>
-            <input id="assetlab-wear-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. has-bag">
-          </label>
-          <p class="assetlab-note">Holds the inventory: until the player wears it (or another asset with this on), nothing can be picked up and the Items button stays hidden.</p>
-        </div>
-        <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-hold-on" aria-pressed="false">Hold (carry in hand)</button></div>
         <div id="assetlab-hold-fields" class="assetlab-interaction-fields" hidden>
-          <label class="assetlab-select-row assetlab-text-row">
-            <span><strong>Sets story flag</strong><small>When picked up (optional)</small></span>
-            <input id="assetlab-hold-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. has-lantern">
-          </label>
           <label class="assetlab-select-row">
             <span><strong>Arm pose</strong><small>An action slot: each character's animation for it drives the holding arm</small></span>
             <select id="assetlab-hold-layer"></select>
           </label>
-          <p class="assetlab-note">The player carries it in hand (not the bag) with the grip set in Character Lab → Props; Action puts it down on the floor in front of the player. One thing at a time: no box while holding it. If it also has Inspect, Pick up is in the Inspect view. Wear wins over Hold, Hold over Collect.</p>
         </div>
+        <div id="assetlab-wear-fields" class="assetlab-interaction-fields" hidden>
+          <div class="assetlab-behaviours" data-help-anchor data-help="asset.wear.holds"><button type="button" class="assetlab-behaviour" id="assetlab-wear-holds" aria-pressed="false">Holds the inventory</button></div>
+          <label class="assetlab-select-row assetlab-text-row" id="assetlab-wear-refuse-row">
+            <span><strong>Nothing to carry it in</strong><small>What the player says before it's worn</small></span>
+            <input id="assetlab-wear-refuse" type="text" maxlength="120" autocomplete="off" placeholder="I've nothing to carry that in.">
+          </label>
+        </div>
+        <label class="assetlab-select-row assetlab-text-row" id="assetlab-take-flag-row" hidden>
+          <span><strong>Sets story flag</strong><small>When taken (optional)</small></span>
+          <input id="assetlab-take-flag" type="text" maxlength="40" autocomplete="off" placeholder="e.g. has-bag">
+        </label>
       </section>
 
       <section class="assetlab-control-section assetlab-asset-light" id="assetlab-light-section">
-        <div class="assetlab-control-heading"><small>LIGHT</small><strong>Gives light</strong></div>
-        <p class="assetlab-note">Every copy of this asset glows like a placed Light: hanging on a wall, in a story, dropped on the floor or held in a hand. The cross on the picture is where the light comes from; the dashed circle is how far it reaches.</p>
+        <div class="assetlab-control-heading" data-help-anchor data-help="asset.light"><small>LIGHT</small><strong>Gives light</strong></div>
         <div class="assetlab-behaviours"><button type="button" class="assetlab-behaviour" id="assetlab-light-on" aria-pressed="false">Gives light</button></div>
         <div id="assetlab-light-fields" class="assetlab-interaction-fields" hidden>
           <label class="assetlab-select-row assetlab-text-row">
@@ -405,7 +395,8 @@
   <script src="builtin-assets.js?v=1.1.99"></script>
   <script src="action-slots.js?v=1.1.123"></script>
   <script src="asset-interactions.js?v=1.1.123"></script>
-  <script src="asset-lab.js?v=1.1.128"></script>
+  <script src="editor-help.js?v=1.1.130"></script>
+  <script src="asset-lab.js?v=1.1.130"></script>
   <script src="colour-picker.js?v=1.1.121"></script>
   <script src="lab-data.js?v=1.1.52"></script>
 </body>

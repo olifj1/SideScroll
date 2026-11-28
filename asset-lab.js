@@ -866,11 +866,14 @@
   const inspectOnBtn = $('assetlab-inspect-on'), inspectFields = $('assetlab-inspect-fields');
   const inspectTitleEl = $('assetlab-inspect-title'), inspectTextEl = $('assetlab-inspect-text');
   const inspectLargeBtn = $('assetlab-inspect-large'), inspectFlagEl = $('assetlab-inspect-flag');
-  const collectOnBtn = $('assetlab-collect-on'), collectFields = $('assetlab-collect-fields');
-  const collectLabelEl = $('assetlab-collect-label'), collectDescEl = $('assetlab-collect-description'), collectFlagEl = $('assetlab-collect-flag');
-  const wearOnBtn = $('assetlab-wear-on'), wearFields = $('assetlab-wear-fields'), wearHoldsBtn = $('assetlab-wear-holds');
-  const wearRefuseEl = $('assetlab-wear-refuse'), wearRefuseRow = $('assetlab-wear-refuse-row'), wearFlagEl = $('assetlab-wear-flag');
-  const holdOnBtn = $('assetlab-hold-on'), holdFields = $('assetlab-hold-fields'), holdFlagEl = $('assetlab-hold-flag'), holdLayerEl = $('assetlab-hold-layer');
+  const collectFields = $('assetlab-collect-fields');
+  const collectLabelEl = $('assetlab-collect-label'), collectDescEl = $('assetlab-collect-description');
+  const wearFields = $('assetlab-wear-fields'), wearHoldsBtn = $('assetlab-wear-holds');
+  const wearRefuseEl = $('assetlab-wear-refuse'), wearRefuseRow = $('assetlab-wear-refuse-row');
+  const holdFields = $('assetlab-hold-fields'), holdLayerEl = $('assetlab-hold-layer');
+  const takeChoiceEl = $('assetlab-take-choice'), takeFlagRow = $('assetlab-take-flag-row'), takeFlagEl = $('assetlab-take-flag'), takeMixedEl = $('assetlab-take-mixed');
+  // ⓘ (editor-help.js) on every heading / control marked data-help.
+  document.querySelectorAll('[data-help]').forEach(node => { const b = window.SideScrollHelp?.button(node.dataset.help); if (b) node.append(b); });
   // Arm pose: the project's own action slots (Character Lab → Settings → Actions).
   function fillHoldLayers(current) {
     if (!holdLayerEl) return;
@@ -882,27 +885,36 @@
   }
   const pressed = (btn, on) => { btn.classList.toggle('active', !!on); btn.setAttribute('aria-pressed', String(!!on)); };
   const fill = (el, v) => { if (document.activeElement !== el) el.value = v || ''; };
+  // Taking it is one choice. The game applies Wear before Hold before Collect, so with older
+  // data where several are on, the one that wins is the one shown.
+  const TAKES = ['wear', 'hold', 'collect'];
+  const TAKE_NAME = { collect: 'Into the bag', hold: 'In the hand', wear: 'Worn' };
+  const takeOf = entry => TAKES.find(k => entry[k]) || 'none';
   function syncInteractions() {
     const section = $('assetlab-interactions-section');
     const asset = state.asset;
     const usable = !!(Interactions && asset && asset.art?.kind !== 'effect');
     if (section) section.hidden = !usable;
     if (!usable) return;
-    const entry = Interactions.get(asset.name) || {}, inspect = entry.inspect || null, collect = entry.collect || null;
+    const entry = Interactions.get(asset.name) || {}, inspect = entry.inspect || null;
     pressed(inspectOnBtn, inspect); inspectFields.hidden = !inspect;
     inspectTitleEl.placeholder = asset.label || asset.name;
     fill(inspectTitleEl, inspect?.title); fill(inspectTextEl, inspect?.text); fill(inspectFlagEl, inspect?.flag);
     pressed(inspectLargeBtn, inspect?.large);
-    pressed(collectOnBtn, collect); collectFields.hidden = !collect;
+    const take = takeOf(entry);
+    takeChoiceEl?.querySelectorAll('[data-take]').forEach(b => pressed(b, b.dataset.take === take));
+    const also = TAKES.filter(k => k !== take && entry[k]);
+    takeMixedEl.hidden = !also.length;
+    takeMixedEl.textContent = also.length ? `Also set from before: ${also.map(k => TAKE_NAME[k]).join(', ')} (the game uses ${TAKE_NAME[take]}). Choose again to tidy it.` : '';
+    const collect = entry.collect || null, hold = entry.hold || null, wear = entry.wear || null;
+    collectFields.hidden = take !== 'collect'; holdFields.hidden = take !== 'hold'; wearFields.hidden = take !== 'wear';
     collectLabelEl.placeholder = asset.label || asset.name;
-    fill(collectLabelEl, collect?.label); fill(collectDescEl, collect?.description); fill(collectFlagEl, collect?.flag);
-    const hold = entry.hold || null;
-    pressed(holdOnBtn, hold); holdFields.hidden = !hold; fill(holdFlagEl, hold?.flag);
-    if (hold && document.activeElement !== holdLayerEl) fillHoldLayers(hold.layer);
-    const wear = entry.wear || null;
-    pressed(wearOnBtn, wear); wearFields.hidden = !wear;
+    fill(collectLabelEl, collect?.label); fill(collectDescEl, collect?.description);
+    if (take === 'hold' && document.activeElement !== holdLayerEl) fillHoldLayers(hold?.layer);
     pressed(wearHoldsBtn, wear?.holdsInventory); wearRefuseRow.hidden = !wear?.holdsInventory;
-    fill(wearRefuseEl, wear?.refuse); fill(wearFlagEl, wear?.flag);
+    fill(wearRefuseEl, wear?.refuse);
+    takeFlagRow.hidden = take === 'none';
+    fill(takeFlagEl, take === 'none' ? '' : entry[take]?.flag);
   }
   // patch null = turn the action off; otherwise merge into it (turning it on).
   function saveAction(action, patch) {
@@ -914,24 +926,37 @@
     writeStore(Interactions.KEY, Interactions.set(asset.name, entry));
     syncInteractions();
   }
+  // Choosing how it is taken writes only that action (keeping its own settings if it had
+  // them), carries the flag over, and removes the other two.
+  function chooseTake(take) {
+    const asset = state.asset;
+    if (!Interactions || !asset) return;
+    const entry = Interactions.get(asset.name) || {};
+    const flag = TAKES.map(k => entry[k]?.flag).find(Boolean);
+    for (const k of TAKES) if (k !== take) delete entry[k];
+    if (take !== 'none') entry[take] = { ...(entry[take] || {}), ...(flag && !entry[take]?.flag ? { flag } : {}) };
+    writeStore(Interactions.KEY, Interactions.set(asset.name, entry));
+    syncInteractions();
+  }
   const current = action => Interactions?.get(state.asset?.name)?.[action] || null;
   if (Interactions && inspectOnBtn) {
     inspectOnBtn.addEventListener('click', () => saveAction('inspect', current('inspect') ? null : {}));
     inspectLargeBtn.addEventListener('click', () => saveAction('inspect', { large: !current('inspect')?.large }));
     inspectTitleEl.addEventListener('input', () => saveAction('inspect', { title: inspectTitleEl.value }));
     inspectTextEl.addEventListener('input', () => saveAction('inspect', { text: inspectTextEl.value }));
-    inspectFlagEl.addEventListener('change', () => { saveAction('inspect', { flag: inspectFlagEl.value }); fill(inspectFlagEl, current('inspect')?.flag); inspectFlagEl.value = current('inspect')?.flag || ''; });
-    collectOnBtn.addEventListener('click', () => saveAction('collect', current('collect') ? null : {}));
+    inspectFlagEl.addEventListener('change', () => { saveAction('inspect', { flag: inspectFlagEl.value }); inspectFlagEl.value = current('inspect')?.flag || ''; });
+    takeChoiceEl?.addEventListener('click', ev => { const b = ev.target.closest('[data-take]'); if (b) chooseTake(b.dataset.take); });
     collectLabelEl.addEventListener('input', () => saveAction('collect', { label: collectLabelEl.value }));
     collectDescEl.addEventListener('input', () => saveAction('collect', { description: collectDescEl.value }));
-    collectFlagEl.addEventListener('change', () => { saveAction('collect', { flag: collectFlagEl.value }); collectFlagEl.value = current('collect')?.flag || ''; });
-    wearOnBtn.addEventListener('click', () => saveAction('wear', current('wear') ? null : {}));
     wearHoldsBtn.addEventListener('click', () => saveAction('wear', { holdsInventory: !current('wear')?.holdsInventory }));
     wearRefuseEl.addEventListener('input', () => saveAction('wear', { refuse: wearRefuseEl.value }));
-    wearFlagEl.addEventListener('change', () => { saveAction('wear', { flag: wearFlagEl.value }); wearFlagEl.value = current('wear')?.flag || ''; });
-    holdOnBtn.addEventListener('click', () => saveAction('hold', current('hold') ? null : {}));
-    holdFlagEl.addEventListener('change', () => { saveAction('hold', { flag: holdFlagEl.value }); holdFlagEl.value = current('hold')?.flag || ''; });
     holdLayerEl?.addEventListener('change', () => saveAction('hold', { layer: holdLayerEl.value || null }));
+    takeFlagEl?.addEventListener('change', () => {
+      const take = takeOf(Interactions.get(state.asset?.name) || {});
+      if (take === 'none') return;
+      saveAction(take, { flag: takeFlagEl.value });
+      takeFlagEl.value = current(take)?.flag || '';
+    });
   }
 
   // --- Light: this asset glows (asset-interactions.js `light`) ------------------

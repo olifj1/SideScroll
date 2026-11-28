@@ -12,6 +12,9 @@
     // ---- Story tab: lists ----
     'list.sequences': { title: 'Sequences', text: 'Sequences placed in the world, in journey order. Tap one here, or its post in the view, to open it.' },
     'list.events': { title: 'Events', text: 'Reusable chains of steps, written with placeholders (Actor, Exit…) that each sequence fills in. Any sequence can run any event.' },
+    'list.flags': { title: 'Flags', text: 'Every story flag: what sets it (a Flag step in an event, and which sequences run that event; or inspecting / taking an asset) and what waits for it (lines, barriers, objects). Tap one to go there. “set now” is this device’s progress.' },
+    'flow.view': { title: 'Flow', text: 'This sequence in the order things happen: what the player does (left) sets off events (one box per logic line), which set flags, which set off more. Arrows that go back are loops; dashed ones are “only while” and things waiting for a flag. Tap an event to open its timeline (✎ edits its line), a trigger for its zone, a flag for where else it’s used. + adds a line that runs after it. While playing, the running event glows and set flags light up.' },
+    'flow.map': { title: 'Story map', text: 'Every sequence along the journey, left to right. An arrow is a flag one sequence sets and another waits for: above when it leads further along the path, below when it leads back. Tap a sequence for its flow.' },
     'story.progress': { title: 'Story progress', text: 'Reset story (TEST bar, top right) clears flags, fired lines and what events changed, as for a new player.' },
 
     // ---- Sequence page ----
@@ -50,6 +53,14 @@
     'step.screen': { title: 'Screen', text: 'A fade or letterbox bars still on when the event ends are cleared.' },
     'step.at': { title: 'Starts at', text: 'It starts at this time, whatever else is running.' },
     'step.at.prompt': { title: 'Starts at', text: 'The clock stops here until the player presses Action; everything after it waits.' },
+
+    // ---- Asset Lab ----
+    'asset.interactions': { title: 'Interactions', text: 'Placed copies with an action show the little dot when the player is near; Action does it. Every copy of this asset behaves the same.' },
+    'asset.inspect': { title: 'Inspect', text: 'Action opens a view with the title and text. If it can also be taken, the view has Pick up (or Put on) as well as Leave. Without Inspect, Action takes it straight away.' },
+    'asset.inspect.large': { title: 'Show large on screen', text: 'Puts the picture big on screen, sized to fit, with the text underneath: for a note to read or a thing to look at closely.' },
+    'asset.take': { title: 'When taken', text: 'One choice: it can’t be taken; it goes into the bag (the inventory; tap it there to look again); the player carries it in hand (the grip from Character Lab → Props; Action puts it down; one thing at a time); or the player puts it on (the part marked with it in Character Lab → Skin → Worn item shows; it never goes in the bag). Taken, it leaves the world. In the hand: Arm pose is an action slot whose animation drives the holding arm.' },
+    'asset.wear.holds': { title: 'Holds the inventory', text: 'Until the player wears it (or another asset with this on), nothing can be picked up and the Items button stays hidden; trying says the line below.' },
+    'asset.light': { title: 'Gives light', text: 'Every copy of this asset glows like a placed Light: hanging on a wall, in a story, dropped on the floor or held in a hand. The cross on the picture is where the light comes from; the dashed circle is how far it reaches.' },
 
     // ---- Event page ----
     'event.placeholders': { title: 'Placeholders', text: 'Placeholders stand for the characters, marks and objects this event acts on; you don’t choose real ones here. Give each a name (Actor, Exit…) and use it in the steps. Each sequence that runs this event fills them in with its own components, on its logic line.' },
