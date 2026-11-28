@@ -4,6 +4,16 @@ Newest first. One or two lines per release. Detailed notes for 1.1.0–1.1.27 ar
 `docs/patch-notes/`; history before that is in `docs/archive/SIDESCROLL_TASKS.md`.
 
 ## Unreleased
+- **Design Lab rewritten.** The design document is now 9 sections and 56 entries (was 10 and ~150, 22k
+  words → 10k): The game in brief, The story, The hidden truth, Characters, Places (each with Look ·
+  What happens · How it plays · How it's built · The machine here), How it plays, Look, sound & feel,
+  Making it, Still to decide. Every idea is written once in plain words; the repeated story tellings,
+  the retired patch-ZIP workflow and the technical queue are gone (the old document is kept in
+  `docs/archive/design-doc-2026-10.json`). Statuses are now *Decided / Idea / Open question* plus *In
+  the game / Partly / Not yet*; tags and the stats are gone and the front page is numbered contents cards
+  with a summary. Design document `schemaVersion` 2: on first open a device's old copy is replaced and
+  kept in `sidescroll-design-doc-previous` (Project Backup carries it); Publish Lab and the bake tool
+  ignore an older-layout copy so it can't be published back.
 - **Story animation timing is exact.** A looping Animate step now starts its animation from the
   beginning at the step's time (it used to pick up wherever the game's clock was), a custom action slot
   plays at the same speed as in Character Lab (it fell back to 1.05 s a cycle), and Let go places the prop
