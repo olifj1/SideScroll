@@ -92,6 +92,11 @@ or delete steps once confirmed on the phone; if one fails, tell Claude the secti
 step and move it to **Now** as a bug. Before starting: close/reopen the Home Screen
 app and make a Project Backup.
 
+**0cp. Exact story animation timing (28 Nov)** — FatherGoesToTown
+- [ ] Play the event several times (TEST bar ▶ Play / ↺ Restart, and from the timeline): the wood chop starts from the beginning of its swing every time and the axe ends up in exactly the same place each time.
+- [ ] The chop in the game is the same speed as in Character Lab (it was about a third faster before), so retime the Let go once: scrub the timeline to the moment the axe head is in the block and move the Let go step there (the bottom of the swing is about 0.7–1.2 s after the chop's Animate step); move the Idle step to just after it.
+- [ ] Scrubbing past the Let go, Skip and Reset still leave / put back the axe as before.
+
 **0co. Prop step → Let go (28 Nov)** — Story editor
 - [ ] An event's timeline → a Prop step: the choices read *Hold it · Put it away · Drop it · Let go*; ⓘ in the sheet's title explains Let go.
 - [ ] Father's sequence: at the end of a chop, a Prop step *Let go: Axe* (timed so his hand is at the block): the axe stays in the block at its angle as he walks off; nothing falls. Leave and come back (or close and reopen the app in player mode): still there. Progress → Reset on the sequence: gone, back in his hand at the start. Holding Skip during it: the axe still ends up in the block.

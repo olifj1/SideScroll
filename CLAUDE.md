@@ -362,7 +362,12 @@ the **Prop** step (`{actor, action 'give'|'take'|'drop'|'release', asset}`) deci
 `storyHeldProps` draws each with `drawPropAt` (centred billboard, follows the hand); a drop
 (`seqDropProp`) falls and lies on the ground (progress `components["sq:c"].dropped`, drawn by
 `drawSeqDroppedProps`); **Let go** (`release`) records it where it was last drawn in the hand (`seqPropLast`) with
-`stay: {y, z}` and no fall, so it stays put (an axe left in a block); skipped before it was ever drawn = a drop; progress `holding` overrides the component's. Story editor: component
+`stay: {y, z}` and no fall, so it stays put (an axe left in a block); skipped before it was ever drawn = a drop. It is placed
+where the hand is at the step's **scheduled** time (`seqStepTime(run, step, now)` = run start + pauses + `at`, not the
+frame that ran it), worked out by `seqPropPlaceAt` → `storyPoseAt` (read-only pose at a time; `storyBlendedPose` records
+what was drawn) → `storyHeldProps`. A looping Animate step starts its animation from its first frame at its scheduled
+time (`seqLive.loopFrom` → `phaseStart`), and `storyCycleSeconds` times an action slot by its animation's `basedOn`
+(as Character Lab does), so the same moment of an event is always the same pose; progress `holding` overrides the component's. Story editor: component
 *Holds*, Prop step, picker from `host.props()`. Player pick-up / use is the planned next step
 (`docs/CHARACTER_SYSTEM_DESIGN.md` → Props).
 
